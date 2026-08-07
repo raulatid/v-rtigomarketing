@@ -21,6 +21,20 @@ import { createPlayhead, Readiness } from './playhead'
 // `frame()` below.
 
 const NS = 'http://www.w3.org/2000/svg'
+
+// Site copy is Spanish. These are the only strings this module renders.
+//
+// Each one corresponds to a real state, so none of them can be reassuring
+// about something that is not true: `slow` only appears once the drawing has
+// genuinely waited past its notice threshold, and `failed` only when a required
+// asset has hard-failed and the sequence will never release.
+const CAPTIONS = {
+  loading: 'Cargando experiencia',
+  preparing: 'Estamos preparándolo todo',
+  almost: 'Casi listo',
+  slow: 'Esto está tardando más de lo habitual',
+  failed: 'No se pudo cargar la experiencia',
+} as const
 const STYLE_ID = 'vertigo-intro-draw-style'
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
@@ -49,6 +63,13 @@ const CSS = `
 .intro-svg .v-stroke--depth{stroke-width:1.25;opacity:.6}
 .intro-svg .v-fill{fill:#fff;stroke:none}
 .intro-svg .v-dot{fill:#fff}
+.intro-caption{position:absolute;left:50%;transform:translateX(-50%);
+  top:calc(50% + min(19vmin,285px));margin:0;white-space:nowrap;
+  font:400 0.82rem/1.4 'Inter',system-ui,sans-serif;letter-spacing:.14em;
+  text-transform:uppercase;color:rgba(255,255,255,.62);
+  opacity:0;transition:opacity .5s ease}
+.intro-caption.is-visible{opacity:1}
+@media (prefers-reduced-motion:reduce){.intro-caption{transition:none}}
 `
 
 function injectStyles(doc: Document) {
@@ -203,6 +224,19 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   const dot = el('circle', { class: 'v-dot', r: 4, cx: CENTER.x, cy: CENTER.y })
 
   svg.append(isoGroup, frontV, frontArc, fill, dot)
+
+  // Loading caption. Absolutely positioned rather than added to the flex flow,
+  // because the mark has to stay EXACTLY at screen centre — the 3D logo blooms
+  // there at the swap crossover, and nudging the 2D mark up would break the
+  // substitution that crossover conceals.
+  //
+  // Not aria-hidden like the root: this is the only thing on screen that tells
+  // a screen reader anything is happening. `role=status` announces changes
+  // without stealing focus.
+  const caption = doc.createElement('p')
+  caption.className = 'intro-caption'
+  caption.setAttribute('role', 'status')
+  root.appendChild(caption)
   ;(options.container ?? doc.body).appendChild(root)
 
   // ── Geometry, measured once ──
@@ -423,6 +457,9 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
 
   function finish() {
     done = true
+    // The mark is about to shrink into the crossover; the caption has said all
+    // it can and must be gone before the 3D logo blooms at centre.
+    caption.classList.remove('is-visible')
     if (raf) cancelAnimationFrame(raf)
     raf = 0
     options.onComplete()
@@ -461,9 +498,49 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       options.onTimeoutNotice?.()
     }
 
+    // ── Caption ──
+    // Derived from the same real state the drawing is, never from a timer: the
+    // whole point of the progress playhead is that what the viewer sees is what
+    // is actually happening (ARCHITECTURE 20). "Casi listo" therefore means the
+    // drawing is genuinely holding at the pre-ready limit waiting on required
+    // assets, not that some clock elapsed.
+    // Driven by MEASURED load and readiness — never by the drawing's own
+    // playhead.
+    //
+    // Those are different numbers and conflating them is the bug this whole
+    // module was rebuilt to avoid (plan 007). With no measured progress the
+    // autonomous curve still carries the outline up to the pre-ready limit and
+    // holds it there, so the drawing can look nearly finished while nothing has
+    // actually downloaded. A caption reading the playhead would announce
+    // "Casi listo" over an empty cache — reassuring, and false.
+    //
+    // So "Casi listo" is spent only on genuine readiness, and the middle state
+    // on real bytes.
+    setCaption(
+      readiness === 'fatal'
+        ? CAPTIONS.failed
+        : noticed
+          ? CAPTIONS.slow
+          : readiness === 'ready'
+            ? CAPTIONS.almost
+            : load >= 0.5
+              ? CAPTIONS.preparing
+              : CAPTIONS.loading,
+    )
+
     if (tracing) trace.push([f.elapsed, raw, load, current])
 
     if (f.done) finish()
+  }
+
+  let captionText = ''
+  function setCaption(next: string) {
+    if (next === captionText) return
+    captionText = next
+    caption.textContent = next
+    // Held back until there is something to say — a caption that appears in the
+    // same instant as the mark competes with it for the opening beat.
+    caption.classList.add('is-visible')
   }
 
   function start() {
@@ -524,6 +601,8 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     },
     setVisible(visible) {
       svg.style.visibility = visible ? 'visible' : 'hidden'
+      // The caption belongs to the drawing, so a seek that hides one hides both.
+      if (!visible) caption.classList.remove('is-visible')
     },
     snapToEnd() {
       if (raf) cancelAnimationFrame(raf)

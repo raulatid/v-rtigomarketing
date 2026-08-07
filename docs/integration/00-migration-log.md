@@ -559,3 +559,63 @@ the city at ~2fps, which combined with `lagSmoothing` makes mid-transition frame
 unrepresentative of what the warp looks like. The timings and strengths in
 `WARP_TRANSITION` are reasoned, asserted at the endpoints, and tuned blind — they need a
 person on real hardware to judge.
+
+---
+
+## P9 — Loading caption, and a false alarm
+
+**Reported.** Four console errors: `prefersReducedMotion is not defined` at
+`CameraController`, an error in `<CanvasImpl>`, an unused-preload warning, and
+`[boot] still waiting after 15s` listing every step as pending.
+
+**All four were one cause, and it was not in the code.** Three Vite dev servers were still
+running from earlier phases (ports 5173/5174/5175), and the one being viewed had a stale
+module graph. The ReferenceError crashed the Canvas, which is why nothing loaded, why the
+preloads went unused, and why boot sat waiting. Verified by killing all three and checking a
+clean production build: **boot `ready`, all seven steps complete, visual progress 1, zero
+errors, no waiting notice.**
+
+There is no circular import — `warpTransition` imports only `utils/easing`, which imports
+nothing. I had dismissed this same error as a stale cache during P8 without proving it;
+that was luck rather than judgement, and proving it took one command.
+
+**Added: the loading caption.** Spanish copy under the mark, in `intro-draw/introDraw.ts`
+(which owns its own DOM and injected CSS, so the standalone-boot rule still holds).
+
+Positioned **absolutely**, not added to the flex flow: the mark has to stay exactly at
+screen centre because the 3D logo blooms there at the swap crossover, and nudging it up
+would break the substitution that crossover exists to conceal.
+
+`role="status"` so a screen reader is told something is happening — the root is
+`aria-hidden` and until now the loading state was announced to nobody.
+
+**The interesting bug.** The caption first read from the drawing's own playhead, and
+announced "Casi listo" over an empty cache. That is not a rounding error — it is the exact
+conflation plan 007 rebuilt this module to prevent. With no measured progress the autonomous
+curve still carries the outline to the pre-ready limit and holds it, so **the drawing can
+look nearly finished while nothing has downloaded**. Observed directly: `visual=0.815` at
+`measured=0.361`.
+
+The caption now reads measured load and readiness only. "Casi listo" is spent solely on
+genuine readiness; the middle state on real bytes.
+
+Verified under CDP throttling, which is the only way to see these states at all:
+
+| Caption | measured | state |
+|---|---|---|
+| Cargando experiencia | 0 | starting |
+| Estamos preparándolo todo | 0.507 | loading |
+| Casi listo | 1.0 | ready |
+
+At 700kbps it correctly reaches "Esto está tardando más de lo habitual" instead — the
+user-facing counterpart of the `[boot] still waiting` diagnostic, which is honest rather
+than reassuring.
+
+**Also fixed.** `modelPath` was document-relative (P8 note) — the same 404-off-root bug as
+the Draco path.
+
+**Budget.** Intro chunk 12 044 → 12 996 B against the 16 000 B cap. The caption costs ~950 B.
+
+**Still English.** The geo-marker copy and the case-study data are placeholder English
+(`orbitConfig.ts`, `data/caseStudies.ts`, already marked "PLACEHOLDER DATA — NOT REAL
+CLIENTS"). Not translated here because it is content awaiting real copy, not UI strings.
