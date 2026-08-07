@@ -4,6 +4,7 @@ import { IntroConfig } from '../introConfig'
 import { SequenceState } from '../sequenceState'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../hooks/useMasterTimeline'
+import { loadProgress } from '../loading/progress'
 
 interface Props {
   config: IntroConfig
@@ -76,7 +77,19 @@ export function CornerLogoLayer({ config, state, onLoadFailed, logoRef, handleRe
     // Same two-frame deferral as LazyScene: the drawing must have painted
     // before a Draco decode starts competing for the main thread.
     let raf = requestAnimationFrame(() => {
-      raf = requestAnimationFrame(() => void build())
+      raf = requestAnimationFrame(() => {
+        // The dynamic import can reject — a chunk 404 after a redeploy is the
+        // realistic case — and `logo:assets` is required, so an uncaught
+        // rejection here leaves the loading screen waiting forever. Degrade the
+        // same way a failed GLB does.
+        void build().catch((error) => {
+          console.error('[corner-logo] module failed to load', error)
+          if (disposed) return
+          loadProgress.markDone('logo:assets')
+          state.modelReady = false
+          onLoadFailedRef.current()
+        })
+      })
     })
 
     return () => {

@@ -266,7 +266,7 @@ renderer creation (`createRenderer`, deleted), the manual rAF loop
 `CameraFlight`, `cameraFraming`, `DistrictInteraction`, `DistrictHighlight`,
 `resolveDistrict`, `loadCity`, `createTerrainTransition`, `navigationBounds`,
 `viewportFootprint`. `createScene` changed only to drop the shadow block (below). This is
-what `PROJECT_MEMORY` §2.2 predicted — "a move rather than a rewrite" — and it is why the
+what Murcia's own memory predicted — "a move rather than a rewrite" — and it is why the
 77 assertions still pass unmodified.
 
 **Murcia bypasses the composer.** `RenderPipeline` calls `gl.render(murcia.scene,
@@ -419,8 +419,9 @@ unobserved:
   read well.
 - Return-to-Earth resume: GSAP master parked at `site`, orbit clock, camera pose, satellite
   positions.
-- `renderer.info` stability across repeated round trips (`PROJECT_MEMORY` §9 item 6) — the
-  no-leak claim is by design only.
+- `renderer.info` stability across repeated round trips — the no-leak claim is by design
+  only. It was item 6 of the migration-readiness checklist Murcia's own memory kept, and the
+  only one that was never discharged by measurement.
 - The P2 corner-logo z-order regression against the geo-tag layer.
 
 ---
@@ -472,7 +473,8 @@ Verified over **three full Earth → Murcia → Earth round trips**:
 | Console | **zero errors, zero failed requests** across every run |
 
 Murcia's own boot output confirms a clean load: `murcia:model` completes, terrain resolves
-(via GLTFLoader name sanitization, as `PROJECT_MEMORY` §10.1 predicted), the district
+(via GLTFLoader name sanitization, as `PROJECT_MEMORY`, *Things that will bite you again*,
+predicted), the district
 resolves by node name, and the collar covers the 11.5% of the plate rectangle the outline
 does not.
 
@@ -663,4 +665,4 @@ experience. This is the value that silently reveals the plate edge on ultrawide 
 high.
 
 **Still English, deliberately.** `DebugOverlay` field labels (`Cam distance`, `Focus X`…) —
-a developer tool behind `?debug=1`, and its labels are referenced in `PROJECT_MEMORY`.
+a developer tool behind `?debug=1`, never shown to a visitor. See `DECISIONS.md` §11.

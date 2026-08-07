@@ -12,6 +12,12 @@ export interface DragPanEvents {
    * note on `setBounds`.
    */
   onYawChanged?: () => void;
+  /**
+   * Fired when the gesture crosses the drag threshold, and again when it ends —
+   * including the ends that are not a pointerup, such as a handover to a
+   * district flight. Mirrors `isDragging`.
+   */
+  onDragStateChanged?: (dragging: boolean) => void;
 }
 
 /** Frame delta is clamped so a backgrounded tab cannot produce one huge step. */
@@ -421,6 +427,7 @@ export class DragPanController {
       this.lastClientY = event.clientY;
       this.lastMoveTime = event.timeStamp;
       this.stillTime = 0;
+      this.events.onDragStateChanged?.(true);
       return;
     }
 
@@ -567,8 +574,10 @@ export class DragPanController {
     if (this.domElement.hasPointerCapture(this.activePointerId)) {
       this.domElement.releasePointerCapture(this.activePointerId);
     }
+    const wasDragging = this.isDragging;
     this.activePointerId = null;
     this.exceededThreshold = false;
+    if (wasDragging) this.events.onDragStateChanged?.(false);
   }
 
   /** Projects a client-space point onto the horizontal navigation plane. */

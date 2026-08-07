@@ -104,7 +104,7 @@ export const murciaConfig: EnvironmentConfig = {
     // build and accepted first pass. They are the only values in this file set
     // by judgement rather than by measurement or derivation, so they cannot be
     // checked by the harness and cannot be re-derived if lost. Do not adjust
-    // them from reasoning alone — see PROJECT_MEMORY section 7.
+    // them from reasoning alone — see PROJECT_MEMORY, "Murcia's navigation".
     //
     // Weight lives in the drag, not in a coast. The previous values put it in
     // the coast instead (inertia 1.1s, release 0.3s) on the theory that lag
@@ -220,8 +220,28 @@ export const murciaConfig: EnvironmentConfig = {
   // and it is derived at runtime rather than configured.
   // 75 against a resting 165. Comfortably inside the band where closer means
   // a smaller footprint: below about 60 the fixed lookAtHeight starts tilting
-  // the camera up and the footprint widens again (PROJECT_MEMORY 5).
+  // the camera up and the footprint widens again (PROJECT_MEMORY, "The number
+  // that can hurt you").
   warpCloseDistance: 75,
+
+  // Leaving Murcia rises rather than backs away. Murcia sits INSIDE the Earth,
+  // so the return warp has to recede — but distance alone cannot do it: ground
+  // reach grows ~1.33 units per unit of distance against a worst-case skirt
+  // margin of +50 at 5120x1440 (PROJECT_MEMORY, "The number that can hurt you").
+  //
+  // Steepening the elevation buys the recession back. Far reach goes as
+  // cameraHeight / tan(pitch - fov/2):
+  //
+  //   rest   165 @ 30 deg  ->  height 82.5,  effective pitch ~27.3  ->  ~478
+  //   depart 180 @ 50 deg  ->  height 137.9, effective pitch ~48.8  ->  ~227
+  //
+  // So the departure pose reaches LESS far than the pose the skirt was measured
+  // for, and moves away from the ~28 deg floor where the bounds maths
+  // degenerates rather than toward it. checks/warp-transition.ts asserts that
+  // property directly, against computeGroundFootprint rather than against these
+  // numbers — re-run it after changing either one.
+  warpDepartDistance: 180,
+  warpDepartElevationDegrees: 50,
 
   contentBounds: { ...PLATE },
 

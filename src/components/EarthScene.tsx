@@ -14,6 +14,7 @@ import { GeoMarkersLayer } from './GeoMarkersLayer'
 import type { GeoMarkers } from '../orbit-system/createGeoMarkers'
 import { GEO_MARKERS } from '../orbit-system/orbitConfig'
 import { spinToFace } from '../orbit-system/geoUtils'
+import type { CursorManager } from '../interaction/cursorManager'
 
 interface Props {
   config: IntroConfig
@@ -21,6 +22,7 @@ interface Props {
   active: boolean
   onSelectDestination?: (id: string) => void
   geoMarkersRef?: RefObject<GeoMarkers | null>
+  cursorRef: RefObject<CursorManager | null>
 }
 
 // TextureLoader goes through ImageLoader, which decodes an <img> and reports no
@@ -45,6 +47,7 @@ export function EarthScene({
   active,
   onSelectDestination,
   geoMarkersRef,
+  cursorRef,
 }: Props) {
   const [dayTex, nightTex, specTex] = useLoader(
     THREE.TextureLoader,
@@ -71,25 +74,36 @@ export function EarthScene({
     let cancelled = false
     const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
     const warmUp = async () => {
-      // One upload per frame: each 4096×2048 map costs tens of ms to upload
-      // and mip, and the draw animation is live behind this — never stack them.
-      const maps = [dayTex, nightTex, specTex]
-      for (let i = 0; i < maps.length; i++) {
-        if (cancelled) return
-        gl.initTexture(maps[i])
-        // Reported as it goes rather than at the end: these uploads are the
-        // longest stalls in P0, and the drawing must be seen to be waiting on
-        // them rather than sitting still for no visible reason.
-        loadProgress.report('gpu:warmup', i + 1, maps.length + 1)
-        await nextFrame()
-      }
+      // EVERYTHING that can throw is inside the try, and the step is marked done
+      // either way. `gpu:warmup` is a REQUIRED manifest entry, so a throw that
+      // escapes here does not degrade the warm-up — it strands readiness at the
+      // pre-ready limit and the visitor waits on the loading screen forever.
+      // gl.initTexture used to sit outside this, which is exactly that bug.
+      //
+      // Marking it done on failure is right rather than merely convenient: a
+      // cold GPU costs one stall at the reveal, which is what this optimisation
+      // exists to avoid, not a broken scene. There is nothing here to be fatal
+      // about — unlike the textures above, which are the scene.
       try {
+        // One upload per frame: each 4096×2048 map costs tens of ms to upload
+        // and mip, and the draw animation is live behind this — never stack them.
+        const maps = [dayTex, nightTex, specTex]
+        for (let i = 0; i < maps.length; i++) {
+          if (cancelled) return
+          gl.initTexture(maps[i])
+          // Reported as it goes rather than at the end: these uploads are the
+          // longest stalls in P0, and the drawing must be seen to be waiting on
+          // them rather than sitting still for no visible reason.
+          loadProgress.report('gpu:warmup', i + 1, maps.length + 1)
+          await nextFrame()
+        }
         // compile() collects materials with scene.traverse, so the invisible
         // Earth group IS included; async so KHR_parallel_shader_compile can
         // link off the critical path. Covers the starfield material too.
         await gl.compileAsync(scene, camera)
-      } catch {
+      } catch (error) {
         // Fall back to compile-on-first-render rather than blocking the gate.
+        console.warn('[earth] GPU warm-up failed; continuing cold', error)
       }
       // The drawing waits on this — set it only once the GPU is actually warm,
       // not merely when the JPEGs have decoded.
@@ -98,7 +112,13 @@ export function EarthScene({
         loadProgress.markDone('gpu:warmup')
       }
     }
-    warmUp()
+    // The promise is deliberately not awaited by anything, so it must not be
+    // able to reject: an unhandled rejection here would be invisible AND leave
+    // the step pending. The try above is the guarantee; this is the backstop.
+    void warmUp().catch((error) => {
+      console.warn('[earth] GPU warm-up rejected', error)
+      if (!cancelled) loadProgress.markDone('gpu:warmup')
+    })
     return () => {
       cancelled = true
     }
@@ -196,6 +216,7 @@ export function EarthScene({
           active={active}
           onSelectDestination={onSelectDestination}
           handleRef={geoMarkersRef}
+          cursorRef={cursorRef}
         />
       </group>
       <mesh scale={[1.04, 1.04, 1.04]}>

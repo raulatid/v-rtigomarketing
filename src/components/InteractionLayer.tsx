@@ -5,7 +5,7 @@ import { OrbitSystem } from '../orbit-system/createOrbitSystem'
 import { SatelliteDef } from '../orbit-system/orbitConfig'
 import { createFocusCameraRig, FocusCameraRig } from '../interaction/createFocusCameraRig'
 import { createSatelliteFocus, SatelliteFocus } from '../interaction/createSatelliteFocus'
-import { createCursorManager } from '../interaction/cursorManager'
+import { createCursorManager, type CursorManager } from '../interaction/cursorManager'
 import { SequenceState } from '../sequenceState'
 import { atOrAfter } from '../sceneVisibility'
 import { auditView } from '../auditView'
@@ -19,6 +19,13 @@ interface Props {
   state: SequenceState
   orbitSystemRef: RefObject<OrbitSystem | null>
   handleRef: RefObject<InteractionHandle | null>
+  /**
+   * Published for the other Earth hover source. The geo markers are built in a
+   * different layer but share this canvas, and one arbiter per element is the
+   * whole point of the manager — a second one would restore the flip-flop it
+   * exists to prevent.
+   */
+  cursorRef: RefObject<CursorManager | null>
   onSelect: (data: SatelliteDef) => void
   onDeselect: () => void
   active: boolean
@@ -36,6 +43,7 @@ export function InteractionLayer({
   state,
   orbitSystemRef,
   handleRef,
+  cursorRef,
   onSelect,
   onDeselect,
   active,
@@ -52,6 +60,7 @@ export function InteractionLayer({
     if (!orbitSystem) return
 
     const cursor = createCursorManager(gl.domElement)
+    cursorRef.current = cursor
 
     const rig = createFocusCameraRig({
       camera: camera as THREE.PerspectiveCamera,
@@ -82,6 +91,7 @@ export function InteractionLayer({
       handleRef.current = null
       rigRef.current = null
       focusRef.current = null
+      cursorRef.current = null
       focus.dispose()
       rig.dispose()
       cursor.dispose()
@@ -89,7 +99,7 @@ export function InteractionLayer({
     // orbitSystemRef is populated by OrbitSystemLayer's effect. Both mount in
     // the same commit and OrbitSystemLayer is ordered first in SceneCanvas, so
     // its effect has already run by the time this one does.
-  }, [camera, gl, orbitSystemRef, handleRef])
+  }, [camera, gl, orbitSystemRef, handleRef, cursorRef])
 
   // Priority 0 so this runs before RenderPipeline (1) does the WebGL render and
   // GeoMarkersLayer (2) draws its labels — the camera must be final first.

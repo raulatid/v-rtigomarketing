@@ -123,7 +123,7 @@ export interface NavigationConfig {
    * Below 1 that point slides *behind* the cursor, which is the deliberate
    * trade for a heavier feel: this is the only sensitivity knob translation has,
    * the motion otherwise being solved against the ground rather than derived
-   * from pixels. See PROJECT_MEMORY section 7.
+   * from pixels. See PROJECT_MEMORY, "Murcia's navigation".
    */
   translationGain: number;
   /**
@@ -236,6 +236,21 @@ export interface EnvironmentConfig {
    * pose and its terrain skirt. The transition only supplies a 0..1 amount.
    */
   warpCloseDistance: number;
+
+  /**
+   * The pose the warp departs to when LEAVING this environment, reached at the
+   * cut. Same units as `camera.distance` and `camera.elevationDegrees`.
+   *
+   * Environment data for the same reason `warpCloseDistance` is: which way a
+   * city can afford to be left is a property of its terrain skirt. Distance
+   * alone cannot carry a departure — pulling back widens the ground footprint,
+   * which is the one thing the skirt cannot absorb — so the departure rises
+   * instead. Steepening the elevation shrinks the footprint faster than the
+   * extra distance grows it (see murciaConfig for the arithmetic), which is
+   * what makes a receding departure affordable at all.
+   */
+  warpDepartDistance: number;
+  warpDepartElevationDegrees: number;
 
   contentBounds: BoundsRect;
   initialFocus: { x: number; z: number };

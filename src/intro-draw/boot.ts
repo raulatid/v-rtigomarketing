@@ -5,7 +5,8 @@
 // downloading. It imports nothing — the build fails if that stops being true.
 
 import { createIntroDraw, IntroDrawHandle } from './introDraw'
-import { bootState, BootState, Readiness } from './bootState'
+import { bootState, BootState, Readiness, REQUIRED_IDS } from './bootState'
+import { DRAW_TIMING } from './drawConfig'
 
 export interface VertigoIntro {
   handle: IntroDrawHandle
@@ -86,8 +87,30 @@ function boot(): VertigoIntro {
     }
   })
 
+  // The backstop against a required resource that neither completes nor fails
+  // (ADR 007). It reports FATAL, never ready — the rule that a timeout cannot
+  // release the sequence into an unready scene is intact. What it prevents is
+  // the other outcome: waiting forever with no explanation.
+  const deadline = window.setTimeout(() => {
+    const readiness = bootState.readiness()
+    if (readiness === 'ready' || readiness === 'fatal') return
+
+    // Name the resource actually responsible, so the console says which one
+    // rather than "the site did not load". markFatal only accepts a required
+    // id, which is the same set this filters to.
+    const done = new Set(bootState.completed())
+    const stuck = REQUIRED_IDS.filter((id) => !done.has(id))
+    bootState.markFatal(
+      stuck[0] ?? 'chunk:scene',
+      `no readiness after ${DRAW_TIMING.hardDeadline}s; still pending: ${stuck.join(', ') || 'nothing'}`,
+    )
+  }, DRAW_TIMING.hardDeadline * 1000)
+
   bootState.subscribe(() => {
-    if (bootState.readiness() === 'ready') mark('vertigo:scene-ready')
+    if (bootState.readiness() === 'ready') {
+      mark('vertigo:scene-ready')
+      window.clearTimeout(deadline)
+    }
   })
 
   // Small enough to ship in production: when the intro looks stuck, this is

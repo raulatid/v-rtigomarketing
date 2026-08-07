@@ -53,27 +53,47 @@ export const WARP_TRANSITION = {
 
   /** The configured resting distance. Must equal murciaConfig.camera.distance. */
   murciaRestDistance: 165,
-  /** Closest approach. See the envelope below before changing this. */
+  /** The configured resting elevation. Must equal murciaConfig.camera.elevationDegrees. */
+  murciaRestElevation: 30,
+  /** Closest approach, arriving. See the envelope below before changing this. */
   murciaCloseDistance: 75,
+  /** The departure pose, leaving. Must equal murciaConfig.warpDepart*. */
+  murciaDepartDistance: 180,
+  murciaDepartElevation: 50,
 
   /**
    * THE SAFETY ENVELOPE. Asserted by checks/warp-transition.ts.
    *
-   * Upper bound — the camera must NEVER pull back past the configured resting
-   * distance. Ground reach grows about 1.33 world units per unit of distance,
-   * and the measured worst-case terrain-skirt margin is only +50 units at
-   * 5120x1440 (16:9 has +229, portrait +306). So distance ~200 puts the plate
-   * edge on screen for ultrawide viewers, with no error and nothing visible on
-   * a normal monitor. PROJECT_MEMORY 10.6 records exactly this failure:
-   * "Going 110 -> 165 silently put the plate edge on screen for ultrawide users."
+   * The real invariant is a footprint, not a distance: NO WARP POSE MAY REACH
+   * FURTHER ACROSS THE GROUND THAN THE RESTING POSE DOES. The terrain skirt is
+   * 600 units wide because that is what a camera at 165/30deg needs at every
+   * azimuth on a 5120x1440 viewport, with only +50 units to spare (16:9 has
+   * +229, portrait +306). Anything that reaches further puts the plate edge on
+   * screen for ultrawide viewers only, silently, with nothing wrong on the
+   * machine the change was made on. PROJECT_MEMORY, "The number that can hurt
+   * you", records exactly that: going 110 -> 165 silently put the plate edge on
+   * screen for ultrawide users.
+   *
+   * That invariant is now asserted literally, by running the real
+   * computeGroundFootprint over the real poses. The distance bounds below are
+   * kept as the cheap first line of defence, and they are direction-aware:
+   *
+   *   arriving  — may never exceed the resting distance, because arriving does
+   *               not change elevation and so has nothing to pay with.
+   *   departing — may exceed it, but only as far as murciaDepartMaxDistance,
+   *               and only because the elevation rises with it. Distance and
+   *               elevation are not separable here; neither bound means
+   *               anything without the footprint sweep.
    *
    * Lower bound — below about 60 the intuition "closer is always safer" stops
    * holding. lookAtHeight is a fixed 5.85 rather than a fraction of distance,
    * so as the camera drops it tilts up relative to the rig, the effective pitch
    * collapses through the ~28 degree floor where the bounds maths degenerates
-   * (PROJECT_MEMORY 5), and the footprint diverges again.
+   * (PROJECT_MEMORY, "The number that can hurt you"), and the footprint
+   * diverges again.
    */
   murciaMaxDistance: 165,
+  murciaDepartMaxDistance: 180,
   murciaMinDistance: 60,
 } as const
 
@@ -95,12 +115,18 @@ export function transitionLeg(p: number): { departing: boolean; localT: number }
 }
 
 /**
- * How far "in" the camera is, 0 at rest and 1 at the closest point.
+ * How far the camera is from rest, 0 at both ends and 1 at the cut, plus which
+ * role the visible world is playing.
  *
- * The same value serves both sides, which is what keeps the two experiences
- * from needing to know anything about each other: the world being left rises
- * 0 -> 1 as it rushes in, and the world being entered falls 1 -> 0 as it pulls
- * back out. Each experience applies it only while it is the one rendering.
+ * This is an ENVELOPE, not a direction. It rises 0 -> 1 for the world being
+ * left and falls 1 -> 0 for the world being entered, and says nothing about
+ * which way either of them moves — that is the role's business. Each world maps
+ * the amount onto its own departing and arriving poses, which is what keeps the
+ * two experiences from needing to know anything about each other.
+ *
+ * It used to say more than that: one pose mapping served both roles, so the
+ * world being left always rushed IN. That is right descending into Murcia and
+ * wrong leaving it, because Murcia is inside the Earth (ADR 006).
  */
 export function dollyAmount(p: number): { departing: boolean; amount: number } {
   const { departing, localT } = transitionLeg(p)
@@ -134,14 +160,11 @@ export function earthRadiusScale(amount: number): number {
   return lerp(1, WARP_TRANSITION.earthCloseFactor, amount)
 }
 
-/** Murcia's camera distance for a dolly amount. Stays inside the envelope. */
-export function murciaDollyDistance(amount: number): number {
-  return lerp(
-    WARP_TRANSITION.murciaRestDistance,
-    WARP_TRANSITION.murciaCloseDistance,
-    amount,
-  )
-}
+// Murcia's pose mapping deliberately does NOT live here. The transition hands
+// down an amount and a role; what a city does with them is the city's business,
+// and `src/experiences/` may not depend upward on the shell (ARCHITECTURE §13).
+// See src/experiences/murcia/camera/warpPose.ts. The envelope constants above
+// are mirrors of murciaConfig, asserted equal by checks/warp-transition.ts.
 
 /** The blur amount fed to the AfterimagePass, matching state.motionBlur's scale. */
 export function motionBlur(p: number): number {

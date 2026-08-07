@@ -1,17 +1,25 @@
 /**
  * Behavioural harness for the Earth <-> Murcia warp.  `npm run check:warp`
  *
- * Drives the REAL curve module, not a reimplementation — the same rule as
- * checks/navigation-feel.ts and scripts/simulate-intro.mjs. A guard that tests
- * a convenient stand-in guards nothing.
+ * Drives the REAL curve module, the REAL pose mapping and the REAL camera
+ * placement — not reimplementations. Same rule as checks/navigation-feel.ts and
+ * scripts/simulate-intro.mjs: a guard that tests a convenient stand-in guards
+ * nothing.
  *
- * The assertion that matters is section 1. Murcia's terrain skirt is sized for
- * a camera at distance 165, and the measured worst-case margin is +50 units at
- * 5120x1440. A dolly that pulls back past 165 puts the plate edge on screen for
- * ultrawide viewers only, silently, with nothing visible on the machine the
- * change was made on. PROJECT_MEMORY 10.6 records that exact regression
- * happening once already. Nothing else in the codebase guards it.
+ * The assertion that matters is section 6. Murcia's terrain skirt is 600 units
+ * wide because that is what a camera at the resting pose needs at every azimuth
+ * on a 5120x1440 viewport, with only +50 units to spare. Any warp pose that
+ * reaches further across the ground than rest does puts the plate edge on
+ * screen for ultrawide viewers only, silently, with nothing visible on the
+ * machine the change was made on. PROJECT_MEMORY, "The number that can hurt
+ * you", records that exact regression happening once already.
+ *
+ * Sections 1-2 keep the cheap distance bounds as a first line of defence, but
+ * they are only a proxy — since ADR 006 the departure trades distance against
+ * elevation, and neither number means anything without section 6.
  */
+import * as THREE from 'three';
+
 import {
   WARP_TRANSITION,
   dollyAmount,
@@ -19,10 +27,18 @@ import {
   earthRadiusScale,
   flash,
   motionBlur,
-  murciaDollyDistance,
   speed,
   transitionLeg,
 } from '../src/app/warpTransition';
+import {
+  murciaArrivalPose,
+  murciaDeparturePose,
+  murciaWarpPose,
+} from '../src/experiences/murcia/camera/warpPose';
+import type { MurciaWarpTargets } from '../src/experiences/murcia/camera/warpPose';
+import { applyPoseToCamera } from '../src/experiences/murcia/camera/applyPoseToCamera';
+import { computeGroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
+import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 
 let failures = 0;
@@ -42,39 +58,56 @@ const STEPS = 2000;
 const samples: number[] = [];
 for (let i = 0; i <= STEPS; i++) samples.push(i / STEPS);
 
+/** The ends of the warp, exactly as MurciaExperience.applyWarpPose builds them. */
+const targets: MurciaWarpTargets = {
+  restDistance: murciaConfig.camera.distance,
+  restElevation: murciaConfig.camera.elevationDegrees,
+  closeDistance: murciaConfig.warpCloseDistance,
+  departDistance: murciaConfig.warpDepartDistance,
+  departElevation: murciaConfig.warpDepartElevationDegrees,
+};
+
 console.log('='.repeat(70));
 console.log('Warp transition — Earth <-> Murcia');
 console.log('='.repeat(70));
 
 // ---------------------------------------------------------------------------
-section('1. Murcia distance stays inside the safe envelope');
+section('1. Murcia distance stays inside the safe envelope, per leg');
 
-let maxDistance = -Infinity;
-let minDistance = Infinity;
-let maxAt = 0;
-let minAt = 0;
+let maxArrival = -Infinity;
+let minArrival = Infinity;
+let maxDeparture = -Infinity;
+let minDeparture = Infinity;
+let maxDepartureAt = 0;
 for (const p of samples) {
   const { amount } = dollyAmount(p);
-  const d = murciaDollyDistance(amount);
-  if (d > maxDistance) { maxDistance = d; maxAt = p; }
-  if (d < minDistance) { minDistance = d; minAt = p; }
+  const arrival = murciaArrivalPose(targets, amount).distance;
+  const departure = murciaDeparturePose(targets, amount).distance;
+  if (arrival > maxArrival) maxArrival = arrival;
+  if (arrival < minArrival) minArrival = arrival;
+  if (departure > maxDeparture) { maxDeparture = departure; maxDepartureAt = p; }
+  if (departure < minDeparture) minDeparture = departure;
 }
 
 check(
-  'never pulls back past the resting distance',
-  maxDistance <= WARP_TRANSITION.murciaMaxDistance + 1e-9,
-  `max ${maxDistance.toFixed(3)} at p=${maxAt.toFixed(3)} (ceiling ${WARP_TRANSITION.murciaMaxDistance})`,
+  'arriving never pulls back past the resting distance',
+  maxArrival <= WARP_TRANSITION.murciaMaxDistance + 1e-9,
+  `max ${maxArrival.toFixed(3)} (ceiling ${WARP_TRANSITION.murciaMaxDistance})`,
 );
 check(
-  'never dives below the footprint floor',
-  minDistance >= WARP_TRANSITION.murciaMinDistance - 1e-9,
-  `min ${minDistance.toFixed(3)} at p=${minAt.toFixed(3)} (floor ${WARP_TRANSITION.murciaMinDistance})`,
+  'departing stays under the rising ceiling',
+  maxDeparture <= WARP_TRANSITION.murciaDepartMaxDistance + 1e-9,
+  `max ${maxDeparture.toFixed(3)} at p=${maxDepartureAt.toFixed(3)} (ceiling ${WARP_TRANSITION.murciaDepartMaxDistance})`,
 );
 check(
-  'the configured close distance is itself inside the envelope',
-  WARP_TRANSITION.murciaCloseDistance >= WARP_TRANSITION.murciaMinDistance &&
-    WARP_TRANSITION.murciaCloseDistance <= WARP_TRANSITION.murciaMaxDistance,
-  `${WARP_TRANSITION.murciaCloseDistance} in [${WARP_TRANSITION.murciaMinDistance}, ${WARP_TRANSITION.murciaMaxDistance}]`,
+  'neither leg dives below the footprint floor',
+  Math.min(minArrival, minDeparture) >= WARP_TRANSITION.murciaMinDistance - 1e-9,
+  `min ${Math.min(minArrival, minDeparture).toFixed(3)} (floor ${WARP_TRANSITION.murciaMinDistance})`,
+);
+check(
+  'the departure only ever leaves rest by rising',
+  WARP_TRANSITION.murciaDepartElevation > WARP_TRANSITION.murciaRestElevation,
+  `${WARP_TRANSITION.murciaRestElevation} -> ${WARP_TRANSITION.murciaDepartElevation} deg — extra distance without extra elevation is unpaid for`,
 );
 
 // The whole envelope is meaningless if it is measured against the wrong pose.
@@ -84,31 +117,57 @@ check(
   `warp ${WARP_TRANSITION.murciaRestDistance} vs murciaConfig ${murciaConfig.camera.distance}`,
 );
 check(
+  'rest elevation matches the environment config',
+  WARP_TRANSITION.murciaRestElevation === murciaConfig.camera.elevationDegrees,
+  `warp ${WARP_TRANSITION.murciaRestElevation} vs murciaConfig ${murciaConfig.camera.elevationDegrees}`,
+);
+check(
   'close distance matches the environment config',
   WARP_TRANSITION.murciaCloseDistance === murciaConfig.warpCloseDistance,
   `warp ${WARP_TRANSITION.murciaCloseDistance} vs murciaConfig ${murciaConfig.warpCloseDistance}`,
 );
 check(
-  'the ceiling is the rest distance, not merely near it',
+  'departure pose matches the environment config',
+  WARP_TRANSITION.murciaDepartDistance === murciaConfig.warpDepartDistance &&
+    WARP_TRANSITION.murciaDepartElevation === murciaConfig.warpDepartElevationDegrees,
+  `warp ${WARP_TRANSITION.murciaDepartDistance}/${WARP_TRANSITION.murciaDepartElevation} vs murciaConfig ${murciaConfig.warpDepartDistance}/${murciaConfig.warpDepartElevationDegrees}`,
+);
+check(
+  'the arrival ceiling is the rest distance, not merely near it',
   WARP_TRANSITION.murciaMaxDistance === murciaConfig.camera.distance,
-  'a ceiling above rest would spend skirt margin that was never measured',
+  'arriving does not change elevation, so it has nothing to pay extra reach with',
+);
+check(
+  'the departure ceiling is the departure distance',
+  WARP_TRANSITION.murciaDepartMaxDistance === murciaConfig.warpDepartDistance,
+  'a ceiling above it would spend skirt margin section 6 never measured',
 );
 
 // ---------------------------------------------------------------------------
 section('2. Both worlds return exactly to rest');
 
-const restStart = murciaDollyDistance(dollyAmount(0).amount);
-const restEnd = murciaDollyDistance(dollyAmount(1).amount);
-check(
-  'Murcia is at rest at p=0',
-  Math.abs(restStart - WARP_TRANSITION.murciaRestDistance) < 1e-9,
-  `${restStart.toFixed(6)}`,
-);
-check(
-  'Murcia is at rest at p=1',
-  Math.abs(restEnd - WARP_TRANSITION.murciaRestDistance) < 1e-9,
-  `${restEnd.toFixed(6)} — a residual offset would persist for the session`,
-);
+for (const [name, pose] of [
+  ['arriving', murciaArrivalPose(targets, dollyAmount(0).amount)],
+  ['departing', murciaDeparturePose(targets, dollyAmount(0).amount)],
+] as const) {
+  check(
+    `Murcia is at the resting pose at p=0 (${name})`,
+    Math.abs(pose.distance - targets.restDistance) < 1e-9 &&
+      Math.abs(pose.elevationDegrees - targets.restElevation) < 1e-9,
+    `${pose.distance.toFixed(6)} @ ${pose.elevationDegrees.toFixed(6)} deg`,
+  );
+}
+for (const [name, pose] of [
+  ['arriving', murciaArrivalPose(targets, dollyAmount(1).amount)],
+  ['departing', murciaDeparturePose(targets, dollyAmount(1).amount)],
+] as const) {
+  check(
+    `Murcia is at the resting pose at p=1 (${name})`,
+    Math.abs(pose.distance - targets.restDistance) < 1e-9 &&
+      Math.abs(pose.elevationDegrees - targets.restElevation) < 1e-9,
+    `${pose.distance.toFixed(6)} @ ${pose.elevationDegrees.toFixed(6)} deg — a residual offset would persist for the session, and a residual tilt would too`,
+  );
+}
 
 check(
   'Earth radius scale is 1 at p=0',
@@ -184,7 +243,7 @@ check(
 );
 
 // ---------------------------------------------------------------------------
-section('5. The two legs partition the transition');
+section('5. The two legs partition the transition, and go the right way');
 
 const { departing: depAtStart } = transitionLeg(0);
 const { departing: depAtEnd } = transitionLeg(1);
@@ -205,19 +264,115 @@ for (const p of samples) {
     prevOut = amount;
   }
 }
-check('the dolly goes in without reversing', monotonicIn, 'a reversal reads as a stumble');
-check('and comes out without reversing', monotonicOut);
+check('the envelope rises without reversing', monotonicIn, 'a reversal reads as a stumble');
+check('and falls without reversing', monotonicOut);
 
 const peak = dollyAmount(WARP_TRANSITION.cut).amount;
 check(
-  'the dolly is at its closest at the cut',
+  'the envelope is at its extreme at the cut',
   peak > 0.99,
-  `amount ${peak.toFixed(4)} — the cut must land under the closest, most covered frame`,
+  `amount ${peak.toFixed(4)} — the cut must land under the most extreme, most covered frame`,
+);
+
+// ADR 006. Leaving a city that sits INSIDE the Earth has to recede; driving
+// forward into it and cutting to a globe is the concept error this replaced.
+const departFar = murciaDeparturePose(targets, peak);
+const arriveNear = murciaArrivalPose(targets, peak);
+check(
+  'departing Murcia moves AWAY from the city',
+  departFar.distance > targets.restDistance &&
+    departFar.elevationDegrees > targets.restElevation,
+  `${departFar.distance.toFixed(1)} @ ${departFar.elevationDegrees.toFixed(1)} deg vs rest ${targets.restDistance} @ ${targets.restElevation}`,
+);
+check(
+  'arriving into Murcia still comes from close in',
+  arriveNear.distance < targets.restDistance,
+  `${arriveNear.distance.toFixed(1)} vs rest ${targets.restDistance}`,
+);
+
+// ---------------------------------------------------------------------------
+section('6. No warp pose reaches further across the ground than rest');
+
+// The real placement maths and the real footprint maths, over the aspects and
+// azimuths the skirt was sized against. 3.56 is 5120x1440, the binding case.
+const ASPECTS: Array<[string, number]> = [
+  ['16:9', 16 / 9],
+  ['21:9', 21 / 9],
+  ['5120x1440', 5120 / 1440],
+  ['portrait', 0.5],
+];
+const YAW_STEP = 15;
+const FOOTPRINT_STEPS = 200;
+
+const nav = murciaConfig.navigation;
+const focus = new THREE.Vector3(
+  murciaConfig.initialFocus.x,
+  0,
+  murciaConfig.initialFocus.z,
+);
+const camera = new THREE.PerspectiveCamera();
+
+function footprintAt(
+  pose: { distance: number; elevationDegrees: number },
+  aspect: number,
+  yaw: number,
+): GroundFootprint {
+  camera.aspect = aspect;
+  applyPoseToCamera(camera, { ...murciaConfig.camera, ...pose }, focus, yaw);
+  return computeGroundFootprint(camera, focus, nav.groundPlaneHeight, nav.maxGroundDistance);
+}
+
+function maxReach(f: GroundFootprint): number {
+  return Math.max(f.reachNegX, f.reachPosX, f.reachNegZ, f.reachPosZ);
+}
+
+let worstExcess = -Infinity;
+let worstLabel = '';
+let anyClamped = false;
+let clampedLabel = '';
+let poses = 0;
+
+for (const [aspectName, aspect] of ASPECTS) {
+  for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
+    const restReach = maxReach(footprintAt(murciaConfig.camera, aspect, yaw));
+
+    for (let i = 0; i <= FOOTPRINT_STEPS; i++) {
+      const p = i / FOOTPRINT_STEPS;
+      const { amount, departing } = dollyAmount(p);
+      const pose = murciaWarpPose(targets, amount, departing);
+      const f = footprintAt(pose, aspect, yaw);
+      poses++;
+
+      if (f.clampedRays && !anyClamped) {
+        anyClamped = true;
+        clampedLabel = `${aspectName} yaw ${yaw} p=${p.toFixed(3)} d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
+      }
+
+      const excess = maxReach(f) - restReach;
+      if (excess > worstExcess) {
+        worstExcess = excess;
+        worstLabel = `${aspectName} yaw ${yaw} p=${p.toFixed(3)} d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
+      }
+    }
+  }
+}
+
+check(
+  'the warp never out-reaches the pose the skirt was sized for',
+  worstExcess <= 1e-6,
+  `worst ${worstExcess >= 0 ? '+' : ''}${worstExcess.toFixed(1)} units at ${worstLabel} (${poses} poses)`,
+);
+check(
+  'no frustum corner misses the ground plane',
+  !anyClamped,
+  anyClamped
+    ? `clamped at ${clampedLabel} — a clamped ray is a degenerate pose, not the mechanism working`
+    : 'every corner ray still hits the ground at every warp pose',
 );
 
 // ---------------------------------------------------------------------------
 console.log(`\n${'='.repeat(70)}`);
-const total = 23;
+const total = 32;
 if (failures === 0) {
   console.log(`${total}/${total} checks passed`);
 } else {

@@ -27,7 +27,14 @@ import type { EnvironmentConfig, DragFeelConfig } from './environmentConfig';
 export function applyNavigationQueryOverrides(
   env: EnvironmentConfig,
   search: string,
+  enabled: boolean,
 ): EnvironmentConfig {
+  // Off in production builds. `?dragGain=99999` is not a security hole, but it
+  // does make the city unnavigable for anyone handed the link, and a tuning
+  // tool has no business being reachable on a marketing site. Same seam as
+  // applyQueryOverrides — the flag comes from the shell.
+  if (!enabled) return env;
+
   const params = new URLSearchParams(search);
 
   const dragGain = readNumber(params, 'dragGain', (v) => v > 0);

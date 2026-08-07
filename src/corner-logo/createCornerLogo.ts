@@ -170,6 +170,17 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
     undefined,
     (err) => {
       console.error('[corner-logo] GLB failed to load:', err)
+      // `logo:assets` is a REQUIRED manifest entry, and this branch used to mark
+      // it neither done nor fatal — so readiness could reach neither state and
+      // the loading screen waited forever on a 20KB file. Every visitor, for a
+      // single 404.
+      //
+      // Done rather than fatal, because degrading is what the caller already
+      // does: `onFailed` holds the 2D isotype on screen instead of playing the
+      // crossover. The site is entirely usable without the 3D mark, so it must
+      // not be able to stop the site existing. The KTX2 loader below has always
+      // degraded this way; this only makes the two agree.
+      loadProgress.markDone('logo:assets')
       onFailed()
     },
   )

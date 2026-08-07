@@ -6,6 +6,7 @@ import { createGeoMarkers, GeoMarkers } from '../orbit-system/createGeoMarkers'
 import { EARTH_CONFIG } from '../earthConfig'
 import { SequenceState } from '../sequenceState'
 import { atOrAfter } from '../sceneVisibility'
+import type { CursorManager } from '../interaction/cursorManager'
 
 interface Props {
   state: SequenceState
@@ -14,6 +15,8 @@ interface Props {
   onSelectDestination?: (id: string) => void
   /** Published so the warp can aim at a destination. */
   handleRef?: RefObject<GeoMarkers | null>
+  /** Earth's cursor arbiter, published by InteractionLayer. */
+  cursorRef: RefObject<CursorManager | null>
 }
 
 // Rendered INSIDE the Earth's spin group so the markers stay pinned to the
@@ -28,6 +31,7 @@ export function GeoMarkersLayer({
   active,
   onSelectDestination,
   handleRef,
+  cursorRef,
 }: Props) {
   const { camera, gl, scene, size } = useThree()
   const groupRef = useRef<THREE.Group>(null)
@@ -53,6 +57,7 @@ export function GeoMarkersLayer({
       // Read through a ref so the effect does not rebuild the markers when the
       // handler identity changes.
       onSelect: (id) => onSelectRef.current?.(id),
+      getCursor: () => cursorRef.current,
     })
     markersRef.current = markers
     if (handleRef) handleRef.current = markers

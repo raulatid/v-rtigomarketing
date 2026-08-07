@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import { latLngToVector3 } from './geoUtils'
 import { GEO_MARKERS, ORBIT_CONFIG } from './orbitConfig'
+import type { CursorManager } from '../interaction/cursorManager'
 
 // City markers pinned to the rotating Earth. The returned group MUST be
 // parented under whatever spins the Earth's surface, or the markers will slide
@@ -21,6 +22,16 @@ interface Options {
    * stays ignorant of what a destination actually leads to.
    */
   onSelect?: (id: string) => void
+  /**
+   * Earth's cursor arbiter, resolved at call time rather than captured: it is
+   * created by InteractionLayer, which may mount after this does. Nothing is
+   * lost while it is null — the markers are disabled until the intro lands, so
+   * there is no hover to report before then.
+   *
+   * Going through it rather than writing `domElement.style.cursor` is what
+   * makes the hover survive the custom cursor's `cursor: none`.
+   */
+  getCursor: () => CursorManager | null
 }
 
 interface Marker {
@@ -42,7 +53,7 @@ interface Marker {
 // this module needs no knowledge of who else is handling the gesture.
 const CLICK_SLOP_PX = 5
 
-export function createGeoMarkers({ camera, domElement, onSelect }: Options) {
+export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Options) {
   const cfg = ORBIT_CONFIG.markers
   const group = new THREE.Group()
 
@@ -168,7 +179,7 @@ export function createGeoMarkers({ camera, domElement, onSelect }: Options) {
       }
       if (cursorHover) {
         cursorHover = false
-        domElement.style.cursor = ''
+        getCursor()?.request('marker', '')
       }
     }
   }
@@ -229,12 +240,12 @@ export function createGeoMarkers({ camera, domElement, onSelect }: Options) {
       marker.element.classList.toggle('is-visible', marker.hovered)
     }
 
-    // Write the cursor only on changes: other hover sources may share this
-    // canvas, and per-frame writes would clobber each other.
+    // Requested only on changes. The manager de-duplicates anyway, but this
+    // runs every frame and the flag is what keeps it off the hot path.
     const wantsCursor = !!hoveredMarker
     if (wantsCursor !== cursorHover) {
       cursorHover = wantsCursor
-      domElement.style.cursor = wantsCursor ? 'pointer' : ''
+      getCursor()?.request('marker', wantsCursor ? 'pointer' : '')
     }
   }
 
@@ -249,7 +260,7 @@ export function createGeoMarkers({ camera, domElement, onSelect }: Options) {
     dotGeometry.dispose()
     hitGeometry.dispose()
     hitMaterial.dispose()
-    if (cursorHover) domElement.style.cursor = ''
+    if (cursorHover) getCursor()?.request('marker', '')
   }
 
   /**

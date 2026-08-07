@@ -17,7 +17,22 @@
       property="og:description"
       content="Casos reales, métricas reales y auditoría gratuita de tu presencia digital."
     />
-    <meta name="twitter:card" content="summary_large_image" />
+    <!-- `summary`, not `summary_large_image`: there is no og:image yet, and a
+         large-image card with no image renders as a blank rectangle. Claiming
+         the smaller card is the honest description of what this page can
+         currently offer a scraper. Promote it back to summary_large_image in
+         the same change that adds the image. -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Vertigo — Marketing que se mide" />
+    <meta
+      name="twitter:description"
+      content="Casos reales, métricas reales y auditoría gratuita de tu presencia digital."
+    />
+    <meta property="og:site_name" content="Vertigo" />
+    <meta property="og:locale" content="es_ES" />
+    <!-- canonical and og:url are injected at build time from the Vercel
+         production domain, so a preview never declares itself canonical.
+         See the seoAssets plugin in vite.config.ts. -->
     <meta name="theme-color" content="#050507" />
     <!-- Inline so it costs no request and cannot 404. Replace with the real
          brand mark when there is one. -->

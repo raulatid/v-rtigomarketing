@@ -45,7 +45,7 @@ Custom properties land in glTF `extras`, which `GLTFLoader` puts on
 
 ### What happens today, before the re-export
 
-`src/scene/cityDistrictBindings.ts` lists `blog_edificios` and
+`src/experiences/murcia/scene/cityDistrictBindings.ts` lists `blog_edificios` and
 `blog_edificios.001` as a **stand-in** so the interaction can be built and
 judged. Once the objects carry `district = "servicios"` the tag path wins
 automatically and no code changes.
@@ -64,11 +64,13 @@ removes `[ ] . : /`:
 
 So `getObjectByName('Plane.013')` returns `undefined`. This cost the project a
 long-running bug where the terrain plate was never found and the navigable area
-silently collapsed to 3.6% of the plate (PROJECT_MEMORY §4.1).
+silently collapsed to 3.6% of the plate (PROJECT_MEMORY, *Things that will bite
+you again*).
 
 The original name survives on `userData.name`. `findByAnyNameSpelling`
-(`src/assets/nodeNames.ts`) tries all three spellings, so configuration may be
-written either way — but **prefer names without dots** for anything new.
+(`src/experiences/murcia/assets/nodeNames.ts`) tries all three spellings, so
+configuration may be written either way — but **prefer names without dots** for
+anything new.
 
 ---
 

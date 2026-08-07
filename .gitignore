@@ -12,9 +12,22 @@ out/
 .svelte-kit/
 
 # Environment variables
+#
+# Every .env EXCEPT .env.example, rather than the usual three-line list: that
+# list covered .env, .env.local and .env.*.local but not .env.production or
+# .env.development, so a secret in either would have been committed silently.
+# This project needs no runtime environment variables at all today — the only
+# ones it reads are Vercel's own, at build time — so the safe default is to
+# ignore the lot and let .env.example be the documented exception.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Code graph index (local tooling, machine-specific)
+.codegraph/
 
 # Logs
 *.log

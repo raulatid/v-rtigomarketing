@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { CameraPoseConfig } from '../config/environmentConfig';
+import { applyPoseToCamera } from './applyPoseToCamera';
 
 /**
  * Camera rig with a fixed elevation and a free horizontal yaw.
@@ -97,27 +98,14 @@ export class CameraRig {
 
   /** Recomputes the offset from the pose angles plus yaw, and re-places the camera. */
   private applyPose(): void {
-    const elevation = THREE.MathUtils.degToRad(this.pose.elevationDegrees);
-    const azimuth = THREE.MathUtils.degToRad(this.getAzimuthDegrees());
-
-    const height = this.pose.distance * Math.sin(elevation);
-    const ground = this.pose.distance * Math.cos(elevation);
-
-    const sin = Math.sin(azimuth);
-    const cos = Math.cos(azimuth);
-
-    this.offset.set(ground * sin, height, ground * cos);
-    // The offset runs focus -> camera, so forward is its negation on XZ. Taken
-    // from the angles rather than by normalizing the offset, which would divide
-    // by zero at a 90 degree elevation.
-    this.forward.set(-sin, 0, -cos);
-
-    this.camera.fov = this.pose.fov;
-    this.camera.near = this.pose.near;
-    this.camera.far = this.pose.far;
-    this.camera.updateProjectionMatrix();
-
-    this.updateCamera();
+    applyPoseToCamera(
+      this.camera,
+      this.pose,
+      this.focus,
+      this.yawDegrees,
+      this.offset,
+      this.forward,
+    );
   }
 
   private updateCamera(): void {

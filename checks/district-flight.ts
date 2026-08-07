@@ -2,8 +2,9 @@
  * Behavioural harness for the district interaction.  `npm run check:district`
  *
  * Drives the REAL `CameraFlight`, `CameraRig`, `DragPanController`,
- * `resolveDistrict` and framing maths. Per PROJECT_MEMORY section 8, harnesses
- * here must exercise the real path rather than a convenient stand-in — the
+ * `resolveDistrict` and framing maths. Per PROJECT_MEMORY, "How this repo
+ * verifies things", harnesses here must exercise the real path rather than a
+ * convenient stand-in — the
  * longest-lived bug in this project hid behind a harness that rebuilt what it
  * was meant to test.
  *

@@ -13,7 +13,8 @@ import { PropertyBinding } from 'three';
  *
  * so `getObjectByName('Plane.013')` returns undefined. This cost the project a
  * long-running bug where the terrain plate was never found and the navigable
- * area silently collapsed to 3.6% of the plate (PROJECT_MEMORY section 4.1).
+ * area silently collapsed to 3.6% of the plate (PROJECT_MEMORY, "Things that
+ * will bite you again").
  *
  * The original name survives on `userData.name`, so all three spellings are
  * tried. Extracted from `findTerrainPlate` so district resolution cannot

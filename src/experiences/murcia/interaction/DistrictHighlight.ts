@@ -73,10 +73,10 @@ interface HighlightTarget {
  *
  * The glow is `emissive` on the district's own materials. Adding a `THREE.Light`
  * would change the Scene's light count and invalidate every material's shader
- * program (PROJECT_MEMORY sections 2.3 and 10.4) — a full recompile at exactly
- * the wrong moment. There is no post-processing in this project either, so the
- * effect is a self-illuminated *surface*, not a halo in the air around it. The
- * ground marker is what supplies the spread.
+ * program (PROJECT_MEMORY, "Things that will bite you again") — a full
+ * recompile at exactly the wrong moment. There is no post-processing in this
+ * project either, so the effect is a self-illuminated *surface*, not a halo in
+ * the air around it. The ground marker is what supplies the spread.
  */
 export class DistrictHighlight {
   readonly group = new THREE.Group();

@@ -5,7 +5,7 @@ import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
 /**
  * How a district's geometry was located. Surfaced so a fallback is never silent
  * — the same discipline `TerrainSource` applies to the terrain plate, for the
- * same reason (PROJECT_MEMORY section 4.2).
+ * same reason (PROJECT_MEMORY, "Things that will bite you again").
  */
 export type DistrictSource = 'tag' | 'name' | 'rect' | 'not-found';
 
@@ -36,8 +36,8 @@ export interface DistrictLookup {
  *
  * The spatial rectangle is a crutch for working against an asset that carries
  * neither tag nor stable names. World coordinates drift the moment the model is
- * re-exported (section 4.3), so it is gated behind `allowSpatialFallback` and
- * warns loudly whenever it fires.
+ * re-exported (PROJECT_MEMORY, "Things that will bite you again"), so it is
+ * gated behind `allowSpatialFallback` and warns loudly whenever it fires.
  */
 export function resolveDistrict(
   root: THREE.Object3D,

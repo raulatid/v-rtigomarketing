@@ -11,6 +11,7 @@ import type { DragPanController } from '../navigation/DragPanController';
 import type { BoundsRect, CameraPoseConfig } from '../config/environmentConfig';
 import { DistrictPanel } from '../ui/districtPanel';
 import { DistrictLabel } from '../ui/districtLabel';
+import type { CursorManager } from '../../../interaction/cursorManager';
 
 export type DistrictInteractionState =
   | { type: 'idle' }
@@ -27,6 +28,12 @@ export interface DistrictInteractionDeps {
   district: DistrictLookup;
   binding: DistrictSceneBinding;
   content: DistrictContent;
+  /**
+   * Arbitrates the cursor across every source on the shared canvas. A direct
+   * `canvas.style.cursor` write would be discarded outright while the custom
+   * cursor is mounted, since that sets `cursor: none` on everything.
+   */
+  cursor: CursorManager;
   groundPlaneHeight: number;
   /** Current camera pose, re-supplied on resize because portrait may override it. */
   getPose: () => CameraPoseConfig;
@@ -52,6 +59,9 @@ export class DistrictInteraction {
   private readonly panel: DistrictPanel;
   private readonly label: DistrictLabel;
 
+  /** Namespaced so one district retracting its hover cannot clear another's. */
+  private readonly cursorKey: string;
+
   private readonly raycaster = new THREE.Raycaster();
   private readonly pickables: THREE.Object3D[];
   private readonly hits: THREE.Intersection[] = [];
@@ -65,6 +75,13 @@ export class DistrictInteraction {
   private pointerClientY = 0;
   private hoverDirty = false;
   private readonly hoverSupported: boolean;
+  /**
+   * Whether this district accepts input. Defaults to true so the interaction is
+   * complete on its own; `MurciaExperience` seeds it from its active flag at
+   * construction, because districts are built during the Earth intro — while
+   * the city is still hidden.
+   */
+  private enabled = true;
 
   /**
    * Pointer sequence that cancelled a flight. Its pointerup must not select or
@@ -74,6 +91,7 @@ export class DistrictInteraction {
 
   constructor(deps: DistrictInteractionDeps) {
     this.deps = deps;
+    this.cursorKey = `district:${deps.content.id}`;
 
     this.highlight = new DistrictHighlight(
       deps.district,
@@ -123,6 +141,29 @@ export class DistrictInteraction {
     return this.highlight.group;
   }
 
+  /**
+   * Input gate, for while another experience is showing.
+   *
+   * These listeners are on the SHARED canvas and the raycast is against this
+   * district's own meshes, so an Earth click landing where the hidden city
+   * happens to be would select a district and fly Murcia's camera. Frozen state
+   * that a stray click can still move is not frozen.
+   *
+   * The listeners are left attached rather than removed: `dispose()` owns
+   * teardown, and attach/detach cycles on every warp would be one more pairing
+   * to get wrong. Panels and flights already in progress are untouched — this
+   * only stops NEW input, exactly as `update()` only stops new frames.
+   */
+  setEnabled(next: boolean): void {
+    this.enabled = next;
+    if (!next) {
+      // Resolved in update(), which is about to stop — a hover held now could
+      // never be retracted.
+      this.hoverDirty = false;
+      this.suppressedPointerId = null;
+    }
+  }
+
   getState(): DistrictInteractionState {
     return this.state;
   }
@@ -160,6 +201,11 @@ export class DistrictInteraction {
     this.highlight.setState('active');
     this.label.setVisible(false);
     this.panel.show(this.deps.content, this.deps.reducedMotion);
+    // `resolveHover` stands down for focusing and open, so a hover held from the
+    // press that got here would never be retracted and the pointing hand would
+    // stay up for as long as the panel is. Released here; `close()` returns to
+    // idle and the next pointer move re-establishes it if it still applies.
+    this.deps.cursor.request(this.cursorKey, '');
 
     // The panel's rectangle is only meaningful once it is laid out, and the
     // framing is computed from that measured rectangle rather than from the
@@ -233,12 +279,12 @@ export class DistrictInteraction {
       this.state = { type: 'hovering', districtId: id };
       this.highlight.setState('hover');
       this.label.setHovered(true);
-      this.deps.canvas.style.cursor = 'pointer';
+      this.deps.cursor.request(this.cursorKey, 'pointer');
     } else if (!hovering && this.state.type === 'hovering') {
       this.state = { type: 'idle' };
       this.highlight.setState('idle');
       this.label.setHovered(false);
-      this.deps.canvas.style.cursor = '';
+      this.deps.cursor.request(this.cursorKey, '');
     }
   }
 
@@ -288,6 +334,7 @@ export class DistrictInteraction {
   // --- Input ----------------------------------------------------------------
 
   private readonly onPointerDownCapture = (event: PointerEvent): void => {
+    if (!this.enabled) return;
     if (!this.flight.isPlaying) return;
     // Any press interrupts. Locking the user out of a one-second animation is
     // the more annoying failure.
@@ -296,6 +343,7 @@ export class DistrictInteraction {
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    if (!this.enabled) return;
     this.pointerClientX = event.clientX;
     this.pointerClientY = event.clientY;
     // Coalesced to one raycast per frame in update(); a pointermove burst must
@@ -304,6 +352,7 @@ export class DistrictInteraction {
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
+    if (!this.enabled) return;
     const suppressed = this.suppressedPointerId === event.pointerId;
     this.suppressedPointerId = null;
     // The press that stopped a flight also produces a pointerup, and the click
@@ -326,6 +375,8 @@ export class DistrictInteraction {
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    // This one is on `window`, so it fires even while Earth owns the screen.
+    if (!this.enabled) return;
     if (event.key !== 'Escape') return;
     if (this.state.type === 'open' || this.state.type === 'focusing') this.close();
   };
@@ -337,7 +388,7 @@ export class DistrictInteraction {
     canvas.removeEventListener('pointerup', this.onPointerUp);
     canvas.removeEventListener('pointercancel', this.onPointerCancel);
     window.removeEventListener('keydown', this.onKeyDown);
-    canvas.style.cursor = '';
+    this.deps.cursor.request(this.cursorKey, '');
 
     if (this.flight.isPlaying) this.flight.cancel();
     this.panel.dispose();

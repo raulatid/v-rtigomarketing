@@ -1,6 +1,8 @@
 import { ComponentProps, lazy, Suspense, useEffect, useState } from 'react'
 import type { SceneCanvas } from './SceneCanvas'
 import { loadProgress } from '../loading/progress'
+import { SceneErrorBoundary } from './SceneErrorBoundary'
+import { isWebGLAvailable } from '../graphics/webglSupport'
 
 // Everything that touches three.js lives behind this import — it is the single
 // seam that keeps ~1.2MB out of the entry chunk (plan 006 §5.1).
@@ -40,10 +42,29 @@ export function LazyScene(props: Props) {
     return () => cancelAnimationFrame(raf)
   }, [])
 
+  // Asked once, before the chunk is even armed: on a device with no WebGL there
+  // is nothing to download. Without this the visitor waits for 1.2MB of three.js
+  // only to be told it cannot run.
+  const [supported] = useState(isWebGLAvailable)
+
+  useEffect(() => {
+    if (supported) return
+    loadProgress.markFatal(
+      'chunk:scene',
+      'WebGL 2 is unavailable in this browser',
+    )
+  }, [supported])
+
+  if (!supported) return null
   if (!armed) return null
   return (
-    <Suspense fallback={null}>
-      <SceneCanvasLazy {...props} />
-    </Suspense>
+    // Outside Suspense, so it also catches the re-thrown chunk-load rejection
+    // above — and outside the Canvas, because a refused WebGL context throws
+    // while <Canvas> itself renders, in the DOM tree rather than the R3F one.
+    <SceneErrorBoundary>
+      <Suspense fallback={null}>
+        <SceneCanvasLazy {...props} />
+      </Suspense>
+    </SceneErrorBoundary>
   )
 }

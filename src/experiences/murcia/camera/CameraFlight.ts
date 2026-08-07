@@ -37,9 +37,9 @@ export interface CameraFlightEvents {
  *
  * Distance, elevation and FOV are deliberately untouched. Those are what set the
  * ground footprint, and the terrain skirt width is sized against a measured
- * footprint at a specific pose (PROJECT_MEMORY sections 7 and 10.6) — changing
- * them here would put the plate edge on screen for wide viewports without any
- * error to say so.
+ * footprint at a specific pose (PROJECT_MEMORY, "The number that can hurt
+ * you") — changing them here would put the plate edge on screen for wide
+ * viewports without any error to say so.
  *
  * ## Sole ownership of the rig
  *

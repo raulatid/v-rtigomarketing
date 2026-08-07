@@ -4,7 +4,7 @@
  * Deliberately free of three.js, world coordinates and Blender identifiers: this
  * is copy, and it is the shape a CMS would later provide. Everything that binds
  * a district to the asset or to a camera decision lives in
- * `src/scene/cityDistrictBindings.ts` instead.
+ * `../scene/cityDistrictBindings.ts` instead.
  *
  * Keeping the two apart matters because they change for unrelated reasons — copy
  * changes when marketing changes, bindings change when the GLB is re-exported.
@@ -45,10 +45,8 @@ export interface DistrictContent {
  * PLACEHOLDER COPY — written to give the layout realistic text lengths to be
  * judged against, not to ship. Vertigo Marketing replaces everything below.
  *
- * Note the bodies are English while `label` is Spanish, matching the Blender
- * naming. That inconsistency is deliberate only in the sense that it was
- * inherited; it should be settled one way or the other before this is seen by
- * anyone outside the team.
+ * Spanish, including the bodies, per DECISIONS §11: placeholder content is
+ * Spanish placeholder content, not English awaiting translation.
  */
 export const districtContent: readonly DistrictContent[] = [
   {

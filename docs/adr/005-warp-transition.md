@@ -31,9 +31,9 @@ nothing about each other (`ARCHITECTURE` §13).
 units per unit of distance, and the measured worst-case terrain-skirt margin is **+50 units
 at 5120×1440** (16:9 has +229, portrait +306). Distance ≈200 therefore puts the plate edge
 on screen for ultrawide viewers, silently, with nothing wrong on a normal monitor.
-`PROJECT_MEMORY` §10.6 records that exact regression happening once already. FOV is
-likewise fixed: at fov 50 the effective pitch drops through the ~28° floor where the bounds
-maths degenerates (§5).
+`PROJECT_MEMORY`, *The number that can hurt you*, records that exact regression happening
+once already, and carries the floor that follows: FOV is likewise fixed, because at fov 50
+the effective pitch drops through the ~28° point at which the bounds maths degenerates.
 
 Dollying **in** is safe only down to ≈60; below that the fixed `lookAtHeight` tilts the
 camera up and the footprint widens again.

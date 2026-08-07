@@ -16,11 +16,22 @@ import type { CornerLogo } from './corner-logo/createCornerLogo'
 import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 import { useExperienceTransition } from './app/useExperienceTransition'
+import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
 
 // The debug panel lives on its own path (/debug) so the main site can be
 // reviewed clean; open http://localhost:5173/debug during development to tune.
 // Read once — navigating between the two is a full page load anyway.
-const DEBUG_MODE = window.location.pathname.replace(/\/+$/, '') === '/debug'
+//
+// AND never in production. `vercel.json` rewrites /debug to the app, so without
+// the build-time flag this 210-line tuning console was a live, unlisted page on
+// the public marketing site. Preview deployments keep it, which is where it is
+// actually wanted: real hardware, real network, nobody watching.
+//
+// The flag is a compile-time literal, so in a production build this is `false &&
+// ...` and the whole DebugOverlay import is dropped by the minifier — which the
+// app entry chunk needs, sitting at 94% of its hard budget.
+const DEBUG_MODE =
+  DEBUG_TOOLS_ENABLED && window.location.pathname.replace(/\/+$/, '') === '/debug'
 
 export default function App() {
   const [config, setConfig] = useState<IntroConfig>(defaultIntroConfig)
@@ -226,17 +237,19 @@ export default function App() {
         ready={phase === 'site' && earthActive}
       />
 
-      {/* Earth's cursor treatment only. Murcia writes its own cursors through
-          DragPanController and DistrictInteraction, and two writers would
-          fight over the same property. */}
-      {earthActive && <CustomCursor />}
+      {/* Mounted for both experiences, and never gated on one: unmounting it
+          strips the `cursor: none` rule it installs, which hands the viewer the
+          native arrow back mid-session. The two experiences cannot fight over
+          the cursor because neither writes it directly — each owns a cursor
+          manager whose arbitrated result arrives here through cursorSignal. */}
+      <CustomCursor />
 
       {/* The way INTO Murcia is the marker on Spain, not a button — see
           handleSelectDestination. Nothing is rendered here for it.
 
-          A click, never scroll (murcia PROJECT_MEMORY §2.1): touch has no
-          wheel, single-finger drag is committed to navigation, and an
-          accidental scroll must never warp the viewer to another world. */}
+          A click, never scroll (DECISIONS §15): touch has no wheel,
+          single-finger drag is committed to navigation, and an accidental
+          scroll must never warp the viewer to another world. */}
 
       {/* The way OUT is a placeholder, deliberately isolated so it can be
           replaced without touching anything else. See ReturnToEarthControl. */}

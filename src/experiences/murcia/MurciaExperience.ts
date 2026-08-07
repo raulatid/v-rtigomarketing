@@ -15,6 +15,7 @@ import type { AssetLoader } from './assets/createAssetLoader';
 import { loadCity, disposeLoadedCity } from './assets/loadCity';
 import type { LoadedCity } from './assets/loadCity';
 import { CameraRig } from './camera/CameraRig';
+import { murciaWarpPose } from './camera/warpPose';
 import { DragPanController } from './navigation/DragPanController';
 import { computeGroundFootprint, computeEffectiveBounds } from './navigation/viewportFootprint';
 import type { GroundFootprint } from './navigation/viewportFootprint';
@@ -28,6 +29,8 @@ import { DistrictInteraction } from './interaction/DistrictInteraction';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { findDistrictContent } from './content/districts';
 import { StatusOverlay, ControlsHint } from './ui/overlays';
+import { createCursorManager } from '../../interaction/cursorManager';
+import type { CursorManager } from '../../interaction/cursorManager';
 
 /**
  * Lifecycle coordinator for the Murcia environment.
@@ -37,8 +40,8 @@ import { StatusOverlay, ControlsHint } from './ui/overlays';
  * own (creating a renderer, running a rAF loop, observing the container for
  * resizes) now belong to the application: R3F owns the one renderer, the one
  * frame loop and the canvas size, and RenderPipeline owns the render call
- * (ADR 001). What remains is exactly what PROJECT_MEMORY §2.2 predicted would
- * remain — "a move rather than a rewrite".
+ * (ADR 001). What remains is exactly what the Murcia prototype's own memory
+ * predicted would remain — "a move rather than a rewrite" (DECISIONS §1).
  *
  * It owns its OWN THREE.Scene, deliberately not shared with Earth: a hidden
  * root still participates in raycasts, Box3.setFromObject and traversals, and
@@ -53,6 +56,8 @@ export class MurciaExperience {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly appConfig: AppConfig;
   private readonly environment: EnvironmentConfig;
+  /** False on a production build — see the constructor. */
+  private readonly debugTools: boolean;
 
   private sceneBundle!: SceneBundle;
   private camera!: THREE.PerspectiveCamera;
@@ -72,11 +77,21 @@ export class MurciaExperience {
   private suspendedController = false;
   private onLoadProgress: ((fraction: number) => void) | undefined;
   private loadFailed = true;
-  /** 0 at the resting pose, 1 at the warp closest approach. */
-  private dollyAmount = 0;
+  /** 0 at the resting pose, 1 at the warp's extreme — which end depends on the role. */
+  private warpAmount = 0;
+  /** True while this city is the one being LEFT, which is the rising leg. */
+  private warpDeparting = false;
 
   private readonly statusOverlay: StatusOverlay;
   private readonly controlsHint: ControlsHint;
+
+  /**
+   * This environment's cursor sources — district hovers and the drag — resolved
+   * to a single state. The canvas is shared with Earth, which owns a manager of
+   * its own; they never overlap because each clears its requests when it goes
+   * inactive.
+   */
+  private readonly cursor: CursorManager;
 
   private viewport: ViewportSize = { width: 1, height: 1, aspect: 1 };
   private plateBounds: BoundsRect | null = null;
@@ -91,19 +106,41 @@ export class MurciaExperience {
 
   private readonly ndc = new THREE.Vector2();
 
-  constructor(container: HTMLElement, renderer: THREE.WebGLRenderer) {
+  /**
+   * `debugTools` gates every developer affordance: the query-parameter
+   * overrides, the FPS meter, the F3 panel, the bounds wireframe and the
+   * diagnostic logging. It is passed in rather than read here because
+   * src/experiences may not depend upward on the shell, and because the
+   * `checks/` harnesses bundle these modules for Node where `import.meta.env`
+   * does not exist (see scene/cityDistrictBindings.ts).
+   */
+  constructor(
+    container: HTMLElement,
+    renderer: THREE.WebGLRenderer,
+    options: { debugTools?: boolean } = {},
+  ) {
     this.container = container;
     this.renderer = renderer;
-    this.appConfig = applyQueryOverrides(createAppConfig(), window.location.search);
+    this.debugTools = options.debugTools ?? false;
+    this.appConfig = applyQueryOverrides(
+      createAppConfig(),
+      window.location.search,
+      this.debugTools,
+    );
 
     const environment = this.appConfig.modelPathOverride
       ? { ...murciaConfig, modelPath: this.appConfig.modelPathOverride }
       : murciaConfig;
     // Applied after the model override so the two compose.
-    this.environment = applyNavigationQueryOverrides(environment, window.location.search);
+    this.environment = applyNavigationQueryOverrides(
+      environment,
+      window.location.search,
+      this.debugTools,
+    );
 
     this.statusOverlay = new StatusOverlay(container);
     this.controlsHint = new ControlsHint(container);
+    this.cursor = createCursorManager(renderer.domElement);
   }
 
   /**
@@ -172,10 +209,11 @@ export class MurciaExperience {
    *    `compileAsync(scene, camera, targetScene = null)`, and it works on a
    *    scene that is not R3F's default one.
    * 2. Geometry attribute buffers, which three uploads lazily on first draw
-   *    and which compileAsync does NOT cover (PROJECT_MEMORY §2.4). Forced
-   *    here with one render into a 1x1 target — the smallest draw that still
-   *    walks the whole visible graph. 957 GPU-instanced buildings' buffers
-   *    landing on the transition frame is exactly the hitch this avoids.
+   *    and which compileAsync does NOT cover (PROJECT_MEMORY, "Loading").
+   *    Forced here with one render into a 1x1 target — the smallest draw that
+   *    still walks the whole visible graph. 957 GPU-instanced buildings'
+   *    buffers landing on the transition frame is exactly the hitch this
+   *    avoids.
    *
    * The tiny target is used rather than a real render so nothing reaches the
    * canvas: at this point Earth is still on screen.
@@ -197,42 +235,60 @@ export class MurciaExperience {
   }
 
   /**
-   * The warp dolly: 0 is the resting pose, 1 is the closest approach.
+   * The warp pose: 0 is rest, 1 is the extreme reached at the cut. Which
+   * extreme depends on `departing` — the two legs are not mirror images.
    *
-   * Distance ONLY. Elevation and FOV are untouched for the same reason
-   * `CameraFlight` leaves them alone — they set the ground footprint, and the
-   * terrain skirt is sized against a measured footprint at a specific pose
-   * (PROJECT_MEMORY 7 and 10.6).
+   *   arriving  — distance falls to `warpCloseDistance` and back. Elevation and
+   *               FOV are untouched, for the same reason `CameraFlight` leaves
+   *               them alone: they set the ground footprint, and the terrain
+   *               skirt is sized against a measured footprint at a specific
+   *               pose (PROJECT_MEMORY, "The number that can hurt you").
+   *   departing — the camera RISES. Murcia is inside the Earth, so leaving it
+   *               has to recede, and distance alone cannot buy that: pulling
+   *               back widens the footprint at ~1.33 units per unit of distance
+   *               against a worst-case skirt margin of +50 at 5120x1440.
+   *               Steepening the elevation shrinks the footprint faster than
+   *               the extra distance grows it, so the rising pose reaches less
+   *               far than rest does (ADR 006).
    *
-   * Direction matters: the camera may move IN from the resting distance and
-   * back out to it, never past it. Pulling back widens the footprint at about
-   * 1.33 world units per unit of distance against a measured worst-case skirt
-   * margin of +50 units at 5120x1440 — so it would put the plate edge on screen
-   * for ultrawide viewers only, silently. `checks/warp-transition.ts` asserts
-   * the curve never leaves the safe band; this method does not re-check it.
+   * FOV is untouched on both legs. `checks/warp-transition.ts` asserts the
+   * footprint invariant against the real placement maths; this method does not
+   * re-check it.
    *
-   * No external control is taken. This owns distance; `DragPanController` owns
-   * focus and yaw, and `setFocus`/`setYaw` re-apply whatever pose is current, so
-   * the two compose. Taking `beginExternalControl()` would collide with
-   * `setActive(true)` firing at the cut, which releases it — and the flag is
-   * shared with every district flight besides.
+   * No external control is taken. This owns distance and elevation;
+   * `DragPanController` owns focus and yaw, and `setFocus`/`setYaw` re-apply
+   * whatever pose is current, so the two compose. Taking
+   * `beginExternalControl()` would collide with `setActive(true)` firing at the
+   * cut, which releases it — and the flag is shared with every district flight
+   * besides.
    */
-  setDollyProgress(amount: number): void {
+  setWarpPose(amount: number, departing: boolean): void {
     if (!this.rig) return;
-    this.dollyAmount = amount;
-    this.applyDollyPose();
+    this.warpAmount = amount;
+    this.warpDeparting = departing;
+    this.applyWarpPose();
   }
 
-  private applyDollyPose(): void {
+  private applyWarpPose(): void {
     if (!this.rig) return;
+    // Rest comes from the viewport-resolved pose so portrait overrides survive
+    // the warp; the far ends are environment data.
     const base = resolveCameraPose(this.environment, this.viewport.aspect);
-    const distance =
-      base.distance +
-      (this.environment.warpCloseDistance - base.distance) * this.dollyAmount;
+    const pose = murciaWarpPose(
+      {
+        restDistance: base.distance,
+        restElevation: base.elevationDegrees,
+        closeDistance: this.environment.warpCloseDistance,
+        departDistance: this.environment.warpDepartDistance,
+        departElevation: this.environment.warpDepartElevationDegrees,
+      },
+      this.warpAmount,
+      this.warpDeparting,
+    );
     // A FRESH object every time. `rig.getPose()` hands back `murciaConfig.camera`
     // by identity, so mutating it would corrupt the environment config for the
     // rest of the session.
-    this.rig.setPose({ ...base, distance });
+    this.rig.setPose({ ...base, ...pose });
   }
 
   /** The scene RenderPipeline draws when this experience is showing. */
@@ -253,6 +309,13 @@ export class MurciaExperience {
     if (this.active === next) return;
     this.active = next;
 
+    // Frame work was always gated; INPUT was not. Both district interaction and
+    // the click probe listen on the SHARED canvas, so while Earth was showing,
+    // every click on the globe raycast the hidden city — and a district hit flew
+    // Murcia's camera, so you warped into a city that had moved behind your
+    // back. Frozen has to mean deaf as well as still.
+    for (const district of this.districts) district.setEnabled(next);
+
     // The drag controller listens on the SHARED canvas, so while Earth is
     // showing, every Earth drag also reaches it — its target focus and yaw
     // would drift and the city would jump on return.
@@ -266,6 +329,13 @@ export class MurciaExperience {
     // Guarded on who already holds control: a district flight in progress owns
     // it, and releasing on its behalf would strand it mid-flight.
     if (!next) {
+      // Hovers are resolved in update(), which stops here, so anything held at
+      // this moment could never be retracted — it would keep the pointing hand
+      // up for the whole time Earth is showing. Nothing is restored on the way
+      // back in: the next pointer move resolves the hover against wherever the
+      // pointer actually is by then.
+      this.cursor.clear();
+
       if (this.controller && !this.controller.isExternallyControlled) {
         this.controller.beginExternalControl();
         this.suspendedController = true;
@@ -361,6 +431,8 @@ export class MurciaExperience {
         // area changes continuously. Four ray/plane intersections per changed
         // frame; measurably nothing next to the render.
         onYawChanged: () => this.recomputeBounds(),
+        onDragStateChanged: (dragging) =>
+          this.cursor.request('drag', dragging ? 'grabbing' : ''),
       },
     );
 
@@ -376,7 +448,9 @@ export class MurciaExperience {
 
     this.interactionProbe = new InteractionProbe(this.camera);
     const interactiveCount = this.interactionProbe.collectFrom(loaded.root);
-    console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);
+    if (this.debugTools) {
+      console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);
+    }
 
     this.setupDistricts(loaded.root);
 
@@ -390,7 +464,8 @@ export class MurciaExperience {
    * A district that cannot be located is skipped entirely rather than
    * half-initialised: highlighting, picking, flight and UI against an empty mesh
    * list would give an affordance that does nothing, which is the silent
-   * degradation this project has been bitten by before (PROJECT_MEMORY 4.2).
+   * degradation this project has been bitten by before (PROJECT_MEMORY,
+   * "Things that will bite you again").
    */
   private setupDistricts(root: THREE.Object3D): void {
     if (!this.rig || !this.controller) return;
@@ -406,13 +481,18 @@ export class MurciaExperience {
       }
 
       const lookup = resolveDistrict(root, binding);
-      console.groupCollapsed(`[district] ${binding.contentId}`);
-      console.info(`source   ${lookup.source}`);
-      console.info(`meshes   ${lookup.meshes.length}`);
-      if (lookup.warnings.length > 0) {
-        console.warn('- ' + lookup.warnings.join('\n- '));
+      if (this.debugTools) {
+        console.groupCollapsed(`[district] ${binding.contentId}`);
+        console.info(`source   ${lookup.source}`);
+        console.info(`meshes   ${lookup.meshes.length}`);
+        console.groupEnd();
       }
-      console.groupEnd();
+      // Outside the gate: a district resolving with warnings is a real problem
+      // with the asset, and the next person to hit it should see it wherever
+      // they are.
+      if (lookup.warnings.length > 0) {
+        console.warn(`[district] ${binding.contentId}:\n- ` + lookup.warnings.join('\n- '));
+      }
 
       if (lookup.source === 'not-found' || lookup.meshes.length === 0) {
         console.error(
@@ -431,6 +511,7 @@ export class MurciaExperience {
         district: lookup,
         binding,
         content,
+        cursor: this.cursor,
         groundPlaneHeight: this.environment.navigation.groundPlaneHeight,
         getPose: () => resolveCameraPose(this.environment, this.viewport.aspect),
         getAspect: () => this.viewport.aspect,
@@ -440,6 +521,11 @@ export class MurciaExperience {
         },
         reducedMotion,
       });
+
+      // Seeded, not assumed: districts are built during the Earth intro (ADR
+      // 004 prefetches the city), so at this point `active` is normally false
+      // and setActive() will not fire again to correct it.
+      interaction.setEnabled(this.active);
 
       this.sceneBundle.scene.add(interaction.object3D);
       this.districts.push(interaction);
@@ -467,9 +553,9 @@ export class MurciaExperience {
       // Re-resolving the pose covers the portrait-override case; it is a few
       // trig calls and a projection-matrix update, so it is not worth guarding.
       this.rig.setAspect(size.aspect);
-      // Through applyDollyPose, not setPose directly: a resize mid-warp would
-      // otherwise snap the distance back to rest and fight the dolly.
-      this.applyDollyPose();
+      // Through applyWarpPose, not setPose directly: a resize mid-warp would
+      // otherwise snap the pose back to rest and fight the warp.
+      this.applyWarpPose();
       // The footprint depends on aspect and pose, so it must be recomputed here
       // — and only here, plus on pose change. It is independent of the focus
       // position, because the camera sits at a fixed offset from it.
@@ -507,6 +593,7 @@ export class MurciaExperience {
    * navigation.
    */
   private logNavigationDiagnostics(): void {
+    if (!this.debugTools) return;
     if (!this.effectiveBounds || !this.configuredBounds || !this.visualBounds) return;
     const eff = this.effectiveBounds;
     const plate = this.plateBounds;
@@ -548,6 +635,9 @@ export class MurciaExperience {
    * exceeded, so panning the city never selects a building.
    */
   private readonly onPointerUpForClick = (event: PointerEvent): void => {
+    // The canvas is shared with Earth, so without this every click on the globe
+    // raycasts the city standing behind it.
+    if (!this.active) return;
     if (event.button !== 0) return;
     if (this.controller?.isDragging) return;
 
@@ -592,7 +682,15 @@ export class MurciaExperience {
     this.sceneBundle.scene.add(this.boundsHelper);
   }
 
+  // The three log* methods below are DIAGNOSTICS, not error reporting: together
+  // they printed a mesh/material table, the model's bounding box and eight lines
+  // of bounds rectangles into the console of every visitor, on every page load.
+  // Correct for the standalone prototype, where the page WAS the diagnostic;
+  // wrong for a marketing site. Real failures still log unconditionally —
+  // console.error and console.warn are untouched throughout this file.
+
   private logReport(): void {
+    if (!this.debugTools) return;
     if (!this.loaded) return;
     const r = this.loaded.report;
     console.groupCollapsed('[murcia] asset report');
@@ -615,6 +713,7 @@ export class MurciaExperience {
   }
 
   private logBounds(box: THREE.Box3): void {
+    if (!this.debugTools) return;
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
     box.getSize(size);
@@ -689,6 +788,8 @@ export class MurciaExperience {
 
     this.controller?.dispose();
     this.controller = null;
+
+    this.cursor.dispose();
 
     this.debugOverlay?.dispose();
     this.debugOverlay = null;

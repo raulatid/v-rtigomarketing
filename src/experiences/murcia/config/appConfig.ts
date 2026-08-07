@@ -63,8 +63,22 @@ export function createAppConfig(): AppConfig {
  * code. Returns a new object rather than mutating a shared singleton.
  *
  * Examples: ?debugNavigation=1  ?grid=1  ?stats=1  ?debug=1  ?model=/models/x.glb
+ *
+ * `enabled` is passed in rather than read from `import.meta.env` here, for the
+ * reason documented in scene/cityDistrictBindings.ts: the `checks/` harnesses
+ * bundle this module for Node with esbuild, where `import.meta.env` does not
+ * exist. The shell decides; this only applies the decision.
+ *
+ * When disabled, EVERY parameter is ignored — including `?model=`. On a public
+ * production site none of these should be reachable by anyone with a link.
  */
-export function applyQueryOverrides(base: AppConfig, search: string): AppConfig {
+export function applyQueryOverrides(
+  base: AppConfig,
+  search: string,
+  enabled: boolean,
+): AppConfig {
+  if (!enabled) return { ...base };
+
   const params = new URLSearchParams(search);
   const next: AppConfig = { ...base };
 

@@ -22,11 +22,12 @@ what it rules out, and how you would know it had been broken.
 |---|---|
 | **`DECISIONS.md`** (this file) | The binding decisions, and the current state of each. The first thing to read. |
 | `adr/` | One file per architectural decision, with alternatives and trade-offs in full. Linked from here; not duplicated here. |
-| `PROJECT_MEMORY.md` | Durable facts: what exists, the numbers that keep mattering, the traps. |
+| `PROJECT_MEMORY.md` | Durable facts: what exists, the numbers that keep mattering, the traps. **The only one** — Murcia's separate memory was folded into it on 2026-08-07. Cite its sections by title, never by number. |
 | `integration/00-migration-log.md` | The execution record, phase by phase. History, not policy. |
 | `ARCHITECTURE.md` | The architecture as it should be. Binding. |
 | `ENGINEERING_PRINCIPLES.md` | How to work in this repo. Binding. |
-| `earth/DECISIONS.md`, `murcia/PROJECT_MEMORY.md` | **Inherited** from the two source prototypes. Still authoritative for behaviour inside their own experience. Where they conflict with this file, this file wins, and the entry below says so. |
+| `earth/DECISIONS.md` | **Inherited** from the Earth prototype. Still authoritative for behaviour inside that experience. Where it conflicts with this file, this file wins, and the entry below says so. |
+| `murcia/blender-export-contract.md` | What the runtime reads out of the GLB and what must be true in the `.blend`. Read before any re-export. |
 
 ### How to update it
 
@@ -80,15 +81,15 @@ outside `RenderPipeline`.
 **Decided.** Earth and Murcia each own a `THREE.Scene`. The transition swaps which one the
 pipeline draws.
 
-**Supersedes** `murcia/PROJECT_MEMORY.md` §2.2, which mandated a single shared Scene. That
-was written when "the other environment" meant another *city*, not a React-reconciled R3F
-scene. Its renderer/canvas/loop clauses are honoured exactly; only the one-Scene clause is
-overridden.
+**Supersedes** the Murcia prototype's one-Scene rule, which mandated a single shared Scene.
+That was written when "the other environment" meant another *city*, not a React-reconciled
+R3F scene. Its renderer/canvas/loop clauses are honoured exactly; only the one-Scene clause
+is overridden.
 
 **Why.** A shared Scene breaks on Murcia's own documented rules: a detached-but-present root
-is still walked by raycasts, `Box3.setFromObject` and `traverse` (§2.4), and lights and fog
-are Scene-global (§2.3) — Earth's two lights and Murcia's two would cross-light each other's
-world permanently.
+is still walked by raycasts, `Box3.setFromObject` and `traverse`, and lights and fog are
+Scene-global — Earth's two lights and Murcia's two would cross-light each other's world
+permanently.
 
 ---
 
@@ -140,23 +141,38 @@ one scene is ever drawn, so there is no frame that renders both worlds.
 
 ---
 
-## 7. The Earth ⇄ Murcia transition is the intro's warp, as a dolly
+## 7. The Earth ⇄ Murcia transition is the intro's warp, and it knows which way it is going
 
-→ **`adr/005-warp-transition.md`**
+→ **`adr/005-warp-transition.md`**, amended by **`adr/006-the-return-is-an-ascent.md`**
 
 **Decided.** One progress value read through the intro's three curves with their nested
 widths — position full, speed ±0.34, flash ±0.17 — rather than a second motion vocabulary.
-The departing world dollies in and accelerates; the cut lands under the closest, most
-covered frame; the arriving world pulls back out.
+The cut lands under the most extreme, most covered frame.
 
-**The shape was forced, not chosen.** Murcia's camera may never pull back past distance
-**165** (see PROJECT_MEMORY, *The number that can hurt you*). So the arrival cannot come
-from far away — it must start close and pull back. That *is* the dolly-out.
+**The envelope is not a direction.** It rises for the world being left and falls for the
+world being entered, and says nothing about which way either of them moves. Each world maps
+it onto its own departing and arriving poses:
 
-**Ruled out.** Any Murcia camera distance above 165, at any point, even for a frame. Any FOV
-increase on Murcia. Both spend a skirt margin that was measured, not estimated.
+| | Earth → Murcia | Murcia → Earth |
+|---|---|---|
+| Earth | radius ×1 → ×0.25, plunging in | radius ×0.25 → ×1, receding |
+| Murcia | 75 → 165, settling back | **165 → 180 while rising 30° → 50°** |
 
-**How you would know it broke.** `npm run check:warp` fails.
+**Descending is not ascending.** One mapping used to serve both roles, so the world being
+left always rushed *in*. Right going down into Murcia; wrong coming back, because Murcia is
+inside the Earth — it drove the camera forward through the city and then cut to a globe.
+
+**The return had to be bought with elevation.** Both obvious ways to make a city look
+smaller — more distance, wider FOV — widen its ground footprint, which is the one thing the
+skirt cannot absorb. Steepening the pitch shrinks it instead, faster than the extra distance
+grows it, so the risen pose reaches *less* far than rest.
+
+**Ruled out.** Any Murcia pose that reaches further across the ground than the resting pose
+does. That, not a distance, is the constraint — 180 @ 50° is safe and 200 @ 30° is not, and
+no distance bound tells them apart.
+
+**How you would know it broke.** `npm run check:warp` fails — §6 runs the real
+`computeGroundFootprint` over 19 296 poses, including 5120×1440.
 
 ---
 
@@ -181,8 +197,9 @@ the source project removed `OrbitControls` to avoid.
 deactivated — `activate()` reseeds from the overview pose and would discard the viewer's
 position) → `CameraController` drives the dolly → hands back.
 
-On the Murcia side the dolly owns `distance` only; `DragPanController` owns focus and yaw.
-They compose without either taking external control.
+On the Murcia side the warp owns `distance` and `elevationDegrees`; `DragPanController` owns
+focus and yaw. They compose without either taking external control, because `setFocus` and
+`setYaw` re-apply whatever pose is current rather than re-deriving one from config.
 
 ---
 
@@ -207,8 +224,8 @@ false.
 **Decided.** All user-facing copy is Spanish. Placeholder content is Spanish placeholder
 content, not English awaiting translation.
 
-**Exempt:** the `?debug=1` overlay's field labels, which are a developer tool and are
-referenced by name in `murcia/PROJECT_MEMORY.md`.
+**Exempt:** the `?debug=1` overlay's field labels. They are a developer tool, never shown to
+a visitor, and their names are how the fields are talked about in the docs.
 
 ---
 
@@ -238,10 +255,124 @@ PROJECT_MEMORY, *Known debt*: Vite is pinned at 5, and `noUncheckedIndexedAccess
 
 ---
 
+## 14. The custom cursor is global, so every hover source must publish a hint
+
+**Decided 2026-08-07.** `CustomCursor` mounts once for the whole session. It is not gated on
+the active experience. Every source that wants to change the cursor goes through a
+`CursorManager`, and each experience owns one.
+
+**Reverses** the P4 gate `{earthActive && <CustomCursor />}`, recorded in
+`integration/00-migration-log.md` under "Earth UI gated on `earthActive`".
+
+**Why the gate was wrong.** Mounting installs `cursor: none` on `<html>`; unmounting strips
+it. So entering Murcia did not merely leave the hand behind, it handed the viewer the native
+arrow back mid-session — the one outcome the custom cursor exists to prevent. The stated
+reason, that two writers would fight over the property, could not happen: `cursor: none` is
+`!important`, so Murcia's native writes were being discarded, not competing.
+
+**What makes it safe now.** A native `style.cursor` write is invisible while the cursor is
+mounted, so it cannot be the mechanism. `cursorSignal` is. Murcia's district hovers and drag
+publish through a manager of its own; Earth's geo markers, which had never been converted
+despite `earth/DECISIONS.md` saying otherwise, now share the manager `InteractionLayer`
+creates. The native write survives underneath as the coarse-pointer fallback.
+
+**Two managers, not one, and not one per source.** One arbiter per element is the whole
+point — a second arbiter on the same canvas restores the last-writer-wins flip-flop the
+manager was built to remove, which is why the geo markers borrow Earth's rather than making
+their own. Earth and Murcia are the exception: they are never live at the same time, and each
+needs to drop *its own* whole set of requests on going inactive. Hovers are resolved in
+`update()`, which stops when an experience deactivates, so anything held at the cut could
+never be retracted.
+
+**How you would know it broke.** Enter Murcia and the pointer becomes an OS arrow. Or: hover
+a district, open it, and the pointing hand stays up under the panel. Or: return to Earth with
+a district hovered and the hand never relaxes.
+
+---
+
+## 15. The warp is triggered by a control, never by scroll
+
+**Inherited and upheld** — decided in the Murcia prototype before either direction of the
+warp existed, and recorded here because its own memory has since been folded into
+`PROJECT_MEMORY.md` and this is the only reasoning in it that is a *decision* rather than a
+fact.
+
+**Decided.** Entering Murcia is a click on the Spain marker; leaving it is a button. Neither
+direction is ever driven by wheel, trackpad or scroll position.
+
+**Why.**
+
+- **Touch has no `wheel` event**, and single-finger drag is committed to navigation, so a
+  tappable control has to exist regardless. Scroll could only ever be a desktop-only alias
+  for it.
+- Mouse wheel and trackpad produce incomparable event streams — discrete notches against a
+  continuous stream with post-release momentum.
+- An accidental scroll would warp the viewer into another world.
+- The page is `overflow: hidden` with a full-viewport canvas, so nothing signals that scroll
+  does anything; an affordance has to be drawn anyway.
+- A `<button>` gets keyboard access, focus and an accessible name for free.
+
+**Consequence already in the code.** `DragPanController` registers a non-passive `wheel`
+listener purely to `preventDefault` it. Wheel is actively suppressed, not merely unbound.
+
+**Ruled out.** Layering a discrete scroll trigger on top of the control later. It would keep
+the accidental-trigger risk and add nothing. A scroll-driven warp, if ever wanted, is
+continuous scrubbing — a different and much larger feature.
+
+---
+
+## 16. Production and preview are different builds, and the difference is one flag
+
+→ **`audits/production-readiness-vercel.md`**, **`adr/007-loading-has-a-deadline.md`**
+
+**Decided 2026-08-07**, during the production-readiness audit.
+
+**Decided.** `src/app/buildFlags.ts` exports `DEBUG_TOOLS_ENABLED`, false only when
+`VERCEL_ENV === 'production'`. It gates the `/debug` tuning console, every query-parameter
+override (`?stats=1`, `?debugNavigation=1`, `?dragGain=`, `?model=` …) and all diagnostic
+logging. Local development and every Preview deployment keep the lot.
+
+**Why not simply delete them.** They are how this project is tuned, and a preview deployment
+— real hardware, real network, noindexed, unlisted — is exactly where you want the FPS meter
+and the bounds wireframe. What was wrong was not their existence but their reach: `/debug`
+was a live unlisted page on the public origin, and 26 `console.info`/`table` calls dumped
+plate geometry into every visitor's console on every load.
+
+**The flag is threaded as a parameter into `src/experiences/**`, never imported there.** Two
+independent reasons, both already established: `src/experiences` may not depend upward on
+`src/app` (§8, `ARCHITECTURE` §13), and `checks/` bundles those modules for Node with
+esbuild, where `import.meta.env` does not exist (`scene/cityDistrictBindings.ts`).
+
+**It is a compile-time literal**, injected by `vite.config.ts` via `define`, so the debug
+panel is unreachable code the minifier removes. That is not incidental — the app entry chunk
+sits against a hard 320,000 B budget that *fails* the build, and dropping the panel bought
+back 4.3 KB.
+
+**The same switch decides the SEO surface.** `robots.txt` and `sitemap.xml` are generated at
+build time, not committed: production allows crawling, **preview serves `Disallow: /` and a
+`noindex` meta**. Canonical and `og:url` come from `VERCEL_PROJECT_PRODUCTION_URL`, so a
+preview names production rather than itself and never competes with it in the index.
+
+**Ruled out.** Committing a static `robots.txt` — it cannot vary by environment, and the
+failure mode (previews indexed as duplicate sites) is slow and awkward to undo. Reading
+`import.meta.env` inside `src/experiences`. Gating on hostname at runtime, which would ship
+the panel and rely on a string comparison to hide it.
+
+**How you would know it broke.** `curl <preview>/robots.txt` returns `Allow: /`. Or `/debug`
+renders the tuning panel on the production domain. Or the console is not silent on load.
+
+**Depends on Vercel system environment variables being enabled** in project settings. Without
+them every build looks like `development`: the debug console ships and production says
+`Disallow: /`. That is the one deployment setting this repo genuinely requires.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** |
+| `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** |
 | The 3D logo gets its own renderer | `earth/DECISIONS.md:256` | Overlay pass on the shared renderer — **§2**, `adr/002` |
-| One `THREE.Scene`, two environments | `murcia/PROJECT_MEMORY.md` §2.2 | Two Scenes — **§3**, `adr/001` |
+| One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` |
 | Murcia always bypasses the composer | `adr/001` | Bypasses it *except during a warp* — **§7**, `adr/005` |

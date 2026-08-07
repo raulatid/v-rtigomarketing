@@ -155,8 +155,102 @@ function introEntry(): Plugin {
   }
 }
 
+// Where this build is going, decided here and nowhere else.
+//
+// VERCEL_ENV is 'production' | 'preview' | 'development' and is available at
+// BUILD time (Vercel: System environment variables). Vite projects get the
+// VITE_-prefixed copy, so both are read — the unprefixed one is what a `vercel
+// build` locally provides, the prefixed one is what the docs promise for Vite.
+// Anything else, including a plain `npm run build` on a laptop, is development.
+const BUILD_ENV = process.env.VERCEL_ENV ?? process.env.VITE_VERCEL_ENV ?? 'development'
+const IS_PRODUCTION = BUILD_ENV === 'production'
+
+// The canonical origin. VERCEL_PROJECT_PRODUCTION_URL is set on every
+// deployment INCLUDING previews and always names the production domain, which
+// is exactly what a canonical link and og:url need — a preview must point at
+// production, never at itself, or it competes with the real page in the index.
+// It follows a custom domain automatically once one is attached, so this needs
+// no edit at that point.
+const PRODUCTION_ORIGIN = `https://${
+  process.env.VERCEL_PROJECT_PRODUCTION_URL ?? 'vertigo-marketing-web.vercel.app'
+}`
+
+/**
+ * Search-engine surface: robots.txt, sitemap.xml, canonical, og:url, and a
+ * noindex on anything that is not production.
+ *
+ * robots.txt has to be GENERATED rather than committed to public/, because it
+ * must differ between production and preview and a static file cannot. Preview
+ * deployments are shared as links and would otherwise be crawled, indexed, and
+ * left competing with the real site — which is slow and awkward to undo.
+ *
+ * The meta noindex is deliberate duplication: robots.txt is a crawl directive,
+ * not an index directive, and a preview URL that gets linked from anywhere can
+ * be indexed without ever being crawled. The meta tag is what actually says no.
+ */
+function seoAssets(): Plugin {
+  return {
+    name: 'vertigo-seo-assets',
+    apply: 'build',
+    generateBundle() {
+      const robots = IS_PRODUCTION
+        ? [
+            'User-agent: *',
+            'Allow: /',
+            '',
+            // The tuning console is inert in production, but there is still no
+            // reason to spend crawl budget on a route that renders the same app.
+            'Disallow: /debug',
+            '',
+            `Sitemap: ${PRODUCTION_ORIGIN}/sitemap.xml`,
+            '',
+          ].join('\n')
+        : ['User-agent: *', 'Disallow: /', ''].join('\n')
+
+      this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robots })
+
+      // One URL, because there genuinely is one URL: no router, no routes. A
+      // sitemap listing a single page is still worth emitting — it is how the
+      // canonical origin gets stated to a crawler that arrived some other way.
+      if (IS_PRODUCTION) {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'sitemap.xml',
+          source:
+            '<?xml version="1.0" encoding="UTF-8"?>\n' +
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+            `  <url><loc>${PRODUCTION_ORIGIN}/</loc></url>\n` +
+            '</urlset>\n',
+        })
+      }
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler() {
+        const tags: HtmlTagDescriptor[] = [
+          { tag: 'link', attrs: { rel: 'canonical', href: `${PRODUCTION_ORIGIN}/` }, injectTo: 'head' },
+          { tag: 'meta', attrs: { property: 'og:url', content: `${PRODUCTION_ORIGIN}/` }, injectTo: 'head' },
+        ]
+        if (!IS_PRODUCTION) {
+          tags.push({
+            tag: 'meta',
+            attrs: { name: 'robots', content: 'noindex, nofollow' },
+            injectTo: 'head',
+          })
+        }
+        return tags
+      },
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), glsl(), introEntry(), assertChunkBudgets()],
+  plugins: [react(), glsl(), introEntry(), seoAssets(), assertChunkBudgets()],
+  define: {
+    // Compile-time literal, so `DEBUG_TOOLS_ENABLED` folds to a constant and
+    // the whole /debug panel becomes unreachable code the minifier removes.
+    __VERTIGO_ENV__: JSON.stringify(BUILD_ENV),
+  },
   build: {
     rollupOptions: {
       output: {

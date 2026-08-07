@@ -18,6 +18,7 @@ import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../hooks/useMasterTimeline'
 import type { ExperienceId } from '../app/experience'
 import type { GeoMarkers } from '../orbit-system/createGeoMarkers'
+import type { CursorManager } from '../interaction/cursorManager'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 
 interface Props {
@@ -65,6 +66,13 @@ export function SceneCanvas({
   // handoff live inside the Canvas.
   const geoMarkersRef = useRef<GeoMarkers | null>(null)
 
+  // Earth's single cursor arbiter. Created by InteractionLayer and borrowed by
+  // the geo markers, which hover on the same canvas from a different layer.
+  // Murcia does NOT share it — it holds one of its own, because the two are
+  // never live at the same time and each must be able to drop its whole set of
+  // requests when it goes inactive.
+  const cursorRef = useRef<CursorManager | null>(null)
+
   return (
     <Canvas
       className="scene-canvas"
@@ -93,6 +101,7 @@ export function SceneCanvas({
           active={earthActive}
           onSelectDestination={onSelectDestination}
           geoMarkersRef={geoMarkersRef}
+          cursorRef={cursorRef}
         />
       </Suspense>
       {/* Scene level, NOT inside EarthScene — orbital motion must not compound
@@ -103,6 +112,7 @@ export function SceneCanvas({
         state={state}
         orbitSystemRef={orbitSystemRef}
         handleRef={interactionRef}
+        cursorRef={cursorRef}
         onSelect={onSelectCase}
         onDeselect={onDeselectCase}
         active={earthActive}

@@ -1,7 +1,8 @@
 # ADR 001 — Renderer and Scene Ownership
 
 Status: **Accepted** — 2026-08-07
-Supersedes: `docs/murcia/PROJECT_MEMORY.md` §2.2 (for the Earth↔Murcia boundary only)
+Supersedes: the Murcia prototype's one-Scene rule (for the Earth↔Murcia boundary only). That
+document has since been folded into `docs/PROJECT_MEMORY.md`; the clause is quoted below.
 
 ## Context
 
@@ -19,7 +20,7 @@ The two source documents disagreed on the target model:
 
 - `docs/ARCHITECTURE.md` §17/§29 — Earth and Murcia must not depend on each other; shared
   infrastructure must not depend on an experience.
-- `docs/murcia/PROJECT_MEMORY.md` §2.2 — "one `WebGLRenderer`, one canvas, **one
+- The Murcia prototype's project memory — "one `WebGLRenderer`, one canvas, **one
   `THREE.Scene`**, two environments inside it, one active at a time."
 
 ## Problem

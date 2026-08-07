@@ -13,7 +13,8 @@ export interface DistrictSceneBinding {
   contentId: string;
   /**
    * Value expected in `userData.district`, written by a Blender custom property.
-   * This is the target identity mechanism — see `docs/blender-export-contract.md`.
+   * This is the target identity mechanism — see
+   * `docs/murcia/blender-export-contract.md`.
    */
   tag: string;
   /**
@@ -22,7 +23,7 @@ export interface DistrictSceneBinding {
    * Written in the Blender spelling. `resolveDistrict` also tries the
    * GLTFLoader-sanitized spelling and `userData.name`, because reserved
    * characters `[ ] . : /` are stripped from node names at load
-   * (PROJECT_MEMORY section 4.1).
+   * (PROJECT_MEMORY, "Things that will bite you again").
    */
   nodeNames: string[];
   /**
@@ -30,8 +31,8 @@ export interface DistrictSceneBinding {
    *
    * A development crutch for working against an asset that carries neither the
    * tag nor stable names — never a production identity mechanism, because world
-   * coordinates drift the moment the model is re-exported (section 4.3). Gated
-   * behind `allowSpatialFallback`.
+   * coordinates drift the moment the model is re-exported (PROJECT_MEMORY,
+   * "Things that will bite you again"). Gated behind `allowSpatialFallback`.
    */
   fallbackRect?: BoundsRect;
   /**

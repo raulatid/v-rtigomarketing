@@ -21,7 +21,7 @@
  * DECLARATION ORDER IS LOAD-BEARING: .reveal must stay declared before
  * .district-service-region. Both are single-class selectors, so the last
  * "transition" shorthand wins, and swapping them silently stops the accordion
- * animating its height (PROJECT_MEMORY 10.18).
+ * animating its height (PROJECT_MEMORY, "Things that will bite you again").
  */
 
 .murcia-ui {

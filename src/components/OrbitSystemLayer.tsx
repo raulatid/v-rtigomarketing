@@ -32,7 +32,23 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
   const textureLoader = useMemo(() => new THREE.TextureLoader(), [])
 
   useEffect(() => {
-    const system = createOrbitSystem({ camera, textureLoader, renderer: gl })
+    // `orbits:build` is a REQUIRED manifest entry and construction is
+    // synchronous, so a throw in here used to skip the markDone below and leave
+    // readiness pending forever — a permanent loading screen with no error.
+    // The raster and the six orbit builds are the realistic failure: a canvas
+    // 2D context can be refused under memory pressure.
+    let system: OrbitSystem
+    try {
+      system = createOrbitSystem({ camera, textureLoader, renderer: gl })
+    } catch (error) {
+      // Fatal, not degraded: the orbits carry the case studies, and the warp
+      // cuts to an Earth that is meant to have them. Saying so gets the visitor
+      // the Spanish failure caption instead of an endless wait.
+      loadProgress.markFatal('orbits:build', String(error))
+      console.error('[orbits] construction failed', error)
+      return
+    }
+
     system.group.visible = false
     localSystem.current = system
     if (systemRef) systemRef.current = system

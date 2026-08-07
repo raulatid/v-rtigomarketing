@@ -6,8 +6,9 @@
  * did. Signs, axis isolation and bounds are the things a typecheck cannot catch
  * and no visual check happened for.
  *
- * Per PROJECT_MEMORY section 8, harnesses here must exercise the real code
- * path, not a convenient stand-in — the one bug that hid longest did so behind
+ * Per PROJECT_MEMORY, "How this repo verifies things", harnesses here must
+ * exercise the real code path, not a convenient stand-in — the one bug that
+ * hid longest did so behind
  * a harness that rebuilt what it was meant to be testing. Nothing below
  * reimplements controller maths; expectations are derived independently (by
  * raycasting, or by projecting a fixed world point to screen) and compared.
@@ -544,8 +545,9 @@ console.log('\n7. Bounds still hold');
 // =============================================================================
 console.log('\n8. Release stops the view, mid-sweep or after a pause');
 {
-  // This section originally guarded PROJECT_MEMORY section 4.8: velocity is
-  // sampled only on pointermove, so a pointer held still kept its last speed
+  // This section originally guarded the standstill-release bug recorded in
+  // PROJECT_MEMORY, "Murcia's navigation": velocity is sampled only on
+  // pointermove, so a pointer held still kept its last speed
   // and the view flung on a gesture that had ended at a standstill. With
   // inertia disabled that bug is unreachable — there is no coast to inherit a
   // stale speed — so what is asserted now is the stronger property: neither

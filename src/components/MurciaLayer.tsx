@@ -4,6 +4,7 @@ import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 import { loadProgress } from '../loading/progress'
 import type { SequenceState } from '../sequenceState'
 import { dollyAmount, prefersReducedMotion } from '../app/warpTransition'
+import { DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
 // Imported here rather than from main.tsx so it rides the scene chunk with the
 // code that uses it, instead of the entry chunk's stylesheet.
 import '../experiences/murcia/styles/murcia.css'
@@ -70,7 +71,7 @@ export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
       )
       if (disposed) return
 
-      experience = new Ctor(host, gl)
+      experience = new Ctor(host, gl, { debugTools: DEBUG_TOOLS_ENABLED })
       // Before load(), so the camera is constructed with the real aspect and
       // the first bounds computation uses the real footprint.
       experience.setViewport({
@@ -122,7 +123,12 @@ export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
       onReadyRef.current?.()
     }
 
-    void build()
+    // `murcia:model` is optional, so a rejection here cannot hold the intro —
+    // but an uncaught one is still an unhandled rejection with no explanation,
+    // and the globe marker silently stays inert. Say why instead.
+    void build().catch((error) => {
+      console.error('[murcia] module failed to load; the city will not be offered', error)
+    })
 
     return () => {
       disposed = true
@@ -156,21 +162,30 @@ export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
     const experience = experienceRef.current
     if (!experience) return
 
-    // The warp's dolly. Read from the mutable state object rather than a prop,
-    // because a per-frame prop would mean a React render per frame.
+    // The warp's camera move. Read from the mutable state object rather than a
+    // prop, because a per-frame prop would mean a React render per frame.
     //
     // Only applied while this experience is the one showing: `dollyAmount`
     // reports the departing world's value before the cut and the arriving
     // world's after it, so applying it whenever a transition is playing would
-    // make Murcia dolly during Earth's half too.
+    // move Murcia during Earth's half too.
+    //
+    // `departing` is what tells Murcia which move to make: rising away on the
+    // way back to Earth, dropping in on the way down (ADR 006). It flips at the
+    // cut in the same frame `active` does, and any disagreement between the two
+    // for one frame is under a fully black flash.
     const p = state.transitionProgress
     if (p > 0) {
-      if (active && !reducedMotion) experience.setDollyProgress(dollyAmount(p).amount)
+      if (active && !reducedMotion) {
+        const { amount, departing } = dollyAmount(p)
+        experience.setWarpPose(amount, departing)
+      }
     } else if (dollyEngaged.current) {
       // Pinned back to rest once, rather than left wherever the last frame
-      // landed — a residual offset would persist for the session.
+      // landed — a residual offset would persist for the session. Restores the
+      // elevation as well as the distance, since amount 0 is rest on both legs.
       dollyEngaged.current = false
-      experience.setDollyProgress(0)
+      experience.setWarpPose(0, false)
     }
     if (p > 0 && active && !reducedMotion) dollyEngaged.current = true
 

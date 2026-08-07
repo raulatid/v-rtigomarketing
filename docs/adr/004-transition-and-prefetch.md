@@ -50,9 +50,9 @@ viewer is not actually waiting for.
    against three 0.174: signature is `compileAsync(scene, camera, targetScene = null)`, and
    it works on a scene that is not R3F's default.
 2. **One render into a 1×1 `WebGLRenderTarget`.** `compileAsync` does *not* upload geometry
-   attribute buffers; three does that lazily on first draw (`PROJECT_MEMORY` §2.4). This is
-   the smallest draw that still walks the whole visible graph. A tiny render target rather
-   than the canvas because Earth is still on screen.
+   attribute buffers; three does that lazily on first draw (`PROJECT_MEMORY`, *Loading*).
+   This is the smallest draw that still walks the whole visible graph. A tiny render target
+   rather than the canvas because Earth is still on screen.
 
 Progress is reported to 0.8 during download, with the last slice held for the warm — the
 same split the corner logo uses, so the drawing's fill cannot claim the city is ready
@@ -70,7 +70,7 @@ before it can actually be shown.
 - The button is gated on `murciaReady` rather than shown-and-disabled. Because the city is
   prefetched during the intro, it is normally already warm by the time the timeline reaches
   `site`, so the button simply exists.
-- A button, never scroll (`murcia/PROJECT_MEMORY` §2.1): touch has no `wheel`, single-finger
+- A button, never scroll (`DECISIONS.md` §15): touch has no `wheel`, single-finger
   drag is committed to navigation, and an accidental scroll must never warp the viewer to
   another world. Murcia already `preventDefault`s wheel for this reason.
 - Re-entrancy is guarded: without it a double click starts a second timeline whose reveal

@@ -94,6 +94,20 @@ export const DRAW_TIMING = {
   // waiting. See plan 007 Phase 4: a timeout is not a readiness signal.
   timeoutNotice: 15.0,
 
+  // The backstop. Reaching this DOES end the wait, as a failure (ADR 007).
+  //
+  // "A timeout is not a readiness signal" is still true and still the rule —
+  // this never reports ready, only fatal. What it answers is a different
+  // question: what happens when a required resource neither completes nor
+  // fails. Three of the five could do exactly that, and the symptom was a
+  // visitor held on "Esto está tardando más de lo habitual" forever. Those
+  // three are fixed at the source; this is what catches the fourth.
+  //
+  // 45s is deliberately far past timeoutNotice at 15s. A slow connection must
+  // reach the notice and then still be given three times as long again before
+  // anything gives up — this is a last resort, not a patience limit.
+  hardDeadline: 45.0,
+
   // Floor on the dot's alpha while pulsing, so the "still alive" signal works
   // from the very first frame rather than depending on the playhead having
   // already advanced far enough to make the dot visible.

@@ -17,7 +17,16 @@ type Cursor = CursorHint
 const PRIORITY: Record<string, number> = {
   drag: 30,
   satellite: 20,
+  district: 20,
   marker: 10,
+}
+
+// A key may be namespaced as "source:instance" so several instances of one
+// source can hold independent requests — each district owns its own hover and
+// must not be able to clear another's. Priority is read from the source half.
+function priorityOf(key: string): number {
+  const separator = key.indexOf(':')
+  return PRIORITY[separator === -1 ? key : key.slice(0, separator)] ?? 0
 }
 
 export function createCursorManager(element: HTMLElement) {
@@ -29,7 +38,7 @@ export function createCursorManager(element: HTMLElement) {
     let bestPriority = -1
     for (const [key, cursor] of requests) {
       if (!cursor) continue
-      const p = PRIORITY[key] ?? 0
+      const p = priorityOf(key)
       if (p > bestPriority) {
         bestPriority = p
         best = cursor
@@ -54,14 +63,23 @@ export function createCursorManager(element: HTMLElement) {
     publishCursorHint(next)
   }
 
-  function dispose() {
+  // Drops every request at once. An experience going inactive stops running the
+  // per-frame work that would normally retract its hover, so whatever it held at
+  // that moment would otherwise stay published for as long as the other
+  // experience is showing.
+  function clear() {
     requests.clear()
     element.style.cursor = ''
-    applied = null
+    applied = ''
     publishCursorHint('')
   }
 
-  return { request, dispose }
+  function dispose() {
+    clear()
+    applied = null
+  }
+
+  return { request, clear, dispose }
 }
 
 export type CursorManager = ReturnType<typeof createCursorManager>
