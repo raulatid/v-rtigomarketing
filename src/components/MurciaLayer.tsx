@@ -1,6 +1,7 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
+import { loadProgress } from '../loading/progress'
 // Imported here rather than from main.tsx so it rides the scene chunk with the
 // code that uses it, instead of the entry chunk's stylesheet.
 import '../experiences/murcia/styles/murcia.css'
@@ -73,12 +74,33 @@ export function MurciaLayer({ active, experienceRef, onReady }: Props) {
         aspect: size.width / Math.max(size.height, 1),
       })
 
-      await experience.load()
+      // Byte progress only, and scaled: the last slice is held back for the
+      // GPU warm below, because reporting 100% before the city can actually be
+      // shown would make the drawing's fill lie — the same split the corner
+      // logo uses for its compile.
+      await experience.load({
+        onProgress: (fraction) => loadProgress.setStep('murcia:model', fraction * 0.8),
+      })
       if (disposed) {
         experience.dispose()
         experience = null
         return
       }
+
+      // Compile and upload now rather than on the transition frame (ADR 004).
+      // Failure here is not fatal to anything: the city still renders, just
+      // with a hitch on first show, so it is reported and swallowed.
+      try {
+        await experience.warm()
+      } catch (error) {
+        console.warn('[murcia] GPU warm-up failed; first frame may hitch', error)
+      }
+      if (disposed) {
+        experience.dispose()
+        experience = null
+        return
+      }
+      loadProgress.markDone('murcia:model')
 
       experienceRef.current = experience
       experience.setActive(activeRef.current)

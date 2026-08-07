@@ -70,6 +70,7 @@ export class MurciaExperience {
   private loaded: LoadedCity | null = null;
   private active = false;
   private suspendedController = false;
+  private onLoadProgress: ((fraction: number) => void) | undefined;
 
   private readonly statusOverlay: StatusOverlay;
   private readonly controlsHint: ControlsHint;
@@ -113,7 +114,8 @@ export class MurciaExperience {
    * fatal load surfaces on the status overlay and leaves the environment
    * inert, exactly as it did standalone.
    */
-  async load(): Promise<void> {
+  async load(options: { onProgress?: (fraction: number) => void } = {}): Promise<void> {
+    this.onLoadProgress = options.onProgress;
     this.sceneBundle = createScene(this.appConfig, this.environment.sceneState);
     this.camera = new THREE.PerspectiveCamera(
       this.environment.camera.fov,
@@ -142,6 +144,41 @@ export class MurciaExperience {
         'Error loading city',
         `${message}\nExpected model at: ${this.environment.modelPath}`,
       );
+    }
+  }
+
+  /**
+   * Pays the GPU cost of the first frame *before* the transition, not during
+   * it (ADR 004). Safe to call more than once; a no-op before load().
+   *
+   * Two separate costs, because compileAsync only covers one of them:
+   *
+   * 1. Shader programs and texture uploads — `compileAsync(scene, camera)`.
+   *    Verified against three 0.174: the signature is
+   *    `compileAsync(scene, camera, targetScene = null)`, and it works on a
+   *    scene that is not R3F's default one.
+   * 2. Geometry attribute buffers, which three uploads lazily on first draw
+   *    and which compileAsync does NOT cover (PROJECT_MEMORY §2.4). Forced
+   *    here with one render into a 1x1 target — the smallest draw that still
+   *    walks the whole visible graph. 957 GPU-instanced buildings' buffers
+   *    landing on the transition frame is exactly the hitch this avoids.
+   *
+   * The tiny target is used rather than a real render so nothing reaches the
+   * canvas: at this point Earth is still on screen.
+   */
+  async warm(): Promise<void> {
+    if (!this.sceneBundle || !this.camera) return;
+
+    await this.renderer.compileAsync(this.sceneBundle.scene, this.camera);
+
+    const target = new THREE.WebGLRenderTarget(1, 1);
+    const previousTarget = this.renderer.getRenderTarget();
+    try {
+      this.renderer.setRenderTarget(target);
+      this.renderer.render(this.sceneBundle.scene, this.camera);
+    } finally {
+      this.renderer.setRenderTarget(previousTarget);
+      target.dispose();
     }
   }
 
@@ -194,6 +231,7 @@ export class MurciaExperience {
       loader: this.assetLoader.gltf,
       modelPath: env.modelPath,
       terrainObjectName: env.terrainTransition.terrainObjectName,
+      onProgress: this.onLoadProgress,
     });
     this.loaded = loaded;
     this.sceneBundle.scene.add(loaded.root);

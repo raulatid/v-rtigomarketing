@@ -19,6 +19,7 @@ export type StepId =
   | 'satellite:assets'
   | 'logo:assets'
   | 'orbits:build'
+  | 'murcia:model'
 
 export type Readiness = 'starting' | 'loading' | 'ready' | 'fatal'
 
@@ -41,6 +42,16 @@ const RESOURCES: Record<StepId, Resource> = {
   // NOT required: satellites appear in P5, several seconds after handover.
   // They move the drawing along without ever being able to block it.
   'satellite:assets': { weight: 15, required: false },
+  // NOT required: Murcia is a different experience entirely, reachable only by
+  // a button that does not exist until the intro has landed. It loads here
+  // rather than on demand so the transition never waits on a 456KB Draco parse
+  // and a shader compile (ADR 004) — but it must never be able to hold the
+  // intro back, which is exactly what `required: false` buys.
+  //
+  // Weight kept low deliberately: this is the one manifest entry whose bytes
+  // the viewer is not waiting for, so it should not dominate the drawing's
+  // measured progress.
+  'murcia:model': { weight: 10, required: false },
 }
 
 const IDS = Object.keys(RESOURCES) as StepId[]

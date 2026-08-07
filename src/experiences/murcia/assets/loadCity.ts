@@ -25,6 +25,13 @@ export interface LoadCityOptions {
   modelPath: string;
   /** Name of the terrain plate mesh in the GLB. */
   terrainObjectName: string;
+  /**
+   * Download progress, 0..1, when the server reports a content length.
+   *
+   * Reports bytes only — not parse, not GPU upload — so a caller driving a
+   * progress display must not treat 1 as "ready to show".
+   */
+  onProgress?: (fraction: number) => void;
 }
 
 export interface LoadedCity {
@@ -82,6 +89,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
         timings.networkCompleteTime = performance.now();
         if (event.lengthComputable) {
           timings.bytesLoaded = event.loaded;
+          if (event.total > 0) options.onProgress?.(event.loaded / event.total);
         }
       },
       (error) => {
