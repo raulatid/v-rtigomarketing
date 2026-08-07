@@ -25,14 +25,24 @@ interface Props {
   config: IntroConfig
   state: SequenceState
   overlayEl: RefObject<HTMLDivElement | null>
+  active: boolean
 }
 
-export function CameraController({ config, state, overlayEl }: Props) {
+export function CameraController({ config, state, overlayEl, active }: Props) {
   const { camera } = useThree()
 
   useFrame(() => {
     if (!('fov' in camera)) return
     const cam = camera as THREE.PerspectiveCamera
+
+    // While another experience is showing, Earth's camera must not be written —
+    // but the overlay still must be, because this is its only writer and the
+    // transition flash rides on it (ADR 003). Freezing the camera rather than
+    // resetting it is what lets a return resume the pose the viewer left.
+    if (!active) {
+      applyOverlay()
+      return
+    }
 
     // HANDOFF. Once the sequence rests, InteractionLayer's rig owns the camera.
     // Two owners writing a pose per frame would fight, which is exactly why the

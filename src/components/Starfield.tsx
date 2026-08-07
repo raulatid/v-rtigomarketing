@@ -8,6 +8,7 @@ import { starsVisible } from '../sceneVisibility'
 interface Props {
   config: IntroConfig
   state: SequenceState
+  active: boolean
 }
 
 // Leg 1 of the warp flies away from nothing — dolly-earth had a city to streak
@@ -16,7 +17,7 @@ interface Props {
 // screen. This cloud is the minimum that fixes both: one draw call.
 const BOX = { x: 300, y: 300, z: 500 }
 
-export function Starfield({ config, state }: Props) {
+export function Starfield({ config, state, active }: Props) {
   const points = useRef<THREE.Points>(null)
 
   const geometry = useMemo(() => {
@@ -46,6 +47,7 @@ export function Starfield({ config, state }: Props) {
   )
 
   useFrame(() => {
+    if (!active) return
     if (points.current) points.current.visible = starsVisible(state, config)
   })
 

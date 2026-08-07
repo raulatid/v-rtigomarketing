@@ -15,6 +15,7 @@ import { OrbitSystem } from '../orbit-system/createOrbitSystem'
 import { SatelliteDef } from '../orbit-system/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../hooks/useMasterTimeline'
+import type { ExperienceId } from '../app/experience'
 
 interface Props {
   config: IntroConfig
@@ -24,6 +25,7 @@ interface Props {
   interactionRef: RefObject<InteractionHandle | null>
   logoRef: RefObject<CornerLogo | null>
   cornerLogoHandleRef: RefObject<CornerLogoHandle | null>
+  activeExperience: ExperienceId
   onSelectCase: (data: SatelliteDef) => void
   onDeselectCase: () => void
   onLogoLoadFailed: () => void
@@ -40,38 +42,44 @@ export function SceneCanvas({
   interactionRef,
   logoRef,
   cornerLogoHandleRef,
+  activeExperience,
   onSelectCase,
   onDeselectCase,
   onLogoLoadFailed,
 }: Props) {
+  // Earth stays mounted whichever experience is showing; this only decides
+  // whether it consumes input and does per-frame work (ADR 003).
+  const earthActive = activeExperience === 'earth'
+
   return (
     <Canvas
       className="scene-canvas"
       camera={{ fov: config.normalFov, near: 0.1, far: 5000, position: [0, 0, 200] }}
       gl={{ antialias: true }}
     >
-      <CameraController config={config} state={state} overlayEl={overlayEl} />
+      <CameraController config={config} state={state} overlayEl={overlayEl} active={earthActive} />
       {/* Projection-window shift for the audit panel. It writes camera.view,
           not the pose, so it cannot fight CameraController or the focus rig. */}
-      <AuditCameraShift />
-      <Starfield config={config} state={state} />
+      <AuditCameraShift active={earthActive} />
+      <Starfield config={config} state={state} active={earthActive} />
       {/* Two separate fields on purpose: Starfield is the near-field warp tunnel
           and is gated OFF at the cut; SpaceBackdrop is the far shell that is
           gated ON there and never leaves. See plan 004 §4. */}
-      <SpaceBackdrop config={config} state={state} />
+      <SpaceBackdrop config={config} state={state} active={earthActive} />
       <Suspense fallback={null}>
-        <EarthScene config={config} state={state} />
+        <EarthScene config={config} state={state} active={earthActive} />
       </Suspense>
       {/* Scene level, NOT inside EarthScene — orbital motion must not compound
           with the Earth's surface rotation. Ordered before InteractionLayer so
           its effect populates orbitSystemRef first. */}
-      <OrbitSystemLayer state={state} systemRef={orbitSystemRef} />
+      <OrbitSystemLayer state={state} systemRef={orbitSystemRef} active={earthActive} />
       <InteractionLayer
         state={state}
         orbitSystemRef={orbitSystemRef}
         handleRef={interactionRef}
         onSelect={onSelectCase}
         onDeselect={onDeselectCase}
+        active={earthActive}
       />
       {/* The 3D brand logo. Inside the Canvas because it shares this
           renderer — it no longer has one of its own (ADR 002). */}

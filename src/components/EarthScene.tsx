@@ -15,6 +15,7 @@ import { GeoMarkersLayer } from './GeoMarkersLayer'
 interface Props {
   config: IntroConfig
   state: SequenceState
+  active: boolean
 }
 
 // TextureLoader goes through ImageLoader, which decodes an <img> and reports no
@@ -33,7 +34,7 @@ earthManager.onError = (url) =>
 // Ported from dolly-earth. The tuning-panel plumbing is dropped — these values
 // are fixed for the intro. Radius stays at 2 so a future orbit system can be
 // added as a sibling group with scale={2} (see plan 002 "Scope").
-export function EarthScene({ config, state }: Props) {
+export function EarthScene({ config, state, active }: Props) {
   const [dayTex, nightTex, specTex] = useLoader(
     THREE.TextureLoader,
     ['/earth/day.jpg', '/earth/night.jpg', '/earth/specularClouds.jpg'],
@@ -138,6 +139,10 @@ export function EarthScene({ config, state }: Props) {
   // Geo markers DO belong inside the spin group — they label geography, so they
   // have to travel with the surface.
   useFrame((_, delta) => {
+    // Frozen, not reset, while another experience shows: resuming the spin from
+    // where the viewer left it is what makes the return seamless.
+    if (!active) return
+
     const visible = earthVisible(state, config)
     if (groupRef.current) groupRef.current.visible = visible
     if (visible && spinRef.current) {
@@ -156,7 +161,7 @@ export function EarthScene({ config, state }: Props) {
             uniforms={earthUniforms}
           />
         </mesh>
-        <GeoMarkersLayer state={state} />
+        <GeoMarkersLayer state={state} active={active} />
       </group>
       <mesh scale={[1.04, 1.04, 1.04]}>
         <sphereGeometry args={[EARTH_CONFIG.radius, 64, 64]} />

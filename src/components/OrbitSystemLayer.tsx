@@ -13,6 +13,7 @@ interface Props {
   // Populated on mount so InteractionLayer can reach the system. Ordered first
   // in SceneCanvas so its effect runs before the consumer's.
   systemRef?: RefObject<OrbitSystem | null>
+  active: boolean
 }
 
 // Mounts the orbit system at SCENE level — deliberately not inside the Earth's
@@ -21,7 +22,7 @@ interface Props {
 //
 // scale = EARTH_CONFIG.radius reconciles the two projects' scale conventions:
 // every orbit preset is expressed in "Earth radius = 1" units.
-export function OrbitSystemLayer({ state, systemRef }: Props) {
+export function OrbitSystemLayer({ state, systemRef, active }: Props) {
   const { camera, scene, gl } = useThree()
   const localSystem = useRef<OrbitSystem | null>(null)
   const groupRef = useRef<THREE.Group>(null)
@@ -59,6 +60,10 @@ export function OrbitSystemLayer({ state, systemRef }: Props) {
   useFrame((_, rawDelta) => {
     const system = localSystem.current
     if (!system) return
+
+    // Frozen, not reset: the orbit clock stops advancing so satellites resume
+    // exactly where they were rather than teleporting forward on return.
+    if (!active) return
 
     const visible = orbitsVisible(state)
     system.group.visible = visible

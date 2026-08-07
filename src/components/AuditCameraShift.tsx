@@ -24,12 +24,17 @@ function panelWidth(viewport: number): number {
 // identical to it (plan 005 §8).
 const LERP_K = 3.4
 
-export function AuditCameraShift() {
+export function AuditCameraShift({ active }: { active: boolean }) {
   const { camera, size } = useThree()
   const progress = useRef(0)
   const offsetActive = useRef(false)
 
   useFrame((_, rawDelta) => {
+    // Writes Earth's camera view offset, so it has nothing to say while another
+    // experience is showing. The offset is left in place rather than cleared —
+    // it is only meaningful together with the pose CameraController froze.
+    if (!active) return
+
     const cam = camera as PerspectiveCamera
     const target = auditView.open ? 1 : 0
     // Delta clamped like the rig's, so a backgrounded tab cannot jump-cut.

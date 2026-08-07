@@ -9,6 +9,7 @@ import { atOrAfter } from '../sceneVisibility'
 
 interface Props {
   state: SequenceState
+  active: boolean
 }
 
 // Rendered INSIDE the Earth's spin group so the markers stay pinned to the
@@ -18,7 +19,7 @@ interface Props {
 // Also owns the CSS2D renderer for the hover tags. That is a second DOM-based
 // renderer overlaying the canvas; it draws at useFrame priority 2 so it runs
 // after RenderPipeline (priority 1), which owns the WebGL render.
-export function GeoMarkersLayer({ state }: Props) {
+export function GeoMarkersLayer({ state, active }: Props) {
   const { camera, gl, scene, size } = useThree()
   const groupRef = useRef<THREE.Group>(null)
   const markersRef = useRef<GeoMarkers | null>(null)
@@ -52,6 +53,15 @@ export function GeoMarkersLayer({ state }: Props) {
     labelRef.current?.setSize(size.width, size.height)
   }, [size.width, size.height])
 
+  // The tags are DOM at z-index 15, above the canvas — leaving them in the tree
+  // while another experience is showing would float Earth's labels over it.
+  // Hiding the layer rather than unmounting it keeps the CSS2DObject bindings
+  // intact so a return needs no rebuild.
+  useEffect(() => {
+    const el = labelRef.current?.domElement
+    if (el) el.style.display = active ? '' : 'none'
+  }, [active])
+
   useFrame(() => {
     const markers = markersRef.current
     if (!markers) return
@@ -59,7 +69,9 @@ export function GeoMarkersLayer({ state }: Props) {
     // Only interactive once the Earth has settled. During the warp the camera is
     // moving fast and hover would be meaningless — and tags over a warping globe
     // would look broken.
-    markers.setEnabled(atOrAfter(state.phase, 'orbits'))
+    markers.setEnabled(active && atOrAfter(state.phase, 'orbits'))
+    if (!active) return
+
     markers.update()
 
     labelRef.current?.render(scene, camera)

@@ -39,9 +39,10 @@ const TIERS = [
 interface Props {
   config: IntroConfig
   state: SequenceState
+  active: boolean
 }
 
-export function SpaceBackdrop({ config, state }: Props) {
+export function SpaceBackdrop({ config, state, active }: Props) {
   const group = useRef<THREE.Group>(null)
 
   const layers = useMemo(() => {
@@ -105,6 +106,7 @@ export function SpaceBackdrop({ config, state }: Props) {
   }, [config.backdropStarCount, config.backdropRadius, config.backdropJitter])
 
   useFrame(() => {
+    if (!active) return
     if (group.current) group.current.visible = backdropVisible(state, config)
   })
 

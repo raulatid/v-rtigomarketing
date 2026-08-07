@@ -12,6 +12,7 @@ import { SatelliteDef } from './orbit-system/orbitConfig'
 import { useMasterTimeline, CornerLogoHandle } from './hooks/useMasterTimeline'
 import { useIntroDraw } from './hooks/useIntroDraw'
 import type { CornerLogo } from './corner-logo/createCornerLogo'
+import type { ExperienceId } from './app/experience'
 
 // The debug panel lives on its own path (/debug) so the main site can be
 // reviewed clean; open http://localhost:5173/debug during development to tune.
@@ -49,6 +50,12 @@ export default function App() {
   // drive reset()/snapToCorner() from here.
   const logoRef = useRef<CornerLogo | null>(null)
   const cornerLogo = useRef<CornerLogoHandle | null>(null)
+
+  // Which experience is showing. Both stay mounted; this only decides which one
+  // renders and consumes input (ADR 003). P6 gives this a setter — until then
+  // Earth is the only experience, so the value never changes and every gate
+  // added in P3 is behaviour-preserving.
+  const [activeExperience] = useState<ExperienceId>('earth')
 
   const { phase, timeline } = useMasterTimeline({
     intro,
@@ -161,6 +168,7 @@ export default function App() {
         interactionRef={interactionRef}
         logoRef={logoRef}
         cornerLogoHandleRef={cornerLogo}
+        activeExperience={activeExperience}
         onSelectCase={setSelectedCase}
         onDeselectCase={handleDeselectCase}
         onLogoLoadFailed={handleLoadFailed}

@@ -21,6 +21,7 @@ interface Props {
   handleRef: RefObject<InteractionHandle | null>
   onSelect: (data: SatelliteDef) => void
   onDeselect: () => void
+  active: boolean
 }
 
 // Owns the interactive phase: the camera rig and the satellite selection
@@ -37,6 +38,7 @@ export function InteractionLayer({
   handleRef,
   onSelect,
   onDeselect,
+  active,
 }: Props) {
   const { camera, gl } = useThree()
   const rigRef = useRef<FocusCameraRig | null>(null)
@@ -96,7 +98,14 @@ export function InteractionLayer({
     const focus = focusRef.current
     if (!rig || !focus) return
 
-    const interactive = atOrAfter(state.phase, 'site')
+    // Gating on `active` rather than detaching listeners is deliberate and
+    // verified: every handler in the rig short-circuits on `!active` (or on
+    // `orbit.isDragging`, which deactivate() clears via endDrag()), the wheel
+    // listener is passive, and satellite focus only swallows Escape while a
+    // satellite is selected — which setEnabled(false) clears. So the whole
+    // input surface goes inert here without touching the DOM, and the rig
+    // keeps the pose the viewer left so a return does not snap the camera.
+    const interactive = active && atOrAfter(state.phase, 'site')
     if (interactive) rig.activate()
     else if (rig.isActive()) rig.deactivate()
     // The rig stays active while the audit panel is open — deactivating it

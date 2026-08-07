@@ -189,3 +189,57 @@ Every automated gate passes, but they cannot catch a compositing regression.
 - The logo's load now starts when `SceneCanvas` mounts rather than 2 rAFs after `App`
   mounts. Both were always behind the same three chunk, so the change is small, but
   `logo:assets` is a *required* boot-manifest entry, so it does shift readiness slightly.
+
+---
+
+## P3 — Experience lifecycle + input gating
+
+**Goal.** Make Earth stop doing per-frame work and consuming input when it is not the
+showing experience, without unmounting it — so P4 can add Murcia alongside it.
+
+**Files.** Added `src/app/experience.ts`, `docs/adr/003-experience-lifecycle.md`.
+Modified `App.tsx`, `SceneCanvas.tsx`, `CameraController.tsx`, `InteractionLayer.tsx`,
+`GeoMarkersLayer.tsx`, `EarthScene.tsx`, `Starfield.tsx`, `SpaceBackdrop.tsx`,
+`OrbitSystemLayer.tsx`, `AuditCameraShift.tsx`.
+
+**Implementation.** `ExperienceId` in React state on `App`, threaded to each layer as an
+`active` prop. Every gate is an early return — **frozen, not reset** — so a return resumes
+the pose, phase, orbit clock and spin the viewer left. See ADR 003 for the full contract.
+
+**Two findings that made this much smaller than planned.**
+
+1. **No listeners need detaching.** The plan assumed Earth's window-level listeners with
+   capture-phase `stopPropagation` would have to be torn down on deactivate. Reading every
+   handler shows they all go inert on the existing `rig.deactivate()` /
+   `focus.setEnabled(false)` calls: the rig's handlers short-circuit on `!active` or on
+   `orbit.isDragging` (which `deactivate()` clears via `endDrag()`), its wheel listener is
+   `{ passive: true }`, and there is no `stopPropagation` in the module at all. Satellite
+   focus only swallows Escape while a satellite is *selected*, and `setEnabled(false)`
+   deselects first. Detaching was rejected outright: rebuilding the rig reseeds it from
+   `EARTH_REST` and would snap the camera on return.
+2. **`CameraController` must keep running while inactive.** It is the single DOM writer for
+   the warp overlay, which is exactly what P6's transition flash rides on. Gating its whole
+   `useFrame` would have planted a latent bug in P6. Only the camera writes are gated;
+   `applyOverlay()` still runs.
+
+**Behavioural changes.** None reachable. `activeExperience` has no setter until P6, so it
+is always `'earth'` and every new gate is dead code today. This phase is
+behaviour-preserving *by construction*, which is the strongest verification available for
+it.
+
+**One DOM change worth noting.** `GeoMarkersLayer` now hides its CSS2D layer when inactive.
+That layer is DOM at z-index 15, above the canvas — without this it would float Earth's
+labels over Murcia. Hidden rather than unmounted so the `CSS2DObject` bindings survive.
+
+**Verification.**
+
+| Gate | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run build` | budgets ok — intro 12 005 B, app entry 298 181 B |
+| `npm run check:navigation` | 25/25 |
+| `npm run check:district` | 52/52 |
+
+**Remaining risks.** The gates are unexercised until P6 wires the setter. The freeze/resume
+contract (orbit clock, camera pose, GSAP master parked at `site`) is therefore asserted by
+design but not yet observed.
