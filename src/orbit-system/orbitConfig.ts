@@ -160,12 +160,37 @@ export interface GeoMarkerDef {
 }
 
 // Five world cities. `text` values are editable placeholders, not real metrics.
+// Spanish exonyms where they exist — the site is Spanish throughout.
 export const GEO_MARKERS: GeoMarkerDef[] = [
-  { id: 'new-york', lat: 40.7128, lng: -74.006, title: 'New York', text: '+42% organic visibility' },
-  { id: 'london', lat: 51.5074, lng: -0.1278, title: 'London', text: 'Top 3 keyword growth' },
-  { id: 'tokyo', lat: 35.6762, lng: 139.6503, title: 'Tokyo', text: 'International SEO expansion' },
-  { id: 'sydney', lat: -33.8688, lng: 151.2093, title: 'Sydney', text: 'Regional authority signal' },
-  { id: 'sao-paulo', lat: -23.5505, lng: -46.6333, title: 'São Paulo', text: 'Search presence uplift' },
+  {
+    id: 'new-york',
+    lat: 40.7128,
+    lng: -74.006,
+    title: 'Nueva York',
+    text: '+42% de visibilidad orgánica',
+  },
+  { id: 'london', lat: 51.5074, lng: -0.1278, title: 'Londres', text: 'Crecimiento en el top 3' },
+  {
+    id: 'tokyo',
+    lat: 35.6762,
+    lng: 139.6503,
+    title: 'Tokio',
+    text: 'Expansión SEO internacional',
+  },
+  {
+    id: 'sydney',
+    lat: -33.8688,
+    lng: 151.2093,
+    title: 'Sídney',
+    text: 'Señal de autoridad regional',
+  },
+  {
+    id: 'sao-paulo',
+    lat: -23.5505,
+    lng: -46.6333,
+    title: 'São Paulo',
+    text: 'Mayor presencia en buscadores',
+  },
   // The way into the Murcia experience. Real coordinates for Murcia, Spain —
   // the marker has to sit on the actual city for the globe to mean anything.
   {

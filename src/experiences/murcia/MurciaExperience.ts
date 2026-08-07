@@ -145,7 +145,7 @@ export class MurciaExperience {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[murcia] fatal load error', error);
       this.statusOverlay.setError(
-        'Error loading city',
+        'No se pudo cargar la ciudad',
         `${message}\nExpected model at: ${this.environment.modelPath}`,
       );
       this.loadFailed = true;
@@ -278,7 +278,7 @@ export class MurciaExperience {
 
   private async loadAndSetup(): Promise<void> {
     const env = this.environment;
-    this.statusOverlay.setLoading('Loading city…', env.modelPath);
+    this.statusOverlay.setLoading('Cargando la ciudad…', env.modelPath);
 
     const loaded = await loadCity({
       loader: this.assetLoader.gltf,

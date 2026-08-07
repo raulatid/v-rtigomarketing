@@ -31,7 +31,7 @@ export class DistrictLabel {
     this.el.type = 'button';
     this.el.className = 'district-label';
     this.el.textContent = label;
-    this.el.setAttribute('aria-label', `${label} — open district`);
+    this.el.setAttribute('aria-label', `${label} — abrir distrito`);
     this.el.addEventListener('click', this.onClick);
     parent.appendChild(this.el);
 

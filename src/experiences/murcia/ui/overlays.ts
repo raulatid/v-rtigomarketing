@@ -16,7 +16,7 @@ export class StatusOverlay {
 
     this.title = document.createElement('div');
     this.title.className = 'status-title';
-    this.title.textContent = 'Loading city…';
+    this.title.textContent = 'Cargando la ciudad…';
 
     this.detail = document.createElement('div');
     this.detail.className = 'status-detail';
@@ -61,10 +61,9 @@ export class ControlsHint {
     this.el.id = 'controls-hint';
     this.el.className = 'overlay';
     this.el.innerHTML = `
-      <span><kbd>Drag ↕</kbd> move</span>
-      <span><kbd>Drag ↔</kbd> turn</span>
-      <span><kbd>Click</kbd> a lit district</span>
-      <span><kbd>F3</kbd> diagnostics</span>`;
+      <span><kbd>Arrastra ↕</kbd> avanzar</span>
+      <span><kbd>Arrastra ↔</kbd> girar</span>
+      <span><kbd>Clic</kbd> en un distrito iluminado</span>`;
     parent.appendChild(this.el);
   }
 

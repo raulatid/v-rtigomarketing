@@ -79,12 +79,12 @@ export class DistrictPanel {
     this.handle = document.createElement('button');
     this.handle.type = 'button';
     this.handle.className = 'district-panel-handle';
-    this.handle.setAttribute('aria-label', 'Expand or collapse panel');
+    this.handle.setAttribute('aria-label', 'Desplegar o plegar el panel');
 
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
     this.closeButton.className = 'district-panel-close';
-    this.closeButton.setAttribute('aria-label', 'Close');
+    this.closeButton.setAttribute('aria-label', 'Cerrar');
     this.closeButton.textContent = '×';
 
     this.titleEl = document.createElement('h2');

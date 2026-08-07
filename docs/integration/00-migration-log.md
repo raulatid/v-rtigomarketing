@@ -619,3 +619,48 @@ the Draco path.
 **Still English.** The geo-marker copy and the case-study data are placeholder English
 (`orbitConfig.ts`, `data/caseStudies.ts`, already marked "PLACEHOLDER DATA — NOT REAL
 CLIENTS"). Not translated here because it is content awaiting real copy, not UI strings.
+
+---
+
+## P10 — Spanish throughout
+
+**Goal.** No English visible anywhere in the product.
+
+**Already Spanish** (no change): the intro caption, the audit form and all its placeholders,
+the case-study data in `data/caseStudies.ts`, `CasePanel`, the experience-switch buttons.
+
+**Translated.**
+
+| Where | What |
+|---|---|
+| `orbit-system/orbitConfig.ts` | The five geo markers — Spanish exonyms (Nueva York, Londres, Tokio, Sídney) and their caption copy |
+| `experiences/murcia/content/districts.ts` | The whole `servicios` district: summary, intro and all five service bodies |
+| `experiences/murcia/ui/overlays.ts` | Status overlay and the controls hint |
+| `experiences/murcia/ui/districtPanel.ts` | Panel handle and close `aria-label` |
+| `experiences/murcia/ui/districtLabel.ts` | District `aria-label` |
+| `experiences/murcia/MurciaExperience.ts` | Load and error status messages |
+
+Translated as copy rather than word-for-word — the district service bodies are argued prose
+and a literal translation would have read like a machine.
+
+**Also removed: a hint for a feature that no longer exists.** The controls hint advertised
+`F3 diagnostics`, but the debug overlay has been opt-in behind `?debug=1` since P4. It now
+lists only the three interactions that are actually available.
+
+**Verified in the browser** (production build), reading the live DOM:
+
+- Geo tags: `Nueva York +42% de visibilidad orgánica`, `Londres Crecimiento en el top 3`,
+  `Tokio Expansión SEO internacional`, `Sídney Señal de autoridad regional`,
+  `São Paulo Mayor presencia en buscadores`, `Murcia Explorar la ciudad →`
+- Murcia chrome: `Arrastra ↕ avanzar · Arrastra ↔ girar · Clic en un distrito iluminado`,
+  `← Volver a la Tierra`, `Cargando la ciudad…`
+
+**And a safety claim finally measured.** With `?debug=1`, after a completed warp Murcia's
+camera reports **`Cam distance 165.0`, `Cam height 82.5`** — stable across three samples 20s
+apart. The dolly returns to exactly the configured resting pose with no residual offset,
+which until now was asserted only against the pure curve module, never against the running
+experience. This is the value that silently reveals the plate edge on ultrawide if it drifts
+high.
+
+**Still English, deliberately.** `DebugOverlay` field labels (`Cam distance`, `Focus X`…) —
+a developer tool behind `?debug=1`, and its labels are referenced in `PROJECT_MEMORY`.

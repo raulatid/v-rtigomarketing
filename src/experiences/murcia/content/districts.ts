@@ -54,59 +54,61 @@ export const districtContent: readonly DistrictContent[] = [
   {
     id: 'servicios',
     label: 'Servicios',
-    summary: 'What we do for the businesses that live in this city.',
+    summary: 'Lo que hacemos por los negocios que viven en esta ciudad.',
     intro:
-      'Every building in this district is a piece of work we do. We handle the ' +
-      'parts of a digital presence that compound over time — the ones that are ' +
-      'slow to build and hard to buy back once neglected. Pick a service to see ' +
-      'how we approach it.',
+      'Cada edificio de este distrito es una parte de nuestro trabajo. Nos ' +
+      'ocupamos de aquello que se acumula con el tiempo: lo que cuesta ' +
+      'construir y es difícil recuperar una vez descuidado. Elige un servicio ' +
+      'para ver cómo lo abordamos.',
     services: [
       {
         id: 'seo',
         title: 'SEO',
         body:
-          'Search is the only channel that pays you back for work you did months ' +
-          'ago. We audit what is holding a site back technically, rebuild the ' +
-          'structure search engines actually read, and target the searches your ' +
-          'customers make rather than the ones with the biggest numbers next to ' +
-          'them. Results are reported against revenue, not rankings.',
+          'La búsqueda es el único canal que sigue devolviéndote el trabajo que ' +
+          'hiciste hace meses. Auditamos lo que frena técnicamente a un sitio, ' +
+          'reconstruimos la estructura que los buscadores leen de verdad y ' +
+          'apuntamos a las búsquedas que hacen tus clientes, no a las que tienen ' +
+          'el número más grande al lado. Los resultados se miden en ingresos, no ' +
+          'en posiciones.',
       },
       {
         id: 'web-analysis',
-        title: 'Web analysis',
+        title: 'Analítica web',
         body:
-          'Most sites collect far more data than anyone reads. We set up ' +
-          'measurement that answers specific questions — where people give up, ' +
-          'what they came for and did not find, which pages carry the work — and ' +
-          'then we tell you what to change. Analytics that nobody acts on is a ' +
-          'cost, not an asset.',
+          'La mayoría de sitios recogen muchos más datos de los que alguien lee. ' +
+          'Montamos una medición que responde preguntas concretas — dónde ' +
+          'abandona la gente, qué venían a buscar y no encontraron, qué páginas ' +
+          'sostienen el trabajo — y después te decimos qué cambiar. Una analítica ' +
+          'sobre la que nadie actúa es un coste, no un activo.',
       },
       {
         id: 'content-strategy',
-        title: 'Content strategy',
+        title: 'Estrategia de contenidos',
         body:
-          'Publishing more is not a strategy. We map what your customers need to ' +
-          'know before they buy, find the gaps your competitors have left open, ' +
-          'and build a plan you can actually sustain. Fewer pieces, each one ' +
-          'earning its place and pointing somewhere.',
+          'Publicar más no es una estrategia. Trazamos lo que tus clientes ' +
+          'necesitan saber antes de comprar, encontramos los huecos que tu ' +
+          'competencia ha dejado abiertos y construimos un plan que puedas ' +
+          'sostener de verdad. Menos piezas, cada una ganándose su sitio y ' +
+          'llevando a alguna parte.',
       },
       {
         id: 'paid-campaigns',
-        title: 'Paid campaigns',
+        title: 'Campañas de pago',
         body:
-          'Paid traffic exposes whatever is already true about your offer — it ' +
-          'buys attention, it does not buy persuasion. We start with the landing ' +
-          'experience, then build campaigns around the segments that convert, and ' +
-          'cut the ones that do not quickly rather than defending them.',
+          'El tráfico de pago revela lo que ya era cierto sobre tu oferta: compra ' +
+          'atención, no compra persuasión. Empezamos por la experiencia de ' +
+          'aterrizaje, después construimos campañas en torno a los segmentos que ' +
+          'convierten y cortamos rápido los que no, en lugar de defenderlos.',
       },
       {
         id: 'brand-identity',
-        title: 'Brand identity',
+        title: 'Identidad de marca',
         body:
-          'A brand is what people can describe about you when you are not in the ' +
-          'room. We work out what that should be, then build the system that ' +
-          'holds it together — naming, voice, type, colour and the rules for using ' +
-          'them — so the tenth touchpoint still looks like the first.',
+          'Una marca es lo que la gente sabe describir de ti cuando no estás ' +
+          'delante. Definimos qué debería ser eso y construimos el sistema que lo ' +
+          'sostiene — nombre, tono, tipografía, color y las reglas para usarlos — ' +
+          'para que el décimo contacto siga pareciéndose al primero.',
       },
     ],
   },
