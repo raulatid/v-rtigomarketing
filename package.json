@@ -14,7 +14,8 @@
     "test:intro": "node scripts/simulate-intro.mjs",
     "check:navigation": "esbuild checks/navigation-feel.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-feel.mjs --log-level=warning && node node_modules/.cache/navigation-feel.mjs",
     "check:district": "esbuild checks/district-flight.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/district-flight.mjs --log-level=warning && node node_modules/.cache/district-flight.mjs",
-    "check": "npm run typecheck && npm run test:intro && npm run check:navigation && npm run check:district"
+    "check": "npm run typecheck && npm run test:intro && npm run check:navigation && npm run check:district && npm run check:warp",
+    "check:warp": "esbuild checks/warp-transition.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/warp-transition.mjs --log-level=warning && node node_modules/.cache/warp-transition.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.6.1",

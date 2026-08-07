@@ -227,6 +227,16 @@ export interface EnvironmentConfig {
    * and from the visual extent, which is derived at runtime from the terrain
    * plate plus the transition skirt.
    */
+  /**
+   * Closest the warp dolly may bring the camera, in the same units as
+   * camera.distance.
+   *
+   * Environment data, not transition data: how close you can get to THIS
+   * city before its ground footprint stops shrinking is a property of its
+   * pose and its terrain skirt. The transition only supplies a 0..1 amount.
+   */
+  warpCloseDistance: number;
+
   contentBounds: BoundsRect;
   initialFocus: { x: number; z: number };
 }

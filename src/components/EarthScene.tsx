@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, type RefObject } from 'react'
 import { useLoader, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import earthVert from '../shaders/earth/vertex.glsl'
@@ -11,6 +11,7 @@ import { SequenceState } from '../sequenceState'
 import { earthVisible } from '../sceneVisibility'
 import { loadProgress } from '../loading/progress'
 import { GeoMarkersLayer } from './GeoMarkersLayer'
+import type { GeoMarkers } from '../orbit-system/createGeoMarkers'
 import { GEO_MARKERS } from '../orbit-system/orbitConfig'
 import { spinToFace } from '../orbit-system/geoUtils'
 
@@ -19,6 +20,7 @@ interface Props {
   state: SequenceState
   active: boolean
   onSelectDestination?: (id: string) => void
+  geoMarkersRef?: RefObject<GeoMarkers | null>
 }
 
 // TextureLoader goes through ImageLoader, which decodes an <img> and reports no
@@ -37,7 +39,13 @@ earthManager.onError = (url) =>
 // Ported from dolly-earth. The tuning-panel plumbing is dropped — these values
 // are fixed for the intro. Radius stays at 2 so a future orbit system can be
 // added as a sibling group with scale={2} (see plan 002 "Scope").
-export function EarthScene({ config, state, active, onSelectDestination }: Props) {
+export function EarthScene({
+  config,
+  state,
+  active,
+  onSelectDestination,
+  geoMarkersRef,
+}: Props) {
   const [dayTex, nightTex, specTex] = useLoader(
     THREE.TextureLoader,
     ['/earth/day.jpg', '/earth/night.jpg', '/earth/specularClouds.jpg'],
@@ -187,6 +195,7 @@ export function EarthScene({ config, state, active, onSelectDestination }: Props
           state={state}
           active={active}
           onSelectDestination={onSelectDestination}
+          handleRef={geoMarkersRef}
         />
       </group>
       <mesh scale={[1.04, 1.04, 1.04]}>

@@ -489,3 +489,73 @@ leaves the visible hemisphere roughly 40s after the site lands and does not retu
 affordance that disappears on a timer is a product decision, not an implementation detail.
 Options: stop or slow the spin once `site` is reached; keep the destination marker facing
 the camera; or accept it and rely on drag. **Not decided.**
+
+---
+
+## P8 — The Earth ⇄ Murcia warp
+
+**Goal.** Replace the flash-and-cut transition with the intro's warp, reshaped as a
+dolly-in / dolly-out.
+
+**Files.** Added `src/app/warpTransition.ts`, `checks/warp-transition.ts`,
+`docs/adr/005-warp-transition.md`. Modified `sequenceState.ts`,
+`app/useExperienceTransition.ts`, `CameraController.tsx`, `InteractionLayer.tsx`,
+`MurciaLayer.tsx`, `SceneCanvas.tsx`, `EarthScene.tsx`, `GeoMarkersLayer.tsx`,
+`orbit-system/createGeoMarkers.ts`, `experiences/murcia/MurciaExperience.ts`,
+`config/environmentConfig.ts`, `config/murciaConfig.ts`, `graphics/RenderPipeline.tsx`.
+
+**Implementation.** See ADR 005. One progress value read through the intro's three curves;
+each experience moves its own camera; Murcia borrows the composer for the duration so the
+city gets the same smear Earth does.
+
+**The constraint decided the shape.** Murcia's camera cannot pull back past 165 — reach
+grows ≈1.33 units per unit of distance against a measured +50-unit ultrawide skirt margin.
+So the arrival had to start close and pull back, which *is* the requested dolly-out. Arrived
+at by constraint, not taste.
+
+**A pure module plus a hard assertion.** `warpTransition.ts` is free of three, React and the
+DOM so `checks/warp-transition.ts` can drive the real curves — the same rule as
+`simulate-intro.mjs`. 23 assertions over a 2000-sample sweep, the load-bearing ones being
+that the Murcia distance never leaves [60, 165] and that every curve returns exactly to rest
+at both ends. Nothing else in the codebase guards the ceiling.
+
+**Problems discovered.**
+
+1. **`modelPath` was document-relative** (`models/city-prototype.glb`) — the same latent
+   404-off-root bug already fixed for the Draco decoder path in P4, missed then. Now
+   root-absolute.
+2. **A stale dev-server module graph** produced a `prefersReducedMotion is not defined`
+   `PAGEERROR` that looked exactly like a circular-import bug. It was neither — the server
+   had been running since P2. Restarting it cleared it. Worth remembering before debugging
+   a phantom.
+3. **GSAP's `lagSmoothing` stretches the warp on slow hardware.** It clamps the per-tick
+   delta to 33ms once a frame exceeds 500ms, so under software WebGL a 1.6s transition took
+   tens of seconds. Correct behaviour — it exists to prevent jumps — but it invalidated a
+   wall-clock-driven test and would mislead anyone profiling on a weak machine.
+4. **The click can miss a moving marker at low framerates.** Hover is recomputed from a
+   raycast every frame against a rotating globe, so between confirming the hover and
+   pressing, the marker can slip out from under the cursor. Only reproducible at software-
+   render framerates (at 60fps the marker moves ~0.0006 rad/frame), so it is a test-harness
+   problem rather than a product one — the harness now clicks and retries.
+
+**Verification.**
+
+| Gate | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run check:warp` | **23/23** |
+| `npm run check:navigation` | 25/25 |
+| `npm run check:district` | 52/52 |
+| `npm run test:intro` | all cases pass |
+| `npm run build` | budgets ok — intro 12 044 B, app entry 300 583 B |
+
+**Browser.** Full Earth → Murcia → Earth round trip driven through the marker: the swap
+fires, Murcia renders and is interactive, the return restores Earth completely with the
+correct FOV and no residual dolly, the overlay settles to 0 at both ends, and the
+re-entrancy guard correctly rejects a second click mid-transition. Zero console errors.
+
+**NOT verified.** The *motion itself* has not been seen at frame rate. Software WebGL runs
+the city at ~2fps, which combined with `lagSmoothing` makes mid-transition frames
+unrepresentative of what the warp looks like. The timings and strengths in
+`WARP_TRANSITION` are reasoned, asserted at the endpoints, and tuned blind — they need a
+person on real hardware to judge.

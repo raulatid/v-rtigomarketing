@@ -1,4 +1,4 @@
-import { RefObject, Suspense } from 'react'
+import { RefObject, Suspense, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { CameraController } from './CameraController'
 import { AuditCameraShift } from './AuditCameraShift'
@@ -17,6 +17,7 @@ import { SatelliteDef } from '../orbit-system/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../hooks/useMasterTimeline'
 import type { ExperienceId } from '../app/experience'
+import type { GeoMarkers } from '../orbit-system/createGeoMarkers'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 
 interface Props {
@@ -59,13 +60,24 @@ export function SceneCanvas({
   // whether it consumes input and does per-frame work (ADR 003).
   const earthActive = activeExperience === 'earth'
 
+  // Published by GeoMarkersLayer, read by CameraController so the warp can aim
+  // at the destination. Owned here rather than in App because both ends of the
+  // handoff live inside the Canvas.
+  const geoMarkersRef = useRef<GeoMarkers | null>(null)
+
   return (
     <Canvas
       className="scene-canvas"
       camera={{ fov: config.normalFov, near: 0.1, far: 5000, position: [0, 0, 200] }}
       gl={{ antialias: true }}
     >
-      <CameraController config={config} state={state} overlayEl={overlayEl} active={earthActive} />
+      <CameraController
+        config={config}
+        state={state}
+        overlayEl={overlayEl}
+        active={earthActive}
+        geoMarkersRef={geoMarkersRef}
+      />
       {/* Projection-window shift for the audit panel. It writes camera.view,
           not the pose, so it cannot fight CameraController or the focus rig. */}
       <AuditCameraShift active={earthActive} />
@@ -80,6 +92,7 @@ export function SceneCanvas({
           state={state}
           active={earthActive}
           onSelectDestination={onSelectDestination}
+          geoMarkersRef={geoMarkersRef}
         />
       </Suspense>
       {/* Scene level, NOT inside EarthScene — orbital motion must not compound
@@ -107,6 +120,7 @@ export function SceneCanvas({
           that writes per-frame state it consumes. */}
       <MurciaLayer
         active={!earthActive}
+        state={state}
         experienceRef={murciaRef}
         onReady={onMurciaReady}
       />

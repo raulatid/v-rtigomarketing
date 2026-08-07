@@ -52,7 +52,9 @@ const CAMERA_DISTANCE = 165;
 
 export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
-  modelPath: 'models/city-prototype.glb',
+  // Root-absolute: a document-relative path resolves against the current
+  // route and 404s anywhere but the root.
+  modelPath: '/models/city-prototype.glb',
 
   sceneState: {
     backgroundColor: 0x9fb4c7,
@@ -216,6 +218,11 @@ export const murciaConfig: EnvironmentConfig = {
   // content and visual extent are the same rectangle here. They are still
   // modelled separately: the skirt makes the visual extent diverge immediately,
   // and it is derived at runtime rather than configured.
+  // 75 against a resting 165. Comfortably inside the band where closer means
+  // a smaller footprint: below about 60 the fixed lookAtHeight starts tilting
+  // the camera up and the footprint widens again (PROJECT_MEMORY 5).
+  warpCloseDistance: 75,
+
   contentBounds: { ...PLATE },
 
   // Plate centre. Verified as a starting composition; the plan asks for an

@@ -18,6 +18,10 @@ export interface SequenceState {
   // Owned by the transition controller, not the intro timeline, and the only
   // one that can still be non-zero after the intro has landed.
   transitionOverlay: number
+  // 0..1 across the Earth<->Murcia warp, the exact counterpart of warpProgress.
+  // Read by both experiences' camera drivers and by RenderPipeline; > 0 means a
+  // transition is playing and the focus rig must stand down.
+  transitionProgress: number
   motionBlur: number
   // Set true once the GLB has assembled. The P3 substitution is gated on this,
   // because a scale-through-zero crossover hides nothing if the model is absent.
@@ -47,6 +51,7 @@ export function createSequenceState(): SequenceState {
     warpOverlay: 0,
     swapOverlay: 0,
     transitionOverlay: 0,
+    transitionProgress: 0,
     motionBlur: 0,
     modelReady: false,
     earthReady: false,

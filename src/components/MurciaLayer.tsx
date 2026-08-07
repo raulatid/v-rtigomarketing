@@ -1,13 +1,16 @@
-import { RefObject, useEffect, useRef } from 'react'
+import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 import { loadProgress } from '../loading/progress'
+import type { SequenceState } from '../sequenceState'
+import { dollyAmount, prefersReducedMotion } from '../app/warpTransition'
 // Imported here rather than from main.tsx so it rides the scene chunk with the
 // code that uses it, instead of the entry chunk's stylesheet.
 import '../experiences/murcia/styles/murcia.css'
 
 interface Props {
   active: boolean
+  state: SequenceState
   experienceRef: RefObject<MurciaExperience | null>
   onReady?: () => void
 }
@@ -26,11 +29,13 @@ interface Props {
 // The module is imported DYNAMICALLY for the same reason the rest of the scene
 // is: it pulls in GLTFLoader, DRACOLoader and the whole city stack, none of
 // which may sit in the entry chunk.
-export function MurciaLayer({ active, experienceRef, onReady }: Props) {
+export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
 
   const hostRef = useRef<HTMLDivElement | null>(null)
+  const dollyEngaged = useRef(false)
+  const reducedMotion = useMemo(prefersReducedMotion, [])
   const onReadyRef = useRef(onReady)
   onReadyRef.current = onReady
   // build() is async, so the `active` effect below can run — and finish — long
@@ -148,7 +153,28 @@ export function MurciaLayer({ active, experienceRef, onReady }: Props) {
   // final before RenderPipeline (priority 1) draws. update() is itself a no-op
   // while inactive, so this costs one call per frame when Earth is showing.
   useFrame((_, delta) => {
-    experienceRef.current?.update(Math.min(delta, 0.1))
+    const experience = experienceRef.current
+    if (!experience) return
+
+    // The warp's dolly. Read from the mutable state object rather than a prop,
+    // because a per-frame prop would mean a React render per frame.
+    //
+    // Only applied while this experience is the one showing: `dollyAmount`
+    // reports the departing world's value before the cut and the arriving
+    // world's after it, so applying it whenever a transition is playing would
+    // make Murcia dolly during Earth's half too.
+    const p = state.transitionProgress
+    if (p > 0) {
+      if (active && !reducedMotion) experience.setDollyProgress(dollyAmount(p).amount)
+    } else if (dollyEngaged.current) {
+      // Pinned back to rest once, rather than left wherever the last frame
+      // landed — a residual offset would persist for the session.
+      dollyEngaged.current = false
+      experience.setDollyProgress(0)
+    }
+    if (p > 0 && active && !reducedMotion) dollyEngaged.current = true
+
+    experience.update(Math.min(delta, 0.1))
   })
 
   return null

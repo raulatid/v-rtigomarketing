@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import type { SequenceState } from '../sequenceState'
 import type { ExperienceId } from './experience'
+import { WARP_TRANSITION, flash } from './warpTransition'
 
-// Durations are asymmetric on purpose: the cover has to feel decisive and the
-// reveal has to feel like an arrival. Matching them reads as a dissolve.
-const COVER_SECONDS = 0.32
-const REVEAL_SECONDS = 0.5
+// Shaping lives entirely in warpTransition's curves, so the tween is linear.
+// A GSAP ease here would compound with them and destroy the width relationship
+// between position, speed and flash (DECISIONS.md:127-129).
+const TWEEN_EASE = 'none'
 
 interface Params {
   state: SequenceState
@@ -14,7 +15,18 @@ interface Params {
 }
 
 /**
- * Owns the Earth <-> Murcia transition.
+ * Owns the Earth <-> Murcia warp.
+ *
+ * This publishes ONE number — `state.transitionProgress`, 0..1 — and fires the
+ * scene swap at the midpoint. It drives no camera itself. Each experience reads
+ * that progress and moves its OWN camera, which is what keeps Earth and Murcia
+ * from needing to know anything about each other (ARCHITECTURE 13: camera
+ * behaviour belongs to the experience that defines its interaction model).
+ *
+ * The shape is the intro's warp, reused rather than reinvented: the departing
+ * world dollies in and accelerates, the cut lands under the closest and most
+ * covered frame, and the arriving world pulls back out. See warpTransition.ts
+ * for the curves.
  *
  * The swap itself is a HARD CUT at full cover, never a cross-fade. That is the
  * project's strongest visual rule (docs/earth/DECISIONS.md: "Nothing ever
@@ -24,9 +36,7 @@ interface Params {
  * worlds are rendered and no cost that scales with having two.
  *
  * Neither experience is created or destroyed here — both stay mounted and the
- * render pipeline simply changes which scene it draws (ADR 003). The flash
- * exists to conceal the discontinuity between two unrelated cameras, exactly as
- * the intro's warp flash conceals the starfield -> Earth cut.
+ * render pipeline simply changes which scene it draws (ADR 003).
  */
 export function useExperienceTransition({ state, onSwap }: Params) {
   const [transitioning, setTransitioning] = useState(false)
@@ -38,8 +48,10 @@ export function useExperienceTransition({ state, onSwap }: Params) {
     return () => {
       timelineRef.current?.kill()
       timelineRef.current = null
-      // Leaving the overlay part-way up would black out the page for good.
+      // Leaving either part-way up would black out the page for good, or strand
+      // a camera mid-dolly.
       state.transitionOverlay = 0
+      state.transitionProgress = 0
     }
   }, [state])
 
@@ -51,36 +63,45 @@ export function useExperienceTransition({ state, onSwap }: Params) {
       if (timelineRef.current) return
 
       setTransitioning(true)
-      const cover = { value: 0 }
+      const proxy = { progress: 0 }
+
+      const apply = () => {
+        state.transitionProgress = proxy.progress
+        state.transitionOverlay = flash(proxy.progress)
+      }
 
       const tl = gsap.timeline({
         onComplete: () => {
+          // Pinned rather than left wherever the last frame landed: a rounding
+          // shortfall would leave a residual dolly and a faint overlay for the
+          // rest of the session. Same guard the intro's warp uses.
+          state.transitionProgress = 0
+          state.transitionOverlay = 0
           timelineRef.current = null
           setTransitioning(false)
         },
       })
 
-      tl.to(cover, {
-        value: 1,
-        duration: COVER_SECONDS,
-        ease: 'power2.in',
-        onUpdate: () => {
-          state.transitionOverlay = cover.value
-        },
+      // Half one, to the cut.
+      tl.to(proxy, {
+        progress: WARP_TRANSITION.cut,
+        duration: WARP_TRANSITION.duration * WARP_TRANSITION.cut,
+        ease: TWEEN_EASE,
+        onUpdate: apply,
       })
 
-      // The cut, at full cover. Everything discontinuous happens on this one
-      // frame: the active scene, the active camera, and which experience owns
-      // input all change together and none of it is visible.
+      // The cut, at full cover and at the closest point of the dolly.
+      // Everything discontinuous happens on this one frame: the active scene,
+      // the active camera, and which experience owns input all change together
+      // and none of it is visible.
       tl.call(() => onSwapRef.current(to))
 
-      tl.to(cover, {
-        value: 0,
-        duration: REVEAL_SECONDS,
-        ease: 'power2.out',
-        onUpdate: () => {
-          state.transitionOverlay = cover.value
-        },
+      // Half two, out.
+      tl.to(proxy, {
+        progress: 1,
+        duration: WARP_TRANSITION.duration * (1 - WARP_TRANSITION.cut),
+        ease: TWEEN_EASE,
+        onUpdate: apply,
       })
 
       timelineRef.current = tl

@@ -1,10 +1,19 @@
-import { RefObject } from 'react'
+import { RefObject, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { cinematicTravel, cinematicSpeed, narrowPeak, lerp, lerpVec3 } from '../utils/easing'
 import { IntroConfig } from '../introConfig'
 import { SequenceState } from '../sequenceState'
 import { atOrAfter } from '../sceneVisibility'
+import { GEO_MARKERS } from '../orbit-system/orbitConfig'
+import type { GeoMarkers } from '../orbit-system/createGeoMarkers'
+import {
+  dollyAmount,
+  earthFov,
+  earthRadiusScale,
+  prefersReducedMotion,
+  speed,
+} from '../app/warpTransition'
 
 // Leg 1: the camera pushes forward through the star volume.
 // Leg 2: it arrives from far out and settles at the Earth's rest distance.
@@ -26,10 +35,29 @@ interface Props {
   state: SequenceState
   overlayEl: RefObject<HTMLDivElement | null>
   active: boolean
+  geoMarkersRef: RefObject<GeoMarkers | null>
 }
 
-export function CameraController({ config, state, overlayEl, active }: Props) {
+export function CameraController({
+  config,
+  state,
+  overlayEl,
+  active,
+  geoMarkersRef,
+}: Props) {
   const { camera } = useThree()
+
+  // Warp scratch. Reused rather than allocated per frame — this runs in the
+  // render loop.
+  const dollyAnchor = useRef(new THREE.Vector3())
+  const dollyCaptured = useRef(false)
+  const markerWorld = useRef(new THREE.Vector3())
+  const warpLookAt = useRef(new THREE.Vector3())
+  const reducedMotion = useMemo(prefersReducedMotion, [])
+  const destinationId = useMemo(
+    () => GEO_MARKERS.find((m) => m.kind === 'destination')?.id ?? null,
+    [],
+  )
 
   useFrame(() => {
     if (!('fov' in camera)) return
@@ -40,9 +68,23 @@ export function CameraController({ config, state, overlayEl, active }: Props) {
     // transition flash rides on it (ADR 003). Freezing the camera rather than
     // resetting it is what lets a return resume the pose the viewer left.
     if (!active) {
+      dollyCaptured.current = false
       applyOverlay()
       return
     }
+
+    // ── The Earth<->Murcia warp ──
+    //
+    // Placed BEFORE the site handoff below: during a transition the focus rig
+    // stands down (InteractionLayer stops calling its update), so this is the
+    // sole camera writer for the duration. Two writers per frame is the failure
+    // the source project removed OrbitControls to avoid.
+    if (state.transitionProgress > 0) {
+      applyWarp(cam, state.transitionProgress)
+      applyOverlay()
+      return
+    }
+    dollyCaptured.current = false
 
     // HANDOFF. Once the sequence rests, InteractionLayer's rig owns the camera.
     // Two owners writing a pose per frame would fight, which is exactly why the
@@ -100,6 +142,48 @@ export function CameraController({ config, state, overlayEl, active }: Props) {
     state.motionBlur = speedFactor * config.motionBlurStrength
     applyOverlay()
   })
+
+  /**
+   * The dolly leg of the warp.
+   *
+   * Departing, the camera rushes IN along its own view axis, so it works from
+   * whatever orbit position the viewer had dragged to rather than assuming the
+   * default. Arriving, it pulls OUT to `EARTH_REST` — deterministic rather than
+   * captured, because the rig was deactivated on the way out and its `activate()`
+   * reseeds from the overview pose, so that is provably where it will be when it
+   * takes the camera back. Landing anywhere else would snap on handback.
+   *
+   * The look-at eases toward the destination marker as the speed bell peaks:
+   * clicking Murcia flies you into Murcia, and coming back you emerge from it
+   * and pull out to the whole globe. Read in world space every frame because the
+   * marker rotates with the surface.
+   */
+  function applyWarp(cam: THREE.PerspectiveCamera, p: number) {
+    const { departing, amount } = dollyAmount(p)
+
+    if (!dollyCaptured.current) {
+      if (departing) dollyAnchor.current.copy(cam.position)
+      else dollyAnchor.current.set(...EARTH_REST)
+      dollyCaptured.current = true
+    }
+
+    // Reduced motion keeps the flash and the cut — concealing the jump is not a
+    // motion effect — but skips the travel and the surge entirely.
+    if (reducedMotion) return
+
+    const radius = dollyAnchor.current.length()
+    cam.position.copy(dollyAnchor.current).setLength(radius * earthRadiusScale(amount))
+
+    const lookAt = warpLookAt.current.copy(EARTH_LOOK_AT)
+    const marker = destinationId
+      ? geoMarkersRef.current?.getWorldPosition(destinationId, markerWorld.current)
+      : null
+    if (marker) lookAt.lerpVectors(EARTH_LOOK_AT, marker, speed(p))
+    cam.lookAt(lookAt)
+
+    cam.fov = earthFov(p)
+    cam.updateProjectionMatrix()
+  }
 
   // Single DOM writer for both overlay contributors. Runs inside useFrame so it
   // costs no extra loop and never touches React state.

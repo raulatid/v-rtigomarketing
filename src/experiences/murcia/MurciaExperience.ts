@@ -72,6 +72,8 @@ export class MurciaExperience {
   private suspendedController = false;
   private onLoadProgress: ((fraction: number) => void) | undefined;
   private loadFailed = true;
+  /** 0 at the resting pose, 1 at the warp closest approach. */
+  private dollyAmount = 0;
 
   private readonly statusOverlay: StatusOverlay;
   private readonly controlsHint: ControlsHint;
@@ -192,6 +194,45 @@ export class MurciaExperience {
       this.renderer.setRenderTarget(previousTarget);
       target.dispose();
     }
+  }
+
+  /**
+   * The warp dolly: 0 is the resting pose, 1 is the closest approach.
+   *
+   * Distance ONLY. Elevation and FOV are untouched for the same reason
+   * `CameraFlight` leaves them alone — they set the ground footprint, and the
+   * terrain skirt is sized against a measured footprint at a specific pose
+   * (PROJECT_MEMORY 7 and 10.6).
+   *
+   * Direction matters: the camera may move IN from the resting distance and
+   * back out to it, never past it. Pulling back widens the footprint at about
+   * 1.33 world units per unit of distance against a measured worst-case skirt
+   * margin of +50 units at 5120x1440 — so it would put the plate edge on screen
+   * for ultrawide viewers only, silently. `checks/warp-transition.ts` asserts
+   * the curve never leaves the safe band; this method does not re-check it.
+   *
+   * No external control is taken. This owns distance; `DragPanController` owns
+   * focus and yaw, and `setFocus`/`setYaw` re-apply whatever pose is current, so
+   * the two compose. Taking `beginExternalControl()` would collide with
+   * `setActive(true)` firing at the cut, which releases it — and the flag is
+   * shared with every district flight besides.
+   */
+  setDollyProgress(amount: number): void {
+    if (!this.rig) return;
+    this.dollyAmount = amount;
+    this.applyDollyPose();
+  }
+
+  private applyDollyPose(): void {
+    if (!this.rig) return;
+    const base = resolveCameraPose(this.environment, this.viewport.aspect);
+    const distance =
+      base.distance +
+      (this.environment.warpCloseDistance - base.distance) * this.dollyAmount;
+    // A FRESH object every time. `rig.getPose()` hands back `murciaConfig.camera`
+    // by identity, so mutating it would corrupt the environment config for the
+    // rest of the session.
+    this.rig.setPose({ ...base, distance });
   }
 
   /** The scene RenderPipeline draws when this experience is showing. */
@@ -426,7 +467,9 @@ export class MurciaExperience {
       // Re-resolving the pose covers the portrait-override case; it is a few
       // trig calls and a projection-matrix update, so it is not worth guarding.
       this.rig.setAspect(size.aspect);
-      this.rig.setPose(resolveCameraPose(this.environment, size.aspect));
+      // Through applyDollyPose, not setPose directly: a resize mid-warp would
+      // otherwise snap the distance back to rest and fight the dolly.
+      this.applyDollyPose();
       // The footprint depends on aspect and pose, so it must be recomputed here
       // — and only here, plus on pose change. It is independent of the focus
       // position, because the camera sits at a fixed offset from it.

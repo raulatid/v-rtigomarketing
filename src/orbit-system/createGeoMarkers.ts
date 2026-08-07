@@ -252,7 +252,21 @@ export function createGeoMarkers({ camera, domElement, onSelect }: Options) {
     if (cursorHover) domElement.style.cursor = ''
   }
 
-  return { group, update, setEnabled, dispose }
+  /**
+   * World position of a marker's dot, or null if there is no such marker.
+   *
+   * World, not local: markers are parented under the group that spins the
+   * Earth's surface, so the local position never changes and only the world one
+   * says where the place actually is right now. The warp's dolly reads this
+   * every frame to aim at the destination while the globe keeps turning.
+   */
+  function getWorldPosition(id: string, target: THREE.Vector3): THREE.Vector3 | null {
+    const marker = markers.find((m) => m.data.id === id)
+    if (!marker) return null
+    return marker.dot.getWorldPosition(target)
+  }
+
+  return { group, update, setEnabled, getWorldPosition, dispose }
 }
 
 export type GeoMarkers = ReturnType<typeof createGeoMarkers>

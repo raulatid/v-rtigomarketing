@@ -108,14 +108,21 @@ export function InteractionLayer({
     const interactive = active && atOrAfter(state.phase, 'site')
     if (interactive) rig.activate()
     else if (rig.isActive()) rig.deactivate()
+
+    // A warp is playing: CameraController owns the camera for its duration, so
+    // the rig stands down. Note this does NOT deactivate it — activate() reseeds
+    // from the overview pose, so toggling here would throw away the pose the
+    // dolly is departing from. Simply not calling update() freezes it in place
+    // with its state intact, which is the same seam the audit panel relies on.
+    const warping = state.transitionProgress > 0
     // The rig stays active while the audit panel is open — deactivating it
     // would reset to the overview pose and lose the user's drag position, and
     // the ambient drag keeps the visible strip alive. Only satellite selection
     // is disabled, so a click cannot fly the camera into a close-up (whose
     // composition contract assumes the full viewport) behind the panel.
-    focus.setEnabled(interactive && !auditView.open)
+    focus.setEnabled(interactive && !warping && !auditView.open)
 
-    if (!interactive) return
+    if (!interactive || warping) return
 
     focus.update()
     // Clamped so a backgrounded tab cannot teleport the camera on return.
