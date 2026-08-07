@@ -1,0 +1,277 @@
+import * as THREE from 'three'
+import { INTERACTION_CONFIG } from './interactionConfig'
+import { CursorManager } from './cursorManager'
+
+// Camera rig for the interactive phase, ported from earth-connections
+// (docs/extractions/003).
+//
+// ONE smoothing mechanism for everything: a target/current pair of
+// { position, lookAt } moved by a frame-rate-independent exponential lerp.
+// Every behaviour — drag orbit, wheel zoom, satellite fly-in, return to
+// overview — only ever writes the TARGET. Nothing moves the camera directly.
+//
+// This is also why there is no OrbitControls: a second camera owner would fight
+// this one every frame. In our case the other owner is CameraController, which
+// drives the whole intro — so this rig stays dormant until activate() is called
+// at the resting phase, and seeds itself from wherever the camera actually is.
+
+type Mode = 'overview' | 'focusing' | 'focused'
+
+interface Options {
+  camera: THREE.PerspectiveCamera
+  domElement: HTMLElement
+  cursor: CursorManager
+  // The pose the intro rests at. The rig adopts it as its overview.
+  overviewPose: [number, number, number]
+  onEmptyClick: () => void
+  isOverSatellite: () => boolean
+}
+
+export function createFocusCameraRig({
+  camera,
+  domElement,
+  cursor,
+  overviewPose,
+  onEmptyClick,
+  isOverSatellite,
+}: Options) {
+  const cfg = INTERACTION_CONFIG.camera
+
+  const overviewPosition = new THREE.Vector3()
+  const overviewLookAt = new THREE.Vector3(0, 0, 0)
+
+  const target = { position: new THREE.Vector3(), lookAt: new THREE.Vector3() }
+  const current = { position: new THREE.Vector3(), lookAt: new THREE.Vector3() }
+
+  let active = false
+  let mode: Mode = 'overview'
+  let focused = false // is a close-up target active (decides who owns the target)
+  let orbitEnabled = true
+
+  // ─── Manual spherical orbit (drag) ───
+  const orbit = {
+    theta: 0,
+    phi: Math.PI / 2,
+    radius: 1,
+    isDragging: false,
+    lastX: 0,
+    lastY: 0,
+  }
+  let dragDistance = 0
+
+  function syncOrbitTo(position: THREE.Vector3) {
+    const s = new THREE.Spherical().setFromVector3(position)
+    orbit.theta = s.theta
+    orbit.phi = THREE.MathUtils.clamp(s.phi, cfg.phiMin, cfg.phiMax)
+    orbit.radius = s.radius
+  }
+
+  // Takes over the camera from whatever was driving it.
+  //
+  // Seeds from the KNOWN overview pose, not the live camera. On the natural path
+  // CameraController leaves the camera exactly there, so the handoff is
+  // jump-free; on a skip it bails before ever moving the camera off the
+  // starfield position, and seeding from live would strand the rig at z=200 with
+  // the Earth a dot. A skip snaps everything else instantly too, so a snap here
+  // is consistent.
+  function activate() {
+    if (active) return
+    active = true
+    overviewPosition.set(...overviewPose)
+    current.position.copy(overviewPosition)
+    target.position.copy(overviewPosition)
+    current.lookAt.copy(overviewLookAt)
+    target.lookAt.copy(overviewLookAt)
+    // From the overview pose, NOT camera.position — the spherical radius is what
+    // updateOrbitTarget rebuilds the target from every frame, so seeding it from
+    // a stale camera would undo the whole point of the line above.
+    syncOrbitTo(overviewPosition)
+    mode = 'overview'
+    focused = false
+    orbitEnabled = true
+  }
+
+  function deactivate() {
+    active = false
+    if (orbit.isDragging) endDrag()
+  }
+
+  function updateOrbitTarget() {
+    target.position.setFromSphericalCoords(orbit.radius, orbit.phi, orbit.theta)
+    target.lookAt.copy(overviewLookAt)
+  }
+
+  function endDrag() {
+    orbit.isDragging = false
+    try {
+      domElement.releasePointerCapture?.(activePointerId)
+    } catch {
+      // Capture may already be gone; releasing twice is not an error worth surfacing.
+    }
+    cursor.request('drag', '')
+  }
+
+  let activePointerId = -1
+
+  function onPointerDown(e: PointerEvent) {
+    if (!active || e.button !== 0) return
+    if (!orbitEnabled) return // no orbit while a satellite is focused
+    orbit.isDragging = true
+    orbit.lastX = e.clientX
+    orbit.lastY = e.clientY
+    dragDistance = 0
+    activePointerId = e.pointerId
+    domElement.setPointerCapture?.(e.pointerId)
+    cursor.request('drag', 'grabbing')
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!orbit.isDragging) return
+    const dx = e.clientX - orbit.lastX
+    const dy = e.clientY - orbit.lastY
+    orbit.lastX = e.clientX
+    orbit.lastY = e.clientY
+    dragDistance += Math.abs(dx) + Math.abs(dy)
+
+    orbit.theta -= dx * cfg.orbitSensitivity
+    orbit.phi = THREE.MathUtils.clamp(
+      orbit.phi - dy * cfg.orbitSensitivity,
+      cfg.phiMin,
+      cfg.phiMax,
+    )
+  }
+
+  function onPointerUp() {
+    if (!orbit.isDragging) return
+    endDrag()
+  }
+
+  // Multiplicative on the orbit radius, overview only. The camera eases to the
+  // new radius through the same lerp as everything else.
+  function onWheel(e: WheelEvent) {
+    if (!active || !orbitEnabled) return
+    orbit.radius = THREE.MathUtils.clamp(
+      orbit.radius * (1 + e.deltaY * cfg.zoomSensitivity),
+      cfg.zoomMin,
+      cfg.zoomMax,
+    )
+  }
+
+  function onClick() {
+    if (!active) return
+    // A drag that happens to end over a satellite must not select it.
+    if (dragDistance > cfg.dragClickThreshold) return
+    if (!isOverSatellite()) onEmptyClick()
+  }
+
+  domElement.addEventListener('pointerdown', onPointerDown)
+  domElement.addEventListener('pointermove', onPointerMove)
+  domElement.addEventListener('pointerup', onPointerUp)
+  domElement.addEventListener('pointercancel', onPointerUp)
+  domElement.addEventListener('wheel', onWheel, { passive: true })
+  domElement.addEventListener('click', onClick)
+
+  // ─── Close-up framing ───
+  const _forward = new THREE.Vector3()
+  const _right = new THREE.Vector3()
+  const _worldUp = new THREE.Vector3(0, 1, 0)
+
+  function focusOn(satWorldPos: THREE.Vector3) {
+    const cu = INTERACTION_CONFIG.closeUp
+
+    // Earth is at the origin, so normalize(satPos) is the outward radial
+    // direction. Backing off along it puts the camera outside the satellite
+    // looking back toward the planet, keeping the Earth as the backdrop.
+    const viewDir = satWorldPos.clone().normalize()
+    const camPos = satWorldPos
+      .clone()
+      .add(viewDir.multiplyScalar(cu.distance))
+      .add(new THREE.Vector3(0, cu.lift, 0))
+
+    // Shift the LOOK-AT to the camera's right, not the camera itself: the
+    // satellite lands left of centre, clearing the right side for the panel,
+    // and it reads as a framing choice rather than a sideways dolly.
+    _forward.subVectors(satWorldPos, camPos).normalize()
+    _right.crossVectors(_forward, _worldUp).normalize()
+    const lookAt = satWorldPos.clone().add(_right.clone().multiplyScalar(cu.screenOffset))
+
+    target.position.copy(camPos)
+    target.lookAt.copy(lookAt)
+    focused = true
+    mode = 'focusing'
+  }
+
+  function returnToOverview() {
+    // Resync the drag orbit so rotation resumes from the overview pose.
+    syncOrbitTo(overviewPosition)
+    target.position.copy(overviewPosition)
+    target.lookAt.copy(overviewLookAt)
+    focused = false
+    mode = 'focusing'
+  }
+
+  function update(delta: number) {
+    if (!active) return
+
+    // The drag orbit owns the target only while no close-up is active.
+    if (!focused) updateOrbitTarget()
+
+    const alpha = 1 - Math.exp(-cfg.lerpK * delta)
+
+    if (!focused) {
+      // Ease direction and radius SEPARATELY. A plain Cartesian lerp between
+      // two points on the orbit sphere cuts through the chord, so while
+      // dragging the camera lags angularly and sinks below the orbit radius —
+      // it visibly zooms in and out as you pan. Re-projecting onto an
+      // independently eased radius keeps panning distance-stable, and still
+      // eases smoothly back from a close-up (whose radius differs).
+      const easedRadius = THREE.MathUtils.lerp(current.position.length(), orbit.radius, alpha)
+      current.position.lerp(target.position, alpha).setLength(easedRadius)
+    } else {
+      // The close-up deliberately does NOT re-project: here the radius change
+      // is the point.
+      current.position.lerp(target.position, alpha)
+    }
+
+    current.lookAt.lerp(target.lookAt, alpha)
+    camera.position.copy(current.position)
+    camera.lookAt(current.lookAt)
+
+    if (
+      mode === 'focusing' &&
+      current.position.distanceTo(target.position) < cfg.arrivalEpsilon
+    ) {
+      mode = focused ? 'focused' : 'overview'
+    }
+  }
+
+  function setOrbitEnabled(enabled: boolean) {
+    orbitEnabled = enabled
+    if (!enabled && orbit.isDragging) endDrag()
+  }
+
+  function dispose() {
+    domElement.removeEventListener('pointerdown', onPointerDown)
+    domElement.removeEventListener('pointermove', onPointerMove)
+    domElement.removeEventListener('pointerup', onPointerUp)
+    domElement.removeEventListener('pointercancel', onPointerUp)
+    domElement.removeEventListener('wheel', onWheel)
+    domElement.removeEventListener('click', onClick)
+  }
+
+  return {
+    update,
+    activate,
+    deactivate,
+    focusOn,
+    returnToOverview,
+    setOrbitEnabled,
+    isActive: () => active,
+    isDragging: () => orbit.isDragging,
+    getDragDistance: () => dragDistance,
+    getMode: () => mode,
+    dispose,
+  }
+}
+
+export type FocusCameraRig = ReturnType<typeof createFocusCameraRig>

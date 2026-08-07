@@ -1,0 +1,76 @@
+import type { BoundsRect } from '../config/environmentConfig';
+
+/**
+ * Rectangle helpers for navigation bounds.
+ *
+ * Deliberately plain functions rather than a class: the clamp is applied to a
+ * *proposed* focus before it is committed, so soft resistance or a spring
+ * effect can be introduced later by changing only the caller
+ * (docs/plans/002 Phase 4).
+ */
+
+export interface ClampResult {
+  x: number;
+  z: number;
+  /** True when the proposal was outside and had to be corrected. */
+  clamped: boolean;
+}
+
+export function expandRect(rect: BoundsRect, amount: number): BoundsRect {
+  return {
+    minX: rect.minX - amount,
+    maxX: rect.maxX + amount,
+    minZ: rect.minZ - amount,
+    maxZ: rect.maxZ + amount,
+  };
+}
+
+export function intersectRect(a: BoundsRect, b: BoundsRect): BoundsRect {
+  return {
+    minX: Math.max(a.minX, b.minX),
+    maxX: Math.min(a.maxX, b.maxX),
+    minZ: Math.max(a.minZ, b.minZ),
+    maxZ: Math.min(a.maxZ, b.maxZ),
+  };
+}
+
+export function isInverted(rect: BoundsRect): boolean {
+  return rect.minX > rect.maxX || rect.minZ > rect.maxZ;
+}
+
+/**
+ * Collapses an over-constrained rectangle to its midpoint on the offending
+ * axis rather than leaving it inverted.
+ *
+ * An inverted rectangle would make every clamp comparison meaningless and
+ * effectively remove the limits, which Phase 4 explicitly forbids. Collapsing
+ * pins the focus instead, which is restrictive but never unsafe.
+ */
+export function collapseIfInverted(rect: BoundsRect): BoundsRect {
+  const result = { ...rect };
+  if (result.minX > result.maxX) {
+    const mid = (result.minX + result.maxX) / 2;
+    result.minX = mid;
+    result.maxX = mid;
+  }
+  if (result.minZ > result.maxZ) {
+    const mid = (result.minZ + result.maxZ) / 2;
+    result.minZ = mid;
+    result.maxZ = mid;
+  }
+  return result;
+}
+
+export function clampToRect(x: number, z: number, rect: BoundsRect): ClampResult {
+  const clampedX = Math.min(Math.max(x, rect.minX), rect.maxX);
+  const clampedZ = Math.min(Math.max(z, rect.minZ), rect.maxZ);
+  return {
+    x: clampedX,
+    z: clampedZ,
+    clamped: clampedX !== x || clampedZ !== z,
+  };
+}
+
+export function containsPoint(x: number, z: number, rect: BoundsRect): boolean {
+  return x >= rect.minX && x <= rect.maxX && z >= rect.minZ && z <= rect.maxZ;
+}

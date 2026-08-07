@@ -1,0 +1,89 @@
+import { RefObject, useEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+import { createOrbitSystem, OrbitSystem } from '../orbit-system/createOrbitSystem'
+import { EARTH_CONFIG } from '../earthConfig'
+
+import { SequenceState } from '../sequenceState'
+import { orbitsVisible } from '../sceneVisibility'
+import { loadProgress } from '../loading/progress'
+
+interface Props {
+  state: SequenceState
+  // Populated on mount so InteractionLayer can reach the system. Ordered first
+  // in SceneCanvas so its effect runs before the consumer's.
+  systemRef?: RefObject<OrbitSystem | null>
+}
+
+// Mounts the orbit system at SCENE level — deliberately not inside the Earth's
+// group. The Earth's spin group rotates its surface, and orbital motion must not
+// compound with that.
+//
+// scale = EARTH_CONFIG.radius reconciles the two projects' scale conventions:
+// every orbit preset is expressed in "Earth radius = 1" units.
+export function OrbitSystemLayer({ state, systemRef }: Props) {
+  const { camera, scene, gl } = useThree()
+  const localSystem = useRef<OrbitSystem | null>(null)
+  const groupRef = useRef<THREE.Group>(null)
+  const elapsed = useRef(0)
+  const started = useRef(false)
+
+  const textureLoader = useMemo(() => new THREE.TextureLoader(), [])
+
+  useEffect(() => {
+    const system = createOrbitSystem({ camera, textureLoader, renderer: gl })
+    system.group.visible = false
+    localSystem.current = system
+    if (systemRef) systemRef.current = system
+    groupRef.current?.add(system.group)
+
+    // Mounted (invisible) from the start so the scene-level compileAsync warm-up
+    // in EarthScene covers these materials too — otherwise all six line
+    // materials, the sprite materials and the cloud would compile on the frame
+    // the reveal begins (plan 003 §3).
+    state.orbitsReady = true
+    // Construction is synchronous and includes the 2048×1536 atlas raster, so
+    // this lands after a real stall — reported so the drawing owns that pause
+    // rather than being silently stuttered by it.
+    loadProgress.markDone('orbits:build')
+
+    return () => {
+      state.orbitsReady = false
+      localSystem.current = null
+      if (systemRef) systemRef.current = null
+      groupRef.current?.remove(system.group)
+      system.dispose()
+    }
+  }, [camera, textureLoader, scene, state, systemRef, gl])
+
+  useFrame((_, rawDelta) => {
+    const system = localSystem.current
+    if (!system) return
+
+    const visible = orbitsVisible(state)
+    system.group.visible = visible
+
+    if (!visible) {
+      // A replay rewinds the timeline past this phase; drop back to pre-reveal
+      // so the draw-in plays again rather than appearing already complete.
+      if (started.current) {
+        started.current = false
+        elapsed.current = 0
+        system.reset()
+      }
+      return
+    }
+
+    started.current = true
+    const delta = Math.min(rawDelta, 0.1)
+    elapsed.current += delta
+
+    // Ambient motion runs on its own accumulator rather than the GSAP clock.
+    // The reveal's START is timeline-owned (the phase gate above), but orbiting
+    // continues indefinitely after the timeline ends — the same pattern the
+    // Earth's rotation and the corner logo's idle already use.
+    system.update(delta, elapsed.current)
+  })
+
+  return <group ref={groupRef} scale={EARTH_CONFIG.radius} />
+}

@@ -1,0 +1,43 @@
+import { EARTH_CONFIG } from '../earthConfig'
+
+// Tuning for the interactive phase, ported from earth-connections'
+// satelliteFocusConfig.js (see docs/extractions/003).
+//
+// SCALE: every distance in the source is in "Earth radius = 1" units. Ours is
+// radius 2, so anything measured against the planet is expressed here as a
+// multiple of EARTH_CONFIG.radius rather than a rewritten literal — same reason
+// orbitConfig keeps its presets in source units.
+const R = EARTH_CONFIG.radius
+
+export const INTERACTION_CONFIG = {
+  camera: {
+    // Exponential lerp constant: ~95% of the distance covered in ~1s.
+    lerpK: 3,
+    // Below this distance to its target the camera counts as arrived.
+    arrivalEpsilon: 0.005 * R,
+    // Manual spherical orbit (this replaces OrbitControls — see extraction §1).
+    orbitSensitivity: 0.004,
+    phiMin: 0.15, // never flip over the north pole
+    phiMax: Math.PI - 0.15, // never dive under the planet
+    // Accumulated pointer travel (px) above which a click counts as a drag.
+    dragClickThreshold: 4,
+    // Wheel zoom, overview mode only. Expressed in Earth radii from centre.
+    zoomMin: 3 * R,
+    zoomMax: 11 * R,
+    zoomSensitivity: 0.0012,
+  },
+
+  closeUp: {
+    // Back-off from the satellite along the Earth→satellite direction — THE
+    // knob for how close the case-panel view gets. Smaller = closer. The old
+    // 1.25R was tuned for the flat badge; the GLB model reads far smaller at
+    // the same distance, so the close-up is pulled in to keep it the subject.
+    distance: 0.55 * R,
+    // Small vertical camera lift.
+    lift: 0.15 * R,
+    // Look-at offset to the camera's right, in world units at the satellite's
+    // depth: pushes the satellite LEFT on screen, clearing the right side of
+    // the viewport for the case panel.
+    screenOffset: 0.16 * R,
+  },
+}

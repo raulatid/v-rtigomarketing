@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- The interface copy is Spanish (see AuditSection.tsx), so the document must
+     say so: a wrong lang makes screen readers apply English phonetics to
+     Spanish text, and misleads search indexing. -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vertigo — Marketing que se mide</title>
+    <meta
+      name="description"
+      content="Vertigo: agencia de marketing orientada a resultados. Casos reales, métricas reales y auditoría gratuita de tu presencia digital."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Vertigo — Marketing que se mide" />
+    <meta
+      property="og:description"
+      content="Casos reales, métricas reales y auditoría gratuita de tu presencia digital."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#050507" />
+    <!-- Inline so it costs no request and cannot 404. Replace with the real
+         brand mark when there is one. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23050507'/><path d='M20 28 L50 78 L80 28 L65 28 L50 53 L35 28 Z' fill='white'/></svg>"
+    />
+
+    <!-- Opening black, inline so it is painted on the first frame rather than
+         after the stylesheet resolves. The drawing composites onto this. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #050507;
+      }
+    </style>
+
+    <!-- Discovery early, PRIORITY LOW (plan 007 Phase 8).
+         These were plain `rel=preload`, i.e. "fetch now, high priority" — so
+         2.43 MB of Earth JPEG competed with the 101 KB app chunk for the same
+         bandwidth, and on Slow 4G spent ~12s crowding out the very JavaScript
+         that would have put something on screen. They are not needed until
+         after the warp, several seconds after the intro hands over.
+         Starting them early is right; starting them AHEAD of the app is not. -->
+    <!-- `crossorigin` is REQUIRED here, not optional. three's Loader defaults
+         crossOrigin to 'anonymous' and ImageLoader applies it to the <img>, so
+         the real load runs in CORS mode. A preload without this attribute is
+         no-cors mode, the two do not match, and the browser DISCARDS the
+         preload and downloads all 2.43 MB a second time. Chrome logs it as an
+         unused-preload warning; the Network panel shows the duplicate. -->
+    <link rel="preload" as="image" crossorigin fetchpriority="low" href="/earth/day.jpg" />
+    <link rel="preload" as="image" crossorigin fetchpriority="low" href="/earth/night.jpg" />
+    <link
+      rel="preload"
+      as="image"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/specularClouds.jpg"
+    />
+    <!-- Needed at the P3 crossover, which is the first beat after the intro,
+         and only 20 KB — this one keeps normal priority. -->
+    <link rel="preload" as="fetch" href="/models/model.glb" crossorigin />
+    <!-- Satellites appear in P5, well after handover. -->
+    <link rel="preload" as="fetch" fetchpriority="low" href="/models/satellite.glb" crossorigin />
+  </head>
+  <body>
+    <!-- P0's script is INJECTED into <head> by the introEntry plugin, not
+         written here: Vite merges every module script in a document into one
+         entry chunk, which would bundle the drawing with the app and defeat
+         the point. It is a separate Rollup input. See vite.config.ts. -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

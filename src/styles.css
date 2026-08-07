@@ -1,0 +1,1124 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: #050507;
+  color: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.app {
+  position: relative;
+  height: 100%;
+}
+
+/* ---- Layer stack (plan 002 §3) ----
+   10 scene canvas (incl. the corner-logo overlay pass) · 15 geo tags ·
+   20 SVG intro · 35 case panel · 40 warp overlay                            */
+
+.scene-canvas {
+  position: fixed !important;
+  inset: 0;
+  z-index: 10;
+  display: block;
+  /* The rig handles drag itself, so the browser must not claim the gesture for
+     scrolling or pinch-zoom. */
+  touch-action: none;
+}
+
+/* z 20 — the intro drawing — is not here. intro-draw injects its own styles,
+   because it has to render before this stylesheet is even requested. */
+
+/* z 30 — the corner logo — is gone. It had its own canvas and its own
+   WebGLRenderer; it is now an overlay pass on the scene canvas (ADR 002), so
+   it composites at z 10. Consequence: the geo-tag layer (z 15) now paints
+   above the logo where they overlap, which the separate canvas prevented. */
+
+.warp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- Case panel (interactive phase) ----
+   Composition contract with the camera: closeUp.screenOffset pushes the focused
+   satellite LEFT of centre precisely to clear this column. Changing the width
+   means revisiting that offset. */
+
+.case-panel {
+  position: fixed;
+  top: 50%;
+  /* Pulled in from the original 5vw so the panel sits nearer the centre of the
+     composition instead of hugging the screen edge. */
+  right: 20vw;
+  transform: translateY(calc(-50% + 8px));
+  width: min(420px, 38vw);
+  z-index: 35;
+  padding: 2.25rem;
+  background: linear-gradient(160deg, rgba(12, 15, 22, 0.82), rgba(4, 6, 10, 0.86));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  /* This is the EXIT timing (the .is-visible rule owns the entry). Slightly
+     longer than the entry and ease-out, so the close settles instead of
+     snapping — the visibility flip must stay delayed by the same duration. */
+  transition: opacity 340ms ease-out, transform 340ms ease-out, visibility 0s linear 340ms;
+}
+
+.case-panel.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(-50%);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.case-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.case-panel__eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  /* Small accent tick anchors the label without adding a new element. */
+  padding-left: 0.75rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.55);
+}
+
+.case-panel__close {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.case-panel__close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.case-panel__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.35rem;
+  min-height: 1.4em;
+}
+
+/* Sector · location · year. min-height reserves the row so the panel does not
+   change height between a selected and a cleared state. */
+.case-panel__meta {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 1.5rem;
+  min-height: 1.2em;
+}
+
+.case-panel__metrics {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.case-panel__metric {
+  flex: 1;
+  padding: 0.875rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.case-panel__metric-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.case-panel__metric-value {
+  margin-top: 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.case-panel__description {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1rem;
+  min-height: 4.8em;
+}
+
+/* Four bullet lines of body copy per case. min-height reserves the block so
+   the panel keeps its height while fading between selected/cleared states. */
+.case-panel__details {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  min-height: 7em;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.case-panel__details li {
+  padding-left: 0.9rem;
+  position: relative;
+  margin-bottom: 0.3rem;
+}
+
+.case-panel__details li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Hosts the SVG chart. Fixed height so the panel doesn't jump when the
+   selection clears and the chart unmounts mid-fade. */
+.case-panel__graph {
+  height: 158px;
+  padding: 0.875rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+/* ---- Case panel charts (see CaseChart.tsx) ---- */
+
+.case-chart {
+  margin: 0;
+  color: #fff;
+}
+
+.case-chart__title {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 0.55rem;
+}
+
+.case-chart__svg {
+  display: block;
+  width: 100%;
+  height: 96px;
+}
+
+.case-chart__grid line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.case-chart__stroke {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.case-chart__fill {
+  fill: rgba(255, 255, 255, 0.12);
+  stroke: none;
+}
+
+.case-chart__dot {
+  fill: #fff;
+}
+
+.case-chart__bar {
+  fill: rgba(255, 255, 255, 0.35);
+}
+
+.case-chart__bar.is-max {
+  fill: rgba(255, 255, 255, 0.85);
+}
+
+.case-chart__tick {
+  fill: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.case-chart__donut {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.case-chart__svg--donut {
+  width: 96px;
+  flex: none;
+}
+
+.case-chart__segment {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 12;
+}
+
+.case-chart__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.65);
+  flex: 1;
+}
+
+.case-chart__legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.3rem;
+}
+
+.case-chart__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #fff;
+  flex: none;
+}
+
+.case-chart__legend-value {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+
+/* ---- Geo marker tags (CSS2D, above the scene canvas, below the logo) ---- */
+
+.geo-tag-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.geo-tag {
+  /* Hover-only. The dot itself is the persistent affordance; the tag is the
+     payload, so it must not clutter the globe at rest. */
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 160ms ease-out, transform 160ms ease-out;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 5px;
+  background: rgba(8, 10, 14, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(3px);
+}
+
+.geo-tag.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.geo-tag__title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.geo-tag__text {
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ---- Intro SVG ----
+   Deliberately absent: intro-draw ships its own styles inline (introDraw.ts).
+   The drawing starts before this stylesheet has been requested, so any rule for
+   it here would apply a frame or two late — as a visible restyle. */
+
+/* ---- Debug overlay ---- */
+
+.debug-overlay {
+  position: fixed;
+  /* Pushed down from 16px so the audit trigger owns the top-right corner. */
+  top: 80px;
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.debug-toggle,
+.debug-actions button,
+.debug-phases button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.debug-toggle:hover,
+.debug-actions button:hover,
+.debug-phases button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.debug-panel {
+  background: rgba(10, 10, 14, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 14px;
+  width: 260px;
+  max-height: 84vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.debug-section {
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+.debug-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.debug-control input {
+  width: 100%;
+}
+
+.debug-actions,
+.debug-phases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.debug-phases button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.debug-phases button[data-active='true'] {
+  background: rgba(120, 180, 255, 0.35);
+  border-color: rgba(160, 210, 255, 0.7);
+}
+
+/* ---- Audit section (plan 005) ----
+   Layer stack recap: 10 canvas · 15 geo tags · 20 intro · 30 logo · 35 case
+   panel · 40 warp overlay · 100 debug. The audit curtain sits at 60 (above the
+   warp overlay so it stays usable even mid-intro) and its trigger at 70.
+   Palette: white primary, blue (#1c67ff family) strictly for accents/CTA. */
+
+.audit-trigger {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 70;
+  height: 46px;
+  padding: 0 26px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(110deg, rgba(18, 49, 145, 0.96), rgba(28, 103, 255, 1));
+  border: 1px solid rgba(96, 145, 255, 0.45);
+  box-shadow: 0 0 18px rgba(28, 103, 255, 0.28);
+  cursor: pointer;
+  /* Mounts only once the intro lands (App gates on phase 'site'), so this
+     plays exactly at that moment — a quiet arrival, not a pop. Fill mode is
+     `backwards`, NOT `both`/`forwards`: a forwards fill keeps the keyframes'
+     opacity:1 applied forever, and animations outrank the [data-state] rules
+     below — the open-state fade-out would never happen. */
+  animation: audit-trigger-in 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transition:
+    transform 120ms cubic-bezier(0.3, 0, 0.4, 1),
+    box-shadow 160ms ease,
+    filter 160ms ease,
+    background 200ms ease,
+    border-color 200ms ease,
+    opacity 260ms ease;
+}
+
+@keyframes audit-trigger-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.audit-trigger:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 24px rgba(28, 103, 255, 0.4);
+}
+
+.audit-trigger:active {
+  transform: scale(0.97);
+  filter: brightness(1.18);
+}
+
+.audit-trigger:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+/* While the section is open the trigger disappears entirely — closing belongs
+   to the panel's back arrow. Fade, not unmount: it is still the focus target
+   when the section closes, and unmounting would replay its entry animation. */
+.audit-trigger[data-state='open'],
+.audit-trigger[data-state='entering'] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* On the way out it fades back in, slightly behind the curtain's departure so
+   it reads as the page returning rather than a competing animation. */
+.audit-trigger[data-state='leaving'] {
+  transition-delay: 0ms, 0ms, 0ms, 0ms, 0ms, 320ms;
+}
+
+.audit-trigger:disabled {
+  cursor: default;
+}
+
+/* Full-viewport positioning shell only — the scene strip on the right must
+   stay interactive, so the shell never takes pointer events itself. */
+.audit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.audit-overlay[data-state='closed'] {
+  visibility: hidden;
+}
+
+/* The curtain: final width from day one, moved only by transform (§5). */
+.audit-curtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: clamp(480px, 44vw, 720px);
+  pointer-events: auto;
+  transform: translateX(-102%);
+  will-change: transform;
+}
+
+.audit-overlay[data-state='entering'] .audit-curtain,
+.audit-overlay[data-state='open'] .audit-curtain {
+  transform: translateX(0);
+  transition: transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Exit is faster and waits ~160ms for the content to fade first (§7). */
+.audit-overlay[data-state='leaving'] .audit-curtain {
+  transition: transform 620ms cubic-bezier(0.55, 0, 0.3, 1) 160ms;
+}
+
+/* One-pixel blue separator with a soft luminance, on the curtain (not the
+   scrollable panel) so it never scrolls away. */
+.audit-curtain::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: rgba(28, 103, 255, 0.45);
+  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+}
+
+/* Narrow black falloff into the canvas so the boundary is not a hard cut. */
+.audit-curtain__edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 110px;
+  background: linear-gradient(90deg, rgba(5, 5, 6, 0.85), rgba(5, 5, 6, 0));
+  pointer-events: none;
+}
+
+/* The close control: a left-pointing arrowhead with a long trailing line.
+   Anchored to the curtain (z above the panel) so it never scrolls with the
+   form; left edge aligned with the form's own padding. */
+.audit-close {
+  position: absolute;
+  z-index: 2;
+  top: clamp(1.4rem, 4vh, 2.4rem);
+  left: clamp(2rem, 5vw, 4.5rem);
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.65);
+  transition:
+    color 160ms ease,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease;
+  /* Hidden until the curtain has essentially arrived, then fades in with the
+     staggered content groups. */
+  opacity: 0;
+}
+
+.audit-close svg {
+  display: block;
+  width: 44px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.audit-close:hover {
+  color: #fff;
+  transform: translateX(-4px);
+}
+
+.audit-close:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 4px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.audit-overlay[data-state='entering'] .audit-close,
+.audit-overlay[data-state='open'] .audit-close {
+  opacity: 1;
+  transition-delay: 0ms, 0ms, 420ms;
+}
+
+/* On exit it is the first thing to go — the hand that closed the panel should
+   not see its control linger. */
+.audit-overlay[data-state='leaving'] .audit-close {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.audit-panel {
+  position: absolute;
+  inset: 0;
+  background: #050506;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Firefox: thin blue thumb on an invisible track, matching the accent. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(28, 103, 255, 0.55) transparent;
+}
+
+/* WebKit/Blink: a slim, understated bar in the brand blue — the track stays
+   invisible so only the thumb reads, like an indicator rather than a control. */
+.audit-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.audit-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.audit-panel::-webkit-scrollbar-thumb {
+  background: rgba(28, 103, 255, 0.55);
+  border-radius: 999px;
+}
+
+.audit-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(28, 103, 255, 0.8);
+}
+
+.audit-form {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.75rem;
+  padding: clamp(3rem, 8vh, 5rem) clamp(2rem, 5vw, 4.5rem);
+  padding-top: max(clamp(3rem, 8vh, 5rem), calc(env(safe-area-inset-top) + 2rem));
+  padding-bottom: max(clamp(3rem, 8vh, 5rem), calc(env(safe-area-inset-bottom) + 2rem));
+}
+
+/* Grouped content reveal (§6): four blocks, small Y + tiny X toward the
+   curtain direction, staggered while the curtain is still arriving. */
+.audit-group {
+  opacity: 0;
+  transform: translate(-6px, 10px);
+}
+
+.audit-overlay[data-state='entering'] .audit-group,
+.audit-overlay[data-state='open'] .audit-group {
+  opacity: 1;
+  transform: translate(0, 0);
+  transition:
+    opacity 380ms ease-out,
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.audit-overlay[data-state='entering'] .audit-group--1,
+.audit-overlay[data-state='open'] .audit-group--1 {
+  transition-delay: 340ms;
+}
+
+.audit-overlay[data-state='entering'] .audit-group--2,
+.audit-overlay[data-state='open'] .audit-group--2 {
+  transition-delay: 430ms;
+}
+
+.audit-overlay[data-state='entering'] .audit-group--3,
+.audit-overlay[data-state='open'] .audit-group--3 {
+  transition-delay: 560ms;
+}
+
+.audit-overlay[data-state='entering'] .audit-group--4,
+.audit-overlay[data-state='open'] .audit-group--4 {
+  transition-delay: 760ms;
+}
+
+.audit-overlay[data-state='leaving'] .audit-group {
+  opacity: 0;
+  transform: translate(0, 8px);
+  transition:
+    opacity 200ms ease-in,
+    transform 200ms ease-in;
+}
+
+.audit-eyebrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  /* Same accent-tick idiom as the case panel eyebrow, in the audit blue. */
+  padding-left: 0.75rem;
+  border-left: 2px solid rgba(28, 103, 255, 0.85);
+}
+
+.audit-step {
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.14em;
+}
+
+.audit-title {
+  font-size: clamp(1.75rem, 2.4vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin-bottom: 0.85rem;
+}
+
+.audit-title:focus-visible {
+  outline: none;
+}
+
+.audit-description {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 44ch;
+}
+
+.audit-group--3 {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.audit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.audit-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.02em;
+}
+
+.audit-label__optional {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.audit-input {
+  height: 46px;
+  padding: 0 0.9rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.audit-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.audit-input:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.audit-input:focus,
+.audit-input:focus-visible {
+  outline: none;
+  border-color: rgba(28, 103, 255, 0.9);
+  box-shadow: 0 0 0 3px rgba(28, 103, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Error state is border + message text, never colour alone (§11). */
+.audit-input[aria-invalid='true'] {
+  border-color: rgba(255, 122, 122, 0.7);
+}
+
+.audit-field__error {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 158, 158, 0.95);
+}
+
+/* Native select restyled in place; the blue chevron is an inline SVG so it
+   needs no asset and no replacement widget (§9). */
+.audit-select-wrap {
+  position: relative;
+}
+
+.audit-select {
+  width: 100%;
+  appearance: none;
+  cursor: pointer;
+}
+
+.audit-select:invalid,
+.audit-select option[value=''] {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.audit-select option {
+  background: #0a0c12;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.audit-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 0.95rem;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid rgba(28, 103, 255, 0.95);
+  border-bottom: 2px solid rgba(28, 103, 255, 0.95);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.audit-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  height: 50px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(110deg, rgba(18, 49, 145, 0.96), rgba(28, 103, 255, 1));
+  border: 1px solid rgba(96, 145, 255, 0.45);
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.3, 0, 0.4, 1), filter 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.audit-cta:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 20px rgba(28, 103, 255, 0.3);
+}
+
+.audit-cta:active {
+  transform: scale(0.97);
+}
+
+.audit-cta:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.audit-cta__arrow {
+  color: rgba(190, 214, 255, 0.95);
+  font-size: 1rem;
+}
+
+.audit-note {
+  margin-top: 0.8rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+
+/* Tablet: larger share, tighter padding (§13). */
+@media (max-width: 1024px) {
+  .audit-curtain {
+    width: clamp(420px, 56vw, 640px);
+  }
+}
+
+/* Mobile: full-width solid panel, no scene strip, close within reach (§13). */
+@media (max-width: 767px) {
+  .audit-curtain {
+    width: 100vw;
+  }
+
+  .audit-curtain::after,
+  .audit-curtain__edge {
+    display: none;
+  }
+
+  .audit-form {
+    justify-content: flex-start;
+    padding-top: max(6rem, calc(env(safe-area-inset-top) + 5rem));
+  }
+
+  .audit-trigger {
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    height: 44px;
+    padding: 0 20px;
+  }
+}
+
+/* Reduced motion: near-instant reveal, no travel, no stagger (§12). The
+   camera-side counterpart is auditView.reducedMotion. */
+@media (prefers-reduced-motion: reduce) {
+  .audit-overlay .audit-curtain,
+  .audit-overlay .audit-group {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .audit-trigger,
+  .audit-cta {
+    transition: none;
+    animation: none;
+  }
+
+  .audit-close {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}
+
+/* ─── Custom cursor ───
+   White hand (open at rest, fist while pressed) + blue follower ring. The
+   outer .cursor-lead/.cursor-follow
+   wrappers are positioned by JS with translate3d ONLY — every visual state
+   (scale, opacity) lives on the -core children so the per-frame transform
+   write never fights a CSS transition. States arrive as data-state on the
+   layer: 'pointer' (interactive hover) and 'grabbing' (orbit drag). */
+
+/* The custom cursor replaces the native one everywhere while mounted; the
+   class is added/removed by CustomCursor so coarse-pointer devices and the
+   unmounted state keep native cursors. */
+.has-custom-cursor,
+.has-custom-cursor * {
+  cursor: none !important;
+}
+
+.cursor-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* Above everything interactive, below nothing that matters (debug is 100 —
+     the cursor should overlay that too). */
+  z-index: 999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.cursor-layer.is-visible {
+  opacity: 1;
+}
+
+.cursor-lead,
+.cursor-follow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+/* The hand glyphs: the designer's icons, path data inlined in CustomCursor.tsx
+   (docs/icons/*.svg is the design source, not a runtime fetch). All three are
+   always in the DOM, absolutely stacked; data-state / data-pressed crossfades
+   between them.
+
+   The artwork is a white fill with a thin black outline, which is what makes it
+   readable over both the black starfield and the white case-panel glass — do
+   not restyle it to a plain white silhouette. `fill-rule: nonzero` is
+   load-bearing: the finger divisions are same-direction subpaths that must fill
+   solid and read via their stroke, not punch holes.
+
+   Each glyph carries its own hotspot as --hx/--hy — the point in the artwork
+   that sits exactly on the true pointer position, since a hand's contact point
+   is not its bounding-box centre. */
+.cursor-hand {
+  position: absolute;
+  top: calc(var(--hy) * -1);
+  left: calc(var(--hx) * -1);
+  /* Sized to sit inside the 32px follower ring, matching the proportions the
+     previous glyphs had — the ring is deliberately left unchanged. */
+  width: 24px;
+  height: 24px;
+  fill: #fff;
+  fill-rule: nonzero;
+  stroke: #000;
+  stroke-width: 0.6px;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+/* Hotspots, in the 32-unit viewBox scaled to the 24px render:
+   open — across the knuckles, the natural grab point;
+   point — the index fingertip, the browser convention for a link;
+   fist — the top of the closed hand, so press/release barely shifts.
+   They are kept within a few px of each other on purpose: a large difference
+   would read as the glyph sliding during the crossfade rather than swapping. */
+.cursor-hand--open {
+  --hx: 12px;
+  --hy: 6px;
+}
+
+.cursor-hand--point {
+  --hx: 9.9px;
+  --hy: 3px;
+}
+
+.cursor-hand--fist {
+  --hx: 12px;
+  --hy: 7.5px;
+}
+
+.cursor-hand--fist,
+.cursor-hand--point {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+/* Hovering something clickable: the pointing hand (index up) takes over —
+   the browser's own "this is a link" convention. A press still overrides it
+   with the fist via the [data-pressed] rules below. */
+.cursor-layer[data-state='pointer']:not([data-pressed]) .cursor-hand--open {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.cursor-layer[data-state='pointer']:not([data-pressed]) .cursor-hand--point {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cursor-layer[data-pressed] .cursor-hand--open,
+.cursor-layer[data-state='grabbing'] .cursor-hand--open {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.cursor-layer[data-pressed] .cursor-hand--fist,
+.cursor-layer[data-state='grabbing'] .cursor-hand--fist {
+  opacity: 1;
+  transform: scale(0.92);
+}
+
+.cursor-follow-core {
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  border-radius: 50%;
+  border: 1.5px solid #1c67ff;
+  transition:
+    transform 0.25s ease,
+    background-color 0.25s ease;
+}
+
+/* Interactive hover: the ring opens up and tints — "this is clickable". */
+.cursor-layer[data-state='pointer'] .cursor-follow-core {
+  transform: scale(1.5);
+  background-color: rgba(28, 103, 255, 0.12);
+}
+
+/* Grabbing (orbit drag or any press): the ring contracts around the fist. */
+.cursor-layer[data-pressed] .cursor-follow-core,
+.cursor-layer[data-state='grabbing'] .cursor-follow-core {
+  transform: scale(0.7);
+  background-color: rgba(28, 103, 255, 0.25);
+}

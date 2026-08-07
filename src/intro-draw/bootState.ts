@@ -1,0 +1,146 @@
+// Boot coordinator: owns visual progress, readiness, and timeout semantics.
+// Zero dependencies, by rule — it lives in the boot chunk, upstream of the app.
+//
+// Replaces loadProgress.ts. The change that matters is that a resource now
+// carries TWO independent properties:
+//
+//   weight    how much it contributes to VISUAL progress
+//   required  whether readiness waits for it
+//
+// Previously there was only weight, so "the drawing has advanced" and "the app
+// can be shown" were the same number. They are not the same question:
+// satellite models are 15% of the bytes but are not needed until P5, seconds
+// after the intro hands over — they should move the drawing without gating it.
+
+export type StepId =
+  | 'chunk:scene'
+  | 'earth:textures'
+  | 'gpu:warmup'
+  | 'satellite:assets'
+  | 'logo:assets'
+  | 'orbits:build'
+
+export type Readiness = 'starting' | 'loading' | 'ready' | 'fatal'
+
+interface Resource {
+  weight: number
+  required: boolean
+}
+
+// `required` is the readiness contract: everything needed to render a valid
+// first frame of the scene the warp cuts into.
+const RESOURCES: Record<StepId, Resource> = {
+  // three.js + the scene module, evaluated.
+  'chunk:scene': { weight: 20, required: true },
+  'earth:textures': { weight: 30, required: true },
+  // Uploads + shader compile. Without it the cut lands on an unshaded sphere.
+  'gpu:warmup': { weight: 15, required: true },
+  // Needed for the P3 crossover, which is the first thing after the intro.
+  'logo:assets': { weight: 10, required: true },
+  'orbits:build': { weight: 10, required: true },
+  // NOT required: satellites appear in P5, several seconds after handover.
+  // They move the drawing along without ever being able to block it.
+  'satellite:assets': { weight: 15, required: false },
+}
+
+const IDS = Object.keys(RESOURCES) as StepId[]
+const TOTAL_WEIGHT = IDS.reduce((sum, id) => sum + RESOURCES[id].weight, 0)
+const REQUIRED = IDS.filter((id) => RESOURCES[id].required)
+
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
+
+export interface BootState {
+  /** Fraction 0..1 for one resource. Monotonic and idempotent. */
+  setStep(id: StepId, fraction: number): void
+  markDone(id: StepId): void
+  report(id: StepId, loaded: number, total: number): void
+  /** A required resource cannot be obtained. Never recoverable. */
+  markFatal(id: StepId, reason: string): void
+  /** Visual progress, 0..1. NOT readiness. */
+  progress(): number
+  readiness(): Readiness
+  subscribe(fn: () => void): () => void
+  pending(): StepId[]
+  completed(): StepId[]
+  fatalReason(): string | null
+  reset(): void
+}
+
+function create(): BootState {
+  const fractions = new Map<StepId, number>()
+  const listeners = new Set<() => void>()
+  let cachedProgress = 0
+  let state: Readiness = 'starting'
+  let fatal: string | null = null
+
+  function recompute() {
+    let sum = 0
+    for (const id of IDS) sum += (fractions.get(id) ?? 0) * RESOURCES[id].weight
+    const nextProgress = sum / TOTAL_WEIGHT
+
+    let nextState: Readiness = state
+    if (state !== 'fatal') {
+      // Readiness counts ONLY required resources, and only at full completion.
+      // A resource is not "ready" because its source file executed.
+      const allRequired = REQUIRED.every((id) => (fractions.get(id) ?? 0) >= 1)
+      nextState = allRequired ? 'ready' : nextProgress > 0 ? 'loading' : 'starting'
+    }
+
+    if (nextProgress === cachedProgress && nextState === state) return
+    cachedProgress = nextProgress
+    state = nextState
+    for (const fn of listeners) fn()
+  }
+
+  function setStep(id: StepId, fraction: number) {
+    if (state === 'fatal') return
+    const value = clamp01(fraction)
+    // Monotonic and idempotent: reporting the same milestone twice, or a
+    // regressed byte count, must not corrupt progress.
+    if (value <= (fractions.get(id) ?? 0)) return
+    fractions.set(id, value)
+    recompute()
+  }
+
+  return {
+    setStep,
+    markDone: (id) => setStep(id, 1),
+    report: (id, loaded, total) => setStep(id, total > 0 ? loaded / total : 0),
+    markFatal(id, reason) {
+      if (state === 'fatal') return
+      // Only a REQUIRED resource can be fatal. An optional one failing must
+      // never take the site down — it just never contributes its weight.
+      if (!RESOURCES[id]?.required) {
+        console.warn(`[boot] optional resource ${id} failed: ${reason}`)
+        return
+      }
+      fatal = `${id}: ${reason}`
+      state = 'fatal'
+      console.error(`[boot] fatal — ${fatal}`)
+      for (const fn of listeners) fn()
+    },
+    progress: () => cachedProgress,
+    readiness: () => state,
+    subscribe(fn) {
+      listeners.add(fn)
+      return () => listeners.delete(fn)
+    },
+    pending: () => IDS.filter((id) => (fractions.get(id) ?? 0) < 1),
+    completed: () => IDS.filter((id) => (fractions.get(id) ?? 0) >= 1),
+    fatalReason: () => fatal,
+    reset() {
+      fractions.clear()
+      cachedProgress = 0
+      state = 'starting'
+      fatal = null
+      for (const fn of listeners) fn()
+    },
+  }
+}
+
+// One instance across chunks — the boot entry creates it, the app adopts it.
+const KEY = '__vertigoBootState'
+const scope = globalThis as unknown as Record<string, BootState | undefined>
+export const bootState: BootState = (scope[KEY] ??= create())
+
+export const REQUIRED_IDS = REQUIRED
