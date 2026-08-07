@@ -96,6 +96,13 @@ export const ORBIT_CONFIG = {
     markerColor: 0xffffff,
     markerOpacity: 0.85,
     markerHoverScale: 1.6,
+    // Destination markers read as a place you can go, not a label. Accent
+    // colour, larger, and they pulse — the only moving marker on the globe,
+    // which is what makes it findable without an instruction.
+    destinationColor: 0x4fb0ff,
+    destinationScale: 1.5,
+    destinationPulsePeriod: 2.6,
+    destinationPulseAmount: 0.22,
     // Outward offset of the CSS2D tag from the marker.
     tagOffset: 0.13,
     // Camera-facing dot product below which a marker is hidden and hover-disabled.
@@ -141,6 +148,15 @@ export interface GeoMarkerDef {
   lng: number
   title: string
   text: string
+  /**
+   * `case` markers are labels — hover shows the payload and that is all.
+   * `destination` markers are navigation: they are clickable, drawn with an
+   * accent, and selecting one asks the application to travel there.
+   *
+   * Recorded in the data rather than inferred from the id, so the difference is
+   * visible where the markers are declared instead of implied somewhere else.
+   */
+  kind?: 'case' | 'destination'
 }
 
 // Five world cities. `text` values are editable placeholders, not real metrics.
@@ -150,6 +166,16 @@ export const GEO_MARKERS: GeoMarkerDef[] = [
   { id: 'tokyo', lat: 35.6762, lng: 139.6503, title: 'Tokyo', text: 'International SEO expansion' },
   { id: 'sydney', lat: -33.8688, lng: 151.2093, title: 'Sydney', text: 'Regional authority signal' },
   { id: 'sao-paulo', lat: -23.5505, lng: -46.6333, title: 'São Paulo', text: 'Search presence uplift' },
+  // The way into the Murcia experience. Real coordinates for Murcia, Spain —
+  // the marker has to sit on the actual city for the globe to mean anything.
+  {
+    id: 'murcia',
+    lat: 37.9922,
+    lng: -1.1307,
+    title: 'Murcia',
+    text: 'Explorar la ciudad →',
+    kind: 'destination',
+  },
 ]
 
 // The total time the reveal takes, derived rather than hardcoded so the

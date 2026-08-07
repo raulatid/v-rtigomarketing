@@ -33,6 +33,7 @@ interface Props {
   onDeselectCase: () => void
   onLogoLoadFailed: () => void
   onMurciaReady: () => void
+  onSelectDestination: (id: string) => void
 }
 
 // Both the starfield and the Earth stay mounted for the whole sequence and
@@ -52,6 +53,7 @@ export function SceneCanvas({
   onDeselectCase,
   onLogoLoadFailed,
   onMurciaReady,
+  onSelectDestination,
 }: Props) {
   // Earth stays mounted whichever experience is showing; this only decides
   // whether it consumes input and does per-frame work (ADR 003).
@@ -73,7 +75,12 @@ export function SceneCanvas({
           gated ON there and never leaves. See plan 004 §4. */}
       <SpaceBackdrop config={config} state={state} active={earthActive} />
       <Suspense fallback={null}>
-        <EarthScene config={config} state={state} active={earthActive} />
+        <EarthScene
+          config={config}
+          state={state}
+          active={earthActive}
+          onSelectDestination={onSelectDestination}
+        />
       </Suspense>
       {/* Scene level, NOT inside EarthScene — orbital motion must not compound
           with the Earth's surface rotation. Ordered before InteractionLayer so

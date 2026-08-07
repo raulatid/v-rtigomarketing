@@ -13,6 +13,14 @@ import { GEO_MARKERS, ORBIT_CONFIG } from './orbitConfig'
 interface Options {
   camera: THREE.Camera
   domElement: HTMLElement
+  /**
+   * Fired when a `destination` marker is clicked. `case` markers never fire —
+   * they are labels, not affordances.
+   *
+   * The id is passed rather than anything experience-shaped, so this module
+   * stays ignorant of what a destination actually leads to.
+   */
+  onSelect?: (id: string) => void
 }
 
 interface Marker {
@@ -24,9 +32,17 @@ interface Marker {
   hoverEnabled: boolean
   hovered: boolean
   currentScale: number
+  isDestination: boolean
+  /** Rest scale before hover and pulse are applied. */
+  baseScale: number
 }
 
-export function createGeoMarkers({ camera, domElement }: Options) {
+// A drag that happens to end over a marker must not navigate. Measured in
+// pixels from pointerdown, and kept local rather than asking the camera rig —
+// this module needs no knowledge of who else is handling the gesture.
+const CLICK_SLOP_PX = 5
+
+export function createGeoMarkers({ camera, domElement, onSelect }: Options) {
   const cfg = ORBIT_CONFIG.markers
   const group = new THREE.Group()
 
@@ -42,9 +58,10 @@ export function createGeoMarkers({ camera, domElement }: Options) {
 
   const markers: Marker[] = GEO_MARKERS.map((data) => {
     const position = latLngToVector3(data.lat, data.lng, cfg.radius)
+    const isDestination = data.kind === 'destination'
 
     const dotMaterial = new THREE.MeshBasicMaterial({
-      color: cfg.markerColor,
+      color: isDestination ? cfg.destinationColor : cfg.markerColor,
       transparent: true,
       opacity: cfg.markerOpacity,
       depthWrite: false,
@@ -56,7 +73,7 @@ export function createGeoMarkers({ camera, domElement }: Options) {
     hit.position.copy(position)
 
     const element = document.createElement('div')
-    element.className = 'geo-tag'
+    element.className = isDestination ? 'geo-tag geo-tag--destination' : 'geo-tag'
     const title = document.createElement('div')
     title.className = 'geo-tag__title'
     title.textContent = data.title
@@ -74,6 +91,9 @@ export function createGeoMarkers({ camera, domElement }: Options) {
     group.add(hit)
     group.add(tag)
 
+    const baseScale = isDestination ? cfg.destinationScale : 1
+    dot.scale.setScalar(baseScale)
+
     const marker: Marker = {
       data,
       dot,
@@ -82,13 +102,16 @@ export function createGeoMarkers({ camera, domElement }: Options) {
       element,
       hoverEnabled: true,
       hovered: false,
-      currentScale: 1,
+      currentScale: baseScale,
+      isDestination,
+      baseScale,
     }
     hit.userData.marker = marker
     return marker
   })
 
   const hitMeshes = markers.map((m) => m.hit)
+  let hoveredMarker: Marker | null = null
 
   function onPointerMove(event: PointerEvent) {
     const rect = domElement.getBoundingClientRect()
@@ -97,6 +120,34 @@ export function createGeoMarkers({ camera, domElement }: Options) {
     pointerActive = true
   }
   window.addEventListener('pointermove', onPointerMove)
+
+  // Click-to-navigate. Tracked from pointerdown so a drag across the globe that
+  // happens to release over the marker does not travel.
+  let downX = 0
+  let downY = 0
+  let downValid = false
+
+  function onPointerDown(event: PointerEvent) {
+    downValid = event.button === 0
+    downX = event.clientX
+    downY = event.clientY
+  }
+
+  function onPointerUp(event: PointerEvent) {
+    if (!downValid) return
+    downValid = false
+    if (!enabled || !onSelect) return
+    if (Math.abs(event.clientX - downX) > CLICK_SLOP_PX) return
+    if (Math.abs(event.clientY - downY) > CLICK_SLOP_PX) return
+
+    const marker = hoveredMarker
+    if (marker && marker.isDestination && marker.hoverEnabled) {
+      onSelect(marker.data.id)
+    }
+  }
+
+  domElement.addEventListener('pointerdown', onPointerDown)
+  domElement.addEventListener('pointerup', onPointerUp)
 
   const tmpWorldPos = new THREE.Vector3()
   const cameraDir = new THREE.Vector3()
@@ -107,6 +158,10 @@ export function createGeoMarkers({ camera, domElement }: Options) {
     enabled = next
     group.visible = next
     if (!next) {
+      // Cleared so a click arriving after the markers are disabled cannot act
+      // on a marker that is no longer on screen.
+      hoveredMarker = null
+      downValid = false
       for (const marker of markers) {
         marker.hovered = false
         marker.element.classList.remove('is-visible')
@@ -141,7 +196,7 @@ export function createGeoMarkers({ camera, domElement }: Options) {
     }
 
     // Hover: nearest hit sphere whose marker is on the visible side.
-    let hoveredMarker: Marker | null = null
+    hoveredMarker = null
     if (pointerActive) {
       raycaster.setFromCamera(mouse, camera)
       const intersections = raycaster.intersectObjects(hitMeshes, false)
@@ -154,12 +209,22 @@ export function createGeoMarkers({ camera, domElement }: Options) {
       }
     }
 
+    // Advanced here rather than from a delta so the pulse is wall-clock based
+    // and cannot drift if a frame is long.
+    const pulsePhase =
+      (performance.now() / 1000) * ((Math.PI * 2) / cfg.destinationPulsePeriod)
+    const pulse = 1 + Math.sin(pulsePhase) * cfg.destinationPulseAmount
+
     for (const marker of markers) {
       marker.hovered = marker === hoveredMarker
 
-      const targetScale = marker.hovered ? cfg.markerHoverScale : 1
+      const targetScale = marker.baseScale * (marker.hovered ? cfg.markerHoverScale : 1)
       marker.currentScale = THREE.MathUtils.lerp(marker.currentScale, targetScale, 0.18)
-      marker.dot.scale.setScalar(marker.currentScale)
+      // The pulse multiplies the eased scale instead of feeding into it, so
+      // hover still settles cleanly rather than chasing a moving target.
+      marker.dot.scale.setScalar(
+        marker.isDestination ? marker.currentScale * pulse : marker.currentScale,
+      )
 
       marker.element.classList.toggle('is-visible', marker.hovered)
     }
@@ -175,6 +240,8 @@ export function createGeoMarkers({ camera, domElement }: Options) {
 
   function dispose() {
     window.removeEventListener('pointermove', onPointerMove)
+    domElement.removeEventListener('pointerdown', onPointerDown)
+    domElement.removeEventListener('pointerup', onPointerUp)
     for (const marker of markers) {
       marker.dotMaterial.dispose()
       marker.element.remove()

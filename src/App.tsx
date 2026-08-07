@@ -7,6 +7,7 @@ import { AuditSection } from './components/AuditSection'
 import { InteractionHandle } from './components/InteractionLayer'
 import { DebugOverlay } from './components/DebugOverlay'
 import { CustomCursor } from './components/CustomCursor'
+import { ReturnToEarthControl } from './components/ReturnToEarthControl'
 import { OrbitSystem } from './orbit-system/createOrbitSystem'
 import { SatelliteDef } from './orbit-system/orbitConfig'
 import { useMasterTimeline, CornerLogoHandle } from './hooks/useMasterTimeline'
@@ -54,9 +55,7 @@ export default function App() {
   const cornerLogo = useRef<CornerLogoHandle | null>(null)
 
   // Which experience is showing. Both stay mounted; this only decides which one
-  // renders and consumes input (ADR 003). P6 gives this a setter — until then
-  // Earth is the only experience, so the value never changes and every gate
-  // added in P3 is behaviour-preserving.
+  // renders and consumes input (ADR 003).
   const [activeExperience, setActiveExperience] = useState<ExperienceId>('earth')
   const earthActive = activeExperience === 'earth'
 
@@ -70,6 +69,22 @@ export default function App() {
     state,
     onSwap: setActiveExperience,
   })
+
+  // A destination marker on the globe was clicked. The marker layer reports an
+  // id and nothing more, so the mapping from "a place on Earth" to "an
+  // experience" lives here, at the only level that knows about both.
+  //
+  // Guarded on murciaReady: the city is prefetched during the intro (ADR 004),
+  // so it is normally warm long before the marker is reachable — but a slow
+  // connection must not drop the viewer into an empty world.
+  const handleSelectDestination = useCallback(
+    (id: string) => {
+      if (id !== 'murcia') return
+      if (!murciaReady || transitioning) return
+      transitionTo('murcia')
+    },
+    [murciaReady, transitioning, transitionTo],
+  )
 
   const { phase, timeline } = useMasterTimeline({
     intro,
@@ -192,6 +207,7 @@ export default function App() {
         onDeselectCase={handleDeselectCase}
         onLogoLoadFailed={handleLoadFailed}
         onMurciaReady={handleMurciaReady}
+        onSelectDestination={handleSelectDestination}
       />
 
       {/* The intro drawing is NOT rendered by React — intro-draw owns its own
@@ -215,35 +231,20 @@ export default function App() {
           fight over the same property. */}
       {earthActive && <CustomCursor />}
 
-      {/* A button, not scroll (murcia PROJECT_MEMORY §2.1): touch has no wheel,
-          single-finger drag is committed to navigation, and an accidental
-          scroll must never warp the viewer to another world.
+      {/* The way INTO Murcia is the marker on Spain, not a button — see
+          handleSelectDestination. Nothing is rendered here for it.
 
-          Gated on murciaReady rather than shown-and-disabled: the city is
-          prefetched during the intro (ADR 004), so by the time the timeline
-          reaches 'site' it is normally already warm and the button simply
-          exists. Offering a control that cannot yet do anything would be
-          worse than it appearing a moment later. */}
-      {phase === 'site' && earthActive && murciaReady && (
-        <button
-          type="button"
-          className="experience-switch experience-switch--enter"
-          onClick={() => transitionTo('murcia')}
-          disabled={transitioning}
-        >
-          Explorar Murcia
-        </button>
-      )}
+          A click, never scroll (murcia PROJECT_MEMORY §2.1): touch has no
+          wheel, single-finger drag is committed to navigation, and an
+          accidental scroll must never warp the viewer to another world. */}
 
+      {/* The way OUT is a placeholder, deliberately isolated so it can be
+          replaced without touching anything else. See ReturnToEarthControl. */}
       {!earthActive && (
-        <button
-          type="button"
-          className="experience-switch experience-switch--back"
-          onClick={() => transitionTo('earth')}
-          disabled={transitioning}
-        >
-          ← Volver
-        </button>
+        <ReturnToEarthControl
+          onActivate={() => transitionTo('earth')}
+          busy={transitioning}
+        />
       )}
 
       {DEBUG_MODE && (

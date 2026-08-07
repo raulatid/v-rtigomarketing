@@ -349,6 +349,19 @@ body {
   backdrop-filter: blur(3px);
 }
 
+/* Destination markers are navigation, not a label: accent border, a brighter
+   payload line, and the dot itself pulses (createGeoMarkers). The tag is still
+   hover-only — the pulsing dot is what makes the place findable at rest. */
+
+.geo-tag--destination {
+  border-color: rgba(79, 176, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(79, 176, 255, 0.12), 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.geo-tag--destination .geo-tag__text {
+  color: #4fb0ff;
+}
+
 .geo-tag.is-visible {
   opacity: 1;
   transform: translateY(0);
@@ -1163,18 +1176,14 @@ body {
   cursor: default;
 }
 
-/* Bottom-centre on the Earth side: the composition's lower third is empty,
-   and the case panel owns the right column. */
-.experience-switch--enter {
-  bottom: 2.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-}
+/* Top-left on the Murcia side: clear of the district panel's right dock and of
+   the bottom-centre controls hint.
 
-/* Top-left on the Murcia side, clear of the district panel's right dock and
-   of the bottom-centre controls hint. */
+   Pushed down below the corner logo, which persists across the transition as
+   application chrome and idles at 48px from the top-left corner
+   (introConfig cornerMarginX/Y). At top: 1.5rem the two overlapped. */
 .experience-switch--back {
-  top: 1.5rem;
+  top: 7.5rem;
   left: 1.5rem;
 }
 

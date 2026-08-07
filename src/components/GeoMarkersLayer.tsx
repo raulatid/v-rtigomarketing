@@ -10,6 +10,8 @@ import { atOrAfter } from '../sceneVisibility'
 interface Props {
   state: SequenceState
   active: boolean
+  /** Fired when a destination marker is clicked. See createGeoMarkers. */
+  onSelectDestination?: (id: string) => void
 }
 
 // Rendered INSIDE the Earth's spin group so the markers stay pinned to the
@@ -19,11 +21,13 @@ interface Props {
 // Also owns the CSS2D renderer for the hover tags. That is a second DOM-based
 // renderer overlaying the canvas; it draws at useFrame priority 2 so it runs
 // after RenderPipeline (priority 1), which owns the WebGL render.
-export function GeoMarkersLayer({ state, active }: Props) {
+export function GeoMarkersLayer({ state, active, onSelectDestination }: Props) {
   const { camera, gl, scene, size } = useThree()
   const groupRef = useRef<THREE.Group>(null)
   const markersRef = useRef<GeoMarkers | null>(null)
   const labelRef = useRef<CSS2DRenderer | null>(null)
+  const onSelectRef = useRef(onSelectDestination)
+  onSelectRef.current = onSelectDestination
 
   useEffect(() => {
     const parent = gl.domElement.parentElement
@@ -36,7 +40,13 @@ export function GeoMarkersLayer({ state, active }: Props) {
     parent.appendChild(el)
     labelRef.current = labelRenderer
 
-    const markers = createGeoMarkers({ camera, domElement: gl.domElement })
+    const markers = createGeoMarkers({
+      camera,
+      domElement: gl.domElement,
+      // Read through a ref so the effect does not rebuild the markers when the
+      // handler identity changes.
+      onSelect: (id) => onSelectRef.current?.(id),
+    })
     markersRef.current = markers
     groupRef.current?.add(markers.group)
 

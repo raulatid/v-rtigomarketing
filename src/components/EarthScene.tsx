@@ -11,11 +11,14 @@ import { SequenceState } from '../sequenceState'
 import { earthVisible } from '../sceneVisibility'
 import { loadProgress } from '../loading/progress'
 import { GeoMarkersLayer } from './GeoMarkersLayer'
+import { GEO_MARKERS } from '../orbit-system/orbitConfig'
+import { spinToFace } from '../orbit-system/geoUtils'
 
 interface Props {
   config: IntroConfig
   state: SequenceState
   active: boolean
+  onSelectDestination?: (id: string) => void
 }
 
 // TextureLoader goes through ImageLoader, which decodes an <img> and reports no
@@ -34,7 +37,7 @@ earthManager.onError = (url) =>
 // Ported from dolly-earth. The tuning-panel plumbing is dropped — these values
 // are fixed for the intro. Radius stays at 2 so a future orbit system can be
 // added as a sibling group with scale={2} (see plan 002 "Scope").
-export function EarthScene({ config, state, active }: Props) {
+export function EarthScene({ config, state, active, onSelectDestination }: Props) {
   const [dayTex, nightTex, specTex] = useLoader(
     THREE.TextureLoader,
     ['/earth/day.jpg', '/earth/night.jpg', '/earth/specularClouds.jpg'],
@@ -96,6 +99,25 @@ export function EarthScene({ config, state, active }: Props) {
   const groupRef = useRef<THREE.Group>(null)
   const spinRef = useRef<THREE.Group>(null)
   const earthRef = useRef<THREE.Mesh>(null)
+
+  // Start the globe with the destination facing the viewer.
+  //
+  // Without this it is a coincidence which hemisphere is presented, and for
+  // Murcia the coincidence was bad: at rotation 0 it sits within 1° of the
+  // limb (facing 0.016 against a 0.15 visibility threshold), so the one marker
+  // that is a navigation affordance started life invisible — and the spin
+  // carries it further away, not closer.
+  //
+  // The surface still rotates from here, so the destination does drift off
+  // over the following ~40s. That is recoverable by dragging the globe, which
+  // the focus rig already supports, but it is a product question rather than
+  // a settled one: see docs/integration/00-migration-log.md.
+  useEffect(() => {
+    const destination = GEO_MARKERS.find((m) => m.kind === 'destination')
+    if (destination && spinRef.current) {
+      spinRef.current.rotation.y = spinToFace(destination.lat, destination.lng)
+    }
+  }, [])
 
   const sunDirection = useMemo(() => {
     const { sunAzimuth, sunElevation } = EARTH_CONFIG
@@ -161,7 +183,11 @@ export function EarthScene({ config, state, active }: Props) {
             uniforms={earthUniforms}
           />
         </mesh>
-        <GeoMarkersLayer state={state} active={active} />
+        <GeoMarkersLayer
+          state={state}
+          active={active}
+          onSelectDestination={onSelectDestination}
+        />
       </group>
       <mesh scale={[1.04, 1.04, 1.04]}>
         <sphereGeometry args={[EARTH_CONFIG.radius, 64, 64]} />

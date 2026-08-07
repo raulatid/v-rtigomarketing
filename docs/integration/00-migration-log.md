@@ -422,3 +422,70 @@ unobserved:
 - `renderer.info` stability across repeated round trips (`PROJECT_MEMORY` §9 item 6) — the
   no-leak claim is by design only.
 - The P2 corner-logo z-order regression against the geo-tag layer.
+
+---
+
+## P7 — Globe marker entry point, and the first browser verification
+
+**Goal.** Replace the Earth-side transition button with a clickable marker on Spain, and
+isolate the Murcia-side exit behind a swappable seam.
+
+**Files.** Added `components/ReturnToEarthControl.tsx`. Modified `orbit-system/orbitConfig.ts`,
+`createGeoMarkers.ts`, `geoUtils.ts`, `GeoMarkersLayer.tsx`, `EarthScene.tsx`,
+`SceneCanvas.tsx`, `App.tsx`, `styles.css`.
+
+**Implementation.** `GeoMarkerDef` gains `kind: 'case' | 'destination'`, recorded in the
+data rather than inferred from the id. Destination markers are accent-coloured, larger,
+pulse, and are clickable; case markers are unchanged. `createGeoMarkers` gained an
+`onSelect(id)` callback and pointerdown/up tracking with a 5px slop so a drag that releases
+over the marker does not navigate. The id-to-experience mapping lives in `App`, the only
+level that knows about both.
+
+The exit is `ReturnToEarthControl` — the whole feature in one file behind a single
+`onActivate` callback, documented as a placeholder whose replacement should call the same
+callback and delete the file.
+
+**Problem found before writing any test: the marker was unreachable.** At the Earth's
+initial rotation, Murcia sits within 1° of the limb — facing dot product **0.016** against
+a **0.15** visibility threshold — so the one marker that is a navigation affordance would
+have started invisible, and the spin carries it *away* from the camera, not toward it.
+Fixed with `spinToFace(lat, lng)`, derived from the coordinates rather than hardcoded, so
+moving a destination cannot silently leave the globe pointing at the wrong place. Facing at
+the site phase is now **0.788**.
+
+**First browser verification of the whole migration.** Playwright with a software-WebGL
+Chromium (no Chrome on this machine; `playwright install chrome` needs admin, so bundled
+Chromium is driven directly from a script in the scratchpad rather than adding a test
+dependency to the project).
+
+Verified over **three full Earth → Murcia → Earth round trips**:
+
+| Claim | Result |
+|---|---|
+| Exactly one WebGL canvas | **`canvases: 1`** on every sample — the P2 single-context claim, finally measured |
+| Corner logo composites in the shared renderer | Visible top-left on Earth **and** on Murcia, still idle-rotating after 3 cycles |
+| Murcia renders | City, terrain skirt, tree line, `servicios` district highlighted |
+| Earth's geo tags hide in Murcia | `geo-tag-layer` display toggles `none` / `''` |
+| Murcia's UI hides on Earth | `.murcia-ui` display toggles `none` / `''` |
+| Transition overlay never sticks | `.warp-overlay` opacity back to `0` after every transition |
+| Earth resumes | Globe, orbits, satellites, case labels and logo all intact after 3 cycles |
+| Console | **zero errors, zero failed requests** across every run |
+
+Murcia's own boot output confirms a clean load: `murcia:model` completes, terrain resolves
+(via GLTFLoader name sanitization, as `PROJECT_MEMORY` §10.1 predicted), the district
+resolves by node name, and the collar covers the 11.5% of the plate rectangle the outline
+does not.
+
+**Problem found by looking.** The return button at `top: 1.5rem` **collided with the corner
+logo**, which persists across the transition as chrome and idles 48px from the top-left
+corner. Moved to `top: 7.5rem`. This is exactly the class of defect no automated gate in
+this project can catch, and it was invisible until P7 because Murcia had never been
+rendered.
+
+**Open product question — the marker drifts.** The globe keeps rotating at
+`EARTH_CONFIG.rotationSpeed` (0.035 rad/s, ~3 min per revolution), so the destination
+leaves the visible hemisphere roughly 40s after the site lands and does not return for
+~140s. It is recoverable — the focus rig supports drag-to-orbit — but a primary navigation
+affordance that disappears on a timer is a product decision, not an implementation detail.
+Options: stop or slow the spin once `site` is reached; keep the destination marker facing
+the camera; or accept it and rely on drag. **Not decided.**
