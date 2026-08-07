@@ -13,6 +13,7 @@ import { useMasterTimeline, CornerLogoHandle } from './hooks/useMasterTimeline'
 import { useIntroDraw } from './hooks/useIntroDraw'
 import type { CornerLogo } from './corner-logo/createCornerLogo'
 import type { ExperienceId } from './app/experience'
+import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 
 // The debug panel lives on its own path (/debug) so the main site can be
 // reviewed clean; open http://localhost:5173/debug during development to tune.
@@ -56,6 +57,9 @@ export default function App() {
   // Earth is the only experience, so the value never changes and every gate
   // added in P3 is behaviour-preserving.
   const [activeExperience] = useState<ExperienceId>('earth')
+
+  // Murcia stays mounted alongside Earth; P6 gives the transition its setter.
+  const murciaRef = useRef<MurciaExperience | null>(null)
 
   const { phase, timeline } = useMasterTimeline({
     intro,
@@ -169,6 +173,7 @@ export default function App() {
         logoRef={logoRef}
         cornerLogoHandleRef={cornerLogo}
         activeExperience={activeExperience}
+        murciaRef={murciaRef}
         onSelectCase={setSelectedCase}
         onDeselectCase={handleDeselectCase}
         onLogoLoadFailed={handleLoadFailed}

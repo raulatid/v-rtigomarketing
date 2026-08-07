@@ -10,10 +10,10 @@
  * mutable global config would not survive the migration.
  */
 export interface AppConfig {
-  // Renderer
-  pixelRatioCap: number;
-  antialiasEnabled: boolean;
-  shadowsEnabled: boolean;
+  // Renderer settings used to live here (pixel-ratio cap, antialias, shadows).
+  // They belong to whoever creates the WebGLRenderer, and that is now the
+  // application's R3F Canvas (ADR 001), so they were removed rather than left
+  // as options that silently do nothing.
 
   /**
    * Path (served from /public) to the Draco decoder. Shell-scoped: the loader
@@ -24,6 +24,12 @@ export interface AppConfig {
 
   // Debug
   statsEnabled: boolean;
+  /**
+   * The F3 diagnostics panel. Off by default: it was constructed
+   * unconditionally and shown by default standalone, which also meant a
+   * permanent window-level keydown listener in production.
+   */
+  debugOverlayEnabled: boolean;
   navigationDebugEnabled: boolean;
   showGridHelper: boolean;
   overlayUpdatesPerSecond: number;
@@ -34,12 +40,16 @@ export interface AppConfig {
 
 export function createAppConfig(): AppConfig {
   return {
-    pixelRatioCap: 2,
-    antialiasEnabled: true,
-    shadowsEnabled: false,
-    dracoDecoderPath: 'draco/',
+    // Root-absolute, not 'draco/'. A document-relative path resolves against
+    // the current route, so it 404s on anything but the root URL. These files
+    // are byte-identical to the ones Earth's loaders already use (verified by
+    // md5), so both experiences share the one copy in public/draco/.
+    dracoDecoderPath: '/draco/',
 
-    statsEnabled: true,
+    // Off by default. Standalone this was on, which is right for a prototype
+    // and wrong for a marketing site — ?stats=1 still turns it on.
+    statsEnabled: false,
+    debugOverlayEnabled: false,
     navigationDebugEnabled: false,
     showGridHelper: false,
     overlayUpdatesPerSecond: 4,
@@ -52,7 +62,7 @@ export function createAppConfig(): AppConfig {
  * Applies query-parameter overrides for quick experimentation without editing
  * code. Returns a new object rather than mutating a shared singleton.
  *
- * Examples: ?debugNavigation=1  ?dpr=1.5  ?grid=1  ?shadows=1  ?model=...
+ * Examples: ?debugNavigation=1  ?grid=1  ?stats=1  ?debug=1  ?model=/models/x.glb
  */
 export function applyQueryOverrides(base: AppConfig, search: string): AppConfig {
   const params = new URLSearchParams(search);
@@ -64,20 +74,22 @@ export function applyQueryOverrides(base: AppConfig, search: string): AppConfig 
   const grid = params.get('grid');
   if (grid !== null) next.showGridHelper = isTruthy(grid);
 
-  const shadows = params.get('shadows');
-  if (shadows !== null) next.shadowsEnabled = isTruthy(shadows);
-
   const stats = params.get('stats');
   if (stats !== null) next.statsEnabled = isTruthy(stats);
 
-  const dpr = params.get('dpr');
-  if (dpr !== null) {
-    const value = Number(dpr);
-    if (Number.isFinite(value) && value > 0) next.pixelRatioCap = value;
-  }
+  const debugOverlay = params.get('debug');
+  if (debugOverlay !== null) next.debugOverlayEnabled = isTruthy(debugOverlay);
 
+  // Same-origin absolute paths only. This value is handed straight to
+  // GLTFLoader, so accepting an arbitrary URL would let any link fetch and
+  // execute a third-party asset in the page's context. A single leading slash
+  // rules out both absolute URLs and protocol-relative "//host/..." ones.
   const model = params.get('model');
-  if (model !== null && model.length > 0) next.modelPathOverride = model;
+  if (model !== null && /^\/(?!\/)/.test(model)) {
+    next.modelPathOverride = model;
+  } else if (model !== null && model.length > 0) {
+    console.warn(`[murcia] ignoring ?model= "${model}" — must be a root-relative path.`);
+  }
 
   return next;
 }

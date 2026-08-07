@@ -8,6 +8,7 @@ import { SpaceBackdrop } from './SpaceBackdrop'
 import { OrbitSystemLayer } from './OrbitSystemLayer'
 import { InteractionLayer, InteractionHandle } from './InteractionLayer'
 import { CornerLogoLayer } from './CornerLogoLayer'
+import { MurciaLayer } from './MurciaLayer'
 import { RenderPipeline } from '../graphics/RenderPipeline'
 import { IntroConfig } from '../introConfig'
 import { SequenceState } from '../sequenceState'
@@ -16,6 +17,7 @@ import { SatelliteDef } from '../orbit-system/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../hooks/useMasterTimeline'
 import type { ExperienceId } from '../app/experience'
+import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 
 interface Props {
   config: IntroConfig
@@ -26,6 +28,7 @@ interface Props {
   logoRef: RefObject<CornerLogo | null>
   cornerLogoHandleRef: RefObject<CornerLogoHandle | null>
   activeExperience: ExperienceId
+  murciaRef: RefObject<MurciaExperience | null>
   onSelectCase: (data: SatelliteDef) => void
   onDeselectCase: () => void
   onLogoLoadFailed: () => void
@@ -43,6 +46,7 @@ export function SceneCanvas({
   logoRef,
   cornerLogoHandleRef,
   activeExperience,
+  murciaRef,
   onSelectCase,
   onDeselectCase,
   onLogoLoadFailed,
@@ -92,7 +96,14 @@ export function SceneCanvas({
       />
       {/* Last, and the only thing that renders. Must stay after every layer
           that writes per-frame state it consumes. */}
-      <RenderPipeline config={config} state={state} logoRef={logoRef} />
+      <MurciaLayer active={!earthActive} experienceRef={murciaRef} />
+      <RenderPipeline
+        config={config}
+        state={state}
+        logoRef={logoRef}
+        murciaRef={murciaRef}
+        activeExperience={activeExperience}
+      />
     </Canvas>
   )
 }

@@ -7,11 +7,15 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { IntroConfig } from '../introConfig'
 import { SequenceState } from '../sequenceState'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
+import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
+import type { ExperienceId } from '../app/experience'
 
 interface Props {
   config: IntroConfig
   state: SequenceState
   logoRef: RefObject<CornerLogo | null>
+  murciaRef: RefObject<MurciaExperience | null>
+  activeExperience: ExperienceId
 }
 
 // The application's SINGLE render authority (ADR 001, ADR 002).
@@ -36,7 +40,24 @@ interface Props {
 // conversion happens in-shader when drawing to the default framebuffer. Drawing
 // it after the composer has resolved to screen reproduces the old two-canvas
 // compositing exactly, including tone mapping being applied once per scene.
-export function RenderPipeline({ config, state, logoRef }: Props) {
+//
+// WHY MURCIA BYPASSES THE COMPOSER. EffectComposer builds its render targets
+// as `new WebGLRenderTarget(w, h, { type: HalfFloatType })` — with no `samples`,
+// so they carry no MSAA. Earth already renders through it and that is its
+// shipped look (spheres, points, additive glow), but the city is nothing but
+// hard building edges, and routing it through the composer would silently
+// throw away the `antialias: true` it has always had. It also has no use for
+// the AfterimagePass, which exists only for the warp. So Murcia draws straight
+// to the canvas. Tone mapping still lands exactly once either way: three
+// applies it in-shader only when the render target is null, which is why the
+// composer path needs OutputPass and the direct path does not.
+export function RenderPipeline({
+  config,
+  state,
+  logoRef,
+  murciaRef,
+  activeExperience,
+}: Props) {
   const { gl, scene, camera, size } = useThree()
 
   const { composer, afterimagePass } = useMemo(() => {
@@ -60,15 +81,24 @@ export function RenderPipeline({ config, state, logoRef }: Props) {
   }, [composer])
 
   useFrame((_, delta) => {
-    // Soft reset: an accumulation buffer left at a nonzero damp holds a ghost of
-    // the last frame indefinitely after the warp ends.
-    const amount = state.motionBlur <= 0.001 ? 0 : state.motionBlur
-    const damp = amount === 0 ? 0 : config.afterimageDampMax * amount
+    const murcia = murciaRef.current
 
-    const uniform = afterimagePass.uniforms?.['damp']
-    if (uniform) uniform.value = damp
+    // Falls back to Earth until Murcia has finished loading, so the frame is
+    // never skipped — an early return here is a blank canvas, not a dropped
+    // effect.
+    if (activeExperience === 'murcia' && murcia) {
+      gl.render(murcia.scene, murcia.viewCamera)
+    } else {
+      // Soft reset: an accumulation buffer left at a nonzero damp holds a ghost
+      // of the last frame indefinitely after the warp ends.
+      const amount = state.motionBlur <= 0.001 ? 0 : state.motionBlur
+      const damp = amount === 0 ? 0 : config.afterimageDampMax * amount
 
-    composer.render()
+      const uniform = afterimagePass.uniforms?.['damp']
+      if (uniform) uniform.value = damp
+
+      composer.render()
+    }
 
     // ─── Overlay pass: corner logo ───
     const logo = logoRef.current

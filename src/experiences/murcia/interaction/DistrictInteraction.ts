@@ -39,11 +39,11 @@ export interface DistrictInteractionDeps {
 /**
  * Owns district interaction state and every transition between states.
  *
- * Kept out of `CityPrototype` deliberately. The awkward cases here — a click
+ * Kept out of `MurciaExperience` deliberately. The awkward cases here — a click
  * arriving mid-flight, the panel closing before the camera lands, a resize
  * during a transition — are exactly the ones that turn into contradictory
  * behaviour when the state is spread across five modules that each hold a piece.
- * `CityPrototype` keeps composition, ticking and disposal.
+ * `MurciaExperience` keeps composition, ticking and disposal.
  */
 export class DistrictInteraction {
   private readonly deps: DistrictInteractionDeps;

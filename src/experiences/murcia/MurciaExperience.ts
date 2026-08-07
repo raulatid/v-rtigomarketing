@@ -1,50 +1,59 @@
 import * as THREE from 'three';
 import Stats from 'stats.js';
 
-import { createAppConfig, applyQueryOverrides } from '../config/appConfig';
-import type { AppConfig } from '../config/appConfig';
-import { murciaConfig } from '../config/murciaConfig';
-import type { BoundsRect, EnvironmentConfig } from '../config/environmentConfig';
-import { resolveCameraPose } from '../config/environmentConfig';
-import { applyNavigationQueryOverrides } from '../config/environmentQueryOverrides';
-import { createRenderer } from '../core/createRenderer';
-import { createScene } from '../core/createScene';
-import type { SceneBundle } from '../core/createScene';
-import { attachViewportObserver, applyViewportSize } from '../core/resize';
-import type { ViewportSize } from '../core/resize';
-import { createAssetLoader } from '../assets/createAssetLoader';
-import type { AssetLoader } from '../assets/createAssetLoader';
-import { loadCity, disposeLoadedCity } from '../assets/loadCity';
-import type { LoadedCity } from '../assets/loadCity';
-import { CameraRig } from '../camera/CameraRig';
-import { DragPanController } from '../navigation/DragPanController';
-import { computeGroundFootprint, computeEffectiveBounds } from '../navigation/viewportFootprint';
-import type { GroundFootprint } from '../navigation/viewportFootprint';
-import { containsPoint, expandRect } from '../navigation/navigationBounds';
-import { createTerrainTransition } from '../environment/createTerrainTransition';
-import type { TerrainTransition } from '../environment/createTerrainTransition';
-import { DebugOverlay } from '../debug/DebugOverlay';
-import { InteractionProbe } from '../interaction/InteractionProbe';
-import { resolveDistrict } from '../interaction/resolveDistrict';
-import { DistrictInteraction } from '../interaction/DistrictInteraction';
-import { cityDistrictBindings } from '../scene/cityDistrictBindings';
-import { findDistrictContent } from '../content/districts';
-import { StatusOverlay, ControlsHint } from '../ui/overlays';
+import { createAppConfig, applyQueryOverrides } from './config/appConfig';
+import type { AppConfig } from './config/appConfig';
+import { murciaConfig } from './config/murciaConfig';
+import type { BoundsRect, EnvironmentConfig } from './config/environmentConfig';
+import { resolveCameraPose } from './config/environmentConfig';
+import { applyNavigationQueryOverrides } from './config/environmentQueryOverrides';
+import { createScene } from './core/createScene';
+import type { SceneBundle } from './core/createScene';
+import type { ViewportSize } from './core/resize';
+import { createAssetLoader } from './assets/createAssetLoader';
+import type { AssetLoader } from './assets/createAssetLoader';
+import { loadCity, disposeLoadedCity } from './assets/loadCity';
+import type { LoadedCity } from './assets/loadCity';
+import { CameraRig } from './camera/CameraRig';
+import { DragPanController } from './navigation/DragPanController';
+import { computeGroundFootprint, computeEffectiveBounds } from './navigation/viewportFootprint';
+import type { GroundFootprint } from './navigation/viewportFootprint';
+import { containsPoint, expandRect } from './navigation/navigationBounds';
+import { createTerrainTransition } from './environment/createTerrainTransition';
+import type { TerrainTransition } from './environment/createTerrainTransition';
+import { DebugOverlay } from './debug/DebugOverlay';
+import { InteractionProbe } from './interaction/InteractionProbe';
+import { resolveDistrict } from './interaction/resolveDistrict';
+import { DistrictInteraction } from './interaction/DistrictInteraction';
+import { cityDistrictBindings } from './scene/cityDistrictBindings';
+import { findDistrictContent } from './content/districts';
+import { StatusOverlay, ControlsHint } from './ui/overlays';
 
 /**
  * Lifecycle coordinator for the Murcia environment.
  *
- * Deliberately thin — behaviour lives in the modules. Nothing below reaches for
- * a global renderer, Scene, camera or config; every dependency is constructed
- * here and injected, so extracting a shared app shell for the second
- * environment is a move rather than a rewrite (docs/plans/002 Amendment A2).
+ * Deliberately thin — behaviour lives in the modules, and none of them changed
+ * in the migration into the unified app. The shell duties this class used to
+ * own (creating a renderer, running a rAF loop, observing the container for
+ * resizes) now belong to the application: R3F owns the one renderer, the one
+ * frame loop and the canvas size, and RenderPipeline owns the render call
+ * (ADR 001). What remains is exactly what PROJECT_MEMORY §2.2 predicted would
+ * remain — "a move rather than a rewrite".
+ *
+ * It owns its OWN THREE.Scene, deliberately not shared with Earth: a hidden
+ * root still participates in raycasts, Box3.setFromObject and traversals, and
+ * lights and fog are Scene-global. See ADR 001.
+ *
+ * Drive it as: new MurciaExperience(...) -> setViewport() -> load() ->
+ * update(delta) per frame. setActive(false) makes update() a no-op without
+ * losing any state.
  */
-export class CityPrototype {
+export class MurciaExperience {
   private readonly container: HTMLElement;
+  private readonly renderer: THREE.WebGLRenderer;
   private readonly appConfig: AppConfig;
   private readonly environment: EnvironmentConfig;
 
-  private renderer!: THREE.WebGLRenderer;
   private sceneBundle!: SceneBundle;
   private camera!: THREE.PerspectiveCamera;
   private assetLoader!: AssetLoader;
@@ -58,8 +67,9 @@ export class CityPrototype {
   private stats: Stats | null = null;
   private boundsHelper: THREE.LineSegments | null = null;
 
-  private detachViewport: (() => void) | null = null;
   private loaded: LoadedCity | null = null;
+  private active = false;
+  private suspendedController = false;
 
   private readonly statusOverlay: StatusOverlay;
   private readonly controlsHint: ControlsHint;
@@ -72,16 +82,14 @@ export class CityPrototype {
   private footprint: GroundFootprint | null = null;
   private footprintInsetsDisabled = false;
 
-  private running = false;
-  private frameHandle = 0;
-  private lastTime = 0;
   private firstFrameRecorded = false;
   private hintFaded = false;
 
   private readonly ndc = new THREE.Vector2();
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, renderer: THREE.WebGLRenderer) {
     this.container = container;
+    this.renderer = renderer;
     this.appConfig = applyQueryOverrides(createAppConfig(), window.location.search);
 
     const environment = this.appConfig.modelPathOverride
@@ -94,21 +102,28 @@ export class CityPrototype {
     this.controlsHint = new ControlsHint(container);
   }
 
-  async start(): Promise<void> {
-    if (!this.initRenderer()) return;
-
+  /**
+   * Builds the scene graph and loads the city.
+   *
+   * Separate from construction because it is async and because the caller
+   * decides *when* it runs — the unified app starts it during the Earth intro
+   * so the transition never waits on it (ADR 004).
+   *
+   * Resolves once the environment is ready to be shown. Rejects nothing: a
+   * fatal load surfaces on the status overlay and leaves the environment
+   * inert, exactly as it did standalone.
+   */
+  async load(): Promise<void> {
     this.sceneBundle = createScene(this.appConfig, this.environment.sceneState);
     this.camera = new THREE.PerspectiveCamera(
       this.environment.camera.fov,
-      1,
+      this.viewport.aspect,
       this.environment.camera.near,
       this.environment.camera.far,
     );
 
-    this.detachViewport = attachViewportObserver(this.container, (size) => {
-      this.onViewportResize(size);
-    });
-
+    // Debug instrumentation is opt-in now. Standalone this defaulted on, which
+    // is fine for a prototype and not for a marketing site.
     if (this.appConfig.statsEnabled) {
       this.stats = new Stats();
       this.stats.dom.style.top = 'auto';
@@ -116,39 +131,59 @@ export class CityPrototype {
       this.container.appendChild(this.stats.dom);
     }
 
-    // Render an empty scene immediately so the canvas is live during load.
-    this.renderer.render(this.sceneBundle.scene, this.camera);
-
     this.assetLoader = createAssetLoader(this.appConfig);
 
     try {
       await this.loadAndSetup();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[CityPrototype] fatal load error', error);
+      console.error('[murcia] fatal load error', error);
       this.statusOverlay.setError(
         'Error loading city',
         `${message}\nExpected model at: ${this.environment.modelPath}`,
       );
-      return;
     }
-
-    this.startLoop();
   }
 
-  private initRenderer(): boolean {
-    try {
-      this.renderer = createRenderer(this.appConfig);
-    } catch (error) {
-      console.error('[CityPrototype] WebGL init failed', error);
-      this.statusOverlay.setError(
-        'WebGL unavailable',
-        'This browser or device could not initialize WebGL.',
-      );
-      return false;
+  /** The scene RenderPipeline draws when this experience is showing. */
+  get scene(): THREE.Scene {
+    return this.sceneBundle.scene;
+  }
+
+  /** This environment's camera. Never Earth's — the near/far planes differ. */
+  get viewCamera(): THREE.PerspectiveCamera {
+    return this.camera;
+  }
+
+  /**
+   * Frozen, not reset (ADR 003). update() stops advancing, so focus, yaw,
+   * drag smoothing and district state all resume exactly where they were.
+   */
+  setActive(next: boolean): void {
+    if (this.active === next) return;
+    this.active = next;
+
+    // The drag controller listens on the SHARED canvas, so while Earth is
+    // showing, every Earth drag also reaches it — its target focus and yaw
+    // would drift and the city would jump on return.
+    //
+    // beginExternalControl is the existing answer to "another system owns the
+    // rig": it stops update() touching the rig and clears velocities, and the
+    // matching endExternalControl({adoptRigState}) re-seeds current AND target
+    // state from the rig, discarding whatever the stray events accumulated.
+    // checks/district-flight.ts §2 asserts that pairing produces no snap-back.
+    //
+    // Guarded on who already holds control: a district flight in progress owns
+    // it, and releasing on its behalf would strand it mid-flight.
+    if (!next) {
+      if (this.controller && !this.controller.isExternallyControlled) {
+        this.controller.beginExternalControl();
+        this.suspendedController = true;
+      }
+    } else if (this.suspendedController) {
+      this.suspendedController = false;
+      this.controller?.endExternalControl({ adoptRigState: true });
     }
-    this.container.appendChild(this.renderer.domElement);
-    return true;
   }
 
   private async loadAndSetup(): Promise<void> {
@@ -201,7 +236,7 @@ export class CityPrototype {
       this.visualBounds = this.plateBounds ?? { ...env.contentBounds };
       this.footprintInsetsDisabled = true;
       console.error(
-        '[CityPrototype] no terrain transition: the plate edge WILL be visible. ' +
+        '[murcia] no terrain transition: the plate edge WILL be visible. ' +
           'Footprint insets disabled so navigation stays usable.',
       );
     }
@@ -244,11 +279,13 @@ export class CityPrototype {
       this.rebuildBoundsHelper();
     }
 
-    this.debugOverlay = new DebugOverlay(this.container, this.appConfig);
+    if (this.appConfig.debugOverlayEnabled) {
+      this.debugOverlay = new DebugOverlay(this.container, this.appConfig);
+    }
 
     this.interactionProbe = new InteractionProbe(this.camera);
     const interactiveCount = this.interactionProbe.collectFrom(loaded.root);
-    console.info(`[CityPrototype] cached ${interactiveCount} interactive object(s).`);
+    console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);
 
     this.setupDistricts(loaded.root);
 
@@ -320,11 +357,20 @@ export class CityPrototype {
 
   // --- Viewport and bounds --------------------------------------------------
 
-  private onViewportResize(size: ViewportSize): void {
+  /**
+   * Called by the R3F layer whenever the canvas size changes.
+   *
+   * Replaces the standalone ResizeObserver: R3F already measures the canvas and
+   * owns renderer.setSize, so only the projection and the pose/bounds work that
+   * depended on aspect remain here. The footprint is aspect- and pose-dependent,
+   * which is why the bounds must be recomputed on every resize.
+   */
+  setViewport(size: ViewportSize): void {
     this.viewport = size;
-    if (!this.renderer) return;
+    if (!this.camera) return;
 
-    applyViewportSize(this.renderer, this.camera, size);
+    this.camera.aspect = size.aspect;
+    this.camera.updateProjectionMatrix();
 
     if (this.rig) {
       // Re-resolving the pose covers the portrait-override case; it is a few
@@ -336,10 +382,6 @@ export class CityPrototype {
       // position, because the camera sits at a fixed offset from it.
       this.recomputeBounds();
       if (this.boundsHelper) this.rebuildBoundsHelper();
-    }
-
-    if (!this.running && this.sceneBundle) {
-      this.renderer.render(this.sceneBundle.scene, this.camera);
     }
   }
 
@@ -460,7 +502,7 @@ export class CityPrototype {
   private logReport(): void {
     if (!this.loaded) return;
     const r = this.loaded.report;
-    console.groupCollapsed('[CityPrototype] asset report');
+    console.groupCollapsed('[murcia] asset report');
     console.table({
       objects: r.objectCount,
       meshes: r.meshCount,
@@ -485,34 +527,23 @@ export class CityPrototype {
     box.getSize(size);
     box.getCenter(center);
     console.info(
-      `[CityPrototype] model bounds: center=(${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)}) size=(${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)})`,
+      `[murcia] model bounds: center=(${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)}) size=(${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)})`,
     );
   }
 
-  // --- Render loop ----------------------------------------------------------
+  // --- Frame ----------------------------------------------------------------
 
-  private startLoop(): void {
-    if (this.running) return;
-    this.running = true;
-    this.lastTime = performance.now();
-    const loop = (now: number): void => {
-      if (!this.running) return;
-      this.frameHandle = requestAnimationFrame(loop);
-      this.tick(now);
-    };
-    this.frameHandle = requestAnimationFrame(loop);
-  }
+  /**
+   * One frame of simulation. Does NOT render — RenderPipeline owns the single
+   * render call for the whole application (ADR 001).
+   *
+   * Driven by R3F's loop, so `delta` arrives already measured; the standalone
+   * version derived it from its own performance.now() bookkeeping.
+   */
+  update(delta: number): void {
+    if (!this.active || !this.sceneBundle) return;
 
-  stop(): void {
-    this.running = false;
-    if (this.frameHandle) cancelAnimationFrame(this.frameHandle);
-    this.frameHandle = 0;
-  }
-
-  private tick(now: number): void {
-    const delta = (now - this.lastTime) / 1000;
-    this.lastTime = now;
-
+    const now = performance.now();
     this.stats?.begin();
 
     // Exactly one system writes to the rig per frame. `DragPanController.update`
@@ -527,8 +558,6 @@ export class CityPrototype {
     // Advances drag smoothing and release momentum. Cheap arithmetic only —
     // no raycasting happens here, only on pointer events.
     this.controller?.update(delta);
-
-    this.renderer.render(this.sceneBundle.scene, this.camera);
 
     if (!this.firstFrameRecorded && this.loaded) {
       this.loaded.timings.firstRenderedFrameTime = performance.now();
@@ -558,11 +587,9 @@ export class CityPrototype {
   }
 
   dispose(): void {
-    this.stop();
+    this.active = false;
 
     this.renderer.domElement.removeEventListener('pointerup', this.onPointerUpForClick);
-    this.detachViewport?.();
-    this.detachViewport = null;
 
     for (const district of this.districts) district.dispose();
     this.districts = [];
@@ -601,8 +628,8 @@ export class CityPrototype {
       this.stats = null;
     }
 
-    this.renderer.domElement.remove();
-    this.renderer.dispose();
+    // The renderer and its canvas belong to the application, not to this
+    // environment. Disposing them here would take Earth down with it.
   }
 }
 

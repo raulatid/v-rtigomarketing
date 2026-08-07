@@ -33,18 +33,12 @@ export function createScene(cfg: AppConfig, initialState: SceneStateConfig): Sce
   hemisphereLight.position.set(0, 50, 0);
   scene.add(hemisphereLight);
 
+  // Shadow-camera setup used to be configurable here, paired with
+  // renderer.shadowMap.enabled in createRenderer. The renderer is the
+  // application's now (ADR 001) and does not enable shadows, so configuring
+  // the light alone would have produced an option that did nothing. Removed
+  // rather than left inert; version control is the archive.
   const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  if (cfg.shadowsEnabled) {
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.set(2048, 2048);
-    directionalLight.shadow.camera.near = 1;
-    directionalLight.shadow.camera.far = 400;
-    const d = 120;
-    directionalLight.shadow.camera.left = -d;
-    directionalLight.shadow.camera.right = d;
-    directionalLight.shadow.camera.top = d;
-    directionalLight.shadow.camera.bottom = -d;
-  }
   scene.add(directionalLight);
 
   let gridHelper: THREE.GridHelper | null = null;

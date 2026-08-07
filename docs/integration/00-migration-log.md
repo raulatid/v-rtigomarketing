@@ -243,3 +243,97 @@ labels over Murcia. Hidden rather than unmounted so the `CSS2DObject` bindings s
 **Remaining risks.** The gates are unexercised until P6 wires the setter. The freeze/resume
 contract (orbit clock, camera pose, GSAP master parked at `site`) is therefore asserted by
 design but not yet observed.
+
+---
+
+## P4 — Port Murcia into R3F
+
+**Goal.** Dissolve `CityPrototype`'s shell duties into the application and mount Murcia
+alongside Earth, with its logic modules untouched so `checks/` keeps passing.
+
+**Files.** `app/CityPrototype.ts` → `MurciaExperience.ts` (moved up a level). Deleted
+`core/createRenderer.ts`, `styles/main.css`. Added `components/MurciaLayer.tsx`,
+`styles/murcia.css`. Modified `config/appConfig.ts`, `core/createScene.ts`,
+`graphics/RenderPipeline.tsx`, `SceneCanvas.tsx`, `App.tsx`.
+
+**What dissolved.** Exactly three responsibilities, all of them the application's now:
+renderer creation (`createRenderer`, deleted), the manual rAF loop
+(`startLoop`/`stop`/`tick` → a public `update(delta)` that no longer renders), and the
+`ResizeObserver` (`attachViewportObserver` → a public `setViewport(size)` driven by R3F's
+`size`). `start()` became `load()`; `dispose()` no longer touches the renderer or canvas.
+
+**What did not change.** Every logic module: `CameraRig`, `DragPanController`,
+`CameraFlight`, `cameraFraming`, `DistrictInteraction`, `DistrictHighlight`,
+`resolveDistrict`, `loadCity`, `createTerrainTransition`, `navigationBounds`,
+`viewportFootprint`. `createScene` changed only to drop the shadow block (below). This is
+what `PROJECT_MEMORY` §2.2 predicted — "a move rather than a rewrite" — and it is why the
+77 assertions still pass unmodified.
+
+**Murcia bypasses the composer.** `RenderPipeline` calls `gl.render(murcia.scene,
+murcia.viewCamera)` directly. `EffectComposer`'s targets carry no MSAA, and the city is
+nothing but hard building edges; routing it through would have silently discarded the
+`antialias: true` it has always had. It also has no use for the `AfterimagePass`. Tone
+mapping still lands exactly once on either path.
+
+**Problems discovered.**
+
+1. **Murcia's drag controller listens on the shared canvas**, so every *Earth* drag would
+   also reach it, drifting its target focus and yaw, and the city would jump on return.
+   Fixed in `setActive` with `beginExternalControl()` / `endExternalControl({adoptRigState:
+   true})` — the existing "another system owns the rig" mechanism, whose no-snap-back
+   behaviour `checks/district-flight.ts` §2 already asserts. Guarded on
+   `isExternallyControlled` so it cannot strand a district flight that already holds
+   control.
+2. **Murcia's status overlay would render over the Earth intro.** It loads during the
+   intro so the transition never waits, and its `.murcia-ui` host sits at z-index 16. The
+   host is now `display: none` while inactive.
+3. **The async build could drop a transition.** `build()` awaits a dynamic import and the
+   GLB, so the `active` effect can run and finish before the experience exists. The build
+   now applies the *current* active state on arrival via a ref.
+4. **CSS scoping corrupted a comment on the first attempt.** A multi-line comment in
+   `main.css` contains a comma, and the naive selector-splitter tore it in half. Redone
+   with a comment-aware transform; verified braces and comment markers balance, `@keyframes`
+   bodies are unscoped, `@media` bodies are scoped, and the load-bearing `.reveal` before
+   `.district-service-region` order survived.
+
+**Deliberate behaviour changes** (all previously flagged hazards):
+
+- `statsEnabled` and the F3 `DebugOverlay` now default **off** (`?stats=1`, `?debug=1`).
+  Both shipped on by default standalone; the overlay also meant a permanent window-level
+  keydown listener in production.
+- `dracoDecoderPath` `'draco/'` → `'/draco/'`. The relative form resolves against the
+  current route and 404s anywhere but the root. Earth's and Murcia's decoder files are
+  byte-identical (md5-verified in P1), so they share one copy.
+- `?model=` now accepts only root-relative paths. It was handed straight to `GLTFLoader`,
+  so any link could have made the page fetch a third-party asset.
+- `pixelRatioCap`, `antialiasEnabled` and `shadowsEnabled` removed. The first two were dead
+  once `createRenderer` went. The third would have configured a shadow camera on a renderer
+  that never enables shadows — an option that silently does nothing, which
+  `ENGINEERING_PRINCIPLES` §37 forbids. The shadow block in `createScene` went with it.
+- `main.css`'s global block (`:root`, `*` reset, `html/body/#app`, `body` background, bare
+  `canvas`) is **not** carried over; Earth's `styles.css` owns all of it and the bare
+  `canvas` rule would have hit the shared R3F canvas. The `touch-action` it provided is not
+  lost — `DragPanController` sets it in JS and `.scene-canvas` declares it.
+- `.murcia-ui` is full-viewport with `pointer-events: none`, children opting back in.
+  Without that a full-viewport host would have killed canvas drag for **both** experiences.
+
+**Verification.**
+
+| Gate | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run build` | budgets ok — intro 12 005 B, app entry 298 331 B |
+| `npm run check:navigation` | 25/25 |
+| `npm run check:district` | 52/52 |
+| `npm run test:intro` | all cases pass |
+
+Chunking is correct: `MurciaExperience` is its own 67 092 B dynamic chunk and its CSS
+lands in `SceneCanvas-*.css` (6 471 B), not the entry stylesheet. The entry chunk grew
+by 150 B (props threading only) and stays well under the 320 000 B budget.
+
+Dev server serves `/models/city-prototype.glb`, `/draco/*` and the scoped stylesheet 200.
+
+**NOT verified.** Murcia has never been *seen* in the unified app — `activeExperience` is
+still hardcoded to `'earth'`, so nothing renders it until P6 wires the setter. Visual
+parity against the standalone prototype (camera pose, drag feel, district flight, panel
+layout, terrain skirt) is outstanding and is the main risk carried into P6.

@@ -1,41 +1,48 @@
-:root {
+/* Murcia environment UI.
+ *
+ * Scoped to .murcia-ui, the host element MurciaLayer mounts the environment's
+ * overlays into.
+ *
+ * The standalone stylesheet opened with a global block that is the
+ * application's business now, and that is deliberately NOT carried over:
+ * a :root font/color-scheme declaration, a universal box-sizing reset,
+ * html/body/#app sizing with overscroll-behavior, a page background, and a
+ * bare "canvas" rule. Earth's styles.css already owns all of those, and the
+ * bare canvas rule would have applied to the shared R3F canvas.
+ *
+ * The touch-action the removed canvas rule provided is not lost:
+ * DragPanController sets domElement.style.touchAction = 'none' itself, and
+ * .scene-canvas in styles.css declares it too.
+ *
+ * The host is full-viewport but pointer-events: none, so drag gestures reach
+ * the canvas everywhere the UI is not; children opt back in individually.
+ * Without that, a full-viewport div would kill navigation for BOTH experiences.
+ *
+ * DECLARATION ORDER IS LOAD-BEARING: .reveal must stay declared before
+ * .district-service-region. Both are single-class selectors, so the last
+ * "transition" shorthand wins, and swapping them silently stops the accordion
+ * animating its height (PROJECT_MEMORY 10.18).
+ */
+
+.murcia-ui {
+  position: fixed;
+  inset: 0;
+  /* Above the scene canvas (10) and Earth's geo tags (15); below the intro
+     drawing (20) and the warp overlay (40), which must cover the transition. */
+  z-index: 16;
+  pointer-events: none;
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  /* Stops the drag gesture turning into pull-to-refresh or rubber-banding. */
-  overscroll-behavior: none;
-}
-
-body {
-  background: #10161d;
-}
-
-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  /* OrbitControls used to set this in JS. DragPanController sets it too, but
-     declaring it here means a single-finger drag never scrolls the page even
-     before the controller is constructed. */
-  touch-action: none;
+.murcia-ui .overlay,
+.murcia-ui .district-panel,
+.murcia-ui .district-label {
+  pointer-events: auto;
 }
 
 /* --- Overlays -------------------------------------------------------------- */
-
-.overlay {
+.murcia-ui .overlay {
   position: fixed;
   z-index: 10;
   pointer-events: none;
@@ -43,7 +50,7 @@ canvas {
 }
 
 /* Loading / status overlay */
-#status-overlay {
+.murcia-ui #status-overlay {
   inset: 0;
   display: flex;
   align-items: center;
@@ -55,25 +62,17 @@ canvas {
   font-size: 1.1rem;
   text-align: center;
   transition: opacity 0.4s ease;
-}
-
-#status-overlay.hidden {
+}.murcia-ui #status-overlay.hidden {
   opacity: 0;
   pointer-events: none;
-}
-
-#status-overlay .status-detail {
+}.murcia-ui #status-overlay .status-detail {
   font-size: 0.85rem;
   color: #9aa7b4;
   max-width: 32rem;
   padding: 0 1rem;
-}
-
-#status-overlay.error .status-title {
+}.murcia-ui #status-overlay.error .status-title {
   color: #ff6b6b;
-}
-
-.spinner {
+}.murcia-ui .spinner {
   width: 2.5rem;
   height: 2.5rem;
   border: 3px solid rgba(255, 255, 255, 0.15);
@@ -89,7 +88,7 @@ canvas {
 }
 
 /* Controls hint bar (non-blocking, bottom-center) */
-#controls-hint {
+.murcia-ui #controls-hint {
   left: 50%;
   bottom: 16px;
   transform: translateX(-50%);
@@ -106,13 +105,9 @@ canvas {
   max-width: calc(100vw - 32px);
   flex-wrap: wrap;
   justify-content: center;
-}
-
-#controls-hint.faded {
+}.murcia-ui #controls-hint.faded {
   opacity: 0;
-}
-
-#controls-hint kbd {
+}.murcia-ui #controls-hint kbd {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
   padding: 0.1rem 0.4rem;
@@ -125,7 +120,7 @@ canvas {
 
 /* Projected label. Not an .overlay: it must be clickable and focusable, since
    it is the district's only keyboard affordance — a raycast cannot be tabbed to. */
-.district-label {
+.murcia-ui .district-label {
   position: fixed;
   top: 0;
   left: 0;
@@ -142,22 +137,18 @@ canvas {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.22s ease;
-}
-
-.district-label.shown {
+}.murcia-ui .district-label.shown {
   opacity: 1;
   visibility: visible;
 }
 
 /* Keyboard users must be able to reach it even while it is visually hidden. */
-.district-label:focus-visible {
+.murcia-ui .district-label:focus-visible {
   opacity: 1;
   visibility: visible;
   outline: 2px solid #4fb0ff;
   outline-offset: 3px;
-}
-
-.district-panel {
+}.murcia-ui .district-panel {
   position: fixed;
   z-index: 15;
   display: flex;
@@ -171,15 +162,11 @@ canvas {
   touch-action: pan-y;
   overscroll-behavior: contain;
   pointer-events: auto;
-}
-
-.district-panel .district-panel-body {
+}.murcia-ui .district-panel .district-panel-body {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1.5rem;
-}
-
-.district-panel-close {
+}.murcia-ui .district-panel-close {
   position: absolute;
   top: 10px;
   right: 12px;
@@ -192,14 +179,10 @@ canvas {
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
-}
-
-.district-panel-close:hover {
+}.murcia-ui .district-panel-close:hover {
   background: rgba(255, 255, 255, 0.16);
-}
-
-.district-panel-close:focus-visible,
-.district-panel-handle:focus-visible {
+}.murcia-ui .district-panel-close:focus-visible,
+.murcia-ui .district-panel-handle:focus-visible {
   outline: 2px solid #4fb0ff;
   outline-offset: 2px;
 }
@@ -212,31 +195,23 @@ canvas {
    `grid-template-rows`. Both are single-class selectors, so whichever comes last
    wins the `transition` shorthand outright. With `.reveal` last, the accordion
    silently stops animating its height. */
-.reveal {
+.murcia-ui .reveal {
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.35s ease, transform 0.35s ease;
-}
-
-.reveal.shown {
+}.murcia-ui .reveal.shown {
   opacity: 1;
   transform: none;
-}
-
-.district-panel-title {
+}.murcia-ui .district-panel-title {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
-}
-
-.district-panel-summary {
+}.murcia-ui .district-panel-summary {
   color: #cdd7e0;
   font-size: 0.95rem;
   line-height: 1.5;
   margin-bottom: 0.75rem;
-}
-
-.district-panel-intro {
+}.murcia-ui .district-panel-intro {
   color: #9aa7b4;
   font-size: 0.875rem;
   line-height: 1.65;
@@ -244,18 +219,13 @@ canvas {
 }
 
 /* --- Service accordion ----------------------------------------------------- */
-
-.district-panel-services {
+.murcia-ui .district-panel-services {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.district-service-heading {
+}.murcia-ui .district-service-heading {
   font-size: inherit;
   font-weight: inherit;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.district-service-header {
+}.murcia-ui .district-service-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -274,18 +244,12 @@ canvas {
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-}
-
-.district-service-header:hover {
+}.murcia-ui .district-service-header:hover {
   color: #4fb0ff;
-}
-
-.district-service-header:focus-visible {
+}.murcia-ui .district-service-header:focus-visible {
   outline: 2px solid #4fb0ff;
   outline-offset: -2px;
-}
-
-.district-service-chevron {
+}.murcia-ui .district-service-chevron {
   flex: 0 0 auto;
   width: 8px;
   height: 8px;
@@ -294,13 +258,9 @@ canvas {
   /* Points right when collapsed, down when expanded. */
   transform: rotate(-45deg);
   transition: transform 0.28s ease;
-}
-
-.district-service-header[aria-expanded='true'] {
+}.murcia-ui .district-service-header[aria-expanded='true'] {
   color: #4fb0ff;
-}
-
-.district-service-header[aria-expanded='true'] .district-service-chevron {
+}.murcia-ui .district-service-header[aria-expanded='true'] .district-service-chevron {
   transform: rotate(45deg);
 }
 
@@ -311,28 +271,24 @@ canvas {
    early and the transition then spends the rest of its duration doing nothing —
    the easing curve applies to the guess, not to the content. Animating an `fr`
    track has no magic number and no wasted duration. */
-.district-service-region {
+.murcia-ui .district-service-region {
   display: grid;
   grid-template-rows: 0fr;
   transition:
     grid-template-rows 0.32s cubic-bezier(0.22, 0.61, 0.36, 1),
     opacity 0.35s ease,
     transform 0.35s ease;
-}
-
-.district-service-region.expanded {
+}.murcia-ui .district-service-region.expanded {
   grid-template-rows: 1fr;
 }
 
 /* The grid child, which is what actually clips. `min-height: 0` is required:
    grid items default to `min-height: auto`, which refuses to shrink below their
    content and would keep the section open at 0fr. */
-.district-service-inner {
+.murcia-ui .district-service-inner {
   overflow: hidden;
   min-height: 0;
-}
-
-.district-service-inner p {
+}.murcia-ui .district-service-inner p {
   padding: 0 0.25rem 1rem;
   color: #9aa7b4;
   font-size: 0.875rem;
@@ -340,8 +296,7 @@ canvas {
 }
 
 /* Desktop: docked right. */
-@media (min-width: 768px) {
-  .district-panel {
+@media (min-width: 768px) {.murcia-ui .district-panel {
     top: 0;
     right: 0;
     width: 380px;
@@ -350,20 +305,15 @@ canvas {
     border-width: 0 0 0 1px;
     transform: translateX(100%);
     transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
-  }
-
-  .district-panel.open {
+  }.murcia-ui .district-panel.open {
     transform: none;
-  }
-
-  .district-panel-handle {
+  }.murcia-ui .district-panel-handle {
     display: none;
   }
 }
 
 /* Mobile: two-stop bottom sheet. */
-@media (max-width: 767px) {
-  .district-panel {
+@media (max-width: 767px) {.murcia-ui .district-panel {
     left: 0;
     right: 0;
     bottom: 0;
@@ -373,17 +323,11 @@ canvas {
     padding-bottom: env(safe-area-inset-bottom);
     transform: translateY(100%);
     transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1), height 0.32s ease;
-  }
-
-  .district-panel.open {
+  }.murcia-ui .district-panel.open {
     transform: none;
-  }
-
-  .district-panel[data-stop='expanded'] {
+  }.murcia-ui .district-panel[data-stop='expanded'] {
     height: 85dvh;
-  }
-
-  .district-panel-handle {
+  }.murcia-ui .district-panel-handle {
     flex: 0 0 auto;
     width: 100%;
     height: 26px;
@@ -391,9 +335,7 @@ canvas {
     background: transparent;
     cursor: pointer;
     position: relative;
-  }
-
-  .district-panel-handle::before {
+  }.murcia-ui .district-panel-handle::before {
     content: '';
     position: absolute;
     left: 50%;
@@ -408,19 +350,18 @@ canvas {
 
 /* Motion that only decorates is removed; motion that communicates state is
    shortened rather than deleted. The camera flight is shortened in code. */
-@media (prefers-reduced-motion: reduce) {
-  .district-panel,
-  .reveal,
-  .district-label,
-  .district-service-region,
-  .district-service-chevron {
+@media (prefers-reduced-motion: reduce) {.murcia-ui .district-panel,
+.murcia-ui .reveal,
+.murcia-ui .district-label,
+.murcia-ui .district-service-region,
+.murcia-ui .district-service-chevron {
     transition-duration: 0.01ms;
     transition-delay: 0ms;
   }
 }
 
 /* Debug overlay */
-#debug-overlay {
+.murcia-ui #debug-overlay {
   top: 0;
   left: 0;
   padding: 8px 10px;
@@ -434,16 +375,10 @@ canvas {
   border: 1px solid rgba(255, 255, 255, 0.06);
   white-space: pre;
   min-width: 220px;
-}
-
-#debug-overlay.hidden {
+}.murcia-ui #debug-overlay.hidden {
   display: none;
-}
-
-#debug-overlay .warn {
+}.murcia-ui #debug-overlay .warn {
   color: #ffd479;
-}
-
-#debug-overlay .bad {
+}.murcia-ui #debug-overlay .bad {
   color: #ff8080;
 }
