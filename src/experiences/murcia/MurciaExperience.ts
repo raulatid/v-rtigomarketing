@@ -71,6 +71,7 @@ export class MurciaExperience {
   private active = false;
   private suspendedController = false;
   private onLoadProgress: ((fraction: number) => void) | undefined;
+  private loadFailed = true;
 
   private readonly statusOverlay: StatusOverlay;
   private readonly controlsHint: ControlsHint;
@@ -137,6 +138,7 @@ export class MurciaExperience {
 
     try {
       await this.loadAndSetup();
+      this.loadFailed = false;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[murcia] fatal load error', error);
@@ -144,7 +146,17 @@ export class MurciaExperience {
         'Error loading city',
         `${message}\nExpected model at: ${this.environment.modelPath}`,
       );
+      this.loadFailed = true;
     }
+  }
+
+  /**
+   * False when the city could not be loaded. The application uses this to
+   * decide whether to offer the transition at all — an entry point into a
+   * world that cannot render is worse than no entry point.
+   */
+  get isUsable(): boolean {
+    return !this.loadFailed;
   }
 
   /**

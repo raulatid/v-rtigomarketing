@@ -14,6 +14,7 @@ import { useIntroDraw } from './hooks/useIntroDraw'
 import type { CornerLogo } from './corner-logo/createCornerLogo'
 import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
+import { useExperienceTransition } from './app/useExperienceTransition'
 
 // The debug panel lives on its own path (/debug) so the main site can be
 // reviewed clean; open http://localhost:5173/debug during development to tune.
@@ -56,10 +57,19 @@ export default function App() {
   // renders and consumes input (ADR 003). P6 gives this a setter — until then
   // Earth is the only experience, so the value never changes and every gate
   // added in P3 is behaviour-preserving.
-  const [activeExperience] = useState<ExperienceId>('earth')
+  const [activeExperience, setActiveExperience] = useState<ExperienceId>('earth')
+  const earthActive = activeExperience === 'earth'
 
-  // Murcia stays mounted alongside Earth; P6 gives the transition its setter.
+  // Murcia stays mounted alongside Earth — the transition swaps which scene
+  // renders, it never builds or tears one down (ADR 003).
   const murciaRef = useRef<MurciaExperience | null>(null)
+  const [murciaReady, setMurciaReady] = useState(false)
+  const handleMurciaReady = useCallback(() => setMurciaReady(true), [])
+
+  const { transitionTo, transitioning } = useExperienceTransition({
+    state,
+    onSwap: setActiveExperience,
+  })
 
   const { phase, timeline } = useMasterTimeline({
     intro,
@@ -156,11 +166,15 @@ export default function App() {
       // a viewer dismissing a panel does not expect that to restart anything.
       // The interaction controller handles that case; this only sees the rest.
       // Same for an open audit section, which owns Escape while visible.
+      // Murcia owns Escape while it is showing — its districts close on it.
+      // Skipping an intro the viewer has already finished would also be
+      // meaningless there.
+      if (!earthActive) return
       if (e.key === 'Escape' && !selectedCase && !auditOpen) handleSkip()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleSkip, selectedCase, auditOpen])
+  }, [handleSkip, selectedCase, auditOpen, earthActive])
 
   return (
     <div className="app">
@@ -177,6 +191,7 @@ export default function App() {
         onSelectCase={setSelectedCase}
         onDeselectCase={handleDeselectCase}
         onLogoLoadFailed={handleLoadFailed}
+        onMurciaReady={handleMurciaReady}
       />
 
       {/* The intro drawing is NOT rendered by React — intro-draw owns its own
@@ -185,14 +200,51 @@ export default function App() {
 
       <div className="warp-overlay" ref={overlayRef} />
 
-      <CasePanel data={selectedCase} onClose={handleClosePanel} />
+      <CasePanel data={earthActive ? selectedCase : null} onClose={handleClosePanel} />
 
       {/* The trigger only exists once the intro has fully landed — satellites
           revealed and the timeline at 'site'. Before that the scene offers no
           interaction chrome at all. */}
-      <AuditSection onOpenChange={handleAuditOpenChange} ready={phase === 'site'} />
+      <AuditSection
+        onOpenChange={handleAuditOpenChange}
+        ready={phase === 'site' && earthActive}
+      />
 
-      <CustomCursor />
+      {/* Earth's cursor treatment only. Murcia writes its own cursors through
+          DragPanController and DistrictInteraction, and two writers would
+          fight over the same property. */}
+      {earthActive && <CustomCursor />}
+
+      {/* A button, not scroll (murcia PROJECT_MEMORY §2.1): touch has no wheel,
+          single-finger drag is committed to navigation, and an accidental
+          scroll must never warp the viewer to another world.
+
+          Gated on murciaReady rather than shown-and-disabled: the city is
+          prefetched during the intro (ADR 004), so by the time the timeline
+          reaches 'site' it is normally already warm and the button simply
+          exists. Offering a control that cannot yet do anything would be
+          worse than it appearing a moment later. */}
+      {phase === 'site' && earthActive && murciaReady && (
+        <button
+          type="button"
+          className="experience-switch experience-switch--enter"
+          onClick={() => transitionTo('murcia')}
+          disabled={transitioning}
+        >
+          Explorar Murcia
+        </button>
+      )}
+
+      {!earthActive && (
+        <button
+          type="button"
+          className="experience-switch experience-switch--back"
+          onClick={() => transitionTo('earth')}
+          disabled={transitioning}
+        >
+          ← Volver
+        </button>
+      )}
 
       {DEBUG_MODE && (
         <DebugOverlay

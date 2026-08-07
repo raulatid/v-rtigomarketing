@@ -14,6 +14,10 @@ export interface SequenceState {
   // applied value is max() so neither can clobber the other at a boundary.
   warpOverlay: number
   swapOverlay: number
+  // Third contributor: the Earth<->Murcia transition flash. Same max() rule.
+  // Owned by the transition controller, not the intro timeline, and the only
+  // one that can still be non-zero after the intro has landed.
+  transitionOverlay: number
   motionBlur: number
   // Set true once the GLB has assembled. The P3 substitution is gated on this,
   // because a scale-through-zero crossover hides nothing if the model is absent.
@@ -42,6 +46,7 @@ export function createSequenceState(): SequenceState {
     swapProgress: 0,
     warpOverlay: 0,
     swapOverlay: 0,
+    transitionOverlay: 0,
     motionBlur: 0,
     modelReady: false,
     earthReady: false,

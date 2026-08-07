@@ -32,6 +32,7 @@ interface Props {
   onSelectCase: (data: SatelliteDef) => void
   onDeselectCase: () => void
   onLogoLoadFailed: () => void
+  onMurciaReady: () => void
 }
 
 // Both the starfield and the Earth stay mounted for the whole sequence and
@@ -50,6 +51,7 @@ export function SceneCanvas({
   onSelectCase,
   onDeselectCase,
   onLogoLoadFailed,
+  onMurciaReady,
 }: Props) {
   // Earth stays mounted whichever experience is showing; this only decides
   // whether it consumes input and does per-frame work (ADR 003).
@@ -96,7 +98,11 @@ export function SceneCanvas({
       />
       {/* Last, and the only thing that renders. Must stay after every layer
           that writes per-frame state it consumes. */}
-      <MurciaLayer active={!earthActive} experienceRef={murciaRef} />
+      <MurciaLayer
+        active={!earthActive}
+        experienceRef={murciaRef}
+        onReady={onMurciaReady}
+      />
       <RenderPipeline
         config={config}
         state={state}

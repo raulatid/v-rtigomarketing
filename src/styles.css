@@ -24,7 +24,8 @@ body {
 
 /* ---- Layer stack (plan 002 §3) ----
    10 scene canvas (incl. the corner-logo overlay pass) · 15 geo tags ·
-   20 SVG intro · 35 case panel · 40 warp overlay                            */
+   16 murcia UI · 20 SVG intro · 35 case panel · 40 warp overlay ·
+   45 experience switch                                                       */
 
 .scene-canvas {
   position: fixed !important;
@@ -1121,4 +1122,64 @@ body {
 .cursor-layer[data-state='grabbing'] .cursor-follow-core {
   transform: scale(0.7);
   background-color: rgba(28, 103, 255, 0.25);
+}
+
+/* ---- Experience switch (Earth <-> Murcia) ----
+   z 45, above the warp overlay (40) so the control stays legible if a
+   transition is somehow interrupted mid-cover, and above Murcia's UI host
+   (16) so the return button is never occluded by a district panel. */
+
+.experience-switch {
+  position: fixed;
+  z-index: 45;
+  padding: 0.7rem 1.25rem;
+  font: inherit;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(10, 13, 19, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.experience-switch:hover:not(:disabled) {
+  background: rgba(22, 28, 40, 0.85);
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.experience-switch:focus-visible {
+  outline: 2px solid #4fb0ff;
+  outline-offset: 3px;
+}
+
+.experience-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Bottom-centre on the Earth side: the composition's lower third is empty,
+   and the case panel owns the right column. */
+.experience-switch--enter {
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Top-left on the Murcia side, clear of the district panel's right dock and
+   of the bottom-centre controls hint. */
+.experience-switch--back {
+  top: 1.5rem;
+  left: 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experience-switch {
+    transition: none;
+  }
 }

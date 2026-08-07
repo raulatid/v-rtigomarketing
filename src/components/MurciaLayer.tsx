@@ -87,6 +87,15 @@ export function MurciaLayer({ active, experienceRef, onReady }: Props) {
         return
       }
 
+      // A city that could not load must not be offered. load() reports its own
+      // failure on the status overlay and leaves the environment inert; the
+      // step is deliberately left un-done rather than marked complete, which
+      // is harmless because it is not a required one.
+      if (!experience.isUsable) {
+        experienceRef.current = experience
+        return
+      }
+
       // Compile and upload now rather than on the transition frame (ADR 004).
       // Failure here is not fatal to anything: the city still renders, just
       // with a hitch on first show, so it is reported and swallowed.

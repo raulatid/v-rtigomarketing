@@ -106,7 +106,10 @@ export function CameraController({ config, state, overlayEl, active }: Props) {
   function applyOverlay() {
     const el = overlayEl.current
     if (!el) return
-    const value = Math.min(1, Math.max(state.warpOverlay, state.swapOverlay))
+    const value = Math.min(
+      1,
+      Math.max(state.warpOverlay, state.swapOverlay, state.transitionOverlay),
+    )
     el.style.opacity = value.toFixed(4)
   }
 

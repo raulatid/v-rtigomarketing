@@ -337,3 +337,88 @@ Dev server serves `/models/city-prototype.glb`, `/draco/*` and the scoped styles
 still hardcoded to `'earth'`, so nothing renders it until P6 wires the setter. Visual
 parity against the standalone prototype (camera pose, drag feel, district flight, panel
 layout, terrain skirt) is outstanding and is the main risk carried into P6.
+
+---
+
+## P5 — Murcia prefetch + GPU warm
+
+**Goal.** Make the transition never wait on loading, compiling or uploading.
+
+**Files.** `intro-draw/bootState.ts`, `experiences/murcia/assets/loadCity.ts`,
+`experiences/murcia/MurciaExperience.ts`, `components/MurciaLayer.tsx`.
+
+**Implementation.** `murcia:model` added to the boot manifest as `required: false`
+(weight 10). `MurciaExperience.warm()` does `compileAsync` **plus** a 1×1 render-target
+draw, because `compileAsync` does not upload geometry attribute buffers. Progress reports
+to 0.8 with the remainder held for the warm. See ADR 004.
+
+**Boundary note.** The boot-manifest coupling lives in `MurciaLayer`, the app-side adapter.
+`MurciaExperience.load()` takes an `onProgress` callback and knows nothing about the intro,
+so the experience does not depend on Earth's loading infrastructure.
+
+**Verification.** intro chunk 12 044 B (was 12 005 B, +39 for the manifest entry — the
+16 000 B budget is what would have caught an accidental import here). Entry 298 331 B.
+Checks 25/25, 52/52, intro simulation passing.
+
+**Not verified.** The warm has never been *measured*. The claim that it removes the hitch
+rests on the mechanism, not on a profile. Needs a frame-time capture across the transition
+on a cold load and on a throttled connection.
+
+---
+
+## P6 — Transition + reversibility
+
+**Goal.** Wire Earth ⇄ Murcia both ways and make Murcia visible for the first time.
+
+**Files.** Added `app/useExperienceTransition.ts`, `docs/adr/004-*`. Modified
+`sequenceState.ts`, `CameraController.tsx`, `App.tsx`, `SceneCanvas.tsx`,
+`MurciaLayer.tsx`, `MurciaExperience.ts`, `styles.css`.
+
+**Implementation.** A GSAP timeline covers to black (0.32s), swaps on that frame, and
+reveals (0.5s). A hard cut, never a cross-fade — the project's strongest visual rule, and
+also what makes it free: no frame draws both worlds. The flash reuses `.warp-overlay`
+through a third `SequenceState` contributor combined by the same `max()` rule, with
+`CameraController` still its single DOM writer (which is why P3 kept it running while
+inactive).
+
+**Earth UI gated on `earthActive`:** `CasePanel` (data forced null), `AuditSection`
+(`ready`), `CustomCursor` (unmounted — Murcia writes its own cursors and two writers would
+fight), and the global Escape handler (Murcia's districts own that key).
+
+**Problems discovered.**
+
+1. **A failed city would still have been offered.** The button was gated on "load finished",
+   not "load succeeded". Added `isUsable`; `onReady` now fires only on success, so the
+   button never appears for a city that cannot render.
+2. **Re-entrancy.** Two clicks would start two timelines, the second's cover racing the
+   first's reveal, leaving the overlay at an arbitrary opacity. Guarded.
+3. **Unmount mid-transition** would have left the page black permanently. The timeline is
+   killed and the overlay forced to 0.
+
+**Z-index.** The switch sits at 45 — above the warp overlay (40) so it stays legible if a
+transition is interrupted, and above Murcia's UI host (16) so the return button is never
+occluded by a district panel. Layer-stack comment in `styles.css` updated.
+
+**Verification.**
+
+| Gate | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run build` | budgets ok — intro 12 044 B, app entry 299 440 B |
+| `npm run check:navigation` | 25/25 |
+| `npm run check:district` | 52/52 |
+| `npm run test:intro` | all cases pass |
+
+**NOT verified — and this is the important part.** No part of the transition has been
+*seen*. No browser was available in this session, so the following remain entirely
+unobserved:
+
+- Murcia rendering at all, and its visual parity against the standalone prototype (camera
+  pose, drag feel, district flight, panel layout, terrain skirt).
+- The transition itself — whether the cut lands under full cover, and whether the timings
+  read well.
+- Return-to-Earth resume: GSAP master parked at `site`, orbit clock, camera pose, satellite
+  positions.
+- `renderer.info` stability across repeated round trips (`PROJECT_MEMORY` §9 item 6) — the
+  no-leak claim is by design only.
+- The P2 corner-logo z-order regression against the geo-tag layer.
