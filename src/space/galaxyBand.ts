@@ -20,9 +20,13 @@ export const GALAXY_BAND = {
   // plane; the default tips it so the band cuts the frame diagonally rather
   // than sitting level with the Earth's equator.
   defaultTilt: 22,
-  // Half-width of the gaussian, in units of `dot(direction, axis)`. 0.35 gives
-  // a band that is clearly a band without wrapping the sky.
-  defaultWidth: 0.35,
+  // Half-width of the gaussian, in units of `dot(direction, axis)`.
+  //
+  // Tuned down from 0.35 on the evidence of a screenshot: 0.35 puts the band's
+  // edges about 41 degrees off the plane, so against a 45 degree FOV the gas
+  // ran past both edges of the frame and there was no dark sky to read it
+  // against. A band you cannot see the edge of is not a band.
+  defaultWidth: 0.22,
 } as const
 
 /** The galactic pole. Unit length by construction, at any tilt. */

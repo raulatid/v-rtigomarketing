@@ -573,6 +573,10 @@ and the satellite resumes its orbit from where it froze.
 
 ## 2026-07-20 — The space backdrop is a second field, on a shell
 
+> **Partly superseded** by *2026-08-11 — The backdrop becomes a galaxy*. The shell, its
+> radius, its gating and the two-field split below are all still current; the three-tier
+> `Points` construction and the Fibonacci distribution are not.
+
 Plan 004 is implemented as its option A. The resting scene no longer sits on
 pure black.
 
@@ -1129,6 +1133,13 @@ six panels cost one texture bind. Two couplings that will break quietly:
 
 ### The plates are drawn, not real logos
 
+> **Superseded 2026-08-11 — the seam described below is now implemented.** The plates are
+> still drawn, but as the *floor* rather than the only state: real `logo` URLs load in the
+> background and redraw their cell. The trademark reasoning here still stands and is why
+> every `logo` is still `null`. `createPlaceholderLogoTexture` no longer exists — it had no
+> callers left and was removed. See the amendment at the end of this file and
+> `../DECISIONS.md` §18.
+
 No trademark artwork is used, and `brandColor` in `caseStudies.ts` is decorative
 rather than each company's real colour. Same reasoning as that file's existing
 warning: real logos beside invented case-study results read as client
@@ -1457,3 +1468,161 @@ entry chunk — a diff will not show that and a reviewer will not catch it. The
 `closeBundle` assertion described in the entry below budgets the `intro` chunk;
 give the main entry chunk a size budget in the same hook, and both regressions
 fail the build instead of shipping.
+
+---
+
+## 2026-08-11 — Amendment: picking is coordinate-driven, and the plates accept real artwork
+
+Two changes to this experience, both recorded as binding decisions in `../DECISIONS.md`
+(§17, §18). This entry covers what they mean *inside the Earth scene*.
+
+### The scene was mouse-only, and the cause was reading hover instead of the event
+
+`createSatelliteFocus.onClick` took no event and acted on `hoveredId`; `createGeoMarkers`
+`onPointerUp` held `event.clientX/clientY` and discarded them to read `hoveredMarker`. Both
+values are written only by `pointermove`, and **a tap never produces one** — so on a touch
+device every satellite and the Murcia marker were inert. Measured, not assumed: 460 emulated
+taps across the whole globe produced no response before the change; the first tap does after.
+
+Both now go through a `pickAt(clientX, clientY)` that raycasts and returns, with no side
+effects — the shape `DistrictInteraction.pickAt` already used. `createFocusCameraRig`'s
+`isOverSatellite` takes coordinates for the same reason, which also removed a real ordering
+hazard: the rig registers its `click` listener before the focus controller does, so it was
+reading a hover the controller had not refreshed for that event.
+
+**"Selection is React state; hover is not" is unchanged**, and so is the per-frame hover
+raycast — satellites still move under a still pointer. The change is only that *nothing acts
+on the stored value*. Hover stays deliberately mouse-only: a tap does not set `pointerActive`,
+so it leaves no highlight behind on a device that cannot un-hover.
+
+`INTERACTION_CONFIG.camera` gained `touchDragClickThreshold: 12` beside `dragClickThreshold:
+4`, and `createGeoMarkers` gained `TOUCH_CLICK_SLOP_PX = 12` beside `CLICK_SLOP_PX = 5`. The
+mouse numbers are untouched. A finger tap wanders 5–15 px, so the tight tolerance rejected
+almost every real tap as a drag — fixing the raycast alone would not have been enough.
+
+### The destination tag persists where hover does not exist
+
+Under `@media (hover: none)` the Murcia tag stays visible and becomes clickable, gated on a
+new `is-near` class carrying the same limb test as pickability — so the label never floats
+over the far side of the globe. **Only the destination**: the six city tags are decorative,
+and pinning all seven open buries the planet in labels. Pointer devices are untouched; the tag
+stays `pointer-events: none` and hover-only there.
+
+Making the label *clickable* and not merely visible is deliberate. It sits ~25 px from the dot
+by `tagOffset`, so a visible "Explorar la ciudad →" that ignored taps would be a worse
+affordance than no label. Same answer, and the same `(hover: none)` mechanism, as
+`districtLabel.ts`.
+
+**Still open:** none of this is a *keyboard* path. The tags remain divs with no role or
+tabindex, so `A11Y-1` in the production-readiness audit is narrowed, not closed.
+
+### The atlas now loads real logos, without moving the readiness path
+
+`drawPlate` stays as the synchronous floor; `logo` URLs load in the background and redraw
+their own cell, coalesced to one texture upload per frame. Failure of any kind keeps the drawn
+plate. The atlas layout, UV maths, cell aspect and shader are all untouched, exactly as the
+superseded entry predicted.
+
+Two additions worth knowing here: a 1×1 canvas-taint probe runs before any image is allowed
+near the shared atlas, because one tainted logo would throw from `texImage2D` and kill all six
+panels rather than one; and `cellUv` now clamps, because past the 2×3 cap it returned a
+negative `v` offset and sampled outside the atlas rather than failing visibly.
+
+### Names in the dated entries above that no longer exist
+
+Those entries are history and are left as written. For anyone reading them as current:
+
+- **`state.earthReady`, `state.modelReady`, `state.orbitsReady`, `state.swapProgress` and
+  `state.assetsFailed` are gone.** All five were write-only — verified across `src/`, `checks/`
+  and `scripts/`. Two documented safeguards that were never implemented: `earthReady`'s
+  comment claimed the warp's cut was gated on it to avoid revealing an unshaded sphere, and
+  `sceneVisibility.earthVisible()` never consulted it. Readiness lives in `bootState.ts`; the
+  timeline asks the corner logo directly via `cornerLogo.isReady()`. A flag that documents a
+  guarantee it does not provide is worse than no flag.
+- **`createPlaceholderLogoTexture` is gone** (no callers; `drawPlate` is the equivalent), and
+  so are `attachViewportObserver` / `applyViewportSize` (superseded by
+  `MurciaExperience.setViewport`), `FocusCameraRig.getMode` and `SatelliteFocus.isHovering` —
+  the last of these because §17's coordinate-driven picking is what replaced it.
+
+## 2026-08-11 — The backdrop becomes a galaxy, generated rather than downloaded
+
+Supersedes the star-field half of *2026-07-20 — The space backdrop is a second field, on a
+shell*. The shell, its radius, its gating and the two-field split are all unchanged; what
+changed is what is drawn on it, and that there is now something behind it.
+
+![The resting scene](img/galaxy-backdrop.png)
+
+The complaint was that the stars were "equal in form, colour and distance". All three were
+literally true, and the first was structural: `PointsMaterial` has no per-point size, so
+magnitude was faked with three `Points` objects at three fixed sizes. The distribution came
+from `fibonacciSpherePoints`, which is a *maximally even* arrangement by construction — the
+sky was not merely regular, it was as regular as points on a sphere can be.
+
+### Stars: one draw call, and clustering that cannot break the shell
+
+A raw `ShaderMaterial` reading an `aSize` attribute makes magnitude continuous and collapses
+the three draw calls into one. Colour comes from a stellar temperature ramp and brightness
+now rides magnitude instead of being a per-tier opacity constant.
+
+**Clustering is angular.** Directions are perturbed and *renormalised*; the radius is applied
+afterwards and never touched. This is the entire reason the non-occlusion guarantee survives:
+a point on a shell enclosing the camera cannot lie between the camera and the origin, and an
+implementation that offset final positions in 3D would break that for a handful of stars at
+some orbit angles — a defect no screenshot reliably catches.
+`checks/space-backdrop.ts` asserts the radius bound across four cluster strengths and three
+band tilts, and measures the coefficient of variation of nearest-neighbour angular distance
+against the real `fibonacciSpherePoints` (0.020 for the spiral; 0.651 now).
+
+`fibonacciSphere.ts` is untouched — `createConnectivityCloud` still wants exactly the even
+distribution the backdrop no longer does.
+
+### The galaxy: procedural, baked to a cubemap during P0
+
+The client asked for "a galaxy or something more amazing", against a project whose dominant
+constraint is load time. Generating it on the GPU costs **zero download bytes**; baking it
+once into a cubemap during P0 means the resting scene pays one draw call and one texture
+fetch. One face per frame, the same idiom `EarthScene` uses for its texture uploads and for
+the same reason — the drawing is live behind it.
+
+Three consequences worth stating:
+
+- **It is a mesh, not `scene.background`.** A background is written as an untone-mapped clear
+  colour and would sit at the wrong brightness beside an ACES-mapped Earth. As an opaque mesh
+  at `renderOrder -1000` it passes through the composer's `OutputPass` like everything else,
+  and its non-occlusion is a property of render order rather than of geometry.
+- **No mipmaps.** At 1024 per face the cubemap is magnified on screen, never minified, so they
+  would be pure cost. 25.2 MB rather than 33 MB of VRAM.
+- **The cubemap is a seam.** If an authored sky is ever wanted, it replaces the bake and
+  nothing else changes.
+
+**Palette exception.** The nebula is naturalistic — warm dust, a blue core, magenta hydrogen —
+and does not follow the brand's blue-accent rule. Same reasoning as the Earth's textures: the
+brand guide governs UI chrome, and this is the scene's own language. Deliberate, not an
+oversight.
+
+### What the screenshots corrected, which the design got wrong
+
+Three defects survived design and code review and were only caught by looking:
+
+1. **The noise frequency was the whole ballgame.** `dir` is a unit vector, so the domain scalar
+   is the only thing setting feature size. At the 2.4 first written, the sky spanned about
+   eight integer lattice cells — features ~23° wide, so two of them filled a 45° viewport. It
+   rendered as fog. 8.0 is the working value; lower it and the soup returns.
+2. **Dust lanes must be multiplied by the band.** Applied to the whole sky, the ridged
+   filaments multiplied against near-black are still visible, and the result was a crazed
+   cracked-marble texture over everything. Lanes are dust occluding dust.
+3. **`band` is a smooth analytic gaussian**, so the core rendered as a clean gradient down the
+   plane and read as a searchlight beam. It has to be mottled with noise to become a substance.
+
+The default band width came down from 0.35 to 0.22 for a related reason: at 0.35 the gas ran
+past both edges of the frame, and a band whose edge you never see is not a band.
+
+### The one trap for whoever bakes a cubemap next
+
+`CubeCamera` is used purely for its six correctly-oriented face cameras, which avoids
+hand-rolling the face-basis table — the most error-prone part of baking a cubemap. But **the
+constructor does not orient them.** `coordinateSystem` is left null and the cameras are only
+pointed by `updateCoordinateSystem()`, which `CubeCamera` calls lazily from `update()` — the
+very method being bypassed in order to spread the faces across frames. Without calling it
+explicitly, all six cameras still look down −Z and every face bakes the same image.
+

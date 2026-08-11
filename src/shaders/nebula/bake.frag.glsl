@@ -70,35 +70,55 @@ float ridged(vec3 p, int octaves) {
 
 void main() {
   vec3 dir = normalize(vDirection);
-  vec3 p = dir * 2.4 + uSeed;
+
+  // THE FREQUENCY IS LOAD-BEARING, and it is the thing that was wrong first.
+  // `dir` is a unit vector, so the noise lattice only ever sees the domain
+  // this scalar defines. At the 2.4 first tried, the whole sky spanned about
+  // eight integer cells — features came out ~23 degrees wide, so roughly two
+  // of them filled a 45 degree viewport and the result read as fog rather than
+  // as a galaxy. At 8.0 a cell is a few degrees and the octaves have somewhere
+  // to go. Lower this and you get soup back.
+  vec3 p = dir * 8.0 + uSeed;
 
   float band = bandDensity(dir, uBandAxis, uBandWidth);
 
   // Each of these is an EXPLICIT structural term. Plain fbm alone produces
-  // undifferentiated noise soup that reads as fog, not as a galaxy; the
-  // structure has to be authored rather than left to emerge.
+  // undifferentiated noise soup; the structure has to be authored.
 
-  // Core — the bright concentration along the plane.
-  float core = pow(band, 3.0);
+  // Core — the bright concentration along the plane. A high power keeps it a
+  // spine rather than a wash.
+  //
+  // Mottled, because `band` is a smooth analytic gaussian: on its own the core
+  // renders as a clean gradient down the plane, which reads as a searchlight
+  // beam rather than as gas. The noise is what makes it a substance.
+  float coreMottle = fbm(p * 2.2 + vec3(3.7, 19.2, 6.4), 4);
+  float core = pow(band, 4.0) * (0.45 + 0.9 * coreMottle);
 
-  // Warm dust filling the band, broken up so it is not a smooth smear.
-  float clouds = fbm(p * 1.6, 5);
-  float dust = band * smoothstep(0.25, 0.85, clouds);
+  // Warm dust filling the band, broken up so it is not a smooth smear. The
+  // threshold is deliberately high: what makes a sky read is the DARK between
+  // the structures, not the structures.
+  float clouds = fbm(p * 3.0, 5);
+  float dust = pow(band, 1.5) * smoothstep(0.44, 0.86, clouds);
 
   // Dust lanes cutting ACROSS the plane. The single most recognisable feature
   // of a galaxy seen edge-on, and the reason this is not just a bright stripe.
-  float lanes = ridged(p * 2.7 + 11.3, 4);
-  float lane = smoothstep(0.55, 0.95, lanes) * uDustDensity;
+  //
+  // Note the `* band`. Without it the ridged filaments are applied to the whole
+  // sky including the empty parts, and a multiply against near-black is still
+  // visible — the result was a crazed, cracked-marble texture over everything.
+  // Lanes are dust occluding dust; where there is no dust there is no lane.
+  float lanes = ridged(p * 4.5 + vec3(11.3, 5.1, 8.7), 3);
+  float lane = smoothstep(0.62, 0.95, lanes) * uDustDensity * band;
 
-  // Hydrogen — sparse, faint, lower frequency, only loosely band-bound.
-  float h = fbm(p * 0.9 + 47.1, 3);
-  float hydrogen = smoothstep(0.62, 0.92, h) * (0.35 + 0.65 * band);
+  // Hydrogen — sparse, faint, lower frequency, mostly band-bound.
+  float h = fbm(p * 1.8 + vec3(47.1, 13.9, 29.4), 3);
+  float hydrogen = smoothstep(0.66, 0.94, h) * (0.08 + 0.92 * band);
 
-  vec3 color = uDustColor * dust
+  vec3 color = uDustColor * dust * 0.8
              + uCoreColor * core * 0.9
-             + uHydrogenColor * hydrogen * 0.55;
+             + uHydrogenColor * hydrogen * 0.5;
 
-  color *= (1.0 - lane * 0.85);
+  color *= (1.0 - lane * 0.55);
   color *= uBrightness;
 
   gl_FragColor = vec4(color, 1.0);

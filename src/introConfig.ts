@@ -127,7 +127,7 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   backdropClusterStrength: 0.6,
   backdropTwinkle: 0.15,
 
-  nebulaBrightness: 0.35,
+  nebulaBrightness: 0.14,
   nebulaDustDensity: 0.55,
   nebulaBandWidth: GALAXY_BAND.defaultWidth,
   nebulaBandTilt: GALAXY_BAND.defaultTilt,
