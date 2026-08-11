@@ -14,12 +14,19 @@ export const SPACE_CONFIG = {
 
     // Local knots. Real skies clump; the Fibonacci spiral this replaced was a
     // maximally even distribution, which is precisely why it read as combed.
-    clusterCount: 48,
+    //
+    // These three were tuned against `checks/space-backdrop.ts` section 4,
+    // which requires clustering to beat plain uniform randomness by 15% on the
+    // spread of nearest-neighbour distance. The first values tried (48 knots,
+    // 0.14 spread, 0.45 share) reached only 11%: uniform randomness is already
+    // fairly clumpy on its own, so loose knots barely register against it.
+    // Fewer, tighter, fuller knots is what actually reads as structure.
+    clusterCount: 36,
     // Angular spread of a knot, as the magnitude of a random offset applied to
     // a unit direction BEFORE renormalising. Not a radius in world units.
-    clusterSpread: 0.14,
+    clusterSpread: 0.09,
     // Fraction of stars placed inside a knot rather than by the band sampler.
-    clusterShare: 0.45,
+    clusterShare: 0.6,
 
     // Magnitude follows `rand ** exponent`, so higher means more faint stars.
     // A real magnitude distribution is heavily bottom-weighted; three discrete

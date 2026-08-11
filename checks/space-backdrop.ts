@@ -15,6 +15,11 @@
 import * as THREE from 'three';
 
 import { GALAXY_BAND, bandAxis, bandDensity } from '../src/space/galaxyBand';
+import { SPACE_CONFIG } from '../src/space/spaceConfig';
+import { generateStarField } from '../src/space/starDistribution';
+import type { StarFieldOptions } from '../src/space/starDistribution';
+import { INTERACTION_CONFIG } from '../src/interaction/interactionConfig';
+import { fibonacciSpherePoints } from '../src/utils/fibonacciSphere';
 
 let failures = 0;
 
@@ -90,8 +95,283 @@ check(
 );
 
 // ---------------------------------------------------------------------------
+section('2. The shell guarantee survives clustering');
+
+const BASE: StarFieldOptions = {
+  count: 2600,
+  radius: 180,
+  jitter: 0.15,
+  clusterStrength: 0.6,
+  bandTiltDegrees: GALAXY_BAND.defaultTilt,
+  bandWidth: GALAXY_BAND.defaultWidth,
+};
+
+function radii(field: { positions: Float32Array }): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < field.positions.length; i += 3) {
+    const x = field.positions[i];
+    const y = field.positions[i + 1];
+    const z = field.positions[i + 2];
+    out.push(Math.sqrt(x * x + y * y + z * z));
+  }
+  return out;
+}
+
+// Clustering must be ANGULAR. If it is ever implemented as a 3D offset, the
+// radius bound is the first thing that breaks, and it breaks for a handful of
+// stars rather than visibly for all of them.
+let worstLow = Infinity;
+let worstHigh = -Infinity;
+let anyNaN = false;
+for (const clusterStrength of [0, 0.3, 0.6, 1]) {
+  for (const bandTiltDegrees of [0, 22, 67]) {
+    const field = generateStarField({ ...BASE, clusterStrength, bandTiltDegrees });
+    for (const r of radii(field)) {
+      if (!Number.isFinite(r)) anyNaN = true;
+      if (r < worstLow) worstLow = r;
+      if (r > worstHigh) worstHigh = r;
+    }
+    for (const buffer of [field.positions, field.colors, field.sizes, field.phases]) {
+      for (const v of buffer) if (!Number.isFinite(v)) anyNaN = true;
+    }
+  }
+}
+
+const lowBound = BASE.radius * (1 - BASE.jitter);
+const highBound = BASE.radius * (1 + BASE.jitter);
+
+check(
+  'no star falls inside the jitter floor, at any strength or tilt',
+  worstLow >= lowBound - 1e-3,
+  `min ${worstLow.toFixed(3)} (floor ${lowBound})`,
+);
+check(
+  'no star escapes the jitter ceiling',
+  worstHigh <= highBound + 1e-3,
+  `max ${worstHigh.toFixed(3)} (ceiling ${highBound})`,
+);
+check(
+  'the closest star clears the camera by a wide margin',
+  worstLow > INTERACTION_CONFIG.camera.zoomMax * 3,
+  `${worstLow.toFixed(1)} vs zoomMax ${INTERACTION_CONFIG.camera.zoomMax} — below this the shell stops enclosing the camera and stars render over the Earth`,
+);
+check('no NaN in any buffer', !anyNaN, 'one NaN position empties the whole draw call');
+
+const sized = generateStarField(BASE);
+check(
+  'every buffer is sized to the requested count',
+  sized.positions.length === BASE.count * 3 &&
+    sized.colors.length === BASE.count * 3 &&
+    sized.sizes.length === BASE.count &&
+    sized.phases.length === BASE.count,
+  `${sized.positions.length} / ${sized.colors.length} / ${sized.sizes.length} / ${sized.phases.length}`,
+);
+check(
+  'zero jitter produces an exact shell',
+  radii(generateStarField({ ...BASE, jitter: 0 })).every(
+    (r) => Math.abs(r - BASE.radius) < 1e-3,
+  ),
+  'the jitter-free path must stay exact, as the guarantee is stated against it',
+);
+
+// ---------------------------------------------------------------------------
+section('3. Generation is deterministic');
+
+const a = generateStarField(BASE);
+const b = generateStarField(BASE);
+check(
+  'the same options produce identical positions',
+  a.positions.every((v, i) => v === b.positions[i]),
+  'the sky must be the same on every load, or the occlusion screenshots mean nothing',
+);
+check(
+  'the same options produce identical sizes, colours and phases',
+  a.sizes.every((v, i) => v === b.sizes[i]) &&
+    a.colors.every((v, i) => v === b.colors[i]) &&
+    a.phases.every((v, i) => v === b.phases[i]),
+);
+const c = generateStarField({ ...BASE, seed: 99 });
+check(
+  'a different seed produces a different sky',
+  !a.positions.every((v, i) => v === c.positions[i]),
+  'otherwise the seed is not wired through and the field is accidentally fixed',
+);
+
+// ---------------------------------------------------------------------------
+section('4. The field is actually chaotic, not merely different');
+
+// This is the assertion that encodes the original defect. A golden-angle
+// spiral is a MAXIMALLY even distribution, so its nearest-neighbour distances
+// are nearly all identical — which is exactly why the old sky read as combed.
+// A real sky has knots and voids, so the spread of those distances is wide.
+function nearestNeighbourSpread(positions: Float32Array): number {
+  const n = positions.length / 3;
+  const dirs: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const x = positions[i * 3];
+    const y = positions[i * 3 + 1];
+    const z = positions[i * 3 + 2];
+    const l = Math.sqrt(x * x + y * y + z * z) || 1;
+    dirs.push([x / l, y / l, z / l]);
+  }
+  const nearest: number[] = [];
+  for (let i = 0; i < n; i++) {
+    let best = -Infinity;
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const d = dirs[i][0] * dirs[j][0] + dirs[i][1] * dirs[j][1] + dirs[i][2] * dirs[j][2];
+      if (d > best) best = d;
+    }
+    nearest.push(Math.acos(Math.min(1, Math.max(-1, best))));
+  }
+  const mean = nearest.reduce((s, v) => s + v, 0) / nearest.length;
+  const variance = nearest.reduce((s, v) => s + (v - mean) * (v - mean), 0) / nearest.length;
+  return Math.sqrt(variance) / mean;
+}
+
+const evenSpread = nearestNeighbourSpread(fibonacciSpherePoints(BASE.count, BASE.radius, 0));
+const clumpedSpread = nearestNeighbourSpread(generateStarField(BASE).positions);
+const uniformSpread = nearestNeighbourSpread(
+  generateStarField({ ...BASE, clusterStrength: 0 }).positions,
+);
+
+check(
+  'the new field is far less evenly spaced than the spiral',
+  clumpedSpread > evenSpread * 3,
+  `spiral ${evenSpread.toFixed(3)} vs clustered ${clumpedSpread.toFixed(3)} (coefficient of variation of nearest-neighbour angle)`,
+);
+check(
+  'clustering measurably increases clumping over plain randomness',
+  clumpedSpread > uniformSpread * 1.15,
+  `uniform ${uniformSpread.toFixed(3)} vs clustered ${clumpedSpread.toFixed(3)}`,
+);
+check(
+  'even at zero cluster strength the field beats the spiral',
+  uniformSpread > evenSpread * 2,
+  `spiral ${evenSpread.toFixed(3)} vs uniform ${uniformSpread.toFixed(3)} — random alone is already clumpier than a golden-angle walk`,
+);
+
+// ---------------------------------------------------------------------------
+section('5. Stars concentrate toward the galactic band');
+
+function bandShare(positions: Float32Array, tilt: number, bandWidth: number): number {
+  const bandAxisVec = bandAxis(tilt);
+  const v = new THREE.Vector3();
+  let inBand = 0;
+  for (let i = 0; i < positions.length; i += 3) {
+    v.set(positions[i], positions[i + 1], positions[i + 2]).normalize();
+    if (Math.abs(v.dot(bandAxisVec)) < bandWidth) inBand++;
+  }
+  return inBand / (positions.length / 3);
+}
+
+const clumpedShare = bandShare(
+  generateStarField(BASE).positions,
+  BASE.bandTiltDegrees,
+  BASE.bandWidth,
+);
+const uniformShare = bandShare(
+  generateStarField({ ...BASE, clusterStrength: 0 }).positions,
+  BASE.bandTiltDegrees,
+  BASE.bandWidth,
+);
+
+check(
+  'the band holds noticeably more stars than an even sky would',
+  clumpedShare > uniformShare * 1.25,
+  `${(clumpedShare * 100).toFixed(1)}% in band vs ${(uniformShare * 100).toFixed(1)}% uniform`,
+);
+check(
+  'cluster strength 0 really is a uniform sky',
+  Math.abs(uniformShare - BASE.bandWidth) < 0.06,
+  `${(uniformShare * 100).toFixed(1)}% vs the ${(BASE.bandWidth * 100).toFixed(1)}% a uniform sphere gives — the band must be opt-in, so the slider spans a real range`,
+);
+
+// ---------------------------------------------------------------------------
+section('6. Magnitude and colour are continuous and restrained');
+
+const field = generateStarField(BASE);
+const sizes = Array.from(field.sizes).sort((x, y) => x - y);
+const cfg = SPACE_CONFIG.star;
+
+check(
+  'every size sits inside the configured range',
+  sizes[0] >= cfg.minSize - 1e-5 && sizes[sizes.length - 1] <= cfg.maxSize + 1e-5,
+  `${sizes[0].toFixed(2)} .. ${sizes[sizes.length - 1].toFixed(2)} (range ${cfg.minSize}..${cfg.maxSize})`,
+);
+
+const distinct = new Set(sizes.map((s) => s.toFixed(6))).size;
+check(
+  'magnitude is continuous, not tiered',
+  distinct > BASE.count * 0.9,
+  `${distinct} distinct sizes across ${BASE.count} stars — the three-tier field this replaces had 3`,
+);
+
+const median = sizes[Math.floor(sizes.length / 2)];
+check(
+  'the distribution is bottom-weighted, as a real one is',
+  median < cfg.minSize + (cfg.maxSize - cfg.minSize) * 0.33,
+  `median ${median.toFixed(2)} against a midpoint of ${((cfg.minSize + cfg.maxSize) / 2).toFixed(2)}`,
+);
+
+const bright = sizes.filter((s) => s >= cfg.twinkleSizeMin).length / sizes.length;
+check(
+  'only a minority of stars are large enough to twinkle',
+  bright > 0.02 && bright < 0.25,
+  `${(bright * 100).toFixed(1)}% at or above ${cfg.twinkleSizeMin}px — too many and the sky boils`,
+);
+
+let colourInRange = true;
+let maxComponent = 0;
+let sumMaxComponent = 0;
+for (let i = 0; i < field.colors.length; i += 3) {
+  const r = field.colors[i];
+  const g = field.colors[i + 1];
+  const bl = field.colors[i + 2];
+  if (r < 0 || r > 1 || g < 0 || g > 1 || bl < 0 || bl > 1) colourInRange = false;
+  const hi = Math.max(r, g, bl);
+  sumMaxComponent += hi;
+  if (hi > maxComponent) maxComponent = hi;
+}
+check('every colour component is inside [0, 1]', colourInRange);
+
+// Saturation is asserted on the RAMP rather than on the buffer, and in sRGB
+// rather than linear. THREE.Color converts hex literals to the linear working
+// space on assignment, where the same colour measures far more saturated than
+// it looks — so a bound on the buffer would either be meaningless or would
+// forbid real stellar colours. The ramp is also the thing a future editor
+// actually changes.
+let worstRampSaturation = 0;
+for (const stop of cfg.colorRamp) {
+  const r = ((stop.color >> 16) & 0xff) / 255;
+  const g = ((stop.color >> 8) & 0xff) / 255;
+  const bl = (stop.color & 0xff) / 255;
+  const hi = Math.max(r, g, bl);
+  const lo = Math.min(r, g, bl);
+  worstRampSaturation = Math.max(worstRampSaturation, hi > 0 ? (hi - lo) / hi : 0);
+}
+check(
+  'the stellar colour ramp stays restrained',
+  worstRampSaturation < 0.4,
+  `peak sRGB saturation ${worstRampSaturation.toFixed(3)} — above this the sky reads as confetti rather than as stars`,
+);
+
+const meanMax = sumMaxComponent / (field.colors.length / 3);
+check(
+  'brightness rides magnitude rather than every star being full',
+  meanMax < maxComponent * 0.75,
+  `mean peak component ${meanMax.toFixed(3)} against a brightest of ${maxComponent.toFixed(3)}`,
+);
+
+check(
+  'twinkle phases span [0, 1)',
+  Array.from(field.phases).every((p) => p >= 0 && p < 1),
+  'a phase outside the range just biases the sine, but it means the RNG is not what it claims',
+);
+
+// ---------------------------------------------------------------------------
 console.log(`\n${'='.repeat(70)}`);
-const total = 6;
+const total = 28;
 if (failures === 0) {
   console.log(`${total}/${total} checks passed`);
 } else {
