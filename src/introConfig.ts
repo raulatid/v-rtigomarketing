@@ -60,6 +60,13 @@ export interface IntroConfig extends DrawConfig {
   // Per-point radial jitter as a fraction of the radius, so the field reads as a
   // volume with depth rather than a hollow sphere when you orbit.
   backdropJitter: number
+  // Angular clumping of the backdrop stars. 0 is a uniform sky; 1 is heavily
+  // knotted and concentrated along the galactic band. Angular only — it never
+  // touches the shell radius, which is what keeps stars off the Earth.
+  backdropClusterStrength: number
+  // Alpha amplitude of the star twinkle. 0 disables it entirely. Only stars
+  // above SPACE_CONFIG.star.twinkleSizeMin scintillate.
+  backdropTwinkle: number
 
   // ── P5 orbits ──
   // Extra delay after the logo departs centre before the orbit reveal starts.
@@ -102,6 +109,8 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   backdropStarCount: 2600,
   backdropRadius: 180,
   backdropJitter: 0.15,
+  backdropClusterStrength: 0.6,
+  backdropTwinkle: 0.15,
 
   orbitsStartOffset: 0,
 }

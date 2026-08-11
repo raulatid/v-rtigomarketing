@@ -99,6 +99,8 @@ const SECTIONS: Array<{ title: string; controls: Control[] }> = [
       // shell stops enclosing the camera and stars appear over the Earth.
       { key: 'backdropRadius', label: 'Shell radius', min: 60, max: 400, step: 5, unit: 'u' },
       { key: 'backdropJitter', label: 'Depth jitter', min: 0, max: 0.5, step: 0.01, unit: '' },
+      { key: 'backdropClusterStrength', label: 'Clumping', min: 0, max: 1, step: 0.05, unit: '' },
+      { key: 'backdropTwinkle', label: 'Twinkle', min: 0, max: 0.6, step: 0.02, unit: '' },
     ],
   },
 ]
