@@ -11,6 +11,11 @@
 // Note the P0 fields are RELATIVE STAGE WEIGHTS, not seconds — P0's duration
 // comes from load progress. `fillDuration` is the exception, still real seconds.
 import type { DrawConfig } from './intro-draw/drawConfig'
+// A VALUE import, unlike the type-only one above, and safe for the same reason
+// that one is not: the boot entry never reaches this module. It is here so the
+// band defaults have one source of truth shared with the star distribution and
+// the nebula shader. The build's chunk assertion is what actually guards this.
+import { GALAXY_BAND } from './space/galaxyBand'
 
 export interface IntroConfig extends DrawConfig {
   // ── P1 shrink ──
@@ -68,6 +73,16 @@ export interface IntroConfig extends DrawConfig {
   // above SPACE_CONFIG.star.twinkleSizeMin scintillate.
   backdropTwinkle: number
 
+  // ── The galaxy behind the star shell ──
+  // Baked once into a cubemap during P0. Changing any of these re-bakes, which
+  // is why NebulaShell debounces them.
+  nebulaBrightness: number
+  nebulaDustDensity: number
+  // Shared with the star distribution, so the stars and the gas cannot
+  // disagree about where the galaxy is.
+  nebulaBandWidth: number
+  nebulaBandTilt: number
+
   // ── P5 orbits ──
   // Extra delay after the logo departs centre before the orbit reveal starts.
   // 0 means "the moment it departs" — the focus handoff. Raise it to separate
@@ -111,6 +126,11 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   backdropJitter: 0.15,
   backdropClusterStrength: 0.6,
   backdropTwinkle: 0.15,
+
+  nebulaBrightness: 0.35,
+  nebulaDustDensity: 0.55,
+  nebulaBandWidth: GALAXY_BAND.defaultWidth,
+  nebulaBandTilt: GALAXY_BAND.defaultTilt,
 
   orbitsStartOffset: 0,
 }

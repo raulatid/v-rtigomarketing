@@ -8,7 +8,6 @@ import { prefersReducedMotion } from '../app/warpTransition'
 import { generateStarField } from '../space/starDistribution'
 import { createStarMaterial } from '../space/starShader'
 import { SPACE_CONFIG } from '../space/spaceConfig'
-import { GALAXY_BAND } from '../space/galaxyBand'
 
 // The persistent star field the resting scene sits in.
 //
@@ -59,8 +58,10 @@ export function SpaceBackdrop({ config, state, active }: Props) {
       radius: config.backdropRadius,
       jitter: config.backdropJitter,
       clusterStrength: config.backdropClusterStrength,
-      bandTiltDegrees: GALAXY_BAND.defaultTilt,
-      bandWidth: GALAXY_BAND.defaultWidth,
+      // Shared with the nebula, so the stars and the gas cannot disagree about
+      // where the galaxy is. That agreement is the whole design.
+      bandTiltDegrees: config.nebulaBandTilt,
+      bandWidth: config.nebulaBandWidth,
     })
 
     const g = new THREE.BufferGeometry()
@@ -77,6 +78,8 @@ export function SpaceBackdrop({ config, state, active }: Props) {
     config.backdropRadius,
     config.backdropJitter,
     config.backdropClusterStrength,
+    config.nebulaBandTilt,
+    config.nebulaBandWidth,
   ])
 
   const material = useMemo(() => createStarMaterial(), [])

@@ -5,6 +5,7 @@ import { AuditCameraShift } from './AuditCameraShift'
 import { EarthScene } from './EarthScene'
 import { Starfield } from './Starfield'
 import { SpaceBackdrop } from './SpaceBackdrop'
+import { NebulaShell } from './NebulaShell'
 import { OrbitSystemLayer } from './OrbitSystemLayer'
 import { InteractionLayer, InteractionHandle } from './InteractionLayer'
 import { CornerLogoLayer } from './CornerLogoLayer'
@@ -93,6 +94,9 @@ export function SceneCanvas({
       {/* Two separate fields on purpose: Starfield is the near-field warp tunnel
           and is gated OFF at the cut; SpaceBackdrop is the far shell that is
           gated ON there and never leaves. See plan 004 §4. */}
+      {/* Drawn first and depth-free, so it sits behind everything including
+          the star shell. Baked during P0; gated on with the Earth. */}
+      <NebulaShell config={config} state={state} active={earthActive} />
       <SpaceBackdrop config={config} state={state} active={earthActive} />
       <Suspense fallback={null}>
         <EarthScene
@@ -121,7 +125,6 @@ export function SceneCanvas({
           renderer — it no longer has one of its own (ADR 002). */}
       <CornerLogoLayer
         config={config}
-        state={state}
         onLoadFailed={onLogoLoadFailed}
         logoRef={logoRef}
         handleRef={cornerLogoHandleRef}

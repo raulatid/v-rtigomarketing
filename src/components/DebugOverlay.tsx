@@ -101,6 +101,12 @@ const SECTIONS: Array<{ title: string; controls: Control[] }> = [
       { key: 'backdropJitter', label: 'Depth jitter', min: 0, max: 0.5, step: 0.01, unit: '' },
       { key: 'backdropClusterStrength', label: 'Clumping', min: 0, max: 1, step: 0.05, unit: '' },
       { key: 'backdropTwinkle', label: 'Twinkle', min: 0, max: 0.6, step: 0.02, unit: '' },
+      // These four invalidate the baked cubemap, so NebulaShell debounces them
+      // before rebuilding a 25 MB render target.
+      { key: 'nebulaBrightness', label: 'Nebula', min: 0, max: 1.2, step: 0.05, unit: '' },
+      { key: 'nebulaDustDensity', label: 'Dust lanes', min: 0, max: 1, step: 0.05, unit: '' },
+      { key: 'nebulaBandWidth', label: 'Band width', min: 0.1, max: 0.8, step: 0.01, unit: '' },
+      { key: 'nebulaBandTilt', label: 'Band tilt', min: -90, max: 90, step: 1, unit: 'deg' },
     ],
   },
 ]
