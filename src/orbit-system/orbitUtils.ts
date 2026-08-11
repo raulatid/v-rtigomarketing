@@ -32,12 +32,22 @@ export function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3)
 }
 
+// A 2D context can legitimately be refused (memory pressure, canvas blocking),
+// so this is checked rather than asserted. createOrbitSystem's caller converts
+// the throw into the Spanish failure caption; naming the resource makes the
+// report say what actually gave out instead of "cannot read properties of null".
+function get2dContext(canvas: HTMLCanvasElement, who: string): CanvasRenderingContext2D {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error(`[${who}] 2D canvas context unavailable`)
+  return ctx
+}
+
 // Soft radial gradient used for glow sprites and cloud points.
 export function createRadialGlowTexture(size = 128): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  const ctx = get2dContext(canvas, 'radial-glow')
   const half = size / 2
   const gradient = ctx.createRadialGradient(half, half, 0, half, half, half)
   gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
@@ -50,47 +60,16 @@ export function createRadialGlowTexture(size = 128): THREE.CanvasTexture {
   return texture
 }
 
-// Neutral placeholder used until real case-study logo assets exist.
-//
-// The size is fitted rather than fixed. The original hardcoded 15.5% of the
-// canvas, which suited the uniform-width "CASE 01" labels it was written for;
-// real brand names vary from MANGO to FREIXENET and the long ones ran off the
-// disc. Measuring and shrinking to fit costs one measureText at build time and
-// means the sample data can be edited without anyone checking pixel widths.
-const LABEL_MAX_WIDTH = 0.84 // fraction of the canvas the text may occupy
-
-export function createPlaceholderLogoTexture(label: string, size = 256): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
-  ctx.clearRect(0, 0, size, size)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.94)'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-
-  const font = (px: number) => `600 ${px}px system-ui, -apple-system, sans-serif`
-  let fontSize = Math.round(size * 0.155)
-  ctx.font = font(fontSize)
-  const width = ctx.measureText(label).width
-  const limit = size * LABEL_MAX_WIDTH
-  if (width > limit) {
-    fontSize = Math.max(Math.floor(fontSize * (limit / width)), 8)
-    ctx.font = font(fontSize)
-  }
-
-  ctx.fillText(label, size / 2, size / 2)
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  return texture
-}
+// `createPlaceholderLogoTexture` lived here — a text badge drawn on a disc, used
+// before the satellites became GLB models with a shared brand atlas. It had no
+// callers left; the equivalent today is drawPlate in createBrandAtlas.ts.
 
 // Solid white disc for the connectivity cloud's point sprites.
 export function createCircleTexture(size: number): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  const ctx = get2dContext(canvas, 'circle-texture')
   const half = size / 2
   ctx.beginPath()
   ctx.arc(half, half, half, 0, Math.PI * 2)

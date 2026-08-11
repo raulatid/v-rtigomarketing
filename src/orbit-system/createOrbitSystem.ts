@@ -4,7 +4,7 @@ import { createOrbitLine, OrbitLine } from './createOrbitLine'
 import { createSatellite, Satellite } from './createSatellite'
 import { createConnectivityCloud } from './createConnectivityCloud'
 import { createRadialGlowTexture, easeOutCubic } from './orbitUtils'
-import { getBrandAtlas } from './createBrandAtlas'
+import { createBrandAtlas } from './createBrandAtlas'
 
 // Owns the six orbits (lines + head glows + satellites) and the connectivity
 // cloud.
@@ -30,8 +30,6 @@ interface OrbitEntry {
 }
 
 interface Options {
-  camera: THREE.Camera
-  textureLoader?: THREE.TextureLoader
   // Forwarded to the satellites' KTX2 baked-texture load (transcoder support
   // detection); satellites render untextured without it.
   renderer?: THREE.WebGLRenderer
@@ -49,8 +47,16 @@ export function createOrbitSystem({ renderer }: Options) {
   // the six plates share a single texture bind. Uploaded eagerly when a renderer
   // is available, for the same reason the satellite bake is: the first upload of
   // a 2048×1536 texture must not land on the frame the satellites reveal.
-  const brandAtlas = getBrandAtlas(
-    SATELLITES.map((def) => ({ name: def.name, brandColor: def.brandColor })),
+  //
+  // `logo` is what makes real client artwork appear: the atlas draws its
+  // placeholder plate synchronously and swaps in the image if and when it loads,
+  // so this stays a synchronous build and a missing logo costs nothing.
+  const brandAtlas = createBrandAtlas(
+    SATELLITES.map((def) => ({
+      name: def.name,
+      brandColor: def.brandColor,
+      logo: def.logo,
+    })),
   )
   if (renderer) renderer.initTexture(brandAtlas.texture)
 
@@ -59,7 +65,13 @@ export function createOrbitSystem({ renderer }: Options) {
   keyLight.position.set(4, 2, 5)
   group.add(ambientLight, keyLight)
 
-  const orbits: OrbitEntry[] = ORBIT_PRESETS.map((preset, index) => {
+  // One satellite per orbit, paired by array position. Bounded by BOTH lengths:
+  // with fewer case studies than presets, `SATELLITES[index]` was undefined and
+  // the `.brandColor` read below threw — a throw OrbitSystemLayer converts into
+  // a FATAL boot state, so deleting a case study took the entire site down
+  // instead of showing one satellite fewer. No effect at today's 6-and-6.
+  const pairCount = Math.min(ORBIT_PRESETS.length, SATELLITES.length)
+  const orbits: OrbitEntry[] = ORBIT_PRESETS.slice(0, pairCount).map((preset, index) => {
     const orbitLine = createOrbitLine(preset)
     group.add(orbitLine.line)
 

@@ -51,7 +51,12 @@ interface Marker {
 // A drag that happens to end over a marker must not navigate. Measured in
 // pixels from pointerdown, and kept local rather than asking the camera rig —
 // this module needs no knowledge of who else is handling the gesture.
+//
+// Two numbers because a finger is not a mouse: a tap wanders 5–15px between
+// contact and release, so the mouse slop rejected nearly every tap and made the
+// Murcia marker — the only door into that experience — unreachable on touch.
 const CLICK_SLOP_PX = 5
+const TOUCH_CLICK_SLOP_PX = 12
 
 export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Options) {
   const cfg = ORBIT_CONFIG.markers
@@ -63,7 +68,12 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
   const hitMaterial = new THREE.MeshBasicMaterial({ visible: false })
 
   const raycaster = new THREE.Raycaster()
-  const mouse = new THREE.Vector2()
+  const ndc = new THREE.Vector2()
+  // Last pointermove position, in viewport coordinates. Only meaningful once
+  // `pointerActive` is set — hover is a mouse affordance, and a touch device
+  // never produces one.
+  let lastMoveX = 0
+  let lastMoveY = 0
   let pointerActive = false
   let cursorHover = false
 
@@ -124,10 +134,32 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
   const hitMeshes = markers.map((m) => m.hit)
   let hoveredMarker: Marker | null = null
 
-  function onPointerMove(event: PointerEvent) {
+  /**
+   * The marker under a viewport point, or null. No side effects.
+   *
+   * Coordinate-driven because a TAP fires pointerdown → pointerup → click with
+   * no pointermove in between: on touch the hover raycast in update() never
+   * runs, so `hoveredMarker` stayed null and this marker could not be
+   * activated at all. Mirrors DistrictInteraction.pickAt.
+   */
+  function pickMarkerAt(clientX: number, clientY: number): Marker | null {
     const rect = domElement.getBoundingClientRect()
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1
+    ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1
+
+    raycaster.setFromCamera(ndc, camera)
+    for (const intersection of raycaster.intersectObjects(hitMeshes, false)) {
+      const marker = intersection.object.userData.marker as Marker
+      // Same limb test the hover path applies: a marker on the far side of the
+      // globe is drawn through it and must not be pickable.
+      if (marker.hoverEnabled) return marker
+    }
+    return null
+  }
+
+  function onPointerMove(event: PointerEvent) {
+    lastMoveX = event.clientX
+    lastMoveY = event.clientY
     pointerActive = true
   }
   window.addEventListener('pointermove', onPointerMove)
@@ -137,22 +169,29 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
   let downX = 0
   let downY = 0
   let downValid = false
+  let downPointerType = 'mouse'
 
   function onPointerDown(event: PointerEvent) {
     downValid = event.button === 0
     downX = event.clientX
     downY = event.clientY
+    downPointerType = event.pointerType
   }
 
   function onPointerUp(event: PointerEvent) {
     if (!downValid) return
     downValid = false
     if (!enabled || !onSelect) return
-    if (Math.abs(event.clientX - downX) > CLICK_SLOP_PX) return
-    if (Math.abs(event.clientY - downY) > CLICK_SLOP_PX) return
 
-    const marker = hoveredMarker
-    if (marker && marker.isDestination && marker.hoverEnabled) {
+    const slop = downPointerType === 'touch' ? TOUCH_CLICK_SLOP_PX : CLICK_SLOP_PX
+    if (Math.abs(event.clientX - downX) > slop) return
+    if (Math.abs(event.clientY - downY) > slop) return
+
+    // Picked from the release coordinates, not from `hoveredMarker` — the
+    // coordinates were already in hand here and the stored hover is null on
+    // every touch device.
+    const marker = pickMarkerAt(event.clientX, event.clientY)
+    if (marker && marker.isDestination) {
       onSelect(marker.data.id)
     }
   }
@@ -163,6 +202,28 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
   const tmpWorldPos = new THREE.Vector3()
   const cameraDir = new THREE.Vector3()
   let enabled = false
+
+  // The destination tag is permanently visible where hover is unsupported (see
+  // the (hover: none) block in styles.css), so it has to be activatable too —
+  // a label reading "Explorar la ciudad →" that swallows taps is a worse
+  // affordance than no label. On pointer devices the tag keeps
+  // pointer-events: none, so this listener can never fire there and the dot
+  // remains the only target, exactly as before.
+  //
+  // Guarded on the same two conditions the raycast path applies, because CSS
+  // visibility and scene state are updated a frame apart: a tap landing on a
+  // tag whose marker just rotated past the limb must not navigate.
+  const tagListeners = markers
+    .filter((marker) => marker.isDestination)
+    .map((marker) => {
+      const handler = () => {
+        if (!enabled || !onSelect) return
+        if (!marker.hoverEnabled) return
+        onSelect(marker.data.id)
+      }
+      marker.element.addEventListener('click', handler)
+      return { element: marker.element, handler }
+    })
 
   function setEnabled(next: boolean) {
     if (enabled === next) return
@@ -176,6 +237,10 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
       for (const marker of markers) {
         marker.hovered = false
         marker.element.classList.remove('is-visible')
+        // `is-near` too: on touch it is what keeps the destination tag on
+        // screen, and update() stops running once disabled, so leaving it set
+        // would strand a permanent label over a hidden marker.
+        marker.element.classList.remove('is-near')
       }
       if (cursorHover) {
         cursorHover = false
@@ -207,18 +272,7 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
     }
 
     // Hover: nearest hit sphere whose marker is on the visible side.
-    hoveredMarker = null
-    if (pointerActive) {
-      raycaster.setFromCamera(mouse, camera)
-      const intersections = raycaster.intersectObjects(hitMeshes, false)
-      for (const intersection of intersections) {
-        const marker = intersection.object.userData.marker as Marker
-        if (marker.hoverEnabled) {
-          hoveredMarker = marker
-          break
-        }
-      }
-    }
+    hoveredMarker = pointerActive ? pickMarkerAt(lastMoveX, lastMoveY) : null
 
     // Advanced here rather than from a delta so the pulse is wall-clock based
     // and cannot drift if a frame is long.
@@ -238,6 +292,11 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
       )
 
       marker.element.classList.toggle('is-visible', marker.hovered)
+      // The limb test that also gates pickability. Consumed only by the
+      // (hover: none) rule in styles.css, where the destination tag is
+      // permanent — without it that label would sit over the far side of the
+      // globe advertising a marker nothing can hit.
+      marker.element.classList.toggle('is-near', marker.hoverEnabled)
     }
 
     // Requested only on changes. The manager de-duplicates anyway, but this
@@ -253,6 +312,9 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
     window.removeEventListener('pointermove', onPointerMove)
     domElement.removeEventListener('pointerdown', onPointerDown)
     domElement.removeEventListener('pointerup', onPointerUp)
+    for (const { element, handler } of tagListeners) {
+      element.removeEventListener('click', handler)
+    }
     for (const marker of markers) {
       marker.dotMaterial.dispose()
       marker.element.remove()

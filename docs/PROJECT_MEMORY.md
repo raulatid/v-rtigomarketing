@@ -5,7 +5,8 @@ that keep mattering, and what will bite you again.
 
 It exists so none of this has to be re-derived. Keep it current.
 
-Last updated: 2026-08-07 · current at commit `85a419a`
+Last updated: 2026-08-11 · §2, §9, §10, §11 (23–36), §12 and §13 updated against the working
+tree, post-`b418b5f`. The Vercel readiness re-audit is folded into §9, §10 and §12.
 
 > **Scope.** Facts and traps. The *reasoning* behind binding decisions lives in
 > `DECISIONS.md` and `adr/`; the *history* of how the code got here lives in
@@ -76,10 +77,11 @@ TypeScript 5.6 · `vite-plugin-glsl` · stats.js
 npm run dev            # dev server
 npm run build          # tsc -b + intro simulation + vite build (budgets asserted)
 npm run preview        # serve dist/
-npm run check          # typecheck + all four harnesses  ← run this
+npm run check          # typecheck + all five harnesses  ← run this
 npm run check:warp     # 32 assertions — the camera envelope and the footprint sweep
 npm run check:navigation   # 25 assertions — drag feel, signs, bounds
 npm run check:district     # 52 assertions — flights, framing, materials
+npm run check:space        # 28 assertions — the star shell bound, clumping, the band
 npm run test:intro     # the loading playhead, ~28 cases
 ```
 
@@ -592,6 +594,58 @@ materials · 0 textures · 0 `extras`**. Representative building ~13 units, tall
 `MeshStandardMaterial` — always clone before modifying. And with no `extras`, districts
 resolve by **node name**, not by tag. The city currently renders monochrome as a result.
 
+> ⚠️ **Those numbers describe the committed GLB. The working tree currently holds a different
+> one** (measured 2026-08-11): **1 245 164 B · 1 070 nodes · 257 meshes**, against 455 616 B ·
+> 294 · 111 at `HEAD`. Still Draco, still `EXT_mesh_gpu_instancing`, still 0 materials and —
+> importantly — **still 0 `extras`**, so the re-export did not close the district-tagging gap.
+> It is uncommitted and its provenance is unknown; it was already in the tree when the
+> readiness re-audit began. It sits on the intro's prefetch path, so +790 KB competes with the
+> 2.43 MB of Earth textures. **Verify which file you are measuring before trusting either set
+> of numbers, and update this paragraph when the asset is settled.** Audit `ASSET-2`.
+
+**Tap tolerances — two numbers, per pointer type, and they must stay two.** Camera rig:
+`dragClickThreshold` 4 px (mouse/pen) · `touchDragClickThreshold` 12 px. Geo markers:
+`CLICK_SLOP_PX` 5 · `TOUCH_CLICK_SLOP_PX` 12. A physical click barely moves a cursor; a finger
+wanders 5–15 px between contact and release. Collapsing these back to one value re-breaks
+touch even with the raycast correct (§11.23).
+
+**Brand atlas:** one 2048×1536 `CanvasTexture`, 2 columns × 3 rows of **1024×512** cells,
+sRGB, mipmapped, `ClampToEdgeWrapping`, anisotropy 4. Cell aspect is **2:1 and coupled to
+`ORBIT_CONFIG.panel` 0.28 × 0.14** — change one without the other and every plate stretches.
+Cell resolution is set by the case-panel close-up at `closeUp.distance` 0.55R, not the
+overview. Hard cap of 6 plates; `cellUv` clamps past it. Logo artwork is specified at
+1600×800 WebP with alpha, contain-fitted into a 896×400 box (`PAD_X` 64, `PAD_Y` 56) — the
+atlas owns the padding, so files must be trimmed tight (`earth/logo-spec.md`).
+
+**Earth rotation is 0.035 rad/s — a full turn takes ~180 s.** Worth knowing before writing any
+test that waits for a specific place to face the camera: Murcia is on the near side for well
+under half of that, and a 60 s poll will simply miss it.
+
+**The space backdrop** (`src/space/`, `earth/DECISIONS.md` — *the backdrop becomes a galaxy*).
+Two independent non-occlusion guarantees, and they work differently:
+
+| | Stars | Nebula |
+|---|---|---|
+| Kept off the Earth by | **geometry** — a shell enclosing the camera | **render order** — opaque at `renderOrder -1000` |
+| So the radius is | load-bearing: 180 ±15%, min 153 against `zoomMax` 22 | free: 1000, anything inside the far plane |
+
+2600 stars in **one** draw call. Clustering is 36 knots · spread 0.09 · share 0.6 · strength
+0.6, and it is **angular only** — perturb the direction, renormalise, then apply the radius.
+Magnitude is continuous: `rand ** 2.6` mapped to 0.7–3.4 px with brightness 0.35–1.0. Only
+stars ≥ 2.2 px twinkle (~20% of them), amplitude 0.15, alpha not `gl_PointSize`.
+
+Galactic band: **tilt 22°, width 0.22**, shared by the stars and the nebula — that agreement
+is the design. Nebula brightness 0.14 · dust density 0.55 · **noise domain 8.0** (§11.32).
+Seeds are fixed: stars `20260811`, nebula `137.24`.
+
+Cubemap: **1024 per face, RGBA8, no mipmaps = 25.2 MB VRAM**, baked one face per frame during
+P0. Zero download bytes, and the cubemap is the seam if an authored sky is ever wanted.
+
+Clumping is measured, not asserted by eye: coefficient of variation of nearest-neighbour
+angular distance is **0.020 for `fibonacciSpherePoints` and 0.651 for the shipped field**.
+That spiral is a *maximally even* distribution, which is why the old sky read as combed.
+`fibonacciSphere.ts` is untouched — `createConnectivityCloud` still wants exactly that.
+
 **Warp:** duration 1.6 s · cut at 0.5 · Earth FOV 45→74 · Earth radius ×0.25 at the cut ·
 Murcia arriving 165→75 · Murcia departing 165→180 while rising 30°→50° · flash reaches full
 black. The two legs are not mirror images (ADR 006).
@@ -599,21 +653,53 @@ black. The two legs are not mirror images (ADR 006).
 **Build budgets** (asserted; the build fails, it does not warn):
 
 ```
-intro entry   12 996 B / 16 000 B   ← must have LITERALLY ZERO imports
-app entry    300 787 B / 320 000 B  ← ~19 KB headroom
+intro entry   13 325 B / 16 000 B   ← must have LITERALLY ZERO imports
+app entry    302 381 B / 320 000 B  ← ~17.6 KB headroom
 ```
 
-Emitted chunks: `three` 814 KB · `SceneCanvas` 199 KB · entry 301 KB ·
-`MurciaExperience` 68 KB · `createCornerLogo` 3.6 KB · `intro` 13 KB.
+Emitted chunks: `three` 814 KB · `SceneCanvas` 211 KB · entry 302 KB ·
+`MurciaExperience` 70 KB · `createCornerLogo` 3.7 KB · `intro` 13 KB.
+
+Both numbers moved since the 2026-08-07 reading (12 996 / 300 787) and the growth is shared
+between the touch, logo and backdrop work — do not attribute it to any one of them. **The
+intro figure is not the backdrop's doing**, which was checked rather than assumed: the built
+intro chunk contains zero galaxy symbols. `introConfig.ts` does carry a *value* import of
+`space/galaxyBand`, so the band defaults have one source of truth; that is safe only because
+the boot entry never reaches `introConfig`. §11.1 still governs everything under
+`intro-draw/`, and the nebula itself adds **no** download bytes at all, being generated on the
+GPU.
 
 ---
 
 ## 10. How this repo verifies things
 
-**No assistant-side visual verification has ever happened.** The Chrome extension has never
-been connected. Everything the harnesses do is numeric: good at signs, magnitudes and
-geometry, silent on whether the result looks or feels right. All visual QA has been the
-user's.
+**Everything the harnesses do is numeric**: good at signs, magnitudes and geometry, silent on
+whether the result looks or feels right.
+
+**Assistant-side visual verification began on 2026-08-11** and is now the expectation for
+anything visual. Not the Chrome extension, which has still never been connected — Playwright
+against the dev server. Two forms, both worth copying:
+
+- **Screenshots read back by the assistant** (the galaxy backdrop). `npx --no-install
+  playwright screenshot --browser chromium --viewport-size "1600,900" --wait-for-timeout
+  22000 http://localhost:5173/ out.png`. The timeout is simply longer than the intro.
+- **Emulated devices driven against a control** (touch picking) — 460 taps on the pre-fix
+  code producing no response, then the same script passing after. A verification with no
+  negative control cannot tell "fixed" from "never broken".
+
+**This is not optional for visual work, and the galaxy is the evidence.** Three defects
+survived both design review and code review and were caught only by looking: noise frequency
+producing fog (§11.32), dust lanes crazing the whole sky, and a smooth analytic band reading
+as a searchlight beam. All three were *invisible* to 28 passing numeric assertions, because
+each assertion was true. Numbers prove the mechanism; only a picture judges the result.
+
+Playwright's bundled Chromium is already installed here, but the Playwright **MCP** is
+configured for the `chrome` channel and fails with "Chromium distribution 'chrome' is not
+found". Chrome is not installed on this machine; Edge is. Use the CLI, which is what the
+command above does, rather than installing a browser.
+
+**Judgement is still the user's.** Screenshots catch defects — fog, crazing, a beam. They do
+not settle whether a thing looks *good*, and the division of labour below is unchanged.
 
 **The division of labour that worked**, and is worth repeating for anything judged rather
 than measured: the numeric side proves the mechanism (sign, bound, magnitude,
@@ -647,6 +733,44 @@ Four rules these harnesses earned the hard way:
 **A gap worth knowing about:** `check:district` and `check:warp` set a non-zero exit code;
 `check:navigation` does not. Because `npm run check` chains with `&&`, a navigation-feel
 failure prints and passes. Read its output rather than trusting the exit status.
+
+### What the deploy path actually runs — which is not this
+
+**`npm run check` is the gate, and nothing runs it.** `npm run build` is
+`tsc -b && node scripts/simulate-intro.mjs && vite build`, so Vercel runs the typecheck and
+the intro simulation and **none of the other five harnesses** — 137 assertions covering the
+warp envelope, navigation, districts and the star shell. There is no CI: no `.github/`, no
+workflow, no `buildCommand` override in `vercel.json`. A regression in any of them builds
+cleanly and deploys.
+
+This is worth sitting with, because it contradicts `DECISIONS.md` §12 ("guard behaviour on the
+artifact, not on review") and because the harnesses are the only tests that exist. Two ways to
+close it, and the trade-off is real: CI keeps deploys fast and gives Preview a pass/fail
+signal, while folding `check` into `build` cannot be bypassed but puts a *tuning-sensitive*
+harness on the deploy path — `check:space` was seen failing at ratio 1.107 against a 1.15
+threshold while `spaceConfig.ts` was mid-edit, then passing 5/5 once it settled. A gate that
+can fail for reasons unrelated to the change is a bad gate. Unresolved; audit `VER-1`.
+
+### Verifying the production build, not the dev server
+
+Three things that only the production path can tell you, all verified on 2026-08-11:
+
+- **The SEO branch is environment-gated and had never been executed.** Every build until then
+  ran the development path, which emits `Disallow: /` and `noindex`. Exercise the real one
+  locally with
+  `VERCEL_ENV=production VERCEL_PROJECT_PRODUCTION_URL=example.com npm run build`, then read
+  `dist/robots.txt`, `dist/sitemap.xml` and the `canonical`/`og:url` tags. Production also
+  drops the `/debug` console, so the entry chunk comes out ~5.4 KB smaller — if it does not,
+  the flag did not take.
+- **The build is deterministic.** Two clean builds produce byte-identical chunk hashes. When
+  checking that, fingerprint `src/` before and after: this repo has had two agents in it at
+  once, and a "non-deterministic build" is far more likely to be a file that changed underneath
+  you.
+- **Failure paths need `vite preview` plus request blocking**, not reasoning. Playwright
+  `page.route('**/earth/*.jpg', r => r.abort())` and read
+  `window.__vertigoIntro.boot.readiness()` / `.pending()`. Confirmed: a required asset gives
+  `fatal` and the Spanish caption, an optional one leaves `ready`, and blocking `model.glb` —
+  the 20 KB file that once trapped every visitor — now lands `ready` with progress 1.
 
 Note the city meshes set `raycast = () => {}` so they never intercept object picking; a probe
 must restore it to measure coverage.
@@ -738,6 +862,86 @@ must restore it to measure coverage.
 22. **Kill stale dev servers.** Three accumulated across sessions here, and the one being
     viewed served a stale module graph producing a `ReferenceError` that looked exactly like
     a circular import. It cost real time twice. Check the port before debugging a phantom.
+23. **A tap produces no `pointermove`, so any hover computed from one does not exist.**
+    `pointerdown → pointerup → click`, and nothing in between. This kept the *entire* site
+    mouse-only until 2026-08-11: two handlers acted on a stored hover, and on touch it was
+    permanently `null`, so nothing responded and nothing errored. Raycast from the event's
+    own `clientX/clientY` — `DECISIONS.md` §17. The corollary is the second half of the bug:
+    **a finger wanders 5–15 px between contact and release**, so a 4–5 px drag threshold
+    rejects most real taps. Tolerances are per pointer type or they are wrong for one of them.
+24. **`(hover: none)` is a device class you must design for, not a fallback.** Anything
+    revealed only on hover is invisible forever on a phone. Both answers in this repo pair
+    the persistent label with a *limb/on-screen* class so it cannot advertise something
+    unpickable (`districtLabel.ts`, `.geo-tag--destination.is-near`). And a label made
+    visible must also be made activatable — it sits offset from the hit target, so a visible
+    control that ignores taps is worse than no control.
+25. **Emulating touch needs a real device profile.** A Playwright context with `hasTouch:
+    true` still reports `hover: hover`, so every `(hover: none)` rule stays inert and a touch
+    bug looks fixed when it is not. Use `devices['Pixel 7']`.
+26. **Geometry and material passed to R3F as *props* are never disposed.** R3F disposes only
+    objects it created; `THREE.Points` has no `dispose()` and prop-attached resources are not
+    walked. So a `useMemo`'d geometry leaks on unmount *and* on every memo rebuild — which
+    the debug sliders do per drag tick. Dispose them in an effect cleanup keyed to the memo.
+27. **`EffectComposer.dispose()` does not walk its passes.** It releases its own two render
+    targets and `copyPass`, nothing else. `AfterimagePass` alone owns two more full-screen
+    render targets, two materials and two fullscreen quads. Retain every pass and dispose it
+    yourself — a pass constructed inline in `addPass()` is unreachable and cannot be freed.
+28. **A rejected promise stays cached.** `templatePromise` in `createSatellite` memoises the
+    satellite GLB; a single transient 404 was replayed to every satellite for the rest of the
+    session and survived a full orbit-system rebuild. Clear the cache in a `.catch` so the
+    next attempt can actually retry.
+29. **Async loads must be cancellable against teardown, and StrictMode makes that the normal
+    path.** React 19 runs mount → cleanup → mount, so in dev *every* load lands after a
+    dispose at least once. A callback with no `disposed` guard attaches geometry to a disposed
+    scene, calls `compileAsync` on a dead object, and reports readiness for something that no
+    longer exists. Guard the callback, not just the dynamic `import()`.
+30. **Fixed-length coupling between two arrays is a site-down bug, not a missing item.**
+    `createOrbitSystem` walked `ORBIT_PRESETS` (6) and indexed `SATELLITES[index]`; one fewer
+    case study threw, and `OrbitSystemLayer` converts a throw into a **fatal** boot state. So
+    deleting a case study would have refused to load the whole site. `noUncheckedIndexedAccess`
+    being off is why `tsc` cannot see this class of bug (§12).
+31. **`CubeCamera` does not orient its six face cameras in the constructor.** It leaves
+    `coordinateSystem` null and only points them in `updateCoordinateSystem()`, which it calls
+    lazily from `update()`. Borrowing the cameras — the right move, since a hand-rolled
+    face-basis table is the most error-prone part of baking a cubemap — means bypassing
+    `update()`, and then **all six still look down −Z and every face bakes the same image**.
+    Call `updateCoordinateSystem()` yourself, from `renderer.coordinateSystem`. The general
+    class: three initialises lazily inside its convenience methods, so taking the parts
+    without the method takes them uninitialised.
+32. **In a procedural sky shader the domain scalar is the *only* thing setting feature size.**
+    The input is a unit vector, so `dir * k` fixes how many noise lattice cells span the whole
+    sky. At `k = 2.4` that is about eight — features ~23° wide, two of which fill a 45° FOV,
+    and it renders as fog no matter how many octaves are stacked on top. Octaves add detail
+    *below* the base frequency; they cannot rescue one that is too low. 8.0 is the working
+    value, and this is invisible to every numeric assertion.
+33. **Perturbing a position destroys a geometric invariant; perturbing a direction does not.**
+    The star shell's non-occlusion guarantee is that every point lies on a sphere enclosing
+    the camera. Clustering by offsetting final positions in 3D breaks it for *a handful* of
+    stars at *some* orbit angles — the intermittent kind no screenshot reliably catches.
+    Perturb the direction and renormalise, then apply the radius, and the guarantee holds by
+    construction. Assert the radius bound across the full parameter space, not at defaults.
+34. **`scene.background` is not tone-mapped, so anything authored to match it is wrong.** It
+    is written as a clear colour and skips `ACESFilmicToneMapping` entirely, while every mesh
+    beside it does not. This has now bitten twice, in opposite directions: Murcia's skirt had
+    to fade to *alpha* rather than to the background value (§6), and the nebula had to be an
+    opaque **mesh** rather than a background so it passes through the composer's `OutputPass`
+    like the Earth does. Related, and equally quiet: a raw `ShaderMaterial` gets no output
+    conversion appended, so omitting `#include <colorspace_fragment>` fails as "looks a bit
+    dark" rather than as an error.
+35. **A diagnostic can sit in a production code path for months and only start firing when an
+    unrelated asset changes.** `InteractionProbe` returns `void` and its only effect is a
+    `console.info` of node metadata; it was called from Murcia's `pointerup` on every click,
+    gated on `active` and drag state but **not** on `DEBUG_TOOLS_ENABLED`. It emitted nothing
+    only because the GLB carries no `extras`, so its cache was empty — and the planned Blender
+    re-export exists precisely to add those. "Currently silent" is not "gated"; check what a
+    thing would do once the data it keys on arrives. Now gated (audit `DBG-1`).
+36. **The console is not silent on load in production**, and the check that would have caught
+    it is written down in `DECISIONS.md` §16. Three `console.warn` groups naming internal
+    Blender nodes fire on every visit — from `cityDistrictBindings` and
+    `createTerrainTransition` — because Murcia is *prefetched during the intro*, so they reach
+    visitors who never enter the city. The general trap is that second one: anything
+    prefetched runs its diagnostics for everybody, not just for the people who use it (audit
+    `LOG-1`, open).
 
 ---
 
@@ -754,6 +958,58 @@ renders with terrain, districts and highlight; Earth restores with correct FOV a
 residual dolly; Murcia's camera returns to exactly `distance 165 / height 82.5` after a warp;
 zero console errors; the caption sequence under throttling.
 
+**Touch and pen work (2026-08-11).** Until then the site responded to a mouse and nothing
+else — see §11.23 and `DECISIONS.md` §17. Verified against a control, not just after the
+fact: 460 emulated taps across the whole globe produced no response on the pre-fix code; the
+first tap selects a satellite after it. Also confirmed on an emulated Pixel that the Murcia
+tag is visible without hover and that tapping the label enters the city, on both the dev
+server and the production build. Mouse behaviour is unchanged by construction — picking at
+the click's coordinates and picking at the hover position are the same point on a mouse.
+
+**Real client logos are wired (2026-08-11).** `CaseStudy.logo` was declared, documented and
+never read by anything; it now drives the brand atlas. Still `null` on all six, so nothing
+visible changed — the pipe works, the artwork is a content decision (`DECISIONS.md` §18,
+`earth/logo-spec.md`).
+
+**The Vercel readiness audit was re-run (2026-08-11)** —
+`audits/production-readiness-vercel-2026-08-11.md`, a delta against the 2026-08-07 pass, which
+is left intact as the record of that one. Status unchanged in shape: **ready to deploy, not
+ready to publish**, and the publish blockers are still content rather than engineering.
+
+What it settled that had never been checked: **the production SEO branch had never once been
+executed** — every build until then ran the development path — and it is correct; the build is
+byte-for-byte deterministic; `npm ci` from the lockfile alone succeeds; and all three
+documented failure classes behave as designed *on the production build* (§10). It also found
+that the harnesses are not on the deploy path, that there is no observability at all, and the
+GLB discrepancy in §9 — all three now in Known debt below.
+
+Two things it fixed: a diagnostic wired into Murcia's production click path (§11.35) and a
+`.gitkeep` that shipped with prose in it. Two it deliberately did not: gating the load-time
+console warnings (§11.36) and reverting the GLB.
+
+**One verification gap is worth repeating: only Chromium has ever been tested.** WebKit and
+Firefox are not installed here, and Safari on iOS is where the KTX2 transcoder and
+`compileAsync` are most likely to differ. That is the largest remaining unknown, and no code
+change can close it.
+
+**A leak-and-crash pass landed with it.** Undisposed composer passes and prop-attached
+geometry; loads outliving teardown; a promise cache that remembered rejections; degenerate-
+input crashes in the charts and the sphere sampler; and the fixed-length array coupling in
+§11.30. All behaviour-neutral. The traps are recorded in §11 (23–30) because each is a class
+of bug, not a one-off.
+
+**The backdrop is a galaxy (2026-08-11).** The resting scene's stars were "equal in form,
+colour and distance" — all three literally true, and the first structurally so, since
+`PointsMaterial` has no per-point size and magnitude was faked with three `Points` objects.
+Now one draw call with continuous magnitude and stellar colour, clumped along a galactic
+band, over a procedural nebula baked to a cubemap during P0 for **zero download bytes**.
+Numbers in §9, reasoning in `earth/DECISIONS.md`, six new sliders on `/debug`.
+
+**Visually verified, and that mattered more than usual**: three defects passed both design
+and code review and were caught only by reading back screenshots (§10, §11.32). It is the
+first feature in this project the assistant has judged against pixels rather than handing to
+the user unseen. Whether it looks *right* is still the user's call.
+
 **Not verified.** The warp **at frame rate**. Software WebGL runs the city at ~2 fps and
 `lagSmoothing` then distorts every mid-transition frame, so how the motion actually *feels*
 is unjudged. The timings in `app/warpTransition.ts` are reasoned and endpoint-asserted but
@@ -765,11 +1021,16 @@ tuned blind — they need a person on real hardware.
 |---|---|
 | **Vite pinned at 5** | The two custom build plugins are validated only against 5. A bundler bump deserves its own verification pass, not a ride-along inside a migration. |
 | **`noUncheckedIndexedAccess` off** | Murcia was written under it, Earth was not. Enabling it repo-wide produces 36 errors, 16 of them inside the 16 KB intro budget. Restore in a dedicated pass. |
-| **Placeholder content** | Case studies and geo-marker metrics are invented. `data/caseStudies.ts` says so at the top. The API seam is `SATELLITES` in `orbitConfig.ts`. |
+| **Placeholder content** | Case studies and geo-marker metrics are invented. `data/caseStudies.ts` says so at the top. The API seam is `SATELLITES` in `orbitConfig.ts`. The *logo* half of that seam is now implemented — `logo` is a URL the atlas actually loads — but every value is still `null`, deliberately: real trademarks beside invented results read as endorsement. |
+| **No keyboard path into the 3D** | Touch and pen work as of 2026-08-11, but satellites and the Murcia marker are still raycast-only. The geo tags are divs with no role or tabindex. `A11Y-1` in the readiness audit is narrowed, not closed, and closing it means real markup — the `districtLabel.ts` button pattern applied to the globe. |
+| **`orbitId` and `label` are unread** | `caseStudies.ts` declares both; the satellite↔orbit pairing is *positional*. They agree today only because both arrays are in the same order. The comments now say so. Resolving by `orbitId` is the honest fix once content is fetched and can arrive in any order — a behaviour change, so it was not done silently. |
 | **District resolves by node name** | The GLB carries no `extras`. Fix is in Blender — see `murcia/blender-export-contract.md` — not in code. |
 | **Two KTX2 loaders** | `createSatellite` and `createCornerLogo` each build one; three warns. Harmless, worth consolidating. |
 | **Corner logo z-order** | Composites at z 10, so geo tags at z 15 can paint over it. Accepted in `adr/002`; unlikely in practice, never observed. |
 | **`check:navigation` cannot fail a build** | It prints failures but leaves the exit code at 0. See §10. |
+| **The harnesses are not on the deploy path** | `npm run build` runs the typecheck and the intro sim only; the other five harnesses run only when a human types `npm run check`, and there is no CI. Not deliberate — unresolved, because the fix is a choice between CI and a slower, tuning-sensitive build gate. §10, audit `VER-1`. |
+| **No analytics, no error reporting** | Production failures will be completely invisible after launch. The instrumentation already exists (`bootState.fatalReason()`, `pending()`, `readiness()`); what is missing is a sink. Audit `OBS-1`. |
+| **The city GLB in the working tree ≠ the committed one** | ~3× the nodes and +790 KB, uncommitted, still without `extras`. Needs an owner's decision before it ships. §9, audit `ASSET-2`. |
 
 ### Open questions
 
@@ -818,6 +1079,7 @@ src/
 ├── corner-logo/               3D logo, drawn as an overlay pass
 ├── orbit-system/              satellites, orbits, geo markers
 ├── interaction/               Earth's focus rig and satellite selection
+├── space/                     the backdrop — band, star field, nebula bake
 ├── experiences/murcia/        the city — its own Scene, camera, rig, UI
 ├── shaders/, utils/, loading/, data/
 checks/                        the behavioural harnesses
@@ -833,6 +1095,13 @@ resolve, highlight, state machine) · `assets/` (loader, city load, node names) 
 **No module reaches for a global renderer, Scene, camera or config.** Every dependency
 arrives through a constructor. That property is what made Murcia's migration a move rather
 than a rewrite, and it is worth preserving for the same reason.
+
+`src/space/` splits the same way and for the same reason: `galaxyBand.ts`, `spaceConfig.ts`
+and `starDistribution.ts` are pure and Node-safe so `check:space` drives the real modules,
+while anything touching `.glsl` or a renderer (`starShader.ts`, `bakeNebulaCubemap.ts`) stays
+out of that path. **`bandDensity` has a deliberate twin in `shaders/nebula/bake.frag.glsl`** —
+kept to one line so the duplication cannot hide a discrepancy, with the axis and width passed
+in as uniforms so only the gaussian is duplicated. Change one, change the other.
 
 `app/warpTransition.ts` is deliberately free of three, React and the DOM, so `checks/` can
 drive the real curves rather than a reimplementation. Keep it that way. It holds the

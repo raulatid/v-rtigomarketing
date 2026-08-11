@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useMemo, useRef } from 'react'
+import { RefObject, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { createOrbitSystem, OrbitSystem } from '../orbit-system/createOrbitSystem'
@@ -23,13 +23,11 @@ interface Props {
 // scale = EARTH_CONFIG.radius reconciles the two projects' scale conventions:
 // every orbit preset is expressed in "Earth radius = 1" units.
 export function OrbitSystemLayer({ state, systemRef, active }: Props) {
-  const { camera, scene, gl } = useThree()
+  const { gl } = useThree()
   const localSystem = useRef<OrbitSystem | null>(null)
   const groupRef = useRef<THREE.Group>(null)
   const elapsed = useRef(0)
   const started = useRef(false)
-
-  const textureLoader = useMemo(() => new THREE.TextureLoader(), [])
 
   useEffect(() => {
     // `orbits:build` is a REQUIRED manifest entry and construction is
@@ -39,7 +37,7 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
     // 2D context can be refused under memory pressure.
     let system: OrbitSystem
     try {
-      system = createOrbitSystem({ camera, textureLoader, renderer: gl })
+      system = createOrbitSystem({ renderer: gl })
     } catch (error) {
       // Fatal, not degraded: the orbits carry the case studies, and the warp
       // cuts to an Earth that is meant to have them. Saying so gets the visitor
@@ -58,20 +56,23 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
     // in EarthScene covers these materials too — otherwise all six line
     // materials, the sprite materials and the cloud would compile on the frame
     // the reveal begins (plan 003 §3).
-    state.orbitsReady = true
+    //
     // Construction is synchronous and includes the 2048×1536 atlas raster, so
     // this lands after a real stall — reported so the drawing owns that pause
     // rather than being silently stuttered by it.
     loadProgress.markDone('orbits:build')
 
     return () => {
-      state.orbitsReady = false
       localSystem.current = null
       if (systemRef) systemRef.current = null
       groupRef.current?.remove(system.group)
       system.dispose()
     }
-  }, [camera, textureLoader, scene, state, systemRef, gl])
+    // Deliberately narrow. This effect builds AND disposes the entire orbit
+    // system, so every extra dependency is another way to tear it all down and
+    // rebuild it; `camera`, `scene` and a TextureLoader that createOrbitSystem
+    // never used were all in here without being read.
+  }, [systemRef, gl])
 
   useFrame((_, rawDelta) => {
     const system = localSystem.current

@@ -446,7 +446,7 @@ export class MurciaExperience {
       this.debugOverlay = new DebugOverlay(this.container, this.appConfig);
     }
 
-    this.interactionProbe = new InteractionProbe(this.camera);
+    this.interactionProbe = new InteractionProbe(this.camera, this.debugTools);
     const interactiveCount = this.interactionProbe.collectFrom(loaded.root);
     if (this.debugTools) {
       console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);

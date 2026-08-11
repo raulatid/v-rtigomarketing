@@ -20,7 +20,14 @@ export const INTERACTION_CONFIG = {
     phiMin: 0.15, // never flip over the north pole
     phiMax: Math.PI - 0.15, // never dive under the planet
     // Accumulated pointer travel (px) above which a click counts as a drag.
+    // Mouse and pen: a physical click barely moves the cursor, so the tolerance
+    // can be tight enough that even a small deliberate drag is respected.
     dragClickThreshold: 4,
+    // Touch needs its own number, not a retune of the one above. A finger tap
+    // routinely wanders 5–15px between contact and release — at 4px nearly
+    // every tap was classified as a drag and swallowed, which is half of why
+    // the site was mouse-only.
+    touchDragClickThreshold: 12,
     // Wheel zoom, overview mode only. Expressed in Earth radii from centre.
     zoomMin: 3 * R,
     zoomMax: 11 * R,

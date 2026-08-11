@@ -134,8 +134,9 @@ export const ORBIT_PRESETS: OrbitPreset[] = [
 // The satellite's content type IS the case-study type — there is no second
 // shape to keep in sync. Content lives in src/data/caseStudies.ts (sample data
 // today, an API response later); this module only decides which orbit each one
-// rides. `logo` is a texture path under /public; while null, a generated text
-// badge is used.
+// rides. `logo` is the real logo's URL — a path under /public today, a CMS media
+// URL later; while null (or if the image fails to load), the atlas keeps its
+// generated mark-and-wordmark plate.
 export type SatelliteDef = CaseStudy
 
 // This binding is the API seam. When the content is fetched, this becomes the
@@ -207,6 +208,10 @@ export const GEO_MARKERS: GeoMarkerDef[] = [
 // timeline's hold always matches the animation actually playing.
 export function orbitRevealDuration(): number {
   const { introStartDelay, introStagger, introDuration } = ORBIT_CONFIG.orbit
-  const lastStart = introStartDelay + (ORBIT_PRESETS.length - 1) * introStagger
+  // The same pairing bound createOrbitSystem applies: orbits are only built for
+  // presets that have a case study, so staggering across all six presets when
+  // fewer exist would hold the timeline past the last thing that animates.
+  const count = Math.max(Math.min(ORBIT_PRESETS.length, SATELLITES.length), 1)
+  const lastStart = introStartDelay + (count - 1) * introStagger
   return lastStart + introDuration + ORBIT_CONFIG.satellite.introDuration
 }

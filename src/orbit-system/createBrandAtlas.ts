@@ -4,13 +4,19 @@ import * as THREE from 'three'
 // single texture bind instead of six. Each panel samples its own cell through a
 // UV offset/scale uniform pair.
 //
-// The plates are DRAWN, not loaded. Two reasons, and both are deliberate:
-// real trademark artwork sitting next to the invented case-study results in
-// caseStudies.ts would read as a client endorsement (that file's own warning),
-// and generating them keeps the atlas a build-free asset — the same reasoning
-// that produced `createPlaceholderLogoTexture` for the old badges. When real
-// client logos exist, this is the seam: swap the per-cell draw for a
-// drawImage of the loaded SVG and keep the atlas layout untouched.
+// Every cell is DRAWN first — a mark disc carrying the initial plus a wordmark —
+// and then UPGRADED IN PLACE if the case study supplies a `logo` URL that loads.
+// The draw is the floor, not the fallback of last resort: it is what the panel
+// shows while the image is in flight, and what it keeps forever if the image
+// 404s, fails CORS or decodes to nothing. A panel is never blank.
+//
+// The build stays SYNCHRONOUS on purpose. `orbits:build` is a REQUIRED boot
+// resource (bootState.ts) and createOrbitSystem constructs everything inside one
+// effect — making the atlas await its images would put a decorative asset on the
+// readiness path, where a slow media host could hold the loading screen hostage.
+// That is the exact failure the required/optional split exists to prevent. The
+// timing is generous anyway: the first panel's opacity only leaves zero ~2s into
+// the orbit reveal, so a same-origin logo lands long before anything is visible.
 
 const COLUMNS = 2
 const ROWS = 3
@@ -20,9 +26,21 @@ const ROWS = 3
 const CELL_W = 1024
 const CELL_H = 512
 
+// Inner box a logo is fitted into. THE ATLAS OWNS THE PADDING, not the artwork —
+// a file delivered with its own built-in whitespace renders smaller than its
+// neighbours and there is no way to detect that automatically. See
+// docs/earth/logo-spec.md, which asks for a tight bounding-box trim.
+const PAD_X = 64
+const PAD_Y = 56
+
 export interface BrandPlate {
   name: string
   brandColor: string
+  /**
+   * URL of the real logo. Same-origin path under /public today, a CMS media URL
+   * later — the loader does not care which. Null keeps the drawn plate.
+   */
+  logo?: string | null
 }
 
 export interface BrandAtlas {
@@ -91,24 +109,127 @@ function drawPlate(
   ctx.fillRect(textX, markCy + fontSize * 0.5, ruleW, 6)
 }
 
-let cached: BrandAtlas | null = null
+// CONTAIN, never cover: a cropped trademark is worse than a small one. Aspect is
+// always preserved, so a square or portrait mark simply ends up smaller and
+// centred rather than stretched. Returns false when the image has no usable
+// intrinsic size, which is how an SVG lacking width/height attributes arrives.
+function drawLogoContained(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  originX: number,
+  originY: number,
+): boolean {
+  const sw = img.naturalWidth
+  const sh = img.naturalHeight
+  if (!sw || !sh) return false
 
-// Built once and shared by every panel. The plate list is fixed at first call —
-// the six satellites are created in one pass, so there is no second shape to
-// reconcile.
-export function getBrandAtlas(plates: BrandPlate[]): BrandAtlas {
-  if (cached) return cached
+  const boxW = CELL_W - PAD_X * 2
+  const boxH = CELL_H - PAD_Y * 2
 
+  // No upscale clamp. A source smaller than the box is better shown large and
+  // soft than sharp and tiny — the panel's job is to be readable at the
+  // close-up, and an undersized asset is a content problem, not a fit problem.
+  const scale = Math.min(boxW / sw, boxH / sh)
+  const w = sw * scale
+  const h = sh * scale
+
+  // Not gated on a DEV flag: nothing in src/ reads import.meta.env, because
+  // checks/ bundles these modules for Node with esbuild where it does not exist.
+  if (sw < 512) {
+    console.warn(
+      `[brand-atlas] logo source is ${sw}×${sh}; it will be upscaled into a ` +
+        `${boxW}×${boxH} box and soften at the case-panel close-up. See docs/earth/logo-spec.md.`,
+    )
+  }
+
+  // Default downscale filtering aliases thin strokes badly at the ~2× ratio a
+  // 1600px-wide source hits against this box.
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, originX + (CELL_W - w) / 2, originY + (CELL_H - h) / 2, w, h)
+  return true
+}
+
+// Never rejects. A missing or broken logo is an expected, survivable outcome —
+// resolving null lets the caller keep the drawn plate without a try/catch per
+// cell. `onload` rather than `img.decode()`: Safari throws EncodingError from
+// decode() on some perfectly valid SVGs.
+function loadLogo(url: string, track: Set<HTMLImageElement>): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    // MUST be set before .src, and set unconditionally: it is a no-op for
+    // same-origin files today and is the whole ballgame once the URL points at
+    // a CMS. See the taint note on canvasSafe().
+    img.crossOrigin = 'anonymous'
+    img.decoding = 'async'
+    const done = (value: HTMLImageElement | null) => {
+      track.delete(img)
+      img.onload = null
+      img.onerror = null
+      resolve(value)
+    }
+    img.onload = () => done(img.naturalWidth > 0 && img.naturalHeight > 0 ? img : null)
+    img.onerror = () => done(null)
+    track.add(img)
+    img.src = url
+  })
+}
+
+// Drawing a cross-origin image into a canvas WITHOUT usable CORS permission
+// taints it, and a tainted canvas cannot be uploaded as a WebGL texture —
+// texImage2D throws SecurityError from inside three's render loop. This atlas is
+// shared by all six panels, so one bad logo would not degrade one cell, it would
+// kill the whole orbit system. Hence a disposable 1×1 probe: draw there first,
+// and only touch the real atlas if reading the pixel back is allowed.
+//
+// crossOrigin='anonymous' is necessary but not sufficient — a redirect that
+// drops the header, or an SVG referencing a cross-origin subresource, taints
+// anyway. The probe catches all of them.
+function canvasSafe(img: HTMLImageElement): boolean {
+  try {
+    const probe = document.createElement('canvas')
+    probe.width = 1
+    probe.height = 1
+    const probeCtx = probe.getContext('2d', { willReadFrequently: true })
+    if (!probeCtx) return false
+    probeCtx.drawImage(img, 0, 0, 1, 1)
+    probeCtx.getImageData(0, 0, 1, 1)
+    return true
+  } catch {
+    // The probe canvas is discarded either way — a tainted canvas stays tainted.
+    return false
+  }
+}
+
+/**
+ * Builds the atlas and starts loading any real logos in the background.
+ *
+ * Not a singleton, deliberately. createOrbitSystem already constructs this and
+ * already calls dispose() in its own teardown — it is the sole owner in
+ * everything but name. A module-level cache would ignore a changed plate list on
+ * the second call (the blocker for fetched content), leak the GPU texture across
+ * HMR, and give an in-flight image load no scope to be cancelled against.
+ */
+export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
   const canvas = document.createElement('canvas')
   canvas.width = COLUMNS * CELL_W
   canvas.height = ROWS * CELL_H
-  const ctx = canvas.getContext('2d')!
+  // Not asserted: a 2D context can legitimately be refused under memory
+  // pressure. createOrbitSystem's caller turns a throw here into the Spanish
+  // failure caption, and a named error says which resource gave out.
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('[brand-atlas] 2D canvas context unavailable')
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  plates.slice(0, COLUMNS * ROWS).forEach((plate, index) => {
-    const col = index % COLUMNS
-    const row = Math.floor(index / COLUMNS)
-    drawPlate(ctx, plate, col * CELL_W, row * CELL_H)
+  const visible = plates.slice(0, COLUMNS * ROWS)
+  const cellOrigin = (index: number) => ({
+    x: (index % COLUMNS) * CELL_W,
+    y: Math.floor(index / COLUMNS) * CELL_H,
+  })
+
+  visible.forEach((plate, index) => {
+    const { x, y } = cellOrigin(index)
+    drawPlate(ctx, plate, x, y)
   })
 
   const texture = new THREE.CanvasTexture(canvas)
@@ -124,11 +245,76 @@ export function getBrandAtlas(plates: BrandPlate[]): BrandAtlas {
   texture.wrapT = THREE.ClampToEdgeWrapping
   texture.anisotropy = 4
 
-  cached = {
+  let disposed = false
+  const inFlight = new Set<HTMLImageElement>()
+  let flushHandle = 0
+
+  // needsUpdate re-uploads the ENTIRE 2048×1536 canvas and regenerates the full
+  // mip chain, so six logos resolving at six moments would mean six full
+  // uploads. Coalescing to one per frame collapses the common case (all six
+  // landing together from disk cache) into a single upload — and makes the
+  // plates flip as a set, which reads better than a stagger.
+  function scheduleFlush() {
+    if (disposed || flushHandle) return
+    flushHandle = requestAnimationFrame(() => {
+      flushHandle = 0
+      if (disposed) return
+      texture.needsUpdate = true
+    })
+  }
+
+  visible.forEach((plate, index) => {
+    if (!plate.logo) return
+    const url = plate.logo
+    void loadLogo(url, inFlight).then((img) => {
+      // The load outlived the atlas: the canvas and texture are gone.
+      if (disposed) return
+      if (!img) {
+        // Silence here would make a typo'd path indistinguishable from a
+        // deliberate null, and the plate looks identical either way.
+        console.warn(
+          `[brand-atlas] "${plate.name}" logo did not load (${url}); keeping the drawn plate.`,
+        )
+        return
+      }
+      if (!canvasSafe(img)) {
+        console.warn(
+          `[brand-atlas] "${plate.name}" logo is not CORS-readable and would taint the ` +
+            `atlas; keeping the drawn plate. Origin must send Access-Control-Allow-Origin.`,
+        )
+        return
+      }
+
+      const { x, y } = cellOrigin(index)
+      // Cell-local clear, never the whole canvas — the other five plates are
+      // already correct and may include images that landed a frame earlier.
+      ctx.clearRect(x, y, CELL_W, CELL_H)
+      if (drawLogoContained(ctx, img, x, y)) {
+        // Only the logo. Keeping the initial disc and the accent rule underneath
+        // a real trademark is noise; the brand colour still reaches the panel
+        // through the shader's uBrandColor wash.
+        scheduleFlush()
+      } else {
+        // No intrinsic size (an SVG missing width/height). Put the plate back.
+        console.warn(
+          `[brand-atlas] "${plate.name}" logo has no intrinsic size — an SVG needs explicit ` +
+            `width and height attributes, not just a viewBox. Keeping the drawn plate.`,
+        )
+        drawPlate(ctx, plate, x, y)
+        scheduleFlush()
+      }
+    })
+  })
+
+  return {
     texture,
     cellUv(index: number) {
-      const col = index % COLUMNS
-      const row = Math.floor(index / COLUMNS)
+      // Clamped to the cells that exist. Past the 2×3 cap the row arithmetic
+      // produced a NEGATIVE v offset — outside the atlas entirely — so a
+      // seventh panel sampled garbage instead of failing visibly.
+      const safeIndex = Math.min(Math.max(index, 0), COLUMNS * ROWS - 1)
+      const col = safeIndex % COLUMNS
+      const row = Math.floor(safeIndex / COLUMNS)
       return {
         // CanvasTexture keeps flipY, so row 0 (top of the canvas) is the
         // TOP of UV space — hence the inversion on v.
@@ -137,10 +323,18 @@ export function getBrandAtlas(plates: BrandPlate[]): BrandAtlas {
       }
     },
     dispose() {
+      disposed = true
+      if (flushHandle) cancelAnimationFrame(flushHandle)
+      flushHandle = 0
+      // Nulling the handlers is what guarantees no callback fires; clearing src
+      // aborts the in-flight request on top of that.
+      for (const img of inFlight) {
+        img.onload = null
+        img.onerror = null
+        img.src = ''
+      }
+      inFlight.clear()
       texture.dispose()
-      cached = null
     },
   }
-
-  return cached
 }

@@ -2,7 +2,8 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-08-07 · current at commit `85a419a`
+Last updated: 2026-08-11 · §17–18 added against the working tree, post-`c1fa2cc`;
+§19 added post-`b418b5f`
 
 ---
 
@@ -367,10 +368,125 @@ them every build looks like `development`: the debug console ships and productio
 
 ---
 
+## 17. 3D picking resolves from the event's own coordinates, never from a stored hover
+
+**Every raycast that decides an action takes `clientX, clientY` and returns an answer.** No
+handler may read a hover result computed on a previous frame.
+
+The site was mouse-only for its entire life because of the opposite rule. A tap fires
+`pointerdown → pointerup → click` with **no `pointermove` in between**, so a hover computed
+from `pointermove` is never computed at all on a touch device — it stays `null`, and every
+handler that consulted it silently did nothing. `createSatelliteFocus.onClick` took no event
+argument, which made it structurally incapable of resolving a target; `createGeoMarkers`
+already *had* the release coordinates and threw them away to read `hoveredMarker`. That
+second one is the only door into Murcia, so the whole city was unreachable by touch.
+
+The pattern was already in the repo and already correct — `DistrictInteraction.pickAt`, which
+is exactly why Murcia's *interior* was the one part that always worked on a phone.
+
+Hover remains a separate, mouse-only concern: it is still evaluated per frame from the last
+`pointermove`, because satellites keep moving when the pointer is still (`earth/DECISIONS.md`,
+"Selection is React state; hover is not"). What changed is that **nothing acts on it**.
+
+**A corollary, and it is not optional: tap tolerances are per pointer type.** A finger wanders
+5–15 px between contact and release. The 4 px and 5 px thresholds are correct for a mouse and
+reject most real taps as drags, so touch gets its own number and mouse and pen keep theirs
+untouched. One threshold for both input classes is not a compromise, it is a bug for one of
+them.
+
+**Ruled out.** Synthesising a `pointermove` before the tap, which fakes a hover state the
+device does not have and leaves a satellite highlighted after the finger is gone. Lowering the
+mouse threshold to suit touch. Adopting R3F's event manager, which is mounted but unused —
+correct for touch, but it would mean rewriting all picking rather than fixing it.
+
+**How you would know it broke.** Any handler that raycasts without taking coordinates. A
+`getDragClickThreshold()` that ignores pointer type. Or the whole-scene symptom: on a phone,
+nothing responds and nothing errors.
+
+---
+
+## 18. The brand plates are a drawn floor that real logos upgrade, and readiness never waits on artwork
+
+`createBrandAtlas` rasterises its placeholder plates **synchronously**, then loads any real
+`logo` URLs in the background and redraws those cells when they land. A logo that 404s, fails
+CORS, or decodes to nothing keeps its drawn plate. **A panel is never blank.**
+
+This is why the build stays synchronous. `orbits:build` is a *required* boot resource and the
+whole orbit system is constructed inside one effect — making the atlas await its images would
+put decorative artwork on the readiness path, where a slow media host holds the loading screen
+hostage. That is precisely the failure the required/optional split exists to prevent
+(`adr/007`). Timing is generous anyway: the first panel's opacity leaves zero ~2 s into the
+reveal.
+
+**`logo` is a single string, and that is the entire API seam.** `/logos/mango.webp` today, a
+CMS media URL later, with no renderer change. Two things the remote case still needs, neither
+of which is code: `Access-Control-Allow-Origin` on the media path, and the origin added to
+`img-src` in `vercel.json`.
+
+**Cross-origin is a correctness issue, not a nicety.** The atlas is shared by all six panels,
+so one tainted image makes `texImage2D` throw and takes down *every* plate. `crossOrigin` is
+set before `.src`, and a disposable 1×1 probe reads a pixel back before the image is allowed
+near the shared canvas — `crossOrigin` alone is necessary and not sufficient.
+
+**Ruled out.** Async build gated on readiness. Per-logo texture uploads — `needsUpdate`
+re-uploads the whole 2048×1536 canvas and regenerates its mip chain, so uploads are coalesced
+to one per frame. Trusting `crossOrigin` without the probe.
+
+**How you would know it broke.** A blank or garbage panel instead of a wordmark. The loading
+screen waiting on `/logos/`. Or a `SecurityError` out of the render loop, which means the
+probe was skipped.
+
+Artwork requirements are in `earth/logo-spec.md` — it is written to be sent to a client.
+
+---
+
+## 19. The sky is generated on the GPU, not downloaded, and it is a mesh rather than a background
+
+The resting scene's backdrop is a galactic band of clustered stars over a procedural nebula.
+The nebula is generated by a shader and baked into a cubemap during the existing load phase,
+one face per frame. **Zero download bytes, and no new required boot resource.**
+
+That is the decision, and it is what makes an "amazing" background affordable at all in a
+project whose dominant constraint is load time (`adr/007`, §10). An authored 4K sky would have
+been simpler to art-direct and would have put megabytes on the critical path.
+
+**The cubemap is deliberately a seam.** If authored artwork is ever wanted, it replaces the
+bake and nothing downstream changes — the same shape of decision as §18's `logo` string.
+
+**It is an opaque mesh at `renderOrder -1000`, never `scene.background`.** A background is
+written as an untone-mapped clear colour, so it would sit at the wrong brightness beside an
+ACES-mapped Earth; as a mesh it passes through the composer's `OutputPass` like everything
+else. This also makes its non-occlusion a property of render order rather than of geometry.
+The *star* shell's guarantee is separate and geometric, and clustering it is therefore
+angular-only — see `PROJECT_MEMORY.md` §11.33 and §11.34, which are the general forms.
+
+**Palette exception, stated so it is not mistaken for drift.** The nebula is naturalistic —
+warm dust, blue core, magenta hydrogen — and does not follow the brand's blue-accent rule.
+Same reasoning as the Earth's textures: the brand guide governs UI chrome, and this is the
+scene's own language. Reversible in one config object if the client disagrees.
+
+**Ruled out.** A downloaded sky texture (bytes on the critical path). `scene.background`
+(tone mapping). Baking all six faces in one frame (a visible hitch in the live drawing).
+Animating the nebula — the user rotates the scene themselves, so ambient sky motion buys
+nothing and costs a per-frame pass.
+
+**How you would know it broke.** Stars in front of the Earth at full zoom. A visible hitch as
+the intro drawing completes. The sky mirrored, or one cube face repeated six times
+(`PROJECT_MEMORY.md` §11.31). A backdrop that is obviously brighter or flatter than the planet
+in front of it, which means it stopped going through the composer.
+
+Detail, and the three defects that only screenshots caught, in `earth/DECISIONS.md` —
+*The backdrop becomes a galaxy*.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| The brand plates are drawn, never loaded | `earth/DECISIONS.md`, "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
+| The backdrop is a field of uniform points on a shell | `earth/DECISIONS.md`, "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a generated nebula — **§19** |
+| A click acts on the satellite/marker the pointer is hovering | `createSatelliteFocus.ts`, `createGeoMarkers.ts` | It acts on what is under the event's coordinates — **§17** |
 | A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** |
 | `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** |
 | The 3D logo gets its own renderer | `earth/DECISIONS.md:256` | Overlay pass on the shared renderer — **§2**, `adr/002` |

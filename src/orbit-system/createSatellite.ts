@@ -114,6 +114,14 @@ function loadTemplate(renderer?: THREE.WebGLRenderer): Promise<THREE.Group> {
       loadProgress.markDone('satellite:assets')
       return wrapper
     })
+    // A REJECTED promise is still a cached promise. Left in place, one transient
+    // failure — a 404 during a deploy, a dropped connection — would be replayed
+    // to every satellite for the rest of the session, and would survive a full
+    // orbit-system rebuild with no way back. Clearing the cache lets the next
+    // attempt actually retry; the rejection still propagates to this caller.
+    templatePromise.catch(() => {
+      templatePromise = null
+    })
   }
   return templatePromise
 }

@@ -3,6 +3,13 @@
 Audited: 2026-08-07 · against working tree at commit `2758ada` + uncommitted changes
 Scope: `docs/plans/000-audit-vercel-deploy.md`
 
+> **A re-audit exists: `production-readiness-vercel-2026-08-11.md`.** This file is left as the
+> record of the 2026-08-07 pass and is still accurate for everything the re-audit does not
+> restate — the deployment surface it describes (`vercel.json`, `vite.config.ts`, the lockfile,
+> `public/`) is byte-identical at the time of the re-audit. Read this one for the architecture
+> and the original findings; read the re-audit for what has changed, what was verified for the
+> first time, and the current blocker list. Where the two disagree, the re-audit wins.
+
 ---
 
 ## Executive Summary
@@ -342,6 +349,28 @@ solves it with a real focusable `<button>` positioned over the 3D element.
 
 **Recommendation:** apply that same treatment to the globe markers and the satellites. It is
 real work, which is why it was scoped out, but roughly half the site is currently mouse-only.
+
+> **Status 2026-08-11 — PARTIALLY RESOLVED. Still open for keyboard.**
+>
+> This finding turned out to describe two defects sharing one cause, and the larger of the
+> two was not accessibility — it was that **touch devices could not use the site at all**.
+> The same `hoveredId`/`hoveredMarker` read that blocks keyboard also blocks every phone and
+> tablet, because a tap fires `pointerdown → pointerup → click` with no `pointermove`, so the
+> hover it needs is never computed. Measured on the code as audited: 460 emulated taps across
+> the globe, zero response.
+>
+> **Fixed:** both call sites now raycast from the event's own coordinates
+> (`DECISIONS.md` §17), tap tolerances are per pointer type, and the Murcia tag is visible and
+> activatable under `(hover: none)`. Verified against a pre-fix control and on an emulated
+> Pixel, against dev and the production build.
+>
+> **Not fixed:** the keyboard path, which is what this finding is titled for. The geo tags are
+> still divs with no `role` and no `tabindex`, and the satellites have no DOM affordance at
+> all. The `districtLabel.ts` recommendation above stands unchanged — it needs real markup,
+> so it remains a launch item.
+>
+> The audit's own summary line ("roughly half the site is currently mouse-only") should now
+> read *keyboard-only-unreachable*; the mouse-only half is closed.
 
 ---
 

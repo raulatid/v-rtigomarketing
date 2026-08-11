@@ -1,14 +1,14 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import { IntroConfig } from '../introConfig'
-import { SequenceState } from '../sequenceState'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../hooks/useMasterTimeline'
 import { loadProgress } from '../loading/progress'
 
 interface Props {
   config: IntroConfig
-  state: SequenceState
+  // No SequenceState here: this layer used it only to mirror a readiness flag
+  // nothing read. The timeline asks the logo directly via isReady().
   onLoadFailed: () => void
   logoRef: RefObject<CornerLogo | null>
   handleRef: RefObject<CornerLogoHandle | null>
@@ -26,7 +26,7 @@ interface Props {
 // The module is imported DYNAMICALLY: it pulls in GLTFLoader, DRACOLoader and
 // KTX2Loader, none of which may sit in the entry chunk (plan 006 §5.1). Only
 // the type is imported statically.
-export function CornerLogoLayer({ config, state, onLoadFailed, logoRef, handleRef }: Props) {
+export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
 
@@ -50,11 +50,10 @@ export function CornerLogoLayer({ config, state, onLoadFailed, logoRef, handleRe
           get: (_t, key: string) => configRef.current[key as keyof IntroConfig],
         }),
         renderer: gl,
-        onReady: () => {
-          state.modelReady = true
-        },
+        // Readiness is not mirrored into SequenceState: the timeline asks the
+        // logo directly through cornerLogo.isReady(), which is the live source.
+        onReady: () => {},
         onFailed: () => {
-          state.modelReady = false
           onLoadFailedRef.current()
         },
       })
@@ -86,7 +85,6 @@ export function CornerLogoLayer({ config, state, onLoadFailed, logoRef, handleRe
           console.error('[corner-logo] module failed to load', error)
           if (disposed) return
           loadProgress.markDone('logo:assets')
-          state.modelReady = false
           onLoadFailedRef.current()
         })
       })

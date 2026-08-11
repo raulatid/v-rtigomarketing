@@ -32,5 +32,6 @@ function environment(): string {
  */
 export const DEBUG_TOOLS_ENABLED = environment() !== 'production'
 
-/** The build environment, for diagnostics. 'production' | 'preview' | 'development'. */
-export const BUILD_ENV = environment()
+// A `BUILD_ENV = environment()` export lived here for "diagnostics" and had no
+// readers. `environment()` is still the single source of truth for the flag
+// above; re-export it if something ever actually needs the string.

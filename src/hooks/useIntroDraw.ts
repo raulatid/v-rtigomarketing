@@ -35,10 +35,11 @@ export function useIntroDraw(config: IntroConfig, replayKey: number) {
     return intro.handle.subscribeComplete(() => setComplete(true))
   }, [intro])
 
-  // Diagnostic only. The intro NEVER completes on a timer any more, so this
-  // cannot mean "finished degraded" — it means "this load was slow". Downstream
-  // phases must not treat it as a readiness signal (plan 007 Phase 4).
-  const waitedTooLong = intro?.waitedTooLong() ?? false
+  // `waitedTooLong` used to be read and re-exported here; App destructured only
+  // { intro, complete } and never touched it. It remains on the boot global
+  // (boot.ts) as a devtools-inspectable diagnostic, which is its only purpose —
+  // it is explicitly NOT a readiness signal (plan 007 Phase 4). Mirroring it
+  // through this hook just made it look like one.
 
   // Live config edits from the debug panel. Cheap — it re-lays out the stage
   // weights and re-measures; it never restarts the draw.
@@ -50,15 +51,20 @@ export function useIntroDraw(config: IntroConfig, replayKey: number) {
   // the sampled point tables and the measured path lengths all survive. Load
   // progress is already 1 by then, so the pace cap governs and the drawing
   // plays at its 3s floor — the replay shows the animation, not the wait.
-  const firstRun = useRef(true)
+  //
+  // The guard tracks the replayKey this effect has already SEEN rather than a
+  // "first run" boolean. React 19 StrictMode runs mount → cleanup → mount, and a
+  // boolean flipped on the first mount stays flipped through the second — so the
+  // remount replayed the drawing and restarted its 3s minimum-duration clock on
+  // every dev page load. Comparing the key is idempotent under any number of
+  // remounts, and still fires exactly once per real replay.
+  const seenReplayKey = useRef(replayKey)
   useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false
-      return
-    }
+    if (seenReplayKey.current === replayKey) return
+    seenReplayKey.current = replayKey
     setComplete(false)
     handleRef.current?.replay()
   }, [replayKey])
 
-  return { intro: handleRef, complete, waitedTooLong }
+  return { intro: handleRef, complete }
 }

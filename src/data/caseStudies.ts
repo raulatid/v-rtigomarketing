@@ -49,11 +49,28 @@ export interface CaseChart {
 
 export interface CaseStudy {
   id: string
-  /** Text drawn on the 3D badge. Kept short — it renders inside a ~0.35u disc. */
+  /**
+   * NOT CURRENTLY RENDERED. This was the text drawn on the old flat 3D badge,
+   * which the satellite GLB and the brand atlas replaced — the atlas draws
+   * `name`. Kept because it is a reasonable short-form field for an API to
+   * carry, but nothing reads it today.
+   */
   label: string
   /** Full brand name, shown as the panel title. */
   name: string
-  /** Texture path under /public. Null falls back to a generated text badge. */
+  /**
+   * URL of the real company logo, drawn into this case's cell of the brand
+   * atlas. A path under /public today (`/logos/mango.webp`), a CMS media URL
+   * later — the loader does not care which, so pointing this at WordPress is a
+   * string change and nothing else.
+   *
+   * Null, a 404, or an image that fails CORS all leave the generated plate (mark
+   * disc + wordmark) in place. The panel is never blank.
+   *
+   * Artwork requirements are in docs/earth/logo-spec.md — the short version is
+   * 1600×800 WebP, transparent, trimmed tight with NO built-in padding, and the
+   * light/reverse variant, because the panel is a dark holographic surface.
+   */
   logo: string | null
   /**
    * Accent colour for the holographic orbit panel — the mark, the wordmark and
@@ -66,7 +83,17 @@ export interface CaseStudy {
    * rest of the content.
    */
   brandColor: string
-  /** Which of the six ORBIT_PRESETS this satellite rides. */
+  /**
+   * NOT CURRENTLY READ, despite the name. The satellite↔orbit pairing is
+   * POSITIONAL: createOrbitSystem walks ORBIT_PRESETS and takes SATELLITES at
+   * the same index. This field agrees with that today only because both arrays
+   * happen to be in the same order.
+   *
+   * That matters once the content is fetched and can arrive in any order — at
+   * which point the honest fix is to resolve the preset by this id rather than
+   * by position. Documented rather than silently corrected because changing the
+   * pairing rule is a behaviour change, not a cleanup.
+   */
   orbitId: string
   sector: string
   location: string

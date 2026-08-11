@@ -10,16 +10,30 @@ export interface InteractiveMetadata {
  * Minimal center-screen interaction probe. Builds a cached list of interactive
  * objects once after loading (via userData.interactive), and raycasts only that
  * list on click — never the full scene.
+ *
+ * THIS IS A DIAGNOSTIC. `probe()` returns void and its only effect is a
+ * console.info; nothing in the product reads it. It is called from
+ * MurciaExperience's pointerup handler, which is gated on `active` and the drag
+ * state but NOT on the build environment — so without the flag below it would
+ * log node names and interaction metadata on every click in production.
+ *
+ * It is inert today only by accident: the GLB ships zero `extras`, so
+ * `collectFrom` caches nothing and `probe()` returns immediately. The Blender
+ * re-export in `murcia/blender-export-contract.md` is what would silently switch
+ * it on. Gating it on the same flag as every other debug affordance means that
+ * re-export cannot turn a public site chatty as a side effect.
  */
 export class InteractionProbe {
   private readonly raycaster = new THREE.Raycaster();
   private readonly center = new THREE.Vector2(0, 0);
   private readonly camera: THREE.Camera;
+  private readonly enabled: boolean;
   private readonly interactiveObjects: THREE.Object3D[] = [];
   private readonly hits: THREE.Intersection[] = [];
 
-  constructor(camera: THREE.Camera) {
+  constructor(camera: THREE.Camera, enabled = false) {
     this.camera = camera;
+    this.enabled = enabled;
   }
 
   /** Traverse once after load to cache interactive objects. */
@@ -38,6 +52,7 @@ export class InteractionProbe {
    * Pass normalized device coordinates (-1..1); defaults to screen center.
    */
   probe(ndc?: THREE.Vector2): void {
+    if (!this.enabled) return;
     if (this.interactiveObjects.length === 0) return;
 
     this.raycaster.setFromCamera(ndc ?? this.center, this.camera);

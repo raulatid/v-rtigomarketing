@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { IntroConfig } from '../introConfig'
@@ -45,6 +45,14 @@ export function Starfield({ config, state, active }: Props) {
       }),
     [],
   )
+
+  // Geometry and material are passed to R3F as PROPS, and R3F only disposes the
+  // object it created — THREE.Points has no dispose(), and prop-attached
+  // resources are never walked. So nothing here is released on unmount, or when
+  // the memo above rebuilds: the debug star-count slider leaks one geometry per
+  // drag tick.
+  useEffect(() => () => geometry.dispose(), [geometry])
+  useEffect(() => () => material.dispose(), [material])
 
   useFrame(() => {
     if (!active) return

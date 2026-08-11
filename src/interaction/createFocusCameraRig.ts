@@ -24,7 +24,9 @@ interface Options {
   // The pose the intro rests at. The rig adopts it as its overview.
   overviewPose: [number, number, number]
   onEmptyClick: () => void
-  isOverSatellite: () => boolean
+  // Takes viewport coordinates rather than reading a stored hover: a tap
+  // produces no hover at all, so the answer has to be picked from the event.
+  isOverSatellite: (clientX: number, clientY: number) => boolean
 }
 
 export function createFocusCameraRig({
@@ -112,9 +114,21 @@ export function createFocusCameraRig({
   }
 
   let activePointerId = -1
+  let dragPointerType = 'mouse'
+
+  // How much accumulated travel still counts as a tap. A finger tap routinely
+  // jitters 5–15px, so the mouse tolerance would reject most taps as drags;
+  // mouse and pen are precise and keep the original, tighter number.
+  function dragClickThreshold() {
+    return dragPointerType === 'touch' ? cfg.touchDragClickThreshold : cfg.dragClickThreshold
+  }
 
   function onPointerDown(e: PointerEvent) {
     if (!active || e.button !== 0) return
+    // Recorded before the orbit gate below, so a tap that arrives while a
+    // satellite is focused (no orbit, but still a click) is measured with the
+    // right tolerance.
+    dragPointerType = e.pointerType
     if (!orbitEnabled) return // no orbit while a satellite is focused
     orbit.isDragging = true
     orbit.lastX = e.clientX
@@ -157,11 +171,11 @@ export function createFocusCameraRig({
     )
   }
 
-  function onClick() {
+  function onClick(e: MouseEvent) {
     if (!active) return
     // A drag that happens to end over a satellite must not select it.
-    if (dragDistance > cfg.dragClickThreshold) return
-    if (!isOverSatellite()) onEmptyClick()
+    if (dragDistance > dragClickThreshold()) return
+    if (!isOverSatellite(e.clientX, e.clientY)) onEmptyClick()
   }
 
   domElement.addEventListener('pointerdown', onPointerDown)
@@ -269,7 +283,9 @@ export function createFocusCameraRig({
     isActive: () => active,
     isDragging: () => orbit.isDragging,
     getDragDistance: () => dragDistance,
-    getMode: () => mode,
+    // Published so the satellite controller measures a tap the same way this
+    // rig does, instead of hardcoding its own copy of the number.
+    getDragClickThreshold: dragClickThreshold,
     dispose,
   }
 }

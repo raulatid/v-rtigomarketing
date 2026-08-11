@@ -68,14 +68,17 @@ export function RenderPipeline({
 }: Props) {
   const { gl, scene, camera, size } = useThree()
 
-  const { composer, renderPass, afterimagePass } = useMemo(() => {
+  const { composer, renderPass, afterimagePass, outputPass } = useMemo(() => {
     const c = new EffectComposer(gl)
     const rPass = new RenderPass(scene, camera)
     c.addPass(rPass)
     const aPass = new AfterimagePass(0)
     c.addPass(aPass)
-    c.addPass(new OutputPass())
-    return { composer: c, renderPass: rPass, afterimagePass: aPass }
+    // Retained rather than constructed inline: EffectComposer.dispose() does not
+    // walk its passes, so an unreferenced pass is unreachable for disposal.
+    const oPass = new OutputPass()
+    c.addPass(oPass)
+    return { composer: c, renderPass: rPass, afterimagePass: aPass, outputPass: oPass }
   }, [gl, scene, camera])
 
   useEffect(() => {
@@ -85,9 +88,17 @@ export function RenderPipeline({
 
   useEffect(() => {
     return () => {
+      // EffectComposer.dispose() releases only its own two render targets and
+      // copyPass — it does NOT iterate this.passes. AfterimagePass owns two more
+      // full-screen render targets, two ShaderMaterials and two fullscreen
+      // quads; OutputPass owns a material and a quad. Left to the composer they
+      // leak on every unmount and on any gl/scene/camera identity change.
+      afterimagePass.dispose()
+      outputPass.dispose()
+      renderPass.dispose()
       composer.dispose()
     }
-  }, [composer])
+  }, [composer, afterimagePass, outputPass, renderPass])
 
   useFrame((_, delta) => {
     const murcia = murciaRef.current

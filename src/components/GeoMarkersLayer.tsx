@@ -71,7 +71,10 @@ export function GeoMarkersLayer({
       markers.dispose()
       el.remove()
     }
-  }, [camera, gl, scene])
+    // `scene` is used in the frame loop below, not in here — listing it as a
+    // dependency of the effect that builds and disposes the markers only widens
+    // what can tear them down.
+  }, [camera, gl])
 
   useEffect(() => {
     labelRef.current?.setSize(size.width, size.height)

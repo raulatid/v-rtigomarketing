@@ -25,7 +25,7 @@
       ]
     },
     {
-      "source": "/(earth|models|textures|libs|draco)/(.*)",
+      "source": "/(earth|models|textures|libs|draco|logos)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

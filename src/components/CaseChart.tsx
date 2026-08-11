@@ -21,8 +21,12 @@ function scalePoints(values: number[]): [number, number][] {
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = max - min || 1
+  // `|| 1` guards a single-point series: length - 1 is 0, and the division
+  // produced NaN coordinates and an invalid path. A lone point sits at the left
+  // edge, which is the honest place for it.
+  const lastIndex = values.length - 1 || 1
   return values.map((v, i) => [
-    PAD + (i / (values.length - 1)) * (W - PAD * 2),
+    PAD + (i / lastIndex) * (W - PAD * 2),
     H - PAD - ((v - min) / span) * (H - PAD * 2),
   ])
 }
@@ -57,7 +61,8 @@ function LineChart({ values, filled }: { values: number[]; filled: boolean }) {
 }
 
 function BarChart({ values, labels }: { values: number[]; labels?: string[] }) {
-  const max = Math.max(...values)
+  // An all-zero series is legitimate data; dividing by it is not.
+  const max = Math.max(...values) || 1
   const labelRoom = labels ? 16 : 0
   const plotH = H - PAD - labelRoom
   const slot = (W - PAD * 2) / values.length
@@ -91,7 +96,9 @@ function BarChart({ values, labels }: { values: number[]; labels?: string[] }) {
 }
 
 function DonutChart({ values, labels }: { values: number[]; labels?: string[] }) {
-  const total = values.reduce((a, b) => a + b, 0)
+  // Shares of nothing: without the guard every dash array and every legend
+  // percentage came out NaN.
+  const total = values.reduce((a, b) => a + b, 0) || 1
   const r = 42
   const cx = 60
   const cy = H / 2
@@ -136,6 +143,18 @@ function DonutChart({ values, labels }: { values: number[]; labels?: string[] })
 }
 
 export function CaseChart({ chart }: Props) {
+  // An empty series is the one case no shape can render: Math.min of nothing is
+  // Infinity, and LineChart then reads pts[-1] and throws, taking the whole case
+  // panel down through the error boundary. Today's data always has points, but
+  // this file sits on the same API seam as the rest of caseStudies.ts.
+  if (chart.values.length === 0) {
+    return (
+      <figure className="case-chart">
+        <figcaption className="case-chart__title">{chart.title}</figcaption>
+      </figure>
+    )
+  }
+
   return (
     <figure className="case-chart">
       <figcaption className="case-chart__title">{chart.title}</figcaption>

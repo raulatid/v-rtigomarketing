@@ -1550,6 +1550,10 @@ Supersedes the star-field half of *2026-07-20 — The space backdrop is a second
 shell*. The shell, its radius, its gating and the two-field split are all unchanged; what
 changed is what is drawn on it, and that there is now something behind it.
 
+The binding form of this decision — generated rather than downloaded, mesh rather than
+background, and the palette exception — is `../DECISIONS.md` §19. The numbers are in
+`../PROJECT_MEMORY.md` §9; the reusable traps are its §11.31–34. What follows is the detail.
+
 ![The resting scene](img/galaxy-backdrop.png)
 
 The complaint was that the stars were "equal in form, colour and distance". All three were

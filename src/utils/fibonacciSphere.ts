@@ -18,9 +18,14 @@ function hash01(i: number): number {
 export function fibonacciSpherePoints(count: number, radius: number, jitter = 0): Float32Array {
   const positions = new Float32Array(count * 3)
   const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+  // `|| 1` guards count === 1, where count - 1 is 0 and the division below
+  // produced NaN for every component — a single point that silently vanishes
+  // rather than sitting at the pole. The debug sliders' minimums are the only
+  // thing keeping this unreachable today.
+  const lastIndex = count - 1 || 1
 
   for (let i = 0; i < count; i++) {
-    const y = 1 - (i / (count - 1)) * 2
+    const y = 1 - (i / lastIndex) * 2
     const r = Math.sqrt(1 - y * y)
     const theta = goldenAngle * i
 

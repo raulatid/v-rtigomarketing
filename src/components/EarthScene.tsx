@@ -108,7 +108,6 @@ export function EarthScene({
       // The drawing waits on this — set it only once the GPU is actually warm,
       // not merely when the JPEGs have decoded.
       if (!cancelled) {
-        state.earthReady = true
         loadProgress.markDone('gpu:warmup')
       }
     }

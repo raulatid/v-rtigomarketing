@@ -60,7 +60,6 @@ export function useMasterTimeline({
 
       // Reset continuous state so a replay starts clean.
       state.warpProgress = 0
-      state.swapProgress = 0
       state.warpOverlay = 0
       state.swapOverlay = 0
       state.motionBlur = 0
@@ -151,7 +150,6 @@ export function useMasterTimeline({
           duration: config.swapDuration,
           ease: 'none',
           onUpdate: () => {
-            state.swapProgress = swapProxy.progress
             const p = swapProxy.progress
             const x = config.swapCrossover
 

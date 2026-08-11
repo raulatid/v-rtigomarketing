@@ -104,7 +104,16 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
   const gltfLoader = new GLTFLoader(loadingManager)
   gltfLoader.setDRACOLoader(dracoLoader)
 
+  // Set by dispose(). Every load callback below checks it: the loads are not
+  // cancellable, so a GLB or texture that lands after teardown would otherwise
+  // attach geometries to a disposed scene, call compileAsync on a dead object,
+  // and report readiness for a logo that no longer exists. React 19 StrictMode
+  // makes this the normal path in dev, not an edge case. Same guard as
+  // createSatellite.ts and createBrandAtlas.ts.
+  let disposed = false
+
   function assembleIfReady() {
+    if (disposed) return
     if (!pendingModel || texturePending) return
     const model = pendingModel
 
@@ -152,6 +161,9 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
     // modelGroup is included; the lights are scene-level and visible.
     if (logoTexture) renderer.initTexture(logoTexture)
     const finish = () => {
+      // compileAsync resolves a frame or more later, by which time teardown may
+      // have happened even though assembleIfReady was still live on entry.
+      if (disposed) return
       modelReady = true
       // Only now, not on decode: the compile is the part that would otherwise
       // stall the crossover, so it belongs inside the wait the drawing covers.
@@ -164,11 +176,13 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
   gltfLoader.load(
     MODEL_URL,
     (gltf) => {
+      if (disposed) return
       pendingModel = gltf.scene
       assembleIfReady()
     },
     undefined,
     (err) => {
+      if (disposed) return
       console.error('[corner-logo] GLB failed to load:', err)
       // `logo:assets` is a REQUIRED manifest entry, and this branch used to mark
       // it neither done nor fatal — so readiness could reach neither state and
@@ -188,6 +202,12 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
   ktx2Loader.load(
     TEXTURE_URL,
     (texture) => {
+      // Disposed mid-flight: this texture has no owner left, so release it here
+      // rather than leaking a decoded KTX2 on the GPU.
+      if (disposed) {
+        texture.dispose()
+        return
+      }
       texture.colorSpace = THREE.SRGBColorSpace
       texture.flipY = false
       logoTexture = texture
@@ -196,6 +216,7 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
     },
     undefined,
     (err) => {
+      if (disposed) return
       // Degrade gracefully: show the model untextured rather than hanging.
       console.warn('[corner-logo] KTX2 failed, using untextured model:', err)
       texturePending = false
@@ -319,6 +340,10 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
   }
 
   function dispose() {
+    disposed = true
+    // The manager outlives this call only if a load is still in flight; the
+    // callback would report progress for a logo nobody is waiting for.
+    loadingManager.onProgress = () => {}
     ktx2Loader.dispose()
     dracoLoader.dispose()
     logoTexture?.dispose()

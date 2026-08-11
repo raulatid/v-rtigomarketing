@@ -367,6 +367,31 @@ body {
   transform: translateY(0);
 }
 
+/* Touch devices have no hover, so the rule above never fires and the Murcia
+   marker was a tappable dot with nothing on screen saying what it does. Same
+   answer as districtLabel.ts: where hover is unsupported, the label persists.
+
+   Only the DESTINATION persists. The six city tags are decorative and not
+   activatable, and pinning all seven open would bury the globe under labels.
+
+   `is-near` carries the limb test that also decides pickability, so the label
+   appears exactly when the marker can be tapped and never floats over the far
+   side of the planet.
+
+   pointer-events is restored here for the same reason the label is: a visible
+   "Explorar la ciudad →" that ignores taps is a worse affordance than no label
+   at all. The dot stays tappable too — this only makes the label agree with it.
+   Pointer devices are untouched; the tag stays inert and hover-only there. */
+@media (hover: none) {
+  .geo-tag--destination.is-near {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    /* No double-tap-to-zoom delay on the one thing we want tapped. */
+    touch-action: manipulation;
+  }
+}
+
 .geo-tag__title {
   font-size: 12px;
   font-weight: 600;

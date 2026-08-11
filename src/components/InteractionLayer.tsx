@@ -70,7 +70,11 @@ export function InteractionLayer({
       // A click on empty space deselects. The rig owns the click because it is
       // the thing that knows whether the gesture was a drag.
       onEmptyClick: () => focusRef.current?.deselect(),
-      isOverSatellite: () => focusRef.current?.isHovering() ?? false,
+      // Picked from the click's coordinates rather than from the stored hover:
+      // a tap never produces a hover, so the old read reported "empty space"
+      // for every touch and the rig deselected instead of letting the
+      // satellite controller select.
+      isOverSatellite: (x, y) => (focusRef.current?.pickAt(x, y) ?? null) !== null,
     })
 
     const focus = createSatelliteFocus({
