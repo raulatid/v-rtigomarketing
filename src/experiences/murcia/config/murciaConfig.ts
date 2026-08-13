@@ -91,36 +91,56 @@ export const murciaConfig: EnvironmentConfig = {
   navigation: {
     enabled: true,
     dragThresholdPx: 6,
-    // Half speed. Translation is solved against the ground, so with no gain the
-    // camera covers whatever distance the cursor swept across a plate seen from
-    // 83 units up — far too much per pixel, which is what made the drag feel
-    // quick and light. The cost is that the grabbed ground point no longer stays
-    // locked under the cursor; that fidelity was bought back as weight.
-    translationGain: 0.5,
-    // Translation along the camera's forward axis, world units per second.
+    // How much of the cursor's ground travel the focus actually covers.
     //
-    // SIGNED OFF 2026-08-06. These values, and translationGain and
-    // degreesPerViewportWidth with them, were judged by a person driving the
-    // build and accepted first pass. They are the only values in this file set
-    // by judgement rather than by measurement or derivation, so they cannot be
-    // checked by the harness and cannot be re-derived if lost. Do not adjust
-    // them from reasoning alone — see PROJECT_MEMORY, "Murcia's navigation".
+    // 1 is the *definition* of grab-the-point: the grabbed ground point stays
+    // exactly under the cursor, in both axes. This is 0.7, so it deliberately
+    // does not — the ground covers 70% of the sweep and the grabbed point
+    // slides ~30% of the drag distance behind the cursor, by construction and
+    // not as lag.
     //
-    // Weight lives in the drag, not in a coast. The previous values put it in
-    // the coast instead (inertia 1.1s, release 0.3s) on the theory that lag
-    // during a drag reads as latency rather than mass. Tested by hand, the
-    // result was a view that kept moving after the pointer stopped — which
-    // reads as a loss of control. Inertia is off; heaviness now comes from
-    // translationGain above and the longer smoothing constant below.
+    // JUDGED 2026-08-13, and judgement is the only currency that buys this.
+    // The 0.5 signed off on 2026-08-06 was reversed to 1 on user reports that
+    // the ground did not follow the mouse; 0.7 is the same person splitting the
+    // difference by hand — enough fidelity to read as dragging the map, enough
+    // shortfall to keep some weight. `?dragGain=1` gives exact grab-the-point
+    // for comparison, `?dragGain=0.5` the original.
+    //
+    // Two consequences to know before touching it. The solve itself is still
+    // exact — §9 of checks/navigation-feel.ts asserts grab-the-point at gain 1
+    // and proportionality here, so a broken solve still fails. And the coupling
+    // with `smoothingTimeConstant` below is now partial: the latency objection
+    // that forced 0.09 → 0.03 fires in proportion to the gain, so 0.03 is
+    // conservative here rather than mandatory.
+    translationGain: 0.7,
+    // Panning the focus across the ground, world units per second.
+    //
+    // SIGNED OFF 2026-08-06, with two amendments recorded in PROJECT_MEMORY §7.
+    // These were judged by a person driving the build and accepted first pass —
+    // the only values in this file set by judgement rather than by measurement,
+    // so they cannot be checked by the harness and cannot be re-derived if
+    // lost. Do not adjust them from reasoning alone.
+    //
+    // Weight lives in the drag, not in a coast. An earlier design put it in the
+    // coast instead (inertia 1.1s, release 0.3s) on the theory that lag during
+    // a drag reads as latency rather than mass. Tested by hand, the result was
+    // a view that kept moving after the pointer stopped — which reads as a loss
+    // of control. Inertia stays off.
     feel: {
-      // Raised from 0.05. This is the smoothness, and it is affordable now:
-      // the latency objection only applies while the ground is expected to
-      // track the cursor exactly, and a gain of 0.5 has already given that up.
-      smoothingTimeConstant: 0.09,
-      // Short. The target stops with the pointer, so this is only how long the
-      // render takes to catch up — ~0.25s to settle. At the previous 0.3 the
-      // view drifted for nearly a second after release and read as inertia
-      // even with momentum disabled.
+      // 0.09 -> 0.03, and this one is a CONSEQUENCE, not an independent choice.
+      // The 0.09 was affordable only because the latency objection is
+      // conditional: it applies while the ground is expected to track the
+      // cursor exactly, and a gain of 0.5 had given that up. At gain 1 the
+      // condition fires. The lag is visible as dragSpeed x tau of slide — ~25
+      // world units at 0.09 on a fast pan, which is exactly the "it doesn't
+      // follow my mouse" complaint — so it is now the thing to minimise rather
+      // than the thing to spend. Restoring 0.5 without restoring 0.09, or the
+      // reverse, gets the worst of both.
+      smoothingTimeConstant: 0.03,
+      // Short, and unchanged. The target stops with the pointer, so this is
+      // only how long the render takes to catch up — ~0.25s to settle. At the
+      // earlier 0.3 the view drifted for nearly a second after release and read
+      // as inertia even with momentum disabled.
       releaseTimeConstant: 0.08,
       // No coast. Motion ends with the gesture.
       inertiaTimeConstant: 0,
@@ -133,13 +153,23 @@ export const murciaConfig: EnvironmentConfig = {
 
     rotation: {
       enabled: true,
-      // A drag across the full viewport turns a third of a circle. Lowered from
-      // 180: at half a turn per sweep the horizontal axis was twitchy, and it
-      // is the harder axis to be twitchy on, since it also has to be held
-      // steady while aiming a forward move.
-      degreesPerViewportWidth: 120,
-      // Matched to the translation feel so the two axes of one gesture have the
-      // same weight; only the speed limits differ, being degrees not units.
+      // A drag across the full viewport turns a sixth of a circle; a quarter
+      // turn costs 1.5 sweeps. Halved from 120 for two reasons that compound.
+      //
+      // Rotation is now a deliberate, separate gesture (right button, or two
+      // fingers) rather than one axis of the only gesture, so it is entered on
+      // purpose and can afford to cost more travel — and it can no longer be
+      // triggered by accident mid-pan, which is what made 120 read as twitchy
+      // in the first place. And the gestures that carry it have less usable
+      // travel than a primary drag: nobody right-drags across a whole screen,
+      // and two fingers run out of room sooner than one.
+      //
+      // That is the right cost for something you do to re-aim, not to travel.
+      degreesPerViewportWidth: 60,
+      // Left at the signed-off weights. Rotation did not become grab-the-point,
+      // so nothing about it argues for the shorter constant translation took.
+      // The two are no longer deliberately matched — they are no longer one
+      // gesture, and matching was only ever a property of that.
       feel: {
         smoothingTimeConstant: 0.09,
         releaseTimeConstant: 0.08,
@@ -148,6 +178,44 @@ export const murciaConfig: EnvironmentConfig = {
         maxInertiaSpeed: 90,
         velocityBlend: 0.25,
       },
+    },
+
+    zoom: {
+      enabled: true,
+      // 0.70 -> distance 115.5, camera height 58. Zoom IN is the cheap
+      // direction: the ground footprint shrinks, so nothing downstream is at
+      // risk. The floor is set by taste and by one measured hazard — below
+      // distance ~60 the fixed lookAtHeight starts tilting the camera up and
+      // the footprint widens again (PROJECT_MEMORY, "The number that can hurt
+      // you"). 115.5 stays far above that and still reads as clearly closer.
+      minDistanceScale: 0.7,
+      // 1.20 -> distance 198. MEASURED, not chosen. Zooming out is the
+      // dangerous direction: reach grows ~2.8 units per unit of distance at the
+      // binding case (5120x1440, yaw ~30), so the 33 units of dolly between 165
+      // and 198 cost ~92 units of skirt margin. At terrainTransition.width 600
+      // that margin is only ~42, i.e. this scale would put the hard plate edge
+      // on screen for ultrawide viewers ONLY — invisible on the machine the
+      // change is made on. The skirt went to 700 to pay for it; at 700 the
+      // worst case keeps ~+51, more cushion than the resting pose had before.
+      //
+      // checks/navigation-zoom.ts asserts this. Do not raise it without
+      // re-running that check.
+      maxDistanceScale: 1.2,
+      // ln(1.20/0.70) = 0.539 across the whole band. At 0.0008 e-folds per
+      // pixel a standard 100px mouse notch moves ~8% of a distance and the band
+      // is ~6.7 notches end to end: small enough to aim, large enough to feel.
+      wheelSensitivity: 0.0008,
+      // A trackpad pinch arrives as ctrl+wheel with far smaller deltas than a
+      // mouse notch. Without this it barely moves.
+      ctrlWheelMultiplier: 3,
+      // 1:1 with the finger separation ratio — the international gesture.
+      pinchSensitivity: 1.0,
+      // Longer than the pan's 0.03 and that is free: nothing is supposed to
+      // stay under the cursor during a zoom, so there is no reference for the
+      // lag to show against. It buys the wheel's discrete notches a glide
+      // instead of a staircase — at ~6.7 notches across the band, each step is
+      // otherwise a visible jump.
+      smoothingTimeConstant: 0.12,
     },
     // Plate surface sits just above zero; projecting drags against the mean
     // surface height keeps the grabbed point under the cursor.
@@ -196,17 +264,27 @@ export const murciaConfig: EnvironmentConfig = {
     // its footprint being near-symmetric). Combined with distance 165 the old
     // 380 left 16:9 on 8.6 units and ultrawide 170 units *inside* the edge.
     //
-    // 600 restores 50 units at 5120x1440 (aspect 3.56), the binding case; 16:9
+    // 600 restored 50 units at 5120x1440 (aspect 3.56), the binding case; 16:9
     // and narrower need only ~395. The extra geometry is a few hundred more
     // transparent triangles.
-    width: 600,
-    // The fade completes over the inner 25%: ~150 units of visible gradient.
-    // Lowered from 0.4 in step with the width increase, which is exactly what
-    // decoupling the gradient from the geometry is for — the skirt has to reach
-    // 600 units to stay out of frame, but a 240-unit gradient would wash the
-    // horizon. The remainder is already fully transparent and exists only to
-    // guarantee coverage.
-    fadeEndFraction: 0.25,
+    //
+    // 600 -> 700, and the extra 100 units are what pays for user zoom. Reach
+    // grows ~2.8 units per unit of distance at the binding case, so the 33
+    // units of dolly between the resting 165 and navigation.zoom's ceiling of
+    // 198 cost ~92 units of margin — and 600 only had ~42 to give, i.e. -49 at
+    // full zoom-out. Measured across every azimuth, not estimated: run
+    // checks/navigation-zoom.ts, which reports the worst slack directly. At 700
+    // the worst case keeps ~+51, more cushion than the resting pose had at 600.
+    //
+    // The same trade this value already made once when it went 380 -> 600.
+    width: 700,
+    // The fade completes over the inner 21%: ~147 units of visible gradient.
+    // Lowered from 0.4 to 0.25 with the first width increase and to 0.21 with
+    // the second, which is exactly what decoupling the gradient from the
+    // geometry is for — the skirt has to reach far enough to stay out of frame,
+    // but a gradient that scaled with it would wash the horizon. The remainder
+    // is already fully transparent and exists only to guarantee coverage.
+    fadeEndFraction: 0.21,
     loops: 10,
     segmentsPerSide: 12,
     innerOverlap: 0.5,

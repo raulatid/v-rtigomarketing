@@ -60,9 +60,13 @@ export class ControlsHint {
     this.el = document.createElement('div');
     this.el.id = 'controls-hint';
     this.el.className = 'overlay';
+    // Pan is the one gesture that needs no teaching — people try it first — so
+    // it leads, and the two that are NOT discoverable follow it. Rotation in
+    // particular has no affordance at all now that it is on the right button.
     this.el.innerHTML = `
-      <span><kbd>Arrastra ↕</kbd> avanzar</span>
-      <span><kbd>Arrastra ↔</kbd> girar</span>
+      <span><kbd>Arrastra</kbd> mover</span>
+      <span><kbd>Botón derecho</kbd> girar</span>
+      <span><kbd>Rueda</kbd> acercar</span>
       <span><kbd>Clic</kbd> en un distrito iluminado</span>`;
     parent.appendChild(this.el);
   }

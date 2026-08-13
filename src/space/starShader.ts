@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 
+import { POINT_SPRITE_FALLOFF } from './pointSprite'
+
 // The backdrop star field's material. One draw call for the whole sky, where
 // the shipped version needed three: `PointsMaterial` has no per-point size, so
 // magnitude used to be faked with three `Points` objects at fixed sizes and
@@ -47,15 +49,12 @@ const fragmentShader = /* glsl */ `
   varying vec3 vColor;
   varying float vTwinkle;
 
-  void main() {
-    // A soft radial falloff rather than the hard square a plain point sprite
-    // gives. Squaring it tightens the core so bright stars gain a small glow
-    // without the field turning into a haze.
-    float r = length(gl_PointCoord - vec2(0.5)) * 2.0;
-    float falloff = 1.0 - smoothstep(0.0, 1.0, r);
-    if (falloff <= 0.0) discard;
+  ${POINT_SPRITE_FALLOFF}
 
-    gl_FragColor = vec4(vColor, falloff * falloff * vTwinkle * uOpacity);
+  void main() {
+    // Round, not the square a bare point sprite draws. Shared with the warp
+    // tunnel so the two star fields cannot drift into different shapes.
+    gl_FragColor = vec4(vColor, pointSpriteFalloff() * vTwinkle * uOpacity);
 
     // Required: a raw ShaderMaterial gets no output colour conversion appended,
     // and the omission fails as "looks a bit dark" rather than as an error.

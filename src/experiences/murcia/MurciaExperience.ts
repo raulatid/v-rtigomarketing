@@ -431,6 +431,12 @@ export class MurciaExperience {
         // area changes continuously. Four ray/plane intersections per changed
         // frame; measurably nothing next to the render.
         onYawChanged: () => this.recomputeBounds(),
+        // And distance sets the footprint just as directly as azimuth does, so
+        // zooming out has to re-derive the navigable area for exactly the same
+        // reason. Same four intersections, same place — fired before the
+        // translation step so the focus written this frame is clamped against
+        // the area the new distance actually allows.
+        onZoomChanged: () => this.recomputeBounds(),
         onDragStateChanged: (dragging) =>
           this.cursor.request('drag', dragging ? 'grabbing' : ''),
       },
@@ -513,7 +519,14 @@ export class MurciaExperience {
         content,
         cursor: this.cursor,
         groundPlaneHeight: this.environment.navigation.groundPlaneHeight,
-        getPose: () => resolveCameraPose(this.environment, this.viewport.aspect),
+        // The rig's EFFECTIVE pose, not the configured one. computeFramedFocus
+        // builds a detached rig from this to work out where the focus must sit
+        // to put the district beside the panel; fed the unzoomed distance it
+        // would frame for a camera the user is not looking through and miss by
+        // the zoom ratio. The rig re-resolves the pose on resize, so this stays
+        // viewport-correct as well.
+        getPose: () => this.rig?.getEffectivePose() ??
+          resolveCameraPose(this.environment, this.viewport.aspect),
         getAspect: () => this.viewport.aspect,
         resolveBounds: () => {
           this.recomputeBounds();
@@ -761,7 +774,10 @@ export class MurciaExperience {
         renderer: this.renderer,
         focus: this.rig.focus,
         cameraHeight: this.rig.getHeight(),
-        cameraDistance: this.rig.getPose().distance,
+        // Effective, so the readout follows the user's zoom. Reporting the
+        // configured 165 while the camera sits at 198 makes the overlay
+        // useless for exactly the verification zoom needs.
+        cameraDistance: this.rig.getEffectivePose().distance,
         elevationDegrees: this.rig.getPose().elevationDegrees,
         azimuthDegrees: this.rig.getAzimuthDegrees(),
         insideBounds: containsPoint(

@@ -961,6 +961,30 @@ body {
   text-align: center;
 }
 
+/* The sky panorama's attribution. This is a LICENCE OBLIGATION, not a
+   courtesy: the backdrop image is CC BY 4.0 and ESO's policy requires the
+   credit be "presented in a clear and readable manner to all users, with the
+   wording unaltered" and not hidden. So it may be quiet, but it may not be
+   invisible — do not drop the opacity further, do not display: none it at any
+   breakpoint, and do not reword it. See CREDITS.md. */
+.audit-credit {
+  margin-top: 1.6rem;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.42);
+  text-align: center;
+}
+
+.audit-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.audit-credit a:hover,
+.audit-credit a:focus-visible {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 /* Tablet: larger share, tighter padding (§13). */
 @media (max-width: 1024px) {
   .audit-curtain {

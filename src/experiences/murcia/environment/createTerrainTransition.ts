@@ -123,7 +123,7 @@ export function createTerrainTransition(
   return {
     group,
     plateBounds,
-    visualBounds: expand(plateBounds, config.width),
+    visualBounds: terrainVisualBounds(plateBounds, config),
     hasCollar,
     warnings,
     dispose: () => {
@@ -355,6 +355,26 @@ function fadeAlpha(t: number, endFraction: number, exponent: number): number {
   // nor the outer termination shows as a band.
   const shaped = Math.pow(normalized, exponent);
   return 1 - shaped * shaped * (3 - 2 * shaped);
+}
+
+/**
+ * Full visual extent of the ground: the terrain plate plus the skirt around it.
+ *
+ * Split out of `createTerrainTransition` so `checks/navigation-zoom.ts` can
+ * measure the real rectangle without a GL context or a loaded GLB — building
+ * the skirt needs a mesh and a shader material, and neither says anything about
+ * how far the ground visibly reaches. The alternative was a check that
+ * recomputes `plate + width` itself, which is the "harness that rebuilds what
+ * it is testing" failure; see `applyPoseToCamera` for the same split.
+ *
+ * This rectangle is what the navigable area is inset from, so it is the term
+ * that pays for zooming out.
+ */
+export function terrainVisualBounds(
+  plateBounds: BoundsRect,
+  config: TerrainTransitionConfig,
+): BoundsRect {
+  return expand(plateBounds, config.width);
 }
 
 // --- Shared helpers ---------------------------------------------------------

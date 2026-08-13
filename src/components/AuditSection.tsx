@@ -351,6 +351,24 @@ export function AuditSection({ onOpenChange, ready }: Props) {
                 <p className="audit-note">
                   Revisamos cada solicitud de forma manual. Sin compromiso.
                 </p>
+                {/* Attribution for the space backdrop, and it is REQUIRED —
+                    the panorama is CC BY 4.0 and the credit is the licence
+                    condition, not a nicety. This panel is the only persistent
+                    text surface the site has, which is why it lives here; if
+                    a real footer ever appears, move it there and update the
+                    pointer in CREDITS.md. The wording must stay exactly
+                    "ESO/S. Brunier". */}
+                <p className="audit-credit">
+                  Imagen del cielo:{' '}
+                  <a
+                    href="https://www.eso.org/public/images/eso0932a/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ESO/S. Brunier
+                  </a>{' '}
+                  (CC BY 4.0)
+                </p>
               </div>
             </form>
           </div>

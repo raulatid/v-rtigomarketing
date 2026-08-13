@@ -1546,6 +1546,14 @@ Those entries are history and are left as written. For anyone reading them as cu
 
 ## 2026-08-11 — The backdrop becomes a galaxy, generated rather than downloaded
 
+> **Half superseded 2026-08-13 by *The galaxy becomes a photograph*.** Everything below about
+> the STAR field stands — the shell, the clustering, the magnitude distribution, the one draw
+> call, the measured clumping figures. The procedural NEBULA is gone; it could not be tuned
+> into looking like anything but dirt, for reasons that turned out to be properties of value
+> noise and of fbm rather than of any constant. The section below titled *What the screenshots
+> corrected* is the one to read sceptically: its three fixes were real, and they were applied
+> to a generator that could not have worked regardless.
+
 Supersedes the star-field half of *2026-07-20 — The space backdrop is a second field, on a
 shell*. The shell, its radius, its gating and the two-field split are all unchanged; what
 changed is what is drawn on it, and that there is now something behind it.
@@ -1630,3 +1638,224 @@ pointed by `updateCoordinateSystem()`, which `CubeCamera` calls lazily from `upd
 very method being bypassed in order to spread the faces across frames. Without calling it
 explicitly, all six cameras still look down −Z and every face bakes the same image.
 
+
+---
+
+## 2026-08-13 — The galaxy becomes a photograph, and the pipeline gets bloom
+
+The procedural nebula from two days ago shipped and looked like dirt. Not "needs tuning"
+dirt — a crazed, cracked-marble network over a uniformly-textured stripe, with muddy brown
+colour. It is replaced by a photograph: ESO's *GigaGalaxy Zoom* Milky Way panorama, 113 KB,
+sampled as an equirectangular texture on the same shell.
+
+### Why the shader could not be tuned into working
+
+Two of the three defects were structural, and recognising that is the point of this entry.
+The previous round spent its whole budget adjusting constants — frequency, thresholds, band
+width, brightness — against failures that no constant reaches.
+
+**Ridged noise built on value noise cannot make filaments.** `ridged()` folds its input
+around the 0.5 level set. For *value* noise that level set snaps to the cubic lattice, so the
+"dust lanes" came out as axis-aligned polygon walls. That is the cracked marble, and it was
+the single most visible thing in the frame. The previous round diagnosed it as lanes being
+applied outside the band and multiplied them by `band` — which confined the cracks to the
+band without removing them. Gradient or simplex noise does not have this property; value
+noise always will.
+
+**fbm is stationary by construction.** Every patch of the domain has identical statistics, so
+"too uniform" is not a symptom of too few octaves — octaves add detail *below* the base
+frequency, never variety above it. The only large-scale structure in that sky was one
+analytic gaussian. Non-stationarity has to be authored: domain warping, low-frequency
+modulation, explicit landmarks. None of it was there, and adding it is several more
+bake-and-look iterations.
+
+**The third was merely a bug.** The cubemap was `UnsignedByteType` in a *linear* render
+target at `uBrightness 0.14`. Peak linear output was about 0.2 and typical values 0.02–0.08,
+so the entire nebula occupied roughly 40 of 255 code values and the dust colour's weakest
+channel about 5. Channels quantise independently; that is where the muddy brown came from.
+Worth noting because it was free to fix — bake at 1.0 and scale on sample — and nobody
+noticed it, because the noise defects were loud enough to hide it.
+
+### What the photograph cost, which was less than the estimate
+
+The plan budgeted 400–700 KB for a 4096 × 2048 WebP. The un-filtered image is **1.5 MB**:
+point stars are high-entropy and dominate the compressed size.
+
+**Median-filtering the stars out took it to 113 KB**, and that was independently the right
+call rather than a compression trick. The scene draws its own star field on a nearer shell,
+where the stars parallax against the sky and twinkle; photographed stars are static and would
+have read as a contradictory second set. The photograph's job is diffuse gas, the shell's job
+is sparkle. The median also removed the original's satellite trails and stitching specks.
+
+Window size is a trade: 3 leaves bright stars as smudges, 9 softens the dust lanes near the
+core. 5 was chosen by looking at it in the scene.
+
+### The seam, and how nearly it was mismeasured
+
+The first render had a hard straight diagonal line across the sky. A great circle projects to
+a straight line under a perspective camera, which is what made it read as a ruled artifact
+rather than as variation in the gas — and which identified it as the panorama's wrap meridian.
+
+The original is a stitched mosaic whose two vertical edges do not match. **Measure it signed.**
+`mean(px(0) − px(W−1))` was 0.40/255 against 0.03 between interior columns. The mean
+*absolute* difference is 1.7 both before and after the fix, because at that scale it measures
+per-pixel noise rather than the step — it reports the seam as still present once it is gone,
+and would have sent the next person looking in the wrong place. 0.40/255 against a sky
+background near 12/255 is a 3% step, which the sRGB toe expands into something obvious.
+
+`levelSeam()` closes it to 0.011 by spreading the mismatch across the full width as a
+per-row ramp. Cross-fading the edges was the alternative and is worse: it destroys real sky
+over the blend width and leaves the two halves at different levels either side of it, which
+is the same step spread over more pixels.
+
+Mipmaps stay off, now for two reasons rather than one. The magnification argument is
+unchanged, and `atan`'s branch cut sends the derivative to infinity on the wrap column, so a
+mipmapped sampler picks the smallest mip there and draws a second line for a different
+reason.
+
+### Bloom, and where it goes
+
+The pipeline had none, which is why nothing in the scene could look luminous rather than
+painted — a star was a bright matte dot regardless of its magnitude.
+
+`UnrealBloomPass` sits **between `RenderPass` and `AfterimagePass`**. Not after: bloom
+thresholds against absolute luminance, so behind the afterimage it would threshold a frame
+already faded toward the previous one, and the glow would pump as the warp blur ramped.
+Before it, the warp smears an already-bloomed frame, which is also the better look.
+
+It must be disposed explicitly. `EffectComposer.dispose()` does not iterate its passes, and
+this pass owns five mip render targets plus seven materials — by far the worst offender in
+the composer.
+
+Threshold is the parameter that matters. At 1.0 the pass was inert: the sky peaks below it
+and only the Earth's sun glint crossed. 0.62 catches star cores and the galactic core without
+hazing the day side; below about 0.5 the day side goes.
+
+Once bloom existed, `maxSize` widened 3.4 → 4.2 — not for bigger dots, but because a star
+above the threshold gains a halo, and the top of that range is what separates a few stars
+that read as *light* from a field that reads as speckle. **`twinkleSizeMin` had to move with
+it**, 2.2 → 2.6: it is an absolute pixel size, and widening the range while leaving it put
+27.8% of the sky above it, past the harness's 25% ceiling.
+
+### Attribution is not optional
+
+The image is CC BY 4.0. ESO's policy requires the credit be "presented in a clear and readable
+manner to all users, with the wording unaltered" and not hidden. It reads **ESO/S. Brunier**,
+in the audit panel — the only persistent text surface the site has. `CREDITS.md` records the
+terms and points at that location; if a real footer ever appears, the credit moves there and
+the pointer updates.
+
+NASA's Deep Star Maps would have been public domain and avoided this entirely. They ship only
+as OpenEXR at the resolutions with a galactic-coordinate variant, and nothing in the toolchain
+decodes EXR — sharp does not support it. That is the whole reason ESO won.
+
+### What this round confirms about the last one
+
+`PROJECT_MEMORY.md` §10 says numbers prove the mechanism and only a picture judges the result.
+That held again, in a sharper form: the previous round *did* look at a picture, and still
+shipped this, because it read the cracked marble as a tuning error rather than as a property
+of the noise basis. Looking is necessary and not sufficient. When a procedural look resists a
+full round of tuning, the question to ask is not which constant is wrong but which structural
+property of the generator you are fighting — and whether the texture should come from
+somewhere else.
+
+Screenshot: `img/sky-panorama-backdrop.png`, against `img/galaxy-backdrop.png` for the before.
+
+---
+
+## 2026-08-13 — The sky is AVIF, because WebP was drawing squares
+
+A follow-up to *The galaxy becomes a photograph*, the same day. The photographic sky was
+right, but it was reported as looking "like a bad-resolution image where you can see the
+pixels, big squares". That reading was accurate and the cause was not resolution.
+
+### The squares were compression blocking, and the measurement that finds it
+
+WebP quantises smooth dark gradients into flat macroblocks. The sky is mostly smooth dark
+gradient, and it is magnified on screen — 1.76× at DPR 1 and **3.52× at DPR 2**, because R3F
+defaults `dpr = [1, 2]` and nothing here overrode it. A 16-px block becomes a 28-px square, or
+a 56-px one on a retina display. Every screenshot taken while building this was at DPR 1,
+which is the *flattering* case; that is how it shipped.
+
+Measure it as the ratio of mean |horizontal step| ACROSS 16-px block boundaries to mean |step|
+WITHIN blocks, restricted to dark pixels. Lossless scores 1.00.
+
+| encoding | block ratio | KB |
+|---|---|---|
+| PNG lossless | 1.004 | 5018 |
+| **WebP q82 — what shipped** | **2.147** | 108 |
+| WebP q90 | 1.679 | 218 |
+| WebP q96 | 1.600 | 440 |
+| **AVIF q60 @6144** | **1.171** | 240 |
+| AVIF q70 @6144 | 1.335 | 446 |
+| AVIF q80 @6144 | 1.246 | 682 |
+
+Two results in that table are worth more than the decision they produced.
+
+**WebP cannot be fixed by turning quality up.** q96 is still at 1.600 and costs four times the
+bytes. If the artifact is blocking rather than detail loss, the quality dial is the wrong dial.
+
+**AVIF is not monotonic in quality.** q70 and q80 both block *worse* than q60, because rate
+control chooses different tiling at different targets. Anyone who "improves" this by raising
+`AVIF_QUALITY` without re-running the harness will make it blockier and larger at once. The
+measurement lives in `scripts/prepare-sky-panorama.mjs` and prints on every run for that
+reason.
+
+WebP is still emitted as a fallback and reached by letting the AVIF fail to decode, rather than
+by a 1×1 data-URI support probe — a pasted base64 blob that silently rots would serve everyone
+the blocky fallback with nothing to notice.
+
+### Resolution was the secondary factor, and the source is the ceiling
+
+6144 wide, up from 4096, which drops magnification to 1.17× at DPR 1 and 2.34× at DPR 2.
+
+The honest figure: measured at *dust-lane* scale with point stars excluded from the metric, the
+old 4096 file already retained 86% of the source's gas detail. The win from 6144 is not detail,
+it is that every artifact is magnified less. Beware the naive metric here — a plain Laplacian
+says median-3 retains 3× more "detail" than median-5, but almost all of that is the point stars
+being deliberately removed, and following it produces a 1.7 MB file that looks worse.
+
+6144 is the ceiling the SOURCE allows. ESO's public download is 6000 × 3000 = 16.7 px/deg; the
+800-megapixel original is not downloadable and requires a request to Serge Brunier. Mellinger's
+higher-resolution panorama needs a paid commercial licence. Recorded so nobody re-investigates.
+
+VRAM goes 33.5 → 75.5 MB, which is proportionate to the Earth's ~134 MB on desktop and is not
+proportionate on a phone — hence a 3072-wide pair, selected at 767 px to match the breakpoint
+in `styles.css` and the `media` on the preloads.
+
+### Dither, and depth
+
+A hash dither of ±0.5/255 in `shell.frag.glsl` removes what survives — both the residual AVIF
+structure (1.171 against a lossless 1.004) and the composer's own 8-bit output quantisation. It
+has to be in the shader: baked into the texture it would be exactly the high-entropy detail the
+encoder spends its bits on, and then quantises away.
+
+"Further from the Earth" turned out to mean depth rather than composition, so the band did not
+move. `skyContrast`, a gamma applied before the brightness multiply, deepens the darks while
+leaving the band's core in place; brightness alone pushes the sky back but flattens it toward
+an even grey. 0.22 · 1.25 is the shipped pair, both sliders.
+
+### The bug in the tooling, which shipped for one build
+
+`sharp(encodedBuffer).toFile(path)` **decodes and re-encodes at sharp's default quality.** The
+script encoded to a buffer at q60, measured that buffer, printed 240 KB — and then wrote a
+153 KB default-quality re-encode to disk. The numbers in the log had nothing to do with the
+file being served. Encoded buffers go to `fs.writeFile`. Caught only by noticing that `dist`
+disagreed with the script's own output, which is an argument for always printing what you
+wrote rather than what you made.
+
+### And the other squares, which were a different bug entirely
+
+Adding bloom exposed a second one. The warp tunnel ran on a `PointsMaterial` with no `map`, and
+a bare `gl_Points` sprite is a **square** — nothing but the fragment shader makes it round. At
+1–2 px nobody had noticed; a bloom halo on each one made them plain. The resting backdrop was
+already round, because `starShader` had always computed a radial falloff.
+
+Both now share `src/space/pointSprite.ts`, so the two star fields cannot drift into different
+shapes. Swapping the warp tunnel to a raw `ShaderMaterial` meant rebuilding three's size
+attenuation by hand — three supplies `size` and `scale` uniforms to its own points shader and to
+nothing else — and the CSS-versus-device height distinction in that formula is the kind of thing
+that looks right on the machine you develop on and wrong on every other.
+
+Before and after at 3.2× gain: `img/sky-blocking-before-after.png`. Current state:
+`img/sky-panorama-backdrop.png`.

@@ -66,9 +66,10 @@ export const WARP_TRANSITION = {
    *
    * The real invariant is a footprint, not a distance: NO WARP POSE MAY REACH
    * FURTHER ACROSS THE GROUND THAN THE RESTING POSE DOES. The terrain skirt is
-   * 600 units wide because that is what a camera at 165/30deg needs at every
-   * azimuth on a 5120x1440 viewport, with only +50 units to spare (16:9 has
-   * +229, portrait +306). Anything that reaches further puts the plate edge on
+   * 700 units wide (murciaConfig.terrainTransition.width — read it there, never
+   * from here): 600 was what a camera at 165/30deg needs at every azimuth on a
+   * 5120x1440 viewport with only +50 units to spare, and the last 100 pays for
+   * the zoom band. Anything that reaches further puts the plate edge on
    * screen for ultrawide viewers only, silently, with nothing wrong on the
    * machine the change was made on. PROJECT_MEMORY, "The number that can hurt
    * you", records exactly that: going 110 -> 165 silently put the plate edge on

@@ -37,18 +37,10 @@ const ASPECT = WIDTH / HEIGHT;
 const plate: BoundsRect = { ...env.contentBounds };
 const bounds = expandRect(plate, -nav.boundsInset);
 
-let failures = 0;
-let checks = 0;
+import { check as rawCheck, close, finish } from './lib/assert';
+import { createStubElement } from './lib/stubDom';
 
-function check(label: string, ok: boolean, detail: string): void {
-  checks += 1;
-  if (!ok) failures += 1;
-  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label.padEnd(54)} ${detail}`);
-}
-
-function close(a: number, b: number, tol: number): boolean {
-  return Math.abs(a - b) <= tol;
-}
+const check = (label: string, ok: boolean, detail: string) => rawCheck(label, ok, detail, 54);
 
 // --- Stub DOM ----------------------------------------------------------------
 
@@ -69,27 +61,8 @@ function makeHarness(
   focusAt = env.initialFocus,
   limits: BoundsRect = bounds,
 ): Harness {
-  const listeners = new Map<string, Array<(e: unknown) => void>>();
-  const element = {
-    style: {} as Record<string, string>,
-    addEventListener(type: string, fn: (e: unknown) => void) {
-      const list = listeners.get(type) ?? [];
-      list.push(fn);
-      listeners.set(type, list);
-    },
-    removeEventListener(type: string, fn: (e: unknown) => void) {
-      const list = listeners.get(type) ?? [];
-      listeners.set(type, list.filter((f) => f !== fn));
-    },
-    setPointerCapture() {},
-    releasePointerCapture() {},
-    hasPointerCapture() {
-      return true;
-    },
-    getBoundingClientRect() {
-      return { left: 0, top: 0, width: WIDTH, height: HEIGHT, right: WIDTH, bottom: HEIGHT };
-    },
-  } as unknown as HTMLElement;
+  const stub = createStubElement({ left: 0, top: 0, width: WIDTH, height: HEIGHT });
+  const element = stub.element;
 
   const pose = resolveCameraPose(env, ASPECT);
   const camera = new THREE.PerspectiveCamera(pose.fov, ASPECT, pose.near, pose.far);
@@ -110,9 +83,7 @@ function makeHarness(
       return limits;
     },
   });
-  harness.fire = (type, event) => {
-    for (const fn of listeners.get(type) ?? []) fn(event);
-  };
+  harness.fire = stub.fire;
   harness.frame = (dt) => {
     harness.flight.update(dt);
     harness.controller.update(dt);
@@ -515,6 +486,89 @@ console.log('\n7. Framing puts the district in the unobstructed region');
       close(live.rig.focus.z, focusBefore.z, 1e-12),
     'yaw and focus unchanged — a detached rig did the measurement',
   );
+
+  // Framing has to be computed against the pose the user is actually looking
+  // through, which since the zoom band means rig.getEffectivePose() and NOT
+  // rig.getPose(). Fed the configured distance while the user is zoomed, the
+  // detached rig frames for a camera that does not exist and the district lands
+  // off its mark — silently, and only for someone who touched the wheel.
+  for (const scale of [nav.zoom.minDistanceScale, nav.zoom.maxDistanceScale]) {
+    const zoomed = makeHarness();
+    zoomed.rig.setZoomScale(scale);
+
+    const ndc = { x: -0.26, y: 0.1 };
+    const framed = computeFramedFocus({
+      pose: zoomed.rig.getEffectivePose(),
+      aspect: ASPECT,
+      yawDegrees: 0,
+      groundPlaneHeight: nav.groundPlaneHeight,
+      target,
+      ndc,
+    });
+
+    const camera = new THREE.PerspectiveCamera();
+    const rig = new CameraRig(camera, env.camera);
+    rig.setZoomScale(scale);
+    rig.setAspect(ASPECT);
+    rig.setFocus(framed!.x, framed!.z);
+    camera.updateMatrixWorld(true);
+    const projected = new THREE.Vector3(target.x, nav.groundPlaneHeight, target.z).project(camera);
+
+    check(
+      `framing holds at zoom scale ${scale}`,
+      close(projected.x, ndc.x, 1e-4) && close(projected.y, ndc.y, 1e-4),
+      `wanted (${ndc.x.toFixed(3)}, ${ndc.y.toFixed(3)}) got (${projected.x.toFixed(3)}, ${projected.y.toFixed(3)})`,
+    );
+
+    // And the same computation fed the UNZOOMED pose must visibly miss. Without
+    // this the check above would still pass if getEffectivePose were quietly
+    // replaced by getPose — it asserts that the distinction does work.
+    const naive = computeFramedFocus({
+      pose: zoomed.rig.getPose(),
+      aspect: ASPECT,
+      yawDegrees: 0,
+      groundPlaneHeight: nav.groundPlaneHeight,
+      target,
+      ndc,
+    });
+    rig.setFocus(naive!.x, naive!.z);
+    camera.updateMatrixWorld(true);
+    const naiveProjected = new THREE.Vector3(target.x, nav.groundPlaneHeight, target.z).project(camera);
+    check(
+      `and the configured pose visibly misses at scale ${scale}`,
+      !close(naiveProjected.x, ndc.x, 1e-3) || !close(naiveProjected.y, ndc.y, 1e-3),
+      `off by (${(naiveProjected.x - ndc.x).toFixed(3)}, ${(naiveProjected.y - ndc.y).toFixed(3)}) ndc — which is the bug getEffectivePose exists to avoid`,
+    );
+  }
+}
+
+// --- 7b. Zoom survives the handover ------------------------------------------
+
+console.log('\n7b. A flight leaves the user\'s zoom where it found it');
+{
+  const h = makeHarness();
+  h.rig.setZoomScale(0.8);
+  h.controller.endExternalControl({ adoptRigState: true });
+  h.controller.update(1 / 60);
+
+  h.controller.beginExternalControl();
+  // A flight writes focus and yaw only; it has no business touching distance.
+  h.rig.setFocus(-300, 200);
+  h.rig.setYaw(35);
+  h.controller.endExternalControl({ adoptRigState: true });
+  for (let i = 0; i < 120; i += 1) h.controller.update(1 / 60);
+
+  check(
+    'the zoom is unchanged across a flight and the frames after it',
+    close(h.rig.getZoomScale(), 0.8, 1e-9),
+    `scale ${h.rig.getZoomScale().toFixed(6)} — a stale zoom target here would snap the distance ` +
+      'on the first frame back',
+  );
+  check(
+    'and the controller is not still settling toward a stale target',
+    !h.controller.isSettling,
+    'a residual would leave isSettling true for the rest of the session',
+  );
 }
 
 // --- 8. Resolver -------------------------------------------------------------
@@ -704,11 +758,4 @@ console.log('\n9. Material cloning preserves identity and restores originals');
 
 // --- Summary -----------------------------------------------------------------
 
-console.log('\n' + '='.repeat(70));
-console.log(`${checks - failures}/${checks} checks passed${failures ? `  *** ${failures} FAILED ***` : ''}`);
-
-// Declared rather than pulled in via @types/node: this is the only Node API the
-// harness touches, and a non-zero exit is what makes `npm run check:district`
-// able to fail rather than merely print that it did.
-declare const process: { exitCode?: number } | undefined;
-if (failures > 0 && typeof process !== 'undefined') process.exitCode = 1;
+finish();

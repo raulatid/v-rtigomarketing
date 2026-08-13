@@ -14,7 +14,7 @@ import type { DrawConfig } from './intro-draw/drawConfig'
 // A VALUE import, unlike the type-only one above, and safe for the same reason
 // that one is not: the boot entry never reaches this module. It is here so the
 // band defaults have one source of truth shared with the star distribution and
-// the nebula shader. The build's chunk assertion is what actually guards this.
+// the sky shell. The build's chunk assertion is what actually guards this.
 import { GALAXY_BAND } from './space/galaxyBand'
 
 export interface IntroConfig extends DrawConfig {
@@ -73,15 +73,41 @@ export interface IntroConfig extends DrawConfig {
   // above SPACE_CONFIG.star.twinkleSizeMin scintillate.
   backdropTwinkle: number
 
-  // ── The galaxy behind the star shell ──
-  // Baked once into a cubemap during P0. Changing any of these re-bakes, which
-  // is why NebulaShell debounces them.
-  nebulaBrightness: number
-  nebulaDustDensity: number
+  // ── The sky behind the star shell ──
+  // A photographic Milky Way panorama, downloaded during P0. These are all
+  // sampling parameters — none of them touches the texture, so they are plain
+  // uniform writes and cost nothing to drag.
+  //
+  // Exposure. The panorama is a long-exposure photograph and arrives far
+  // brighter than a backdrop should be beside a lit planet.
+  skyBrightness: number
+  // Gamma on the sampled sky, applied before the brightness multiply. Above 1
+  // deepens the darks without moving the band's core, which is what makes the
+  // sky read as DISTANT rather than merely dim — dimming alone flattens it
+  // toward an even grey. This and skyBrightness are the depth pair.
+  skyContrast: number
   // Shared with the star distribution, so the stars and the gas cannot
-  // disagree about where the galaxy is.
-  nebulaBandWidth: number
-  nebulaBandTilt: number
+  // disagree about where the galaxy is. skyBandWidth is the star field's alone
+  // — the photograph has whatever width it was photographed with — but it is
+  // kept here because both still have to name the same plane.
+  skyBandWidth: number
+  skyBandTilt: number
+  // Rotation about the galactic pole: which stretch of the Milky Way sits
+  // behind the Earth. Compositional only; the star field is invariant under it.
+  skyBandYaw: number
+
+  // ── Bloom ──
+  // The one post-process the scene has beyond the warp's motion blur. Without
+  // it nothing in the frame can look luminous rather than painted — a star is
+  // just a bright matte dot. Threshold is the parameter that matters: too low
+  // and the Earth's day side hazes over, and the sun glint on the ocean is
+  // already at the top of the range before bloom sees it.
+  //
+  // strength 0 disables the pass outright rather than merely rendering nothing,
+  // so it is also the performance escape hatch.
+  bloomStrength: number
+  bloomRadius: number
+  bloomThreshold: number
 
   // ── P5 orbits ──
   // Extra delay after the logo departs centre before the orbit reveal starts.
@@ -121,16 +147,21 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   cornerMarginX: 48,
   cornerMarginY: 48,
 
-  backdropStarCount: 2600,
+  backdropStarCount: 3500,
   backdropRadius: 180,
   backdropJitter: 0.15,
   backdropClusterStrength: 0.6,
   backdropTwinkle: 0.15,
 
-  nebulaBrightness: 0.14,
-  nebulaDustDensity: 0.55,
-  nebulaBandWidth: GALAXY_BAND.defaultWidth,
-  nebulaBandTilt: GALAXY_BAND.defaultTilt,
+  skyBrightness: 0.22,
+  skyContrast: 1.25,
+  skyBandWidth: GALAXY_BAND.defaultWidth,
+  skyBandTilt: GALAXY_BAND.defaultTilt,
+  skyBandYaw: GALAXY_BAND.defaultYaw,
+
+  bloomStrength: 0.55,
+  bloomRadius: 0.5,
+  bloomThreshold: 0.62,
 
   orbitsStartOffset: 0,
 }

@@ -33,7 +33,12 @@ export const SPACE_CONFIG = {
     // tiers at 70/25/5% was the previous approximation.
     magnitudeExponent: 2.6,
     minSize: 0.7,
-    maxSize: 3.4,
+    // Widened from 3.4 once bloom existed. The point is not bigger dots: a star
+    // above the bloom threshold gains a halo, so the top of this range is what
+    // separates a few stars that read as LIGHT from a field that reads as
+    // speckle. Below the threshold the extra size is just a fatter matte dot,
+    // which is what the old ceiling bought.
+    maxSize: 4.2,
     // Per-star brightness multiplier applied to its ramp colour, lerped across
     // the magnitude range. Replaces the old per-tier `opacity`.
     minBrightness: 0.35,
@@ -41,7 +46,14 @@ export const SPACE_CONFIG = {
 
     // Only stars at least this large scintillate. Faint stars do not visibly
     // twinkle in reality, and at 1px they would just flicker.
-    twinkleSizeMin: 2.2,
+    //
+    // MOVES WITH maxSize, and that coupling is not optional. This is an
+    // absolute pixel size against a range whose top end changed, so widening
+    // maxSize to 4.2 while leaving this at 2.2 puts 27.8% of the sky above it —
+    // past the 25% ceiling `checks/space-backdrop.ts` section 6 enforces, on
+    // the grounds that a sky with too many scintillating stars boils. 2.6
+    // restores it to 20.9%.
+    twinkleSizeMin: 2.6,
 
     // Stellar temperature ramp, sampled by a per-star random value. Kept low
     // in saturation on purpose: this is variation, not confetti.
@@ -53,21 +65,61 @@ export const SPACE_CONFIG = {
     ],
   },
 
-  nebula: {
-    // Per cube face. At this size the cubemap is MAGNIFIED on screen, never
-    // minified — 1024px covers a 90 degree face (11 px/deg) against a viewport
-    // showing ~45 degrees over ~1080px (24 px/deg) — so mipmaps are dead
-    // weight and are deliberately not generated. RGBA8, six faces, no mips:
-    // exactly 25.2 MB of VRAM.
-    faceSize: 1024,
+  sky: {
+    // The photographic panorama, equirectangular in GALACTIC coordinates: the
+    // galactic plane lies exactly on the horizontal centreline and the galactic
+    // centre at u = 0.5. `shell.frag.glsl` and `skyOrientation()` both depend on
+    // that framing — a celestial/equatorial panorama puts the plane on a
+    // sinusoid instead and would need a further fixed rotation.
+    //
+    // Point stars were filtered out of it before it shipped. The star shell
+    // draws its own, nearer, where they parallax against this and twinkle;
+    // photographed stars would be a second static set contradicting them.
+    // See CREDITS.md and scripts/prepare-sky-panorama.mjs.
+    //
+    // Four files, of which exactly one is ever fetched. AVIF first because WebP
+    // BLOCKS: it quantises smooth dark gradients into flat macroblocks at every
+    // quality setting, and magnification turns 16-px blocks into 28-px squares
+    // on screen at DPR 1 and 56 at DPR 2. That is what "you can see the pixels"
+    // was. AVIF q60 measures 1.17 on the block-ratio harness in the prepare
+    // script against WebP's 1.52, at 240 KB versus 401 KB.
+    //
+    // WebP is the fallback for browsers without AVIF, reached by attempting the
+    // AVIF and letting it fail to decode — see `loadFirstAvailable` in
+    // SkyShell. A data-URI support probe was the alternative and is worse: it
+    // hinges on a hand-pasted base64 blob that, if it ever rots, silently
+    // serves everyone the blocky fallback with nothing to notice.
+    wide: {
+      avif: '/textures/sky-panorama.avif',
+      webp: '/textures/sky-panorama.webp',
+    },
+    // Half width, an eighth of the VRAM. Phones have small viewports, so the
+    // resolution buys them nothing, and 75.5 MB for a backdrop is not something
+    // to hand a phone.
+    narrow: {
+      avif: '/textures/sky-panorama-narrow.avif',
+      webp: '/textures/sky-panorama-narrow.webp',
+    },
+    // Matches the mobile breakpoint in styles.css and the `media` on the
+    // preloads in index.html. All three must agree or the preload fetches one
+    // file and the loader asks for the other.
+    narrowMaxWidth: 767,
+
+    // 6144x2048 spans 360 degrees at 17.1 px/deg, against a viewport showing
+    // ~45 degrees over ~900px (20 px/deg) — so the sky is still MAGNIFIED,
+    // never minified, and mipmaps are dead weight. Leaving them off also
+    // removes the equirect seam: the u wrap at atan's branch cut makes the
+    // derivative blow up there, which with mips selects the smallest one and
+    // draws a visible vertical line down the sky. RGBA8, no mips: 75.5 MB wide,
+    // 18.9 MB narrow.
+    //
+    // 6144 is the ceiling the SOURCE allows — ESO's public original is
+    // 6000x3000 = 16.7 px/deg — not a ceiling chosen for weight. Going wider is
+    // empty upscaling.
+    generateMipmaps: false,
+
     // The display sphere's radius. Far outside the star shell's slider ceiling
     // (400) and well inside the camera's far plane (5000).
     shellRadius: 1000,
-
-    coreColor: 0x9ec6ff,
-    dustColor: 0xd8a273,
-    hydrogenColor: 0xc65a9c,
-    // Offsets the noise fields so the three structures do not share features.
-    seed: 137.24,
   },
 } as const

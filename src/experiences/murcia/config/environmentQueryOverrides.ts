@@ -15,6 +15,14 @@
  * in murciaConfig.ts with the reasoning written down.
  *
  *   ?dragGain=0.4  ?yawDeg=100  ?smooth=0.12  ?release=0.1  ?inertia=0.6
+ *   ?yawSmooth=0.05  ?zoomMin=0.6  ?zoomMax=1.3  ?wheelZoom=0.002  ?zoomSmooth=0.2
+ *
+ * `?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL, which is
+ * the comparison most likely to be wanted while reviewing it.
+ *
+ * `?zoomMax=` is not like the others: it is the one parameter whose safe value
+ * was measured rather than judged, so exceeding it is warned about explicitly.
+ * See the note where that warning is raised.
  */
 import type { EnvironmentConfig, DragFeelConfig } from './environmentConfig';
 
@@ -44,22 +52,65 @@ export function applyNavigationQueryOverrides(
   const smoothing = readNumber(params, 'smooth', (v) => v >= 0);
   const release = readNumber(params, 'release', (v) => v >= 0);
   const inertia = readNumber(params, 'inertia', (v) => v >= 0);
+  // Separate from ?smooth= on purpose — see overrideFeel below.
+  const yawSmoothing = readNumber(params, 'yawSmooth', (v) => v >= 0);
+
+  const wheelZoom = readNumber(params, 'wheelZoom', (v) => v > 0);
+  const zoomSmoothing = readNumber(params, 'zoomSmooth', (v) => v >= 0);
+  let zoomMin = readNumber(params, 'zoomMin', (v) => v > 0);
+  let zoomMax = readNumber(params, 'zoomMax', (v) => v > 0);
+
+  // An inverted band would clamp every scale to a single unreachable value and
+  // leave zoom silently dead, which is worse than ignoring the parameters.
+  const resolvedMin = zoomMin ?? env.navigation.zoom.minDistanceScale;
+  const resolvedMax = zoomMax ?? env.navigation.zoom.maxDistanceScale;
+  if (resolvedMin > resolvedMax) {
+    console.warn(
+      `[navigation] ignoring ?zoomMin=${resolvedMin} / ?zoomMax=${resolvedMax} — min exceeds max`,
+    );
+    zoomMin = null;
+    zoomMax = null;
+  }
+
+  // This one gets a warning of its own, because it is the only parameter here
+  // whose shipped value is a MEASUREMENT rather than a judgement. Past it the
+  // viewport's ground footprint outgrows the terrain skirt and the hard plate
+  // edge enters frame — on wide viewports first, so the person raising it is
+  // unlikely to see the failure they caused.
+  if (zoomMax !== null && zoomMax > env.navigation.zoom.maxDistanceScale) {
+    console.warn(
+      `[navigation] ?zoomMax=${zoomMax} exceeds ${env.navigation.zoom.maxDistanceScale}, the ` +
+        'value checks/navigation-zoom.ts proved footprint-safe. Beyond it the plate edge can ' +
+        'enter frame on wide viewports. Fine for comparing feel; not a value to settle on ' +
+        'without re-running that check.',
+    );
+  }
 
   if (
     dragGain === null &&
     yawDegrees === null &&
     smoothing === null &&
     release === null &&
-    inertia === null
+    inertia === null &&
+    yawSmoothing === null &&
+    wheelZoom === null &&
+    zoomSmoothing === null &&
+    zoomMin === null &&
+    zoomMax === null
   ) {
     return env;
   }
 
-  // The two axes are deliberately kept matched, as in murciaConfig: one gesture
-  // carries both, so a difference in weight between them reads as a fault.
-  const overrideFeel = (feel: DragFeelConfig): DragFeelConfig => ({
+  // `?smooth=` hits TRANSLATION ONLY. It used to apply to both axes, on the
+  // premise that one gesture carried both so a difference in weight between
+  // them would read as a fault. That premise died with the gesture split: pan
+  // and rotation are now separate inputs with separate feels, and translation's
+  // constant is coupled to translationGain in a way rotation's is not. Applying
+  // one value to both would silently retune rotation every time someone A/Bs
+  // the pan. `?yawSmooth=` is the rotation equivalent.
+  const overrideFeel = (feel: DragFeelConfig, smooth: number | null): DragFeelConfig => ({
     ...feel,
-    smoothingTimeConstant: smoothing ?? feel.smoothingTimeConstant,
+    smoothingTimeConstant: smooth ?? feel.smoothingTimeConstant,
     releaseTimeConstant: release ?? feel.releaseTimeConstant,
     inertiaTimeConstant: inertia ?? feel.inertiaTimeConstant,
   });
@@ -69,12 +120,20 @@ export function applyNavigationQueryOverrides(
     navigation: {
       ...env.navigation,
       translationGain: dragGain ?? env.navigation.translationGain,
-      feel: overrideFeel(env.navigation.feel),
+      feel: overrideFeel(env.navigation.feel, smoothing),
       rotation: {
         ...env.navigation.rotation,
         degreesPerViewportWidth:
           yawDegrees ?? env.navigation.rotation.degreesPerViewportWidth,
-        feel: overrideFeel(env.navigation.rotation.feel),
+        feel: overrideFeel(env.navigation.rotation.feel, yawSmoothing),
+      },
+      zoom: {
+        ...env.navigation.zoom,
+        minDistanceScale: zoomMin ?? env.navigation.zoom.minDistanceScale,
+        maxDistanceScale: zoomMax ?? env.navigation.zoom.maxDistanceScale,
+        wheelSensitivity: wheelZoom ?? env.navigation.zoom.wheelSensitivity,
+        smoothingTimeConstant:
+          zoomSmoothing ?? env.navigation.zoom.smoothingTimeConstant,
       },
     },
   };
@@ -87,6 +146,8 @@ export function applyNavigationQueryOverrides(
       smoothingTimeConstant: next.navigation.feel.smoothingTimeConstant,
       releaseTimeConstant: next.navigation.feel.releaseTimeConstant,
       inertiaTimeConstant: next.navigation.feel.inertiaTimeConstant,
+      yawSmoothingTimeConstant: next.navigation.rotation.feel.smoothingTimeConstant,
+      zoom: next.navigation.zoom,
     },
   );
 

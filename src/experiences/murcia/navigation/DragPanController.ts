@@ -13,6 +13,12 @@ export interface DragPanEvents {
    */
   onYawChanged?: () => void;
   /**
+   * Fired whenever the rendered zoom changes, for exactly the same reason as
+   * `onYawChanged`: distance sets the ground footprint just as directly as
+   * azimuth does, so zooming out shrinks the area the focus may occupy.
+   */
+  onZoomChanged?: () => void;
+  /**
    * Fired when the gesture crosses the drag threshold, and again when it ends —
    * including the ends that are not a pointerup, such as a handover to a
    * district flight. Mirrors `isDragging`.
@@ -25,6 +31,18 @@ const MAX_FRAME_DELTA = 0.1;
 
 /** Below this the yaw is treated as settled, in degrees. */
 const YAW_EPSILON = 1e-3;
+
+/** Below this the zoom scale is treated as settled. Unitless, a ratio. */
+const ZOOM_EPSILON = 1e-5;
+
+/**
+ * Per-event wheel delta cap, in normalized pixels.
+ *
+ * macOS momentum scrolling can deliver a single event carrying hundreds of
+ * pixels at the head of a flick. Uncapped, one flick crosses the whole zoom
+ * band and the gesture has no interior to aim in.
+ */
+const MAX_WHEEL_DELTA = 120;
 
 /**
  * How long the pointer may sit still before its recorded velocity starts to
@@ -39,51 +57,96 @@ const YAW_EPSILON = 1e-3;
 const POINTER_STILL_GRACE = 0.05;
 const POINTER_STILL_DECAY = 0.05;
 
+/** What the current pointer sequence is doing. See the class comment. */
+type GestureMode = 'idle' | 'pan' | 'rotate' | 'twoPointer';
+
+/** A pointer we are tracking, with the position its last delta was taken from. */
+interface TrackedPointer {
+  id: number;
+  x: number;
+  y: number;
+}
+
 /**
- * Drag navigation with weight: one gesture, both axes, no modifiers.
+ * Map-style navigation: drag the ground, turn deliberately, zoom a little.
  *
- *   drag up/down      → move forward / backward along the view direction
- *   drag left/right   → rotate the rig horizontally about the focus
- *   left or right button, or one finger — all identical
- *   everything else   → ignored
+ *   left button / one finger    pan the ground under the cursor, both axes
+ *   right button / two fingers  rotate the rig horizontally about the focus
+ *   wheel / pinch               dolly in and out within a bounded band
+ *   middle button               ignored
  *
- * No zoom, no vertical rotation, no keyboard, no wheel.
+ * No vertical rotation, no keyboard.
  *
- * ## Why the axes split this way
+ * ## Why the gestures split this way
  *
- * With no gizmo, no button and no modifier key, a single pointer has to carry
- * both translation and rotation, so each screen axis owns one. The cost is that
- * strafing is gone: there is no sideways pan. Free 360 degree yaw pays for it —
- * any point is reached by turning toward it and advancing, which is the "drag
- * the space" feel rather than "drag a map".
+ * This replaces a design in which one gesture carried both axes — drag up/down
+ * to advance, drag left/right to turn — chosen because with no gizmo, no button
+ * and no modifier a single pointer had to carry everything. It was coherent, and
+ * users reported it as wrong: they expected the ground to follow the cursor, and
+ * instead sideways drag spun the city. There was no strafe at all, and rotation
+ * fired constantly by accident, which is what made it read as twitchy.
+ *
+ * So pan now owns the whole primary gesture and rotation moved to a deliberate
+ * one. Rotation being deliberate is what pays for it being slower: it is entered
+ * on purpose, so it can afford to cost more travel, and it can no longer be
+ * triggered while you are trying to pan.
  *
  * ## Fidelity
  *
- * Forward motion is solved against the ground, not from pixels: the vertical
- * pointer movement is projected onto the navigation plane and its component
- * along the camera's forward vector is applied to the focus. The lateral
- * component is discarded — that axis belongs to rotation.
+ * Pan is solved against the ground, not from pixels: both ends of the pointer's
+ * movement are projected onto the navigation plane and the focus moves by the
+ * negated difference, so the grabbed point stays under the cursor. Solving
+ * against the ground is what keeps sensitivity consistent across the screen — a
+ * pixel near the horizon covers far more ground than one near the bottom edge,
+ * and a pixel-based mapping would ignore that.
  *
- * Solving against the ground is what keeps sensitivity consistent across the
- * screen: a pixel near the horizon covers far more ground than one near the
- * bottom edge, and a pixel-based mapping would ignore that. The result is then
- * scaled by `translationGain`, so the motion is proportional to the ground the
- * cursor crossed without being equal to it. At a gain of 1 the grabbed point
- * stays exactly under the pointer; below 1 it slides behind, which is the trade
- * made for weight.
+ * `translationGain` scales the result and ships at 1, which is the definition of
+ * grab-the-point. Below 1 the grabbed point slides behind the cursor; that was
+ * the previous setting and the complaint.
  *
- * Yaw is a straight pixels-to-degrees mapping, normalized by viewport width.
- * A turntable solve (yaw from the angle the grabbed ground point sweeps about
- * the focus) was considered and rejected: its radius varies by an order of
- * magnitude between the top and bottom of the screen at this elevation, so
- * sensitivity would depend on where the drag happened to start, which reads as
- * inconsistent rather than physical.
+ * Yaw is a straight pixels-to-degrees mapping, normalized by viewport width. A
+ * turntable solve (yaw from the angle the grabbed ground point sweeps about the
+ * focus) was considered and rejected: its radius varies by an order of magnitude
+ * between the top and bottom of the screen at this elevation, so sensitivity
+ * would depend on where the drag happened to start, which reads as inconsistent
+ * rather than physical.
+ *
+ * ## Why the pan solve is immune to smoothing lag
+ *
+ * The rendered focus trails its target — that is what the smoothing is — so it
+ * looks as though grab-the-point must be solved against a stale camera and drift
+ * a little further out of register with every move. It does not, and the reason
+ * is worth stating because the obvious reading says otherwise.
+ *
+ * The camera sits at a *rigid* offset from the focus: elevation is fixed, and
+ * distance and yaw are constant during a pan because they belong to other
+ * gestures now. So rendering at focus F instead of target T translates the whole
+ * ray field by T - F, and the ground hit of a given screen position translates
+ * by exactly the same vector. Both ends of the delta are projected against the
+ * *same* camera, so that offset appears in both and cancels in the subtraction.
+ * The delta is exact in target space however far behind the render is.
+ *
+ * The corollary is that per-move deltas telescope: dragging the cursor around
+ * any closed loop returns the target focus to its exact starting value,
+ * path-independently. Section 9 of checks/navigation-feel.ts asserts both.
+ *
+ * What the lag does cost is purely visual — the grabbed building sits behind the
+ * cursor by roughly `dragSpeed x smoothingTimeConstant` while you are moving.
+ * That is why the constant is short, and why the fix for it is the constant and
+ * not the solve.
+ *
+ * An absolute-anchor solve (remember the world point grabbed at pointerdown,
+ * re-place it under the cursor every move) is equally exact in the interior and
+ * was rejected for the edges: it goes dead against a wall, because the anchor
+ * keeps demanding a focus the clamp will not give, so pushing 200 units past an
+ * edge means 200 units of nothing happening on the way back. The incremental
+ * form loses only the over-travel and moves on the first pixel of the return.
  *
  * ## Weight
  *
- * Both axes run the same model, and the weight is in the drag rather than in a
- * coast: the input is geared down and the rendered value eases toward it, so the
- * view feels heavy while it is being moved and stops when the pointer stops.
+ * The weight is in the drag rather than in a coast: the rendered value eases
+ * toward the input, so the view feels like it has mass while it is being moved
+ * and stops when the pointer stops.
  *
  * Release momentum exists in the code and is switched off by configuration
  * (`inertiaTimeConstant: 0`). It was tried and rejected — motion continuing
@@ -91,9 +154,8 @@ const POINTER_STILL_DECAY = 0.05;
  * machinery is retained because it costs nothing while disabled and makes the
  * setting reversible from config alone. See DragFeelConfig.
  *
- * Everything is solved against the currently rendered camera each move, so the
- * lag introduced by smoothing never accumulates into drift, and a yaw applied
- * mid-gesture is accounted for on the next sample.
+ * Everything is solved against the currently rendered camera each move, so a
+ * yaw or a zoom applied mid-gesture is accounted for on the next sample.
  */
 export class DragPanController {
   private readonly domElement: HTMLElement;
@@ -115,6 +177,8 @@ export class DragPanController {
   private targetZ = 0;
   /** Where the yaw is heading, degrees, unbounded. */
   private targetYaw = 0;
+  /** Where the zoom is heading, as a multiple of the pose distance. */
+  private targetZoomScale = 1;
 
   /** World units per second, for release momentum. */
   private velocityX = 0;
@@ -124,6 +188,8 @@ export class DragPanController {
 
   /** Rendered yaw, eased toward targetYaw. Mirrors what the rig holds. */
   private currentYaw = 0;
+  /** Rendered zoom, eased toward targetZoomScale. Mirrors what the rig holds. */
+  private currentZoomScale = 1;
 
   private lastMoveTime = 0;
   private lastClientX = 0;
@@ -131,10 +197,22 @@ export class DragPanController {
   /** Seconds the pointer has been down without producing a move. */
   private stillTime = 0;
 
-  private activePointerId: number | null = null;
+  /**
+   * Pointers currently down, in the order they arrived, at most two.
+   *
+   * The array rather than a single id is what makes two-finger gestures and
+   * their transitions expressible; `pointers[0]` is the one a single-pointer
+   * gesture follows.
+   */
+  private readonly pointers: TrackedPointer[] = [];
+  private mode: GestureMode = 'idle';
   private pointerDownX = 0;
   private pointerDownY = 0;
   private exceededThreshold = false;
+
+  /** Two-pointer baselines. Resampled on every 1 <-> 2 transition. */
+  private lastCentroidX = 0;
+  private lastSeparation = 0;
 
   /** True while another system owns the rig. See beginExternalControl. */
   private externalControl = false;
@@ -159,6 +237,8 @@ export class DragPanController {
     this.targetZ = rig.focus.z;
     this.targetYaw = rig.getYaw();
     this.currentYaw = this.targetYaw;
+    this.targetZoomScale = rig.getZoomScale();
+    this.currentZoomScale = this.targetZoomScale;
 
     // OrbitControls used to set this for us. Without it, a single-finger drag
     // scrolls the page or triggers pull-to-refresh on mobile.
@@ -170,23 +250,32 @@ export class DragPanController {
     this.domElement.addEventListener('pointercancel', this.onPointerUp);
     this.domElement.addEventListener('wheel', this.onWheel, { passive: false });
     this.domElement.addEventListener('contextmenu', this.onContextMenu);
+    // Safari on macOS reports a trackpad pinch through these non-standard
+    // events INSTEAD of ctrl+wheel. Without suppressing them the whole page
+    // zooms while the camera does nothing.
+    this.domElement.addEventListener('gesturestart', this.onGesture);
+    this.domElement.addEventListener('gesturechange', this.onGesture);
+    this.domElement.addEventListener('gestureend', this.onGesture);
   }
 
   /**
    * True once the pointer has moved past the drag threshold in the current
    * sequence. Object-selection code reads this to decide whether a pointerup
    * should count as a click (docs/plans/002 Phase 3).
+   *
+   * True for a rotate and for a two-finger gesture as well as for a pan, which
+   * is what stops either of those ending in a district selection.
    */
   get isDragging(): boolean {
-    return this.activePointerId !== null && this.exceededThreshold;
+    return this.pointers.length > 0 && this.exceededThreshold;
   }
 
   /** True while a pointer sequence is in progress, dragging or not. */
   get isPointerActive(): boolean {
-    return this.activePointerId !== null;
+    return this.pointers.length > 0;
   }
 
-  /** True while the view is still settling or coasting, on either axis. */
+  /** True while the view is still settling or coasting, on any axis. */
   get isSettling(): boolean {
     const dx = this.targetX - this.rig.focus.x;
     const dz = this.targetZ - this.rig.focus.z;
@@ -194,7 +283,8 @@ export class DragPanController {
       Math.hypot(dx, dz) > 1e-3 ||
       Math.hypot(this.velocityX, this.velocityZ) > 0 ||
       Math.abs(this.targetYaw - this.currentYaw) > YAW_EPSILON ||
-      this.velocityYaw !== 0
+      this.velocityYaw !== 0 ||
+      Math.abs(this.targetZoomScale - this.currentZoomScale) > ZOOM_EPSILON
     );
   }
 
@@ -206,12 +296,13 @@ export class DragPanController {
   /**
    * Hands the rig to another system, such as a scripted camera flight.
    *
-   * **Gating pointer input is not enough.** `update()` writes `rig.setFocus` and
-   * `rig.setYaw` unconditionally whenever its stored targets differ from what the
-   * rig currently holds. If something else moved the rig, the very next frame
-   * would ease it straight back toward those stale targets — two systems writing
-   * the same state, fighting, every frame. So `update()` returns early while this
-   * is set, and nothing here touches the rig at all.
+   * **Gating pointer input is not enough.** `update()` writes `rig.setFocus`,
+   * `rig.setYaw` and `rig.setZoomScale` unconditionally whenever its stored
+   * targets differ from what the rig currently holds. If something else moved
+   * the rig, the very next frame would ease it straight back toward those stale
+   * targets — two systems writing the same state, fighting, every frame. So
+   * `update()` returns early while this is set, and nothing here touches the rig
+   * at all.
    *
    * Any in-flight gesture is dropped, and velocities are cleared so a coast
    * cannot survive across the handover.
@@ -219,7 +310,7 @@ export class DragPanController {
   beginExternalControl(): void {
     if (this.externalControl) return;
     this.externalControl = true;
-    this.releasePointer();
+    this.releaseAllPointers();
     this.velocityX = 0;
     this.velocityZ = 0;
     this.velocityYaw = 0;
@@ -228,10 +319,12 @@ export class DragPanController {
   /**
    * Takes the rig back.
    *
-   * `adoptRigState` reads the focus and yaw the other system actually left behind
-   * and makes them this controller's current *and* target state. Without it the
-   * first `update()` after resuming would ease the rig from wherever the flight
-   * ended back to wherever the user last dragged to — a snap, and a long one.
+   * `adoptRigState` reads the focus, yaw and zoom the other system actually left
+   * behind and makes them this controller's current *and* target state. Without
+   * it the first `update()` after resuming would ease the rig from wherever the
+   * flight ended back to wherever the user last dragged to — a snap, and a long
+   * one. Zoom is part of that: miss it and a flight followed by a wheel event
+   * jumps the distance back to whatever it was before.
    *
    * It is on by default because resuming without it is almost always a bug; the
    * option exists only for a caller that has already set the targets itself.
@@ -245,6 +338,8 @@ export class DragPanController {
       this.targetZ = this.rig.focus.z;
       this.targetYaw = this.rig.getYaw();
       this.currentYaw = this.targetYaw;
+      this.targetZoomScale = this.rig.getZoomScale();
+      this.currentZoomScale = this.targetZoomScale;
     }
 
     this.velocityX = 0;
@@ -258,8 +353,8 @@ export class DragPanController {
    *
    * Only the *target* is re-clamped; the rendered focus is left alone and the
    * existing smoothing draws it in. Bounds now change continuously as the rig
-   * yaws — the footprint is azimuth-dependent — so snapping the focus here
-   * would show up as a jerk on every frame of a rotation.
+   * yaws or zooms — the footprint depends on both — so snapping the focus here
+   * would show up as a jerk on every frame of a rotation or a dolly.
    */
   setBounds(bounds: BoundsRect): void {
     this.bounds = bounds;
@@ -268,7 +363,7 @@ export class DragPanController {
     this.targetZ = target.z;
   }
 
-  /** Advances smoothing and momentum on both axes. Call once per frame. */
+  /** Advances smoothing and momentum on every axis. Call once per frame. */
   update(deltaTime: number): void {
     // Exactly one system may write to the rig in a frame. While another owns it,
     // this must not run at all — not even the smoothing, which would otherwise
@@ -280,9 +375,11 @@ export class DragPanController {
 
     this.decayStalledVelocity(dt);
 
-    // Yaw first: it changes the viewport footprint, and the bounds that come
-    // back from that are what the translation below is clamped against.
+    // Yaw and zoom first, in either order, but both before translation: each
+    // changes the viewport footprint, and the bounds that come back from that
+    // are what the translation below is clamped against.
     this.updateYaw(dt);
+    this.updateZoom(dt);
     this.updateTranslation(dt);
   }
 
@@ -303,13 +400,16 @@ export class DragPanController {
   }
 
   dispose(): void {
-    this.releasePointer();
+    this.releaseAllPointers();
     this.domElement.removeEventListener('pointerdown', this.onPointerDown);
     this.domElement.removeEventListener('pointermove', this.onPointerMove);
     this.domElement.removeEventListener('pointerup', this.onPointerUp);
     this.domElement.removeEventListener('pointercancel', this.onPointerUp);
     this.domElement.removeEventListener('wheel', this.onWheel);
     this.domElement.removeEventListener('contextmenu', this.onContextMenu);
+    this.domElement.removeEventListener('gesturestart', this.onGesture);
+    this.domElement.removeEventListener('gesturechange', this.onGesture);
+    this.domElement.removeEventListener('gestureend', this.onGesture);
     this.domElement.style.touchAction = '';
   }
 
@@ -339,6 +439,33 @@ export class DragPanController {
     // Recomputes the footprint and calls back into setBounds. Ordering matters:
     // the translation step that follows must see the bounds for the new yaw.
     this.events.onYawChanged?.();
+  }
+
+  /**
+   * Eases the rendered zoom toward its target.
+   *
+   * Eased rather than applied on the spot because the wheel is a discrete input:
+   * the band is only a handful of notches wide, so an unsmoothed dolly is a
+   * visible staircase. There is no inertia branch — a zoom has no release to
+   * coast from, and a wheel gesture has no end to detect.
+   */
+  private updateZoom(dt: number): void {
+    const zoom = this.config.zoom;
+    if (!zoom.enabled) return;
+
+    const tau = zoom.smoothingTimeConstant;
+    const alpha = tau > 0 ? 1 - Math.exp(-dt / tau) : 1;
+    const next = this.currentZoomScale + (this.targetZoomScale - this.currentZoomScale) * alpha;
+    const settled =
+      Math.abs(this.targetZoomScale - next) < ZOOM_EPSILON ? this.targetZoomScale : next;
+
+    if (settled === this.currentZoomScale) return;
+    this.currentZoomScale = settled;
+    this.rig.setZoomScale(settled);
+    // Same contract as onYawChanged, and for the same reason: distance is a
+    // footprint input, so the navigable area has to be re-derived before the
+    // translation step clamps against it.
+    this.events.onZoomChanged?.();
   }
 
   private updateTranslation(dt: number): void {
@@ -389,32 +516,79 @@ export class DragPanController {
     // normally — the press that stopped the flight is also the press that
     // begins the gesture, with no synthetic re-dispatch.
     if (this.externalControl) return;
-    // Left and right behave identically — the control is just click-and-drag,
-    // so which button it is does not matter. Middle is left alone because
-    // suppressing its autoscroll is unreliable across browsers.
-    if (event.button !== 0 && event.button !== 2) return;
-    if (this.activePointerId !== null) return;
+    // A mouse reports one pointerId for every button, so a second button
+    // pressed mid-gesture arrives here with an id we already track. Ignoring it
+    // is what locks the mode to whichever button started the gesture — without
+    // this, pressing right mid-pan would switch to rotating.
+    if (this.pointers.some((p) => p.id === event.pointerId)) return;
+    if (this.pointers.length >= 2) return;
 
-    this.activePointerId = event.pointerId;
-    this.pointerDownX = event.clientX;
-    this.pointerDownY = event.clientY;
-    this.lastClientX = event.clientX;
-    this.lastClientY = event.clientY;
-    this.exceededThreshold = false;
-    this.lastMoveTime = event.timeStamp;
-    this.stillTime = 0;
+    const touch = event.pointerType === 'touch';
 
-    // Grabbing stops any coast, as it would on a physical surface.
-    this.velocityX = 0;
-    this.velocityZ = 0;
-    this.velocityYaw = 0;
+    if (!touch) {
+      // Left pans, right rotates. Middle is left alone because suppressing its
+      // autoscroll is unreliable across browsers.
+      if (event.button === 0) this.mode = 'pan';
+      else if (event.button === 2) this.mode = 'rotate';
+      else return;
+    }
+
+    this.pointers.push({ id: event.pointerId, x: event.clientX, y: event.clientY });
+
+    if (touch) {
+      if (this.pointers.length === 1) {
+        this.mode = 'pan';
+      } else {
+        this.mode = 'twoPointer';
+        this.reseedTwoPointerBaselines();
+        // A two-finger gesture is never a tap. Marking it as a drag straight
+        // away is what stops a two-finger press ending in a district
+        // selection when the first finger lifts.
+        if (!this.exceededThreshold) {
+          this.exceededThreshold = true;
+          this.events.onDragStateChanged?.(true);
+        }
+      }
+    }
+
+    if (this.pointers.length === 1) {
+      this.pointerDownX = event.clientX;
+      this.pointerDownY = event.clientY;
+      this.lastClientX = event.clientX;
+      this.lastClientY = event.clientY;
+      this.exceededThreshold = false;
+      this.lastMoveTime = event.timeStamp;
+      this.stillTime = 0;
+
+      // Grabbing stops any coast, as it would on a physical surface.
+      this.velocityX = 0;
+      this.velocityZ = 0;
+      this.velocityYaw = 0;
+    }
 
     this.domElement.setPointerCapture(event.pointerId);
     this.events.onFirstInteraction?.();
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
-    if (event.pointerId !== this.activePointerId) return;
+    const tracked = this.pointers.find((p) => p.id === event.pointerId);
+    if (!tracked) return;
+
+    if (this.mode === 'twoPointer') {
+      tracked.x = event.clientX;
+      tracked.y = event.clientY;
+      this.applyTwoPointer(event);
+      this.stillTime = 0;
+      return;
+    }
+
+    // Only the first pointer drives a single-pointer gesture. A second one
+    // cannot exist here — two pointers means twoPointer mode — but a stale
+    // move from a released id could, and following it would jump the view.
+    if (tracked !== this.pointers[0]) return;
+
+    tracked.x = event.clientX;
+    tracked.y = event.clientY;
 
     if (!this.exceededThreshold) {
       const movedX = Math.abs(event.clientX - this.pointerDownX);
@@ -436,8 +610,8 @@ export class DragPanController {
 
     const dt = (event.timeStamp - this.lastMoveTime) / 1000;
 
-    this.applyRotation(event, rect, dt);
-    this.applyTranslation(event, rect, dt);
+    if (this.mode === 'pan') this.applyPan(event, rect, dt);
+    else if (this.mode === 'rotate') this.applyRotation(event.clientX - this.lastClientX, rect, dt);
 
     this.lastClientX = event.clientX;
     this.lastClientY = event.clientY;
@@ -445,12 +619,13 @@ export class DragPanController {
     if (dt > 1e-4) this.lastMoveTime = event.timeStamp;
   };
 
-  /** Horizontal drag → yaw. Sensitivity is normalized by viewport width. */
-  private applyRotation(event: PointerEvent, rect: DOMRect, dt: number): void {
+  /**
+   * Horizontal movement → yaw. Sensitivity is normalized by viewport width, so
+   * a turn costs the same fraction of the screen on a mouse and on touch.
+   */
+  private applyRotation(dxPixels: number, rect: DOMRect, dt: number): void {
     const rotation = this.config.rotation;
     if (!rotation.enabled) return;
-
-    const dxPixels = event.clientX - this.lastClientX;
     if (dxPixels === 0) return;
 
     // Positive, and it is worth saying why, because the intuitive answer is
@@ -472,31 +647,22 @@ export class DragPanController {
   }
 
   /**
-   * Vertical drag → forward/backward along the view direction.
+   * Pointer movement → focus movement across the ground, in both axes.
    *
-   * Both sample points are projected against the *current* camera with the
-   * horizontal coordinate held fixed, so the measurement isolates the vertical
-   * axis: a purely horizontal drag contributes no translation even though
-   * perspective would otherwise give it a forward component.
+   * Both ends are projected against the *current* camera and the focus moves by
+   * the negated difference, so the grabbed point stays under the cursor. See the
+   * class comment for why the render lagging its target does not spoil that.
    */
-  private applyTranslation(event: PointerEvent, rect: DOMRect, dt: number): void {
-    const dyPixels = event.clientY - this.lastClientY;
-    if (dyPixels === 0) return;
+  private applyPan(event: PointerEvent, rect: DOMRect, dt: number): void {
+    if (event.clientX === this.lastClientX && event.clientY === this.lastClientY) return;
 
-    if (!this.projectToGround(rect, event.clientX, this.lastClientY, this.fromPoint)) return;
+    if (!this.projectToGround(rect, this.lastClientX, this.lastClientY, this.fromPoint)) return;
     if (!this.projectToGround(rect, event.clientX, event.clientY, this.toPoint)) return;
 
     // The ground follows the cursor, so the focus moves the opposite way.
-    // Scaled by translationGain: below 1 the grabbed point slides behind the
-    // pointer, which is the only sensitivity knob this axis has.
-    const forward = this.rig.getForward();
-    const amount =
-      ((this.fromPoint.x - this.toPoint.x) * forward.x +
-        (this.fromPoint.z - this.toPoint.z) * forward.z) *
-      this.config.translationGain;
-
-    const proposedX = this.targetX + forward.x * amount;
-    const proposedZ = this.targetZ + forward.z * amount;
+    const gain = this.config.translationGain;
+    const proposedX = this.targetX + (this.fromPoint.x - this.toPoint.x) * gain;
+    const proposedZ = this.targetZ + (this.fromPoint.z - this.toPoint.z) * gain;
 
     // Clamp the proposal before committing it, never the result afterwards.
     const clamped = clampToRect(proposedX, proposedZ, this.bounds);
@@ -514,8 +680,86 @@ export class DragPanController {
     this.targetZ = clamped.z;
   }
 
+  /**
+   * Two fingers: sideways movement of their centroid turns, and changing their
+   * separation zooms.
+   *
+   * Rotation is taken from the centroid's horizontal movement, NOT from the
+   * twist angle between the fingers, which is the more literal reading of the
+   * gesture. At this elevation a twist maps to yaw at roughly 1:1, so the small
+   * involuntary twist that accompanies every pinch would turn the city
+   * constantly, and with elevation fixed there is no other axis to absorb it.
+   * The centroid also gives touch and mouse the same mental model — move
+   * sideways to turn. If user testing disagrees, the alternative to try is
+   * twist → yaw with the centroid driving a two-finger pan.
+   *
+   * Vertical centroid movement does nothing, deliberately: the centroid's
+   * horizontal axis is already spoken for, and putting a second solve on the
+   * same signal makes both unpredictable.
+   */
+  private applyTwoPointer(event: PointerEvent): void {
+    const rect = this.domElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    if (this.pointers.length < 2) return;
+
+    const [a, b] = this.pointers;
+    const centroidX = (a.x + b.x) / 2;
+    const separation = Math.hypot(a.x - b.x, a.y - b.y);
+
+    const dt = (event.timeStamp - this.lastMoveTime) / 1000;
+    this.applyRotation(centroidX - this.lastCentroidX, rect, dt);
+
+    const zoom = this.config.zoom;
+    if (zoom.enabled && this.lastSeparation > 0 && separation > 0) {
+      // Fingers apart means a closer look, which is a SMALLER distance.
+      const ratio = separation / this.lastSeparation;
+      this.setTargetZoom(this.targetZoomScale / Math.pow(ratio, zoom.pinchSensitivity));
+    }
+
+    this.lastCentroidX = centroidX;
+    this.lastSeparation = separation;
+    if (dt > 1e-4) this.lastMoveTime = event.timeStamp;
+  }
+
+  /**
+   * Resamples the two-pointer baselines from the pointers as they stand.
+   *
+   * Called on every 1 <-> 2 transition. Every gesture here is a delta against a
+   * baseline rather than an absolute position, so a transition costs nothing
+   * provided no delta is allowed to span it — which is what this guarantees.
+   */
+  private reseedTwoPointerBaselines(): void {
+    if (this.pointers.length < 2) return;
+    const [a, b] = this.pointers;
+    this.lastCentroidX = (a.x + b.x) / 2;
+    this.lastSeparation = Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
   private readonly onPointerUp = (event: PointerEvent): void => {
-    if (event.pointerId !== this.activePointerId) return;
+    const index = this.pointers.findIndex((p) => p.id === event.pointerId);
+    if (index === -1) return;
+
+    this.pointers.splice(index, 1);
+    this.releaseCapture(event.pointerId);
+
+    if (this.pointers.length === 1) {
+      // Two fingers became one. Resume panning from the survivor's own last
+      // known position — taken from the tracked record, not from the event that
+      // just left — or the next move would apply a delta the size of the gap
+      // between the fingers.
+      const survivor = this.pointers[0];
+      this.mode = 'pan';
+      this.lastClientX = survivor.x;
+      this.lastClientY = survivor.y;
+      this.lastMoveTime = event.timeStamp;
+      this.stillTime = 0;
+      this.velocityX = 0;
+      this.velocityZ = 0;
+      this.velocityYaw = 0;
+      return;
+    }
+
+    if (this.pointers.length > 0) return;
 
     if (this.exceededThreshold) {
       this.settleReleaseVelocity();
@@ -526,16 +770,62 @@ export class DragPanController {
       this.velocityYaw = 0;
     }
 
-    this.releasePointer();
+    const wasDragging = this.exceededThreshold;
+    this.mode = 'idle';
+    this.exceededThreshold = false;
+    if (wasDragging) this.events.onDragStateChanged?.(false);
   };
 
-  /** Wheel is actively suppressed: nothing downstream consumes it. */
+  /**
+   * Wheel → dolly, within the configured band.
+   *
+   * Multiplicative rather than additive, so a notch costs the same proportion of
+   * the band at either end and zooming in then out by the same amount returns
+   * exactly to where it started.
+   */
   private readonly onWheel = (event: WheelEvent): void => {
+    // Unconditional: whether or not the wheel drives the camera, it must never
+    // scroll the page behind a full-viewport canvas.
+    event.preventDefault();
+
+    const zoom = this.config.zoom;
+    if (!this.config.enabled || !zoom.enabled || this.externalControl) return;
+
+    // deltaMode is 0 for pixels, 1 for lines and 2 for pages. Chrome reports
+    // pixels, Firefox reports lines. Normalising here is the whole reason zoom
+    // is not 16x faster in one browser than the other.
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1;
+    let delta = THREE.MathUtils.clamp(
+      event.deltaY * unit,
+      -MAX_WHEEL_DELTA,
+      MAX_WHEEL_DELTA,
+    );
+    // Every browser reports a trackpad pinch as ctrl+wheel, with far smaller
+    // deltas than a mouse notch carries.
+    if (event.ctrlKey) delta *= zoom.ctrlWheelMultiplier;
+
+    // deltaY is positive scrolling down, which must move the camera AWAY.
+    this.setTargetZoom(this.targetZoomScale * Math.exp(delta * zoom.wheelSensitivity));
+    this.events.onFirstInteraction?.();
+  };
+
+  /** Clamps a proposed zoom to the band before it becomes the target. */
+  private setTargetZoom(scale: number): void {
+    const zoom = this.config.zoom;
+    this.targetZoomScale = THREE.MathUtils.clamp(
+      scale,
+      zoom.minDistanceScale,
+      zoom.maxDistanceScale,
+    );
+  }
+
+  /** Right-drag rotates, so the context menu must never open on release. */
+  private readonly onContextMenu = (event: MouseEvent): void => {
     event.preventDefault();
   };
 
-  /** Right-drag navigates, so the context menu must never open on release. */
-  private readonly onContextMenu = (event: MouseEvent): void => {
+  /** Safari trackpad pinch. Suppressed so it cannot zoom the page. */
+  private readonly onGesture = (event: Event): void => {
     event.preventDefault();
   };
 
@@ -569,15 +859,27 @@ export class DragPanController {
     }
   }
 
-  private releasePointer(): void {
-    if (this.activePointerId === null) return;
-    if (this.domElement.hasPointerCapture(this.activePointerId)) {
-      this.domElement.releasePointerCapture(this.activePointerId);
-    }
+  /**
+   * Drops every tracked pointer and releases its capture.
+   *
+   * Per id, and every path out of a gesture has to come through here or through
+   * `onPointerUp`. A capture left behind on a released pointer silently
+   * swallows all subsequent input on the canvas, with nothing to see.
+   */
+  private releaseAllPointers(): void {
+    if (this.pointers.length === 0) return;
     const wasDragging = this.isDragging;
-    this.activePointerId = null;
+    for (const pointer of this.pointers) this.releaseCapture(pointer.id);
+    this.pointers.length = 0;
+    this.mode = 'idle';
     this.exceededThreshold = false;
     if (wasDragging) this.events.onDragStateChanged?.(false);
+  }
+
+  private releaseCapture(pointerId: number): void {
+    if (this.domElement.hasPointerCapture(pointerId)) {
+      this.domElement.releasePointerCapture(pointerId);
+    }
   }
 
   /** Projects a client-space point onto the horizontal navigation plane. */

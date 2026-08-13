@@ -42,9 +42,15 @@ export function LazyScene(props: Props) {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  // Asked once, before the chunk is even armed: on a device with no WebGL there
-  // is nothing to download. Without this the visitor waits for 1.2MB of three.js
-  // only to be told it cannot run.
+  // Asked once, before the chunk is even armed, so a device that cannot run the
+  // scene never EVALUATES it: ~1.2 MB of three.js and SceneCanvas stays parsed
+  // but unexecuted, and no Canvas is ever mounted.
+  //
+  // It does NOT save the download, which this comment claimed until 2026-08-13.
+  // introEntry() in vite.config.ts injects <link rel="modulepreload"> for every
+  // non-entry chunk, so both are fetched at first parse whatever this decides —
+  // measured in e2e/degraded.spec.ts, which asserts the real behaviour. The
+  // saving is the expensive half either way: main-thread evaluation, not bytes.
   const [supported] = useState(isWebGLAvailable)
 
   useEffect(() => {

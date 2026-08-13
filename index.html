@@ -74,6 +74,38 @@
       fetchpriority="low"
       href="/earth/specularClouds.jpg"
     />
+    <!-- The sky. A required boot resource — the shell stays hidden until it is
+         ready, so a late arrival delays the cut, not just the scenery.
+
+         `type` and `media` between them mean exactly ONE of these is ever
+         fetched. A browser skips a preload whose `type` it cannot decode, so
+         the AVIF is not downloaded by anything that would only fail on it; and
+         `media` picks the resolution, so a phone never pulls the 240 KB / 75 MB
+         desktop panorama. The WebP fallbacks are deliberately NOT preloaded:
+         adding them would make modern browsers fetch both formats, which costs
+         everyone bytes to save a minority a round trip. SkyShell asks for them
+         only after the AVIF fails to decode.
+
+         Keep the 767px breakpoint in step with SPACE_CONFIG.sky.narrowMaxWidth
+         and the mobile breakpoint in styles.css. -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/avif"
+      media="(min-width: 768px)"
+      crossorigin
+      fetchpriority="low"
+      href="/textures/sky-panorama.avif"
+    />
+    <link
+      rel="preload"
+      as="image"
+      type="image/avif"
+      media="(max-width: 767px)"
+      crossorigin
+      fetchpriority="low"
+      href="/textures/sky-panorama-narrow.avif"
+    />
     <!-- Needed at the P3 crossover, which is the first beat after the intro,
          and only 20 KB — this one keeps normal priority. -->
     <link rel="preload" as="fetch" href="/models/model.glb" crossorigin />

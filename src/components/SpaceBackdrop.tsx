@@ -58,10 +58,11 @@ export function SpaceBackdrop({ config, state, active }: Props) {
       radius: config.backdropRadius,
       jitter: config.backdropJitter,
       clusterStrength: config.backdropClusterStrength,
-      // Shared with the nebula, so the stars and the gas cannot disagree about
-      // where the galaxy is. That agreement is the whole design.
-      bandTiltDegrees: config.nebulaBandTilt,
-      bandWidth: config.nebulaBandWidth,
+      // Shared with the sky panorama, so the stars and the photographed gas
+      // cannot disagree about where the galaxy is. That agreement is the whole
+      // design, and `skyOrientation` is the other half of it.
+      bandTiltDegrees: config.skyBandTilt,
+      bandWidth: config.skyBandWidth,
     })
 
     const g = new THREE.BufferGeometry()
@@ -78,8 +79,8 @@ export function SpaceBackdrop({ config, state, active }: Props) {
     config.backdropRadius,
     config.backdropJitter,
     config.backdropClusterStrength,
-    config.nebulaBandTilt,
-    config.nebulaBandWidth,
+    config.skyBandTilt,
+    config.skyBandWidth,
   ])
 
   const material = useMemo(() => createStarMaterial(), [])

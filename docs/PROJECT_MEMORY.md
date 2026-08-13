@@ -5,7 +5,8 @@ that keep mattering, and what will bite you again.
 
 It exists so none of this has to be re-derived. Keep it current.
 
-Last updated: 2026-08-11 · §2, §9, §10, §11 (23–36), §12 and §13 updated against the working
+Last updated: 2026-08-13 · §2, §6, §7, §8, §9, §10, §12 and §13 rewritten for the two-tier
+test layer (plan 000). Earlier: 2026-08-11 · §2, §9, §10, §11 (23–36), §12 and §13 against the working
 tree, post-`b418b5f`. The Vercel readiness re-audit is folded into §9, §10 and §12.
 
 > **Scope.** Facts and traps. The *reasoning* behind binding decisions lives in
@@ -75,18 +76,32 @@ TypeScript 5.6 · `vite-plugin-glsl` · stats.js
 
 ```
 npm run dev            # dev server
-npm run build          # tsc -b + intro simulation + vite build (budgets asserted)
+npm run build          # tsc -b + unit tests + all five harnesses + vite build
 npm run preview        # serve dist/
-npm run check          # typecheck + all five harnesses  ← run this
-npm run check:warp     # 32 assertions — the camera envelope and the footprint sweep
-npm run check:navigation   # 25 assertions — drag feel, signs, bounds
-npm run check:district     # 52 assertions — flights, framing, materials
-npm run check:space        # 28 assertions — the star shell bound, clumping, the band
-npm run test:intro     # the loading playhead, ~28 cases
+npm run check          # typecheck + unit tests + all five harnesses  ← run this
+npm test               # Vitest, 383 assertions over the pure logic
+npm run test:watch     # the same, watching
+npm run test:coverage  # scoped coverage, thresholds enforced
+npm run check:navigation   # 54 assertions — drag feel, signs, bounds, grab-the-point
+npm run check:zoom         # 8  assertions — the zoom band against the skirt
+npm run check:district     # 58 assertions — flights, framing, materials
+npm run check:warp         # 36 assertions — the camera envelope and the footprint sweep
+npm run check:space        # 29 assertions — the star shell bound, clumping, the band
+npm run e2e            # Playwright smoke, against `vite preview`. LOCAL, not a gate.
 ```
 
-There is **no ESLint and no test runner**. `npm run check` is the whole gate, deliberately —
-a stubbed `lint` script would be a gate that does not exist.
+There is **no ESLint**, still deliberately — a stubbed `lint` script would be a gate that
+does not exist. There **is** a test runner as of 2026-08-13: two tiers, described in §10.
+
+**The dividing rule, and hold to it** — two tiers are worthless if nobody can tell which one
+a new test belongs in:
+
+> A **unit test** lives beside its module as `*.test.ts` and needs no scene.
+> A **harness** lives in `checks/`, drives real Three.js objects across many frames, and is
+> bundled with esbuild.
+
+`vitest.config.ts` enforces the first half mechanically: `include` is `src/**/*.test.ts`, so
+nothing in `checks/` can be picked up by the runner by accident.
 
 ---
 
@@ -258,7 +273,7 @@ splits vertices wherever normals or UVs differ, so raw index comparison reports 
 as a boundary and the outline never closes.
 
 **Skirt** — a rectangular fade continuing outward from the bounding rectangle.
-`width: 600`, `fadeEndFraction: 0.25` (~150 units of visible gradient), `loops: 10`,
+`width: 700`, `fadeEndFraction: 0.21` (~147 units of visible gradient), `loops: 10`,
 `segmentsPerSide: 12`, `fadeExponent: 1.6`, `innerOverlap: 0.5`, `verticalOffset: 0.05`.
 
 ### Decisions inside it
@@ -279,66 +294,197 @@ as a boundary and the outline never closes.
 - **`fadeEndFraction` decouples gradient width from geometry width.** The skirt must *reach*
   far enough to stay out of frame; a gradient that wide would wash the horizon.
 
-### Why the width is 600
+### Why the width is 700
 
 Sized so that with `boundsInset: 0` — focus reaching the plate corners — the footprint lands
-inside the skirt at **5120×1440**, the binding case, **at every azimuth**. Two things drove
+inside the skirt at **5120×1440**, the binding case, **at every azimuth**. Three things drove
 it up from 380:
 
 - **distance 110 → 165** spent the whole margin (see §5).
 - **free yaw** costs a further 50–85 units on wide viewports, because the frustum footprint
   turns against a plate-aligned rectangle. Portrait barely notices (−4 to −6), its footprint
   being near-symmetric.
+- **the zoom band**, last: at 600 the band ran out of margin at scale ≈1.09, so 600 → 700 is
+  what pays for zoom-out. The table in §7 is the measurement.
 
-`fadeEndFraction` fell 0.4 → 0.25 in step, holding the visible gradient at ~150 units
-against the old 152.
+`fadeEndFraction` fell 0.4 → 0.25 → **0.21** in step, holding the visible gradient near 150
+units throughout — 147 today against the original 152.
+
+> Corrected 2026-08-13. This section and §9 both still read 600 / 0.25 long after §7 recorded
+> the widening to 700 / 0.21, so two sections of this file contradicted a third. The config
+> is the arbiter: `murciaConfig.ts` says 700 and 0.21. Do not copy either number into a test —
+> read them from the config, the way `checks/navigation-zoom.ts` does.
 
 ---
 
 ## 7. Murcia's navigation
 
-### One gesture, both axes
+### One gesture per thing
+
+```
+left button / one finger     pan the ground under the cursor, both axes, 1:1
+right button / two fingers   rotate the rig horizontally about the focus, freely, 360°
+wheel / pinch                dolly, within a bounded band
+middle button                ignored
+```
+
+Pan is solved against the ground, not from pixels: both ends of the pointer's movement are
+projected onto the navigation plane and the focus moves by the negated difference, so the
+grabbed point stays under the cursor. Solving against the ground is what keeps sensitivity
+consistent across the screen — a pixel near the horizon covers far more ground than one near
+the bottom edge. Yaw is pixels→degrees normalized by viewport width, and touch feeds the
+two-finger centroid through the same mapping so a turn costs the same fraction of screen on
+either input. A *turntable* solve — yaw from the angle the grabbed point sweeps about the
+focus — was tried on paper and rejected: its radius varies ~10× between the top and bottom of
+the screen at this elevation, so sensitivity would depend on where the drag started.
+
+Two-finger rotation is taken from the centroid's horizontal movement, **not** from the twist
+angle, which is the more literal reading. At this elevation a twist maps to yaw at ~1:1, so
+the involuntary twist in every pinch would turn the city constantly and with elevation fixed
+there is nothing to absorb it. If user testing disagrees, the alternative to try is twist →
+yaw with the centroid driving a two-finger pan.
+
+Vertical rotation does not exist, and is absent rather than clamped: elevation stays at the
+configured pose, so the footprint analysis §5 and §6 depend on continues to hold. That
+matters more than it did — zoom made distance user state, so elevation is now the last pose
+term the footprint maths can treat as constant.
+
+### What this replaced, and why the old reasoning was sound
 
 ```
 drag ↕   move forward / backward along the view direction
-drag ↔   rotate the rig horizontally about the focus, freely, 360°
+drag ↔   rotate the rig horizontally about the focus
 left button, right button, one finger — all identical
 ```
 
-No gizmo, no modifier, no button. With nothing else available a single pointer has to carry
-both, so each screen axis owns one. **The cost is that strafing is gone** — there is no
-sideways pan. Free yaw pays for it: turn toward a place, then advance.
+No gizmo, no modifier, no button: with nothing else available a single pointer had to carry
+both, so each screen axis owned one. **The cost was that strafing did not exist** — there was
+no sideways pan at all. Free 360° yaw was supposed to pay for it: turn toward a place, then
+advance. `translationGain` was 0.5, so even the axis that did translate deliberately let the
+grabbed point slide behind the cursor, and that slide was where the weight came from.
 
-Vertical rotation does not exist, and is absent rather than clamped: elevation stays at the
-configured pose, so the footprint analysis §5 and §6 depend on continues to hold.
+Reported by real users as wrong, on three counts: dragging did not move the view where the
+mouse went; there was no way to strafe; and rotation felt too fast — which it was, at 120°
+per viewport width, but the compounding problem was that it rode the horizontal axis of
+*every* drag and so fired constantly by accident. A gesture people enter by mistake reads as
+twitchy at any sensitivity.
 
-Forward motion is solved against the ground, not from pixels, then scaled by
-`translationGain` (0.5). Solving against the ground is what keeps sensitivity consistent
-across the screen — a pixel near the horizon covers far more ground than one near the bottom
-edge. The gain is the only sensitivity knob the axis has; at 1 the grabbed point stays
-exactly under the cursor, and that fidelity was spent on weight. Yaw is pixels→degrees
-normalized by viewport width. A *turntable* solve — yaw from the angle the grabbed point
-sweeps about the focus — was tried on paper and rejected: its radius varies ~10× between the
-top and bottom of the screen at this elevation, so sensitivity would depend on where the
-drag started.
+Keep this. The reasoning above is not wrong about its own constraints; it is what the design
+looks like when a single pointer has to carry everything, and if a future change ever removes
+the right button (a kiosk, a stylus-only device) this is the fallback it should return to.
 
-### Drag feel — the only judged numbers in the project
+### Drag feel — the judged numbers
 
-> **These exact values are signed off. 2026-08-06, first pass, no retuning needed.** The
-> user drove the build and reported it as the feel they were after. Every other number in
-> this repo is reasoned or measured; this one was *judged*.
+> **Signed off 2026-08-06, first pass, no retuning needed**, then amended by the rework
+> above. The original sign-off was a person driving the build and reporting the feel they
+> were after; the amendment is real users driving the build and reporting it as wrong.
+> Judgement supersedes judgement — the arithmetic had no vote either time.
 >
-> Treat them as a fixed point. They are not a starting guess, and they are not independent
-> of each other. Changing any of them needs the same kind of justification that set them: a
-> person driving the build and saying it feels wrong. **A numeric argument is not sufficient
-> grounds**, because no number here can see what was being judged.
+> **A numeric argument is still not sufficient grounds** to change what is left, because no
+> number here can see what was being judged.
 
 | | during drag | after release | inertia | min | max |
 |---|---|---|---|---|---|
-| translation | 0.09 | 0.08 | **0** | 1.5 | 260 u/s |
+| translation | **0.03** | 0.08 | **0** | 1.5 | 260 u/s |
 | yaw | 0.09 | 0.08 | **0** | 1.5 | 90 °/s |
 
-Both use `velocityBlend: 0.25`; `translationGain: 0.5`; `degreesPerViewportWidth: 120`.
+Both use `velocityBlend: 0.25`; `translationGain: 0.7`; `degreesPerViewportWidth: 60`;
+`zoom.smoothingTimeConstant: 0.12`.
+
+What moved, and what did not:
+
+- **`translationGain` is 0.7, and it went back to being judged.** It moved 0.5 → 1.0 on user
+  reports, then **1.0 → 0.7 by hand on 2026-08-13** — enough fidelity to read as dragging the
+  map, enough shortfall to keep some weight. So the grabbed point is *deliberately* not under
+  the cursor: it slides ~30% of the drag distance behind it, **by construction rather than as
+  lag**. That distinction matters when reading the section below, which is about lag only.
+  `?dragGain=1` gives exact grab-the-point for comparison, `?dragGain=0.5` the original.
+
+  Found by the harness rather than by eye, and worth keeping for the process rather than the
+  number: `check:navigation` had been failing §9 for two assertions while `npm run check`
+  exited 0, because that harness cannot set an exit code (§10). §9 now asserts the *solve* at
+  gain 1, where exactness is a definition, and asserts proportionality at whatever gain ships
+  — so a re-judged gain does not require touching the harness again.
+- **`smoothingTimeConstant` 0.09 → 0.03 is a consequence, not a choice.** These two are
+  coupled and must move together. The 0.09 was affordable *only* because the latency
+  objection is conditional — it applies while the ground is expected to track the cursor, and
+  a gain of 0.5 had given that up. At gain 1 the condition fires: the lag shows as
+  `dragSpeed × τ` of slide, ~25 world units at 0.09 on a fast pan, which is precisely the "it
+  doesn't follow my mouse" complaint. Restoring one without the other gets the worst of both.
+  **At 0.7 the coupling is partial**: the objection fires in proportion to the gain, so 0.03
+  is now conservative rather than mandatory. It was left alone deliberately — the gain was
+  re-judged, the time constant was not.
+- **`degreesPerViewportWidth` 120 → 60 is re-opened**, and is a judgement again. Halved for
+  two compounding reasons: rotation is entered on purpose now so it can afford to cost more
+  travel, and the gestures carrying it have less usable travel than a primary drag — nobody
+  right-drags across a whole screen, and two fingers run out of room sooner than one.
+- **The `feel` time constants are otherwise unchanged** and remain judged.
+- **The two axes are no longer deliberately matched.** They were matched because one gesture
+  carried both and a difference in weight between them would read as a fault. That premise
+  died with the split, which is why `?smooth=` now hits translation only and `?yawSmooth=`
+  exists.
+
+### Zoom is bounded by a measurement, not by a number
+
+Cross-reference §6, "The number that can hurt you": `camera.distance` now has a *band* rather
+than a value, which is exactly the kind of coupling that section exists to protect.
+
+Zoom-in is free — pulling closer shrinks the ground footprint. **Zoom-out spends the terrain
+skirt**, and spends it unevenly: the worst case is a wide viewport at an oblique azimuth, so a
+ceiling a few hundredths too high is invisible on the 16:9 monitor it was chosen on and shows
+the hard plate edge to an ultrawide visitor.
+
+Slack (skirt width − worst corner reach − `edgeSafetyMargin`) over every aspect × azimuth:
+
+| skirt \ scale | 1.00 | 1.10 | 1.20 | 1.30 |
+|---|---|---|---|---|
+| 600 | +42 | −3 | **−49** | −95 |
+| 700 | +142 | +97 | **+51** | +5 |
+
+So **at the shipped skirt width of 600, zoom-out ran out of margin at scale ≈ 1.09** — a 9%
+dolly, not worth shipping. `terrainTransition.width` went 600 → 700 to pay for the band
+(`fadeEndFraction` 0.25 → 0.21 in step, holding the visible gradient at ~147 units), which
+puts full zoom-out at +51 — more cushion than the resting pose had before. The binding case
+is 5120×1440 at yaw 30–120, exactly as recorded in §6.
+
+`checks/navigation-zoom.ts` asserts this, and it asserts the strong form: the navigable area
+must stay the **whole plate** at every scale, so zoom-out cannot quietly drag the focus toward
+the plate centre. It also asserts `clampedRays === false` throughout, because a clamped ray
+*under*-reports the footprint — the unsafe direction, and the failure §6 already records.
+
+**`maxDistanceScale` is a measurement. Do not raise it without re-running that check.**
+
+### Why the pan solve is immune to smoothing lag
+
+The rendered focus trails its target — that is what the smoothing is — so it looks as though
+grab-the-point must be solved against a stale camera and drift further out of register with
+every move. It does not, and this is the thing a future reader is most likely to get wrong.
+
+The camera sits at a **rigid** offset from the focus: elevation is fixed, and distance and yaw
+are constant during a pan *because they belong to other gestures now*. So rendering at focus
+F instead of target T translates the whole ray field by `T − F`, and the ground hit of a given
+screen position translates by the same vector. Both ends of the delta are projected against
+the **same** camera, so the offset appears in both and cancels in the subtraction. The delta
+is exact in target space however far behind the render is.
+
+The corollary is that per-move deltas telescope: any closed cursor loop returns the target
+focus to its exact starting value, path-independently. §9 of `checks/navigation-feel.ts`
+asserts both — at `translationGain: 1` the grabbed point lands within 1px of the cursor after
+an L-shaped drag, and a 6-waypoint loop closes to within 1e-9.
+
+**The gain is applied on top of an exact solve, and the two are not the same property.** At
+the shipped 0.7 the point lands short on purpose; §9 asserts that the focus covers exactly
+`gain` of the exact answer, which still catches an inverted sign, a dropped delta or a clamp
+eating part of the drag. Everything in this section is about the *solve*, and holds at any
+gain.
+
+What the lag *does* cost is purely visual: `dragSpeed × smoothingTimeConstant` of slide while
+moving. **The fix for that is the time constant, not the solve.**
+
+An absolute-anchor solve (remember the world point grabbed at pointerdown, re-place it every
+move) is equally exact in the interior and was rejected for the edges: it goes dead against a
+wall, because the anchor keeps demanding a focus the clamp will not give, so pushing 200 units
+past an edge means 200 units of nothing happening on the way back.
 
 **This reverses the previous design, recorded because its reasoning is sound and was still
 wrong.** It ran 0.05 / 0.30 / 1.1 s with no gain and 180°, on the argument that positional
@@ -387,20 +533,34 @@ via `1 − exp(−dt/τ)`.
 
 ### Live tuning
 
-`experiences/murcia/config/environmentQueryOverrides.ts` — `?dragGain=` `?yawDeg=`
-`?smooth=` `?release=` `?inertia=`, applied by `MurciaExperience` after the `?model=`
-override so the two compose. Separate from `appConfig`'s overrides because these are
-experience-scoped rather than shell-scoped.
+`experiences/murcia/config/environmentQueryOverrides.ts` — `?dragGain=` `?yawDeg=` `?smooth=`
+`?yawSmooth=` `?release=` `?inertia=` `?zoomMin=` `?zoomMax=` `?wheelZoom=` `?zoomSmooth=`,
+applied by `MurciaExperience` after the `?model=` override so the two compose. Separate from
+`appConfig`'s overrides because these are experience-scoped rather than shell-scoped.
+
+`?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL — the comparison most
+likely to be wanted while reviewing it.
+
+`?zoomMax=` is not like the others and warns when exceeded: it is the only parameter here
+whose shipped value is a measurement rather than a judgement.
 
 They exist because feel is a judgement no harness can make and an edit-rebuild cycle is too
 slow to converge on one. **A tuning tool, not configuration** — a settled value belongs in
 `murciaConfig.ts` with its reasoning.
 
-If a future change *does* have grounds to retune, the order is: too fast →
-`translationGain` / `degreesPerViewportWidth`; not smooth enough → `smoothingTimeConstant`;
-drifting after release → `releaseTimeConstant`. All are live as query parameters, so it is a
-browser session and not a rebuild cycle. Record the outcome here either way, including
-"tried and went back", which is the entry this section was missing the first time.
+If a future change *does* have grounds to retune, the order is: rotation too fast →
+`degreesPerViewportWidth`; not smooth enough → `smoothingTimeConstant`; drifting after release
+→ `releaseTimeConstant`; zoom too coarse → `wheelSensitivity`. All are live as query
+parameters, so it is a browser session and not a rebuild cycle. Record the outcome here either
+way, including "tried and went back", which is the entry this section was missing the first
+time.
+
+Two exceptions to that order now. `translationGain` is not really a speed knob — lowering it
+does not make panning slower so much as it trades fidelity away, and grab-the-point is the
+thing users asked for. It is judged rather than derived (0.7 as of 2026-08-13), so it may be
+re-judged; what it must not be is *reasoned* into a new value, and the lever for "panning
+feels too fast" is the camera distance. And `zoom.maxDistanceScale` is not
+tunable by feel at all: raise it only with `checks/navigation-zoom.ts` re-run and passing.
 
 Reference given: **chartogne-taillet.com** — as *concept, not goal*. The site is fully
 JS-rendered so no values could be read from it.
@@ -545,8 +705,15 @@ Two ordering traps, both hit during implementation:
 
 - `.reveal` and `.district-service-region` are both single-class selectors, so whichever is
   declared last wins the `transition` shorthand outright. With `.reveal` last the accordion
-  silently stopped animating its height. The utility now precedes the components, and
-  `checks/` verifies the order in the *built* CSS rather than the source.
+  silently stopped animating its height. The utility now precedes the components.
+
+  **This used to claim `checks/` verified that order in the built CSS. It does not, and never
+  did** — no such assertion exists in any harness, and the claim survived because a sentence
+  describing a guard reads exactly like a guard. Corrected 2026-08-13 rather than
+  implemented: the honest position is that this ordering is currently held by nothing but
+  the source order and this paragraph. If it breaks again, the place to assert it is a
+  Playwright spec that opens a district and measures the section's animated height, because
+  the failure is behavioural rather than textual.
 - `buildSections()` opens section 0, which routed through the same path as a tap — including
   the mobile auto-expand. On a phone the sheet jumped to 85% the instant the panel opened and
   the peek stop was never seen. `setOpenSection` now takes `fromUser`, and only a gesture
@@ -577,8 +744,8 @@ near-horizon one it exists for — and it under-reported the footprint, which is
 direction: −37 measured where the truth was −170.
 
 **Murcia plate:** X [−438.2, −86.4] · Z [120.5, 473.3] · 351.8 × 352.8 · top surface at
-Y 1.41. Model bounds coincide with the plate exactly. Skirt width 600,
-`fadeEndFraction` 0.25.
+Y 1.41. Model bounds coincide with the plate exactly. Skirt width 700,
+`fadeEndFraction` 0.21.
 
 The plate is **not a rectangle**: 134 vertices / 88 triangles, a low-poly irregular polygon
 that does not fill its own bounding box. Local POSITION Y spans −2.55 → 0 with node
@@ -621,25 +788,41 @@ atlas owns the padding, so files must be trimmed tight (`earth/logo-spec.md`).
 test that waits for a specific place to face the camera: Murcia is on the near side for well
 under half of that, and a 60 s poll will simply miss it.
 
-**The space backdrop** (`src/space/`, `earth/DECISIONS.md` — *the backdrop becomes a galaxy*).
-Two independent non-occlusion guarantees, and they work differently:
+**The space backdrop** (`src/space/`, `earth/DECISIONS.md` — *the backdrop becomes a galaxy*,
+then *the galaxy becomes a photograph*). Two independent non-occlusion guarantees, and they
+work differently:
 
-| | Stars | Nebula |
+| | Stars | Sky |
 |---|---|---|
 | Kept off the Earth by | **geometry** — a shell enclosing the camera | **render order** — opaque at `renderOrder -1000` |
 | So the radius is | load-bearing: 180 ±15%, min 153 against `zoomMax` 22 | free: 1000, anything inside the far plane |
 
-2600 stars in **one** draw call. Clustering is 36 knots · spread 0.09 · share 0.6 · strength
+3500 stars in **one** draw call. Clustering is 36 knots · spread 0.09 · share 0.6 · strength
 0.6, and it is **angular only** — perturb the direction, renormalise, then apply the radius.
-Magnitude is continuous: `rand ** 2.6` mapped to 0.7–3.4 px with brightness 0.35–1.0. Only
-stars ≥ 2.2 px twinkle (~20% of them), amplitude 0.15, alpha not `gl_PointSize`.
+Magnitude is continuous: `rand ** 2.6` mapped to 0.7–4.2 px with brightness 0.35–1.0. Only
+stars ≥ 2.6 px twinkle (~20% of them), amplitude 0.15, alpha not `gl_PointSize`. **The twinkle
+threshold moves with `maxSize`** — it is an absolute pixel size, so widening the range without
+raising it pushes past the harness's 25% ceiling.
 
-Galactic band: **tilt 22°, width 0.22**, shared by the stars and the nebula — that agreement
-is the design. Nebula brightness 0.14 · dust density 0.55 · **noise domain 8.0** (§11.32).
-Seeds are fixed: stars `20260811`, nebula `137.24`.
+Galactic band: **tilt 22°, width 0.22, yaw 250°**, shared by the stars and the sky — that
+agreement is the design, and `skyOrientation()` is what enforces it. Yaw is compositional
+only: `u` falls by 1/360 per degree, and 250 puts the galactic core beside the Earth rather
+than behind it. Depth is the pair **brightness 0.22 · contrast 1.25** — the gamma deepens the
+darks so the sky reads as distant, where dimming alone only flattens it. Star seed `20260811`.
 
-Cubemap: **1024 per face, RGBA8, no mipmaps = 25.2 MB VRAM**, baked one face per frame during
-P0. Zero download bytes, and the cubemap is the seam if an authored sky is ever wanted.
+Sky texture: **6144 × 3072 AVIF q60, 240 KB on the wire, RGBA8 no mipmaps = 75.5 MB VRAM**,
+with a 3072-wide pair below a 767 px viewport (81 KB, 18.9 MB) and WebP twins for browsers
+without AVIF. **AVIF, and specifically q60, is load-bearing** — see §11.38. 6144 is the ceiling
+the SOURCE allows: ESO's public original is 6000 × 3000 = 16.7 px/deg.
+
+ESO eso0932a, CC BY 4.0, credit "ESO/S. Brunier" — a licence obligation, see `CREDITS.md`.
+Equirectangular in **galactic** coordinates, so the plane is the horizontal centreline and the
+core is at `u = 0.5`. Point stars are median-filtered out of it (§11.37) and its wrap seam is
+levelled (§11.32); regenerate with `scripts/prepare-sky-panorama.mjs`, never by hand.
+
+Bloom: **strength 0.55 · radius 0.5 · threshold 0.62**, between `RenderPass` and
+`AfterimagePass`. `strength 0` disables the pass outright, which is the performance escape
+hatch. Below ~0.5 the threshold starts hazing the Earth's day side.
 
 Clumping is measured, not asserted by eye: coefficient of variation of nearest-neighbour
 angular distance is **0.020 for `fibonacciSpherePoints` and 0.651 for the shipped field**.
@@ -730,26 +913,72 @@ Four rules these harnesses earned the hard way:
   boundary and so compared walls rather than momentum, where the *heavier* setting hit the
   wall sooner and read as travelling less.
 
-**A gap worth knowing about:** `check:district` and `check:warp` set a non-zero exit code;
-`check:navigation` does not. Because `npm run check` chains with `&&`, a navigation-feel
-failure prints and passes. Read its output rather than trusting the exit status.
+### Both gaps above are closed as of 2026-08-13 — plan `000-testing-strategy`
 
-### What the deploy path actually runs — which is not this
+**`check:navigation` can fail now.** It used to print its failures and leave
+`process.exitCode` at 0, so `npm run check` chained straight past it with `&&`. The exit code
+now comes from `checks/lib/assert.ts`'s `finish()`, which every harness calls and which counts
+live — one place, so it cannot be got wrong once per file again.
 
-**`npm run check` is the gate, and nothing runs it.** `npm run build` is
-`tsc -b && node scripts/simulate-intro.mjs && vite build`, so Vercel runs the typecheck and
-the intro simulation and **none of the other five harnesses** — 137 assertions covering the
-warp envelope, navigation, districts and the star shell. There is no CI: no `.github/`, no
-workflow, no `buildCommand` override in `vercel.json`. A regression in any of them builds
-cleanly and deploys.
+That gap was not theoretical: while it was open, §9 of `checks/navigation-feel.ts` had been
+failing two assertions — grab-the-point undershooting by 30% — and `npm run check` was
+exiting 0 the whole time. The cause was a judged `translationGain` (`DECISIONS.md` §21), not
+a bug, but nothing in the process would have told anybody either way.
 
-This is worth sitting with, because it contradicts `DECISIONS.md` §12 ("guard behaviour on the
-artifact, not on review") and because the harnesses are the only tests that exist. Two ways to
-close it, and the trade-off is real: CI keeps deploys fast and gives Preview a pass/fail
-signal, while folding `check` into `build` cannot be bypassed but puts a *tuning-sensitive*
-harness on the deploy path — `check:space` was seen failing at ratio 1.107 against a 1.15
-threshold while `spaceConfig.ts` was mid-edit, then passing 5/5 once it settled. A gate that
-can fail for reasons unrelated to the change is a bad gate. Unresolved; audit `VER-1`.
+**The same `finish()` removed three hardcoded summary counts.** `warp-transition.ts` printed
+`32/32 checks passed` while running **36** assertions; space and zoom had the same pattern.
+A summary that cannot be wrong beats a summary that is round.
+
+**The deploy path runs the gate.** `npm run build` is now
+`tsc -b && npm run test && npm run check:harnesses && vite build`, and `vercel.json` still
+sets no `buildCommand`, so Vercel runs it. Verified by forcing a failure of each kind and
+confirming `vite build` is never reached. Audit `VER-1` is closed, and `DECISIONS.md` §12
+("guard behaviour on the artifact") is honoured rather than merely stated.
+
+**The tradeoff was taken knowingly, and it is the one recorded here before:** a
+tuning-sensitive harness now sits on the deploy path. `check:space` was once seen failing at
+ratio 1.107 against a 1.15 threshold while `spaceConfig.ts` was mid-edit. Local iteration is
+unaffected — `npm run dev` runs none of this — so the friction appears only at build time,
+which is the point of a gate. If it becomes intolerable the answer is CI, not an escape
+hatch; there is deliberately no `VERTIGO_SKIP_TESTS`.
+
+### The two tiers, and which one a thing belongs in
+
+**Unit tier — Vitest, 383 assertions, `src/**/*.test.ts`.** Pure logic that needs no scene:
+the visibility predicates, the warp curves, easing, the navigation rectangles,
+`shortestYawDelta`, the framing geometry, `geoUtils`, the Fibonacci shell, the boot state
+machine, the loading playhead, and the coupled-array data integrity `tsc` cannot see with
+`noUncheckedIndexedAccess` off.
+
+Config in `vitest.config.ts`, deliberately separate from `vite.config.ts` — that file's
+plugins are `apply: 'build'` and `introEntry()` rewrites the Rollup input. Three things are
+carried across: `glsl()`, the `__VERTIGO_ENV__` define, and `environment: 'node'` with jsdom
+opted into **per file**. That last is not fussiness: a global jsdom would hand every module a
+`window` and hide an accidental DOM dependency in the boot chunk, whose standalone-ness is
+asserted on the emitted bundle.
+
+**Vitest is pinned to 3.x on purpose.** Vitest 4 ships its own Vite (8.x) rather than using
+the project's, which would put the test tier on a different bundler from the build — see
+*Known debt*, "Vite pinned at 5". `npm ls vite` must keep reporting a single deduped 5.x.
+
+**Harness tier — `checks/`, 185 assertions, esbuild + node.** Unchanged in kind. They sweep
+tens of thousands of camera poses through real Three.js objects and catch geometric
+regressions invisible to both the type checker and a screenshot. They were NOT ported and
+should not be: they are not unit tests and would be worse as them.
+
+**Smoke tier — Playwright, 11 specs, `npm run e2e`.** Local, against `vite preview`, never a
+build gate: Vercel's container would download Chromium on every deploy and has no server to
+point at. If CI is ever added this is the first thing that moves into it.
+
+`scripts/simulate-intro.mjs` **no longer exists.** All eight of its scenarios live in
+`src/intro-draw/playhead.test.ts`, Case 1 first, driving the same real module by plain import
+instead of by esbuild-transform and a base64 data URL. The disk read only ever existed
+because there was no runner.
+
+**Coverage is scoped, not repository-wide** (`vitest.config.ts`): eleven pure modules, 93%
+statements against an 85% floor. A repository-wide number would be dominated by the WebGL
+surface that is untestable by design, and would end up either meaningless or a reason to
+write fake tests.
 
 ### Verifying the production build, not the dev server
 
@@ -908,26 +1137,92 @@ must restore it to measure coverage.
     Call `updateCoordinateSystem()` yourself, from `renderer.coordinateSystem`. The general
     class: three initialises lazily inside its convenience methods, so taking the parts
     without the method takes them uninitialised.
-32. **In a procedural sky shader the domain scalar is the *only* thing setting feature size.**
+32. **A photographic panorama's wrap seam renders as a straight ruler line, and the obvious
+    way to measure it lies to you.** A stitched 360° image's two vertical edges rarely match
+    photometrically. Under a perspective camera a great circle projects to a **straight line**,
+    so the step does not read as soft variation in the sky — it reads as a ruled diagonal
+    across it, which the eye finds instantly. Two traps. First, measure the seam **signed**:
+    `mean(px(0) − px(W−1))` was 0.40/255 while the mean *absolute* difference was 1.7 both
+    before and after the fix, because at that scale absolute difference measures per-pixel
+    noise rather than the step, and will tell you the seam survived when it did not. Second,
+    0.40/255 sounds negligible and is not — the sky background sits near 12/255, so it is a 3%
+    step, and the sRGB toe is steep enough to expand that into something obvious. The fix is a
+    per-row offset ramped across the full width, which closes the meridian exactly and hides
+    the correction over 360°. No wrap mode or filter setting touches it; the data is
+    discontinuous. Also: keep mipmaps **off** on an equirect sky, or `atan`'s branch cut sends
+    the derivative to infinity on the wrap column and the sampler picks the smallest mip there,
+    drawing a second line for an entirely different reason.
+33. **In a procedural sky shader the domain scalar is the *only* thing setting feature size.**
     The input is a unit vector, so `dir * k` fixes how many noise lattice cells span the whole
     sky. At `k = 2.4` that is about eight — features ~23° wide, two of which fill a 45° FOV,
     and it renders as fog no matter how many octaves are stacked on top. Octaves add detail
     *below* the base frequency; they cannot rescue one that is too low. 8.0 is the working
     value, and this is invisible to every numeric assertion.
-33. **Perturbing a position destroys a geometric invariant; perturbing a direction does not.**
+34. **Perturbing a position destroys a geometric invariant; perturbing a direction does not.**
     The star shell's non-occlusion guarantee is that every point lies on a sphere enclosing
     the camera. Clustering by offsetting final positions in 3D breaks it for *a handful* of
     stars at *some* orbit angles — the intermittent kind no screenshot reliably catches.
     Perturb the direction and renormalise, then apply the radius, and the guarantee holds by
     construction. Assert the radius bound across the full parameter space, not at defaults.
-34. **`scene.background` is not tone-mapped, so anything authored to match it is wrong.** It
+35. **`scene.background` is not tone-mapped, so anything authored to match it is wrong.** It
     is written as a clear colour and skips `ACESFilmicToneMapping` entirely, while every mesh
     beside it does not. This has now bitten twice, in opposite directions: Murcia's skirt had
-    to fade to *alpha* rather than to the background value (§6), and the nebula had to be an
+    to fade to *alpha* rather than to the background value (§6), and the sky had to be an
     opaque **mesh** rather than a background so it passes through the composer's `OutputPass`
     like the Earth does. Related, and equally quiet: a raw `ShaderMaterial` gets no output
     conversion appended, so omitting `#include <colorspace_fragment>` fails as "looks a bit
-    dark" rather than as an error.
+    dark" rather than as an error. The same family: a downloaded sky texture needs
+    `colorSpace = SRGBColorSpace` set by hand, and getting it wrong is not an error either —
+    just a backdrop mysteriously too bright next to the planet.
+36. **Procedural noise has two failure modes no amount of tuning reaches, and both were spent
+    a full round before being recognised.** *Value noise cannot make filaments.* Ridged noise
+    folds around its input's 0.5 level set, and for value noise that set snaps to the cubic
+    lattice — so ridged value noise produces axis-aligned polygon walls, a crazed
+    cracked-marble network, never curved filaments. Gradient or simplex noise does not have
+    this property. *And fbm is stationary by construction*, meaning every patch of the domain
+    has identical statistics. Stacking octaves adds finer detail, never variety; if the result
+    reads as "too uniform", no octave count, threshold or colour will fix it. Non-stationarity
+    has to be authored — domain warping, low-frequency modulation, explicit landmarks — or the
+    texture has to come from somewhere else. Before spending a second tuning round on a
+    procedural look, ask which of these two you are fighting.
+37. **A star field and a photographed sky must not both supply stars.** Point stars in a
+    panorama are static and cannot parallax or twinkle, so beside a real star shell they read
+    as a contradictory second set. Median-filtering them out of the source is the fix, and it
+    pays twice: point stars are high-entropy and dominated the compressed file, so removing
+    them took a 4096×2048 WebP from 1.5 MB to 113 KB. The photograph's job is diffuse gas; the
+    shell's job is the sparkle. Splitting responsibilities that way is why the image is cheap.
+38. **WebP blocks smooth dark gradients at every quality, and magnification turns that into
+    visible squares.** A sky rendered from a WebP q82 panorama was reported as "a bad-res image
+    where you can see the pixels". It was not resolution. WebP quantises smooth dark regions
+    into flat macroblocks; magnifying a texture 1.76× (DPR 1) or 3.52× (DPR 2, which is R3F's
+    default `dpr = [1, 2]`) turns 16-px blocks into 28- and 56-px squares on screen.
+    **Raising WebP quality does not fix it** — q96 still measures 1.60 and costs 4× the bytes.
+    Measure it as the ratio of pixel steps ACROSS 16-px block boundaries to steps WITHIN
+    blocks, over dark pixels only; lossless scores 1.00, the shipped WebP scored **2.147**.
+    AVIF q60 scores **1.171 at half the bytes of WebP q88**. And AVIF is **not monotonic in
+    quality** — q70 and q80 both block *worse* than q60, because rate control chooses different
+    tiling at different targets, so never raise it without re-running the measurement.
+    Two general forms worth keeping: a lossy codec's artifacts are multiplied by whatever
+    magnification the texture is later drawn at, so a texture that is fine in an image viewer
+    can be unacceptable on a sphere; and *shader dither* of ±0.5/255 is nearly free and removes
+    what survives, because the eye integrates grain but finds edges.
+39. **`sharp(encodedBuffer).toFile(path)` silently re-encodes at default quality.** Encoding to
+    a buffer with chosen settings and then writing it back through sharp decodes and re-encodes
+    it, so the file on disk is not the one that was measured. It shipped that way once — the
+    script printed 240 KB while writing 153 KB. Write encoded buffers with `fs.writeFile`. The
+    general form: an image library's `toFile` is a pipeline sink, not a byte writer.
+40. **A `gl_Points` sprite is a SQUARE unless the fragment shader makes it round.** No amount of
+    colour, size or blending changes that; only `gl_PointCoord` distance plus `discard` does.
+    `PointsMaterial` with no `map` therefore draws square stars, which is easy to miss at 1–2 px
+    in a still and becomes obvious the moment anything magnifies or blooms them — adding bloom
+    is what exposed the warp tunnel's. The falloff lives once in `src/space/pointSprite.ts` and
+    is shared by both star fields so they cannot drift into different shapes.
+    The companion trap: **replacing a `PointsMaterial` with a raw `ShaderMaterial` silently
+    changes every point's size**, because three feeds `size` and `scale` uniforms to its own
+    points shader and to nothing else. Reproduce it as
+    `gl_PointSize = size * pixelRatio * (cssHeight * 0.5) / -mvPosition.z`, and note that
+    `cssHeight` is R3F's `size.height`, not `gl.domElement.height` — the latter already includes
+    the pixel ratio and squares it, which looks correct on a 1x display and wrong on every other.
 35. **A diagnostic can sit in a production code path for months and only start firing when an
     unrelated asset changes.** `InteractionProbe` returns `void` and its only effect is a
     `console.info` of node metadata; it was called from Murcia's `pointerup` on every click,
@@ -1027,8 +1322,10 @@ tuned blind — they need a person on real hardware.
 | **District resolves by node name** | The GLB carries no `extras`. Fix is in Blender — see `murcia/blender-export-contract.md` — not in code. |
 | **Two KTX2 loaders** | `createSatellite` and `createCornerLogo` each build one; three warns. Harmless, worth consolidating. |
 | **Corner logo z-order** | Composites at z 10, so geo tags at z 15 can paint over it. Accepted in `adr/002`; unlikely in practice, never observed. |
-| **`check:navigation` cannot fail a build** | It prints failures but leaves the exit code at 0. See §10. |
-| **The harnesses are not on the deploy path** | `npm run build` runs the typecheck and the intro sim only; the other five harnesses run only when a human types `npm run check`, and there is no CI. Not deliberate — unresolved, because the fix is a choice between CI and a slower, tuning-sensitive build gate. §10, audit `VER-1`. |
+| ~~**`check:navigation` cannot fail a build**~~ | **Closed 2026-08-13.** `checks/lib/assert.ts` owns the exit code for all five harnesses. §10. |
+| ~~**The harnesses are not on the deploy path**~~ | **Closed 2026-08-13.** `npm run build` runs the unit tier and all five harnesses before `vite build`; `vercel.json` still sets no `buildCommand`, so Vercel runs it. Verified by forcing each kind of failure. Audit `VER-1` closed. §10. |
+| **Only Chromium is ever tested** | Unchanged, and now also true of the Playwright tier. WebKit and Firefox are not installed here, and iOS Safari is where the KTX2 transcoder and `compileAsync` are most likely to differ. No code change closes this. |
+| **The `.reveal` ordering is unasserted** | §8 claimed `checks/` verified it in the built CSS. No such check exists or ever did; the claim was corrected rather than implemented. The ordering is currently held by source order alone. |
 | **No analytics, no error reporting** | Production failures will be completely invisible after launch. The instrumentation already exists (`bootState.fatalReason()`, `pending()`, `readiness()`); what is missing is a sink. Audit `OBS-1`. |
 | **The city GLB in the working tree ≠ the committed one** | ~3× the nodes and +790 KB, uncommitted, still without `extras`. Needs an owner's decision before it ships. §9, audit `ASSET-2`. |
 
@@ -1082,9 +1379,14 @@ src/
 ├── space/                     the backdrop — band, star field, nebula bake
 ├── experiences/murcia/        the city — its own Scene, camera, rig, UI
 ├── shaders/, utils/, loading/, data/
-checks/                        the behavioural harnesses
-scripts/simulate-intro.mjs     runs on every build
+checks/                        the behavioural harnesses (five)
+checks/lib/                    the shared assert vocabulary and the stub canvas
+e2e/                           Playwright smoke specs + committed screenshot baselines
+*.test.ts                      unit tests, beside the module they cover
 ```
+
+`scripts/simulate-intro.mjs` was retired on 2026-08-13; its eight scenarios are
+`src/intro-draw/playhead.test.ts`.
 
 Inside `experiences/murcia/`: `config/` (pose, feel, skirt, query overrides) · `camera/`
 (rig, flight, framing, warp pose) · `navigation/` (drag controller, bounds, viewport

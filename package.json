@@ -8,13 +8,20 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && node scripts/simulate-intro.mjs && vite build",
+    "build": "tsc -b && npm run test && npm run check:harnesses && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test:intro": "node scripts/simulate-intro.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:update": "playwright test --update-snapshots",
     "check:navigation": "esbuild checks/navigation-feel.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-feel.mjs --log-level=warning && node node_modules/.cache/navigation-feel.mjs",
     "check:district": "esbuild checks/district-flight.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/district-flight.mjs --log-level=warning && node node_modules/.cache/district-flight.mjs",
-    "check": "npm run typecheck && npm run test:intro && npm run check:navigation && npm run check:district && npm run check:warp && npm run check:space",
+    "check:harnesses": "npm run check:navigation && npm run check:zoom && npm run check:district && npm run check:warp && npm run check:space",
+    "check": "npm run typecheck && npm run test && npm run check:harnesses",
+    "check:zoom": "esbuild checks/navigation-zoom.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-zoom.mjs --log-level=warning && node node_modules/.cache/navigation-zoom.mjs",
     "check:warp": "esbuild checks/warp-transition.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/warp-transition.mjs --log-level=warning && node node_modules/.cache/warp-transition.mjs",
     "check:space": "esbuild checks/space-backdrop.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/space-backdrop.mjs --log-level=warning && node node_modules/.cache/space-backdrop.mjs"
   },
@@ -27,15 +34,19 @@
     "three": "^0.174.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/stats.js": "^0.17.4",
     "@types/three": "^0.174.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^3.2.7",
     "esbuild": "^0.21.5",
+    "jsdom": "^29.1.1",
     "potrace": "^2.1.8",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vite-plugin-glsl": "^1.3.3"
+    "vite-plugin-glsl": "^1.3.3",
+    "vitest": "^3.2.7"
   }
 }

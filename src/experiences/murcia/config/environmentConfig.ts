@@ -48,11 +48,20 @@ export interface CameraPoseConfig {
  * Weight lives in the *drag*, not in a coast. Momentum after release was tried
  * and rejected — a view that keeps travelling once the pointer is gone reads as
  * a loss of control, not as mass — so `inertiaTimeConstant` is 0 and the release
- * constant is short enough that motion ends with the gesture. What produces the
- * heaviness instead is `NavigationConfig.translationGain` below 1 together with
- * a slightly longer `smoothingTimeConstant`. Those two go together: lag during a
- * drag only reads as latency while the grabbed ground is expected to stay under
- * the cursor, and a gain below 1 has already given that up.
+ * constant is short enough that motion ends with the gesture.
+ *
+ * `smoothingTimeConstant` is coupled to `NavigationConfig.translationGain` and
+ * the two must move together. The earlier design paired a gain of 0.5 with a
+ * longer constant, on the reasoning that lag during a drag only reads as latency
+ * while the grabbed ground is *expected* to stay under the cursor — and a gain
+ * below 1 had already given that up. Pan is now grab-the-point at gain 1, so
+ * that condition fires: the ground is expected to track the cursor exactly, the
+ * lag is visible as `dragSpeed × smoothingTimeConstant` of slide, and the
+ * constant came down to match. Restoring one without the other reintroduces the
+ * complaint that prompted the change. See PROJECT_MEMORY, "Murcia's navigation".
+ *
+ * Pan and rotation no longer share a gesture, so their feels are no longer
+ * deliberately matched — only translation's constant moved.
  */
 export interface DragFeelConfig {
   /**
@@ -94,9 +103,17 @@ export interface DragFeelConfig {
 /**
  * Horizontal rotation of the camera about the navigation focus.
  *
+ * A deliberate, dedicated gesture — right button on a mouse, two fingers on
+ * touch — not one screen axis of the only drag. That separation is what lets
+ * `degreesPerViewportWidth` be low: rotation is entered on purpose, so it can
+ * afford to cost more travel, and it can no longer be triggered by accident
+ * while panning.
+ *
  * There is no vertical equivalent by design: elevation stays at the configured
  * pose, so the analysis the navigable area depends on (Appendix A) holds. That
- * is structural — no pitch input exists to clamp.
+ * is structural — no pitch input exists to clamp. It matters more now than it
+ * did: `ZoomConfig` makes distance user state, so elevation is the last pose
+ * term the footprint maths can still treat as constant.
  */
 export interface RotationConfig {
   enabled: boolean;
@@ -105,11 +122,67 @@ export interface RotationConfig {
    *
    * Expressed per viewport width rather than per pixel so sensitivity does not
    * change with resolution or window size. Rotation is free and unbounded —
-   * the value only sets how much drag a full turn costs.
+   * the value only sets how much drag a full turn costs. The touch path feeds
+   * the two-finger centroid through the same mapping, so a turn costs the same
+   * fraction of the screen on either input.
    */
   degreesPerViewportWidth: number;
   /** Feel for the yaw axis. Speeds are degrees per second. */
   feel: DragFeelConfig;
+}
+
+/**
+ * Dolly along the fixed view direction: wheel on a mouse, pinch on touch.
+ *
+ * Only `distance` moves. Elevation, azimuth and FOV are untouched, because
+ * those set the ground footprint the terrain skirt was sized against and
+ * distance is the only one of the four cheap enough to hand to a user.
+ *
+ * Expressed as multipliers of `CameraPoseConfig.distance` rather than as world
+ * units, so changing the resting distance carries the whole band with it
+ * instead of silently moving one end of it.
+ *
+ * `maxDistanceScale` is the dangerous end, and it is NOT a judgement. Zooming
+ * out grows the viewport's ground footprint, which eats the skirt margin that
+ * keeps the hard plate edge off screen — and it does so invisibly on a 16:9
+ * monitor while showing the edge on an ultrawide. `checks/navigation-zoom.ts`
+ * proves the shipped value against `computeGroundFootprint` at every azimuth on
+ * every tested aspect. Do not raise it without re-running that check.
+ */
+export interface ZoomConfig {
+  enabled: boolean;
+  /** Closest approach, as a multiple of the resting distance. */
+  minDistanceScale: number;
+  /** Furthest retreat. Footprint-critical — see above. */
+  maxDistanceScale: number;
+  /**
+   * e-folds of distance per pixel of wheel delta. Multiplicative, so a notch
+   * costs the same proportion of the band wherever you are in it, and zooming
+   * in then out by the same amount returns exactly to where it started.
+   */
+  wheelSensitivity: number;
+  /**
+   * Multiplier applied when a wheel event carries `ctrlKey` — which is how
+   * every browser reports a trackpad pinch. Those events carry far smaller
+   * deltas than a mouse notch, so without this a pinch on a laptop barely
+   * moves the camera.
+   */
+  ctrlWheelMultiplier: number;
+  /**
+   * Exponent on the touch pinch's separation ratio. 1 is the international
+   * gesture at 1:1 — the distance changes by exactly the ratio the fingers did.
+   */
+  pinchSensitivity: number;
+  /**
+   * Seconds to close ~63% of the distance to the target scale. The wheel is a
+   * discrete input, so this is what makes it read as a glide rather than a
+   * staircase. It can afford to be longer than the pan's constant because
+   * nothing on screen is supposed to stay under the cursor during a zoom, so
+   * there is no reference for the lag to be visible against.
+   *
+   * No inertia term: a zoom has no release to coast from.
+   */
+  smoothingTimeConstant: number;
 }
 
 export interface NavigationConfig {
@@ -117,21 +190,23 @@ export interface NavigationConfig {
   /** Screen-space movement before a pointer sequence becomes a drag. */
   dragThresholdPx: number;
   /**
-   * Multiplier on forward/backward translation. 1 makes the ground track the
-   * cursor exactly — the grabbed point stays under the pointer.
+   * Multiplier on the pan solve. 1 makes the ground track the cursor exactly —
+   * the grabbed point stays under the pointer, in both axes.
    *
-   * Below 1 that point slides *behind* the cursor, which is the deliberate
-   * trade for a heavier feel: this is the only sensitivity knob translation has,
-   * the motion otherwise being solved against the ground rather than derived
-   * from pixels. See PROJECT_MEMORY, "Murcia's navigation".
+   * 1 is the shipped value and it is the *point*: pan is grab-the-point, which
+   * is a definition rather than a taste. Below 1 the grabbed point slides
+   * behind the cursor and the gesture stops being a map, which is the complaint
+   * that prompted the rework. The knob is retained only so `?dragGain=` can put
+   * the old feel back for comparison. See PROJECT_MEMORY, "Murcia's navigation".
    */
   translationGain: number;
   /**
-   * Feel for translation along the camera's forward axis. Speeds are world
-   * units per second.
+   * Feel for panning the focus across the ground. Speeds are world units per
+   * second. Coupled to `translationGain` — see DragFeelConfig.
    */
   feel: DragFeelConfig;
   rotation: RotationConfig;
+  zoom: ZoomConfig;
   /** Y of the horizontal plane that pointer rays are projected against. */
   groundPlaneHeight: number;
   /**

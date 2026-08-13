@@ -51,3 +51,19 @@ export function applyPoseToCamera(
   // Redundant during a normal frame; the price is one matrix compose.
   camera.updateMatrixWorld(true);
 }
+
+/**
+ * Folds a user zoom scale into a pose by multiplying its distance.
+ *
+ * A one-line helper because it must exist exactly once. `CameraRig` composes
+ * zoom this way for the live camera, and `checks/navigation-zoom.ts` and
+ * `checks/warp-transition.ts` compose it the same way to measure the resulting
+ * ground footprint — and a second copy of `distance * scale` living in a check
+ * is precisely the "harness that rebuilds what it is testing" failure that put
+ * `applyPoseToCamera` in its own module in the first place.
+ *
+ * Returns the pose unchanged at scale 1 so the common path allocates nothing.
+ */
+export function scalePoseDistance(pose: CameraPoseConfig, scale: number): CameraPoseConfig {
+  return scale === 1 ? pose : { ...pose, distance: pose.distance * scale };
+}

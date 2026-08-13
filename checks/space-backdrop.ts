@@ -2,7 +2,7 @@
  * Behavioural harness for the space backdrop.  `npm run check:space`
  *
  * Drives the REAL band and star-distribution modules, not reimplementations —
- * same rule as checks/warp-transition.ts and scripts/simulate-intro.mjs: a
+ * same rule as checks/warp-transition.ts and src/intro-draw/playhead.test.ts: a
  * guard that tests a convenient stand-in guards nothing.
  *
  * Section 2 is the one that matters. The backdrop's non-occlusion guarantee is
@@ -20,22 +20,19 @@ import { generateStarField } from '../src/space/starDistribution';
 import type { StarFieldOptions } from '../src/space/starDistribution';
 import { INTERACTION_CONFIG } from '../src/interaction/interactionConfig';
 import { fibonacciSpherePoints } from '../src/utils/fibonacciSphere';
+// Imported rather than copied, so raising the slider default cannot leave this
+// harness quietly asserting against a count the app stopped using. Safe in
+// Node: the module's only value import is GALAXY_BAND, and its one window
+// access lives inside defaultIntroConfig(), which nothing here calls.
+import { DEFAULT_APP_CONFIG } from '../src/introConfig';
 
-let failures = 0;
+const SHIPPED_STAR_COUNT = DEFAULT_APP_CONFIG.backdropStarCount;
 
-function check(label: string, ok: boolean, detail = ''): void {
-  const tag = ok ? 'PASS' : 'FAIL';
-  if (!ok) failures++;
-  console.log(`  ${tag}  ${label.padEnd(56)} ${detail}`);
-}
+import { banner, check as rawCheck, finish, section } from './lib/assert';
 
-function section(title: string): void {
-  console.log(`\n${title}`);
-}
+const check = (label: string, ok: boolean, detail = '') => rawCheck(label, ok, detail, 56);
 
-console.log('='.repeat(70));
-console.log('Space backdrop — galaxy band and star distribution');
-console.log('='.repeat(70));
+banner('Space backdrop — galaxy band and star distribution');
 
 // ---------------------------------------------------------------------------
 section('1. The galactic band is a well-formed density field');
@@ -156,6 +153,24 @@ check(
   `${worstLow.toFixed(1)} vs zoomMax ${INTERACTION_CONFIG.camera.zoomMax} — below this the shell stops enclosing the camera and stars render over the Earth`,
 );
 check('no NaN in any buffer', !anyNaN, 'one NaN position empties the whole draw call');
+
+// BASE.count is 2600 while the app ships DEFAULT_APP_CONFIG.backdropStarCount,
+// and that divergence is deliberate: sections 3 and 4 are O(n^2) in the count
+// (~6.8M dot products at 2600, ~12M at 3500, and they run four times), and what
+// they test is the ALGORITHM, which does not care how many stars it is given.
+//
+// But nothing else then exercises the number actually shipped, so the shell
+// guarantee — the one property here whose failure puts stars in front of the
+// planet — would be asserted only at a count nobody runs. This covers it
+// directly. It is cheap: one generation, one linear pass.
+const shipped = generateStarField({ ...BASE, count: SHIPPED_STAR_COUNT });
+const shippedRadii = radii(shipped);
+check(
+  'the shipped star count still satisfies the shell guarantee',
+  shippedRadii.every((r) => r >= lowBound - 1e-3 && r <= highBound + 1e-3) &&
+    !Array.from(shipped.positions).some(Number.isNaN),
+  `${SHIPPED_STAR_COUNT} stars, radii ${Math.min(...shippedRadii).toFixed(1)}..${Math.max(...shippedRadii).toFixed(1)} (bounds ${lowBound}..${highBound})`,
+);
 
 const sized = generateStarField(BASE);
 check(
@@ -370,11 +385,4 @@ check(
 );
 
 // ---------------------------------------------------------------------------
-console.log(`\n${'='.repeat(70)}`);
-const total = 28;
-if (failures === 0) {
-  console.log(`${total}/${total} checks passed`);
-} else {
-  console.log(`${failures} check(s) FAILED`);
-  process.exitCode = 1;
-}
+finish();

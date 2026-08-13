@@ -2,7 +2,8 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-08-11 · §17–18 added against the working tree, post-`c1fa2cc`;
+Last updated: 2026-08-13 · §21–22 added and §12, §19, §20 amended (plan 000, the drag gain,
+the ESO credit). Earlier: 2026-08-11 · §17–18 added against the working tree, post-`c1fa2cc`;
 §19 added post-`b418b5f`
 
 ---
@@ -243,6 +244,28 @@ guards is invisible on the machine the change is made on: it only shows on ultra
 **The rule.** When a constraint's failure is invisible where you work, assert it. Care is
 not a mechanism.
 
+**Extended again, 2026-08-13 — and until then this entry described an aspiration.** The
+assertions existed; nothing ran them. `npm run build` was `tsc -b`, the intro simulation and
+`vite build`, so Vercel ran neither the harnesses nor anything else, and `check:navigation`
+could not have failed a build even if it had been run — it printed failures and left the exit
+code at 0. Both are now closed (`PROJECT_MEMORY` §10):
+
+- `npm run build` is `tsc -b && npm run test && npm run check:harnesses && vite build`.
+  Verified by forcing a failing unit test and a failing harness assertion and confirming
+  `vite build` is never reached, rather than by reading the script.
+- The exit code lives once, in `checks/lib/assert.ts`, and is counted live. The three
+  hardcoded summary totals went with it — one of them had drifted to 32 against 36 real
+  assertions.
+
+**The corollary, which is the part worth keeping:** *an assertion nobody runs is a comment,
+and an assertion that cannot fail is a lie.* Both had been true here for months while the
+repository read as though it were well guarded. When adding a check, the question is not only
+"does it hold" but "what makes this run, and what happens when it does not hold".
+
+**Ruled out.** A `VERTIGO_SKIP_TESTS` escape hatch. `VERTIGO_SKIP_BUDGETS` exists so a
+developer can inspect a bundle the assertion aborted, which is a real need; there is no
+equivalent here, and an escape hatch on the gate is the gate.
+
 ---
 
 ## 13. Migration and refactoring stay separate
@@ -440,7 +463,105 @@ Artwork requirements are in `earth/logo-spec.md` — it is written to be sent to
 
 ---
 
-## 19. The sky is generated on the GPU, not downloaded, and it is a mesh rather than a background
+## 19. The sky is a photograph, and it is a mesh rather than a background
+
+> **Superseded in part, 2026-08-13.** The sky was generated on the GPU and baked into a
+> cubemap; it is now a downloaded photographic panorama. The mesh-not-background half of this
+> entry stands unchanged, as does everything about render order, the star shell and the
+> composer. Only the source of the pixels changed — which is exactly the substitution the
+> original entry said the cubemap existed to allow. The superseded text is below the rule.
+
+The resting scene's backdrop is a galactic band of clustered stars over a photographic Milky
+Way panorama: ESO's *GigaGalaxy Zoom* image by Serge Brunier, **113 KB**, equirectangular in
+galactic coordinates, loaded during the existing load phase as a required resource.
+
+**Why the procedural nebula was abandoned rather than tuned.** Two of its failures were
+structural, not a matter of constants. Its ridged noise was built on **value** noise, whose
+0.5 level set snaps to the lattice — so what was meant to be dust filaments rendered as
+axis-aligned polygon walls, a crazed cracked-marble network over the whole band. And fbm is
+**stationary** by construction: every patch of sky has identical statistics, so no number of
+octaves produces variety, only finer detail. One analytic gaussian was the entire large-scale
+structure of the sky. It read as a texture smeared along a stripe, which is precisely what it
+was. A third failure was merely bad and was fixable: the cubemap was RGBA8 in a *linear*
+target at brightness 0.14, so the whole nebula occupied about 40 of 255 code values and its
+weakest channel about 5, which is where the muddy colour came from.
+
+**AVIF, not WebP, and the codec choice is load-bearing rather than incidental.** WebP quantises
+smooth dark gradients into flat macroblocks, and the sky is mostly smooth dark gradient
+magnified 1.76× on screen — 3.52× on a high-DPI display, since R3F defaults `dpr = [1, 2]`.
+That renders as visible squares, and raising WebP quality does not fix it: q96 still measures
+1.600 on the block-ratio harness against AVIF q60's 1.171, at nearly twice the bytes. AVIF is
+also *not monotonic* — q70 and q80 block worse than q60 — so the quality constant may not be
+raised without re-running the measurement in `scripts/prepare-sky-panorama.mjs`.
+
+**The byte cost is real but small, and smaller than expected.** 240 KB against the Earth's
+2.43 MB, on a low-priority preload, behind the app chunk, with an 81 KB variant below 767 px.
+The saving came from an unobvious place: **point stars were filtered out of the panorama before
+it shipped.** The same image un-filtered is 1.5 MB, because point stars are high-entropy and
+dominate the compressed size.
+Removing them was independently correct — the star shell draws its own stars nearer, where
+they parallax and twinkle, and photographed ones would have been a second static set
+contradicting them. The photograph supplies diffuse gas; the shell supplies the sparkle.
+
+**Attribution is a licence obligation, not a courtesy.** CC BY 4.0 requires the credit
+"ESO/S. Brunier" be clearly readable and not hidden. It is in the audit panel, and
+`CREDITS.md` records both the terms and where the visible credit lives. Do not reword it,
+hide it at a breakpoint, or fade it further.
+
+> **Correction, 2026-08-13.** This entry called the audit panel "the only *persistent* text
+> surface the site has". It is not persistent: the credit sits inside `.audit-overlay`, which
+> is hidden until a visitor opens the lead-capture panel, so at rest the site displays no
+> attribution at all. Found by `e2e/backdrop.spec.ts`, which expected it to be visible and
+> was not.
+>
+> A credits panel is usually accepted as attribution "in a reasonable manner", so this is
+> flagged rather than treated as a breach — but it is **weaker than this entry describes**,
+> and the decision of whether that is good enough is the owner's, not a harness's. The spec
+> asserts what ships: reachable in one click, above 0.5 effective opacity, exact wording. If
+> a real footer ever appears, the credit belongs there and this paragraph goes with it.
+
+**Bloom now exists in the pipeline**, between `RenderPass` and `AfterimagePass`. Before it,
+nothing in the scene could look luminous rather than painted — a star was a bright matte dot
+and the galactic core was flat. It is before the afterimage so it thresholds the true HDR
+frame rather than one already faded toward the previous one, which would make the glow pump
+as the warp blur ramped.
+
+**It is an opaque mesh at `renderOrder -1000`, never `scene.background`.** A background is
+written as an untone-mapped clear colour, so it would sit at the wrong brightness beside an
+ACES-mapped Earth; as a mesh it passes through the composer's `OutputPass` like everything
+else. This also makes its non-occlusion a property of render order rather than of geometry.
+The *star* shell's guarantee is separate and geometric, and clustering it is therefore
+angular-only — see `PROJECT_MEMORY.md` §11.33 and §11.34, which are the general forms.
+
+**Palette exception, stated so it is not mistaken for drift.** The sky is naturalistic — warm
+dust, pale core — and does not follow the brand's blue-accent rule. Same reasoning as the
+Earth's textures: the brand guide governs UI chrome, and this is the scene's own language.
+`skyBrightness` is the one dial the client is likely to want, and it is a slider.
+
+**Ruled out.** `scene.background` (tone mapping). Fixing the procedural shader instead —
+simplex noise plus domain warping would have got there, but only after several bake-and-look
+art iterations, and the photograph is right on the first. NASA's Deep Star Maps, which are
+public domain and would have avoided the attribution obligation, but ship only as OpenEXR at
+this framing and nothing in the toolchain decodes EXR. Animating the sky — the user rotates
+the scene themselves, so ambient motion buys nothing and costs a per-frame pass.
+
+**How you would know it broke.** Stars in front of the Earth at full zoom. Visible squares in
+the dark gas, which is compression blocking and means the codec or its quality changed
+(`PROJECT_MEMORY.md` §11.38) — check at DPR 2, because DPR 1 halves the artifact and is how it
+went unnoticed the first time. A straight ruler line across the sky, which is the panorama's
+wrap seam reopening (`PROJECT_MEMORY.md` §11.32).
+A visible pop as the sky arrives after the Earth, which means the boot step stopped being
+required. The Earth's day side hazing over, which means the bloom threshold fell too far. A
+backdrop obviously brighter or flatter than the planet in front of it, which means it stopped
+going through the composer.
+
+Detail, and the defects only screenshots caught in both rounds, in `earth/DECISIONS.md` —
+*The backdrop becomes a galaxy* and *The galaxy becomes a photograph*.
+
+---
+
+<details>
+<summary>Superseded text: the sky was generated on the GPU, not downloaded</summary>
 
 The resting scene's backdrop is a galactic band of clustered stars over a procedural nebula.
 The nebula is generated by a shader and baked into a cubemap during the existing load phase,
@@ -453,30 +574,153 @@ been simpler to art-direct and would have put megabytes on the critical path.
 **The cubemap is deliberately a seam.** If authored artwork is ever wanted, it replaces the
 bake and nothing downstream changes — the same shape of decision as §18's `logo` string.
 
-**It is an opaque mesh at `renderOrder -1000`, never `scene.background`.** A background is
-written as an untone-mapped clear colour, so it would sit at the wrong brightness beside an
-ACES-mapped Earth; as a mesh it passes through the composer's `OutputPass` like everything
-else. This also makes its non-occlusion a property of render order rather than of geometry.
-The *star* shell's guarantee is separate and geometric, and clustering it is therefore
-angular-only — see `PROJECT_MEMORY.md` §11.33 and §11.34, which are the general forms.
+*That seam is what was used. The claim held: the substitution touched the shell's fragment
+shader, the loader and the config, and nothing else. What did not hold was the premise that
+the procedural sky could be made to look good — see above. Note also that the byte argument
+was made against a hypothetical "4K sky" costing megabytes; the real one costs 113 KB, because
+the case assumed a photograph must carry its own stars.*
 
-**Palette exception, stated so it is not mistaken for drift.** The nebula is naturalistic —
-warm dust, blue core, magenta hydrogen — and does not follow the brand's blue-accent rule.
-Same reasoning as the Earth's textures: the brand guide governs UI chrome, and this is the
-scene's own language. Reversible in one config object if the client disagrees.
+</details>
 
-**Ruled out.** A downloaded sky texture (bytes on the critical path). `scene.background`
-(tone mapping). Baking all six faces in one frame (a visible hitch in the live drawing).
-Animating the nebula — the user rotates the scene themselves, so ambient sky motion buys
-nothing and costs a per-frame pass.
+---
 
-**How you would know it broke.** Stars in front of the Earth at full zoom. A visible hitch as
-the intro drawing completes. The sky mirrored, or one cube face repeated six times
-(`PROJECT_MEMORY.md` §11.31). A backdrop that is obviously brighter or flatter than the planet
-in front of it, which means it stopped going through the composer.
+## 20. Murcia navigates like a map
 
-Detail, and the three defects that only screenshots caught, in `earth/DECISIONS.md` —
-*The backdrop becomes a galaxy*.
+> **Amended 2026-08-13 — §21.** The gain is 0.7 rather than 1:1. Everything else below
+> stands.
+
+**Left button and one finger pan the ground 1:1 under the cursor, in both axes. Rotation
+moves to the right button and to two fingers, at half the sensitivity. A small, bounded zoom
+band lands on the wheel and on pinch.**
+
+This **reverses a signed-off decision**, and the grounds matter more than the change.
+
+The 2026-08-06 sign-off on `translationGain: 0.5` and `degreesPerViewportWidth: 120` was valid
+on its own terms — a person drove the build and judged it, and every other number in this repo
+is reasoned or measured rather than judged. `PROJECT_MEMORY` §7 says a numeric argument is not
+sufficient grounds to change it. That still stands: **this is not being changed by a numeric
+argument.** It is being changed by the same currency that set it — real people driving the
+build and reporting that one gesture carrying both axes is not what they expect from a map,
+that there is no way to strafe, and that rotation is too fast. Judgement supersedes judgement;
+the arithmetic had no vote either time.
+
+Four structural consequences, each of which is the reason a number moved:
+
+- **Strafing exists, so free 360° yaw no longer has to pay for it.** The old scheme justified
+  losing sideways pan on the grounds that unbounded yaw made every point reachable by turning
+  and advancing. True, and not what people tried to do.
+- **Rotation is deliberate, which is what lets its sensitivity halve.** 120°/viewport-width
+  read as twitchy mostly because it fired by accident on the horizontal axis of every drag. A
+  gesture entered on purpose can afford to cost more travel — and the gestures now carrying it
+  (right-drag, two fingers) have less usable travel than a primary drag does.
+- **Distance became user state, and therefore a footprint input.** So it is bounded by a
+  check and not by a number: `checks/navigation-zoom.ts` proves `maxDistanceScale` against
+  `computeGroundFootprint` at every azimuth on every tested aspect. Same class of hazard as
+  §7's warp poses, and it gets the same treatment.
+- **The terrain skirt widened 600 → 700, because the skirt is what pays for zoom-out.** At
+  600 the band ran out of margin at scale 1.09 — and only on ultrawide, i.e. invisibly to
+  whoever chose it. The cost is a few hundred more fully transparent triangles.
+
+The rejected design is preserved in `PROJECT_MEMORY` §7 rather than deleted, because its
+reasoning is sound for its constraints and is what to return to if the right button ever
+stops being available.
+
+---
+
+## 21. The pan gain is 0.7, so grab-the-point is a property of the solve rather than of the feel
+
+> Amends **§20**, which states pan as "1:1 under the cursor". The gesture split, the
+> rotation sensitivity and the zoom band in that entry are unchanged; only the gain is.
+
+**Decided 2026-08-13, by hand.** `translationGain: 0.7`. The ground covers 70% of the
+cursor's sweep, so the grabbed point slides ~30% of the drag distance behind the pointer —
+**by construction, not as lag**.
+
+**Why this is not a numeric argument overturning a judged value.** §20 reversed the
+signed-off 0.5 to 1.0 on user reports, and argued that 1 had *left* the judged set because it
+is the definition of grab-the-point. That argument was too strong: the definition is a
+property of the solve, and how much of it to spend is still a taste. 0.7 is the same
+currency as every other feel number here — a person driving the build — and the arithmetic
+had no vote this time either.
+
+**What it costs, stated plainly.** The complaint that produced §20 was "dragging does not
+move the view where the mouse goes". At 0.7 that is *partly* true again, deliberately. If it
+comes back from real users, the answer is 1.0 and it is one character.
+
+**Consequence for the coupled constant.** §20's `smoothingTimeConstant: 0.03` was a
+consequence of gain 1, since the latency objection fires only while the ground is expected to
+track the cursor exactly. At 0.7 it fires in proportion, so 0.03 is conservative rather than
+required. Left alone: the gain was re-judged, the time constant was not, and moving both at
+once is how the pair stopped being understood the first time.
+
+**How this was caught, which matters more than the number.** `checks/navigation-feel.ts` §9
+had been failing two assertions with `npm run check` still exiting 0 — that harness sets no
+exit code (`PROJECT_MEMORY` §10, and the reason plan 000 exists). A judged value silently
+contradicting a documented definition is exactly what a harness is for, and this one was
+reporting it into a log nobody read.
+
+**The harness now asserts the solve, not the taste.** §9 drives the L-shaped drag twice: at
+gain 1, where the grabbed point must land within a pixel of the cursor because that is a
+definition; and at the shipped gain, where the focus must cover *exactly* that fraction of
+the exact answer. An inverted sign, a dropped delta, a clamp eating part of the drag or the
+solve drifting with camera lag all still fail. Re-judging the gain requires no harness edit.
+
+**Ruled out.** Asserting a screen position at the shipped gain, which pins a person's taste
+in a check and fails the next time it is re-judged. Deleting the assertion, which would have
+retired the one property the rework exists for. Changing the gain to make the check pass —
+the check was wrong about which of the two properties it owned.
+
+**How you would know it broke.** `check:navigation` fails §9 at gain 1, which means the solve
+itself regressed and no gain will fix it. Or the proportionality assertions fail while gain 1
+passes, which means something downstream of the solve — a clamp, the smoothing, the bounds —
+is eating part of the drag.
+
+---
+
+## 22. There are two test tiers, and a rule for telling them apart
+
+→ **`docs/plans/000-testing-strategy.md`**
+
+**Decided 2026-08-13.** Vitest for pure logic beside its module; `checks/` unchanged for
+anything that needs real Three.js objects across many frames. A hybrid, not a migration.
+
+> A **unit test** lives beside its module as `*.test.ts` and needs no scene.
+> A **harness** lives in `checks/`, drives real Three.js objects across many frames, and is
+> bundled with esbuild.
+
+That rule is in `vitest.config.ts` as well as in prose — `include` is `src/**/*.test.ts`, so
+`checks/` cannot be swept into the runner by accident. Two tiers are worthless if nobody can
+say which one a new test belongs in.
+
+**Why the harnesses were not ported.** They are not unit tests and would be worse as unit
+tests: `check:warp` sweeps 19 296 real camera poses through the real
+`computeGroundFootprint`, and the thing it guards is invisible on the machine every change is
+made on. Nothing about that fits a fast pure-function runner.
+
+**What the unit tier is for.** The cheapest logic in the repository had no coverage at all,
+because writing a test meant hand-rolling an assertion function and an esbuild invocation.
+That is where the coupled-array class of bug lives — `SATELLITES` against `ORBIT_PRESETS`,
+which `tsc` cannot see with `noUncheckedIndexedAccess` off, and where one missing case study
+would have refused to load the whole site.
+
+**Playwright is local, not a gate.** Vercel's build container would download Chromium on
+every deploy and has no server to point at. `npm run e2e`, against `vite preview`. If CI is
+ever added, this is the first thing that moves into it.
+
+**Coverage is scoped to the pure set**, not repository-wide. A whole-repo percentage would be
+dominated by the WebGL surface that is untestable by design, and would end up either
+meaningless or a reason to write tests that exist to raise it.
+
+**Vitest is pinned to 3.x.** Vitest 4 bundles its own Vite 8 rather than using the project's,
+which would quietly put the test tier on a different bundler from the build — the exact
+ride-along that "Vite pinned at 5" exists to prevent.
+
+**Ruled out.** Porting `checks/` to Vitest. ESLint, still — a stubbed `lint` script is a gate
+that does not exist. A `VERTIGO_SKIP_TESTS` flag. Tests written to move a coverage number.
+
+**How you would know it broke.** `npm ls vite` reports more than one Vite. A `*.test.ts`
+appears under `checks/`, or a file in `checks/` stops calling `finish()`. Or the tell that
+started all of this: a harness reporting failures while `npm run check` exits 0.
 
 ---
 
@@ -484,8 +728,14 @@ Detail, and the three defects that only screenshots caught, in `earth/DECISIONS.
 
 | Decision | Was | Now |
 |---|---|---|
+| The repo has no test runner | `PROJECT_MEMORY` §2, "no ESLint and no test runner" | Vitest for pure logic; `checks/` unchanged; Playwright local — **§22** |
+| `npm run check` is the gate, and nothing runs it | `PROJECT_MEMORY` §10, audit `VER-1` | `npm run build` runs it, and every harness can fail — **§12** |
+| Pan is 1:1 under the cursor | **§20**, 2026-08-13 | Gain 0.7; exactness is asserted on the solve at gain 1 instead — **§21** |
+| One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** |
 | The brand plates are drawn, never loaded | `earth/DECISIONS.md`, "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
-| The backdrop is a field of uniform points on a shell | `earth/DECISIONS.md`, "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a generated nebula — **§19** |
+| The backdrop is a field of uniform points on a shell | `earth/DECISIONS.md`, "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** |
+| The sky is generated on the GPU, not downloaded | **§19**, first form | It is a 113 KB photograph. The procedural nebula could not be made to look like anything but dirt, for structural reasons — **§19** |
+| The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** |
 | A click acts on the satellite/marker the pointer is hovering | `createSatelliteFocus.ts`, `createGeoMarkers.ts` | It acts on what is under the event's coordinates — **§17** |
 | A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** |
 | `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** |

@@ -101,12 +101,26 @@ const SECTIONS: Array<{ title: string; controls: Control[] }> = [
       { key: 'backdropJitter', label: 'Depth jitter', min: 0, max: 0.5, step: 0.01, unit: '' },
       { key: 'backdropClusterStrength', label: 'Clumping', min: 0, max: 1, step: 0.05, unit: '' },
       { key: 'backdropTwinkle', label: 'Twinkle', min: 0, max: 0.6, step: 0.02, unit: '' },
-      // These four invalidate the baked cubemap, so NebulaShell debounces them
-      // before rebuilding a 25 MB render target.
-      { key: 'nebulaBrightness', label: 'Nebula', min: 0, max: 1.2, step: 0.05, unit: '' },
-      { key: 'nebulaDustDensity', label: 'Dust lanes', min: 0, max: 1, step: 0.05, unit: '' },
-      { key: 'nebulaBandWidth', label: 'Band width', min: 0.1, max: 0.8, step: 0.01, unit: '' },
-      { key: 'nebulaBandTilt', label: 'Band tilt', min: -90, max: 90, step: 1, unit: 'deg' },
+      // All four are plain uniform writes against an already-loaded texture, so
+      // unlike the baked cubemap these replaced, they are free to drag.
+      { key: 'skyBrightness', label: 'Sky', min: 0, max: 2, step: 0.05, unit: '' },
+      // The depth pair: contrast deepens the darks, brightness sets the level.
+      // Raise both together to push the sky back without flattening it.
+      { key: 'skyContrast', label: 'Sky contrast', min: 0.6, max: 2.2, step: 0.05, unit: '' },
+      { key: 'skyBandWidth', label: 'Band width', min: 0.1, max: 0.8, step: 0.01, unit: '' },
+      { key: 'skyBandTilt', label: 'Band tilt', min: -90, max: 90, step: 1, unit: 'deg' },
+      { key: 'skyBandYaw', label: 'Band yaw', min: 0, max: 360, step: 2, unit: 'deg' },
+    ],
+  },
+  {
+    title: 'Bloom',
+    controls: [
+      // 0 disables the pass entirely rather than rendering a no-op, so this is
+      // the performance escape hatch as well as the look control.
+      { key: 'bloomStrength', label: 'Strength', min: 0, max: 1.5, step: 0.05, unit: '' },
+      { key: 'bloomRadius', label: 'Radius', min: 0, max: 1, step: 0.05, unit: '' },
+      // The one that matters. Below ~0.8 the Earth's day side starts hazing.
+      { key: 'bloomThreshold', label: 'Threshold', min: 0, max: 2, step: 0.05, unit: '' },
     ],
   },
 ]

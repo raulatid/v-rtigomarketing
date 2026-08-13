@@ -15,6 +15,7 @@
 export type StepId =
   | 'chunk:scene'
   | 'earth:textures'
+  | 'sky:panorama'
   | 'gpu:warmup'
   | 'satellite:assets'
   | 'logo:assets'
@@ -34,6 +35,19 @@ const RESOURCES: Record<StepId, Resource> = {
   // three.js + the scene module, evaluated.
   'chunk:scene': { weight: 20, required: true },
   'earth:textures': { weight: 30, required: true },
+  // The sky the Earth cuts into. Required, because the backdrop is gated on the
+  // same predicate as the Earth and the design is that nothing cross-fades or
+  // pops in afterwards — a sky that arrives late arrives visibly.
+  //
+  // Only 111 KB against the Earth's 2.43 MB, so the weight is small: it must be
+  // able to gate readiness without dominating the drawing's measured progress.
+  //
+  // NOTE for whoever loads it: `required` here means a failure to load must
+  // still call markDone(), never markFatal(). Fatal is for a resource without
+  // which the scene is invalid; a missing sky is a black sky, and the site is
+  // worth more than the backdrop. Getting this wrong holds every visitor to the
+  // 45s hard deadline for a decorative texture.
+  'sky:panorama': { weight: 5, required: true },
   // Uploads + shader compile. Without it the cut lands on an unshaded sphere.
   'gpu:warmup': { weight: 15, required: true },
   // Needed for the P3 crossover, which is the first thing after the intro.
@@ -75,6 +89,25 @@ export interface BootState {
   completed(): StepId[]
   fatalReason(): string | null
   reset(): void
+}
+
+/**
+ * A fresh, independent boot state.
+ *
+ * Exported for tests only. The application must use the `bootState` singleton
+ * below — a second live instance would mean two answers to "is the scene ready",
+ * and the one the intro reads would not be the one the app writes.
+ *
+ * It is exported rather than reconstructed in the test because testing a
+ * readiness machine against the cross-chunk global means every case contaminates
+ * the next, and `reset()` cannot undo a `fatal` that a previous case latched.
+ *
+ * Costs nothing: this module is in the 16 KB intro chunk, and Rollup tree-shakes
+ * the unused export. The budget assertion in vite.config.ts reports immediately
+ * if that ever stops being true.
+ */
+export function createBootState(): BootState {
+  return create()
 }
 
 function create(): BootState {

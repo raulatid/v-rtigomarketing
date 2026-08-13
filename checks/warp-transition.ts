@@ -3,8 +3,8 @@
  *
  * Drives the REAL curve module, the REAL pose mapping and the REAL camera
  * placement — not reimplementations. Same rule as checks/navigation-feel.ts and
- * scripts/simulate-intro.mjs: a guard that tests a convenient stand-in guards
- * nothing.
+ * src/intro-draw/playhead.test.ts: a guard that tests a convenient stand-in
+ * guards nothing.
  *
  * The assertion that matters is section 6. Murcia's terrain skirt is 600 units
  * wide because that is what a camera at the resting pose needs at every azimuth
@@ -36,22 +36,17 @@ import {
   murciaWarpPose,
 } from '../src/experiences/murcia/camera/warpPose';
 import type { MurciaWarpTargets } from '../src/experiences/murcia/camera/warpPose';
-import { applyPoseToCamera } from '../src/experiences/murcia/camera/applyPoseToCamera';
+import {
+  applyPoseToCamera,
+  scalePoseDistance,
+} from '../src/experiences/murcia/camera/applyPoseToCamera';
 import { computeGroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 
-let failures = 0;
+import { banner, check as rawCheck, finish, section } from './lib/assert';
 
-function check(label: string, ok: boolean, detail = ''): void {
-  const tag = ok ? 'PASS' : 'FAIL';
-  if (!ok) failures++;
-  console.log(`  ${tag}  ${label.padEnd(56)} ${detail}`);
-}
-
-function section(title: string): void {
-  console.log(`\n${title}`);
-}
+const check = (label: string, ok: boolean, detail = '') => rawCheck(label, ok, detail, 56);
 
 /** Dense sweep — the envelope must hold everywhere, not at sampled corners. */
 const STEPS = 2000;
@@ -67,9 +62,7 @@ const targets: MurciaWarpTargets = {
   departElevation: murciaConfig.warpDepartElevationDegrees,
 };
 
-console.log('='.repeat(70));
-console.log('Warp transition — Earth <-> Murcia');
-console.log('='.repeat(70));
+banner('Warp transition — Earth <-> Murcia');
 
 // ---------------------------------------------------------------------------
 section('1. Murcia distance stays inside the safe envelope, per leg');
@@ -295,6 +288,14 @@ section('6. No warp pose reaches further across the ground than rest');
 
 // The real placement maths and the real footprint maths, over the aspects and
 // azimuths the skirt was sized against. 3.56 is 5120x1440, the binding case.
+//
+// Swept across the user's zoom band as well, because distance is user state
+// now: a visitor can be zoomed out when they trigger the warp. The invariant is
+// stated RELATIVE to the same scale — "no warp pose out-reaches the resting pose
+// at the user's current zoom" — because comparing against a rest pose they are
+// not actually at would be the wrong comparison. That the resting pose is itself
+// safe at every scale is what checks/navigation-zoom.ts proves; this section
+// only has to show the warp adds nothing on top.
 const ASPECTS: Array<[string, number]> = [
   ['16:9', 16 / 9],
   ['21:9', 21 / 9],
@@ -316,9 +317,17 @@ function footprintAt(
   pose: { distance: number; elevationDegrees: number },
   aspect: number,
   yaw: number,
+  scale: number,
 ): GroundFootprint {
   camera.aspect = aspect;
-  applyPoseToCamera(camera, { ...murciaConfig.camera, ...pose }, focus, yaw);
+  // Composed through the same helper the rig uses, so this measures how zoom
+  // ACTUALLY combines with a warp pose rather than a second opinion about it.
+  applyPoseToCamera(
+    camera,
+    scalePoseDistance({ ...murciaConfig.camera, ...pose }, scale),
+    focus,
+    yaw,
+  );
   return computeGroundFootprint(camera, focus, nav.groundPlaneHeight, nav.maxGroundDistance);
 }
 
@@ -332,33 +341,45 @@ let anyClamped = false;
 let clampedLabel = '';
 let poses = 0;
 
-for (const [aspectName, aspect] of ASPECTS) {
-  for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
-    const restReach = maxReach(footprintAt(murciaConfig.camera, aspect, yaw));
+const ZOOM_SCALES: number[] = [
+  murciaConfig.navigation.zoom.minDistanceScale,
+  1,
+  murciaConfig.navigation.zoom.maxDistanceScale,
+];
 
-    for (let i = 0; i <= FOOTPRINT_STEPS; i++) {
-      const p = i / FOOTPRINT_STEPS;
-      const { amount, departing } = dollyAmount(p);
-      const pose = murciaWarpPose(targets, amount, departing);
-      const f = footprintAt(pose, aspect, yaw);
-      poses++;
+for (const scale of ZOOM_SCALES) {
+  for (const [aspectName, aspect] of ASPECTS) {
+    for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
+      const restReach = maxReach(footprintAt(murciaConfig.camera, aspect, yaw, scale));
 
-      if (f.clampedRays && !anyClamped) {
-        anyClamped = true;
-        clampedLabel = `${aspectName} yaw ${yaw} p=${p.toFixed(3)} d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
-      }
+      for (let i = 0; i <= FOOTPRINT_STEPS; i++) {
+        const p = i / FOOTPRINT_STEPS;
+        const { amount, departing } = dollyAmount(p);
+        const pose = murciaWarpPose(targets, amount, departing);
+        const f = footprintAt(pose, aspect, yaw, scale);
+        poses++;
 
-      const excess = maxReach(f) - restReach;
-      if (excess > worstExcess) {
-        worstExcess = excess;
-        worstLabel = `${aspectName} yaw ${yaw} p=${p.toFixed(3)} d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
+        const label =
+          `${aspectName} yaw ${yaw} zoom ${scale} p=${p.toFixed(3)} ` +
+          `d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
+
+        if (f.clampedRays && !anyClamped) {
+          anyClamped = true;
+          clampedLabel = label;
+        }
+
+        const excess = maxReach(f) - restReach;
+        if (excess > worstExcess) {
+          worstExcess = excess;
+          worstLabel = label;
+        }
       }
     }
   }
 }
 
 check(
-  'the warp never out-reaches the pose the skirt was sized for',
+  'the warp never out-reaches rest, at any user zoom',
   worstExcess <= 1e-6,
   `worst ${worstExcess >= 0 ? '+' : ''}${worstExcess.toFixed(1)} units at ${worstLabel} (${poses} poses)`,
 );
@@ -371,11 +392,7 @@ check(
 );
 
 // ---------------------------------------------------------------------------
-console.log(`\n${'='.repeat(70)}`);
-const total = 32;
-if (failures === 0) {
-  console.log(`${total}/${total} checks passed`);
-} else {
-  console.log(`${failures} check(s) FAILED`);
-  process.exitCode = 1;
-}
+// Counted live. The literal that used to sit here said 32 while this file ran
+// 36 assertions — it had drifted by four without anyone noticing, which is the
+// whole argument for not writing the number down twice.
+finish();

@@ -1,7 +1,9 @@
 import { RefObject, useEffect, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { IntroConfig } from '../introConfig'
@@ -29,8 +31,8 @@ interface Props {
 // Two passes, in this order:
 //
 //   1. The active experience. Earth goes through the composer for its warp
-//      blur. Murcia (added in P4) renders directly — see the composer note
-//      below.
+//      blur and its bloom. Murcia (added in P4) renders directly — see the
+//      composer note below.
 //   2. The corner logo, composited on top with a cleared depth buffer. It used
 //      to own a second WebGLRenderer and a second canvas; it now shares this
 //      one, which is why the depth clear is explicit rather than implied by a
@@ -68,17 +70,40 @@ export function RenderPipeline({
 }: Props) {
   const { gl, scene, camera, size } = useThree()
 
-  const { composer, renderPass, afterimagePass, outputPass } = useMemo(() => {
+  const { composer, renderPass, bloomPass, afterimagePass, outputPass } = useMemo(() => {
     const c = new EffectComposer(gl)
     const rPass = new RenderPass(scene, camera)
     c.addPass(rPass)
+
+    // BEFORE the afterimage, deliberately, and the order is a real choice
+    // rather than an arbitrary one. Bloom thresholds against absolute
+    // luminance, so it has to see the true HDR frame — behind the afterimage it
+    // would be thresholding an image already faded toward the previous frame,
+    // and the glow would pump as the blur ramped. Warping then smears an
+    // already-bloomed frame, which is also the better of the two looks.
+    //
+    // The resolution is a starting size only; the composer calls setSize on
+    // every pass, so the effect below keeps it correct.
+    const bPass = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0, 0, 0)
+    c.addPass(bPass)
+
     const aPass = new AfterimagePass(0)
     c.addPass(aPass)
     // Retained rather than constructed inline: EffectComposer.dispose() does not
     // walk its passes, so an unreferenced pass is unreachable for disposal.
     const oPass = new OutputPass()
     c.addPass(oPass)
-    return { composer: c, renderPass: rPass, afterimagePass: aPass, outputPass: oPass }
+    return {
+      composer: c,
+      renderPass: rPass,
+      bloomPass: bPass,
+      afterimagePass: aPass,
+      outputPass: oPass,
+    }
+    // `size` is deliberately NOT a dependency: rebuilding the composer on every
+    // resize would throw away and recompile every pass. The effect below
+    // resizes it instead; this only wants the initial dimensions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gl, scene, camera])
 
   useEffect(() => {
@@ -91,14 +116,18 @@ export function RenderPipeline({
       // EffectComposer.dispose() releases only its own two render targets and
       // copyPass — it does NOT iterate this.passes. AfterimagePass owns two more
       // full-screen render targets, two ShaderMaterials and two fullscreen
-      // quads; OutputPass owns a material and a quad. Left to the composer they
-      // leak on every unmount and on any gl/scene/camera identity change.
+      // quads; OutputPass owns a material and a quad; UnrealBloomPass is the
+      // worst of them, owning five mip render targets plus a separation
+      // material, a composite material and five blur materials. Left to the
+      // composer they leak on every unmount and on any gl/scene/camera
+      // identity change.
+      bloomPass.dispose()
       afterimagePass.dispose()
       outputPass.dispose()
       renderPass.dispose()
       composer.dispose()
     }
-  }, [composer, afterimagePass, outputPass, renderPass])
+  }, [composer, bloomPass, afterimagePass, outputPass, renderPass])
 
   useFrame((_, delta) => {
     const murcia = murciaRef.current
@@ -115,6 +144,15 @@ export function RenderPipeline({
     const damp = amount === 0 ? 0 : config.afterimageDampMax * amount
     const uniform = afterimagePass.uniforms?.['damp']
     if (uniform) uniform.value = damp
+
+    // Disabled rather than zeroed at 0: EffectComposer skips a disabled pass
+    // entirely, so this is what actually reclaims the ~10 fullscreen passes.
+    // OutputPass is always enabled, so toggling this can never change which
+    // pass renders to screen — the property EffectComposer resolves per render.
+    bloomPass.enabled = config.bloomStrength > 0
+    bloomPass.strength = config.bloomStrength
+    bloomPass.radius = config.bloomRadius
+    bloomPass.threshold = config.bloomThreshold
 
     // Falls back to Earth until Murcia has finished loading, so the frame is
     // never skipped — an early return here is a blank canvas, not a dropped

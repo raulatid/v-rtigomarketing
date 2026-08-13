@@ -60,3 +60,13 @@ desktop.ini
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Playwright run artifacts. The BASELINES under e2e/*-snapshots/ are committed
+# deliberately — a baseline nobody can diff is not a baseline. These two are the
+# per-run output: traces, failure screenshots and the HTML report.
+/test-results/
+/playwright-report/
+/blob-report/
+
+# Vitest coverage output.
+/coverage/
