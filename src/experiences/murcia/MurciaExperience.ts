@@ -17,8 +17,7 @@ import type { LoadedCity } from './assets/loadCity';
 import { CameraRig } from './camera/CameraRig';
 import { murciaWarpPose } from './camera/warpPose';
 import { DragPanController } from './navigation/DragPanController';
-import { computeGroundFootprint, computeEffectiveBounds } from './navigation/viewportFootprint';
-import type { GroundFootprint } from './navigation/viewportFootprint';
+import { NavigableArea } from './navigation/navigableArea';
 import { containsPoint, expandRect } from './navigation/navigationBounds';
 import { createTerrainTransition } from './environment/createTerrainTransition';
 import type { TerrainTransition } from './environment/createTerrainTransition';
@@ -95,12 +94,8 @@ export class MurciaExperience {
   private readonly cursor: CursorManager;
 
   private viewport: ViewportSize = { width: 1, height: 1, aspect: 1 };
-  private plateBounds: BoundsRect | null = null;
-  private configuredBounds: BoundsRect | null = null;
-  private visualBounds: BoundsRect | null = null;
-  private effectiveBounds: BoundsRect | null = null;
-  private footprint: GroundFootprint | null = null;
-  private footprintInsetsDisabled = false;
+  /** The navigable-area pipeline: plate -> visual -> configured -> effective. */
+  private readonly bounds: NavigableArea;
 
   private firstFrameRecorded = false;
   private hintFaded = false;
@@ -142,6 +137,8 @@ export class MurciaExperience {
     this.statusOverlay = new StatusOverlay(container);
     this.controlsHint = new ControlsHint(container);
     this.cursor = createCursorManager(renderer.domElement);
+    // After the query overrides, so a `?bounds=` override reaches the pipeline.
+    this.bounds = new NavigableArea(this.environment.navigation);
   }
 
   /**
@@ -370,13 +367,7 @@ export class MurciaExperience {
 
     // --- Terrain plate ------------------------------------------------------
     if (loaded.terrain) {
-      const plateBox = new THREE.Box3().setFromObject(loaded.terrain);
-      this.plateBounds = {
-        minX: plateBox.min.x,
-        maxX: plateBox.max.x,
-        minZ: plateBox.min.z,
-        maxZ: plateBox.max.z,
-      };
+      this.bounds.setPlateFromObject(loaded.terrain);
     }
 
     // --- Terrain transition (Phase 6) --------------------------------------
@@ -386,7 +377,7 @@ export class MurciaExperience {
       const transition = createTerrainTransition(loaded.terrain, env.terrainTransition);
       this.sceneBundle.scene.add(transition.group);
       this.transition = transition;
-      this.visualBounds = transition.visualBounds;
+      this.bounds.setVisualBounds(transition.visualBounds);
       if (transition.warnings.length > 0) {
         console.warn('[terrain transition]\n- ' + transition.warnings.join('\n- '));
       }
@@ -395,8 +386,7 @@ export class MurciaExperience {
       // only thing keeping it out of frame — but applying it against the raw
       // content bounds collapses the navigable area to a sliver. Prefer an
       // honest, usable area plus a loud error over a silently unusable one.
-      this.visualBounds = this.plateBounds ?? { ...env.contentBounds };
-      this.footprintInsetsDisabled = true;
+      this.bounds.disableFootprintInsets(env.contentBounds);
       console.error(
         '[murcia] no terrain transition: the plate edge WILL be visible. ' +
           'Footprint insets disabled so navigation stays usable.',
@@ -404,10 +394,7 @@ export class MurciaExperience {
     }
 
     // --- Navigable area -----------------------------------------------------
-    this.configuredBounds =
-      env.navigation.deriveBoundsFromTerrain && this.plateBounds
-        ? expandRect(this.plateBounds, -env.navigation.boundsInset)
-        : { ...env.navigation.bounds };
+    this.bounds.deriveConfigured(env.navigation.bounds);
 
     // --- Camera rig (Phase 5) ----------------------------------------------
     const pose = resolveCameraPose(env, this.viewport.aspect);
@@ -425,7 +412,7 @@ export class MurciaExperience {
       this.camera,
       rig,
       env.navigation,
-      this.effectiveBounds ?? this.configuredBounds ?? env.navigation.bounds,
+      this.bounds.initialBounds(env.navigation.bounds),
       {
         onFirstInteraction: () => this.fadeHint(),
         // The footprint is azimuth-dependent, so free yaw means the navigable
@@ -443,7 +430,7 @@ export class MurciaExperience {
       },
     );
 
-    this.logNavigationDiagnostics();
+    this.bounds.logDiagnostics(this.loaded?.terrainSource ?? 'n/a');
 
     if (this.appConfig.navigationDebugEnabled) {
       this.rebuildBoundsHelper();
@@ -531,7 +518,7 @@ export class MurciaExperience {
         getAspect: () => this.viewport.aspect,
         resolveBounds: () => {
           this.recomputeBounds();
-          return this.effectiveBounds;
+          return this.bounds.effectiveBounds;
         },
         reducedMotion,
       });
@@ -579,63 +566,9 @@ export class MurciaExperience {
   }
 
   private recomputeBounds(): void {
-    if (!this.rig || !this.visualBounds || !this.configuredBounds) return;
-    const nav = this.environment.navigation;
-
-    this.footprint = computeGroundFootprint(
-      this.camera,
-      this.rig.focus,
-      nav.groundPlaneHeight,
-      nav.maxGroundDistance,
-    );
-
-    this.effectiveBounds = this.footprintInsetsDisabled
-      ? { ...this.configuredBounds }
-      : computeEffectiveBounds(
-          this.configuredBounds,
-          this.visualBounds,
-          this.footprint,
-          nav.edgeSafetyMargin,
-        );
-
-    this.controller?.setBounds(this.effectiveBounds);
-  }
-
-  /**
-   * One-shot report of every rectangle that feeds the navigable area, so a
-   * mismatch between config and asset is visible instead of silently shrinking
-   * navigation.
-   */
-  private logNavigationDiagnostics(): void {
-    if (!this.debugTools) return;
-    if (!this.effectiveBounds || !this.configuredBounds || !this.visualBounds) return;
-    const eff = this.effectiveBounds;
-    const plate = this.plateBounds;
-
-    const navW = eff.maxX - eff.minX;
-    const navD = eff.maxZ - eff.minZ;
-    const fmt = (r: BoundsRect): string =>
-      `X [${r.minX.toFixed(0)}, ${r.maxX.toFixed(0)}]  Z [${r.minZ.toFixed(0)}, ${r.maxZ.toFixed(0)}]  (${(r.maxX - r.minX).toFixed(0)} x ${(r.maxZ - r.minZ).toFixed(0)})`;
-
-    console.groupCollapsed('[navigation] bounds');
-    console.info(`terrain source   ${this.loaded?.terrainSource ?? 'n/a'}`);
-    console.info(`plate            ${plate ? fmt(plate) : 'NOT FOUND'}`);
-    console.info(`configured       ${fmt(this.configuredBounds)}`);
-    console.info(`visual (+skirt)  ${fmt(this.visualBounds)}`);
-    if (this.footprint) {
-      const f = this.footprint;
-      console.info(
-        `footprint reach  -X ${f.reachNegX.toFixed(0)}  +X ${f.reachPosX.toFixed(0)}  -Z ${f.reachNegZ.toFixed(0)}  +Z ${f.reachPosZ.toFixed(0)}  clampedRays=${f.clampedRays}`,
-      );
-    }
-    console.info(`effective        ${fmt(eff)}`);
-    if (plate) {
-      const coverage = ((navW * navD) / ((plate.maxX - plate.minX) * (plate.maxZ - plate.minZ))) * 100;
-      const line = `navigable        ${coverage.toFixed(0)}% of the plate`;
-      if (coverage < 50) console.warn(line + ' — smaller than expected');
-      else console.info(line);
-    }
-    console.groupEnd();
+    if (!this.rig) return;
+    const effective = this.bounds.recompute(this.camera, this.rig.focus);
+    if (effective) this.controller?.setBounds(effective);
   }
 
   // --- Interaction ----------------------------------------------------------
@@ -676,14 +609,18 @@ export class MurciaExperience {
       (this.boundsHelper.material as THREE.Material).dispose();
       this.boundsHelper = null;
     }
-    if (!this.effectiveBounds || !this.visualBounds) return;
+    const effective = this.bounds.effectiveBounds;
+    const visual = this.bounds.visualBounds;
+    if (!effective || !visual) return;
 
     const y = this.environment.navigation.groundPlaneHeight + 0.5;
     const points: number[] = [];
-    pushRect(points, this.effectiveBounds, y);
-    pushRect(points, this.visualBounds, y);
-    if (this.configuredBounds) pushRect(points, this.configuredBounds, y);
-    if (this.plateBounds) pushRect(points, this.plateBounds, y);
+    pushRect(points, effective, y);
+    pushRect(points, visual, y);
+    const configured = this.bounds.configuredBounds;
+    const plate = this.bounds.plateBounds;
+    if (configured) pushRect(points, configured, y);
+    if (plate) pushRect(points, plate, y);
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
@@ -767,7 +704,8 @@ export class MurciaExperience {
       this.firstFrameRecorded = true;
     }
 
-    if (this.debugOverlay && this.rig && this.loaded && this.effectiveBounds) {
+    const overlayBounds = this.bounds.effectiveBounds;
+    if (this.debugOverlay && this.rig && this.loaded && overlayBounds) {
       this.debugOverlay.update(delta, now, {
         renderer: this.renderer,
         focus: this.rig.focus,
@@ -781,10 +719,10 @@ export class MurciaExperience {
         insideBounds: containsPoint(
           this.rig.focus.x,
           this.rig.focus.z,
-          expandRect(this.effectiveBounds, 1e-3),
+          expandRect(overlayBounds, 1e-3),
         ),
-        bounds: this.effectiveBounds,
-        footprintClamped: this.footprint?.clampedRays ?? false,
+        bounds: overlayBounds,
+        footprintClamped: this.bounds.footprintClamped,
         timings: this.loaded.timings,
       });
     }
