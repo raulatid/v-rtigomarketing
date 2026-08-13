@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { findByAnyNameSpelling } from './nodeNames';
+import { collectTextures, disposeObject3D } from '../../../graphics/disposal';
 
 /** How the terrain plate was located. Surfaced so a fallback is never silent. */
 export type TerrainSource =
@@ -202,27 +203,7 @@ function findLargestFlatMesh(root: THREE.Object3D): THREE.Mesh | null {
 
 /** Releases every geometry, material and texture owned by a loaded model. */
 export function disposeLoadedCity(city: LoadedCity): void {
-  const textures = new Set<THREE.Texture>();
-  const materials = new Set<THREE.Material>();
-
-  city.root.traverse((obj) => {
-    const mesh = obj as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.geometry?.dispose();
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const mat of mats) {
-      if (mat) materials.add(mat);
-    }
-  });
-
-  for (const mat of materials) {
-    collectTextures(mat, textures);
-    mat.dispose();
-  }
-  for (const tex of textures) {
-    tex.dispose();
-  }
-
+  disposeObject3D(city.root);
   city.root.removeFromParent();
 }
 
@@ -347,14 +328,4 @@ function buildSceneReport(
   }
 
   return report;
-}
-
-function collectTextures(mat: THREE.Material, out: Set<THREE.Texture>): void {
-  const record = mat as unknown as Record<string, unknown>;
-  for (const key of Object.keys(record)) {
-    const value = record[key];
-    if (value && (value as THREE.Texture).isTexture) {
-      out.add(value as THREE.Texture);
-    }
-  }
 }

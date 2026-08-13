@@ -5,6 +5,7 @@ import { createSatellite, Satellite } from './createSatellite'
 import { createConnectivityCloud } from './createConnectivityCloud'
 import { createRadialGlowTexture, easeOutCubic } from './orbitUtils'
 import { createBrandAtlas } from './createBrandAtlas'
+import { disposeSharedGeometry } from './createHoloPanel'
 
 // Owns the six orbits (lines + head glows + satellites) and the connectivity
 // cloud.
@@ -264,6 +265,8 @@ export function createOrbitSystem({ renderer }: Options) {
     brandAtlas.dispose()
     ambientLight.dispose()
     keyLight.dispose()
+    // Owned here rather than by any single panel, because every panel shares it.
+    disposeSharedGeometry()
   }
 
   return {

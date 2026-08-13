@@ -117,10 +117,28 @@ const FRAGMENT = /* glsl */ `
 
 // One quad shared by every panel; per-panel size lives in mesh.scale, which the
 // vertex shader reads back out of the model matrix.
+//
+// Module-level because the sharing is the point — one geometry for every panel
+// in every orbit. That leaves it with no natural owner among the panels, so the
+// owner is declared instead: createOrbitSystem builds the satellites that build
+// the panels, and releases this with them. See disposeSharedGeometry below.
 let sharedGeometry: THREE.PlaneGeometry | null = null
 function getGeometry() {
   if (!sharedGeometry) sharedGeometry = new THREE.PlaneGeometry(1, 1)
   return sharedGeometry
+}
+
+/**
+ * Releases the shared quad. Called by `createOrbitSystem.dispose()` — the panels
+ * themselves must not, since any one of them disposing it would pull the
+ * geometry out from under its siblings.
+ *
+ * Safe to call more than once, and safe to call before a later orbit system is
+ * built: `getGeometry()` is lazy, so the next panel rebuilds the quad.
+ */
+export function disposeSharedGeometry(): void {
+  sharedGeometry?.dispose()
+  sharedGeometry = null
 }
 
 interface Options {

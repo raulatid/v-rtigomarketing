@@ -4,6 +4,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
 import { IntroConfig } from '../introConfig'
 import { loadProgress } from '../loading/progress'
+import { disposeObject3D } from '../graphics/disposal'
 
 // 3D brand logo revealed at screen centre by the P3 crossover, which then spins
 // 360°, flies to the top-left corner and idles there.
@@ -346,15 +347,13 @@ export function createCornerLogo({ config, renderer, onReady, onFailed }: Option
     loadingManager.onProgress = () => {}
     ktx2Loader.dispose()
     dracoLoader.dispose()
+    // Explicitly, and not only through the traversal below: if disposal lands
+    // between the texture resolving and `assembleIfReady` binding it to a
+    // material, it is reachable from nothing and the traversal cannot find it.
+    // In the assembled case it is disposed twice, which three treats as a
+    // no-op — the second call finds nothing left to delete.
     logoTexture?.dispose()
-    scene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh
-      if (mesh.isMesh) {
-        mesh.geometry.dispose()
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-        materials.forEach((m) => m.dispose())
-      }
-    })
+    disposeObject3D(scene)
     // The renderer and canvas belong to the application, not to this module.
   }
 

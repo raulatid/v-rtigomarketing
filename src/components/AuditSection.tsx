@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { auditView } from '../auditView'
 
 // Audit section (plan 005): a fixed trigger in the top-right corner and a solid
@@ -68,7 +68,6 @@ interface Props {
 export function AuditSection({ onOpenChange, ready }: Props) {
   const [phase, setPhase] = useState<AuditPhase>('closed')
   const [values, setValues] = useState<Values>(EMPTY_VALUES)
-  const [errors, setErrors] = useState<Errors>({})
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
 
@@ -127,32 +126,34 @@ export function AuditSection({ onOpenChange, ready }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [phase, close])
 
+  // Errors are DERIVED, not stored. They are a pure function of `values`, and
+  // the previous version kept them in state — which meant every writer had to
+  // remember to recompute them, and `setValue` did it by calling `setErrors`
+  // from inside the `setValues` updater. React 19 may invoke an updater twice
+  // (StrictMode does), and an updater that fires another setState is not pure.
+  //
+  // Deriving also retires the `valuesRef` this file kept purely so the blur
+  // handler could read fresh values without re-binding: there is nothing left
+  // to read, because validation happens at render against the current values.
+  //
+  // Errors are computed live but only *shown* once the field was touched or a
+  // submit was attempted — no errors before interaction (plan 005 §11). That is
+  // `showError` below; this is just the arithmetic.
+  const errors = useMemo(() => validate(values), [values])
+
   const setValue = useCallback((field: Field, value: string) => {
-    setValues((prev) => {
-      const next = { ...prev, [field]: value }
-      // Errors are recomputed live but only *shown* once the field was touched
-      // or a submit was attempted — no errors before interaction (plan 005 §11).
-      setErrors(validate(next))
-      return next
-    })
+    setValues((prev) => ({ ...prev, [field]: value }))
   }, [])
 
   const markTouched = useCallback((field: Field) => {
     setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }))
-    setErrors(validate(valuesRef.current))
   }, [])
-
-  // Blur validation reads the latest values without re-binding the handler.
-  const valuesRef = useRef(values)
-  valuesRef.current = values
 
   const handleSubmit = useCallback(
     (e: FormEvent) => {
       e.preventDefault()
       setSubmitAttempted(true)
-      const errs = validate(valuesRef.current)
-      setErrors(errs)
-      const firstInvalid = FIELD_ORDER.find((f) => errs[f])
+      const firstInvalid = FIELD_ORDER.find((f) => errors[f])
       if (firstInvalid) {
         fieldRefs.current[firstInvalid]?.focus()
         return
@@ -161,11 +162,34 @@ export function AuditSection({ onOpenChange, ready }: Props) {
       // the integration boundary above.
       close()
     },
-    [close],
+    [close, errors],
   )
 
   const showError = (field: Field): string | undefined =>
     touched[field] || submitAttempted ? errors[field] : undefined
+
+  // Built once, per field, and never rebuilt: a `ref` callback is compared by
+  // identity, so a fresh closure on every render makes React call the old one
+  // with `null` and the new one with the element — for all five fields, on
+  // every keystroke. `onBlur` is bundled in for the same reason.
+  const fieldHandlers = useMemo(() => {
+    const handlers = {} as Record<
+      Field,
+      {
+        ref: (el: HTMLInputElement | HTMLSelectElement | null) => void
+        onBlur: () => void
+      }
+    >
+    for (const field of FIELD_ORDER) {
+      handlers[field] = {
+        ref: (el) => {
+          fieldRefs.current[field] = el
+        },
+        onBlur: () => markTouched(field),
+      }
+    }
+    return handlers
+  }, [markTouched])
 
   const fieldProps = (field: Field) => {
     const error = showError(field)
@@ -174,10 +198,8 @@ export function AuditSection({ onOpenChange, ready }: Props) {
       value: values[field],
       'aria-invalid': error ? true : undefined,
       'aria-describedby': error ? `audit-${field}-error` : undefined,
-      onBlur: () => markTouched(field),
-      ref: (el: HTMLInputElement | HTMLSelectElement | null) => {
-        fieldRefs.current[field] = el
-      },
+      onBlur: fieldHandlers[field].onBlur,
+      ref: fieldHandlers[field].ref,
     }
   }
 
