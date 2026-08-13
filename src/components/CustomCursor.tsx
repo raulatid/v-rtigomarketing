@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { CursorHint, subscribeCursorHint } from '../interaction/cursorSignal'
+import { clampFrameDelta } from '../graphics/frameDelta'
 
 // Trailing-follower stiffness for the exponential lerp. Higher = tighter trail.
 // Applied as 1 - exp(-RATE * dt) so the feel is identical at 60Hz and 144Hz.
@@ -67,7 +68,7 @@ export function CustomCursor() {
     }
 
     function frame(now: number) {
-      const dt = Math.min((now - lastTime) / 1000, 0.1)
+      const dt = clampFrameDelta((now - lastTime) / 1000)
       lastTime = now
 
       const f = reducedMotion ? 1 : 1 - Math.exp(-FOLLOW_RATE * dt)

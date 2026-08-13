@@ -3,6 +3,7 @@ import { OrbitSystem } from '../orbit-system/createOrbitSystem'
 import { SatelliteDef } from '../orbit-system/orbitConfig'
 import { FocusCameraRig } from './createFocusCameraRig'
 import { CursorManager } from './cursorManager'
+import { clientToNdc } from './screenSpace'
 
 // Wires hover/click on the satellite badges to the camera rig, the orbit
 // system's freeze/resume API, and the case panel.
@@ -73,9 +74,7 @@ export function createSatelliteFocus({
    * DistrictInteraction.pickAt, which is why Murcia's interior already worked.
    */
   function pickAt(clientX: number, clientY: number): string | null {
-    const rect = domElement.getBoundingClientRect()
-    ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1
-    ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1
+    clientToNdc(domElement.getBoundingClientRect(), clientX, clientY, ndc)
 
     raycaster.setFromCamera(ndc, camera)
     const hits = raycaster.intersectObjects(satelliteObjects, true)

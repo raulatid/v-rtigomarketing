@@ -10,6 +10,7 @@ import { SequenceState } from '../sequenceState'
 import { atOrAfter } from '../sceneVisibility'
 import { auditView } from '../auditView'
 import { EARTH_REST } from './CameraController'
+import { clampFrameDelta } from '../graphics/frameDelta'
 
 export interface InteractionHandle {
   deselect: () => void
@@ -140,7 +141,7 @@ export function InteractionLayer({
 
     focus.update()
     // Clamped so a backgrounded tab cannot teleport the camera on return.
-    rig.update(Math.min(rawDelta, 0.1))
+    rig.update(clampFrameDelta(rawDelta))
   })
 
   return null

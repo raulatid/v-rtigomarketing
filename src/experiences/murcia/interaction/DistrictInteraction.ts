@@ -6,6 +6,7 @@ import { DistrictHighlight, INTERACTION_LAYER } from './DistrictHighlight';
 import { CameraFlight } from '../camera/CameraFlight';
 import type { CameraRig } from '../camera/CameraRig';
 import { computeFramedFocus, unobstructedCenterNdc } from '../camera/cameraFraming';
+import { clientToNdc } from '../../../interaction/screenSpace';
 import type { ScreenRect } from '../camera/cameraFraming';
 import type { DragPanController } from '../navigation/DragPanController';
 import type { BoundsRect, CameraPoseConfig } from '../config/environmentConfig';
@@ -292,10 +293,7 @@ export class DistrictInteraction {
     const rect = this.canvasRect();
     if (rect.width === 0 || rect.height === 0) return false;
 
-    this.ndc.set(
-      ((clientX - rect.left) / rect.width) * 2 - 1,
-      -((clientY - rect.top) / rect.height) * 2 + 1,
-    );
+    clientToNdc(rect, clientX, clientY, this.ndc);
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
     this.hits.length = 0;
     this.raycaster.intersectObjects(this.pickables, false, this.hits);

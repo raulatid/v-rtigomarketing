@@ -1,10 +1,8 @@
 import type { CameraRig } from './CameraRig';
 import type { BoundsRect } from '../config/environmentConfig';
 import { clampToRect } from '../navigation/navigationBounds';
-
-/** Frame delta clamp, matching DragPanController: a backgrounded tab must not
- *  advance the flight by one huge step. */
-const MAX_FRAME_DELTA = 0.1;
+import { easeInOutCubic } from '../../../utils/easing';
+import { clampFrameDelta } from '../../../graphics/frameDelta';
 
 const MIN_DURATION = 0.8;
 const MAX_DURATION = 1.6;
@@ -121,7 +119,7 @@ export class CameraFlight {
   update(deltaTime: number): void {
     if (!this.playing) return;
 
-    const dt = Math.min(Math.max(deltaTime, 0), MAX_FRAME_DELTA);
+    const dt = clampFrameDelta(deltaTime);
     this.elapsed += dt;
 
     const t = this.duration > 0 ? Math.min(1, this.elapsed / this.duration) : 1;
@@ -165,11 +163,6 @@ export class CameraFlight {
  */
 export function shortestYawDelta(current: number, target: number): number {
   return (((target - current + 180) % 360) + 360) % 360 - 180;
-}
-
-/** Symmetric ease with zero velocity at both ends and no overshoot. */
-function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 function clamp(value: number, min: number, max: number): number {

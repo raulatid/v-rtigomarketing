@@ -5,6 +5,7 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
 import { IntroConfig } from '../introConfig'
 import { loadProgress } from '../loading/progress'
 import { disposeObject3D } from '../graphics/disposal'
+import { clamp01, easeInOutCubic } from '../utils/easing'
 
 // 3D brand logo revealed at screen centre by the P3 crossover, which then spins
 // 360°, flies to the top-left corner and idles there.
@@ -39,13 +40,6 @@ type State = (typeof STATES)[keyof typeof STATES]
 const IDLE_ROTATION_SPEED = 0.15 // rad/s
 const IDLE_FLOAT_AMPLITUDE = 0.035
 const IDLE_FLOAT_FREQUENCY = 0.8 // Hz
-
-function clamp01(t: number) {
-  return t < 0 ? 0 : t > 1 ? 1 : t
-}
-function easeInOutCubic(t: number) {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-}
 
 interface Options {
   config: IntroConfig

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { DistrictLookup } from './resolveDistrict';
+import { clamp01 } from '../../../utils/easing';
 
 /**
  * Layer reserved for interaction proxies.
@@ -319,6 +320,3 @@ function createRadialGradientTexture(size = 256): THREE.Texture {
   return texture;
 }
 
-function clamp01(value: number): number {
-  return Math.min(Math.max(value, 0), 1);
-}

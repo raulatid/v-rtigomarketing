@@ -7,6 +7,7 @@ import { EARTH_CONFIG } from '../earthConfig'
 import { SequenceState } from '../sequenceState'
 import { orbitsVisible } from '../sceneVisibility'
 import { loadProgress } from '../loading/progress'
+import { clampFrameDelta } from '../graphics/frameDelta'
 
 interface Props {
   state: SequenceState
@@ -97,7 +98,7 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
     }
 
     started.current = true
-    const delta = Math.min(rawDelta, 0.1)
+    const delta = clampFrameDelta(rawDelta)
     elapsed.current += delta
 
     // Ambient motion runs on its own accumulator rather than the GSAP clock.

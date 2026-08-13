@@ -31,6 +31,7 @@ import { findDistrictContent } from './content/districts';
 import { StatusOverlay, ControlsHint } from './ui/overlays';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
+import { clientToNdc } from '../../interaction/screenSpace';
 
 /**
  * Lifecycle coordinator for the Murcia environment.
@@ -656,10 +657,7 @@ export class MurciaExperience {
 
     const canvas = this.renderer.domElement;
     const rect = canvas.getBoundingClientRect();
-    this.ndc.set(
-      ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      -((event.clientY - rect.top) / rect.height) * 2 + 1,
-    );
+    clientToNdc(rect, event.clientX, event.clientY, this.ndc);
     this.interactionProbe?.probe(this.ndc);
   };
 

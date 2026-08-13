@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { BoundsRect, TerrainTransitionConfig } from '../config/environmentConfig';
 import { extractBoundaryLoops, offsetLoopInward, signedAreaXZ } from './meshBoundary';
+import { expandRect } from '../navigation/navigationBounds';
 import type { BoundaryLoop } from './meshBoundary';
 
 export interface TerrainTransition {
@@ -159,7 +160,7 @@ function buildCollar(
 
   // Contour must enclose the hole; the rectangle is the plate's own AABB, so
   // nudge it out a fraction to guarantee strict containment.
-  const outer = expand(rect, 0.01);
+  const outer = expandRect(rect, 0.01);
   const contour2D = [
     new THREE.Vector2(outer.minX, outer.minZ),
     new THREE.Vector2(outer.maxX, outer.minZ),
@@ -278,7 +279,7 @@ function buildSkirt(
   for (let loop = 0; loop <= loops; loop += 1) {
     const t = loop / loops;
     const offset = -config.innerOverlap + t * (config.width + config.innerOverlap);
-    const rect = expand(plateBounds, offset);
+    const rect = expandRect(plateBounds, offset);
     const alpha = fadeAlpha(t, config.fadeEndFraction, config.fadeExponent);
 
     for (let p = 0; p < perimeterCount; p += 1) {
@@ -374,19 +375,10 @@ export function terrainVisualBounds(
   plateBounds: BoundsRect,
   config: TerrainTransitionConfig,
 ): BoundsRect {
-  return expand(plateBounds, config.width);
+  return expandRect(plateBounds, config.width);
 }
 
 // --- Shared helpers ---------------------------------------------------------
-
-function expand(rect: BoundsRect, amount: number): BoundsRect {
-  return {
-    minX: rect.minX - amount,
-    maxX: rect.maxX + amount,
-    minZ: rect.minZ - amount,
-    maxZ: rect.maxZ + amount,
-  };
-}
 
 /** Fraction of the bounding rectangle the outline actually encloses. */
 function loopCoverage(loop: BoundaryLoop, rect: BoundsRect): number {

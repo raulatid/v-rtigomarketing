@@ -5,6 +5,7 @@ import { loadProgress } from '../loading/progress'
 import type { SequenceState } from '../sequenceState'
 import { dollyAmount, prefersReducedMotion } from '../app/warpTransition'
 import { DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
+import { clampFrameDelta } from '../graphics/frameDelta'
 // Imported here rather than from main.tsx so it rides the scene chunk with the
 // code that uses it, instead of the entry chunk's stylesheet.
 import '../experiences/murcia/styles/murcia.css'
@@ -189,7 +190,7 @@ export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
     }
     if (p > 0 && active && !reducedMotion) dollyEngaged.current = true
 
-    experience.update(Math.min(delta, 0.1))
+    experience.update(clampFrameDelta(delta))
   })
 
   return null

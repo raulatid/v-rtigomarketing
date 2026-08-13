@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { PerspectiveCamera } from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { auditView } from '../auditView'
+import { clampFrameDelta } from '../graphics/frameDelta'
 
 // Recomposes the scene while the audit panel is open by sliding the camera's
 // projection window (setViewOffset) instead of moving the camera itself.
@@ -38,7 +39,7 @@ export function AuditCameraShift({ active }: { active: boolean }) {
     const cam = camera as PerspectiveCamera
     const target = auditView.open ? 1 : 0
     // Delta clamped like the rig's, so a backgrounded tab cannot jump-cut.
-    const alpha = auditView.reducedMotion ? 1 : 1 - Math.exp(-LERP_K * Math.min(rawDelta, 0.1))
+    const alpha = auditView.reducedMotion ? 1 : 1 - Math.exp(-LERP_K * clampFrameDelta(rawDelta))
     progress.current += (target - progress.current) * alpha
 
     if (target === 0 && progress.current < 0.001) {

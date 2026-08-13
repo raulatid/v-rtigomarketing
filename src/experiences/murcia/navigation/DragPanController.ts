@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type { BoundsRect, DragFeelConfig, NavigationConfig } from '../config/environmentConfig';
 import type { CameraRig } from '../camera/CameraRig';
 import { clampToRect } from './navigationBounds';
+import { clientToNdc } from '../../../interaction/screenSpace';
+import { clampFrameDelta } from '../../../graphics/frameDelta';
 
 export interface DragPanEvents {
   /** Fired once per pointer sequence, on pointerdown. */
@@ -25,9 +27,6 @@ export interface DragPanEvents {
    */
   onDragStateChanged?: (dragging: boolean) => void;
 }
-
-/** Frame delta is clamped so a backgrounded tab cannot produce one huge step. */
-const MAX_FRAME_DELTA = 0.1;
 
 /** Below this the yaw is treated as settled, in degrees. */
 const YAW_EPSILON = 1e-3;
@@ -370,7 +369,7 @@ export class DragPanController {
     // drag the rig back toward stale targets. See beginExternalControl.
     if (this.externalControl) return;
 
-    const dt = Math.min(Math.max(deltaTime, 0), MAX_FRAME_DELTA);
+    const dt = clampFrameDelta(deltaTime);
     if (dt <= 0) return;
 
     this.decayStalledVelocity(dt);
@@ -889,10 +888,7 @@ export class DragPanController {
     clientY: number,
     target: THREE.Vector3,
   ): boolean {
-    this.ndc.set(
-      ((clientX - rect.left) / rect.width) * 2 - 1,
-      -((clientY - rect.top) / rect.height) * 2 + 1,
-    );
+    clientToNdc(rect, clientX, clientY, this.ndc);
     this.raycaster.setFromCamera(this.ndc, this.camera);
     return this.raycaster.ray.intersectPlane(this.plane, target) !== null;
   }

@@ -8,6 +8,7 @@ import { prefersReducedMotion } from '../app/warpTransition'
 import { generateStarField } from '../space/starDistribution'
 import { createStarMaterial } from '../space/starShader'
 import { SPACE_CONFIG } from '../space/spaceConfig'
+import { clampFrameDelta } from '../graphics/frameDelta'
 
 // The persistent star field the resting scene sits in.
 //
@@ -99,7 +100,7 @@ export function SpaceBackdrop({ config, state, active }: Props) {
     // Ambient motion on its own accumulator, not the GSAP clock — the same
     // narrow exception the Earth's spin and the satellites' orbits already use.
     // Delta is clamped so a backgrounded tab cannot jump the phase.
-    elapsed.current += Math.min(delta, 0.1)
+    elapsed.current += clampFrameDelta(delta)
     material.uniforms.uTime.value = elapsed.current
     material.uniforms.uTwinkleAmount.value = reducedMotion ? 0 : config.backdropTwinkle
     material.uniforms.uTwinkleSizeMin.value = SPACE_CONFIG.star.twinkleSizeMin

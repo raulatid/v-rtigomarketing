@@ -20,6 +20,7 @@ import { SequenceState } from '../sequenceState'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { motionBlur as warpMotionBlur } from '../app/warpTransition'
 import type { RenderableExperience, RenderRoute } from './renderableExperience'
+import { clampFrameDelta } from './frameDelta'
 
 interface Props {
   config: IntroConfig
@@ -191,7 +192,7 @@ export function RenderPipeline({ config, state, logoRef, directRef, route }: Pro
       // The state clock only advances while drawable, matching the early
       // return the logo's old dedicated rAF did — otherwise the reveal would
       // start mid-spin. Delta is clamped as that loop clamped its own.
-      logo.update(Math.min(delta, 0.1))
+      logo.update(clampFrameDelta(delta))
 
       const previousAutoClear = gl.autoClear
       gl.autoClear = false

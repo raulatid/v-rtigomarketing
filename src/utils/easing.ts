@@ -18,6 +18,20 @@ export function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
+/**
+ * Symmetric ease with zero velocity at both ends and no overshoot.
+ *
+ * Here rather than in the three files that each defined their own byte-identical
+ * copy — the corner logo's spin, Murcia's district flights and the intro draw.
+ * The intro's copy stays where it is: `src/intro-draw/` is a separate Rollup
+ * entry with a zero-import constraint that `vite.config.ts` asserts on the
+ * emitted bundle, so importing this would pull `src/utils` into the boot chunk
+ * and fail that assertion.
+ */
+export function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+}
+
 export function smootherstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / (edge1 - edge0))
   return t * t * t * (t * (t * 6 - 15) + 10)

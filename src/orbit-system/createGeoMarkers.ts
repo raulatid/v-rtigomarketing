@@ -3,6 +3,7 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import { latLngToVector3 } from './geoUtils'
 import { GEO_MARKERS, ORBIT_CONFIG } from './orbitConfig'
 import type { CursorManager } from '../interaction/cursorManager'
+import { clientToNdc } from '../interaction/screenSpace'
 
 // City markers pinned to the rotating Earth. The returned group MUST be
 // parented under whatever spins the Earth's surface, or the markers will slide
@@ -143,9 +144,7 @@ export function createGeoMarkers({ camera, domElement, onSelect, getCursor }: Op
    * activated at all. Mirrors DistrictInteraction.pickAt.
    */
   function pickMarkerAt(clientX: number, clientY: number): Marker | null {
-    const rect = domElement.getBoundingClientRect()
-    ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1
-    ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1
+    clientToNdc(domElement.getBoundingClientRect(), clientX, clientY, ndc)
 
     raycaster.setFromCamera(ndc, camera)
     for (const intersection of raycaster.intersectObjects(hitMeshes, false)) {
