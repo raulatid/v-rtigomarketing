@@ -6,19 +6,31 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+// STILL AN OPEN BOUNDARY VIOLATION, unlike the Murcia edge below it.
+//
+// `IntroConfig`, `SequenceState` and `CornerLogo` are Earth-intro concepts, and
+// `warpTransition` lives in the application layer — §17 allows `graphics ->
+// shared` only. They cannot be resolved the way the Murcia edge was, because
+// Earth has no boundary to hide behind: there is no `experiences/earth/`, so
+// there is no interface to depend on instead. See the Earth extraction phase;
+// once Earth is an experience these become a second `RenderableExperience` and
+// a pair of pipeline settings, and this file imports neither.
 import { IntroConfig } from '../introConfig'
 import { SequenceState } from '../sequenceState'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
-import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
-import type { ExperienceId } from '../app/experience'
 import { motionBlur as warpMotionBlur } from '../app/warpTransition'
+import type { RenderableExperience, RenderRoute } from './renderableExperience'
 
 interface Props {
   config: IntroConfig
   state: SequenceState
   logoRef: RefObject<CornerLogo | null>
-  murciaRef: RefObject<MurciaExperience | null>
-  activeExperience: ExperienceId
+  /**
+   * The experience that renders straight to the canvas, when `route` says so.
+   * Null until it has loaded, which is why `route` alone does not decide.
+   */
+  directRef: RefObject<RenderableExperience | null>
+  route: RenderRoute
 }
 
 // The application's SINGLE render authority (ADR 001, ADR 002).
@@ -30,9 +42,9 @@ interface Props {
 //
 // Two passes, in this order:
 //
-//   1. The active experience. Earth goes through the composer for its warp
-//      blur and its bloom. Murcia (added in P4) renders directly — see the
-//      composer note below.
+//   1. The active experience, by whichever route orchestration selected. The
+//      composer route gets the warp blur and the bloom; the direct route goes
+//      straight to the canvas — see the composer note below.
 //   2. The corner logo, composited on top with a cleared depth buffer. It used
 //      to own a second WebGLRenderer and a second canvas; it now shares this
 //      one, which is why the depth clear is explicit rather than implied by a
@@ -44,30 +56,26 @@ interface Props {
 // it after the composer has resolved to screen reproduces the old two-canvas
 // compositing exactly, including tone mapping being applied once per scene.
 //
-// WHY MURCIA BYPASSES THE COMPOSER — except during a warp (ADR 005).
+// WHY A DIRECT ROUTE EXISTS AT ALL — and why it still borrows the composer
+// during a warp (ADR 005).
 //
 // EffectComposer builds its render targets as
 // `new WebGLRenderTarget(w, h, { type: HalfFloatType })` — with no `samples`,
-// so they carry no MSAA. Earth already renders through it and that is its
-// shipped look (spheres, points, additive glow), but the city is nothing but
-// hard building edges, and routing it through the composer permanently would
-// silently throw away the `antialias: true` it has always had.
+// so they carry no MSAA. That is a fair trade for a scene of spheres, points
+// and additive glow, and a bad one for a scene of hard edges: routing the
+// latter through the composer permanently would silently throw away the
+// `antialias: true` the canvas was created with. (Concretely: Earth takes the
+// composer route, the city takes the direct one.)
 //
 // A warp is the one case where the trade inverts: the whole frame is smeared
 // and moving fast, so aliasing is invisible, and the blur is most of what makes
-// the motion read. So the city borrows the composer for those ~1.6 seconds and
-// goes straight back to the canvas afterwards.
+// the motion read. So the direct experience borrows the composer for those
+// ~1.6 seconds and goes straight back to the canvas afterwards.
 //
 // Tone mapping lands exactly once on either path: three applies it in-shader
 // only when the render target is null, which is why the composer path needs
 // OutputPass and the direct path does not.
-export function RenderPipeline({
-  config,
-  state,
-  logoRef,
-  murciaRef,
-  activeExperience,
-}: Props) {
+export function RenderPipeline({ config, state, logoRef, directRef, route }: Props) {
   const { gl, scene, camera, size } = useThree()
 
   const { composer, renderPass, bloomPass, afterimagePass, outputPass } = useMemo(() => {
@@ -130,7 +138,7 @@ export function RenderPipeline({
   }, [composer, bloomPass, afterimagePass, outputPass, renderPass])
 
   useFrame((_, delta) => {
-    const murcia = murciaRef.current
+    const direct = directRef.current
 
     // The intro's warp and the Earth<->Murcia warp both feed the same pass; the
     // transition wins because only one can be playing at a time and it is the
@@ -154,23 +162,24 @@ export function RenderPipeline({
     bloomPass.radius = config.bloomRadius
     bloomPass.threshold = config.bloomThreshold
 
-    // Falls back to Earth until Murcia has finished loading, so the frame is
-    // never skipped — an early return here is a blank canvas, not a dropped
-    // effect.
-    if (activeExperience === 'murcia' && murcia) {
+    // The direct route needs BOTH the route and a loaded experience: the route
+    // flips at the cut, but the experience may still be loading. Falling back to
+    // the composer keeps the frame drawn — an early return here is a blank
+    // canvas, not a dropped effect.
+    if (route === 'direct' && direct) {
       if (warping) {
-        // Borrow the composer for the duration of the warp so the city gets the
-        // same smear Earth does — motion blur is most of what makes a warp read
-        // as one, and a city of hard edges is exactly the geometry it acts on.
-        // The RenderPass's scene and camera are plain fields, so pointing it at
-        // Murcia and back is free.
-        renderPass.scene = murcia.scene
-        renderPass.camera = murcia.viewCamera
+        // Borrow the composer for the duration of the warp so the direct
+        // experience gets the same smear the composer one does — motion blur is
+        // most of what makes a warp read as one, and hard edges are exactly the
+        // geometry it acts on. The RenderPass's scene and camera are plain
+        // fields, so pointing it away and back is free.
+        renderPass.scene = direct.scene
+        renderPass.camera = direct.viewCamera
         composer.render()
         renderPass.scene = scene
         renderPass.camera = camera
       } else {
-        gl.render(murcia.scene, murcia.viewCamera)
+        gl.render(direct.scene, direct.viewCamera)
       }
     } else {
       composer.render()

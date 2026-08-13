@@ -137,12 +137,16 @@ export function SceneCanvas({
         experienceRef={murciaRef}
         onReady={onMurciaReady}
       />
+      {/* The route is decided here, not in the pipeline: which experience is
+          showing is orchestration's business, and the pipeline's job is to draw
+          whatever it is handed. Murcia satisfies RenderableExperience
+          structurally — it already exposed `scene` and `viewCamera`. */}
       <RenderPipeline
         config={config}
         state={state}
         logoRef={logoRef}
-        murciaRef={murciaRef}
-        activeExperience={activeExperience}
+        directRef={murciaRef}
+        route={earthActive ? 'composer' : 'direct'}
       />
     </Canvas>
   )
