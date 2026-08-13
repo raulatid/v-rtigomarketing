@@ -114,16 +114,30 @@ test('the ESO credit is reachable and readable in the audit panel', async ({ pag
 
   // Readable, not merely present: a credit faded to near-nothing satisfies the
   // DOM and not the licence.
-  const opacity = await credit.first().evaluate((el) => {
-    let node: HTMLElement | null = el as HTMLElement
-    let effective = 1
-    while (node) {
-      effective *= Number(getComputedStyle(node).opacity)
-      node = node.parentElement
-    }
-    return effective
-  })
-  expect(opacity).toBeGreaterThan(0.5)
+  //
+  // POLLED, not read once. The credit lives in `.audit-group--4`, which the
+  // panel reveals with a 380ms opacity transition on a 760ms delay — so for the
+  // first ~1.1s after the click it is legitimately at opacity 0. Playwright
+  // counts an opacity-0 element as visible (it has a box and is not
+  // `visibility: hidden`), so `toBeVisible` resolving says nothing about
+  // whether the reveal has run. Reading once immediately after it made this
+  // test a race that happened to be won by however many React renders the
+  // component did in the meantime; a refactor that removed one lost it.
+  await expect
+    .poll(
+      () =>
+        credit.first().evaluate((el) => {
+          let node: HTMLElement | null = el as HTMLElement
+          let effective = 1
+          while (node) {
+            effective *= Number(getComputedStyle(node).opacity)
+            node = node.parentElement
+          }
+          return effective
+        }),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThan(0.5)
 
   // The wording is the licence condition and must stay exact.
   await expect(credit.first()).toHaveText(/ESO\/S\. Brunier/)

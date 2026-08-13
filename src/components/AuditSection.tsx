@@ -1,4 +1,12 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  FormEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { auditView } from '../auditView'
 
 // Audit section (plan 005): a fixed trigger in the top-right corner and a solid
@@ -27,6 +35,143 @@ type Values = Record<Field, string>
 type Errors = Partial<Record<Field, string>>
 
 const FIELD_ORDER: Field[] = ['plan', 'name', 'email', 'website', 'phone']
+
+/**
+ * What differs between the five fields, which is all that ever differed.
+ *
+ * They were five hand-written twelve-line blocks distinguished only by type,
+ * label, placeholder and autocomplete — so a change to the shared markup (a
+ * class, an aria wiring, the error slot) had to be made five times and could be
+ * made four. FIELD_ORDER already existed and already listed them in order; this
+ * is the rest of what the list needs to render itself.
+ *
+ * The select is a genuinely different control, not a variant of the input, so
+ * it is a different `kind` rather than an input with an options array bolted on.
+ */
+type FieldDef =
+  | {
+      kind: 'input'
+      label: string
+      type: 'text' | 'email' | 'url' | 'tel'
+      autoComplete: string
+      placeholder: string
+      /** Renders the "(opcional)" qualifier. Only the phone is. */
+      optional?: true
+    }
+  | {
+      kind: 'select'
+      label: string
+      /** Shown first, disabled — the empty value `validate` rejects. */
+      placeholder: string
+      options: Array<{ value: string; label: string }>
+    }
+
+const FIELD_DEFS: Record<Field, FieldDef> = {
+  plan: {
+    kind: 'select',
+    label: 'Tipo de auditoría',
+    placeholder: 'Selecciona una opción',
+    options: [
+      { value: 'seo-tecnico', label: 'Auditoría SEO técnica' },
+      { value: 'contenido', label: 'Auditoría de contenido y keywords' },
+      { value: 'completa', label: 'Auditoría completa' },
+    ],
+  },
+  name: {
+    kind: 'input',
+    label: 'Nombre completo',
+    type: 'text',
+    autoComplete: 'name',
+    placeholder: 'Tu nombre',
+  },
+  email: {
+    kind: 'input',
+    label: 'Email',
+    type: 'email',
+    autoComplete: 'email',
+    placeholder: 'nombre@empresa.com',
+  },
+  website: {
+    kind: 'input',
+    label: 'Web de la empresa',
+    type: 'url',
+    autoComplete: 'url',
+    placeholder: 'https://tuempresa.com',
+  },
+  phone: {
+    kind: 'input',
+    label: 'Teléfono',
+    type: 'tel',
+    autoComplete: 'tel',
+    placeholder: '+34 600 000 000',
+    optional: true,
+  },
+}
+
+/**
+ * The shared markup: label, control, error slot. One copy, so the aria wiring
+ * between the three cannot drift between fields.
+ *
+ * `controlProps` arrives pre-built by `fieldProps` — id, value, aria-invalid,
+ * aria-describedby, the blur handler and the ref. It is spread rather than
+ * destructured because the aria attributes are conditional and spreading
+ * `undefined` is how JSX omits an attribute.
+ */
+function AuditField({
+  field,
+  def,
+  controlProps,
+  onChange,
+  error,
+}: {
+  field: Field
+  def: FieldDef
+  controlProps: Record<string, unknown>
+  onChange: (value: string) => void
+  error: ReactNode
+}) {
+  return (
+    <div className="audit-field">
+      <label className="audit-label" htmlFor={`audit-${field}`}>
+        {def.label}
+        {def.kind === 'input' && def.optional ? (
+          <>
+            {' '}
+            <span className="audit-label__optional">(opcional)</span>
+          </>
+        ) : null}
+      </label>
+      {def.kind === 'select' ? (
+        <div className="audit-select-wrap">
+          <select
+            className="audit-input audit-select"
+            {...controlProps}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            <option value="" disabled>
+              {def.placeholder}
+            </option>
+            {def.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <input
+          className="audit-input"
+          type={def.type}
+          autoComplete={def.autoComplete}
+          placeholder={def.placeholder}
+          {...controlProps}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+      {error}
+    </div>
+  )
+}
 
 const EMPTY_VALUES: Values = { plan: '', name: '', email: '', website: '', phone: '' }
 
@@ -281,86 +426,16 @@ export function AuditSection({ onOpenChange, ready }: Props) {
               </div>
 
               <div className="audit-group audit-group--3">
-                <div className="audit-field">
-                  <label className="audit-label" htmlFor="audit-plan">
-                    Tipo de auditoría
-                  </label>
-                  <div className="audit-select-wrap">
-                    <select
-                      className="audit-input audit-select"
-                      {...fieldProps('plan')}
-                      onChange={(e) => setValue('plan', e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Selecciona una opción
-                      </option>
-                      <option value="seo-tecnico">Auditoría SEO técnica</option>
-                      <option value="contenido">Auditoría de contenido y keywords</option>
-                      <option value="completa">Auditoría completa</option>
-                    </select>
-                  </div>
-                  {errorLine('plan')}
-                </div>
-
-                <div className="audit-field">
-                  <label className="audit-label" htmlFor="audit-name">
-                    Nombre completo
-                  </label>
-                  <input
-                    className="audit-input"
-                    type="text"
-                    autoComplete="name"
-                    placeholder="Tu nombre"
-                    {...fieldProps('name')}
-                    onChange={(e) => setValue('name', e.target.value)}
+                {FIELD_ORDER.map((field) => (
+                  <AuditField
+                    key={field}
+                    field={field}
+                    def={FIELD_DEFS[field]}
+                    controlProps={fieldProps(field)}
+                    onChange={(value) => setValue(field, value)}
+                    error={errorLine(field)}
                   />
-                  {errorLine('name')}
-                </div>
-
-                <div className="audit-field">
-                  <label className="audit-label" htmlFor="audit-email">
-                    Email
-                  </label>
-                  <input
-                    className="audit-input"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="nombre@empresa.com"
-                    {...fieldProps('email')}
-                    onChange={(e) => setValue('email', e.target.value)}
-                  />
-                  {errorLine('email')}
-                </div>
-
-                <div className="audit-field">
-                  <label className="audit-label" htmlFor="audit-website">
-                    Web de la empresa
-                  </label>
-                  <input
-                    className="audit-input"
-                    type="url"
-                    autoComplete="url"
-                    placeholder="https://tuempresa.com"
-                    {...fieldProps('website')}
-                    onChange={(e) => setValue('website', e.target.value)}
-                  />
-                  {errorLine('website')}
-                </div>
-
-                <div className="audit-field">
-                  <label className="audit-label" htmlFor="audit-phone">
-                    Teléfono <span className="audit-label__optional">(opcional)</span>
-                  </label>
-                  <input
-                    className="audit-input"
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder="+34 600 000 000"
-                    {...fieldProps('phone')}
-                    onChange={(e) => setValue('phone', e.target.value)}
-                  />
-                  {errorLine('phone')}
-                </div>
+                ))}
               </div>
 
               <div className="audit-group audit-group--4">
