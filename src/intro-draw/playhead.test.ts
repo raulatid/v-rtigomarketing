@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createPlayhead, type PlayheadLimits, type Readiness } from './playhead'
+import { layoutStages } from './stageLayout'
+import { DEFAULT_DRAW_CONFIG, DRAW_TIMING } from './drawConfig'
 
 // Ported from scripts/simulate-intro.mjs, which existed only because there was
 // no test runner: it read playhead.ts off disk, ran it through esbuild.transform
@@ -12,41 +14,33 @@ import { createPlayhead, type PlayheadLimits, type Readiness } from './playhead'
 // that actually occurs in production — loadProgress pinned at 0 while the app
 // chunk downloads.
 
-// Mirrors the derived boundaries in introDraw.ts for the shipped stage weights.
-// A mirror rather than an import: the real numbers come from `createIntroDraw`,
-// which builds an SVG and therefore wants a DOM. If the stage weights there ever
-// change, these move with them — the drift shows up as Case 1 failing.
-const W = {
-  dot: 0.45,
-  dotMove: 0.7,
-  drawV: 1.6,
-  arcHop: 0.25,
-  drawArc: 0.9,
-  isoBack: 1.0,
-  depth: 0.82,
-  collapse: 0.55,
-}
-const FILL = 0.7
-let cursor = 0
-const bounds: Record<string, { start: number; end: number }> = {}
-for (const [k, w] of Object.entries(W)) {
-  const start = Math.max(cursor - (k === 'depth' ? 0.15 : 0), 0)
-  bounds[k] = { start, end: start + w }
-  cursor = start + w
-}
-const span = cursor
-const ceiling = span / (span + FILL)
-const scale = ceiling / span
-const ZONE_A_END = bounds.dotMove.end * scale
-const PRE_READY_LIMIT = bounds.collapse.start * scale
+// The REAL boundaries and the REAL limits, not a copy of either.
+//
+// This file used to mirror both: eight stage weights, the fill duration, the
+// depth overlap and all six governance limits, hardcoded, with a comment saying
+// the real numbers needed a DOM because they came from `createIntroDraw`. They
+// never did — every one of them is pure arithmetic over `drawConfig.ts`, and it
+// has now been lifted into `stageLayout.ts` so both this file and the animation
+// read the same function.
+//
+// The mirror was not merely redundant. `depth: 0.82` silently encoded
+// `DEPTH_VERTICES.length === 9`; adding a tenth depth edge would have moved the
+// real layout and left this test passing against the old one. That is the exact
+// failure the testing plan forbids — a guard that tests a reimplementation
+// guards nothing.
+const {
+  zoneAEnd: ZONE_A_END,
+  preReadyLimit: PRE_READY_LIMIT,
+  ceiling,
+} = layoutStages(DEFAULT_DRAW_CONFIG)
 
 const LIMITS: PlayheadLimits = {
-  minimumDuration: 3.0,
+  minimumDuration: DRAW_TIMING.minimumDuration,
   preReadyLimit: PRE_READY_LIMIT,
-  autonomousTau: 2.5,
-  smoothRate: 3.0,
-  maxDt: 0.05,
-  stallEpsilon: 1e-5,
+  autonomousTau: DRAW_TIMING.autonomousTau,
+  smoothRate: DRAW_TIMING.smoothRate,
+  maxDt: DRAW_TIMING.maxDt,
+  stallEpsilon: DRAW_TIMING.stallEpsilon,
 }
 
 const DT = 1 / 60

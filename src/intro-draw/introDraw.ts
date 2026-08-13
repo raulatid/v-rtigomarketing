@@ -9,6 +9,7 @@ import {
   V_D,
 } from './isotype'
 import { DEFAULT_DRAW_CONFIG, DRAW_SHAPE, DRAW_TIMING, DrawConfig } from './drawConfig'
+import { layoutStages } from './stageLayout'
 import { createPlayhead, Readiness } from './playhead'
 
 // P0: the isotype drawn stroke by stroke, a dot riding the tip — and the site's
@@ -287,64 +288,14 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   // — within 0.4% of the suggested value, which is presumably where it came
   // from). Holding there also reads better: the construction stays on screen
   // while work continues, and collapse-then-fill becomes the "ready" gesture.
-  interface Stage {
-    name: string
-    weight: number
-    overlap: number
-    start: number
-    end: number
-  }
-  let stages: Record<string, Stage>
-  let ceiling = 0
-  let zoneAEnd = 0
-  let preReadyLimit = 0
-
-  function layout() {
-    const defs: Array<[string, number, number]> = [
-      ['dot', cfg.dotDuration, 0],
-      ['dotMove', cfg.dotMoveDuration, 0],
-      ['drawV', cfg.drawDuration, 0],
-      ['arcHop', DRAW_SHAPE.arcHopWeight, 0],
-      ['drawArc', cfg.arcDrawDuration, 0],
-      ['isoBack', cfg.isoDrawDuration + DRAW_SHAPE.isoStagger, 0],
-      [
-        'depth',
-        cfg.depthDuration + DRAW_SHAPE.depthStagger * (DEPTH_VERTICES.length - 1),
-        DRAW_SHAPE.depthOverlap,
-      ],
-      ['collapse', cfg.collapseDuration, 0],
-    ]
-
-    let cursor = 0
-    const raw: Stage[] = defs.map(([name, weight, overlap]) => {
-      const start = Math.max(cursor - overlap, 0)
-      const end = start + weight
-      cursor = end
-      return { name, weight, overlap, start, end }
-    })
-
-    const span = cursor || 1
-    // The outline owns `span` of authored time and the fill owns fillDuration;
-    // the ceiling is the former's share of the two.
-    ceiling = span / (span + cfg.fillDuration)
-
-    stages = {}
-    for (const s of raw) {
-      stages[s.name] = {
-        ...s,
-        start: (s.start / span) * ceiling,
-        end: (s.end / span) * ceiling,
-      }
-    }
-
-    // Zone boundaries, derived. Zone A ends when the dot reaches the first
-    // vertex; Zone C begins where the collapse does.
-    zoneAEnd = stages.dotMove.end
-    preReadyLimit = stages.collapse.start
-  }
+  // The stage table, and the three zone boundaries derived from it. Computed by
+  // a pure function in stageLayout.ts — it is arithmetic over `cfg` and touches
+  // no DOM, which is what lets playhead.test.ts assert against the real numbers
+  // instead of a copy of them.
+  let timeline = layoutStages(cfg)
 
   const local = (name: string, p: number) => {
-    const s = stages[name]
+    const s = timeline.stages[name]
     return clamp01((p - s.start) / (s.end - s.start))
   }
 
@@ -369,7 +320,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     // STAGE 3 — the V is traced, the dot riding the stroke tip.
     const tV = quadInOut(local('drawV', p))
     frontV.style.strokeDashoffset = String(vSample.length * (1 - tV))
-    if (p > stages.drawV.start) {
+    if (p > timeline.stages.drawV.start) {
       const pt = vSample.at(tV)
       dx = pt.x
       dy = pt.y
@@ -377,14 +328,14 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
 
     // STAGE 3b — hop to the arc, then trace it.
     const tHop = cubicInOut(local('arcHop', p))
-    if (p > stages.arcHop.start) {
+    if (p > timeline.stages.arcHop.start) {
       const from = vSample.at(1)
       dx = from.x + (ARC_START[0] - from.x) * tHop
       dy = from.y + (ARC_START[1] - from.y) * tHop
     }
     const tArc = quadInOut(local('drawArc', p))
     frontArc.style.strokeDashoffset = String(arcSample.length * (1 - tArc))
-    if (p > stages.drawArc.start) {
+    if (p > timeline.stages.drawArc.start) {
       const pt = arcSample.at(tArc)
       dx = pt.x
       dy = pt.y
@@ -422,7 +373,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     // Nothing but readiness may activate it — not elapsed time, not the
     // autonomous curve, not a timeout. The playhead cannot reach here without
     // readiness because Zone C is gated in playhead.ts.
-    const tFill = cubicInOut(clamp01((p - ceiling) / (1 - ceiling)))
+    const tFill = cubicInOut(clamp01((p - timeline.ceiling) / (1 - timeline.ceiling)))
     fill.style.opacity = String(tFill)
     frontV.style.opacity = String(1 - tFill)
     frontArc.style.opacity = String(1 - tFill)
@@ -445,7 +396,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
 
   const playheadLimits = () => ({
     minimumDuration: DRAW_TIMING.minimumDuration,
-    preReadyLimit,
+    preReadyLimit: timeline.preReadyLimit,
     autonomousTau: DRAW_TIMING.autonomousTau,
     smoothRate: DRAW_TIMING.smoothRate,
     maxDt: DRAW_TIMING.maxDt,
@@ -552,7 +503,6 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   // ── Init ──
   applyIsoOffset()
   measureEdges()
-  layout()
   apply(0)
 
   if (options.reducedMotion) {
@@ -564,7 +514,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     // Show the completed outline instead, and let readiness bring the fill,
     // still respecting the minimum duration. Same semantics as the animated
     // path, just without the stroke-by-stroke build (plan 007 §12 case 9).
-    current = preReadyLimit
+    current = timeline.preReadyLimit
     apply(current)
     const poll = (now: number) => {
       raf = requestAnimationFrame(poll)
@@ -572,7 +522,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       lastNow = now
       const f = playhead.step(raw, 1, options.getReadiness())
       // Skip straight to the outline; only the ending is animated.
-      current = Math.max(preReadyLimit, f.visual)
+      current = Math.max(timeline.preReadyLimit, f.visual)
       apply(current)
       if (f.done) finish()
     }
@@ -587,7 +537,11 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     playhead: () => current,
     isDone: () => done,
     isHolding: () => holding,
-    zones: () => ({ zoneAEnd, preReadyLimit, ceiling }),
+    zones: () => ({
+      zoneAEnd: timeline.zoneAEnd,
+      preReadyLimit: timeline.preReadyLimit,
+      ceiling: timeline.ceiling,
+    }),
     subscribeComplete(fn) {
       completeListeners.add(fn)
       return () => completeListeners.delete(fn)
@@ -618,12 +572,12 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       svg.style.setProperty('--intro-base', String(cfg.introSize))
       applyIsoOffset()
       measureEdges()
-      layout()
+      timeline = layoutStages(cfg)
       // The zone boundaries move with the weights, so the playhead's limits
       // must follow — otherwise Zone C stays gated at the old position and the
       // fill unlocks early or never. Updated in place, never rebuilt: a rebuild
       // would reset `elapsed` and restart the minimum duration on every edit.
-      playhead.setLimits({ ...playheadLimits(), preReadyLimit })
+      playhead.setLimits(playheadLimits())
       apply(current)
     },
     replay() {
