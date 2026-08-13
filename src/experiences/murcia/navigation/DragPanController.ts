@@ -35,6 +35,19 @@ const YAW_EPSILON = 1e-3;
 const ZOOM_EPSILON = 1e-5;
 
 /**
+ * Below this the focus is treated as settled, in world units.
+ *
+ * The three settle epsilons are deliberately different and are NOT a set of
+ * magic numbers waiting to be unified: they measure different quantities.
+ * Degrees of yaw, a unitless zoom ratio and world units of ground are not
+ * comparable, so one shared constant would be wrong for two of the three.
+ *
+ * This one was the only one still written inline, twice, which made it look
+ * incidental next to the two named above it.
+ */
+const FOCUS_EPSILON = 1e-3;
+
+/**
  * Per-event wheel delta cap, in normalized pixels.
  *
  * macOS momentum scrolling can deliver a single event carrying hundreds of
@@ -413,6 +426,24 @@ export class DragPanController {
   }
 
   // --- Per-frame integration -------------------------------------------------
+  //
+  // The three integrators below share a SHAPE — optional inertia, then an
+  // exponential ease toward the target, then an epsilon snap, then a write to
+  // the rig — and they are deliberately not unified behind a common "smoothed
+  // axis" type. They do not share a responsibility:
+  //
+  //   updateYaw          one scalar, with inertia, fires onYawChanged.
+  //   updateZoom         one scalar, NO inertia (a wheel has no release to
+  //                      coast from), its own time constant, fires onZoomChanged.
+  //   updateTranslation  TWO axes that are not independent. The inertia test is
+  //                      a 2-D speed (Math.hypot) and the clamp is a single
+  //                      rectangle test that can stop X and Z together — neither
+  //                      can be expressed as two separate axes without changing
+  //                      the behaviour.
+  //
+  // Two of the three would fit a shared abstraction and the third would have to
+  // be bent into it. PRINCIPLES §12: duplication is cheaper than the wrong
+  // abstraction.
 
   private updateYaw(dt: number): void {
     const rotation = this.config.rotation;
@@ -497,8 +528,8 @@ export class DragPanController {
     const nextZ = this.rig.focus.z + (this.targetZ - this.rig.focus.z) * alpha;
 
     // Snap the last fraction of a unit so the rig settles exactly.
-    const settledX = Math.abs(this.targetX - nextX) < 1e-3 ? this.targetX : nextX;
-    const settledZ = Math.abs(this.targetZ - nextZ) < 1e-3 ? this.targetZ : nextZ;
+    const settledX = Math.abs(this.targetX - nextX) < FOCUS_EPSILON ? this.targetX : nextX;
+    const settledZ = Math.abs(this.targetZ - nextZ) < FOCUS_EPSILON ? this.targetZ : nextZ;
 
     if (settledX !== this.rig.focus.x || settledZ !== this.rig.focus.z) {
       this.rig.setFocus(settledX, settledZ);
