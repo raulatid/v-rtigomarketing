@@ -43,9 +43,8 @@ import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewp
 import { terrainVisualBounds } from '../src/experiences/murcia/environment/createTerrainTransition';
 import type { BoundsRect } from '../src/experiences/murcia/config/environmentConfig';
 
-import { banner, check as rawCheck, finish, section } from './lib/assert';
+import { banner, check, finish, section } from './lib/assert';
 
-const check = (label: string, ok: boolean, detail = '') => rawCheck(label, ok, detail, 58);
 
 const nav = murciaConfig.navigation;
 const zoom = nav.zoom;

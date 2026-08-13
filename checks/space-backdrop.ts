@@ -28,9 +28,8 @@ import { DEFAULT_APP_CONFIG } from '../src/introConfig';
 
 const SHIPPED_STAR_COUNT = DEFAULT_APP_CONFIG.backdropStarCount;
 
-import { banner, check as rawCheck, finish, section } from './lib/assert';
+import { banner, check, finish, section } from './lib/assert';
 
-const check = (label: string, ok: boolean, detail = '') => rawCheck(label, ok, detail, 56);
 
 banner('Space backdrop — galaxy band and star distribution');
 

@@ -44,9 +44,8 @@ import { computeGroundFootprint } from '../src/experiences/murcia/navigation/vie
 import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 
-import { banner, check as rawCheck, finish, section } from './lib/assert';
+import { banner, check, finish, section } from './lib/assert';
 
-const check = (label: string, ok: boolean, detail = '') => rawCheck(label, ok, detail, 56);
 
 /** Dense sweep — the envelope must hold everywhere, not at sampled corners. */
 const STEPS = 2000;

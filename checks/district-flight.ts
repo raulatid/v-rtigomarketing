@@ -17,7 +17,6 @@
  */
 import * as THREE from 'three';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
-import { resolveCameraPose } from '../src/experiences/murcia/config/environmentConfig';
 import type { BoundsRect, NavigationConfig } from '../src/experiences/murcia/config/environmentConfig';
 import { CameraRig } from '../src/experiences/murcia/camera/CameraRig';
 import { CameraFlight, shortestYawDelta } from '../src/experiences/murcia/camera/CameraFlight';
@@ -37,10 +36,10 @@ const ASPECT = WIDTH / HEIGHT;
 const plate: BoundsRect = { ...env.contentBounds };
 const bounds = expandRect(plate, -nav.boundsInset);
 
-import { check as rawCheck, close, finish } from './lib/assert';
+import { check, close, finish } from './lib/assert';
 import { createStubElement } from './lib/stubDom';
+import { makeRig } from './lib/rig';
 
-const check = (label: string, ok: boolean, detail: string) => rawCheck(label, ok, detail, 54);
 
 // --- Stub DOM ----------------------------------------------------------------
 
@@ -64,11 +63,7 @@ function makeHarness(
   const stub = createStubElement({ left: 0, top: 0, width: WIDTH, height: HEIGHT });
   const element = stub.element;
 
-  const pose = resolveCameraPose(env, ASPECT);
-  const camera = new THREE.PerspectiveCamera(pose.fov, ASPECT, pose.near, pose.far);
-  const rig = new CameraRig(camera, pose);
-  rig.setAspect(ASPECT);
-  rig.setFocus(focusAt.x, focusAt.z);
+  const { camera, rig } = makeRig(env, ASPECT, focusAt);
 
   const harness = {
     rig,

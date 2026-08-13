@@ -23,17 +23,24 @@ let failures = 0;
 let checks = 0;
 
 /**
+ * The column the `detail` text starts at. One value for all five harnesses,
+ * because their output IS read side by side and a shared column is the whole
+ * point of aligning it at all.
+ *
+ * This was a `pad` parameter with a default, which every harness then wrapped
+ * to pass its own value — five extra lines and five slightly different columns,
+ * to configure something nobody wanted configured (PRINCIPLES §13, §23).
+ */
+const LABEL_COLUMN = 56;
+
+/**
  * One assertion. `detail` is printed either way — a passing check's measured
  * value is how a later reader learns what "correct" looked like.
- *
- * `pad` exists only because the harnesses chose different label columns and
- * their output is read side by side; it is cosmetic and has no default worth
- * arguing about.
  */
-export function check(label: string, ok: boolean, detail = '', pad = 56): void {
+export function check(label: string, ok: boolean, detail = ''): void {
   checks += 1;
   if (!ok) failures += 1;
-  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label.padEnd(pad)} ${detail}`);
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label.padEnd(LABEL_COLUMN)} ${detail}`);
 }
 
 /** A blank line and a heading. Sections are numbered by hand in each harness. */

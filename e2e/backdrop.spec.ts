@@ -44,6 +44,24 @@ async function bootAndSettle(page: Page) {
 }
 
 test.describe('the resting backdrop', () => {
+  // This baseline also carries the wrap-seam guard, which used to be a second
+  // test — `backdrop-seam.png`, same boot, same default viewport, same camera,
+  // same masks. It captured this identical picture under a different filename:
+  // nothing between the two changed what was on screen, so it asserted the same
+  // pixels twice, cost a second 936 KB baseline, and had to be regenerated on
+  // every legitimate sky change.
+  //
+  // The seam knowledge is worth keeping even though the test was not
+  // (PROJECT_MEMORY): a stitched panorama's two vertical edges rarely match
+  // photometrically, and under a perspective camera a great circle projects to
+  // a STRAIGHT line — so the step reads as a ruler drawn across the sky. The
+  // fix is a per-row offset ramped across the full width. Where the seam falls
+  // in this view, this baseline notices it reopening; where it does not, the
+  // deleted test did not cover it either, since it framed the same view.
+  //
+  // A genuine seam test would have to aim the camera at the seam, which needs a
+  // camera-control hook this suite does not have. Worth adding when there is
+  // one — as a test that can fail differently from this one.
   test('sky and star shell, wide', async ({ page }) => {
     await bootAndSettle(page)
 
@@ -53,20 +71,6 @@ test.describe('the resting backdrop', () => {
     await expect(page).toHaveScreenshot('backdrop-wide.png', {
       // The Earth rotates continuously; a small tolerance keeps the diff about
       // the sky rather than about which continent is facing the camera.
-      maxDiffPixelRatio: 0.02,
-      animations: 'disabled',
-      mask: [page.locator('.audit-section'), page.locator('.geo-tag')],
-    })
-  })
-
-  test('the wrap seam does not render as a ruled line', async ({ page }) => {
-    // PROJECT_MEMORY: a stitched panorama's two vertical edges rarely match
-    // photometrically, and under a perspective camera a great circle projects
-    // to a STRAIGHT line — so the step reads as a ruler drawn across the sky.
-    // The fix is a per-row offset ramped across the full width; this baseline
-    // is what notices it reopening.
-    await bootAndSettle(page)
-    await expect(page).toHaveScreenshot('backdrop-seam.png', {
       maxDiffPixelRatio: 0.02,
       animations: 'disabled',
       mask: [page.locator('.audit-section'), page.locator('.geo-tag')],
