@@ -8,22 +8,28 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && npm run test && npm run check:harnesses && vite build",
     "preview": "vite preview",
+
+    "build": "npm run check && vite build",
+
+    "check": "npm run typecheck && npm run test && npm run check:harnesses",
+    "check:harnesses": "npm run check:navigation && npm run check:zoom && npm run check:district && npm run check:warp && npm run check:space",
+    "check:navigation": "esbuild checks/navigation-feel.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-feel.mjs --log-level=warning && node node_modules/.cache/navigation-feel.mjs",
+    "check:zoom": "esbuild checks/navigation-zoom.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-zoom.mjs --log-level=warning && node node_modules/.cache/navigation-zoom.mjs",
+    "check:district": "esbuild checks/district-flight.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/district-flight.mjs --log-level=warning && node node_modules/.cache/district-flight.mjs",
+    "check:warp": "esbuild checks/warp-transition.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/warp-transition.mjs --log-level=warning && node node_modules/.cache/warp-transition.mjs",
+    "check:space": "esbuild checks/space-backdrop.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/space-backdrop.mjs --log-level=warning && node node_modules/.cache/space-backdrop.mjs",
+
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+
+    "pree2e": "vite build",
     "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui",
+    "pree2e:update": "vite build",
     "e2e:update": "playwright test --update-snapshots",
-    "check:navigation": "esbuild checks/navigation-feel.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-feel.mjs --log-level=warning && node node_modules/.cache/navigation-feel.mjs",
-    "check:district": "esbuild checks/district-flight.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/district-flight.mjs --log-level=warning && node node_modules/.cache/district-flight.mjs",
-    "check:harnesses": "npm run check:navigation && npm run check:zoom && npm run check:district && npm run check:warp && npm run check:space",
-    "check": "npm run typecheck && npm run test && npm run check:harnesses",
-    "check:zoom": "esbuild checks/navigation-zoom.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-zoom.mjs --log-level=warning && node node_modules/.cache/navigation-zoom.mjs",
-    "check:warp": "esbuild checks/warp-transition.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/warp-transition.mjs --log-level=warning && node node_modules/.cache/warp-transition.mjs",
-    "check:space": "esbuild checks/space-backdrop.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/space-backdrop.mjs --log-level=warning && node node_modules/.cache/space-backdrop.mjs"
+    "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@react-three/fiber": "^9.6.1",

@@ -31,8 +31,6 @@ export interface StubElement {
   element: HTMLElement;
   /** Dispatch to every listener registered for `type`, in registration order. */
   fire: (type: string, event: Record<string, unknown>) => void;
-  /** How many listeners are currently registered for a type. */
-  listenerCount: (type: string) => number;
   /** Whatever the controllers have written to `element.style`. */
   style: Record<string, string>;
 }
@@ -80,19 +78,6 @@ export function createStubElement(rect: StubRect = { left: 0, top: 0, width: 192
     fire: (type, event) => {
       for (const fn of [...(listeners.get(type) ?? [])]) fn(event);
     },
-    listenerCount: (type) => (listeners.get(type) ?? []).length,
     style,
   };
-}
-
-/**
- * A pointer event body. Only the fields the controllers read.
- *
- * `pointerType` decides which gesture path is taken — touch selects the
- * two-finger rules and the larger tap tolerance — so it is spelled out at every
- * call site rather than defaulted, because a silently-mouse event in a touch
- * test is a test that passes while testing the wrong thing.
- */
-export function pointerEvent(fields: Record<string, unknown>): Record<string, unknown> {
-  return { preventDefault() {}, ...fields };
 }

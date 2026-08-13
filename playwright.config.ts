@@ -51,7 +51,14 @@ export default defineConfig({
   webServer: {
     command: 'npm run preview',
     url: 'http://localhost:4173',
-    reuseExistingServer: true,
+    // Locally, reusing a preview server you already have open is the whole
+    // difference between a 5-second run and a 40-second one. On CI it is a
+    // trap: there is nothing legitimate already listening on 4173, so a hit
+    // means a stale process from an earlier job, and the suite would silently
+    // grade an artifact that is no longer on disk. `npm run e2e` rebuilds via
+    // `pree2e` either way, so the local reuse is of a server serving a `dist/`
+    // that was just regenerated.
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
 })

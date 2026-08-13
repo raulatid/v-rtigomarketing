@@ -52,14 +52,6 @@ export function close(a: number, b: number, tol: number): boolean {
   return Math.abs(a - b) <= tol;
 }
 
-export function failureCount(): number {
-  return failures;
-}
-
-export function checkCount(): number {
-  return checks;
-}
-
 // Declared rather than pulled in via @types/node: this is the only Node API the
 // harnesses touch, and esbuild bundles them for Node without those types.
 declare const process: { exitCode?: number } | undefined;

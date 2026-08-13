@@ -4,7 +4,7 @@
 // arithmetic inside the render loop, so the only way to test it was to run the
 // animation — and the one input that actually occurs in production
 // (loadProgress stuck at 0) was never tried. This module is pure and
-// deterministic; scripts/simulate-intro.mjs drives it through plan 007 §12.
+// deterministic; playhead.test.ts drives it through plan 007 §12.
 //
 // ── The three values (plan 007 Phase 1) ──
 //

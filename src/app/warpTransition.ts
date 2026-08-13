@@ -10,8 +10,8 @@ import { cinematicSpeed, cinematicTravel, lerp, narrowPeak } from '../utils/easi
 //
 // Kept free of three.js, React and the DOM on purpose: checks/warp-transition.ts
 // asserts the safety envelope below against THIS module, the way
-// scripts/simulate-intro.mjs asserts against the real playhead. A guard that
-// tests a reimplementation guards nothing.
+// src/intro-draw/playhead.test.ts asserts against the real playhead. A guard
+// that tests a reimplementation guards nothing.
 
 export const WARP_TRANSITION = {
   /** Seconds. Long enough to read as a journey, short enough not to be a wait. */

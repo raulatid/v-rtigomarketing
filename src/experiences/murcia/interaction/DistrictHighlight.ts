@@ -34,7 +34,7 @@ export interface DistrictHighlightConfig {
   proxyPadding: number;
 }
 
-export const defaultDistrictHighlightConfig: DistrictHighlightConfig = {
+const defaultDistrictHighlightConfig: DistrictHighlightConfig = {
   highlightColor: 0x4fb0ff,
   // Not zero. Touch devices have no hover, so the district has to read as
   // special before any interaction happens; the marker carries most of that, and

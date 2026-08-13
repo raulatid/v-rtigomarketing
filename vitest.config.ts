@@ -44,7 +44,11 @@ export default defineConfig({
     // The dividing rule from plan 000, made mechanical: a unit test lives beside
     // its module under src/ and needs no scene. checks/ is bundled by esbuild and
     // run by node, and must never be picked up here.
-    include: ['src/**/*.test.ts'],
+    // `.tsx` is included even though no component test exists yet: the failure
+    // mode of omitting it is a file named `AuditSection.test.tsx` that is
+    // silently never collected — no error, no warning, a green run that proves
+    // nothing. Costs nothing to allow; expensive to discover.
+    include: ['src/**/*.test.{ts,tsx}'],
 
     // No globals. `noUnusedLocals` is on and this repo has no ambient-global
     // habit, so `describe`/`it`/`expect` are imported like anything else.
