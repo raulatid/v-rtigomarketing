@@ -1,10 +1,9 @@
 import * as THREE from 'three';
-import Stats from 'stats.js';
 
 import { createAppConfig, applyQueryOverrides } from './config/appConfig';
 import type { AppConfig } from './config/appConfig';
 import { murciaConfig } from './config/murciaConfig';
-import type { BoundsRect, EnvironmentConfig } from './config/environmentConfig';
+import type { EnvironmentConfig } from './config/environmentConfig';
 import { resolveCameraPose } from './config/environmentConfig';
 import { applyNavigationQueryOverrides } from './config/environmentQueryOverrides';
 import { createScene } from './core/createScene';
@@ -22,6 +21,7 @@ import { containsPoint, expandRect } from './navigation/navigationBounds';
 import { createTerrainTransition } from './environment/createTerrainTransition';
 import type { TerrainTransition } from './environment/createTerrainTransition';
 import { DebugOverlay } from './debug/DebugOverlay';
+import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
 import { resolveDistrict } from './interaction/resolveDistrict';
 import { DistrictInteraction } from './interaction/DistrictInteraction';
@@ -69,8 +69,6 @@ export class MurciaExperience {
   private debugOverlay: DebugOverlay | null = null;
   private interactionProbe: InteractionProbe | null = null;
   private districts: DistrictInteraction[] = [];
-  private stats: Stats | null = null;
-  private boundsHelper: THREE.LineSegments | null = null;
 
   private loaded: LoadedCity | null = null;
   private active = false;
@@ -96,6 +94,8 @@ export class MurciaExperience {
   private viewport: ViewportSize = { width: 1, height: 1, aspect: 1 };
   /** The navigable-area pipeline: plate -> visual -> configured -> effective. */
   private readonly bounds: NavigableArea;
+  /** FPS meter, bounds wireframe and diagnostics. Inert unless debugTools. */
+  private readonly debug: MurciaDebugTools;
 
   private firstFrameRecorded = false;
   private hintFaded = false;
@@ -139,6 +139,7 @@ export class MurciaExperience {
     this.cursor = createCursorManager(renderer.domElement);
     // After the query overrides, so a `?bounds=` override reaches the pipeline.
     this.bounds = new NavigableArea(this.environment.navigation);
+    this.debug = new MurciaDebugTools(this.debugTools, this.appConfig, container);
   }
 
   /**
@@ -164,12 +165,7 @@ export class MurciaExperience {
 
     // Debug instrumentation is opt-in now. Standalone this defaulted on, which
     // is fine for a prototype and not for a marketing site.
-    if (this.appConfig.statsEnabled) {
-      this.stats = new Stats();
-      this.stats.dom.style.top = 'auto';
-      this.stats.dom.style.bottom = '0';
-      this.container.appendChild(this.stats.dom);
-    }
+    this.debug.mountStats();
 
     this.assetLoader = createAssetLoader(this.appConfig);
 
@@ -357,13 +353,13 @@ export class MurciaExperience {
     this.loaded = loaded;
     this.sceneBundle.scene.add(loaded.root);
 
-    this.logReport();
+    if (this.loaded) this.debug.logAssetReport(this.loaded.report);
 
     const box = new THREE.Box3().setFromObject(loaded.root);
     if (box.isEmpty()) {
       throw new Error('City model has no renderable geometry (empty bounds).');
     }
-    this.logBounds(box);
+    this.debug.logModelBounds(box);
 
     // --- Terrain plate ------------------------------------------------------
     if (loaded.terrain) {
@@ -430,10 +426,14 @@ export class MurciaExperience {
       },
     );
 
-    this.bounds.logDiagnostics(this.loaded?.terrainSource ?? 'n/a');
+    this.debug.logNavigation(this.bounds, this.loaded?.terrainSource ?? 'n/a');
 
     if (this.appConfig.navigationDebugEnabled) {
-      this.rebuildBoundsHelper();
+      this.debug.rebuildBoundsHelper(
+        this.sceneBundle.scene,
+        this.bounds,
+        this.environment.navigation.groundPlaneHeight,
+      );
     }
 
     if (this.appConfig.debugOverlayEnabled) {
@@ -561,7 +561,13 @@ export class MurciaExperience {
       // — and only here, plus on pose change. It is independent of the focus
       // position, because the camera sits at a fixed offset from it.
       this.recomputeBounds();
-      if (this.boundsHelper) this.rebuildBoundsHelper();
+      if (this.debug.hasBoundsHelper) {
+        this.debug.rebuildBoundsHelper(
+          this.sceneBundle.scene,
+          this.bounds,
+          this.environment.navigation.groundPlaneHeight,
+        );
+      }
     }
   }
 
@@ -600,77 +606,6 @@ export class MurciaExperience {
     this.controlsHint.fadeOut();
   }
 
-  // --- Debug ----------------------------------------------------------------
-
-  private rebuildBoundsHelper(): void {
-    if (this.boundsHelper) {
-      this.sceneBundle.scene.remove(this.boundsHelper);
-      this.boundsHelper.geometry.dispose();
-      (this.boundsHelper.material as THREE.Material).dispose();
-      this.boundsHelper = null;
-    }
-    const effective = this.bounds.effectiveBounds;
-    const visual = this.bounds.visualBounds;
-    if (!effective || !visual) return;
-
-    const y = this.environment.navigation.groundPlaneHeight + 0.5;
-    const points: number[] = [];
-    pushRect(points, effective, y);
-    pushRect(points, visual, y);
-    const configured = this.bounds.configuredBounds;
-    const plate = this.bounds.plateBounds;
-    if (configured) pushRect(points, configured, y);
-    if (plate) pushRect(points, plate, y);
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-    const material = new THREE.LineBasicMaterial({ color: 0x7bff8e });
-    this.boundsHelper = new THREE.LineSegments(geometry, material);
-    this.boundsHelper.name = 'NavigationBoundsHelper';
-    this.sceneBundle.scene.add(this.boundsHelper);
-  }
-
-  // The three log* methods below are DIAGNOSTICS, not error reporting: together
-  // they printed a mesh/material table, the model's bounding box and eight lines
-  // of bounds rectangles into the console of every visitor, on every page load.
-  // Correct for the standalone prototype, where the page WAS the diagnostic;
-  // wrong for a marketing site. Real failures still log unconditionally —
-  // console.error and console.warn are untouched throughout this file.
-
-  private logReport(): void {
-    if (!this.debugTools) return;
-    if (!this.loaded) return;
-    const r = this.loaded.report;
-    console.groupCollapsed('[murcia] asset report');
-    console.table({
-      objects: r.objectCount,
-      meshes: r.meshCount,
-      materials: r.materialCount,
-      textures: r.textureCount,
-      lights: r.lightCount,
-      cameras: r.cameraCount,
-      skinnedMeshes: r.skinnedMeshCount,
-      animations: r.animationCount,
-      transparentMaterials: r.transparentMaterialCount,
-      doubleSidedMaterials: r.doubleSidedMaterialCount,
-    });
-    if (r.warnings.length > 0) {
-      console.warn('Asset warnings:\n- ' + r.warnings.join('\n- '));
-    }
-    console.groupEnd();
-  }
-
-  private logBounds(box: THREE.Box3): void {
-    if (!this.debugTools) return;
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    console.info(
-      `[murcia] model bounds: center=(${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)}) size=(${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)})`,
-    );
-  }
-
   // --- Frame ----------------------------------------------------------------
 
   /**
@@ -684,7 +619,7 @@ export class MurciaExperience {
     if (!this.active || !this.sceneBundle) return;
 
     const now = performance.now();
-    this.stats?.begin();
+    this.debug.frameBegin();
 
     // Exactly one system writes to the rig per frame. `DragPanController.update`
     // returns early while a district flight holds external control, so the order
@@ -727,7 +662,7 @@ export class MurciaExperience {
       });
     }
 
-    this.stats?.end();
+    this.debug.frameEnd();
   }
 
   dispose(): void {
@@ -752,13 +687,6 @@ export class MurciaExperience {
       this.transition = null;
     }
 
-    if (this.boundsHelper) {
-      this.boundsHelper.removeFromParent();
-      this.boundsHelper.geometry.dispose();
-      (this.boundsHelper.material as THREE.Material).dispose();
-      this.boundsHelper = null;
-    }
-
     if (this.loaded) {
       disposeLoadedCity(this.loaded);
       this.loaded = null;
@@ -769,26 +697,10 @@ export class MurciaExperience {
 
     this.statusOverlay.dispose();
     this.controlsHint.dispose();
-    if (this.stats) {
-      this.stats.dom.remove();
-      this.stats = null;
-    }
+    this.debug.dispose(this.sceneBundle?.scene ?? null);
 
     // The renderer and its canvas belong to the application, not to this
     // environment. Disposing them here would take Earth down with it.
   }
 }
 
-function pushRect(out: number[], rect: BoundsRect, y: number): void {
-  const corners: Array<[number, number]> = [
-    [rect.minX, rect.minZ],
-    [rect.maxX, rect.minZ],
-    [rect.maxX, rect.maxZ],
-    [rect.minX, rect.maxZ],
-  ];
-  for (let i = 0; i < 4; i += 1) {
-    const a = corners[i]!;
-    const b = corners[(i + 1) % 4]!;
-    out.push(a[0], y, a[1], b[0], y, b[1]);
-  }
-}
