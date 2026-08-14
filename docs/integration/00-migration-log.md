@@ -99,6 +99,28 @@ chunk hashes matched the source project's exactly. The structural relocation int
 module with `activate()`/`deactivate()` gives it a reason to exist. Moving files now would
 be churn without a motivating need (`ENGINEERING_PRINCIPLES` §7, §21).
 
+> **CLOSED — 2026-08-14.** The relocation happened, and the motivating need turned out not
+> to be `activate()`/`deactivate()`. 44 files moved into `src/experiences/earth/`; the
+> emitted chunk graph is byte-identical to before the move.
+>
+> The reason was the **dependency direction**, not the lifecycle. With Earth spread over 21
+> top-level paths there was no boundary for shared infrastructure to depend on, so
+> `graphics/RenderPipeline.tsx` imported the intro's config, its sequence state and — for
+> several phases, in breach of §17 — `MurciaExperience` itself. Those imports could not be
+> removed until Earth was a thing. `src/graphics/` now imports nothing outside itself, and
+> `checks/architecture.ts` asserts it on every `npm run check`.
+>
+> `EarthExperience` exists but is **a React component, not a class with
+> `activate()`/`deactivate()`**. Earth's layers are R3F components, so mounting is rendering
+> and pausing is the `active` prop — every one of its eight layers already gated its own
+> per-frame work on that prop before this pass, two of them with documented exceptions. A
+> class wrapping that would be a shallow module forwarding a boolean React already delivers
+> (§4, §13). What Earth actually lacked was a composition boundary: `SceneCanvas` mounted
+> all eight layers itself and owned two refs only Earth touched.
+>
+> `src/intro-draw/` deliberately did **not** move. It is the LOAD phase, not Earth, and it
+> is a separate Rollup entry under a zero-import assertion.
+
 **Verification.** Build green, budgets green, all runtime assets serve 200 from the dev
 server (`/earth/*.jpg`, `/models/*.glb`, `/textures/*.ktx2`, `/draco/*`, `/libs/basis/*`).
 

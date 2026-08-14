@@ -207,6 +207,17 @@ interface Experience {
 
 This is a conceptual contract, not a mandatory exact interface.
 
+**The two experiences implement it differently, and that is intended.** Murcia is a class
+with `load()`/`setActive()`/`dispose()`, because it was migrated from a standalone prototype
+that owned its own renderer and frame loop. Earth is an R3F component tree, so React owns its
+lifecycle: mounting *is* rendering it, and pausing *is* the `active` prop that every one of
+its layers already gates its own per-frame work on. Wrapping that in a class to make the two
+look alike would be a shallow module forwarding a boolean React already delivers (PRINCIPLES
+§4, §13), and §12 is explicit that Earth and Murcia may differ where they genuinely do.
+
+What both must have is a single boundary the application mounts, rather than the application
+knowing an experience's internal composition.
+
 The actual API should remain as small as possible while correctly representing the lifecycle.
 
 Experiences must not rely on undocumented invocation order.
@@ -491,6 +502,13 @@ shared → murcia
 Experience-independent infrastructure must never import experience-specific implementation.
 
 Circular dependencies are prohibited.
+
+**These rules are enforced, not merely documented.** `checks/architecture.ts` asserts them
+against the real import graph and runs as part of `npm run check`. It exists because two of
+them had already been broken — `graphics → murcia` for several phases, and `corner-logo →
+earth` — and both were found by reading the code rather than by anything failing. A rule that
+only lives in this file is a rule the code will drift past. Adding one there is cheap;
+removing one should require the same argument as changing this document.
 
 ---
 

@@ -1,13 +1,7 @@
-import { RefObject, Suspense, useCallback, useRef } from 'react'
+import { RefObject, useCallback } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { CameraController } from '../experiences/earth/camera/CameraController'
-import { AuditCameraShift } from '../experiences/earth/camera/AuditCameraShift'
-import { EarthScene } from '../experiences/earth/scene/EarthScene'
-import { Starfield } from '../experiences/earth/scene/Starfield'
-import { SpaceBackdrop } from '../experiences/earth/scene/SpaceBackdrop'
-import { SkyShell } from '../experiences/earth/scene/SkyShell'
-import { OrbitSystemLayer } from '../experiences/earth/orbit/OrbitSystemLayer'
-import { InteractionLayer, InteractionHandle } from '../experiences/earth/interaction/InteractionLayer'
+import { EarthExperience } from '../experiences/earth/EarthExperience'
+import type { InteractionHandle } from '../experiences/earth/EarthExperience'
 import { CornerLogoLayer } from './CornerLogoLayer'
 import { MurciaLayer } from './MurciaLayer'
 import { RenderPipeline } from '../graphics/RenderPipeline'
@@ -20,8 +14,6 @@ import { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
 import type { ExperienceId } from '../app/experience'
-import type { GeoMarkers } from '../experiences/earth/orbit/createGeoMarkers'
-import type { CursorManager } from '../interaction/cursorManager'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 
 interface Props {
@@ -64,18 +56,6 @@ export function SceneCanvas({
   // whether it consumes input and does per-frame work (ADR 003).
   const earthActive = activeExperience === 'earth'
 
-  // Published by GeoMarkersLayer, read by CameraController so the warp can aim
-  // at the destination. Owned here rather than in App because both ends of the
-  // handoff live inside the Canvas.
-  const geoMarkersRef = useRef<GeoMarkers | null>(null)
-
-  // Earth's single cursor arbiter. Created by InteractionLayer and borrowed by
-  // the geo markers, which hover on the same canvas from a different layer.
-  // Murcia does NOT share it — it holds one of its own, because the two are
-  // never live at the same time and each must be able to drop its whole set of
-  // requests when it goes inactive.
-  const cursorRef = useRef<CursorManager | null>(null)
-
   // What the pipeline draws this frame. Called once per frame from inside its
   // useFrame, so it reads the mutable sequence state rather than props — a
   // per-frame prop would be a per-frame React render.
@@ -103,46 +83,19 @@ export function SceneCanvas({
       camera={{ fov: config.normalFov, near: 0.1, far: 5000, position: [0, 0, 200] }}
       gl={{ antialias: true }}
     >
-      <CameraController
+      {/* Earth, as one thing. This file used to mount all eight of its layers
+          itself — in the right order, with the right props — which meant the
+          application knew the experience's internal composition (§26, §33). */}
+      <EarthExperience
+        active={earthActive}
         config={config}
         state={state}
         overlayEl={overlayEl}
-        active={earthActive}
-        geoMarkersRef={geoMarkersRef}
-      />
-      {/* Projection-window shift for the audit panel. It writes camera.view,
-          not the pose, so it cannot fight CameraController or the focus rig. */}
-      <AuditCameraShift active={earthActive} />
-      <Starfield config={config} state={state} active={earthActive} />
-      {/* Two separate fields on purpose: Starfield is the near-field warp tunnel
-          and is gated OFF at the cut; SpaceBackdrop is the far shell that is
-          gated ON there and never leaves. See plan 004 §4. */}
-      {/* Drawn first and depth-free, so it sits behind everything including
-          the star shell. Baked during P0; gated on with the Earth. */}
-      <SkyShell config={config} state={state} active={earthActive} />
-      <SpaceBackdrop config={config} state={state} active={earthActive} />
-      <Suspense fallback={null}>
-        <EarthScene
-          config={config}
-          state={state}
-          active={earthActive}
-          onSelectDestination={onSelectDestination}
-          geoMarkersRef={geoMarkersRef}
-          cursorRef={cursorRef}
-        />
-      </Suspense>
-      {/* Scene level, NOT inside EarthScene — orbital motion must not compound
-          with the Earth's surface rotation. Ordered before InteractionLayer so
-          its effect populates orbitSystemRef first. */}
-      <OrbitSystemLayer state={state} systemRef={orbitSystemRef} active={earthActive} />
-      <InteractionLayer
-        state={state}
         orbitSystemRef={orbitSystemRef}
-        handleRef={interactionRef}
-        cursorRef={cursorRef}
-        onSelect={onSelectCase}
-        onDeselect={onDeselectCase}
-        active={earthActive}
+        interactionRef={interactionRef}
+        onSelectCase={onSelectCase}
+        onDeselectCase={onDeselectCase}
+        onSelectDestination={onSelectDestination}
       />
       {/* The 3D brand logo. Inside the Canvas because it shares this
           renderer — it no longer has one of its own (ADR 002). */}
