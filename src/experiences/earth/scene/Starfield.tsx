@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { starsVisible } from '../config/sceneVisibility'
-import { createWarpStarMaterial, warpStarSizeScale } from './space/warpStarShader'
+import { createWarpStarMaterial, maxPointSize, warpStarSizeScale } from './space/warpStarShader'
 
 interface Props {
   config: IntroConfig
@@ -50,6 +50,14 @@ export function Starfield({ config, state, active }: Props) {
   // drag tick.
   useEffect(() => () => geometry.dispose(), [geometry])
   useEffect(() => () => material.dispose(), [material])
+
+  // The driver's point-size ceiling, read once. Unlike uSizeScale below this is
+  // a static hardware limit, so asking per frame would be a synchronous GL
+  // query in the render path for a value that never moves.
+  useEffect(() => {
+    const ceiling = maxPointSize(gl)
+    if (ceiling !== null) material.uniforms.uMaxSize.value = ceiling
+  }, [gl, material])
 
   useFrame(() => {
     if (!active) return

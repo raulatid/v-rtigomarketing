@@ -772,9 +772,32 @@ resolve by **node name**, not by tag. The city currently renders monochrome as a
 
 **Tap tolerances — two numbers, per pointer type, and they must stay two.** Camera rig:
 `dragClickThreshold` 4 px (mouse/pen) · `touchDragClickThreshold` 12 px. Geo markers:
-`CLICK_SLOP_PX` 5 · `TOUCH_CLICK_SLOP_PX` 12. A physical click barely moves a cursor; a finger
+`CLICK_SLOP_PX` 5 · `TOUCH_CLICK_SLOP_PX` 12. **Murcia's drag: `dragThresholdPx` 6 ·
+`touchDragThresholdPx` 12** (added 2026-08-14). A physical click barely moves a cursor; a finger
 wanders 5–15 px between contact and release. Collapsing these back to one value re-breaks
 touch even with the raycast correct (§11.23).
+
+> Murcia had only the one number until 2026-08-14, and it cost the feature that experience
+> exists for: a finger tap that wandered 7 px became a drag, and `DistrictInteraction` refuses
+> to select while the controller reports one. Districts failed *intermittently*, with no error
+> — which reads as an unresponsive site rather than a broken one. `check:navigation` §12 now
+> asserts both directions at a distance strictly between the two thresholds, so it can only
+> pass if the controller really does read `pointerType`.
+
+**Earth textures ship at two resolutions** (2026-08-14). 4096×2048 above 767 px, 2048×1024 at or
+below it, media-gated in `index.html` and selected by `EARTH_TEXTURES` in `earthConfig.ts` — the
+two MUST agree or every visitor downloads both sets. **134 MB → 34 MB** of texture memory with
+mipmaps; on the wire 2 376 KB → 1 662 KB. 2048 is not a concession: at 390 CSS px and DPR 2 the
+globe spans ~300 device pixels against ~1024 texels of visible hemisphere, so it is still
+oversampled more than 3×. Re-derive that if the close-up framing ever changes. Regenerate with
+`scripts/prepare-earth-textures.mjs`, never by hand.
+
+**The close-up's screen offset is a fraction, not a distance.** `CLOSE_UP_OFFSET_FRACTION` 0.395
+of the horizontal half-width, in `camera/closeUpFraming.ts`, and **zero below 768 px** where the
+case panel is a bottom sheet rather than a right-hand dock. It was `0.16 * R` = 0.32 world
+units, which is a fixed *angle* (16.2°) against a horizontal half-FOV that collapses from 36.4°
+at 16:9 to 10.8° at 9:19.5 — so in portrait the subject of the close-up was pushed outside the
+frustum. 0.395 reproduces the judged desktop composition to three decimals.
 
 **Brand atlas:** one 2048×1536 `CanvasTexture`, 2 columns × 3 rows of **1024×512** cells,
 sRGB, mipmapped, `ClampToEdgeWrapping`, anisotropy 4. Cell aspect is **2:1 and coupled to
@@ -966,9 +989,19 @@ tens of thousands of camera poses through real Three.js objects and catch geomet
 regressions invisible to both the type checker and a screenshot. They were NOT ported and
 should not be: they are not unit tests and would be worse as them.
 
-**Smoke tier — Playwright, 11 specs, `npm run e2e`.** Local, against `vite preview`, never a
+**Smoke tier — Playwright, 18 tests across 3 projects, `npm run e2e`.** Local, against `vite preview`, never a
 build gate: Vercel's container would download Chromium on every deploy and has no server to
 point at. If CI is ever added this is the first thing that moves into it.
+
+Three projects since 2026-08-14: `chromium` at a fixed 1600×900 (the screenshot baselines are
+sized to it), plus `mobile-android` on `devices['Pixel 7']` and `mobile-ios-shaped` at
+393×852/DPR 3. The mobile pair is scoped to `e2e/mobile.spec.ts` by `testMatch`, and the desktop
+project excludes it — the baselines would fail at any other size.
+
+**A device profile is the point, not the viewport.** A context with `hasTouch: true` alone still
+reports `hover: hover`, so every `(hover: none)` and `(pointer: coarse)` rule stays inert and a
+touch fix looks verified when it is not (§11.25). **Both mobile projects are still Chromium**,
+and that is stated in the config rather than left to be discovered.
 
 `scripts/simulate-intro.mjs` **no longer exists.** All eight of its scenarios live in
 `src/intro-draw/playhead.test.ts`, Case 1 first, driving the same real module by plain import
@@ -1223,14 +1256,41 @@ must restore it to measure coverage.
     `gl_PointSize = size * pixelRatio * (cssHeight * 0.5) / -mvPosition.z`, and note that
     `cssHeight` is R3F's `size.height`, not `gl.domElement.height` — the latter already includes
     the pixel ratio and squares it, which looks correct on a 1x display and wrong on every other.
-35. **A diagnostic can sit in a production code path for months and only start firing when an
+41. **A diagnostic can sit in a production code path for months and only start firing when an
     unrelated asset changes.** `InteractionProbe` returns `void` and its only effect is a
     `console.info` of node metadata; it was called from Murcia's `pointerup` on every click,
     gated on `active` and drag state but **not** on `DEBUG_TOOLS_ENABLED`. It emitted nothing
     only because the GLB carries no `extras`, so its cache was empty — and the planned Blender
     re-export exists precisely to add those. "Currently silent" is not "gated"; check what a
     thing would do once the data it keys on arrives. Now gated (audit `DBG-1`).
-36. **The console is not silent on load in production**, and the check that would have caught
+42. **A DOM event is not a React error, and an error boundary cannot see one.** `webglcontextlost`
+    fires on the canvas; three sets `_isContextLost` and every `render()` becomes a silent no-op.
+    Nothing throws, nothing rejects, no component re-renders — so `SceneErrorBoundary` never runs
+    and the visitor gets a black rectangle with no explanation, permanently. The class's own
+    docstring claimed to cover "a driver reset", which is exactly the case it structurally
+    cannot. The general form: **a failure that arrives as an event needs a listener, and no
+    amount of boundary placement substitutes for one.** Also, `preventDefault()` on that event is
+    not a formality — without it the browser never even attempts restoration, so
+    `webglcontextrestored` can never fire.
+43. **A fatal state latched after the intro has handed over repaints nothing.** `markFatal` sets
+    the boot state and notifies listeners, and the drawing's rAF loop is what turns that into a
+    Spanish caption — but that loop stops when the drawing finishes. So a failure during load is
+    visible and the identical failure ten seconds later is invisible. Anything reporting a
+    mid-session fatal needs its own surface; the boot state is not one after handover.
+44. **A shared instance whose consumers each "dispose" it needs counting, not sharing.** Three
+    modules built their own `DRACOLoader` and disposed it when their load finished, which was
+    correct in isolation and became a use-after-free the moment the instance was shared —
+    whichever consumer finished first would tear the pool out from under the others. Reference
+    counting is the whole fix, and it also keeps the property the per-consumer pools had: nothing
+    is retained once loading ends. A plain singleton would have traded the loading peak for
+    permanent residency, which on iOS is the worse half of the trade.
+45. **`alpha: false` changes what the canvas clears to, and three's default is pure black.**
+    R3F defaults `alpha: true`, so an unpainted canvas showed the page's `#050507` through it.
+    Turning alpha off to save the per-frame composite makes the canvas opaque — and opaque black,
+    silently changing the intro's backdrop for the seconds before the sky arrives. `setClearColor`
+    is required *by* the change, not incidental to it. General form: switching a buffer from
+    transparent to opaque always introduces a colour that was previously somebody else's.
+46. **The console is not silent on load in production**, and the check that would have caught
     it is written down in `DECISIONS.md` §16. Three `console.warn` groups naming internal
     Blender nodes fire on every visit — from `cityDistrictBindings` and
     `createTerrainTransition` — because Murcia is *prefetched during the intro*, so they reach
@@ -1278,9 +1338,9 @@ documented failure classes behave as designed *on the production build* (§10). 
 that the harnesses are not on the deploy path, that there is no observability at all, and the
 GLB discrepancy in §9 — all three now in Known debt below.
 
-Two things it fixed: a diagnostic wired into Murcia's production click path (§11.35) and a
+Two things it fixed: a diagnostic wired into Murcia's production click path (§11.41) and a
 `.gitkeep` that shipped with prose in it. Two it deliberately did not: gating the load-time
-console warnings (§11.36) and reverting the GLB.
+console warnings (§11.46) and reverting the GLB.
 
 **One verification gap is worth repeating: only Chromium has ever been tested.** WebKit and
 Firefox are not installed here, and Safari on iOS is where the KTX2 transcoder and
@@ -1310,6 +1370,34 @@ the user unseen. Whether it looks *right* is still the user's call.
 is unjudged. The timings in `app/warpTransition.ts` are reasoned and endpoint-asserted but
 tuned blind — they need a person on real hardware.
 
+**Mobile and iOS were audited, and P0+P1 remediated (2026-08-14).**
+`audits/mobile-responsiveness-2026-08-14.md` and `audits/ios-safari-2026-08-14.md`, both written
+against the briefs of the same name, both carrying their own remediation-status section.
+
+The mobile verdict was *functionally usable, architecturally sound, blocked on two content
+surfaces* — not "desktop-first", which the code does not support: the capability-based branching
+was already the right pattern and the gaps were specific. The two blockers were both on the
+surfaces that carry the product's content: **Murcia's districts could not reliably be tapped**
+(one 6 px threshold for mouse and finger, so a real tap was discarded as a drag), and **the Earth
+case panel was unusable in portrait twice over** — the camera flew the subject off-screen to
+clear room for a 142 px column.
+
+The iOS verdict was *contains significant iOS risks*, on two compounding findings: **no
+`webglcontextlost` handling at all** — a lost context is a DOM event, so the error boundary
+structurally could not see it and the visitor got a permanent silent blank — on top of **~280 MB
+of GPU working set that is never released**, which is what makes context loss the expected end of
+a long mobile session rather than a curiosity.
+
+All P0 and P1 items are fixed. Phone texture memory is down 134 → 34 MB, five decoder pools are
+down to at most two, `AfterimagePass` no longer runs two full-resolution passes per frame to
+compute a no-op, and a lost context now says so in Spanish with a reload action. Decisions in
+`DECISIONS.md` §23–25.
+
+**The verification gap is unchanged and must not be read as closed.** Two emulated mobile
+Playwright projects were added and **both are Chromium** — the config says so in as many words.
+Nothing here has run on iOS, WebKit, or any Safari. The device matrix and test protocol in the
+iOS report are what would move those findings from *strongly inferred* to *verified*.
+
 ### Known debt
 
 | | Why it is deliberate |
@@ -1320,11 +1408,13 @@ tuned blind — they need a person on real hardware.
 | **No keyboard path into the 3D** | Touch and pen work as of 2026-08-11, but satellites and the Murcia marker are still raycast-only. The geo tags are divs with no role or tabindex. `A11Y-1` in the readiness audit is narrowed, not closed, and closing it means real markup — the `districtLabel.ts` button pattern applied to the globe. |
 | **`orbitId` and `label` are unread** | `caseStudies.ts` declares both; the satellite↔orbit pairing is *positional*. They agree today only because both arrays are in the same order. The comments now say so. Resolving by `orbitId` is the honest fix once content is fetched and can arrive in any order — a behaviour change, so it was not done silently. |
 | **District resolves by node name** | The GLB carries no `extras`. Fix is in Blender — see `murcia/blender-export-contract.md` — not in code. |
-| **Two KTX2 loaders** | `createSatellite` and `createCornerLogo` each build one; three warns. Harmless, worth consolidating. |
+| ~~**Two KTX2 loaders**~~ | **Closed 2026-08-14.** It was worse than recorded — three `DRACOLoader`s as well, so up to twenty workers and ~1.6 MB of duplicated WASM alive together during the intro. One of each now, reference counted, in `graphics/decoders.ts`. `DECISIONS.md` §24. "Harmless" had been assessed against a desktop. |
 | **Corner logo z-order** | Composites at z 10, so geo tags at z 15 can paint over it. Accepted in `adr/002`; unlikely in practice, never observed. |
 | ~~**`check:navigation` cannot fail a build**~~ | **Closed 2026-08-13.** `checks/lib/assert.ts` owns the exit code for all five harnesses. §10. |
 | ~~**The harnesses are not on the deploy path**~~ | **Closed 2026-08-13.** `npm run build` runs the unit tier and all five harnesses before `vite build`; `vercel.json` still sets no `buildCommand`, so Vercel runs it. Verified by forcing each kind of failure. Audit `VER-1` closed. §10. |
-| **Only Chromium is ever tested** | Unchanged, and now also true of the Playwright tier. WebKit and Firefox are not installed here, and iOS Safari is where the KTX2 transcoder and `compileAsync` are most likely to differ. No code change closes this. |
+| **Only Chromium is ever tested** | Unchanged, and now also true of all three Playwright projects — the two mobile ones added on 2026-08-14 are Chromium with a device profile, which makes `(hover: none)` and `(pointer: coarse)` rules apply but says nothing about WebKit. iOS Safari is still where the KTX2 transcoder and `compileAsync` are most likely to differ. **No code change closes this**; the device matrix in `audits/ios-safari-2026-08-14.md` §4 is what would. |
+| **Murcia has no portrait camera pose** | `cameraPortraitOverrides` is built, unit-tested and fed `null`, so `resolveCameraPose` returns the landscape pose at every aspect — and the pose itself is tuned against wide viewports, with a footprint analysis that only guards *too large*. Deliberate: any resting-pose change invalidates the terrain-skirt margin and needs the full azimuth sweep (§5) plus a composition judged by a person. Named as architectural in the mobile audit (M9) rather than patched. |
+| **Six case markers are invisible on touch** | `.geo-tag` is hover-revealed and only `--destination` has a `(hover: none)` fallback, so the case studies are discoverable on a phone only by tapping unmarked satellites. Documented as deliberate in `styles.css`; a product decision rather than a bug (mobile audit M10). |
 | **The `.reveal` ordering is unasserted** | §8 claimed `checks/` verified it in the built CSS. No such check exists or ever did; the claim was corrected rather than implemented. The ordering is currently held by source order alone. |
 | **No analytics, no error reporting** | Production failures will be completely invisible after launch. The instrumentation already exists (`bootState.fatalReason()`, `pending()`, `readiness()`); what is missing is a sink. Audit `OBS-1`. |
 | **The city GLB in the working tree ≠ the committed one** | ~3× the nodes and +790 KB, uncommitted, still without `extras`. Needs an owner's decision before it ships. §9, audit `ASSET-2`. |

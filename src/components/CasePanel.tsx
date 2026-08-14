@@ -9,9 +9,13 @@ interface Props {
 
 // Right-side "caso de éxito" panel, shown while a satellite is focused.
 //
-// The composition is a contract with the camera: closeUp.screenOffset pushes the
+// The composition is a contract with the camera: the close-up pushes the
 // satellite to the LEFT of centre precisely to clear this space. Change the
-// panel's width and that offset needs revisiting.
+// panel's width and that offset needs revisiting — it is solved per viewport in
+// `experiences/earth/camera/closeUpFraming.ts`.
+//
+// Below 767px this stops being a right-hand dock and becomes a bottom sheet
+// (styles.css), and the offset goes to zero with it. The two are one decision.
 //
 // Kept mounted and toggled by class so it can transition in and out. The source
 // project pops it with display:block and its own notes call a transition "an

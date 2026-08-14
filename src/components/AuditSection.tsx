@@ -253,6 +253,29 @@ export function AuditSection({ onOpenChange, ready }: Props) {
     }, reducedRef.current ? REDUCED_MS : LEAVE_MS)
   }, [phase, onOpenChange])
 
+  // The recomposition decision has to survive a rotation.
+  //
+  // `open()` reads the breakpoint once, which is correct for the instant the
+  // section opens and wrong for every moment after it: turn a phone to
+  // landscape with the section open and it crosses 768px, but the camera keeps
+  // whatever it decided in portrait. A one-shot read is right for a decision
+  // that ends with the gesture and wrong for one that outlives it — which is
+  // the distinction this codebase had not drawn.
+  //
+  // Subscribed only while the section is on screen, because `auditView.open`
+  // means "the section is open AND wide enough to shift for"; there is nothing
+  // to keep in step while it is closed.
+  useEffect(() => {
+    if (phase === 'closed') return
+    const wide = window.matchMedia(`(min-width: ${MOBILE_MAX}px)`)
+    const sync = () => {
+      auditView.open = wide.matches
+    }
+    sync()
+    wide.addEventListener('change', sync)
+    return () => wide.removeEventListener('change', sync)
+  }, [phase])
+
   // Focus moves to the section heading once the entry completes; form controls
   // are already interactive before that (pointer-events are never blocked).
   useEffect(() => {

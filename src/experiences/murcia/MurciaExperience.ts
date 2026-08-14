@@ -167,7 +167,9 @@ export class MurciaExperience {
     // is fine for a prototype and not for a marketing site.
     this.debug.mountStats();
 
-    this.assetLoader = createAssetLoader(this.appConfig);
+    // The renderer, because the KTX2 transcoder has to ask the GPU which
+    // compressed formats it supports before it can transcode anything.
+    this.assetLoader = createAssetLoader(this.renderer);
 
     try {
       await this.loadAndSetup();

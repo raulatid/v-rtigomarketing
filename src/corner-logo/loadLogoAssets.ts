@@ -1,18 +1,23 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
-import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
 import { loadProgress } from '../loading/progress'
+import {
+  acquireDracoLoader,
+  acquireKtx2Loader,
+  releaseDracoLoader,
+  releaseKtx2Loader,
+} from '../graphics/decoders'
 
 const MODEL_URL = '/models/model.glb'
 const TEXTURE_URL = '/textures/logoBake.ktx2'
-const BASIS_PATH = '/libs/basis/'
-// The glTF-specific decoder, shared with createSatellite.ts. This used to point
-// at /libs/draco/ (the GENERIC decoder plus an unused encoder and a duplicate
-// gltf/ copy — 3.6MB of deploy for one 750KB decoder). public/draco/* is
-// byte-identical to what was public/libs/draco/gltf/*, and is already the
-// decoder proven by satellite.glb, so both loaders now share it.
-const DRACO_PATH = '/draco/'
+// The decoder paths used to be declared here, and again in createSatellite.ts,
+// and again in Murcia's appConfig — three copies of the same two strings. They
+// live in `graphics/decoders.ts` now, with the instances they configure.
+//
+// Worth keeping from the note that stood here: the Draco path is the
+// glTF-specific decoder. It once pointed at /libs/draco/ — the GENERIC decoder
+// plus an unused encoder and a duplicate gltf/ copy, 3.6MB of deploy for one
+// 750KB decoder.
 
 /**
  * The share of `logo:assets` the two downloads are allowed to report.
@@ -69,11 +74,18 @@ export function loadLogoAssets(renderer: THREE.WebGLRenderer): LogoAssetLoad {
   loadingManager.onProgress = (_url, loaded, total) =>
     loadProgress.setStep('logo:assets', total > 0 ? (loaded / total) * DOWNLOAD_SHARE : 0)
 
-  const ktx2Loader = new KTX2Loader(loadingManager)
-    .setTranscoderPath(BASIS_PATH)
-    .detectSupport(renderer)
-  const dracoLoader = new DRACOLoader()
-  dracoLoader.setDecoderPath(DRACO_PATH)
+  // Both decoders are shared with the satellites and the city — see
+  // `graphics/decoders.ts`. All three of those loads happen during the intro,
+  // so building a pool each meant up to twenty workers and ~1.6MB of duplicated
+  // WASM alive simultaneously, at the peak.
+  //
+  // The KTX2 loader therefore no longer takes this module's LoadingManager, so
+  // the texture's bytes no longer feed `onProgress`. That is a real change and
+  // it is the right one: the manager counted two files, and the share it
+  // reports was always dominated by the 20KB model against the 23KB bake — the
+  // step is still driven to completion by `joinIfReady` either way.
+  const ktx2Loader = acquireKtx2Loader(renderer)
+  const dracoLoader = acquireDracoLoader()
   const gltfLoader = new GLTFLoader(loadingManager)
   gltfLoader.setDRACOLoader(dracoLoader)
 
@@ -156,8 +168,11 @@ export function loadLogoAssets(renderer: THREE.WebGLRenderer): LogoAssetLoad {
       // The manager outlives this call only if a load is still in flight; its
       // callback would report progress for a logo nobody is waiting for.
       loadingManager.onProgress = () => {}
-      ktx2Loader.dispose()
-      dracoLoader.dispose()
+      // Released, not disposed: these are shared instances and another consumer
+      // may still be decoding. The pool is torn down when the last reference
+      // goes, which is the same moment it used to be torn down here.
+      releaseKtx2Loader()
+      releaseDracoLoader()
       // Only if the caller never took it. After handover the texture is bound
       // to the model's materials and is disposed with the scene.
       if (!handedOver) texture?.dispose()

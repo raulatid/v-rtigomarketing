@@ -55,6 +55,30 @@ export function useExperienceTransition({ state, onSwap }: Params) {
     }
   }, [state])
 
+  // Pause while the tab is hidden, for the same reason `useMasterTimeline` does
+  // — and this timeline had been missing the guard its comment describes.
+  //
+  // The hazard is identical in shape: `tl.call(onSwap)` at the midpoint is a
+  // substitution callback, and it is THE substitution — the hard cut where the
+  // active scene, the active camera and input ownership all change on one
+  // frame under full cover (DECISIONS §6). GSAP fast-forwards on return from a
+  // hidden tab, so backgrounding mid-warp could carry the timeline past that
+  // frame and land the viewer in a state the cut was supposed to hide.
+  //
+  // iOS makes this ordinary rather than exotic: switching apps mid-gesture is
+  // normal phone behaviour, and the window is only 1.6s wide but it is the 1.6s
+  // in which everything discontinuous happens.
+  useEffect(() => {
+    const onVisibility = () => {
+      const tl = timelineRef.current
+      if (!tl) return
+      if (document.hidden) tl.pause()
+      else if (tl.progress() < 1) tl.play()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
   const transitionTo = useCallback(
     (to: ExperienceId) => {
       // Re-entrancy guard. Without it a double click starts a second timeline

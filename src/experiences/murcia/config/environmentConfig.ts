@@ -187,8 +187,17 @@ export interface ZoomConfig {
 
 export interface NavigationConfig {
   enabled: boolean;
-  /** Screen-space movement before a pointer sequence becomes a drag. */
+  /** Screen-space movement before a mouse or pen sequence becomes a drag. */
   dragThresholdPx: number;
+  /**
+   * The same threshold for touch, and it is a second number rather than a
+   * retune of the first. A finger wanders 5–15px between contact and release
+   * while a physical click barely moves a cursor, so one value cannot serve
+   * both — see DECISIONS.md section 17, which states the rule, and
+   * `interactionConfig.ts`, where Earth has carried the pair since the touch
+   * work landed.
+   */
+  touchDragThresholdPx: number;
   /**
    * Multiplier on the pan solve. 1 makes the ground track the cursor exactly —
    * the grabbed point stays under the pointer, in both axes.

@@ -42,9 +42,14 @@ export const INTERACTION_CONFIG = {
     distance: 0.55 * R,
     // Small vertical camera lift.
     lift: 0.15 * R,
-    // Look-at offset to the camera's right, in world units at the satellite's
-    // depth: pushes the satellite LEFT on screen, clearing the right side of
-    // the viewport for the case panel.
-    screenOffset: 0.16 * R,
+    // The look-at offset that pushes the satellite LEFT on screen, clearing the
+    // right of the viewport for the case panel, is NOT here any more.
+    //
+    // It was `screenOffset: 0.16 * R` — 0.32 world units — and a fixed world
+    // offset at a fixed distance is a fixed ANGLE, while the frame's horizontal
+    // half-angle shrinks with the aspect ratio. At 9:19.5 the offset exceeded
+    // the half-width and the close-up's subject left the screen. It now lives
+    // in `camera/closeUpFraming.ts` as a fraction of the half-width, which is
+    // what was actually being chosen, and it reproduces this constant at 16:9.
   },
 }

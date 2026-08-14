@@ -31,6 +31,8 @@ interface Props {
   onLogoLoadFailed: () => void
   onMurciaReady: () => void
   onSelectDestination: (id: string) => void
+  /** The WebGL context was lost. Nothing will draw again without a reload. */
+  onContextLost: (reason: string) => void
 }
 
 // Both the starfield and the Earth stay mounted for the whole sequence and
@@ -51,6 +53,7 @@ export function SceneCanvas({
   onLogoLoadFailed,
   onMurciaReady,
   onSelectDestination,
+  onContextLost,
 }: Props) {
   // Earth stays mounted whichever experience is showing; this only decides
   // whether it consumes input and does per-frame work (ADR 003).
@@ -81,7 +84,40 @@ export function SceneCanvas({
     <Canvas
       className="scene-canvas"
       camera={{ fov: config.normalFov, near: 0.1, far: 5000, position: [0, 0, 200] }}
-      gl={{ antialias: true }}
+      // Explicit, and that is the point. Until 2026-08-14 this was the only
+      // renderer configuration in the codebase, so `dpr`, `alpha` and
+      // `powerPreference` were all whatever @react-three/fiber happened to
+      // default to. A pixel-ratio cap used to be owned deliberately — see the
+      // note at the top of `experiences/murcia/config/appConfig.ts`, which
+      // removed it on the grounds that it "belongs to whoever creates the
+      // WebGLRenderer". That move never landed at the new owner, and the site
+      // has been capped at 2x by a library default ever since: correct, and
+      // held by nothing.
+      //
+      // [1, 2] is the same value R3F defaults to, so this changes no pixels.
+      // What it changes is that a dependency bump can no longer move it
+      // silently, and that the cap has somewhere to be argued about. A 3x
+      // iPhone renders 2.25x fewer pixels through the post chain than its
+      // display would ask for, which is the whole reason the cap exists.
+      dpr={[1, 2]}
+      gl={{
+        antialias: true,
+        // R3F defaults this to TRUE, and nothing here wants it. The scene is
+        // fully opaque — SkyShell is an opaque mesh at renderOrder -1000 and
+        // Murcia sets scene.background — so a transparent drawing buffer buys
+        // nothing and costs a per-frame composite of the WebGL layer against
+        // the page, which iOS cannot elide.
+        alpha: false,
+      }}
+      onCreated={({ gl }) => {
+        // Required BY the line above, not incidental to it. With alpha off the
+        // canvas is cleared to an opaque colour instead of showing the page
+        // through, and three's default is pure black — which would have
+        // silently changed the intro's backdrop from #050507 to #000000 for
+        // the seconds before the sky arrives. index.html paints #050507 as the
+        // opening black; this keeps the canvas agreeing with it.
+        gl.setClearColor(0x050507, 1)
+      }}
     >
       {/* Earth, as one thing. This file used to mount all eight of its layers
           itself — in the right order, with the right props — which meant the
@@ -122,6 +158,7 @@ export function SceneCanvas({
         readSettings={readSettings}
         directRef={murciaRef}
         overlayRef={logoRef}
+        onContextLost={onContextLost}
       />
     </Canvas>
   )

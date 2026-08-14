@@ -600,6 +600,17 @@ export class DragPanController {
     this.events.onFirstInteraction?.();
   };
 
+  /**
+   * Read from the event rather than from state recorded at pointerdown: a
+   * pointer cannot change type mid-sequence, so the two are equivalent, and
+   * taking it from the event keeps the decision beside the comparison it feeds.
+   */
+  private dragThresholdFor(event: PointerEvent): number {
+    return event.pointerType === 'touch'
+      ? this.config.touchDragThresholdPx
+      : this.config.dragThresholdPx;
+  }
+
   private readonly onPointerMove = (event: PointerEvent): void => {
     const tracked = this.pointers.find((p) => p.id === event.pointerId);
     if (!tracked) return;
@@ -623,7 +634,11 @@ export class DragPanController {
     if (!this.exceededThreshold) {
       const movedX = Math.abs(event.clientX - this.pointerDownX);
       const movedY = Math.abs(event.clientY - this.pointerDownY);
-      if (Math.hypot(movedX, movedY) < this.config.dragThresholdPx) return;
+      // Per pointer type, never one number for both: a finger wanders 5–15px
+      // between contact and release, so the mouse threshold rejects most real
+      // taps as drags, and a threshold loose enough for a finger would swallow
+      // deliberate small mouse drags. DECISIONS.md section 17.
+      if (Math.hypot(movedX, movedY) < this.dragThresholdFor(event)) return;
       this.exceededThreshold = true;
       // Re-anchor at the moment the drag actually starts, so the first frame
       // does not jump by the threshold distance.

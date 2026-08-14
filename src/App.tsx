@@ -17,6 +17,7 @@ import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 import { useExperienceTransition } from './app/useExperienceTransition'
 import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
+import { loadProgress } from './loading/progress'
 
 // The debug panel lives on its own path (/debug) so the main site can be
 // reviewed clean; open http://localhost:5173/debug during development to tune.
@@ -52,6 +53,25 @@ export default function App() {
   // P0. Adopts the drawing boot.ts already started, so React mounting does not
   // restart it — see hooks/useIntroDraw.ts.
   const { intro, complete: drawComplete } = useIntroDraw(config, replayKey)
+
+  // The WebGL context went away. Application-level fatal state (ARCHITECTURE
+  // §23), which is why it is held here rather than inside the pipeline that
+  // detected it.
+  //
+  // Two surfaces are needed, not one, because the timing decides which is on
+  // screen. Before handover the drawing is still running its own loop and reads
+  // readiness every frame, so `markFatal` reaches the visitor through the
+  // Spanish caption it already owns. After handover that loop has stopped, and
+  // marking fatal would latch a state nothing repaints — so the notice below is
+  // the only thing that would be seen. Doing both costs one boolean and covers
+  // the whole session.
+  const [contextLost, setContextLost] = useState(false)
+
+  const handleContextLost = useCallback((reason: string) => {
+    console.error(`[app] ${reason}`)
+    loadProgress.markFatal('chunk:scene', reason)
+    setContextLost(true)
+  }, [])
 
   const handleLoadFailed = useCallback(() => {
     // A scale-through-zero crossover hides nothing if the model never arrives.
@@ -219,6 +239,7 @@ export default function App() {
         onLogoLoadFailed={handleLoadFailed}
         onMurciaReady={handleMurciaReady}
         onSelectDestination={handleSelectDestination}
+        onContextLost={handleContextLost}
       />
 
       {/* The intro drawing is NOT rendered by React — intro-draw owns its own
@@ -258,6 +279,27 @@ export default function App() {
           onActivate={() => transitionTo('earth')}
           busy={transitioning}
         />
+      )}
+
+      {/* The context is gone and nothing will draw again. Spanish, like every
+          other visitor-facing string (DECISIONS §11), and it offers the only
+          action that actually works — see contextLoss.ts on why this is a
+          notice rather than a recovery. */}
+      {contextLost && (
+        <div className="context-lost" role="alert">
+          <h2 className="context-lost__title">Se ha interrumpido la experiencia</h2>
+          <p className="context-lost__body">
+            El navegador ha liberado los recursos gráficos, normalmente por falta de memoria.
+            Recarga la página para continuar.
+          </p>
+          <button
+            type="button"
+            className="context-lost__action"
+            onClick={() => window.location.reload()}
+          >
+            Recargar
+          </button>
+        </div>
       )}
 
       {DEBUG_MODE && (

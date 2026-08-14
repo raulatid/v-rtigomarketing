@@ -25,7 +25,8 @@ body {
 /* ---- Layer stack (plan 002 §3) ----
    10 scene canvas (incl. the corner-logo overlay pass) · 15 geo tags ·
    16 murcia UI · 20 SVG intro · 35 case panel · 40 warp overlay ·
-   45 experience switch                                                       */
+   45 experience switch · 60 audit overlay · 70 audit trigger ·
+   80 context-lost notice · 100 debug overlay · 999 cursor                     */
 
 .scene-canvas {
   position: fixed !important;
@@ -55,9 +56,12 @@ body {
 }
 
 /* ---- Case panel (interactive phase) ----
-   Composition contract with the camera: closeUp.screenOffset pushes the focused
+   Composition contract with the camera: the close-up pushes the focused
    satellite LEFT of centre precisely to clear this column. Changing the width
-   means revisiting that offset. */
+   means revisiting that offset, which now lives in
+   `experiences/earth/camera/closeUpFraming.ts` and is solved per viewport
+   rather than fixed — see the `max-width: 767px` block below, where the column
+   becomes a bottom sheet and the offset goes to zero. */
 
 .case-panel {
   position: fixed;
@@ -72,6 +76,12 @@ body {
   background: linear-gradient(160deg, rgba(12, 15, 22, 0.82), rgba(4, 6, 10, 0.86));
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
+  /* Prefixed first throughout this file: Safari accepted `backdrop-filter`
+     unprefixed only from 18.0, so iOS 15-17 gets no blur without this. Every
+     surface using it also carries an alpha plate, so the unprefixed-only
+     version degraded legibly rather than invisibly — which is why this was a
+     P2 and not a P1. */
+  -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   color: #fff;
@@ -122,10 +132,17 @@ body {
   transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
-.case-panel__close:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.4);
+/* Every :hover in this file is gated on `(hover: hover)`.
+   iOS applies :hover on tap and holds it until something else is tapped, so an
+   ungated rule is a state that sticks after use — most visibly
+   `.audit-close:hover { transform: translateX(-4px) }`, which left the close
+   arrow permanently displaced. */
+@media (hover: hover) {
+  .case-panel__close:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.4);
+  }
 }
 
 .case-panel__title {
@@ -324,6 +341,67 @@ body {
   font-weight: 600;
 }
 
+/* ---- The case panel on a narrow viewport ----
+
+   Until 2026-08-14 there was no such thing: `.case-panel` was declared once,
+   for a desktop, and nothing overrode it. At 375px `right: 20vw` and
+   `width: min(420px, 38vw)` compute to a 142px column with ~70px of content
+   inside the 2.25rem padding — narrower than the donut chart it contains.
+
+   A bottom sheet rather than a narrower column, and the reasoning is the one
+   PROJECT_MEMORY already records for Murcia's district panel: a sheet covers
+   the least interesting part of the image. There it is the near foreground;
+   here it is the space below the globe.
+
+   The other half of this fix is in `camera/closeUpFraming.ts`. The offset that
+   pushes the satellite left to clear the dock goes to zero below this
+   breakpoint, so the two must move together — which is what the "composition
+   contract with the camera" note above has always been about. The breakpoint
+   is duplicated there as CASE_PANEL_DOCK_MIN_WIDTH; keep them in step. */
+@media (max-width: 767px) {
+  .case-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    /* Enough for the title, the metric row and the chart, and never more than
+       half the frame — the globe stays the subject. */
+    max-height: 60dvh;
+    overflow-y: auto;
+    /* Claims the gesture back from the canvas, which is `touch-action: none`
+       over the whole viewport. Without this the sheet cannot be scrolled.
+       `contain` stops a scroll that reaches the end from becoming a page
+       overscroll behind it. */
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    padding: 1.5rem;
+    /* The home indicator sits inside the sheet's own bottom edge. */
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    border-radius: 14px 14px 0 0;
+    /* No side border: the sheet is flush with the frame edges. */
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    /* Slides up from below rather than fading in place. The desktop rule
+       centres with translateY(-50%), which would put the sheet off-screen. */
+    transform: translateY(100%);
+  }
+
+  .case-panel.is-visible {
+    transform: translateY(0);
+  }
+
+  /* The reserved min-heights exist so the desktop panel does not resize while
+     fading between selections. A sheet is bounded by its stop instead, and
+     holding ~12em of empty space inside it costs the scene real estate for
+     nothing. */
+  .case-panel__description,
+  .case-panel__details {
+    min-height: 0;
+  }
+}
+
 /* ---- Geo marker tags (CSS2D, above the scene canvas, below the logo) ---- */
 
 .geo-tag-layer {
@@ -346,6 +424,7 @@ body {
   border-radius: 5px;
   background: rgba(8, 10, 14, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
 
@@ -543,9 +622,11 @@ body {
   }
 }
 
-.audit-trigger:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 0 24px rgba(28, 103, 255, 0.4);
+@media (hover: hover) {
+  .audit-trigger:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 24px rgba(28, 103, 255, 0.4);
+  }
 }
 
 .audit-trigger:active {
@@ -669,9 +750,11 @@ body {
   stroke-linejoin: round;
 }
 
-.audit-close:hover {
-  color: #fff;
-  transform: translateX(-4px);
+@media (hover: hover) {
+  .audit-close:hover {
+    color: #fff;
+    transform: translateX(-4px);
+  }
 }
 
 .audit-close:focus-visible {
@@ -841,10 +924,18 @@ body {
 }
 
 .audit-input {
-  height: 46px;
+  height: 48px;
   padding: 0 0.9rem;
   font-family: inherit;
-  font-size: 0.9rem;
+  /* 16px, and it is not a type choice — it is the threshold below which iOS
+     Safari zooms the page on focus. It was 0.9rem (14.4px), so focusing any of
+     the five fields in the only lead-capture form on the site zoomed in and,
+     with no `maximum-scale`, never zoomed back out on blur. The visitor was
+     then stuck: the canvas is `touch-action: none` across the whole viewport,
+     so they could not pinch out either.
+     Suppressing zoom instead would be a WCAG 1.4.4 failure and would treat the
+     symptom. The height went 46 -> 48px to keep the text off the border. */
+  font-size: 1rem;
   color: rgba(255, 255, 255, 0.95);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -856,8 +947,10 @@ body {
   color: rgba(255, 255, 255, 0.4);
 }
 
-.audit-input:hover {
-  border-color: rgba(255, 255, 255, 0.3);
+@media (hover: hover) {
+  .audit-input:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
 }
 
 .audit-input:focus,
@@ -887,6 +980,10 @@ body {
 
 .audit-select {
   width: 100%;
+  /* Prefixed first: Safari only took `appearance` unprefixed at 15.4, and
+     without this the native select chrome comes back on older iOS and collides
+     with the ::after chevron below. */
+  -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
 }
@@ -935,9 +1032,11 @@ body {
     box-shadow 160ms ease;
 }
 
-.audit-cta:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 0 20px rgba(28, 103, 255, 0.3);
+@media (hover: hover) {
+  .audit-cta:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 20px rgba(28, 103, 255, 0.3);
+  }
 }
 
 .audit-cta:active {
@@ -980,9 +1079,16 @@ body {
   text-underline-offset: 2px;
 }
 
-.audit-credit a:hover,
+/* Split so the keyboard half stays ungated: focus-visible is not a pointer
+   state and must work on every device. */
 .audit-credit a:focus-visible {
   color: rgba(255, 255, 255, 0.72);
+}
+
+@media (hover: hover) {
+  .audit-credit a:hover {
+    color: rgba(255, 255, 255, 0.72);
+  }
 }
 
 /* Tablet: larger share, tighter padding (§13). */
@@ -1203,6 +1309,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
   cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   transition:
     background 0.2s ease,
@@ -1210,9 +1317,11 @@ body {
     opacity 0.2s ease;
 }
 
-.experience-switch:hover:not(:disabled) {
-  background: rgba(22, 28, 40, 0.85);
-  border-color: rgba(255, 255, 255, 0.34);
+@media (hover: hover) {
+  .experience-switch:hover:not(:disabled) {
+    background: rgba(22, 28, 40, 0.85);
+    border-color: rgba(255, 255, 255, 0.34);
+  }
 }
 
 .experience-switch:focus-visible {
@@ -1239,5 +1348,102 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .experience-switch {
     transition: none;
+  }
+}
+
+/* ---- Touch target sizes ------------------------------------------------
+
+   Six controls in this project sit below the 44px minimum, and until
+   2026-08-14 the rule had been applied deliberately in exactly one place
+   (murcia.css's service headers, which say so). The rest became touch surfaces
+   without being revisited.
+
+   Expanded with a pseudo-element rather than by growing the controls: every one
+   of these was sized as part of a composition, and a phone is not a reason to
+   redraw a desktop layout. The overlay is invisible, sits behind the control's
+   own content, and only exists where the pointer is coarse — a mouse does not
+   need it and would only gain a larger accidental-click area.
+
+   `.district-label` is the exception and grows honestly, in murcia.css: it is
+   the ONLY district affordance on a touch device (there is no hover to reveal
+   anything else), so it is a primary control rather than chrome. */
+@media (pointer: coarse) {
+  .case-panel__close,
+  .audit-close,
+  .experience-switch {
+    position: relative;
+  }
+
+  .case-panel__close::after,
+  .audit-close::after,
+  .experience-switch::after {
+    content: '';
+    position: absolute;
+    /* Centres a 44x44 area on the control whatever its rendered size, without
+       needing to know that size here. */
+    top: 50%;
+    left: 50%;
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* ---- z 80 — the WebGL context is gone ----------------------------------- */
+
+/* Shown when the browser takes the graphics context away, which on iOS is what
+   memory pressure looks like from inside the page. Opaque rather than a
+   translucent plate: whatever is behind it is a dead canvas, and letting a
+   frozen half-drawn frame show through reads as "still loading" rather than as
+   "stopped". See src/graphics/contextLoss.ts for why this is a notice and not
+   a recovery. */
+.context-lost {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 2rem;
+  /* The insets are live here because this is full-bleed: without them the copy
+     can sit under the notch in landscape. */
+  padding-top: max(2rem, env(safe-area-inset-top));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  text-align: center;
+  background: #050507;
+}
+
+.context-lost__title {
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.context-lost__body {
+  max-width: 34ch;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.context-lost__action {
+  min-height: 44px;
+  padding: 0 1.5rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .context-lost__action:hover {
+    background: rgba(255, 255, 255, 0.14);
   }
 }

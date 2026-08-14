@@ -15,12 +15,11 @@ export interface AppConfig {
   // application's R3F Canvas (ADR 001), so they were removed rather than left
   // as options that silently do nothing.
 
-  /**
-   * Path (served from /public) to the Draco decoder. Shell-scoped: the loader
-   * stack is shared infrastructure created once for all environments
-   * (docs/plans/002 Amendment A7).
-   */
-  dracoDecoderPath: string;
+  // The Draco decoder path left too, on 2026-08-14, and for the same reason
+  // the renderer settings above did: it belongs to whoever owns the decoder,
+  // and that is now `graphics/decoders.ts` — which owns one pool for the whole
+  // application instead of one per consumer. All three call sites had passed
+  // the identical string.
 
   // Debug
   statsEnabled: boolean;
@@ -40,12 +39,6 @@ export interface AppConfig {
 
 export function createAppConfig(): AppConfig {
   return {
-    // Root-absolute, not 'draco/'. A document-relative path resolves against
-    // the current route, so it 404s on anything but the root URL. These files
-    // are byte-identical to the ones Earth's loaders already use (verified by
-    // md5), so both experiences share the one copy in public/draco/.
-    dracoDecoderPath: '/draco/',
-
     // Off by default. Standalone this was on, which is right for a prototype
     // and wrong for a marketing site — ?stats=1 still turns it on.
     statsEnabled: false,

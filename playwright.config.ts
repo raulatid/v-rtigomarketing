@@ -39,12 +39,47 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // The mobile spec is the mobile projects' business. The desktop
+      // screenshot baselines are sized to 1600x900 and would fail on anything
+      // else, so the split is by file rather than by skip-inside-test.
+      testIgnore: '**/mobile.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
         // A fixed viewport, because the screenshot baselines are sized to it
         // and because the ground-footprint behaviour this project cares about
         // is aspect-dependent.
         viewport: { width: 1600, height: 900 },
+      },
+    },
+    // Mobile, and the device profile is the point rather than the viewport.
+    //
+    // PROJECT_MEMORY, "Things that will bite you again": a context with
+    // `hasTouch: true` still reports `hover: hover`, so every `(hover: none)`
+    // and `(pointer: coarse)` rule stays inert and a touch bug looks fixed when
+    // it is not. A real descriptor is what makes those rules apply — and this
+    // project now has a lot of behaviour behind them.
+    //
+    // BOTH OF THESE ARE CHROMIUM. `devices['iPhone 15']` defaults to WebKit,
+    // which is not installed here; the entry below borrows its geometry
+    // (viewport, DPR 3, touch) on the engine that is. That is emulation of a
+    // SHAPE, not of a browser: it exercises layout, breakpoints, touch
+    // dispatch and DPR, and it proves nothing whatsoever about Safari. The iOS
+    // audit's device matrix is the thing that closes that gap, and no config
+    // here can.
+    {
+      name: 'mobile-android',
+      testMatch: '**/mobile.spec.ts',
+      use: { ...devices['Pixel 7'] },
+    },
+    {
+      name: 'mobile-ios-shaped',
+      testMatch: '**/mobile.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 393, height: 852 },
+        deviceScaleFactor: 3,
+        isMobile: true,
+        hasTouch: true,
       },
     },
   ],

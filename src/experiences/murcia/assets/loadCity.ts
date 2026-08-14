@@ -56,6 +56,17 @@ export interface SceneReport {
   transparentMaterialCount: number;
   doubleSidedMaterialCount: number;
   negativeScaleObjects: string[];
+  /**
+   * Meshes whose geometry has no `uv` attribute.
+   *
+   * A trim sheet is nothing but UV placement, so a mesh without UVs does not
+   * fail — it samples texel (0,0) of the atlas across its whole surface and
+   * renders a flat, entirely plausible colour. That is the failure this field
+   * exists to make visible, and it is why nothing here generates fallback UVs:
+   * a missing UV set is an export regression and belongs fixed in the .blend
+   * (`checks/city-asset.ts` asserts the same thing on the file itself).
+   */
+  meshesMissingUv: string[];
   warnings: string[];
 }
 
@@ -104,6 +115,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   });
 
   const root = gltf.scene;
+  configureTrimTextures(root);
   const found = findTerrainPlate(root, options.terrainObjectName);
   const report = buildSceneReport(gltf, found, options.terrainObjectName);
 
@@ -115,6 +127,68 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     timings,
     report,
   };
+}
+
+/**
+ * Anisotropic filtering for the city's textures.
+ *
+ * 4, not `renderer.capabilities.getMaxAnisotropy()`. The brand atlas already
+ * ships 4 and mobile GPUs are a deployment target, so maximising it on every
+ * texture spends sampling budget the roofs do not need (plan 001 Phase 12). The
+ * surfaces that justify any of it are the ones seen at grazing angles — roofs
+ * and long cornices at the far end of a 30 deg pose.
+ */
+const TRIM_ANISOTROPY = 4;
+
+/**
+ * The one runtime property this module sets on a Blender-authored texture, and
+ * the single deliberate exception to *Blender decides where the texture is
+ * sampled* (docs/plans/001, Expected Final Architecture).
+ *
+ * The trim sheet is laid out as full-width horizontal bands stacked in V. That
+ * layout needs the two axes to wrap differently:
+ *
+ *   wrapS = Repeat       a facade tiles its trim along its own length, so U
+ *                        runs past 1 by design
+ *   wrapT = ClampToEdge  V must never leave its band; wrapping it would sample
+ *                        a neighbouring trim and the error looks like an
+ *                        authoring mistake rather than a sampler one
+ *
+ * Blender cannot express that split. Its Image Texture *Extension* setting is
+ * one value for the node, applied to both axes, so a glTF sampler exported from
+ * it is either Repeat/Repeat or Clamp/Clamp. glTF and three both carry the axes
+ * separately; only the authoring tool in the middle does not. So this is not
+ * Three.js second-guessing the export — it is Three.js expressing something the
+ * export had no way to say.
+ *
+ * Nothing else is touched. No offset, no repeat scale, no colour space, no UV
+ * arithmetic: `GLTFLoader` already sets colour spaces correctly from the glTF
+ * material model, and everything else belongs to the .blend.
+ *
+ * Idempotent, and safe on the untextured GLB that ships today — it iterates
+ * whatever textures exist, which is currently none.
+ */
+export function configureTrimTextures(root: THREE.Object3D): void {
+  const materials = new Set<THREE.Material>();
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) if (mat) materials.add(mat);
+  });
+
+  // By identity, via the same helper the disposal path uses: one trim sheet is
+  // reachable from every material that shares it, and configuring it four times
+  // would set `needsUpdate` four times on one GPU resource.
+  const textures = new Set<THREE.Texture>();
+  for (const mat of materials) collectTextures(mat, textures);
+
+  for (const texture of textures) {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.anisotropy = TRIM_ANISOTROPY;
+    texture.needsUpdate = true;
+  }
 }
 
 export interface TerrainLookup {
@@ -226,6 +300,7 @@ function buildSceneReport(
     transparentMaterialCount: 0,
     doubleSidedMaterialCount: 0,
     negativeScaleObjects: [],
+    meshesMissingUv: [],
     warnings: [],
   };
 
@@ -243,6 +318,10 @@ function buildSceneReport(
     if (mesh.isMesh) {
       report.meshCount += 1;
       if ((mesh as THREE.SkinnedMesh).isSkinnedMesh) report.skinnedMeshCount += 1;
+
+      if (mesh.geometry && !mesh.geometry.attributes.uv) {
+        report.meshesMissingUv.push(mesh.name || '(unnamed)');
+      }
 
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const mat of mats) {
@@ -273,6 +352,18 @@ function buildSceneReport(
   if (report.materialCount > 60) {
     report.warnings.push(`High material count (${report.materialCount}).`);
   }
+  if (report.meshesMissingUv.length > 0) {
+    const names = report.meshesMissingUv.slice(0, 3).join(', ');
+    const rest = report.meshesMissingUv.length - 3;
+    report.warnings.push(
+      `${report.meshesMissingUv.length} of ${report.meshCount} mesh(es) have no UV coordinates ` +
+        `(${names}${rest > 0 ? `, +${rest} more` : ''}). ` +
+        (report.textureCount > 0
+          ? 'They sample texel (0,0) of every texture — a flat colour that looks deliberate. ' +
+            'Fix the export, not the runtime: no fallback UVs are generated here.'
+          : 'Harmless while the model ships no textures; blocking for the trim sheet.'),
+    );
+  }
   if (report.meshCount > 500) {
     report.warnings.push(`Many meshes (${report.meshCount}); expect high draw calls.`);
   }
@@ -293,8 +384,29 @@ function buildSceneReport(
   for (const tex of textures) {
     const img = tex.image as { width?: number; height?: number } | undefined;
     if (img?.width && img?.height && (img.width > 2048 || img.height > 2048)) {
+      // The megabytes, not just the dimensions. This project's binding
+      // constraint is GPU memory on iOS — ~226 MB resident before the
+      // 2026-08-14 remediation, ~70 MB after (audits/ios-safari-2026-08-14.md
+      // §3) — and "4096x4096" does not read as "89 MB" to anyone scanning a
+      // log. x4 for RGBA8, x1.33 for the mip chain.
+      const mb = (img.width * img.height * 4 * 1.33) / (1024 * 1024);
       report.warnings.push(
-        `Large texture ${img.width}x${img.height} (${tex.name || 'unnamed'}).`,
+        `Large texture ${img.width}x${img.height} (${tex.name || 'unnamed'}), ` +
+          `~${mb.toFixed(0)} MB of GPU memory with mipmaps.`,
+      );
+    }
+  }
+
+  // A base colour sampled as linear data is the classic mis-export: it does not
+  // fail, it just renders washed out, and it is indistinguishable from a
+  // lighting problem until someone thinks to check. GLTFLoader gets this right
+  // on its own, so a hit here means something downstream replaced the texture.
+  for (const mat of materials) {
+    const map = (mat as THREE.MeshStandardMaterial).map;
+    if (map && map.colorSpace !== THREE.SRGBColorSpace) {
+      report.warnings.push(
+        `Base colour map on "${mat.name || 'unnamed'}" is not sRGB ` +
+          `(colorSpace "${map.colorSpace}"); it will render washed out.`,
       );
     }
   }

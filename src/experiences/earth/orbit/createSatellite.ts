@@ -1,16 +1,21 @@
 import * as THREE from 'three'
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
-import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
 import { createHoloPanel, HoloPanel } from './createHoloPanel'
 import { loadProgress } from '../../../loading/progress'
+import {
+  acquireDracoLoader,
+  acquireKtx2Loader,
+  releaseDracoLoader,
+  releaseKtx2Loader,
+} from '../../../graphics/decoders'
 
 const TEXTURE_URL = '/textures/satellite_Baked.ktx2'
-// Same transcoder the corner logo uses — copied from
-// node_modules/three/examples/jsm/libs/basis, keep in step when upgrading three.
-const BASIS_PATH = '/libs/basis/'
+// The transcoder and decoder paths live in `graphics/decoders.ts` now, with the
+// single pool of each that the whole application shares — this module, the
+// corner logo and the city were building their own, and all three load during
+// the intro.
 
 interface Options {
   // Deterministic per-satellite variation (initial orientation, spin speed).
@@ -39,7 +44,7 @@ let templatePromise: Promise<THREE.Group> | null = null
 // disposed per-satellite.
 function loadBakedTexture(renderer?: THREE.WebGLRenderer): Promise<THREE.Texture | null> {
   if (!renderer) return Promise.resolve(null)
-  const ktx2Loader = new KTX2Loader().setTranscoderPath(BASIS_PATH).detectSupport(renderer)
+  const ktx2Loader = acquireKtx2Loader(renderer)
   return ktx2Loader
     .loadAsync(TEXTURE_URL)
     .then((texture) => {
@@ -56,17 +61,16 @@ function loadBakedTexture(renderer?: THREE.WebGLRenderer): Promise<THREE.Texture
       console.warn('[createSatellite] satellite_Baked.ktx2 failed, using untextured model:', error)
       return null
     })
-    .finally(() => ktx2Loader.dispose())
+    // Released rather than disposed: the instance is shared, so the pool goes
+    // when the last consumer lets go of it.
+    .finally(releaseKtx2Loader)
 }
 
 function loadTemplate(renderer?: THREE.WebGLRenderer): Promise<THREE.Group> {
   if (!templatePromise) {
     // The GLB lists KHR_draco_mesh_compression in extensionsRequired, so a bare
-    // GLTFLoader rejects. The decoder lives in /public/draco — copied from
-    // node_modules/three/examples/jsm/libs/draco/gltf, keep the two in step
-    // when upgrading three.
-    const dracoLoader = new DRACOLoader()
-    dracoLoader.setDecoderPath('/draco/')
+    // GLTFLoader rejects.
+    const dracoLoader = acquireDracoLoader()
     const loader = new GLTFLoader()
     loader.setDRACOLoader(dracoLoader)
     // The GLB is 270KB against the bake's 151KB, so byte progress across the
@@ -84,7 +88,7 @@ function loadTemplate(renderer?: THREE.WebGLRenderer): Promise<THREE.Group> {
       ),
       loadBakedTexture(renderer),
     ]).then(([gltf, texture]) => {
-      dracoLoader.dispose()
+      releaseDracoLoader()
       const model = gltf.scene
       if (texture) {
         // Applied to the TEMPLATE's materials so every clone inherits the map —
@@ -121,6 +125,11 @@ function loadTemplate(renderer?: THREE.WebGLRenderer): Promise<THREE.Group> {
     // attempt actually retry; the rejection still propagates to this caller.
     templatePromise.catch(() => {
       templatePromise = null
+      // The success path releases inside the `then` above, which means a
+      // rejection used to leak the pool — harmless while each consumer built
+      // its own and disposed it, load-bearing now that the count decides when
+      // the shared one is torn down. Exactly one of the two paths runs.
+      releaseDracoLoader()
     })
   }
   return templatePromise

@@ -5,7 +5,7 @@ import earthVert from '../shaders/earth/vertex.glsl'
 import earthFrag from '../shaders/earth/fragment.glsl'
 import atmosphereVert from '../shaders/atmosphere/vertex.glsl'
 import atmosphereFrag from '../shaders/atmosphere/fragment.glsl'
-import { EARTH_CONFIG } from '../config/earthConfig'
+import { EARTH_CONFIG, EARTH_TEXTURES } from '../config/earthConfig'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { earthVisible } from '../config/sceneVisibility'
@@ -15,6 +15,7 @@ import type { GeoMarkers } from '../orbit/createGeoMarkers'
 import { GEO_MARKERS } from '../orbit/orbitConfig'
 import { spinToFace } from '../orbit/geoUtils'
 import type { CursorManager } from '../../../interaction/cursorManager'
+import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 interface Props {
   config: IntroConfig
@@ -38,6 +39,28 @@ earthManager.onLoad = () => loadProgress.markDone('earth:textures')
 earthManager.onError = (url) =>
   loadProgress.markFatal('earth:textures', `failed to load ${url}`)
 
+/**
+ * The three surface maps for this viewport.
+ *
+ * Read ONCE at load, deliberately, and the reasoning is the same as
+ * `SkyShell`'s: re-reading on resize would mean re-downloading and re-uploading
+ * the whole set because someone dragged a window across the breakpoint, which
+ * costs far more than the mismatch it corrects. A phone that rotates keeps the
+ * narrow set, which is the right answer anyway — both orientations of a phone
+ * are a phone.
+ *
+ * Must agree with the media-gated preloads in index.html: if these disagree,
+ * the browser fetches one set and the loader asks for the other, and the site
+ * silently downloads both.
+ */
+function earthTextureUrls(): string[] {
+  const set =
+    window.innerWidth <= EARTH_TEXTURES.narrowMaxWidth
+      ? EARTH_TEXTURES.narrow
+      : EARTH_TEXTURES.wide
+  return [set.day, set.night, set.specularClouds]
+}
+
 // Ported from dolly-earth. The tuning-panel plumbing is dropped — these values
 // are fixed for the intro. Radius stays at 2 so a future orbit system can be
 // added as a sibling group with scale={2} (see plan 002 "Scope").
@@ -51,7 +74,7 @@ export function EarthScene({
 }: Props) {
   const [dayTex, nightTex, specTex] = useLoader(
     THREE.TextureLoader,
-    ['/earth/day.jpg', '/earth/night.jpg', '/earth/specularClouds.jpg'],
+    earthTextureUrls(),
     (loader) => {
       loader.manager = earthManager
     },
@@ -195,7 +218,14 @@ export function EarthScene({
     const visible = earthVisible(state, config)
     if (groupRef.current) groupRef.current.visible = visible
     if (visible && spinRef.current) {
-      spinRef.current.rotation.y += delta * EARTH_CONFIG.rotationSpeed
+      // Clamped, like every other integrator in the project — this was the one
+      // that was not, and it is the most visible one there is. R3F does not
+      // clamp its own delta, so returning from a backgrounded tab delivers the
+      // entire suspended interval in a single frame: at 0.035 rad/s, a two
+      // minute absence is most of a full turn, applied instantly. That can spin
+      // the destination marker straight back out of the view the intro
+      // deliberately spun it into. See `graphics/frameDelta.ts` for the policy.
+      spinRef.current.rotation.y += clampFrameDelta(delta) * EARTH_CONFIG.rotationSpeed
     }
   })
 

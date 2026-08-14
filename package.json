@@ -20,6 +20,7 @@
     "check:district": "esbuild checks/district-flight.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/district-flight.mjs --log-level=warning && node node_modules/.cache/district-flight.mjs",
     "check:warp": "esbuild checks/warp-transition.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/warp-transition.mjs --log-level=warning && node node_modules/.cache/warp-transition.mjs",
     "check:space": "esbuild checks/space-backdrop.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/space-backdrop.mjs --log-level=warning && node node_modules/.cache/space-backdrop.mjs",
+    "check:asset": "esbuild checks/city-asset.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/city-asset.mjs --log-level=warning && node node_modules/.cache/city-asset.mjs",
 
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
 import { CursorManager } from '../../../interaction/cursorManager'
+import { closeUpScreenOffset } from './closeUpFraming'
 
 // Camera rig for the interactive phase, ported from earth-connections
 // (docs/extractions/003).
@@ -205,9 +206,27 @@ export function createFocusCameraRig({
     // Shift the LOOK-AT to the camera's right, not the camera itself: the
     // satellite lands left of centre, clearing the right side for the panel,
     // and it reads as a framing choice rather than a sideways dolly.
+    //
+    // The magnitude is solved per viewport rather than fixed. A constant world
+    // offset is a constant ANGLE, and the frame's horizontal half-angle shrinks
+    // with the aspect ratio — which put the subject outside the frustum
+    // entirely on a phone in portrait. `closeUpFraming.ts` carries the numbers
+    // and the arithmetic.
+    //
+    // `cu.distance` is the nominal subject distance: the true one also picks up
+    // `cu.lift`, by an amount that varies with the satellite's latitude. The
+    // shipped composition was judged against the nominal figure and the
+    // difference is well inside what a framing fraction expresses, so this
+    // deliberately does not re-derive it per satellite.
     _forward.subVectors(satWorldPos, camPos).normalize()
     _right.crossVectors(_forward, _worldUp).normalize()
-    const lookAt = satWorldPos.clone().add(_right.clone().multiplyScalar(cu.screenOffset))
+    const offset = closeUpScreenOffset({
+      subjectDistance: cu.distance,
+      verticalFovDegrees: camera.fov,
+      aspect: camera.aspect,
+      viewportWidthPx: domElement.clientWidth,
+    })
+    const lookAt = satWorldPos.clone().add(_right.clone().multiplyScalar(offset))
 
     target.position.copy(camPos)
     target.lookAt.copy(lookAt)

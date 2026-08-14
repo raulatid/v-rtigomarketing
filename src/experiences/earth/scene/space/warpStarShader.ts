@@ -37,6 +37,7 @@ import { POINT_SPRITE_FALLOFF } from './pointSprite'
 
 const vertexShader = /* glsl */ `
   uniform float uSizeScale;
+  uniform float uMaxSize;
 
   void main() {
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
@@ -45,7 +46,19 @@ const vertexShader = /* glsl */ `
     // -mvPosition.z is the view-space distance; guarded because a point exactly
     // on the camera plane would otherwise produce an infinite gl_PointSize,
     // which some drivers turn into a full-screen quad rather than nothing.
-    gl_PointSize = uSizeScale / max(-mvPosition.z, 0.001);
+    //
+    // Then clamped, because the guard alone bounds the arithmetic and not the
+    // result. The camera flies THROUGH this box, so -mvPosition.z genuinely
+    // approaches zero: on a phone uSizeScale is ~760, which asks for a 760px
+    // sprite at a view distance of 1 and ~760000 at the guard floor. Drivers
+    // clamp that themselves — to ALIASED_POINT_SIZE_RANGE, which on iOS is far
+    // below either figure — so the effect was already bounded, just bounded
+    // differently on every device, and invisibly. Doing it here makes the warp
+    // look the same everywhere and keeps a handful of near stars from each
+    // rasterising an enormous additive quad during the heaviest frames in the
+    // application. uMaxSize is seeded from the real driver limit; see
+    // Starfield.tsx.
+    gl_PointSize = min(uSizeScale / max(-mvPosition.z, 0.001), uMaxSize);
   }
 `
 
@@ -68,6 +81,11 @@ export function createWarpStarMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       uSizeScale: { value: 0 },
+      // Replaced with the driver's real ceiling as soon as there is a renderer
+      // to ask. The default is a fallback, not a policy: it has to be large
+      // enough that a device reporting a generous limit is not quietly capped
+      // below what it can do, and every real limit is at least 64.
+      uMaxSize: { value: 1024 },
       uColor: { value: new THREE.Color(0xffffff) },
       uOpacity: { value: 0.9 },
     },
@@ -91,4 +109,25 @@ export function warpStarSizeScale(
   cssHeight: number,
 ): number {
   return worldSize * pixelRatio * cssHeight * 0.5
+}
+
+/**
+ * The largest point the GPU will actually rasterise, in device pixels.
+ *
+ * Asked rather than assumed, and asked once — this is a static driver limit, so
+ * a per-frame `getParameter` would be a synchronous GL query in a hot path for
+ * a value that cannot change. Capability detection, not device detection: the
+ * limit varies by GPU, not by user agent.
+ *
+ * Returns null when the parameter is unavailable, which the caller reads as
+ * "keep the fallback" rather than as "no limit".
+ */
+export function maxPointSize(gl: THREE.WebGLRenderer): number | null {
+  // The enum is read off the live context rather than the global
+  // `WebGLRenderingContext`, which does not exist when `checks/` bundles these
+  // modules for Node.
+  const ctx = gl.getContext()
+  const range = ctx.getParameter(ctx.ALIASED_POINT_SIZE_RANGE) as Float32Array | null
+  const ceiling = range?.[1]
+  return typeof ceiling === 'number' && ceiling > 0 ? ceiling : null
 }

@@ -65,7 +65,8 @@ const CSS = `
 .intro-svg .v-fill{fill:#fff;stroke:none}
 .intro-svg .v-dot{fill:#fff}
 .intro-caption{position:absolute;left:50%;transform:translateX(-50%);
-  top:calc(50% + min(19vmin,285px));margin:0;white-space:nowrap;
+  top:calc(50% + min(19vmin,285px));margin:0;
+  max-width:calc(100vw - 2rem);text-align:center;
   font:400 0.82rem/1.4 'Inter',system-ui,sans-serif;letter-spacing:.14em;
   text-transform:uppercase;color:rgba(255,255,255,.62);
   opacity:0;transition:opacity .5s ease}

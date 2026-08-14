@@ -2,9 +2,10 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-08-13 · §21–22 added and §12, §19, §20 amended (plan 000, the drag gain,
-the ESO credit). Earlier: 2026-08-11 · §17–18 added against the working tree, post-`c1fa2cc`;
-§19 added post-`b418b5f`
+Last updated: 2026-08-14 · §23–25 added after the mobile and iOS/Safari audits (context loss,
+decoder ownership, mobile as a target). Earlier: 2026-08-13 · §21–22 added and §12, §19, §20
+amended (plan 000, the drag gain, the ESO credit); 2026-08-11 · §17–18 added against the working
+tree, post-`c1fa2cc`; §19 added post-`b418b5f`
 
 ---
 
@@ -724,6 +725,110 @@ started all of this: a harness reporting failures while `npm run check` exits 0.
 
 ---
 
+## 23. A lost graphics context is a stated failure, not a blank screen
+
+→ **`audits/ios-safari-2026-08-14.md`** §I1
+
+**Decided 2026-08-14.** `graphics/contextLoss.ts` observes `webglcontextlost`, calls
+`preventDefault()`, and reports upward. The application latches `markFatal` **and** renders a
+Spanish notice with a reload action.
+
+**Why two surfaces and not one.** The timing decides which is on screen. Before the intro hands
+over, the drawing is still running its own loop and reads readiness every frame, so `markFatal`
+reaches the visitor through the caption it already owns. After handover that loop has stopped,
+and marking fatal latches a state **nothing repaints**. Either alone covers half a session.
+
+**Ruled out: restoring the context.** Every texture upload and shader compile in this
+application happens once, inside an effect keyed on load, so a restored context comes back to an
+empty GPU while the scene believes it is warm. Recovery is a project, and `ENGINEERING_PRINCIPLES`
+§37/§38 are explicit that a fallback must not exist unless it is implemented. `webglcontextrestored`
+logs and leaves the fatal state.
+
+**Why this is not a theoretical hazard.** iOS drops contexts under memory pressure, and this
+application holds both worlds resident for the whole session by design (§4). Context loss is the
+expected end of a long mobile session, not a driver curiosity — which is why the 2026-08-07
+audit finding it and closing only the *availability* probe left the larger half open for a year.
+
+**How you would know it broke.** `e2e/mobile.spec.ts` drives a real
+`WEBGL_lose_context.loseContext()` and expects the notice. Or, in the field: a black canvas with
+nothing on it.
+
+---
+
+## 24. The decoders are owned once, and counted
+
+**Decided 2026-08-14.** `graphics/decoders.ts` owns one `DRACOLoader` and one `KTX2Loader` for
+the application, acquired and released in pairs.
+
+**What it replaced.** Three Draco loaders and two KTX2 loaders — the city, the corner logo and
+the satellites — each with its own worker pool against byte-identical decoder paths. Up to
+twenty workers and ~1.6 MB of duplicated WASM heap, **all alive at once**, because all three of
+those assets load during the intro. `createAssetLoader` had already made exactly this argument
+for Murcia and had not generalised it.
+
+**Reference counted rather than a singleton, and that is the decision.** A singleton fixes the
+loading peak and then holds two worker pools for the rest of the session — trading a spike for
+permanent residency, which is a bad trade on a device where steady state is the problem.
+Counting keeps both properties: at most one pool of each kind, released by whoever finishes
+last. Every call site already had a dispose path, so nothing changed about *when* things are
+freed.
+
+**Worker limits deliberately untouched.** Lowering them cuts WASM heap and slows the city's 257
+meshes by an amount nothing here can measure — a device-profile question (§28).
+
+**Consequence.** `appConfig.dracoDecoderPath` is gone, following the renderer settings that left
+the same file for the same reason: the path belongs to whoever owns the decoder.
+
+**How you would know it broke.** `new DRACOLoader` or `new KTX2Loader` anywhere outside
+`graphics/decoders.ts`. Or three's "multiple instances" warning in the console.
+
+---
+
+## 25. Mobile is a first-class target, and it is capability-detected
+
+→ **`audits/mobile-responsiveness-2026-08-14.md`**, **`audits/ios-safari-2026-08-14.md`**
+
+**Decided 2026-08-14**, after auditing both. The site is production, not a desktop prototype,
+and the audits found gaps rather than an absent strategy — the existing `(hover: none)`,
+`(pointer: fine)` and `pointerType` branching was already the right pattern.
+
+**Three things are now true that were not.**
+
+- **Tap tolerances are per pointer type everywhere.** Murcia had one 6 px threshold for mouse
+  and finger, so a real tap became a drag and `DistrictInteraction` dropped it — districts, the
+  only *content* in that experience, failed intermittently and silently on every phone. §17
+  stated this rule in 2026-08-11 and listed "a threshold that ignores pointer type" under how
+  you would know it broke. It was broken in the module that most needed it, in the same file
+  that reads `pointerType` two hundred lines earlier.
+- **The case panel is a bottom sheet below 767 px, and the close-up framing knows it.** Those
+  are one decision, not two: `closeUp.screenOffset` existed *to clear the panel's column*, and a
+  fixed world offset is a fixed angle while the horizontal half-FOV collapses with the aspect
+  ratio — so in portrait the camera pushed the subject of the close-up outside the frustum, to
+  make room for a 142 px column nobody could read. The offset is now a fraction of the
+  half-width (`camera/closeUpFraming.ts`) and zero below the breakpoint.
+- **The Earth ships at two resolutions**, media-gated at the same 767 px as the sky. 134 MB →
+  34 MB of texture memory on a phone. 2048 is not a concession: at 390 CSS px and DPR 2 the
+  globe spans ~300 device pixels against ~1024 texels of visible hemisphere.
+
+**Still capability detection, never device detection.** No `userAgent` anywhere. Width decides
+*layout*; `(hover: none)`, `(pointer: coarse)` and `pointerType` decide *input*; the driver
+decides its own point-size limit. Conflating the two is how `(hover: none)` rules end up keyed
+to a breakpoint and stop working on a small laptop window.
+
+**One thing deliberately NOT done, and it is the architectural one.** Murcia's camera pose is
+tuned against wide viewports, and `cameraPortraitOverrides` is built, tested and fed `null` — so
+`resolveCameraPose` returns the landscape pose at every aspect. Fixing it means re-running the
+full azimuth sweep against the terrain skirt (§5 of `PROJECT_MEMORY`, "a much larger job than it
+looks") and having a person judge a new composition. Named as an architectural issue rather than
+patched, which is what the audit brief asked for.
+
+**How you would know it broke.** `check:navigation` §12 fails. Or `.case-panel` gains a width
+without `closeUpFraming.ts` being touched. Or an Earth texture URL appears outside
+`EARTH_TEXTURES`, which is how the preloads and the loader silently start disagreeing and every
+visitor downloads both sets.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
@@ -737,6 +842,11 @@ started all of this: a harness reporting failures while `npm run check` exits 0.
 | The sky is generated on the GPU, not downloaded | **§19**, first form | It is a 113 KB photograph. The procedural nebula could not be made to look like anything but dirt, for structural reasons — **§19** |
 | The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** |
 | A click acts on the satellite/marker the pointer is hovering | `createSatelliteFocus.ts`, `createGeoMarkers.ts` | It acts on what is under the event's coordinates — **§17** |
+| Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** |
+| A lost WebGL context is unhandled | `production-readiness-vercel.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** |
+| Each consumer builds its own Draco/KTX2 loader | `createAssetLoader`, `loadLogoAssets`, `createSatellite` | One of each, reference counted, in `graphics/` — **§24** |
+| The Earth ships one set of 4096 maps to every device | `EarthScene.tsx` | Two sets, media-gated at 767px like the sky — **§25** |
+| The renderer takes R3F's defaults | `SceneCanvas.tsx`, `gl={{ antialias: true }}` | `alpha: false` and an explicit `dpr`, so the cap has an owner again — **§25** |
 | A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** |
 | `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** |
 | The 3D logo gets its own renderer | `earth/DECISIONS.md:256` | Overlay pass on the shared renderer — **§2**, `adr/002` |

@@ -63,16 +63,64 @@
          crossOrigin to 'anonymous' and ImageLoader applies it to the <img>, so
          the real load runs in CORS mode. A preload without this attribute is
          no-cors mode, the two do not match, and the browser DISCARDS the
-         preload and downloads all 2.43 MB a second time. Chrome logs it as an
+         preload and downloads the whole set a second time. Chrome logs it as an
          unused-preload warning; the Network panel shows the duplicate. -->
-    <link rel="preload" as="image" crossorigin fetchpriority="low" href="/earth/day.jpg" />
-    <link rel="preload" as="image" crossorigin fetchpriority="low" href="/earth/night.jpg" />
+    <!-- `media` splits these the same way it splits the sky below, and for the
+         same reason: exactly ONE set is ever fetched. The 4096x2048 trio costs
+         134 MB of GPU memory with mipmaps, which is the largest single item in
+         the texture budget on the platform least able to hold it; the 2048x1024
+         set costs 34 MB and is still oversampled at phone size.
+
+         The 767px breakpoint MUST match `EARTH_TEXTURES.narrowMaxWidth` in
+         earthConfig.ts. If the two disagree the browser preloads one set and
+         the loader requests the other, and every visitor downloads both. -->
     <link
       rel="preload"
       as="image"
+      media="(min-width: 768px)"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/day.jpg"
+    />
+    <link
+      rel="preload"
+      as="image"
+      media="(min-width: 768px)"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/night.jpg"
+    />
+    <link
+      rel="preload"
+      as="image"
+      media="(min-width: 768px)"
       crossorigin
       fetchpriority="low"
       href="/earth/specularClouds.jpg"
+    />
+    <link
+      rel="preload"
+      as="image"
+      media="(max-width: 767px)"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/day-narrow.jpg"
+    />
+    <link
+      rel="preload"
+      as="image"
+      media="(max-width: 767px)"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/night-narrow.jpg"
+    />
+    <link
+      rel="preload"
+      as="image"
+      media="(max-width: 767px)"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/specularClouds-narrow.jpg"
     />
     <!-- The sky. A required boot resource — the shell stays hidden until it is
          ready, so a late arrival delays the cut, not just the scenery.

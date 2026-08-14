@@ -1072,6 +1072,73 @@ console.log('\n11. Wheel zoom plumbing');
   );
 }
 
+console.log('\n12. Tap tolerance is per pointer type');
+{
+  // The bug this guards: one 6px threshold served mouse and finger alike, so a
+  // finger tap that wandered 7px became a drag — and DistrictInteraction
+  // refuses to select while the controller reports one. Tapping a district
+  // failed intermittently, silently, on every touch device.
+  //
+  // Both directions are asserted, because either alone is satisfiable by the
+  // wrong fix: raising the shared number to 12 would pass the touch case and
+  // break deliberate small mouse drags, and that is the trade DECISIONS.md
+  // section 17 calls "not a compromise, it is a bug for one of them".
+  //
+  // Distances are chosen to sit strictly BETWEEN the two thresholds, so the
+  // pair can only both pass if the controller really does read pointerType.
+  const between = (nav.dragThresholdPx + nav.touchDragThresholdPx) / 2;
+
+  function movedBy(pointerType: string | undefined, distance: number): boolean {
+    const h = makeHarness();
+    const down: Record<string, unknown> = {
+      pointerId: 1,
+      button: 0,
+      clientX: CENTRE_X,
+      clientY: CENTRE_Y,
+      timeStamp: 1000,
+    };
+    const move: Record<string, unknown> = {
+      pointerId: 1,
+      clientX: CENTRE_X + distance,
+      clientY: CENTRE_Y,
+      timeStamp: 1016,
+    };
+    if (pointerType) {
+      down['pointerType'] = pointerType;
+      move['pointerType'] = pointerType;
+    }
+    h.fire('pointerdown', down);
+    h.fire('pointermove', move);
+    return h.controller.isDragging;
+  }
+
+  check(
+    'the two thresholds are distinct, and touch is the looser one',
+    nav.touchDragThresholdPx > nav.dragThresholdPx,
+    `mouse ${nav.dragThresholdPx}px, touch ${nav.touchDragThresholdPx}px`,
+  );
+  check(
+    `a ${between}px finger move is still a tap, not a drag`,
+    movedBy('touch', between) === false,
+    `below the ${nav.touchDragThresholdPx}px touch threshold`,
+  );
+  check(
+    `a ${between}px mouse move is a drag`,
+    movedBy('mouse', between) === true,
+    `above the ${nav.dragThresholdPx}px mouse threshold`,
+  );
+  check(
+    'a finger that genuinely drags still crosses',
+    movedBy('touch', nav.touchDragThresholdPx + 3) === true,
+    `${nav.touchDragThresholdPx + 3}px`,
+  );
+  check(
+    'an event with no pointerType is treated as a mouse',
+    movedBy(undefined, between) === true,
+    'the pen and synthetic-event path keeps the tight tolerance',
+  );
+}
+
 // This harness could not fail a build until 2026-08-13: it printed its failures
 // and left process.exitCode at 0, so `npm run check` chained past it with &&.
 // finish() sets the code from the same counter it prints.

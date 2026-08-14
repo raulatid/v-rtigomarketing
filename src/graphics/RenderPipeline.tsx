@@ -15,6 +15,7 @@ import type {
   RenderableExperience,
 } from './renderableExperience'
 import { clampFrameDelta } from './frameDelta'
+import { observeContextLoss } from './contextLoss'
 
 interface Props {
   /**
@@ -31,6 +32,13 @@ interface Props {
   directRef: RefObject<RenderableExperience | null>
   /** Composited last, on a cleared depth buffer. Null until it has loaded. */
   overlayRef: RefObject<OverlayPass | null>
+  /**
+   * The WebGL context was lost, so nothing this module draws will reach the
+   * screen again. Forwarded rather than acted on: this file knows the browser
+   * event, and what to tell the visitor is the application's decision — the
+   * same split `readSettings` makes for everything else here.
+   */
+  onContextLost?: (reason: string) => void
 }
 
 // The application's SINGLE render authority (ADR 001, ADR 002).
@@ -75,8 +83,29 @@ interface Props {
 // Tone mapping lands exactly once on either path: three applies it in-shader
 // only when the render target is null, which is why the composer path needs
 // OutputPass and the direct path does not.
-export function RenderPipeline({ readSettings, directRef, overlayRef }: Props) {
+export function RenderPipeline({ readSettings, directRef, overlayRef, onContextLost }: Props) {
   const { gl, scene, camera, size } = useThree()
+
+  // Attached here because this is the module whose entire job stops working
+  // when the context goes. Ref-free on purpose: `onContextLost` is a stable
+  // callback from the application, and re-attaching a DOM listener is cheap
+  // enough that chasing identity would cost more than it saves.
+  useEffect(() => {
+    const canvas = gl.domElement
+    return observeContextLoss(canvas, {
+      onLost: (reason) => onContextLost?.(reason),
+      onRestored: () => {
+        // Deliberately not a recovery path. Every texture upload and shader
+        // compile in this application happens once, inside an effect keyed on
+        // load, so a restored context comes back empty while the scene believes
+        // it is warm. Saying so is more useful than pretending — see
+        // `contextLoss.ts` for why restoration is its own project.
+        console.warn(
+          '[graphics] WebGL context restored, but the scene cannot rebuild itself — a reload is required',
+        )
+      },
+    })
+  }, [gl, onContextLost])
 
   const { composer, renderPass, bloomPass, afterimagePass, outputPass } = useMemo(() => {
     const c = new EffectComposer(gl)
@@ -147,6 +176,20 @@ export function RenderPipeline({ readSettings, directRef, overlayRef }: Props) {
     const damp = amount === 0 ? 0 : settings.afterimageDampMax * amount
     const uniform = afterimagePass.uniforms?.['damp']
     if (uniform) uniform.value = damp
+
+    // Disabled at zero, for exactly the reason the bloom line below gives — and
+    // it took until 2026-08-14 to apply that reasoning to the pass it was
+    // written next to. Motion blur is non-zero only during a ~1.6s warp, so for
+    // the whole rest of the session this pass was running a full-resolution
+    // comp AND a full-resolution copy to produce an image identical to its
+    // input. Two fullscreen passes and 21MB of HalfFloat targets, every frame,
+    // for a no-op (`audits/ios-safari-2026-08-14.md`, I3).
+    //
+    // Safe against the ghosting the soft reset above exists for: `damp` is
+    // already 0 by the time this disables the pass, so the accumulation buffer
+    // it would have read is not merely stale but unused, and re-enabling starts
+    // from the live frame rather than from whatever was last accumulated.
+    afterimagePass.enabled = damp > 0
 
     // Disabled rather than zeroed at 0: EffectComposer skips a disabled pass
     // entirely, so this is what actually reclaims the ~10 fullscreen passes.
