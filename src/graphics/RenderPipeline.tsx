@@ -6,32 +6,31 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
-// STILL AN OPEN BOUNDARY VIOLATION, unlike the Murcia edge below it.
-//
-// `IntroConfig`, `SequenceState` and `CornerLogo` are Earth-intro concepts, and
-// `warpTransition` lives in the application layer — §17 allows `graphics ->
-// shared` only. They cannot be resolved the way the Murcia edge was, because
-// Earth has no boundary to hide behind: there is no `experiences/earth/`, so
-// there is no interface to depend on instead. See the Earth extraction phase;
-// once Earth is an experience these become a second `RenderableExperience` and
-// a pair of pipeline settings, and this file imports neither.
-import { IntroConfig } from '../experiences/earth/config/introConfig'
-import { SequenceState } from '../experiences/earth/config/sequenceState'
-import type { CornerLogo } from '../corner-logo/createCornerLogo'
-import { motionBlur as warpMotionBlur } from '../app/warpTransition'
-import type { RenderableExperience, RenderRoute } from './renderableExperience'
+// This file imports nothing from either experience and nothing from the
+// application layer. §17 allows `graphics -> shared` only, and that is now all
+// there is: three.js, its addons, and two local modules.
+import type {
+  FrameSettings,
+  OverlayPass,
+  RenderableExperience,
+} from './renderableExperience'
 import { clampFrameDelta } from './frameDelta'
 
 interface Props {
-  config: IntroConfig
-  state: SequenceState
-  logoRef: RefObject<CornerLogo | null>
   /**
-   * The experience that renders straight to the canvas, when `route` says so.
-   * Null until it has loaded, which is why `route` alone does not decide.
+   * The frame's settings, read once per frame.
+   *
+   * A callback rather than props because every value in it changes per frame
+   * during a warp, and a per-frame prop is a per-frame React render.
+   */
+  readSettings: () => FrameSettings
+  /**
+   * The experience that renders straight to the canvas, when the route says so.
+   * Null until it has loaded, which is why the route alone does not decide.
    */
   directRef: RefObject<RenderableExperience | null>
-  route: RenderRoute
+  /** Composited last, on a cleared depth buffer. Null until it has loaded. */
+  overlayRef: RefObject<OverlayPass | null>
 }
 
 // The application's SINGLE render authority (ADR 001, ADR 002).
@@ -76,7 +75,7 @@ interface Props {
 // Tone mapping lands exactly once on either path: three applies it in-shader
 // only when the render target is null, which is why the composer path needs
 // OutputPass and the direct path does not.
-export function RenderPipeline({ config, state, logoRef, directRef, route }: Props) {
+export function RenderPipeline({ readSettings, directRef, overlayRef }: Props) {
   const { gl, scene, camera, size } = useThree()
 
   const { composer, renderPass, bloomPass, afterimagePass, outputPass } = useMemo(() => {
@@ -140,17 +139,12 @@ export function RenderPipeline({ config, state, logoRef, directRef, route }: Pro
 
   useFrame((_, delta) => {
     const direct = directRef.current
-
-    // The intro's warp and the Earth<->Murcia warp both feed the same pass; the
-    // transition wins because only one can be playing at a time and it is the
-    // one whose progress is non-zero outside the intro.
-    const warping = state.transitionProgress > 0
-    const blurAmount = warping ? warpMotionBlur(state.transitionProgress) : state.motionBlur
+    const settings = readSettings()
 
     // Soft reset: an accumulation buffer left at a nonzero damp holds a ghost
     // of the last frame indefinitely after the warp ends.
-    const amount = blurAmount <= 0.001 ? 0 : blurAmount
-    const damp = amount === 0 ? 0 : config.afterimageDampMax * amount
+    const amount = settings.motionBlur <= 0.001 ? 0 : settings.motionBlur
+    const damp = amount === 0 ? 0 : settings.afterimageDampMax * amount
     const uniform = afterimagePass.uniforms?.['damp']
     if (uniform) uniform.value = damp
 
@@ -158,22 +152,23 @@ export function RenderPipeline({ config, state, logoRef, directRef, route }: Pro
     // entirely, so this is what actually reclaims the ~10 fullscreen passes.
     // OutputPass is always enabled, so toggling this can never change which
     // pass renders to screen — the property EffectComposer resolves per render.
-    bloomPass.enabled = config.bloomStrength > 0
-    bloomPass.strength = config.bloomStrength
-    bloomPass.radius = config.bloomRadius
-    bloomPass.threshold = config.bloomThreshold
+    bloomPass.enabled = settings.bloomStrength > 0
+    bloomPass.strength = settings.bloomStrength
+    bloomPass.radius = settings.bloomRadius
+    bloomPass.threshold = settings.bloomThreshold
 
-    // The direct route needs BOTH the route and a loaded experience: the route
+    // A direct route needs BOTH the route and a loaded experience: the route
     // flips at the cut, but the experience may still be loading. Falling back to
     // the composer keeps the frame drawn — an early return here is a blank
     // canvas, not a dropped effect.
-    if (route === 'direct' && direct) {
-      if (warping) {
-        // Borrow the composer for the duration of the warp so the direct
-        // experience gets the same smear the composer one does — motion blur is
-        // most of what makes a warp read as one, and hard edges are exactly the
-        // geometry it acts on. The RenderPass's scene and camera are plain
-        // fields, so pointing it away and back is free.
+    const wantsDirect = settings.route !== 'composer'
+    if (wantsDirect && direct) {
+      if (settings.route === 'direct-composited') {
+        // Borrow the composer so the direct experience gets the same smear the
+        // composer one does — motion blur is most of what makes a warp read as
+        // one, and hard edges are exactly the geometry it acts on. The
+        // RenderPass's scene and camera are plain fields, so pointing it away
+        // and back is free.
         renderPass.scene = direct.scene
         renderPass.camera = direct.viewCamera
         composer.render()
@@ -186,21 +181,21 @@ export function RenderPipeline({ config, state, logoRef, directRef, route }: Pro
       composer.render()
     }
 
-    // ─── Overlay pass: corner logo ───
-    const logo = logoRef.current
-    if (logo && logo.isDrawable()) {
-      // The state clock only advances while drawable, matching the early
-      // return the logo's old dedicated rAF did — otherwise the reveal would
-      // start mid-spin. Delta is clamped as that loop clamped its own.
-      logo.update(clampFrameDelta(delta))
+    // ─── Overlay pass ───
+    const overlay = overlayRef.current
+    if (overlay && overlay.isDrawable()) {
+      // The overlay's clock only advances while drawable, matching the early
+      // return the corner logo's old dedicated rAF did — otherwise its reveal
+      // would start mid-spin. Delta is clamped as that loop clamped its own.
+      overlay.update(clampFrameDelta(delta))
 
       const previousAutoClear = gl.autoClear
       gl.autoClear = false
-      // Composites over the frame the composer just resolved, but on a fresh
-      // depth buffer so the logo is never occluded by scene geometry — the
-      // isolation the separate context used to provide for free.
+      // Composites over the frame just resolved, but on a fresh depth buffer so
+      // the overlay is never occluded by scene geometry — the isolation the
+      // separate context used to provide for free.
       gl.clearDepth()
-      gl.render(logo.scene, logo.camera)
+      gl.render(overlay.scene, overlay.camera)
       gl.autoClear = previousAutoClear
     }
   }, 1)

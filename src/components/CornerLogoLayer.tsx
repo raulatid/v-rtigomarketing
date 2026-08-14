@@ -1,7 +1,7 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
-import type { CornerLogo } from '../corner-logo/createCornerLogo'
+import type { CornerLogo, CornerLogoConfig } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
 import { loadProgress } from '../loading/progress'
 
@@ -46,7 +46,7 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
       logo = createCornerLogo({
         // Read through a ref so live debug edits apply without rebuilding —
         // corner margins and durations are read per frame anyway.
-        config: new Proxy({} as IntroConfig, {
+        config: new Proxy({} as CornerLogoConfig, {
           get: (_t, key: string) => configRef.current[key as keyof IntroConfig],
         }),
         renderer: gl,

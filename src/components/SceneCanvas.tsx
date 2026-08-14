@@ -1,4 +1,4 @@
-import { RefObject, Suspense, useRef } from 'react'
+import { RefObject, Suspense, useCallback, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { CameraController } from '../experiences/earth/camera/CameraController'
 import { AuditCameraShift } from '../experiences/earth/camera/AuditCameraShift'
@@ -11,6 +11,8 @@ import { InteractionLayer, InteractionHandle } from '../experiences/earth/intera
 import { CornerLogoLayer } from './CornerLogoLayer'
 import { MurciaLayer } from './MurciaLayer'
 import { RenderPipeline } from '../graphics/RenderPipeline'
+import type { FrameSettings } from '../graphics/renderableExperience'
+import { motionBlur as warpMotionBlur } from '../app/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { SequenceState } from '../experiences/earth/config/sequenceState'
 import { OrbitSystem } from '../experiences/earth/orbit/createOrbitSystem'
@@ -73,6 +75,27 @@ export function SceneCanvas({
   // never live at the same time and each must be able to drop its whole set of
   // requests when it goes inactive.
   const cursorRef = useRef<CursorManager | null>(null)
+
+  // What the pipeline draws this frame. Called once per frame from inside its
+  // useFrame, so it reads the mutable sequence state rather than props — a
+  // per-frame prop would be a per-frame React render.
+  //
+  // The blur resolution lives here because it is a question about the
+  // application's state, not about rendering: the intro's warp and the
+  // Earth<->Murcia warp both feed the same afterimage pass, and the transition
+  // wins because only one can be playing at a time and it is the one whose
+  // progress is non-zero outside the intro.
+  const readSettings = useCallback((): FrameSettings => {
+    const warping = state.transitionProgress > 0
+    return {
+      route: earthActive ? 'composer' : warping ? 'direct-composited' : 'direct',
+      motionBlur: warping ? warpMotionBlur(state.transitionProgress) : state.motionBlur,
+      afterimageDampMax: config.afterimageDampMax,
+      bloomStrength: config.bloomStrength,
+      bloomRadius: config.bloomRadius,
+      bloomThreshold: config.bloomThreshold,
+    }
+  }, [state, config, earthActive])
 
   return (
     <Canvas
@@ -137,16 +160,15 @@ export function SceneCanvas({
         experienceRef={murciaRef}
         onReady={onMurciaReady}
       />
-      {/* The route is decided here, not in the pipeline: which experience is
-          showing is orchestration's business, and the pipeline's job is to draw
-          whatever it is handed. Murcia satisfies RenderableExperience
-          structurally — it already exposed `scene` and `viewCamera`. */}
+      {/* Every decision the pipeline used to make for itself is made here:
+          which experience is showing, whether a transition is playing, and
+          which of two blur sources wins. The pipeline gets numbers and a
+          route. Murcia and the corner logo satisfy RenderableExperience and
+          OverlayPass structurally — neither needed a change. */}
       <RenderPipeline
-        config={config}
-        state={state}
-        logoRef={logoRef}
+        readSettings={readSettings}
         directRef={murciaRef}
-        route={earthActive ? 'composer' : 'direct'}
+        overlayRef={logoRef}
       />
     </Canvas>
   )

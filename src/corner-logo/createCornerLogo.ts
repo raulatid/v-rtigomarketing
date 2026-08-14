@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
-import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { loadProgress } from '../loading/progress'
 import { disposeObject3D } from '../graphics/disposal'
 import { clamp01, easeInOutCubic } from '../utils/easing'
@@ -41,8 +40,29 @@ const IDLE_ROTATION_SPEED = 0.15 // rad/s
 const IDLE_FLOAT_AMPLITUDE = 0.035
 const IDLE_FLOAT_FREQUENCY = 0.8 // Hz
 
+/**
+ * The eight numbers this module needs, declared here rather than imported.
+ *
+ * They are tuned alongside the intro and live in Earth's `introConfig`, which
+ * this file used to import wholesale — an experience dependency inside a module
+ * that ADR 002 established as application chrome precisely because it outlives
+ * both experiences. `IntroConfig` satisfies this structurally, so the caller
+ * passes the same object it always did and nothing changed but the arrow.
+ */
+export interface CornerLogoConfig {
+  /** Fit distance multiplier. Large values flatten the frustum toward ortho. */
+  cornerFramePadding: number
+  cornerMarginX: number
+  cornerMarginY: number
+  spinDuration: number
+  spinPauseBefore: number
+  swapCrossover: number
+  swapDuration: number
+  toCornerDuration: number
+}
+
 interface Options {
-  config: IntroConfig
+  config: CornerLogoConfig
   // The application's single renderer. Injected rather than created: this pass
   // composites onto the same framebuffer as the main scene, so it must share
   // the context (ADR 002). Needed here for KTX2 support detection and for the

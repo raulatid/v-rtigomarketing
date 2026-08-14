@@ -28,15 +28,59 @@ export interface RenderableExperience {
 }
 
 /**
+ * An extra pass drawn on top of the frame, with a cleared depth buffer.
+ *
+ * The corner logo is the only one. It is application chrome rather than part of
+ * either experience (ADR 002), and the pipeline needs the same four things from
+ * it that it needs from an experience plus a clock and a readiness flag.
+ */
+export interface OverlayPass {
+  readonly scene: THREE.Scene
+  readonly camera: THREE.Camera
+  /** False while still loading; the overlay is skipped and its clock does not advance. */
+  isDrawable(): boolean
+  update(delta: number): void
+}
+
+/**
  * Which path a frame takes through the pipeline.
  *
  * `composer` is the post-processed path: bloom, then the warp's afterimage,
  * then OutputPass. `direct` goes straight to the canvas and keeps the MSAA that
  * `antialias: true` provides, which the composer's HalfFloat targets do not
- * carry.
+ * carry. `direct-composited` is the direct experience borrowed through the
+ * composer for the duration of a warp (ADR 005) — the one case where the smear
+ * is worth more than the antialiasing.
  *
- * The choice belongs to whoever knows which experience is showing, which is
- * orchestration — not to the pipeline, which used to decide it by comparing an
- * experience id against a string literal.
+ * The choice belongs to whoever knows which experience is showing and whether a
+ * transition is playing, which is orchestration — not to the pipeline, which
+ * used to decide it by comparing an experience id against a string literal and
+ * reading a transition progress value out of the intro's sequence state.
  */
-export type RenderRoute = 'composer' | 'direct'
+export type RenderRoute = 'composer' | 'direct' | 'direct-composited'
+
+/**
+ * Everything the pipeline needs to know about the frame it is about to draw.
+ *
+ * Read through a callback rather than passed as props: these change every frame
+ * during a warp, and a prop that changes every frame is a React render every
+ * frame. The application already keeps this state in a mutable object for
+ * exactly that reason; this is the seam that lets the pipeline read it without
+ * knowing what it is.
+ *
+ * Numbers, not concepts. The pipeline previously imported the intro's config
+ * and its sequence state and worked out the blur itself — which meant shared
+ * infrastructure knew that a warp existed, that it had a progress value, and
+ * which of two blur sources won.
+ */
+export interface FrameSettings {
+  route: RenderRoute
+  /** 0..1. How strongly this frame accumulates into the previous one. */
+  motionBlur: number
+  /** Afterimage damp at full blur. */
+  afterimageDampMax: number
+  /** Zero disables the bloom pass entirely, which is what reclaims its cost. */
+  bloomStrength: number
+  bloomRadius: number
+  bloomThreshold: number
+}
