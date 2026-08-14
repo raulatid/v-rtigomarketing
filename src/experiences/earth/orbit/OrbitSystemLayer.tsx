@@ -1,13 +1,13 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { createOrbitSystem, OrbitSystem } from '../orbit-system/createOrbitSystem'
-import { EARTH_CONFIG } from '../earthConfig'
+import { createOrbitSystem, OrbitSystem } from './createOrbitSystem'
+import { EARTH_CONFIG } from '../config/earthConfig'
 
-import { SequenceState } from '../sequenceState'
-import { orbitsVisible } from '../sceneVisibility'
-import { loadProgress } from '../loading/progress'
-import { clampFrameDelta } from '../graphics/frameDelta'
+import { SequenceState } from '../config/sequenceState'
+import { orbitsVisible } from '../config/sceneVisibility'
+import { loadProgress } from '../../../loading/progress'
+import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 interface Props {
   state: SequenceState

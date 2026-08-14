@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import type { SequenceState } from '../sequenceState'
+import type { SequenceState } from '../experiences/earth/config/sequenceState'
 import type { ExperienceId } from './experience'
 import { WARP_TRANSITION, flash } from './warpTransition'
 

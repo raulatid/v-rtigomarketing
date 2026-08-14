@@ -5,7 +5,7 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
 import { createHoloPanel, HoloPanel } from './createHoloPanel'
-import { loadProgress } from '../loading/progress'
+import { loadProgress } from '../../../loading/progress'
 
 const TEXTURE_URL = '/textures/satellite_Baked.ktx2'
 // Same transcoder the corner logo uses — copied from

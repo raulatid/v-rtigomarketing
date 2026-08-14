@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { SatelliteDef } from '../orbit-system/orbitConfig'
+import { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import { CaseChart } from './CaseChart'
 
 interface Props {

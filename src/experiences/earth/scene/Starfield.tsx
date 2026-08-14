@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { IntroConfig } from '../introConfig'
-import { SequenceState } from '../sequenceState'
-import { starsVisible } from '../sceneVisibility'
-import { createWarpStarMaterial, warpStarSizeScale } from '../space/warpStarShader'
+import { IntroConfig } from '../config/introConfig'
+import { SequenceState } from '../config/sequenceState'
+import { starsVisible } from '../config/sceneVisibility'
+import { createWarpStarMaterial, warpStarSizeScale } from './space/warpStarShader'
 
 interface Props {
   config: IntroConfig

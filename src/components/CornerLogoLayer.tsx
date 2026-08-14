@@ -1,8 +1,8 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
-import { IntroConfig } from '../introConfig'
+import { IntroConfig } from '../experiences/earth/config/introConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
-import { CornerLogoHandle } from '../hooks/useMasterTimeline'
+import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
 import { loadProgress } from '../loading/progress'
 
 interface Props {

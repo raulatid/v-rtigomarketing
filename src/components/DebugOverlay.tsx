@@ -1,5 +1,5 @@
 import { RefObject, useEffect, useRef, useState } from 'react'
-import { defaultIntroConfig, IntroConfig, Phase, PHASE_ORDER } from '../introConfig'
+import { defaultIntroConfig, IntroConfig, Phase, PHASE_ORDER } from '../experiences/earth/config/introConfig'
 
 interface Props {
   config: IntroConfig

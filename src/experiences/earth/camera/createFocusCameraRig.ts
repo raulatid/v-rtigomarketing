@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { INTERACTION_CONFIG } from './interactionConfig'
-import { CursorManager } from './cursorManager'
+import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
+import { CursorManager } from '../../../interaction/cursorManager'
 
 // Camera rig for the interactive phase, ported from earth-connections
 // (docs/extractions/003).

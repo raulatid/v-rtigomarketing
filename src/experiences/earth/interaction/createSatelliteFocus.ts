@@ -1,9 +1,9 @@
 import * as THREE from 'three'
-import { OrbitSystem } from '../orbit-system/createOrbitSystem'
-import { SatelliteDef } from '../orbit-system/orbitConfig'
-import { FocusCameraRig } from './createFocusCameraRig'
-import { CursorManager } from './cursorManager'
-import { clientToNdc } from './screenSpace'
+import { OrbitSystem } from '../orbit/createOrbitSystem'
+import { SatelliteDef } from '../orbit/orbitConfig'
+import { FocusCameraRig } from '../camera/createFocusCameraRig'
+import { CursorManager } from '../../../interaction/cursorManager'
+import { clientToNdc } from '../../../interaction/screenSpace'
 
 // Wires hover/click on the satellite badges to the camera rig, the orbit
 // system's freeze/resume API, and the case panel.

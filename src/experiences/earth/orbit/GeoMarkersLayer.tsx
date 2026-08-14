@@ -2,11 +2,11 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
-import { createGeoMarkers, GeoMarkers } from '../orbit-system/createGeoMarkers'
-import { EARTH_CONFIG } from '../earthConfig'
-import { SequenceState } from '../sequenceState'
-import { atOrAfter } from '../sceneVisibility'
-import type { CursorManager } from '../interaction/cursorManager'
+import { createGeoMarkers, GeoMarkers } from './createGeoMarkers'
+import { EARTH_CONFIG } from '../config/earthConfig'
+import { SequenceState } from '../config/sequenceState'
+import { atOrAfter } from '../config/sceneVisibility'
+import type { CursorManager } from '../../../interaction/cursorManager'
 
 interface Props {
   state: SequenceState

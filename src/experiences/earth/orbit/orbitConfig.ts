@@ -1,4 +1,4 @@
-import { CASE_STUDIES, CaseStudy } from '../data/caseStudies'
+import { CASE_STUDIES, CaseStudy } from '../../../data/caseStudies'
 
 // Configuration for the orbital satellite system, ported from
 // earth-connections/src/scenes/earth-connections/orbit-system/orbitConfig.js.

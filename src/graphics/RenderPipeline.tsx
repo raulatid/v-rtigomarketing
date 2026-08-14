@@ -15,8 +15,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 // there is no interface to depend on instead. See the Earth extraction phase;
 // once Earth is an experience these become a second `RenderableExperience` and
 // a pair of pipeline settings, and this file imports neither.
-import { IntroConfig } from '../introConfig'
-import { SequenceState } from '../sequenceState'
+import { IntroConfig } from '../experiences/earth/config/introConfig'
+import { SequenceState } from '../experiences/earth/config/sequenceState'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { motionBlur as warpMotionBlur } from '../app/warpTransition'
 import type { RenderableExperience, RenderRoute } from './renderableExperience'

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { IntroConfig } from '../introConfig'
-import type { IntroDrawHandle } from '../intro-draw/introDraw'
+import { IntroConfig } from '../config/introConfig'
+import type { IntroDrawHandle } from '../../../intro-draw/introDraw'
 
 // Adopts the drawing that the boot entry started before this app chunk even
 // downloaded. It never constructs one.

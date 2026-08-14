@@ -1,4 +1,4 @@
-import { EARTH_CONFIG } from '../earthConfig'
+import { EARTH_CONFIG } from '../config/earthConfig'
 
 // Tuning for the interactive phase, ported from earth-connections'
 // satelliteFocusConfig.js (see docs/extractions/003).

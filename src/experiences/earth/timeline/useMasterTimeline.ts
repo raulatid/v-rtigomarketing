@@ -1,10 +1,10 @@
 import { RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import { IntroConfig, Phase } from '../introConfig'
-import { SequenceState } from '../sequenceState'
-import { cinematicSpeed } from '../utils/easing'
-import { orbitRevealDuration } from '../orbit-system/orbitConfig'
-import { IntroDrawHandle } from '../intro-draw/introDraw'
+import { IntroConfig, Phase } from '../config/introConfig'
+import { SequenceState } from '../config/sequenceState'
+import { cinematicSpeed } from '../../../utils/easing'
+import { orbitRevealDuration } from '../orbit/orbitConfig'
+import { IntroDrawHandle } from '../../../intro-draw/introDraw'
 
 export interface CornerLogoHandle {
   startSequence: () => void

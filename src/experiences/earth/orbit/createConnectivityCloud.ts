@@ -5,7 +5,7 @@ import { createCircleTexture } from './orbitUtils'
 // identical on every load. Lifted to a shared util when the space backdrop
 // needed the same distribution (plan 004 §5); the zero-jitter path is
 // numerically identical to the local version it replaced.
-import { fibonacciSpherePoints } from '../utils/fibonacciSphere'
+import { fibonacciSpherePoints } from '../../../utils/fibonacciSphere'
 
 export function createConnectivityCloud() {
   const cloudConfig = ORBIT_CONFIG.cloud

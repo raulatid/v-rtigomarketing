@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { PerspectiveCamera } from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import { auditView } from '../auditView'
-import { clampFrameDelta } from '../graphics/frameDelta'
+import { auditView } from '../../../auditView'
+import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 // Recomposes the scene while the audit panel is open by sliding the camera's
 // projection window (setViewOffset) instead of moving the camera itself.

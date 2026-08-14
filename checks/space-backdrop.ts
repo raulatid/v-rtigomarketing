@@ -14,17 +14,17 @@
  */
 import * as THREE from 'three';
 
-import { GALAXY_BAND, bandAxis, bandDensity } from '../src/space/galaxyBand';
-import { SPACE_CONFIG } from '../src/space/spaceConfig';
-import { generateStarField } from '../src/space/starDistribution';
-import type { StarFieldOptions } from '../src/space/starDistribution';
-import { INTERACTION_CONFIG } from '../src/interaction/interactionConfig';
+import { GALAXY_BAND, bandAxis, bandDensity } from '../src/experiences/earth/scene/space/galaxyBand';
+import { SPACE_CONFIG } from '../src/experiences/earth/scene/space/spaceConfig';
+import { generateStarField } from '../src/experiences/earth/scene/space/starDistribution';
+import type { StarFieldOptions } from '../src/experiences/earth/scene/space/starDistribution';
+import { INTERACTION_CONFIG } from '../src/experiences/earth/interaction/interactionConfig';
 import { fibonacciSpherePoints } from '../src/utils/fibonacciSphere';
 // Imported rather than copied, so raising the slider default cannot leave this
 // harness quietly asserting against a count the app stopped using. Safe in
 // Node: the module's only value import is GALAXY_BAND, and its one window
 // access lives inside defaultIntroConfig(), which nothing here calls.
-import { DEFAULT_APP_CONFIG } from '../src/introConfig';
+import { DEFAULT_APP_CONFIG } from '../src/experiences/earth/config/introConfig';
 
 const SHIPPED_STAR_COUNT = DEFAULT_APP_CONFIG.backdropStarCount;
 

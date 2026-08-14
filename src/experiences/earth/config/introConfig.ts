@@ -10,12 +10,12 @@
 //
 // Note the P0 fields are RELATIVE STAGE WEIGHTS, not seconds — P0's duration
 // comes from load progress. `fillDuration` is the exception, still real seconds.
-import type { DrawConfig } from './intro-draw/drawConfig'
+import type { DrawConfig } from '../../../intro-draw/drawConfig'
 // A VALUE import, unlike the type-only one above, and safe for the same reason
 // that one is not: the boot entry never reaches this module. It is here so the
 // band defaults have one source of truth shared with the star distribution and
 // the sky shell. The build's chunk assertion is what actually guards this.
-import { GALAXY_BAND } from './space/galaxyBand'
+import { GALAXY_BAND } from '../scene/space/galaxyBand'
 
 export interface IntroConfig extends DrawConfig {
   // ── P1 shrink ──

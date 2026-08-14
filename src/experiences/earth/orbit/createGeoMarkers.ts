@@ -2,8 +2,8 @@ import * as THREE from 'three'
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import { latLngToVector3 } from './geoUtils'
 import { GEO_MARKERS, ORBIT_CONFIG } from './orbitConfig'
-import type { CursorManager } from '../interaction/cursorManager'
-import { clientToNdc } from '../interaction/screenSpace'
+import type { CursorManager } from '../../../interaction/cursorManager'
+import { clientToNdc } from '../../../interaction/screenSpace'
 
 // City markers pinned to the rotating Earth. The returned group MUST be
 // parented under whatever spins the Earth's surface, or the markers will slide

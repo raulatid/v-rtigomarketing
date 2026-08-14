@@ -1,19 +1,19 @@
 import { RefObject, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import { cinematicTravel, cinematicSpeed, narrowPeak, lerp, lerpVec3 } from '../utils/easing'
-import { IntroConfig } from '../introConfig'
-import { SequenceState } from '../sequenceState'
-import { atOrAfter } from '../sceneVisibility'
-import { GEO_MARKERS } from '../orbit-system/orbitConfig'
-import type { GeoMarkers } from '../orbit-system/createGeoMarkers'
+import { cinematicTravel, cinematicSpeed, narrowPeak, lerp, lerpVec3 } from '../../../utils/easing'
+import { IntroConfig } from '../config/introConfig'
+import { SequenceState } from '../config/sequenceState'
+import { atOrAfter } from '../config/sceneVisibility'
+import { GEO_MARKERS } from '../orbit/orbitConfig'
+import type { GeoMarkers } from '../orbit/createGeoMarkers'
 import {
   dollyAmount,
   earthFov,
   earthRadiusScale,
   prefersReducedMotion,
   speed,
-} from '../app/warpTransition'
+} from '../../../app/warpTransition'
 
 // Leg 1: the camera pushes forward through the star volume.
 // Leg 2: it arrives from far out and settles at the Earth's rest distance.
