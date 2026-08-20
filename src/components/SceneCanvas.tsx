@@ -10,7 +10,7 @@ import { motionBlur as warpMotionBlur } from '../app/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { SequenceState } from '../experiences/earth/config/sequenceState'
 import { OrbitSystem } from '../experiences/earth/orbit/createOrbitSystem'
-import { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
+import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
 import type { ExperienceId } from '../app/experience'
@@ -30,7 +30,8 @@ interface Props {
   onDeselectCase: () => void
   onLogoLoadFailed: () => void
   onMurciaReady: () => void
-  onSelectDestination: (id: string) => void
+  /** A Murcia district was engaged or released — attention changed. */
+  onMurciaAttentionChange: () => void
   /** The WebGL context was lost. Nothing will draw again without a reload. */
   onContextLost: (reason: string) => void
 }
@@ -52,7 +53,7 @@ export function SceneCanvas({
   onDeselectCase,
   onLogoLoadFailed,
   onMurciaReady,
-  onSelectDestination,
+  onMurciaAttentionChange,
   onContextLost,
 }: Props) {
   // Earth stays mounted whichever experience is showing; this only decides
@@ -131,7 +132,6 @@ export function SceneCanvas({
         interactionRef={interactionRef}
         onSelectCase={onSelectCase}
         onDeselectCase={onDeselectCase}
-        onSelectDestination={onSelectDestination}
       />
       {/* The 3D brand logo. Inside the Canvas because it shares this
           renderer — it no longer has one of its own (ADR 002). */}
@@ -148,6 +148,7 @@ export function SceneCanvas({
         state={state}
         experienceRef={murciaRef}
         onReady={onMurciaReady}
+        onAttentionChange={onMurciaAttentionChange}
       />
       {/* Every decision the pipeline used to make for itself is made here:
           which experience is showing, whether a transition is playing, and

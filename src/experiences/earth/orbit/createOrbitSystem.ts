@@ -1,5 +1,8 @@
 import * as THREE from 'three'
-import { ORBIT_CONFIG, ORBIT_PRESETS, SATELLITES, SatelliteDef } from './orbitConfig'
+import { ORBIT_CONFIG, ORBIT_PRESETS, SatelliteDef } from './orbitConfig'
+import { CASE_STUDIES } from '../../../content/generated/caseStudies'
+import { orbitAssignments } from './orbitAssignments'
+import { resolveOrbitCases } from './resolveOrbitCases'
 import { createOrbitLine, OrbitLine } from './createOrbitLine'
 import { createSatellite, Satellite } from './createSatellite'
 import { createConnectivityCloud } from './createConnectivityCloud'
@@ -52,11 +55,24 @@ export function createOrbitSystem({ renderer }: Options) {
   // `logo` is what makes real client artwork appear: the atlas draws its
   // placeholder plate synchronously and swaps in the image if and when it loads,
   // so this stays a synchronous build and a missing logo costs nothing.
+  // Resolved FIRST, because everything below is indexed by it. The atlas, the
+  // orbit lines and the satellites are all built by walking `orbitCases` in
+  // order, which is what makes "atlas cell index === orbit index" true by
+  // construction. The previous code built the atlas from the case list and
+  // addressed cells by preset index; those agreed only because both were six
+  // items in the same order, and a CMS has no obligation to keep them that way.
+  //
+  // Throws on a bad assignment rather than dropping one. OrbitSystemLayer turns
+  // a throw here into a FATAL boot state, which is the correct outcome: the
+  // alternative is a globe quietly showing one client's numbers under another
+  // client's name.
+  const orbitCases = resolveOrbitCases(ORBIT_PRESETS, orbitAssignments, CASE_STUDIES)
+
   const brandAtlas = createBrandAtlas(
-    SATELLITES.map((def) => ({
-      name: def.name,
-      brandColor: def.brandColor,
-      logo: def.logo,
+    orbitCases.map(({ satellite }) => ({
+      name: satellite.name,
+      brandColor: satellite.brandColor,
+      logo: satellite.logo,
     })),
   )
   if (renderer) renderer.initTexture(brandAtlas.texture)
@@ -66,13 +82,10 @@ export function createOrbitSystem({ renderer }: Options) {
   keyLight.position.set(4, 2, 5)
   group.add(ambientLight, keyLight)
 
-  // One satellite per orbit, paired by array position. Bounded by BOTH lengths:
-  // with fewer case studies than presets, `SATELLITES[index]` was undefined and
-  // the `.brandColor` read below threw — a throw OrbitSystemLayer converts into
-  // a FATAL boot state, so deleting a case study took the entire site down
-  // instead of showing one satellite fewer. No effect at today's 6-and-6.
-  const pairCount = Math.min(ORBIT_PRESETS.length, SATELLITES.length)
-  const orbits: OrbitEntry[] = ORBIT_PRESETS.slice(0, pairCount).map((preset, index) => {
+  // One entry per resolved assignment, in preset order. No index arithmetic
+  // across two arrays any more: the pair carries its own preset and its own case
+  // study, so there is no way for them to drift apart.
+  const orbits: OrbitEntry[] = orbitCases.map(({ preset, satellite: satelliteDef }, index) => {
     const orbitLine = createOrbitLine(preset)
     group.add(orbitLine.line)
 
@@ -88,7 +101,6 @@ export function createOrbitSystem({ renderer }: Options) {
     head.visible = false
     group.add(head)
 
-    const satelliteDef = SATELLITES[index]
     const satellite = createSatellite({
       seed: index + 1,
       renderer,

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { LONGITUDE_OFFSET, latLngToVector3, spinToFace } from './geoUtils'
-import { GEO_MARKERS } from './orbitConfig'
 
 const RADIUS = 1
 
@@ -37,17 +36,6 @@ describe('latLngToVector3', () => {
     const east = latLngToVector3(0, 180, RADIUS)
     expect(west.x).toBeCloseTo(east.x, 6)
     expect(west.z).toBeCloseTo(east.z, 6)
-  })
-
-  it('separates the real marker coordinates', () => {
-    // Two cities mapping to the same point would stack their labels with no
-    // error anywhere.
-    const points = GEO_MARKERS.map((m) => latLngToVector3(m.lat, m.lng, RADIUS))
-    for (let i = 0; i < points.length; i += 1) {
-      for (let j = i + 1; j < points.length; j += 1) {
-        expect(points[i].distanceTo(points[j])).toBeGreaterThan(0.01)
-      }
-    }
   })
 })
 

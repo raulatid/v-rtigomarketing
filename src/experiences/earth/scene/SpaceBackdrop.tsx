@@ -21,8 +21,8 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 //
 // ── The shell guarantee ──
 // Every point sits at radius ~backdropRadius from the origin. The camera orbits
-// inside that at most `zoomMax` (22 world units), looking inward at an Earth of
-// radius 2 at the origin. A point on a shell that encloses the camera can never
+// inside that at a FIXED 14 world units (`EARTH_REST`), looking inward at an Earth
+// of radius 2 at the origin. A point on a shell that encloses the camera can never
 // lie between the camera and the origin — the shell point along the camera's
 // own view ray is BEHIND it, and every other one is off-axis. So no star can
 // render over the planet, by construction rather than by luck.
@@ -31,8 +31,11 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 // touches the radius. `checks/space-backdrop.ts` section 2 asserts it across
 // four cluster strengths and three band tilts.
 //
-// Keep the radius well clear of INTERACTION_CONFIG.camera.zoomMax if zoom is
-// ever retuned. That is the one invariant here.
+// Keep the radius well clear of the camera's distance from the origin. That is the
+// one invariant here, and it got cheaper: the camera used to be able to wheel out to
+// 22, and now it cannot move at all — zoom is gone (`adr/009`) and `EARTH_REST` is
+// the only radius the overview ever has. The margin is no longer contingent on a
+// user input nobody would think to re-check.
 //
 // ── One draw call, not three ──
 // The shipped version needed a `Points` per magnitude tier because

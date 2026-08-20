@@ -49,12 +49,26 @@ Application
 │   ├── Earth
 │   └── Murcia
 │
+├── Content              copy and the shapes it takes — src/content/
+│
 └── Shared Infrastructure
     ├── Graphics
     ├── Assets
     ├── Platform
     └── Utilities
 ```
+
+**Content is a layer, not a folder inside an experience.** Case studies belong to Earth and
+district copy belongs to Murcia, and section 17 forbids either experience importing the other,
+so a vocabulary both sides need has nowhere else it can legally live. `src/content/` is leaf
+infrastructure with the same standing as `utils/`: types, invariants, and the generated
+collections.
+
+**The content build is not part of the application at all.** It lives at the repository root in
+`content/` and runs in Node before the bundler does, emitting `src/content/generated/`. The
+arrow points `content/ → src/content/` and never back — anything `src/content/` reached for
+would be bundled for Node by esbuild, which is how `fetch`, `fs` or a DOM global would arrive
+somewhere none of them exist. See `adr/010`.
 
 The fundamental dependency direction is:
 
@@ -442,6 +456,21 @@ Typical candidates:
 - Performance measurement
 - Common asset-loading infrastructure
 
+Alongside `graphics/`, and on the same terms:
+
+```text
+src/content/
+├── types.ts          the shapes the UI consumes
+├── invariants.ts     the bounds, as pure predicates
+├── lookup.ts         resolution helpers
+└── generated/        the collections — BUILD OUTPUT, gitignored
+```
+
+`invariants.ts` has two consumers on purpose: the vitest suites assert it against what shipped,
+and the Node content build asserts it against what it is about to write. One definition, so a
+bound cannot be relaxed in one place and quietly not the other. It is pure by rule — no Node
+APIs, no DOM — because it is bundled for both.
+
 Code should not become shared simply because it appears twice.
 
 Shared modules must represent the same responsibility for all consumers.
@@ -497,7 +526,15 @@ graphics → murcia
 
 shared → earth
 shared → murcia
+
+content → earth
+content → murcia
+content → app
+content → graphics
 ```
+
+`src/content/` is leaf infrastructure. It carries copy and the shapes copy takes; who renders it,
+where on a globe it appears and what it costs to upload are all somebody else's concern.
 
 Experience-independent infrastructure must never import experience-specific implementation.
 
@@ -509,6 +546,25 @@ them had already been broken — `graphics → murcia` for several phases, and `
 earth` — and both were found by reading the code rather than by anything failing. A rule that
 only lives in this file is a rule the code will drift past. Adding one there is cheap;
 removing one should require the same argument as changing this document.
+
+## What the import graph cannot tell you
+
+These rules are about *direction*, and there is a second constraint they are structurally unable
+to express: **which chunk a legal import lands a module in.**
+
+Rollup places a module imported by two chunks into the chunk they share — for this app, the
+budgeted entry — and re-exports it. So a module can satisfy every rule above and still drag its
+whole transitive value graph into a bundle with a hard size limit. That is not hypothetical:
+`orbitConfig.ts` re-exported the case-study content, `useMasterTimeline` imported one *number*
+from it, and every word of Spanish prose was pinned inside the 320,000 B entry chunk as a result.
+Nothing was violated. The build was simply 8 KB from failing.
+
+The rule that follows is a design one, not a graph one: **a module shared across a chunk boundary
+should carry only what both sides need.** `orbitConfig.ts` holds numbers; the content it used to
+re-export is imported directly by the scene code that consumes it.
+
+The measurement, not the reasoning, is what settles this — `VERTIGO_SKIP_BUDGETS=1 npx vite build`
+prints every chunk's size and imports, and `vite.config.ts` fails the build on the budget.
 
 ---
 
@@ -838,9 +894,11 @@ docs/adr/
 Examples:
 
 ```text
-001-renderer-ownership.md
-002-experience-lifecycle.md
-003-runtime-asset-pipeline.md
+001-renderer-and-scene-ownership.md    006-the-return-is-an-ascent.md
+002-single-render-pipeline.md          007-loading-has-a-deadline.md
+003-experience-lifecycle.md            008-the-pipeline-draws-a-contract.md
+004-transition-and-prefetch.md         009-navigation-is-a-gesture.md
+005-warp-transition.md                 010-content-is-generated-at-build-time.md
 ```
 
 An ADR should capture:

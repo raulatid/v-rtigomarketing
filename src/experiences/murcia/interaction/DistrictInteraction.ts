@@ -1,15 +1,21 @@
 import * as THREE from 'three';
-import type { DistrictContent } from '../content/districts';
+import type { DistrictContent } from '../../../content/types';
 import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
 import type { DistrictLookup } from './resolveDistrict';
 import { DistrictHighlight, INTERACTION_LAYER } from './DistrictHighlight';
 import { CameraFlight } from '../camera/CameraFlight';
+import type { FlightDestination } from '../camera/CameraFlight';
+import { scalePoseDistance } from '../camera/applyPoseToCamera';
 import type { CameraRig } from '../camera/CameraRig';
 import { computeFramedFocus, unobstructedCenterNdc } from '../camera/cameraFraming';
 import { clientToNdc } from '../../../interaction/screenSpace';
 import type { ScreenRect } from '../camera/cameraFraming';
 import type { DragPanController } from '../navigation/DragPanController';
-import type { BoundsRect, CameraPoseConfig } from '../config/environmentConfig';
+import type {
+  BoundsRect,
+  CameraPoseConfig,
+  FocusFlightConfig,
+} from '../config/environmentConfig';
 import { DistrictPanel } from '../ui/districtPanel';
 import { DistrictLabel } from '../ui/districtLabel';
 import type { CursorManager } from '../../../interaction/cursorManager';
@@ -39,9 +45,19 @@ export interface DistrictInteractionDeps {
   /** Current camera pose, re-supplied on resize because portrait may override it. */
   getPose: () => CameraPoseConfig;
   getAspect: () => number;
-  /** Recomputes and returns the navigable area for the rig's current yaw. */
+  /** Recomputes and returns the navigable area for the rig's current pose. */
   resolveBounds: () => BoundsRect | null;
+  /** The floor a focus flight may dolly to. Clamped against, never trusted. */
+  focusFlight: FocusFlightConfig;
   reducedMotion: boolean;
+  /**
+   * Fired when `isEngaged` flips, either way. Carries no payload on purpose:
+   * the consumer re-reads the aggregate it cares about
+   * (`MurciaExperience.hasFocusedDistrict`) rather than being handed a copy of
+   * this district's state. The application uses it to re-derive navigation
+   * availability the moment attention changes, instead of on the next gesture.
+   */
+  onEngagedChange?: () => void;
 }
 
 /**
@@ -89,6 +105,9 @@ export class DistrictInteraction {
    * dismiss anything: the press was a "stop", not a "choose".
    */
   private suppressedPointerId: number | null = null;
+
+  /** One warning per district, not one per selection. See computeDestination. */
+  private framingMissWarned = false;
 
   constructor(deps: DistrictInteractionDeps) {
     this.deps = deps;
@@ -169,6 +188,36 @@ export class DistrictInteraction {
     return this.state;
   }
 
+  /**
+   * The only writer of `this.state`. Assignment goes through here so an
+   * engagement flip is a semantic event the outside can subscribe to
+   * (`onEngagedChange`), not something it has to poll for — the navigation
+   * rail's visibility derives from it.
+   */
+  private setState(next: DistrictInteractionState): void {
+    const wasEngaged = this.isEngaged;
+    this.state = next;
+    if (this.isEngaged !== wasEngaged) this.deps.onEngagedChange?.();
+  }
+
+  /**
+   * True while this district holds the viewer's attention: flying to it, or open.
+   *
+   * The application reads this (aggregated by `MurciaExperience.hasFocusedDistrict`)
+   * to stand global scene navigation down — you close the district before you leave
+   * the city (`adr/009`). It is a boolean rather than the state itself because the
+   * four-state union is this class's mechanics and nothing outside needs to name a
+   * transition.
+   *
+   * `hovering` is deliberately NOT engaged. It is re-resolved every frame from the
+   * pointer position, so including it would make the navigation rail flicker on and
+   * off as the pointer crossed a district — and hovering is not attention, it is
+   * proximity.
+   */
+  get isEngaged(): boolean {
+    return this.state.type === 'focusing' || this.state.type === 'open';
+  }
+
   /** True while the flight owns the rig — the caller must not tick the controller. */
   get isFlying(): boolean {
     return this.flight.isPlaying;
@@ -196,7 +245,7 @@ export class DistrictInteraction {
     if (this.state.type === 'open' && this.state.districtId === id) return;
     if (this.state.type === 'focusing' && this.state.districtId === id) return;
 
-    this.state = { type: 'focusing', districtId: id };
+    this.setState({ type: 'focusing', districtId: id });
     // Immediate acknowledgement: the highlight and the panel both start now,
     // while the camera is still moving.
     this.highlight.setState('active');
@@ -219,13 +268,34 @@ export class DistrictInteraction {
 
   private close(): void {
     if (this.state.type === 'idle') return;
-    this.state = { type: 'idle' };
+    this.setState({ type: 'idle' });
     this.panel.hide();
     this.highlight.setState('idle');
     this.label.setVisible(!this.hoverSupported);
-    // Deliberately no flight back: returning the camera discards wherever the
-    // user chose to be, and reads as the interface undoing their navigation.
     if (this.flight.isPlaying) this.flight.cancel();
+
+    // Still deliberately no flight back for FOCUS or YAW: returning the view
+    // discards wherever the viewer chose to be, and reads as the interface undoing
+    // their navigation.
+    //
+    // Distance is not like that, and the asymmetry is the point. It was never user
+    // state to preserve — the viewer did not choose it, selecting a district did —
+    // and with the zoom band gone (`adr/009`) there is no way to undo it by hand.
+    // Leaving them dollied in with no way out is the one outcome worse than moving
+    // the camera on a close.
+    //
+    // A flight rather than a snap, and it takes external control for the same reason
+    // `select()` does: two systems writing the rig in one frame is the failure this
+    // whole handover exists to prevent.
+    if (this.deps.rig.getDistanceScale() !== 1) {
+      this.deps.controller.beginExternalControl();
+      this.flight.playTo({
+        x: this.deps.rig.focus.x,
+        z: this.deps.rig.focus.z,
+        yawDegrees: null,
+        distanceScale: 1,
+      });
+    }
   }
 
   /**
@@ -235,16 +305,36 @@ export class DistrictInteraction {
    * is never moved to take the measurement — doing that would jump the camera
    * for a frame and fire the yaw-changed side effects on the way through.
    */
-  private computeDestination(): { x: number; z: number; yawDegrees: number | null } {
+  private computeDestination(): FlightDestination {
     const { district, binding } = this.deps;
     const target = { x: district.center.x, z: district.center.z };
     const yawDegrees = binding.approachYawDegrees;
 
+    // Clamped rather than trusted, and never above 1. Outward is the direction whose
+    // ground footprint outgrows the terrain skirt, and only the range from the floor
+    // up to rest is proven safe (`checks/footprint.ts`).
+    const distanceScale =
+      binding.focusDistanceScale === null
+        ? null
+        : Math.min(1, Math.max(this.deps.focusFlight.minDistanceScale, binding.focusDistanceScale));
+
     const canvasRect = this.canvasRect();
     const ndc = unobstructedCenterNdc(canvasRect, this.panel.getObstructionRect());
 
+    // Framed against the pose the flight will ARRIVE at, not the one it leaves from.
+    // The framing solve places the district at a chosen NDC by moving the focus, and
+    // how far the focus has to move depends on the distance — so solving it against
+    // the current distance and then dollying somewhere else lands the district off
+    // the panel-free region by the ratio between them. Same class of error the
+    // effective-pose comment records, and it only appeared once a flight could
+    // change distance at all.
+    const arrivalPose =
+      distanceScale === null
+        ? this.deps.getPose()
+        : scalePoseDistance(this.deps.rig.getPose(), distanceScale);
+
     const framed = computeFramedFocus({
-      pose: this.deps.getPose(),
+      pose: arrivalPose,
       aspect: this.deps.getAspect(),
       yawDegrees: yawDegrees ?? this.deps.rig.getAzimuthDegrees(),
       groundPlaneHeight: this.deps.groundPlaneHeight,
@@ -254,13 +344,27 @@ export class DistrictInteraction {
 
     // A near-horizon NDC can miss the ground plane. Falling back to the unframed
     // centre is worse framing but never a wrong position.
-    return { ...(framed ?? target), yawDegrees };
+    //
+    // Said out loud, because flying closer makes the miss MORE likely: a lower camera
+    // puts the panel-free NDC nearer the horizon, and a silent fallback would degrade
+    // the composition with nothing to say it had. Warned once per district rather
+    // than per selection, so it reports without becoming noise.
+    if (!framed && !this.framingMissWarned) {
+      this.framingMissWarned = true;
+      console.warn(
+        `[district] ${this.deps.content.id}: the framing ray missed the ground plane, ` +
+          'so the district is centred rather than framed clear of the panel. ' +
+          'Usually means the approach distance is too close for this viewport.',
+      );
+    }
+
+    return { ...(framed ?? target), yawDegrees, distanceScale };
   }
 
   private onFlightSettled(): void {
     this.deps.controller.endExternalControl({ adoptRigState: true });
     if (this.state.type === 'focusing') {
-      this.state = { type: 'open', districtId: this.state.districtId };
+      this.setState({ type: 'open', districtId: this.state.districtId });
     }
   }
 
@@ -277,12 +381,12 @@ export class DistrictInteraction {
     const id = this.deps.content.id;
 
     if (hovering && this.state.type !== 'hovering') {
-      this.state = { type: 'hovering', districtId: id };
+      this.setState({ type: 'hovering', districtId: id });
       this.highlight.setState('hover');
       this.label.setHovered(true);
       this.deps.cursor.request(this.cursorKey, 'pointer');
     } else if (!hovering && this.state.type === 'hovering') {
-      this.state = { type: 'idle' };
+      this.setState({ type: 'idle' });
       this.highlight.setState('idle');
       this.label.setHovered(false);
       this.deps.cursor.request(this.cursorKey, '');

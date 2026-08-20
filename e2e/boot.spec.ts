@@ -73,6 +73,45 @@ test('reaches the site phase and finishes the intro', async ({ page }) => {
   await expect(page.locator('svg.intro-svg')).toBeHidden({ timeout: 30_000 })
 })
 
+test('gives the drawing its full duration', async ({ page }) => {
+  // The unit suite proves the pace against a simulated clock. This proves it
+  // against a real one, which is where the bug actually lived: the playhead
+  // used to spend its minimum duration in units of clamped frame time, so every
+  // dropped frame stretched the intro, and the intro is exactly when frames
+  // drop — three.js evaluating, 2.43MB of JPEG decoding and the GPU warmup all
+  // land inside it. A build measured here ran the whole thing at 7fps and took
+  // 10.0s. No unit test could have caught that; this is the one that does.
+  await page.goto('/')
+  await page.waitForFunction(() => window.__vertigoIntro !== undefined, undefined, {
+    timeout: 30_000,
+  })
+  await page.evaluate(
+    () => new Promise<void>((resolve) => void window.__vertigoIntro!.completed.then(() => resolve())),
+  )
+
+  const span = await page.evaluate(() => {
+    const at = (name: string) => performance.getEntriesByName(name, 'mark')[0]?.startTime ?? NaN
+    return {
+      drawing: (at('vertigo:intro-complete') - at('vertigo:intro-visible')) / 1000,
+      // How long the load itself took. The floor applies to a drawing that had
+      // nothing to wait for; past that the drawing paces the real load and is
+      // legitimately longer, so the upper bound has to be stated against this.
+      readiness: (at('vertigo:scene-ready') - at('vertigo:intro-visible')) / 1000,
+    }
+  })
+
+  // The floor: never a flash, however warm the cache.
+  expect(span.drawing, `drawing lasted ${span.drawing.toFixed(2)}s`).toBeGreaterThan(2.9)
+
+  // The ceiling: whatever it waited for, the ending is its own gesture and the
+  // drawing does not run indefinitely past the load it was reporting.
+  const ceiling = Math.max(3.0, span.readiness) + 1.5
+  expect(
+    span.drawing,
+    `drawing lasted ${span.drawing.toFixed(2)}s against readiness at ${span.readiness.toFixed(2)}s`,
+  ).toBeLessThan(ceiling)
+})
+
 test('never reports ready before it is', async ({ page }) => {
   // The trap bootState exists for: with no measured progress the autonomous
   // curve still carries the drawing to the pre-ready limit, so the drawing can

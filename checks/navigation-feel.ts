@@ -78,9 +78,6 @@ function makeHarness(
     onYawChanged: () => {
       harness.yawEvents += 1;
     },
-    onZoomChanged: () => {
-      harness.zoomEvents += 1;
-    },
   });
   return harness;
 }
@@ -336,26 +333,26 @@ console.log('\n2. Gesture isolation — one input, one effect');
   // is the inputs.
   const h = makeHarness();
   const startYaw = h.rig.getYaw();
-  const startZoom = h.rig.getZoomScale();
+  const startScale = h.rig.getDistanceScale();
   drag(h, 200, 140);
   h.step(1.0);
   check(
     'a left drag moves the focus and nothing else',
-    Math.abs(h.rig.getYaw() - startYaw) < 1e-9 && close(h.rig.getZoomScale(), startZoom, 1e-9),
-    `yaw delta ${Math.abs(h.rig.getYaw() - startYaw).toExponential(2)} deg, zoom ${h.rig.getZoomScale().toFixed(6)}`,
+    Math.abs(h.rig.getYaw() - startYaw) < 1e-9 && close(h.rig.getDistanceScale(), startScale, 1e-9),
+    `yaw delta ${Math.abs(h.rig.getYaw() - startYaw).toExponential(2)} deg, distance scale ${h.rig.getDistanceScale().toFixed(6)}`,
   );
 }
 {
   const h = makeHarness();
   const startX = h.rig.focus.x;
   const startZ = h.rig.focus.z;
-  const startZoom = h.rig.getZoomScale();
+  const startScale = h.rig.getDistanceScale();
   drag(h, 200, 140, 2); // right button
   h.step(1.0);
   check(
     'a right drag rotates and nothing else',
     Math.hypot(h.rig.focus.x - startX, h.rig.focus.z - startZ) < 1e-9 &&
-      close(h.rig.getZoomScale(), startZoom, 1e-9),
+      close(h.rig.getDistanceScale(), startScale, 1e-9),
     `focus moved ${Math.hypot(h.rig.focus.x - startX, h.rig.focus.z - startZ).toExponential(2)} units`,
   );
   check(
@@ -365,22 +362,31 @@ console.log('\n2. Gesture isolation — one input, one effect');
   );
 }
 {
+  // The wheel belongs to scene navigation now (`adr/009`). This controller does not
+  // listen for it at all, and the assertion inverted with the feature: it used to be
+  // "a wheel event zooms and nothing else", and it is now "a wheel event does nothing
+  // whatsoever". A regression that re-added a wheel handler here would fail.
   const h = makeHarness();
   const startX = h.rig.focus.x;
   const startZ = h.rig.focus.z;
   const startYaw = h.rig.getYaw();
+  const startScale = h.rig.getDistanceScale();
   wheel(h, -100);
+  wheel(h, 400);
+  wheel(h, -100, { ctrlKey: true });
   h.step(1.0);
   check(
-    'a wheel event zooms and nothing else',
+    'a wheel event moves nothing at all',
     Math.hypot(h.rig.focus.x - startX, h.rig.focus.z - startZ) < 1e-9 &&
-      Math.abs(h.rig.getYaw() - startYaw) < 1e-9,
-    `focus moved ${Math.hypot(h.rig.focus.x - startX, h.rig.focus.z - startZ).toExponential(2)} units`,
+      Math.abs(h.rig.getYaw() - startYaw) < 1e-9 &&
+      close(h.rig.getDistanceScale(), startScale, 1e-12),
+    `focus ${Math.hypot(h.rig.focus.x - startX, h.rig.focus.z - startZ).toExponential(2)} units, ` +
+      `scale ${h.rig.getDistanceScale().toFixed(9)} — including ctrl+wheel, which is a trackpad pinch`,
   );
   check(
-    'and it really does zoom',
-    h.rig.getZoomScale() < 1 - 1e-6,
-    `scale = ${h.rig.getZoomScale().toFixed(4)} (wheel up pulls closer)`,
+    'and the controller is not left settling toward anything',
+    !h.controller.isSettling,
+    'a wheel that quietly set a target would show up here',
   );
 }
 
@@ -449,9 +455,9 @@ console.log('\n4. Free 360 rotation');
     `yaw = ${h.rig.getYaw().toFixed(1)} deg`,
   );
   check(
-    'a full turn leaves the zoom untouched',
-    close(h.rig.getZoomScale(), 1, 1e-9),
-    `scale = ${h.rig.getZoomScale().toFixed(6)}`,
+    'a full turn leaves the distance untouched',
+    close(h.rig.getDistanceScale(), 1, 1e-9),
+    `scale = ${h.rig.getDistanceScale().toFixed(6)}`,
   );
   check(
     'camera offset stays on the pose sphere through the turn',
@@ -856,12 +862,21 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
   );
 }
 {
-  // Pinch apart means a closer look. Driven hard enough to reach the stop, so
-  // the clamp is asserted at its exact configured value rather than near it.
+  // Pinch used to zoom, and these two blocks asserted it reached its floor and its
+  // ceiling exactly. There is no zoom (`adr/009`), so what has to be guarded is that
+  // ONLY pinch died: a two-finger gesture still turns the city by its centroid, and
+  // the separation between the fingers is now simply ignored.
+  //
+  // Both halves matter and they fail differently. Deleting the pinch branch is easy;
+  // deleting it and taking the centroid rotation with it is the plausible mistake,
+  // because they live in the same method and read from the same two pointers.
   const h = makeHarness();
+  const startScale = h.rig.getDistanceScale();
   let t = 1000;
   touchDown(h, 1, CENTRE_X - 40, CENTRE_Y, t);
   touchDown(h, 2, CENTRE_X + 40, CENTRE_Y, t);
+  // Straight apart, symmetric about the centroid: a pure pinch with no sideways
+  // movement at all, so the centroid never shifts and rotation has nothing to do.
   for (let i = 1; i <= 20; i += 1) {
     t += 16;
     touchMove(h, 1, CENTRE_X - 40 - i * 30, CENTRE_Y, t);
@@ -870,29 +885,35 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
   }
   h.step(3.0);
   check(
-    'fingers apart pulls the camera in, and stops at the configured floor',
-    close(h.rig.getZoomScale(), nav.zoom.minDistanceScale, 1e-9),
-    `scale ${h.rig.getZoomScale().toFixed(6)} against a floor of ${nav.zoom.minDistanceScale}`,
+    'a pinch changes the distance by exactly nothing',
+    close(h.rig.getDistanceScale(), startScale, 1e-12),
+    `scale ${h.rig.getDistanceScale().toFixed(9)} after 20 frames of fingers moving 1200px apart`,
   );
 }
 {
+  // And the half that must NOT have died with it.
   const h = makeHarness();
   let t = 1000;
-  touchDown(h, 1, CENTRE_X - 600, CENTRE_Y, t);
-  touchDown(h, 2, CENTRE_X + 600, CENTRE_Y, t);
+  touchDown(h, 1, CENTRE_X - 40, CENTRE_Y, t);
+  touchDown(h, 2, CENTRE_X + 40, CENTRE_Y, t);
+  // Both fingers sweep right at a fixed separation: the centroid moves, the gap does
+  // not. Pure rotation input.
   for (let i = 1; i <= 20; i += 1) {
     t += 16;
-    const gap = Math.max(20, 600 - i * 30);
-    touchMove(h, 1, CENTRE_X - gap, CENTRE_Y, t);
-    touchMove(h, 2, CENTRE_X + gap, CENTRE_Y, t);
+    touchMove(h, 1, CENTRE_X - 40 + i * 20, CENTRE_Y, t);
+    touchMove(h, 2, CENTRE_X + 40 + i * 20, CENTRE_Y, t);
     h.controller.update(1 / 60);
   }
   h.step(3.0);
   check(
-    'fingers together pushes it out, and stops at the measured ceiling',
-    close(h.rig.getZoomScale(), nav.zoom.maxDistanceScale, 1e-9),
-    `scale ${h.rig.getZoomScale().toFixed(6)} against a ceiling of ${nav.zoom.maxDistanceScale} — ` +
-      'the value checks/navigation-zoom.ts proved footprint-safe',
+    'but two fingers still turn the city by their centroid',
+    Math.abs(h.rig.getYaw()) > 1,
+    `yaw ${h.rig.getYaw().toFixed(2)} deg — removing the pinch must not take rotation with it`,
+  );
+  check(
+    'and still leaves the distance alone while doing it',
+    close(h.rig.getDistanceScale(), 1, 1e-12),
+    `scale ${h.rig.getDistanceScale().toFixed(9)}`,
   );
 }
 {
@@ -966,111 +987,29 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
 }
 
 // =============================================================================
-console.log('\n11. Wheel zoom plumbing');
-{
-  const h = makeHarness();
-  wheel(h, -100);
-  check(
-    'the wheel sets a target rather than applying it on the spot',
-    close(h.rig.getZoomScale(), 1, 1e-12),
-    'nothing has moved before the first update — the dolly is eased, not cut',
-  );
-  h.controller.update(1 / 60);
-  const afterOneFrame = h.rig.getZoomScale();
-  h.step(2.0);
-  const settled = h.rig.getZoomScale();
-  check(
-    'one frame lands strictly between the old value and the new',
-    afterOneFrame < 1 - 1e-9 && afterOneFrame > settled + 1e-9,
-    `1 -> ${afterOneFrame.toFixed(5)} -> ${settled.toFixed(5)}`,
-  );
-  check('zoom changes are notified for bounds recompute', h.zoomEvents > 0, `${h.zoomEvents} events`);
-}
-{
-  // Multiplicative, so equal and opposite deltas must cancel EXACTLY. An
-  // additive mapping passes every other test here and fails this one.
-  const h = makeHarness();
-  wheel(h, -100);
-  h.step(2.0);
-  wheel(h, 100);
-  h.step(2.0);
-  check(
-    'zooming in then out by the same amount returns exactly to rest',
-    close(h.rig.getZoomScale(), 1, 1e-12),
-    `scale = ${h.rig.getZoomScale().toFixed(12)}`,
-  );
-}
-{
-  // Firefox reports deltaMode 1 (lines) where Chrome reports 0 (pixels). Without
-  // normalisation the same physical notch zooms ~16x faster in one of them.
-  //
-  // Deliberately small: at deltaY 10 the line-mode event normalises to 160px
-  // and runs into the momentum-scroll cap, so the ratio would measure the cap
-  // rather than the conversion.
-  const pixels = makeHarness();
-  wheel(pixels, -5, { deltaMode: 0 });
-  pixels.step(3.0);
-  const lines = makeHarness();
-  wheel(lines, -5, { deltaMode: 1 });
-  lines.step(3.0);
-
-  const pixelEfolds = -Math.log(pixels.rig.getZoomScale());
-  const lineEfolds = -Math.log(lines.rig.getZoomScale());
-  check(
-    'a line-mode wheel counts for about 16 pixels, not 1',
-    close(lineEfolds / pixelEfolds, 16, 0.5),
-    `line/pixel ratio ${(lineEfolds / pixelEfolds).toFixed(2)}`,
-  );
-}
-{
-  const h = makeHarness();
-  wheel(h, -10, { ctrlKey: true });
-  h.step(3.0);
-  const plain = makeHarness();
-  wheel(plain, -10);
-  plain.step(3.0);
-  check(
-    'a trackpad pinch (ctrl+wheel) is amplified as configured',
-    close(
-      Math.log(h.rig.getZoomScale()) / Math.log(plain.rig.getZoomScale()),
-      nav.zoom.ctrlWheelMultiplier,
-      0.01,
-    ),
-    `${(Math.log(h.rig.getZoomScale()) / Math.log(plain.rig.getZoomScale())).toFixed(3)}x against a configured ${nav.zoom.ctrlWheelMultiplier}`,
-  );
-}
-{
-  // A flick of momentum scroll can carry an enormous single delta. Capped, it
-  // must not cross the band in one event, or there is no interior to aim in.
-  const h = makeHarness();
-  wheel(h, 100000);
-  h.step(3.0);
-  check(
-    'one absurd wheel event cannot cross the whole band',
-    h.rig.getZoomScale() < nav.zoom.maxDistanceScale - 1e-6,
-    `scale ${h.rig.getZoomScale().toFixed(4)} of a possible ${nav.zoom.maxDistanceScale}`,
-  );
-}
-{
-  // Handing the rig back has to adopt the zoom along with focus and yaw.
-  // Without it the next wheel event eases from a stale target and snaps.
-  const h = makeHarness();
-  wheel(h, -200);
-  h.step(3.0);
-  const zoomed = h.rig.getZoomScale();
-
-  h.controller.beginExternalControl();
-  h.rig.setZoomScale(1.1);
-  h.rig.setYaw(42);
-  h.controller.endExternalControl({ adoptRigState: true });
-  h.step(2.0);
-
-  check(
-    'resuming from a flight adopts the zoom it left behind',
-    close(h.rig.getZoomScale(), 1.1, 1e-9) && !close(h.rig.getZoomScale(), zoomed, 1e-6),
-    `held ${h.rig.getZoomScale().toFixed(4)} rather than easing back to ${zoomed.toFixed(4)}`,
-  );
-}
+// 11. RETIRED — "Wheel zoom plumbing", six blocks, `adr/009`.
+//
+// The wheel no longer reaches this controller, so everything the section drove is
+// unreachable: the eased target, the multiplicative band, the ctrl+wheel pinch
+// multiplier, the flight handover adopting a user zoom.
+//
+// TWO OF ITS PROPERTIES WERE NOT ABOUT ZOOM AND HAVE MOVED RATHER THAN DIED. Both
+// were discovered here, and both would silently regress if they were deleted along
+// with the section that happened to own them:
+//
+//   deltaMode normalisation — Chrome reports wheel deltas in pixels and Firefox in
+//     lines, so a line-mode event counts for about 16 pixels rather than 1. Missing
+//     it makes the feature 16x faster in one browser than the other. Now asserted
+//     against `src/utils/wheelDelta.ts`, which is why that normalisation was
+//     extracted into its own module instead of being deleted with its handler.
+//
+//   the per-event cap — macOS momentum can deliver hundreds of pixels in a single
+//     event at the head of a flick. Uncapped, one flick crossed the whole band and
+//     the gesture had no interior to aim in. The same hazard now reads "one absurd
+//     event cannot commit a navigation", asserted in the navigation accumulator.
+//
+// Section 2 carries what remains of this one: that a wheel event moves nothing here
+// at all, ctrl+wheel included.
 
 console.log('\n12. Tap tolerance is per pointer type');
 {

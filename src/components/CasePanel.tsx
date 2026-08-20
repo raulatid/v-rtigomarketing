@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
+import { useEffect, useRef, useState } from 'react'
+import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import { CaseChart } from './CaseChart'
 
 interface Props {
@@ -7,15 +7,30 @@ interface Props {
   onClose: () => void
 }
 
-// Right-side "caso de éxito" panel, shown while a satellite is focused.
+/** Which of the mobile sheet's two heights is showing. Inert on desktop. */
+type SheetStop = 'peek' | 'expanded'
+
+// "Caso de éxito" panel, shown while a satellite is focused.
 //
-// The composition is a contract with the camera: the close-up pushes the
-// satellite to the LEFT of centre precisely to clear this space. Change the
-// panel's width and that offset needs revisiting — it is solved per viewport in
-// `experiences/earth/camera/closeUpFraming.ts`.
+// ONE COMPONENT, TWO LAYOUTS — the same split Murcia's district panel makes,
+// for the same reason (`experiences/murcia/ui/districtPanel.ts`, which is the
+// reference implementation for everything about the sheet below).
 //
-// Below 767px this stops being a right-hand dock and becomes a bottom sheet
-// (styles.css), and the offset goes to zero with it. The two are one decision.
+// On desktop it docks to the right, and that composition is a contract with the
+// camera: the close-up pushes the satellite LEFT of centre precisely to clear
+// this column. Change the panel's width and that offset needs revisiting — it
+// is solved per viewport in `experiences/earth/camera/closeUpFraming.ts`.
+//
+// On a narrow OR SHORT viewport it is a bottom sheet with two stops, and the
+// lateral offset goes to zero with it. The two are one decision; the breakpoint
+// is written in both places and they must move together.
+//
+// The stops exist because a single-stop sheet covered the thing it was
+// describing. At 60dvh anchored to the bottom, its top edge sat at 40% of the
+// screen while the close-up centres the satellite at 50% — so tapping a
+// satellite hid it behind a panel about it, and 28-38% of the case sat behind a
+// scroll with nothing to indicate there was one. Peek shows the headline and
+// leaves the satellite in frame; expanded is for reading.
 //
 // Kept mounted and toggled by class so it can transition in and out. The source
 // project pops it with display:block and its own notes call a transition "an
@@ -30,12 +45,41 @@ export function CasePanel({ data, onClose }: Props) {
   if (data) lastDataRef.current = data
   const shown = data ?? lastDataRef.current
 
+  const [stop, setStop] = useState<SheetStop>('peek')
+
+  // Every new selection starts at the peek stop. districtPanel.show() resets
+  // before it builds, for the reason its comment gives — carrying the previous
+  // stop over means the next case opens already expanded, with the satellite
+  // the viewer just tapped hidden behind it.
+  //
+  // Keyed on the case id rather than on `data` being truthy: re-selecting while
+  // one is already open is a new case and should re-peek, and the deselect that
+  // sets `data` to null must NOT reset, or the sheet drops to peek mid-fade.
+  const selectedId = data?.id ?? null
+  useEffect(() => {
+    if (selectedId) setStop('peek')
+  }, [selectedId])
+
   return (
     <aside
       className={`case-panel${data ? ' is-visible' : ''}`}
+      data-stop={stop}
       aria-hidden={!data}
       role="complementary"
     >
+      {/* The sheet's grip. Present in the DOM at every size and hidden by CSS
+          above the breakpoint, exactly as Murcia's is: it belongs to a layout,
+          not to a device, and a JS media query here would be a second source of
+          truth for a breakpoint the stylesheet already owns. */}
+      <button
+        className="case-panel__handle"
+        type="button"
+        aria-label="Desplegar o plegar el panel"
+        aria-expanded={stop === 'expanded'}
+        onClick={() => setStop((s) => (s === 'peek' ? 'expanded' : 'peek'))}
+        tabIndex={data ? 0 : -1}
+      />
+
       <div className="case-panel__header">
         <span className="case-panel__eyebrow">Caso de éxito</span>
         <button
@@ -49,38 +93,44 @@ export function CasePanel({ data, onClose }: Props) {
         </button>
       </div>
 
-      <h2 className="case-panel__title">{shown?.name ?? ''}</h2>
+      {/* Everything below the header scrolls; the handle and the header do not.
+          A sheet whose close button scrolls away is a sheet you cannot dismiss
+          without first scrolling back up. */}
+      <div className="case-panel__body">
+        <h2 className="case-panel__title">{shown?.name ?? ''}</h2>
 
-      {/* All content renders from `shown` (the last selected case), never from
+        {/* All content renders from `shown` (the last selected case), never from
           `data` — that is what lets the exit fade play over the panel's final
           contents instead of over emptied fields. */}
-      <p className="case-panel__meta">
-        {shown ? `${shown.sector} · ${shown.location} · ${shown.year}` : ''}
-      </p>
+        <p className="case-panel__meta">
+          {shown ? `${shown.sector} · ${shown.location} · ${shown.year}` : ''}
+        </p>
 
-      <div className="case-panel__metrics">
-        {(shown?.metrics ?? [{ label: 'Métrica', value: '—' }, { label: 'Métrica', value: '—' }]).map(
-          (metric, i) => (
+        <div className="case-panel__metrics">
+          {(
+            shown?.metrics ?? [
+              { label: 'Métrica', value: '—' },
+              { label: 'Métrica', value: '—' },
+            ]
+          ).map((metric, i) => (
             <div className="case-panel__metric" key={i}>
               <div className="case-panel__metric-label">{metric.label}</div>
               <div className="case-panel__metric-value">{metric.value}</div>
             </div>
-          ),
-        )}
-      </div>
+          ))}
+        </div>
 
-      <p className="case-panel__description">{shown?.summary ?? ''}</p>
+        <p className="case-panel__description">{shown?.summary ?? ''}</p>
 
-      <ul className="case-panel__details">
-        {(shown?.details ?? []).map((line, i) => (
-          <li key={i}>{line}</li>
-        ))}
-      </ul>
+        <ul className="case-panel__details">
+          {(shown?.details ?? []).map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
 
-      {/* The graph area keeps a fixed height whether or not a case is selected,
+        {/* The graph area keeps a fixed height whether or not a case is selected,
           so the panel's height doesn't jump during the fade. */}
-      <div className="case-panel__graph">
-        {shown ? <CaseChart chart={shown.chart} /> : null}
+        <div className="case-panel__graph">{shown ? <CaseChart chart={shown.chart} /> : null}</div>
       </div>
     </aside>
   )

@@ -64,13 +64,15 @@ export class ControlsHint {
     // it leads, and the two that are NOT discoverable follow it. Rotation in
     // particular has no affordance at all now that it is on the right button.
     //
-    // TWO SETS, because three of the four instructions named inputs a phone
-    // does not have. A touch visitor was being told to use the right button and
-    // the wheel, while the gestures DragPanController actually implements for
-    // them — two fingers to turn, pinch to zoom — went unmentioned and
-    // therefore undiscovered. Teaching the wrong device's controls is worse
-    // than teaching none: it says the site was not built for the thing in your
-    // hand.
+    // TWO SETS, because the instructions name inputs one device does not have.
+    // Teaching the wrong device's controls is worse than teaching none: it says the
+    // site was not built for the thing in your hand.
+    //
+    // 'Acercar' is gone from both. It taught the wheel and the pinch, and neither
+    // moves the camera any more (`adr/009`) — the wheel navigates between worlds and
+    // a pinch does nothing. Getting closer is what CLICKING a district does, which the
+    // last line already teaches, so the gesture list is shorter by one and the site no
+    // longer promises a control it removed.
     //
     // Keyed on `(pointer: coarse)` rather than on width: what decides this is
     // the input, not the viewport, and a small window on a laptop still has a
@@ -84,12 +86,10 @@ export class ControlsHint {
       ? `
       <span><kbd>Arrastra</kbd> mover</span>
       <span><kbd>Dos dedos</kbd> girar</span>
-      <span><kbd>Pellizca</kbd> acercar</span>
       <span><kbd>Toca</kbd> un distrito iluminado</span>`
       : `
       <span><kbd>Arrastra</kbd> mover</span>
       <span><kbd>Botón derecho</kbd> girar</span>
-      <span><kbd>Rueda</kbd> acercar</span>
       <span><kbd>Clic</kbd> en un distrito iluminado</span>`;
     parent.appendChild(this.el);
   }

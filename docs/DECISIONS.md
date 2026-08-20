@@ -2,8 +2,11 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-08-14 · §23–25 added after the mobile and iOS/Safari audits (context loss,
-decoder ownership, mobile as a target). Earlier: 2026-08-13 · §21–22 added and §12, §19, §20
+Last updated: 2026-08-20 · §29–30 added (the rail's presentation and the gesture hint; contact,
+legal and the brand's own mark). Earlier: 2026-08-17 · §26 added and `earth/DECISIONS.md` retired
+into it, making this the only decisions file in the repository; 2026-08-14 · §23–25 added after the mobile and
+iOS/Safari audits (context loss, decoder ownership, mobile as a target); 2026-08-13 · §21–22
+added and §12, §19, §20
 amended (plan 000, the drag gain, the ESO credit); 2026-08-11 · §17–18 added against the working
 tree, post-`c1fa2cc`; §19 added post-`b418b5f`
 
@@ -29,8 +32,9 @@ what it rules out, and how you would know it had been broken.
 | `integration/00-migration-log.md` | The execution record, phase by phase. History, not policy. |
 | `ARCHITECTURE.md` | The architecture as it should be. Binding. |
 | `ENGINEERING_PRINCIPLES.md` | How to work in this repo. Binding. |
-| `earth/DECISIONS.md` | **Inherited** from the Earth prototype. Still authoritative for behaviour inside that experience. Where it conflicts with this file, this file wins, and the entry below says so. |
 | `murcia/blender-export-contract.md` | What the runtime reads out of the GLB and what must be true in the `.blend`. Read before any re-export. |
+| `content/wordpress-field-contract.md` | What the content build expects from the CMS, field by field, with the rule and what happens when it is broken. Written to be sent to whoever builds the WordPress side. |
+| `audits/reports/security-wordpress-api-2026-08-11.md` | The security surface of the CMS integration. **Read its 2026-08-20 addendum first** — the integration landed as a build-time pipeline, which closes or dissolves most of the `API-*` findings. |
 
 ### How to update it
 
@@ -133,8 +137,8 @@ transition frame is exactly the hitch this avoids.
 
 ## 6. Nothing ever cross-fades
 
-**Inherited and upheld** — `earth/DECISIONS.md:61`, described there as "the single most
-important visual principle in the project".
+**Inherited and upheld** — from the Earth prototype, which called it "the single most important
+visual principle in the project". The mechanism at the 2D→3D crossover is **§26.8**.
 
 **State.** Every substitution in the app is a hard cut timed to a concealment beat: the
 starfield → Earth cut, the 2D mark → 3D logo crossover, and the Earth ⇄ Murcia swap.
@@ -192,7 +196,7 @@ experience that defines its interaction model.
 
 ## 9. Exactly one camera owner per frame, always
 
-**Inherited and upheld** — `earth/DECISIONS.md:470`. Two writers per frame is the failure
+**Inherited and upheld** — from the Earth prototype. Two writers per frame is the failure
 the source project removed `OrbitControls` to avoid.
 
 **State.** The chain is now: `CameraController` owns the intro → hands to the focus rig at
@@ -251,9 +255,12 @@ assertions existed; nothing ran them. `npm run build` was `tsc -b`, the intro si
 could not have failed a build even if it had been run — it printed failures and left the exit
 code at 0. Both are now closed (`PROJECT_MEMORY` §10):
 
-- `npm run build` is `tsc -b && npm run test && npm run check:harnesses && vite build`.
-  Verified by forcing a failing unit test and a failing harness assertion and confirming
-  `vite build` is never reached, rather than by reading the script.
+- `npm run build` is `npm run check && vite build`, where `check` is
+  `typecheck && test && check:harnesses` and npm's `precheck` hook runs `content:build` first
+  (§27). Verified by forcing a failing unit test and a failing harness assertion and confirming
+  `vite build` is never reached, rather than by reading the script. (It was written here as
+  `tsc -b && npm run test && npm run check:harnesses && vite build` when this section was
+  decided; the shape moved into `check` on 2026-08-13 and gained the content step on 2026-08-20.)
 - The exit code lives once, in `checks/lib/assert.ts`, and is counted live. The three
   hardcoded summary totals went with it — one of them had drifted to 32 against 36 real
   assertions.
@@ -297,9 +304,10 @@ reason, that two writers would fight over the property, could not happen: `curso
 
 **What makes it safe now.** A native `style.cursor` write is invisible while the cursor is
 mounted, so it cannot be the mechanism. `cursorSignal` is. Murcia's district hovers and drag
-publish through a manager of its own; Earth's geo markers, which had never been converted
-despite `earth/DECISIONS.md` saying otherwise, now share the manager `InteractionLayer`
-creates. The native write survives underneath as the coarse-pointer fallback.
+publish through a manager of its own; Earth's geo markers, which the prototype's own notes claimed had been
+converted and never had, shared the manager `InteractionLayer` creates (the markers were
+removed outright 2026-08-19; satellite focus still publishes through that manager). The
+native write survives underneath as the coarse-pointer fallback.
 
 **Two managers, not one, and not one per source.** One arbiter per element is the whole
 point — a second arbiter on the same canvas restores the last-writer-wins flip-flop the
@@ -317,8 +325,18 @@ a district hovered and the hand never relaxes.
 
 ## 15. The warp is triggered by a control, never by scroll
 
-**Inherited and upheld** — decided in the Murcia prototype before either direction of the
-warp existed, and recorded here because its own memory has since been folded into
+> **REVERSED 2026-08-19 — `adr/009-navigation-is-a-gesture.md`.** The warp is now driven by a
+> gesture: wheel on desktop, a right-edge rail drag on touch, accumulating deliberate progress
+> and committing at a threshold. The control is gone — `ReturnToEarthControl` is deleted and the
+> Spain marker no longer navigates. This was a **product decision, not a technical argument**,
+> and the reasoning below is preserved rather than deleted because most of it is still true and
+> it is what the replacement had to answer. ADR 009 takes the four objections below in order.
+> The one it does *not* answer is the fourth: keyboard and assistive-technology access between
+> the two worlds is a recorded regression. See also §20/§21 — zoom is gone entirely, and that is
+> what freed the wheel.
+
+**Inherited and upheld until 2026-08-19** — decided in the Murcia prototype before either
+direction of the warp existed, and recorded here because its own memory has since been folded into
 `PROJECT_MEMORY.md` and this is the only reasoning in it that is a *decision* rather than a
 fact.
 
@@ -348,7 +366,7 @@ continuous scrubbing — a different and much larger feature.
 
 ## 16. Production and preview are different builds, and the difference is one flag
 
-→ **`audits/production-readiness-vercel.md`**, **`adr/007-loading-has-a-deadline.md`**
+→ **`audits/reports/production-readiness-vercel-2026-08-07.md`**, **`adr/007-loading-has-a-deadline.md`**
 
 **Decided 2026-08-07**, during the production-readiness audit.
 
@@ -409,8 +427,8 @@ The pattern was already in the repo and already correct — `DistrictInteraction
 is exactly why Murcia's *interior* was the one part that always worked on a phone.
 
 Hover remains a separate, mouse-only concern: it is still evaluated per frame from the last
-`pointermove`, because satellites keep moving when the pointer is still (`earth/DECISIONS.md`,
-"Selection is React state; hover is not"). What changed is that **nothing acts on it**.
+`pointermove`, because satellites keep moving when the pointer is still (**§26.2**, "selection
+is React state; hover is not"). What changed is that **nothing acts on it**.
 
 **A corollary, and it is not optional: tap tolerances are per pointer type.** A finger wanders
 5–15 px between contact and release. The 4 px and 5 px thresholds are correct for a mouse and
@@ -442,10 +460,15 @@ hostage. That is precisely the failure the required/optional split exists to pre
 (`adr/007`). Timing is generous anyway: the first panel's opacity leaves zero ~2 s into the
 reveal.
 
-**`logo` is a single string, and that is the entire API seam.** `/logos/mango.webp` today, a
-CMS media URL later, with no renderer change. Two things the remote case still needs, neither
-of which is code: `Access-Control-Allow-Origin` on the media path, and the origin added to
-`img-src` in `vercel.json`.
+**`logo` is a single string, and that is the entire media seam.** `/logos/mango.webp` — and it
+stays a local path under `/public` even once the artwork comes from WordPress, because the
+content build **mirrors** CMS uploads into `public/logos/` rather than hotlinking them (§27,
+`adr/010`). Everything therefore stays same-origin: no `Access-Control-Allow-Origin` on the CMS
+media path, no origin added to `img-src`, no CSP edit at all, and `vercel.json`'s existing
+`/(earth|models|textures|libs|draco|logos)/` cache rule already covers the output.
+
+**The cross-origin machinery below stays anyway.** It costs nothing on same-origin files and is
+correct the day anyone points `logo` somewhere else.
 
 **Cross-origin is a correctness issue, not a nicety.** The atlas is shared by all six panels,
 so one tainted image makes `texImage2D` throw and takes down *every* plate. `crossOrigin` is
@@ -521,6 +544,95 @@ hide it at a breakpoint, or fade it further.
 > asserts what ships: reachable in one click, above 0.5 effective opacity, exact wording. If
 > a real footer ever appears, the credit belongs there and this paragraph goes with it.
 
+> **Superseded, 2026-08-18. There is no attribution, because there is no longer an ESO image.**
+> The client requires that the site carry no third-party credit. That is a requirement, not a
+> preference, so the panorama was replaced with a **public domain** source and the credit was
+> removed from `AuditSection.tsx` along with the `.audit-credit` rules in `styles.css`. The
+> paragraphs above are kept because they record why the credit existed and what removing it
+> touched; nothing in them still binds. `e2e/backdrop.spec.ts` now asserts the **absence** of
+> any credit — the inverse of the test described above — so a future asset swap cannot quietly
+> reintroduce one.
+>
+> **The replacement was chosen by looking, and that is the part worth keeping.** Six CC0
+> candidates were prepared and put in the running scene. Five were rejected on what the scene
+> showed rather than on how the flat image read: 004 and 005 are ground-based framings, 002 and
+> 006 do not wrap (their two vertical edges hold different sky, which no seam correction fixes),
+> and 003 wraps perfectly but has no galactic plane. NASA/Goddard's Deep Star Maps were rejected
+> on licence — courtesy credit plus an ESA/Gaia DR2 layer that is not NASA's to release — and on
+> being EXR-only, not on quality.
+>
+> **The trap: candidate 001 first rendered almost entirely black, and the image was not at
+> fault.** `skyBrightness`/`skyContrast` were 0.22/1.25, tuned to the far brighter ESO
+> panorama, and a gamma above 1 crushes a dimmer source into the floor. At 0.60/1.00 the same
+> file reads richly. Those two uniforms sit in the debug overlay precisely so this is a drag
+> rather than a diagnosis — use them before concluding a new sky is wrong. An earlier pass at
+> this swap built a 568-line candidate script and 44 MB of quality-ladder output without ever
+> putting one candidate in the scene, and so never found this.
+>
+> **Amended, 2026-08-19: none of the six candidates is an equirectangular panorama, and the
+> screen above could not have told you.** It checked wrapping and whether a galactic plane was
+> present. Neither looks at a pole, and the only projection guard in the prep script is
+> `width === height * 2` — aspect ratio is not projection, so every flat 2:1 image passes it.
+> `shell.frag.glsl` maps `v = asin(dir.y)/π + 0.5`, so the top row IS the zenith: one point of
+> sky across all 4096 columns. Row sd at the pole over the equator's, per channel: the ESO
+> image scores **0.029**, candidate 001 scores **0.670**, and the whole candidate set sits at
+> 0.319 and above. Read the gap, not a threshold — the reference itself is 0.152 at the bottom.
+>
+> The visible consequence was reported as "the image is zoomed" and "you can see the edge of
+> the image". The edge is a **pinwheel of radial spokes converging on a vertex, with a hard
+> straight wedge along the meridian**: the top strip of the image is wrapped into a disc, so
+> its horizontal detail becomes azimuthal detail. Both poles are reachable by ordinary dragging
+> — the sky pole lies along `bandAxis(22°)`, needing a camera `phi` of 158° / 22° against a
+> clamp of 8.6°–171.4° — and the warp's FOV surge to 74° pulls ~1.8× more sky into frame, which
+> is where it gets noticed. Nothing geometric is wrong; the sky sphere still encloses the
+> camera by ≥12×. The boundary is in the TEXTURE.
+>
+> **`convergePoles` does two things and only the second one fixed it, which is the part worth
+> keeping.** Band-limiting each row to `1/cos(lat)` is the textbook anti-aliasing for equirect,
+> and it drove the pole ratio from 0.54 to 0.015 while leaving the rendered pole view
+> INDISTINGUISHABLE. The spokes are resolvable content being stretched, not unresolvable detail
+> being aliased; at 22.5° from the pole that kernel is 2.6 pixels out of 4096. What fixes it is
+> fading each row toward its own azimuthal MEAN from 55° latitude to the pole — 55 chosen by
+> rendering the pole view at 74° FOV against 90/65/45, not derived. It runs AFTER `levelSeam`,
+> or the seam ramp is painted back across the pole rows.
+>
+> **The metric agreed with a picture that was still broken.** A pole ratio near zero says the
+> pole row is constant and says nothing about the ring one degree out — and it is unchanged by
+> the fade that actually fixed things. Screen a source with it; never verify a correction with
+> it. Render the pole view — `node scripts/preview-sky-poles.mjs`, which exists because of
+> this. §19's own earlier lesson, recurring in a new costume.
+>
+> AVIF quality moved 50 → 59 as a consequence, not a preference: the correction freed the bits.
+> 59 rather than 60 because q60 is 202,169 bytes — under 200 KiB but over 200,000, and every
+> file this project has shipped cleared both readings.
+>
+> The resting-view e2e baselines pass unchanged, which is the evidence that the correction is
+> confined to the polar caps.
+>
+> **What it does NOT fix:** the image is still a flat picture stretched across 360°, so its
+> features keep whatever angular scale that produces. If the sky still reads as zoomed, the
+> answer is a different source, not a different filter. **Space backgrounds are 4096×2048 from
+> now on** (2048×1024 narrow) — a standing decision, which fixes the sky at 11.4 px/deg against
+> a ~20 px/deg viewport, i.e. 1.76× magnification, and accepts it.
+>
+> Full working, including why the metric must be measured PER CHANNEL, in
+> `docs/audits/sky-panorama-projection-2026-08-19.md`.
+>
+> Two further findings, both measured. The seam correction now applies the **median per-channel
+> offset** rather than a smoothed per-row delta: the per-row scheme closed the seam but printed
+> broad coloured horizontal bands into the picture, p90 4.21 and max 11.92 against a sky
+> background near 12/255 — on the ESO source too, not only the new ones. And the AVIF quality
+> optimum is **per-image and does not transfer**: q60 was right for ESO, q80 measures best on
+> this source, and q50 ships only because the desktop file is held under a 200 KB client budget.
+> See `CREDITS.md` and the header of `scripts/prepare-sky-panorama.mjs`.
+> *(The shipped quality is **q59** since 2026-08-20 — `convergePoles` freed the bytes. The rule
+> stated here is unchanged; only the number it produces moved. See the amendment above.)*
+>
+> **Narrowed, 2026-08-20.** The absence assertion in `backdrop.spec.ts` now names the
+> third-party shapes it forbids (ESO, CC BY, Creative Commons) instead of matching any `©`:
+> the site footer carries the brand's OWN mark (§30), which is not a credit to anyone else
+> and is exactly what the no-third-party-credit requirement leaves room for.
+
 **Bloom now exists in the pipeline**, between `RenderPass` and `AfterimagePass`. Before it,
 nothing in the scene could look luminous rather than painted — a star was a bright matte dot
 and the galactic core was flat. It is before the afterimage so it thresholds the true HDR
@@ -550,14 +662,18 @@ the scene themselves, so ambient motion buys nothing and costs a per-frame pass.
 the dark gas, which is compression blocking and means the codec or its quality changed
 (`PROJECT_MEMORY.md` §11.38) — check at DPR 2, because DPR 1 halves the artifact and is how it
 went unnoticed the first time. A straight ruler line across the sky, which is the panorama's
-wrap seam reopening (`PROJECT_MEMORY.md` §11.32).
+wrap seam reopening (`PROJECT_MEMORY.md` §11.32). A swirl of radial spokes converging to a point, or a
+hard straight wedge, when you drag the globe far up or far down — the pole correction failing.
+Do NOT diagnose that from the prep script's `poles` column, which cannot see it: render the
+pole view. See the 2026-08-19 amendment above.
 A visible pop as the sky arrives after the Earth, which means the boot step stopped being
 required. The Earth's day side hazing over, which means the bloom threshold fell too far. A
 backdrop obviously brighter or flatter than the planet in front of it, which means it stopped
 going through the composer.
 
-Detail, and the defects only screenshots caught in both rounds, in `earth/DECISIONS.md` —
-*The backdrop becomes a galaxy* and *The galaxy becomes a photograph*.
+The defects that only screenshots caught, in both rounds, are in `PROJECT_MEMORY.md` §11 — the
+lesson being that the first round *did* look at a picture and still shipped dirt, because it
+read a property of the noise basis as a tuning error.
 
 ---
 
@@ -587,8 +703,17 @@ the case assumed a photograph must carry its own stars.*
 
 ## 20. Murcia navigates like a map
 
-> **Amended 2026-08-13 — §21.** The gain is 0.7 rather than 1:1. Everything else below
-> stands.
+> **Amended 2026-08-13 — §21.** The gain is 0.7 rather than 1:1.
+>
+> **Amended again 2026-08-19 — `adr/009`. The zoom band is gone**, on the wheel and on the
+> pinch alike, and so is Earth’s orbit zoom. There is no user-facing zoom anywhere in the
+> product; a controlled camera flight onto a clickable object is the only thing that changes
+> distance. The gesture split below otherwise stands — left/one finger pans, right/two fingers
+> rotate — and two-finger centroid rotation is unaffected. Two consequences below invert:
+> **distance is no longer user state**, so `checks/navigation-zoom.ts` is retargeted at the
+> flight range rather than a band and renamed `checks/footprint.ts` (`check:footprint`); and **the skirt’s 600 to 700
+> widening, which existed to pay for zoom-out, becomes slack margin.** It is not being narrowed
+> — the warp’s departure pose still reaches past the resting distance the 600 was sized for.
 
 **Left button and one finger pan the ground 1:1 under the cursor, in both axes. Rotation
 moves to the right button and to two fingers, at half the sensitivity. A small, bounded zoom
@@ -689,7 +814,8 @@ anything that needs real Three.js objects across many frames. A hybrid, not a mi
 > A **harness** lives in `checks/`, drives real Three.js objects across many frames, and is
 > bundled with esbuild.
 
-That rule is in `vitest.config.ts` as well as in prose — `include` is `src/**/*.test.ts`, so
+That rule is in `vitest.config.ts` as well as in prose — `include` is
+`['src/**/*.test.{ts,tsx}', 'content/**/*.test.ts']`, so
 `checks/` cannot be swept into the runner by accident. Two tiers are worthless if nobody can
 say which one a new test belongs in.
 
@@ -702,7 +828,14 @@ made on. Nothing about that fits a fast pure-function runner.
 because writing a test meant hand-rolling an assertion function and an esbuild invocation.
 That is where the coupled-array class of bug lives — `SATELLITES` against `ORBIT_PRESETS`,
 which `tsc` cannot see with `noUncheckedIndexedAccess` off, and where one missing case study
-would have refused to load the whole site.
+would have refused to load the whole site. *(That particular pairing is gone as of §28 — the
+arrays are resolved by id and a mismatch throws. The class of bug is not: it is what the tier
+is for.)*
+
+**A third home appeared with the content build:** `content/` at the repository root holds the
+Node-side mappers, validators and generator. They are unit-tier by the rule above — no scene, no
+DOM stub — but they cannot live under `src/`, because nothing in the browser bundle may import
+`fs` or `fetch`. The `include` covers both directories.
 
 **Playwright is local, not a gate.** Vercel's build container would download Chromium on
 every deploy and has no server to point at. `npm run e2e`, against `vite preview`. If CI is
@@ -829,26 +962,463 @@ visitor downloads both sets.
 
 ---
 
+## 26. The Earth experience's own decisions
+
+**Folded in 2026-08-17**, when `earth/DECISIONS.md` was retired so that this file is the only
+decisions file in the repository. That document was 1862 lines of chronological entries running
+2026-07-20 → 2026-08-13. Everything below was binding and stated nowhere else.
+
+What was dropped, so the loss is auditable rather than silent: entries already carried here
+(§6 cross-fades, §9 camera ownership, §16 the debug flag's reach, §17 picking, §18 the plate
+seam, §19 the whole sky arc); entries this file already supersedes (the 3D logo's own renderer
+→ §2 and `adr/002`, per-consumer decoders → §24, `screenOffset` as a fixed world offset → §25);
+entries superseded *inside* that file (the "scope ends at the corner logo" entry, the procedural
+nebula, the `baseSize` / `lineOpacity` / `closeUp.distance` flip-flops,
+`createPlaceholderLogoTexture`, the five dead `state.*Ready` flags); and tuning numbers, which
+are taste rather than decisions and live in `orbitConfig.ts`, `interactionConfig.ts` and
+`PROJECT_MEMORY.md` §9. The traps from that file are in `PROJECT_MEMORY.md` §11.
+
+### Time and state
+
+**26.1 — Phase checks are ordered, never listed.** Every comparison goes through
+`atOrAfter(phase, mark)` against `PHASE_ORDER` in `sceneVisibility.ts`. A hardcoded
+`phase === 'swap' || 'corner' || 'site'` stranded the camera at the starfield for the whole
+orbit reveal when `orbits` was inserted between `corner` and `site` — it typechecked, threw
+nothing, and only a screenshot caught it. *How you would know it broke:* a phase name compared
+by equality or membership anywhere outside `PHASE_ORDER`.
+
+**26.2 — Continuous values never touch React.** `useState` holds the discrete phase name and
+nothing else. Warp progress, overlay opacity and blur amount live in the mutable
+`sequenceState.ts` singleton, are read by the render loop, and are applied by direct DOM or
+three.js writes. The overlay has two independent contributors and combines them with `max()`,
+so neither can clobber the other at a boundary. Selection is React state because it drives the
+DOM; **hover is not**, because satellites keep moving under a still pointer.
+
+**26.3 — The single clock owns everything from `shrink` onward.** P0 is not on a clock at all —
+it is on a progress axis (26.5). Past `shrink`, one paused GSAP timeline owns all of time, and
+its labels double as debug seek targets. The documented exception is endless ambient motion —
+Earth spin, logo idle, satellites orbiting — which accumulates from `useFrame` delta: the
+timeline owns when those *start*, never their heartbeat. The price is that the orbit reveal
+cannot be scrubbed backwards; seeking away resets it and the draw-in replays.
+
+### The boot path
+
+**26.4 — Code that runs first depends on nothing.** The intro draw is a standalone module with
+zero runtime dependencies, its own Rollup entry and its own `<script>`, because its entire job
+is to be on screen before anything else exists. The test is concrete: **it must run in a bare
+HTML page with no build step, given only a progress callback.** The corollary is that nothing
+not needed to draw the isotype belongs in the entry chunk — three, R3F, the scene and the orbit
+system all sit behind a dynamic import fired *after* the first painted frame, since module
+evaluation is a synchronous main-thread block. Guarded on the artifact by the `closeBundle`
+hook (12 KB intro, 320 KB app), never on imports; §12 is the general form. **Not a licence to
+hand-roll elsewhere** — past `shrink` the libraries are loaded and paid for.
+
+**26.5 — Visual progress, load progress and readiness are three things, and none is derived
+from the others.** `visualProgress` drives the playhead; `loadProgress` *moves* the drawing and
+may never gate it; `readiness` gates the ending only. Three zones, with every boundary derived
+from the stage weights rather than hardcoded: an unconditional time-driven opening so something
+is visible ~20 ms in whatever the network is doing, then `max(autonomous, measured)` for the
+outline, then readiness alone for the collapse and fill. **A timeout is not a readiness
+signal** — the intro logs, sets a diagnostic flag, and keeps waiting. Extends §10, whose point
+is that the caption must never announce a readiness the load has not reached.
+
+### The warp
+
+**26.6 — The warp is two unrelated legs and a concealed cut.** The camera never travels the
+distance it appears to: it is at `[0,0,-200]` on the last frame of leg 1 and `[0,0,80]` on the
+first frame of leg 2, and **that teleport is the transition**. One progress value is read
+through three curves with deliberately nested widths — travel (full), speed and motion blur
+(±0.34), overlay flash (±0.10) — so the blur ramps gradually while the overlay reads as a
+flicker rather than a fade. The tween is `ease: 'none'` **on purpose**; a GSAP ease on top would
+compound with the three curves and destroy that width relationship. **The cut keys off raw
+progress, not the eased travel curve**, so visibility and the flash stay locked together if the
+position easing is ever retuned. §7 applies the same structure to the Earth ⇄ Murcia warp.
+
+**26.7 — The starfield exists because we have no city.** The source prototype's leg 1 flies away
+from a city, and that geometry *is* the motion cue the FOV surge stretches and the blur pass
+smears. Ported literally, our leg 1 would be a black screen with a widening FOV. One
+`THREE.Points` cloud, one draw call, is the minimum that fixes both. It is not decoration —
+without it the warp does not read.
+
+**26.8 — The 2D→3D substitution is a scale-through-zero crossover, not a particle burst.** §6
+states the principle; this is the mechanism. The 2D mark scales to zero at a point while the 3D
+model scales up from zero at the same point, removing the frame in which a comparison is
+possible rather than concealing it behind noise. That is why the model's start rotation is a
+free choice and no silhouette matching is needed. The cost required a specific mitigation: a
+burst would cover ~1 s of a missing model and a zero-crossing covers nothing, so the crossover
+is **conditional on the model being ready** and holds the 2D mark at full size otherwise. If it
+ever needs more weight: widen the flash, then add a bloom sprite, then reconsider — a held
+afterimage would need the model rendered by the composer, which is an architectural change.
+
+### Assets and scene conventions
+
+**26.9 — A baked texture owns its shading: `metalness = 0`, `roughness = 1`, `flipY = false`.**
+Bake in the DCC tool, export KTX2 with mipmaps, load through the shared transcoder (§24). The
+bake already contains the lighting, so leaving the authored PBR response lights an already-lit
+texture. The map is applied to the **shared template before cloning** — `Material.clone()`
+copies the `.map` reference, so six satellites cost one GPU texture; applying it after cloning
+looks identical and wastes six uploads. A texture failure degrades to untextured-but-present
+and must never cost the model.
+
+**26.10 — Scale is reconciled at the mount, not in the data.** Orbit radii, cloud radius and
+sizes all stay in the source project's "Earth radius = 1" units, and the orbit
+group mounts with `scale={EARTH_CONFIG.radius}` (the geo-marker group did too, until the
+marker's removal on 2026-08-19; the destination in `earth/navigation/destination.ts` keeps
+the same convention, taking the Earth radius as a parameter). Rewriting the numbers
+would have been equally easy and considerably worse: the presets stay diffable against
+`earth-connections`, so a fix there can be pulled across by eye. `interactionConfig` follows the
+same rule, multiplying at definition.
+
+**26.11 — The satellite model's orientation never reads camera or selection state.** A `spinner`
+group advances by per-frame delta only, seeded per satellite. The badges it replaced billboarded
+with `lookAt(camera)`, which made satellites visibly reorient during the focus fly-in — so
+opening or closing the case panel now cannot produce an orientation jump, and `update(delta)`
+runs every visible frame whether frozen or not (the `frozen` flag skips the orbital write, never
+the spin). Raycasting uses an invisible sphere at `baseSize`, not the GLB's thin, spiky meshes,
+which flickered the highlight. The panel hung off `content` is a scoped exception: it billboards
+in the vertex shader, because an unreadable label has no purpose.
+
+**26.11a — The satellite's size is one number with three dependents.** `ORBIT_CONFIG.satellite.modelSize`
+doubled (0.26 → 0.52) on 2026-08-20 because the model read too small in the overview. Three other
+numbers moved with it, and none of them is an independent taste call:
+`satellite.baseSize` (0.10 → 0.20), or the raycast sphere sits buried inside the model and the
+outer half of every satellite becomes a hover dead zone; `panel.offsetY` (0.12 → 0.30), because the
+plate's lower edge is `offsetY - height / 2` and the panel did **not** scale — doubling the offset
+alone would have pushed it *deeper* into the model; and `INTERACTION_CONFIG.closeUp.distance`
+(0.55R → 1.05R), because a subject that subtends twice the angle overflows a frame tuned for the
+smaller one. That last one had already flip-flopped once for exactly this reason (1.25R for the flat
+badge → 0.55R for the smaller GLB). Change `modelSize` again and all four move together.
+
+**26.12 — A raw `ShaderMaterial` gets no output colour conversion.** It must end with
+`#include <colorspace_fragment>`. Built-in materials append the transform and a hand-written one
+does not, so this fails as "looks a bit dark" rather than as an error. Recorded because it
+recurs with every custom shader added here. (The chunk was `encodings_fragment` before three
+r152; this project is well past it.)
+
+### Content and UI
+
+**26.13 — The case-study sample data names real Spanish companies and every metric in it is
+invented.** Mango, Cabify, Estrella Galicia, Idealista, Camper and Freixenet are not clients and
+those results did not happen; the chart series are invented on the same terms. `caseStudies.ts`
+says so in bold at the top. Fine for an internal prototype and **not fine to ship** — attaching
+fabricated results to a real company's name is a false endorsement claim, not a rough draft. It
+is also why every `logo` in §18 is still `null`. Replace before anything is published — and note
+that it now has to be replaced in **two** places: WordPress, and `content/seed/` + `content/fixtures/`,
+which are what `npm run dev` and CI build against.
+
+`.ts` rather than `.json` so `tsc` catches a mistyped field, and because the orbit system builds
+its panels synchronously at mount. **Both reasons survived the CMS**, because the generator emits
+a `.ts` module rather than fetching JSON (§27). What did not survive is the seam this entry named:
+`SATELLITES` was deleted, the content lives in `src/content/generated/caseStudies.ts`, and the
+orbit pairing moved to `orbitAssignments.ts` (§28).
+
+**26.14 — Case-panel charts are hand-rolled SVG.** Four fixed chart types over at most twelve
+static points do not justify a dependency. The data file decides the chart and the renderer only
+normalises each series to its own min/max, so units do not matter and only the shape does. The
+donut differentiates segments by **opacity, not hue** — the panel is monochrome glass and has no
+colour language to borrow. New content blocks in that panel must reserve their height, because
+it stays mounted through its fade and anything that changes height mid-fade makes it jump.
+
+**26.15 — The audit section is a projection shift, not a camera move.** The camera pose already
+has two owners that reassert it per frame, so a third writer was never on the table.
+`AuditCameraShift` animates `camera.setViewOffset()`, one level below the pose: whoever owns the
+camera keeps drag, zoom and the warp FOV surge, and `clearViewOffset()` is an exact restore by
+construction with no saved pose to drift. The shift is derived from the panel's CSS width. The
+curtain itself is CSS off the master timeline — the section can open in *any* phase, so it is
+user-triggered UI rather than a beat in the intro, and follows the 26.2 idiom instead.
+
+**26.16 — No interactive chrome until `site`.** The intro offers nothing to click until
+everything has arrived. The gate is `phase === 'site'`, passed down as a `ready` prop, and it is
+correct *by construction* rather than by tuning: the orbits phase holds for
+`max(toCornerDuration, orbitRevealDuration())` before the `site` label fires, so `site` means
+"last satellite drawn in, logo parked". Controls are **unmounted** before then, not hidden —
+nothing to focus, tab to or read out — which is also what fires their CSS entry animation
+exactly once. Any future chrome gates on the same prop-from-phase pattern, never its own timer.
+
+**26.17 — The cursor glyphs are inlined path data, and `public/icons/*.svg` is the design source
+that is not read at runtime.** Redrawing those files changes nothing on screen until the `d`
+attributes are re-pasted into the component; both the component and the stylesheet say so at the
+point of use. Nothing to fetch and nothing that can 404 mid-session, which for a cursor is the
+difference between a styling risk and no visible pointer at all. Two properties must not be
+"cleaned up": **white fill with a thin black outline**, which is what keeps it legible over both
+the black starfield and the white case-panel glass, and **`fill-rule: nonzero`**, without which
+the finger divisions punch holes and the hand renders shredded.
+
+**26.18 — Debug config is ephemeral, and reduced motion and skip are part of the design.** No
+persistence of any kind: every reload starts from the committed defaults, which are the source
+of truth. Escape skips to the end state from any point — at ~16 s that is not a courtesy — and
+under `prefers-reduced-motion: reduce` the sequence places everything at rest with no warp, no
+crossover and no flight, since a 2.6 s FOV surge with accumulation blur is exactly the motion
+that triggers vestibular symptoms. Reduced motion still shows the *outline* and lets readiness
+bring the fill, because filling early would announce readiness to the users least able to
+reinterpret it (§10).
+
+**26.19 — The case panel is a two-stop bottom sheet below the breakpoint, and the breakpoint is
+width OR height.** Added 2026-08-18, porting Murcia's district panel (§8 in `PROJECT_MEMORY`)
+rather than inventing a second sheet.
+
+A single-stop sheet shipped on 2026-08-14 and failed at both of its jobs. Anchored to `bottom: 0`
+at `60dvh`, its top edge landed at 40% of the screen while the close-up centres the satellite at
+50% — so **the panel covered the satellite it was describing**. And the case did not fit: 706 px
+of content at 393×852 and 719 px at 360×740, against 511 px and 444 px of sheet, leaving 28% and
+38% behind a scroll with no handle, no stop and no shadow to say there was one.
+
+The stops are Murcia's 40 / 85, unchanged, and they hold here: peek is 341 px at 393×852 — the
+header, name, meta line, both metric tiles and the summary — with the satellite at y=426 clear of
+the sheet's top edge at y=511. Expanded is 724 px against 706 px of content, so a typical phone
+reads the whole case without scrolling. **The camera does not re-frame when the sheet expands**,
+for the reason `PROJECT_MEMORY` §8 already gives: at the reading stop the viewer has chosen
+content over scene, and chasing the remaining strip reads as instability.
+
+The media query is now `(max-width: 767px), (max-height: 500px)`. It was width alone, and a phone
+in landscape is 852×393 — wide enough to miss it entirely and fall back to the desktop dock:
+324 px wide, **820 px tall on a 393 px screen**, `overflow-y: visible`, centred with
+`translateY(-50%)`, roughly half the case off-screen top and bottom with no way to reach it.
+`closeUpFraming.ts` carries both conditions as `CASE_PANEL_DOCK_MIN_WIDTH` and
+`CASE_PANEL_DOCK_MIN_HEIGHT`; they are two halves of one composition decision and moving one
+without the other leaves the camera clearing a dock that is not there.
+
+**26.20 — The drawing's pace is measured in seconds of visible time, and it is uniform.**
+Added 2026-08-17, after three separate visitor reports — "it doesn't start", "it's too fast to
+see", "it starts then freezes" — turned out to be two bugs in how the playhead spent time.
+
+*Three seconds, in seconds.* `elapsed` accumulated `min(dt, maxDt)`, so the minimum duration was
+three seconds **of frames shorter than 50 ms** and anything slower stretched the drawing in
+proportion. Measured against the real module: 4.00 s at 15 fps, 8.57 s at 7 fps, 12.00 s at
+5 fps — and the intro is precisely when frames drop, since three.js evaluating, 2.43 MB of JPEG
+decoding and the GPU warmup all land inside it. A production build measured here ran at 7 fps
+and took **10.0 s**. The clock is real now; what gets rationed is one frame's **advance**, against
+the recent frame cadence rather than a constant, so a steady 7 fps still finishes in three
+seconds while a one-off stall is repaid over the following frames instead of teleporting.
+
+*The pace is a line, not a curve.* The no-signal floor was `1 - exp(-elapsed/tau)`, which
+front-loads its movement and then decays without ever arriving: 0.326/s at the start, 0.0001/s at
+23 s. That is one curve producing both of the complaints that sound contradictory. It is now a
+uniform ramp covering 85% of the outline in the minimum duration, then the remaining 15% at a
+slow **constant** rate — constant-slow reads as working, asymptotic reads as crashed. This is the
+common path, not the edge case: measured progress is pinned at 0 until the app chunk lands, ~6.6 s
+in on Fast 3G.
+
+*Two corollaries.* A wall clock can be spent while nobody is watching, so the drawing stops
+counting while `document.hidden` — the same guard the master timeline and the warp already keep,
+hand-rolled because this module has no GSAP. And the ending is timed from the moment readiness
+**arrives**, not from page load: the minimum-duration ramp saturates once the wait outlasts it and
+then caps nothing, which was observed cutting the collapse and the fill into a single frame
+(readiness 4538 ms, complete 4540 ms). Whatever the drawing waited for, the two beats that mean
+"ready" keep their own ~0.55 s.
+
+*What was NOT the problem.* The boot chunk being a separate request looked like the reason the
+drawing starts late, and inlining it into the document was built and A/B'd — 5 runs a side, four
+network profiles. It loses, worst on the slowest links (Slow 3G 1789 ms linked vs 1841 ms
+inlined). The preload scanner already fetches a 6 KB tag in parallel while the document parses;
+the document is the critical path, and inlining makes it bigger. The numbers are kept in
+`vite.config.ts` so the idea is not re-attempted from the same reasoning.
+
+---
+
+## 27. Content is generated at build time, and the browser never calls the CMS
+
+**Decided** 2026-08-20. Full reasoning and the alternatives in **`adr/010`**.
+
+**WordPress is the editorial source of truth; the network boundary is the build, not the
+browser.** `npm run content:build` fetches every collection in Node, validates it, and emits
+`src/content/generated/*.ts` — ordinary typed modules, imported exactly as the hand-written ones
+were. There is no runtime fetch, no loading state, no deadline, no new boot resource, no async
+`createOrbitSystem`, and no CSP or CORS work. This is a 3D experience; a third-party origin on
+the critical path is the thing being avoided.
+
+**Generated modules are build output, not source.** `src/content/generated/` and
+`public/logos/` are gitignored. Git holds `content/fixtures/` (development and test inputs) and
+`content/seed/` (an emergency snapshot that drifts by design). Committing the generated modules
+would claim a persistence model that does not exist — Vercel writing files during a build does
+not commit them back, so the committed copy would go stale after the first CMS-triggered deploy
+while still looking authoritative.
+
+**Strict by default, and production is the strict case.** Unreachable CMS, non-2xx, timeout or a
+failed validation all exit non-zero, which fails the build and leaves the existing deployment
+serving. A publish that cannot be validated must not report success, because a green deployment
+is what an editor reads as "my change is live". `CONTENT_SOURCE=seed` is the human-invoked
+escape hatch and prints a banner; it is never a default. **And production never defaults to
+fixtures either** (2026-08-20, re-audit `CMS-2`): with `VERCEL_ENV=production` and neither
+`WP_CONTENT_BASE` nor `CONTENT_SOURCE` set, `content:build` exits non-zero. The fixture default is
+for laptops and Preview deployments; a production build has to name its source, because the
+alternative was a green deployment serving demo content on the strength of one log line.
+
+**`npm run check` is the content validation gate, and that fell out of the ordering rather than
+being designed.** `content:build` writes before `check` runs, so bad content from WordPress
+fails `npm run build` with the same assertions that have always guarded hand-written content —
+unique ids, non-empty strings, the 140-character district summary, one label per bar.
+
+**Generation is transactional.** Rendered to a temp directory, moved into place only once every
+collection has mapped, audited and rendered. One invalid record fails its whole collection; one
+failed collection fails the whole build. There is no state in which new case studies sit beside
+old districts.
+
+**Ruled out.** Runtime fetch with a static fallback (the shape §26.13 assumed). Pulling inside
+`vercel build` with a fallback to the previous output — indistinguishable from success in the
+deployment record. Committing the generated modules. Dropping invalid records and publishing the
+rest: five of six case studies is a silent content outage, because the globe renders five
+satellites and looks deliberate.
+
+**Cost, stated rather than discovered.** While the CMS is down, no deployment can succeed —
+including a code-only hotfix. `content/seed/` exists to close that, and it will drift.
+
+**How you would know it broke.** A deployment that succeeded while the CMS was unreachable.
+`src/content/generated/` appearing in a commit. A generated module carrying a timestamp — the
+emitter is deterministic so that an unchanged collection produces an unchanged file, which is
+what makes a content diff mean something and keeps Vite's chunk hashes stable.
+
+---
+
+## 28. Scene composition is code-owned; the CMS owns copy and nothing else
+
+**Decided** 2026-08-20, with §27.
+
+**Which case study rides which orbit is a design decision, not editorial data.** `orbitId` was a
+field on `CaseStudy`, declared, documented and never read — the pairing was positional, and it
+agreed with the presets only because both arrays happened to be in the same order. A REST
+response has no such obligation, and the failure is silent and defamatory: one client's invented
+metrics rendered under another client's name.
+
+The field is gone from the content type. `experiences/earth/orbit/orbitAssignments.ts` binds
+`orbitId` to `caseId`, which is exactly the shape `scene/cityDistrictBindings.ts` already used
+for Murcia — so the repo has **one** concept for "code decides where content appears", not two.
+
+**The consequence is the point.** The CMS may hold any number of case studies; publishing one
+does **not** create an orbit. The six presets are hand-placed against the camera's framing
+(`orbitConfig.test.ts` asserts radius ∈ (1,3)), and featuring a different client is a reviewable
+one-line edit rather than something that can happen in wp-admin unobserved.
+
+**Structural relationships fail the build; they are never resolved by guessing.** Two assignments
+claiming one orbit, two naming one case, an unknown preset, or a case the content does not
+contain — all throw from `resolveOrbitCases`. The whole value of generating at build time is that
+invalid content is rejected before it is deployed, so "first wins" and "drop and warn" would be
+throwing that value away.
+
+**What else stays in code, and why — the distinction matters.** Some of this is structural and
+some is merely not-yet-moved, and conflating them turns a temporary constraint into a false law:
+
+| Genuinely code-owned | Reason |
+|---|---|
+| `ORBIT_PRESETS`, `orbitAssignments`, `cityDistrictBindings` | camera framing and GLB geometry, not copy |
+| `DESTINATION` (`navigation/destination.ts`) | drives the warp aim *and* the Earth's rest rotation |
+| `ORBIT_CONFIG`, `EARTH_CONFIG`, `murciaConfig`, `defaultIntroConfig` | tuning |
+| `AuditSection` `<option>` **values** | a contract with the future server-side validator |
+
+| CMS-compatible, left in code today | What would have to change first |
+|---|---|
+| `introDraw.ts` `CAPTIONS` | the 16 KB boot chunk may import nothing; a generator could inline literals, but there is no editorial value in it |
+| `murcia/ui/overlays.ts` controls hint | it assigns to `innerHTML` — rebuild those nodes with `textContent` first |
+| `AuditSection` labels, `CasePanel` / `districtPanel` aria strings | nothing structural; no editorial requirement yet |
+| `index.html` title / description / OG | needs a per-entity SEO decision, which needs prerendering this app does not have |
+
+---
+
+## 29. The rail's feel is presentation, and its dress is the journey
+
+The navigation rail (`adr/009`) is the one control between the worlds, and three 2026-08-20
+decisions govern how it reads and feels. All three live in the presentation layer on
+purpose: the accumulator's constants (`commitDistancePx`, `idleGapSeconds`, `decaySeconds`)
+are the accidental-warp safety case §15 demanded, and nothing here may retune them for feel.
+
+**The fill is a gradient pinned to the track** — Earth blue at the top, Murcia amber at the
+bottom, because that is the geography the rail travels — so the tip takes on the
+destination's colour as a gesture approaches it, and the endpoint dots wear their world's
+colour. Pinning it forced a technique change: a `scaleY` squashes a gradient, so the fill is
+revealed by two counter-translating transforms (`.nav-rail__reveal` / `.nav-rail__fill`),
+which preserves the component's render contract — compositor-only animation, no React
+re-render, `--nav-progress` written straight onto the element.
+
+**The rail stands on frosted glass.** Murcia's backdrop is mid-gray city and bright sky; no
+single line colour reads on all of that and on space too, so the rail borrows the panels'
+glass material instead of learning which world is behind it — a scene-aware colour was
+considered and rejected as coupling the rail to scene state it has no other reason to know.
+
+**The painted progress chases the accumulator through a damped spring**
+(`progressSpring.ts`, tuned only in `NAVIGATION_SPRING`): input lands with ~5% of elastic
+overshoot and a release settles instead of fading. The spring hangs off `paint()`, never the
+gesture — it does not decide where progress goes, it must snap to a LITERAL 0 when settled
+(the e2e flick test polls for exactly `0`, and the frame loop's stop condition waits on it),
+and it goes critically damped under `prefers-reduced-motion`.
+
+**A gesture exists, and now something says so.** §15's strongest surviving objection was
+that nothing on screen signals scroll navigation. The rail carries a once-per-visit hint — a
+mouse glyph on fine pointers, a swipe glyph on coarse; the input decides, never the viewport
+(the Murcia controls hint records why) — dismissed by `createNavigationInput` on the first
+frame a gesture is in flight, through the one funnel every input path shares, and never
+resurrected by a reset: a reset returns progress to zero, not the viewer to ignorance.
+
+Broken when: the fill animates by anything but transforms, a feel change edits
+`NAVIGATION_GESTURE` instead of `NAVIGATION_SPRING`, the rail learns which scene is behind
+it, or the hint comes back after a gesture.
+
+## 30. Contact, legal and the brand's own mark
+
+The Earth scene grew its floor and its second CTA on 2026-08-20: phone numbers bottom-left
+as bare `tel:` links (a number behind a disclosure costs calls), "Términos y privacidad" ·
+"Aviso legal" · the © mark bottom-right, and a Contacto ghost button beside Auditoría — a
+ghost deliberately, because the blue family belongs to the primary CTA alone. All of it
+gates on the audit trigger's own expression (`phase === 'site'` and Earth showing, §26.16)
+and joins the rail-suppression context in App.
+
+**The brand data has one home, and it is not a collection.** `src/content/site.ts` —
+hand-written, like `lookup.ts` — holds the phones, the contact address, the © line and the
+legal texts, all PLACEHOLDER and marked so. The content pipeline is strictly
+array-of-records synced from the CMS (§27), and a phone number does not earn a post type; if
+the client must ever edit these in WordPress, that is the decision to revisit.
+
+**The contact form obeys the audit form's transport rule** (`contactSubmission.ts`, the §16
+demo/production split): demo builds resolve after 700 ms so the flow can be demonstrated;
+production REJECTS, because no backend exists and a fake "Recibido" is a message nobody will
+read. The two transports are duplicated rather than shared so the two forms can get real
+backends independently. The GDPR obligations the audits attach to a real endpoint (consent,
+lawful basis, retention — `security-wordpress-api` API-3) ride with it, and the legal panels
+are where that text will land.
+
+**Legal pages are panels, because there are no pages.** The application has no router;
+"página legal" is an overlay like everything else the viewer opens. The texts are Spanish
+placeholder boilerplate (§11) that must be written and legally reviewed before launch.
+
+**The brand's own © is not a credit.** The 2026-08-18 no-third-party-credit requirement
+(recorded under §19's superseded ESO entry) is about ATTRIBUTION. Its guard in
+`e2e/backdrop.spec.ts` was narrowed from "no © anywhere" to the third-party shapes it exists
+to forbid (ESO, CC BY, Creative Commons), so the footer's own mark and the client
+requirement coexist.
+
+Broken when: real contact data is edited anywhere but `site.ts`, a form reaches success in a
+production build, chrome appears before `site` or over Murcia, or a third-party credit
+passes the narrowed assertion.
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| `SATELLITES` is the single seam an API would replace | **§26.13**, `orbitConfig.ts` | The seam is the generated module. `SATELLITES` is deleted; content is emitted at build time — **§27**, `adr/010` |
+| The satellite↔orbit pairing is positional, and `orbitId` is unread | `createOrbitSystem.ts`, `caseStudies.ts` | `orbitId` is off the content type; `orbitAssignments.ts` binds preset to case and unresolvable ones fail the build — **§28** |
+| `logo` becomes a CMS media URL, needing CORS and an `img-src` entry | **§18**, 2026-08-14 | Media is mirrored into `public/logos/` at build time, so it stays same-origin and the CSP is untouched — **§27** |
+| The warp is triggered by a control, never by scroll | **§15**, inherited from the Murcia prototype | A gesture: wheel, and a right-edge rail on touch. Accumulated, reversible, threshold-committed — **`adr/009`** |
+| A bounded zoom band lands on the wheel and on pinch | **§20**, 2026-08-13 | There is no zoom anywhere. Controlled focus flights on clickable objects are the only way to get closer — **`adr/009`** |
+| Wheel is claimed by both experiences’ cameras | `createFocusCameraRig.ts`, `DragPanController.ts` | One global listener owns the whole wheel stream, which is what makes trackpad momentum tractable — **`adr/009`** |
 | The repo has no test runner | `PROJECT_MEMORY` §2, "no ESLint and no test runner" | Vitest for pure logic; `checks/` unchanged; Playwright local — **§22** |
 | `npm run check` is the gate, and nothing runs it | `PROJECT_MEMORY` §10, audit `VER-1` | `npm run build` runs it, and every harness can fail — **§12** |
 | Pan is 1:1 under the cursor | **§20**, 2026-08-13 | Gain 0.7; exactness is asserted on the solve at gain 1 instead — **§21** |
 | One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** |
-| The brand plates are drawn, never loaded | `earth/DECISIONS.md`, "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
-| The backdrop is a field of uniform points on a shell | `earth/DECISIONS.md`, "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** |
+| The Earth prototype keeps its own decisions file | `earth/DECISIONS.md`, 1862 lines, listed above as still authoritative | Retired 2026-08-17; what still binds is **§26**, and this file is the only one — **§26** |
+| The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
+| The backdrop is a field of uniform points on a shell | the Earth prototype's "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** |
 | The sky is generated on the GPU, not downloaded | **§19**, first form | It is a 113 KB photograph. The procedural nebula could not be made to look like anything but dirt, for structural reasons — **§19** |
+| The sky source is an equirectangular panorama | **§19**, `CREDITS.md`, `spaceConfig.ts`, and the `width === height * 2` guard that "checked" it | It is a flat 2:1 image, and so is every candidate that was screened. Aspect ratio is not projection. Mitigated by `convergePoles`, not fixed — only a different source fixes it — **§19** amendment 2026-08-20, `audits/sky-panorama-projection-2026-08-19.md` |
 | The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** |
-| A click acts on the satellite/marker the pointer is hovering | `createSatelliteFocus.ts`, `createGeoMarkers.ts` | It acts on what is under the event's coordinates — **§17** |
+| A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) |
 | Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** |
-| A lost WebGL context is unhandled | `production-readiness-vercel.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** |
+| A lost WebGL context is unhandled | `production-readiness-vercel-2026-08-07.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** |
 | Each consumer builds its own Draco/KTX2 loader | `createAssetLoader`, `loadLogoAssets`, `createSatellite` | One of each, reference counted, in `graphics/` — **§24** |
 | The Earth ships one set of 4096 maps to every device | `EarthScene.tsx` | Two sets, media-gated at 767px like the sky — **§25** |
 | The renderer takes R3F's defaults | `SceneCanvas.tsx`, `gl={{ antialias: true }}` | `alpha: false` and an explicit `dpr`, so the cap has an owner again — **§25** |
 | A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** |
 | `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** |
-| The 3D logo gets its own renderer | `earth/DECISIONS.md:256` | Overlay pass on the shared renderer — **§2**, `adr/002` |
+| The 3D logo gets its own renderer | the Earth prototype's "The 3D logo gets its own renderer" | Overlay pass on the shared renderer — **§2**, `adr/002` |
 | One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` |
 | Murcia always bypasses the composer | `adr/001` | Bypasses it *except during a warp* — **§7**, `adr/005` |
+| The city loader needs only Draco | `createAssetLoader.ts` | The shared KTX2 transcoder is attached too, before any texture exists — a GLTFLoader without one *rejects* a Basis image rather than degrading, and the production trim set has to be compressed to fit the iOS budget — **`murcia/blender-export-contract.md` §6.5** |
+| Blender owns every sampling property of a texture | plan 001, *Blender decides WHERE the texture is sampled* | It owns all of them except wrapping. The banded trim atlas needs `wrapS = Repeat` with `wrapT = ClampToEdge`, and Blender's Image Texture *Extension* is one setting for both axes — so `configureTrimTextures` in `loadCity.ts` expresses what the export had no way to say — **`blender-export-contract.md` §6.3** |

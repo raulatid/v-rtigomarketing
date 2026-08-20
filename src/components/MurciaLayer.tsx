@@ -15,6 +15,8 @@ interface Props {
   state: SequenceState
   experienceRef: RefObject<MurciaExperience | null>
   onReady?: () => void
+  /** Forwarded to MurciaExperience: a district was engaged or released. */
+  onAttentionChange?: () => void
 }
 
 // Drives the Murcia environment from R3F's frame loop.
@@ -31,7 +33,7 @@ interface Props {
 // The module is imported DYNAMICALLY for the same reason the rest of the scene
 // is: it pulls in GLTFLoader, DRACOLoader and the whole city stack, none of
 // which may sit in the entry chunk.
-export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
+export function MurciaLayer({ active, state, experienceRef, onReady, onAttentionChange }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
 
@@ -40,6 +42,10 @@ export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
   const reducedMotion = useMemo(prefersReducedMotion, [])
   const onReadyRef = useRef(onReady)
   onReadyRef.current = onReady
+  // Same ref treatment as onReady: the experience is built once, and a fresh
+  // callback identity from a parent re-render must not rebuild the city.
+  const onAttentionChangeRef = useRef(onAttentionChange)
+  onAttentionChangeRef.current = onAttentionChange
   // build() is async, so the `active` effect below can run — and finish — long
   // before the experience exists. This is what the build applies on arrival so
   // a transition that happens mid-load is not silently dropped.
@@ -72,7 +78,10 @@ export function MurciaLayer({ active, state, experienceRef, onReady }: Props) {
       )
       if (disposed) return
 
-      experience = new Ctor(host, gl, { debugTools: DEBUG_TOOLS_ENABLED })
+      experience = new Ctor(host, gl, {
+        debugTools: DEBUG_TOOLS_ENABLED,
+        onAttentionChange: () => onAttentionChangeRef.current?.(),
+      })
       // Before load(), so the camera is constructed with the real aspect and
       // the first bounds computation uses the real footprint.
       experience.setViewport({

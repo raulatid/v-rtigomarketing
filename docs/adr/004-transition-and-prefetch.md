@@ -21,7 +21,7 @@ Three costs could produce one:
 **swap on that frame**, reveal (0.5s, `power2.out`). The swap changes the active scene, the
 active camera and which experience owns input, all at full cover.
 
-Never a cross-fade. `docs/earth/DECISIONS.md` calls this the project's single most
+Never a cross-fade. `docs/DECISIONS.md` §6 calls this the project's single most
 important visual principle, and both intro substitutions already work this way. It is also
 what makes the transition cheap: there is no frame on which both worlds are drawn.
 

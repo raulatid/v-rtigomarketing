@@ -37,8 +37,9 @@ export function backdropVisible(state: SequenceState, config: IntroConfig): bool
   return earthVisible(state, config)
 }
 
-// Orbits reveal only once the corner logo has departed centre — see the
-// focus-handoff decision in DECISIONS.md. The trigger is a timeline event, so it
+// Orbits reveal only once the corner logo has departed centre, so attention
+// hands off rather than competes — DECISIONS.md 26.16. The trigger is a
+// timeline event, so it
 // is a flag set by the timeline rather than something derived from a progress
 // value.
 export function orbitsVisible(state: SequenceState): boolean {

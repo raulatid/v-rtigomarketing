@@ -1,4 +1,4 @@
-import { CaseChart as CaseChartData } from '../data/caseStudies'
+import type { CaseChart as CaseChartData } from '../content/types'
 
 // Tiny hand-rolled SVG charts for the case panel: line, bars, area, donut.
 //
@@ -143,11 +143,22 @@ function DonutChart({ values, labels }: { values: number[]; labels?: string[] })
 }
 
 export function CaseChart({ chart }: Props) {
-  // An empty series is the one case no shape can render: Math.min of nothing is
+  // Every value must be a finite number, and there must be at least one.
+  //
+  // An empty series is the case no shape can render: Math.min of nothing is
   // Infinity, and LineChart then reads pts[-1] and throws, taking the whole case
-  // panel down through the error boundary. Today's data always has points, but
-  // this file sits on the same API seam as the rest of caseStudies.ts.
-  if (chart.values.length === 0) {
+  // panel down through the error boundary.
+  //
+  // A non-finite value is worse, because it does not throw. NaN propagates into
+  // every path coordinate, the browser rejects the `d` attribute, and the chart
+  // renders as nothing at all with no error anywhere. JSON has no NaN, but a CMS
+  // field that arrives as "", null or "12%" becomes one the moment it is coerced.
+  //
+  // The content build validates this too. This stays because a component is the
+  // last line and the validator is a separate process — and because the cost is
+  // one predicate over at most sixteen numbers.
+  const values = chart.values
+  if (values.length === 0 || !values.every((value) => Number.isFinite(value))) {
     return (
       <figure className="case-chart">
         <figcaption className="case-chart__title">{chart.title}</figcaption>

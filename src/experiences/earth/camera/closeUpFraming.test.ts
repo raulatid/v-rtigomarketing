@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CASE_PANEL_DOCK_MIN_HEIGHT,
   CASE_PANEL_DOCK_MIN_WIDTH,
   CLOSE_UP_OFFSET_FRACTION,
   closeUpScreenOffset,
@@ -33,6 +34,7 @@ describe('closeUpScreenOffset', () => {
       verticalFovDegrees: FOV,
       aspect: DESKTOP.width / DESKTOP.height,
       viewportWidthPx: DESKTOP.width,
+      viewportHeightPx: DESKTOP.height,
     })
     expect(offset).toBeCloseTo(0.32, 3)
   })
@@ -56,6 +58,7 @@ describe('closeUpScreenOffset', () => {
         verticalFovDegrees: FOV,
         aspect,
         viewportWidthPx: w,
+        viewportHeightPx: h,
       })
       const ratio =
         Math.tan((offsetAngleDeg(offset) * Math.PI) / 180) /
@@ -76,6 +79,7 @@ describe('closeUpScreenOffset', () => {
           verticalFovDegrees: FOV,
           aspect: width / 844,
           viewportWidthPx: width,
+          viewportHeightPx: 844,
         }),
       ).toBe(0)
     }
@@ -88,6 +92,46 @@ describe('closeUpScreenOffset', () => {
         verticalFovDegrees: FOV,
         aspect: CASE_PANEL_DOCK_MIN_WIDTH / 1024,
         viewportWidthPx: CASE_PANEL_DOCK_MIN_WIDTH,
+        viewportHeightPx: 1024,
+      }),
+    ).toBeGreaterThan(0)
+  })
+
+  it('centres the subject on a SHORT viewport too', () => {
+    // A phone in landscape is 852x393: wide enough to pass the width test, and
+    // less than half as tall as the panel's own content. It used to get the
+    // desktop dock — 324px wide and 820px tall on a 393px screen, unscrollable
+    // — and this offset, shifting the satellite aside to clear a column that
+    // did not fit on the screen at all. Both halves of that are now the sheet's.
+    for (const [w, h] of [
+      [852, 393],
+      [932, 430],
+      [1024, CASE_PANEL_DOCK_MIN_HEIGHT - 1],
+    ]) {
+      expect(
+        closeUpScreenOffset({
+          subjectDistance: SUBJECT_DISTANCE,
+          verticalFovDegrees: FOV,
+          aspect: w / h,
+          viewportWidthPx: w,
+          viewportHeightPx: h,
+        }),
+        `${w}x${h} is a bottom sheet, so there is nothing beside the subject to clear`,
+      ).toBe(0)
+    }
+  })
+
+  it('still applies the offset on a short-but-not-mobile window', () => {
+    // The height test must not catch a desktop browser dragged to a squat
+    // shape: at 1440x520 the dock is still a dock. This is the negative control
+    // for the rule above.
+    expect(
+      closeUpScreenOffset({
+        subjectDistance: SUBJECT_DISTANCE,
+        verticalFovDegrees: FOV,
+        aspect: 1440 / 520,
+        viewportWidthPx: 1440,
+        viewportHeightPx: 520,
       }),
     ).toBeGreaterThan(0)
   })
@@ -100,6 +144,7 @@ describe('closeUpScreenOffset', () => {
         verticalFovDegrees: FOV,
         aspect: 0,
         viewportWidthPx: 1600,
+        viewportHeightPx: 900,
       }),
     ).toBe(0)
     expect(
@@ -108,6 +153,7 @@ describe('closeUpScreenOffset', () => {
         verticalFovDegrees: FOV,
         aspect: 1.78,
         viewportWidthPx: 1600,
+        viewportHeightPx: 900,
       }),
     ).toBe(0)
   })

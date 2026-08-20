@@ -95,8 +95,8 @@ const SECTIONS: Array<{ title: string; controls: Control[] }> = [
     title: 'Space backdrop',
     controls: [
       { key: 'backdropStarCount', label: 'Star count', min: 400, max: 8000, step: 100, unit: '' },
-      // Lower bound stays far above the camera's zoomMax (22) — below that the
-      // shell stops enclosing the camera and stars appear over the Earth.
+      // Lower bound stays far above the camera's fixed orbit radius (14) — below
+      // that the shell stops enclosing the camera and stars appear over the Earth.
       { key: 'backdropRadius', label: 'Shell radius', min: 60, max: 400, step: 5, unit: 'u' },
       { key: 'backdropJitter', label: 'Depth jitter', min: 0, max: 0.5, step: 0.01, unit: '' },
       { key: 'backdropClusterStrength', label: 'Clumping', min: 0, max: 1, step: 0.05, unit: '' },

@@ -25,7 +25,8 @@ import { DragPanController } from '../src/experiences/murcia/navigation/DragPanC
 import { expandRect, containsPoint } from '../src/experiences/murcia/navigation/navigationBounds';
 import { resolveDistrict } from '../src/experiences/murcia/interaction/resolveDistrict';
 import { cityDistrictBindings } from '../src/experiences/murcia/scene/cityDistrictBindings';
-import { findDistrictContent } from '../src/experiences/murcia/content/districts';
+import { DISTRICT_CONTENT } from '../src/content/generated/districts';
+import { findDistrictContent } from '../src/content/lookup';
 
 const env = murciaConfig;
 const nav = env.navigation;
@@ -123,7 +124,7 @@ console.log('\n1. Yaw takes the shortest path and preserves accumulation');
   const h = makeHarness();
   h.rig.setYaw(350);
   h.controller.beginExternalControl();
-  h.flight.playTo({ x: env.initialFocus.x, z: env.initialFocus.z, yawDegrees: 10 });
+  h.flight.playTo({ x: env.initialFocus.x, z: env.initialFocus.z, yawDegrees: 10, distanceScale: null });
   h.run(3);
   check(
     'the rig lands on 370, keeping the accumulated turn',
@@ -134,7 +135,7 @@ console.log('\n1. Yaw takes the shortest path and preserves accumulation');
   const wound = makeHarness();
   wound.rig.setYaw(730);
   wound.controller.beginExternalControl();
-  wound.flight.playTo({ x: env.initialFocus.x, z: env.initialFocus.z, yawDegrees: 20 });
+  wound.flight.playTo({ x: env.initialFocus.x, z: env.initialFocus.z, yawDegrees: 20, distanceScale: null });
   wound.run(3);
   check(
     'a wound-up 730 deg start is not unwound',
@@ -213,7 +214,7 @@ console.log('\n3. A press cancels the flight and hands control back');
 {
   const h = makeHarness();
   h.controller.beginExternalControl();
-  h.flight.playTo({ x: -200, z: 300, yawDegrees: 60 });
+  h.flight.playTo({ x: -200, z: 300, yawDegrees: 60, distanceScale: null });
   h.run(0.3);
   const midX = h.rig.focus.x;
   const midYaw = h.rig.getYaw();
@@ -292,7 +293,7 @@ console.log('\n5. The flight stays inside the navigable area');
   const corner = { x: plate.minX - 400, z: plate.minZ - 400 };
   const h = makeHarness();
   h.controller.beginExternalControl();
-  h.flight.playTo({ x: corner.x, z: corner.z, yawDegrees: 40 });
+  h.flight.playTo({ x: corner.x, z: corner.z, yawDegrees: 40, distanceScale: null });
   h.run(3);
   check(
     'a destination outside the plate is clamped, not followed',
@@ -310,7 +311,7 @@ console.log('\n5. The flight stays inside the navigable area');
   const near = { x: plate.minX + 2, z: plate.minZ + 2 };
   const g = makeHarness(nav, { x: plate.maxX - 2, z: plate.maxZ - 2 });
   g.controller.beginExternalControl();
-  g.flight.playTo({ x: near.x, z: near.z, yawDegrees: null });
+  g.flight.playTo({ x: near.x, z: near.z, yawDegrees: null, distanceScale: null });
   g.run(3);
   check(
     'a corner destination is reached exactly, not eroded by clamping',
@@ -327,7 +328,7 @@ console.log('\n6. Identical outcome at 30, 60 and 120 fps');
   for (const fps of [30, 60, 120]) {
     const h = makeHarness();
     h.controller.beginExternalControl();
-    h.flight.playTo({ x: -200, z: 300, yawDegrees: 75 });
+    h.flight.playTo({ x: -200, z: 300, yawDegrees: 75, distanceScale: null });
     h.run(3, 1 / fps);
     results.push({ fps, x: h.rig.focus.x, z: h.rig.focus.z, yaw: h.rig.getYaw() });
   }
@@ -353,7 +354,7 @@ console.log('\n6. Identical outcome at 30, 60 and 120 fps');
   for (const fps of [30, 60, 120]) {
     const h = makeHarness();
     h.controller.beginExternalControl();
-    h.flight.playTo({ x: -200, z: 300, yawDegrees: 75 });
+    h.flight.playTo({ x: -200, z: 300, yawDegrees: 75, distanceScale: null });
     h.run(0.6, 1 / fps);
     mid.push(h.rig.focus.x);
   }
@@ -482,18 +483,21 @@ console.log('\n7. Framing puts the district in the unobstructed region');
     'yaw and focus unchanged — a detached rig did the measurement',
   );
 
-  // Framing has to be computed against the pose the user is actually looking
-  // through, which since the zoom band means rig.getEffectivePose() and NOT
-  // rig.getPose(). Fed the configured distance while the user is zoomed, the
-  // detached rig frames for a camera that does not exist and the district lands
-  // off its mark — silently, and only for someone who touched the wheel.
-  for (const scale of [nav.zoom.minDistanceScale, nav.zoom.maxDistanceScale]) {
-    const zoomed = makeHarness();
-    zoomed.rig.setZoomScale(scale);
+  // Framing has to be computed against the pose actually being looked through,
+  // which means rig.getEffectivePose() and NOT rig.getPose(). Fed the configured
+  // distance while the rig is dollied, the detached rig frames for a camera that
+  // does not exist and the district lands off its mark, silently.
+  //
+  // This used to guard the user zoom band. It guards the FLIGHT dolly now (`adr/009`),
+  // which is a sharper version of the same hazard rather than a weaker one: a flight
+  // changes distance while it is framing, so the two are no longer independent.
+  for (const scale of [murciaConfig.focusFlight.minDistanceScale, 1]) {
+    const dollied = makeHarness();
+    dollied.rig.setDistanceScale(scale);
 
     const ndc = { x: -0.26, y: 0.1 };
     const framed = computeFramedFocus({
-      pose: zoomed.rig.getEffectivePose(),
+      pose: dollied.rig.getEffectivePose(),
       aspect: ASPECT,
       yawDegrees: 0,
       groundPlaneHeight: nav.groundPlaneHeight,
@@ -503,23 +507,28 @@ console.log('\n7. Framing puts the district in the unobstructed region');
 
     const camera = new THREE.PerspectiveCamera();
     const rig = new CameraRig(camera, env.camera);
-    rig.setZoomScale(scale);
+    rig.setDistanceScale(scale);
     rig.setAspect(ASPECT);
     rig.setFocus(framed!.x, framed!.z);
     camera.updateMatrixWorld(true);
     const projected = new THREE.Vector3(target.x, nav.groundPlaneHeight, target.z).project(camera);
 
     check(
-      `framing holds at zoom scale ${scale}`,
+      `framing holds at distance scale ${scale}`,
       close(projected.x, ndc.x, 1e-4) && close(projected.y, ndc.y, 1e-4),
       `wanted (${ndc.x.toFixed(3)}, ${ndc.y.toFixed(3)}) got (${projected.x.toFixed(3)}, ${projected.y.toFixed(3)})`,
     );
 
-    // And the same computation fed the UNZOOMED pose must visibly miss. Without
+    // And the same computation fed the UNSCALED pose must visibly miss. Without
     // this the check above would still pass if getEffectivePose were quietly
     // replaced by getPose — it asserts that the distinction does work.
+    //
+    // Only where there IS a distinction. At scale 1 the two poses are the same
+    // object, so "the naive one misses" is not merely hard to satisfy, it is false:
+    // asserting it there would be asserting that an identity is not one.
+    if (scale === 1) continue;
     const naive = computeFramedFocus({
-      pose: zoomed.rig.getPose(),
+      pose: dollied.rig.getPose(),
       aspect: ASPECT,
       yawDegrees: 0,
       groundPlaneHeight: nav.groundPlaneHeight,
@@ -537,27 +546,49 @@ console.log('\n7. Framing puts the district in the unobstructed region');
   }
 }
 
-// --- 7b. Zoom survives the handover ------------------------------------------
+// --- 7b. Distance is not user state -----------------------------------------
 
-console.log('\n7b. A flight leaves the user\'s zoom where it found it');
+console.log('\n7b. Nothing outside a flight can move the distance');
 {
+  // This section used to assert the opposite: that a flight left the USER'S zoom
+  // where it found it, because the wheel and the pinch could put the rig anywhere
+  // in a band and `endExternalControl({adoptRigState})` had to re-adopt it.
+  //
+  // That is false by construction now (`adr/009`). There is no zoom, the controller
+  // holds no distance target at all, and a flight is the only writer. The property
+  // worth guarding inverted with it: not "the controller's distance survives a
+  // flight" but "the controller never touches distance in the first place". A
+  // regression that re-added a distance axis to the drag would fail here.
   const h = makeHarness();
-  h.rig.setZoomScale(0.8);
-  h.controller.endExternalControl({ adoptRigState: true });
-  h.controller.update(1 / 60);
+  h.rig.setDistanceScale(0.8);
 
-  h.controller.beginExternalControl();
-  // A flight writes focus and yaw only; it has no business touching distance.
-  h.rig.setFocus(-300, 200);
-  h.rig.setYaw(35);
-  h.controller.endExternalControl({ adoptRigState: true });
-  for (let i = 0; i < 120; i += 1) h.controller.update(1 / 60);
+  // A full drag: press, sweep, release, and long enough afterwards for every
+  // smoothing and inertia term to run itself out.
+  const cx = WIDTH / 2;
+  const cy = HEIGHT / 2;
+  h.fire('pointerdown', down(cx, cy));
+  h.fire('pointermove', { pointerId: 1, clientX: cx + 180, clientY: cy - 120, timeStamp: 16 });
+  h.fire('pointerup', { pointerId: 1, button: 0, clientX: cx + 180, clientY: cy - 120, timeStamp: 32 });
+  h.run(2);
 
   check(
-    'the zoom is unchanged across a flight and the frames after it',
-    close(h.rig.getZoomScale(), 0.8, 1e-9),
-    `scale ${h.rig.getZoomScale().toFixed(6)} — a stale zoom target here would snap the distance ` +
-      'on the first frame back',
+    'a drag leaves the distance scale exactly where it was',
+    close(h.rig.getDistanceScale(), 0.8, 1e-12),
+    `scale ${h.rig.getDistanceScale().toFixed(9)} — the drag has no distance axis to leak`,
+  );
+
+  // And the handover itself, which is where the old adoption lived.
+  h.controller.beginExternalControl();
+  h.rig.setFocus(-300, 200);
+  h.rig.setYaw(35);
+  h.rig.setDistanceScale(0.7);
+  h.controller.endExternalControl({ adoptRigState: true });
+  h.run(2);
+
+  check(
+    'and the handover back does not pull it toward a stale target',
+    close(h.rig.getDistanceScale(), 0.7, 1e-12),
+    `scale ${h.rig.getDistanceScale().toFixed(9)} — the flight's distance is left alone`,
   );
   check(
     'and the controller is not still settling toward a stale target',
@@ -566,17 +597,136 @@ console.log('\n7b. A flight leaves the user\'s zoom where it found it');
   );
 }
 
+// --- 7c. The focus dolly ------------------------------------------------------
+
+console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
+{
+  // A district flight is the ONLY thing left that changes camera distance
+  // (`adr/009`), so everything the retired zoom band used to guard about distance
+  // now has to be guarded here.
+  const target = { x: env.initialFocus.x + 200, z: env.initialFocus.z - 150 };
+  const floor = murciaConfig.focusFlight.minDistanceScale;
+
+  {
+    const h = makeHarness();
+    const before = h.boundsCalls;
+    const seen: number[] = [];
+    h.controller.beginExternalControl();
+    h.flight.playTo({ ...target, yawDegrees: null, distanceScale: floor });
+    for (let i = 0; i < 200 && h.flight.isPlaying; i += 1) {
+      h.frame(1 / 60);
+      seen.push(h.rig.getDistanceScale());
+    }
+
+    let monotone = true;
+    for (let i = 1; i < seen.length; i += 1) {
+      if (seen[i]! > seen[i - 1]! + 1e-9) monotone = false;
+    }
+    check(
+      'the dolly moves inward monotonically, never overshooting outward',
+      monotone,
+      `${seen.length} frames from 1 to ${floor}`,
+    );
+    check(
+      'and lands exactly on the configured scale',
+      close(h.rig.getDistanceScale(), floor, 1e-9),
+      `scale ${h.rig.getDistanceScale().toFixed(6)} against ${floor}`,
+    );
+    check(
+      'never below the floor at any point of the flight',
+      seen.every((v) => v >= floor - 1e-9),
+      `min ${Math.min(...seen).toFixed(6)} — below ~60 units the footprint inverts`,
+    );
+    check(
+      'and the bounds are re-resolved as it goes',
+      h.boundsCalls - before >= seen.length,
+      `${h.boundsCalls - before} resolveBounds calls over ${seen.length} frames — ` +
+        'distance sets the footprint as directly as azimuth does',
+    );
+  }
+
+  {
+    // The ordering that the yaw path already gets right, asserted for distance:
+    // the bounds a frame clamps its focus against must be the bounds for the pose
+    // THAT FRAME applied, never the previous one. Writing distance after
+    // resolveBounds would be invisible in a landing test and wrong every frame.
+    let scaleAtResolve = -1;
+    const stub = createStubElement({ left: 0, top: 0, width: WIDTH, height: HEIGHT });
+    const { camera, rig } = makeRig(env, ASPECT, env.initialFocus);
+    const controller = new DragPanController(stub.element, camera, rig, nav, bounds);
+    const flight = new CameraFlight(rig, {
+      resolveBounds: () => {
+        scaleAtResolve = rig.getDistanceScale();
+        return bounds;
+      },
+    });
+    controller.beginExternalControl();
+    flight.playTo({ ...target, yawDegrees: 40, distanceScale: floor });
+    flight.update(1 / 60);
+    check(
+      'distance is written BEFORE the bounds are resolved',
+      scaleAtResolve < 1 - 1e-9 && scaleAtResolve >= floor - 1e-9,
+      `resolveBounds saw scale ${scaleAtResolve.toFixed(6)}, not the 1 it started from`,
+    );
+  }
+
+  {
+    // Closing has to bring the distance back, because nothing else can: with no
+    // zoom control anywhere, a viewer left dollied in is stranded. Focus and yaw
+    // still stay where they were, which is the asymmetry `close()` documents.
+    const h = makeHarness();
+    h.controller.beginExternalControl();
+    h.flight.playTo({ ...target, yawDegrees: 40, distanceScale: floor });
+    h.run(4);
+    const focusX = h.rig.focus.x;
+    const focusZ = h.rig.focus.z;
+    const yaw = h.rig.getYaw();
+
+    h.flight.playTo({ x: focusX, z: focusZ, yawDegrees: null, distanceScale: 1 });
+    h.run(4);
+
+    check(
+      'closing returns the distance to exactly rest',
+      close(h.rig.getDistanceScale(), 1, 1e-9),
+      `scale ${h.rig.getDistanceScale().toFixed(9)}`,
+    );
+    check(
+      'and leaves the focus and yaw exactly where the viewer left them',
+      close(h.rig.focus.x, focusX, 1e-6) &&
+        close(h.rig.focus.z, focusZ, 1e-6) &&
+        close(h.rig.getYaw(), yaw, 1e-6),
+      'returning the view would undo the viewer navigation; returning the distance does not',
+    );
+  }
+
+  {
+    // Frame-rate independence, extended to the axis that did not exist before.
+    const landed = [30, 60, 120].map((fps) => {
+      const h = makeHarness();
+      h.controller.beginExternalControl();
+      h.flight.playTo({ ...target, yawDegrees: 40, distanceScale: floor });
+      h.run(4, 1 / fps);
+      return h.rig.getDistanceScale();
+    });
+    check(
+      'the same distance is reached at 30, 60 and 120 fps',
+      close(landed[0]!, landed[1]!, 1e-9) && close(landed[1]!, landed[2]!, 1e-9),
+      landed.map((v) => v.toFixed(9)).join(' / '),
+    );
+  }
+}
+
 // --- 8. Resolver -------------------------------------------------------------
 
 console.log('\n8. District resolution reports how it found things');
 {
   const binding = cityDistrictBindings[0]!;
-  check('every binding has content', findDistrictContent(binding.contentId) !== null, binding.contentId);
+  check('every binding has content', findDistrictContent(DISTRICT_CONTENT, binding.contentId) !== null, binding.contentId);
 
   // districts.ts is meant to be edited by whoever writes the copy, so a bad edit
   // there is the most likely future breakage in this feature. These are cheap.
   for (const b of cityDistrictBindings) {
-    const content = findDistrictContent(b.contentId);
+    const content = findDistrictContent(DISTRICT_CONTENT, b.contentId);
     if (!content) continue;
     check(
       `${b.contentId}: summary and intro are both present`,
@@ -748,6 +898,34 @@ console.log('\n9. Material cloning preserves identity and restores originals');
     'an authored emissive survives cloning and must be scaled, not replaced',
     authoredClone.emissive.getHex() === 0xff8800 && authoredClone.emissiveIntensity === 2,
     'future districtPart = "emission" strips keep their look',
+  );
+
+  // The trim sheet is what §9's whole "clone by identity" design was written
+  // for, and it is the first time a district's material will carry a texture.
+  // Two ways that can go wrong, both of which look like a lighting problem
+  // rather than a material one.
+  const textured = new THREE.MeshStandardMaterial({ name: 'MAT_CITY_BUILDINGS' });
+  const trim = new THREE.Texture();
+  trim.name = 'city_trim';
+  textured.map = trim;
+  const texturedClone = textured.clone() as THREE.MeshStandardMaterial;
+  check(
+    'a highlight clone keeps the trim sheet',
+    texturedClone.map === trim,
+    'clone() copies the texture BY REFERENCE — no per-district texture upload',
+  );
+
+  // three multiplies emissive into the lit result rather than replacing it, so
+  // tinting a black emissive cannot blank the base colour. Asserted because the
+  // alternative implementation — writing `color` instead of `emissive` — would
+  // look identical on the untextured city that ships today and would erase the
+  // trim sheet the moment it lands.
+  texturedClone.emissive.setHex(0x4fb0ff);
+  texturedClone.emissiveIntensity = 0.55;
+  check(
+    'tinting a district does not overwrite its base colour',
+    texturedClone.map === trim && texturedClone.color.getHex() === textured.color.getHex(),
+    'highlight writes emissive only; map and color are untouched',
   );
 }
 

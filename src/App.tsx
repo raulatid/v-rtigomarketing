@@ -4,18 +4,25 @@ import { createSequenceState } from './experiences/earth/config/sequenceState'
 import { LazyScene } from './components/LazyScene'
 import { CasePanel } from './components/CasePanel'
 import { AuditSection } from './components/AuditSection'
+import { ContactSection } from './components/ContactSection'
+import { LegalPanel } from './components/LegalPanel'
+import { SiteFooter } from './components/SiteFooter'
+import type { LegalDocId } from './content/site'
 import { InteractionHandle } from './experiences/earth/interaction/InteractionLayer'
 import { DebugOverlay } from './components/DebugOverlay'
 import { CustomCursor } from './components/CustomCursor'
-import { ReturnToEarthControl } from './components/ReturnToEarthControl'
+import { NavigationRail } from './components/NavigationRail'
 import { OrbitSystem } from './experiences/earth/orbit/createOrbitSystem'
-import { SatelliteDef } from './experiences/earth/orbit/orbitConfig'
+import type { SatelliteDef } from './experiences/earth/orbit/orbitConfig'
+import { orbitAssignments } from './experiences/earth/orbit/orbitAssignments'
 import { useMasterTimeline, CornerLogoHandle } from './experiences/earth/timeline/useMasterTimeline'
 import { useIntroDraw } from './experiences/earth/timeline/useIntroDraw'
 import type { CornerLogo } from './corner-logo/createCornerLogo'
 import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 import { useExperienceTransition } from './app/useExperienceTransition'
+import { useSceneNavigation } from './app/navigation/useSceneNavigation'
+import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
 import { loadProgress } from './loading/progress'
 
@@ -96,26 +103,49 @@ export default function App() {
   const [murciaReady, setMurciaReady] = useState(false)
   const handleMurciaReady = useCallback(() => setMurciaReady(true), [])
 
+  // Declared before the transition so `onSettled` can reach it, and assigned
+  // after — the two are mutually recursive by nature: a commit starts a warp, and
+  // the warp ending is what releases the input lock.
+  const navigationRef = useRef<HTMLDivElement>(null)
+  const settleNavigationRef = useRef<() => void>(() => {})
+
   const { transitionTo, transitioning } = useExperienceTransition({
     state,
     onSwap: setActiveExperience,
+    // The REAL end of the warp, not the `transitioning` flag, which lands a
+    // render later — long enough for a trackpad momentum tail to be accepted.
+    onSettled: () => settleNavigationRef.current(),
   })
 
-  // A destination marker on the globe was clicked. The marker layer reports an
-  // id and nothing more, so the mapping from "a place on Earth" to "an
-  // experience" lives here, at the only level that knows about both.
+  // Mirrors the audit section's open state so the global Escape handler can
+  // stand down while the section owns that key, and so the destination guard
+  // below can see it. Opening the audit also clears any focused satellite — its
+  // close-up composition assumes the full viewport, and two overlapping panels
+  // would compete for the remaining strip.
   //
-  // Guarded on murciaReady: the city is prefetched during the intro (ADR 004),
-  // so it is normally warm long before the marker is reachable — but a slow
-  // connection must not drop the viewer into an empty world.
-  const handleSelectDestination = useCallback(
-    (id: string) => {
-      if (id !== 'murcia') return
-      if (!murciaReady || transitioning) return
-      transitionTo('murcia')
-    },
-    [murciaReady, transitioning, transitionTo],
-  )
+  // Read by the navigation suppression predicate below: the globe offers no way
+  // out while this panel is open.
+  const [auditOpen, setAuditOpen] = useState(false)
+  const handleAuditOpenChange = useCallback((open: boolean) => {
+    setAuditOpen(open)
+    if (open) {
+      interactionRef.current?.deselect()
+      setSelectedCase(null)
+    }
+  }, [])
+
+  // The contact dialog and the legal panels, mirrored here for the same two
+  // reasons as auditOpen: the global Escape handler stands down while any of
+  // them owns the key, and the navigation predicate below refuses a warp
+  // while something has the viewer's attention.
+  const [contactOpen, setContactOpen] = useState(false)
+  const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null)
+
+  // A legal panel left open across a warp would be a Murcia overlay nobody
+  // asked for; the contact dialog closes itself through its active prop.
+  useEffect(() => {
+    if (!earthActive) setLegalDoc(null)
+  }, [earthActive])
 
   const { phase, timeline } = useMasterTimeline({
     intro,
@@ -124,7 +154,79 @@ export default function App() {
     cornerLogo,
     replayKey,
     drawComplete,
+    // The assignment table, not the content: how many orbits the scene reveals
+    // is a composition decision, and every entry is guaranteed to resolve (an
+    // unresolvable one fails the build — see resolveOrbitCases). Importing the
+    // table here costs a few dozen bytes; importing the content would cost the
+    // entry chunk every case study's prose.
+    satelliteCount: orbitAssignments.length,
   })
+
+  // Gesture navigation. The gesture is the way in AND the way out now: the Spain
+  // marker no longer navigates and the return button is gone (`adr/009`).
+  //
+  // `getContext` is called at every event and again at the commit, never sampled
+  // once when a gesture begins: a district can open between the last event of a
+  // gesture and the frame that commits it.
+  //
+  // The two that MUST be live are read live — `state.phase` off the mutable sequence
+  // state, and `hasFocusedDistrict` straight off the Murcia instance. The rest are
+  // React state and therefore a render behind, which is tolerable only because none
+  // of them is the input lock: that is the navigation machine's own `locked` phase,
+  // entered synchronously on the committing event. `!transitioning` here is a second
+  // guard, not the one doing the work.
+  const {
+    settle: settleNavigation,
+    reset: resetNavigation,
+    contextChanged: navigationContextChanged,
+  } = useSceneNavigation({
+    railRef: navigationRef,
+    getContext: () => ({
+      current: activeExperience,
+      canNavigate:
+        // Never drop the viewer into a world that has not finished building.
+        murciaReady &&
+        !transitioning &&
+        // The intro owns the camera until `site`; a rail filling over it would
+        // promise something that cannot happen yet.
+        atOrAfter(state.phase, 'site') &&
+        // Something already has the viewer's attention. Close it first — a focus
+        // flight and a warp must never run at once, and this is what makes that
+        // combination unreachable rather than merely guarded.
+        !auditOpen &&
+        !contactOpen &&
+        !legalDoc &&
+        !selectedCase &&
+        !murciaRef.current?.hasFocusedDistrict,
+    }),
+    onCommit: (intent) => transitionTo(intent === 'enter-murcia' ? 'murcia' : 'earth'),
+  })
+  settleNavigationRef.current = settleNavigation
+
+  // Seeking moves the intro phase, backwards included, and a gesture accumulated
+  // against the old phase would survive into one where navigation is refused.
+  useEffect(() => {
+    resetNavigation()
+  }, [phase, resetNavigation])
+
+  // The rail derives its visual state from `canNavigate`, and the navigation
+  // input's frame loop only runs mid-gesture — so every React-visible input of
+  // that context must NOTIFY on change, or an idle rail keeps advertising a
+  // navigation the context refuses (it used to sit fully visible behind every
+  // open panel). The imperative input — a Murcia district engaging — notifies
+  // through onMurciaAttentionChange below; the intro phase is covered by the
+  // reset above.
+  useEffect(() => {
+    navigationContextChanged()
+  }, [
+    auditOpen,
+    contactOpen,
+    legalDoc,
+    selectedCase,
+    murciaReady,
+    transitioning,
+    navigationContextChanged,
+  ])
 
   const handleReplay = useCallback(() => {
     logoRef.current?.reset()
@@ -184,19 +286,6 @@ export default function App() {
 
   const handleDeselectCase = useCallback(() => setSelectedCase(null), [])
 
-  // Mirrors the audit section's open state so the global Escape handler can
-  // stand down while the section owns that key. Opening the audit also clears
-  // any focused satellite — its close-up composition assumes the full viewport,
-  // and two overlapping panels would compete for the remaining strip.
-  const [auditOpen, setAuditOpen] = useState(false)
-  const handleAuditOpenChange = useCallback((open: boolean) => {
-    setAuditOpen(open)
-    if (open) {
-      interactionRef.current?.deselect()
-      setSelectedCase(null)
-    }
-  }, [])
-
   // The ✕ goes through the interaction controller rather than just clearing
   // state, so the camera returns to overview and the satellite resumes its
   // orbit — closing the panel is a deselect, not a hide.
@@ -216,11 +305,12 @@ export default function App() {
       // Skipping an intro the viewer has already finished would also be
       // meaningless there.
       if (!earthActive) return
-      if (e.key === 'Escape' && !selectedCase && !auditOpen) handleSkip()
+      if (e.key === 'Escape' && !selectedCase && !auditOpen && !contactOpen && !legalDoc)
+        handleSkip()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleSkip, selectedCase, auditOpen, earthActive])
+  }, [handleSkip, selectedCase, auditOpen, contactOpen, legalDoc, earthActive])
 
   return (
     <div className="app">
@@ -238,7 +328,7 @@ export default function App() {
         onDeselectCase={handleDeselectCase}
         onLogoLoadFailed={handleLoadFailed}
         onMurciaReady={handleMurciaReady}
-        onSelectDestination={handleSelectDestination}
+        onMurciaAttentionChange={navigationContextChanged}
         onContextLost={handleContextLost}
       />
 
@@ -256,7 +346,23 @@ export default function App() {
       <AuditSection
         onOpenChange={handleAuditOpenChange}
         ready={phase === 'site' && earthActive}
+        active={earthActive}
       />
+
+      {/* The quiet sibling of the audit CTA and the site's floor line. Both
+          gate on the same expression as the audit trigger — chrome exists only
+          once the intro has landed, and only over Earth (DECISIONS §26.16). */}
+      <ContactSection
+        ready={phase === 'site' && earthActive}
+        active={earthActive}
+        suppressed={auditOpen}
+        onOpenChange={setContactOpen}
+        onOpenLegal={setLegalDoc}
+      />
+
+      {phase === 'site' && earthActive && <SiteFooter onOpenLegal={setLegalDoc} />}
+
+      <LegalPanel doc={legalDoc} onClose={() => setLegalDoc(null)} />
 
       {/* Mounted for both experiences, and never gated on one: unmounting it
           strips the `cursor: none` rule it installs, which hands the viewer the
@@ -265,21 +371,19 @@ export default function App() {
           manager whose arbitrated result arrives here through cursorSignal. */}
       <CustomCursor />
 
-      {/* The way INTO Murcia is the marker on Spain, not a button — see
-          handleSelectDestination. Nothing is rendered here for it.
+      {/* BOTH directions are this one control now (`adr/009`). The Spain marker
+          is still on the globe and still the warp's aim target, but it no longer
+          navigates; the return button is deleted.
 
-          A click, never scroll (DECISIONS §15): touch has no wheel,
-          single-finger drag is committed to navigation, and an accidental
-          scroll must never warp the viewer to another world. */}
+          It reverses DECISIONS §15, which ruled scroll out because an accidental
+          one would warp the viewer to another world. That objection is answered by
+          the accumulator rather than dismissed: a single event cannot navigate, and
+          an abandoned gesture decays back to nothing.
 
-      {/* The way OUT is a placeholder, deliberately isolated so it can be
-          replaced without touching anything else. See ReturnToEarthControl. */}
-      {!earthActive && (
-        <ReturnToEarthControl
-          onActivate={() => transitionTo('earth')}
-          busy={transitioning}
-        />
-      )}
+          Mounted for both experiences and never gated on one. Unmounting it would
+          tear down the wheel listener with it, and that listener is the only thing
+          stopping the page scrolling behind the canvas. */}
+      <NavigationRail ref={navigationRef} label="Navegar entre la Tierra y Murcia" />
 
       {/* The context is gone and nothing will draw again. Spanish, like every
           other visitor-facing string (DECISIONS §11), and it offers the only

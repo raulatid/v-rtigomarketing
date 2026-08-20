@@ -11,8 +11,8 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 // frame during the intro, and the focus rig owns the pose afterwards — a third
 // pose writer would fight whichever one is active. The view offset lives one
 // level below the pose, so the subject re-centres inside the right-hand strip
-// while the current owner keeps every behaviour (drag orbit, wheel zoom,
-// satellite fly-in), and closing the panel restores the exact previous framing
+// while the current owner keeps every behaviour (drag orbit, satellite fly-in),
+// and closing the panel restores the exact previous framing
 // by construction — there is no saved pose to drift.
 
 // Mirrors the CSS width of .audit-curtain: clamp(480px, 44vw, 720px).

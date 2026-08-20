@@ -1,4 +1,4 @@
-import type { DistrictContent } from '../content/districts';
+import type { DistrictContent } from '../../../content/types';
 import type { ScreenRect } from '../camera/cameraFraming';
 
 /**

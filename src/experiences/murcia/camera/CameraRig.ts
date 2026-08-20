@@ -3,29 +3,35 @@ import type { CameraPoseConfig } from '../config/environmentConfig';
 import { applyPoseToCamera, scalePoseDistance } from './applyPoseToCamera';
 
 /**
- * Camera rig with a fixed elevation, a free horizontal yaw and a bounded zoom.
+ * Camera rig with a fixed elevation, a free horizontal yaw and a flight-driven
+ * distance scale.
  *
  * Owns a `focus` point on the XZ plane. The camera sits at a slant distance
  * from that focus and always looks at it. Elevation and FOV never change during
  * navigation (docs/plans/002 Phase 3 and 5) — the navigable degrees of freedom
  * are where the focus is, which way the rig faces, and how far back it sits.
  *
- * Yaw and zoom are both kept separate from the pose, for the same reason. The
- * pose is environment configuration and gets re-resolved on every resize *and*
- * rewritten on every frame of a warp; both of those are user state and must
- * survive that, so `setPose` deliberately preserves them. Folding the zoom into
- * a pose at the call site instead would mean two writers on `distance` and the
- * warp would silently discard it.
+ * Yaw and the distance scale are both kept separate from the pose, for the same
+ * reason. The pose is environment configuration and gets re-resolved on every resize
+ * *and* rewritten on every frame of a warp; both of the others must survive that, so
+ * `setPose` deliberately preserves them. Folding the scale into a pose at the call
+ * site instead would mean two writers on `distance` and the warp would silently
+ * discard it.
  *
- * Distance being user state has one consequence worth stating: it is a *ground
- * footprint* input, so anything that clamps against the footprint has to be
- * recomputed when it changes, exactly as it is for yaw. `DragPanController`
- * fires `onZoomChanged` for that. Elevation staying fixed is now the last thing
- * holding the footprint analysis together.
+ * THE SCALE IS NO LONGER USER STATE, and that is the whole of what changed with
+ * `adr/009`. It was the wheel-and-pinch zoom band; there is no zoom any more. The
+ * mechanism survived because a controlled focus flight needs exactly it — a way to
+ * move distance that composes with a yaw the user still owns — so it changed owner
+ * rather than dying, from `DragPanController` to `CameraFlight`.
  *
- * The rig does not clamp. Callers clamp the proposed focus before committing it
- * so that clamping never produces a visible snap — and callers clamp the zoom
- * scale to the configured band before setting it, for the same reason.
+ * Distance remains a *ground footprint* input, so anything clamping against the
+ * footprint has to be recomputed when it changes, exactly as for yaw. That is now the
+ * flight's `resolveBounds` rather than a drag callback. Elevation staying fixed is
+ * still the last thing holding the footprint analysis together.
+ *
+ * The rig does not clamp. Callers clamp the proposed focus before committing it so
+ * that clamping never produces a visible snap — and the flight clamps its distance
+ * scale to the configured floor before setting it, for the same reason.
  */
 export class CameraRig {
   readonly focus = new THREE.Vector3();
@@ -37,8 +43,8 @@ export class CameraRig {
   private pose: CameraPoseConfig;
   /** User-driven yaw, degrees, added to the pose azimuth. Unbounded. */
   private yawDegrees = 0;
-  /** User-driven zoom, multiplying the pose distance. Bounded by the caller. */
-  private zoomScale = 1;
+  /** Flight-driven distance scale, multiplying the pose distance. Bounded by the caller. */
+  private distanceScale = 1;
 
   constructor(camera: THREE.PerspectiveCamera, pose: CameraPoseConfig) {
     this.camera = camera;
@@ -47,28 +53,28 @@ export class CameraRig {
   }
 
   /**
-   * The *configured* pose, without the user's zoom.
+   * The *configured* pose, without any flight dolly folded in.
    *
    * Almost always the wrong one to read. Anything that re-derives a camera —
    * `cameraFraming.computeFramedFocus` builds a detached rig, the debug overlay
    * reports the distance, the check harnesses place a stand-in camera — needs
-   * `getEffectivePose()`, or it works against a camera the user is not looking
-   * through and misses by the zoom ratio.
+   * `getEffectivePose()`, or it works against a camera nobody is looking through
+   * and misses by the dolly ratio.
    */
   getPose(): Readonly<CameraPoseConfig> {
     return this.pose;
   }
 
   /**
-   * The pose actually in effect: the configured pose with the user's zoom
+   * The pose actually in effect: the configured pose with the flight's dolly
    * folded into its distance.
    *
-   * A fresh object whenever the zoom is not 1, because `getPose()` hands back
+   * A fresh object whenever the scale is not 1, because `getPose()` hands back
    * `murciaConfig.camera` by identity and a caller mutating what it got would
    * corrupt the config for the rest of the session.
    */
   getEffectivePose(): CameraPoseConfig {
-    return scalePoseDistance(this.pose, this.zoomScale);
+    return scalePoseDistance(this.pose, this.distanceScale);
   }
 
   /** Camera offset from the focus. Read-only; mutate via setPose or setYaw. */
@@ -113,27 +119,32 @@ export class CameraRig {
     this.applyPose();
   }
 
-  /** User zoom as a multiple of the pose distance. Clamp before calling. */
-  getZoomScale(): number {
-    return this.zoomScale;
+  /** Flight dolly as a multiple of the pose distance. Clamp before calling. */
+  getDistanceScale(): number {
+    return this.distanceScale;
   }
 
   /**
-   * Sets the user zoom. Multiplies the pose distance rather than replacing it,
-   * so it composes with a pose that is itself being rewritten — the warp moves
-   * `distance` between 75 and 180 while a zoomed-in user is still zoomed in.
+   * Sets the flight dolly. Multiplies the pose distance rather than replacing it, so
+   * it composes with a pose that is itself being rewritten — the warp moves `distance`
+   * between 75 and 180, and a district flight that is part-way in stays part-way in.
    *
-   * Not clamped here: the band lives in NavigationConfig.zoom, which the rig
-   * has no reason to know about, and clamping in two places is how the two
-   * disagree. `DragPanController` clamps every proposal before it arrives.
+   * Not clamped here: the floor lives in `FocusFlightConfig`, which the rig has no
+   * reason to know about, and clamping in two places is how the two disagree.
+   * `CameraFlight` clamps every proposal before it arrives.
+   *
+   * ONE WRITER, and it is now a narrow one. This used to be driven by the wheel and
+   * the pinch, which meant a user input could change a ground-footprint term at any
+   * moment. Only a flight moves it now, only inward, and only between a district
+   * being selected and closed.
    */
-  setZoomScale(scale: number): void {
-    if (scale === this.zoomScale) return;
-    this.zoomScale = scale;
+  setDistanceScale(scale: number): void {
+    if (scale === this.distanceScale) return;
+    this.distanceScale = scale;
     this.applyPose();
   }
 
-  /** Replaces the configured pose. The user's yaw and zoom are preserved. */
+  /** Replaces the configured pose. The yaw and the flight dolly are preserved. */
   setPose(pose: CameraPoseConfig): void {
     this.pose = pose;
     this.applyPose();
@@ -150,7 +161,7 @@ export class CameraRig {
   }
 
   /**
-   * Recomputes the offset from the pose angles plus yaw at the zoomed distance,
+   * Recomputes the offset from the pose angles plus yaw at the scaled distance,
    * and re-places the camera.
    */
   private applyPose(): void {

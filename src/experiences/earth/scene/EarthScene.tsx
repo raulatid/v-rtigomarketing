@@ -10,20 +10,25 @@ import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { earthVisible } from '../config/sceneVisibility'
 import { loadProgress } from '../../../loading/progress'
-import { GeoMarkersLayer } from '../orbit/GeoMarkersLayer'
-import type { GeoMarkers } from '../orbit/createGeoMarkers'
-import { GEO_MARKERS } from '../orbit/orbitConfig'
+import {
+  DESTINATION,
+  destinationLocalPosition,
+  destinationWorldPosition,
+  type DestinationResolver,
+} from '../navigation/destination'
 import { spinToFace } from '../orbit/geoUtils'
-import type { CursorManager } from '../../../interaction/cursorManager'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 interface Props {
   config: IntroConfig
   state: SequenceState
   active: boolean
-  onSelectDestination?: (id: string) => void
-  geoMarkersRef?: RefObject<GeoMarkers | null>
-  cursorRef: RefObject<CursorManager | null>
+  /**
+   * Published for CameraController: resolves the navigation destination's
+   * world position from the spin group this scene owns. A function, not an
+   * object in the graph — the marker system that used to stand here is gone.
+   */
+  destinationRef?: RefObject<DestinationResolver | null>
 }
 
 // TextureLoader goes through ImageLoader, which decodes an <img> and reports no
@@ -68,9 +73,7 @@ export function EarthScene({
   config,
   state,
   active,
-  onSelectDestination,
-  geoMarkersRef,
-  cursorRef,
+  destinationRef,
 }: Props) {
   const [dayTex, nightTex, specTex] = useLoader(
     THREE.TextureLoader,
@@ -154,20 +157,36 @@ export function EarthScene({
   //
   // Without this it is a coincidence which hemisphere is presented, and for
   // Murcia the coincidence was bad: at rotation 0 it sits within 1° of the
-  // limb (facing 0.016 against a 0.15 visibility threshold), so the one marker
-  // that is a navigation affordance started life invisible — and the spin
-  // carries it further away, not closer.
+  // limb, and the spin carries it further away, not closer. The warp aims here
+  // (destinationRef below), so the descent reads best when the globe rests
+  // near this pose.
   //
   // The surface still rotates from here, so the destination does drift off
   // over the following ~40s. That is recoverable by dragging the globe, which
   // the focus rig already supports, but it is a product question rather than
   // a settled one: see docs/integration/00-migration-log.md.
   useEffect(() => {
-    const destination = GEO_MARKERS.find((m) => m.kind === 'destination')
-    if (destination && spinRef.current) {
-      spinRef.current.rotation.y = spinToFace(destination.lat, destination.lng)
+    if (spinRef.current) {
+      spinRef.current.rotation.y = spinToFace(DESTINATION.lat, DESTINATION.lng)
     }
   }, [])
+
+  // Publish the destination resolver. This scene owns the spin group the
+  // destination turns with, so it is the one place that can answer "where is
+  // the city right now" — CameraController consumes the answer without ever
+  // seeing the scene graph. Before the group mounts (or after unmount) the
+  // resolver answers from an unrotated Earth rather than returning nothing:
+  // the warp would rather aim at the resting pose than at nowhere.
+  useEffect(() => {
+    if (!destinationRef) return
+    destinationRef.current = (target) =>
+      spinRef.current
+        ? destinationWorldPosition(spinRef.current, EARTH_CONFIG.radius, target)
+        : destinationLocalPosition(EARTH_CONFIG.radius, target)
+    return () => {
+      destinationRef.current = null
+    }
+  }, [destinationRef])
 
   const sunDirection = useMemo(() => {
     const { sunAzimuth, sunElevation } = EARTH_CONFIG
@@ -207,9 +226,6 @@ export function EarthScene({
   //
   // Only the spin group rotates, never the outer group: the orbit system sits
   // alongside at scene level and must not inherit surface rotation.
-  //
-  // Geo markers DO belong inside the spin group — they label geography, so they
-  // have to travel with the surface.
   useFrame((_, delta) => {
     // Frozen, not reset, while another experience shows: resuming the spin from
     // where the viewer left it is what makes the return seamless.
@@ -223,8 +239,8 @@ export function EarthScene({
       // clamp its own delta, so returning from a backgrounded tab delivers the
       // entire suspended interval in a single frame: at 0.035 rad/s, a two
       // minute absence is most of a full turn, applied instantly. That can spin
-      // the destination marker straight back out of the view the intro
-      // deliberately spun it into. See `graphics/frameDelta.ts` for the policy.
+      // the destination straight back out of the view the intro deliberately
+      // spun it into. See `graphics/frameDelta.ts` for the policy.
       spinRef.current.rotation.y += clampFrameDelta(delta) * EARTH_CONFIG.rotationSpeed
     }
   })
@@ -240,13 +256,6 @@ export function EarthScene({
             uniforms={earthUniforms}
           />
         </mesh>
-        <GeoMarkersLayer
-          state={state}
-          active={active}
-          onSelectDestination={onSelectDestination}
-          handleRef={geoMarkersRef}
-          cursorRef={cursorRef}
-        />
       </group>
       <mesh scale={[1.04, 1.04, 1.04]}>
         <sphereGeometry args={[EARTH_CONFIG.radius, 64, 64]} />

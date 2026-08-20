@@ -23,6 +23,51 @@ function collect(page: Page) {
   return errors
 }
 
+/**
+ * Reveal the case panel and wait for it to arrive.
+ *
+ * The wait is not padding. The sheet enters on a 220ms `translateY` and changes
+ * stop on a 320ms `height`, so a geometry read taken in the same tick as the
+ * class describes a panel still below the fold — which is how the first version
+ * of the scroll test below measured its header at y=884 on a 915px viewport and
+ * then compared it against y=548 once the transition had finished.
+ *
+ * The tests that use this measure LAYOUT, not motion, so they call
+ * `asLayoutTest` first: the stylesheet collapses every one of those transitions
+ * to 0.01ms under reduced motion, which makes the reads deterministic instead
+ * of racing a clock — and exercises that reduced-motion rule while it is at it.
+ */
+async function showCasePanel(page: Page): Promise<void> {
+  await page.locator('.case-panel').evaluate((el) => el.classList.add('is-visible'))
+  await settle(page)
+}
+
+/** Poll until the panel's top edge stops moving, so a read describes it at rest. */
+async function settle(page: Page): Promise<void> {
+  const top = () =>
+    page.locator('.case-panel').evaluate((el) => Math.round(el.getBoundingClientRect().top))
+  let previous = Number.NaN
+  await expect
+    .poll(async () => {
+      const current = await top()
+      const stable = current === previous
+      previous = current
+      return stable
+    }, { intervals: [50, 50, 100, 100, 250], timeout: 5_000 })
+    .toBe(true)
+}
+
+/**
+ * For a test about where things sit rather than how they get there.
+ *
+ * Called before `bootToReady`, because the boot path reads reduced motion once
+ * at startup. The stylesheet collapses the sheet's transitions to 0.01ms under
+ * it, so geometry reads describe a settled panel instead of racing a clock.
+ */
+async function asLayoutTest(page: Page): Promise<void> {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+}
+
 async function bootToReady(page: Page): Promise<void> {
   await page.goto('/')
   await expect
@@ -80,6 +125,137 @@ test('the case panel is a bottom sheet, not a 142px column', async ({ page }) =>
   expect(box.radius).toBe('14px 0px')
 })
 
+test('the sheet has two stops and the peek one leaves the satellite visible', async ({
+  page,
+}) => {
+  // The defect this replaces: one fixed 60dvh sheet whose top edge landed at
+  // 40% of the screen, while the close-up centres the satellite at 50%. Tapping
+  // a satellite hid it behind a panel describing it, and 28-38% of the case sat
+  // behind a scroll with no handle and no stop to say so.
+  //
+  // Driven through the DOM rather than by tapping an orbiting satellite, for
+  // the reason the test above gives: reaching a real selection is a timing test,
+  // and what is being checked here is layout.
+  await asLayoutTest(page)
+  await bootToReady(page)
+
+  const panel = page.locator('.case-panel')
+  const handle = page.locator('.case-panel__handle')
+  await showCasePanel(page)
+
+  const geometry = () =>
+    panel.evaluate((el) => {
+      const box = el.getBoundingClientRect()
+      return {
+        stop: el.getAttribute('data-stop'),
+        top: box.top,
+        height: box.height,
+        vh: window.innerHeight,
+      }
+    })
+
+  // ── Peek ──
+  const peek = await geometry()
+  expect(peek.stop).toBe('peek')
+  expect(peek.height / peek.vh).toBeCloseTo(0.4, 1)
+
+  // THE point of the stop. The satellite is centred vertically, because
+  // closeUpScreenOffset returns 0 wherever the panel is a sheet, so the sheet's
+  // top edge has to stay below the middle of the screen.
+  expect(
+    peek.top,
+    `sheet top ${peek.top.toFixed(0)} must stay below the vertical centre ${(peek.vh / 2).toFixed(0)}`,
+  ).toBeGreaterThan(peek.vh / 2)
+
+  // The handle is a real 44px control, not a decorative grip.
+  const handleBox = await handle.boundingBox()
+  expect(handleBox?.height).toBeGreaterThanOrEqual(44)
+
+  // ── Expanded ──
+  await handle.click()
+  await expect(panel).toHaveAttribute('data-stop', 'expanded')
+  await settle(page)
+  const expanded = await geometry()
+  expect(expanded.height / expanded.vh).toBeCloseTo(0.85, 1)
+  expect(expanded.height).toBeGreaterThan(peek.height)
+
+  // ── And back ──
+  await handle.click()
+  await expect(panel).toHaveAttribute('data-stop', 'peek')
+  await settle(page)
+  expect((await geometry()).height).toBeCloseTo(peek.height, 0)
+})
+
+test('a phone in landscape gets the sheet, not the desktop dock', async ({ page }) => {
+  // The trigger was `max-width: 767px` alone, and a phone in landscape is
+  // 852x393 — wide enough to miss it entirely. The panel fell back to the
+  // desktop dock: 324px wide and 820px TALL on a 393px-tall screen, centred
+  // with translateY(-50%), `overflow-y: visible`, with roughly half the case
+  // off-screen top and bottom and no way to reach it. The query is now
+  // `(max-width: 767px), (max-height: 500px)`.
+  await asLayoutTest(page)
+  await bootToReady(page)
+  await page.setViewportSize({ width: 852, height: 393 })
+
+  const panel = page.locator('.case-panel')
+  await showCasePanel(page)
+
+  const box = await panel.evaluate((el) => {
+    const s = getComputedStyle(el)
+    return {
+      left: s.left,
+      right: s.right,
+      width: el.getBoundingClientRect().width,
+      height: el.getBoundingClientRect().height,
+      viewport: document.documentElement.clientWidth,
+      vh: window.innerHeight,
+      handle: getComputedStyle(el.querySelector('.case-panel__handle')!).display,
+    }
+  })
+
+  expect(box.left).toBe('0px')
+  expect(box.right).toBe('0px')
+  expect(box.width).toBe(box.viewport)
+  expect(box.handle).toBe('block')
+  // The thing that actually broke: the panel was taller than the screen.
+  expect(
+    box.height,
+    `panel is ${box.height.toFixed(0)}px tall on a ${box.vh}px viewport`,
+  ).toBeLessThanOrEqual(box.vh)
+})
+
+test('the header stays put while the case scrolls', async ({ page }) => {
+  // A sheet whose close button scrolls away cannot be dismissed without
+  // scrolling back up first. The handle and header are outside the scrolling
+  // body precisely so that cannot happen.
+  await asLayoutTest(page)
+  await bootToReady(page)
+
+  const panel = page.locator('.case-panel')
+  await panel.evaluate((el) => {
+    // Enough content to guarantee an overflow at either stop.
+    el.querySelector('.case-panel__details')!.innerHTML = Array.from(
+      { length: 12 },
+      (_, i) => `<li>Línea de detalle número ${i + 1} para forzar el desbordamiento.</li>`,
+    ).join('')
+  })
+  await showCasePanel(page)
+
+  const headerTop = () =>
+    page.locator('.case-panel__header').evaluate((el) => el.getBoundingClientRect().top)
+
+  const before = await headerTop()
+  const scrolled = await page
+    .locator('.case-panel__body')
+    .evaluate((el) => {
+      el.scrollTop = el.scrollHeight
+      return el.scrollTop
+    })
+
+  expect(scrolled, 'the body must actually be scrollable for this to prove anything').toBeGreaterThan(0)
+  expect(await headerTop()).toBeCloseTo(before, 0)
+})
+
 test('a lost WebGL context says so instead of going quietly blank', async ({ page }) => {
   // The failure this guards is silence. Before 2026-08-14 nothing listened for
   // `webglcontextlost`: three stops rendering, React never re-renders, the
@@ -134,4 +310,35 @@ test('the loading caption wraps instead of being clipped', async ({ page }) => {
   expect(fits).not.toBeNull()
   expect(fits!.left).toBeGreaterThanOrEqual(0)
   expect(fits!.right).toBeLessThanOrEqual(fits!.viewport)
+})
+
+test('the navigation rail is a real touch target and owns its gesture', async ({ page }) => {
+  // On touch this is the ONLY way between the two worlds — the marker no longer
+  // navigates and the return button is gone (`adr/009`) — which makes it a primary
+  // control rather than chrome, and the 44px minimum applies to it directly.
+  //
+  // The audit that set that rule found six controls below it, and named
+  // `.experience-switch` as the one that mattered because it was "the only way out
+  // of Murcia". This is that control's replacement, so it inherits the assertion.
+  await page.goto('/')
+  await page.waitForFunction(() => window.__vertigoIntro !== undefined, undefined, {
+    timeout: 30_000,
+  })
+
+  const rail = page.locator('.nav-rail')
+  await expect(rail).toBeVisible()
+
+  const box = await rail.boundingBox()
+  expect(box?.width).toBeGreaterThanOrEqual(44)
+  expect(box?.height).toBeGreaterThanOrEqual(44)
+
+  // It must sit inside the viewport, not hang off the edge it is docked to.
+  const viewport = page.viewportSize()!
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1)
+
+  // `touch-action: none` is what stops the browser claiming the vertical drag as a
+  // scroll. The canvas sets its own; this element is a SIBLING and inherits nothing.
+  const touchAction = await rail.evaluate((el) => getComputedStyle(el).touchAction)
+  expect(touchAction).toBe('none')
 })

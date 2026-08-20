@@ -10,7 +10,12 @@
  * `__VERTIGO_ENV__` is replaced by vite.config.ts with the literal build
  * environment, so the whole `/debug` panel is dead code in production and the
  * minifier drops it. That is worth having on its own: the panel is a static
- * import in the app entry chunk, which is at 94% of its hard budget.
+ * import in the app entry chunk, which is at ~96% of its hard budget.
+ *
+ * Re-measure rather than trusting that number — it said 94% for long enough to
+ * be wrong by 3 points, which mattered when the question was how many case
+ * studies could be added before the build failed. `VERTIGO_SKIP_BUDGETS=1 npx
+ * vite build` prints every chunk's real size.
  *
  * Declared with a `typeof` guard rather than read directly, because the
  * `checks/` harnesses bundle app modules for Node with esbuild, where the

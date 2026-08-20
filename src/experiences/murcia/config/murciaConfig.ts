@@ -197,43 +197,6 @@ export const murciaConfig: EnvironmentConfig = {
       },
     },
 
-    zoom: {
-      enabled: true,
-      // 0.70 -> distance 115.5, camera height 58. Zoom IN is the cheap
-      // direction: the ground footprint shrinks, so nothing downstream is at
-      // risk. The floor is set by taste and by one measured hazard — below
-      // distance ~60 the fixed lookAtHeight starts tilting the camera up and
-      // the footprint widens again (PROJECT_MEMORY, "The number that can hurt
-      // you"). 115.5 stays far above that and still reads as clearly closer.
-      minDistanceScale: 0.7,
-      // 1.20 -> distance 198. MEASURED, not chosen. Zooming out is the
-      // dangerous direction: reach grows ~2.8 units per unit of distance at the
-      // binding case (5120x1440, yaw ~30), so the 33 units of dolly between 165
-      // and 198 cost ~92 units of skirt margin. At terrainTransition.width 600
-      // that margin is only ~42, i.e. this scale would put the hard plate edge
-      // on screen for ultrawide viewers ONLY — invisible on the machine the
-      // change is made on. The skirt went to 700 to pay for it; at 700 the
-      // worst case keeps ~+51, more cushion than the resting pose had before.
-      //
-      // checks/navigation-zoom.ts asserts this. Do not raise it without
-      // re-running that check.
-      maxDistanceScale: 1.2,
-      // ln(1.20/0.70) = 0.539 across the whole band. At 0.0008 e-folds per
-      // pixel a standard 100px mouse notch moves ~8% of a distance and the band
-      // is ~6.7 notches end to end: small enough to aim, large enough to feel.
-      wheelSensitivity: 0.0008,
-      // A trackpad pinch arrives as ctrl+wheel with far smaller deltas than a
-      // mouse notch. Without this it barely moves.
-      ctrlWheelMultiplier: 3,
-      // 1:1 with the finger separation ratio — the international gesture.
-      pinchSensitivity: 1.0,
-      // Longer than the pan's 0.03 and that is free: nothing is supposed to
-      // stay under the cursor during a zoom, so there is no reference for the
-      // lag to show against. It buys the wheel's discrete notches a glide
-      // instead of a staircase — at ~6.7 notches across the band, each step is
-      // otherwise a visible jump.
-      smoothingTimeConstant: 0.12,
-    },
     // Plate surface sits just above zero; projecting drags against the mean
     // surface height keeps the grabbed point under the cursor.
     groundPlaneHeight: 1,
@@ -255,6 +218,24 @@ export const murciaConfig: EnvironmentConfig = {
     // Keep this above the real worst-case corner reach, or the bounds maths
     // silently believes the view is smaller than it is.
     maxGroundDistance: 800,
+  },
+
+  focusFlight: {
+    // 0.70 -> distance 115.5, camera height 58. Inherited unchanged from the
+    // retired zoom band, where it was the IN end: the direction whose footprint
+    // shrinks, so nothing downstream is at risk. It is kept rather than re-judged
+    // because it was already reasoned against the one measured hazard — below
+    // distance ~60 the fixed lookAtHeight tilts the camera up and the footprint
+    // widens again (PROJECT_MEMORY, "The number that can hurt you"). 115.5 stays
+    // far above that and still reads as clearly closer.
+    //
+    // The band’s OUT end (maxDistanceScale 1.2) is gone with the band. A flight may
+    // only move inward, so the direction that ate skirt margin no longer exists.
+    minDistanceScale: 0.7,
+    // Was the zoom band’s smoothing. It no longer buys a discrete wheel a glide —
+    // the flight runs its own closed easing curve — but it still governs the hand
+    // BACK, when the controller adopts whatever distance the flight left behind.
+    smoothingTimeConstant: 0.12,
   },
 
   terrainTransition: {
@@ -285,13 +266,21 @@ export const murciaConfig: EnvironmentConfig = {
     // and narrower need only ~395. The extra geometry is a few hundred more
     // transparent triangles.
     //
-    // 600 -> 700, and the extra 100 units are what pays for user zoom. Reach
-    // grows ~2.8 units per unit of distance at the binding case, so the 33
-    // units of dolly between the resting 165 and navigation.zoom's ceiling of
-    // 198 cost ~92 units of margin — and 600 only had ~42 to give, i.e. -49 at
-    // full zoom-out. Measured across every azimuth, not estimated: run
-    // checks/navigation-zoom.ts, which reports the worst slack directly. At 700
-    // the worst case keeps ~+51, more cushion than the resting pose had at 600.
+    // 600 -> 700, and the extra 100 units were bought to pay for USER ZOOM: reach
+    // grows ~2.8 units per unit of distance at the binding case, so the 33 units of
+    // dolly between the resting 165 and the old zoom ceiling of 198 cost ~92 units
+    // of margin, and 600 only had ~42 to give.
+    //
+    // THAT MARGIN IS NOW SLACK. There is no user zoom (`adr/009`) and a focus flight
+    // only ever moves INWARD, where the footprint shrinks, so nothing reaches past
+    // the resting pose any more. `check:footprint` reports the worst slack directly
+    // and it went from ~+51 to ~+142 when the band was retired.
+    //
+    // NOT being narrowed back. It costs a few hundred fully transparent triangles,
+    // the warp's departure pose still reaches beyond the resting distance the 600
+    // was sized for, and re-tightening a skirt to reclaim geometry nobody is paying
+    // for is how the plate edge got on screen the first time (PROJECT_MEMORY, "The
+    // number that can hurt you").
     //
     // The same trade this value already made once when it went 380 -> 600.
     width: 700,

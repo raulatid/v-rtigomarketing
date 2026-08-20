@@ -23,9 +23,11 @@
  * assuming a FOV axis.
  *
  * AND BELOW THE BREAKPOINT THERE IS NOTHING TO CLEAR. The panel stops being a
- * right-hand dock and becomes a bottom sheet (`styles.css`, the `max-width:
- * 767px` block), so a sideways shift would move the subject away from centre
- * for no reason at all. The offset goes to zero and the satellite is centred.
+ * right-hand dock and becomes a bottom sheet (`styles.css`, the
+ * `(max-width: 767px), (max-height: 500px)` block), so a sideways shift would
+ * move the subject away from centre for no reason at all. The offset goes to
+ * zero and the satellite is centred — which is also what keeps it clear of the
+ * sheet's peek stop, since the sheet's top edge sits at 60% of the screen.
  *
  * This module is deliberately pure — no three.js, no DOM — so the unit tier can
  * drive it directly (DECISIONS §22).
@@ -44,11 +46,22 @@ export const CLOSE_UP_OFFSET_FRACTION = 0.395
 
 /**
  * The width at which the case panel is a right-hand dock rather than a bottom
- * sheet. Must stay in step with the `max-width: 767px` block in `styles.css` —
- * they are two halves of one composition decision, which is the coupling
- * `styles.css` has always documented as "a contract with the camera".
+ * sheet. Must stay in step with the media query in `styles.css` — they are two
+ * halves of one composition decision, which is the coupling `styles.css` has
+ * always documented as "a contract with the camera".
  */
 export const CASE_PANEL_DOCK_MIN_WIDTH = 768
+
+/**
+ * And the height, because a dock is as impossible on a short viewport as on a
+ * narrow one. A phone in landscape is 852x393: wide enough to pass the width
+ * test, and less than half as tall as the panel's own content, so it used to
+ * get a 324px-wide dock 820px tall with no way to scroll it — AND this offset,
+ * pushing the satellite aside to clear a column that did not fit on screen.
+ *
+ * 501 pairs with the stylesheet's `(max-height: 500px)`.
+ */
+export const CASE_PANEL_DOCK_MIN_HEIGHT = 501
 
 export interface CloseUpOffsetParams {
   /** Camera-to-subject distance, in world units. */
@@ -59,19 +72,24 @@ export interface CloseUpOffsetParams {
   aspect: number
   /** Viewport width in CSS pixels, which is what the breakpoint is written in. */
   viewportWidthPx: number
+  /** Viewport height in CSS pixels. See CASE_PANEL_DOCK_MIN_HEIGHT. */
+  viewportHeightPx: number
 }
 
 /**
  * The lateral world-space offset to add to the look-at, pushing the subject
- * left of centre. Zero when the panel is not beside it.
+ * left of centre. Zero when the panel is not beside it — which means whenever
+ * the panel is a bottom sheet, on a narrow viewport OR a short one.
  */
 export function closeUpScreenOffset({
   subjectDistance,
   verticalFovDegrees,
   aspect,
   viewportWidthPx,
+  viewportHeightPx,
 }: CloseUpOffsetParams): number {
   if (viewportWidthPx < CASE_PANEL_DOCK_MIN_WIDTH) return 0
+  if (viewportHeightPx < CASE_PANEL_DOCK_MIN_HEIGHT) return 0
 
   // Degenerate inputs are possible in practice: R3F reports a 0×0 size for a
   // frame or two before the container is measured, and an aspect of 0 would

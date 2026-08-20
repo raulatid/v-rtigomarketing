@@ -19,7 +19,23 @@ import * as THREE from 'three'
 // the orbit reveal, so a same-origin logo lands long before anything is visible.
 
 const COLUMNS = 2
-const ROWS = 3
+
+/**
+ * Rows needed for `count` plates at `COLUMNS` per row.
+ *
+ * ROWS used to be a hardcoded 3, i.e. exactly six cells for exactly six case
+ * studies. That agreed with `ORBIT_PRESETS.length` by convention, not by
+ * construction: a seventh plate was silently dropped by a `slice` and then
+ * `cellUv` clamped its index back to the sixth cell, so the seventh satellite
+ * wore the sixth company's logo. Three independent constants had to be kept in
+ * step by hand, and nothing asserted it.
+ *
+ * At least one row: a zero-height canvas throws on some platforms, and an atlas
+ * with no plates is a legitimate state (no orbits assigned) rather than a bug.
+ */
+function rowsFor(count: number): number {
+  return Math.max(1, Math.ceil(count / COLUMNS))
+}
 // 2:1 cells, matching the panel geometry's aspect. 1024×512 is sized for the
 // case-panel close-up (closeUp.distance 0.55R), where the panel is the most
 // magnified thing on screen — at 512×256 the wordmark visibly softens there.
@@ -50,8 +66,31 @@ export interface BrandAtlas {
   dispose(): void
 }
 
+/**
+ * The accent used when `brandColor` is not a colour this function can read.
+ *
+ * The frame blue, so a plate with unusable colour still reads as part of the
+ * holographic language rather than as an error.
+ */
+const FALLBACK_BRAND_COLOR = '#8fd0ff'
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i
+
+/**
+ * `brandColor` as a `#rrggbb` string, or the fallback.
+ *
+ * Worth a guard now that the value is authored somewhere else: `parseInt` on a
+ * non-hex string returns NaN, `mixWithWhite` then produced `rgb(NaN, NaN, NaN)`,
+ * and canvas ignores an unparseable fillStyle SILENTLY — keeping whatever colour
+ * was set last. The plate did not fail, it just came out the wrong colour, which
+ * is the hardest kind of wrong to notice in a review.
+ */
+function safeBrandColor(color: string): string {
+  return HEX_COLOR.test(color) ? color : FALLBACK_BRAND_COLOR
+}
+
 function mixWithWhite(hex: string, amount: number): string {
-  const value = hex.replace('#', '')
+  const value = safeBrandColor(hex).replace('#', '')
   const r = parseInt(value.slice(0, 2), 16)
   const g = parseInt(value.slice(2, 4), 16)
   const b = parseInt(value.slice(4, 6), 16)
@@ -77,7 +116,7 @@ function drawPlate(
   // The mark: a filled disc carrying the initial. Stands in for a real logo.
   ctx.beginPath()
   ctx.arc(markCx, markCy, markR, 0, Math.PI * 2)
-  ctx.fillStyle = plate.brandColor
+  ctx.fillStyle = safeBrandColor(plate.brandColor)
   ctx.fill()
 
   ctx.fillStyle = '#05060a'
@@ -105,7 +144,7 @@ function drawPlate(
 
   // Accent rule under the wordmark, in the undiluted brand colour.
   const ruleW = Math.min(ctx.measureText(plate.name).width, textLimit)
-  ctx.fillStyle = plate.brandColor
+  ctx.fillStyle = safeBrandColor(plate.brandColor)
   ctx.fillRect(textX, markCy + fontSize * 0.5, ruleW, 6)
 }
 
@@ -212,8 +251,11 @@ function canvasSafe(img: HTMLImageElement): boolean {
  */
 export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
   const canvas = document.createElement('canvas')
+  // Derived from what was actually passed, so every plate gets a cell and no
+  // plate shares one.
+  const rows = rowsFor(plates.length)
   canvas.width = COLUMNS * CELL_W
-  canvas.height = ROWS * CELL_H
+  canvas.height = rows * CELL_H
   // Not asserted: a 2D context can legitimately be refused under memory
   // pressure. createOrbitSystem's caller turns a throw here into the Spanish
   // failure caption, and a named error says which resource gave out.
@@ -221,7 +263,9 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
   if (!ctx) throw new Error('[brand-atlas] 2D canvas context unavailable')
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  const visible = plates.slice(0, COLUMNS * ROWS)
+  // No slice: the grid is sized for the plates rather than the plates trimmed to
+  // the grid, so there is nothing left to silently drop.
+  const visible = plates
   const cellOrigin = (index: number) => ({
     x: (index % COLUMNS) * CELL_W,
     y: Math.floor(index / COLUMNS) * CELL_H,
@@ -309,17 +353,18 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
   return {
     texture,
     cellUv(index: number) {
-      // Clamped to the cells that exist. Past the 2×3 cap the row arithmetic
-      // produced a NEGATIVE v offset — outside the atlas entirely — so a
-      // seventh panel sampled garbage instead of failing visibly.
-      const safeIndex = Math.min(Math.max(index, 0), COLUMNS * ROWS - 1)
+      // Clamped to the cells that exist. Out-of-range row arithmetic produces a
+      // NEGATIVE v offset — outside the atlas entirely — so an unclamped index
+      // samples garbage instead of failing visibly. The bound is the grid this
+      // atlas was actually built with, not a fixed 2×3.
+      const safeIndex = Math.min(Math.max(index, 0), COLUMNS * rows - 1)
       const col = safeIndex % COLUMNS
       const row = Math.floor(safeIndex / COLUMNS)
       return {
         // CanvasTexture keeps flipY, so row 0 (top of the canvas) is the
         // TOP of UV space — hence the inversion on v.
-        offset: new THREE.Vector2(col / COLUMNS, 1 - (row + 1) / ROWS),
-        scale: new THREE.Vector2(1 / COLUMNS, 1 / ROWS),
+        offset: new THREE.Vector2(col / COLUMNS, 1 - (row + 1) / rows),
+        scale: new THREE.Vector2(1 / COLUMNS, 1 / rows),
       }
     },
     dispose() {

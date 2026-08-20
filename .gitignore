@@ -70,3 +70,23 @@ desktop.ini
 
 # Vitest coverage output.
 /coverage/
+
+# Generated content. BUILD OUTPUT, not source.
+#
+# WordPress is the editorial source of truth; these modules are written by
+# `npm run content:build` before every dev run, check and build. Committing them
+# would claim that a CMS edit produces a Git diff, which it does not — and the
+# committed copy would go stale after the first CMS-triggered deployment while
+# still looking authoritative.
+#
+# What IS committed: `content/fixtures/` (development and test inputs) and
+# `content/seed/` (an explicitly-drifting emergency snapshot, see
+# scripts/build-content.ts).
+/src/content/generated/
+# The generator's transactional staging directory (content/lib/generate.ts);
+# a killed run would otherwise leave it behind as untracked noise.
+/src/content/generated.tmp/
+
+# Mirrored CMS media, written by the same build for the same reason.
+/public/logos/*
+!/public/logos/.gitkeep

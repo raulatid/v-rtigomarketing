@@ -388,6 +388,36 @@ Screenshots should be captured for meaningful visual defects where useful.
 
 # Required Output
 
+Write the result to `docs/audits/reports/mobile-responsiveness-<YYYY-MM-DD>.md`, keeping the
+`mobile-responsiveness-` prefix so every pass in this lineage sorts together beside
+`mobile-responsiveness-2026-08-14.md`.
+
+`docs/audits/` holds briefs — the audits that can be run. `docs/audits/reports/` holds the audits
+that *were* run. Never write a report beside the briefs.
+
+Before the report enters Git history it must satisfy the sanitization contract in
+`docs/audits/README.md`: no credentials, secret values, personal data, authentication material,
+raw production dumps, or exploit detail beyond the minimum reproduction. `npm run check:audit`
+enforces the mechanical half and fails the build. The judgment calls are yours.
+
+Screenshots are the usual way this contract gets broken here — a captured viewport can include a
+real logged-in account, a customer name, or unpublished CMS copy. Check what is in the frame.
+
+Open it with the header this directory uses:
+
+```
+**Date:** YYYY-MM-DD · **Against:** working tree at `<commit>`
+**Brief:** `audits/mobile-responsiveness-device-compability.md`
+```
+
+If earlier passes exist, write the new one as a delta against them and say so in the header.
+Earlier passes remain accurate for everything the new one does not restate, and where the two
+disagree, the newer one wins. Never overwrite or delete a previous report — it is the record of
+what was true at its commit.
+
+Where a finding is platform-specific rather than a responsive-design problem, hand it to the iOS
+brief and say so, rather than restating it here.
+
 Create a report containing:
 
 ## 1. Executive Summary

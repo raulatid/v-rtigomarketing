@@ -50,6 +50,20 @@ export interface DistrictSceneBinding {
    * how the district is framed on arrival.
    */
   approachYawDegrees: number | null;
+  /**
+   * How close to fly, as a multiple of the resting distance. Null keeps the
+   * current distance and gives up the composition decision.
+   *
+   * Here rather than in `districts.ts` for the same reason `approachYawDegrees` is:
+   * how a district is framed on arrival is a camera decision about that district,
+   * not editorial copy, and mixing them puts a marketing edit one typo away from
+   * moving the camera.
+   *
+   * Clamped against `FocusFlightConfig.minDistanceScale` rather than trusted, and
+   * never allowed above 1: outward is the direction whose ground footprint outgrows
+   * the terrain skirt, and it does so invisibly on 16:9.
+   */
+  focusDistanceScale: number | null;
 }
 
 /**
@@ -77,5 +91,10 @@ export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
     // Faces the cluster from the south-east, keeping the river strip (Plane.018,
     // Z 291-360) behind the camera rather than across the composition.
     approachYawDegrees: -35,
+    // 0.78 -> distance ~129. Getting closer is the whole point of selecting a
+    // district now that nothing else changes distance (`adr/009`), and this is far
+    // enough in to read as a closer look while staying well above the 0.7 floor.
+    // STARTING POINT, not judged — the composition wants a person in front of it.
+    focusDistanceScale: 0.78,
   },
 ];

@@ -7,29 +7,30 @@
     "node": "22.x"
   },
   "scripts": {
+    "predev": "npm run content:build",
     "dev": "vite",
     "preview": "vite preview",
-
+    "content:build": "esbuild scripts/build-content.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/build-content.mjs --log-level=warning && node node_modules/.cache/build-content.mjs",
     "build": "npm run check && vite build",
-
+    "precheck": "npm run content:build",
     "check": "npm run typecheck && npm run test && npm run check:harnesses",
-    "check:harnesses": "npm run check:architecture && npm run check:navigation && npm run check:zoom && npm run check:district && npm run check:warp && npm run check:space",
+    "check:harnesses": "npm run check:architecture && npm run check:audit && npm run check:navigation && npm run check:footprint && npm run check:district && npm run check:earth && npm run check:warp && npm run check:space",
+    "check:audit": "esbuild checks/audit-hygiene.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/audit-hygiene.mjs --log-level=warning && node node_modules/.cache/audit-hygiene.mjs",
     "check:architecture": "esbuild checks/architecture.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/architecture.mjs --log-level=warning && node node_modules/.cache/architecture.mjs",
     "check:navigation": "esbuild checks/navigation-feel.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-feel.mjs --log-level=warning && node node_modules/.cache/navigation-feel.mjs",
-    "check:zoom": "esbuild checks/navigation-zoom.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/navigation-zoom.mjs --log-level=warning && node node_modules/.cache/navigation-zoom.mjs",
+    "check:footprint": "esbuild checks/footprint.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/footprint.mjs --log-level=warning && node node_modules/.cache/footprint.mjs",
     "check:district": "esbuild checks/district-flight.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/district-flight.mjs --log-level=warning && node node_modules/.cache/district-flight.mjs",
+    "check:earth": "esbuild checks/earth-orbit.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/earth-orbit.mjs --log-level=warning && node node_modules/.cache/earth-orbit.mjs",
     "check:warp": "esbuild checks/warp-transition.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/warp-transition.mjs --log-level=warning && node node_modules/.cache/warp-transition.mjs",
     "check:space": "esbuild checks/space-backdrop.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/space-backdrop.mjs --log-level=warning && node node_modules/.cache/space-backdrop.mjs",
     "check:asset": "esbuild checks/city-asset.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/city-asset.mjs --log-level=warning && node node_modules/.cache/city-asset.mjs",
-
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-
-    "pree2e": "vite build",
+    "pree2e": "npm run content:build && vite build",
     "e2e": "playwright test",
-    "pree2e:update": "vite build",
+    "pree2e:update": "npm run content:build && vite build",
     "e2e:update": "playwright test --update-snapshots",
     "e2e:ui": "playwright test --ui"
   },

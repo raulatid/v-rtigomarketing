@@ -48,7 +48,11 @@ export default defineConfig({
     // mode of omitting it is a file named `AuditSection.test.tsx` that is
     // silently never collected — no error, no warning, a green run that proves
     // nothing. Costs nothing to allow; expensive to discover.
-    include: ['src/**/*.test.{ts,tsx}'],
+    // `content/` is the Node-side content build (mappers, validators, the
+    // generator). It lives outside src/ because it must never be bundled for the
+    // browser, but it is ordinary unit-testable code and belongs in this tier —
+    // not in checks/, which is for harnesses that need a DOM stub and a scene.
+    include: ['src/**/*.test.{ts,tsx}', 'content/**/*.test.ts'],
 
     // No globals. `noUnusedLocals` is on and this repo has no ambient-global
     // habit, so `describe`/`it`/`expect` are imported like anything else.
@@ -69,6 +73,7 @@ export default defineConfig({
       // instrumented here. Their coverage is the assertion count, not a
       // percentage.
       include: [
+        'src/auditView.ts',
         'src/sceneVisibility.ts',
         'src/sequenceState.ts',
         'src/app/warpTransition.ts',
@@ -79,7 +84,11 @@ export default defineConfig({
         'src/orbit-system/geoUtils.ts',
         'src/experiences/murcia/navigation/navigationBounds.ts',
         'src/experiences/murcia/camera/cameraFraming.ts',
-        'src/experiences/murcia/content/districts.ts',
+        'src/content/lookup.ts',
+        'src/content/invariants.ts',
+        'src/utils/wheelDelta.ts',
+        'src/app/navigation/navigationGesture.ts',
+        'src/app/navigation/navigationMachine.ts',
       ],
       thresholds: {
         // Set at what the suite actually achieves, rounded down. The point of a

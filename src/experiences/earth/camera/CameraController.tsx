@@ -1,12 +1,12 @@
 import { RefObject, useMemo, useRef } from 'react'
+import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { cinematicTravel, cinematicSpeed, narrowPeak, lerp, lerpVec3 } from '../../../utils/easing'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { atOrAfter } from '../config/sceneVisibility'
-import { GEO_MARKERS } from '../orbit/orbitConfig'
-import type { GeoMarkers } from '../orbit/createGeoMarkers'
+import type { DestinationResolver } from '../navigation/destination'
 import {
   dollyAmount,
   earthFov,
@@ -25,7 +25,11 @@ const EARTH_FAR: [number, number, number] = [0, 0, 80]
 // Exported because the interaction rig adopts this as its overview pose. It
 // must NOT seed from the live camera instead: on a skip, this controller bails
 // before ever moving the camera off STAR_REST, and the rig would inherit z=200.
-export const EARTH_REST: [number, number, number] = [0, 0, 14]
+export const EARTH_REST: [number, number, number] = [
+  0,
+  0,
+  INTERACTION_CONFIG.camera.overviewRadius,
+]
 
 const STAR_LOOK_AT = new THREE.Vector3(0, 0, -1000)
 const EARTH_LOOK_AT = new THREE.Vector3(0, 0, 0)
@@ -35,7 +39,13 @@ interface Props {
   state: SequenceState
   overlayEl: RefObject<HTMLDivElement | null>
   active: boolean
-  geoMarkersRef: RefObject<GeoMarkers | null>
+  /**
+   * Resolves the navigation destination's current world position. Published by
+   * EarthScene (which owns the spin group the destination turns with) — there
+   * is no marker object behind it, only the destination model and the spin
+   * group's transform.
+   */
+  destinationRef: RefObject<DestinationResolver | null>
 }
 
 export function CameraController({
@@ -43,7 +53,7 @@ export function CameraController({
   state,
   overlayEl,
   active,
-  geoMarkersRef,
+  destinationRef,
 }: Props) {
   const { camera } = useThree()
 
@@ -51,13 +61,9 @@ export function CameraController({
   // render loop.
   const dollyAnchor = useRef(new THREE.Vector3())
   const dollyCaptured = useRef(false)
-  const markerWorld = useRef(new THREE.Vector3())
+  const destinationWorld = useRef(new THREE.Vector3())
   const warpLookAt = useRef(new THREE.Vector3())
   const reducedMotion = useMemo(prefersReducedMotion, [])
-  const destinationId = useMemo(
-    () => GEO_MARKERS.find((m) => m.kind === 'destination')?.id ?? null,
-    [],
-  )
 
   useFrame(() => {
     if (!('fov' in camera)) return
@@ -153,10 +159,10 @@ export function CameraController({
    * reseeds from the overview pose, so that is provably where it will be when it
    * takes the camera back. Landing anywhere else would snap on handback.
    *
-   * The look-at eases toward the destination marker as the speed bell peaks:
-   * clicking Murcia flies you into Murcia, and coming back you emerge from it
-   * and pull out to the whole globe. Read in world space every frame because the
-   * marker rotates with the surface.
+   * The look-at eases toward the navigation destination as the speed bell
+   * peaks: descending flies you into Murcia, and coming back you emerge from it
+   * and pull out to the whole globe. Read in world space every frame because
+   * the destination turns with the Earth's surface.
    */
   function applyWarp(cam: THREE.PerspectiveCamera, p: number) {
     const { departing, amount } = dollyAmount(p)
@@ -175,10 +181,8 @@ export function CameraController({
     cam.position.copy(dollyAnchor.current).setLength(radius * earthRadiusScale(amount))
 
     const lookAt = warpLookAt.current.copy(EARTH_LOOK_AT)
-    const marker = destinationId
-      ? geoMarkersRef.current?.getWorldPosition(destinationId, markerWorld.current)
-      : null
-    if (marker) lookAt.lerpVectors(EARTH_LOOK_AT, marker, speed(p))
+    const destination = destinationRef.current?.(destinationWorld.current)
+    if (destination) lookAt.lerpVectors(EARTH_LOOK_AT, destination, speed(p))
     cam.lookAt(lookAt)
 
     cam.fov = earthFov(p)

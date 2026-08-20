@@ -37,7 +37,9 @@ const {
 const LIMITS: PlayheadLimits = {
   minimumDuration: DRAW_TIMING.minimumDuration,
   preReadyLimit: PRE_READY_LIMIT,
-  autonomousTau: DRAW_TIMING.autonomousTau,
+  reserve: DRAW_TIMING.reserve,
+  driftDuration: DRAW_TIMING.driftDuration,
+  catchUp: DRAW_TIMING.catchUp,
   smoothRate: DRAW_TIMING.smoothRate,
   maxDt: DRAW_TIMING.maxDt,
   stallEpsilon: DRAW_TIMING.stallEpsilon,
@@ -50,9 +52,24 @@ interface RunOptions {
   ready?: (t: number) => boolean
   duration?: number
   stalls?: Array<{ at: number; dur: number }>
+  /** Steady frame interval. The default is a healthy 60fps. */
+  dt?: number
+  /**
+   * Windows during which the tab is backgrounded. The playhead is stepped with
+   * a zero delta across these, which is what introDraw does — the minimum
+   * duration is measured in VISIBLE time, not in wall clock.
+   */
+  hidden?: Array<{ at: number; dur: number }>
 }
 
-function run({ load = () => 0, ready = () => false, duration = 20, stalls = [] }: RunOptions) {
+function run({
+  load = () => 0,
+  ready = () => false,
+  duration = 20,
+  stalls = [],
+  dt: frame = DT,
+  hidden = [],
+}: RunOptions) {
   const p = createPlayhead(LIMITS)
   let t = 0
   let firstVisibleAt: number | null = null
@@ -65,9 +82,10 @@ function run({ load = () => 0, ready = () => false, duration = 20, stalls = [] }
 
   while (t < duration) {
     const stall = stalls.find((s) => t >= s.at && t < s.at + s.dur)
-    const dt = stall ? stall.dur : DT
+    const dt = stall ? stall.dur : frame
+    const offscreen = hidden.some((h) => t >= h.at && t < h.at + h.dur)
     const readiness: Readiness = ready(t) ? 'ready' : load(t) > 0 ? 'loading' : 'starting'
-    const f = p.step(dt, load(t), readiness)
+    const f = p.step(offscreen ? 0 : dt, load(t), readiness)
     last = f
     // Timestamps are recorded at the END of the frame that produced them — `t`
     // is the frame's start, so reporting it would understate every duration by
@@ -241,13 +259,180 @@ describe('Stall robustness — two 250ms main-thread stalls', () => {
   })
 
   it('does not jump across a stall', () => {
-    // maxDt clamps the frame delta, so a backgrounded tab resumes rather than
-    // teleporting the drawing forward.
-    expect(r.maxDelta).toBeLessThan(0.02)
+    // Was 0.02, which measured the old dt clamp rather than the property. That
+    // clamp bought its small step by discarding the time: 250ms of real waiting
+    // counted as 50ms, so each stall silently added 200ms to a drawing that is
+    // supposed to last three seconds, and a device stalling continuously ran to
+    // 8.57s. The advance is rationed now instead of the clock, so a stall is
+    // repaid over the following frames — 0.051 on the frame that resumes.
+    //
+    // The backgrounded tab this once cited is no longer this bound's business:
+    // introDraw stops feeding the playhead while `document.hidden`, so a hidden
+    // tab produces no delta to jump across. See the hidden-time case below.
+    expect(r.maxDelta).toBeLessThan(0.06)
   })
 
   it('never runs backwards', () => {
     expect(r.reversals).toBe(0)
+  })
+})
+
+// ── The four cases the suite above structurally could not reach ──
+//
+// Every case above steps at DT — a healthy 60fps, far under the old `maxDt` of
+// 50ms — and its only stalls are two 250ms blips. So the suite never ran the
+// playhead at a SUSTAINED frame interval above the clamp, which is precisely
+// the condition the intro boots into: three.js evaluating, 2.43MB of JPEG
+// decoding and the GPU warmup all land inside the drawing's window, and a real
+// build was measured running the whole intro at 7fps.
+//
+// Measured before the fix, against this same module: 8.57s at 7fps, 12.00s at
+// 5fps, and a pace with no progress signal that decayed 3000x from 0.326/s to
+// 0.0001/s. Both are the reported bug, and both passed every test above.
+
+describe('Frame rate independence — the 3s contract is in seconds, not frames', () => {
+  // THE regression test for the clamped-dt clock. `minimumDuration` used to be
+  // spent in units of min(dt, maxDt), so any frame longer than 50ms stretched
+  // the whole drawing by dt/maxDt — the intro's duration was a function of the
+  // viewer's hardware, and the jank causing it is the intro's own boot work.
+  const RATES = [60, 30, 20, 15, 10, 7, 5, 3]
+
+  it.each(RATES)('lands on the 3s minimum at %ifps', (fps) => {
+    const r = run({ dt: 1 / fps, load: () => 1, ready: (t) => t >= 0.5, duration: 60 })
+    expect(r.doneAt).not.toBeNull()
+    // One frame of tolerance: the playhead can only finish on a frame boundary,
+    // so at 3fps the last step necessarily overshoots by up to 333ms.
+    expect(r.doneAt!).toBeGreaterThanOrEqual(3.0 - 1e-6)
+    expect(r.doneAt!).toBeLessThan(3.0 + 1 / fps + 1e-6)
+  })
+
+  it('never runs backwards at a low frame rate', () => {
+    expect(run({ dt: 1 / 7, load: () => 1, ready: (t) => t >= 0.5 }).reversals).toBe(0)
+  })
+})
+
+describe('No asymptote — with no signal the pace stays visible', () => {
+  // The old autonomous curve was 1 - exp(-elapsed/tau): its rate collapsed from
+  // 0.326/s to 0.0001/s and it never reached the ceiling at all. The drawing
+  // sprinted through most of the isotype in under 3s and then appeared to
+  // freeze — which is exactly what a visitor on a cold cache saw, because
+  // measured progress is pinned at 0 until the app chunk lands.
+  const p = createPlayhead(LIMITS)
+  const at: number[] = []
+  let t = 0
+  while (t < 12) {
+    const f = p.step(DT, 0, 'starting')
+    t += DT
+    at.push(f.visual)
+  }
+  const sample = (s: number) => at[Math.min(Math.round(s / DT) - 1, at.length - 1)]
+
+  it('reaches the pre-ready ceiling in bounded time', () => {
+    expect(sample(11)).toBeGreaterThanOrEqual(PRE_READY_LIMIT - 1e-6)
+  })
+
+  it('keeps moving in every second up to that point', () => {
+    // A floor on the rate, not a shape: what must never return is a curve whose
+    // advance rounds to nothing while the visitor is still waiting.
+    for (let s = 1; s < 10; s += 1) {
+      const advance = sample(s + 1) - sample(s)
+      expect(
+        advance,
+        `second ${s}->${s + 1} advanced ${advance.toFixed(5)}, which reads as frozen`,
+      ).toBeGreaterThan(0.004)
+    }
+  })
+
+  it('spends its opening at a steady pace rather than front-loading it', () => {
+    // The first three seconds must be one uniform movement. The old curve put
+    // 64% of the outline in the first 2.6s and the remaining 36% in 20s.
+    const first = sample(1) - sample(0.5)
+    const third = sample(2.5) - sample(2)
+    expect(third).toBeGreaterThan(first * 0.8)
+  })
+})
+
+describe('Stall recovery — a stall costs frames, never seconds', () => {
+  // The old clamp made a stall eat the contract: 900ms of real time counted as
+  // 50ms, so the drawing silently owed itself 850ms and ran long. Real time is
+  // now kept, and the ADVANCE is what gets rationed, so the playhead catches up
+  // over the next few frames instead of teleporting or falling behind.
+  const r = run({
+    load: () => 1,
+    ready: (t) => t >= 0.5,
+    stalls: [{ at: 1.2, dur: 0.9 }],
+  })
+
+  it('still lands on the 3s minimum', () => {
+    expect(r.doneAt).not.toBeNull()
+    expect(r.doneAt!).toBeGreaterThanOrEqual(3.0 - 1e-6)
+    expect(r.doneAt!).toBeLessThan(3.1)
+  })
+
+  it('does not teleport across the stall', () => {
+    expect(r.maxDelta).toBeLessThan(0.1)
+  })
+
+  it('never runs backwards', () => {
+    expect(r.reversals).toBe(0)
+  })
+})
+
+describe('The readiness gesture keeps its own duration', () => {
+  // Caught by tracing a real build, not by reasoning: readiness landed at
+  // 4538ms and the drawing reported complete at 4540ms — the collapse and the
+  // fill, the two beats that MEAN "ready", played in a single frame.
+  //
+  // The cause is that Zone C's ceiling is the minimum-duration ramp, and once
+  // the wait outlasts `minimumDuration` that ramp is saturated at 1, so it
+  // stops pacing anything. Whatever the drawing was waiting for, the ending is
+  // a gesture with a length; it is timed from the moment readiness ARRIVES, not
+  // from page load.
+  const LATE = 8
+
+  it('plays the ending over its own duration when readiness is late', () => {
+    const r = run({ load: () => 0.4, ready: (t) => t >= LATE, duration: 20 })
+    expect(r.doneAt).not.toBeNull()
+    // Long enough to read as a movement rather than a cut.
+    expect(r.doneAt! - LATE).toBeGreaterThan(0.35)
+    expect(r.doneAt! - LATE).toBeLessThan(1.0)
+  })
+
+  it('plays it at the same length whatever the frame rate', () => {
+    const fast = run({ load: () => 0.4, ready: (t) => t >= LATE, duration: 20 })
+    const slow = run({ dt: 1 / 7, load: () => 0.4, ready: (t) => t >= LATE, duration: 20 })
+    expect(Math.abs((slow.doneAt! - LATE) - (fast.doneAt! - LATE))).toBeLessThan(0.3)
+  })
+
+  it('does not extend the 3s minimum when readiness is early', () => {
+    // The gesture is not additional time — on a warm cache it is the last
+    // stretch of the same three seconds.
+    const r = run({ load: () => 1, ready: (t) => t >= 0.5 })
+    expect(r.doneAt!).toBeLessThan(3.1)
+  })
+})
+
+describe('Hidden time — the minimum duration is measured in visible time', () => {
+  // The hazard that arrives with a wall clock: a backgrounded tab would
+  // otherwise spend the drawing's 3 seconds while nothing is on screen, and the
+  // viewer would return to an intro that had already happened. introDraw feeds
+  // zero deltas while `document.hidden`; this is that contract.
+  const r = run({
+    load: () => 1,
+    ready: (t) => t >= 0.5,
+    hidden: [{ at: 1.5, dur: 3 }],
+    duration: 30,
+  })
+
+  it('does not spend the intro off screen', () => {
+    expect(r.doneAt).not.toBeNull()
+    // 3s of drawing plus the 3s it was not being watched.
+    expect(r.doneAt!).toBeGreaterThanOrEqual(6.0 - 1e-6)
+    expect(r.doneAt!).toBeLessThan(6.1)
+  })
+
+  it('does not jump on return', () => {
+    expect(r.maxDelta).toBeLessThan(0.02)
   })
 })
 

@@ -70,7 +70,7 @@ cut — that flag is shared with every district flight.
 ADR 001 has Murcia bypassing the `EffectComposer` because its render targets carry no MSAA
 and the city is all hard building edges. **During a warp that trade inverts**: the frame is
 smeared and moving fast, so aliasing is invisible, and the blur is most of what makes the
-motion read as motion. `DECISIONS.md:208-216` is explicit that a warp needs geometry for the
+motion read as motion. `DECISIONS.md` §26.7 is explicit that a warp needs geometry for the
 blur to act on — a city is ideal.
 
 So Murcia borrows the composer for the ~1.6s of a transition and goes straight back to the

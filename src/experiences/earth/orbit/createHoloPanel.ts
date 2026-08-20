@@ -13,7 +13,7 @@ import { BrandAtlas } from './createBrandAtlas'
 // side) and, more importantly, keeps the "satellite orientation never reads
 // camera state" rule intact for the model itself — this panel is a separate
 // object that is allowed to face the viewer, because an unreadable label has no
-// purpose. See DECISIONS.md.
+// purpose. See DECISIONS.md 26.11.
 
 const VERTEX = /* glsl */ `
   varying vec2 vUv;

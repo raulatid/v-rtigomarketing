@@ -15,7 +15,7 @@ import { createPlayhead, Readiness } from './playhead'
 // P0: the isotype drawn stroke by stroke, a dot riding the tip — and the site's
 // loading animation. Standalone by rule: no React, no GSAP, no three, no
 // imports outside this directory. It must run in a bare HTML page given only a
-// progress callback (DECISIONS.md, "Code that runs first depends on nothing").
+// progress callback (DECISIONS.md 26.4, "Code that runs first depends on nothing").
 //
 // The playhead is a function of load progress, not of wall-clock time. See
 // plan 006 §2 — the mapping and its four failure modes are all implemented in
@@ -398,7 +398,9 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   const playheadLimits = () => ({
     minimumDuration: DRAW_TIMING.minimumDuration,
     preReadyLimit: timeline.preReadyLimit,
-    autonomousTau: DRAW_TIMING.autonomousTau,
+    reserve: DRAW_TIMING.reserve,
+    driftDuration: DRAW_TIMING.driftDuration,
+    catchUp: DRAW_TIMING.catchUp,
     smoothRate: DRAW_TIMING.smoothRate,
     maxDt: DRAW_TIMING.maxDt,
     stallEpsilon: DRAW_TIMING.stallEpsilon,
@@ -418,9 +420,28 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     for (const fn of completeListeners) fn()
   }
 
+  // The playhead spends REAL seconds now rather than frames, which introduces
+  // one hazard the old clamp had been hiding: a backgrounded tab would spend
+  // the drawing's three seconds with nobody watching, and the viewer would come
+  // back to an intro that had already happened. rAF does not fire while hidden,
+  // so the whole away-time would arrive as one enormous delta.
+  //
+  // So the drawing measures VISIBLE time: the frame that resumes contributes
+  // nothing, and the clock picks up where it left off. Same reasoning as the
+  // visibilitychange guards on the master timeline and the warp — this module
+  // simply cannot borrow theirs, since it has no GSAP and no React.
+  let resumed = false
+  const onVisibility = () => {
+    if (!doc.hidden) resumed = true
+  }
+  doc.addEventListener('visibilitychange', onVisibility)
+
   function frame(now: number) {
     raf = requestAnimationFrame(frame)
-    const raw = lastNow ? (now - lastNow) / 1000 : 0
+    // `resumed` discards exactly the one delta that spans the hidden window;
+    // `lastNow` does the same for the first frame of the run.
+    const raw = lastNow && !resumed ? (now - lastNow) / 1000 : 0
+    resumed = false
     lastNow = now
 
     const load = options.getProgress()
@@ -519,7 +540,11 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     apply(current)
     const poll = (now: number) => {
       raf = requestAnimationFrame(poll)
-      const raw = lastNow ? (now - lastNow) / 1000 : 0
+      // Same visible-time rule as `frame`: reduced motion skips the build, not
+      // the three-second contract, so it must not spend it on a hidden tab
+      // either.
+      const raw = lastNow && !resumed ? (now - lastNow) / 1000 : 0
+      resumed = false
       lastNow = now
       const f = playhead.step(raw, 1, options.getReadiness())
       // Skip straight to the outline; only the ending is animated.
@@ -586,6 +611,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       raf = 0
       playhead.reset()
       lastNow = 0
+      resumed = false
       current = 0
       stalledFor = 0
       noticed = false
@@ -602,6 +628,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     destroy() {
       if (raf) cancelAnimationFrame(raf)
       raf = 0
+      doc.removeEventListener('visibilitychange', onVisibility)
       root.remove()
     },
     trace,

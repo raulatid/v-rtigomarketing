@@ -28,18 +28,34 @@ export const INTERACTION_CONFIG = {
     // every tap was classified as a drag and swallowed, which is half of why
     // the site was mouse-only.
     touchDragClickThreshold: 12,
-    // Wheel zoom, overview mode only. Expressed in Earth radii from centre.
-    zoomMin: 3 * R,
-    zoomMax: 11 * R,
-    zoomSensitivity: 0.0012,
+    // How far the overview camera sits from the origin. FIXED — this replaced
+    // `zoomMin: 3R`, `zoomMax: 11R` and `zoomSensitivity`, which existed for the
+    // wheel. The wheel belongs to scene navigation now (`adr/009`), so nothing
+    // writes the orbit radius after it is seeded: drag still turns the globe, it
+    // just cannot change how far away it is.
+    //
+    // A single constant rather than a band, and it is the ONE number here that is
+    // read outside the interactive phase. `CameraController.EARTH_REST` is derived
+    // from it so the intro lands exactly where the rig will take over, and
+    // `checks/space-backdrop.ts` measures the star shell against it — the shell has
+    // to enclose the camera or stars render over the planet. Keeping it here rather
+    // than in `CameraController` is what lets a Node harness read it without
+    // pulling React and R3F into the bundle.
+    overviewRadius: 7 * R,
   },
 
   closeUp: {
     // Back-off from the satellite along the Earth→satellite direction — THE
-    // knob for how close the case-panel view gets. Smaller = closer. The old
-    // 1.25R was tuned for the flat badge; the GLB model reads far smaller at
-    // the same distance, so the close-up is pulled in to keep it the subject.
-    distance: 0.55 * R,
+    // knob for how close the case-panel view gets. Smaller = closer.
+    //
+    // DERIVED FROM `ORBIT_CONFIG.satellite.modelSize`, which is the whole
+    // history of this number. 1.25R framed the old flat badge; it went to 0.55R
+    // because the GLB that replaced the badge read far smaller at the same
+    // distance. On 2026-08-20 `modelSize` doubled, so the same subject now
+    // subtends twice the angle and 0.55R overflows the frame — the distance
+    // roughly doubles with it to hold the composition. A future size change has
+    // to move this too, or the close-up silently reframes.
+    distance: 1.05 * R,
     // Small vertical camera lift.
     lift: 0.15 * R,
     // The look-at offset that pushes the satellite LEFT on screen, clearing the

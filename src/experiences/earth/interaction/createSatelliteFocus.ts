@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { OrbitSystem } from '../orbit/createOrbitSystem'
-import { SatelliteDef } from '../orbit/orbitConfig'
+import type { SatelliteDef } from '../orbit/orbitConfig'
 import { FocusCameraRig } from '../camera/createFocusCameraRig'
 import { CursorManager } from '../../../interaction/cursorManager'
 import { clientToNdc } from '../../../interaction/screenSpace'

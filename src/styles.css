@@ -23,9 +23,10 @@ body {
 }
 
 /* ---- Layer stack (plan 002 §3) ----
-   10 scene canvas (incl. the corner-logo overlay pass) · 15 geo tags ·
+   10 scene canvas (incl. the corner-logo overlay pass) ·
    16 murcia UI · 20 SVG intro · 35 case panel · 40 warp overlay ·
-   45 experience switch · 60 audit overlay · 70 audit trigger ·
+   42 site footer · 45 navigation rail · 60 audit overlay ·
+   62 contact/legal modals · 70 audit + contact triggers ·
    80 context-lost notice · 100 debug overlay · 999 cursor                     */
 
 .scene-canvas {
@@ -43,8 +44,7 @@ body {
 
 /* z 30 — the corner logo — is gone. It had its own canvas and its own
    WebGLRenderer; it is now an overlay pass on the scene canvas (ADR 002), so
-   it composites at z 10. Consequence: the geo-tag layer (z 15) now paints
-   above the logo where they overlap, which the separate canvas prevented. */
+   it composites at z 10. */
 
 .warp-overlay {
   position: fixed;
@@ -341,7 +341,21 @@ body {
   font-weight: 600;
 }
 
-/* ---- The case panel on a narrow viewport ----
+/* The sheet's grip. Hidden wherever the panel is a dock — it is a control for
+   raising and lowering a sheet, and there is no sheet on a desktop. Declared
+   outside the media query so the "not on desktop" half is stated rather than
+   merely absent. */
+.case-panel__handle {
+  display: none;
+}
+
+.case-panel__body {
+  /* Desktop has nothing to scroll: the dock is sized to its content. The rule
+     exists so the mobile block only has to add the scrolling. */
+  min-height: 0;
+}
+
+/* ---- The case panel on a narrow OR SHORT viewport ----
 
    Until 2026-08-14 there was no such thing: `.case-panel` was declared once,
    for a desktop, and nothing overrode it. At 375px `right: 20vw` and
@@ -353,29 +367,48 @@ body {
    the least interesting part of the image. There it is the near foreground;
    here it is the space below the globe.
 
-   The other half of this fix is in `camera/closeUpFraming.ts`. The offset that
+   TWO STOPS, added 2026-08-17. The first version was one fixed 60dvh sheet, and
+   measurement showed it failing at both jobs. Anchored to `bottom: 0` its top
+   edge lands at 40% of the screen, while the close-up centres the satellite at
+   50% — so the panel covered the satellite it was describing. And the case did
+   not fit: 706px of content at 393x852 and 719px at 360x740, against 511px and
+   444px of sheet, leaving 28% and 38% of it behind a scroll with no handle, no
+   stop and no shadow to say there was one.
+
+   The stops are Murcia's 40/85, unchanged, and they check out here: peek is
+   341px at 393x852, which holds the header, the name, the meta line and both
+   metric tiles — the headline of the case — with the satellite at y=426 clear
+   of the sheet's top edge at y=511. Expanded is 724px against 706px of content,
+   so a typical phone reads the whole case without scrolling.
+
+   ALSO TRIGGERS ON HEIGHT. The query was `max-width: 767px` alone, and a phone
+   in landscape is 852x393 — so it got the DESKTOP dock: 324px wide, 820px tall
+   on a 393px-tall screen, `overflow-y: visible`, centred with translateY(-50%),
+   with roughly half the case off-screen top and bottom and no way to reach it.
+
+   The other half of this is in `camera/closeUpFraming.ts`. The offset that
    pushes the satellite left to clear the dock goes to zero below this
    breakpoint, so the two must move together — which is what the "composition
-   contract with the camera" note above has always been about. The breakpoint
-   is duplicated there as CASE_PANEL_DOCK_MIN_WIDTH; keep them in step. */
-@media (max-width: 767px) {
+   contract with the camera" note above has always been about. Both conditions
+   are duplicated there as CASE_PANEL_DOCK_MIN_WIDTH and
+   CASE_PANEL_DOCK_MIN_HEIGHT; keep them in step. */
+@media (max-width: 767px), (max-height: 500px) {
   .case-panel {
     top: auto;
     right: 0;
     bottom: 0;
     left: 0;
     width: auto;
-    /* Enough for the title, the metric row and the chart, and never more than
-       half the frame — the globe stays the subject. */
-    max-height: 60dvh;
-    overflow-y: auto;
-    /* Claims the gesture back from the canvas, which is `touch-action: none`
-       over the whole viewport. Without this the sheet cannot be scrolled.
-       `contain` stops a scroll that reaches the end from becoming a page
-       overscroll behind it. */
-    touch-action: pan-y;
-    overscroll-behavior: contain;
-    padding: 1.5rem;
+    /* A column, so the handle and header can hold their place while the body
+       scrolls under them. A sheet whose close button scrolls away cannot be
+       dismissed without scrolling back up first. */
+    display: flex;
+    flex-direction: column;
+    /* `height`, not `max-height`: a stop is a known size, and a transition
+       needs two of them to animate between. Same reason murcia.css uses
+       height for the district sheet's stops. */
+    height: 40dvh;
+    padding: 0 1.5rem 1.5rem;
     /* The home indicator sits inside the sheet's own bottom edge. */
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
     border-radius: 14px 14px 0 0;
@@ -386,10 +419,70 @@ body {
     /* Slides up from below rather than fading in place. The desktop rule
        centres with translateY(-50%), which would put the sheet off-screen. */
     transform: translateY(100%);
+    transition:
+      opacity 340ms ease-out,
+      transform 340ms ease-out,
+      height 320ms ease,
+      visibility 0s linear 340ms;
   }
 
   .case-panel.is-visible {
     transform: translateY(0);
+    transition:
+      opacity 220ms ease,
+      transform 220ms ease,
+      height 320ms ease;
+  }
+
+  .case-panel[data-stop='expanded'] {
+    height: 85dvh;
+  }
+
+  .case-panel__handle {
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    /* 44px because it is the control that raises and lowers the sheet — the
+       most-used thing on the panel, and the one a thumb has to find. The same
+       size and the same reasoning as Murcia's, which was raised from 26px for
+       exactly this after the 2026-08-14 audit. */
+    height: 44px;
+    margin: 0 -1.5rem;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .case-panel__handle::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    margin-top: -2px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.28);
+  }
+
+  .case-panel__header {
+    flex: 0 0 auto;
+    /* Tighter than the desktop's 1.5rem: the handle above it already provides
+       the separation, and at the peek stop every pixel is content. */
+    margin-bottom: 1rem;
+  }
+
+  .case-panel__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    /* Claims the gesture back from the canvas, which is `touch-action: none`
+       over the whole viewport. Without this the sheet cannot be scrolled.
+       `contain` stops a scroll that reaches the end from becoming a page
+       overscroll behind it. */
+    touch-action: pan-y;
+    overscroll-behavior: contain;
   }
 
   /* The reserved min-heights exist so the desktop panel does not resize while
@@ -402,87 +495,23 @@ body {
   }
 }
 
-/* ---- Geo marker tags (CSS2D, above the scene canvas, below the logo) ---- */
-
-.geo-tag-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 15;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.geo-tag {
-  /* Hover-only. The dot itself is the persistent affordance; the tag is the
-     payload, so it must not clutter the globe at rest. */
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 160ms ease-out, transform 160ms ease-out;
-  pointer-events: none;
-  white-space: nowrap;
-  padding: 6px 10px;
-  border-radius: 5px;
-  background: rgba(8, 10, 14, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-}
-
-/* Destination markers are navigation, not a label: accent border, a brighter
-   payload line, and the dot itself pulses (createGeoMarkers). The tag is still
-   hover-only — the pulsing dot is what makes the place findable at rest. */
-
-.geo-tag--destination {
-  border-color: rgba(79, 176, 255, 0.55);
-  box-shadow: 0 0 0 1px rgba(79, 176, 255, 0.12), 0 6px 20px rgba(0, 0, 0, 0.45);
-}
-
-.geo-tag--destination .geo-tag__text {
-  color: #4fb0ff;
-}
-
-.geo-tag.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Touch devices have no hover, so the rule above never fires and the Murcia
-   marker was a tappable dot with nothing on screen saying what it does. Same
-   answer as districtLabel.ts: where hover is unsupported, the label persists.
-
-   Only the DESTINATION persists. The six city tags are decorative and not
-   activatable, and pinning all seven open would bury the globe under labels.
-
-   `is-near` carries the limb test that also decides pickability, so the label
-   appears exactly when the marker can be tapped and never floats over the far
-   side of the planet.
-
-   pointer-events is restored here for the same reason the label is: a visible
-   "Explorar la ciudad →" that ignores taps is a worse affordance than no label
-   at all. The dot stays tappable too — this only makes the label agree with it.
-   Pointer devices are untouched; the tag stays inert and hover-only there. */
-@media (hover: none) {
-  .geo-tag--destination.is-near {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-    /* No double-tap-to-zoom delay on the one thing we want tapped. */
-    touch-action: manipulation;
+/* The stop change is a state change, so it is shortened rather than deleted —
+   the same distinction murcia.css draws. Without a transition at all the sheet
+   would jump between stops with nothing connecting the two. */
+@media (prefers-reduced-motion: reduce) {
+  .case-panel {
+    transition-duration: 0.01ms;
+    /* The exit's `visibility 0s linear 340ms` is a DELAY, which a duration
+       override does not touch — left alone it would hold a fully transparent
+       panel in the tree for a third of a second after every close. */
+    transition-delay: 0ms;
   }
 }
 
-.geo-tag__title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.geo-tag__text {
-  margin-top: 2px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
+/* z 15 — the geo-tag layer — is gone with the destination marker: nothing on
+   the globe navigates (adr/009), so the tag advertising the city was a false
+   affordance and the product removed the marker outright. The warp still aims
+   at Murcia through navigation/destination.ts, which needs no DOM. */
 
 /* ---- Intro SVG ----
    Deliberately absent: intro-draw ships its own styles inline (introDraw.ts).
@@ -573,15 +602,24 @@ body {
 }
 
 /* ---- Audit section (plan 005) ----
-   Layer stack recap: 10 canvas · 15 geo tags · 20 intro · 30 logo · 35 case
-   panel · 40 warp overlay · 100 debug. The audit curtain sits at 60 (above the
+   Layer stack recap: 10 canvas (incl. logo) · 20 intro · 35 case panel ·
+   40 warp overlay · 100 debug. The audit curtain sits at 60 (above the
    warp overlay so it stays usable even mid-intro) and its trigger at 70.
    Palette: white primary, blue (#1c67ff family) strictly for accents/CTA. */
 
+/* The desktop header is three things on one inset: the 3D corner logo (its
+   centre sits cornerMarginX/Y = 48px from the top-left, introConfig.ts) and the
+   two triggers top-right. One token so they cannot drift apart; the triggers'
+   tops subtract half their own height so their centres share the logo's line.
+   Mobile overrides below keep their own 12px. */
+:root {
+  --header-inset: 48px;
+}
+
 .audit-trigger {
   position: fixed;
-  top: 18px;
-  right: 18px;
+  top: calc(var(--header-inset) - 23px);
+  right: var(--header-inset);
   z-index: 70;
   height: 46px;
   padding: 0 26px;
@@ -875,11 +913,6 @@ body {
   border-left: 2px solid rgba(28, 103, 255, 0.85);
 }
 
-.audit-step {
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 0.14em;
-}
-
 .audit-title {
   font-size: clamp(1.75rem, 2.4vw, 2.25rem);
   font-weight: 600;
@@ -1043,6 +1076,51 @@ body {
   transform: scale(0.97);
 }
 
+/* In flight: the control says so and refuses a second press. Dimmed rather
+   than restyled — the label ("Enviando…") carries the state, the dim only
+   confirms it. */
+.audit-cta:disabled {
+  cursor: default;
+  filter: none;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+/* The submission failed. Same red family as the field errors — this is the
+   form-level line of the same voice, sat directly above the retry control. */
+.audit-form__error {
+  margin-bottom: 0.8rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 158, 158, 0.95);
+}
+
+/* The delivered state replaces the form inside the already-open panel, so it
+   plays its own small arrival — the group stagger above only runs with the
+   curtain. One rise, no theatrics: the news is the text. */
+.audit-success .audit-group {
+  animation: audit-success-in 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.audit-success .audit-group:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.audit-success .audit-group:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+@keyframes audit-success-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .audit-cta:focus-visible {
   outline: 2px solid rgba(120, 170, 255, 0.9);
   outline-offset: 2px;
@@ -1060,36 +1138,12 @@ body {
   text-align: center;
 }
 
-/* The sky panorama's attribution. This is a LICENCE OBLIGATION, not a
-   courtesy: the backdrop image is CC BY 4.0 and ESO's policy requires the
-   credit be "presented in a clear and readable manner to all users, with the
-   wording unaltered" and not hidden. So it may be quiet, but it may not be
-   invisible — do not drop the opacity further, do not display: none it at any
-   breakpoint, and do not reword it. See CREDITS.md. */
-.audit-credit {
-  margin-top: 1.6rem;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.42);
-  text-align: center;
-}
-
-.audit-credit a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-/* Split so the keyboard half stays ungated: focus-visible is not a pointer
-   state and must work on every device. */
-.audit-credit a:focus-visible {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-@media (hover: hover) {
-  .audit-credit a:hover {
-    color: rgba(255, 255, 255, 0.72);
-  }
-}
+/* The `.audit-credit` rules that stood here styled the sky panorama's
+   attribution, which was a CC BY 4.0 licence obligation under ESO's policy.
+   The backdrop is now a public domain image and the client requires the site
+   carry no attribution, so the markup went and these went with it. If a credited
+   asset is ever introduced again, it needs its own visible surface — see
+   CREDITS.md. */
 
 /* Tablet: larger share, tighter padding (§13). */
 @media (max-width: 1024px) {
@@ -1134,6 +1188,10 @@ body {
   .audit-trigger,
   .audit-cta {
     transition: none;
+    animation: none;
+  }
+
+  .audit-success .audit-group {
     animation: none;
   }
 
@@ -1292,62 +1350,238 @@ body {
   background-color: rgba(28, 103, 255, 0.25);
 }
 
-/* ---- Experience switch (Earth <-> Murcia) ----
-   z 45, above the warp overlay (40) so the control stays legible if a
-   transition is somehow interrupted mid-cover, and above Murcia's UI host
-   (16) so the return button is never occluded by a district panel. */
+/* ---- Navigation rail (Earth <-> Murcia) ----
+   The gesture indicator, and the touch target that drives it (`adr/009`). It
+   replaces `.experience-switch`, which was the return button, and inherits its
+   z-index for the same two reasons: above the warp overlay (40) so it stays
+   legible if a transition is somehow interrupted mid-cover, and above Murcia's
+   UI host (16) so a district panel never occludes it.
 
-.experience-switch {
+   Two fixed dots with a fill travelling between them. A travel rail, not a
+   loading bar. */
+
+.nav-rail {
   position: fixed;
   z-index: 45;
-  padding: 0.7rem 1.25rem;
-  font: inherit;
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-  color: #fff;
-  background: rgba(10, 13, 19, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  cursor: pointer;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    opacity 0.2s ease;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  /* 48px of TARGET carrying a 4px line. The mobile audit's 44px minimum applies
+     to this: on touch it is the only way between the two worlds, which makes it
+     a primary control rather than chrome. The visible rail is drawn narrow and
+     centred inside it. */
+  width: 48px;
+  height: min(44vh, 380px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  /* The gesture is ours; the browser must not claim it as a scroll. Paired with
+     a non-passive touchmove in createNavigationInput, which is what actually
+     stops iOS rubber-banding — this element is a SIBLING of the canvas and does
+     not inherit its suppression. */
+  touch-action: none;
+  cursor: grab;
+  opacity: 0.95;
+  transition: opacity 0.3s ease;
 }
 
-@media (hover: hover) {
-  .experience-switch:hover:not(:disabled) {
-    background: rgba(22, 28, 40, 0.85);
-    border-color: rgba(255, 255, 255, 0.34);
+/* The glass plate the rail stands on. Murcia's backdrop is mid-gray city and
+   bright sky — no single line colour reads on all of it, and the panels already
+   answer that problem with frosted glass, so the rail borrows the same
+   material. A pseudo-element of the rail itself: it inherits every opacity
+   state (suppressed hides it too) and can never steal a tap. z-index -1 tucks
+   it under the static dots inside the rail's own stacking context. */
+.nav-rail::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -12px;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  border-radius: 14px;
+  background: rgba(8, 12, 18, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* The gesture hint: a device-appropriate icon standing just left of the rail,
+   teaching that a vertical gesture exists at all. A CHILD of the rail on
+   purpose — it inherits every opacity state (suppressed during the intro and
+   behind panels, dimmed through warp), so it can never advertise a gesture
+   the rail itself is refusing. Dismissed by createNavigationInput via
+   data-hint-dismissed the first frame a gesture is in flight, once per visit. */
+.nav-rail__hint {
+  position: absolute;
+  right: calc(100% - 4px);
+  top: 50%;
+  transform: translateY(-50%);
+  color: #cdd7e0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+  animation: nav-hint-float 2.4s ease-in-out infinite alternate;
+}
+
+.nav-rail__hint-icon {
+  display: block;
+  width: 24px;
+  height: 48px;
+  /* The same legibility trick as the rail: a soft dark halo, so the light
+     strokes survive the bright Murcia sky as well as space. */
+  filter: drop-shadow(0 1px 3px rgba(8, 14, 22, 0.6));
+}
+
+/* Input decides the icon, not viewport — the Murcia controls hint records the
+   reasoning. Teaching a wheel to a finger says the site was not built for the
+   thing in your hand. */
+.nav-rail__hint-icon--touch {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .nav-rail__hint-icon--mouse {
+    display: none;
+  }
+
+  .nav-rail__hint-icon--touch {
+    display: block;
   }
 }
 
-.experience-switch:focus-visible {
-  outline: 2px solid #4fb0ff;
-  outline-offset: 3px;
+.nav-rail[data-hint-dismissed] .nav-rail__hint {
+  opacity: 0;
 }
 
-.experience-switch:disabled {
-  opacity: 0.5;
+@keyframes nav-hint-float {
+  from {
+    transform: translateY(calc(-50% - 3px));
+  }
+
+  to {
+    transform: translateY(calc(-50% + 3px));
+  }
+}
+
+/* HIDDEN while something else owns the viewer's attention: an open district
+   panel, a selected satellite, the audit form, the intro still running. Not
+   dimmed — gone: the panels dock to this same edge, and a rail that is visible
+   at all while refusing every gesture advertises a navigation that does not
+   exist (the product asked for it to disappear). pointer-events off so the
+   invisible band over a panel cannot swallow its taps. */
+.nav-rail[data-state='suppressed'] {
+  opacity: 0;
+  pointer-events: none;
   cursor: default;
 }
 
-/* Top-left on the Murcia side: clear of the district panel's right dock and of
-   the bottom-centre controls hint.
+/* Mid-warp and just-arrived stay faintly present: the commit and the cooldown
+   are states of the gesture itself, and the indicator vanishing at the moment
+   of success would read as breakage rather than progress. */
+.nav-rail[data-state='locked'],
+.nav-rail[data-state='cooldown'] {
+  opacity: 0.18;
+  cursor: default;
+}
 
-   Pushed down below the corner logo, which persists across the transition as
-   application chrome and idles at 48px from the top-left corner
-   (introConfig cornerMarginX/Y). At top: 1.5rem the two overlapped. */
-.experience-switch--back {
-  top: 7.5rem;
-  left: 1.5rem;
+.nav-rail:focus-visible {
+  outline: 2px solid #4fb0ff;
+  outline-offset: -6px;
+  border-radius: 8px;
+}
+
+.nav-rail__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  /* Rimmed like the track, so the endpoints survive the light Murcia sky. */
+  box-shadow: 0 0 0 1px rgba(8, 14, 22, 0.4);
+}
+
+/* The endpoints are the two worlds, so each wears its world's colour — the
+   same hues the fill's gradient travels between. */
+.nav-rail__dot--start {
+  background: #b5dcff;
+}
+
+.nav-rail__dot--end {
+  background: #ffd9a8;
+}
+
+.nav-rail__track {
+  position: relative;
+  flex: 1;
+  width: 4px;
+  margin: 8px 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+  /* A dark rim, not a scene-aware colour: the same light line has to read on
+     the black of space and on the bright Murcia sky, and rimming it keeps the
+     rail ignorant of which world is behind it. */
+  box-shadow:
+    0 0 0 1px rgba(8, 14, 22, 0.4),
+    0 0 6px rgba(8, 14, 22, 0.35);
+  overflow: hidden;
+}
+
+/* The whole animation, still compositor-only — two transforms now instead of
+   one. `--nav-progress` is written straight onto .nav-rail by
+   createNavigationInput — never through React, because a wheel produces well
+   over a hundred events a second and each one would otherwise re-render two
+   canvases and every overlay.
+
+   Why two elements: the fill is a gradient PINNED TO THE TRACK — Earth blue at
+   the top, Murcia amber at the bottom, because that is the geography the rail
+   travels — so the tip takes on the destination's colour as it approaches. A
+   scaleY would squash the whole ramp into the travelled sliver. Instead the
+   reveal slides a clipping window along the track while the fill
+   counter-slides the gradient back into place, which shows exactly the
+   travelled portion where it belongs. */
+.nav-rail__reveal {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: transform;
+}
+
+.nav-rail__fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #6fc3ff 0%, #6fe0d4 45%, #ffc978 100%);
+  will-change: transform;
+}
+
+/* Direction is a CSS concern, so one number drives both legs: travelling DOWN
+   into Murcia reveals from the top, and rising back to Earth reveals from the
+   bottom. Anchoring it here rather than signing the progress value is what keeps
+   the accumulator ignorant of which world it is in. */
+.nav-rail[data-direction='down'] .nav-rail__reveal {
+  transform: translateY(calc((var(--nav-progress, 0) - 1) * 100%));
+}
+
+.nav-rail[data-direction='down'] .nav-rail__fill {
+  transform: translateY(calc((1 - var(--nav-progress, 0)) * 100%));
+}
+
+.nav-rail[data-direction='up'] .nav-rail__reveal {
+  transform: translateY(calc((1 - var(--nav-progress, 0)) * 100%));
+}
+
+.nav-rail[data-direction='up'] .nav-rail__fill {
+  transform: translateY(calc((var(--nav-progress, 0) - 1) * 100%));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .experience-switch {
+  .nav-rail {
     transition: none;
+  }
+
+  /* The float is decoration in motion; the opacity fade may stay. */
+  .nav-rail__hint {
+    animation: none;
   }
 }
 
@@ -1369,14 +1603,12 @@ body {
    anything else), so it is a primary control rather than chrome. */
 @media (pointer: coarse) {
   .case-panel__close,
-  .audit-close,
-  .experience-switch {
+  .audit-close {
     position: relative;
   }
 
   .case-panel__close::after,
-  .audit-close::after,
-  .experience-switch::after {
+  .audit-close::after {
     content: '';
     position: absolute;
     /* Centres a 44x44 area on the control whatever its rendered size, without
@@ -1388,6 +1620,424 @@ body {
     width: 100%;
     height: 100%;
     transform: translate(-50%, -50%);
+  }
+}
+
+/* ---- z 42 — the site footer · z 62 — contact & legal modals · and the
+   contact trigger (70, beside the audit trigger) ---------------------------
+
+   Earth-only chrome, all of it gated in App on the same expression as the
+   audit trigger: phase 'site' and Earth showing (DECISIONS §26.16 — chrome is
+   unmounted before the intro lands, never hidden). The contact data and the
+   legal texts live in src/content/site.ts, the single placeholder swap point. */
+
+.site-footer {
+  position: fixed;
+  z-index: 42;
+  left: max(18px, env(safe-area-inset-left));
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+  /* The strip itself must never block the scene; only its links are live. */
+  pointer-events: none;
+  animation: site-footer-in 480ms ease 120ms backwards;
+}
+
+@keyframes site-footer-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.site-footer__phones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-footer__phone-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+  flex: none;
+}
+
+.site-footer__phone {
+  pointer-events: auto;
+  color: inherit;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  /* A quiet 44px touch height without visual weight (mobile audit rule). */
+  padding: 15px 0;
+  transition: color 0.2s ease;
+}
+
+.site-footer__phone:hover {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.site-footer__legal {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.site-footer__link {
+  pointer-events: auto;
+  background: none;
+  border: 0;
+  padding: 15px 2px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.site-footer__link:hover {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.site-footer__link + .site-footer__link::before,
+.site-footer__copyright::before {
+  content: '·';
+  margin-right: 0.4rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.site-footer__copyright {
+  letter-spacing: 0.04em;
+}
+
+.site-footer__phone:focus-visible,
+.site-footer__link:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The audit CTA's quiet sibling: same radius family and typography, but a
+   ghost — white on transparent, because the blue family is strictly for the
+   primary CTA (the note at the audit section's head) — and deliberately a
+   size down (38px vs 46px), centred on the audit trigger's line: the audit is
+   the site's one ask, contact is the quieter door beside it. */
+.contact-trigger {
+  position: fixed;
+  z-index: 70;
+  /* Centred on the audit trigger: its top + (46 − 38) / 2. */
+  top: calc(var(--header-inset) - 23px + 4px);
+  /* Beside the audit trigger, which owns right: var(--header-inset). Its
+     rendered width is measured, not derived (see the verification
+     screenshots); re-measure if either label or the trigger's padding changes. */
+  right: calc(var(--header-inset) + 141px + 10px);
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, opacity 0.3s ease;
+  animation: audit-trigger-in 480ms ease 60ms backwards;
+}
+
+.contact-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+
+.contact-trigger:active {
+  transform: scale(0.97);
+}
+
+.contact-trigger:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+/* Standing down while the audit or its own dialog owns the viewer's
+   attention — faded, never unmounted, the audit trigger's own arrangement. */
+.contact-trigger[data-suppressed] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Shared surface for the contact dialog and the legal panels. Glass, like the
+   case panel — these are small asks, not the audit's full-attention curtain. */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(5, 5, 6, 0.55);
+  animation: modal-scrim-in 240ms ease;
+}
+
+@keyframes modal-scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.modal-panel {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: min(76vh, 640px);
+  overflow-y: auto;
+  padding: 2rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(160deg, rgba(12, 15, 22, 0.9), rgba(12, 15, 22, 0.82));
+  /* Prefixed first throughout this file — see the note at the top. */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: modal-panel-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+.modal-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-panel::-webkit-scrollbar-thumb {
+  background: rgba(28, 103, 255, 0.5);
+  border-radius: 4px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: #fff;
+}
+
+.modal-close:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.modal-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.modal-title:focus {
+  outline: none;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.contact-eyebrow {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 2px solid #1c67ff;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.contact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.contact-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 48px tall and 16px type: the audit inputs' iOS-zoom-threshold recipe. */
+.contact-input {
+  height: 48px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.contact-input:focus {
+  outline: none;
+  border-color: rgba(28, 103, 255, 0.9);
+  box-shadow: 0 0 0 3px rgba(28, 103, 255, 0.18);
+}
+
+.contact-input[aria-invalid='true'] {
+  border-color: rgba(255, 122, 122, 0.7);
+}
+
+.contact-textarea {
+  height: auto;
+  min-height: 120px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.contact-field__error,
+.contact-form__error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(255, 158, 158, 0.95);
+}
+
+.contact-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid rgba(96, 145, 255, 0.45);
+  background: linear-gradient(110deg, rgba(18, 49, 145, 0.96), rgba(28, 103, 255, 1));
+  box-shadow: 0 0 18px rgba(28, 103, 255, 0.28);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.contact-cta:hover {
+  box-shadow: 0 0 24px rgba(28, 103, 255, 0.4);
+}
+
+.contact-cta:active {
+  transform: scale(0.97);
+}
+
+.contact-cta:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.contact-cta:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.contact-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.contact-note__link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.contact-note__link:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.contact-note__link:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.contact-success {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.contact-success__body {
+  margin: 0;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.legal-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.legal-panel__body p {
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .site-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .contact-trigger {
+    /* The audit trigger is 44px at top 12px here; centre on it: +3px. */
+    top: calc(max(12px, env(safe-area-inset-top)) + 3px);
+    /* Mobile keeps the pre-token geometry it always had (the desktop value
+       before --header-inset existed); the audit trigger sits at 12px. */
+    right: calc(18px + 141px + 10px);
+    height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-footer,
+  .contact-trigger,
+  .modal-scrim,
+  .modal-panel {
+    animation: none;
   }
 }
 

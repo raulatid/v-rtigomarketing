@@ -63,24 +63,60 @@ export const DRAW_TIMING = {
   // The drawing never completes faster than this, however fast loading is.
   // A CAP ON PACE — never a gate on movement. Conflating the two is what made
   // the screen blank whenever loadProgress sat at 0.
+  //
+  // THREE SECONDS OF VISIBLE TIME, and both of those words are load-bearing.
+  // This used to be spent in units of min(dt, maxDt), which made it three
+  // seconds of frames shorter than 50ms — so every frame longer than that
+  // stretched the whole drawing by dt/maxDt. Measured on a real build: 4.00s at
+  // 15fps, 8.57s at 7fps, 12.00s at 5fps, against an intro that boots at 7fps
+  // because three.js evaluating and 2.43MB of JPEG decoding are what it is
+  // waiting for. "Visible" is the other half: introDraw feeds zero deltas while
+  // the tab is hidden, so a backgrounded tab cannot spend the drawing's three
+  // seconds with nobody watching.
   minimumDuration: 3.0,
 
-  // Time constant of the autonomous curve, in seconds. This is the mechanism
-  // that guarantees the drawing advances with NO progress signal at all.
-  // At 2.5 it tracks the minimum-duration ramp closely for the first second,
-  // then decelerates: ~70% of the pre-ready band by 3s, ~91% by 6s, ~98% by
-  // 10s. It approaches the ceiling asymptotically and never arrives, so the
-  // outline can never complete on time alone.
-  autonomousTau: 2.5,
+  // The share of the outline held back from the minimum-duration ramp, for the
+  // case where loading outlasts it.
+  //
+  // The autonomous advance used to be 1 - exp(-elapsed/tau), and an exponential
+  // has no end: its rate fell from 0.326/s to 0.0001/s over one run and it
+  // never reached the ceiling at all. That is what produced the two complaints
+  // that sound contradictory but are the same curve — the drawing sprinted
+  // through most of the isotype in under three seconds, then appeared to
+  // freeze. It is also the common case rather than the edge case, because
+  // measured progress is pinned at 0 until the app chunk lands.
+  //
+  // So the ramp is uniform and covers 1 - reserve of the band in
+  // `minimumDuration`, and the remaining 15% is spent at a slow CONSTANT rate
+  // over `driftDuration`. Constant-slow reads as working; asymptotic reads as
+  // crashed. After that the outline is complete and the drawing holds, which is
+  // the honest state — the dot's pulse is what says it is still alive.
+  reserve: 0.15,
+  driftDuration: 7.0,
 
-  // Exponential smoothing on the MEASURED signal only. The autonomous curve
-  // and the minimum-duration ramp are already smooth; smoothing them too would
-  // add lag and overshoot the 3s contract.
+  // Ceiling on how fast the playhead may advance in one frame, as a multiple of
+  // its nominal rate — the rationing that replaces the old dt clamp.
+  //
+  // The clamp was reaching for the right thing and grabbed the wrong lever: it
+  // limited the jump by falsifying the CLOCK, so the drawing paid for a stall
+  // by running long, permanently. Rationing the ADVANCE instead keeps real time
+  // and pays the stall back over the next few frames.
+  //
+  // 3 rather than 4 deliberately: it holds the handover step at ~0.017, inside
+  // the maxDelta bound the smoothness cases have always asserted. Raising it
+  // makes recovery snappier and those steps more visible.
+  catchUp: 3,
+
+  // Exponential smoothing on the MEASURED signal only. The uniform ramp and the
+  // minimum-duration cap are already smooth; smoothing them too would add lag
+  // and overshoot the 3s contract.
   smoothRate: 3.0,
 
-  // Frame-drop guard. Frame-rate-independent smoothing is precisely what turns
-  // a dropped frame into a visible jump: after a 250ms texture upload an
+  // Frame-drop guard for the SMOOTHING FILTER, which is the one place a clamp
+  // was ever right: frame-rate-independent smoothing is precisely what turns a
+  // dropped frame into a visible jump, since after a 250ms texture upload an
   // unclamped dt would consume ~53% of the remaining gap in a single frame.
+  // It no longer touches `elapsed` — see minimumDuration.
   maxDt: 0.05,
 
   // Playhead movement below this in one frame counts as stalled.

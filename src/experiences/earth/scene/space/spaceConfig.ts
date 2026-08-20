@@ -77,12 +77,18 @@ export const SPACE_CONFIG = {
     // photographed stars would be a second static set contradicting them.
     // See CREDITS.md and scripts/prepare-sky-panorama.mjs.
     //
+    // The image is PUBLIC DOMAIN and the site shows no credit for it, which is
+    // a client requirement. It replaced ESO's CC BY 4.0 panorama for that reason
+    // alone. Do not swap in an asset that wants attribution.
+    //
     // Four files, of which exactly one is ever fetched. AVIF first because WebP
     // BLOCKS: it quantises smooth dark gradients into flat macroblocks at every
     // quality setting, and magnification turns 16-px blocks into 28-px squares
     // on screen at DPR 1 and 56 at DPR 2. That is what "you can see the pixels"
-    // was. AVIF q60 measures 1.17 on the block-ratio harness in the prepare
-    // script against WebP's 1.52, at 240 KB versus 401 KB.
+    // was. AVIF q50 measures 1.68 on the block-ratio harness in the prepare
+    // script against WebP's 2.23, at 186 KB versus 319 KB. The desktop AVIF is
+    // also held under a 200 KB client budget, which is what picked q50 over the
+    // q80 that measures best — see the prepare script.
     //
     // WebP is the fallback for browsers without AVIF, reached by attempting the
     // AVIF and letting it fail to decode — see `loadFirstAvailable` in
@@ -93,8 +99,8 @@ export const SPACE_CONFIG = {
       avif: '/textures/sky-panorama.avif',
       webp: '/textures/sky-panorama.webp',
     },
-    // Half width, an eighth of the VRAM. Phones have small viewports, so the
-    // resolution buys them nothing, and 75.5 MB for a backdrop is not something
+    // Half width, a quarter of the VRAM. Phones have small viewports, so the
+    // resolution buys them nothing, and 33.6 MB for a backdrop is not something
     // to hand a phone.
     narrow: {
       avif: '/textures/sky-panorama-narrow.avif',
@@ -105,17 +111,19 @@ export const SPACE_CONFIG = {
     // file and the loader asks for the other.
     narrowMaxWidth: 767,
 
-    // 6144x2048 spans 360 degrees at 17.1 px/deg, against a viewport showing
-    // ~45 degrees over ~900px (20 px/deg) — so the sky is still MAGNIFIED,
-    // never minified, and mipmaps are dead weight. Leaving them off also
-    // removes the equirect seam: the u wrap at atan's branch cut makes the
-    // derivative blow up there, which with mips selects the smallest one and
-    // draws a visible vertical line down the sky. RGBA8, no mips: 75.5 MB wide,
-    // 18.9 MB narrow.
+    // 4096x2048 spans 360 degrees at 11.4 px/deg, against a viewport showing
+    // ~45 degrees over ~900px (20 px/deg) — so the sky is MAGNIFIED, never
+    // minified, and mipmaps are dead weight. Leaving them off also removes the
+    // equirect seam: the u wrap at atan's branch cut makes the derivative blow
+    // up there, which with mips selects the smallest one and draws a visible
+    // vertical line down the sky. RGBA8, no mips: 33.6 MB wide, 8.4 MB narrow.
     //
-    // 6144 is the ceiling the SOURCE allows — ESO's public original is
-    // 6000x3000 = 16.7 px/deg — not a ceiling chosen for weight. Going wider is
-    // empty upscaling.
+    // 4096 is the ceiling the SOURCE allows — it is a 4096x2048 PNG — not a
+    // ceiling chosen for weight. Going wider is empty upscaling. Note this is
+    // less resolution than the 6144 the previous ESO source allowed; the sky is
+    // magnified 1.76x rather than very nearly 1:1. It survives that because it
+    // is diffuse gas with no fine detail to lose, and because the shader
+    // dithers. A source with hard structure in it would not.
     generateMipmaps: false,
 
     // The display sphere's radius. Far outside the star shell's slider ceiling

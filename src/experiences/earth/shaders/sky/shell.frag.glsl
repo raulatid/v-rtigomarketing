@@ -55,11 +55,18 @@ void main() {
   sky *= uSkyBrightness;
 
   // Dither, ±0.5/255, and it is doing real work rather than being a flourish.
-  // Two separate quantisations land on this image: AVIF still leaves a little
-  // block structure in smooth dark gradients (block ratio 1.17 against a
-  // lossless 1.00), and the composer's OutputPass quantises to 8 bits at the
-  // end. Both surface in exactly the dark, smooth regions this sky is mostly
-  // made of, as flat patches with visible edges between them.
+  // Two separate quantisations land on this image: AVIF leaves block structure
+  // in smooth dark gradients (block ratio 1.68 against a lossless 1.00), and
+  // the composer's OutputPass quantises to 8 bits at the end. Both surface in
+  // exactly the dark, smooth regions this sky is mostly made of, as flat
+  // patches with visible edges between them.
+  //
+  // This carries MORE load than it used to. The panorama ships at AVIF q50
+  // rather than q60 because the desktop file is held under a 200 KB client
+  // budget, so the stored texture blocks measurably worse (1.68, was 1.17) and
+  // this is what keeps that off the screen. Verified by screenshotting the
+  // scene at 1440x900 and 390x844 — no visible squares. Weaken or remove this
+  // and the squares come back at the current quality setting.
   //
   // A pixel of noise turns those edges into grain, which the eye integrates and
   // stops seeing. It has to be here rather than baked into the texture: baked

@@ -100,6 +100,21 @@ forbid('interaction/ does not import any experience', 'src/interaction/', 'src/e
 forbid('loading/ does not import any experience', 'src/loading/', 'src/experiences/', '');
 forbid('utils/ does not import any experience', 'src/utils/', 'src/experiences/', '');
 forbid('utils/ does not import the application layer', 'src/utils/', 'src/app/', '');
+
+// `src/content/` is leaf infrastructure, like `utils/`. It carries the shapes
+// the UI consumes and the copy itself, and both experiences depend on it — Earth
+// for case studies, Murcia for districts. Section 2 forbids either experience
+// importing the other, so a shared vocabulary has nowhere else it could legally
+// live.
+//
+// The arrow points one way for a second reason: the content build (root
+// `content/`, Node-side) imports these types and invariants to validate what it
+// emits. Anything this module reached for would end up bundled for Node by
+// esbuild, which is how `fetch`, `fs` or a DOM global would arrive somewhere
+// none of them exist.
+forbid('content/ does not import any experience', 'src/content/', 'src/experiences/', 'content is copy and shapes; who renders it is not its concern');
+forbid('content/ does not import the application layer', 'src/content/', 'src/app/', '');
+forbid('content/ does not import graphics', 'src/content/', 'src/graphics/', '');
 forbid(
   'corner-logo/ does not import any experience',
   'src/corner-logo/',
@@ -121,6 +136,31 @@ forbid(
   'src/experiences/earth/',
   '',
 );
+
+forbid(
+  'neither experience imports scene navigation',
+  'src/experiences/',
+  'src/app/navigation/',
+  'navigating between the worlds is the one thing that knows both exist',
+);
+
+// Added with `app/navigation/` (`adr/009`). Scene navigation is an application
+// concern by definition — it is the only thing in the codebase that knows both
+// worlds exist — so an experience reaching for it would be an experience learning
+// about its sibling by the back door, which is what section 2 above forbids
+// directly.
+//
+// NARROWER THAN IT SHOULD BE, and the reason is worth recording rather than
+// quietly leaving the gap. The rule that belongs here is "no experience imports
+// the application layer at all", which is ARCHITECTURE 17's stated direction. It
+// cannot be asserted today: `earth/camera/CameraController.tsx` and
+// `earth/scene/SpaceBackdrop.tsx` both import `app/warpTransition`, deliberately
+// and correctly — it is a pure curve module with no DOM, no React and no state,
+// and DECISIONS 8 has each experience read the warp's progress and move its own
+// camera. What is wrong is only where that module LIVES: a shared vocabulary in
+// `app/` reads as orchestration. Moving it to `utils/` would let the broad rule be
+// stated, and that is a refactor with no bearing on this feature, so it is named
+// here instead of smuggled in.
 
 section('3. The boot entry depends on nothing');
 

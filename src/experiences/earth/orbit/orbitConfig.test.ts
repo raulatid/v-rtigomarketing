@@ -1,26 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { GEO_MARKERS, ORBIT_CONFIG, ORBIT_PRESETS, SATELLITES, orbitRevealDuration } from './orbitConfig'
+import { ORBIT_CONFIG, ORBIT_PRESETS, orbitRevealDuration } from './orbitConfig'
 
-describe('the satellite/orbit pairing', () => {
-  // This is a site-down bug in disguise, not a missing item. createOrbitSystem
-  // walks ORBIT_PRESETS and indexes SATELLITES[index]; one fewer case study
-  // throws, and OrbitSystemLayer converts a throw into a FATAL boot state — so
-  // deleting a case study would refuse to load the whole site.
-  //
-  // `tsc` cannot see it: noUncheckedIndexedAccess is off (PROJECT_MEMORY, Known
-  // debt), so SATELLITES[5] types as CaseStudy whether or not it exists. That is
-  // exactly the class of defect a cheap data test is for.
-  it('has one satellite per orbit preset', () => {
-    expect(SATELLITES).toHaveLength(ORBIT_PRESETS.length)
-  })
+// The pairing assertions that stood here moved to resolveOrbitCases.test.ts,
+// and the satellite-id assertion to content/caseStudies.test.ts. Neither was
+// about orbits: `SATELLITES.length === ORBIT_PRESETS.length` asserted that the
+// content happened to be the same length as the presets, which is exactly the
+// coincidence id-based resolution exists to stop relying on.
 
+describe('the orbit presets', () => {
   it('gives every preset a distinct id', () => {
+    // Assignments name presets by id, so a duplicate makes one of them
+    // unreachable and silently drops an orbit.
     const ids = ORBIT_PRESETS.map((preset) => preset.id)
-    expect(new Set(ids).size).toBe(ids.length)
-  })
-
-  it('gives every satellite a distinct id', () => {
-    const ids = SATELLITES.map((satellite) => satellite.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
@@ -38,12 +29,21 @@ describe('the satellite/orbit pairing', () => {
 })
 
 describe('orbitRevealDuration', () => {
-  it('is positive and finite', () => {
+  it('is positive and finite for every count the scene can produce', () => {
     // The timeline holds for exactly this long; a NaN or zero would either drop
-    // the hold entirely or hang the intro on it.
-    const duration = orbitRevealDuration()
-    expect(Number.isFinite(duration)).toBe(true)
-    expect(duration).toBeGreaterThan(0)
+    // the hold entirely or hang the intro on it. Zero is reachable now that the
+    // count comes from the assignment table rather than from the preset list.
+    for (const count of [0, 1, 6, 9]) {
+      const duration = orbitRevealDuration(count)
+      expect(Number.isFinite(duration), `count ${count}`).toBe(true)
+      expect(duration, `count ${count}`).toBeGreaterThan(0)
+    }
+  })
+
+  it('treats no orbits the same as one', () => {
+    // A scene with nothing assigned still has to hold for something, and a
+    // negative stagger would run the timeline backwards.
+    expect(orbitRevealDuration(0)).toBe(orbitRevealDuration(1))
   })
 
   it('outlasts the animation it is holding for', () => {
@@ -52,61 +52,16 @@ describe('orbitRevealDuration', () => {
     // function even if both were wrong. The failure that matters is a hold
     // SHORTER than what is playing, which cuts the reveal off mid-flight.
     const { introStartDelay, introStagger, introDuration } = ORBIT_CONFIG.orbit
-    const duration = orbitRevealDuration()
-    expect(duration).toBeGreaterThanOrEqual(introStartDelay + introDuration)
-    if (ORBIT_PRESETS.length > 1 && SATELLITES.length > 1) {
-      expect(duration).toBeGreaterThan(introStartDelay + introStagger)
-    }
+    expect(orbitRevealDuration(1)).toBeGreaterThanOrEqual(introStartDelay + introDuration)
+    expect(orbitRevealDuration(2)).toBeGreaterThan(introStartDelay + introStagger)
   })
 
-  it('does not stagger past the satellites that actually exist', () => {
-    // Orbits are only built for presets that have a case study, so staggering
-    // across all six presets when fewer exist would hold the timeline past the
-    // last thing that animates — a stall with nothing on screen.
-    const { introStartDelay, introStagger, introDuration } = ORBIT_CONFIG.orbit
-    const built = Math.max(Math.min(ORBIT_PRESETS.length, SATELLITES.length), 1)
-    const ceiling =
-      introStartDelay +
-      (built - 1) * introStagger +
-      introDuration +
-      ORBIT_CONFIG.satellite.introDuration
-    expect(orbitRevealDuration()).toBeLessThanOrEqual(ceiling + 1e-9)
-
-    // And the bound bites: staggering across all six presets when fewer
-    // satellites exist would exceed it. Asserted so the ceiling above cannot
-    // quietly become unreachable.
-    expect(built).toBeLessThanOrEqual(ORBIT_PRESETS.length)
-  })
-})
-
-describe('geo markers', () => {
-  it('gives every marker a distinct id', () => {
-    const ids = GEO_MARKERS.map((marker) => marker.id)
-    expect(new Set(ids).size).toBe(ids.length)
-  })
-
-  it('keeps every marker on the globe', () => {
-    for (const marker of GEO_MARKERS) {
-      expect(marker.lat).toBeGreaterThanOrEqual(-90)
-      expect(marker.lat).toBeLessThanOrEqual(90)
-      expect(marker.lng).toBeGreaterThanOrEqual(-180)
-      expect(marker.lng).toBeLessThanOrEqual(180)
-    }
-  })
-
-  it('has exactly one destination marker, and it is Murcia', () => {
-    // The destination marker is the only door into the city. Two of them would
-    // mean an ambiguous entry point; zero would strand the whole experience,
-    // which is a failure with no visible error at all.
-    const destinations = GEO_MARKERS.filter((marker) => marker.kind === 'destination')
-    expect(destinations).toHaveLength(1)
-    expect(destinations[0].id).toBe('murcia')
-  })
-
-  it('places Murcia at its real coordinates', () => {
-    // The marker has to sit on the actual city for the globe to mean anything.
-    const murcia = GEO_MARKERS.find((marker) => marker.id === 'murcia')!
-    expect(murcia.lat).toBeCloseTo(37.99, 1)
-    expect(murcia.lng).toBeCloseTo(-1.13, 1)
+  it('grows by exactly one stagger per additional orbit', () => {
+    // The property the hold depends on: each orbit starts one stagger after the
+    // last, so the hold must track the count linearly. A formula that used the
+    // preset count instead would not move at all here.
+    const { introStagger } = ORBIT_CONFIG.orbit
+    expect(orbitRevealDuration(4) - orbitRevealDuration(3)).toBeCloseTo(introStagger, 9)
+    expect(orbitRevealDuration(9) - orbitRevealDuration(8)).toBeCloseTo(introStagger, 9)
   })
 })

@@ -19,6 +19,13 @@ interface Params {
   replayKey: number
   /** True once the progress-driven draw has finished its fill. */
   drawComplete: boolean
+  /**
+   * How many orbits the scene will actually reveal, so the hold below matches
+   * the animation that plays. A number rather than the content itself — see
+   * `orbitRevealDuration`, which this module used to make an entry-chunk
+   * dependency of every case study.
+   */
+  satelliteCount: number
 }
 
 // The clock for P1-P5. P0 is NOT on it: the drawing runs on load progress in
@@ -34,6 +41,7 @@ export function useMasterTimeline({
   cornerLogo,
   replayKey,
   drawComplete,
+  satelliteCount,
 }: Params) {
   const [phase, setPhaseReact] = useState<Phase>('draw')
   const tlRef = useRef<gsap.core.Timeline | null>(null)
@@ -211,7 +219,7 @@ export function useMasterTimeline({
         .to(
           {},
           {
-            duration: Math.max(config.toCornerDuration, orbitRevealDuration()),
+            duration: Math.max(config.toCornerDuration, orbitRevealDuration(satelliteCount)),
           },
         )
 
@@ -226,7 +234,7 @@ export function useMasterTimeline({
       tlRef.current = null
       ctx.revert()
     }
-  }, [intro, config, state, cornerLogo, replayKey, drawComplete])
+  }, [intro, config, state, cornerLogo, replayKey, drawComplete, satelliteCount])
 
   // Pause the timeline while the tab is hidden — GSAP would otherwise fast
   // forward on return and skip the crossover's substitution callback.

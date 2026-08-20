@@ -7,7 +7,8 @@ import {
   useRef,
   useState,
 } from 'react'
-import { auditView } from '../auditView'
+import { auditView, shiftsFor, type AuditPhase } from '../auditView'
+import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
 
 // Audit section (plan 005): a fixed trigger in the top-right corner and a solid
 // black form panel that curtains in from the left over the live scene.
@@ -17,8 +18,6 @@ import { auditView } from '../auditView'
 // intro sequence, and this section is orthogonal to it (it can open during any
 // phase). The scene recomposition runs in AuditCameraShift, which only reads
 // the mutable auditView written here.
-
-type AuditPhase = 'closed' | 'entering' | 'open' | 'leaving'
 
 // Entry completes around 1.1s, exit is faster (plan 005 §6–7). These gate the
 // STATE change only; the visuals are CSS transitions with their own timing.
@@ -188,19 +187,24 @@ function validate(values: Values): Errors {
   return errors
 }
 
-// Isolated integration boundary — there is no backend or payment flow in this
-// prototype, and nothing is simulated (plan 005 §10).
+// The integration boundary moved to src/app/auditSubmission.ts: this component
+// owns PRESENTATION of the submission (idle → submitting → success | error) and
+// hands the payload to one injected transport. The transport is a demo stub
+// until the real endpoint exists — and in a production build it rejects rather
+// than fake a success (the rule is recorded at the transport).
 //
-// A valid submission simply closes the panel. Deliberately NOT logged: the
-// previous version console.info'd the whole payload, which put a real person's
-// name, email and company into the browser console of a deployed site for no
-// benefit. Nothing here leaves the browser — which is also what keeps this
-// prototype clear of GDPR/LOPDGDD obligations. The moment a real endpoint is
-// wired in, that changes and the form needs a privacy notice and a lawful
-// basis BEFORE it collects anything.
+// Nothing is logged, deliberately: the previous prototype console.info'd the
+// whole payload, which put a real person's name, email and company into the
+// browser console of a deployed site for no benefit. Nothing here leaves the
+// browser yet — which is also what keeps this prototype clear of GDPR/LOPDGDD
+// obligations. The moment a real endpoint is wired in, that changes and the
+// form needs a privacy notice and a lawful basis BEFORE it collects anything
+// (the legal implementation is a separate, deferred task).
 //
-// TODO(integration): send the validated payload to the real audit request /
-// payment flow when it exists, and add the consent notice at the same time.
+// The submission model this component keeps, for when that day comes:
+//  - `success` is only entered when the transport's promise RESOLVES;
+//  - `error` keeps everything typed and turns the CTA into a retry;
+//  - a submission in flight refuses a second one.
 
 interface Props {
   // Lets App gate its global Escape handler (which otherwise skips the intro).
@@ -208,18 +212,43 @@ interface Props {
   // The trigger stays off-screen until the intro fully lands (satellites
   // revealed, phase 'site') — no interaction is offered over a half-built scene.
   ready: boolean
+  // False while another experience is showing. This section is Earth's chrome:
+  // it is positioned over Earth's scene, its camera shift writes Earth's camera,
+  // and its curtain would occlude Murcia's return control. The component stays
+  // mounted (the form keeps what was typed) but it is forced closed here — see
+  // the reset effect below.
+  active: boolean
+  /** Submission transport. Injectable for tests; defaults to the application's. */
+  submit?: SubmitAuditRequest
 }
 
-export function AuditSection({ onOpenChange, ready }: Props) {
+/** Where the submission is, as a state and never as inference. */
+type Submission = 'idle' | 'submitting' | 'success' | 'error'
+
+export function AuditSection({
+  onOpenChange,
+  ready,
+  active,
+  submit = submitAuditRequest,
+}: Props) {
   const [phase, setPhase] = useState<AuditPhase>('closed')
   const [values, setValues] = useState<Values>(EMPTY_VALUES)
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [submission, setSubmission] = useState<Submission>('idle')
 
   const timerRef = useRef(-1)
   const reducedRef = useRef(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const successHeadingRef = useRef<HTMLHeadingElement>(null)
+  /**
+   * Which submission attempt is current. A settled promise from an attempt
+   * that is no longer the current one (the panel was closed and the form
+   * reset, say) must not move the state — it reports on a request nobody is
+   * looking at any more.
+   */
+  const submitSeqRef = useRef(0)
   const fieldRefs = useRef<Partial<Record<Field, HTMLInputElement | HTMLSelectElement | null>>>({})
 
   useEffect(() => () => window.clearTimeout(timerRef.current), [])
@@ -228,10 +257,13 @@ export function AuditSection({ onOpenChange, ready }: Props) {
     if (phase !== 'closed') return
     reducedRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     auditView.reducedMotion = reducedRef.current
-    // No recomposition on mobile — the panel covers the full width there.
-    auditView.open = window.innerWidth >= MOBILE_MAX
+    // `auditView.open` is NOT written here — the phase effect below owns it.
     onOpenChange(true)
     setPhase('entering')
+    // Cancels any timer still pending from the previous phase change: open() and
+    // close() share this handle, so an open->close inside LEAVE_MS would
+    // otherwise leave an orphaned setPhase() to fire against the new phase.
+    window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(
       () => setPhase('open'),
       reducedRef.current ? REDUCED_MS : ENTER_MS,
@@ -240,8 +272,8 @@ export function AuditSection({ onOpenChange, ready }: Props) {
 
   const close = useCallback(() => {
     if (phase !== 'open') return
-    auditView.open = false
     setPhase('leaving')
+    window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
       setPhase('closed')
       onOpenChange(false)
@@ -253,28 +285,50 @@ export function AuditSection({ onOpenChange, ready }: Props) {
     }, reducedRef.current ? REDUCED_MS : LEAVE_MS)
   }, [phase, onOpenChange])
 
-  // The recomposition decision has to survive a rotation.
+  // THE ONLY WRITER of `auditView.open`, and it runs for every phase including
+  // 'closed'. Two properties matter and the previous version had neither:
   //
-  // `open()` reads the breakpoint once, which is correct for the instant the
-  // section opens and wrong for every moment after it: turn a phone to
-  // landscape with the section open and it crosses 768px, but the camera keeps
-  // whatever it decided in portrait. A one-shot read is right for a decision
-  // that ends with the gesture and wrong for one that outlives it — which is
-  // the distinction this codebase had not drawn.
+  //  - It is not a partial view. `shiftsFor` maps (phase, breakpoint) to the
+  //    flag, so the effect cannot disagree with a write made somewhere else —
+  //    there is nowhere else. What made the panel strand the camera was exactly
+  //    that disagreement: close() cleared the flag, this effect re-ran on the
+  //    'leaving' change close() had just caused, and set it straight back.
+  //  - It always has an exit. The cleanup clears the flag, so the last phase
+  //    change and an unmount both land on false rather than on "whatever the
+  //    early return skipped".
   //
-  // Subscribed only while the section is on screen, because `auditView.open`
-  // means "the section is open AND wide enough to shift for"; there is nothing
-  // to keep in step while it is closed.
+  // The subscription itself is still here for the reason it was added: the
+  // recomposition decision has to survive a rotation. Turn a phone to landscape
+  // with the section open and it crosses 768px, and a one-shot read taken when
+  // the gesture started would have the camera keeping its portrait answer.
   useEffect(() => {
-    if (phase === 'closed') return
     const wide = window.matchMedia(`(min-width: ${MOBILE_MAX}px)`)
     const sync = () => {
-      auditView.open = wide.matches
+      auditView.open = shiftsFor(phase, wide.matches)
     }
     sync()
     wide.addEventListener('change', sync)
-    return () => wide.removeEventListener('change', sync)
+    return () => {
+      wide.removeEventListener('change', sync)
+      auditView.open = false
+    }
   }, [phase])
+
+  // Earth stopped showing. The section is Earth's chrome, so it goes with it:
+  // the curtain sits at z-index 60 over Murcia and above its return control, the
+  // trigger at 70, and the camera shift writes a camera that is no longer being
+  // drawn. Reset is a hard cut to 'closed' rather than a close() — there is no
+  // exit animation to play under a warp that already covers the screen, and
+  // close() only accepts 'open' anyway.
+  //
+  // `values` are deliberately kept: the viewer may be mid-form, and the swap is
+  // a navigation, not a cancel.
+  useEffect(() => {
+    if (active) return
+    window.clearTimeout(timerRef.current)
+    setPhase('closed')
+    onOpenChange(false)
+  }, [active, onOpenChange])
 
   // Focus moves to the section heading once the entry completes; form controls
   // are already interactive before that (pointer-events are never blocked).
@@ -320,18 +374,55 @@ export function AuditSection({ onOpenChange, ready }: Props) {
   const handleSubmit = useCallback(
     (e: FormEvent) => {
       e.preventDefault()
+      // In flight or already delivered: there is nothing a second press should
+      // do. 'error' deliberately falls through — the CTA is the retry.
+      if (submission === 'submitting' || submission === 'success') return
       setSubmitAttempted(true)
       const firstInvalid = FIELD_ORDER.find((f) => errors[f])
       if (firstInvalid) {
         fieldRefs.current[firstInvalid]?.focus()
         return
       }
-      // Prototype: a valid submission just closes the panel. See the note on
-      // the integration boundary above.
-      close()
+      const seq = ++submitSeqRef.current
+      setSubmission('submitting')
+      submit({ ...values }).then(
+        () => {
+          // `success` only on a RESOLVED request — the transport owns what
+          // resolution means (and refuses to fake one in production).
+          if (submitSeqRef.current === seq) setSubmission('success')
+        },
+        () => {
+          if (submitSeqRef.current === seq) setSubmission('error')
+        },
+      )
     },
-    [close, errors],
+    [submission, errors, values, submit],
   )
+
+  // The success state is an announcement, and focus is how it is announced to
+  // everyone: the heading is what a screen reader lands on, and what the eye
+  // finds where the form just was.
+  useEffect(() => {
+    if (submission === 'success') successHeadingRef.current?.focus({ preventScroll: true })
+  }, [submission])
+
+  // Closing settles the submission's afterlife. A delivered request means the
+  // form's job is done — reopening offers a fresh one. A failed attempt keeps
+  // what was typed (closing is a navigation, not a cancel), but returns to
+  // 'idle' so reopening shows the form, not a stale banner. A request still in
+  // flight is left to land — its .then above runs while closed, and THEN this
+  // effect settles it.
+  useEffect(() => {
+    if (phase !== 'closed') return
+    if (submission === 'idle' || submission === 'submitting') return
+    submitSeqRef.current += 1
+    if (submission === 'success') {
+      setValues(EMPTY_VALUES)
+      setTouched({})
+      setSubmitAttempted(false)
+    }
+    setSubmission('idle')
+  }, [phase, submission])
 
   const showError = (field: Field): string | undefined =>
     touched[field] || submitAttempted ? errors[field] : undefined
@@ -430,67 +521,99 @@ export function AuditSection({ onOpenChange, ready }: Props) {
             </svg>
           </button>
           <div className="audit-panel">
-            <form className="audit-form" noValidate onSubmit={handleSubmit}>
-              <div className="audit-group audit-group--1">
-                <p className="audit-eyebrow">
-                  Auditoría SEO
-                  <span className="audit-step">Paso 01 / 02</span>
-                </p>
-              </div>
-
-              <div className="audit-group audit-group--2">
-                <h2 className="audit-title" id="audit-title" tabIndex={-1} ref={headingRef}>
-                  Solicita la auditoría de tu presencia digital
-                </h2>
-                <p className="audit-description">
-                  Analizamos tu web, tu posicionamiento y tu competencia. Recibirás un
-                  informe con las acciones priorizadas para tu marca.
-                </p>
-              </div>
-
-              <div className="audit-group audit-group--3">
-                {FIELD_ORDER.map((field) => (
-                  <AuditField
-                    key={field}
-                    field={field}
-                    def={FIELD_DEFS[field]}
-                    controlProps={fieldProps(field)}
-                    onChange={(value) => setValue(field, value)}
-                    error={errorLine(field)}
-                  />
-                ))}
-              </div>
-
-              <div className="audit-group audit-group--4">
-                <button type="submit" className="audit-cta">
-                  Continuar
-                  <span className="audit-cta__arrow" aria-hidden="true">
-                    →
-                  </span>
-                </button>
-                <p className="audit-note">
-                  Revisamos cada solicitud de forma manual. Sin compromiso.
-                </p>
-                {/* Attribution for the space backdrop, and it is REQUIRED —
-                    the panorama is CC BY 4.0 and the credit is the licence
-                    condition, not a nicety. This panel is the only persistent
-                    text surface the site has, which is why it lives here; if
-                    a real footer ever appears, move it there and update the
-                    pointer in CREDITS.md. The wording must stay exactly
-                    "ESO/S. Brunier". */}
-                <p className="audit-credit">
-                  Imagen del cielo:{' '}
-                  <a
-                    href="https://www.eso.org/public/images/eso0932a/"
-                    target="_blank"
-                    rel="noopener noreferrer"
+            {submission === 'success' ? (
+              /* The delivered state, in-panel: the person is TOLD their request
+                 arrived, where the form just was, instead of the panel silently
+                 closing under them. role="status" so the announcement also
+                 reaches assistive tech that missed the focus move. */
+              <div className="audit-form audit-success" role="status">
+                <div className="audit-group">
+                  <p className="audit-eyebrow">Auditoría SEO</p>
+                </div>
+                <div className="audit-group">
+                  <h2
+                    className="audit-title"
+                    id="audit-title"
+                    tabIndex={-1}
+                    ref={successHeadingRef}
                   >
-                    ESO/S. Brunier
-                  </a>{' '}
-                  (CC BY 4.0)
-                </p>
+                    Solicitud recibida
+                  </h2>
+                  <p className="audit-description">
+                    Gracias. Revisaremos tu web de forma manual y te contactaremos en
+                    menos de 24 horas con las primeras conclusiones.
+                  </p>
+                </div>
+                <div className="audit-group">
+                  <button type="button" className="audit-cta" onClick={close}>
+                    Cerrar
+                  </button>
+                </div>
               </div>
-            </form>
+            ) : (
+              <form className="audit-form" noValidate onSubmit={handleSubmit}>
+                <div className="audit-group audit-group--1">
+                  <p className="audit-eyebrow">Auditoría SEO</p>
+                </div>
+
+                <div className="audit-group audit-group--2">
+                  <h2 className="audit-title" id="audit-title" tabIndex={-1} ref={headingRef}>
+                    Solicita la auditoría de tu presencia digital
+                  </h2>
+                  <p className="audit-description">
+                    Analizamos tu web, tu posicionamiento y tu competencia. Recibirás un
+                    informe con las acciones priorizadas para tu marca.
+                  </p>
+                </div>
+
+                <div className="audit-group audit-group--3">
+                  {FIELD_ORDER.map((field) => (
+                    <AuditField
+                      key={field}
+                      field={field}
+                      def={FIELD_DEFS[field]}
+                      controlProps={fieldProps(field)}
+                      onChange={(value) => setValue(field, value)}
+                      error={errorLine(field)}
+                    />
+                  ))}
+                </div>
+
+                <div className="audit-group audit-group--4">
+                  {/* Failure is direction, not mood: what happened, what to do.
+                      Everything typed is still in the fields above. */}
+                  {submission === 'error' && (
+                    <p className="audit-form__error" role="alert">
+                      No se ha podido enviar la solicitud. Inténtalo de nuevo.
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="audit-cta"
+                    disabled={submission === 'submitting'}
+                  >
+                    {submission === 'submitting'
+                      ? 'Enviando…'
+                      : submission === 'error'
+                        ? 'Reintentar'
+                        : 'Continuar'}
+                    <span className="audit-cta__arrow" aria-hidden="true">
+                      →
+                    </span>
+                  </button>
+                  <p className="audit-note">
+                    Revisamos cada solicitud de forma manual. Sin compromiso.
+                  </p>
+                  {/* No sky credit here, deliberately. The backdrop used to be
+                      ESO's CC BY 4.0 panorama and this is where its mandatory
+                      attribution lived. The client requires that the site carry
+                      no attribution, so the panorama was replaced with a public
+                      domain source and the credit came out with it — see
+                      CREDITS.md. If the sky is ever swapped again, check the new
+                      source's licence before assuming this stays empty. */}
+                </div>
+              </form>
+            )}
           </div>
           {/* Soft black-to-transparent falloff into the canvas area, so the
               panel edge does not read as a hard cut (plan 005 §4). */}

@@ -15,12 +15,6 @@ export interface DragPanEvents {
    */
   onYawChanged?: () => void;
   /**
-   * Fired whenever the rendered zoom changes, for exactly the same reason as
-   * `onYawChanged`: distance sets the ground footprint just as directly as
-   * azimuth does, so zooming out shrinks the area the focus may occupy.
-   */
-  onZoomChanged?: () => void;
-  /**
    * Fired when the gesture crosses the drag threshold, and again when it ends —
    * including the ends that are not a pointerup, such as a handover to a
    * district flight. Mirrors `isDragging`.
@@ -31,30 +25,18 @@ export interface DragPanEvents {
 /** Below this the yaw is treated as settled, in degrees. */
 const YAW_EPSILON = 1e-3;
 
-/** Below this the zoom scale is treated as settled. Unitless, a ratio. */
-const ZOOM_EPSILON = 1e-5;
-
 /**
  * Below this the focus is treated as settled, in world units.
  *
  * The three settle epsilons are deliberately different and are NOT a set of
  * magic numbers waiting to be unified: they measure different quantities.
- * Degrees of yaw, a unitless zoom ratio and world units of ground are not
- * comparable, so one shared constant would be wrong for two of the three.
+ * Degrees of yaw and world units of ground are not comparable, so one shared
+ * constant would be wrong for one of the two.
  *
  * This one was the only one still written inline, twice, which made it look
  * incidental next to the two named above it.
  */
 const FOCUS_EPSILON = 1e-3;
-
-/**
- * Per-event wheel delta cap, in normalized pixels.
- *
- * macOS momentum scrolling can deliver a single event carrying hundreds of
- * pixels at the head of a flick. Uncapped, one flick crosses the whole zoom
- * band and the gesture has no interior to aim in.
- */
-const MAX_WHEEL_DELTA = 120;
 
 /**
  * How long the pointer may sit still before its recorded velocity starts to
@@ -80,14 +62,16 @@ interface TrackedPointer {
 }
 
 /**
- * Map-style navigation: drag the ground, turn deliberately, zoom a little.
+ * Map-style navigation: drag the ground, turn deliberately.
  *
  *   left button / one finger    pan the ground under the cursor, both axes
  *   right button / two fingers  rotate the rig horizontally about the focus
- *   wheel / pinch               dolly in and out within a bounded band
  *   middle button               ignored
  *
- * No vertical rotation, no keyboard.
+ * No vertical rotation, no keyboard, and NO ZOOM — not on the wheel, not on a
+ * pinch. The wheel belongs to scene navigation now and this controller does not
+ * listen for it at all (`adr/009`); distance changes only when a district flight
+ * takes the camera to a clickable object. Two fingers still rotate by centroid.
  *
  * ## Why the gestures split this way
  *
@@ -167,7 +151,7 @@ interface TrackedPointer {
  * setting reversible from config alone. See DragFeelConfig.
  *
  * Everything is solved against the currently rendered camera each move, so a
- * yaw or a zoom applied mid-gesture is accounted for on the next sample.
+ * yaw or a flight dolly applied mid-gesture is accounted for on the next sample.
  */
 export class DragPanController {
   private readonly domElement: HTMLElement;
@@ -189,8 +173,6 @@ export class DragPanController {
   private targetZ = 0;
   /** Where the yaw is heading, degrees, unbounded. */
   private targetYaw = 0;
-  /** Where the zoom is heading, as a multiple of the pose distance. */
-  private targetZoomScale = 1;
 
   /** World units per second, for release momentum. */
   private velocityX = 0;
@@ -200,8 +182,6 @@ export class DragPanController {
 
   /** Rendered yaw, eased toward targetYaw. Mirrors what the rig holds. */
   private currentYaw = 0;
-  /** Rendered zoom, eased toward targetZoomScale. Mirrors what the rig holds. */
-  private currentZoomScale = 1;
 
   private lastMoveTime = 0;
   private lastClientX = 0;
@@ -222,9 +202,8 @@ export class DragPanController {
   private pointerDownY = 0;
   private exceededThreshold = false;
 
-  /** Two-pointer baselines. Resampled on every 1 <-> 2 transition. */
+  /** Two-pointer baseline. Resampled on every 1 <-> 2 transition. */
   private lastCentroidX = 0;
-  private lastSeparation = 0;
 
   /** True while another system owns the rig. See beginExternalControl. */
   private externalControl = false;
@@ -249,8 +228,6 @@ export class DragPanController {
     this.targetZ = rig.focus.z;
     this.targetYaw = rig.getYaw();
     this.currentYaw = this.targetYaw;
-    this.targetZoomScale = rig.getZoomScale();
-    this.currentZoomScale = this.targetZoomScale;
 
     // OrbitControls used to set this for us. Without it, a single-finger drag
     // scrolls the page or triggers pull-to-refresh on mobile.
@@ -260,7 +237,6 @@ export class DragPanController {
     this.domElement.addEventListener('pointermove', this.onPointerMove);
     this.domElement.addEventListener('pointerup', this.onPointerUp);
     this.domElement.addEventListener('pointercancel', this.onPointerUp);
-    this.domElement.addEventListener('wheel', this.onWheel, { passive: false });
     this.domElement.addEventListener('contextmenu', this.onContextMenu);
     // Safari on macOS reports a trackpad pinch through these non-standard
     // events INSTEAD of ctrl+wheel. Without suppressing them the whole page
@@ -295,8 +271,7 @@ export class DragPanController {
       Math.hypot(dx, dz) > 1e-3 ||
       Math.hypot(this.velocityX, this.velocityZ) > 0 ||
       Math.abs(this.targetYaw - this.currentYaw) > YAW_EPSILON ||
-      this.velocityYaw !== 0 ||
-      Math.abs(this.targetZoomScale - this.currentZoomScale) > ZOOM_EPSILON
+      this.velocityYaw !== 0
     );
   }
 
@@ -309,7 +284,7 @@ export class DragPanController {
    * Hands the rig to another system, such as a scripted camera flight.
    *
    * **Gating pointer input is not enough.** `update()` writes `rig.setFocus`,
-   * `rig.setYaw` and `rig.setZoomScale` unconditionally whenever its stored
+   * `rig.setYaw` and `rig.setDistanceScale` unconditionally whenever its stored
    * targets differ from what the rig currently holds. If something else moved
    * the rig, the very next frame would ease it straight back toward those stale
    * targets — two systems writing the same state, fighting, every frame. So
@@ -331,12 +306,16 @@ export class DragPanController {
   /**
    * Takes the rig back.
    *
-   * `adoptRigState` reads the focus, yaw and zoom the other system actually left
-   * behind and makes them this controller's current *and* target state. Without
-   * it the first `update()` after resuming would ease the rig from wherever the
-   * flight ended back to wherever the user last dragged to — a snap, and a long
-   * one. Zoom is part of that: miss it and a flight followed by a wheel event
-   * jumps the distance back to whatever it was before.
+   * `adoptRigState` reads the focus and yaw the other system actually left behind
+   * and makes them this controller's current *and* target state. Without it the
+   * first `update()` after resuming would ease the rig from wherever the flight
+   * ended back to wherever the user last dragged to — a snap, and a long one.
+   *
+   * DISTANCE IS DELIBERATELY NOT ADOPTED, and that is a change. It used to be, because
+   * the user could zoom and this controller therefore held a distance target that a
+   * flight would leave stale. It holds none now: only a flight moves distance, it owns
+   * it for its whole duration, and `close()` returns it to rest. Adopting it here would
+   * make this class a second writer of a value it can no longer change.
    *
    * It is on by default because resuming without it is almost always a bug; the
    * option exists only for a caller that has already set the targets itself.
@@ -350,8 +329,6 @@ export class DragPanController {
       this.targetZ = this.rig.focus.z;
       this.targetYaw = this.rig.getYaw();
       this.currentYaw = this.targetYaw;
-      this.targetZoomScale = this.rig.getZoomScale();
-      this.currentZoomScale = this.targetZoomScale;
     }
 
     this.velocityX = 0;
@@ -364,9 +341,9 @@ export class DragPanController {
    * Replaces the navigable area.
    *
    * Only the *target* is re-clamped; the rendered focus is left alone and the
-   * existing smoothing draws it in. Bounds now change continuously as the rig
-   * yaws or zooms — the footprint depends on both — so snapping the focus here
-   * would show up as a jerk on every frame of a rotation or a dolly.
+   * existing smoothing draws it in. Bounds change continuously as the rig yaws —
+   * and as a district flight dollies — so snapping the focus here would show up as
+   * a jerk on every frame of a rotation or a flight.
    */
   setBounds(bounds: BoundsRect): void {
     this.bounds = bounds;
@@ -387,11 +364,9 @@ export class DragPanController {
 
     this.decayStalledVelocity(dt);
 
-    // Yaw and zoom first, in either order, but both before translation: each
-    // changes the viewport footprint, and the bounds that come back from that
-    // are what the translation below is clamped against.
+    // Yaw before translation: it changes the viewport footprint, and the bounds
+    // that come back from that are what the translation below is clamped against.
     this.updateYaw(dt);
-    this.updateZoom(dt);
     this.updateTranslation(dt);
   }
 
@@ -417,7 +392,6 @@ export class DragPanController {
     this.domElement.removeEventListener('pointermove', this.onPointerMove);
     this.domElement.removeEventListener('pointerup', this.onPointerUp);
     this.domElement.removeEventListener('pointercancel', this.onPointerUp);
-    this.domElement.removeEventListener('wheel', this.onWheel);
     this.domElement.removeEventListener('contextmenu', this.onContextMenu);
     this.domElement.removeEventListener('gesturestart', this.onGesture);
     this.domElement.removeEventListener('gesturechange', this.onGesture);
@@ -427,23 +401,20 @@ export class DragPanController {
 
   // --- Per-frame integration -------------------------------------------------
   //
-  // The three integrators below share a SHAPE — optional inertia, then an
+  // The two integrators below share a SHAPE — optional inertia, then an
   // exponential ease toward the target, then an epsilon snap, then a write to
   // the rig — and they are deliberately not unified behind a common "smoothed
   // axis" type. They do not share a responsibility:
   //
   //   updateYaw          one scalar, with inertia, fires onYawChanged.
-  //   updateZoom         one scalar, NO inertia (a wheel has no release to
-  //                      coast from), its own time constant, fires onZoomChanged.
   //   updateTranslation  TWO axes that are not independent. The inertia test is
   //                      a 2-D speed (Math.hypot) and the clamp is a single
   //                      rectangle test that can stop X and Z together — neither
   //                      can be expressed as two separate axes without changing
   //                      the behaviour.
   //
-  // Two of the three would fit a shared abstraction and the third would have to
-  // be bent into it. PRINCIPLES §12: duplication is cheaper than the wrong
-  // abstraction.
+  // The two would fit a shared abstraction and one of them would have to be bent
+  // into it. PRINCIPLES §12: duplication is cheaper than the wrong abstraction.
 
   private updateYaw(dt: number): void {
     const rotation = this.config.rotation;
@@ -469,33 +440,6 @@ export class DragPanController {
     // Recomputes the footprint and calls back into setBounds. Ordering matters:
     // the translation step that follows must see the bounds for the new yaw.
     this.events.onYawChanged?.();
-  }
-
-  /**
-   * Eases the rendered zoom toward its target.
-   *
-   * Eased rather than applied on the spot because the wheel is a discrete input:
-   * the band is only a handful of notches wide, so an unsmoothed dolly is a
-   * visible staircase. There is no inertia branch — a zoom has no release to
-   * coast from, and a wheel gesture has no end to detect.
-   */
-  private updateZoom(dt: number): void {
-    const zoom = this.config.zoom;
-    if (!zoom.enabled) return;
-
-    const tau = zoom.smoothingTimeConstant;
-    const alpha = tau > 0 ? 1 - Math.exp(-dt / tau) : 1;
-    const next = this.currentZoomScale + (this.targetZoomScale - this.currentZoomScale) * alpha;
-    const settled =
-      Math.abs(this.targetZoomScale - next) < ZOOM_EPSILON ? this.targetZoomScale : next;
-
-    if (settled === this.currentZoomScale) return;
-    this.currentZoomScale = settled;
-    this.rig.setZoomScale(settled);
-    // Same contract as onYawChanged, and for the same reason: distance is a
-    // footprint input, so the navigable area has to be re-derived before the
-    // translation step clamps against it.
-    this.events.onZoomChanged?.();
   }
 
   private updateTranslation(dt: number): void {
@@ -726,8 +670,8 @@ export class DragPanController {
   }
 
   /**
-   * Two fingers: sideways movement of their centroid turns, and changing their
-   * separation zooms.
+   * Two fingers: sideways movement of their centroid turns. Changing their
+   * separation does nothing — pinch-to-zoom retired with the zoom band.
    *
    * Rotation is taken from the centroid's horizontal movement, NOT from the
    * twist angle between the fingers, which is the more literal reading of the
@@ -749,20 +693,10 @@ export class DragPanController {
 
     const [a, b] = this.pointers;
     const centroidX = (a.x + b.x) / 2;
-    const separation = Math.hypot(a.x - b.x, a.y - b.y);
-
     const dt = (event.timeStamp - this.lastMoveTime) / 1000;
     this.applyRotation(centroidX - this.lastCentroidX, rect, dt);
 
-    const zoom = this.config.zoom;
-    if (zoom.enabled && this.lastSeparation > 0 && separation > 0) {
-      // Fingers apart means a closer look, which is a SMALLER distance.
-      const ratio = separation / this.lastSeparation;
-      this.setTargetZoom(this.targetZoomScale / Math.pow(ratio, zoom.pinchSensitivity));
-    }
-
     this.lastCentroidX = centroidX;
-    this.lastSeparation = separation;
     if (dt > 1e-4) this.lastMoveTime = event.timeStamp;
   }
 
@@ -777,7 +711,6 @@ export class DragPanController {
     if (this.pointers.length < 2) return;
     const [a, b] = this.pointers;
     this.lastCentroidX = (a.x + b.x) / 2;
-    this.lastSeparation = Math.hypot(a.x - b.x, a.y - b.y);
   }
 
   private readonly onPointerUp = (event: PointerEvent): void => {
@@ -821,55 +754,17 @@ export class DragPanController {
     if (wasDragging) this.events.onDragStateChanged?.(false);
   };
 
-  /**
-   * Wheel → dolly, within the configured band.
-   *
-   * Multiplicative rather than additive, so a notch costs the same proportion of
-   * the band at either end and zooming in then out by the same amount returns
-   * exactly to where it started.
-   */
-  private readonly onWheel = (event: WheelEvent): void => {
-    // Unconditional: whether or not the wheel drives the camera, it must never
-    // scroll the page behind a full-viewport canvas.
-    event.preventDefault();
-
-    const zoom = this.config.zoom;
-    if (!this.config.enabled || !zoom.enabled || this.externalControl) return;
-
-    // deltaMode is 0 for pixels, 1 for lines and 2 for pages. Chrome reports
-    // pixels, Firefox reports lines. Normalising here is the whole reason zoom
-    // is not 16x faster in one browser than the other.
-    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1;
-    let delta = THREE.MathUtils.clamp(
-      event.deltaY * unit,
-      -MAX_WHEEL_DELTA,
-      MAX_WHEEL_DELTA,
-    );
-    // Every browser reports a trackpad pinch as ctrl+wheel, with far smaller
-    // deltas than a mouse notch carries.
-    if (event.ctrlKey) delta *= zoom.ctrlWheelMultiplier;
-
-    // deltaY is positive scrolling down, which must move the camera AWAY.
-    this.setTargetZoom(this.targetZoomScale * Math.exp(delta * zoom.wheelSensitivity));
-    this.events.onFirstInteraction?.();
-  };
-
-  /** Clamps a proposed zoom to the band before it becomes the target. */
-  private setTargetZoom(scale: number): void {
-    const zoom = this.config.zoom;
-    this.targetZoomScale = THREE.MathUtils.clamp(
-      scale,
-      zoom.minDistanceScale,
-      zoom.maxDistanceScale,
-    );
-  }
-
   /** Right-drag rotates, so the context menu must never open on release. */
   private readonly onContextMenu = (event: MouseEvent): void => {
     event.preventDefault();
   };
 
-  /** Safari trackpad pinch. Suppressed so it cannot zoom the page. */
+  /**
+   * Safari trackpad pinch. Suppressed so it cannot zoom the PAGE.
+   *
+   * Retained even though a pinch no longer moves the camera: this stops the browser
+   * scaling the document, which is a different failure and still real.
+   */
   private readonly onGesture = (event: Event): void => {
     event.preventDefault();
   };

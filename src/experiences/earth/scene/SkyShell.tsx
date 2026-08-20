@@ -20,7 +20,7 @@ import shellFragmentShader from '../shaders/sky/shell.frag.glsl'
 // noise folds around a level set that snaps to the lattice, so its "filaments"
 // were axis-aligned polygon walls; and fbm is stationary by construction, so
 // every patch of sky had identical statistics and the whole thing read as one
-// texture smeared along a stripe. DECISIONS.md carries the full account. The
+// texture smeared along a stripe. DECISIONS.md 19 carries the full account. The
 // cubemap was always documented as a seam for exactly this substitution, and
 // everything structural below is unchanged from the version that baked one.
 //
@@ -51,7 +51,7 @@ interface Props {
 /**
  * The variant list for this viewport, best first.
  *
- * Read once at load rather than on resize: swapping a 75 MB texture because
+ * Read once at load rather than on resize: swapping a 33.6 MB texture because
  * someone dragged a window across the breakpoint would cost far more than the
  * mismatch it corrects.
  */
@@ -111,7 +111,7 @@ export function SkyShell({ config, state, active }: Props) {
   const placeholder = useMemo(placeholderTexture, [])
   const [sky, setSky] = useState<THREE.Texture | null>(null)
   // Set once the texture has been uploaded, not merely decoded. The shell stays
-  // hidden until then so the 75 MB upload cannot land on the cut frame.
+  // hidden until then so the 33.6 MB upload cannot land on the cut frame.
   const uploaded = useRef(false)
 
   const geometry = useMemo(
@@ -192,7 +192,7 @@ export function SkyShell({ config, state, active }: Props) {
   }, [])
 
   // R3F disposes only objects it created, and these arrive as props — nothing
-  // walks them. The texture is 75.5 MB, so a missed disposal here is expensive
+  // walks them. The texture is 33.6 MB, so a missed disposal here is expensive
   // rather than merely untidy.
   useEffect(() => () => geometry.dispose(), [geometry])
   useEffect(() => () => material.dispose(), [material])

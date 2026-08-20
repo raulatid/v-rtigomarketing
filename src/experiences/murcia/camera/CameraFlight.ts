@@ -16,6 +16,18 @@ export interface FlightDestination {
   z: number;
   /** Absolute rig yaw to settle on, degrees. Null keeps the current heading. */
   yawDegrees: number | null;
+  /**
+   * Absolute distance scale to settle on. Null keeps the current distance.
+   *
+   * Same null-means-keep convention as `yawDegrees`, deliberately: both are
+   * composition decisions a district may or may not want to make.
+   *
+   * MUST be clamped to `FocusFlightConfig.minDistanceScale` by the caller, and
+   * must never exceed 1. Outward is the direction that grows the ground footprint
+   * past the terrain skirt, and `checks/footprint.ts` only proves the range from
+   * the floor up to rest.
+   */
+  distanceScale: number | null;
 }
 
 export interface CameraFlightEvents {
@@ -31,13 +43,27 @@ export interface CameraFlightEvents {
 }
 
 /**
- * Scripted camera move to a district: focus and yaw only.
+ * Scripted camera move to a district: focus, yaw and distance.
  *
- * Distance, elevation and FOV are deliberately untouched. Those are what set the
- * ground footprint, and the terrain skirt width is sized against a measured
- * footprint at a specific pose (PROJECT_MEMORY, "The number that can hurt
- * you") — changing them here would put the plate edge on screen for wide
- * viewports without any error to say so.
+ * Elevation and FOV are still deliberately untouched, and distance no longer is.
+ * That is a change, and the reasoning it replaces was correct at the time: all
+ * three set the ground footprint, and the terrain skirt is sized against a measured
+ * footprint at a specific pose (PROJECT_MEMORY, "The number that can hurt you").
+ *
+ * What changed is that this is now the ONLY thing that moves the camera closer to
+ * anything. The wheel-and-pinch zoom band is gone (`adr/009`), so "click a place to
+ * get a closer look" has to be carried here or it does not exist.
+ *
+ * It is affordable because it only ever moves INWARD. Pulling back is what grows
+ * the footprint and eats the skirt margin; flying in shrinks it. The floor is not
+ * merely taste either — below roughly distance 60 the fixed `lookAtHeight` tilts the
+ * camera up, the effective pitch collapses through the ~28 degree floor where the
+ * bounds maths degenerates, and the footprint starts widening again. The caller
+ * clamps to `FocusFlightConfig.minDistanceScale`, which sits far above that, and
+ * `checks/footprint.ts` sweeps the whole range against the real skirt.
+ *
+ * Elevation and FOV stay untouched because nothing needs them to move, and each
+ * would reopen the footprint question on its own terms.
  *
  * ## Sole ownership of the rig
  *
@@ -68,10 +94,13 @@ export class CameraFlight {
   private startX = 0;
   private startZ = 0;
   private startYaw = 0;
+  private startDistanceScale = 1;
   private desiredX = 0;
   private desiredZ = 0;
   /** Signed yaw travel, already reduced to the shortest path. */
   private yawDelta = 0;
+  /** Signed distance-scale travel. 0 when the destination keeps the distance. */
+  private distanceScaleDelta = 0;
 
   constructor(rig: CameraRig, events: CameraFlightEvents, reducedMotion = false) {
     this.rig = rig;
@@ -92,15 +121,27 @@ export class CameraFlight {
     this.startX = this.rig.focus.x;
     this.startZ = this.rig.focus.z;
     this.startYaw = this.rig.getYaw();
+    this.startDistanceScale = this.rig.getDistanceScale();
     this.desiredX = destination.x;
     this.desiredZ = destination.z;
+
+    this.distanceScaleDelta =
+      destination.distanceScale === null
+        ? 0
+        : destination.distanceScale - this.startDistanceScale;
 
     this.yawDelta =
       destination.yawDegrees === null
         ? 0
         : shortestYawDelta(this.rig.getAzimuthDegrees(), destination.yawDegrees);
 
-    const travel = Math.hypot(this.desiredX - this.startX, this.desiredZ - this.startZ);
+    // Distance counts as travel. Without it a pure dolly — which is exactly what
+    // `close()` asks for — would take the flat MIN_DURATION regardless of how far it
+    // had to come back, so a deep zoom would snap out in the same time a shallow one
+    // eased out.
+    const groundTravel = Math.hypot(this.desiredX - this.startX, this.desiredZ - this.startZ);
+    const distanceTravel = Math.abs(this.distanceScaleDelta) * this.rig.getPose().distance;
+    const travel = groundTravel + distanceTravel;
     this.duration = this.reducedMotion
       ? REDUCED_MOTION_DURATION
       : clamp(MIN_DURATION + travel / UNITS_PER_SECOND, MIN_DURATION, MAX_DURATION);
@@ -125,11 +166,16 @@ export class CameraFlight {
     const t = this.duration > 0 ? Math.min(1, this.elapsed / this.duration) : 1;
     const eased = easeInOutCubic(t);
 
-    // Yaw first, then bounds, then focus. The navigable area depends on the
-    // azimuth, and the focus written below is clamped against the area for the
-    // yaw that has just been applied — not the previous frame's.
+    // Yaw and DISTANCE first, then bounds, then focus. The navigable area depends
+    // on the azimuth and on the distance alike — both set the ground footprint — and
+    // the focus written below is clamped against the area for the pose that has just
+    // been applied, never the previous frame's. Writing distance after `resolveBounds`
+    // would clamp every frame of a dolly against the footprint of the frame before it.
     if (this.yawDelta !== 0) {
       this.rig.setYaw(this.startYaw + this.yawDelta * eased);
+    }
+    if (this.distanceScaleDelta !== 0) {
+      this.rig.setDistanceScale(this.startDistanceScale + this.distanceScaleDelta * eased);
     }
     const bounds = this.events.resolveBounds();
 

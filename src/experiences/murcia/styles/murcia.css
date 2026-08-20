@@ -27,8 +27,8 @@
 .murcia-ui {
   position: fixed;
   inset: 0;
-  /* Above the scene canvas (10) and Earth's geo tags (15); below the intro
-     drawing (20) and the warp overlay (40), which must cover the transition. */
+  /* Above the scene canvas (10); below the intro drawing (20) and the warp
+     overlay (40), which must cover the transition. */
   z-index: 16;
   pointer-events: none;
   color-scheme: dark;

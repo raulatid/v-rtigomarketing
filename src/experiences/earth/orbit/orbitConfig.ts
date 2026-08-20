@@ -1,4 +1,4 @@
-import { CASE_STUDIES, CaseStudy } from '../../../data/caseStudies'
+import type { CaseStudy } from '../../../content/types'
 
 // Configuration for the orbital satellite system, ported from
 // earth-connections/src/scenes/earth-connections/orbit-system/orbitConfig.js.
@@ -12,10 +12,11 @@ import { CASE_STUDIES, CaseStudy } from '../../../data/caseStudies'
 export const ORBIT_CONFIG = {
   orbit: {
     segments: 256,
-    // Back at the source's value. It was raised to 0.09 for a while (see
-    // DECISIONS.md, "hover bump" entry) because completed orbits all but vanish
-    // once their head glow fades — if the paths ever need to read stronger
-    // again, that is the tested value to reach for.
+    // Back at the source's value. It was raised to 0.09 for a while, because
+    // completed orbits all but vanish once their head glow fades — if the paths
+    // ever need to read stronger again, that is the tested value to reach for.
+    // Radii here stay in the source's "Earth radius = 1" units: DECISIONS.md
+    // 26.10, reconciled at the mount rather than rewritten.
     lineOpacity: 0.02,
     lineColor: 0xffffff,
     // Seconds each orbit line takes to draw in.
@@ -35,12 +36,19 @@ export const ORBIT_CONFIG = {
   },
 
   satellite: {
-    // Radius of the invisible raycast/hover sphere (the old badge's footprint,
-    // kept so hover feel is unchanged after the switch to the GLB model).
-    baseSize: 0.10,
+    // Radius of the invisible raycast/hover sphere. It tracks `modelSize` rather
+    // than standing on its own: 0.10 was the old flat badge's footprint, and
+    // leaving it there while the model doubled would have buried the hit target
+    // inside the model, giving the outer half of every satellite a dead zone the
+    // cursor passes straight through.
+    baseSize: 0.20,
     // World size (max dimension) of the satellite GLB, in Earth-radius=1 units.
     // The model template is normalised to unit size, so this is the only knob.
-    modelSize: 0.26,
+    //
+    // DOUBLED from 0.26 on 2026-08-20 — the model read too small in the
+    // overview. `baseSize`, `panel.offsetY` and `interactionConfig`'s
+    // `closeUp.distance` are all derived from this number; see DECISIONS 26.11.
+    modelSize: 0.52,
     // Continuous self-rotation in radians/second (varied ±15% per satellite).
     // Runs through the case-panel freeze so enter/exit never interrupts it.
     modelSpinSpeed: 0.25,
@@ -60,11 +68,17 @@ export const ORBIT_CONFIG = {
     // case-panel close-up.
     width: 0.28,
     height: 0.14,
-    // Height above the satellite's centre. The model's max dimension is
-    // `modelSize` (0.26), so at 0.12 the panel's lower edge tucks slightly
-    // behind the top of the model rather than floating clear of it — tuned by
-    // eye; raise toward 0.22 for full separation.
-    offsetY: 0.12,
+    // Height above the satellite's centre. DERIVED FROM `modelSize`, not chosen
+    // independently: the model's max dimension is `modelSize` (0.52), so its top
+    // sits near 0.26, and the panel's lower edge is `offsetY - height / 2`. At
+    // 0.30 that edge lands at 0.23 — tucked slightly behind the top of the model
+    // rather than floating clear of it, which is the relation this had at the
+    // model's old half size. Raise toward 0.36 for full separation.
+    //
+    // Note the panel itself did NOT double with the model: doubling `offsetY`
+    // alone would have pushed the plate DEEPER into the model, because the
+    // half-height being subtracted stayed put.
+    offsetY: 0.30,
     // Ceiling on the panel's fade, so the entrance can drive it 0→1 while the
     // panel still reads as a projection rather than a solid card.
     maxOpacity: 0.95,
@@ -85,30 +99,6 @@ export const ORBIT_CONFIG = {
     fadeInDuration: 1.2,
     rotationSpeedY: 0.015,
     rotationSpeedX: 0.004,
-  },
-
-  markers: {
-    // Distance from Earth centre (Earth radius = 1).
-    radius: 1.03,
-    markerSize: 0.013,
-    // Invisible raycast target, larger for comfortable hover.
-    hitSize: 0.055,
-    markerColor: 0xffffff,
-    markerOpacity: 0.85,
-    markerHoverScale: 1.6,
-    // Destination markers read as a place you can go, not a label. Accent
-    // colour, larger, and they pulse — the only moving marker on the globe,
-    // which is what makes it findable without an instruction.
-    destinationColor: 0x4fb0ff,
-    destinationScale: 1.5,
-    destinationPulsePeriod: 2.6,
-    destinationPulseAmount: 0.22,
-    // Outward offset of the CSS2D tag from the marker.
-    tagOffset: 0.13,
-    // Camera-facing dot product below which a marker is hidden and hover-disabled.
-    visibilityThreshold: 0.15,
-    // Dot-product range over which a marker fades near the limb (no hard pop).
-    visibilityFadeRange: 0.15,
   },
 }
 
@@ -132,86 +122,46 @@ export const ORBIT_PRESETS: OrbitPreset[] = [
 ]
 
 // The satellite's content type IS the case-study type — there is no second
-// shape to keep in sync. Content lives in src/data/caseStudies.ts (sample data
-// today, an API response later); this module only decides which orbit each one
-// rides. `logo` is the real logo's URL — a path under /public today, a CMS media
-// URL later; while null (or if the image fails to load), the atlas keeps its
-// generated mark-and-wordmark plate.
+// shape to keep in sync. Content lives in src/content/caseStudies.ts (placeholder
+// data today, generated from WordPress at build time later); this module only
+// decides which orbit each one rides. `logo` is the real logo's URL — always a
+// path under /public, because the media pipeline mirrors CMS uploads rather than
+// hotlinking them; while null (or if the image fails to load), the atlas keeps
+// its generated mark-and-wordmark plate.
 export type SatelliteDef = CaseStudy
 
-// This binding is the API seam. When the content is fetched, this becomes the
-// value OrbitSystemLayer waits on, gated the same way the Earth textures are.
-export const SATELLITES: SatelliteDef[] = CASE_STUDIES
+// NO CONTENT RE-EXPORT HERE, and it is load-bearing rather than tidiness.
+//
+// This module used to carry `export const SATELLITES = CASE_STUDIES`. That made
+// it a module BOTH chunks need: `useMasterTimeline` (app entry) imports
+// `orbitRevealDuration` from here, and `createOrbitSystem` (scene chunk) imported
+// `SATELLITES`. Rollup resolves a shared module by hoisting it into the common
+// chunk — the app entry — and re-exporting, so every word of case-study prose was
+// pinned inside a chunk with a hard 320,000 B budget that FAILS the build.
+//
+// `createOrbitSystem` imports the content directly instead. Nothing about the
+// orbits' geometry depends on what rides them, so this module now holds only
+// numbers and stays cheap to share.
 
-export interface GeoMarkerDef {
-  id: string
-  lat: number
-  lng: number
-  title: string
-  text: string
-  /**
-   * `case` markers are labels — hover shows the payload and that is all.
-   * `destination` markers are navigation: they are clickable, drawn with an
-   * accent, and selecting one asks the application to travel there.
-   *
-   * Recorded in the data rather than inferred from the id, so the difference is
-   * visible where the markers are declared instead of implied somewhere else.
-   */
-  kind?: 'case' | 'destination'
-}
-
-// Five world cities. `text` values are editable placeholders, not real metrics.
-// Spanish exonyms where they exist — the site is Spanish throughout.
-export const GEO_MARKERS: GeoMarkerDef[] = [
-  {
-    id: 'new-york',
-    lat: 40.7128,
-    lng: -74.006,
-    title: 'Nueva York',
-    text: '+42% de visibilidad orgánica',
-  },
-  { id: 'london', lat: 51.5074, lng: -0.1278, title: 'Londres', text: 'Crecimiento en el top 3' },
-  {
-    id: 'tokyo',
-    lat: 35.6762,
-    lng: 139.6503,
-    title: 'Tokio',
-    text: 'Expansión SEO internacional',
-  },
-  {
-    id: 'sydney',
-    lat: -33.8688,
-    lng: 151.2093,
-    title: 'Sídney',
-    text: 'Señal de autoridad regional',
-  },
-  {
-    id: 'sao-paulo',
-    lat: -23.5505,
-    lng: -46.6333,
-    title: 'São Paulo',
-    text: 'Mayor presencia en buscadores',
-  },
-  // The way into the Murcia experience. Real coordinates for Murcia, Spain —
-  // the marker has to sit on the actual city for the globe to mean anything.
-  {
-    id: 'murcia',
-    lat: 37.9922,
-    lng: -1.1307,
-    title: 'Murcia',
-    text: 'Explorar la ciudad →',
-    kind: 'destination',
-  },
-]
+// DESTINATION_MARKER stood here. The marker system is gone (the product
+// removed it outright — see navigation/destination.ts), and the coordinates
+// moved there with the warp aim that consumes them.
 
 // The total time the reveal takes, derived rather than hardcoded so the
 // timeline's hold always matches the animation actually playing.
-export function orbitRevealDuration(): number {
+//
+// TAKES THE COUNT rather than reading the content. Two reasons, and the second
+// is the one that bites: the number of orbits is decided by the assignment
+// table, not by how many case studies exist — and reading `SATELLITES.length`
+// here made this module a VALUE dependency of `useMasterTimeline`, which
+// `App.tsx` imports. That dragged every word of case-study prose into the app
+// entry chunk, which has a hard 320,000 B budget that fails the build. The
+// timeline needs a number; it should be given a number.
+export function orbitRevealDuration(count: number): number {
   const { introStartDelay, introStagger, introDuration } = ORBIT_CONFIG.orbit
-  // The same pairing bound createOrbitSystem applies: orbits are only built for
-  // presets that have a case study, so staggering across all six presets when
-  // fewer exist would hold the timeline past the last thing that animates.
-  const count = Math.max(Math.min(ORBIT_PRESETS.length, SATELLITES.length), 1)
-  const lastStart = introStartDelay + (count - 1) * introStagger
+  // At least one: a scene with no orbits still has to hold for something, and a
+  // negative stagger would run the timeline backwards.
+  const orbits = Math.max(count, 1)
+  const lastStart = introStartDelay + (orbits - 1) * introStagger
   return lastStart + introDuration + ORBIT_CONFIG.satellite.introDuration
 }

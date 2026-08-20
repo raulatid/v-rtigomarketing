@@ -1,7 +1,8 @@
 # ADR 002 — A Single Render Pipeline
 
 Status: **Accepted** — 2026-08-07 (written up 2026-08-07; the decision was implemented in P2)
-Supersedes: `docs/earth/DECISIONS.md:256` — "The 3D logo gets its own renderer"
+Supersedes: the Earth prototype's "The 3D logo gets its own renderer" — see the `Superseded`
+table in `docs/DECISIONS.md`
 
 > Written late. The code referenced "ADR 002" from six places for several phases before this
 > file existed. Recorded here as a caution: a citation to a document nobody wrote is worse
@@ -16,7 +17,7 @@ Supersedes: `docs/earth/DECISIONS.md:256` — "The 3D logo gets its own renderer
 2. A second one inside `createCornerLogo.ts` — its own canvas at z-index 30, its own scene,
    camera, `THREE.Clock` and `requestAnimationFrame` loop, its own resize listener.
 
-The second renderer was deliberate. `DECISIONS.md:256` argued it gave the 3D logo depth
+The second renderer was deliberate. The prototype's entry argued it gave the 3D logo depth
 isolation without compositing into another scene's loop, and kept the two cameras from ever
 being able to affect each other.
 

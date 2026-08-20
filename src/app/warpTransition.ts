@@ -2,7 +2,7 @@ import { cinematicSpeed, cinematicTravel, lerp, narrowPeak } from '../utils/easi
 
 // The Earth <-> Murcia warp, as pure functions of one progress value.
 //
-// Same structure as the intro's warp (docs/earth/DECISIONS.md:180-206): ONE
+// Same structure as the intro's warp (docs/DECISIONS.md 26.6): ONE
 // progress value read through three curves with deliberately nested widths.
 // Position runs the full width so the move feels continuous; the speed bell is
 // narrower so the FOV surge and blur ramp inside it; the flash is narrower
@@ -102,7 +102,7 @@ export const WARP_TRANSITION = {
  * Which leg the transition is on, and how far through that leg.
  *
  * Split on the EASED value, matching CameraController's intro warp. Note that
- * the scene cut keys off raw progress instead (DECISIONS.md:202-206) — the two
+ * the scene cut keys off raw progress instead (DECISIONS.md 26.6) — the two
  * agree only because cinematicTravel is symmetric about 0.5. That is inherited
  * from the intro deliberately rather than diverged from.
  */

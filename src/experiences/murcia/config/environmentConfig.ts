@@ -111,9 +111,9 @@ export interface DragFeelConfig {
  *
  * There is no vertical equivalent by design: elevation stays at the configured
  * pose, so the analysis the navigable area depends on (Appendix A) holds. That
- * is structural — no pitch input exists to clamp. It matters more now than it
- * did: `ZoomConfig` makes distance user state, so elevation is the last pose
- * term the footprint maths can still treat as constant.
+ * is structural — no pitch input exists to clamp. With user zoom gone (`adr/009`),
+ * distance is no longer user state either, so elevation and distance are BOTH
+ * constant outside a focus flight — and a flight only ever moves inward.
  */
 export interface RotationConfig {
   enabled: boolean;
@@ -132,55 +132,42 @@ export interface RotationConfig {
 }
 
 /**
- * Dolly along the fixed view direction: wheel on a mouse, pinch on touch.
+ * How close a controlled focus flight may bring the camera.
  *
- * Only `distance` moves. Elevation, azimuth and FOV are untouched, because
- * those set the ground footprint the terrain skirt was sized against and
- * distance is the only one of the four cheap enough to hand to a user.
+ * This replaced `ZoomConfig`, and the difference is who holds the input rather
+ * than what moves. There is no user-facing zoom any more (`adr/009`): the wheel
+ * belongs to scene navigation and pinch does nothing. Distance is no longer user
+ * state — it changes only when a flight takes the camera to a clickable object,
+ * and it returns to rest when that closes.
  *
- * Expressed as multipliers of `CameraPoseConfig.distance` rather than as world
- * units, so changing the resting distance carries the whole band with it
- * instead of silently moving one end of it.
+ * Only `distance` moves, still. Elevation, azimuth and FOV stay untouched because
+ * those set the ground footprint the terrain skirt was sized against, and distance
+ * is the only one of the four that can be moved safely — inward.
  *
- * `maxDistanceScale` is the dangerous end, and it is NOT a judgement. Zooming
- * out grows the viewport's ground footprint, which eats the skirt margin that
- * keeps the hard plate edge off screen — and it does so invisibly on a 16:9
- * monitor while showing the edge on an ultrawide. `checks/navigation-zoom.ts`
- * proves the shipped value against `computeGroundFootprint` at every azimuth on
- * every tested aspect. Do not raise it without re-running that check.
+ * Expressed as a multiplier of `CameraPoseConfig.distance` rather than in world
+ * units, so changing the resting distance carries the floor with it instead of
+ * silently moving it.
+ *
+ * THE DANGEROUS DIRECTION IS GONE. `maxDistanceScale` existed because zooming OUT
+ * grows the viewport’s ground footprint and eats the skirt margin that keeps the hard
+ * plate edge off screen — invisibly on 16:9, visibly on ultrawide. A flight may only
+ * ever move inward, where the footprint shrinks, so that end no longer exists and
+ * neither does the hazard. What remains is a floor, and it is not merely taste: below
+ * distance ~60 the fixed `lookAtHeight` tilts the camera up, the effective pitch
+ * collapses through the ~28 degree floor where the bounds maths degenerates, and the
+ * footprint widens again (PROJECT_MEMORY, "The number that can hurt you").
  */
-export interface ZoomConfig {
-  enabled: boolean;
-  /** Closest approach, as a multiple of the resting distance. */
+export interface FocusFlightConfig {
+  /**
+   * Closest approach, as a multiple of the resting distance. A per-district
+   * target may not go below this — `DistrictSceneBinding.focusDistanceScale`
+   * is clamped against it rather than trusted.
+   */
   minDistanceScale: number;
-  /** Furthest retreat. Footprint-critical — see above. */
-  maxDistanceScale: number;
   /**
-   * e-folds of distance per pixel of wheel delta. Multiplicative, so a notch
-   * costs the same proportion of the band wherever you are in it, and zooming
-   * in then out by the same amount returns exactly to where it started.
-   */
-  wheelSensitivity: number;
-  /**
-   * Multiplier applied when a wheel event carries `ctrlKey` — which is how
-   * every browser reports a trackpad pinch. Those events carry far smaller
-   * deltas than a mouse notch, so without this a pinch on a laptop barely
-   * moves the camera.
-   */
-  ctrlWheelMultiplier: number;
-  /**
-   * Exponent on the touch pinch's separation ratio. 1 is the international
-   * gesture at 1:1 — the distance changes by exactly the ratio the fingers did.
-   */
-  pinchSensitivity: number;
-  /**
-   * Seconds to close ~63% of the distance to the target scale. The wheel is a
-   * discrete input, so this is what makes it read as a glide rather than a
-   * staircase. It can afford to be longer than the pan's constant because
-   * nothing on screen is supposed to stay under the cursor during a zoom, so
-   * there is no reference for the lag to be visible against.
-   *
-   * No inertia term: a zoom has no release to coast from.
+   * Seconds to close ~63% of the distance when a flight hands the rig back and
+   * the controller adopts whatever distance it was left at. Distinct from the
+   * flight’s own closed easing curve, which has a known endpoint and duration.
    */
   smoothingTimeConstant: number;
 }
@@ -215,7 +202,6 @@ export interface NavigationConfig {
    */
   feel: DragFeelConfig;
   rotation: RotationConfig;
-  zoom: ZoomConfig;
   /** Y of the horizontal plane that pointer rays are projected against. */
   groundPlaneHeight: number;
   /**
@@ -305,6 +291,10 @@ export interface EnvironmentConfig {
   cameraPortraitOverrides: Partial<CameraPoseConfig> | null;
   portraitAspectThreshold: number;
   navigation: NavigationConfig;
+  /**
+   * The only thing left that changes camera distance. See FocusFlightConfig.
+   */
+  focusFlight: FocusFlightConfig;
   terrainTransition: TerrainTransitionConfig;
   /**
    * Approximate bounds of meaningful content. Distinct from the navigable area

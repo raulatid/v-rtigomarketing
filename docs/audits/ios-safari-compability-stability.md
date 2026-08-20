@@ -564,6 +564,35 @@ Do not claim compatibility based purely on desktop Safari.
 
 # Required Output
 
+Write the result to `docs/audits/reports/ios-safari-<YYYY-MM-DD>.md`, keeping the `ios-safari-`
+prefix so every pass in this lineage sorts together beside `ios-safari-2026-08-14.md`.
+
+`docs/audits/` holds briefs — the audits that can be run. `docs/audits/reports/` holds the audits
+that *were* run. Never write a report beside the briefs.
+
+Before the report enters Git history it must satisfy the sanitization contract in
+`docs/audits/README.md`: no credentials, secret values, personal data, authentication material,
+raw production dumps, or exploit detail beyond the minimum reproduction. `npm run check:audit`
+enforces the mechanical half and fails the build. The judgment calls are yours.
+
+Device logs and Web Inspector output are the usual way this contract gets broken here — they carry
+device identifiers and request headers. Quote the symptom, not the console dump.
+
+Open it with the header this directory uses:
+
+```
+**Date:** YYYY-MM-DD · **Against:** working tree at `<commit>`
+**Brief:** `audits/ios-safari-compability-stability.md`
+```
+
+If earlier passes exist, write the new one as a delta against them and say so in the header.
+Earlier passes remain accurate for everything the new one does not restate, and where the two
+disagree, the newer one wins. Never overwrite or delete a previous report — it is the record of
+what was true at its commit.
+
+Name the iOS version and hardware behind every behavioural claim, and mark anything inferred
+rather than observed on a real device as unverified.
+
 Produce an iOS-specific audit report containing:
 
 ## 1. Release Assessment

@@ -6,12 +6,28 @@ import { WARP_TRANSITION, flash } from './warpTransition'
 
 // Shaping lives entirely in warpTransition's curves, so the tween is linear.
 // A GSAP ease here would compound with them and destroy the width relationship
-// between position, speed and flash (DECISIONS.md:127-129).
+// between position, speed and flash (DECISIONS.md 26.6).
 const TWEEN_EASE = 'none'
 
 interface Params {
   state: SequenceState
   onSwap: (to: ExperienceId) => void
+  /**
+   * The transition has genuinely finished — the timeline is complete, the progress
+   * and overlay are pinned back to 0, and nothing is animating.
+   *
+   * Exists because `transitioning` below is React state and therefore lands a
+   * render LATE. That is harmless for disabling a button and wrong for releasing an
+   * input lock: gesture navigation holds a hard lock across the warp and starts its
+   * cooldown from this edge, and a cooldown that starts a render late is a window in
+   * which a trackpad momentum tail is accepted (`adr/009`).
+   *
+   * A callback rather than a returned promise, deliberately. The re-entrancy guard
+   * below returns silently when it refuses, which a promise would turn into a path
+   * that never resolves; and the unmount cleanup calls `tl.kill()`, which would
+   * leave any outstanding promise dangling for the life of the page.
+   */
+  onSettled?: () => void
 }
 
 /**
@@ -29,7 +45,7 @@ interface Params {
  * for the curves.
  *
  * The swap itself is a HARD CUT at full cover, never a cross-fade. That is the
- * project's strongest visual rule (docs/earth/DECISIONS.md: "Nothing ever
+ * project's strongest visual rule (docs/DECISIONS.md 6: "Nothing ever
  * cross-fades" — both intro substitutions are hard cuts timed to a concealment
  * beat), and it is also what makes the transition free: at the moment of the
  * cut, only one scene is ever being drawn, so there is no frame where both
@@ -38,11 +54,16 @@ interface Params {
  * Neither experience is created or destroyed here — both stay mounted and the
  * render pipeline simply changes which scene it draws (ADR 003).
  */
-export function useExperienceTransition({ state, onSwap }: Params) {
+export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
   const [transitioning, setTransitioning] = useState(false)
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
   const onSwapRef = useRef(onSwap)
   onSwapRef.current = onSwap
+  // Through a ref for the same reason `onSwap` is: `transitionTo` is memoised on
+  // `state` alone, so a caller passing a fresh closure every render must not be
+  // able to rebuild it mid-warp.
+  const onSettledRef = useRef(onSettled)
+  onSettledRef.current = onSettled
 
   useEffect(() => {
     return () => {
@@ -103,6 +124,10 @@ export function useExperienceTransition({ state, onSwap }: Params) {
           state.transitionOverlay = 0
           timelineRef.current = null
           setTransitioning(false)
+          // AFTER the pins and after the ref is cleared, so anything this wakes
+          // sees a settled world: no residual dolly, no overlay, and a
+          // `transitionTo` that would be accepted rather than silently refused.
+          onSettledRef.current?.()
         },
       })
 

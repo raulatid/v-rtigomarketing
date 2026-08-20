@@ -2,7 +2,7 @@
 
 // TYPE-ONLY, and it has to stay that way. P0's fields live in
 // intro-draw/drawConfig.ts because the draw module owns everything it needs
-// (DECISIONS.md, "Code that runs first depends on nothing") — and a VALUE
+// (DECISIONS.md 26.4, "Code that runs first depends on nothing") — and a VALUE
 // import here would make Rollup hoist drawConfig into a chunk shared by the
 // boot entry and the app bundle, costing the drawing an extra round trip
 // before it can start. The defaults are read from the live module instead, in
@@ -58,8 +58,9 @@ export interface IntroConfig extends DrawConfig {
 
   // ── Persistent space backdrop (visible from the warp's cut onward) ──
   // Points on a SHELL, not in a volume: nothing can then render between the
-  // camera and the Earth. backdropRadius must stay well above
-  // INTERACTION_CONFIG.camera.zoomMax (22) or that guarantee breaks.
+  // camera and the Earth. backdropRadius must stay well above the camera's fixed
+  // orbit radius (EARTH_REST, 14) or that guarantee breaks. It used to have to
+  // clear the wheel-zoom ceiling of 22; there is no zoom any more (`adr/009`).
   backdropStarCount: number
   backdropRadius: number
   // Per-point radial jitter as a fraction of the radius, so the field reads as a
@@ -78,8 +79,16 @@ export interface IntroConfig extends DrawConfig {
   // sampling parameters — none of them touches the texture, so they are plain
   // uniform writes and cost nothing to drag.
   //
-  // Exposure. The panorama is a long-exposure photograph and arrives far
-  // brighter than a backdrop should be beside a lit planet.
+  // Exposure. The panorama is a long-exposure photograph and arrives brighter
+  // than a backdrop should be beside a lit planet.
+  //
+  // THIS PAIR IS TUNED TO THE IMAGE and does not survive swapping it. At the
+  // old ESO panorama's 0.22 / 1.25 the current public-domain source renders
+  // almost entirely BLACK — it is a dimmer photograph, and a gamma above 1
+  // crushes what little signal it has down in the darks. 0.60 / 1.00 is where
+  // it reads. If a newly swapped sky ever looks broken, drag these two in the
+  // debug overlay before concluding the image is wrong; that is what they are
+  // exposed for, and skipping that step is how a good image gets rejected.
   skyBrightness: number
   // Gamma on the sampled sky, applied before the brightness multiply. Above 1
   // deepens the darks without moving the band's core, which is what makes the
@@ -153,8 +162,8 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   backdropClusterStrength: 0.6,
   backdropTwinkle: 0.15,
 
-  skyBrightness: 0.22,
-  skyContrast: 1.25,
+  skyBrightness: 0.60,
+  skyContrast: 1.00,
   skyBandWidth: GALAXY_BAND.defaultWidth,
   skyBandTilt: GALAXY_BAND.defaultTilt,
   skyBandYaw: GALAXY_BAND.defaultYaw,

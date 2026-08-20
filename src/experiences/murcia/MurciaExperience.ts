@@ -26,7 +26,8 @@ import { InteractionProbe } from './interaction/InteractionProbe';
 import { resolveDistrict } from './interaction/resolveDistrict';
 import { DistrictInteraction } from './interaction/DistrictInteraction';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
-import { findDistrictContent } from './content/districts';
+import { DISTRICT_CONTENT } from '../../content/generated/districts';
+import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay, ControlsHint } from './ui/overlays';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
@@ -58,6 +59,8 @@ export class MurciaExperience {
   private readonly environment: EnvironmentConfig;
   /** False on a production build — see the constructor. */
   private readonly debugTools: boolean;
+  /** See the constructor option of the same name. */
+  private readonly onAttentionChange?: () => void;
 
   private sceneBundle!: SceneBundle;
   private camera!: THREE.PerspectiveCamera;
@@ -113,11 +116,22 @@ export class MurciaExperience {
   constructor(
     container: HTMLElement,
     renderer: THREE.WebGLRenderer,
-    options: { debugTools?: boolean } = {},
+    options: {
+      debugTools?: boolean;
+      /**
+       * Fired when `hasFocusedDistrict` may have flipped — a district was
+       * engaged or released. The application re-derives navigation
+       * availability from it (the rail must stand down the moment a panel
+       * opens, not on the next wheel event). No payload: consumers read
+       * `hasFocusedDistrict`, the same aggregate they already poll.
+       */
+      onAttentionChange?: () => void;
+    } = {},
   ) {
     this.container = container;
     this.renderer = renderer;
     this.debugTools = options.debugTools ?? false;
+    this.onAttentionChange = options.onAttentionChange;
     this.appConfig = applyQueryOverrides(
       createAppConfig(),
       window.location.search,
@@ -287,6 +301,21 @@ export class MurciaExperience {
     this.rig.setPose({ ...base, ...pose });
   }
 
+  /**
+   * True while any district is focused or its panel is open.
+   *
+   * Read by the application to decide whether a scene-navigation gesture may be
+   * accepted: global navigation stands down while the viewer is looking at
+   * something (`adr/009`). Intent, not mechanics — the four-state district union
+   * stays inside the interaction (ARCHITECTURE 27).
+   *
+   * Deliberately excludes `hovering`, which is re-resolved every frame: a rail that
+   * went inert as the pointer crossed a district would flicker.
+   */
+  get hasFocusedDistrict(): boolean {
+    return this.districts.some((district) => district.isEngaged);
+  }
+
   /** The scene RenderPipeline draws when this experience is showing. */
   get scene(): THREE.Scene {
     return this.sceneBundle.scene;
@@ -417,12 +446,6 @@ export class MurciaExperience {
         // area changes continuously. Four ray/plane intersections per changed
         // frame; measurably nothing next to the render.
         onYawChanged: () => this.recomputeBounds(),
-        // And distance sets the footprint just as directly as azimuth does, so
-        // zooming out has to re-derive the navigable area for exactly the same
-        // reason. Same four intersections, same place — fired before the
-        // translation step so the focus written this frame is clamped against
-        // the area the new distance actually allows.
-        onZoomChanged: () => this.recomputeBounds(),
         onDragStateChanged: (dragging) =>
           this.cursor.request('drag', dragging ? 'grabbing' : ''),
       },
@@ -470,7 +493,7 @@ export class MurciaExperience {
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     for (const binding of cityDistrictBindings) {
-      const content = findDistrictContent(binding.contentId);
+      const content = findDistrictContent(DISTRICT_CONTENT, binding.contentId);
       if (!content) {
         console.error(`[district] no content for binding "${binding.contentId}".`);
         continue;
@@ -522,7 +545,9 @@ export class MurciaExperience {
           this.recomputeBounds();
           return this.bounds.effectiveBounds;
         },
+        focusFlight: this.environment.focusFlight,
         reducedMotion,
+        onEngagedChange: this.onAttentionChange,
       });
 
       // Seeded, not assumed: districts are built during the Earth intro (ADR

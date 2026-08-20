@@ -223,7 +223,7 @@ check(
   `${motionBlur(WARP_TRANSITION.cut).toFixed(4)}`,
 );
 
-// The nested-width relationship is the design (DECISIONS.md:195-196): the blur
+// The nested-width relationship is the design (DECISIONS.md 26.6): the blur
 // ramps over a wide window so acceleration feels gradual, the flash spikes over
 // a narrow one so it reads as a flicker. Invert them and the warp stops reading.
 const blurWindow = samples.filter((p) => speed(p) > 0.01).length;
@@ -340,13 +340,18 @@ let anyClamped = false;
 let clampedLabel = '';
 let poses = 0;
 
-const ZOOM_SCALES: number[] = [
-  murciaConfig.navigation.zoom.minDistanceScale,
-  1,
-  murciaConfig.navigation.zoom.maxDistanceScale,
-];
+// The distance scales a warp can find the rig already sitting at.
+//
+// This used to be the user zoom band, min/1/max, because the wheel could leave the
+// camera anywhere in it when a warp started. There is no zoom now (`adr/009`): the
+// only thing that scales distance is a district flight, and a flight can only be in
+// progress or closed. So the sweep is the flight floor and rest.
+//
+// The out-of-band scale is gone with the band, which removes the one entry here that
+// was reaching FURTHER than rest — the direction the skirt cannot absorb.
+const DISTANCE_SCALES: number[] = [murciaConfig.focusFlight.minDistanceScale, 1];
 
-for (const scale of ZOOM_SCALES) {
+for (const scale of DISTANCE_SCALES) {
   for (const [aspectName, aspect] of ASPECTS) {
     for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
       const restReach = maxReach(footprintAt(murciaConfig.camera, aspect, yaw, scale));

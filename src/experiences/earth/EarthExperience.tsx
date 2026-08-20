@@ -11,7 +11,7 @@ import type { IntroConfig } from './config/introConfig'
 import type { SequenceState } from './config/sequenceState'
 import type { OrbitSystem } from './orbit/createOrbitSystem'
 import type { SatelliteDef } from './orbit/orbitConfig'
-import type { GeoMarkers } from './orbit/createGeoMarkers'
+import type { DestinationResolver } from './navigation/destination'
 import type { CursorManager } from '../../interaction/cursorManager'
 
 /**
@@ -31,12 +31,12 @@ import type { CursorManager } from '../../interaction/cursorManager'
  * internal composition, which is what §33 and §26 ask it not to. Now it mounts
  * one thing and hands over what it owns.
  *
- * The two refs below moved in with it: `geoMarkers` is published by
- * GeoMarkersLayer (mounted inside EarthScene) and read by CameraController so
- * the warp can aim at the destination, and `cursor` is Earth's single cursor
- * arbiter, created by InteractionLayer and borrowed by the geo markers. Both
- * handoffs now have both ends inside Earth, which is the test §14 sets for
- * where state should live.
+ * The two refs below moved in with it: `destination` is published by
+ * EarthScene (which owns the spin group the destination turns with) and read
+ * by CameraController so the warp can aim at the city, and `cursor` is Earth's
+ * single cursor arbiter, created and consumed by InteractionLayer. Both
+ * handoffs have both ends inside Earth, which is the test §14 sets for where
+ * state should live.
  *
  * ORDER IS LOAD-BEARING and is preserved exactly:
  *   - SkyShell and SpaceBackdrop draw before the Earth, depth-free, so they sit
@@ -60,7 +60,6 @@ interface Props {
   interactionRef: RefObject<InteractionHandle | null>
   onSelectCase: (data: SatelliteDef) => void
   onDeselectCase: () => void
-  onSelectDestination: (id: string) => void
 }
 
 export function EarthExperience({
@@ -72,14 +71,12 @@ export function EarthExperience({
   interactionRef,
   onSelectCase,
   onDeselectCase,
-  onSelectDestination,
 }: Props) {
-  // Published by GeoMarkersLayer, read by CameraController so the warp can aim
-  // at the destination. Both ends are in this file, so it belongs here.
-  const geoMarkersRef = useRef<GeoMarkers | null>(null)
+  // Published by EarthScene, read by CameraController so the warp can aim at
+  // the destination. Both ends are in this file, so it belongs here.
+  const destinationRef = useRef<DestinationResolver | null>(null)
 
-  // Earth's single cursor arbiter. Created by InteractionLayer and borrowed by
-  // the geo markers, which hover on the same canvas from a different layer.
+  // Earth's single cursor arbiter, created and consumed by InteractionLayer.
   // Murcia does NOT share it — it holds one of its own, because the two are
   // never live at the same time and each must be able to drop its whole set of
   // requests when it goes inactive.
@@ -92,7 +89,7 @@ export function EarthExperience({
         state={state}
         overlayEl={overlayEl}
         active={active}
-        geoMarkersRef={geoMarkersRef}
+        destinationRef={destinationRef}
       />
       {/* Projection-window shift for the audit panel. It writes camera.view,
           not the pose, so it cannot fight CameraController or the focus rig. */}
@@ -110,9 +107,7 @@ export function EarthExperience({
           config={config}
           state={state}
           active={active}
-          onSelectDestination={onSelectDestination}
-          geoMarkersRef={geoMarkersRef}
-          cursorRef={cursorRef}
+          destinationRef={destinationRef}
         />
       </Suspense>
       {/* Scene level, NOT inside EarthScene — orbital motion must not compound

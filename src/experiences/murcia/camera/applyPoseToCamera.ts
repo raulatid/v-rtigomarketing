@@ -53,10 +53,10 @@ export function applyPoseToCamera(
 }
 
 /**
- * Folds a user zoom scale into a pose by multiplying its distance.
+ * Folds a distance scale into a pose by multiplying its distance.
  *
- * A one-line helper because it must exist exactly once. `CameraRig` composes
- * zoom this way for the live camera, and `checks/navigation-zoom.ts` and
+ * A one-line helper because it must exist exactly once. `CameraRig` composes the
+ * flight dolly this way for the live camera, and `checks/footprint.ts` and
  * `checks/warp-transition.ts` compose it the same way to measure the resulting
  * ground footprint — and a second copy of `distance * scale` living in a check
  * is precisely the "harness that rebuilds what it is testing" failure that put

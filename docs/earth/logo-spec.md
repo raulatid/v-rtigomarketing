@@ -2,7 +2,7 @@
 
 Estos archivos se dibujan dentro del panel holográfico que flota sobre cada
 satélite en la escena de la Tierra. Un archivo por caso de éxito, con el mismo
-nombre que el `id` del caso en `src/data/caseStudies.ts`:
+nombre que el `id` del caso (ver `content/fixtures/case_study.json`, o el CMS):
 
 ```
 public/logos/satellite-01.webp   →   logo: '/logos/satellite-01.webp'
@@ -67,25 +67,41 @@ un `<canvas>` tiene tres trampas:
 
 ## Cuando esto venga de WordPress
 
-El campo `logo` es una URL. Hoy apunta a `/logos/…`, mañana apuntará a la
-biblioteca de medios de WordPress, y **no cambia nada más en el código**. Dos
-cosas que sí habrá que resolver en el servidor:
+**El archivo se sube a la biblioteca de medios de WordPress y nada más cambia en
+la entrega.** Los requisitos de arriba —1600×800, WebP, fondo transparente,
+recorte ajustado sin márgenes, variante clara— siguen siendo exactamente los
+mismos, y el proceso de compilación los comprueba.
 
-- El origen de WordPress debe enviar `Access-Control-Allow-Origin` en la ruta de
-  `wp-content/uploads/` (no lo hace por defecto). Sin esa cabecera, el navegador
-  no permite usar la imagen como textura WebGL y la aplicación conserva la placa
-  generada. Conviene confirmarlo con el hosting antes de empezar.
-- Añadir el origen a `img-src` y `connect-src` en la CSP de `vercel.json`.
+Lo que cambió es el camino que recorre el archivo. La aplicación **no descarga
+nada del CMS en el navegador**: al compilar, el proceso descarga la imagen,
+verifica el tipo y las dimensiones, la convierte a WebP y la escribe en
+`public/logos/`. El campo `logo` acaba siendo siempre una ruta local
+(`/logos/satellite-01.webp`), servida desde el mismo dominio que el resto del
+sitio.
 
-La alternativa más robusta es un rewrite en Vercel que sirva el CMS bajo el mismo
-dominio: elimina el problema de CORS por completo y deja la CSP intacta.
+Consecuencias, todas favorables:
+
+- **No hace falta `Access-Control-Allow-Origin`** en `wp-content/uploads/`. No
+  hay petición desde el navegador al CMS, así que no hay CORS que resolver.
+- **No hay que tocar la CSP** de `vercel.json`: la imagen es del propio origen.
+- Un logo que falle no rompe nada: el caso se queda con la placa generada.
+
+Una restricción nueva, y es del lado de WordPress: **no se aceptan SVG**. El
+núcleo de WordPress los bloquea por defecto y así debe seguir, porque un SVG en
+la biblioteca de medios se sirve en su propia URL y se convierte en un vector de
+ataque para quien la abra. La sección anterior sobre SVG se mantiene por si el
+archivo se coloca a mano en `public/logos/`, que sigue siendo posible.
+
+Detalle técnico completo en `docs/adr/010-content-is-generated-at-build-time.md`
+y en `docs/content/wordpress-field-contract.md`.
 
 ---
 
 ## Verificación rápida
 
 1. Copiar el archivo en esta carpeta.
-2. Poner la ruta en el campo `logo` del caso en `src/data/caseStudies.ts`.
+2. Poner la ruta en el campo `logo` del caso en `content/fixtures/case_study.json`
+   (o en WordPress, si ya está conectado) y ejecutar `npm run content:build`.
 3. `npm run dev`, dejar correr la intro hasta que aparezcan los satélites.
 
 Si el logo no aparece, la consola dice por qué: tamaño intrínseco ausente, CORS,

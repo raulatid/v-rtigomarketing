@@ -15,14 +15,17 @@
  * in murciaConfig.ts with the reasoning written down.
  *
  *   ?dragGain=0.4  ?yawDeg=100  ?smooth=0.12  ?release=0.1  ?inertia=0.6
- *   ?yawSmooth=0.05  ?zoomMin=0.6  ?zoomMax=1.3  ?wheelZoom=0.002  ?zoomSmooth=0.2
+ *   ?yawSmooth=0.05  ?focusMin=0.6
  *
  * `?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL, which is
  * the comparison most likely to be wanted while reviewing it.
  *
- * `?zoomMax=` is not like the others: it is the one parameter whose safe value
- * was measured rather than judged, so exceeding it is warned about explicitly.
- * See the note where that warning is raised.
+ * `?zoomMin`, `?zoomMax`, `?wheelZoom` and `?zoomSmooth` were retired with the zoom
+ * band (`adr/009`). `?focusMin` replaces the first: it is the floor a district flight
+ * may dolly to, and it is the only remaining way distance changes at all. There is no
+ * max-side parameter any more because there is no outward direction — which also
+ * retires the one warning in this file, since growing the ground footprint past the
+ * terrain skirt is no longer reachable from a URL.
  */
 import type { EnvironmentConfig, DragFeelConfig } from './environmentConfig';
 
@@ -55,36 +58,9 @@ export function applyNavigationQueryOverrides(
   // Separate from ?smooth= on purpose — see overrideFeel below.
   const yawSmoothing = readNumber(params, 'yawSmooth', (v) => v >= 0);
 
-  const wheelZoom = readNumber(params, 'wheelZoom', (v) => v > 0);
-  const zoomSmoothing = readNumber(params, 'zoomSmooth', (v) => v >= 0);
-  let zoomMin = readNumber(params, 'zoomMin', (v) => v > 0);
-  let zoomMax = readNumber(params, 'zoomMax', (v) => v > 0);
-
-  // An inverted band would clamp every scale to a single unreachable value and
-  // leave zoom silently dead, which is worse than ignoring the parameters.
-  const resolvedMin = zoomMin ?? env.navigation.zoom.minDistanceScale;
-  const resolvedMax = zoomMax ?? env.navigation.zoom.maxDistanceScale;
-  if (resolvedMin > resolvedMax) {
-    console.warn(
-      `[navigation] ignoring ?zoomMin=${resolvedMin} / ?zoomMax=${resolvedMax} — min exceeds max`,
-    );
-    zoomMin = null;
-    zoomMax = null;
-  }
-
-  // This one gets a warning of its own, because it is the only parameter here
-  // whose shipped value is a MEASUREMENT rather than a judgement. Past it the
-  // viewport's ground footprint outgrows the terrain skirt and the hard plate
-  // edge enters frame — on wide viewports first, so the person raising it is
-  // unlikely to see the failure they caused.
-  if (zoomMax !== null && zoomMax > env.navigation.zoom.maxDistanceScale) {
-    console.warn(
-      `[navigation] ?zoomMax=${zoomMax} exceeds ${env.navigation.zoom.maxDistanceScale}, the ` +
-        'value checks/navigation-zoom.ts proved footprint-safe. Beyond it the plate edge can ' +
-        'enter frame on wide viewports. Fine for comparing feel; not a value to settle on ' +
-        'without re-running that check.',
-    );
-  }
+  // Clamped rather than trusted: a floor above 1 would ask a flight to dolly OUT,
+  // which is the direction whose footprint grows past the terrain skirt.
+  const focusMin = readNumber(params, 'focusMin', (v) => v > 0 && v <= 1);
 
   if (
     dragGain === null &&
@@ -93,10 +69,7 @@ export function applyNavigationQueryOverrides(
     release === null &&
     inertia === null &&
     yawSmoothing === null &&
-    wheelZoom === null &&
-    zoomSmoothing === null &&
-    zoomMin === null &&
-    zoomMax === null
+    focusMin === null
   ) {
     return env;
   }
@@ -127,14 +100,10 @@ export function applyNavigationQueryOverrides(
           yawDegrees ?? env.navigation.rotation.degreesPerViewportWidth,
         feel: overrideFeel(env.navigation.rotation.feel, yawSmoothing),
       },
-      zoom: {
-        ...env.navigation.zoom,
-        minDistanceScale: zoomMin ?? env.navigation.zoom.minDistanceScale,
-        maxDistanceScale: zoomMax ?? env.navigation.zoom.maxDistanceScale,
-        wheelSensitivity: wheelZoom ?? env.navigation.zoom.wheelSensitivity,
-        smoothingTimeConstant:
-          zoomSmoothing ?? env.navigation.zoom.smoothingTimeConstant,
-      },
+    },
+    focusFlight: {
+      ...env.focusFlight,
+      minDistanceScale: focusMin ?? env.focusFlight.minDistanceScale,
     },
   };
 
@@ -147,7 +116,7 @@ export function applyNavigationQueryOverrides(
       releaseTimeConstant: next.navigation.feel.releaseTimeConstant,
       inertiaTimeConstant: next.navigation.feel.inertiaTimeConstant,
       yawSmoothingTimeConstant: next.navigation.rotation.feel.smoothingTimeConstant,
-      zoom: next.navigation.zoom,
+      focusMinDistanceScale: next.focusFlight.minDistanceScale,
     },
   );
 

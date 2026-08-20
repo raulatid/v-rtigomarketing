@@ -6,7 +6,7 @@ import { gzipSync } from 'node:zlib'
 
 // The loading animation is worthless if it is itself waiting on a bundle, so
 // the boot entry's standalone-ness is a build-time invariant rather than a
-// convention (DECISIONS.md, "Code that runs first depends on nothing").
+// convention (DECISIONS.md 26.4, "Code that runs first depends on nothing").
 //
 // Asserted on the emitted bundle rather than on import statements: a dynamic
 // import, a stray global or a side-effectful module would all slip past an
@@ -111,7 +111,28 @@ function introEntry(): Plugin {
     transformIndexHtml: {
       order: 'post',
       handler(_html, ctx) {
-        // Dev serves from source; build has to look up the hashed filename.
+        // LINKED, not inlined — and that was measured rather than assumed.
+        //
+        // Inlining the chunk into the document is the obvious next move here:
+        // the standalone assertion above means it has no imports to resolve, so
+        // it would cost one fewer request for the one asset whose entire job is
+        // to be first. It was built and A/B'd, 5 runs a side, median time to the
+        // first drawn frame, 4x CPU throttle:
+        //
+        //     wifi   30Mbps  40ms RTT    linked  362ms   inlined  355ms
+        //     4G      9Mbps 170ms RTT    linked  630ms   inlined  633ms
+        //     Fast3G 1.6Mbps 150ms RTT   linked  714ms   inlined  731ms
+        //     Slow3G  400kbps 400ms RTT  linked 1789ms   inlined 1841ms
+        //
+        // It loses, and it loses hardest on the connections it was meant to
+        // help. The reasoning it was based on — "6KB took 313ms to arrive, so
+        // the request is the bottleneck" — misreads the waterfall: the preload
+        // scanner finds this tag while the document is still parsing and fetches
+        // it in parallel at High priority, so it lands at about the moment the
+        // HTML finishes anyway. What IS on the critical path is the document,
+        // and inlining adds ~6KB gzipped to it.
+        //
+        // Dev has no bundle and serves from source; build looks up the hash.
         let src = `/${INTRO_ENTRY}`
         if (ctx.bundle) {
           const chunk = Object.values(ctx.bundle).find(
@@ -142,9 +163,21 @@ function introEntry(): Plugin {
         if (ctx.bundle) {
           for (const chunk of Object.values(ctx.bundle)) {
             if (chunk.type !== 'chunk' || chunk.isEntry) continue
+            // Not all of these are wanted equally soon. modulepreload is High
+            // priority by default, so the chunks for a world the visitor cannot
+            // reach until they click a marker were competing for bandwidth with
+            // the ones the first frame after the intro actually needs. Nothing
+            // here is needed DURING P0 at all — the point of the split is to
+            // fetch without evaluating — but the queue still has an order.
+            const deferred = /MurciaExperience|disposal/.test(chunk.fileName)
             tags.push({
               tag: 'link',
-              attrs: { rel: 'modulepreload', crossorigin: true, href: `/${chunk.fileName}` },
+              attrs: {
+                rel: 'modulepreload',
+                crossorigin: true,
+                href: `/${chunk.fileName}`,
+                ...(deferred ? { fetchpriority: 'low' } : {}),
+              },
               injectTo: 'head',
             })
           }

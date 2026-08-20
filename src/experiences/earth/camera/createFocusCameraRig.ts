@@ -8,8 +8,8 @@ import { closeUpScreenOffset } from './closeUpFraming'
 //
 // ONE smoothing mechanism for everything: a target/current pair of
 // { position, lookAt } moved by a frame-rate-independent exponential lerp.
-// Every behaviour — drag orbit, wheel zoom, satellite fly-in, return to
-// overview — only ever writes the TARGET. Nothing moves the camera directly.
+// Every behaviour — drag orbit, satellite fly-in, return to overview — only ever
+// writes the TARGET. Nothing moves the camera directly.
 //
 // This is also why there is no OrbitControls: a second camera owner would fight
 // this one every frame. In our case the other owner is CameraController, which
@@ -52,6 +52,24 @@ export function createFocusCameraRig({
   let orbitEnabled = true
 
   // ─── Manual spherical orbit (drag) ───
+  //
+  // `orbit` is where the drag has ASKED the camera to be; `eased` is where it
+  // actually is. Both angles are unbounded, and that is load-bearing: the
+  // difference between them is the true SIGNED travel still owed to the viewer.
+  //
+  // This used to be one pair of Cartesian vectors eased with
+  // `current.position.lerp(target.position, alpha).setLength(r)`, and that is
+  // structurally unable to represent more than half a turn. `target.position`
+  // is rebuilt from spherical coordinates every frame, so it depends only on
+  // `theta mod 2*PI`, and a straight line between two points on a sphere always
+  // travels the MINOR arc. Once the ease lagged the drag by more than 180° —
+  // which `lerpK: 3` reaches at around 1400 px/s, an ordinary brisk drag — the
+  // interpolation pointed the other way and the camera rotated BACKWARD under
+  // the viewer's hand. Exactly antipodal, it stopped dead: the chord ran through
+  // the origin, so re-projecting put the camera back precisely where it was.
+  //
+  // Easing the angles instead removes the failure rather than bounding it.
+  // `checks/earth-orbit.ts` holds the measurements.
   const orbit = {
     theta: 0,
     phi: Math.PI / 2,
@@ -60,6 +78,8 @@ export function createFocusCameraRig({
     lastX: 0,
     lastY: 0,
   }
+  /** Where the camera is, as angles. Unbounded, like `orbit`. */
+  const eased = { theta: 0, phi: Math.PI / 2, radius: 1 }
   let dragDistance = 0
 
   function syncOrbitTo(position: THREE.Vector3) {
@@ -67,6 +87,22 @@ export function createFocusCameraRig({
     orbit.theta = s.theta
     orbit.phi = THREE.MathUtils.clamp(s.phi, cfg.phiMin, cfg.phiMax)
     orbit.radius = s.radius
+  }
+
+  /**
+   * `target` expressed as the value nearest `from`, rather than its principal
+   * value.
+   *
+   * The DRAG must never use this — preserving winding is the whole point of it
+   * being unbounded. The RETURN from a close-up must always use it, or a viewer
+   * who wound the globe round one and a half turns would watch it unwind every
+   * degree on the way back. Two opposite requirements, which is why the rig has
+   * two paths; Murcia keeps the same split between `CameraRig.yawDegrees` and
+   * `CameraFlight.shortestYawDelta`.
+   */
+  function nearestEquivalentAngle(from: number, target: number): number {
+    const TAU = Math.PI * 2
+    return from + ((((target - from + Math.PI) % TAU) + TAU) % TAU) - Math.PI
   }
 
   // Takes over the camera from whatever was driving it.
@@ -89,6 +125,10 @@ export function createFocusCameraRig({
     // updateOrbitTarget rebuilds the target from every frame, so seeding it from
     // a stale camera would undo the whole point of the line above.
     syncOrbitTo(overviewPosition)
+    // Asked and actual start out the same, so the handoff owes no travel.
+    eased.theta = orbit.theta
+    eased.phi = orbit.phi
+    eased.radius = orbit.radius
     mode = 'overview'
     focused = false
     orbitEnabled = true
@@ -161,17 +201,6 @@ export function createFocusCameraRig({
     endDrag()
   }
 
-  // Multiplicative on the orbit radius, overview only. The camera eases to the
-  // new radius through the same lerp as everything else.
-  function onWheel(e: WheelEvent) {
-    if (!active || !orbitEnabled) return
-    orbit.radius = THREE.MathUtils.clamp(
-      orbit.radius * (1 + e.deltaY * cfg.zoomSensitivity),
-      cfg.zoomMin,
-      cfg.zoomMax,
-    )
-  }
-
   function onClick(e: MouseEvent) {
     if (!active) return
     // A drag that happens to end over a satellite must not select it.
@@ -183,7 +212,6 @@ export function createFocusCameraRig({
   domElement.addEventListener('pointermove', onPointerMove)
   domElement.addEventListener('pointerup', onPointerUp)
   domElement.addEventListener('pointercancel', onPointerUp)
-  domElement.addEventListener('wheel', onWheel, { passive: true })
   domElement.addEventListener('click', onClick)
 
   // ─── Close-up framing ───
@@ -225,6 +253,7 @@ export function createFocusCameraRig({
       verticalFovDegrees: camera.fov,
       aspect: camera.aspect,
       viewportWidthPx: domElement.clientWidth,
+      viewportHeightPx: domElement.clientHeight,
     })
     const lookAt = satWorldPos.clone().add(_right.clone().multiplyScalar(offset))
 
@@ -235,8 +264,23 @@ export function createFocusCameraRig({
   }
 
   function returnToOverview() {
-    // Resync the drag orbit so rotation resumes from the overview pose.
-    syncOrbitTo(overviewPosition)
+    // Seed the angular position from where the camera ACTUALLY is, because the
+    // close-up target is deliberately off the orbit sphere (it carries a lift
+    // and a shifted look-at). This is the one place the two representations have
+    // to be reconciled, and without it clearing `focused` below would teleport
+    // the camera back onto the sphere on the very next frame.
+    const here = new THREE.Spherical().setFromVector3(current.position)
+    eased.theta = here.theta
+    eased.phi = THREE.MathUtils.clamp(here.phi, cfg.phiMin, cfg.phiMax)
+    eased.radius = here.radius
+
+    // Resync the drag orbit so rotation resumes from the overview pose — but
+    // expressed nearest to where we are, so the return takes the short way.
+    const overview = new THREE.Spherical().setFromVector3(overviewPosition)
+    orbit.theta = nearestEquivalentAngle(eased.theta, overview.theta)
+    orbit.phi = THREE.MathUtils.clamp(overview.phi, cfg.phiMin, cfg.phiMax)
+    orbit.radius = overview.radius
+
     target.position.copy(overviewPosition)
     target.lookAt.copy(overviewLookAt)
     focused = false
@@ -252,17 +296,26 @@ export function createFocusCameraRig({
     const alpha = 1 - Math.exp(-cfg.lerpK * delta)
 
     if (!focused) {
-      // Ease direction and radius SEPARATELY. A plain Cartesian lerp between
-      // two points on the orbit sphere cuts through the chord, so while
-      // dragging the camera lags angularly and sinks below the orbit radius —
-      // it visibly zooms in and out as you pan. Re-projecting onto an
-      // independently eased radius keeps panning distance-stable, and still
-      // eases smoothly back from a close-up (whose radius differs).
-      const easedRadius = THREE.MathUtils.lerp(current.position.length(), orbit.radius, alpha)
-      current.position.lerp(target.position, alpha).setLength(easedRadius)
+      // Ease the ANGLES, and the radius alongside them. Angle and radius stay
+      // independent for the reason the previous implementation gave — a plain
+      // Cartesian lerp between two points on the orbit sphere cuts through the
+      // chord, so the camera sinks below the orbit radius and visibly zooms in
+      // and out as you pan — but that is now a property of the representation
+      // rather than something recovered by re-projecting afterwards.
+      //
+      // Which matters, because re-projection could only ever fix the radius. It
+      // could not fix the DIRECTION, and the direction was the bug: the chord
+      // always takes the minor arc, so a drag that outran the ease by more than
+      // half a turn was quietly resolved the wrong way round. Interpolating an
+      // unbounded angle has no such seam — 540° is simply further than 180°.
+      eased.theta += (orbit.theta - eased.theta) * alpha
+      eased.phi += (orbit.phi - eased.phi) * alpha
+      eased.radius = THREE.MathUtils.lerp(eased.radius, orbit.radius, alpha)
+      current.position.setFromSphericalCoords(eased.radius, eased.phi, eased.theta)
     } else {
       // The close-up deliberately does NOT re-project: here the radius change
-      // is the point.
+      // is the point, and the target is not on the orbit sphere at all — so it
+      // has no angles to ease and stays a Cartesian lerp.
       current.position.lerp(target.position, alpha)
     }
 
@@ -288,7 +341,6 @@ export function createFocusCameraRig({
     domElement.removeEventListener('pointermove', onPointerMove)
     domElement.removeEventListener('pointerup', onPointerUp)
     domElement.removeEventListener('pointercancel', onPointerUp)
-    domElement.removeEventListener('wheel', onWheel)
     domElement.removeEventListener('click', onClick)
   }
 

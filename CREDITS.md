@@ -7,62 +7,117 @@ visitor can see. A licence satisfied only in the repository is not satisfied.
 
 ---
 
-## `public/textures/sky-panorama.webp` — the space backdrop
+## `public/textures/sky-panorama.*` — the space backdrop
 
-**Credit line, to be reproduced verbatim and unaltered:**
+**No attribution required, and none is shown.** This is a client requirement, not a preference:
+the site carries no third-party credit. The asset was chosen to satisfy it.
 
-> ESO/S. Brunier
+**Source.** Public domain / CC0 stock space image, 4096 × 2048, 2:1.
+Working file kept outside the repo at `04_Assets/fonde del espacio/sky-panorama-001.png`.
 
-**Source.** *The Milky Way panorama* (eso0932a), ESO GigaGalaxy Zoom project, photographed by
-Serge Brunier. <https://www.eso.org/public/images/eso0932a/>
+> **It is 2:1 but it is NOT an equirectangular panorama**, established 2026-08-20 — and neither
+> is any of the six candidates that were screened. It is sampled as one anyway. See "The
+> projection problem" below before sourcing a replacement.
 
-**Licence.** Creative Commons Attribution 4.0 International (CC BY 4.0), per ESO's copyright
-policy at <https://www.eso.org/public/outreach/copyright/>. Commercial use is permitted. Two
-conditions bind us:
+> **TODO — record the download URL here.** The file is confirmed CC0 by the person who sourced
+> it, but the origin URL was never written down. Provenance belongs in this file even when no
+> credit is owed: "we believe it was CC0" is not a record. Fill this in.
 
-- The credit "must be presented in a clear and readable manner to all users, with the wording
-  unaltered", and "should not be hidden or disassociated from the image". It need not sit on
-  top of the image itself — the policy explicitly allows the credit to live on another page,
-  provided it is clearly visible and identified as the credit for the image.
-- Nothing may state or imply that ESO endorses Vértigo or any of its services.
+**What this replaced, and why.** The backdrop was previously ESO's *Milky Way panorama*
+(eso0932a, S. Brunier), CC BY 4.0. It looked good, but the licence made the credit mandatory and
+the client requires none, so it was replaced. The credit that used to sit in
+`src/components/AuditSection.tsx` was removed with it, along with the `.audit-credit` rules in
+`src/styles.css`.
 
-**Where the visible credit lives:** the site footer, in `src/components/AuditSection.tsx`.
-If that component is ever restructured, the credit moves with it — it does not get dropped.
+**Sources rejected while looking for a replacement** — recorded so nobody re-treads this:
 
-**How the shipped files are derived from the original.** Source is the 6000 × 3000 TIFF
-(`https://cdn.eso.org/images/original/eso0932a.tif`, 27.7 MB), then:
+- **NASA/Goddard SVS Deep Star Maps 2020.** Asks for credit as a courtesy, and carries an
+  **ESA/Gaia DR2** layer that is not NASA's to place in the public domain. Ships only as EXR,
+  which `sharp` cannot read. Rejected on licence, not on quality.
+- **Candidates 002, 004, 005, 006** in the same working folder. 004 and 005 are ground-based
+  shots with the galactic plane diagonal or off-centre. 002 and 006 do not wrap: their two
+  vertical edges hold different sky (`spread` 5–7 and 8–30 respectively), which no seam
+  correction fixes. 003 wraps perfectly but has no galactic plane.
+- **All six fail the pole test**, established 2026-08-20 — none of them is an equirectangular
+  panorama, including the one that shipped. Do not reach back into this folder for a "better"
+  candidate on the strength of the notes above; they were written before anyone looked at a
+  pole. See "The projection problem" below.
 
-1. A 5 × 5 **median filter**, which removes point stars while leaving the diffuse gas, the dust
-   lanes and the Magellanic Clouds intact. Two reasons, and the byte saving is the lesser one:
-   the scene draws its own star field on a nearer shell where the stars parallax and twinkle,
-   so photographed stars would be a second, static, contradictory set. The median also removes
-   the satellite trails and stitching specks visible in the original.
-2. Lanczos3 downscale, and the wrap seam levelled at the shipped width.
-3. **AVIF, quality 60** — not WebP, and not a higher AVIF quality. See the block-ratio table in
-   `scripts/prepare-sky-panorama.mjs`.
+**How the shipped files are derived.** Source is the 4096 × 2048 PNG above, then:
+
+1. A 5 × 5 **median filter**, which removes point stars while leaving the diffuse gas and dust
+   lanes intact. Two reasons, and the byte saving is the lesser one: the scene draws its own star
+   field on a nearer shell where the stars parallax and twinkle, so photographed stars would be a
+   second, static, contradictory set.
+2. Lanczos3 downscale, and the wrap seam levelled at the shipped width by the median per-channel
+   offset.
+3. **`convergePoles`** — the polar correction, added 2026-08-20. See below.
+4. **AVIF, quality 59.** Capped by the 200 KB budget rather than chosen freely. See the
+   block-ratio table in `scripts/prepare-sky-panorama.mjs` for why the measured ratio overstates
+   what is visible here.
 
 Four files ship; exactly one is ever fetched.
 
 | file | size | block ratio | VRAM |
 |---|---|---|---|
-| `sky-panorama.avif` | 240 KB | 1.171 | 75.5 MB |
-| `sky-panorama.webp` | 401 KB | 1.524 | 75.5 MB |
-| `sky-panorama-narrow.avif` | 81 KB | 1.039 | 18.9 MB |
-| `sky-panorama-narrow.webp` | 129 KB | 1.556 | 18.9 MB |
+| `sky-panorama.avif` | 194,642 bytes | 1.666 | 33.6 MB |
+| `sky-panorama.webp` | 279,050 bytes | 2.615 | 33.6 MB |
+| `sky-panorama-narrow.avif` | 81,648 bytes | 1.434 | 8.4 MB |
+| `sky-panorama-narrow.webp` | 114,480 bytes | 1.794 | 8.4 MB |
 
-AVIF is the primary; WebP exists only for browsers that cannot decode AVIF, reached by
-attempting the AVIF and letting it fail. The narrow pair is served below 767 px viewport width.
-6144 is the ceiling the source allows — 6000 × 3000 is 16.7 px/deg, and wider is empty
-upscaling.
+**The desktop AVIF is held under a client budget of 200 KB.** Do not raise the quality to improve
+the block ratio without checking that number first. Sizes are given in **bytes** on purpose:
+"200 KB" is ambiguous by a factor that decides this, and q60 lands at 202,169 bytes — under 200
+KiB, over 200,000. Every file this project has shipped cleared both readings, which is why the
+quality is an odd 59 rather than a round 60.
 
-Un-filtered, the same panorama is 1.5 MB — point stars are high-entropy and dominate the
-compressed size, which is why removing them buys a 14× saving.
+AVIF is the primary; WebP exists only for browsers that cannot decode AVIF, reached by attempting
+the AVIF and letting it fail. The narrow pair is served below 767 px viewport width. 4096 is the
+ceiling the source allows, and wider is empty upscaling.
 
-The image is equirectangular in **galactic** coordinates: the galactic plane lies exactly on the
-horizontal centreline (`v = 0.5`) and the galactic centre at `u = 0.5`. `SkyShell` depends on
-this. A celestial/equatorial panorama would need an extra fixed rotation and is not what ships.
+The image is sampled as equirectangular in **galactic** coordinates: the galactic plane lies on
+the horizontal centreline (`v = 0.5`) and the galactic centre at `u = 0.5`. `SkyShell` depends
+on this. A celestial/equatorial panorama would need an extra fixed rotation and is not what
+ships.
 
-Regenerate with `scripts/prepare-sky-panorama.mjs`.
+### The projection problem — read this before sourcing a replacement
+
+**The shipped image is a flat 2:1 picture, not an equirectangular panorama.** The prep script's
+only projection guard was `width === height * 2`, and aspect ratio is not projection — every
+flat 2:1 image passes it. The screen that chose this asset checked wrapping and whether a
+galactic plane was present; neither looks at a pole.
+
+The shader maps `v = asin(dir.y)/π + 0.5`, so **the top row is the zenith**: one point of sky
+smeared across all 4096 columns, near-identical pixels in a real panorama. Per-channel row
+standard deviation at each pole over the equator's:
+
+| source | top | bottom |
+|---|---|---|
+| ESO `eso0932a` — a real panorama | **0.029** | 0.152 |
+| `sky-panorama-001` — shipped | **0.670** | 0.383 |
+| candidates 002–006 | 0.319 – 0.838 | 0.174 – 1.257 |
+
+Read the gap, not a threshold: the reference itself scores 0.152 at its own bottom pole. The
+prep script prints this number for every file, on both sides of the correction.
+
+Untreated it renders as a pinwheel of radial spokes converging on a vertex, with a hard straight
+wedge where the meridian lands — reported as "you can see the edge of the image".
+`convergePoles` mitigates it by fading each row toward its azimuthal mean over the polar caps.
+**It cannot make the image a panorama**, so the residual "zoomed" look is the source's and only
+a different source fixes it.
+
+**Screening a replacement:** exactly 4096 × 2048 (the standing format for every space
+background), no attribution obligation of any kind, desktop AVIF under 200,000 bytes, and a pole
+ratio near the reference rather than near the candidates. Then **look at it** —
+`node scripts/preview-sky-poles.mjs <candidate.png>` — because the pole ratio is a good source
+screen and is useless for verifying a correction. Full working in
+`docs/audits/sky-panorama-projection-2026-08-19.md`.
+
+This source is dimmer than the ESO one, so `skyBrightness` in
+`src/experiences/earth/config/introConfig.ts` moved from 0.22 to 0.60 and `skyContrast` from 1.25
+to 1.00. Swapping the image without retuning that pair is what makes a new sky look black.
+
+Regenerate with `node scripts/prepare-sky-panorama.mjs <path-to-png>`.
 
 ---
 

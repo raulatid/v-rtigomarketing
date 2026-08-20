@@ -73,12 +73,12 @@ test.describe('the resting backdrop', () => {
       // the sky rather than about which continent is facing the camera.
       maxDiffPixelRatio: 0.02,
       animations: 'disabled',
-      mask: [page.locator('.audit-section'), page.locator('.geo-tag')],
+      mask: [page.locator('.audit-section')],
     })
   })
 
   test('narrow viewport uses the small panorama without banding', async ({ page }) => {
-    // Below 767px a 3072-wide pair is served instead. Same image, different
+    // Below 767px a 2048-wide pair is served instead. Same image, different
     // file — and the smaller one is the more likely to show compression
     // blocking, since it is magnified further.
     await page.setViewportSize({ width: 420, height: 900 })
@@ -86,59 +86,47 @@ test.describe('the resting backdrop', () => {
     await expect(page).toHaveScreenshot('backdrop-narrow.png', {
       maxDiffPixelRatio: 0.02,
       animations: 'disabled',
-      mask: [page.locator('.audit-section'), page.locator('.geo-tag')],
+      mask: [page.locator('.audit-section')],
     })
   })
 })
 
-test('the ESO credit is reachable and readable in the audit panel', async ({ page }) => {
-  // CC BY 4.0 requires the credit be clearly readable and not hidden. This is a
-  // licence obligation, not a nicety — do not reword it, hide it at a
-  // breakpoint, or fade it further. See CREDITS.md and DECISIONS section 19.
+test('the site shows no third-party attribution', async ({ page }) => {
+  // The inverse of the test that used to stand here, and it is a CLIENT
+  // REQUIREMENT rather than a licence one: the site carries no third-party
+  // credit anywhere a visitor can reach.
   //
-  // NOTE, and it is worth a decision rather than a test: the credit is NOT
-  // visible at rest. It lives inside `.audit-overlay`, which is hidden until a
-  // visitor opens the lead-capture panel, so DECISIONS' description of that
-  // panel as "the only PERSISTENT text surface the site has" overstates what
-  // ships — persistent it is not. A credits panel is normally accepted as
-  // attribution "in a reasonable manner", so this asserts what actually exists
-  // rather than failing on a legal judgement that is not the harness's to make.
+  // This used to assert that "ESO/S. Brunier" was visible and readable, because
+  // the sky panorama was CC BY 4.0 and the credit was the licence condition.
+  // The panorama was replaced with a public domain image precisely so that
+  // obligation would go away — see CREDITS.md. Keeping the assertion pointed the
+  // other way is what stops a future asset swap from quietly reintroducing an
+  // attribution nobody notices until the client does.
+  //
+  // The audit panel is checked specifically because that is where the credit
+  // lived. It is behind a click — `.audit-overlay` is hidden until the
+  // lead-capture panel opens — so a check at rest would pass vacuously.
   await bootAndSettle(page)
 
   const trigger = page.getByRole('button', { name: 'Auditoría' })
   await expect(trigger).toBeEnabled({ timeout: 30_000 })
   await trigger.click()
 
-  const credit = page.locator('text=/ESO\\s*\\/\\s*S\\.\\s*Brunier/i')
-  await expect(credit.first()).toBeVisible({ timeout: 15_000 })
+  // Wait for the panel's reveal to finish before concluding anything is absent.
+  // `.audit-group--4` transitions opacity over 380ms on a 760ms delay, so an
+  // assertion fired immediately would pass against a panel that had not
+  // rendered yet — proving nothing.
+  await expect(page.locator('.audit-overlay')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'Continuar' })).toBeVisible({ timeout: 15_000 })
 
-  // Readable, not merely present: a credit faded to near-nothing satisfies the
-  // DOM and not the licence.
-  //
-  // POLLED, not read once. The credit lives in `.audit-group--4`, which the
-  // panel reveals with a 380ms opacity transition on a 760ms delay — so for the
-  // first ~1.1s after the click it is legitimately at opacity 0. Playwright
-  // counts an opacity-0 element as visible (it has a box and is not
-  // `visibility: hidden`), so `toBeVisible` resolving says nothing about
-  // whether the reveal has run. Reading once immediately after it made this
-  // test a race that happened to be won by however many React renders the
-  // component did in the meantime; a refactor that removed one lost it.
-  await expect
-    .poll(
-      () =>
-        credit.first().evaluate((el) => {
-          let node: HTMLElement | null = el as HTMLElement
-          let effective = 1
-          while (node) {
-            effective *= Number(getComputedStyle(node).opacity)
-            node = node.parentElement
-          }
-          return effective
-        }),
-      { timeout: 15_000 },
-    )
-    .toBeGreaterThan(0.5)
+  // The old credit, by name.
+  await expect(page.locator('text=/ESO\\s*\\/\\s*S\\.\\s*Brunier/i')).toHaveCount(0)
+  await expect(page.locator('.audit-credit')).toHaveCount(0)
 
-  // The wording is the licence condition and must stay exact.
-  await expect(credit.first()).toHaveText(/ESO\/S\. Brunier/)
+  // And the general shape of one, so a DIFFERENT credit cannot slip in.
+  // Narrowed from matching any ©: the client rule this guards is about
+  // THIRD-PARTY attribution, and the site footer now carries the brand's own
+  // © mark (src/content/site.ts), which is not a credit to anyone else.
+  await expect(page.locator('text=/CC BY|Creative Commons/i')).toHaveCount(0)
+  await expect(page.locator('a[href*="eso.org"]')).toHaveCount(0)
 })

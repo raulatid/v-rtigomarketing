@@ -148,8 +148,10 @@ check(
 );
 check(
   'the closest star clears the camera by a wide margin',
-  worstLow > INTERACTION_CONFIG.camera.zoomMax * 3,
-  `${worstLow.toFixed(1)} vs zoomMax ${INTERACTION_CONFIG.camera.zoomMax} — below this the shell stops enclosing the camera and stars render over the Earth`,
+  worstLow > INTERACTION_CONFIG.camera.overviewRadius * 3,
+  `${worstLow.toFixed(1)} vs the camera's fixed overviewRadius ` +
+    `${INTERACTION_CONFIG.camera.overviewRadius} — below this the shell stops enclosing the ` +
+    'camera and stars render over the Earth',
 );
 check('no NaN in any buffer', !anyNaN, 'one NaN position empties the whole draw call');
 
