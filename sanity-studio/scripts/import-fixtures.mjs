@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
  * full of typos and prove nothing.
  *
  * ── Document ids are deterministic ──
- * `caseStudy.satellite-01`, `service.seo`, and the fixed singletons. Re-running
+ * `caseStudy-satellite-01`, `service-seo`, and the fixed singletons. Re-running
  * the import updates the same documents rather than duplicating them, and
  * district references can be written without a lookup step.
  *
@@ -35,8 +35,20 @@ const FIXTURES = path.resolve(HERE, '..', '..', 'content', 'fixtures')
 const OUT_DIR = path.resolve(HERE, '..', '.out')
 const OUT_FILE = path.join(OUT_DIR, 'seed.ndjson')
 
-/** Fixed ids for the documents the application addresses by name. */
-const LEGAL_IDS = { terminos: 'legal.terms', aviso: 'legal.notice' }
+/**
+ * Fixed ids for the documents the application addresses by name.
+ *
+ * NO DOTS. A dot in an _id puts the document in a namespace that
+ * unauthenticated reads cannot see: Sanity reserves the segment before a dot
+ * for drafts. and versions.<release>., and a document in any other namespace is
+ * invisible to a public query while remaining perfectly visible to the
+ * authenticated CLI and the Studio. The content build reads anonymously, so a
+ * dotted id yields 'collection is empty' with no error anywhere.
+ *
+ * Verified empirically: two documents of the same type imported together,
+ * 'probeDotless' and 'probe.dotted' — anonymous saw only the first.
+ */
+const LEGAL_IDS = { terminos: 'legal-terms', aviso: 'legal-notice' }
 
 function read(name) {
   const file = path.join(FIXTURES, name + '.json')
@@ -71,7 +83,7 @@ const docs = []
 
 for (const record of read('caseStudy')) {
   docs.push({
-    _id: 'caseStudy.' + record.id,
+    _id: 'caseStudy-' + record.id,
     _type: 'caseStudy',
     slug: { _type: 'slug', current: record.id },
     name: record.name,
@@ -91,7 +103,7 @@ for (const record of read('caseStudy')) {
 
 for (const record of read('service')) {
   docs.push({
-    _id: 'service.' + record.id,
+    _id: 'service-' + record.id,
     _type: 'service',
     slug: { _type: 'slug', current: record.id },
     title: record.title,
@@ -101,7 +113,7 @@ for (const record of read('service')) {
 
 for (const record of read('district')) {
   docs.push({
-    _id: 'district.' + record.id,
+    _id: 'district-' + record.id,
     _type: 'district',
     slug: { _type: 'slug', current: record.id },
     label: record.label,
@@ -113,7 +125,7 @@ for (const record of read('district')) {
     services: record.services.map((service, i) => ({
       _key: 'service-' + i,
       _type: 'reference',
-      _ref: 'service.' + service.id,
+      _ref: 'service-' + service.id,
     })),
   })
 }
@@ -144,7 +156,7 @@ for (const record of read('legalDoc')) {
 
 for (const record of read('blogPost')) {
   docs.push({
-    _id: 'blogPost.' + record.id,
+    _id: 'blogPost-' + record.id,
     _type: 'blogPost',
     slug: { _type: 'slug', current: record.id },
     title: record.title,

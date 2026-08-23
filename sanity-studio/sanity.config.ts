@@ -16,8 +16,8 @@ import { schemaTypes } from './schemas'
  */
 const SINGLETONS = [
   { id: 'siteSettings', type: 'siteSettings', title: 'Ajustes del sitio' },
-  { id: 'legal.terms', type: 'legalDoc', title: 'Términos y privacidad' },
-  { id: 'legal.notice', type: 'legalDoc', title: 'Aviso legal' },
+  { id: 'legal-terms', type: 'legalDoc', title: 'Términos y privacidad' },
+  { id: 'legal-notice', type: 'legalDoc', title: 'Aviso legal' },
 ]
 
 const SINGLETON_TYPES = new Set(SINGLETONS.map((entry) => entry.type))

@@ -3,7 +3,8 @@ import { defineField, defineType } from 'sanity'
 /**
  * A legal document.
  *
- * Two of these exist, at the fixed ids `legal.terms` and `legal.notice`, and
+ * Two of these exist, at the fixed ids `legal-terms` and `legal-notice` (no
+ * dots — a dotted _id is invisible to unauthenticated reads), and
  * `legalDocs.collection.ts` fails the build if either is missing — the footer
  * links to both by name, so a deleted one leaves a link pointing at nothing.
  * Which documents exist is app composition; the TEXT is entirely editorial.

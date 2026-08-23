@@ -142,7 +142,9 @@ One document, at the fixed id `siteSettings`.
 
 ## `legalDoc` — two fixed documents
 
-At the fixed ids `legal.terms` and `legal.notice`, with slugs `terminos` and `aviso`.
+At the fixed ids `legal-terms` and `legal-notice`, with slugs `terminos` and `aviso`.
+
+**No document id may contain a dot.** Sanity reserves the segment before a dot for `drafts.` and `versions.<release>.`; a document in any other namespace is invisible to unauthenticated queries while staying visible to the Studio and the authenticated CLI. Since the content build reads anonymously, a dotted id produces `collection is empty` with no error anywhere to explain it.
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
