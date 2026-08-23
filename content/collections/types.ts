@@ -42,6 +42,45 @@ export interface SourceSpec {
   fields?: string[]
 }
 
+/**
+ * Where a collection's records come from, in Sanity's vocabulary.
+ *
+ * DELIBERATELY not vendor-neutral. `type` is a Sanity `_type`, `projection` is
+ * GROQ and `orderBy` is a GROQ ordering expression — pretending otherwise would
+ * buy an abstraction for a second CMS that does not exist and would not fit it
+ * anyway. The abstraction that matters is downstream: the projection IS the
+ * normalization layer, so nothing past `map` ever sees `_ref`, `_type`,
+ * `slug.current` or a Sanity asset object.
+ */
+export interface SanitySourceSpec {
+  /**
+   * The Sanity document `_type`, which is also the fixture and seed file's base
+   * name. One name for one collection everywhere.
+   */
+  type: string
+  /**
+   * The GROQ projection, braces included, concatenated into the query verbatim.
+   * It must produce exactly the flat shape `map` reads: this is where a Sanity
+   * document becomes an internal record, and it is the only place that knows
+   * both vocabularies.
+   */
+  projection: string
+  /**
+   * A GROQ ordering expression, e.g. `slug.current asc`.
+   *
+   * Optional in the type, mandatory in practice: a collection that omits it gets
+   * `_id asc` from the adapter, and `collections.test.ts` asserts every shipped
+   * collection names its own. Byte-identical output for unchanged content is the
+   * property the whole emitter is built around, and an implicit order gives it
+   * up silently.
+   *
+   * NOTE: `fileSource` does not sort. A fixture's array order must already match
+   * what this asks Sanity for, or the fixture build and the Sanity build emit
+   * different arrays.
+   */
+  orderBy?: string
+}
+
 export type MapResult<T> = { ok: true; value: T } | { ok: false; problems: Problem[] }
 
 /**

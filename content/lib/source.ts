@@ -176,7 +176,7 @@ function readCount(header: string | null, fallback: number): number {
  * timeout kills it with a less useful message. `AbortController` plus an explicit
  * clear, so a fast response does not leave a timer holding the event loop open.
  */
-async function withTimeout(
+export async function withTimeout(
   doFetch: typeof fetch,
   url: string,
   timeoutMs: number,
