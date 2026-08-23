@@ -1,0 +1,149 @@
+[
+  {
+    "id": "como-medimos-el-seo",
+    "title": "Cómo medimos el SEO cuando el ranking no es el objetivo",
+    "excerpt": "Una posición no paga facturas. Así es como conectamos la búsqueda con los ingresos que un negocio puede reconocer.",
+    "publishedAt": "2026-08-18T09:00:00.000Z",
+    "tags": [
+      "seo",
+      "analitica"
+    ],
+    "cover": null,
+    "body": [
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "La mayoría de informes de SEO empiezan por la posición media y terminan ahí. Es la métrica más fácil de mover y la más difícil de defender delante de quien firma el presupuesto."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "h2",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Qué medimos en su lugar"
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "listItem": "bullet",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Sesiones que llegan a una página con intención comercial."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "listItem": "bullet",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Conversiones atribuidas a búsqueda orgánica, no asistidas."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "listItem": "bullet",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Ingresos por consulta, comparados contra el coste de adquirirla."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "blockquote",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Si una palabra clave sube veinte posiciones y no cambia nada, no ha pasado nada."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "markDefs": [
+          {
+            "_key": "gsc",
+            "_type": "link",
+            "href": "https://search.google.com/search-console/about"
+          }
+        ],
+        "children": [
+          {
+            "_type": "span",
+            "text": "Los datos salen de "
+          },
+          {
+            "_type": "span",
+            "text": "Search Console",
+            "marks": [
+              "gsc"
+            ]
+          },
+          {
+            "_type": "span",
+            "text": " cruzados con la analítica del sitio. Nada de esto necesita una herramienta cara: necesita "
+          },
+          {
+            "_type": "span",
+            "text": "decidir qué cuenta como resultado",
+            "marks": [
+              "strong"
+            ]
+          },
+          {
+            "_type": "span",
+            "text": " antes de empezar."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "la-web-como-activo",
+    "title": "La web como activo, no como campaña",
+    "excerpt": "Lo que se construye una vez y sigue devolviendo trabajo meses después es distinto de lo que deja de existir cuando se apaga el presupuesto.",
+    "publishedAt": "2026-08-04T09:00:00.000Z",
+    "tags": [
+      "estrategia"
+    ],
+    "cover": null,
+    "body": [
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Una campaña de pago deja de traer visitas el día que se apaga. Una estructura de contenidos bien hecha sigue trabajando, y esa diferencia debería cambiar cómo se reparte el presupuesto."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "No es un argumento contra el pago. Es un argumento a favor de saber cuál de las dos cosas se está comprando."
+          }
+        ]
+      }
+    ]
+  }
+]

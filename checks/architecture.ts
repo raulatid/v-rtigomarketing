@@ -115,6 +115,22 @@ forbid('utils/ does not import the application layer', 'src/utils/', 'src/app/',
 forbid('content/ does not import any experience', 'src/content/', 'src/experiences/', 'content is copy and shapes; who renders it is not its concern');
 forbid('content/ does not import the application layer', 'src/content/', 'src/app/', '');
 forbid('content/ does not import graphics', 'src/content/', 'src/graphics/', '');
+
+// The blog is MODELLED but not rendered (adr/011). Its generated module exists
+// so the schema does not have to be invented later against live editorial copy,
+// and it must stay out of the application entirely until there is a blog UI —
+// which belongs behind route-level lazy loading, not a static import.
+//
+// The entry chunk budget is 320,000 B with roughly 2 KB spare. A static import
+// of the whole blog dataset would blow it, and `vite.config.ts` would report it
+// as "three.js has probably leaked back in", sending whoever reads that message
+// somewhere with no bug in it.
+forbid(
+  'nothing imports the generated blog content',
+  'src/',
+  'src/content/generated/blogPosts',
+  'modelled, not rendered — a blog UI must lazy-load it (adr/011)',
+);
 forbid(
   'corner-logo/ does not import any experience',
   'src/corner-logo/',

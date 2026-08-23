@@ -130,6 +130,68 @@ export interface LegalDoc {
   body: LegalBlock[]
 }
 
+export interface ImageBlock {
+  kind: 'image'
+  image: ImageMedia
+}
+
+/**
+ * Editorial video, modelled and not built.
+ *
+ * There is no transcoding pipeline and no player, and this migration is not the
+ * place to add either. What it IS the place for is the schema boundary: an
+ * editor who needs video later should not force a content migration to get it.
+ */
+export interface VideoBlock {
+  kind: 'video'
+  src: string
+  poster?: ImageMedia
+}
+
+/**
+ * A third-party embed, by PROVIDER rather than by markup.
+ *
+ * The provider is an allowlist and the url is validated against that provider's
+ * hosts at ingest, so a renderer builds its own iframe from known-good parts.
+ * An `html` field carrying whatever an editor pasted is the thing this exists
+ * to make impossible.
+ */
+export interface EmbedBlock {
+  kind: 'embed'
+  provider: 'youtube' | 'vimeo'
+  url: string
+}
+
+/**
+ * What a blog post may contain.
+ *
+ * Richer than `LegalBlock` because a blog post reasonably is. NOTHING renders
+ * this yet — see `blogPosts.collection.ts` — and the generated module is
+ * deliberately imported by no part of the application, because the app entry
+ * has a hard 320,000 B budget and a blog belongs behind route-level lazy
+ * loading whenever it arrives.
+ */
+export type BlogBlock =
+  | ParagraphBlock
+  | HeadingBlock
+  | ListBlock
+  | QuoteBlock
+  | ImageBlock
+  | VideoBlock
+  | EmbedBlock
+
+export interface BlogPost {
+  id: string
+  title: string
+  /** Plain text. The card and the meta description, not the opening paragraph. */
+  excerpt: string
+  cover: ImageMedia | null
+  /** ISO 8601, from Sanity's datetime field. */
+  publishedAt: string
+  tags: string[]
+  body: BlogBlock[]
+}
+
 export interface CaseStudyMetric {
   label: string
   value: string

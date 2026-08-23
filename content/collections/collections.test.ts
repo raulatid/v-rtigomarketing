@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import type { CaseStudy } from '../../src/content/types'
+import type { BlogPost, CaseStudy } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
+import { blogPostsCollection } from './blogPosts.collection'
 import { COLLECTIONS } from './index'
 import caseFixtures from '../fixtures/caseStudy.json'
 import districtFixtures from '../fixtures/district.json'
 import serviceFixtures from '../fixtures/service.json'
 import settingsFixtures from '../fixtures/siteSettings.json'
+import blogFixtures from '../fixtures/blogPost.json'
 
 /**
  * Hostile-input tests for the mappers.
@@ -353,5 +355,133 @@ describe('site settings is a singleton the build proves', () => {
     const record = validSettings()
     record.phones = []
     expect(problemsFor(siteSettingsCollection, record).length).toBeGreaterThan(0)
+  })
+})
+
+describe('blog mapping rejects', () => {
+  const validPost = () => structuredClone(blogFixtures[0]) as Record<string, unknown>
+  const textBlock = (text: string) => ({ _type: 'block', style: 'normal', children: [{ _type: 'span', text }] })
+
+  it('a slug that would not survive being used as a url segment', () => {
+    for (const id of ['Con Mayúsculas', 'con espacio', '']) {
+      const record = validPost()
+      record.id = id
+      expect(problemsFor(blogPostsCollection, record).length, id).toBeGreaterThan(0)
+    }
+  })
+
+  it('a publish date that is not a real ISO instant', () => {
+    // Ordering is `publishedAt desc`. A value that does not parse would sort
+    // somewhere arbitrary rather than fail, and the emitted array would stop
+    // being stable.
+    for (const when of ['2026-08-18', 'ayer', '2026-19-45T09:00:00.000Z', '']) {
+      const record = validPost()
+      record.publishedAt = when
+      expect(problemsFor(blogPostsCollection, record), when).toContain(
+        'como-medimos-el-seo.publishedAt',
+      )
+    }
+  })
+
+  it('an embed from a host that is not the provider it claims', () => {
+    // Stored as provider + url so a renderer can build its own iframe. That is
+    // only safe if the url really belongs to the provider.
+    const record = validPost()
+    record.body = [
+      textBlock('intro'),
+      { _type: 'embedMedia', provider: 'youtube', url: 'https://evil.example/watch?v=1' },
+    ]
+    const problems = problemsFor(blogPostsCollection, record)
+    expect(problems.length).toBeGreaterThan(0)
+  })
+
+  it('an embed provider nobody implements', () => {
+    const record = validPost()
+    record.body = [
+      textBlock('intro'),
+      { _type: 'embedMedia', provider: 'tiktok', url: 'https://www.tiktok.com/@x/video/1' },
+    ]
+    expect(problemsFor(blogPostsCollection, record).length).toBeGreaterThan(0)
+  })
+
+  it('an accepted embed', () => {
+    const record = validPost()
+    record.body = [
+      textBlock('intro'),
+      { _type: 'embedMedia', provider: 'vimeo', url: 'https://vimeo.com/123456' },
+    ]
+    expect(problemsFor(blogPostsCollection, record)).toEqual([])
+  })
+
+  it('an image with no alt text', () => {
+    // An image whose meaning is decorative does not belong in the CMS.
+    const record = validPost()
+    record.body = [
+      textBlock('intro'),
+      {
+        _type: 'imageMedia',
+        src: 'https://cdn.sanity.io/images/p1/production/abc-800x600.png',
+        width: 800,
+        height: 600,
+      },
+    ]
+    expect(problemsFor(blogPostsCollection, record).length).toBeGreaterThan(0)
+  })
+
+  it('an image served from anywhere but the CMS CDN', () => {
+    const record = validPost()
+    record.body = [
+      textBlock('intro'),
+      {
+        _type: 'imageMedia',
+        src: 'https://evil.example/x.png',
+        alt: 'x',
+        width: 8,
+        height: 8,
+      },
+    ]
+    expect(problemsFor(blogPostsCollection, record).length).toBeGreaterThan(0)
+  })
+
+  it('an SVG image', () => {
+    const record = validPost()
+    record.body = [
+      textBlock('intro'),
+      {
+        _type: 'imageMedia',
+        src: 'https://cdn.sanity.io/images/p1/production/abc-1x1.svg',
+        alt: 'x',
+        width: 8,
+        height: 8,
+      },
+    ]
+    expect(problemsFor(blogPostsCollection, record).length).toBeGreaterThan(0)
+  })
+
+  it('a body block type outside the vocabulary', () => {
+    const record = validPost()
+    record.body = [textBlock('intro'), { _type: 'rawHtml', html: '<iframe src="x"></iframe>' }]
+    expect(problemsFor(blogPostsCollection, record).length).toBeGreaterThan(0)
+  })
+
+  it('nothing about a mixed body in the right order', () => {
+    // Runs of text blocks are converted together so a list spanning several of
+    // them stays one list; custom objects are mapped on their own. Order holds.
+    const record = validPost()
+    record.body = [
+      textBlock('uno'),
+      { _type: 'embedMedia', provider: 'youtube', url: 'https://youtu.be/abc' },
+      textBlock('dos'),
+    ]
+    const result = blogPostsCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const post = result.value as unknown as BlogPost
+      expect(post.body.map((b) => b.kind)).toEqual(['paragraph', 'embed', 'paragraph'])
+    }
+  })
+
+  it('an empty collection', () => {
+    expect(blogPostsCollection.audit([]).length).toBeGreaterThan(0)
   })
 })
