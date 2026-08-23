@@ -1469,6 +1469,17 @@ must restore it to measure coverage.
     channel means, so a perfectly flat row still scores non-zero — pooled, a pole row that was
     genuinely constant read 0.473, which nearly sent a debugging session after a bug that was
     only ever in the ruler.
+56. **`npm audit` in `sanity-studio/` reports 7 findings, and they are accepted — do not run
+    `npm audit fix --force`.** It downgrades `sanity` 6.10.1 → 5.14.1, surrendering a major
+    version of the Studio to silence findings in `@sanity/cli`. All four flagged packages
+    (`js-yaml`, `smol-toml`, `uuid`, `typeid-js`) sit behind `sanity init` / `sanity new`;
+    `dev`, `build` and `deploy` never load them, and none reaches a browser. The marketing
+    site is a different package and audits clean. **Full assessment, and the conditions that
+    would re-open it, in the Dependency audit section of `sanity-studio/README.md`** — read it
+    before re-investigating. Two things that make this reproducible rather than folklore: the
+    Studio's `package-lock.json` is committed, and `npm run typecheck` inside that package
+    checks the schemas against the installed Sanity. It is deliberately NOT part of the repo
+    root's `npm run check`, so building the website never requires installing the Studio.
     **Then the expensive half.** The visible defect is a pinwheel of radial spokes on a vertex
     with a hard wedge along the meridian, reported as "you can see the edge of the image". The
     obvious reading — unresolvable detail, therefore aliasing, therefore band-limit each row to

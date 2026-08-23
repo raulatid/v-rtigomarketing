@@ -1,0 +1,40 @@
+{
+  // The Studio's own TypeScript config. Separate from the repository root's on
+  // purpose: the root `tsconfig.json` covers `src`, `checks`, `content`, `e2e`
+  // and `scripts`, and must keep covering exactly those — `npm run check` and
+  // therefore every Vercel deploy would otherwise start depending on this
+  // package's dependencies being installed.
+  //
+  // What this buys: `npm run typecheck` in here checks the schemas and both
+  // config files against the installed Sanity version. It is the only thing
+  // standing between a schema edit and discovering the breakage during a
+  // client's editing session.
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "module": "esnext",
+    // `bundler`, matching how the Sanity CLI resolves: it reads the "exports"
+    // map, which is what puts `sanity/structure` and `sanity/cli` in reach.
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    // Reserved for a custom input component. Nothing here uses JSX today, and
+    // `preserve` is what the Sanity toolchain expects when something does.
+    "jsx": "preserve",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    // Sanity's own declaration graph is ~1,000 files deep. Checking it would
+    // report other people's type errors, which nobody here can fix.
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["sanity.config.ts", "sanity.cli.ts", "schemas/**/*.ts"],
+  // `scripts/` is plain .mjs with no type annotations, and it runs with node
+  // before this package has been installed. Nothing to check.
+  "exclude": ["node_modules", "dist", "scripts"]
+}

@@ -1,4 +1,4 @@
-import { defineArrayMember, defineType } from 'sanity'
+import { defineArrayMember, defineField, defineType } from 'sanity'
 
 /**
  * The shared rich-text vocabulary.
@@ -19,22 +19,25 @@ const decorators = [
   { title: 'Cursiva', value: 'em' },
 ]
 
-const link = {
+// `defineType`/`defineField` rather than bare object literals: the annotation is
+// what carries the URL allowlist, and a literal loses the typing on `rule` —
+// which is exactly the argument that should not be written against `any`.
+const link = defineType({
   name: 'link',
   type: 'object',
   title: 'Enlace',
   fields: [
-    {
+    defineField({
       name: 'href',
       type: 'url',
       title: 'Destino',
       // Matches the ingest allowlist exactly. `javascript:` and `data:` are
       // rejected at build time regardless; refusing them here means the editor
       // finds out while typing rather than from a failed deployment.
-      validation: (rule: any) => rule.required().uri({ scheme: ['https', 'mailto'] }),
-    },
+      validation: (rule) => rule.required().uri({ scheme: ['https', 'mailto'] }),
+    }),
   ],
-}
+})
 
 /** Paragraphs, two heading levels, lists, bold, italic, links. Nothing else. */
 export const legalBody = defineType({

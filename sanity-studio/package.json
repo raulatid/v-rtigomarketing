@@ -8,15 +8,20 @@
     "dev": "sanity dev",
     "build": "sanity build",
     "deploy": "sanity deploy",
+    "typecheck": "tsc --noEmit",
     "import-fixtures": "node scripts/import-fixtures.mjs"
+  },
+  "engines": {
+    "node": ">=22.12"
   },
   "dependencies": {
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "sanity": "^3.68.0",
-    "styled-components": "^6.1.13"
+    "sanity": "^6.10.1",
+    "styled-components": "^6.1.15"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "typescript": "^5.6.3"
   }
 }

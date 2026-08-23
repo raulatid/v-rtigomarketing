@@ -94,8 +94,12 @@ desktop.ini
 # The Sanity Studio is its own package. Its dependencies and build output are
 # not part of this application and must never reach its bundle; .out/ holds the
 # NDJSON generated from content/fixtures/ for seeding a dataset.
+#
+# Its package-lock.json is COMMITTED, deliberately, and is not listed below. The
+# Studio is deployed and the client edits in it, so its resolution has to be
+# reproducible — and an npm audit result nobody can reproduce is a finding
+# nobody can act on. See the Dependency audit section of sanity-studio/README.md.
 /sanity-studio/node_modules/
 /sanity-studio/dist/
 /sanity-studio/.sanity/
 /sanity-studio/.out/
-/sanity-studio/package-lock.json
