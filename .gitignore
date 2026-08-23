@@ -90,3 +90,12 @@ desktop.ini
 # Mirrored CMS media, written by the same build for the same reason.
 /public/logos/*
 !/public/logos/.gitkeep
+
+# The Sanity Studio is its own package. Its dependencies and build output are
+# not part of this application and must never reach its bundle; .out/ holds the
+# NDJSON generated from content/fixtures/ for seeding a dataset.
+/sanity-studio/node_modules/
+/sanity-studio/dist/
+/sanity-studio/.sanity/
+/sanity-studio/.out/
+/sanity-studio/package-lock.json

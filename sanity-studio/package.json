@@ -1,0 +1,22 @@
+{
+  "name": "vertigo-sanity-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The editorial Studio for vertigo-marketing-web. Deliberately its own package: nothing here may enter the application's dependency graph or its bundle.",
+  "scripts": {
+    "dev": "sanity dev",
+    "build": "sanity build",
+    "deploy": "sanity deploy",
+    "import-fixtures": "node scripts/import-fixtures.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "sanity": "^3.68.0",
+    "styled-components": "^6.1.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
