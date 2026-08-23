@@ -118,17 +118,39 @@ export interface CaseStudy {
   chart: CaseChart
 }
 
-export interface DistrictService {
+/**
+ * One thing the agency does.
+ *
+ * A first-class CMS document rather than a row nested inside a district: a
+ * service is edited on its own, and a district REFERENCES the ones it presents.
+ * `SERVICES` is emitted as its own collection so a future services page does not
+ * have to reach into a district to find them.
+ *
+ * Three fields, matching what the accordion renders. The migration plan sketches
+ * `shortDescription`, `media` and presentation metadata; those arrive when
+ * something displays them, because a field with no reader is a contract nobody
+ * is keeping.
+ */
+export interface Service {
   /**
-   * Stable identifier, unique within a district. Used to wire the accordion's
-   * `aria-controls` to its region, so duplicates silently break the panel for
-   * screen-reader users — `checks/district-flight.ts` asserts uniqueness.
+   * Stable identifier. Used to wire the district accordion's `aria-controls` to
+   * its region, so duplicates silently break the panel for screen-reader users —
+   * `checks/district-flight.ts` asserts uniqueness.
    */
   id: string
   title: string
   /** Revealed when the section is opened. One or two short paragraphs. */
   body: string
 }
+
+/**
+ * A service as it appears inside a district panel.
+ *
+ * The same shape by design: the district's GROQ projection dereferences the
+ * service documents into exactly this, so promoting services to their own
+ * documents changed nothing the UI can observe.
+ */
+export type DistrictService = Service
 
 export interface DistrictContent {
   /** Stable identifier, referenced by a scene binding's `contentId`. */

@@ -7,6 +7,7 @@ import {
 } from '../../src/content/invariants'
 import { Report, boundedArray, slug, text } from '../lib/validate'
 import { collection } from './types'
+import { SERVICE_BODY_MAX, SERVICE_TITLE_MAX } from './serviceBounds'
 
 /**
  * Districts: the copy behind each interactive area of the city.
@@ -26,19 +27,24 @@ import { collection } from './types'
 
 const LABEL_MAX = 40
 const INTRO_MAX = 600
-const SERVICE_TITLE_MAX = 60
-const SERVICE_BODY_MAX = 900
 
-/**
- * Bounded high rather than tight. The accordion scrolls, so a long service body
- * is a design judgement rather than a broken layout — the cap exists to catch a
- * whole rendered post body arriving in a field meant for two paragraphs.
- */
+/** A district presents a menu of services, not a catalogue. */
 const SERVICES_MAX = 12
 
 function service(report: Report, path: string, raw: unknown): DistrictService | undefined {
-  if (raw === null || typeof raw !== 'object') {
-    return report.fail(path, 'expected an object')
+  // A reference GROQ could not dereference comes back as null, and it comes back
+  // as null for exactly two reasons: the service document was deleted, or it was
+  // never published. "expected an object" sends an editor looking at the district
+  // for a problem that is one document away, so say which question to ask.
+  if (raw === null) {
+    return report.fail(
+      path,
+      'unresolved service reference — the referenced service document is missing, ' +
+        'unpublished, or still a draft',
+    )
+  }
+  if (typeof raw !== 'object') {
+    return report.fail(path, 'expected a dereferenced service object, got ' + typeof raw)
   }
   const source = raw as Record<string, unknown>
   // The id becomes an `aria-controls` value, so the character set is narrower
@@ -56,16 +62,20 @@ export const districtsCollection = collection<DistrictContent>({
   source: {
     type: 'district',
     orderBy: 'slug.current asc',
-    // Services are an INLINE array here. Phase 4 of the Sanity migration promotes
-    // them to first-class documents and this becomes `services[]->{ ... }`; the
-    // PROJECTED shape does not change, which is the whole point of putting
-    // normalization in GROQ rather than in the mapper.
+    // Services are REFERENCES, dereferenced here. The projected shape is the
+    // same one the accordion always rendered, which is why promoting them to
+    // their own documents changed nothing in districtPanel.ts — normalization
+    // belongs in GROQ, not in the mapper.
+    //
+    // A reference that will not resolve arrives as null. That is a build
+    // failure, named by district and index, not a service quietly missing from
+    // the panel.
     projection: `{
       "id": slug.current,
       label,
       summary,
       intro,
-      services[]{ "id": slug.current, title, body }
+      services[]->{ "id": slug.current, title, body }
     }`,
   },
 

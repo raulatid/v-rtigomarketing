@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest'
 import type { CaseStudy } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
+import { servicesCollection } from './services.collection'
 import { COLLECTIONS } from './index'
 import caseFixtures from '../fixtures/caseStudy.json'
 import districtFixtures from '../fixtures/district.json'
+import serviceFixtures from '../fixtures/service.json'
 
 /**
  * Hostile-input tests for the mappers.
@@ -34,6 +36,12 @@ describe('the fixtures themselves map cleanly', () => {
     })
   })
 
+  it('accepts every committed service fixture', () => {
+    serviceFixtures.forEach((record, i) => {
+      expect(problemsFor(servicesCollection, record), 'fixture ' + i).toEqual([])
+    })
+  })
+
   it('accepts every committed district fixture', () => {
     districtFixtures.forEach((record, i) => {
       expect(problemsFor(districtsCollection, record), 'fixture ' + i).toEqual([])
@@ -60,12 +68,14 @@ describe('case study mapping rejects', () => {
   })
 
   it('a remote logo URL, by degrading it to null rather than failing', () => {
-    // The media mirror that would turn a CMS upload into a local path under
-    // /logos/ is not built yet, and the shipped invariant only accepts local
-    // paths. Until the mirror exists a remote URL must cost the panel its
-    // artwork (the drawn plate stays), never the deployment.
+    // content/lib/mirror.ts rewrites a CMS upload to a local path BEFORE the
+    // mapper sees it, and only the Sanity source is wrapped. A remote URL
+    // reaching here therefore means a source that does not mirror — a fixture
+    // someone hand-edited — and that must cost the panel its artwork (the drawn
+    // plate stays), never the deployment. A remote URL from Sanity that cannot
+    // be fetched never gets this far: the mirror fails the build first.
     const record = validCase()
-    record.logo = 'https://cms.example.com/wp-content/uploads/2026/08/mango.png'
+    record.logo = 'https://cdn.sanity.io/images/p1/production/abc-512x512.png'
     const result = caseStudiesCollection.map(record, 0)
     expect(result.ok).toBe(true)
     if (result.ok) {
@@ -234,5 +244,64 @@ describe('every collection asks Sanity for a stable order', () => {
     const ids = (records: ReadonlyArray<{ id: string }>) => records.map((r) => r.id)
     expect(ids(caseFixtures)).toEqual([...ids(caseFixtures)].sort())
     expect(ids(districtFixtures)).toEqual([...ids(districtFixtures)].sort())
+    expect(ids(serviceFixtures)).toEqual([...ids(serviceFixtures)].sort())
+  })
+})
+
+describe('service mapping rejects', () => {
+  const validService = () => structuredClone(serviceFixtures[0]) as Record<string, unknown>
+
+  it('an id that would not survive being used as a DOM id', () => {
+    // A standalone service id still becomes the district accordion's
+    // aria-controls value after dereferencing, so the bound is the same one.
+    for (const id of ['has space', 'Uppercase', '-leading']) {
+      const record = validService()
+      record.id = id
+      expect(problemsFor(servicesCollection, record).length, id).toBeGreaterThan(0)
+    }
+  })
+
+  it('an empty title or body', () => {
+    for (const field of ['title', 'body']) {
+      const record = validService()
+      record[field] = ''
+      expect(problemsFor(servicesCollection, record).length, field).toBeGreaterThan(0)
+    }
+  })
+
+  it('a body longer than the accordion is meant to hold', () => {
+    const record = validService()
+    record.body = 'a'.repeat(901)
+    expect(problemsFor(servicesCollection, record).length).toBeGreaterThan(0)
+  })
+
+  it('an empty collection', () => {
+    expect(servicesCollection.audit([]).length).toBeGreaterThan(0)
+  })
+})
+
+describe('a district whose service reference does not resolve', () => {
+  it('fails, naming the district and the index rather than the shape', () => {
+    // GROQ returns null for a reference it cannot dereference, which happens for
+    // exactly two reasons: the document was deleted, or it was never published.
+    // "expected an object" would send an editor looking at the district for a
+    // problem that is one document away.
+    const record = validDistrict()
+    ;(record.services as unknown[])[2] = null
+    const result = districtsCollection.map(record, 0)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      const problem = result.problems.find((p) => p.path === 'servicios.services[2]')
+      expect(problem, 'no problem reported at servicios.services[2]').toBeDefined()
+      expect(problem?.message).toMatch(/unresolved service reference/)
+      expect(problem?.message).toMatch(/unpublished/)
+    }
+  })
+
+  it('does not quietly drop the service and render the rest', () => {
+    // A panel missing one section looks like an editorial choice. It is not.
+    const record = validDistrict()
+    ;(record.services as unknown[])[0] = null
+    expect(districtsCollection.map(record, 0).ok).toBe(false)
   })
 })

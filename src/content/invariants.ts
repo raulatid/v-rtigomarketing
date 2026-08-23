@@ -12,7 +12,7 @@
  * bundles this for Node with esbuild, and the browser bundle must be able to
  * tree-shake it away entirely.
  */
-import type { CaseChartType, CaseStudy, DistrictContent } from './types'
+import type { CaseChartType, CaseStudy, DistrictContent, Service } from './types'
 
 /**
  * The district summary shows at the mobile peek stop, where the sheet is only
@@ -37,7 +37,7 @@ export const CHART_TYPES: readonly CaseChartType[] = ['line', 'bars', 'area', 'd
 
 /**
  * Ids reach `aria-controls`, DOM ids and file names, so the character set is
- * narrower than a WordPress slug's. A slug containing a space breaks the
+ * narrower than a CMS slug's. A slug containing a space breaks the
  * accordion for screen-reader users and nobody else, which is why it is a bound
  * rather than something a review would catch.
  */
@@ -169,6 +169,27 @@ export function districtProblems(entry: DistrictContent): Problem[] {
 
   for (const dupe of duplicates(entry.services, (s) => s.id)) {
     at('services', 'duplicate service id "' + dupe + '" — two headers would share one region')
+  }
+  return problems
+}
+
+/**
+ * The same three rules `districtProblems` applies to a nested service, applied
+ * to a standalone one.
+ *
+ * Shared rather than duplicated: the district panel and the services collection
+ * render the same fields, and a service that is valid in one place and not the
+ * other would be a bug nobody could explain.
+ */
+export function serviceProblems(entry: Service): Problem[] {
+  const problems: Problem[] = []
+  if (!ID_PATTERN.test(entry.id)) {
+    problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
+  }
+  for (const field of ['title', 'body'] as const) {
+    if (!nonEmpty(entry[field])) {
+      problems.push({ path: entry.id + '.' + field, message: 'must be a non-empty string' })
+    }
   }
   return problems
 }

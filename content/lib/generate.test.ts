@@ -19,12 +19,38 @@ afterEach(() => {
 const run = (source: ContentSource) =>
   generate({ collections: COLLECTIONS, source, outDir })
 
+/**
+ * A temp fixture directory holding EVERY collection's file, with the named ones
+ * replaced.
+ *
+ * Copying the whole set rather than the two files a test cares about: generate()
+ * fails on the first collection it cannot read, so a directory missing an
+ * unrelated fixture makes the test fail with 'no such file' instead of the
+ * failure it was written to prove. Adding a collection must not break these.
+ */
+function stageFixtures(prefix: string, overrides: Record<string, unknown> = {}): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+  for (const file of fs.readdirSync(FIXTURES)) {
+    fs.copyFileSync(path.join(FIXTURES, file), path.join(dir, file))
+  }
+  for (const [file, contents] of Object.entries(overrides)) {
+    fs.writeFileSync(path.join(dir, file), JSON.stringify(contents))
+  }
+  return dir
+}
+
+/** The fixture records for one collection, as a mutable copy. */
+function fixture(file: string): any {
+  return JSON.parse(fs.readFileSync(path.join(FIXTURES, file), 'utf8'))
+}
+
 describe('the content build', () => {
   it('writes one module per collection from the fixtures', async () => {
     const result = await run(fileSource(FIXTURES, 'fixtures'))
     expect(result.ok).toBe(true)
     expect(fs.existsSync(path.join(outDir, 'caseStudies.ts'))).toBe(true)
     expect(fs.existsSync(path.join(outDir, 'districts.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(outDir, 'services.ts'))).toBe(true)
   })
 
   it('is deterministic, so an unchanged collection produces an unchanged file', async () => {
@@ -37,7 +63,7 @@ describe('the content build', () => {
     const second = await run(fileSource(FIXTURES, 'fixtures'))
     expect(fs.readFileSync(path.join(outDir, 'caseStudies.ts'), 'utf8')).toBe(written)
 
-    expect(first.ok && first.changed).toEqual(['caseStudies.ts', 'districts.ts'])
+    expect(first.ok && first.changed).toEqual(COLLECTIONS.map((c) => c.emit.file))
     // Second run: same bytes, so nothing is reported as changed.
     expect(second.ok && second.changed).toEqual([])
   })
@@ -55,11 +81,9 @@ describe('failure policy', () => {
   it('reports problems and writes NOTHING when a record is invalid', async () => {
     // All-or-nothing at the collection level: publishing five of six case
     // studies because the sixth had a bad chart is a silent content outage.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vertigo-bad-'))
-    const cases = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'caseStudy.json'), 'utf8'))
+    const cases = fixture('caseStudy.json')
     cases[2].brandColor = 'not-a-colour'
-    fs.writeFileSync(path.join(dir, 'caseStudy.json'), JSON.stringify(cases))
-    fs.copyFileSync(path.join(FIXTURES, 'district.json'), path.join(dir, 'district.json'))
+    const dir = stageFixtures('vertigo-bad-', { 'caseStudy.json': cases })
 
     const result = await run(fileSource(dir, 'broken'))
     expect(result.ok).toBe(false)
@@ -68,8 +92,9 @@ describe('failure policy', () => {
       expect(result.failures[0].problems[0].path).toContain('brandColor')
     }
     // Not even the collection that WAS valid.
-    expect(fs.existsSync(path.join(outDir, 'caseStudies.ts'))).toBe(false)
-    expect(fs.existsSync(path.join(outDir, 'districts.ts'))).toBe(false)
+    for (const entry of COLLECTIONS) {
+      expect(fs.existsSync(path.join(outDir, entry.emit.file)), entry.key).toBe(false)
+    }
     fs.rmSync(dir, { recursive: true, force: true })
   })
 
@@ -79,9 +104,7 @@ describe('failure policy', () => {
     await run(fileSource(FIXTURES, 'fixtures'))
     const good = fs.readFileSync(path.join(outDir, 'caseStudies.ts'), 'utf8')
 
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vertigo-bad2-'))
-    fs.writeFileSync(path.join(dir, 'caseStudy.json'), JSON.stringify([{ id: 'broken' }]))
-    fs.copyFileSync(path.join(FIXTURES, 'district.json'), path.join(dir, 'district.json'))
+    const dir = stageFixtures('vertigo-bad2-', { 'caseStudy.json': [{ id: 'broken' }] })
 
     const result = await run(fileSource(dir, 'broken'))
     expect(result.ok).toBe(false)
@@ -99,9 +122,7 @@ describe('failure policy', () => {
   it('rejects an empty collection rather than publishing nothing', async () => {
     // An empty REST response is an outage or a misconfigured post type, not an
     // editorial decision to delete every case study.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vertigo-empty-'))
-    fs.writeFileSync(path.join(dir, 'caseStudy.json'), '[]')
-    fs.copyFileSync(path.join(FIXTURES, 'district.json'), path.join(dir, 'district.json'))
+    const dir = stageFixtures('vertigo-empty-', { 'caseStudy.json': [] })
     const result = await run(fileSource(dir, 'empty'))
     expect(result.ok).toBe(false)
     fs.rmSync(dir, { recursive: true, force: true })

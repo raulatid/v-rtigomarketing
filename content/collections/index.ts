@@ -1,6 +1,7 @@
 import type { AnyCollection } from './types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
+import { servicesCollection } from './services.collection'
 
 /**
  * Every content collection the site publishes.
@@ -14,4 +15,8 @@ import { districtsCollection } from './districts.collection'
  * Order is the order the build reports in. Alphabetical would be arbitrary;
  * this is roughly the order a visitor meets the content.
  */
-export const COLLECTIONS: readonly AnyCollection[] = [caseStudiesCollection, districtsCollection]
+export const COLLECTIONS: readonly AnyCollection[] = [
+  caseStudiesCollection,
+  districtsCollection,
+  servicesCollection,
+]
