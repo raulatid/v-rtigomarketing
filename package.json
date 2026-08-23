@@ -10,7 +10,7 @@
     "predev": "npm run content:build",
     "dev": "vite",
     "preview": "vite preview",
-    "content:build": "esbuild scripts/build-content.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/build-content.mjs --log-level=warning && node node_modules/.cache/build-content.mjs",
+    "content:build": "esbuild scripts/build-content.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/build-content.mjs --log-level=warning && node --env-file-if-exists=.env node_modules/.cache/build-content.mjs",
     "build": "npm run check && vite build",
     "precheck": "npm run content:build",
     "check": "npm run typecheck && npm run test && npm run check:harnesses",

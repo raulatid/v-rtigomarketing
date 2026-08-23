@@ -10,19 +10,48 @@ Field-by-field rules live in `docs/content/sanity-field-contract.md`; media rule
 
 ## Setup
 
+**There are two `.env` files and they use different variable names.** This is the thing that trips people up, so it is first:
+
+| File | Variables | Read by | Committed? |
+|---|---|---|---|
+| `sanity-studio/.env` | `SANITY_STUDIO_PROJECT_ID`, `SANITY_STUDIO_DATASET` | the Sanity CLI — `dev`, `build`, `deploy` | no, gitignored |
+| `<repo root>/.env` | `SANITY_PROJECT_ID`, `SANITY_DATASET`, `SANITY_TOKEN` | `npm run content:build` | no, gitignored |
+| `<repo root>/.env.example` | — | **nothing**, it is a template | yes |
+
+The Sanity CLI loads `.env` from *this* directory (via Vite's `loadEnv`) and exposes **only** the `SANITY_STUDIO_` prefix. The repo root's variables are invisible to it, and putting values in `.env.example` has no effect on anything — it is documentation.
+
+The split is deliberate: `SANITY_STUDIO_` marks a value as safe to compile into the Studio's browser bundle. The content build's variables — `SANITY_TOKEN` in particular — must never carry a prefix that would put them there.
+
 ```bash
 cd sanity-studio
 npm install
 npx sanity login
-npx sanity init --project <projectId> --dataset production
+
+cat > .env <<'ENV'
+SANITY_STUDIO_PROJECT_ID=<your project id>
+SANITY_STUDIO_DATASET=<your dataset, e.g. production>
+ENV
+
 npm run dev            # http://localhost:3333
 ```
 
-Then, in the repository root, put `SANITY_PROJECT_ID` and `SANITY_DATASET` in `.env` and run:
+If `projectId` is missing you get a message naming this file and these variables — `sanity.config.ts` checks for them rather than letting Sanity's own `Configuration must contain projectId` fire, which is correct but says nothing about where to put it.
+
+`sanity init` is **not** needed: this Studio is already scaffolded, and `init` would overwrite `sanity.config.ts`.
+
+Then, in the repository root, create `.env` with the *unprefixed* names and build the content:
 
 ```bash
+cd ..
+cat > .env <<'ENV'
+SANITY_PROJECT_ID=<your project id>
+SANITY_DATASET=<your dataset>
+ENV
+
 CONTENT_SOURCE=sanity npm run content:build
 ```
+
+Against an empty dataset this fails with `collection is empty` for every collection, and writes nothing — that is the pipeline working. Seed it first.
 
 ## Seeding a fresh dataset
 

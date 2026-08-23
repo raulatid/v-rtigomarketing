@@ -1,10 +1,19 @@
 import { defineCliConfig } from 'sanity/cli'
 
 /**
- * Project and dataset are supplied by `sanity init` / `sanity.cli` locally
- * rather than hardcoded, so this file is the same in every checkout. The
- * application build reads its own SANITY_PROJECT_ID and SANITY_DATASET from the
- * environment and shares nothing with this package.
+ * Project and dataset come from `sanity-studio/.env` rather than being
+ * hardcoded, so this file is the same in every checkout.
+ *
+ * ── Two .env files, two prefixes, on purpose ──
+ * The Sanity CLI loads `.env` from THIS directory (via Vite's `loadEnv`) and
+ * exposes only `SANITY_STUDIO_`-prefixed variables. The repository root has its
+ * own `.env` holding `SANITY_PROJECT_ID` / `SANITY_DATASET` for the content
+ * build, and the two share nothing.
+ *
+ * That is not duplication for its own sake: the `SANITY_STUDIO_` prefix is what
+ * marks a value as safe to compile into the Studio's browser bundle. The
+ * content build's variables — which may include a read token — must never carry
+ * a prefix that would put them there.
  */
 export default defineCliConfig({
   api: {
