@@ -89,8 +89,30 @@ function chart(report: Report, path: string, raw: unknown): CaseChart | undefine
 export const caseStudiesCollection = collection<CaseStudy>({
   key: 'caseStudies',
   source: {
-    postType: 'case_study',
-    fields: ['id', 'slug', 'title', 'acf'],
+    type: 'caseStudy',
+    // Stable and domain-meaningful: `id` IS `slug.current` after projection, so
+    // ordering by slug orders the emitted array by the id the application looks
+    // records up by. `_createdAt` would reshuffle the file whenever an editor
+    // added one, and the array position is what `orbitAssignments.ts` and the
+    // brand atlas agree on.
+    orderBy: 'slug.current asc',
+    // The normalization layer. Everything the mapper reads is flat and named
+    // exactly as `map` expects, so nothing downstream learns a Sanity shape —
+    // no `_ref`, no `_type`, no `slug.current`, no asset object.
+    projection: `{
+      "id": slug.current,
+      label,
+      name,
+      logo,
+      brandColor,
+      sector,
+      location,
+      year,
+      summary,
+      details,
+      metrics[]{ label, value },
+      chart{ type, title, values, labels }
+    }`,
   },
 
   map(raw, index) {
@@ -139,7 +161,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
     // Only a LOCAL path is shippable (`LOCAL_MEDIA_PATH`, and the self-check
     // below enforces it). The media mirror that would turn a CMS upload URL into
     // a path under /logos/ is NOT built yet, so a remote URL — which is what
-    // WordPress will actually send — degrades to null here rather than reaching
+    // Sanity will actually send — degrades to null here rather than reaching
     // the self-check and failing the whole collection, i.e. the deployment,
     // the first time an editor uploads a logo. When the mirror lands, this is
     // where it plugs in: fetch through `remoteMediaUrl`, write the file, emit

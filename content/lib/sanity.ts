@@ -1,5 +1,5 @@
 import type { SanitySourceSpec } from '../collections/types'
-import { SourceError, withTimeout } from './source'
+import { SourceError, withTimeout, type ContentSource } from './source'
 
 /**
  * Sanity, read once per collection through the Content Lake query API.
@@ -80,7 +80,7 @@ export interface SanityOptions {
   token?: string
 }
 
-export function sanitySource(options: SanityOptions) {
+export function sanitySource(options: SanityOptions): ContentSource {
   const { projectId, dataset } = options
   if (!PROJECT_ID_PATTERN.test(projectId)) {
     throw new SourceError('"' + projectId + '" is not a Sanity project id (lowercase alphanumeric)')

@@ -2,16 +2,18 @@ import { describe, it, expect } from 'vitest'
 import type { CaseStudy } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
-import caseFixtures from '../fixtures/case_study.json'
+import { COLLECTIONS } from './index'
+import caseFixtures from '../fixtures/caseStudy.json'
 import districtFixtures from '../fixtures/district.json'
 
 /**
  * Hostile-input tests for the mappers.
  *
- * The valid-input case is covered far more strongly by the fidelity test in
- * `generate.test.ts` — it maps the real fixtures and asserts the result is
- * deep-equal to what the app renders. What is left, and what is here, is the
- * behaviour that only shows up when a CMS sends something nobody designed for.
+ * The valid-input case is covered by the first suite below, which maps every
+ * committed fixture and asserts it comes through clean, and by
+ * `src/content/generated.test.ts`, which re-checks the emitted modules against
+ * the same invariants. What is left, and what is here, is the behaviour that
+ * only shows up when a CMS sends something nobody designed for.
  */
 
 const validCase = () => structuredClone(caseFixtures[0]) as Record<string, unknown>
@@ -41,7 +43,7 @@ describe('the fixtures themselves map cleanly', () => {
 
 describe('case study mapping rejects', () => {
   it('markup in a text field, by stripping it rather than failing', () => {
-    // Stripping is the designed behaviour: WordPress returns `title.rendered` as
+    // Stripping is the designed behaviour: a CMS rich-text field returns markup as
     // HTML and the mapper's job is to hand the UI plain text. What must NOT
     // happen is markup reaching a component.
     const record = validCase()
@@ -182,7 +184,7 @@ describe('district mapping rejects', () => {
   })
 
   it('a service id that would break the accordion for screen readers', () => {
-    // The id wires `aria-controls` to its region. A WordPress slug containing a
+    // The id wires `aria-controls` to its region. A CMS slug containing a
     // space points the header at nothing, and only a screen-reader user notices.
     const record = validDistrict()
     ;(record.services as Array<Record<string, unknown>>)[0].id = 'web analysis'
@@ -208,5 +210,29 @@ describe('collection audits', () => {
     // editorial decision to delete every case study.
     expect(caseStudiesCollection.audit([]).length).toBeGreaterThan(0)
     expect(districtsCollection.audit([]).length).toBeGreaterThan(0)
+  })
+})
+
+describe('every collection asks Sanity for a stable order', () => {
+  it('names an explicit orderBy', () => {
+    // Byte-identical output for unchanged content is what the emitter, the
+    // "up to date — no file changed" log line and Vite's chunk hashes all lean
+    // on. An implicit GROQ order gives it up silently.
+    for (const entry of COLLECTIONS) {
+      expect(entry.source.orderBy, entry.key).toBeTruthy()
+    }
+  })
+
+  it('ships fixtures already in that order', () => {
+    // fileSource does NOT sort — it returns the file's array verbatim, while
+    // sanitySource sorts. If the two disagree, the fixture build and the Sanity
+    // build emit different arrays, and the migration parity diff fails for a
+    // reason that has nothing to do with the adapter. Array position is also
+    // what orbitAssignments.ts and the brand atlas agree on.
+    //
+    // Valid only while every orderBy sorts by the projected id.
+    const ids = (records: ReadonlyArray<{ id: string }>) => records.map((r) => r.id)
+    expect(ids(caseFixtures)).toEqual([...ids(caseFixtures)].sort())
+    expect(ids(districtFixtures)).toEqual([...ids(districtFixtures)].sort())
   })
 })

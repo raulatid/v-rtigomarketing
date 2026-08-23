@@ -42,7 +42,7 @@ function service(report: Report, path: string, raw: unknown): DistrictService | 
   }
   const source = raw as Record<string, unknown>
   // The id becomes an `aria-controls` value, so the character set is narrower
-  // than a WordPress slug's. A space here breaks the accordion for screen-reader
+  // than a CMS slug's. A space here breaks the accordion for screen-reader
   // users and for nobody else, which is why it is asserted rather than reviewed.
   const id = slug(report, path + '.id', source.id, ID_PATTERN)
   const title = text(report, path + '.title', source.title, { max: SERVICE_TITLE_MAX })
@@ -54,8 +54,19 @@ function service(report: Report, path: string, raw: unknown): DistrictService | 
 export const districtsCollection = collection<DistrictContent>({
   key: 'districts',
   source: {
-    postType: 'district',
-    fields: ['id', 'slug', 'title', 'acf'],
+    type: 'district',
+    orderBy: 'slug.current asc',
+    // Services are an INLINE array here. Phase 4 of the Sanity migration promotes
+    // them to first-class documents and this becomes `services[]->{ ... }`; the
+    // PROJECTED shape does not change, which is the whole point of putting
+    // normalization in GROQ rather than in the mapper.
+    projection: `{
+      "id": slug.current,
+      label,
+      summary,
+      intro,
+      services[]{ "id": slug.current, title, body }
+    }`,
   },
 
   map(raw, index) {

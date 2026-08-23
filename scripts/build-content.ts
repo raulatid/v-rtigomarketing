@@ -1,19 +1,22 @@
 import path from 'node:path'
 import { COLLECTIONS } from '../content/collections/index'
+import { readConfig, type ContentConfig } from '../content/lib/config'
 import { formatFailures, generate } from '../content/lib/generate'
-import { SourceError, fileSource, wordPressSource, type ContentSource } from '../content/lib/source'
+import { SourceError, fileSource, type ContentSource } from '../content/lib/source'
+import { sanitySource } from '../content/lib/sanity'
 
 /**
  * The content build.
  *
- *   npm run content:build                 # fixtures, or WordPress if configured
+ *   npm run content:build                    # fixtures, or Sanity if configured
  *   CONTENT_SOURCE=fixture npm run content:build
  *   CONTENT_SOURCE=seed    npm run content:build
+ *   CONTENT_SOURCE=sanity  npm run content:build
  *
  * ── Strict by default, and the default is production ──
  * A sync that cannot reach or cannot validate the CMS EXITS NON-ZERO. On Vercel
  * that fails the build, which leaves the existing deployment serving. That is the
- * behaviour worth defending: a WordPress publish must never produce a green
+ * behaviour worth defending: a Sanity publish must never produce a green
  * deployment carrying yesterday's content, because a successful deploy is the
  * signal an editor reads as "my change is live".
  *
@@ -27,10 +30,9 @@ import { SourceError, fileSource, wordPressSource, type ContentSource } from '..
  * `debugTools` and `allowSpatialFallback` are threaded as parameters rather than
  * read from `import.meta.env`.
  *
- * `wp` requires `WP_CONTENT_BASE`; without it there is nothing to talk to, so
- * fixtures are the honest default for a developer machine — and ONLY there.
- * When Vercel says `VERCEL_ENV=production` and nothing names a source, the
- * build fails rather than shipping fixtures (see `chooseMode`).
+ * The decision itself lives in `content/lib/config.ts` as a pure function, so
+ * every fail-closed rule below is a unit test rather than something someone
+ * remembers to try by hand.
  */
 
 /**
@@ -46,50 +48,13 @@ import { SourceError, fileSource, wordPressSource, type ContentSource } from '..
 const ROOT = process.cwd()
 const OUT_DIR = path.join(ROOT, 'src', 'content', 'generated')
 
-type Mode = 'wp' | 'fixture' | 'seed'
-
-function chooseMode(): Mode {
-  const requested = (process.env.CONTENT_SOURCE ?? '').trim().toLowerCase()
-  if (requested === 'wp' || requested === 'fixture' || requested === 'seed') return requested
-  if (requested.length > 0) {
-    fail('CONTENT_SOURCE must be one of wp, fixture, seed — got "' + requested + '"')
-  }
-  if (process.env.WP_CONTENT_BASE) return 'wp'
-
-  // A PRODUCTION build never falls back to fixtures by omission. Fixtures are
-  // development and demo inputs; a Vercel project with WP_CONTENT_BASE missing,
-  // typo'd or scoped to Preview only would otherwise produce a green production
-  // deployment serving them, announced by nothing but one log line. The seed
-  // gets a banner for the same reason — this is the more likely mistake, and it
-  // was silent. Production has to NAME its source. Preview and local keep the
-  // fixture default: previews are the builds a client demo runs on.
-  if (process.env.VERCEL_ENV === 'production') {
-    fail(
-      'a production build must name its content source — set WP_CONTENT_BASE ' +
-        '(WordPress) or CONTENT_SOURCE=seed (committed snapshot) in the Vercel ' +
-        'Production environment. Refusing to ship fixtures by omission.',
-    )
-  }
-  return 'fixture'
-}
-
-/** `WP_TIMEOUT_MS`, or the default; a typo here must not become `setTimeout(fn, NaN)`,
- *  which fires immediately and aborts every request as "timed out after NaNms". */
-function timeoutMs(): number {
-  const raw = process.env.WP_TIMEOUT_MS
-  if (raw === undefined || raw.trim() === '') return 15_000
-  const n = Number(raw)
-  if (!Number.isFinite(n) || n <= 0) fail('WP_TIMEOUT_MS must be a positive number of milliseconds — got "' + raw + '"')
-  return n
-}
-
-function buildSource(mode: Mode): ContentSource {
-  if (mode === 'fixture') return fileSource(path.join(ROOT, 'content', 'fixtures'), 'fixtures')
-  if (mode === 'seed') {
+function buildSource(config: ContentConfig): ContentSource {
+  if (config.mode !== 'sanity') {
+    if (config.mode === 'fixture') return fileSource(path.join(ROOT, 'content', 'fixtures'), 'fixtures')
     // Loud, and deliberately so. The seed is a committed snapshot that nothing
     // refreshes automatically, so it WILL drift — it exists only so that a
-    // code-only hotfix can ship while WordPress is unavailable. A build that
-    // used it should be obvious in the log a month later.
+    // code-only hotfix can ship while the CMS is unavailable. A build that used
+    // it should be obvious in the log a month later.
     console.warn('')
     console.warn('  ****************************************************************')
     console.warn('  *  BUILDING FROM THE COMMITTED SEED SNAPSHOT                   *')
@@ -100,14 +65,11 @@ function buildSource(mode: Mode): ContentSource {
     return fileSource(path.join(ROOT, 'content', 'seed'), 'seed snapshot')
   }
 
-  const base = process.env.WP_CONTENT_BASE
-  if (!base) fail('CONTENT_SOURCE=wp requires WP_CONTENT_BASE, e.g. https://cms.example.com/wp-json/wp/v2')
-  return wordPressSource({
-    baseUrl: base,
-    timeoutMs: timeoutMs(),
-    // A read-only application password, supplied by the build environment. Never
-    // VITE_-prefixed: that would compile it into the public bundle.
-    authorization: process.env.WP_AUTHORIZATION,
+  return sanitySource({
+    projectId: config.projectId,
+    dataset: config.dataset,
+    timeoutMs: config.timeoutMs,
+    token: config.token,
   })
 }
 
@@ -117,11 +79,15 @@ function fail(message: string): never {
 }
 
 async function main(): Promise<void> {
-  const mode = chooseMode()
-  const source = buildSource(mode)
+  const parsed = readConfig(process.env)
+  if (!parsed.ok) fail(parsed.message)
 
   let result
   try {
+    // buildSource is INSIDE the try: sanitySource() validates the project id and
+    // dataset shape and throws SourceError, and a malformed environment variable
+    // deserves the same one-line message as an unreachable CMS, not a stack.
+    const source = buildSource(parsed.config)
     result = await generate({
       collections: COLLECTIONS,
       source,

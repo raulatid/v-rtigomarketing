@@ -23,23 +23,10 @@ import type { Problem } from '../lib/validate'
 export interface Collection<T extends { id: string }> {
   /** Stable key, used for fixtures, logging and the temp directory. */
   key: string
-  source: SourceSpec
+  source: SanitySourceSpec
   map: (raw: unknown, index: number) => MapResult<T>
   audit: (items: readonly T[]) => Problem[]
   emit: EmitSpec
-}
-
-export interface SourceSpec {
-  /**
-   * The WordPress post type, which is also the REST route segment and the
-   * fixture file's base name. One name for one collection everywhere.
-   */
-  postType: string
-  /**
-   * Fields to request, so a response carrying an entire rendered post body is
-   * not downloaded to extract four strings. Passed to REST as `_fields`.
-   */
-  fields?: string[]
 }
 
 /**
