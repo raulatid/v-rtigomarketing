@@ -69,6 +69,67 @@ export interface SiteSettings {
   copyright: string
 }
 
+/**
+ * Structured copy, for the few places plain strings are genuinely not enough.
+ *
+ * ── Why this is not HTML ──
+ * The rule that arbitrary CMS HTML must never reach a renderer stays exactly as
+ * it was. This is not a relaxation of it: these are typed blocks, and the
+ * renderer switches on `kind` to pick a component. There is no `dangerously`
+ * anything, and a block type the vocabulary does not name cannot appear here
+ * because ingestion rejects it and fails the build.
+ *
+ * ── Why not just `string[]` ──
+ * Legal copy reasonably needs headings, lists and a link to the privacy
+ * authority. Storing it as paragraphs would mean either shipping a document that
+ * cannot say what it needs to, or a content migration later — and a content
+ * migration on legal text is the kind nobody wants to be responsible for.
+ */
+export type TextMark = 'strong' | 'em'
+
+export interface TextSpan {
+  text: string
+  marks?: TextMark[]
+  /** `https:` or `mailto:` only, asserted at ingest. */
+  href?: string
+}
+
+export interface ParagraphBlock {
+  kind: 'paragraph'
+  spans: TextSpan[]
+}
+
+export interface HeadingBlock {
+  kind: 'heading'
+  /** 2 or 3. The panel already owns `h1` and the document title is the `h2`. */
+  level: 2 | 3
+  spans: TextSpan[]
+}
+
+export interface ListBlock {
+  kind: 'list'
+  ordered: boolean
+  items: TextSpan[][]
+}
+
+export interface QuoteBlock {
+  kind: 'quote'
+  spans: TextSpan[]
+}
+
+/**
+ * What a legal document may contain. No images, no embeds, no video, no quotes —
+ * a privacy notice that needs an embedded video is not a privacy notice.
+ */
+export type LegalBlock = ParagraphBlock | HeadingBlock | ListBlock
+
+export interface LegalDoc {
+  /** `terminos` or `aviso`. The union lives in `site.ts`; see the note there. */
+  id: string
+  title: string
+  body: LegalBlock[]
+}
+
 export interface CaseStudyMetric {
   label: string
   value: string

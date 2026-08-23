@@ -9,8 +9,9 @@
 // The exports keep their old names and shapes on purpose: SiteFooter and
 // ContactSection are unchanged, and this file stays the one place to look.
 
+import { LEGAL_DOCS_LIST } from './generated/legalDocs'
 import { SITE_SETTINGS } from './generated/siteSettings'
-import type { SitePhone } from './types'
+import type { LegalDoc, SitePhone } from './types'
 
 export type { SitePhone }
 
@@ -33,34 +34,36 @@ export const CONTACT_EMAIL = settings.contactEmail
  *  those separately; the client rule it enforces is about attribution). */
 export const COPYRIGHT = settings.copyright
 
+/**
+ * Which legal documents the site links to — a union in code, on purpose.
+ *
+ * The footer names these two, `App.tsx` routes on them and `ContactSection`
+ * opens one. That is app composition, not editorial content: the same argument
+ * `orbitAssignments.ts` makes for which case study occupies which orbit. A CMS
+ * that could delete one would leave a footer link pointing at nothing, and a CMS
+ * that could add a third would create a document nothing links to.
+ *
+ * The TEXT is fully editorial. Only the set is not.
+ */
 export type LegalDocId = 'terminos' | 'aviso'
 
-export interface LegalDoc {
-  title: string
-  /** One entry per paragraph. */
-  body: string[]
+export type { LegalDoc }
+
+/**
+ * The two documents, by id.
+ *
+ * `legalDocs.collection.ts`'s audit fails the build when either id is missing,
+ * so the throw below can only fire against a hand-edited generated module. It
+ * exists because the alternative is `LEGAL_DOCS[doc].title` on undefined, which
+ * fails later and says less.
+ */
+function required(id: LegalDocId): LegalDoc {
+  const doc = LEGAL_DOCS_LIST.find((entry) => entry.id === id)
+  if (doc === undefined) throw new Error('legal document "' + id + '" is missing from the generated content')
+  return doc
 }
 
-// PLACEHOLDER legal boilerplate, plausible in shape but generic on purpose.
-// This is not legal text and nobody has reviewed it: the production audits
-// (security-wordpress-api §API-3, production-readiness §LEAD-1) already record
-// that the real privacy notice, lawful basis and retention policy must ship
-// with the real form backend. These panels are where that text will live.
 export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
-  terminos: {
-    title: 'Términos y privacidad',
-    body: [
-      'Texto provisional. Este sitio es una experiencia de demostración de Vertigo y el presente documento ocupa el lugar de los términos de uso y la política de privacidad definitivos.',
-      'Los datos introducidos en los formularios no se envían a ningún servidor en esta versión: la política definitiva describirá qué datos se recogen, con qué base legal, durante cuánto tiempo se conservan y cómo ejercer los derechos de acceso, rectificación y supresión.',
-      'La versión final de este documento debe redactarse y revisarse legalmente antes del lanzamiento del sitio.',
-    ],
-  },
-  aviso: {
-    title: 'Aviso legal',
-    body: [
-      'Texto provisional. En cumplimiento de la normativa aplicable, esta página recogerá la identificación del titular del sitio: denominación social, NIF, domicilio y datos de contacto.',
-      'El contenido de este sitio — textos, gráficos y la experiencia interactiva — pertenece a Vertigo y no puede reproducirse sin autorización.',
-      'La versión final de este documento debe redactarse y revisarse legalmente antes del lanzamiento del sitio.',
-    ],
-  },
+  terminos: required('terminos'),
+  aviso: required('aviso'),
 }

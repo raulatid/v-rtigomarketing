@@ -12,7 +12,15 @@
  * bundles this for Node with esbuild, and the browser bundle must be able to
  * tree-shake it away entirely.
  */
-import type { CaseChartType, CaseStudy, DistrictContent, Service, SiteSettings } from './types'
+import type {
+  CaseChartType,
+  CaseStudy,
+  DistrictContent,
+  LegalDoc,
+  Service,
+  SiteSettings,
+  TextSpan,
+} from './types'
 
 /**
  * The district summary shows at the mobile peek stop, where the sheet is only
@@ -230,6 +238,65 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
     if (!TEL_PATTERN.test(phone?.tel)) at('phones[' + i + '].tel', 'is not a dialable number')
   })
   return problems
+}
+
+/**
+ * A legal document, checked against the vocabulary the renderer implements.
+ *
+ * The serializer in `LegalPanel` handles exactly three block kinds and two
+ * marks. This is the assertion that nothing else ever reaches it — ingestion
+ * already rejects an unknown Portable Text style, and this re-checks the result,
+ * so the renderer's `switch` has no unreachable default that quietly renders
+ * nothing.
+ */
+export function legalDocProblems(entry: LegalDoc): Problem[] {
+  const problems: Problem[] = []
+  const at = (path: string, message: string) =>
+    problems.push({ path: entry.id + '.' + path, message })
+
+  if (!ID_PATTERN.test(entry.id)) {
+    problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
+  }
+  if (!nonEmpty(entry.title)) at('title', 'must be a non-empty string')
+  if (entry.body.length === 0) at('body', 'must have at least one block')
+
+  entry.body.forEach((block, i) => {
+    const where = 'body[' + i + ']'
+    if (block.kind === 'list') {
+      if (block.items.length === 0) at(where, 'a list needs at least one item')
+      block.items.forEach((item, j) => spans(at, where + '.items[' + j + ']', item))
+      return
+    }
+    if (block.kind === 'heading' && block.level !== 2 && block.level !== 3) {
+      at(where, 'heading level must be 2 or 3')
+    }
+    spans(at, where, block.spans)
+  })
+  return problems
+}
+
+function spans(
+  at: (path: string, message: string) => void,
+  where: string,
+  items: readonly TextSpan[],
+): void {
+  if (items.length === 0) {
+    at(where, 'must have at least one span')
+    return
+  }
+  items.forEach((span, i) => {
+    if (!nonEmpty(span?.text)) at(where + '.spans[' + i + ']', 'must have text')
+    // Asserted again on the shipped value, not only at ingest: this is the
+    // property that lets the renderer put the value straight into an href.
+    if (span?.href !== undefined && !/^(https:|mailto:)/.test(span.href)) {
+      at(where + '.spans[' + i + '].href', 'must be an https: or mailto: link')
+    }
+    for (const mark of span?.marks ?? []) {
+      if (mark !== 'strong' && mark !== 'em') {
+        at(where + '.spans[' + i + '].marks', 'unsupported mark "' + String(mark) + '"')
+      }
+    }
+  })
 }
 
 /** Collection-level bounds: the ones a single entry cannot see. */

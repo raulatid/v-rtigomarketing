@@ -1,6 +1,51 @@
 import { useEffect, useRef } from 'react'
 import { LEGAL_DOCS } from '../content/site'
 import type { LegalDocId } from '../content/site'
+import type { LegalBlock, TextSpan } from '../content/types'
+
+/**
+ * The serializer.
+ *
+ * An EXPLICIT map from block kind to element, not a rich-text library and not
+ * `dangerouslySetInnerHTML`. The content build converts Portable Text into this
+ * small vocabulary and rejects anything outside it, so every value below has
+ * already been proved to be what it claims — including `href`, which ingestion
+ * restricted to `https:` and `mailto:` by parsing the URL rather than matching a
+ * pattern.
+ *
+ * The switch has no default that renders nothing: a block kind that reached here
+ * without a case would be a type error, which is the point of the union.
+ */
+function spans(items: TextSpan[]) {
+  return items.map((span, i) => {
+    let node = <>{span.text}</>
+    if (span.marks?.includes('em')) node = <em>{node}</em>
+    if (span.marks?.includes('strong')) node = <strong>{node}</strong>
+    // rel on every link: these are the only outbound links in the application,
+    // and a legal notice is exactly where a referrer leak is least welcome.
+    if (span.href !== undefined) {
+      node = (
+        <a href={span.href} rel="noreferrer">
+          {node}
+        </a>
+      )
+    }
+    return <span key={i}>{node}</span>
+  })
+}
+
+function Block({ block }: { block: LegalBlock }) {
+  if (block.kind === 'heading') {
+    // The panel's own title is the h2, so a document heading starts at h3 and
+    // the outline stays in order for anyone navigating by headings.
+    return block.level === 2 ? <h3>{spans(block.spans)}</h3> : <h4>{spans(block.spans)}</h4>
+  }
+  if (block.kind === 'list') {
+    const items = block.items.map((item, i) => <li key={i}>{spans(item)}</li>)
+    return block.ordered ? <ol>{items}</ol> : <ul>{items}</ul>
+  }
+  return <p>{spans(block.spans)}</p>
+}
 
 interface Props {
   /** Which document is showing; null renders nothing. Data-nulled rather than
@@ -12,8 +57,8 @@ interface Props {
 /**
  * The legal documents, as a panel — there is no router and no second page in
  * this application, so "página legal" is an overlay like everything else the
- * viewer opens. One component for both documents; the content lives in
- * src/content/site.ts beside the rest of the placeholder brand data.
+ * viewer opens. One component for both documents; the content is CMS-owned
+ * and reaches here through src/content/site.ts as typed blocks.
  */
 export function LegalPanel({ doc, onClose }: Props) {
   const titleRef = useRef<HTMLHeadingElement>(null)
@@ -52,8 +97,10 @@ export function LegalPanel({ doc, onClose }: Props) {
           {content.title}
         </h2>
         <div className="legal-panel__body">
-          {content.body.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
+          {content.body.map((block, i) => (
+            // Keyed by index rather than by text: two identical paragraphs are
+            // legitimate in a legal document, and the old text key collided.
+            <Block key={i} block={block} />
           ))}
         </div>
       </section>

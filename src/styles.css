@@ -2015,6 +2015,48 @@ body {
   margin: 0;
 }
 
+/* The body is CMS-owned structured content, so every block kind the serializer
+   in LegalPanel can emit needs a rule here — an unstyled h3 inherits the
+   browser's 1.17em bold and breaks the panel's rhythm. */
+.legal-panel__body h3,
+.legal-panel__body h4 {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.legal-panel__body h4 {
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.legal-panel__body ul,
+.legal-panel__body ol {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.legal-panel__body a {
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.legal-panel__body a:hover,
+.legal-panel__body a:focus-visible {
+  color: #fff;
+}
+
+.legal-panel__body strong {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 @media (max-width: 767px) {
   .site-footer {
     flex-direction: column;
