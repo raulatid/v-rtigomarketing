@@ -75,6 +75,29 @@ export function slug(report: Report, path: string, value: unknown, pattern: RegE
 }
 
 /**
+ * A string that has to have a SHAPE: an email address, a phone number, a date.
+ *
+ * Separate from `slug` because the audience is different. A slug problem is
+ * read by whoever wrote the code; this one is read by whoever typed the value
+ * into the CMS, and '"holaexample.com" does not match /^[^\s@]+@.../' is not a
+ * message that helps them. `shape` names the thing in words instead.
+ */
+export function matching(
+  report: Report,
+  path: string,
+  value: unknown,
+  pattern: RegExp,
+  shape: string,
+): string | undefined {
+  if (typeof value !== 'string') return report.fail(path, 'expected a string, got ' + typeOf(value))
+  const trimmed = collapseWhitespace(value)
+  if (!pattern.test(trimmed)) {
+    return report.fail(path, JSON.stringify(trimmed) + ' is not ' + shape)
+  }
+  return trimmed
+}
+
+/**
  * A finite number.
  *
  * Accepts a numeric string, because ACF number fields and post meta round-trip

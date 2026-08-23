@@ -42,6 +42,33 @@ export interface ImageMedia {
   height: number
 }
 
+export interface SitePhone {
+  /** What the visitor reads, formatted for reading aloud. */
+  display: string
+  /** What the `tel:` link dials — digits and `+`, no spaces. */
+  tel: string
+}
+
+/**
+ * The handful of global values an editor owns: how to reach the agency, and
+ * whose name is on the footer.
+ *
+ * A SINGLETON, enforced twice. Sanity presents one document and refuses to make
+ * a second; the build independently asserts that exactly one arrived, because
+ * Studio validation is a convenience and a build assertion is a guarantee. Only
+ * that pair makes `SITE_SETTINGS[0]` in `site.ts` an honest read.
+ *
+ * Deliberately not a key/value bag. A global value earns a field here when it is
+ * genuinely editorial; anything else is configuration and belongs in code.
+ */
+export interface SiteSettings {
+  /** Fixed. There is one of these, and it is called this. */
+  id: string
+  phones: SitePhone[]
+  contactEmail: string
+  copyright: string
+}
+
 export interface CaseStudyMetric {
   label: string
   value: string

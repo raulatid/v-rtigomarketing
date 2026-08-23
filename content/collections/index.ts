@@ -2,6 +2,7 @@ import type { AnyCollection } from './types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
+import { siteSettingsCollection } from './siteSettings.collection'
 
 /**
  * Every content collection the site publishes.
@@ -19,4 +20,5 @@ export const COLLECTIONS: readonly AnyCollection[] = [
   caseStudiesCollection,
   districtsCollection,
   servicesCollection,
+  siteSettingsCollection,
 ]

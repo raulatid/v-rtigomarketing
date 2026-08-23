@@ -12,7 +12,7 @@
  * bundles this for Node with esbuild, and the browser bundle must be able to
  * tree-shake it away entirely.
  */
-import type { CaseChartType, CaseStudy, DistrictContent, Service } from './types'
+import type { CaseChartType, CaseStudy, DistrictContent, Service, SiteSettings } from './types'
 
 /**
  * The district summary shows at the mobile peek stop, where the sheet is only
@@ -191,6 +191,44 @@ export function serviceProblems(entry: Service): Problem[] {
       problems.push({ path: entry.id + '.' + field, message: 'must be a non-empty string' })
     }
   }
+  return problems
+}
+
+/**
+ * What a `tel:` href may contain: digits, with an optional leading `+`.
+ *
+ * The DISPLAY string is free — spaces, parentheses, whatever reads well. This is
+ * the one that gets dialled, and a space in it produces a link that silently
+ * does nothing on some handsets rather than failing visibly.
+ */
+export const TEL_PATTERN = /^\+?[0-9]{6,20}$/
+
+/**
+ * Deliberately loose. A strict RFC 5322 pattern rejects addresses that work, and
+ * the only thing this needs to catch is a typo that would produce a `mailto:`
+ * link nobody can use — a missing `@`, a missing domain, an accidental space.
+ */
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+export function siteSettingsProblems(entry: SiteSettings): Problem[] {
+  const problems: Problem[] = []
+  const at = (path: string, message: string) =>
+    problems.push({ path: entry.id + '.' + path, message })
+
+  if (!ID_PATTERN.test(entry.id)) {
+    problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
+  }
+  if (!nonEmpty(entry.copyright)) at('copyright', 'must be a non-empty string')
+  if (!EMAIL_PATTERN.test(entry.contactEmail)) at('contactEmail', 'is not an email address')
+
+  // The footer renders this list and the contact section links it. An empty one
+  // leaves the site with no way to reach anybody, which is a content mistake
+  // worth stopping a deployment for.
+  if (entry.phones.length === 0) at('phones', 'at least one required')
+  entry.phones.forEach((phone, i) => {
+    if (!nonEmpty(phone?.display)) at('phones[' + i + '].display', 'must be a non-empty string')
+    if (!TEL_PATTERN.test(phone?.tel)) at('phones[' + i + '].tel', 'is not a dialable number')
+  })
   return problems
 }
 

@@ -3,10 +3,12 @@ import type { CaseStudy } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
+import { siteSettingsCollection } from './siteSettings.collection'
 import { COLLECTIONS } from './index'
 import caseFixtures from '../fixtures/caseStudy.json'
 import districtFixtures from '../fixtures/district.json'
 import serviceFixtures from '../fixtures/service.json'
+import settingsFixtures from '../fixtures/siteSettings.json'
 
 /**
  * Hostile-input tests for the mappers.
@@ -303,5 +305,53 @@ describe('a district whose service reference does not resolve', () => {
     const record = validDistrict()
     ;(record.services as unknown[])[0] = null
     expect(districtsCollection.map(record, 0).ok).toBe(false)
+  })
+})
+
+describe('site settings is a singleton the build proves', () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+
+  it('accepts exactly one document', () => {
+    const one = settingsFixtures.map((r) => siteSettingsCollection.map(r, 0))
+    expect(one.every((r) => r.ok)).toBe(true)
+    expect(siteSettingsCollection.audit([{ id: 'site' }])).toEqual([])
+  })
+
+  it('fails on zero documents', () => {
+    // An empty response is an outage or a misconfigured type, not an editorial
+    // decision to delete the agency's phone number.
+    expect(siteSettingsCollection.audit([]).length).toBeGreaterThan(0)
+  })
+
+  it('fails on two documents rather than silently using the first', () => {
+    // Studio refuses to create a second. A restored backup, a re-run import or
+    // the API can all produce one anyway, and site.ts reads [0].
+    const problems = siteSettingsCollection.audit([{ id: 'site' }, { id: 'site-2' }])
+    expect(problems.length).toBeGreaterThan(0)
+    expect(problems.some((p) => /exactly one/.test(p.message))).toBe(true)
+  })
+
+  it('rejects an email that would produce a dead mailto: link', () => {
+    for (const email of ['holaexample.com', 'hola@', '@example.com', 'hola @example.com', '']) {
+      const record = validSettings()
+      record.contactEmail = email
+      expect(problemsFor(siteSettingsCollection, record), email).toContain('site.contactEmail')
+    }
+  })
+
+  it('rejects a tel: value that is not dialable', () => {
+    // The display string may be formatted however it reads best; this is the one
+    // that gets dialled, and a space in it silently does nothing on some handsets.
+    for (const tel of ['+34 600 000 000', '600-000-000', 'llamanos', '']) {
+      const record = validSettings()
+      record.phones = [{ display: '+34 600 000 000', tel }]
+      expect(problemsFor(siteSettingsCollection, record), tel).toContain('site.phones[0].tel')
+    }
+  })
+
+  it('rejects a settings document with no phone at all', () => {
+    const record = validSettings()
+    record.phones = []
+    expect(problemsFor(siteSettingsCollection, record).length).toBeGreaterThan(0)
   })
 })

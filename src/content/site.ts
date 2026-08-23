@@ -1,29 +1,37 @@
-// Brand and contact data, hand-written — the SINGLE swap point for the real
-// values. Deliberately not a collection: the content pipeline is strictly
-// array-of-records synced from WordPress or fixtures (content/collections),
-// and a phone number and two legal texts do not earn a post type. Precedent:
-// lookup.ts, hand-written and content-adjacent, which the generator never
-// overwrites.
+// Brand and contact data — now a COMPATIBILITY ADAPTER over generated content
+// rather than the values themselves.
 //
-// EVERYTHING BELOW IS PLACEHOLDER DATA. The number, the address and the legal
-// texts are stand-ins so the presentation can be judged; §11 wants placeholder
-// content in Spanish, not English awaiting translation. Replace here and only
-// here before launch.
+// These used to be hand-written here, on the argument that a phone number does
+// not earn a post type. That held while only a developer could change them. The
+// client edits their own contact details now, and the alternative to a
+// one-record collection is a deployment for a phone number.
+//
+// The exports keep their old names and shapes on purpose: SiteFooter and
+// ContactSection are unchanged, and this file stays the one place to look.
 
-export interface SitePhone {
-  /** What the visitor reads, formatted for reading aloud. */
-  display: string
-  /** What the tel: link dials — digits and +, no spaces. */
-  tel: string
-}
+import { SITE_SETTINGS } from './generated/siteSettings'
+import type { SitePhone } from './types'
 
-export const SITE_PHONES: SitePhone[] = [{ display: '+34 600 000 000', tel: '+34600000000' }]
+export type { SitePhone }
 
-export const CONTACT_EMAIL = 'hola@vertigomarketing.es'
+/**
+ * The singleton, read by index — which is only honest because the content build
+ * proves there is exactly one.
+ *
+ * `siteSettings.collection.ts`'s `audit` fails on zero documents and on two, so
+ * this cannot be `undefined` in any build that produced a deployment. The
+ * assertion is also re-run against the emitted module by `site.test.ts`, the
+ * same "guard on the guard" arrangement `generated.test.ts` uses.
+ */
+const settings = SITE_SETTINGS[0]
+
+export const SITE_PHONES: SitePhone[] = settings.phones
+
+export const CONTACT_EMAIL = settings.contactEmail
 
 /** The brand's own mark — NOT a third-party credit (backdrop.spec.ts guards
  *  those separately; the client rule it enforces is about attribution). */
-export const COPYRIGHT = '© 2026 Vertigo'
+export const COPYRIGHT = settings.copyright
 
 export type LegalDocId = 'terminos' | 'aviso'
 

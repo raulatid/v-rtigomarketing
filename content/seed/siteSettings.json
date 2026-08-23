@@ -1,0 +1,13 @@
+[
+  {
+    "id": "site",
+    "phones": [
+      {
+        "display": "+34 600 000 000",
+        "tel": "+34600000000"
+      }
+    ],
+    "contactEmail": "hola@vertigomarketing.es",
+    "copyright": "© 2026 Vertigo"
+  }
+]
