@@ -2,7 +2,7 @@
 
 Estos archivos se dibujan dentro del panel holográfico que flota sobre cada
 satélite en la escena de la Tierra. Un archivo por caso de éxito, con el mismo
-nombre que el `id` del caso (ver `content/fixtures/case_study.json`, o el CMS):
+nombre que el `id` del caso (ver `content/fixtures/caseStudy.json`, o el CMS):
 
 ```
 public/logos/satellite-01.webp   →   logo: '/logos/satellite-01.webp'
@@ -65,43 +65,54 @@ un `<canvas>` tiene tres trampas:
 
 ---
 
-## Cuando esto venga de WordPress
+## Cuando esto venga de Sanity
 
-**El archivo se sube a la biblioteca de medios de WordPress y nada más cambia en
+**El archivo se sube a la biblioteca de medios de Sanity y nada más cambia en
 la entrega.** Los requisitos de arriba —1600×800, WebP, fondo transparente,
 recorte ajustado sin márgenes, variante clara— siguen siendo exactamente los
 mismos, y el proceso de compilación los comprueba.
 
 Lo que cambió es el camino que recorre el archivo. La aplicación **no descarga
-nada del CMS en el navegador**: al compilar, el proceso descarga la imagen,
-verifica el tipo y las dimensiones, la convierte a WebP y la escribe en
-`public/logos/`. El campo `logo` acaba siendo siempre una ruta local
-(`/logos/satellite-01.webp`), servida desde el mismo dominio que el resto del
+nada del CMS en el navegador**: al compilar, `content/lib/mirror.ts` verifica el
+origen, descarga la imagen y la escribe en `public/logos/`. El campo `logo` acaba
+siendo siempre una ruta local, servida desde el mismo dominio que el resto del
 sitio.
+
+El nombre del archivo lo pone Sanity, no nosotros: las URLs de sus assets
+incluyen el hash del contenido, así que la misma imagen produce siempre el mismo
+nombre. Eso es lo que mantiene el módulo generado byte a byte idéntico entre
+compilaciones, y lo que permite no volver a descargar un archivo que ya está.
+
+**El proceso no convierte formatos.** Sube el archivo ya en el formato final.
 
 Consecuencias, todas favorables:
 
-- **No hace falta `Access-Control-Allow-Origin`** en `wp-content/uploads/`. No
-  hay petición desde el navegador al CMS, así que no hay CORS que resolver.
+- **No hace falta `Access-Control-Allow-Origin`** en el CDN del CMS. No hay
+  petición desde el navegador a Sanity, así que no hay CORS que resolver.
 - **No hay que tocar la CSP** de `vercel.json`: la imagen es del propio origen.
-- Un logo que falle no rompe nada: el caso se queda con la placa generada.
+- Un logo **ausente** no rompe nada: el caso se queda con la placa generada. Un
+  logo **declarado que no se puede descargar** sí falla la compilación: que el
+  contenido y la biblioteca de medios no coincidan no es una decisión editorial.
 
-Una restricción nueva, y es del lado de WordPress: **no se aceptan SVG**. El
-núcleo de WordPress los bloquea por defecto y así debe seguir, porque un SVG en
-la biblioteca de medios se sirve en su propia URL y se convierte en un vector de
-ataque para quien la abra. La sección anterior sobre SVG se mantiene por si el
-archivo se coloca a mano en `public/logos/`, que sigue siendo posible.
+Una restricción que ahora impone la compilación: **no se aceptan SVG**. Sanity
+los almacena sin problema, así que el rechazo está en `remoteMediaUrl` y no en
+una opción del CMS que alguien pueda cambiar. Un SVG en la biblioteca de medios
+se sirve en su propia URL y se convierte en un vector de ataque para quien la
+abra; admitirlos más adelante debería ser un cambio revisado con un sanitizador
+detrás, no una subida que nadie ve. La sección anterior sobre SVG se mantiene por
+si el archivo se coloca a mano en `public/logos/`, que sigue siendo posible.
 
-Detalle técnico completo en `docs/adr/010-content-is-generated-at-build-time.md`
-y en `docs/content/wordpress-field-contract.md`.
+Detalle técnico completo en `docs/adr/010-content-is-generated-at-build-time.md`,
+`docs/adr/011-the-cms-is-sanity.md` y `docs/content/sanity-media-contract.md`.
 
 ---
 
 ## Verificación rápida
 
 1. Copiar el archivo en esta carpeta.
-2. Poner la ruta en el campo `logo` del caso en `content/fixtures/case_study.json`
-   (o en WordPress, si ya está conectado) y ejecutar `npm run content:build`.
+2. Poner la ruta en el campo `logo` del caso en `content/fixtures/caseStudy.json`
+   (o subir la imagen en Sanity, si ya está conectado) y ejecutar
+   `npm run content:build`.
 3. `npm run dev`, dejar correr la intro hasta que aparezcan los satélites.
 
 Si el logo no aparece, la consola dice por qué: tamaño intrínseco ausente, CORS,

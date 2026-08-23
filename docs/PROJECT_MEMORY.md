@@ -83,11 +83,12 @@ npm run build          # content + typecheck + unit tests + all six harnesses + 
 npm run preview        # serve dist/
 npm run check          # typecheck + unit tests + all six harnesses  ← run this
                        #   (precheck: content:build, so bad CMS content fails HERE)
-npm run content:build  # fetch, validate and emit src/content/generated/  (adr/010)
-npm test               # Vitest, 584 assertions over the pure logic and the content build
+                       #   CONTENT_SOURCE=sanity | fixture | seed selects the source
+npm run content:build  # query Sanity, validate and emit src/content/generated/  (adr/010, adr/011)
+npm test               # Vitest, 706 assertions over the pure logic and the content build
 npm run test:watch     # the same, watching
 npm run test:coverage  # scoped coverage, thresholds enforced
-npm run check:architecture # 18 assertions — the dependency directions, enforced
+npm run check:architecture # 19 assertions — the dependency directions, enforced
 npm run check:navigation   # 52 assertions — drag feel, signs, bounds, grab-the-point
 npm run check:footprint    # 8  assertions — every reachable distance against the skirt
 npm run check:district     # 68 assertions — flights, the focus dolly, framing, materials
@@ -1427,7 +1428,7 @@ must restore it to measure coverage.
     content mapper had it backwards in both halves. Decoding first turns `&lt;script&gt;` into a
     real tag for the stripper to delete, silently removing text an author escaped on purpose. And
     a post-condition rejecting any `<` fails on `&lt;5%`, which is ordinary marketing copy —
-    WordPress encodes the bracket, decoding legitimately produces it back. The tag check belongs
+    a CMS encodes the bracket, decoding legitimately produces it back. The tag check belongs
     *before* decoding, where markup and text are still distinguishable; afterwards only unresolved
     entities are worth rejecting. A literal `<` is harmless here because every consumer renders
     through a JSX text node, `textContent` or canvas `fillText`, none of which parse markup.
@@ -1515,13 +1516,26 @@ mobile; 591 unit tests and the backdrop + navigation e2e pass. The © absence as
 `backdrop.spec.ts` was narrowed to third-party shapes so the brand's own mark can exist.
 **The entry budget paid for it** — see §9: ~3.7 KB of headroom left.
 
-**Content pipeline, 2026-08-20 (`adr/010`).** WordPress is the editorial source of truth and the
-network boundary is the build, not the browser: `npm run content:build` fetches, validates and
-emits `src/content/generated/`. Strict by default — an unreachable CMS or a failed validation
-exits non-zero, fails the deploy and leaves the previous one serving. Scene composition came out
-of the content type at the same time (`orbitAssignments.ts`, `DECISIONS` §28). **Media mirroring
-is the one piece not built**: it needs `sharp` as a dependency and a CMS to verify against, so
-every `logo` is still `null` and `createBrandAtlas` draws its plate — the designed fallback.
+**Content pipeline, 2026-08-23 (`adr/010`, `adr/011`).** Sanity is the editorial source of truth
+and the network boundary is the build, not the browser: `npm run content:build` queries,
+validates and emits `src/content/generated/`. Strict by default — an unreachable CMS or a failed
+validation exits non-zero, fails the deploy and leaves the previous one serving. Scene
+composition stayed out of the content type (`orbitAssignments.ts`, `DECISIONS` §28).
+
+WordPress was replaced before it ever ran: the collections requested `_fields=id,slug,title,acf`
+and then read flat top-level keys, with nothing between them to unwrap `title.rendered` or the
+`acf` envelope. The transport was tested and the mapping never was.
+
+Six collections now: case studies, districts, services, site settings, legal documents and blog
+posts. **Media mirroring is built** — `content/lib/mirror.ts` fetches brand logos into
+`public/logos/` at build time so `img-src 'self'` is untouched and a cross-origin draw cannot
+taint the shared atlas. Editorial imagery stays on `cdn.sanity.io`. Every fixture `logo` is
+still `null`, so `createBrandAtlas` draws its plate — the designed fallback — until real
+artwork is uploaded.
+
+**Not done, and waiting on the client's Sanity project:** creating the project and dataset,
+importing `sanity-studio/scripts/import-fixtures.mjs`, running the fixture-vs-Sanity parity
+diff, and wiring the publish webhook to a Vercel Deploy Hook.
 
 **Done.** Both experiences migrated and running in one app. Single renderer, verified as one
 canvas. Reversible Earth ⇄ Murcia warp with the dolly, prefetch and GPU warm. Gesture
@@ -1626,7 +1640,7 @@ iOS report are what would move those findings from *strongly inferred* to *verif
 |---|---|
 | **Vite pinned at 5** | The two custom build plugins are validated only against 5. A bundler bump deserves its own verification pass, not a ride-along inside a migration. |
 | **`noUncheckedIndexedAccess` off** | Murcia was written under it, Earth was not. Enabling it repo-wide produces 36 errors, 16 of them inside the 16 KB intro budget. Restore in a dedicated pass. |
-| **Placeholder content** | Case studies are invented, and every `logo` is still `null` — real trademarks beside invented results read as endorsement. The pipeline that replaces them exists (`adr/010`): WordPress is read at build time and emitted as `src/content/generated/`. **Replacing the copy now means replacing it in two places** — the CMS, and `content/fixtures/` + `content/seed/`, which are what `npm run dev` and CI build against. The one piece not built is media mirroring, so no logo is loaded at all today. |
+| **Placeholder content** | Case studies are invented, and every `logo` is still `null` — real trademarks beside invented results read as endorsement. The pipeline that replaces them exists (`adr/010`, `adr/011`): Sanity is read at build time and emitted as `src/content/generated/`. **Replacing the copy now means replacing it in two places** — the CMS, and `content/fixtures/` + `content/seed/`, which are what `npm run dev` and CI build against. Media mirroring is built; what is missing is uploaded artwork. |
 | **No keyboard path into the 3D** | Touch and pen work as of 2026-08-11, but satellites are still raycast-only. (The Murcia marker and its geo tag are gone entirely, 2026-08-19 — the focusable rail is the path between worlds.) `A11Y-1` in the readiness audit is narrowed, not closed, and closing it means real markup — the `districtLabel.ts` button pattern applied to the globe. |
 | **`label` is unread** | `CaseStudy.label` is declared and nothing renders it — the brand atlas draws `name`. Kept because it is a reasonable short-form field for a CMS to carry. (`orbitId` was the other half of this row and is **resolved**: it left the content type entirely on 2026-08-20, because which case rides which orbit is scene composition — `orbitAssignments.ts`, `DECISIONS` §28.) |
 | **District resolves by node name** | The GLB carries no `extras`. Fix is in Blender — see `murcia/blender-export-contract.md` — not in code. |
@@ -1673,7 +1687,7 @@ Still open:
   the feel review without being raised, which is weak evidence for it, not a decision.
 - **The service copy is placeholder**, written to give the layout realistic text lengths. It
   is marked as such in `content/fixtures/district.json`, which is what `npm run dev` and CI
-  build against. Replacing it means replacing it in WordPress AND in the fixtures and seed.
+  build against. Replacing it means replacing it in Sanity AND in the fixtures and seed.
 
 ---
 

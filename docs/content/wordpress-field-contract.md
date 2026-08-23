@@ -1,5 +1,17 @@
 # WordPress field contract
 
+Status: **Superseded** — 2026-08-23, by `sanity-field-contract.md` and `sanity-media-contract.md` (`adr/011`).
+
+> **This describes a CMS the project no longer uses.** WordPress was replaced by Sanity before
+> either side of the integration ran against a live instance: the collections requested
+> `_fields=id,slug,title,acf` and then read flat top-level keys, with no layer between them to
+> unwrap `title.rendered` or the `acf` envelope. The transport was tested; the mapping never was.
+>
+> Kept, not deleted. It is the document the `security-wordpress-api-2026-08-11` audit was written
+> against, and rewriting it to match the present would leave that audit citing something that had
+> never existed. Read it as history. For what the build expects **now**, read
+> `sanity-field-contract.md`.
+
 What the content build expects from the CMS. The authority is
 `content/collections/*.collection.ts` — this document explains it; the mappers enforce it.
 

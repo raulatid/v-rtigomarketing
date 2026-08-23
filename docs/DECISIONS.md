@@ -2,8 +2,10 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-08-20 · §29–30 added (the rail's presentation and the gesture hint; contact,
-legal and the brand's own mark). Earlier: 2026-08-17 · §26 added and `earth/DECISIONS.md` retired
+Last updated: 2026-08-23 · §31 added (the CMS is Sanity, and the editable surface grew to services,
+site settings, legal and the blog); §27 and §30 amended. Earlier: 2026-08-20 · §29–30 added (the
+rail's presentation and the gesture hint; contact,
+legal and the brand's own mark); 2026-08-17 · §26 added and `earth/DECISIONS.md` retired
 into it, making this the only decisions file in the repository; 2026-08-14 · §23–25 added after the mobile and
 iOS/Safari audits (context loss, decoder ownership, mobile as a target); 2026-08-13 · §21–22
 added and §12, §19, §20
@@ -33,8 +35,10 @@ what it rules out, and how you would know it had been broken.
 | `ARCHITECTURE.md` | The architecture as it should be. Binding. |
 | `ENGINEERING_PRINCIPLES.md` | How to work in this repo. Binding. |
 | `murcia/blender-export-contract.md` | What the runtime reads out of the GLB and what must be true in the `.blend`. Read before any re-export. |
-| `content/wordpress-field-contract.md` | What the content build expects from the CMS, field by field, with the rule and what happens when it is broken. Written to be sent to whoever builds the WordPress side. |
-| `audits/reports/security-wordpress-api-2026-08-11.md` | The security surface of the CMS integration. **Read its 2026-08-20 addendum first** — the integration landed as a build-time pipeline, which closes or dissolves most of the `API-*` findings. |
+| `content/sanity-field-contract.md` | What the content build expects from the CMS, field by field, with the rule and what happens when it is broken. Written to be handed to whoever edits the content. |
+| `content/sanity-media-contract.md` | Where uploaded media lives, which formats are accepted, what is mirrored into the deployment and what stays on the CDN. Separate on purpose. |
+| `content/wordpress-field-contract.md` | **Superseded** 2026-08-23 by the two above (`adr/011`). Kept because the WordPress security audit was written against it. History, not policy. |
+| `audits/reports/security-wordpress-api-2026-08-11.md` | The security surface of the CMS integration **as it was designed against WordPress**. Read its 2026-08-20 addendum, then `adr/011` — the CMS is Sanity now, which removes the install the threat model was mostly about. |
 
 ### How to update it
 
@@ -1220,6 +1224,10 @@ the document is the critical path, and inlining makes it bigger. The numbers are
 
 **Decided** 2026-08-20. Full reasoning and the alternatives in **`adr/010`**.
 
+> **Amended 2026-08-23 by §31 (`adr/011`).** Everything below about WHEN content is fetched and
+> what happens when it cannot be still holds. The CMS named throughout is no longer WordPress —
+> it is Sanity, and the environment variables changed with it.
+
 **WordPress is the editorial source of truth; the network boundary is the build, not the
 browser.** `npm run content:build` fetches every collection in Node, validates it, and emits
 `src/content/generated/*.ts` — ordinary typed modules, imported exactly as the hand-written ones
@@ -1365,7 +1373,11 @@ and joins the rail-suppression context in App.
 hand-written, like `lookup.ts` — holds the phones, the contact address, the © line and the
 legal texts, all PLACEHOLDER and marked so. The content pipeline is strictly
 array-of-records synced from the CMS (§27), and a phone number does not earn a post type; if
-the client must ever edit these in WordPress, that is the decision to revisit.
+the client must ever edit these in the CMS, that is the decision to revisit.
+
+> **Revisited 2026-08-23 — §31, `adr/011`.** The client edits their own contact details, so it
+> was. `site.ts` is now a compatibility adapter over two generated collections, keeping every
+> export name it had; the legal texts are constrained Portable Text rather than `string[]`.
 
 **The contact form obeys the audit form's transport rule** (`contactSubmission.ts`, the §16
 demo/production split): demo builds resolve after 700 ms so the flow can be demonstrated;
@@ -1389,10 +1401,84 @@ Broken when: real contact data is edited anywhere but `site.ts`, a form reaches 
 production build, chrome appears before `site` or over Murcia, or a third-party credit
 passes the narrowed assertion.
 
+## 31. The CMS is Sanity, and the client edits more than copy
+
+**Decided** 2026-08-23. Full reasoning and the alternatives in **`adr/011`**. Everything §27 says
+about *when* content is fetched still holds; what changed is *from where*, and *how much*.
+
+**Sanity replaced WordPress, and nothing working was replaced.** The collections requested
+`_fields=id,slug,title,acf` and then read flat top-level keys — `source.name`, `source.summary`.
+A real `wp/v2` response returns `title.rendered` and an `acf` envelope, and no layer existed
+between them. The fixtures already had the flat shape, so every test passed against a shape
+WordPress would never send: the transport was tested, the mapping never was. That is the only
+reason this migration was cheap, and it is worth recording rather than discovering again.
+
+**The GROQ projection is the normalization layer.** Each collection declares
+`{ type, projection, orderBy }` and the projection returns exactly the shape the mapper reads, so
+nothing past `map` ever sees `_ref`, `_type`, `slug.current` or an asset object. Deliberately not
+vendor-neutral — `projection` is GROQ and no naming makes it otherwise. A generic multi-CMS
+abstraction would have been built for a vendor that does not exist and would have fitted it badly
+whenever it arrived.
+
+**One query per collection removes torn reads without making them transactional.** The paginated
+WordPress pull had to assert `X-WP-Total` against what arrived, because a collection that changed
+mid-pull produced a snapshot with a record duplicated or missing. That failure class is gone. What
+remains is that Sanity's query API is eventually consistent with recent mutations, so a build fired
+by a publish webhook can in principle read the state just before the publish. Documented as a
+freshness concern, not solved with a sleep — measure before adding retries.
+
+**The editable surface grew to services, site settings, legal documents and the blog.** Services
+are first-class documents a district references rather than rows nested in one district. Site
+settings and both legal documents are singletons enforced twice: the Studio hides the
+"create another" button, and the build asserts the count, because a restored backup or the HTTP
+API can produce a second document the Studio never showed anybody.
+
+**Structured content is typed blocks, and typed blocks are not HTML.** Legal and blog bodies store
+Portable Text; ingestion converts it into a small declared vocabulary and FAILS THE BUILD on a
+style, mark or annotation it does not know. Links are restricted to `https:` and `mailto:` by
+parsing. `LegalPanel` switches on `kind`; there is no `dangerouslySetInnerHTML` and no raw-HTML
+block type. The old rule stands — arbitrary CMS HTML must never reach a renderer — it just stops
+being confused with "all CMS content must be plain strings". An unknown block is never dropped:
+publishing a legal document missing a clause an editor believed they had written is the worst
+outcome available.
+
+**Brand logos are mirrored into the deployment; editorial imagery is not.** A logo is drawn into
+the shared WebGL atlas, where a cross-origin draw can taint the canvas every panel uses, so it is
+fetched into `public/logos/` at build time and `img-src 'self'` is untouched. Blog images stay on
+`cdn.sanity.io` — the library grows without bound and nothing renders them yet. SVG is prohibited
+in both places until someone writes a sanitizer on purpose.
+
+**The blog is modelled and not rendered.** No page, no route, no renderer, and
+`checks/architecture.ts` asserts nothing under `src/` imports the generated module — the entry
+chunk has ~2 KB spare against its 320,000 B ceiling. The schema exists so the format does not have
+to be invented later against live editorial copy.
+
+**Ruled out.** Fixing the WordPress mapping and running the install it needs; `@sanity/client` in
+the dependency graph; `apicdn.sanity.io` for a build that runs seconds after a publish; a
+vendor-neutral source contract; `body: string[]` for legal or blog; mirroring all media, or none.
+
+**Cost, stated rather than discovered.** More of the site is CMS-owned, so a Sanity outage blocks
+more builds — `CONTENT_SOURCE=seed` is still the escape and `content/seed/` now carries all six
+collections. The app entry grew ~1.6 KB to ~317.9 KB, which leaves the tightest headroom this
+budget has had. And the field rules now live in two places that must agree: the Studio schema
+tells an editor what is allowed, the build guarantees it.
+
+Broken when: a deployment succeeds while Sanity is unreachable; the browser requests
+`sanity.io` or `cdn.sanity.io`; a token or `VITE_SANITY_*` appears in `dist/`; a draft reaches the
+public site; a generated module changes bytes on a build where no content did; a legal document
+renders with a clause missing; or the entry budget fails and the message blames three.js.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| WordPress is the editorial source of truth | **§27**, `adr/010` | Sanity. The WordPress mapping never worked — flat keys against a `rendered`/`acf` envelope — so nothing working was replaced — **§31**, `adr/011` |
+| `WP_CONTENT_BASE`'s presence selects the source; `wp \| fixture \| seed` | `scripts/build-content.ts` | `SANITY_PROJECT_ID` selects it; `sanity \| fixture \| seed`. A leftover `WP_CONTENT_BASE` fails with a message naming what changed — **§31** |
+| A torn pull is caught by asserting `X-WP-Total` against what arrived | `content/lib/source.ts` | One GROQ query per collection removes the failure class. Eventual consistency after a publish remains, and is documented rather than slept on — **§31**, `adr/011` |
+| Content is fixtures and two collections; a phone number does not earn a post type | **§30** | Six collections. Services, site settings and both legal documents are CMS-owned; `site.ts` is a compatibility adapter over generated content — **§31** |
+| Legal copy is `string[]`, one entry per paragraph | **§30**, `site.ts` | Constrained Portable Text, converted to typed blocks at ingest and rendered by an explicit serializer — **§31**, `adr/011` |
 | `SATELLITES` is the single seam an API would replace | **§26.13**, `orbitConfig.ts` | The seam is the generated module. `SATELLITES` is deleted; content is emitted at build time — **§27**, `adr/010` |
 | The satellite↔orbit pairing is positional, and `orbitId` is unread | `createOrbitSystem.ts`, `caseStudies.ts` | `orbitId` is off the content type; `orbitAssignments.ts` binds preset to case and unresolvable ones fail the build — **§28** |
 | `logo` becomes a CMS media URL, needing CORS and an `img-src` entry | **§18**, 2026-08-14 | Media is mirrored into `public/logos/` at build time, so it stays same-origin and the CSP is untouched — **§27** |
