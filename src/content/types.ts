@@ -9,13 +9,38 @@
  * the same role `utils/` and `loading/` already play.
  *
  * ── This is the API contract ──
- * When the content is generated from WordPress, these stay the types the UI
- * consumes and the mapping layer maps *into* them, rather than letting a REST
- * response shape leak into the components. The mapper emits PLAIN STRINGS only:
- * WordPress returns `title.rendered` / `content.rendered` as HTML, and every
- * render path in this repo (JSX text nodes, `textContent`, canvas `fillText`)
- * is safe precisely because no string arriving here is ever markup.
+ * The content is generated from Sanity, but these stay the types the UI consumes
+ * and the mapping layer maps *into* them, rather than letting a CMS response
+ * shape leak into the components. Nothing here knows what `_ref`, `_type`,
+ * `slug.current` or a Sanity asset object is — the GROQ projection in each
+ * collection is where that vocabulary stops.
+ *
+ * Textual fields are PLAIN STRINGS: a CMS rich-text field returns markup, and
+ * every render path in this repo (JSX text nodes, `textContent`, canvas
+ * `fillText`) is safe precisely because no string arriving here is ever markup.
+ * Where content genuinely needs structure it arrives as typed BLOCKS instead —
+ * never as HTML, and never through `dangerouslySetInnerHTML`.
  */
+
+/**
+ * An image the CMS owns, normalized away from Sanity's asset shape.
+ *
+ * Four fields, because four have consumers. `aspectRatio` and `dominantColor`
+ * are available from Sanity's metadata and are deliberately absent: metadata
+ * with no reader is a contract nobody is keeping.
+ *
+ * NOT used for case-study logos. Those are mirrored into `public/logos/` and stay
+ * a bare path string — the brand atlas needs the URL and nothing else, and its
+ * accessible name comes from `CaseStudy.name`.
+ */
+export interface ImageMedia {
+  /** Absolute CMS CDN url, or a local path when the asset was mirrored. */
+  src: string
+  /** Required. An image whose meaning is decorative should not be in the CMS. */
+  alt: string
+  width: number
+  height: number
+}
 
 export interface CaseStudyMetric {
   label: string

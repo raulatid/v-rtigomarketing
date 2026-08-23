@@ -96,6 +96,10 @@ export const caseStudiesCollection = collection<CaseStudy>({
     // added one, and the array position is what `orbitAssignments.ts` and the
     // brand atlas agree on.
     orderBy: 'slug.current asc',
+    // The logo is drawn into the shared brand atlas, so it is mirrored into
+    // public/logos/ rather than hotlinked: a cross-origin draw taints the
+    // canvas every panel shares, and img-src 'self' stays intact.
+    mirror: ['logo'],
     // The normalization layer. Everything the mapper reads is flat and named
     // exactly as `map` expects, so nothing downstream learns a Sanity shape —
     // no `_ref`, no `_type`, no `slug.current`, no asset object.
@@ -159,13 +163,15 @@ export const caseStudiesCollection = collection<CaseStudy>({
     // a defect worth stopping a deployment for.
     //
     // Only a LOCAL path is shippable (`LOCAL_MEDIA_PATH`, and the self-check
-    // below enforces it). The media mirror that would turn a CMS upload URL into
-    // a path under /logos/ is NOT built yet, so a remote URL — which is what
-    // Sanity will actually send — degrades to null here rather than reaching
-    // the self-check and failing the whole collection, i.e. the deployment,
-    // the first time an editor uploads a logo. When the mirror lands, this is
-    // where it plugs in: fetch through `remoteMediaUrl`, write the file, emit
-    // the local path.
+    // below enforces it). By the time a record reaches here the mirror has
+    // already run — `content/lib/mirror.ts` fetched the CMS upload into
+    // public/logos/ and rewrote this field to a path — so an absent logo is the
+    // only remaining reason to degrade. A logo that was DECLARED and could not
+    // be fetched never gets this far: the mirror fails the build instead, since
+    // a broken media reference is not an editorial state.
+    //
+    // Fixtures and the seed carry local paths already and are never mirrored,
+    // which is why this still has to accept a plain path.
     let logo: string | null = null
     if (typeof source.logo === 'string') {
       const candidate = source.logo.trim()

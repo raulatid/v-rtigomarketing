@@ -164,6 +164,9 @@ export function hexColor(
 /**
  * The URL of a media file on the CMS, as a candidate for mirroring.
  *
+ * The consumer is `content/lib/mirror.ts`, which runs this before it is willing
+ * to fetch anything.
+ *
  * SEPARATE from the check on the emitted local path, deliberately. This one
  * decides whether we are willing to *fetch* something; the local-path check
  * decides whether we are willing to *ship* a reference. Collapsing them is how a
@@ -202,9 +205,10 @@ export function remoteMediaUrl(
     return report.fail(path, 'origin ' + url.origin + ' is not the CMS origin ' + origin)
   }
   // An SVG in the media library is served at its own URL, so it is stored XSS
-  // for anyone who opens it directly — core blocks SVG upload by default and
-  // that should stay blocked. Rejecting here as well costs nothing and does not
-  // depend on the WordPress install staying configured correctly.
+  // for anyone who opens it directly. Sanity will happily store one, so this is
+  // the enforcement point rather than a second opinion: the logo policy in
+  // docs/content/sanity-media-contract.md defers SVG deliberately, and adding it
+  // later should be a reviewed change here rather than an upload nobody noticed.
   if (/\.svgz?$/i.test(url.pathname)) {
     return report.fail(path, 'SVG is not an allowed logo format')
   }

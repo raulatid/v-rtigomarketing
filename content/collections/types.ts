@@ -66,6 +66,17 @@ export interface SanitySourceSpec {
    * different arrays.
    */
   orderBy?: string
+  /**
+   * Record-relative dotted paths whose value is a CMS media URL to be mirrored
+   * into the deployment and rewritten to a local path. Applied by
+   * `withMediaMirror`, and only when the source is Sanity — fixtures and the
+   * seed already carry local paths.
+   *
+   * Editorial imagery deliberately stays on the CMS CDN. Only media the
+   * application draws itself, i.e. the brand logos that go into the WebGL
+   * atlas, is brought in-house.
+   */
+  mirror?: string[]
 }
 
 export type MapResult<T> = { ok: true; value: T } | { ok: false; problems: Problem[] }

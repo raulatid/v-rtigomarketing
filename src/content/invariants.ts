@@ -47,12 +47,16 @@ export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
 export const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i
 
 /**
- * Logos are always local paths: the media pipeline mirrors CMS uploads into
+ * Logos are always local paths: `content/lib/mirror.ts` brings CMS uploads into
  * `public/logos/` rather than hotlinking them, so an absolute URL here would
  * mean an outbound request from every visitor and a cross-origin draw that can
  * taint the atlas shared by every panel.
+ *
+ * The second character may not be another slash. `//evil.example/x.png` is a
+ * PROTOCOL-RELATIVE url: it reads as a path and resolves as a third-party
+ * origin, which is the whole class this constant exists to exclude.
  */
-export const LOCAL_MEDIA_PATH = /^\/[\w./-]+$/
+export const LOCAL_MEDIA_PATH = /^\/(?!\/)[\w./-]+$/
 
 export interface Problem {
   /** Dotted path to the offending value, e.g. `satellite-02.chart.values[3]`. */

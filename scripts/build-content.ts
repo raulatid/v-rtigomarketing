@@ -3,6 +3,7 @@ import { COLLECTIONS } from '../content/collections/index'
 import { readConfig, type ContentConfig } from '../content/lib/config'
 import { formatFailures, generate } from '../content/lib/generate'
 import { SourceError, fileSource, type ContentSource } from '../content/lib/source'
+import { withMediaMirror } from '../content/lib/mirror'
 import { sanitySource } from '../content/lib/sanity'
 
 /**
@@ -48,6 +49,13 @@ import { sanitySource } from '../content/lib/sanity'
 const ROOT = process.cwd()
 const OUT_DIR = path.join(ROOT, 'src', 'content', 'generated')
 
+/**
+ * Where Sanity serves uploaded assets. Hardcoded rather than configurable: it is
+ * the allowlist the media mirror is willing to fetch from, and an allowlist a
+ * deployment can widen is not one.
+ */
+const SANITY_CDN_ORIGIN = 'https://cdn.sanity.io'
+
 function buildSource(config: ContentConfig): ContentSource {
   if (config.mode !== 'sanity') {
     if (config.mode === 'fixture') return fileSource(path.join(ROOT, 'content', 'fixtures'), 'fixtures')
@@ -65,12 +73,24 @@ function buildSource(config: ContentConfig): ContentSource {
     return fileSource(path.join(ROOT, 'content', 'seed'), 'seed snapshot')
   }
 
-  return sanitySource({
-    projectId: config.projectId,
-    dataset: config.dataset,
-    timeoutMs: config.timeoutMs,
-    token: config.token,
-  })
+  // Only the Sanity source is wrapped. Fixtures and the seed already carry local
+  // paths, and mirroring them would put a filesystem write in the one code path
+  // that has to work offline.
+  return withMediaMirror(
+    sanitySource({
+      projectId: config.projectId,
+      dataset: config.dataset,
+      timeoutMs: config.timeoutMs,
+      token: config.token,
+    }),
+    {
+      dir: path.join(ROOT, 'public', 'logos'),
+      publicPath: '/logos',
+      allowedOrigin: SANITY_CDN_ORIGIN,
+      timeoutMs: config.timeoutMs,
+      log: (message) => console.log('[content] ' + message),
+    },
+  )
 }
 
 function fail(message: string): never {
