@@ -43,7 +43,7 @@ const LOCKED_TYPES = new Set([...SINGLETONS.map((entry) => entry.type), 'distric
  *
  * Without this, an unset value falls through to Sanity's own
  * "Configuration must contain `projectId`" — which is accurate and tells you
- * nothing about WHERE to put it. There are two traps it does not mention:
+ * nothing about WHERE to put it. There are three traps it does not mention:
  *
  *   1. The repository root's `.env` is NOT this package's. The Sanity CLI loads
  *      `.env` files from the STUDIO directory, via Vite's `loadEnv`.
@@ -51,9 +51,19 @@ const LOCKED_TYPES = new Set([...SINGLETONS.map((entry) => entry.type), 'distric
  *      name the content build uses at the repo root — is invisible here, and
  *      deliberately so: that prefix is what marks a value as safe to compile
  *      into the Studio bundle, and the build's variables must never be.
+ *   3. And the one that made this helper break the Studio it was written to
+ *      explain: THE READ MUST BE A LITERAL `process.env.SANITY_STUDIO_…`. This
+ *      file is compiled into the BROWSER bundle, where the values arrive as
+ *      Vite `define` entries keyed on exactly that text
+ *      (`getStudioEnvironmentVariables({prefix: 'process.env.'})` in
+ *      @sanity/cli-build). `define` is a text substitution: a computed
+ *      `process.env[name]` is not the expression it replaces, so it survives
+ *      into the bundle as `{}[name]` — undefined however the .env is filled in,
+ *      and the throw below then fires unconditionally. Never a computed key,
+ *      never destructured off `process.env`. Which is why the value is passed
+ *      in here rather than read here.
  */
-function required(name: 'SANITY_STUDIO_PROJECT_ID' | 'SANITY_STUDIO_DATASET'): string {
-  const value = process.env[name]
+function required(name: string, value: string | undefined): string {
   if (value === undefined || value.trim() === '') {
     throw new Error(
       name +
@@ -72,11 +82,13 @@ export default defineConfig({
   name: 'vertigo',
   title: 'Vertigo',
 
-  projectId: required('SANITY_STUDIO_PROJECT_ID'),
+  // Both written out in full: the bundler substitutes these literal expressions
+  // and nothing else (trap 3 above).
+  projectId: required('SANITY_STUDIO_PROJECT_ID', process.env.SANITY_STUDIO_PROJECT_ID),
   // Not defaulted to `production`, for the same reason the content build refuses
   // to guess a dataset: a default is how you end up editing live client content
   // while believing you are in a scratch dataset.
-  dataset: required('SANITY_STUDIO_DATASET'),
+  dataset: required('SANITY_STUDIO_DATASET', process.env.SANITY_STUDIO_DATASET),
 
   plugins: [
     structureTool({
