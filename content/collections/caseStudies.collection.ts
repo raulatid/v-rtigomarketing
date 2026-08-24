@@ -99,6 +99,12 @@ export const caseStudiesCollection = collection<CaseStudy>({
     // The logo is drawn into the shared brand atlas, so it is mirrored into
     // public/logos/ rather than hotlinked: a cross-origin draw taints the
     // canvas every panel shares, and img-src 'self' stays intact.
+    //
+    // The projection must hand the mirror a URL STRING — `logo.asset->url` —
+    // never the bare `logo` field, which is Sanity's image object. A bare
+    // `logo` typechecks, passes every fixture (they are all null), and fails
+    // the first real build with "expected a string, got object". Asserted in
+    // collections.test.ts because the mapper tests cannot see GROQ.
     mirror: ['logo'],
     // The normalization layer. Everything the mapper reads is flat and named
     // exactly as `map` expects, so nothing downstream learns a Sanity shape —
@@ -107,7 +113,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
       "id": slug.current,
       label,
       name,
-      logo,
+      "logo": logo.asset->url,
       brandColor,
       sector,
       location,

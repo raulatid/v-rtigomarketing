@@ -117,6 +117,11 @@ for (const record of read('caseStudy')) {
     chart: chartPoints(record.chart),
     // `logo` is omitted on purpose: every fixture logo is null, and an image
     // field needs a real uploaded asset reference rather than a path.
+    //
+    // CONSEQUENCE: `sanity dataset import --replace` overwrites the WHOLE
+    // document, so reseeding detaches any logo an editor attached in the Studio
+    // (the asset file survives in the media library, orphaned). This script is
+    // for a fresh dataset. Once editing has begun, edits go through the Studio.
   })
 }
 

@@ -34,6 +34,14 @@ public/logos/<asset-hash>-<w>x<h>.<ext>
 the emitted module carries "/logos/<asset-hash>-<w>x<h>.<ext>"
 ```
 
+The projection hands the mirror a **url string**, never the image object:
+
+```groq
+"logo": logo.asset->url
+```
+
+A bare `logo` returns `{ _type: "image", asset: { _ref } }`, which the mirror rejects with "expected a string, got object" — and every fixture logo being `null` means nothing local catches it. `collections.test.ts` asserts the projection for that reason.
+
 Only the Sanity source is mirrored. Fixtures and the committed seed already carry local paths, and wrapping them would put a filesystem write in the one code path that has to work offline.
 
 **Filenames come from Sanity, not from us.** Sanity asset URLs are content-addressed — the basename carries the asset hash — so the same image always produces the same filename, the emitted module is byte-identical across builds, and a file already on disk never needs re-downloading. That is what lets `emit.ts` keep claiming determinism now that media is involved.

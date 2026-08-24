@@ -25,6 +25,7 @@ Esta guía es para quien va a cambiar textos, casos de éxito o datos de contact
 - Lo que escribes **no está en la web hasta que pulsas «Publicar»** (abajo a la derecha). Hasta entonces es un borrador que solo ves tú.
 - Si un campo tiene un error, el botón de publicar no se activa y el campo te dice qué falta. Corrígelo y vuelve a publicar.
 - **Los cambios tardan un par de minutos en verse en la web.** Al publicar, la web se reconstruye entera con el contenido nuevo. Si pasados cinco minutos no ves el cambio, avisa al equipo técnico.
+- **En el ordenador de desarrollo la web no se actualiza sola.** Quien tenga la web en local tiene que ejecutar `npm run content:build` después de cada publicación; hasta entonces sigue mostrando el contenido anterior. No es un fallo.
 
 ## Cosas que conviene saber
 

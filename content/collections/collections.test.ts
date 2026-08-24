@@ -485,3 +485,19 @@ describe('blog mapping rejects', () => {
     expect(blogPostsCollection.audit([]).length).toBeGreaterThan(0)
   })
 })
+
+describe('the case-study projection hands the mirror what it expects', () => {
+  // The mapper tests cannot see GROQ, which is how a bare `logo` — Sanity's
+  // image OBJECT, not a url — shipped, typechecked, and would have failed the
+  // first build with a logo attached: "expected a string, got object". A string
+  // assertion is crude, but it is the only place that can hold the line between
+  // what the Studio stores and what content/lib/mirror.ts reads.
+  it('resolves the logo asset to a url', () => {
+    expect(caseStudiesCollection.source.projection).toContain('"logo": logo.asset->url')
+    expect(caseStudiesCollection.source.projection).not.toMatch(/^\s*logo,\s*$/m)
+  })
+
+  it('declares the logo as the field to mirror', () => {
+    expect(caseStudiesCollection.source.mirror).toEqual(['logo'])
+  })
+})

@@ -85,6 +85,9 @@ npm run check          # typecheck + unit tests + all six harnesses  ← run thi
                        #   (precheck: content:build, so bad CMS content fails HERE)
                        #   CONTENT_SOURCE=sanity | fixture | seed selects the source
 npm run content:build  # query Sanity, validate and emit src/content/generated/  (adr/010, adr/011)
+                       #   THE SITE READS SANITY ONLY WHEN THIS RUNS. After publishing in the
+                       #   Studio, run it again; Vite hot-reloads the regenerated module.
+                       #   Deliberately not a watcher.
 npm test               # Vitest, 706 assertions over the pure logic and the content build
 npm run test:watch     # the same, watching
 npm run test:coverage  # scoped coverage, thresholds enforced

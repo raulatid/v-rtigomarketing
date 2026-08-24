@@ -68,6 +68,8 @@ npx sanity dataset import .out/seed.ndjson production --replace
 
 The NDJSON is generated from `content/fixtures/`, so a fresh dataset starts as the exact content the repository already builds and tests against. That is what makes the migration parity check meaningful: generate from fixtures, generate from Sanity, diff `src/content/generated/`.
 
+**Seed a fresh dataset only.** `--replace` overwrites every field of every document it names — including a logo an editor attached in the Studio, which the fixtures do not carry. The asset file survives in the media library, orphaned. Once editing has begun, edits go through the Studio, not through a reseed.
+
 ## Dependency audit
 
 `npm audit` in this package reports **7 findings (1 high, 6 moderate)**. They are **known and accepted**, last assessed 2026-08-24 against `sanity@6.10.1`. Do not run `npm audit fix --force`: it downgrades `sanity` to 5.14.1, giving up a major version of the Studio.
