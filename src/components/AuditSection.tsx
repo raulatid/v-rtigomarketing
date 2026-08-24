@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { auditView, shiftsFor, type AuditPhase } from '../auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
+import type { LegalDocId } from '../content/site'
 
 // Audit section (plan 005): a fixed trigger in the top-right corner and a solid
 // black form panel that curtains in from the left over the live scene.
@@ -218,6 +219,10 @@ interface Props {
   // mounted (the form keeps what was typed) but it is forced closed here — see
   // the reset effect below.
   active: boolean
+  /** Opens a legal document panel. App owns which one is showing. The links
+      sit at the foot of this panel (DECISIONS §30): the consent question
+      belongs beside the form that asks for the data, not on the floor line. */
+  onOpenLegal: (doc: LegalDocId) => void
   /** Submission transport. Injectable for tests; defaults to the application's. */
   submit?: SubmitAuditRequest
 }
@@ -229,6 +234,7 @@ export function AuditSection({
   onOpenChange,
   ready,
   active,
+  onOpenLegal,
   submit = submitAuditRequest,
 }: Props) {
   const [phase, setPhase] = useState<AuditPhase>('closed')
@@ -603,6 +609,26 @@ export function AuditSection({
                   </button>
                   <p className="audit-note">
                     Revisamos cada solicitud de forma manual. Sin compromiso.
+                  </p>
+                  {/* The legal links, moved off the Earth floor line on
+                      2026-08-24 (DECISIONS §30). Form branch only: on the
+                      success screen the ask is already made and the panel is a
+                      receipt. They ride audit-group--4's staggered entrance. */}
+                  <p className="audit-legal">
+                    <button
+                      type="button"
+                      className="audit-legal__link"
+                      onClick={() => onOpenLegal('terminos')}
+                    >
+                      Términos y privacidad
+                    </button>
+                    <button
+                      type="button"
+                      className="audit-legal__link"
+                      onClick={() => onOpenLegal('aviso')}
+                    >
+                      Aviso legal
+                    </button>
                   </p>
                   {/* No sky credit here, deliberately. The backdrop used to be
                       ESO's CC BY 4.0 panorama and this is where its mandatory

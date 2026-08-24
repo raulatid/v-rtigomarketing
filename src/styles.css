@@ -1138,6 +1138,43 @@ body {
   text-align: center;
 }
 
+/* The legal links at the panel's foot — the note's own muted register, so they
+   read as fine print and never compete with the CTA above them. They came off
+   the Earth floor line on 2026-08-24 (DECISIONS §30). */
+.audit-legal {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+
+.audit-legal__link {
+  background: none;
+  border: 0;
+  /* A 44px touch height without visual weight, the floor line's own trick. */
+  padding: 12px 2px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.audit-legal__link:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.audit-legal__link + .audit-legal__link::before {
+  content: '·';
+  margin-right: 0.4rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.audit-legal__link:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* The `.audit-credit` rules that stood here styled the sky panorama's
    attribution, which was a CC BY 4.0 licence obligation under ESO's policy.
    The backdrop is now a public domain image and the client requires the site
@@ -1629,7 +1666,12 @@ body {
    Earth-only chrome, all of it gated in App on the same expression as the
    audit trigger: phase 'site' and Earth showing (DECISIONS §26.16 — chrome is
    unmounted before the intro lands, never hidden). The contact data and the
-   legal texts live in src/content/site.ts, the single placeholder swap point. */
+   legal texts live in src/content/site.ts, the single placeholder swap point.
+
+   The floor line carries the brand mark ALONE since 2026-08-24: the phones
+   moved into the contact dialog and the legal links to the foot of the audit
+   panel (DECISIONS §30). The phone, legal and link element rules stood here
+   and went with the markup. */
 
 .site-footer {
   position: fixed;
@@ -1639,11 +1681,12 @@ body {
   bottom: max(14px, env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* One child now; flex-end keeps the mark where it has always sat. */
+  justify-content: flex-end;
   gap: 1rem;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.55);
-  /* The strip itself must never block the scene; only its links are live. */
+  /* The mark is a label, not a control: the strip never blocks the scene. */
   pointer-events: none;
   animation: site-footer-in 480ms ease 120ms backwards;
 }
@@ -1660,78 +1703,15 @@ body {
   }
 }
 
-.site-footer__phones {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.site-footer__phone-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.7;
-  flex: none;
-}
-
-.site-footer__phone {
-  pointer-events: auto;
-  color: inherit;
-  text-decoration: none;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  /* A quiet 44px touch height without visual weight (mobile audit rule). */
-  padding: 15px 0;
-  transition: color 0.2s ease;
-}
-
-.site-footer__phone:hover {
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.site-footer__legal {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.site-footer__link {
-  pointer-events: auto;
-  background: none;
-  border: 0;
-  padding: 15px 2px;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.site-footer__link:hover {
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.site-footer__link + .site-footer__link::before,
-.site-footer__copyright::before {
-  content: '·';
-  margin-right: 0.4rem;
-  color: rgba(255, 255, 255, 0.3);
-}
-
 .site-footer__copyright {
   letter-spacing: 0.04em;
 }
 
-.site-footer__phone:focus-visible,
-.site-footer__link:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* The audit CTA's quiet sibling: same radius family and typography, but a
-   ghost — white on transparent, because the blue family is strictly for the
-   primary CTA (the note at the audit section's head) — and deliberately a
-   size down (38px vs 46px), centred on the audit trigger's line: the audit is
-   the site's one ask, contact is the quieter door beside it. */
+/* The audit CTA's quiet sibling: bare TEXT, no box at all (2026-08-24). It
+   keeps the trigger's typography and sits on its line, but drops the border,
+   the fill and the radius — the audit is the site's one ask and only it wears
+   a button; contact is the quieter door beside it. Colour alone carries the
+   hover, so the 38px height stays purely as the touch target. */
 .contact-trigger {
   position: fixed;
   z-index: 70;
@@ -1739,13 +1719,15 @@ body {
   top: calc(var(--header-inset) - 23px + 4px);
   /* Beside the audit trigger, which owns right: var(--header-inset). Its
      rendered width is measured, not derived (see the verification
-     screenshots); re-measure if either label or the trigger's padding changes. */
-  right: calc(var(--header-inset) + 141px + 10px);
+     screenshots); re-measure if either label or the trigger's padding changes.
+     The 14px is the optical gap: with the box gone this element's right edge
+     is the text's right edge, so the old 10px + 16px of padding would read as
+     a 26px hole. */
+  right: calc(var(--header-inset) + 141px + 14px);
   height: 38px;
-  padding: 0 16px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: transparent;
+  padding: 0;
+  border: 0;
+  background: none;
   color: rgba(255, 255, 255, 0.85);
   font-family: inherit;
   font-size: 0.72rem;
@@ -1753,12 +1735,11 @@ body {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, opacity 0.3s ease;
+  transition: color 0.2s ease, opacity 0.3s ease;
   animation: audit-trigger-in 480ms ease 60ms backwards;
 }
 
 .contact-trigger:hover {
-  border-color: rgba(255, 255, 255, 0.55);
   color: #fff;
 }
 
@@ -1965,6 +1946,46 @@ body {
   outline-offset: 2px;
 }
 
+/* The phones, under the dialog's heading — the values the Earth floor line
+   used to carry, in the dialog's own muted register (DECISIONS §30). */
+.contact-phones {
+  display: flex;
+  align-items: center;
+  /* Cancels the links' touch padding in the form's flex flow, so the row takes
+     its text height and the form keeps its even 1.1rem rhythm. */
+  margin: -13px 0;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.contact-phone-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+  flex: none;
+}
+
+.contact-phone {
+  color: inherit;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  /* A 44px touch height without visual weight (mobile audit rule). */
+  padding: 13px 0;
+  transition: color 0.2s ease;
+}
+
+.contact-phone:hover {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.contact-phone:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .contact-note {
   margin: 0;
   font-size: 0.75rem;
@@ -2058,18 +2079,12 @@ body {
 }
 
 @media (max-width: 767px) {
-  .site-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0;
-  }
-
   .contact-trigger {
     /* The audit trigger is 44px at top 12px here; centre on it: +3px. */
     top: calc(max(12px, env(safe-area-inset-top)) + 3px);
     /* Mobile keeps the pre-token geometry it always had (the desktop value
        before --header-inset existed); the audit trigger sits at 12px. */
-    right: calc(18px + 141px + 10px);
+    right: calc(18px + 141px + 14px);
     height: 38px;
   }
 }

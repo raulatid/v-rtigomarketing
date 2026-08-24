@@ -53,7 +53,7 @@ afterEach(() => {
 function mount(submit: (data: AuditRequest) => Promise<void>) {
   root = createRoot(container)
   act(() => {
-    root.render(<AuditSection onOpenChange={() => {}} ready active submit={submit} />)
+    root.render(<AuditSection onOpenChange={() => {}} onOpenLegal={() => {}} ready active submit={submit} />)
   })
 }
 

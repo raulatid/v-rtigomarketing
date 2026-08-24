@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { submitContactRequest } from '../app/contactSubmission'
 import type { ContactRequest, SubmitContactRequest } from '../app/contactSubmission'
+import { SITE_PHONES } from '../content/site'
 import type { LegalDocId } from '../content/site'
 
 // The contact form: a Contacto trigger beside the audit CTA and a compact
@@ -202,6 +203,31 @@ export function ContactSection({
                 <h2 className="modal-title" id="contact-title" tabIndex={-1} ref={titleRef}>
                   Escríbenos para lo que necesites
                 </h2>
+
+                {/* The numbers used to sit on the Earth floor line; they live
+                    here now (DECISIONS §30), offered at the moment someone has
+                    decided to reach out — calling instead of writing is the
+                    alternative this dialog exists to present. Bare tel: links,
+                    never a disclosure inside a disclosure. */}
+                <div className="contact-phones">
+                  <svg
+                    className="contact-phone-icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 2.5h2.5l1.2 3-1.6 1.2a9.5 9.5 0 0 0 4.2 4.2l1.2-1.6 3 1.2v2.5a1 1 0 0 1-1 1A11.5 11.5 0 0 1 2 3.5a1 1 0 0 1 1-1z" />
+                  </svg>
+                  {SITE_PHONES.map((phone) => (
+                    <a key={phone.tel} className="contact-phone" href={`tel:${phone.tel}`}>
+                      {phone.display}
+                    </a>
+                  ))}
+                </div>
 
                 <div className="contact-field">
                   <label className="contact-label" htmlFor="contact-name">

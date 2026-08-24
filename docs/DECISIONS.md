@@ -1369,6 +1369,20 @@ ghost deliberately, because the blue family belongs to the primary CTA alone. Al
 gates on the audit trigger's own expression (`phase === 'site'` and Earth showing, §26.16)
 and joins the rail-suppression context in App.
 
+> **Revisited 2026-08-24 — the floor line carries the © alone.** The client moved each item
+> to where the question it answers arises: the phone numbers under the contact dialog's
+> heading, the two legal links at the foot of the audit panel (form branch only — the success
+> screen is a receipt, not a place to re-read terms). `SiteFooter` is now a single `<span>` and
+> takes no props; `AuditSection` gained the `onOpenLegal` prop `SiteFooter` gave up. This
+> reverses the "a number behind a disclosure costs calls" reasoning above, deliberately and on
+> request: both the numbers and the links now sit one click deep. The contact form's own
+> consent link stays where it was — it belongs to the form, not to the floor.
+>
+> **And the Contacto trigger lost its box.** No border, no fill, no radius, no padding: bare
+> text in the trigger's typography, beside the blue Auditoría button. The ghost-button rule
+> below (blue is the primary CTA's alone) still holds — this only takes it further. Its `right`
+> offset moved 10px → 14px, because with the padding gone the element's edge is the text's edge.
+
 **The brand data has one home, and it is not a collection.** `src/content/site.ts` —
 hand-written, like `lookup.ts` — holds the phones, the contact address, the © line and the
 legal texts, all PLACEHOLDER and marked so. The content pipeline is strictly
@@ -1399,7 +1413,8 @@ requirement coexist.
 
 Broken when: real contact data is edited anywhere but `site.ts`, a form reaches success in a
 production build, chrome appears before `site` or over Murcia, or a third-party credit
-passes the narrowed assertion.
+passes the narrowed assertion, or the
+phones and the legal links drift back onto the floor line.
 
 ## 31. The CMS is Sanity, and the client edits more than copy
 

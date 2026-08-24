@@ -347,11 +347,14 @@ export default function App() {
         onOpenChange={handleAuditOpenChange}
         ready={phase === 'site' && earthActive}
         active={earthActive}
+        onOpenLegal={setLegalDoc}
       />
 
-      {/* The quiet sibling of the audit CTA and the site's floor line. Both
-          gate on the same expression as the audit trigger — chrome exists only
-          once the intro has landed, and only over Earth (DECISIONS §26.16). */}
+      {/* The quiet sibling of the audit CTA and the site's floor line, which
+          now carries the brand mark alone: the phones moved into this dialog
+          and the legal links into the audit panel (DECISIONS §30). Both gate
+          on the same expression as the audit trigger — chrome exists only once
+          the intro has landed, and only over Earth (DECISIONS §26.16). */}
       <ContactSection
         ready={phase === 'site' && earthActive}
         active={earthActive}
@@ -360,7 +363,7 @@ export default function App() {
         onOpenLegal={setLegalDoc}
       />
 
-      {phase === 'site' && earthActive && <SiteFooter onOpenLegal={setLegalDoc} />}
+      {phase === 'site' && earthActive && <SiteFooter />}
 
       <LegalPanel doc={legalDoc} onClose={() => setLegalDoc(null)} />
 
