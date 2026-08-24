@@ -30,11 +30,18 @@ const link = defineType({
     defineField({
       name: 'href',
       type: 'url',
-      title: 'Destino',
+      title: 'Dirección',
+      description:
+        'La dirección completa, empezando por https://. Para un correo, escribe mailto: seguido de la dirección. ' +
+        'Ejemplo: https://www.aepd.es o mailto:hola@vertigomarketing.es',
       // Matches the ingest allowlist exactly. `javascript:` and `data:` are
       // rejected at build time regardless; refusing them here means the editor
       // finds out while typing rather than from a failed deployment.
-      validation: (rule) => rule.required().uri({ scheme: ['https', 'mailto'] }),
+      validation: (rule) =>
+        rule
+          .required()
+          .uri({ scheme: ['https', 'mailto'] })
+          .error('Pega la dirección completa, empezando por https:// (o mailto: para un correo).'),
     }),
   ],
 })
@@ -42,7 +49,7 @@ const link = defineType({
 /** Paragraphs, two heading levels, lists, bold, italic, links. Nothing else. */
 export const legalBody = defineType({
   name: 'legalBody',
-  title: 'Contenido legal',
+  title: 'Texto legal',
   type: 'array',
   of: [
     defineArrayMember({
@@ -59,13 +66,16 @@ export const legalBody = defineType({
       marks: { decorators, annotations: [link] },
     }),
   ],
-  validation: (rule) => rule.required().min(1).max(120),
+  validation: (rule) => [
+    rule.required().min(1).error('El documento no puede estar vacío.'),
+    rule.max(120).error('El documento es demasiado largo para mostrarse en un panel.'),
+  ],
 })
 
 /** As above, plus pull quotes, images, video and embeds. */
 export const blogBody = defineType({
   name: 'blogBody',
-  title: 'Contenido',
+  title: 'Texto',
   type: 'array',
   of: [
     defineArrayMember({
@@ -86,5 +96,8 @@ export const blogBody = defineType({
     defineArrayMember({ type: 'videoMedia' }),
     defineArrayMember({ type: 'embedMedia' }),
   ],
-  validation: (rule) => rule.required().min(1).max(400),
+  validation: (rule) => [
+    rule.required().min(1).error('La entrada no puede estar vacía.'),
+    rule.max(400).error('La entrada es demasiado larga.'),
+  ],
 })

@@ -115,8 +115,18 @@ export const caseStudiesCollection = collection<CaseStudy>({
       summary,
       details,
       metrics[]{ label, value },
-      chart{ type, title, values, labels }
+      chart{
+        type,
+        title,
+        "values": points[].value,
+        "labels": select(type in ["bars", "donut"] => points[].label)
+      }
     }`,
+    // The chart is ONE list of points in the Studio — an editor keeping two
+    // parallel lists aligned by hand was the mistake worth designing out — and
+    // is split back into `values` + `labels` here. `select()` yields null for
+    // line and area charts, which the mapper already treats as "no labels", so
+    // the emitted module is byte-identical to what the fixtures produce.
   },
 
   map(raw, index) {

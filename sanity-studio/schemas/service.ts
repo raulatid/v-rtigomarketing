@@ -1,4 +1,6 @@
+import { WrenchIcon } from '@sanity/icons/Wrench'
 import { defineField, defineType } from 'sanity'
+import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 
 /**
  * One thing the agency does.
@@ -8,26 +10,27 @@ import { defineField, defineType } from 'sanity'
  * that will not resolve — deleted, or never published — fails the build naming
  * the district and the position, rather than leaving a section missing from a
  * panel where it would read as an editorial choice.
+ *
+ * The identifier becomes the accordion's `aria-controls` value, which is why
+ * ID_PATTERN is narrower than a free slug. That reasoning lives here, not in the
+ * description an editor reads.
  */
 export const service = defineType({
   name: 'service',
   title: 'Servicio',
+  icon: WrenchIcon,
   type: 'document',
+  fieldsets: [TECH_FIELDSET],
   fields: [
     defineField({
-      name: 'slug',
-      title: 'Identificador',
-      type: 'slug',
-      description:
-        'Se convierte en el aria-controls del acordeón. Solo minúsculas, números y guiones: un espacio rompe el panel para lectores de pantalla y para nadie más.',
-      options: { source: 'title', maxLength: 64 },
-      validation: (rule) => rule.required(),
-    }),
-    defineField({
       name: 'title',
-      title: 'Título',
+      title: 'Nombre del servicio',
+      description: 'Corto, como un título. Ejemplo: SEO, Analítica web, Identidad de marca.',
       type: 'string',
-      validation: (rule) => rule.required().max(60),
+      validation: (rule) => [
+        rule.required().error('Escribe el nombre del servicio.'),
+        rule.max(60).error('Demasiado largo: como máximo 60 caracteres.'),
+      ],
     }),
     defineField({
       name: 'body',
@@ -35,8 +38,27 @@ export const service = defineType({
       description: 'Uno o dos párrafos. Se muestra al abrir la sección.',
       type: 'text',
       rows: 6,
-      validation: (rule) => rule.required().max(900),
+      validation: (rule) => [
+        rule.required().error('Escribe una descripción.'),
+        rule.max(900).error('Demasiado largo: como máximo 900 caracteres (uno o dos párrafos).'),
+      ],
+    }),
+    defineField({
+      name: 'slug',
+      title: 'Identificador',
+      description: LOCKED_ID_DESCRIPTION,
+      type: 'slug',
+      fieldset: 'tecnico',
+      options: { source: 'title', maxLength: 64 },
+      readOnly: lockedOnceSet,
+      validation: (rule) => rule.required().error('Pulsa "Generar" para crear el identificador.'),
     }),
   ],
-  preview: { select: { title: 'title', subtitle: 'slug.current' } },
+  preview: {
+    select: { title: 'title', body: 'body' },
+    prepare: ({ title, body }) => ({
+      title,
+      subtitle: typeof body === 'string' ? body.slice(0, 60) + (body.length > 60 ? '…' : '') : '',
+    }),
+  },
 })

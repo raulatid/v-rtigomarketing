@@ -66,6 +66,8 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 | `chart.values[]` | number[] | 1–16 finite numbers | fail |
 | `chart.labels[]` | string[] | **required for `bars` and `donut`**, one per value, each ≤ 24 | fail |
 
+**In the Studio the chart is entered as ONE list of points**, each `{ value, label }`, so an editor never keeps two lists aligned by hand; the projection splits them back into `values` and `labels` (`"labels": select(type in ["bars","donut"] => points[].label)`, which yields `null` for line and area charts — treated as "no labels"). The two rows above describe what the build receives, not what the editor types.
+
 **No orbit field, and there will not be one.** Which case study occupies which orbit is scene composition and lives in `src/experiences/earth/orbit/orbitAssignments.ts`. Publishing a case study does not create an orbit — the Earth has a finite, art-directed set of slots. An assignment naming a case the CMS no longer publishes fails the build.
 
 **The slug is a reference, not a label.** `orbitAssignments.ts` names it. Changing a published slug breaks that binding and fails the build; that is the intended behaviour, not a bug to work around.

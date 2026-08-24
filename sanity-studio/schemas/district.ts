@@ -1,4 +1,6 @@
+import { PinIcon } from '@sanity/icons/Pin'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 
 /**
  * A district — the copy behind one interactive area of the city.
@@ -6,56 +8,90 @@ import { defineArrayMember, defineField, defineType } from 'sanity'
  * ── What is NOT here ──
  * No Blender node names, no camera yaw, no world rectangles. Those live in
  * `src/experiences/murcia/scene/cityDistrictBindings.ts` and change when the GLB
- * is re-exported, not when marketing writes. Mixing them would put a marketing
- * edit one typo away from breaking asset resolution.
+ * is re-exported, not when marketing writes.
  *
- * The identifier must match a `contentId` in that file, so it is not a free
- * choice: a district whose id nothing binds is unreachable in the scene.
+ * ── Why an editor cannot create one ──
+ * The identifier must match a `contentId` in that file: a district whose id
+ * nothing binds is unreachable in the scene. So there is exactly one, it is
+ * welded to the 3D city, and `sanity.config.ts` removes "create", "duplicate"
+ * and "delete" for this type. The editor edits its text and nothing else.
  */
 export const district = defineType({
   name: 'district',
   title: 'Distrito',
+  icon: PinIcon,
   type: 'document',
+  fieldsets: [
+    {
+      name: 'distrito',
+      title: 'Distrito',
+      description: 'La zona de la ciudad y el texto que se abre al hacer clic en ella.',
+    },
+    {
+      name: 'servicios',
+      title: 'Servicios',
+      description: 'Los servicios que se despliegan dentro del panel, en este orden.',
+    },
+    TECH_FIELDSET,
+  ],
   fields: [
-    defineField({
-      name: 'slug',
-      title: 'Identificador',
-      type: 'slug',
-      description:
-        'Debe coincidir con un contentId de cityDistrictBindings.ts. Cambiarlo deja el distrito sin escena.',
-      options: { source: 'label', maxLength: 64 },
-      validation: (rule) => rule.required(),
-    }),
     defineField({
       name: 'label',
       title: 'Nombre',
+      description: 'El nombre de la zona, tal y como aparece sobre la ciudad. Ejemplo: Servicios.',
       type: 'string',
-      validation: (rule) => rule.required().max(40),
+      fieldset: 'distrito',
+      validation: (rule) => [
+        rule.required().error('Escribe el nombre del distrito.'),
+        rule.max(40).error('Demasiado largo: como máximo 40 caracteres.'),
+      ],
     }),
     defineField({
       name: 'summary',
       title: 'Resumen',
-      description:
-        'Una sola frase, 140 caracteres como máximo: es lo que se ve en móvil cuando el panel ocupa el 40% de la pantalla. Se rechaza en lugar de recortarse.',
+      description: 'Una sola frase, hasta 140 caracteres. Es lo primero que se lee en el móvil.',
       type: 'text',
       rows: 2,
-      validation: (rule) => rule.required().max(140),
+      fieldset: 'distrito',
+      validation: (rule) => [
+        rule.required().error('Escribe una frase de resumen.'),
+        rule.max(140).error('Demasiado largo: en el móvil solo caben 140 caracteres.'),
+      ],
     }),
     defineField({
       name: 'intro',
       title: 'Introducción',
+      description: 'El párrafo con el que se abre el panel, antes de la lista de servicios.',
       type: 'text',
       rows: 5,
-      validation: (rule) => rule.required().max(600),
+      fieldset: 'distrito',
+      validation: (rule) => [
+        rule.required().error('Escribe la introducción.'),
+        rule.max(600).error('Demasiado largo: como máximo 600 caracteres.'),
+      ],
     }),
     defineField({
       name: 'services',
       title: 'Servicios',
-      description:
-        'Al menos uno: el panel abre la primera sección, y sin servicios no abre nada y parece roto.',
+      description: 'Elige los servicios de la lista. Puedes arrastrarlos para cambiar el orden.',
       type: 'array',
+      fieldset: 'servicios',
       of: [defineArrayMember({ type: 'reference', to: [{ type: 'service' }] })],
-      validation: (rule) => rule.required().min(1).max(12).unique(),
+      validation: (rule) => [
+        rule.required().min(1).error('Añade al menos un servicio.'),
+        rule.max(12).error('Como máximo 12 servicios.'),
+        rule.unique().error('Ese servicio ya está en la lista.'),
+      ],
+    }),
+    defineField({
+      name: 'slug',
+      title: 'Identificador',
+      description: LOCKED_ID_DESCRIPTION,
+      type: 'slug',
+      fieldset: 'tecnico',
+      options: { source: 'label', maxLength: 64 },
+      readOnly: lockedOnceSet,
+      validation: (rule) => rule.required(),
     }),
   ],
   preview: { select: { title: 'label', subtitle: 'summary' } },

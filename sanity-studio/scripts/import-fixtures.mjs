@@ -79,6 +79,25 @@ function portableText(blocks, prefix) {
   })
 }
 
+/**
+ * The fixture keeps the website's chart model — `values[]` plus optional
+ * `labels[]` — while the Studio stores ONE list of `{label, value}` points, so
+ * an editor never keeps two lists aligned by hand. The GROQ projection splits
+ * them back; this is the inverse, for seeding.
+ */
+function chartPoints(chart) {
+  const { values = [], labels, ...rest } = chart
+  return {
+    ...rest,
+    points: values.map((value, i) => ({
+      _key: 'p-' + i,
+      _type: 'point',
+      value,
+      ...(Array.isArray(labels) && labels[i] !== undefined ? { label: labels[i] } : {}),
+    })),
+  }
+}
+
 const docs = []
 
 for (const record of read('caseStudy')) {
@@ -95,7 +114,7 @@ for (const record of read('caseStudy')) {
     summary: record.summary,
     details: record.details,
     metrics: keyed(record.metrics, 'metric'),
-    chart: record.chart,
+    chart: chartPoints(record.chart),
     // `logo` is omitted on purpose: every fixture logo is null, and an image
     // field needs a real uploaded asset reference rather than a path.
   })

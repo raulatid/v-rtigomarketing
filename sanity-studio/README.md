@@ -2,6 +2,12 @@
 
 The editorial interface for the marketing site. Its own package on purpose: nothing in here may enter the application's dependency graph, and `npm run check` in the repo root never sees it.
 
+**For the person who will edit content, not code:** read `GUIA-EDITOR.md` (Spanish) instead of this file.
+
+## Written for an editor, on purpose
+
+The Studio UI is fully in Spanish (`@sanity/locale-es-es`), and every field description says *what to type* with an example — never which source file cares or what the build does. Identifiers that the website's code depends on (case-study, district and legal-document slugs) are generated once and then read-only for editors; only administrators can change them, because only they can change the code on the other side. Districts and the singletons cannot be created, duplicated or deleted from the Studio at all. The developer rationale for every rule lives in the JSDoc of the schema files, where an editor never sees it.
+
 ## What the schemas are for
 
 Each document type here is written against the GROQ projection its collection declares in `content/collections/*.collection.ts`. **Those projections are the contract**, not these schemas — the build validates what arrives and fails if it is wrong, so a schema change that the projection does not expect breaks the build rather than shipping quietly. Change them together.

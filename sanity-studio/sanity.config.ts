@@ -1,3 +1,11 @@
+import { CogIcon } from '@sanity/icons/Cog'
+import { ComposeIcon } from '@sanity/icons/Compose'
+import { DocumentTextIcon } from '@sanity/icons/DocumentText'
+import { DocumentsIcon } from '@sanity/icons/Documents'
+import { EarthGlobeIcon } from '@sanity/icons/EarthGlobe'
+import { PinIcon } from '@sanity/icons/Pin'
+import { WrenchIcon } from '@sanity/icons/Wrench'
+import { esESLocale } from '@sanity/locale-es-es'
 import { defineConfig } from 'sanity'
 import { structureTool, type StructureBuilder } from 'sanity/structure'
 import { schemaTypes } from './schemas'
@@ -15,12 +23,20 @@ import { schemaTypes } from './schemas'
  * document that this structure never showed anybody.
  */
 const SINGLETONS = [
-  { id: 'siteSettings', type: 'siteSettings', title: 'Ajustes del sitio' },
-  { id: 'legal-terms', type: 'legalDoc', title: 'Términos y privacidad' },
-  { id: 'legal-notice', type: 'legalDoc', title: 'Aviso legal' },
+  { id: 'siteSettings', type: 'siteSettings', title: 'Ajustes del sitio', icon: CogIcon },
+  { id: 'legal-terms', type: 'legalDoc', title: 'Términos y privacidad', icon: DocumentTextIcon },
+  { id: 'legal-notice', type: 'legalDoc', title: 'Aviso legal', icon: DocumentsIcon },
 ]
 
-const SINGLETON_TYPES = new Set(SINGLETONS.map((entry) => entry.type))
+/**
+ * Types an editor may edit but never create, duplicate or delete.
+ *
+ * The singletons, for the reason above. And `district`: its identifier must
+ * match a binding in `cityDistrictBindings.ts`, so a district created here would
+ * never appear in the 3D city — there is exactly one, and it is welded to the
+ * scene. Its TEXT is fully editorial; its existence is not.
+ */
+const LOCKED_TYPES = new Set([...SINGLETONS.map((entry) => entry.type), 'district'])
 
 /**
  * Reads a required Studio variable, or explains how to set it.
@@ -64,35 +80,54 @@ export default defineConfig({
 
   plugins: [
     structureTool({
+      // Ordered the way an editor meets the site, not alphabetically. Districts
+      // above services because a service is only ever reached through a
+      // district. The blog sits apart and says in its title that it is not yet
+      // on the website — a section that accepts posts and shows them nowhere
+      // would otherwise cost someone an afternoon.
       structure: (S: StructureBuilder) =>
         S.list()
-          .title('Contenido')
+          .title('Contenido de la web')
           .items([
-            S.documentTypeListItem('caseStudy').title('Casos de éxito'),
-            S.documentTypeListItem('service').title('Servicios'),
-            S.documentTypeListItem('district').title('Distritos'),
-            S.documentTypeListItem('blogPost').title('Blog'),
+            S.documentTypeListItem('caseStudy').title('Casos de éxito').icon(EarthGlobeIcon),
+            S.documentTypeListItem('district').title('Distritos').icon(PinIcon),
+            S.documentTypeListItem('service').title('Servicios').icon(WrenchIcon),
+            S.divider(),
+            S.listItem()
+              .title('Blog · aún no visible en la web')
+              .id('blog')
+              .icon(ComposeIcon)
+              .child(
+                S.documentTypeList('blogPost')
+                  .title('Entradas del blog')
+                  .defaultOrdering([{ field: 'publishedAt', direction: 'desc' }]),
+              ),
             S.divider(),
             ...SINGLETONS.map((entry) =>
               S.listItem()
                 .title(entry.title)
                 .id(entry.id)
+                .icon(entry.icon)
                 .child(S.document().schemaType(entry.type).documentId(entry.id).title(entry.title)),
             ),
           ]),
     }),
+    // The whole Studio chrome — Publicar, Descartar cambios, Añadir elemento,
+    // every built-in validation message — in Spanish. Our own field titles and
+    // descriptions were always Spanish; this is the shell around them.
+    esESLocale(),
   ],
 
   schema: {
     types: schemaTypes,
-    // Keeps a singleton out of the global "create new" menu. The build is what
-    // actually enforces the count; this only stops the accident.
-    templates: (prev) => prev.filter((template) => !SINGLETON_TYPES.has(template.schemaType)),
+    // Keeps a locked type out of the global "create new" menu. The build is what
+    // actually enforces the counts; this only stops the accident.
+    templates: (prev) => prev.filter((template) => !LOCKED_TYPES.has(template.schemaType)),
   },
 
   document: {
     actions: (prev, context) =>
-      SINGLETON_TYPES.has(context.schemaType)
+      LOCKED_TYPES.has(context.schemaType)
         ? prev.filter((action) => action.action !== 'duplicate' && action.action !== 'delete')
         : prev,
   },

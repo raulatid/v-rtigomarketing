@@ -1,4 +1,6 @@
+import { ComposeIcon } from '@sanity/icons/Compose'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 
 /**
  * A blog post.
@@ -9,59 +11,106 @@ import { defineArrayMember, defineField, defineType } from 'sanity'
  * route-level lazy loading. The schema exists now so that the format does not
  * have to be invented later against live editorial copy.
  *
- * Video and embeds are boundaries rather than features: no player, no
- * transcoding, only the shape, so an editor who needs them later does not force
- * a content migration to get them.
+ * The editor is told this in the first fieldset's description, in plain words,
+ * because a section that accepts posts and shows them nowhere is the kind of
+ * thing that costs someone an afternoon.
  */
 export const blogPost = defineType({
   name: 'blogPost',
   title: 'Entrada del blog',
+  icon: ComposeIcon,
   type: 'document',
+  fieldsets: [
+    {
+      name: 'contenido',
+      title: 'Contenido',
+      description:
+        'Aviso: el blog todavía no se muestra en la web. Lo que escribas aquí se guarda y ' +
+        'aparecerá cuando la sección del blog esté lista.',
+    },
+    { name: 'publicacion', title: 'Publicación' },
+    TECH_FIELDSET,
+  ],
   fields: [
-    defineField({
-      name: 'slug',
-      title: 'Identificador',
-      type: 'slug',
-      options: { source: 'title', maxLength: 64 },
-      validation: (rule) => rule.required(),
-    }),
     defineField({
       name: 'title',
       title: 'Título',
       type: 'string',
-      validation: (rule) => rule.required().max(120),
+      fieldset: 'contenido',
+      validation: (rule) => [
+        rule.required().error('Escribe el título de la entrada.'),
+        rule.max(120).error('Demasiado largo: como máximo 120 caracteres.'),
+      ],
     }),
     defineField({
       name: 'excerpt',
-      title: 'Extracto',
-      description: 'Texto plano. Es la tarjeta y la meta descripción, no el primer párrafo.',
+      title: 'Entradilla',
+      description:
+        'Dos o tres frases que resumen la entrada. Es lo que se ve en el listado, antes de abrirla.',
       type: 'text',
       rows: 3,
-      validation: (rule) => rule.required().max(300),
+      fieldset: 'contenido',
+      validation: (rule) => [
+        rule.required().error('Escribe una entradilla.'),
+        rule.max(300).error('Demasiado largo: como máximo 300 caracteres.'),
+      ],
+    }),
+    defineField({
+      name: 'cover',
+      title: 'Imagen de portada',
+      description: 'Opcional. La imagen grande que encabeza la entrada.',
+      type: 'imageMedia',
+      fieldset: 'contenido',
+    }),
+    defineField({
+      name: 'body',
+      title: 'Texto',
+      description:
+        'El cuerpo de la entrada. Puedes añadir títulos, listas, citas, enlaces, imágenes y vídeos de YouTube o Vimeo.',
+      type: 'blogBody',
+      fieldset: 'contenido',
     }),
     defineField({
       name: 'publishedAt',
       title: 'Fecha de publicación',
-      description: 'Ordena el listado, de más reciente a más antigua.',
+      description: 'Las entradas se ordenan por esta fecha, de la más reciente a la más antigua.',
       type: 'datetime',
-      validation: (rule) => rule.required(),
+      fieldset: 'publicacion',
+      initialValue: () => new Date().toISOString(),
+      validation: (rule) => rule.required().error('Elige una fecha de publicación.'),
     }),
-    defineField({ name: 'cover', title: 'Portada', type: 'imageMedia' }),
     defineField({
       name: 'tags',
-      title: 'Etiquetas',
-      description: 'Minúsculas, números y guiones: cada etiqueta acabará siendo un segmento de URL.',
+      title: 'Temas',
+      description:
+        'Palabras clave para agrupar entradas. En minúsculas y sin espacios: usa guiones. Ejemplo: seo, redes-sociales',
       type: 'array',
+      fieldset: 'publicacion',
       of: [
         defineArrayMember({
           type: 'string',
-          validation: (rule) => rule.regex(/^[a-z0-9][a-z0-9-]{0,63}$/, { name: 'etiqueta' }),
+          validation: (rule) =>
+            rule
+              .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
+              .error('Solo minúsculas, números y guiones, sin espacios. Ejemplo: redes-sociales'),
         }),
       ],
       options: { layout: 'tags' },
-      validation: (rule) => rule.max(8).unique(),
+      validation: (rule) => [
+        rule.max(8).error('Como máximo 8 temas.'),
+        rule.unique().error('Ese tema ya está en la lista.'),
+      ],
     }),
-    defineField({ name: 'body', title: 'Contenido', type: 'blogBody' }),
+    defineField({
+      name: 'slug',
+      title: 'Identificador',
+      description: LOCKED_ID_DESCRIPTION,
+      type: 'slug',
+      fieldset: 'tecnico',
+      options: { source: 'title', maxLength: 64 },
+      readOnly: lockedOnceSet,
+      validation: (rule) => rule.required().error('Pulsa "Generar" para crear el identificador.'),
+    }),
   ],
   orderings: [
     {
@@ -70,5 +119,19 @@ export const blogPost = defineType({
       by: [{ field: 'publishedAt', direction: 'desc' }],
     },
   ],
-  preview: { select: { title: 'title', subtitle: 'publishedAt', media: 'cover' } },
+  preview: {
+    select: { title: 'title', publishedAt: 'publishedAt', media: 'cover' },
+    prepare: ({ title, publishedAt, media }) => ({
+      title,
+      media,
+      subtitle:
+        typeof publishedAt === 'string'
+          ? new Date(publishedAt).toLocaleDateString('es-ES', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })
+          : 'Sin fecha',
+    }),
+  },
 })
