@@ -20,4 +20,11 @@ export default defineCliConfig({
     projectId: process.env.SANITY_STUDIO_PROJECT_ID,
     dataset: process.env.SANITY_STUDIO_DATASET,
   },
+  // The hosted Studio this repository deploys to (`npm run deploy`). Printed by
+  // the CLI after the first deploy so later ones do not prompt for it. A public
+  // identifier — it names the app, it does not grant access — so it lives in
+  // source rather than in .env.
+  deployment: {
+    appId: 'jzjqwjibbxtjbjv0uvrp3ny6',
+  },
 })
