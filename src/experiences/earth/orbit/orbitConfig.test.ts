@@ -65,3 +65,41 @@ describe('orbitRevealDuration', () => {
     expect(orbitRevealDuration(9) - orbitRevealDuration(8)).toBeCloseTo(introStagger, 9)
   })
 })
+
+describe('the brand panel', () => {
+  it('rests square and unfolds to exactly 2:1', () => {
+    // The atlas cells are 1:1 and 2:1. The shader contain-fits, so a mismatch
+    // would not throw — it would letterbox artwork that should fill the panel,
+    // which is the kind of wrong nobody files a bug about.
+    const panel = ORBIT_CONFIG.panel
+    expect(panel.collapsedWidth / panel.height).toBe(1)
+    expect(panel.expandedWidth / panel.height).toBe(2)
+  })
+
+  it('derives both widths from the height, so retuning cannot break the ratio', () => {
+    // The guard on the tuning note in orbitConfig.ts: raise `height` and both
+    // states move together. Someone widening `collapsedWidth` on its own to make
+    // the resting panel read larger would break the 1:1 the isotype needs.
+    const panel = ORBIT_CONFIG.panel
+    expect(panel.collapsedWidth).toBe(panel.height)
+    expect(panel.expandedWidth).toBe(panel.height * 2)
+  })
+
+  it('unfolds fast enough to keep pace with the camera move', () => {
+    // Longer than the close-up flight and the panel is still opening after the
+    // case panel has settled, which reads as lag rather than as one gesture.
+    expect(ORBIT_CONFIG.panel.expandDuration).toBeGreaterThan(0)
+    expect(ORBIT_CONFIG.panel.expandDuration).toBeLessThan(1)
+  })
+
+  it('keeps the panel clear of the satellite model it floats above', () => {
+    // offsetY is derived from modelSize: the model's top sits near modelSize/2,
+    // and the panel's lower edge at offsetY - height/2. Raising `height` for
+    // legibility pushes that edge down into the model, which is the one thing
+    // the tuning note asks to re-check.
+    const { panel, satellite } = ORBIT_CONFIG
+    const panelBottom = panel.offsetY - panel.height / 2
+    const modelTop = satellite.modelSize / 2
+    expect(panelBottom).toBeGreaterThan(modelTop * 0.8)
+  })
+})

@@ -12,7 +12,7 @@ Separate from `sanity-field-contract.md` on purpose. A field contract answers "w
 
 | | Owner | Served from | Why |
 |---|---|---|---|
-| Brand logos | CMS | **the deployment** (`/logos/…`) | Drawn into the shared WebGL brand atlas. A cross-origin draw can taint the canvas every case-study panel uses, and the site must not need Sanity's CDN to be up in order to look finished. |
+| Brand marks (isotype + logo) | CMS | **the deployment** (`/logos/…`) | Drawn into the shared WebGL brand atlas. A cross-origin draw can taint the canvas every case-study panel uses, and the site must not need Sanity's CDN to be up in order to look finished. |
 | Blog and editorial imagery | CMS | `cdn.sanity.io` | No renderer exists yet, the library grows without bound, and copying every image into every deployment buys nothing until something displays them. |
 | GLB, KTX2, terrain, sky, shaders, fixed graphics | **the application** | the deployment | Not editorial. These change when the scene is re-exported, not when marketing writes. They are versioned with the code and are explicitly outside CMS scope. |
 
@@ -62,19 +62,24 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 | Not empty | `mirror.ts` | fail |
 | At most 4 MB | `mirror.ts` | fail |
 | The emitted reference is a local path, and not protocol-relative | `LOCAL_MEDIA_PATH` | fail |
-| Absent (`null`, missing, `""`) | — | **allowed** |
+| Absent (`null`, missing, `""`) | — | **allowed**, but only for both marks together |
+| `isotype` and `logo` are both present, or both absent | `caseStudies.collection.ts` mapper, and `caseStudyProblems` | fail |
 
 **Accepted formats: PNG and WebP.** Raster, with transparency where the mark needs it. JPEG is accepted by the pipeline but is the wrong choice for a logo on a dark backdrop — it has no alpha channel, so it ships a rectangle.
 
 **SVG is prohibited, deliberately and not permanently.** An SVG in a media library is served at its own URL, which makes it stored XSS for anyone who opens it directly, and sanitizing uploaded SVG properly is a real piece of work rather than a regex. If vector logos become a requirement, enabling them should be a reviewed change to `remoteMediaUrl` plus a sanitizer — not an upload nobody noticed. Raster now; SVG later, on purpose.
 
-**A missing logo is a designed state, not a failure.** `createBrandAtlas` draws a mark disc and a wordmark for every case study before any image loads, and upgrades the cell in place if one arrives. A case study with no logo looks intentional. This is the one media rule that degrades instead of failing.
+**A case study carries TWO brand marks, and they are one decision.** `isotype` is the symbol alone, shown on the satellite's panel at rest; `logo` is the full horizontal lockup, revealed when the panel unfolds under selection. Both are mirrored (`mirror: ['logo', 'isotype']`).
+
+**Half a pair is a failure.** A case study with an isotype and no logo — or the reverse — would morph from a real trademark into a generated placeholder mid-animation. The two fields sit apart in the Studio, so an editor filling one and not the other sees nothing wrong and the site looks plausible while being wrong on exactly one satellite. That is the failure mode a build-time pipeline exists to catch, so the mapper rejects the record and names the case. The Studio also flags it at the empty field, but that is a convenience, not the enforcement.
+
+**Missing BOTH marks is a designed state, not a failure.** `createBrandAtlas` draws a mark disc for every isotype cell and a mark-plus-wordmark for every logo cell before any image loads, and upgrades each cell in place if an image arrives. A case study with no artwork looks intentional. This is the one media rule that degrades instead of failing.
 
 **A logo that is declared but cannot be fetched IS a failure.** Once a case study names an asset, the content and the media library disagreeing is not an editorial state — it is a broken reference, and shipping a silently logo-less panel is the quiet kind of wrong this pipeline exists to prevent. The build exits non-zero and the previous deployment stays live.
 
-**No `alt` on logos.** The logo is drawn into a canvas texture, never into the DOM; the accessible name of a case study comes from `CaseStudy.name`, rendered as text by `CasePanel`. An `alt` field here would be metadata with no reader.
+**No `alt` on brand marks.** They are drawn into a canvas texture, never into the DOM; the accessible name of a case study comes from `CaseStudy.name`, rendered as text by `CasePanel`. An `alt` field here would be metadata with no reader.
 
-**Recommended source size: 1024×512 or smaller, under 200 KB.** The atlas cell is 1024×512 with its own padding, so anything larger is downscaled at load and costs bytes for nothing. The 4 MB cap is a guard against a mistake, not a target.
+**Recommended source size: 1024×512 for the logo, 512×512 for the isotype, each under 200 KB.** The atlas cells are exactly those sizes and own their padding, so anything larger is downscaled at load and costs bytes for nothing. The 4 MB cap is a guard against a mistake, not a target.
 
 ---
 

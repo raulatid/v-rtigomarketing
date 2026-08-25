@@ -71,30 +71,72 @@ describe('case study mapping rejects', () => {
     }
   })
 
-  it('a remote logo URL, by degrading it to null rather than failing', () => {
+  it('a remote brand-mark URL, by degrading it to null rather than failing', () => {
     // content/lib/mirror.ts rewrites a CMS upload to a local path BEFORE the
     // mapper sees it, and only the Sanity source is wrapped. A remote URL
     // reaching here therefore means a source that does not mirror — a fixture
     // someone hand-edited — and that must cost the panel its artwork (the drawn
     // plate stays), never the deployment. A remote URL from Sanity that cannot
     // be fetched never gets this far: the mirror fails the build first.
+    //
+    // BOTH are degraded together, which is what keeps the pairing rule below
+    // satisfied: one surviving alone would fail the record instead.
     const record = validCase()
-    record.logo = 'https://cdn.sanity.io/images/p1/production/abc-512x512.png'
+    record.logo = 'https://cdn.sanity.io/images/p1/production/abc-1024x512.png'
+    record.isotype = 'https://cdn.sanity.io/images/p1/production/def-512x512.png'
     const result = caseStudiesCollection.map(record, 0)
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect((result.value as unknown as CaseStudy).logo).toBeNull()
+      expect((result.value as unknown as CaseStudy).isotype).toBeNull()
     }
   })
 
-  it('nothing about a logo that is already a local path', () => {
+  it('nothing about brand marks that are already local paths', () => {
     const record = validCase()
     record.logo = '/logos/mango.png'
+    record.isotype = '/logos/mango-isotype.png'
     const result = caseStudiesCollection.map(record, 0)
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect((result.value as unknown as CaseStudy).logo).toBe('/logos/mango.png')
+      expect((result.value as unknown as CaseStudy).isotype).toBe('/logos/mango-isotype.png')
     }
+  })
+
+  // The panel rests on the isotype and unfolds into the logo, so half the pair
+  // would morph from a real trademark into a drawn placeholder mid-animation.
+  // The two fields sit apart in the Studio and an editor filling one sees
+  // nothing wrong — which is exactly why this fails the build rather than
+  // degrading quietly.
+  it('a logo with no isotype, by failing the record', () => {
+    const record = validCase()
+    record.logo = '/logos/mango.png'
+    const result = caseStudiesCollection.map(record, 0)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.problems.map((p) => p.message).join(' ')).toMatch(/isotype/)
+    }
+  })
+
+  it('an isotype with no logo, by failing the record', () => {
+    const record = validCase()
+    record.isotype = '/logos/mango-isotype.png'
+    const result = caseStudiesCollection.map(record, 0)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.problems.map((p) => p.message).join(' ')).toMatch(/logo/)
+    }
+  })
+
+  // A remote logo degrades to null; a LOCAL isotype survives. The pair is then
+  // half-filled through no fault of the editor, and the record must still fail
+  // rather than ship a satellite that unfolds into a placeholder.
+  it('a pair split by one half degrading, by failing the record', () => {
+    const record = validCase()
+    record.logo = 'https://cdn.sanity.io/images/p1/production/abc-1024x512.png'
+    record.isotype = '/logos/mango-isotype.png'
+    expect(caseStudiesCollection.map(record, 0).ok).toBe(false)
   })
 
   it('a summary longer than the panel is designed for', () => {
@@ -497,7 +539,16 @@ describe('the case-study projection hands the mirror what it expects', () => {
     expect(caseStudiesCollection.source.projection).not.toMatch(/^\s*logo,\s*$/m)
   })
 
-  it('declares the logo as the field to mirror', () => {
-    expect(caseStudiesCollection.source.mirror).toEqual(['logo'])
+  it('resolves the isotype asset to a url', () => {
+    expect(caseStudiesCollection.source.projection).toContain('"isotype": isotype.asset->url')
+    expect(caseStudiesCollection.source.projection).not.toMatch(/^\s*isotype,\s*$/m)
+  })
+
+  it('declares both brand marks as fields to mirror', () => {
+    // Order is not meaningful to the mirror, which loops the array, but both
+    // must be there: an unmirrored field stays a cdn.sanity.io URL, which the
+    // mapper then degrades to null — artwork silently vanishing rather than
+    // failing.
+    expect([...caseStudiesCollection.source.mirror!].sort()).toEqual(['isotype', 'logo'])
   })
 })

@@ -23,10 +23,11 @@ interface Options {
   // Needed by KTX2Loader.detectSupport to pick the GPU's compressed format.
   // Without it the model still loads, just untextured.
   renderer?: THREE.WebGLRenderer
-  // Brand plate for the holographic panel. Omitted, the satellite renders
-  // without one.
+  // Brand plates for the holographic panel — the isotype it rests on and the
+  // logo it unfolds into. Omitted, the satellite renders without a panel.
   panel?: {
-    atlas: BrandAtlas
+    isotypeAtlas: BrandAtlas
+    logoAtlas: BrandAtlas
     index: number
     brandColor: string
   }
@@ -246,6 +247,23 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     content.scale.setScalar(on ? ORBIT_CONFIG.satellite.highlightScale : 1)
   }
 
+  /**
+   * Unfolds the brand panel from isotype to full logo, or folds it back.
+   *
+   * Deliberately NOT part of `setHighlight`, which is unioned over hover and
+   * selection. Six satellites drift past the cursor during the overview; if
+   * hover unfolded them the panels would flap open and shut continuously. Only
+   * selection — the click that opens the case panel — earns the lockup.
+   */
+  function setExpanded(on: boolean) {
+    holoPanel?.setExpanded(on)
+  }
+
+  /** Collapses the panel with no animation. For scene resets; see the panel. */
+  function resetExpansion() {
+    holoPanel?.resetExpansion()
+  }
+
   // Continuous self-rotation; called every visible frame, frozen or not.
   function update(delta: number) {
     spinner.rotation.y += spinSpeed * delta
@@ -265,7 +283,7 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     for (const target of fadeTargets) target.material.dispose()
   }
 
-  return { group, setOpacity, setHighlight, update, dispose }
+  return { group, setOpacity, setHighlight, setExpanded, resetExpansion, update, dispose }
 }
 
 export type Satellite = ReturnType<typeof createSatellite>

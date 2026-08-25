@@ -47,15 +47,7 @@ export function createOrbitSystem({ renderer }: Options) {
   // The satellite GLB uses lit materials, and nothing else in the scene is
   // light-responsive (Earth is a shader, lines/sprites are unlit) — so these
   // lights affect only the satellite models.
-  // One atlas for all six brand panels — built here rather than per satellite so
-  // the six plates share a single texture bind. Uploaded eagerly when a renderer
-  // is available, for the same reason the satellite bake is: the first upload of
-  // a 2048×1536 texture must not land on the frame the satellites reveal.
-  //
-  // `logo` is what makes real client artwork appear: the atlas draws its
-  // placeholder plate synchronously and swaps in the image if and when it loads,
-  // so this stays a synchronous build and a missing logo costs nothing.
-  // Resolved FIRST, because everything below is indexed by it. The atlas, the
+  // Resolved FIRST, because everything below is indexed by it. The atlases, the
   // orbit lines and the satellites are all built by walking `orbitCases` in
   // order, which is what makes "atlas cell index === orbit index" true by
   // construction. The previous code built the atlas from the case list and
@@ -68,14 +60,33 @@ export function createOrbitSystem({ renderer }: Options) {
   // client's name.
   const orbitCases = resolveOrbitCases(ORBIT_PRESETS, orbitAssignments, CASE_STUDIES)
 
-  const brandAtlas = createBrandAtlas(
-    orbitCases.map(({ satellite }) => ({
-      name: satellite.name,
-      brandColor: satellite.brandColor,
-      logo: satellite.logo,
-    })),
-  )
-  if (renderer) renderer.initTexture(brandAtlas.texture)
+  // TWO atlases for all six brand panels — the isotype each panel rests on and
+  // the logo it unfolds into under selection. Built here rather than per
+  // satellite so the six plates of each kind share one texture bind; two binds
+  // total, not twelve. Uploaded eagerly when a renderer is available, for the
+  // same reason the satellite bake is: the first upload of a multi-megapixel
+  // texture must not land on the frame the satellites reveal.
+  //
+  // `isotype` and `logo` are what make real client artwork appear: each atlas
+  // draws its placeholder plate synchronously and swaps in the image if and when
+  // it loads, so this stays a synchronous build and missing artwork costs
+  // nothing. The content build guarantees the two fields are both set or both
+  // null, so a panel never unfolds from a real symbol into a drawn wordmark.
+  //
+  // One plate list, two atlases. Same array, same order, so cell index means the
+  // same thing in both and one `index` addresses a panel's pair.
+  const plates = orbitCases.map(({ satellite }) => ({
+    name: satellite.name,
+    brandColor: satellite.brandColor,
+    logo: satellite.logo,
+    isotype: satellite.isotype,
+  }))
+  const isotypeAtlas = createBrandAtlas(plates, 'isotype')
+  const logoAtlas = createBrandAtlas(plates, 'logo')
+  if (renderer) {
+    renderer.initTexture(isotypeAtlas.texture)
+    renderer.initTexture(logoAtlas.texture)
+  }
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
   const keyLight = new THREE.DirectionalLight(0xffffff, 1.8)
@@ -105,7 +116,8 @@ export function createOrbitSystem({ renderer }: Options) {
       seed: index + 1,
       renderer,
       panel: {
-        atlas: brandAtlas,
+        isotypeAtlas,
+        logoAtlas,
         index,
         brandColor: satelliteDef.brandColor,
       },
@@ -226,6 +238,11 @@ export function createOrbitSystem({ renderer }: Options) {
       // Clears the hover bump too — otherwise a replay started while the pointer
       // was over a badge would re-run the entrance on an already-enlarged one.
       orbit.satellite.setHighlight(false)
+      // Snaps the brand panel shut, rather than asking it to fold. A reset is a
+      // teardown to the pre-intro state: a fold left animating would be visible
+      // unfolding backwards underneath the entrance staggering the satellites
+      // back in. Same reasoning as the highlight above.
+      orbit.satellite.resetExpansion()
     }
     cloud.reset()
   }
@@ -266,6 +283,17 @@ export function createOrbitSystem({ renderer }: Options) {
     findOrbit(id)?.satellite.setHighlight(on)
   }
 
+  /**
+   * Unfolds one satellite's brand panel from its isotype to the full logo.
+   *
+   * Separate from `setSatelliteHighlight` because the two answer different
+   * questions: the highlight is on for hover OR selection, the unfold only for
+   * selection. See createSatellite.setExpanded.
+   */
+  function setSatelliteExpanded(id: string, on: boolean) {
+    findOrbit(id)?.satellite.setExpanded(on)
+  }
+
   function dispose() {
     for (const orbit of orbits) {
       orbit.orbitLine.dispose()
@@ -274,7 +302,8 @@ export function createOrbitSystem({ renderer }: Options) {
     }
     cloud.dispose()
     glowTexture.dispose()
-    brandAtlas.dispose()
+    isotypeAtlas.dispose()
+    logoAtlas.dispose()
     ambientLight.dispose()
     keyLight.dispose()
     // Owned here rather than by any single panel, because every panel shares it.
@@ -290,6 +319,7 @@ export function createOrbitSystem({ renderer }: Options) {
     freezeSatellite,
     resumeSatellite,
     setSatelliteHighlight,
+    setSatelliteExpanded,
     dispose,
   }
 }

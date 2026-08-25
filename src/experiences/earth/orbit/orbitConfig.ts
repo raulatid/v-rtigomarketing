@@ -9,6 +9,21 @@ import type { CaseStudy } from '../../../content/types'
 // rewritten. Keep it that way: it means presets stay diffable against the
 // source project.
 
+/**
+ * The brand panel's height, and the only size knob it has.
+ *
+ * The panel rests as a SQUARE showing the brand's isotype and unfolds to 2:1
+ * showing the full lockup, so both of its widths are derived from this rather
+ * than written out independently. Retuning the panel then moves both states
+ * together and the 1:1 → 2:1 relationship cannot drift.
+ *
+ * If the resting square reads small in the overview, raise this — never widen
+ * the collapsed state on its own. Raising it also lowers the panel's bottom edge
+ * toward the satellite model, so re-check `panel.offsetY` against the
+ * `satellite.modelSize` reasoning documented there.
+ */
+const PANEL_HEIGHT = 0.14
+
 export const ORBIT_CONFIG = {
   orbit: {
     segments: 256,
@@ -62,12 +77,22 @@ export const ORBIT_CONFIG = {
   // Holographic brand panel floating above each satellite. All sizes are in the
   // same "Earth radius = 1" units as everything else in this file.
   panel: {
-    // 2:1, matching the atlas cell aspect — change both together or the plate
-    // stretches. At 0.28 the panel is roughly 5% of viewport height in the
-    // overview (readable, attention-grabbing) and about a third of it at the
-    // case-panel close-up.
-    width: 0.28,
-    height: 0.14,
+    // All three derived from PANEL_HEIGHT — see the note on it for why.
+    //
+    // Panel aspect no longer has to match the atlas cell aspect: the shader
+    // contain-fits every sample against the panel's current aspect, which is
+    // what lets one quad show a 1:1 symbol and a 2:1 lockup without distorting
+    // either.
+    height: PANEL_HEIGHT,
+    /** Square: the isotype at rest. */
+    collapsedWidth: PANEL_HEIGHT,
+    /** 2:1: the full lockup while the case study is selected. */
+    expandedWidth: PANEL_HEIGHT * 2,
+    // The unfold. Fast enough not to lag the camera's move to the close-up,
+    // slow enough to read as a deliberate reveal rather than a pop. Reversible
+    // at any point: selecting another satellite mid-unfold turns this one around
+    // from wherever it is.
+    expandDuration: 0.35,
     // Height above the satellite's centre. DERIVED FROM `modelSize`, not chosen
     // independently: the model's max dimension is `modelSize` (0.52), so its top
     // sits near 0.26, and the panel's lower edge is `offsetY - height / 2`. At

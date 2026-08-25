@@ -236,10 +236,32 @@ export interface CaseStudy {
   /** Full brand name, shown as the panel title. */
   name: string
   /**
-   * URL of the real company logo, drawn into this case's cell of the brand
-   * atlas. A path under /public today (`/logos/mango.webp`), and a path under
-   * /public tomorrow too — the media pipeline mirrors CMS uploads into
-   * `public/logos/` rather than hotlinking them, so this stays same-origin.
+   * URL of the brand's ISOTYPE — the symbol alone, without the wordmark.
+   *
+   * This is the resting state of the satellite's brand panel, and therefore the
+   * artwork that is on screen the whole time the overview is, across all six
+   * satellites at once. It matters more than `logo`, which only appears under
+   * selection.
+   *
+   * Same storage rules as `logo`: a path under /public, mirrored from the CMS.
+   *
+   * PAIRED WITH `logo`. Either both are set or both are null — the content build
+   * fails a case study that declares one without the other, so nothing
+   * downstream has to handle a panel that would unfold from real artwork into a
+   * drawn placeholder. See content/collections/caseStudies.collection.ts.
+   *
+   * Artwork requirements are in docs/earth/logo-spec.md: square, 512–1024px,
+   * transparent, trimmed tight, light/reverse variant.
+   */
+  isotype: string | null
+  /**
+   * URL of the real company logo — the full horizontal lockup, symbol plus
+   * wordmark. Drawn into this case's cell of the logo atlas and revealed when
+   * the brand panel unfolds under selection.
+   *
+   * A path under /public today (`/logos/mango.webp`), and a path under /public
+   * tomorrow too — the media pipeline mirrors CMS uploads into `public/logos/`
+   * rather than hotlinking them, so this stays same-origin.
    *
    * Null, a 404, or an image that fails CORS all leave the generated plate (mark
    * disc + wordmark) in place. The panel is never blank.

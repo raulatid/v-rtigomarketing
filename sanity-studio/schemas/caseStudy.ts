@@ -132,6 +132,35 @@ const chart = defineField({
   ],
 })
 
+/**
+ * Cross-check for the isotype/logo pair: both uploaded, or neither.
+ *
+ * The satellite's brand panel rests showing the isotype and unfolds into the
+ * full logo when a visitor opens the case. A case with only one of them would
+ * morph from a real trademark into a generated placeholder halfway through that
+ * animation — plausible-looking and wrong on exactly one satellite.
+ *
+ * The content build enforces this too (content/collections/caseStudies.collection.ts),
+ * and that is the enforcement that actually protects the site. This exists so the
+ * editor finds out while they are still in the Studio, next to the empty field,
+ * rather than from a failed deploy hours later.
+ *
+ * Reads the sibling off `context.document` rather than the parent, because both
+ * fields sit at the document root.
+ */
+function brandMarksTogether(sibling: 'isotype' | 'logo', message: string) {
+  return (value: unknown, context: { document?: Record<string, unknown> }) => {
+    const doc = context.document
+    if (!doc) return true
+    const missing = value === undefined || value === null
+    const siblingPresent = doc[sibling] !== undefined && doc[sibling] !== null
+    // Only the EMPTY half complains, and only when its partner is filled. Firing
+    // on both would light up the field the editor already did correctly and
+    // leave them guessing which one to act on.
+    return missing && siblingPresent ? message : true
+  }
+}
+
 export const caseStudy = defineType({
   name: 'caseStudy',
   title: 'Caso de éxito',
@@ -183,13 +212,32 @@ export const caseStudy = defineType({
       validation: (rule) => rule.max(60).error('Demasiado largo: como máximo 60 caracteres.'),
     }),
     defineField({
-      name: 'logo',
-      title: 'Logotipo',
+      name: 'isotype',
+      title: 'Isotipo (símbolo)',
       description:
-        'Imagen PNG o WebP con fondo transparente, de unos 1024×512 píxeles. ' +
+        'Solo el símbolo de la marca, sin el nombre. Imagen PNG o WebP cuadrada ' +
+        'con fondo transparente, de unos 512×512 píxeles. Es lo que se ve sobre ' +
+        'el satélite todo el rato, así que es la imagen más importante de las dos. ' +
+        'Si no subes ninguna, la web muestra un círculo con el color de marca.',
+      type: 'image',
+      fieldset: 'marca',
+      validation: (rule) => rule.custom(
+          brandMarksTogether('logo', 'Has subido el logotipo completo: sube también el isotipo.'),
+        ),
+    }),
+    defineField({
+      name: 'logo',
+      title: 'Logotipo completo',
+      description:
+        'El símbolo junto al nombre de la marca. Imagen PNG o WebP con fondo ' +
+        'transparente, de unos 1024×512 píxeles. Solo aparece cuando alguien ' +
+        'pincha el satélite y se abre la ficha del caso. ' +
         'Si no subes ninguna, la web muestra una placa con el color de marca.',
       type: 'image',
       fieldset: 'marca',
+      validation: (rule) => rule.custom(
+          brandMarksTogether('isotype', 'Has subido el isotipo: sube también el logotipo completo.'),
+        ),
     }),
     defineField({
       name: 'brandColor',
@@ -316,7 +364,9 @@ export const caseStudy = defineType({
     }),
   ],
   preview: {
-    select: { title: 'name', sector: 'sector', location: 'location', media: 'logo' },
+    // The isotype, not the logo: square artwork reads better in Sanity's
+    // document list, which crops its thumbnail to a square anyway.
+    select: { title: 'name', sector: 'sector', location: 'location', media: 'isotype' },
     prepare: ({ title, sector, location, media }) => ({
       title,
       media,

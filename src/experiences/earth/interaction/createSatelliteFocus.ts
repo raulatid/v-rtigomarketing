@@ -57,9 +57,24 @@ export function createSatelliteFocus({
     return null
   }
 
+  /**
+   * Pushes the current hover/selection state onto every satellite.
+   *
+   * One pass over all of them rather than a diff against the previous state:
+   * switching selection directly from A to B has to fold A and unfold B in the
+   * same frame, and a pass that only touches the newly-selected one would leave
+   * A's panel open. Both panels then advance from their own progress, so A
+   * reverses from wherever it had got to instead of snapping shut.
+   *
+   * The two affordances read DIFFERENT state on purpose: the scale bump is on
+   * for hover or selection, the brand panel unfolds only for selection. Six
+   * satellites drift past the cursor during the overview — unfolding on hover
+   * would have the panels flapping continuously.
+   */
   function applyHighlights() {
     for (const sat of orbitSystem.satellites) {
       orbitSystem.setSatelliteHighlight(sat.id, sat.id === selectedId || sat.id === hoveredId)
+      orbitSystem.setSatelliteExpanded(sat.id, sat.id === selectedId)
     }
   }
 

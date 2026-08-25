@@ -19,6 +19,7 @@ const study = (id: string): CaseStudy => ({
   id,
   label: id.toUpperCase(),
   name: id,
+  isotype: null,
   logo: null,
   brandColor: '#ffffff',
   sector: 'sector',

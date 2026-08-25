@@ -110,6 +110,18 @@ export function caseStudyProblems(entry: CaseStudy): Problem[] {
   if (entry.logo !== null && !LOCAL_MEDIA_PATH.test(entry.logo)) {
     at('logo', 'must be null or a local path under /')
   }
+  if (entry.isotype !== null && !LOCAL_MEDIA_PATH.test(entry.isotype)) {
+    at('isotype', 'must be null or a local path under /')
+  }
+  // The two are one decision, not two. The satellite's brand panel rests on the
+  // isotype and unfolds into the logo, so a case with only one of them would
+  // morph from real artwork into a drawn placeholder mid-animation — visibly
+  // broken, and impossible to notice in the CMS where the fields sit apart.
+  // Enforced here as well as in the mapper because this is what the shipped
+  // module is checked against.
+  if ((entry.logo === null) !== (entry.isotype === null)) {
+    at('logo', 'and isotype must both be set or both be null')
+  }
 
   if (entry.details.length > CASE_DETAILS_MAX) {
     at('details', 'at most ' + CASE_DETAILS_MAX + ' entries')

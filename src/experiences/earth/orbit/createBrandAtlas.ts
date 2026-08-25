@@ -4,8 +4,23 @@ import * as THREE from 'three'
 // single texture bind instead of six. Each panel samples its own cell through a
 // UV offset/scale uniform pair.
 //
-// Every cell is DRAWN first — a mark disc carrying the initial plus a wordmark —
-// and then UPGRADED IN PLACE if the case study supplies a `logo` URL that loads.
+// THERE ARE TWO OF THESE, one per `AtlasKind`. The panel rests showing the
+// ISOTYPE — the brand's square symbol — and unfolds into the LOGO, the full
+// horizontal lockup, only while its case study is selected. Two atlases means
+// two texture binds rather than one, which is still nothing like the twelve a
+// per-panel texture would cost, and it keeps each grid at its artwork's own
+// aspect instead of wasting half of every square cell.
+//
+// The kind is a closed set of exactly two, and the cell size and padding are
+// constants keyed by it rather than parameters. A caller able to pass arbitrary
+// dimensions could build a grid whose aspect disagrees with nothing in
+// particular — the panel shader contain-fits every sample, so the mismatch would
+// not throw, it would just quietly letterbox artwork that should have filled the
+// cell. Two named combinations cannot drift.
+//
+// Every cell is DRAWN first — a mark disc carrying the initial, plus a wordmark
+// in the logo atlas — and then UPGRADED IN PLACE if the case study supplies an
+// artwork URL for this kind that loads.
 // The draw is the floor, not the fallback of last resort: it is what the panel
 // shows while the image is in flight, and what it keeps forever if the image
 // 404s, fails CORS or decodes to nothing. A panel is never blank.
@@ -36,31 +51,68 @@ const COLUMNS = 2
 function rowsFor(count: number): number {
   return Math.max(1, Math.ceil(count / COLUMNS))
 }
-// 2:1 cells, matching the panel geometry's aspect. 1024×512 is sized for the
-// case-panel close-up (closeUp.distance 0.55R), where the panel is the most
-// magnified thing on screen — at 512×256 the wordmark visibly softens there.
-const CELL_W = 1024
-const CELL_H = 512
+/**
+ * Which artwork an atlas carries.
+ *
+ * `'isotype'` is the resting state — on screen the entire time the overview is,
+ * across all six satellites at once. `'logo'` appears only under selection, one
+ * at a time. That asymmetry is why the isotype is the file that matters most in
+ * docs/earth/logo-spec.md, even though the logo is the bigger asset.
+ */
+export type AtlasKind = 'isotype' | 'logo'
 
-// Inner box a logo is fitted into. THE ATLAS OWNS THE PADDING, not the artwork —
-// a file delivered with its own built-in whitespace renders smaller than its
-// neighbours and there is no way to detect that automatically. See
-// docs/earth/logo-spec.md, which asks for a tight bounding-box trim.
-const PAD_X = 64
-const PAD_Y = 56
+/**
+ * Cell geometry per kind. THE ATLAS OWNS THE PADDING, not the artwork — a file
+ * delivered with its own built-in whitespace renders smaller than its neighbours
+ * and there is no way to detect that automatically. See docs/earth/logo-spec.md,
+ * which asks for a tight bounding-box trim.
+ *
+ * Both are sized for the case-panel close-up (closeUp.distance 0.55R), where the
+ * panel is the most magnified thing on screen — at half these dimensions the
+ * wordmark visibly softens there. The isotype cell is square and therefore
+ * smaller, which is correct: a symbol at 512² carries the same detail per
+ * on-screen pixel as a lockup at 1024×512, because the unfolded panel is twice
+ * as wide.
+ *
+ * Padding is proportionally the same on both so a symbol and a lockup sit at the
+ * same optical weight when the panel crossfades between them.
+ */
+const CELL: Record<AtlasKind, { width: number; height: number; padX: number; padY: number }> = {
+  isotype: { width: 512, height: 512, padX: 56, padY: 56 },
+  logo: { width: 1024, height: 512, padX: 64, padY: 56 },
+}
 
 export interface BrandPlate {
   name: string
   brandColor: string
   /**
-   * URL of the real logo. Same-origin path under /public today, a CMS media URL
-   * later — the loader does not care which. Null keeps the drawn plate.
+   * URL of the real logo — the full horizontal lockup. Same-origin path under
+   * /public today, a CMS media URL later; the loader does not care which. Null
+   * keeps the drawn plate.
    */
   logo?: string | null
+  /**
+   * URL of the real isotype — the square symbol alone. Same rules as `logo`.
+   *
+   * The content build guarantees these two are either both present or both
+   * absent (see content/collections/caseStudies.collection.ts), so nothing here
+   * has to reason about a brand that has one and not the other.
+   */
+  isotype?: string | null
 }
 
 export interface BrandAtlas {
   texture: THREE.CanvasTexture
+  /**
+   * Cell aspect, width / height.
+   *
+   * Published rather than left for the caller to remember, because the panel
+   * shader needs it to contain-fit each sample into a quad whose own aspect is
+   * animating. Reading it off the atlas is what stops "the isotype cell is
+   * square" from becoming a literal `1.0` in the panel, silently wrong the day
+   * the cell changes.
+   */
+  aspect: number
   /** UV rect for one plate, in the order the plates were passed. */
   cellUv(index: number): { offset: THREE.Vector2; scale: THREE.Vector2 }
   dispose(): void
@@ -98,38 +150,73 @@ function mixWithWhite(hex: string, amount: number): string {
   return `rgb(${lift(r)}, ${lift(g)}, ${lift(b)})`
 }
 
-// Mark + wordmark on a transparent ground. Everything is measured rather than
-// hardcoded because the six names range from "Mango" to "Estrella Galicia" —
-// the same problem the old badge texture hit once real brand names replaced
-// "CASE 01".
-function drawPlate(
+/**
+ * The mark alone: a brand-colour disc carrying the company's initial, centred in
+ * the cell. The drawn stand-in for an isotype.
+ *
+ * Radius is a fraction of the cell rather than a fixed 84px, because this is now
+ * drawn into two cell sizes — the square isotype cell, where it is the whole
+ * plate, and the wide logo cell, where it is the left third of a lockup.
+ */
+function drawMark(
+  ctx: CanvasRenderingContext2D,
+  plate: BrandPlate,
+  cx: number,
+  cy: number,
+  radius: number,
+) {
+  ctx.beginPath()
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+  ctx.fillStyle = safeBrandColor(plate.brandColor)
+  ctx.fill()
+
+  ctx.fillStyle = '#05060a'
+  ctx.font = `700 ${Math.round(radius * 1.15)}px system-ui, -apple-system, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  // Optical centering: cap-height glyphs sit high against a geometric centre.
+  ctx.fillText(plate.name.charAt(0).toUpperCase(), cx, cy + radius * 0.06)
+}
+
+/**
+ * The isotype plate: the mark, centred and filling the square cell.
+ *
+ * Sized off the padded box rather than the cell so it lands at the same optical
+ * weight as a real isotype, which `drawLogoContained` fits into that same box.
+ */
+function drawMarkPlate(
   ctx: CanvasRenderingContext2D,
   plate: BrandPlate,
   originX: number,
   originY: number,
 ) {
+  const cell = CELL.isotype
+  const radius = Math.min(cell.width - cell.padX * 2, cell.height - cell.padY * 2) / 2
+  drawMark(ctx, plate, originX + cell.width / 2, originY + cell.height / 2, radius)
+}
+
+// Mark + wordmark on a transparent ground. Everything is measured rather than
+// hardcoded because the six names range from "Mango" to "Estrella Galicia" —
+// the same problem the old badge texture hit once real brand names replaced
+// "CASE 01".
+function drawLockup(
+  ctx: CanvasRenderingContext2D,
+  plate: BrandPlate,
+  originX: number,
+  originY: number,
+) {
+  const cell = CELL.logo
   const pad = 44
   const markR = 84
   const markCx = originX + pad + markR
-  const markCy = originY + CELL_H / 2
+  const markCy = originY + cell.height / 2
 
-  // The mark: a filled disc carrying the initial. Stands in for a real logo.
-  ctx.beginPath()
-  ctx.arc(markCx, markCy, markR, 0, Math.PI * 2)
-  ctx.fillStyle = safeBrandColor(plate.brandColor)
-  ctx.fill()
-
-  ctx.fillStyle = '#05060a'
-  ctx.font = `700 ${Math.round(markR * 1.15)}px system-ui, -apple-system, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  // Optical centering: cap-height glyphs sit high against a geometric centre.
-  ctx.fillText(plate.name.charAt(0).toUpperCase(), markCx, markCy + markR * 0.06)
+  drawMark(ctx, plate, markCx, markCy, markR)
 
   // The wordmark, lifted toward white so saturated hues stay legible when the
   // panel is small in the overview.
   const textX = markCx + markR + 46
-  const textLimit = originX + CELL_W - pad - (textX - originX)
+  const textLimit = originX + cell.width - pad - (textX - originX)
   let fontSize = 112
   const font = (px: number) => `650 ${px}px system-ui, -apple-system, sans-serif`
   ctx.font = font(fontSize)
@@ -155,6 +242,7 @@ function drawPlate(
 function drawLogoContained(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
+  kind: AtlasKind,
   originX: number,
   originY: number,
 ): boolean {
@@ -162,8 +250,9 @@ function drawLogoContained(
   const sh = img.naturalHeight
   if (!sw || !sh) return false
 
-  const boxW = CELL_W - PAD_X * 2
-  const boxH = CELL_H - PAD_Y * 2
+  const cell = CELL[kind]
+  const boxW = cell.width - cell.padX * 2
+  const boxH = cell.height - cell.padY * 2
 
   // No upscale clamp. A source smaller than the box is better shown large and
   // soft than sharp and tiny — the panel's job is to be readable at the
@@ -174,9 +263,12 @@ function drawLogoContained(
 
   // Not gated on a DEV flag: nothing in src/ reads import.meta.env, because
   // checks/ bundles these modules for Node with esbuild where it does not exist.
-  if (sw < 512) {
+  //
+  // Threshold is the box the artwork is actually fitted into, so the square
+  // isotype cell does not warn about a perfectly adequate 512² symbol.
+  if (sw < boxW) {
     console.warn(
-      `[brand-atlas] logo source is ${sw}×${sh}; it will be upscaled into a ` +
+      `[brand-atlas] ${kind} source is ${sw}×${sh}; it will be upscaled into a ` +
         `${boxW}×${boxH} box and soften at the case-panel close-up. See docs/earth/logo-spec.md.`,
     )
   }
@@ -185,7 +277,7 @@ function drawLogoContained(
   // 1600px-wide source hits against this box.
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, originX + (CELL_W - w) / 2, originY + (CELL_H - h) / 2, w, h)
+  ctx.drawImage(img, originX + (cell.width - w) / 2, originY + (cell.height - h) / 2, w, h)
   return true
 }
 
@@ -249,26 +341,30 @@ function canvasSafe(img: HTMLImageElement): boolean {
  * the second call (the blocker for fetched content), leak the GPU texture across
  * HMR, and give an in-flight image load no scope to be cancelled against.
  */
-export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
+export function createBrandAtlas(plates: BrandPlate[], kind: AtlasKind): BrandAtlas {
+  const cell = CELL[kind]
+  const drawPlate = kind === 'isotype' ? drawMarkPlate : drawLockup
+  const sourceUrl = (plate: BrandPlate) => (kind === 'isotype' ? plate.isotype : plate.logo)
+
   const canvas = document.createElement('canvas')
   // Derived from what was actually passed, so every plate gets a cell and no
   // plate shares one.
   const rows = rowsFor(plates.length)
-  canvas.width = COLUMNS * CELL_W
-  canvas.height = rows * CELL_H
+  canvas.width = COLUMNS * cell.width
+  canvas.height = rows * cell.height
   // Not asserted: a 2D context can legitimately be refused under memory
   // pressure. createOrbitSystem's caller turns a throw here into the Spanish
   // failure caption, and a named error says which resource gave out.
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('[brand-atlas] 2D canvas context unavailable')
+  if (!ctx) throw new Error(`[brand-atlas] 2D canvas context unavailable (${kind})`)
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   // No slice: the grid is sized for the plates rather than the plates trimmed to
   // the grid, so there is nothing left to silently drop.
   const visible = plates
   const cellOrigin = (index: number) => ({
-    x: (index % COLUMNS) * CELL_W,
-    y: Math.floor(index / COLUMNS) * CELL_H,
+    x: (index % COLUMNS) * cell.width,
+    y: Math.floor(index / COLUMNS) * cell.height,
   })
 
   visible.forEach((plate, index) => {
@@ -293,11 +389,11 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
   const inFlight = new Set<HTMLImageElement>()
   let flushHandle = 0
 
-  // needsUpdate re-uploads the ENTIRE 2048×1536 canvas and regenerates the full
-  // mip chain, so six logos resolving at six moments would mean six full
-  // uploads. Coalescing to one per frame collapses the common case (all six
-  // landing together from disk cache) into a single upload — and makes the
-  // plates flip as a set, which reads better than a stagger.
+  // needsUpdate re-uploads the ENTIRE canvas and regenerates the full mip chain,
+  // so six logos resolving at six moments would mean six full uploads.
+  // Coalescing to one per frame collapses the common case (all six landing
+  // together from disk cache) into a single upload — and makes the plates flip
+  // as a set, which reads better than a stagger.
   function scheduleFlush() {
     if (disposed || flushHandle) return
     flushHandle = requestAnimationFrame(() => {
@@ -308,8 +404,8 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
   }
 
   visible.forEach((plate, index) => {
-    if (!plate.logo) return
-    const url = plate.logo
+    const url = sourceUrl(plate)
+    if (!url) return
     void loadLogo(url, inFlight).then((img) => {
       // The load outlived the atlas: the canvas and texture are gone.
       if (disposed) return
@@ -317,13 +413,13 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
         // Silence here would make a typo'd path indistinguishable from a
         // deliberate null, and the plate looks identical either way.
         console.warn(
-          `[brand-atlas] "${plate.name}" logo did not load (${url}); keeping the drawn plate.`,
+          `[brand-atlas] "${plate.name}" ${kind} did not load (${url}); keeping the drawn plate.`,
         )
         return
       }
       if (!canvasSafe(img)) {
         console.warn(
-          `[brand-atlas] "${plate.name}" logo is not CORS-readable and would taint the ` +
+          `[brand-atlas] "${plate.name}" ${kind} is not CORS-readable and would taint the ` +
             `atlas; keeping the drawn plate. Origin must send Access-Control-Allow-Origin.`,
         )
         return
@@ -332,8 +428,8 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
       const { x, y } = cellOrigin(index)
       // Cell-local clear, never the whole canvas — the other five plates are
       // already correct and may include images that landed a frame earlier.
-      ctx.clearRect(x, y, CELL_W, CELL_H)
-      if (drawLogoContained(ctx, img, x, y)) {
+      ctx.clearRect(x, y, cell.width, cell.height)
+      if (drawLogoContained(ctx, img, kind, x, y)) {
         // Only the logo. Keeping the initial disc and the accent rule underneath
         // a real trademark is noise; the brand colour still reaches the panel
         // through the shader's uBrandColor wash.
@@ -341,7 +437,7 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
       } else {
         // No intrinsic size (an SVG missing width/height). Put the plate back.
         console.warn(
-          `[brand-atlas] "${plate.name}" logo has no intrinsic size — an SVG needs explicit ` +
+          `[brand-atlas] "${plate.name}" ${kind} has no intrinsic size — an SVG needs explicit ` +
             `width and height attributes, not just a viewBox. Keeping the drawn plate.`,
         )
         drawPlate(ctx, plate, x, y)
@@ -352,6 +448,7 @@ export function createBrandAtlas(plates: BrandPlate[]): BrandAtlas {
 
   return {
     texture,
+    aspect: cell.width / cell.height,
     cellUv(index: number) {
       // Clamped to the cells that exist. Out-of-range row arithmetic produces a
       // NEGATIVE v offset — outside the atlas entirely — so an unclamped index

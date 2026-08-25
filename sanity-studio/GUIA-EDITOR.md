@@ -37,7 +37,12 @@ Esta guía es para quien va a cambiar textos, casos de éxito o datos de contact
 
 **El gráfico de un caso** se rellena punto a punto: pulsa «Añadir punto» y escribe el valor. Si el gráfico es de barras o donut, cada punto lleva también un nombre (lo que se lee bajo la barra).
 
-**Los logotipos** van en PNG o WebP con fondo transparente. Si un caso no tiene logotipo, la web muestra una placa con el color de la marca — no pasa nada.
+**Cada caso lleva dos imágenes de marca**, en PNG o WebP con fondo transparente:
+
+- **Isotipo (símbolo):** solo el símbolo, sin el nombre. Cuadrado, unos 512×512. Es lo que se ve flotando sobre el satélite todo el rato, así que es el más importante de los dos.
+- **Logotipo completo:** el símbolo junto al nombre. Apaisado, unos 1024×512. Solo aparece cuando alguien pincha el satélite y se abre la ficha del caso.
+
+**Van los dos o no va ninguno.** Si subes uno y dejas el otro vacío, el editor te lo marca en rojo y la web no se publica. Un caso sin ninguno de los dos sí es válido: se muestra un círculo con el color de la marca y su inicial — no pasa nada.
 
 **Las imágenes** llevan siempre una descripción en una frase (para quien no puede verlas). El editor no te dejará publicar sin ella.
 

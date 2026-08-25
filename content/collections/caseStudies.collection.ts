@@ -96,16 +96,17 @@ export const caseStudiesCollection = collection<CaseStudy>({
     // added one, and the array position is what `orbitAssignments.ts` and the
     // brand atlas agree on.
     orderBy: 'slug.current asc',
-    // The logo is drawn into the shared brand atlas, so it is mirrored into
-    // public/logos/ rather than hotlinked: a cross-origin draw taints the
-    // canvas every panel shares, and img-src 'self' stays intact.
+    // Both brand marks are drawn into shared canvas atlases, so they are
+    // mirrored into public/logos/ rather than hotlinked: a cross-origin draw
+    // taints the canvas every panel shares, and img-src 'self' stays intact.
     //
     // The projection must hand the mirror a URL STRING — `logo.asset->url` —
     // never the bare `logo` field, which is Sanity's image object. A bare
     // `logo` typechecks, passes every fixture (they are all null), and fails
     // the first real build with "expected a string, got object". Asserted in
-    // collections.test.ts because the mapper tests cannot see GROQ.
-    mirror: ['logo'],
+    // collections.test.ts because the mapper tests cannot see GROQ. Same for
+    // `isotype`.
+    mirror: ['logo', 'isotype'],
     // The normalization layer. Everything the mapper reads is flat and named
     // exactly as `map` expects, so nothing downstream learns a Sanity shape —
     // no `_ref`, no `_type`, no `slug.current`, no asset object.
@@ -113,6 +114,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
       "id": slug.current,
       label,
       name,
+      "isotype": isotype.asset->url,
       "logo": logo.asset->url,
       brandColor,
       sector,
@@ -173,25 +175,49 @@ export const caseStudiesCollection = collection<CaseStudy>({
 
     const chartValue = chart(scoped, 'chart', source.chart)
 
-    // `logo` is the one field that degrades instead of failing: null keeps the
-    // drawn plate, which createBrandAtlas guarantees is never blank. A broken
-    // logo costs one panel its artwork, and that is a designed state rather than
-    // a defect worth stopping a deployment for.
+    // `isotype` and `logo` are the two fields that degrade instead of failing:
+    // null keeps the drawn plate, which createBrandAtlas guarantees is never
+    // blank. Absent brand artwork costs one panel its trademark, and that is a
+    // designed state rather than a defect worth stopping a deployment for.
+    //
+    // What does NOT degrade is having one without the other — see the pairing
+    // check below.
     //
     // Only a LOCAL path is shippable (`LOCAL_MEDIA_PATH`, and the self-check
     // below enforces it). By the time a record reaches here the mirror has
-    // already run — `content/lib/mirror.ts` fetched the CMS upload into
-    // public/logos/ and rewrote this field to a path — so an absent logo is the
-    // only remaining reason to degrade. A logo that was DECLARED and could not
+    // already run — `content/lib/mirror.ts` fetched the CMS uploads into
+    // public/logos/ and rewrote these fields to paths — so absent artwork is the
+    // only remaining reason to degrade. Artwork that was DECLARED and could not
     // be fetched never gets this far: the mirror fails the build instead, since
     // a broken media reference is not an editorial state.
     //
     // Fixtures and the seed carry local paths already and are never mirrored,
     // which is why this still has to accept a plain path.
-    let logo: string | null = null
-    if (typeof source.logo === 'string') {
-      const candidate = source.logo.trim()
-      if (LOCAL_MEDIA_PATH.test(candidate)) logo = candidate
+    const localMedia = (value: unknown): string | null => {
+      if (typeof value !== 'string') return null
+      const candidate = value.trim()
+      return LOCAL_MEDIA_PATH.test(candidate) ? candidate : null
+    }
+    const logo = localMedia(source.logo)
+    const isotype = localMedia(source.isotype)
+
+    // THE PAIR IS ONE DECISION. The satellite's brand panel rests showing the
+    // isotype and unfolds into the logo when its case study is selected, so a
+    // case carrying only one of them would morph from a real trademark into a
+    // drawn placeholder halfway through the animation.
+    //
+    // This FAILS rather than degrading, unlike each field on its own. The two
+    // sit in different slots of the Studio and an editor filling one and not the
+    // other sees nothing wrong; the site would look plausible and be wrong on
+    // exactly one satellite. That is the failure mode the build-time content
+    // pipeline exists to catch. Degrading both to null instead would be quieter,
+    // but it would also silently discard artwork someone deliberately uploaded.
+    if ((logo === null) !== (isotype === null)) {
+      scoped.fail(
+        logo === null ? 'logo' : 'isotype',
+        'is missing while the other is set — a case study needs both the isotype ' +
+          'and the full logo, or neither',
+      )
     }
 
     const problems = [...report.problems, ...scoped.problems]
@@ -216,6 +242,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
       id,
       label,
       name,
+      isotype,
       logo,
       brandColor,
       sector,
