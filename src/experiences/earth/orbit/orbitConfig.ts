@@ -107,10 +107,19 @@ export const ORBIT_CONFIG = {
     // Ceiling on the panel's fade, so the entrance can drive it 0→1 while the
     // panel still reads as a projection rather than a solid card.
     maxOpacity: 0.95,
-    // The holographic chrome: frame, brackets and edge bleed. Deliberately not
-    // the brand colour — the frame is Vertigo's language, the plate inside is
-    // the brand's.
-    frameColor: 0x8fd0ff,
+    // Fraction of the quad the glass pane occupies, centred. The band outside
+    // it is where the corner ticks and the emitter's bloom are drawn — chrome
+    // that belongs OUTSIDE the surface, so the pane itself can stay clean. At
+    // 0.92 the band is ~4% of the quad per side: enough for a tick and for the
+    // bloom to fade out before the quad's edge clips it.
+    inset: 0.92,
+    // Peak alpha of the dark glass, at the pane's bottom edge; the top edge
+    // sits at 70% of it. Matches `.case-panel` beside it — the two describe
+    // the same brand and should look like the same material. The chrome is
+    // deliberately NOT brand-coloured except for the emitter line: the artwork
+    // inside is the brand's, and a tinted pane under a real logo is a colour
+    // cast on someone's trademark.
+    glassAlpha: 0.42,
   },
 
   cloud: {

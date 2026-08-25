@@ -18,7 +18,7 @@ import * as THREE from 'three'
 // not throw, it would just quietly letterbox artwork that should have filled the
 // cell. Two named combinations cannot drift.
 //
-// Every cell is DRAWN first — a mark disc carrying the initial, plus a wordmark
+// Every cell is DRAWN first — a ring monogram carrying the initial, plus a wordmark
 // in the logo atlas — and then UPGRADED IN PLACE if the case study supplies an
 // artwork URL for this kind that loads.
 // The draw is the floor, not the fallback of last resort: it is what the panel
@@ -74,11 +74,13 @@ export type AtlasKind = 'isotype' | 'logo'
  * on-screen pixel as a lockup at 1024×512, because the unfolded panel is twice
  * as wide.
  *
- * Padding is proportionally the same on both so a symbol and a lockup sit at the
- * same optical weight when the panel crossfades between them.
+ * The isotype is padded TIGHTER than the lockup. It is the resting state, seen
+ * at ~30px across the overview, where every pixel of margin is a pixel the
+ * symbol does not get; the lockup is only ever seen at the close-up, where it
+ * can afford to breathe.
  */
 const CELL: Record<AtlasKind, { width: number; height: number; padX: number; padY: number }> = {
-  isotype: { width: 512, height: 512, padX: 56, padY: 56 },
+  isotype: { width: 512, height: 512, padX: 40, padY: 40 },
   logo: { width: 1024, height: 512, padX: 64, padY: 56 },
 }
 
@@ -121,8 +123,8 @@ export interface BrandAtlas {
 /**
  * The accent used when `brandColor` is not a colour this function can read.
  *
- * The frame blue, so a plate with unusable colour still reads as part of the
- * holographic language rather than as an error.
+ * A neutral pale blue in the scene's own holographic register, so a plate with
+ * unusable colour still reads as part of the language rather than as an error.
  */
 const FALLBACK_BRAND_COLOR = '#8fd0ff'
 
@@ -131,30 +133,37 @@ const HEX_COLOR = /^#[0-9a-f]{6}$/i
 /**
  * `brandColor` as a `#rrggbb` string, or the fallback.
  *
- * Worth a guard now that the value is authored somewhere else: `parseInt` on a
- * non-hex string returns NaN, `mixWithWhite` then produced `rgb(NaN, NaN, NaN)`,
- * and canvas ignores an unparseable fillStyle SILENTLY — keeping whatever colour
- * was set last. The plate did not fail, it just came out the wrong colour, which
- * is the hardest kind of wrong to notice in a review.
+ * Worth a guard now that the value is authored somewhere else: canvas ignores an
+ * unparseable strokeStyle/fillStyle SILENTLY — keeping whatever colour was set
+ * last. The plate does not fail, it just comes out the wrong colour, which is
+ * the hardest kind of wrong to notice in a review.
  */
 function safeBrandColor(color: string): string {
   return HEX_COLOR.test(color) ? color : FALLBACK_BRAND_COLOR
 }
 
-function mixWithWhite(hex: string, amount: number): string {
-  const value = safeBrandColor(hex).replace('#', '')
-  const r = parseInt(value.slice(0, 2), 16)
-  const g = parseInt(value.slice(2, 4), 16)
-  const b = parseInt(value.slice(4, 6), 16)
-  const lift = (c: number) => Math.round(c + (255 - c) * amount)
-  return `rgb(${lift(r)}, ${lift(g)}, ${lift(b)})`
-}
+/**
+ * The wordmark's colour: a soft white, so it contrasts with the brand ring.
+ *
+ * 78% white and OPAQUE rather than pure white at partial alpha. The scene's
+ * bloom pass thresholds on linear luminance (introConfig.bloomThreshold, 0.62),
+ * and alpha does not lower the sampled value — a translucent pure white still
+ * blooms into a blown-out glow. rgb(200) is ~0.58 linear: just under the knee,
+ * so the name stays a crisp glyph while the brand ring beside it may glow.
+ */
+const WORDMARK_COLOR = 'rgb(200, 200, 200)'
 
 /**
- * The mark alone: a brand-colour disc carrying the company's initial, centred in
- * the cell. The drawn stand-in for an isotype.
+ * The mark alone: a thin brand-colour RING carrying the company's initial, also
+ * in the brand colour, centred in the cell. The drawn stand-in for an isotype.
  *
- * Radius is a fraction of the cell rather than a fixed 84px, because this is now
+ * A ring, not a filled disc. The filled disc with a dark initial is the
+ * universal "no picture yet" avatar and read as unfinished; a stroked ring with
+ * a medium-weight initial reads as a monogram or a seal, and it survives
+ * whatever system sans the platform substitutes because the letter carries
+ * little weight of its own.
+ *
+ * Radius is a fraction of the cell rather than a fixed 84px, because this is
  * drawn into two cell sizes — the square isotype cell, where it is the whole
  * plate, and the wide logo cell, where it is the left third of a lockup.
  */
@@ -165,13 +174,18 @@ function drawMark(
   cy: number,
   radius: number,
 ) {
+  const brand = safeBrandColor(plate.brandColor)
+  // Stroke ~7% of the diameter, drawn inside the radius so the ring's outer
+  // edge lands exactly on the padded box like a real isotype would.
+  const stroke = radius * 0.14
   ctx.beginPath()
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-  ctx.fillStyle = safeBrandColor(plate.brandColor)
-  ctx.fill()
+  ctx.arc(cx, cy, radius - stroke / 2, 0, Math.PI * 2)
+  ctx.lineWidth = stroke
+  ctx.strokeStyle = brand
+  ctx.stroke()
 
-  ctx.fillStyle = '#05060a'
-  ctx.font = `700 ${Math.round(radius * 1.15)}px system-ui, -apple-system, sans-serif`
+  ctx.fillStyle = brand
+  ctx.font = `500 ${Math.round(radius * 1.05)}px system-ui, -apple-system, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   // Optical centering: cap-height glyphs sit high against a geometric centre.
@@ -213,26 +227,30 @@ function drawLockup(
 
   drawMark(ctx, plate, markCx, markCy, markR)
 
-  // The wordmark, lifted toward white so saturated hues stay legible when the
-  // panel is small in the overview.
+  // The wordmark: near-white, medium weight, lightly tracked. It CONTRASTS with
+  // the ring rather than matching it — mark, name and ground all in one hue was
+  // what made figure and ground merge. No rule beneath it; the ring is the
+  // brand's one coloured element and the name needs no decoration.
   const textX = markCx + markR + 46
-  const textLimit = originX + cell.width - pad - (textX - originX)
+  // A WIDTH, not a coordinate. This used to add `originX`, which made the
+  // limit 1024px too generous for every plate in the second atlas column —
+  // their names never shrank and "PcComponentes" ran off the cell's edge.
+  const textLimit = cell.width - pad - (textX - originX)
   let fontSize = 112
-  const font = (px: number) => `650 ${px}px system-ui, -apple-system, sans-serif`
+  const font = (px: number) => `500 ${px}px system-ui, -apple-system, sans-serif`
   ctx.font = font(fontSize)
+  // Chrome and Safari honour it; elsewhere the assignment is a harmless no-op.
+  ctx.letterSpacing = '0.02em'
   const width = ctx.measureText(plate.name).width
   if (width > textLimit) {
     fontSize = Math.max(Math.floor(fontSize * (textLimit / width)), 28)
     ctx.font = font(fontSize)
   }
   ctx.textAlign = 'left'
-  ctx.fillStyle = mixWithWhite(plate.brandColor, 0.42)
-  ctx.fillText(plate.name, textX, markCy - fontSize * 0.16)
-
-  // Accent rule under the wordmark, in the undiluted brand colour.
-  const ruleW = Math.min(ctx.measureText(plate.name).width, textLimit)
-  ctx.fillStyle = safeBrandColor(plate.brandColor)
-  ctx.fillRect(textX, markCy + fontSize * 0.5, ruleW, 6)
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = WORDMARK_COLOR
+  ctx.fillText(plate.name, textX, markCy + fontSize * 0.04)
+  ctx.letterSpacing = '0px'
 }
 
 // CONTAIN, never cover: a cropped trademark is worse than a small one. Aspect is

@@ -82,8 +82,22 @@ describe('the isotype atlas', () => {
     // One glyph per plate — the initial — and no company name anywhere.
     expect(drawn).toEqual(['M', 'C', 'E'])
     expect(drawn).not.toContain('Mango')
-    // The accent rule under a wordmark is the lockup's, not the mark's.
     expect(rec.calls.some((c) => c.op === 'fillRect')).toBe(false)
+  })
+
+  it('draws the mark as a RING, never a filled disc', () => {
+    const rec = installCanvas()
+    createBrandAtlas(plates, 'isotype')
+    const ops = rec.calls.map((c) => c.op)
+    // A filled disc with a dark initial is the "contact avatar" placeholder
+    // look. The monogram is a stroked ring, so every arc is followed by a
+    // stroke and nothing in the atlas is ever filled but text.
+    expect(ops.filter((op) => op === 'arc')).toHaveLength(3)
+    expect(ops.filter((op) => op === 'stroke')).toHaveLength(3)
+    expect(ops).not.toContain('fill')
+    for (let i = 0; i < ops.length; i++) {
+      if (ops[i] === 'arc') expect(ops[i + 1]).toBe('stroke')
+    }
   })
 
   it('centres the mark in its cell', () => {
@@ -114,8 +128,11 @@ describe('the logo atlas', () => {
     expect(drawn).toContain('M')
     expect(drawn).toContain('Mango')
     expect(drawn).toContain('Estrella Galicia')
-    // The accent rule under each wordmark.
-    expect(rec.calls.filter((c) => c.op === 'fillRect')).toHaveLength(3)
+    // One ring per lockup, and no accent rule — the wordmark carries no
+    // decoration; contrast with the brand-colour ring is what separates them.
+    expect(rec.calls.filter((c) => c.op === 'stroke')).toHaveLength(3)
+    expect(rec.calls.some((c) => c.op === 'fillRect')).toBe(false)
+    expect(rec.calls.some((c) => c.op === 'fill')).toBe(false)
   })
 })
 

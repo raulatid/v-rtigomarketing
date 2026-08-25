@@ -64,15 +64,28 @@ const FRAGMENT = /* glsl */ `
 
   uniform float uExpand;
   uniform vec3 uBrandColor;
-  uniform vec3 uFrameColor;
   uniform float uOpacity;
   uniform float uTime;
   uniform float uAspect;
+  uniform float uInset;
+  uniform float uGlassAlpha;
 
   varying vec2 vUv;
 
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  // The pane. rgb(12, 15, 22) — the case panel's dark — given here in LINEAR
+  // space, since everything below colorspace_fragment is linear.
+  const vec3 GLASS = vec3(0.0037, 0.0048, 0.0080);
+  // The frame and ticks: white at a whisper, the case panel's 1px hairline.
+  const float HAIRLINE_ALPHA = 0.16;
+
+  // Straight-alpha "over": lays (sc, sa) on top of the running (c, a).
+  // Everything in this panel is a layer over transparent space, and the
+  // emitter is a layer too — a line of light over dark sky composes the same
+  // way a line of paint does once alpha is accounted for.
+  void over(inout vec3 c, inout float a, vec3 sc, float sa) {
+    float na = sa + a * (1.0 - sa);
+    c = na > 0.0 ? (sc * sa + c * a * (1.0 - sa)) / na : c;
+    a = na;
   }
 
   // Quad uv → art uv, artwork CONTAINED and centred in a quad of aspect Q.
@@ -102,62 +115,81 @@ const FRAGMENT = /* glsl */ `
     return texture2D(atlas, offset + art * scale);
   }
 
+  // Corner ticks, in pane-height units: how far past the corner each edge line
+  // is continued, and the gap before it starts. Registration marks, not
+  // brackets — the same "this is a projection" cue at a tenth of the weight.
+  const float TICK_GAP = 0.006;
+  const float TICK_LEN = 0.022;
+
+  // THE CHROME IS DESIGNED TO BE LOOKED THROUGH, NOT AT. Dark glass, a
+  // screen-constant hairline, the artwork untouched, and exactly one
+  // brand-coloured element — the emitter line along the bottom edge, whose
+  // bloom is what makes the panel read as projected up from the satellite. The
+  // brand colour lives on the light source, never on the pane, so a real
+  // full-colour trademark shows its own colours with no cast.
   void main() {
+    // ── Pane space ──
+    // The glass occupies the central uInset of the quad. uv is the pane's own
+    // 0..1 space and runs a little past it into the band where the ticks and
+    // the bloom live; q is the same space aspect-corrected and centred, so a
+    // distance measured in it is the same on both axes of a 2:1 panel.
+    vec2 uv = (vUv - 0.5) / uInset + 0.5;
+    vec2 q = (uv - 0.5) * vec2(uAspect, 1.0);
+    vec2 d = abs(q) - vec2(uAspect, 1.0) * 0.5;   // signed distance past each pane edge
+    vec2 px = fwidth(q);                          // one screen pixel, per axis
+    float band = (1.0 / uInset - 1.0) * 0.5;      // the outside band, in uv units
+    float inside = step(max(d.x, d.y), 0.0);
+
     // ── The brand plate ──
-    // Both artworks are fitted against the CURRENT quad aspect, so each stays
+    // Both artworks are fitted against the CURRENT pane aspect, so each stays
     // undistorted at every point of the unfold, and the crossfade is the only
-    // thing that changes between them.
-    vec4 isotype = sampleArt(uIsotype, uIsoOffset, uIsoScale, vUv, uAspect, uIsoAspect);
-    vec4 logo = sampleArt(uLogo, uLogoOffset, uLogoScale, vUv, uAspect, uLogoAspect);
+    // thing that changes between them. Sampled clean: no scanlines, no grain.
+    // The plate is a trademark and is drawn exactly as delivered.
+    vec4 isotype = sampleArt(uIsotype, uIsoOffset, uIsoScale, uv, uAspect, uIsoAspect);
+    vec4 logo = sampleArt(uLogo, uLogoOffset, uLogoScale, uv, uAspect, uLogoAspect);
     vec4 plate = mix(isotype, logo, uExpand);
 
-    // Projection feel, deliberately restrained: the plate is the one thing that
-    // must stay readable, so it gets travelling scanlines and a little grain,
-    // never a hue shift or a displacement.
-    float scan = 0.5 + 0.5 * sin(vUv.y * 220.0 - uTime * 1.6);
-    float grain = hash(vUv * 320.0 + floor(uTime * 24.0));
-    float plateMod = 0.88 + 0.12 * scan + 0.05 * (grain - 0.5);
-    vec3 plateColor = plate.rgb * plateMod;
-    float plateAlpha = plate.a * (0.9 + 0.1 * scan);
+    // ── The glass ──
+    // Neutral dark, a touch denser toward the bottom where the emitter is, and
+    // one faint diagonal sheen — a glass highlight, not a CRT.
+    float sheen = 0.03 * smoothstep(0.35, 0.65, uv.x + uv.y * 0.4);
+    vec3 color = GLASS + vec3(sheen);
+    float alpha = uGlassAlpha * mix(0.7, 1.0, 1.0 - uv.y) * inside;
 
-    // ── The pane ──
-    // A faint brand-tinted wash so the panel reads as a surface rather than
-    // floating text, brightest at the bottom edge like a projected beam.
-    float paneGradient = mix(0.10, 0.03, vUv.y);
-    vec3 paneColor = uBrandColor * 0.55;
+    over(color, alpha, plate.rgb, plate.a);
 
-    // ── The frame ──
-    // Distance to the nearest edge, aspect-corrected so a 2:1 panel gets an
-    // even border rather than a stretched one.
-    vec2 edges = min(vUv, 1.0 - vUv) * vec2(uAspect, 1.0);
-    float edge = min(edges.x, edges.y);
+    // ── The hairline ──
+    // Width from screen-space derivatives, so it is ~1px at the close-up AND
+    // ~1px on the 30px resting isotype. A width fixed in uv would be a fat band
+    // on the small panel — the loudest thing in it, six times over.
+    float edge = max(d.x, d.y);
+    float epx = fwidth(edge);
+    float hairline = 1.0 - smoothstep(epx * 0.8, epx * 2.0, abs(edge));
 
-    float border = 1.0 - smoothstep(0.012, 0.020, edge);
-    // Corner brackets: the border, kept only where BOTH axes are near an end.
-    // min(), not max() — max() is true all along an edge (a point mid-way down
-    // the top edge is still "near the top"), which lights the whole border
-    // uniformly and loses the bracket read entirely.
-    float towardCornerX = 1.0 - smoothstep(0.16, 0.30, edges.x);
-    float towardCornerY = 1.0 - smoothstep(0.10, 0.20, edges.y);
-    float bracket = min(towardCornerX, towardCornerY);
-    // A continuous hairline everywhere, brightening hard into the corners.
-    float frame = border * (0.22 + 0.78 * bracket);
+    // Corner ticks: each edge line continued past the corner, after a gap.
+    float onH = 1.0 - smoothstep(px.y * 0.8, px.y * 2.0, abs(d.y));
+    float onV = 1.0 - smoothstep(px.x * 0.8, px.x * 2.0, abs(d.x));
+    float tickH = onH * step(TICK_GAP, d.x) * step(d.x, TICK_GAP + TICK_LEN);
+    float tickV = onV * step(TICK_GAP, d.y) * step(d.y, TICK_GAP + TICK_LEN);
 
-    // Outward bleed, which is most of what sells "emitted, not printed".
-    float bleed = exp(-edge * 26.0) * 0.30;
+    over(color, alpha, vec3(1.0), max(hairline, max(tickH, tickV)) * HAIRLINE_ALPHA);
 
-    // Flicker rides only the frame — a flickering wordmark reads as broken
-    // rather than holographic.
-    float flicker = 0.92 + 0.08 * sin(uTime * 9.0) * hash(vec2(floor(uTime * 12.0), 3.0));
-    float frameAlpha = clamp((frame + bleed) * flicker, 0.0, 1.0);
+    // ── The emitter ──
+    // The signature. A brand-colour line along the pane's bottom edge, the
+    // exact width of the pane, with a soft bloom falling away beneath it into
+    // the band — fading to nothing before the quad's edge would clip it. The
+    // bloom breathes, slowly; nothing flickers.
+    float onBottom = 1.0 - smoothstep(px.y * 0.8, px.y * 2.0, abs(uv.y));
+    float span = step(0.0, uv.x) * step(uv.x, 1.0);
+    float emit = onBottom * span * 0.9;
 
-    // ── Composite ──
-    vec3 color = mix(paneColor, plateColor, plateAlpha);
-    float alpha = paneGradient + plateAlpha * (1.0 - paneGradient);
+    float below = max(-uv.y, 0.0);
+    float fall = exp(-below / band * 4.0);
+    float ends = 1.0 - smoothstep(0.0, band, max(-uv.x, uv.x - 1.0));
+    float breath = 0.92 + 0.08 * sin(uTime * 1.4);
+    float bloom = step(uv.y, 0.0) * fall * ends * 0.35 * breath;
 
-    // The frame is emissive: added to colour, unioned into coverage.
-    color += uFrameColor * frameAlpha;
-    alpha = clamp(alpha + frameAlpha, 0.0, 1.0);
+    over(color, alpha, uBrandColor, max(emit, bloom));
 
     gl_FragColor = vec4(color, alpha * uOpacity);
 
@@ -224,8 +256,9 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
 
     uExpand: { value: 0 },
     uBrandColor: { value: new THREE.Color(brandColor) },
-    uFrameColor: { value: new THREE.Color(cfg.frameColor) },
     uOpacity: { value: 0 },
+    uInset: { value: cfg.inset },
+    uGlassAlpha: { value: cfg.glassAlpha },
     uTime: { value: Math.random() * 100 },
     // Written every frame by applyExpansion, never independently — see the
     // header note. Seeded with the collapsed value so the first frame drawn
