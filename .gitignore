@@ -108,3 +108,14 @@ desktop.ini
 # well over a hundred megabytes, and they are reproducible from the scene JSON
 # in docs/plans/005-sky-cubemap/scenes/ — which is the actual deliverable.
 /public/proto-sky/
+
+# And the captures taken through them. 34 PNGs at 1600x900 and 3200x1800 is
+# 25 MB, which is not weight a marketing site's repository should carry for the
+# rest of its life — a clone pays for it forever, and the shots are regenerable
+# from the scene JSON with scripts/proto/capture-sky-matrix.mjs.
+#
+# What IS committed is docs/plans/005-sky-cubemap/contact/: the same matrix at
+# 640px WebP, about 1 MB, so the comparison stays reviewable in the repo. The
+# two native-pixel crops live there too, deliberately un-resampled — downscaling
+# them would throw away the texel-density evidence they were cut to show.
+/docs/plans/005-sky-cubemap/shots/

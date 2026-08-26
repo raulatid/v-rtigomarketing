@@ -496,6 +496,17 @@ export function createFocusCameraRig({
     // rig does, instead of hardcoding its own copy of the number.
     getDragClickThreshold: dragClickThreshold,
     setDebugPose,
+    /** Dev-only, paired with setDebugPose: where the rig actually is. */
+    getDebugPose: () => ({
+      radius: eased.radius,
+      theta: eased.theta,
+      phi: eased.phi,
+      active,
+      mode,
+      focused,
+      position: camera.position.toArray() as [number, number, number],
+      fov: camera.fov,
+    }),
     dispose,
   }
 }

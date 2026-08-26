@@ -16,20 +16,24 @@ describe('the prototype sky gate', () => {
     expect(p.contrast).toBe(1)
   })
 
-  it('ignores every tuning knob when no variant was named', () => {
+  it('ignores the cubemap knobs when no variant was named', () => {
     // Otherwise a stray `?skyBrightness=4` in a shared URL would change the
     // shipped sky, which is exactly the class of accident the gate prevents.
-    const p = parseProtoSkyParams('?skyBrightness=4&stars=0&skyYaw=90')
+    const p = parseProtoSkyParams('?skyBrightness=4&skyYaw=90&skyRes=512')
     expect(p.variant).toBeNull()
     expect(p.brightness).toBe(1)
-    expect(p.stars).toBeNull()
     expect(p.yawDegrees).toBe(0)
+    expect(p.resolution).toBe(4096)
   })
 
-  it('still reads freezeEarth without a variant, because the baseline arm needs it', () => {
-    // `baseline` is captured through the SHIPPED shell, and it has to hold as
-    // still as the variants do or the comparison is not one.
-    expect(parseProtoSkyParams('?freezeEarth=1').freezeEarth).toBe(true)
+  it('still reads the capture knobs without a variant, because the baseline arm needs them', () => {
+    // `baseline` is captured through the SHIPPED shell, and it has to be shot
+    // under the same stopped spin and the same particle count as the variants
+    // or it is not a comparison.
+    const p = parseProtoSkyParams('?freezeEarth=1&stars=0')
+    expect(p.variant).toBeNull()
+    expect(p.freezeEarth).toBe(true)
+    expect(p.stars).toBe(0)
   })
 
   it('reads a full variant request', () => {

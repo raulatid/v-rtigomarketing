@@ -35,6 +35,12 @@ export interface DebugCameraPose {
 
 export interface VertigoProtoApi {
   setCamera(pose: DebugCameraPose): void
+  /**
+   * Where the camera actually is. The capture script asserts against this
+   * rather than trusting setCamera, because a pose that silently did not take
+   * produces 25 plausible screenshots of the wrong thing.
+   */
+  getCamera(): ReturnType<FocusCameraRig['getDebugPose']>
   freezeEarth(frozen?: boolean): void
   isEarthFrozen(): boolean
   /** The parsed URL parameters, so a script can assert it got the run it asked for. */
@@ -69,6 +75,7 @@ export function installDebugCameraHook(rig: FocusCameraRig): () => void {
 
   window.__vertigoProto = {
     setCamera: (pose) => rig.setDebugPose(pose),
+    getCamera: () => rig.getDebugPose(),
     freezeEarth: (frozen = true) => {
       earthFrozen = frozen
     },

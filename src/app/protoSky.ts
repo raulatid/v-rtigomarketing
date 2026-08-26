@@ -110,13 +110,26 @@ function parse(search: string): ProtoSkyParams {
 
   const params = new URLSearchParams(search)
   const variant = variantName(params.get('sky'))
-  if (variant === null) {
-    // `?freezeEarth=1` is useful on its own — the existing e2e suite stops the
-    // spin by hand for exactly this reason — so it is read even with no
-    // variant. Nothing else is: the remaining knobs only mean something to a
-    // cubemap that is not loaded.
-    return { ...INERT, freezeEarth: params.get('freezeEarth') === '1' }
+
+  // Two kinds of knob, and the split is not arbitrary.
+  //
+  // `freezeEarth` and `stars` belong to the CAPTURE, not to the cubemap. The
+  // comparison's baseline arm is the shipped panorama, and it has to be shot
+  // under the same conditions as the variants or it is not a comparison: the
+  // same stopped spin, and the same particle count. The first pass runs every
+  // arm at ?stars=0 precisely so the baked sky and the photograph are both
+  // judged without a particle field on top.
+  //
+  // Everything else — resolution, brightness, contrast, yaw, tilt — only means
+  // something to a cubemap, so with no variant named it stays at the identity.
+  // That keeps a stray `?skyBrightness=4` in a shared URL from changing the
+  // shipped sky.
+  const capture = {
+    stars: starCount(params.get('stars')),
+    freezeEarth: params.get('freezeEarth') === '1',
   }
+
+  if (variant === null) return { ...INERT, ...capture }
 
   return {
     variant,
@@ -125,10 +138,7 @@ function parse(search: string): ProtoSkyParams {
     contrast: number(params, 'skyContrast', INERT.contrast),
     yawDegrees: number(params, 'skyYaw', INERT.yawDegrees),
     tiltDegrees: number(params, 'skyTilt', INERT.tiltDegrees),
-    // Same rule as `number`: only an actual value counts, so `&stars=` leaves
-    // the shipped particle field alone rather than silently deleting it.
-    stars: starCount(params.get('stars')),
-    freezeEarth: params.get('freezeEarth') === '1',
+    ...capture,
   }
 }
 
