@@ -10,6 +10,7 @@ import { SequenceState } from '../config/sequenceState'
 import { atOrAfter } from '../config/sceneVisibility'
 import { auditView } from '../../../auditView'
 import { EARTH_REST } from '../camera/CameraController'
+import { applyScrubPose } from '../camera/scrubPose'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 export interface InteractionHandle {
@@ -106,8 +107,11 @@ export function InteractionLayer({
     // its effect has already run by the time this one does.
   }, [camera, gl, orbitSystemRef, handleRef, cursorRef])
 
-  // Priority 0 so this runs before RenderPipeline (1) does the WebGL render and
-  // GeoMarkersLayer (2) draws its labels — the camera must be final first.
+  // Sampled once: matchMedia inside a frame callback would be a media lookup per
+  // frame, and every other reader in the application samples it once too.
+
+  // Priority 0, and LAST among the priority-0 layers, so the rig is the final
+  // camera writer before RenderPipeline draws at priority 1.
   useFrame((_, rawDelta) => {
     const rig = rigRef.current
     const focus = focusRef.current
@@ -124,24 +128,38 @@ export function InteractionLayer({
     if (interactive) rig.activate()
     else if (rig.isActive()) rig.deactivate()
 
-    // A warp is playing: CameraController owns the camera for its duration, so
-    // the rig stands down. Note this does NOT deactivate it — activate() reseeds
-    // from the overview pose, so toggling here would throw away the pose the
-    // dolly is departing from. Simply not calling update() freezes it in place
-    // with its state intact, which is the same seam the audit panel relies on.
-    const warping = state.transitionProgress > 0
+    // A COMMITTED warp is playing: CameraController owns the camera for its
+    // duration, so the rig stands down. Note this does NOT deactivate it —
+    // activate() reseeds from the overview pose, so toggling here would throw
+    // away the pose the dolly is departing from. Simply not calling update()
+    // freezes it in place with its state intact, which is the same seam the
+    // audit panel relies on.
+    //
+    // Gated on `transitionCommitted`, NOT on `transitionProgress > 0`. Those
+    // were the same thing until navigation became a scrubbed gesture; now a
+    // gesture drives the same number, reversibly, and its decay tail is
+    // deliberately long. Standing down for that froze the globe for ~1.6s after
+    // a single wheel notch — and worse, `onPointerMove` has no `active` guard,
+    // so the orbit angles kept integrating behind a camera nobody was updating
+    // and the whole drag then replayed as a slow drift.
+    const cinematic = state.transitionCommitted
     // The rig stays active while the audit panel is open — deactivating it
     // would reset to the overview pose and lose the user's drag position, and
     // the ambient drag keeps the visible strip alive. Only satellite selection
     // is disabled, so a click cannot fly the camera into a close-up (whose
     // composition contract assumes the full viewport) behind the panel.
-    focus.setEnabled(interactive && !warping && !auditView.open)
+    focus.setEnabled(interactive && !cinematic && !auditView.open)
 
-    if (!interactive || warping) return
+    if (!interactive || cinematic) return
 
     focus.update()
     // Clamped so a backgrounded tab cannot teleport the camera on return.
     rig.update(clampFrameDelta(rawDelta))
+    // AFTER the rig, because the rig would otherwise overwrite it — and that
+    // ordering is the whole design (see scrubPose.ts). A no-op at rest.
+    // Cast as CameraController does: the scene camera is a perspective one by
+    // construction (SceneCanvas configures it), and R3F's type is the union.
+    applyScrubPose(camera as THREE.PerspectiveCamera, state.transitionProgress, rig.getLookAt())
   })
 
   return null

@@ -271,3 +271,185 @@ describe('createNavigationGesture', () => {
     expect(Number.isFinite(frame.progress)).toBe(true)
   })
 })
+
+/**
+ * Accumulates `totalPx` of travel, respecting the per-event cap.
+ *
+ * A single big push would be silently clamped to `maxEventTravelPx` — the trap
+ * the keyboard step fell into once already — so this feeds it as a stream, one
+ * event per frame, with no gap long enough to start a decay.
+ */
+function seed(
+  gesture: ReturnType<typeof createNavigationGesture>,
+  totalPx: number,
+  startMs = 1000,
+) {
+  const dt = 1 / 60
+  let pushed = 0
+  let ms = startMs
+  while (pushed < totalPx) {
+    const step = Math.min(LIMITS.maxEventTravelPx, totalPx - pushed)
+    gesture.push(step, ms)
+    gesture.step(dt, ms)
+    pushed += step
+    ms += dt * 1000
+  }
+  return ms
+}
+
+/** Seconds of silence until travel reaches zero, from `start` px of travel. */
+function secondsToRest(start: number, options: { release?: boolean } = {}) {
+  const g = createNavigationGesture(LIMITS)
+  let ms = seed(g, start)
+  if (options.release) g.release()
+
+  const dt = 1 / 60
+  let frames = 0
+  while (g.state().travelPx > 0 && frames < 900) {
+    ms += dt * 1000
+    g.step(dt, ms)
+    frames += 1
+  }
+  return frames / 60
+}
+
+describe('the retreat is fast enough to feel like a camera, not a progress bar', () => {
+  it('clears a single wheel notch well inside a second', () => {
+    // The regression this pins. At decaySeconds 0.22 with an absolute 1px floor
+    // this took 1.57s from the last event — 0.5s of idle gap and then 1.05s of
+    // decay across a 900px range, which is 6.8 time constants. For a progress
+    // bar that read as letting go. For a CAMERA it read as the site being
+    // broken, and it was reported as exactly that.
+    expect(secondsToRest(LIMITS.maxEventTravelPx)).toBeLessThan(0.9)
+  })
+
+  it('clears the longest possible retreat inside a second too', () => {
+    // Just under the threshold, because a COMMITTED gesture never retreats at
+    // all — the commit is latched until reset(). So the worst case for a
+    // viewer who changes their mind is the last pixel before it fires.
+    expect(secondsToRest(COMMIT * 0.99)).toBeLessThan(1.0)
+  })
+
+  it('terminates in proportion to the commit distance, not to a pixel', () => {
+    // The floor is relative so `commitDistancePx` stays tunable: an absolute
+    // floor makes the same decay constant behave differently at every commit
+    // distance, silently, and four times the travel would cost four times the
+    // wait for no reason the viewer can see.
+    const wide = createNavigationGesture({ ...LIMITS, commitDistancePx: COMMIT * 4 })
+    let ms = seed(wide, COMMIT * 4 * 0.99)
+    const dt = 1 / 60
+    let frames = 0
+    while (wide.state().travelPx > 0 && frames < 900) {
+      ms += dt * 1000
+      wide.step(dt, ms)
+      frames += 1
+    }
+    expect(frames / 60).toBeLessThan(1.0)
+  })
+})
+
+describe('release', () => {
+  const HALF = COMMIT / 2
+
+  it('a gesture released in the same frame it completes still commits', () => {
+    // What a DECISIVE gesture looks like: the travel crosses the threshold and
+    // the fingers leave, and both land in the queue before the next frame is
+    // drawn. The commit edge is read on the frame, not in push, so the retreat
+    // and the commit were being decided in the same step — and the retreat went
+    // first, taking 18% of the travel with it at a 16ms frame.
+    //
+    // Caught on a phone-shaped e2e run, where a full pinch simply did nothing:
+    // held, it navigated; released at the end of the same gesture, it did not.
+    // Pushed WITHOUT stepping, which is the point: every event of the gesture
+    // and the release land in one queue drain, and the frame that follows has to
+    // decide both. `seed` steps as it goes, so it cannot express this.
+    const g = createNavigationGesture(LIMITS)
+    let ms = 1000
+    for (let pushed = 0; pushed < COMMIT; pushed += LIMITS.maxEventTravelPx) {
+      g.push(Math.min(LIMITS.maxEventTravelPx, COMMIT - pushed), ms)
+      ms += 4
+    }
+    g.release()
+
+    const frame = g.step(1 / 60, ms)
+    expect(frame.committed).toBe(true)
+    expect(frame.progress).toBe(1)
+  })
+
+  it('but a released gesture SHORT of the threshold still retreats', () => {
+    // The guard above must not become 'a release never decays'.
+    const short = COMMIT - LIMITS.maxEventTravelPx
+    const g = createNavigationGesture(LIMITS)
+    let ms = 1000
+    for (let pushed = 0; pushed < short; pushed += LIMITS.maxEventTravelPx) {
+      g.push(Math.min(LIMITS.maxEventTravelPx, short - pushed), ms)
+      ms += 4
+    }
+    g.release()
+
+    const frame = g.step(1 / 60, ms)
+    expect(frame.committed).toBe(false)
+    expect(frame.releasing).toBe(true)
+    expect(frame.progress).toBeLessThan(short / COMMIT)
+  })
+
+  it('starts the retreat immediately instead of waiting out the idle gap', () => {
+    const held = createNavigationGesture(LIMITS)
+    const letGo = createNavigationGesture(LIMITS)
+    const heldMs = seed(held, HALF)
+    const letGoMs = seed(letGo, HALF)
+    letGo.release()
+
+    // A quarter of the idle gap: the held gesture has not moved a pixel, the
+    // released one is already most of the way home.
+    const dt = 1 / 60
+    for (let i = 0; i < 8; i += 1) {
+      held.step(dt, heldMs + (i + 1) * dt * 1000)
+      letGo.step(dt, letGoMs + (i + 1) * dt * 1000)
+    }
+    expect(held.state().travelPx).toBe(HALF)
+    expect(letGo.state().travelPx).toBeLessThan(HALF * 0.5)
+  })
+
+  it('decays rather than teleporting, so the spring can still ease it home', () => {
+    // Not reset(): dropping the travel in one frame would snap the scene.
+    const g = createNavigationGesture(LIMITS)
+    const ms = seed(g, HALF)
+    g.release()
+    const after = g.step(1 / 60, ms + 1000 / 60)
+    expect(after.progress).toBeGreaterThan(0)
+    expect(after.progress).toBeLessThan(0.5)
+    expect(after.releasing).toBe(true)
+  })
+
+  it('does nothing when no gesture is in flight', () => {
+    // A press on an idle scene must not arm a retreat from nothing, and must
+    // not rob the NEXT gesture of its idle-gap protection.
+    const g = createNavigationGesture(LIMITS)
+    g.release()
+    expect(g.step(1 / 60, 1000).progress).toBe(0)
+
+    const ms = seed(g, HALF, 2000)
+    g.step(1 / 60, ms + 100)
+    expect(g.state().travelPx).toBe(HALF)
+  })
+
+  it('rearms for the next gesture once the retreat finishes', () => {
+    // A released gesture must not poison every gesture after it — on a slow
+    // device the idle gap is the only thing stopping a stream fighting its own
+    // decay, and it has to come back.
+    const g = createNavigationGesture(LIMITS)
+    let ms = seed(g, HALF)
+    g.release()
+    const dt = 1 / 60
+    while (g.state().travelPx > 0 && ms < 5000) {
+      ms += dt * 1000
+      g.step(dt, ms)
+    }
+    expect(g.state().travelPx).toBe(0)
+
+    ms = seed(g, HALF, ms + 1000)
+    g.step(dt, ms + 100)
+    expect(g.state().travelPx).toBe(HALF)
+  })
+})

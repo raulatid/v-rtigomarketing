@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { Report, remoteMediaUrl } from './validate'
+import { Report, remoteMediaUrl, sanityImageDimensions } from './validate'
 import { SourceError, withTimeout, type ContentSource } from './source'
+import type { MediaRule } from '../collections/types'
 
 /**
  * Mirrors CMS media into the deployment instead of hotlinking it.
@@ -80,7 +81,9 @@ export function withMediaMirror(inner: ContentSource, options: MirrorOptions): C
           // value that is actually there is held to the contract.
           if (remote === null || remote === undefined || remote === '') continue
 
-          const url = validateRemote(at, remote, options.allowedOrigin)
+          const rule = spec.mediaRules?.[field]
+          const url = validateRemote(at, remote, options.allowedOrigin, rule)
+          if (rule !== undefined) assertGeometry(at, url, rule)
           const local = await mirrorOne(url, at, options, doFetch, timeoutMs, log)
           writePath(record as Record<string, unknown>, field, local)
         }
@@ -97,14 +100,65 @@ export function withMediaMirror(inner: ContentSource, options: MirrorOptions): C
  * the first of the two. Rejecting SVG here is the enforcement point of the logo
  * policy in `docs/content/sanity-media-contract.md`.
  */
-function validateRemote(at: string, value: unknown, allowedOrigin: string): string {
+function validateRemote(
+  at: string,
+  value: unknown,
+  allowedOrigin: string,
+  rule: MediaRule | undefined,
+): string {
   const report = new Report('')
-  const url = remoteMediaUrl(report, at, value, allowedOrigin)
+  const url = remoteMediaUrl(report, at, value, allowedOrigin, rule?.extensions)
   if (url === undefined) {
     const detail = report.problems.map((p) => p.message).join('; ')
     throw new SourceError(at + ': ' + (detail.length > 0 ? detail : 'is not a usable media URL'))
   }
   return url
+}
+
+/**
+ * The geometry half of the media contract, checked before a byte is downloaded.
+ *
+ * Sanity puts the dimensions in the asset's own filename, so a logo that is too
+ * small or the wrong shape is rejected without a fetch — and the message can
+ * name the numbers, which is what makes it actionable in a build log.
+ *
+ * FAILS rather than warns. Wrong artwork does not break the renderer: the atlas
+ * contain-fits anything, so an undersized logo simply draws soft and a
+ * near-square one draws small. That is exactly the sort of quiet degradation
+ * that survives a review and ships, which is the case for stopping the build
+ * over it. The editor was already told in the Studio; anything arriving here
+ * came in through an import, a restored backup or the HTTP API.
+ *
+ * A URL whose name carries no dimensions is left alone — see
+ * `sanityImageDimensions`. Sanity always supplies them; a hand-placed file is
+ * not this function's business.
+ */
+function assertGeometry(at: string, url: string, rule: MediaRule): void {
+  const size = sanityImageDimensions(url)
+  if (size === undefined) return
+
+  const actual = size.width + 'x' + size.height
+  if (size.width < rule.minWidth || size.height < rule.minHeight) {
+    throw new SourceError(
+      at + ': is ' + actual + ', under the ' + rule.minWidth + 'x' + rule.minHeight + ' minimum',
+    )
+  }
+
+  const aspect = size.width / size.height
+  if (aspect < rule.minAspect || aspect > rule.maxAspect) {
+    throw new SourceError(
+      at +
+        ': is ' +
+        actual +
+        ' (' +
+        aspect.toFixed(2) +
+        ':1), outside the allowed ' +
+        rule.minAspect +
+        ':1 to ' +
+        rule.maxAspect +
+        ':1',
+    )
+  }
 }
 
 async function mirrorOne(

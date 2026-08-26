@@ -184,9 +184,22 @@ export function MurciaLayer({ active, state, experienceRef, onReady, onAttention
     // way back to Earth, dropping in on the way down (ADR 006). It flips at the
     // cut in the same frame `active` does, and any disagreement between the two
     // for one frame is under a fully black flash.
+    // Reduced motion suppresses the CINEMATIC's travel — an effect applied TO the
+    // viewer — but keeps a scrub's, which is direct manipulation: 1:1 with their
+    // own fingers, and it stops the moment they stop. That is the split
+    // `scrubPose.ts` makes on Earth, and until now this was the last place the
+    // two worlds disagreed: Murcia gated the whole pose on the flag, so a
+    // reduced-motion viewer could pinch and watch the city do nothing.
+    //
+    // Suppression here means DO NOTHING, not reset. The pose freezes wherever
+    // the fingers left it and the scene swaps under the flash, which is the same
+    // bargain reduced motion already strikes — it keeps the cut, and skips the
+    // journey. Resetting instead would snap the city back to rest at the moment
+    // of commit, in plain view, which is more motion rather than less.
     const p = state.transitionProgress
+    const suppressed = reducedMotion && state.transitionCommitted
     if (p > 0) {
-      if (active && !reducedMotion) {
+      if (active && !suppressed) {
         const { amount, departing } = dollyAmount(p)
         experience.setWarpPose(amount, departing)
       }
@@ -197,7 +210,7 @@ export function MurciaLayer({ active, state, experienceRef, onReady, onAttention
       dollyEngaged.current = false
       experience.setWarpPose(0, false)
     }
-    if (p > 0 && active && !reducedMotion) dollyEngaged.current = true
+    if (p > 0 && active && !suppressed) dollyEngaged.current = true
 
     experience.update(clampFrameDelta(delta))
   })

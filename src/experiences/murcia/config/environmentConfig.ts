@@ -127,6 +127,22 @@ export interface RotationConfig {
    * fraction of the screen on either input.
    */
   degreesPerViewportWidth: number;
+  /**
+   * Centroid travel required before two fingers turn anything, in CSS pixels.
+   *
+   * The two-finger path had no threshold of any kind: the first pixel of
+   * centroid drift turned the city. One finger has had `touchDragThresholdPx`
+   * since it learned that a resting finger must not move the world, and two
+   * fingers need it MORE, not less — real thumbs are not symmetric, so every
+   * two-finger gesture that is not a deliberate sideways sweep still drifts
+   * the centroid by a few pixels.
+   *
+   * It is also what makes the centroid separable from the separation between
+   * the fingers, which is a different signal and may one day want its own
+   * meaning. Without a dead zone the two can never be told apart, because
+   * rotation has already fired by the time there is any evidence to weigh.
+   */
+  twoPointerThresholdPx: number;
   /** Feel for the yaw axis. Speeds are degrees per second. */
   feel: DragFeelConfig;
 }

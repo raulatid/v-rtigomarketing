@@ -65,6 +65,23 @@ export interface NavigationGesture {
   /** Drops all travel. Used on commit, on scene change and on tab hide. */
   reset(): void
   /**
+   * The viewer has explicitly let go. Starts the retreat NOW, without waiting
+   * out `idleGapSeconds`.
+   *
+   * The idle gap exists because the wheel has no release event: it is the only
+   * way to tell "still scrolling" from "stopped", and it is measured generously
+   * so a slow device cannot fight its own decay mid-gesture. When something DOES
+   * signal a release the gap is not just unnecessary, it is a half second of the
+   * world hanging at a lean for no reason.
+   *
+   * Two callers. A press on the canvas: grabbing the world means you want to
+   * manipulate it, not travel through it. And, later, a touch pointer-up.
+   *
+   * Not `reset()`, deliberately — that would drop the travel in one frame and
+   * teleport the scene. This decays, so the spring still eases it home.
+   */
+  release(): void
+  /**
    * Refuses further travel until the input stream genuinely stops.
    *
    * Set when a cooldown ends on its DEADLINE rather than on quiet — at that moment
@@ -97,6 +114,15 @@ export function createNavigationGesture(
   let cadence = 0
   let committed = false
   let releasing = false
+  /**
+   * The viewer let go explicitly, so the idle gap is waived until travel clears.
+   *
+   * Cleared when travel reaches zero rather than on the next push, so a released
+   * gesture always finishes retreating — and a push that arrives mid-retreat
+   * (a momentum tail) is still refused by the ordinary guards rather than by
+   * this one.
+   */
+  let released = false
 
   function push(travelPx: number, timeStampMs: number, accumulate = true): void {
     if (!Number.isFinite(travelPx) || !Number.isFinite(timeStampMs)) return
@@ -132,13 +158,34 @@ export function createNavigationGesture(
     const quietFor = (nowMs - lastInputMs) / 1000
     releasing = false
 
-    if (!committed && travel > 0 && quietFor >= limits.idleGapSeconds) {
-      // Frame-rate independent, and it terminates: below a pixel there is nothing
-      // left to draw, so snapping avoids an asymptote that never clears `active`.
+    // Read BEFORE any retreat is applied. A gesture that reaches the threshold
+    // and is released in the same frame — which is what a decisive gesture looks
+    // like, and what pointermove and pointerup do when the queue is drained
+    // together — would otherwise have the first decay step taken out of it and
+    // miss the commit it had already earned. At 0.08s and a 16ms frame that is
+    // 18% of the travel, so the loss is not marginal: it is the difference
+    // between navigating and not.
+    //
+    // Only ever true for the one frame the commit fires on: after that
+    // `committed` short-circuits the same condition.
+    const reachedCommit = travel >= limits.commitDistancePx
+
+    if (
+      !committed &&
+      !reachedCommit &&
+      travel > 0 &&
+      (released || quietFor >= limits.idleGapSeconds)
+    ) {
+      // Frame-rate independent, and it terminates: below a fraction of the
+      // commit distance there is nothing left to see, so snapping avoids an
+      // asymptote that never clears `active`.
       const alpha =
         limits.decaySeconds > 0 ? 1 - Math.exp(-advanceDt / limits.decaySeconds) : 1
       travel -= travel * alpha
-      if (travel < 1) travel = 0
+      if (travel < limits.commitDistancePx * limits.snapFraction) {
+        travel = 0
+        released = false
+      }
       releasing = true
     }
 
@@ -162,6 +209,7 @@ export function createNavigationGesture(
     travel = 0
     committed = false
     releasing = false
+    released = false
     cadence = 0
     // `latched` and `lastInputMs` deliberately survive. A reset happens at a
     // commit and at a scene swap, which is precisely when a momentum tail is
@@ -172,6 +220,11 @@ export function createNavigationGesture(
     push,
     step,
     reset,
+    release() {
+      // No-op with nothing in flight, so a press on an idle scene costs nothing
+      // and cannot arm a retreat that has nothing to retreat from.
+      if (travel > 0) released = true
+    },
     latch(nowMs: number) {
       latched = true
       if (Number.isFinite(nowMs)) lastInputMs = nowMs

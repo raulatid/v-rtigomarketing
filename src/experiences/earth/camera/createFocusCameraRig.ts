@@ -156,6 +156,22 @@ export function createFocusCameraRig({
 
   let activePointerId = -1
   let dragPointerType = 'mouse'
+  /** Where the current pointer sequence went down, for the drag threshold. */
+  let pointerDownX = 0
+  let pointerDownY = 0
+  /** Whether this sequence has travelled far enough to turn the globe. */
+  let exceededThreshold = false
+
+  /**
+   * Movement required before the orbit responds, for the pointer in hand.
+   *
+   * Zero for mouse and pen. They are precise, a press does not wander, and a
+   * threshold there would only add latency to a control that has never needed
+   * it — the same reason the click tolerance splits by pointer type.
+   */
+  function dragThreshold(pointerType: string) {
+    return pointerType === 'touch' ? cfg.touchDragThresholdPx : 0
+  }
 
   // How much accumulated travel still counts as a tap. A finger tap routinely
   // jitters 5–15px, so the mouse tolerance would reject most taps as drags;
@@ -171,22 +187,74 @@ export function createFocusCameraRig({
     // right tolerance.
     dragPointerType = e.pointerType
     if (!orbitEnabled) return // no orbit while a satellite is focused
+    // A second finger must not take the gesture over. `onPointerMove` reacted to
+    // `orbit.isDragging` alone and this reseeded the anchor for any pointer, so
+    // two contact points both fed the orbit and the globe jittered between them.
+    if (orbit.isDragging) {
+      // And it can never be a TAP either. `dragDistance` accumulates only the
+      // active pointer's travel (onPointerMove drops every other pointer before
+      // it counts), so a two-finger gesture whose anchor finger barely moves
+      // would otherwise end under the tap tolerance — and a synthesised click
+      // would read as a clean tap and select a satellite. Poisoned rather than
+      // guarded by a flag, because the click path already asks exactly this
+      // question and there is no second question to ask.
+      dragDistance = Number.POSITIVE_INFINITY
+      return
+    }
     orbit.isDragging = true
     orbit.lastX = e.clientX
     orbit.lastY = e.clientY
+    pointerDownX = e.clientX
+    pointerDownY = e.clientY
+    exceededThreshold = false
     dragDistance = 0
     activePointerId = e.pointerId
-    domElement.setPointerCapture?.(e.pointerId)
+    try {
+      domElement.setPointerCapture?.(e.pointerId)
+    } catch {
+      // The pointer can be gone by the time this handler runs — released between
+      // the event being queued and the queue being drained, which a busy main
+      // thread makes ordinary rather than exotic. Capture is an optimisation
+      // here (it keeps moves coming once the finger leaves the canvas), not a
+      // requirement, so failing to take it must not abandon the rest of the
+      // gesture setup below. `releasePointerCapture` has been guarded for the
+      // same reason since it was written; this is its missing other half.
+    }
     cursor.request('drag', 'grabbing')
   }
 
   function onPointerMove(e: PointerEvent) {
     if (!orbit.isDragging) return
+    // Only the pointer that started the gesture drives it. See onPointerDown.
+    if (e.pointerId !== activePointerId) return
+
     const dx = e.clientX - orbit.lastX
     const dy = e.clientY - orbit.lastY
     orbit.lastX = e.clientX
     orbit.lastY = e.clientY
+    // Accumulated BEFORE the threshold gate, deliberately. This is the
+    // click-vs-drag measure, and a drag that ends over a satellite must not
+    // select it — discounting the first 12px would make short drags read as
+    // taps and hand the viewer a close-up they did not ask for.
     dragDistance += Math.abs(dx) + Math.abs(dy)
+
+    if (!exceededThreshold) {
+      const threshold = dragThreshold(e.pointerType)
+      if (threshold > 0) {
+        const travelled = Math.hypot(e.clientX - pointerDownX, e.clientY - pointerDownY)
+        if (travelled < threshold) return
+        // Re-anchor at the moment the drag actually begins, so the first frame
+        // does not jump by the threshold distance. Same shape as Murcia's, and
+        // it costs this one move — which is the price of the re-anchor.
+        exceededThreshold = true
+        return
+      }
+      // No threshold, so nothing to re-anchor FROM: falling through keeps a
+      // mouse drag turning on its very first pixel, as it always has. Consuming
+      // this move instead would silently discard the opening of every drag —
+      // `check:earth` caught exactly that, because it drags in one large step.
+      exceededThreshold = true
+    }
 
     orbit.theta -= dx * cfg.orbitSensitivity
     orbit.phi = THREE.MathUtils.clamp(
@@ -196,8 +264,14 @@ export function createFocusCameraRig({
     )
   }
 
-  function onPointerUp() {
+  function onPointerUp(e: PointerEvent) {
     if (!orbit.isDragging) return
+    // Only the pointer that OWNS the gesture may end it. Without this a second
+    // finger — which contributes nothing, having been rejected in onPointerDown
+    // and dropped in onPointerMove — ended the first finger's drag on its way
+    // up, and endDrag() then released capture for a pointer still on the glass.
+    // Harmless while two fingers were an accident; every pinch is two fingers.
+    if (e.pointerId !== activePointerId) return
     endDrag()
   }
 
@@ -353,6 +427,15 @@ export function createFocusCameraRig({
     setOrbitEnabled,
     isActive: () => active,
     isDragging: () => orbit.isDragging,
+    /**
+     * The point the camera is currently aimed at. Live, not a copy.
+     *
+     * Published for the scrub modifier, which runs immediately after update()
+     * and moves the camera along its own view axis — it has to re-aim at the
+     * SAME point the rig just used, or the two disagree by a fraction of a
+     * degree every frame and the globe drifts out of centre.
+     */
+    getLookAt: () => current.lookAt,
     getDragDistance: () => dragDistance,
     // Published so the satellite controller measures a tap the same way this
     // rig does, instead of hardcoding its own copy of the number.

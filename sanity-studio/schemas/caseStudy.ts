@@ -1,5 +1,6 @@
 import { EarthGlobeIcon } from '@sanity/icons/EarthGlobe'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { brandMarkAdvice, brandMarkErrors } from './lib/brandMark'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 
 /**
@@ -215,29 +216,44 @@ export const caseStudy = defineType({
       name: 'isotype',
       title: 'Isotipo (símbolo)',
       description:
-        'Solo el símbolo de la marca, sin el nombre. Imagen PNG o WebP cuadrada ' +
-        'con fondo transparente, de unos 512×512 píxeles. Es lo que se ve sobre ' +
-        'el satélite todo el rato, así que es la imagen más importante de las dos. ' +
+        'Solo el símbolo de la marca, sin el nombre. PNG o WebP cuadrado con fondo ' +
+        'transparente, 512×512 píxeles (mínimo 432×432). Es lo que se ve sobre el ' +
+        'satélite todo el rato, así que es la imagen más importante de las dos. ' +
         'Si no subes ninguna, la web muestra un círculo con el color de marca.',
       type: 'image',
       fieldset: 'marca',
-      validation: (rule) => rule.custom(
+      // Narrows the file picker and the drop zone. NOT a guarantee: an asset
+      // chosen from the media library never passes through it, which is why the
+      // format is checked again below.
+      options: { accept: 'image/png,image/webp' },
+      validation: (rule) => [
+        rule.custom(
           brandMarksTogether('logo', 'Has subido el logotipo completo: sube también el isotipo.'),
         ),
+        rule.custom(brandMarkErrors('isotype')),
+        // `.warning()` is the whole difference between the two tiers: a warning
+        // is shown at the field and leaves Publicar enabled.
+        rule.custom(brandMarkAdvice('isotype')).warning(),
+      ],
     }),
     defineField({
       name: 'logo',
       title: 'Logotipo completo',
       description:
-        'El símbolo junto al nombre de la marca. Imagen PNG o WebP con fondo ' +
-        'transparente, de unos 1024×512 píxeles. Solo aparece cuando alguien ' +
-        'pincha el satélite y se abre la ficha del caso. ' +
+        'El símbolo junto al nombre de la marca. PNG o WebP apaisado con fondo ' +
+        'transparente, 1600×800 píxeles (mínimo 900 de ancho). Solo aparece cuando ' +
+        'alguien pincha el satélite y se abre la ficha del caso. ' +
         'Si no subes ninguna, la web muestra una placa con el color de marca.',
       type: 'image',
       fieldset: 'marca',
-      validation: (rule) => rule.custom(
+      options: { accept: 'image/png,image/webp' },
+      validation: (rule) => [
+        rule.custom(
           brandMarksTogether('isotype', 'Has subido el isotipo: sube también el logotipo completo.'),
         ),
+        rule.custom(brandMarkErrors('logo')),
+        rule.custom(brandMarkAdvice('logo')).warning(),
+      ],
     }),
     defineField({
       name: 'brandColor',

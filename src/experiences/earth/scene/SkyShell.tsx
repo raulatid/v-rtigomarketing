@@ -5,7 +5,7 @@ import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { backdropVisible } from '../config/sceneVisibility'
 import { loadProgress } from '../../../loading/progress'
-import { skyOrientation } from './space/galaxyBand'
+import { skyCapRotation, skyOrientation } from './space/galaxyBand'
 import { SPACE_CONFIG } from './space/spaceConfig'
 import shellVertexShader from '../shaders/sky/shell.vert.glsl'
 import shellFragmentShader from '../shaders/sky/shell.frag.glsl'
@@ -126,14 +126,47 @@ export function SkyShell({ config, state, active }: Props) {
     [config.skyBandTilt, config.skyBandYaw],
   )
 
+  // Structural rather than tunable, so this memoises once and never again.
+  const capRotation = useMemo(() => skyCapRotation(SPACE_CONFIG.sky.capAzimuth), [])
+
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
+        // Every uniform the shader reads is declared HERE, at full shape, so
+        // EarthScene's scene-level compileAsync warm-up compiles the shipped
+        // program rather than a smaller one. Adding a uniform later, on first
+        // use, would move a shader compile onto the cut — the single worst
+        // frame in the sequence.
         uniforms: {
           uSky: { value: placeholder },
           uSkyOrientation: { value: new THREE.Matrix3() },
+          uSkyCapRotation: { value: new THREE.Matrix3() },
+          uSkyCapBand: { value: new THREE.Vector2(1, 1) },
+          // Already LINEAR. There is deliberately no sRGB conversion anywhere
+          // on this path: the texture is tagged SRGBColorSpace, so three
+          // converts on sampling and the shader only ever sees linear values.
+          // Converting here as well is the double-conversion DECISIONS 19
+          // already recorded once, and it would look like a strength that needs
+          // dragging rather than like a bug.
+          uSkyCapLevel: {
+            value: new THREE.Vector2(
+              SPACE_CONFIG.sky.capLevel.north,
+              SPACE_CONFIG.sky.capLevel.south,
+            ),
+          },
+          uSkyCapClamp: {
+            value: new THREE.Vector2(
+              SPACE_CONFIG.sky.capClamp.min,
+              SPACE_CONFIG.sky.capClamp.max,
+            ),
+          },
+          uSkyCapStrength: { value: 0 },
           uSkyBrightness: { value: 0 },
           uSkyContrast: { value: 1 },
+          uSkyGrain: { value: 0 },
+          uSkyGrainFrequency: {
+            value: 1 / THREE.MathUtils.degToRad(SPACE_CONFIG.sky.grainCellDegrees),
+          },
         },
         vertexShader: shellVertexShader,
         fragmentShader: shellFragmentShader,
@@ -213,6 +246,19 @@ export function SkyShell({ config, state, active }: Props) {
     material.uniforms.uSkyBrightness.value = config.skyBrightness
     material.uniforms.uSkyContrast.value = config.skyContrast
     material.uniforms.uSkyOrientation.value = orientation
+    material.uniforms.uSkyCapRotation.value = capRotation
+    material.uniforms.uSkyCapStrength.value = config.skyCapStrength
+    material.uniforms.uSkyGrain.value = config.skyGrain
+
+    // Sines, because the shader compares against dir.y and asin is not free on
+    // a full-screen pass. The max() is not paranoia: both edges are sliders and
+    // smoothstep with edge0 >= edge1 is undefined, so a drag that crosses them
+    // over would produce driver-dependent garbage rather than a visible mistake.
+    const capFull = Math.max(config.skyCapFull, config.skyCapStart + 0.5)
+    material.uniforms.uSkyCapBand.value.set(
+      Math.sin(THREE.MathUtils.degToRad(config.skyCapStart)),
+      Math.sin(THREE.MathUtils.degToRad(capFull)),
+    )
 
     if (mesh.current) {
       mesh.current.visible = uploaded.current && backdropVisible(state, config)

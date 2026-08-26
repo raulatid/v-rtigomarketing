@@ -57,6 +57,9 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 | Origin is `https://cdn.sanity.io` | `remoteMediaUrl`, on the parsed `URL.origin` | fail |
 | Scheme is `https` | `remoteMediaUrl` | fail |
 | Not SVG or SVGZ | `remoteMediaUrl` | fail |
+| Extension is `.png` or `.webp` | `remoteMediaUrl`, against the rule's allowlist | fail |
+| At least 432×432 (isotype) / 900×400 (logo) | `mirror.ts`, `assertGeometry` | fail |
+| Aspect 0.75–1.33:1 (isotype) / 1.5–5:1 (logo) | `mirror.ts`, `assertGeometry` | fail |
 | Filename is `[A-Za-z0-9][A-Za-z0-9._-]{0,127}` | `mirror.ts` | fail |
 | The asset actually downloads | `mirror.ts` | fail |
 | Not empty | `mirror.ts` | fail |
@@ -65,7 +68,45 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 | Absent (`null`, missing, `""`) | — | **allowed**, but only for both marks together |
 | `isotype` and `logo` are both present, or both absent | `caseStudies.collection.ts` mapper, and `caseStudyProblems` | fail |
 
-**Accepted formats: PNG and WebP.** Raster, with transparency where the mark needs it. JPEG is accepted by the pipeline but is the wrong choice for a logo on a dark backdrop — it has no alpha channel, so it ships a rectangle.
+Every row above is also checked in the Studio, at the field, by
+`sanity-studio/schemas/lib/brandMark.ts` — see "Two tiers" below.
+
+**Accepted formats: PNG and WebP, and nothing else.** Raster, with transparency where the mark needs
+it. JPEG is refused rather than tolerated: it has no alpha channel, so on the dark-glass panel it
+ships a rectangle of its own background. That is a rendering result nobody would approve if asked,
+which makes it the wrong thing to leave to an editor's judgement.
+
+**SVG is prohibited, deliberately and not permanently** — for a completely different reason, and it
+keeps its own check and its own message. See below.
+
+---
+
+## Two tiers, and where each one lives
+
+The numbers appear in two packages, and the duplication is intentional:
+`sanity-studio/schemas/lib/brandMark.ts` and `caseStudies.collection.ts`'s `BRAND_MARK_RULES`. The
+Studio is its own npm package and neither side may import the other — the same arrangement the
+isotype/logo pairing rule has already. `docs/earth/logo-spec.md` is the source both copies follow.
+
+| | Studio | Content build |
+|---|---|---|
+| When | as the editor uploads | at `npm run content:build` |
+| Reads dimensions from | the asset id, `image-<hash>-1600x800-webp` | the asset URL, `<hash>-1600x800.webp` |
+| Blocks | the Publish button | the deployment |
+| Also has | an advisory tier — below-ideal size, unusual aspect, wastefully large — that flags the field in yellow and publishes anyway | — |
+| Covers | an editor in the Studio | that, plus `sanity dataset import`, a restored backup, and the HTTP API |
+
+Neither tier downloads or decodes anything. Sanity names an image asset after its own dimensions and
+format, so the geometry of an upload is knowable from a string — the same content-addressing fact
+that lets the mirror skip a file it already has.
+
+**The Studio tier fails open.** An asset id it cannot parse passes. If Sanity ever changes that
+format, the failure mode has to be "the Studio stops pre-checking", never "the client's Studio
+rejects every correct logo" — the build is the half that guarantees.
+
+**The build tier ignores a name that carries no dimensions**, which is how a hand-placed
+`/logos/satellite-01-isotipo.webp` stays legal. Only a filename that claims dimensions is held
+to them.
 
 **SVG is prohibited, deliberately and not permanently.** An SVG in a media library is served at its own URL, which makes it stored XSS for anyone who opens it directly, and sanitizing uploaded SVG properly is a real piece of work rather than a regex. If vector logos become a requirement, enabling them should be a reviewed change to `remoteMediaUrl` plus a sanitizer — not an upload nobody noticed. Raster now; SVG later, on purpose.
 
@@ -79,7 +120,18 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 
 **No `alt` on brand marks.** They are drawn into a canvas texture, never into the DOM; the accessible name of a case study comes from `CaseStudy.name`, rendered as text by `CasePanel`. An `alt` field here would be metadata with no reader.
 
-**Recommended source size: 1024×512 for the logo, 512×512 for the isotype, each under 200 KB.** The atlas cells are exactly those sizes and own their padding, so anything larger is downscaled at load and costs bytes for nothing. The 4 MB cap is a guard against a mistake, not a target.
+**Source size: 512×512 for the isotype, 1600×800 for the logo, each under 200 KB.** These are the
+numbers in `docs/earth/logo-spec.md`, which is what the client is asked to deliver, and they are
+roughly 2× the box the artwork is actually fitted into — a 512² isotype cell padded by 40 gives a
+432×432 box, a 1024×512 logo cell padded by 64/56 gives 896×400. The factor of two is what keeps
+thin strokes clean through the downscale at the case-panel close-up.
+
+This document used to say 1024×512 for the logo. That was wrong in a way worth naming: it is barely
+above the 896-wide box, and `drawLogoContained` already `console.warn`s below it — the recommendation
+was steering editors towards artwork the renderer complains about. The minimum is 900 wide; 1600×800
+is the target.
+
+The 4 MB cap is a guard against a mistake, not a target.
 
 ---
 
@@ -120,3 +172,5 @@ When a blog renderer eventually exists, `img-src` in `vercel.json` will need `ht
 - The browser makes a request to `cdn.sanity.io` — a logo reference escaped the mirror, and `img-src 'self'` should be reporting it.
 - A build succeeds while a logo 404s — the failure path degraded to a warning somewhere.
 - An SVG reaches `public/logos/` — the format guard moved or was widened without a sanitizer.
+- A `.jpg` reaches `public/logos/`, or a file whose name says it is smaller than the minimum — the allowlist or `assertGeometry` stopped being reached, most likely because a `mediaRules` key and a `mirror` field name drifted apart.
+- The Studio accepts a 300×300 JPEG without a word — `parseImageRef` is failing to parse a live asset id and every rule is falling open. It is meant to fail open; it is not meant to do so silently forever, so this is worth checking whenever the Sanity major version moves.

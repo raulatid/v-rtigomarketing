@@ -79,9 +79,9 @@ TypeScript 5.6 · `vite-plugin-glsl` · stats.js
 
 ```
 npm run dev            # dev server            (predev: content:build)
-npm run build          # content + typecheck + unit tests + all six harnesses + vite build
+npm run build          # content + typecheck + unit tests + all eight harnesses + vite build
 npm run preview        # serve dist/
-npm run check          # typecheck + unit tests + all six harnesses  ← run this
+npm run check          # typecheck + unit tests + all eight harnesses  ← run this
                        #   (precheck: content:build, so bad CMS content fails HERE)
                        #   CONTENT_SOURCE=sanity | fixture | seed selects the source
 npm run content:build  # query Sanity, validate and emit src/content/generated/  (adr/010, adr/011)
@@ -358,9 +358,20 @@ units throughout — 147 today against the original 152.
 ```
 left button / one finger     pan the ground under the cursor, both axes, 1:1
 right button / two fingers   rotate the rig horizontally about the focus, freely, 360°
-wheel / pinch                dolly, within a bounded band
+wheel                        LEAVE Murcia — scene navigation, not this controller (adr/009)
+two fingers, closing         LEAVE Murcia — scene navigation, not this controller (adr/012)
 middle button                ignored
 ```
+
+**The last two lines are not this controller's.** `createNavigationInput` owns them and Murcia
+never sees them: the wheel because no experience listens for `wheel` at all any more, and the
+pinch because the navigation layer takes the contacts at the claim (one synthetic `pointercancel`
+each) and hands them back untouched otherwise. What this controller lost in `adr/009` was the
+*dolly* — there is still no zoom anywhere. What changed in `adr/012` is only what a pinch MEANS.
+
+Two fingers therefore carry two meanings, and the two are told apart by which signal moves: the
+**centroid** turns the city, the **separation** leaves it. First past the post, with the tie going
+to rotation — see `declineRivalPx` in §9.
 
 Pan is solved against the ground, not from pixels: both ends of the pointer's movement are
 projected onto the navigation plane and the focus moves by the negated difference, so the
@@ -377,6 +388,20 @@ angle, which is the more literal reading. At this elevation a twist maps to yaw 
 the involuntary twist in every pinch would turn the city constantly and with elevation fixed
 there is nothing to absorb it. If user testing disagrees, the alternative to try is twist →
 yaw with the centroid driving a two-finger pan.
+
+**It also has a dead zone now, and it needed one before the pinch existed.** Until 2026-08-26 the
+first pixel of centroid drift turned the city — one finger has had a 12px threshold since it
+learned that a resting finger must not move the world, and two fingers had nothing. Real thumbs
+are not symmetric, so every pinch drifts the centroid a few pixels.
+
+The dead zone is **subtracted, not switched on**, and that distinction was measured rather than
+reasoned. A latched threshold — the shape the one-finger path uses — is wrong here because two
+fingers never move in the same event: each `pointermove` carries one contact, so a perfectly
+symmetric pinch swings the centroid by half the separation change and swings it back on the very
+next event. A gate crosses on that artifact, re-anchors inside it, and turns the city by the
+correction: **0.47° for a 1200px pinch whose centroid moved a net zero pixels.** Stated against the
+gesture origin with the dead zone subtracted, the outbound half and the return cancel inside one
+frame and the rig is never asked to draw either.
 
 Vertical rotation does not exist, and is absent rather than clamped: elevation stays at the
 configured pose, so the footprint analysis §5 and §6 depend on continues to hold. That
@@ -789,9 +814,35 @@ yaws freely and `CameraRig` keeps that yaw outside the pose.
 Originally FOV 60, distance 551, elevation 44.2°, derived from the bounding sphere — the
 "isometric strategy game" look the navigation work set out to replace.
 
+**Earth ⇄ Murcia navigation — the accumulator:** `commitDistancePx: 900` ·
+`idleGapSeconds: 0.5` (MEASURED — wheel events land 415 ms apart on a starved main thread) ·
+`decaySeconds: 0.08` · `snapFraction: 0.01` · `maxEventTravelPx: 120` · `catchUp: 3`. Spring
+ω 16, ζ 0.7 (1.0 under reduced motion). Cooldown 0.35–1.2 s, quiet gap 0.12 s. **None of these
+may be retuned for feel** — they are §15's accidental-warp safety case (`DECISIONS` §29).
+
+**The pinch — ALL JUDGED, none settled by a hand except where noted:**
+`claimGrowthPx: 16` · `commitFraction: 0.42` · `minStartDistancePx: 24` · `declineRivalPx: 8`.
+`HINT_DELAY_MS: 5000`.
+
+The signal is **growth in separation, in CSS px, normalised against the viewport's shorter
+side** — not a scale ratio. A ratio was tried and rejected on a phone: it holds apparent scale
+constant but lets the *effort* scale with the grip you happened to start from, so a ×1.6 commit
+cost 24px of growth from a 40px grip and 150px from a 250px one. Spreading to zoom in starts with
+the fingers close, so real use landed at the easy end and committed after about a centimetre of
+thumb. **`commitFraction` is the one number to move** if the gesture reads too easy or too
+demanding; the rest of the block should not need touching for that.
+
+`declineRivalPx: 8` is **not an independent judgement** — it is Murcia's own
+`rotation.twoPointerThresholdPx`, so whichever gesture proves itself first wins and the loser has
+not moved anything yet. The two constants live in different config files because `app/` may not
+read `experiences/`. **If one moves, move the other.**
+
+Derived, never written down: `pinchGain = commitDistancePx / (viewportShorterSide ×
+commitFraction)`. On a 393px-wide phone that is 165px of growth for a full commit.
+
 **Murcia navigation:** `deriveBoundsFromTerrain: true` · `boundsInset: 0` ·
-`dragThresholdPx: 6` · `groundPlaneHeight: 1` · `edgeSafetyMargin: 8` ·
-`maxGroundDistance: 800`. `maxGroundDistance` was 500; at distance 165 on an ultrawide the
+`dragThresholdPx: 6` · `touchDragThresholdPx: 12` · `rotation.twoPointerThresholdPx: 8` ·
+`groundPlaneHeight: 1` · `edgeSafetyMargin: 8` · `maxGroundDistance: 800`. `maxGroundDistance` was 500; at distance 165 on an ultrawide the
 corner rays genuinely reach ~550, so the clamp fired in a *normal* case rather than the
 near-horizon one it exists for — and it under-reported the footprint, which is the unsafe
 direction: −37 measured where the truth was −170.
@@ -1525,9 +1576,73 @@ must restore it to measure coverage.
     texture that must stay crisp; brand rings in saturated colours *do* glow, and that is
     accepted as the projection's own light.
 
+59. **Read the commit edge BEFORE the retreat, not after.** `navigationGesture.step()` applied
+    the release decay and *then* asked whether progress had reached 1 — so a gesture that
+    crossed the commit distance and was released **in the same frame** lost 18 % of its travel
+    to the first decay step (`decaySeconds: 0.08` at a 16 ms frame) and missed the commit it had
+    already earned. Held, the same pinch navigated; released at the end of it, nothing happened.
+    `pointermove` and `pointerup` routinely land in one queue drain, so this is not an edge case
+    — **it is what a decisive gesture looks like.** Latent since the accumulator was written and
+    unreachable by any wheel test, because the wheel has no release event; found only by driving
+    a phone-shaped e2e. General form: when one step both *advances* and *decides*, the order of
+    those two is a behavioural choice, not a formatting one.
+
+60. **`bootToReady` is not the site phase, and a test that asserts NOTHING HAPPENS will pass
+    without it.** It waits for the loader; the intro then plays for about nine seconds more, and
+    navigation is refused for all of it. A gesture test that skips `reachSite` (waits for
+    `.audit-trigger`, which only exists at phase `site`) finds the gesture inert — which fails
+    loudly for "this gesture works" and passes **silently and wrongly** for "this gesture is
+    ignored". Both kinds were written on 2026-08-26; only the first one told anyone. General
+    form: a negative assertion needs its precondition proven even harder than a positive one,
+    because nothing about it can fail for the right reason.
+
+61. **An animated property beats a normal declaration.** `.nav-control:focus-visible ~ .nav-hint
+    { opacity: 0 }` did nothing, because the hint's `breathe` keyframes were still writing
+    opacity and animations sit above normal declarations in the cascade. Specificity was never
+    the problem and adding more of it would not have helped. Cancel the animation as well:
+    `animation: none`.
+
 ---
 
 ## 12. State of the work
+
+**Touch navigates by pinching the world, and the rail is gone — 2026-08-25/26 (`adr/012`,
+`plans/006-pinch-navigation.md`, `DECISIONS` §15/§20/§29 amendments). Uncommitted.** Real users on real phones spread two fingers
+to enter the city without being taught, and were frustrated when nothing happened; nobody reached
+for the rail. Two fingers turned out to be a channel *nothing in the application was using* —
+Earth rejects a second pointer outright, Murcia reads only the centroid's horizontal movement, and
+the separation between two contacts was computed nowhere. The whole arc runs through the existing
+pipeline unchanged (`navigationGesture` → `progressSpring` → `scrubProgress` →
+`state.transitionProgress`): no pinch-specific transition system, no second commit path, and
+`forceCommit()` was deliberately never built.
+
+What landed, in order: the desktop scrub (wheel-driven, reversible, inside a band derived from the
+flash bell); **a one-finger swipe classifier that was built, tested and then discarded** on the
+same user evidence; the pinch classifier and its arbitration; the rail's removal; and the docs.
+
+Three things were found by driving it rather than by reasoning:
+
+- **The scrub was not changing scale.** `earthFov` widening 45°→59.5° cancelled the dolly's
+  ×1.587, so net on-screen scale ran 1.00 → 1.18 → **1.15, peaking mid-gesture and going
+  backwards**. Correct for a wheel (it reads as *rushing*); fatal for a pinch, where the finger
+  commands a ratio and the eye audits it. The scrub now holds FOV at rest (net ×1.587, monotone)
+  and the continuity is bought back by a 200 ms FOV catch-up at the commit.
+- **The first signal was the wrong shape.** See §9 — a ratio holds scale constant and lets effort
+  scale with the grip.
+- **§11.59**, which no wheel test could ever have reached.
+
+Verified: **847 unit tests / 48 files, 274 harness checks, 36/36 e2e** (including three new
+phone-shaped pinch specs), build under budget. **The entry chunk budget was raised 320 → 332 KB**
+after confirming this was not the leak it exists to catch — three.js is still its own 820 KB chunk,
+nothing crossed the `app/`→`experiences/` boundary, and the generated content is 22 KB total;
+`vite.config.ts` now carries the raise history and the error message names the suspect instead of
+asserting it.
+
+**Not judged by a hand past Phase 6.** Whether a *close* reads as leaving Murcia is open and is the
+weakest part of the design: the departing warp changes scale by about 4 % across the whole band, so
+the 10° elevation rise is most of what is perceptible. A close is also bounded by how wide the
+fingers started, where a spread is bounded by the screen. The rail is gone, so on touch there is no
+fallback but the accessible button.
 
 **Brand panel: isotype at rest, logo on selection, and a redesign of its chrome — 2026-08-25
 (`DECISIONS` §26.21–26.22, §18 amendment; commits `74098b4`, `718f2d0`).** The panel above each
@@ -1546,6 +1661,35 @@ asset exists yet. The first one to land should be checked for a colour cast befo
 **The plan that produced the mechanics was overwritten** by the redesign plan in the same session
 and reconstructed from the transcript after a crash; the two commits were split by replaying that
 session's edits onto `HEAD`.
+
+**Brand-mark uploads are validated, not merely described — 2026-08-26 (`DECISIONS` §26.23).** The
+question that started it was whether the project was ready to host the two images in Sanity and
+warn editors about format and dimensions. The first half was already true and had been since
+2026-08-23; the second half was not true at all. Both fields existed, both were mirrored, both were
+paired — and the format and size rules were **prose in the field `description`**. There was no
+`options.accept`, no dimension check, no format check anywhere in the Studio, and the build checked
+only origin, SVG, reachability and a 4 MB cap. A 3000×1200 JPEG published cleanly and shipped a
+rectangle.
+
+Now: `sanity-studio/schemas/lib/brandMark.ts` blocks Publicar on format, minimum size and aspect,
+and warns without blocking on below-ideal, oversized or unusual-but-workable artwork;
+`assertGeometry` in `content/lib/mirror.ts` plus an extension allowlist in `remoteMediaUrl` repeat
+the blocking half and fail the deploy, because a dataset import or the HTTP API never touches the
+Studio. Both read the geometry out of Sanity's own asset name (`image-<hash>-1600x800-webp`), so
+neither downloads or decodes anything.
+
+Two things worth carrying forward. **The repo disagreed with itself on the logo size** — the client
+delivery spec said 1600×800, the media contract and the Studio said 1024×512, and the atlas fits it
+into 896×400, so the CMS was recommending artwork `drawLogoContained` already warns about. 1600×800
+won and the other two were corrected. And **the Studio tier fails open by design**: an asset id it
+cannot parse passes, because if Sanity's id format ever changes the right failure is "the Studio
+stops pre-checking", never "the client's Studio rejects every correct logo". Do not tighten that
+without moving the guarantee somewhere else first.
+
+Verified: 859 unit tests green including 11 new mirror cases, both packages typecheck, and
+`content:build` against the live dataset (`qxpcrdaw/development`, 6 case studies) still reports "no
+file changed" — the rules are correctly inert while every mark is still `null`. **Not exercised:**
+the rules against real uploaded artwork, for the same reason §26.21 was not — no asset exists yet.
 
 **Sky poles, 2026-08-25 — a fix verified against the artifact it was aimed at hid the rest of that
 artifact, and the metric agreed with the broken picture in BOTH directions.** The 2026-08-19 pass
@@ -1718,7 +1862,8 @@ iOS report are what would move those findings from *strongly inferred* to *verif
 | **Vite pinned at 5** | The two custom build plugins are validated only against 5. A bundler bump deserves its own verification pass, not a ride-along inside a migration. |
 | **`noUncheckedIndexedAccess` off** | Murcia was written under it, Earth was not. Enabling it repo-wide produces 36 errors, 16 of them inside the 16 KB intro budget. Restore in a dedicated pass. |
 | **Placeholder content** | Case studies are invented, and every `logo` is still `null` — real trademarks beside invented results read as endorsement. The pipeline that replaces them exists (`adr/010`, `adr/011`): Sanity is read at build time and emitted as `src/content/generated/`. **Replacing the copy now means replacing it in two places** — the CMS, and `content/fixtures/` + `content/seed/`, which are what `npm run dev` and CI build against. Media mirroring is built; what is missing is uploaded artwork. |
-| **No keyboard path into the 3D** | Touch and pen work as of 2026-08-11, but satellites are still raycast-only. (The Murcia marker and its geo tag are gone entirely, 2026-08-19 — the focusable rail is the path between worlds.) `A11Y-1` in the readiness audit is narrowed, not closed, and closing it means real markup — the `districtLabel.ts` button pattern applied to the globe. |
+| **No keyboard path into the 3D** | Touch and pen work as of 2026-08-11, but satellites are still raycast-only. (The Murcia marker and its geo tag are gone entirely, 2026-08-19. The path *between worlds* is `.nav-control` as of `adr/012` — the focusable rail it replaced is deleted.) `A11Y-1` in the readiness audit is narrowed, not closed, and closing it means real markup — the `districtLabel.ts` button pattern applied to the globe. |
+| **The pinch has never met a hand in Murcia** | Earth's direction was judged on a device and retuned once. Murcia's was not: whether a *close* reads as leaving is open, the departing warp only changes scale ~4 %, and a close is bounded by how wide the fingers started rather than by the screen. Deliberate — the levers are all ground-footprint changes needing the full azimuth sweep (§5), not intuition. Since the rail is gone, touch has no fallback but `.nav-control`. |
 | **`label` is unread** | `CaseStudy.label` is declared and nothing renders it — the brand atlas draws `name`. Kept because it is a reasonable short-form field for a CMS to carry. (`orbitId` was the other half of this row and is **resolved**: it left the content type entirely on 2026-08-20, because which case rides which orbit is scene composition — `orbitAssignments.ts`, `DECISIONS` §28.) |
 | **District resolves by node name** | The GLB carries no `extras`. Fix is in Blender — see `murcia/blender-export-contract.md` — not in code. |
 | ~~**Two KTX2 loaders**~~ | **Closed 2026-08-14.** It was worse than recorded — three `DRACOLoader`s as well, so up to twenty workers and ~1.6 MB of duplicated WASM alive together during the intro. One of each now, reference counted, in `graphics/decoders.ts`. `DECISIONS.md` §24. "Harmless" had been assessed against a desktop. |
@@ -1728,6 +1873,7 @@ iOS report are what would move those findings from *strongly inferred* to *verif
 | **Only Chromium is ever tested** | Unchanged, and now also true of all three Playwright projects — the two mobile ones added on 2026-08-14 are Chromium with a device profile, which makes `(hover: none)` and `(pointer: coarse)` rules apply but says nothing about WebKit. iOS Safari is still where the KTX2 transcoder and `compileAsync` are most likely to differ. **No code change closes this**; the device matrix in `audits/ios-safari-2026-08-14.md` §4 is what would. |
 | **Murcia has no portrait camera pose** | `cameraPortraitOverrides` is built, unit-tested and fed `null`, so `resolveCameraPose` returns the landscape pose at every aspect — and the pose itself is tuned against wide viewports, with a footprint analysis that only guards *too large*. Deliberate: any resting-pose change invalidates the terrain-skirt margin and needs the full azimuth sweep (§5) plus a composition judged by a person. Named as architectural in the mobile audit (M9) rather than patched. |
 | ~~**Six case markers are invisible on touch**~~ | **Closed 2026-08-17.** The five case city markers were retired outright — they carried placeholder copy and were never going to be used. `GEO_MARKERS` collapsed to a single `DESTINATION_MARKER`, so the only tag left is Murcia's, which already had the `(hover: none)` fallback. Mobile audit M10 no longer has a subject. |
+| **`check:asset` is not in `check:harnesses`** | `checks/city-asset.ts` exists, has an npm script, and is wired into nothing — so it never runs on `npm run check`, on `npm run build`, or on the deploy path. Noticed 2026-08-26 while counting harnesses for this file; not fixed in that pass because wiring a harness that has never gated anything is a change that deserves its own verification, not a ride-along. Every other harness is wired. |
 | **The `.reveal` ordering is unasserted** | §8 claimed `checks/` verified it in the built CSS. No such check exists or ever did; the claim was corrected rather than implemented. The ordering is currently held by source order alone. |
 | **No analytics, no error reporting** | Production failures will be completely invisible after launch. The instrumentation already exists (`bootState.fatalReason()`, `pending()`, `readiness()`); what is missing is a sink. Audit `OBS-1`. |
 | **The city GLB in the working tree ≠ the committed one** | ~3× the nodes and +790 KB, uncommitted, still without `extras`. Needs an owner's decision before it ships. §9, audit `ASSET-2`. |
@@ -1774,6 +1920,9 @@ Still open:
 src/
 ├── main.tsx, App.tsx          application shell and orchestration
 ├── app/                       experience identity, transition, warp curves
+│   └── navigation/            the ONLY wheel authority + the pinch. Four pure modules
+│                              (gesture, machine, spring, pinchClassifier) and one impure
+│                              one (createNavigationInput: DOM, frame loop, arbitration)
 ├── graphics/RenderPipeline    the single render authority
 ├── intro-draw/                the loading drawing — STANDALONE, imports nothing
 ├── components/                R3F layers, and the adapters into each experience
@@ -1785,7 +1934,7 @@ src/
 ├── shaders/, utils/, loading/
 content/                       the Node-side content build — collections, lib, fixtures, seed
 scripts/build-content.ts       fetch -> validate -> emit. Iterates the registry; knows no collection
-checks/                        the behavioural harnesses (six)
+checks/                        the behavioural harnesses (eight wired, + city-asset unwired)
 checks/lib/                    the shared assert vocabulary and the stub canvas
 e2e/                           Playwright smoke specs + committed screenshot baselines
 *.test.ts                      unit tests, beside the module they cover

@@ -85,10 +85,15 @@ export const SPACE_CONFIG = {
     // BLOCKS: it quantises smooth dark gradients into flat macroblocks at every
     // quality setting, and magnification turns 16-px blocks into 28-px squares
     // on screen at DPR 1 and 56 at DPR 2. That is what "you can see the pixels"
-    // was. AVIF q50 measures 1.68 on the block-ratio harness in the prepare
-    // script against WebP's 2.23, at 186 KB versus 319 KB. The desktop AVIF is
-    // also held under a 200 KB client budget, which is what picked q50 over the
-    // q80 that measures best — see the prepare script.
+    // was. AVIF q59 measures 1.666 on the block-ratio harness in the prepare
+    // script against WebP q88's 2.615, at 194,642 bytes versus 279,050. The
+    // desktop AVIF is held under a 200 KB client budget, which is what picked
+    // q59 over the q80 that measures best — see the prepare script.
+    //
+    // The quality was q50 until 2026-08-20, when `convergePoles` freed the bits.
+    // These comments still said q50 until 2026-08-25; if they disagree with
+    // `AVIF_QUALITY` in scripts/prepare-sky-panorama.mjs again, the script is
+    // right and this is stale.
     //
     // WebP is the fallback for browsers without AVIF, reached by attempting the
     // AVIF and letting it fail to decode — see `loadFirstAvailable` in
@@ -125,6 +130,57 @@ export const SPACE_CONFIG = {
     // is diffuse gas with no fine detail to lose, and because the shader
     // dithers. A source with hard structure in it would not.
     generateMipmaps: false,
+
+    // ── The polar caps ──
+    // The source is a flat photograph, so it has no zenith and no nadir, and
+    // `convergePoles` left each cap an exactly radially symmetric gradient —
+    // a funnel. The shell repairs that by sampling this same texture a second
+    // time through a 90-degree rotation and using the result as a MULTIPLIER.
+    // The mechanism, and why 90 degrees is forced rather than chosen, is on
+    // `skyCapRotation` in galaxyBand.ts. These are the numbers it needs, and
+    // they are structural rather than tunable: moving them means re-measuring.
+
+    // Azimuth into the PANORAMA's own frame, degrees, where 0 is the galactic
+    // centre (u = 0.5). Chosen by scoring all 12 candidates at 15-degree steps;
+    // see skyCapRotation. Change it and capLevel below is wrong.
+    capAzimuth: 15,
+
+    // What the borrowed patch's luminance is divided by, so the multiplier's
+    // mean over each cap is 1 BY CONSTRUCTION and the blend cannot step the
+    // brightness — which is what makes it ringless without tuning.
+    //
+    // LINEAR luminance, not sRGB, and not a 0-255 code value. The texture is
+    // tagged SRGBColorSpace, so three converts on sampling and the shader only
+    // ever sees linear. Writing an sRGB number here would land the caps at the
+    // wrong level in a way that looks like a strength that needs dragging.
+    //
+    // ONE PER POLE, because the two are 3.2x apart — the 90-degree rotation
+    // sends the caps to antipodal patches and this source is far from uniform.
+    // A single shared level would darken one cap by a third and double the
+    // other, which is the funnel back again with a different sign.
+    //
+    // Measured as the blend-weighted mean of luma(borrowed) over each cap, at
+    // capAzimuth 15 and the shipped 68-84 band, ON THE FILES CURRENTLY IN
+    // public/textures — regenerate those and re-measure these. The wide and
+    // narrow variants agree to well under 1%, so one pair serves both and there
+    // is no per-variant value to maintain.
+    capLevel: { north: 0.036286, south: 0.011333 },
+
+    // The multiplier is a ratio against a photograph, so it has no upper bound.
+    // Measured over the strip the caps sample: p95 is 1.95x the mean, p99 is
+    // 2.98x, and the MAXIMUM is 27x north and 88x south. Unclamped, one
+    // near-saturated texel paints a bright dot on the pole. About 1% of the
+    // strip falls outside this window, so it only catches outliers.
+    capClamp: { min: 0.25, max: 3.0 },
+
+    // Angular size of one grain cell, in DEGREES rather than as a frequency,
+    // because the degree is the number with a constraint attached. At the
+    // resting 45-degree FOV over a ~900px viewport (20 px/deg) 0.10 degrees is
+    // 2 device px at DPR 1 and 4 at DPR 2 — above Nyquist, so the grain cannot
+    // alias at rest. It falls to ~1.2px at the 74-degree warp peak on a DPR-1
+    // desktop, which is covered by the warp's own motion blur. Converted to a
+    // noise frequency in SkyShell.
+    grainCellDegrees: 0.1,
 
     // The display sphere's radius. Far outside the star shell's slider ceiling
     // (400) and well inside the camera's far plane (5000).

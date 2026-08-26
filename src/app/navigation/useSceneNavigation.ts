@@ -5,8 +5,8 @@ import type { NavigationContext, NavigationInput } from './createNavigationInput
 import type { NavigationIntent } from './navigationMachine'
 
 interface Params {
-  /** The rail element. Nothing is wired until it exists. */
-  railRef: RefObject<HTMLElement | null>
+  /** The navigation control root. Nothing is wired until it exists. */
+  rootRef: RefObject<HTMLElement | null>
   /**
    * Read at every event and again at the commit.
    *
@@ -18,6 +18,13 @@ interface Params {
    */
   getContext: () => NavigationContext
   onCommit: (intent: NavigationIntent) => void
+  /**
+   * Gesture progress, 0..1, every frame it changes.
+   *
+   * Read through a ref like the others, so a caller passing a fresh closure per
+   * render cannot rebuild the listeners and drop a gesture in flight.
+   */
+  onProgress?: (progress: number) => void
 }
 
 /**
@@ -27,27 +34,35 @@ interface Params {
  * beside it; this exists so `App` mounts one hook instead of an effect that has to
  * remember disposal order.
  *
- * The effect depends on NOTHING but the rail. Callbacks are read through refs, so
+ * The effect depends on NOTHING but the control root. Callbacks are read through refs, so
  * a parent re-render cannot tear down and rebuild the listeners — which would drop
  * an in-flight gesture, lose a running cooldown, and (worse) reset the machine
  * mid-transition, releasing the input lock while the warp is still playing.
  */
-export function useSceneNavigation({ railRef, getContext, onCommit }: Params) {
+export function useSceneNavigation({
+  rootRef,
+  getContext,
+  onCommit,
+  onProgress,
+}: Params) {
   const inputRef = useRef<NavigationInput | null>(null)
 
   const contextRef = useRef(getContext)
   contextRef.current = getContext
   const commitRef = useRef(onCommit)
   commitRef.current = onCommit
+  const progressRef = useRef(onProgress)
+  progressRef.current = onProgress
 
   useEffect(() => {
-    const rail = railRef.current
-    if (!rail) return
+    const root = rootRef.current
+    if (!root) return
 
     const input = createNavigationInput({
-      rail,
+      root,
       getContext: () => contextRef.current(),
       onCommit: (intent) => commitRef.current(intent),
+      onProgress: (progress) => progressRef.current?.(progress),
     })
     inputRef.current = input
 
@@ -55,7 +70,7 @@ export function useSceneNavigation({ railRef, getContext, onCommit }: Params) {
       inputRef.current = null
       input.dispose()
     }
-  }, [railRef])
+  }, [rootRef])
 
   /**
    * The transition has genuinely finished. Starts the cooldown from this instant.
@@ -71,9 +86,10 @@ export function useSceneNavigation({ railRef, getContext, onCommit }: Params) {
 
   /**
    * The semantic inputs of `getContext` changed — a panel opened or closed, a
-   * world became ready. The rail derives its visual state from the context,
+   * world became ready. The control derives its painted state from the context,
    * and the input's frame loop only runs mid-gesture, so this notification is
-   * what keeps an idle rail honest (see NavigationInput.contextChanged).
+   * what keeps an idle control honest — and it is what re-arms the gesture hint
+   * for a world the viewer has just arrived in.
    */
   const contextChanged = useCallback(() => inputRef.current?.contextChanged(), [])
 

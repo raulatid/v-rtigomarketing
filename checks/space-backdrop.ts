@@ -28,6 +28,13 @@ import { DEFAULT_APP_CONFIG } from '../src/experiences/earth/config/introConfig'
 
 const SHIPPED_STAR_COUNT = DEFAULT_APP_CONFIG.backdropStarCount;
 
+// POLE_FADE_START_DEG in scripts/prepare-sky-panorama.mjs, mirrored because the
+// script is a one-off asset tool outside the build and cannot be imported here.
+// It is a property of the SHIPPED FILES rather than of the code, so it only
+// changes when the textures are regenerated — and section 7 is what would catch
+// that having happened without this being updated.
+const SKY_ASSET_POLE_FADE_START_DEG = 55;
+
 import { banner, check, finish, section } from './lib/assert';
 
 
@@ -383,6 +390,102 @@ check(
   'twinkle phases span [0, 1)',
   Array.from(field.phases).every((p) => p >= 0 && p < 1),
   'a phase outside the range just biases the sine, but it means the RNG is not what it claims',
+);
+
+// ---------------------------------------------------------------------------
+section('7. The polar cap blend cannot reach the resting frame');
+
+/**
+ * The sky half of SPACE_CONFIG had NO coverage here at all until 2026-08-25,
+ * despite this file importing it — the 2026-08-20 audit named that gap. This
+ * closes it for the one part that is checkable in Node.
+ *
+ * What it guards: `shell.frag.glsl` repairs the panorama's polar caps by
+ * borrowing structure from a rotated second sample. That repair is only correct
+ * BECAUSE it stays in the caps, and "it stays in the caps" is asserted by the
+ * committed e2e backdrop baselines passing unchanged. That evidence is only
+ * worth anything while the blend genuinely cannot reach the resting frame, and
+ * nothing in the shader enforces it — skyCapStart is a slider.
+ *
+ * So the margin is recomputed here from the real modules rather than trusted.
+ */
+
+// At rest the camera's phi is fixed at 90 degrees (createFocusCameraRig), so
+// the view axis lies in the y = 0 plane whatever theta does. The nearest sky
+// pole is therefore always exactly 90 - tilt degrees off the view axis.
+const capTilt = DEFAULT_APP_CONFIG.skyBandTilt;
+const poleFromAxisDeg = 90 - Math.abs(capTilt);
+
+// The e2e viewport and the resting FOV, which is what decides how far from the
+// view axis a frame CORNER reaches. Vertical FOV, so the diagonal is derived.
+const E2E_WIDTH = 1600;
+const E2E_HEIGHT = 900;
+const halfV = THREE.MathUtils.degToRad(DEFAULT_APP_CONFIG.normalFov) / 2;
+const halfDiagonalDeg = THREE.MathUtils.radToDeg(
+  Math.atan(Math.hypot(Math.tan(halfV) * (E2E_WIDTH / E2E_HEIGHT), Math.tan(halfV))),
+);
+
+// How close to the pole the nearest frame CORNER gets, and then the same thing
+// as a latitude — which is the unit skyCapStart is in.
+//
+// Getting this conversion wrong is not hypothetical: the first cut of this
+// check compared skyCapStart against the ANGLE FROM THE POLE (27.8) instead of
+// the latitude (62.2). It passed, and it would have gone on passing with the
+// cap start dragged anywhere above 28 degrees — a check that guards nothing
+// while reading as though it does.
+const cornerAngleFromPoleDeg = poleFromAxisDeg - halfDiagonalDeg;
+const cornerLatitudeDeg = 90 - cornerAngleFromPoleDeg;
+
+check(
+  'the resting frame does not already contain the pole',
+  cornerAngleFromPoleDeg > 0,
+  `pole is ${poleFromAxisDeg.toFixed(1)} deg off axis against a half-diagonal of ${halfDiagonalDeg.toFixed(
+    1,
+  )} deg — if this fails there is no cap start that keeps the blend out of the resting frame, and the baselines cannot be the evidence any more`,
+);
+
+check(
+  'the cap blend starts above the resting frame corner',
+  DEFAULT_APP_CONFIG.skyCapStart > cornerLatitudeDeg,
+  `cap starts at ${DEFAULT_APP_CONFIG.skyCapStart} deg, frame corner reaches ${cornerLatitudeDeg.toFixed(
+    1,
+  )} deg — below that the blend is in the resting view and e2e/backdrop.spec.ts baselines move, which stops them being evidence that the repair is confined to the caps`,
+);
+
+check(
+  'the cap band is ordered and non-degenerate',
+  DEFAULT_APP_CONFIG.skyCapFull > DEFAULT_APP_CONFIG.skyCapStart,
+  'smoothstep with edge0 >= edge1 is undefined, so an inverted band is driver-dependent garbage rather than a visible mistake',
+);
+
+check(
+  'the cap band stays below the pole',
+  DEFAULT_APP_CONFIG.skyCapFull < 90 && DEFAULT_APP_CONFIG.skyCapStart < 90,
+  'a band that reaches full strength only AT the pole never fires — the repair would be off while looking configured',
+);
+
+check(
+  'the borrowed patch is never itself a pole',
+  // The cap rotation is 90 degrees, so a direction at latitude L maps to one at
+  // latitude 90 - L. The cap samples latitudes >= skyCapStart, so the borrowed
+  // latitudes are <= 90 - skyCapStart. That must stay clear of the asset's own
+  // polar fade, or the repair borrows the very flatness it exists to replace.
+  90 - DEFAULT_APP_CONFIG.skyCapStart < SKY_ASSET_POLE_FADE_START_DEG,
+  `borrowed latitudes reach ${(90 - DEFAULT_APP_CONFIG.skyCapStart).toFixed(
+    1,
+  )} deg against the asset's fade start of ${SKY_ASSET_POLE_FADE_START_DEG} deg (POLE_FADE_START_DEG in scripts/prepare-sky-panorama.mjs)`,
+);
+
+check(
+  'each pole has its own cap level, and both are positive',
+  SPACE_CONFIG.sky.capLevel.north > 0 && SPACE_CONFIG.sky.capLevel.south > 0,
+  'the level is a divisor, and the two poles borrow antipodal patches whose levels differ by 3.2x — one shared value would darken one cap and blow out the other',
+);
+
+check(
+  'the cap clamp brackets 1',
+  SPACE_CONFIG.sky.capClamp.min < 1 && SPACE_CONFIG.sky.capClamp.max > 1,
+  'the multiplier is a mean-1 ratio, so a clamp that excludes 1 would bias the whole cap',
 );
 
 // ---------------------------------------------------------------------------

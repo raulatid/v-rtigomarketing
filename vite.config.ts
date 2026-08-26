@@ -20,7 +20,23 @@ import { gzipSync } from 'node:zlib'
 // prints both.
 const INTRO_BUDGET_BYTES = 16_000
 // three.js + R3F + the scene must never land in the app's entry chunk either.
-const ENTRY_BUDGET_BYTES = 320_000
+//
+// Measured, not guessed. History, so the next raise is an informed one:
+//   307KB  the app shell, before the Sanity content pipeline
+//   322KB  + generated content, the holo panels, the scrub, the pinch (2026-08-26)
+// Raised to 332KB when the assertion fired at 322853B, which is exactly its job.
+//
+// BEFORE RAISING IT AGAIN, check what this guard is actually for. It exists to
+// catch three.js coming back into the entry, and three is 820KB — a leak reads
+// as a quarter-million-byte jump, not a two-thousand-byte one. A small overage
+// is ordinary application growth, and the honest response is to confirm the
+// leak has not happened and then decide whether the growth was worth it. On
+// 2026-08-26 that check was: three is still its own chunk and the entry only
+// imports it; no Murcia config crossed the app/experiences boundary; the
+// generated content modules are 22KB total and are not what grew.
+//
+// Gzipped is what the user waits for, and the build prints both.
+const ENTRY_BUDGET_BYTES = 332_000
 
 function assertChunkBudgets(): Plugin {
   return {
@@ -78,9 +94,16 @@ function assertChunkBudgets(): Plugin {
       const entry = chunks.find((c) => c.isEntry && c.name === 'index')
       const entrySize = entry ? Buffer.byteLength(entry.code, 'utf8') : 0
       if (entry && entrySize > ENTRY_BUDGET_BYTES) {
+        // The message used to assert the cause rather than name the suspect,
+        // and sent a reader hunting a three.js leak that had not happened.
+        const threeChunk = chunks.find((c) => c.name === 'three')
+        const threeSplit = Boolean(threeChunk) && !entry.code.includes('BufferGeometry')
         this.error(
-          `app entry is ${entrySize}B, over the ${ENTRY_BUDGET_BYTES}B budget — ` +
-            'three.js has probably leaked back in via a value import.',
+          `app entry is ${entrySize}B, over the ${ENTRY_BUDGET_BYTES}B budget ` +
+            `(over by ${entrySize - ENTRY_BUDGET_BYTES}B). three.js is ${
+              threeSplit ? 'still a separate chunk, so this is app growth rather than a leak'
+                         : 'NOT SPLIT OUT — it has leaked into the entry via a value import'
+            }.`,
         )
       }
 

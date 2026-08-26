@@ -361,7 +361,7 @@ function fadeAlpha(t: number, endFraction: number, exponent: number): number {
 /**
  * Full visual extent of the ground: the terrain plate plus the skirt around it.
  *
- * Split out of `createTerrainTransition` so `checks/navigation-zoom.ts` can
+ * Split out of `createTerrainTransition` so `checks/footprint.ts` can
  * measure the real rectangle without a GL context or a loaded GLB — building
  * the skirt needs a mesh and a shader material, and neither says anything about
  * how far the ground visibly reaches. The alternative was a check that

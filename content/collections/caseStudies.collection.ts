@@ -11,7 +11,54 @@ import {
   collectionProblems,
 } from '../../src/content/invariants'
 import { Report, boundedArray, hexColor, num, oneOf, slug, text } from '../lib/validate'
-import { collection } from './types'
+import { collection, type MediaRule } from './types'
+
+/**
+ * What an uploaded brand mark has to be, enforced by `content/lib/mirror.ts`
+ * before it is fetched.
+ *
+ * ── Where the numbers come from ──
+ * `createBrandAtlas.ts` fits an isotype into a 432×432 box (a 512² cell padded by
+ * 40) and a logo into an 896×400 one (1024×512 padded by 64/56). The minimums are
+ * those boxes: below them the artwork is upscaled and softens at the case-panel
+ * close-up, which `drawLogoContained` already warns about in the console. The
+ * ideals an editor is steered towards — 512×512 and 1600×800 — live in
+ * `docs/earth/logo-spec.md` and are not enforced here; only the floor is.
+ *
+ * The aspect bands are wide on purpose. The renderer contain-fits, so a shape it
+ * did not expect is never broken, only small — these bounds mark where "small"
+ * becomes "illegible": a nearly-square isotype is fine, a portrait one is not; a
+ * lockup between 1.5:1 and 5:1 reads inside the 2:1 expanded panel, one outside
+ * that does not.
+ *
+ * ── PNG and WebP only ──
+ * Both carry an alpha channel. A JPEG does not, so it would ship a rectangle of
+ * background over the dark-glass panel — see `docs/content/sanity-media-contract.md`.
+ * SVG is refused separately and for an unrelated reason, in `remoteMediaUrl`.
+ *
+ * ── Duplicated in the Studio, deliberately ──
+ * `sanity-studio/schemas/lib/brandMark.ts` carries the same numbers so an editor
+ * is stopped at the field rather than by a failed deploy. The Studio is its own
+ * npm package and neither side may import the other, exactly as with the
+ * isotype/logo pairing rule below. Change `docs/earth/logo-spec.md` first, then
+ * both copies.
+ */
+const BRAND_MARK_RULES: Record<string, MediaRule> = {
+  isotype: {
+    extensions: ['png', 'webp'],
+    minWidth: 432,
+    minHeight: 432,
+    minAspect: 0.75,
+    maxAspect: 4 / 3,
+  },
+  logo: {
+    extensions: ['png', 'webp'],
+    minWidth: 900,
+    minHeight: 400,
+    minAspect: 1.5,
+    maxAspect: 5,
+  },
+}
 
 /**
  * Case studies: the six brands riding the orbits, and the panel behind each one.
@@ -107,6 +154,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
     // collections.test.ts because the mapper tests cannot see GROQ. Same for
     // `isotype`.
     mirror: ['logo', 'isotype'],
+    mediaRules: BRAND_MARK_RULES,
     // The normalization layer. Everything the mapper reads is flat and named
     // exactly as `map` expects, so nothing downstream learns a Sanity shape —
     // no `_ref`, no `_type`, no `slug.current`, no asset object.

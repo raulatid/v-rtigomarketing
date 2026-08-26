@@ -889,6 +889,62 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
     close(h.rig.getDistanceScale(), startScale, 1e-12),
     `scale ${h.rig.getDistanceScale().toFixed(9)} after 20 frames of fingers moving 1200px apart`,
   );
+  // The assertion this section was missing until 2026-08-25, and the one that
+  // actually protects the gesture. `getDistanceScale()` was never the thing at
+  // risk — nothing writes it from a pointer any more, so that check passes even
+  // if a pinch drives something else entirely. YAW is what a pinch can damage,
+  // because the centroid and the separation are read from the same two pointers
+  // in the same method, and a pinch that is one pixel asymmetric moves both.
+  check(
+    'and a pure pinch leaves the yaw alone',
+    close(h.rig.getYaw(), 0, 1e-9),
+    `yaw ${h.rig.getYaw().toFixed(9)} deg — a symmetric pinch is not a sweep, whatever the fingers cover`,
+  );
+}
+{
+  // The dead zone itself. Two fingers had no threshold of any kind until
+  // 2026-08-25 — the first pixel of centroid drift turned the city — while one
+  // finger has needed 12px since it learned the same lesson. A settling grip is
+  // not a sweep.
+  const h = makeHarness();
+  let t = 1000;
+  touchDown(h, 1, CENTRE_X - 40, CENTRE_Y, t);
+  touchDown(h, 2, CENTRE_X + 40, CENTRE_Y, t);
+  // Both fingers drift right together by 6px total, at a fixed separation: a
+  // real centroid movement, and a smaller one than the dead zone.
+  for (let i = 1; i <= 6; i += 1) {
+    t += 16;
+    touchMove(h, 1, CENTRE_X - 40 + i, CENTRE_Y, t);
+    touchMove(h, 2, CENTRE_X + 40 + i, CENTRE_Y, t);
+    h.controller.update(1 / 60);
+  }
+  h.step(3.0);
+  check(
+    'a centroid drift inside the dead zone turns nothing',
+    close(h.rig.getYaw(), 0, 1e-9),
+    `yaw ${h.rig.getYaw().toFixed(9)} deg after 6px of centroid travel against a ${nav.rotation.twoPointerThresholdPx}px dead zone`,
+  );
+
+  // And it must be a dead zone, not a delay: crossing it may not release the
+  // travel that was held back, or the gesture jumps by the threshold at the
+  // moment it starts.
+  const beyond = 40;
+  for (let i = 7; i <= beyond; i += 1) {
+    t += 16;
+    touchMove(h, 1, CENTRE_X - 40 + i, CENTRE_Y, t);
+    touchMove(h, 2, CENTRE_X + 40 + i, CENTRE_Y, t);
+    h.controller.update(1 / 60);
+  }
+  h.step(3.0);
+
+  const deadZone = nav.rotation.twoPointerThresholdPx;
+  const gain = nav.rotation.degreesPerViewportWidth / WIDTH;
+  const expected = (beyond - deadZone) * gain;
+  check(
+    'and past it, only the travel beyond it counts',
+    close(h.rig.getYaw(), expected, 1e-6),
+    `yaw ${h.rig.getYaw().toFixed(6)} deg vs ${expected.toFixed(6)} expected — ${beyond}px of centroid travel less a ${deadZone}px dead zone`,
+  );
 }
 {
   // And the half that must NOT have died with it.

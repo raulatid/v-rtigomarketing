@@ -168,3 +168,138 @@ describe('media the mirror cannot retrieve', () => {
     expect(fs.existsSync(dir) ? fs.readdirSync(dir) : []).toEqual([])
   })
 })
+
+/**
+ * The format and geometry tier.
+ *
+ * Its whole point is that nothing is downloaded to reach a verdict: Sanity names
+ * an asset `<hash>-<w>x<h>.<ext>`, so every assertion below also checks that the
+ * fake CDN was never called.
+ */
+describe('brand marks the mirror refuses on format or geometry', () => {
+  const RULES: SanitySourceSpec = {
+    type: 'caseStudy',
+    projection: '{ "id": slug.current, isotype, logo }',
+    mirror: ['isotype', 'logo'],
+    mediaRules: {
+      isotype: {
+        extensions: ['png', 'webp'],
+        minWidth: 432,
+        minHeight: 432,
+        minAspect: 0.75,
+        maxAspect: 4 / 3,
+      },
+      logo: {
+        extensions: ['png', 'webp'],
+        minWidth: 900,
+        minHeight: 400,
+        minAspect: 1.5,
+        maxAspect: 5,
+      },
+    },
+  }
+
+  const asset = (name: string) => CDN + '/images/p1/production/' + name
+
+  function ruled(records: unknown[], fetchImpl: typeof fetch) {
+    return withMediaMirror(inner(records), {
+      dir,
+      publicPath: '/logos',
+      allowedOrigin: CDN,
+      fetchImpl,
+    }).fetchAll(RULES)
+  }
+
+  const pair = (isotype: string, logo: string) => [{ id: 'a', isotype, logo }]
+  const GOOD_ISO = asset('aaa-512x512.png')
+  const GOOD_LOGO = asset('bbb-1600x800.webp')
+
+  it('accepts artwork that meets the spec', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = (await ruled(pair(GOOD_ISO, GOOD_LOGO), cdn.impl)) as Array<{
+      isotype: string
+      logo: string
+    }>
+    expect(record.isotype).toBe('/logos/aaa-512x512.png')
+    expect(record.logo).toBe('/logos/bbb-1600x800.webp')
+  })
+
+  it('rejects a JPEG, which has no alpha and would ship a rectangle', async () => {
+    const cdn = fakeCdn(png())
+    await expect(ruled(pair(asset('aaa-512x512.jpg'), GOOD_LOGO), cdn.impl)).rejects.toThrow(
+      /\.jpg is not allowed; must be one of \.png, \.webp/,
+    )
+    expect(cdn.calls).toHaveLength(0)
+  })
+
+  it('still refuses SVG by its own name, not as a disallowed extension', async () => {
+    const cdn = fakeCdn(png())
+    // Two different arguments — stored XSS, versus a missing alpha channel — so
+    // they stay two different messages even now that an allowlist exists.
+    await expect(ruled(pair(asset('aaa-512x512.svg'), GOOD_LOGO), cdn.impl)).rejects.toThrow(
+      /SVG is not an allowed logo format/,
+    )
+  })
+
+  it('rejects an isotype below the atlas box it is drawn into', async () => {
+    const cdn = fakeCdn(png())
+    await expect(ruled(pair(asset('aaa-300x300.png'), GOOD_LOGO), cdn.impl)).rejects.toThrow(
+      /isotype: is 300x300, under the 432x432 minimum/,
+    )
+    expect(cdn.calls).toHaveLength(0)
+  })
+
+  it('rejects an isotype that is not close to square', async () => {
+    const cdn = fakeCdn(png())
+    await expect(ruled(pair(asset('aaa-900x640.png'), GOOD_LOGO), cdn.impl)).rejects.toThrow(
+      /outside the allowed 0.75:1 to 1.3333333333333333:1/,
+    )
+  })
+
+  it('tolerates an isotype that is square-ish rather than exactly square', async () => {
+    const cdn = fakeCdn(png())
+    // The Studio warns about this; the build does not stop a deploy over it.
+    await expect(ruled(pair(asset('aaa-512x540.png'), GOOD_LOGO), cdn.impl)).resolves.toBeDefined()
+  })
+
+  it('rejects a logo narrower than the box, which would upscale and soften', async () => {
+    const cdn = fakeCdn(png())
+    await expect(ruled(pair(GOOD_ISO, asset('bbb-800x400.png')), cdn.impl)).rejects.toThrow(
+      /logo: is 800x400, under the 900x400 minimum/,
+    )
+  })
+
+  it('rejects a logo that is too tall for the 2:1 expanded panel', async () => {
+    const cdn = fakeCdn(png())
+    await expect(ruled(pair(GOOD_ISO, asset('bbb-1000x800.png')), cdn.impl)).rejects.toThrow(
+      /logo: is 1000x800 \(1.25:1\), outside the allowed 1.5:1 to 5:1/,
+    )
+  })
+
+  it('rejects a logo so wide it would draw diminutive', async () => {
+    const cdn = fakeCdn(png())
+    await expect(ruled(pair(GOOD_ISO, asset('bbb-4000x400.png')), cdn.impl)).rejects.toThrow(
+      /outside the allowed 1.5:1 to 5:1/,
+    )
+  })
+
+  it('leaves a name carrying no dimensions alone', async () => {
+    const cdn = fakeCdn(png())
+    // A hand-placed file rather than a Sanity upload. Format still applies;
+    // geometry has nothing to read and does not invent a failure.
+    const [record] = (await ruled(
+      pair(asset('satellite-01-isotipo.webp'), GOOD_LOGO),
+      cdn.impl,
+    )) as Array<{ isotype: string }>
+    expect(record.isotype).toBe('/logos/satellite-01-isotipo.webp')
+  })
+
+  it('applies each field its own rule, not the first one it finds', async () => {
+    const cdn = fakeCdn(png())
+    // 512x512 is a valid isotype and an invalid logo. If the rules were being
+    // looked up by anything other than the field name, this would pass.
+    await expect(ruled(pair(GOOD_ISO, asset('bbb-512x512.png')), cdn.impl)).rejects.toThrow(
+      /logo: is 512x512, under the 900x400 minimum/,
+    )
+  })
+})

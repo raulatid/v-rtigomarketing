@@ -39,8 +39,15 @@ Esta guía es para quien va a cambiar textos, casos de éxito o datos de contact
 
 **Cada caso lleva dos imágenes de marca**, en PNG o WebP con fondo transparente:
 
-- **Isotipo (símbolo):** solo el símbolo, sin el nombre. Cuadrado, unos 512×512. Es lo que se ve flotando sobre el satélite todo el rato, así que es el más importante de los dos.
-- **Logotipo completo:** el símbolo junto al nombre. Apaisado, unos 1024×512. Solo aparece cuando alguien pincha el satélite y se abre la ficha del caso.
+- **Isotipo (símbolo):** solo el símbolo, sin el nombre. Cuadrado, 512×512. Es lo que se ve flotando sobre el satélite todo el rato, así que es el más importante de los dos.
+- **Logotipo completo:** el símbolo junto al nombre. Apaisado, 1600×800. Solo aparece cuando alguien pincha el satélite y se abre la ficha del caso.
+
+**No hace falta que te lo aprendas: el editor lo comprueba solo.** Al subir una imagen te dice al momento si algo no encaja, y hay dos niveles:
+
+- **En rojo, y no te deja publicar** — el archivo no sirve: no es PNG ni WebP (un JPG no tiene transparencia y se vería como un rectángulo), es más pequeño que el mínimo (432×432 el isotipo, 900 de ancho el logotipo), o tiene una forma que no cabe (un isotipo alargado, un logotipo vertical).
+- **En amarillo, y sí puedes publicar** — el archivo sirve pero no es el ideal: se queda algo corto de tamaño, es mucho más grande de lo necesario, o tiene una proporción rara. Se verá bien; se vería mejor con el tamaño recomendado.
+
+En los dos casos el aviso te dice qué mide la imagen y qué debería medir, así que se arregla pidiendo el archivo correcto — no hay que retocar nada aquí.
 
 **Van los dos o no va ninguno.** Si subes uno y dejas el otro vacío, el editor te lo marca en rojo y la web no se publica. Un caso sin ninguno de los dos sí es válido: se muestra un anillo fino con el color de la marca y su inicial — no pasa nada.
 

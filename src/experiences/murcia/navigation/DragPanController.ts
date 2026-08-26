@@ -202,8 +202,16 @@ export class DragPanController {
   private pointerDownY = 0;
   private exceededThreshold = false;
 
-  /** Two-pointer baseline. Resampled on every 1 <-> 2 transition. */
-  private lastCentroidX = 0;
+  /**
+   * Where the centroid stood when the second finger landed, and how much of its
+   * travel has been turned into yaw so far. Resampled on every 1 <-> 2 transition.
+   *
+   * The two-finger solve is stated against the ORIGIN of the gesture rather than
+   * against the previous sample, and that is load-bearing rather than stylistic —
+   * see `applyTwoPointer`.
+   */
+  private twoPointerStartCentroidX = 0;
+  private twoPointerAppliedPx = 0;
 
   /** True while another system owns the rig. See beginExternalControl. */
   private externalControl = false;
@@ -540,7 +548,18 @@ export class DragPanController {
       this.velocityYaw = 0;
     }
 
-    this.domElement.setPointerCapture(event.pointerId);
+    try {
+      this.domElement.setPointerCapture(event.pointerId);
+    } catch {
+      // The pointer can be gone by the time this handler runs — released
+      // between the event being queued and the queue being drained, which a
+      // busy main thread makes ordinary rather than exotic. Capture keeps moves
+      // coming once the finger leaves the element; it is not what makes the
+      // gesture work, so failing to take it must not throw out of the handler
+      // and skip the `onFirstInteraction` notification below.
+      // `releaseCapture` has always tested `hasPointerCapture` for the
+      // same reason; this is its missing other half.
+    }
     this.events.onFirstInteraction?.();
   };
 
@@ -670,8 +689,9 @@ export class DragPanController {
   }
 
   /**
-   * Two fingers: sideways movement of their centroid turns. Changing their
-   * separation does nothing — pinch-to-zoom retired with the zoom band.
+   * Two fingers: sideways movement of their centroid turns, once it has moved
+   * far enough to mean it (`twoPointerThresholdPx`). Changing their separation
+   * does nothing here — pinch-to-zoom retired with the zoom band.
    *
    * Rotation is taken from the centroid's horizontal movement, NOT from the
    * twist angle between the fingers, which is the more literal reading of the
@@ -694,9 +714,30 @@ export class DragPanController {
     const [a, b] = this.pointers;
     const centroidX = (a.x + b.x) / 2;
     const dt = (event.timeStamp - this.lastMoveTime) / 1000;
-    this.applyRotation(centroidX - this.lastCentroidX, rect, dt);
 
-    this.lastCentroidX = centroidX;
+    // Measured from the ORIGIN, and softened by the dead zone rather than gated
+    // on it. A latched gate is what the one-finger path uses and it is WRONG
+    // here, because two fingers never move in the same event: each pointermove
+    // carries one finger, so a perfectly symmetric pinch swings the centroid by
+    // half the separation change and then swings it back on the very next event.
+    // A gate crosses on that artifact, re-anchors inside it, and turns the city
+    // by the correction — measured at 0.47 deg for a 1200px pinch that moved the
+    // centroid a net zero pixels.
+    //
+    // Stated against the origin instead, the artifact cancels: the outbound half
+    // and the return are the same number with opposite signs, and both land in
+    // the same frame, so the rig is never asked to draw either of them. And
+    // subtracting the dead zone rather than switching on it keeps the mapping
+    // continuous — no jump at the boundary, and a centroid that drifts a few
+    // pixels and stops turns nothing at all rather than turning by all of it.
+    const offset = centroidX - this.twoPointerStartCentroidX;
+    const deadZone = this.config.rotation.twoPointerThresholdPx;
+    const engagedPx = Math.sign(offset) * Math.max(0, Math.abs(offset) - deadZone);
+
+    // `applyRotation` is incremental, so it is fed only what is not yet applied.
+    this.applyRotation(engagedPx - this.twoPointerAppliedPx, rect, dt);
+    this.twoPointerAppliedPx = engagedPx;
+
     if (dt > 1e-4) this.lastMoveTime = event.timeStamp;
   }
 
@@ -710,7 +751,11 @@ export class DragPanController {
   private reseedTwoPointerBaselines(): void {
     if (this.pointers.length < 2) return;
     const [a, b] = this.pointers;
-    this.lastCentroidX = (a.x + b.x) / 2;
+    this.twoPointerStartCentroidX = (a.x + b.x) / 2;
+    // The applied ledger is cleared with the origin it is measured against, and
+    // the dead zone is re-armed with both: a gesture that goes 2 -> 1 -> 2 is a
+    // NEW two-finger gesture and has proved nothing about wanting to turn.
+    this.twoPointerAppliedPx = 0;
   }
 
   private readonly onPointerUp = (event: PointerEvent): void => {

@@ -1,4 +1,4 @@
-import { cinematicSpeed, cinematicTravel, lerp, narrowPeak } from '../utils/easing'
+import { clamp01, cinematicSpeed, cinematicTravel, lerp, narrowPeak } from '../utils/easing'
 
 // The Earth <-> Murcia warp, as pure functions of one progress value.
 //
@@ -52,13 +52,13 @@ export const WARP_TRANSITION = {
   // ─── Murcia leg ───
 
   /** The configured resting distance. Must equal murciaConfig.camera.distance. */
-  murciaRestDistance: 165,
+  murciaRestDistance: 195,
   /** The configured resting elevation. Must equal murciaConfig.camera.elevationDegrees. */
   murciaRestElevation: 30,
   /** Closest approach, arriving. See the envelope below before changing this. */
   murciaCloseDistance: 75,
   /** The departure pose, leaving. Must equal murciaConfig.warpDepart*. */
-  murciaDepartDistance: 180,
+  murciaDepartDistance: 210,
   murciaDepartElevation: 50,
 
   /**
@@ -67,9 +67,11 @@ export const WARP_TRANSITION = {
    * The real invariant is a footprint, not a distance: NO WARP POSE MAY REACH
    * FURTHER ACROSS THE GROUND THAN THE RESTING POSE DOES. The terrain skirt is
    * 700 units wide (murciaConfig.terrainTransition.width — read it there, never
-   * from here): 600 was what a camera at 165/30deg needs at every azimuth on a
-   * 5120x1440 viewport with only +50 units to spare, and the last 100 pays for
-   * the zoom band. Anything that reaches further puts the plate edge on
+   * from here). It was sized when rest was 165/30deg, which needs 600 at every
+   * azimuth on a 5120x1440 viewport with only +50 units to spare. Rest is
+   * 195/30deg now and reaches ~573, so the spare is thinner than it was — see
+   * checks/footprint.ts, which is what actually holds this line.
+   * Anything that reaches further puts the plate edge on
    * screen for ultrawide viewers only, silently, with nothing wrong on the
    * machine the change was made on. PROJECT_MEMORY, "The number that can hurt
    * you", records exactly that: going 110 -> 165 silently put the plate edge on
@@ -93,10 +95,67 @@ export const WARP_TRANSITION = {
    * (PROJECT_MEMORY, "The number that can hurt you"), and the footprint
    * diverges again.
    */
-  murciaMaxDistance: 165,
-  murciaDepartMaxDistance: 180,
+  murciaMaxDistance: 195,
+  murciaDepartMaxDistance: 210,
   murciaMinDistance: 60,
 } as const
+
+// ─── The reversible scrub band ───
+//
+// A committed warp runs 0 -> 1 once and is concealed at the cut. A GESTURE is
+// the opposite: reversible, usually abandoned, and never concealed. Driving one
+// from the other is only safe inside a band with two properties, and both are
+// derived here rather than chosen:
+//
+//   1. It lies entirely inside the DEPARTING leg, so `transitionLeg`'s
+//      `departing` flag is constant for the whole scrub and no leg boundary is
+//      ever crossed backwards. `adr/009` refused to conflate gesture progress
+//      with `transitionProgress` on exactly that ground; this is the answer.
+//   2. `flash` is zero across all of it, so a reversible gesture can never
+//      darken the screen. The flash bell is `narrowPeak(p, cut, flashWidth)`,
+//      which leaves zero at `cut - flashWidth` — so that IS the ceiling, and it
+//      is derived, not tuned.
+
+/** Top of the scrub band. Derived: the exact point where the flash bell begins. */
+export const SCRUB_CEILING = WARP_TRANSITION.cut - WARP_TRANSITION.flashWidth
+
+/** `dollyAmount(SCRUB_CEILING).amount` — how far the world moves at full gesture. */
+const SCRUB_MAX_AMOUNT =
+  2 * cinematicTravel(SCRUB_CEILING, WARP_TRANSITION.accelerationPower)
+
+/**
+ * Shape of the gesture -> travel mapping. 1 is linear in travel; higher fronts
+ * it up so the first notch of a gesture is visible.
+ *
+ * PROVISIONAL, JUDGED 2026-08-25, and not yet driven on hardware. It exists
+ * because the position curve is an ease-in (`accelerationPower: 1.7`): mapping
+ * gesture progress straight onto `p` makes one mouse notch worth an amount of
+ * 0.015 — about a 1% camera move, which is invisible. At 2 the same notch is
+ * worth 0.12. Below ~1.5 the gesture stops answering its first input; above ~3
+ * it spends its whole travel in the first third and the rest reads as dead.
+ */
+export const SCRUB_EASE = 2
+
+/**
+ * Gesture progress 0..1 -> warp progress inside the scrub band.
+ *
+ * Inverts the position curve rather than adding a second one, so what the
+ * viewer controls is the DISTANCE THE WORLD MOVES, not an abstract parameter
+ * that happens to feed it. `dollyAmount` on the departing leg is
+ * `(2p)^power`, so the inverse is `p = 0.5 * amount^(1/power)` — exact, and
+ * only valid below the cut, which is where the band lives.
+ *
+ * Monotone, bounded, `0 -> 0` and `1 -> SCRUB_CEILING` exactly.
+ */
+export function scrubProgress(gestureProgress: number): number {
+  const g = clamp01(gestureProgress)
+  if (g <= 0) return 0
+  // Pinned rather than computed: `pow(pow(x, a), 1/a)` is not bit-exact, and
+  // the ceiling is a value other modules compare against.
+  if (g >= 1) return SCRUB_CEILING
+  const amount = SCRUB_MAX_AMOUNT * (1 - Math.pow(1 - g, SCRUB_EASE))
+  return 0.5 * Math.pow(amount, 1 / WARP_TRANSITION.accelerationPower)
+}
 
 /**
  * Which leg the transition is on, and how far through that leg.

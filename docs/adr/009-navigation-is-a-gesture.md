@@ -1,8 +1,18 @@
 # ADR 009 — Navigation is a gesture, and the wheel has one owner
 
-Status: **Accepted** — 2026-08-19
+Status: **Accepted** — 2026-08-19, **§4 reversed 2026-08-26 by `adr/012`**
 Reverses: `DECISIONS.md` §15 (*"The warp is triggered by a control, never by scroll"*)
 Amends: `DECISIONS.md` §20 / §21 (the zoom band on wheel and pinch)
+
+> **§4 no longer holds.** Touch navigates by pinching the scene, not on a right-edge rail, and
+> the rail is deleted — `adr/012-touch-navigates-by-pinching-the-world.md`. §4's reasoning was
+> about ONE finger (*"the canvas has no free vertical channel"*) and remains correct on its own
+> terms; two fingers turned out to be a channel nothing was using. The consequence *"two-finger
+> centroid rotation survives; pinch does not"* is reversed with it: a pinch now means NAVIGATE.
+> There is still no zoom.
+> 
+> Parts 1–3 — one global wheel authority, raw input never reaching the transition, and the
+> four-state machine — are untouched and are what the pinch was built on.
 
 ## Context
 

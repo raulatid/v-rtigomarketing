@@ -10,6 +10,20 @@ body,
   height: 100%;
 }
 
+/* The canvas owns every gesture over it (touch-action: none), so a drag that
+   reaches the edge has nowhere to go — without this, iOS rubber-bands the page
+   behind the scene and Android shows a pull-to-refresh over it. Scoped to the
+   document rather than the canvas because overscroll is a property of the
+   scrolling container, and here that is the page itself.
+
+   NOT touch-action: that would take the browser's own zoom away from the whole
+   document, including the panels people need it for. Different property, and
+   deliberately so. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
 body {
   background: #050507;
   color: #fff;
@@ -1387,241 +1401,198 @@ body {
   background-color: rgba(28, 103, 255, 0.25);
 }
 
-/* ---- Navigation rail (Earth <-> Murcia) ----
-   The gesture indicator, and the touch target that drives it (`adr/009`). It
-   replaces `.experience-switch`, which was the return button, and inherits its
-   z-index for the same two reasons: above the warp overlay (40) so it stays
-   legible if a transition is somehow interrupted mid-cover, and above Murcia's
-   UI host (16) so a district panel never occludes it.
+/* ---- Navigation control (Earth <-> Murcia) ----
 
-   Two fixed dots with a fill travelling between them. A travel rail, not a
-   loading bar. */
+   What used to be here was the rail: a visible indicator on the right edge that
+   was also the touch target. Touch navigates by pinching the scene now, and the
+   scene is its own indicator — the world moves under your fingers — so both of
+   the rail's jobs went to the canvas and its 200 lines of chrome went with it.
 
-.nav-rail {
+   What is left is the part a pinch cannot do: a control for anyone who cannot
+   make the gesture, and a hint for anyone who does not know it exists. */
+
+.nav {
+  /* Still carries --nav-progress, data-state and data-direction. Nothing draws
+     them any more — they are the observable surface the e2e suite reads, and
+     the only place the literal-zero property of the retreat can be seen from
+     outside. Cheap: three attribute writes on frames that already ran.
+
+     NO `transform` HERE, AND THAT IS LOAD-BEARING. This carried
+     `transform: translateY(-50%)` until 2026-08-26, where it did nothing and
+     broke something.
+
+     Nothing, because both children are out of flow — `.nav-control` is
+     absolute, `.nav-hint` is fixed — so this box has no in-flow content and is
+     0x0. Translating a zero-height box by 50% of its height moves it 0px.
+
+     Broke something, because a transformed element becomes the containing block
+     for its `position: fixed` DESCENDANTS. `.nav-hint` is centred on the
+     viewport with `left: 50%`, and against this 0-width box pinned to
+     `right: 0` that resolved to the viewport's RIGHT edge — the hint landed
+     further right than the `right: 20px` it was being moved away from.
+
+     So a declaration with no visual effect silently captured a child's frame of
+     reference. Anything reintroduced here — `transform`, `filter`,
+     `perspective`, `will-change`, `contain` — does the same thing again. If
+     this box ever needs to move, move it with `top`/`right`, or give the hint
+     its own fixed ancestor. */
   position: fixed;
   z-index: 45;
   right: 0;
   top: 50%;
-  transform: translateY(-50%);
-  /* 48px of TARGET carrying a 4px line. The mobile audit's 44px minimum applies
-     to this: on touch it is the only way between the two worlds, which makes it
-     a primary control rather than chrome. The visible rail is drawn narrow and
-     centred inside it. */
-  width: 48px;
-  height: min(44vh, 380px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  /* The gesture is ours; the browser must not claim it as a scroll. Paired with
-     a non-passive touchmove in createNavigationInput, which is what actually
-     stops iOS rubber-banding — this element is a SIBLING of the canvas and does
-     not inherit its suppression. */
-  touch-action: none;
-  cursor: grab;
-  opacity: 0.95;
-  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
-/* The glass plate the rail stands on. Murcia's backdrop is mid-gray city and
-   bright sky — no single line colour reads on all of it, and the panels already
-   answer that problem with frosted glass, so the rail borrows the same
-   material. A pseudo-element of the rail itself: it inherits every opacity
-   state (suppressed hides it too) and can never steal a tap. z-index -1 tucks
-   it under the static dots inside the rail's own stacking context. */
-.nav-rail::before {
-  content: '';
+/* Clipped to a pixel rather than hidden: display:none and visibility:hidden are
+   both unfocusable, and a control nobody can reach is not an accessible path.
+   A transparent 44px box over the canvas was the other option and it would have
+   swallowed taps meant for the world. */
+.nav-control {
   position: absolute;
-  z-index: -1;
-  top: -12px;
-  bottom: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 26px;
-  border-radius: 14px;
-  background: rgba(8, 12, 18, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  pointer-events: auto;
 }
 
-/* The gesture hint: a device-appropriate icon standing just left of the rail,
-   teaching that a vertical gesture exists at all. A CHILD of the rail on
-   purpose — it inherits every opacity state (suppressed during the intro and
-   behind panels, dimmed through warp), so it can never advertise a gesture
-   the rail itself is refusing. Dismissed by createNavigationInput via
-   data-hint-dismissed the first frame a gesture is in flight, once per visit. */
-.nav-rail__hint {
-  position: absolute;
-  right: calc(100% - 4px);
+/* Unclipped on focus, so a sighted keyboard user can see what they landed on.
+   The skip-link pattern, for the reason skip links use it. */
+.nav-control:focus-visible {
+  width: auto;
+  height: auto;
+  right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #cdd7e0;
-  pointer-events: none;
-  transition: opacity 0.6s ease;
-  animation: nav-hint-float 2.4s ease-in-out infinite alternate;
+  clip-path: none;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 8px;
+  background: rgba(5, 5, 7, 0.92);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  outline: 2px solid #1c67ff;
+  outline-offset: 2px;
 }
 
-.nav-rail__hint-icon {
+/* The button carries no text node — its name is an aria-label, because nothing
+   renders it until this moment. Echoed here so the box a sighted keyboard user
+   lands on says where it goes, instead of being an empty rectangle. */
+.nav-control:focus-visible::after {
+  content: attr(aria-label);
+}
+
+/* And the hint stands down while the control has focus: it teaches the gesture
+   for people using their hands, and this viewer has already found the other way.
+
+   `animation: none` is not tidiness. An animated property beats a normal
+   declaration in the cascade, so the breathe keyframes above would keep writing
+   opacity over this and the glyph would sit behind the focused button. */
+.nav-control:focus-visible ~ .nav-hint {
+  opacity: 0;
+  animation: none;
+}
+
+/* ---- The gesture hint ----
+
+   A sibling of the control, not a child: the control is clipped and a child
+   would be clipped with it. Hidden until createNavigationInput says otherwise —
+   five seconds without a navigation input, once per world (DECISIONS section 29,
+   amended 2026-08-26).
+
+   BOTTOM CENTRE since 2026-08-26. It sat on the right edge because that is
+   where the rail was, and the rail is gone — the hint was inheriting a position
+   from a thing it no longer stands beside. Bottom centre is where a screen puts
+   an instruction about the whole view rather than about one element, and the
+   gesture it teaches belongs to the whole view.
+
+   `fixed` rather than `absolute` because this is centred on the VIEWPORT, and
+   `.nav` — its parent — is a 0x0 box pinned to the right edge. `absolute` would
+   measure `left: 50%` against that box and put the hint back where it started.
+   `fixed` only escapes it because `.nav` carries no `transform`; see the note
+   on `.nav` above, which is where the first attempt at this move went wrong.
+
+   `.nav` keeps its right-edge anchor: what is still parented to it is the
+   focus-visible control, a keyboard affordance, and moving that is a separate
+   decision.
+
+   The offset clears `.site-footer` (bottom max(14px, inset), ~12px tall) rather
+   than trusting a horizontal miss. The mark is right-aligned and this is
+   centred, so they do not collide on a wide viewport — but a narrow one closes
+   that gap, and a hint sitting on the brand mark is the kind of failure that
+   only shows up on a phone. */
+.nav-hint {
+  position: fixed;
+  left: 50%;
+  bottom: max(48px, calc(env(safe-area-inset-bottom) + 34px));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.66);
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.55));
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.nav-hint[data-visible] {
+  opacity: 1;
+  animation: nav-hint-breathe 2.6s ease-in-out infinite alternate;
+}
+
+.nav-hint__icon {
+  display: none;
+  width: 40px;
+  height: 40px;
+}
+
+/* Input decides the glyph, never viewport — the Murcia controls hint records the
+   reasoning. Teaching a pinch to a mouse says the site was not built for the
+   thing in your hand. */
+.nav-hint__icon--mouse {
   display: block;
   width: 24px;
   height: 48px;
-  /* The same legibility trick as the rail: a soft dark halo, so the light
-     strokes survive the bright Murcia sky as well as space. */
-  filter: drop-shadow(0 1px 3px rgba(8, 14, 22, 0.6));
-}
-
-/* Input decides the icon, not viewport — the Murcia controls hint records the
-   reasoning. Teaching a wheel to a finger says the site was not built for the
-   thing in your hand. */
-.nav-rail__hint-icon--touch {
-  display: none;
 }
 
 @media (pointer: coarse) {
-  .nav-rail__hint-icon--mouse {
+  .nav-hint__icon--mouse {
     display: none;
   }
 
-  .nav-rail__hint-icon--touch {
+  /* And on touch the DIRECTION decides, because the two worlds are left by
+     opposite gestures: open the hand to fall into the city, close it to climb
+     back out (ADR 006). */
+  .nav[data-direction='down'] .nav-hint__icon--spread,
+  .nav[data-direction='up'] .nav-hint__icon--close {
     display: block;
   }
 }
 
-.nav-rail[data-hint-dismissed] .nav-rail__hint {
-  opacity: 0;
-}
-
-@keyframes nav-hint-float {
+@keyframes nav-hint-breathe {
   from {
-    transform: translateY(calc(-50% - 3px));
+    opacity: 0.55;
   }
-
   to {
-    transform: translateY(calc(-50% + 3px));
+    opacity: 1;
   }
-}
-
-/* HIDDEN while something else owns the viewer's attention: an open district
-   panel, a selected satellite, the audit form, the intro still running. Not
-   dimmed — gone: the panels dock to this same edge, and a rail that is visible
-   at all while refusing every gesture advertises a navigation that does not
-   exist (the product asked for it to disappear). pointer-events off so the
-   invisible band over a panel cannot swallow its taps. */
-.nav-rail[data-state='suppressed'] {
-  opacity: 0;
-  pointer-events: none;
-  cursor: default;
-}
-
-/* Mid-warp and just-arrived stay faintly present: the commit and the cooldown
-   are states of the gesture itself, and the indicator vanishing at the moment
-   of success would read as breakage rather than progress. */
-.nav-rail[data-state='locked'],
-.nav-rail[data-state='cooldown'] {
-  opacity: 0.18;
-  cursor: default;
-}
-
-.nav-rail:focus-visible {
-  outline: 2px solid #4fb0ff;
-  outline-offset: -6px;
-  border-radius: 8px;
-}
-
-.nav-rail__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: none;
-  /* Rimmed like the track, so the endpoints survive the light Murcia sky. */
-  box-shadow: 0 0 0 1px rgba(8, 14, 22, 0.4);
-}
-
-/* The endpoints are the two worlds, so each wears its world's colour — the
-   same hues the fill's gradient travels between. */
-.nav-rail__dot--start {
-  background: #b5dcff;
-}
-
-.nav-rail__dot--end {
-  background: #ffd9a8;
-}
-
-.nav-rail__track {
-  position: relative;
-  flex: 1;
-  width: 4px;
-  margin: 8px 0;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.35);
-  /* A dark rim, not a scene-aware colour: the same light line has to read on
-     the black of space and on the bright Murcia sky, and rimming it keeps the
-     rail ignorant of which world is behind it. */
-  box-shadow:
-    0 0 0 1px rgba(8, 14, 22, 0.4),
-    0 0 6px rgba(8, 14, 22, 0.35);
-  overflow: hidden;
-}
-
-/* The whole animation, still compositor-only — two transforms now instead of
-   one. `--nav-progress` is written straight onto .nav-rail by
-   createNavigationInput — never through React, because a wheel produces well
-   over a hundred events a second and each one would otherwise re-render two
-   canvases and every overlay.
-
-   Why two elements: the fill is a gradient PINNED TO THE TRACK — Earth blue at
-   the top, Murcia amber at the bottom, because that is the geography the rail
-   travels — so the tip takes on the destination's colour as it approaches. A
-   scaleY would squash the whole ramp into the travelled sliver. Instead the
-   reveal slides a clipping window along the track while the fill
-   counter-slides the gradient back into place, which shows exactly the
-   travelled portion where it belongs. */
-.nav-rail__reveal {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  will-change: transform;
-}
-
-.nav-rail__fill {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, #6fc3ff 0%, #6fe0d4 45%, #ffc978 100%);
-  will-change: transform;
-}
-
-/* Direction is a CSS concern, so one number drives both legs: travelling DOWN
-   into Murcia reveals from the top, and rising back to Earth reveals from the
-   bottom. Anchoring it here rather than signing the progress value is what keeps
-   the accumulator ignorant of which world it is in. */
-.nav-rail[data-direction='down'] .nav-rail__reveal {
-  transform: translateY(calc((var(--nav-progress, 0) - 1) * 100%));
-}
-
-.nav-rail[data-direction='down'] .nav-rail__fill {
-  transform: translateY(calc((1 - var(--nav-progress, 0)) * 100%));
-}
-
-.nav-rail[data-direction='up'] .nav-rail__reveal {
-  transform: translateY(calc((1 - var(--nav-progress, 0)) * 100%));
-}
-
-.nav-rail[data-direction='up'] .nav-rail__fill {
-  transform: translateY(calc((var(--nav-progress, 0) - 1) * 100%));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-rail {
-    transition: none;
-  }
-
-  /* The float is decoration in motion; the opacity fade may stay. */
-  .nav-rail__hint {
+  /* The breath is decoration in motion; the opacity fade may stay. */
+  .nav-hint[data-visible] {
     animation: none;
   }
 }
-
 /* ---- Touch target sizes ------------------------------------------------
 
    Six controls in this project sit below the 44px minimum, and until

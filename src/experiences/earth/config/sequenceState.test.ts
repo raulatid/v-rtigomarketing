@@ -12,6 +12,7 @@ describe('createSequenceState', () => {
     expect(state.swapOverlay).toBe(0)
     expect(state.transitionOverlay).toBe(0)
     expect(state.transitionProgress).toBe(0)
+    expect(state.transitionCommitted).toBe(false)
     expect(state.motionBlur).toBe(0)
     expect(state.orbitsStarted).toBe(false)
   })

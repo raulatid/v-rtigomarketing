@@ -37,9 +37,9 @@ se ven más grandes y más nítidas.
 
 | Punto | Requisito |
 |---|---|
-| **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. También se aceptan **PNG-24** y **SVG**, con las salvedades de más abajo. |
-| **Dimensiones** | **512 × 512 px** ideal, cuadrado. Hasta 1024 × 1024 si el símbolo tiene mucho detalle. Por debajo de ~400 px se amplía y pierde nitidez en el primer plano. |
-| **Proporción** | **1:1.** El panel en reposo es cuadrado. Un símbolo casi cuadrado (hasta 4:3 o 3:4) funciona; uno muy alargado se dibuja pequeño y se pierde. |
+| **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. También se acepta **PNG-24**. **Nada más:** un JPG se rechaza al subirlo (no tiene alfa: sería un rectángulo sobre el panel) y un SVG también, por el motivo de más abajo. |
+| **Dimensiones** | **512 × 512 px** ideal, cuadrado. Hasta 1024 × 1024 si el símbolo tiene mucho detalle. **Mínimo 432 × 432**, que es la caja en la que se dibuja: por debajo se rechaza. |
+| **Proporción** | **1:1.** El panel en reposo es cuadrado. Un símbolo casi cuadrado funciona y solo recibe un aviso; **fuera de 4:3 o 3:4 se rechaza**, porque se dibujaría demasiado pequeño para leerse. |
 | **Contenido** | **Solo el símbolo.** Sin el nombre de la marca, sin claim, sin recuadro. Si la marca no tiene símbolo separable del nombre, ver abajo. |
 | **Fondo** | **Totalmente transparente.** Sin caja blanca, sin tarjeta redondeada, sin sombra. |
 | **Márgenes** | **Cero.** Recortar ajustado a la caja delimitadora. **El margen lo pone la aplicación.** |
@@ -65,9 +65,9 @@ Tres salidas, en orden de preferencia:
 
 | Punto | Requisito |
 |---|---|
-| **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. Pesa 10–40 KB frente a 60–150 KB del PNG equivalente, con calidad idéntica para arte plano. Se aceptan **PNG-24** y **SVG** como alternativa: el cargador es agnóstico al formato. |
-| **Dimensiones** | **1600 × 800 px** ideal. Mínimo ~900 px de ancho. Por debajo de eso la imagen se amplía y pierde nitidez en el primer plano del panel de caso. Más grande no es problema. |
-| **Proporción** | Entre **2:1 y 4:1** (lockup horizontal). El panel desplegado es 2:1, así que un lockup más alargado se dibuja más pequeño. Un lockup vertical no funciona bien. |
+| **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. Pesa 10–40 KB frente a 60–150 KB del PNG equivalente, con calidad idéntica para arte plano. Se acepta **PNG-24** como alternativa. **JPG y SVG se rechazan al subirlos.** |
+| **Dimensiones** | **1600 × 800 px** ideal. **Mínimo 900 px de ancho y 400 de alto**, que es la caja en la que se dibuja: por debajo se rechaza. Por encima de 2048 de ancho solo pesa de más y recibe un aviso. |
+| **Proporción** | Entre **2:1 y 4:1** (lockup horizontal). El panel desplegado es 2:1, así que un lockup más alargado se dibuja más pequeño. **Fuera de 1,5:1 a 5:1 se rechaza**: un lockup vertical no cabe y uno larguísimo se dibuja diminuto. |
 | **Fondo** | **Totalmente transparente.** Sin caja blanca, sin tarjeta redondeada, sin sombra, sin degradado de fondo. Un fondo blanco se renderiza literalmente como un rectángulo blanco — el shader no elimina fondos. |
 | **Márgenes** | **Cero.** Recortar ajustado a la caja delimitadora del arte. **El margen lo pone la aplicación.** Un archivo entregado con un 30 % de espacio en blanco incorporado se verá un 30 % más pequeño que sus vecinos, y no hay forma de detectarlo automáticamente. Este es el punto que más se incumple. |
 | **Color** | **A todo color**, los colores originales de marca — no una versión monocroma. |
@@ -99,8 +99,11 @@ render:
 
 ## Notas sobre SVG
 
-Se acepta, pero conviene entregarlo además en WebP o PNG, porque un SVG dentro de
-un `<canvas>` tiene tres trampas:
+**No se admite subirlo al CMS** — ni el Studio ni la compilación lo aceptan, por
+el motivo de seguridad que se explica más abajo. Esta sección se mantiene porque
+sigue siendo posible colocar un archivo a mano en `public/logos/`, y porque
+explica por qué un SVG tampoco sería la entrega ideal aunque se admitiera: dentro
+de un `<canvas>` tiene tres trampas.
 
 - Necesita atributos **`width` y `height` explícitos**. Solo con `viewBox` el
   navegador no le asigna tamaño intrínseco y no se dibuja nada. La aplicación
@@ -124,6 +127,21 @@ comprueba.
 En el Studio son dos campos contiguos dentro de **Marca**: *Isotipo (símbolo)* y
 *Logotipo completo*. Rellenar uno y dejar el otro vacío marca un error en el
 propio campo, además de fallar la compilación.
+
+**El Studio comprueba formato y medidas al subir el archivo**, y da dos niveles
+de respuesta:
+
+- **Error, en rojo, con Publicar deshabilitado** — formato distinto de PNG o
+  WebP, por debajo del mínimo (432 × 432 el isotipo, 900 × 400 el logotipo), o
+  una proporción fuera de las bandas de las tablas de arriba.
+- **Aviso, en amarillo, publicable** — por debajo del tamaño ideal, mucho más
+  grande de lo necesario, o una proporción que funciona pero no es la óptima.
+
+El mensaje dice siempre qué mide el archivo y qué debería medir. Todo esto sale
+de leer el nombre del asset (`image-<hash>-1600x800-webp`), así que es inmediato:
+no descarga ni descodifica la imagen. La compilación repite las mismas
+comprobaciones —`content/lib/mirror.ts`— porque una importación de dataset, una
+copia restaurada o la API HTTP escriben documentos que el Studio nunca ve.
 
 Lo que cambió es el camino que recorren los archivos. La aplicación **no descarga
 nada del CMS en el navegador**: al compilar, `content/lib/mirror.ts` verifica el

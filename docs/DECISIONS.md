@@ -1394,6 +1394,53 @@ lands, look for a cast before anything else.
 
 ---
 
+**26.23 — A brand mark an editor uploads is checked at the field, in two tiers, and again at
+build time.** Added 2026-08-26, closing the gap §26.21 left: the schema had both image fields and
+the pipeline mirrored both, but format and size were **prose in the field description**. Nothing
+stopped a 3000×1200 JPEG being published.
+
+*Why it needed anything at all.* `drawLogoContained` contain-fits whatever arrives, so a wrong
+image never breaks the panel — it draws small, or soft, or, for a format with no alpha, over its
+own opaque rectangle. Nothing throws, nothing warns in production, and the result is a client's
+trademark rendered slightly wrong on the one screen it appears on. That is the failure mode a
+content pipeline exists to catch, and catching it at deploy time is too late to be useful to the
+person holding the file.
+
+*Two tiers, because they answer different questions.* **Error** blocks Publicar: not PNG or WebP,
+under 432×432 (isotype) or 900×400 (logo), or an aspect outside 0.75–1.33:1 and 1.5–5:1
+respectively. **Warning** publishes and flags the field: below the ideal, wastefully above it, or
+an unusual-but-workable proportion. The split follows the renderer — the error band is where
+"drawn smaller" becomes "illegible", and everything short of that is advice.
+
+*The numbers are the atlas boxes, doubled.* A 512² isotype cell padded by 40 fits a 432×432 box; a
+1024×512 logo cell padded by 64/56 fits 896×400. The floors are those boxes; the ideals — 512×512
+and **1600×800** — are roughly 2×, which is what survives the downscale at the close-up.
+
+*JPEG moved from tolerated to refused.* The media contract used to call it "the wrong choice"
+and let it through. A format that ships a rectangle over the dark glass is not a judgement call
+worth delegating. SVG keeps its own separate check and its own message: the argument there is
+stored XSS, not alpha, and collapsing the two into "extension not allowed" teaches neither.
+
+*No async validator, and none needed.* Sanity names an image asset after its own dimensions and
+format — `image-<hash>-1600x800-webp` — so both tiers are a string parse. The mirror reads the
+same numbers off the URL, before it fetches. The Studio's parse **fails open** on an id it does
+not recognise: if Sanity changes that format the Studio must stop pre-checking, never start
+rejecting correct artwork. The build is the half that guarantees.
+
+*Enforced twice, in two packages, on purpose.* `sanity-studio/schemas/lib/brandMark.ts` and
+`BRAND_MARK_RULES` in `caseStudies.collection.ts`. The Studio is its own npm package and neither
+side may import the other — the same arrangement §26.21's pairing rule already has. The Studio
+covers the editor; the build covers `sanity dataset import`, a restored backup and the HTTP API,
+which write documents no Studio ever sees. `options.accept` narrows the file picker as a third,
+weakest layer: an asset chosen out of the media library never passes through it.
+
+**How you would know it broke.** A `.jpg` or an undersized file in `public/logos/`. A `mediaRules`
+key drifting from its `mirror` field name, which would silently disable the whole geometry tier —
+`collections.test.ts` asserts the two agree for that reason. The Studio accepting a 300×300 JPEG
+without a word, which means `parseImageRef` is failing open against a live asset id.
+
+---
+
 ## 27. Content is generated at build time, and the browser never calls the CMS
 
 **Decided** 2026-08-20. Full reasoning and the alternatives in **`adr/010`**.
@@ -1702,6 +1749,8 @@ renders with a clause missing; or the entry budget fails and the message blames 
 | One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** |
 | The Earth prototype keeps its own decisions file | `earth/DECISIONS.md`, 1862 lines, listed above as still authoritative | Retired 2026-08-17; what still binds is **§26**, and this file is the only one — **§26** |
 | The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
+| A logo should be delivered at ~1024×512 | `sanity-media-contract.md` and the Studio's own field description, since 2026-08-23 | 1600×800, minimum 900 wide. 1024×512 is barely above the 896×400 box the artwork is fitted into, and `drawLogoContained` already warns below it — the CMS was advising editors towards artwork the renderer complains about. `docs/earth/logo-spec.md` had said 1600×800 all along and was the copy nobody reconciled — **§26.23** |
+| The format and size rules for a brand mark are guidance for the editor | the two `description` strings on `caseStudy.isotype` / `.logo` | They are validation. Wrong format or geometry disables Publicar and fails the build; only the ideal-versus-acceptable difference is advice — **§26.23** |
 | The backdrop is a field of uniform points on a shell | the Earth prototype's "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** |
 | The sky is generated on the GPU, not downloaded | **§19**, first form | It is a 113 KB photograph. The procedural nebula could not be made to look like anything but dirt, for structural reasons — **§19** |
 | The sky source is an equirectangular panorama | **§19**, `CREDITS.md`, `spaceConfig.ts`, and the `width === height * 2` guard that "checked" it | It is a flat 2:1 image, and so is every candidate that was screened. Aspect ratio is not projection. Mitigated by `convergePoles`, not fixed — only a different source fixes it — **§19** amendment 2026-08-20, `audits/reports/sky-panorama-projection-2026-08-19.md` |

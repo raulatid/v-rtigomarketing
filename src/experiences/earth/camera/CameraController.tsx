@@ -2,12 +2,20 @@ import { RefObject, useMemo, useRef } from 'react'
 import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import { cinematicTravel, cinematicSpeed, narrowPeak, lerp, lerpVec3 } from '../../../utils/easing'
+import {
+  cinematicTravel,
+  cinematicSpeed,
+  narrowPeak,
+  lerp,
+  lerpVec3,
+  smootherstep,
+} from '../../../utils/easing'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { atOrAfter } from '../config/sceneVisibility'
 import type { DestinationResolver } from '../navigation/destination'
 import {
+  WARP_TRANSITION,
   dollyAmount,
   earthFov,
   earthRadiusScale,
@@ -19,6 +27,22 @@ import {
 // Leg 2: it arrives from far out and settles at the Earth's rest distance.
 // The two legs are unrelated — the camera teleports between them at the cut,
 // which is exactly the trick from extraction 002 §1.
+/**
+ * How long the committed warp takes to adopt its own FOV, seconds.
+ *
+ * The scrub deliberately holds the lens at rest — the surge cancels the dolly it
+ * is meant to sell, see `scrubPose.ts` — so a commit from the top of the band
+ * would otherwise pop 45 -> 59.5 deg in a single frame. A commit ALWAYS comes
+ * from the top of the band, because that is what committing means, so this is
+ * not an edge case: it is every transition.
+ *
+ * 0.2s is an eighth of the 1.6s warp and lands while the dolly is still
+ * accelerating out of its ease-in, which is the part of the curve with the most
+ * motion to hide it behind. Long enough not to read as a cut, short enough that
+ * the surge is still doing its job by the time the speed bell peaks.
+ */
+const FOV_CATCHUP_SECONDS = 0.2
+
 const STAR_REST: [number, number, number] = [0, 0, 200]
 const STAR_EXIT: [number, number, number] = [0, 0, -200]
 const EARTH_FAR: [number, number, number] = [0, 0, 80]
@@ -61,11 +85,14 @@ export function CameraController({
   // render loop.
   const dollyAnchor = useRef(new THREE.Vector3())
   const dollyCaptured = useRef(false)
+  /** The lens the commit inherited, and how far the cinematic has adopted its own. */
+  const fovAtCommit = useRef<number>(WARP_TRANSITION.earthRestFov)
+  const fovCatchUp = useRef(0)
   const destinationWorld = useRef(new THREE.Vector3())
   const warpLookAt = useRef(new THREE.Vector3())
   const reducedMotion = useMemo(prefersReducedMotion, [])
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!('fov' in camera)) return
     const cam = camera as THREE.PerspectiveCamera
 
@@ -85,8 +112,14 @@ export function CameraController({
     // stands down (InteractionLayer stops calling its update), so this is the
     // sole camera writer for the duration. Two writers per frame is the failure
     // the source project removed OrbitControls to avoid.
-    if (state.transitionProgress > 0) {
-      applyWarp(cam, state.transitionProgress)
+    // Committed only. A scrubbed gesture also moves transitionProgress, but the
+    // rig is still live and is still the frame's LAST camera writer, so anything
+    // written here would be overwritten before the draw — the scrub is applied
+    // after the rig instead, by `applyScrubPose`. Capturing an anchor once is
+    // right for a cinematic on a stood-down rig, and wrong for a pose the viewer
+    // is actively dragging.
+    if (state.transitionCommitted) {
+      applyWarp(cam, state.transitionProgress, delta)
       applyOverlay()
       return
     }
@@ -164,12 +197,16 @@ export function CameraController({
    * and pull out to the whole globe. Read in world space every frame because
    * the destination turns with the Earth's surface.
    */
-  function applyWarp(cam: THREE.PerspectiveCamera, p: number) {
+  function applyWarp(cam: THREE.PerspectiveCamera, p: number, dt: number) {
     const { departing, amount } = dollyAmount(p)
 
     if (!dollyCaptured.current) {
       if (departing) dollyAnchor.current.copy(cam.position)
       else dollyAnchor.current.set(...EARTH_REST)
+      // Captured beside the anchor and for the same reason: this is the pose the
+      // cinematic is taking OVER from, and the lens is part of a pose.
+      fovAtCommit.current = cam.fov
+      fovCatchUp.current = 0
       dollyCaptured.current = true
     }
 
@@ -185,7 +222,12 @@ export function CameraController({
     if (destination) lookAt.lerpVectors(EARTH_LOOK_AT, destination, speed(p))
     cam.lookAt(lookAt)
 
-    cam.fov = earthFov(p)
+    // Blended rather than written, so the cinematic can adopt a lens the scrub
+    // never moved without a visible step. Reaches 1 and STAYS there, so the rest
+    // of the warp — including both ends, which return to exactly 45 — is exact
+    // rather than forever approaching.
+    fovCatchUp.current = Math.min(1, fovCatchUp.current + dt / FOV_CATCHUP_SECONDS)
+    cam.fov = lerp(fovAtCommit.current, earthFov(p), smootherstep(0, 1, fovCatchUp.current))
     cam.updateProjectionMatrix()
   }
 

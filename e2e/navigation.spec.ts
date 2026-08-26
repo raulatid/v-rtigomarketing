@@ -48,7 +48,7 @@ async function inMurcia(page: Page): Promise<boolean> {
 
 async function rail(page: Page) {
   return page.evaluate(() => {
-    const el = document.querySelector<HTMLElement>('.nav-rail')
+    const el = document.querySelector<HTMLElement>('.nav')
     if (!el) return null
     return {
       state: el.dataset.state ?? '',
@@ -96,32 +96,33 @@ async function reachSite(page: Page) {
 }
 
 test.describe('Earth <-> Murcia gesture navigation', () => {
-  test('the rail stands down while something else owns attention', async ({ page }) => {
-    // The regression this guards: the rail's state was only painted inside the
-    // gesture frame loop, so opening a panel never repainted it — it sat fully
-    // visible and 'idle' behind the audit form (and during the whole intro),
-    // advertising a navigation the context refuses. The state must derive from
-    // the application's semantic conditions with NO wheel event involved.
+  test('navigation stands down while something else owns attention', async ({ page }) => {
+    // The regression this guards: the state was only painted inside the gesture
+    // frame loop, so opening a panel never repainted it — it sat 'idle' behind
+    // the audit form (and through the whole intro), advertising a navigation the
+    // context refuses. It must derive from the application's semantic conditions
+    // with NO input event involved.
+    //
+    // The opacity half of this test went with the rail (`adr/012`): there is
+    // nothing drawn to fade any more. `data-state` is what carries the meaning
+    // now — the hint reads it, and its own tests assert it stays away while
+    // navigation is refused.
     await page.goto('/')
 
-    // The intro owns the camera: hidden from the first derive.
+    // The intro owns the camera: refused from the first derive.
     await expect.poll(async () => (await rail(page))?.state).toBe('suppressed')
-    await expect.poll(async () => (await rail(page))?.opacity).toBe('0')
 
     await reachSite(page)
     await expect.poll(async () => (await rail(page))?.state).toBe('idle')
 
-    // The audit panel takes the viewer's attention; the rail disappears the
+    // The audit panel takes the viewer's attention; navigation stands down the
     // moment it opens and returns when it closes — no gesture in between.
     await page.click('.audit-trigger')
     await expect.poll(async () => (await rail(page))?.state).toBe('suppressed')
-    await expect.poll(async () => (await rail(page))?.opacity).toBe('0')
 
     await page.click('.audit-close')
     await expect.poll(async () => (await rail(page))?.state).toBe('idle')
-    await expect.poll(async () => (await rail(page))?.opacity).toBe('0.95')
   })
-
   test('a deliberate gesture makes the round trip, and a flick does not', async ({ page }) => {
     const errors = collect(page)
     await page.goto('/')
@@ -179,51 +180,32 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     expect((await rail(page))!.progress).toBe(0)
   })
 
-  test('the rail is reachable by keyboard', async ({ page }) => {
+  test('the accessible control commits, and names where it goes', async ({ page }) => {
     await page.goto('/')
     await reachSite(page)
 
     // Not a second control reintroduced against the gesture-only decision — it is
-    // the primary control made operable. Without it there is no keyboard or
-    // assistive-technology path between the two worlds at all, which `adr/009`
-    // records as the one DECISIONS §15 objection the gesture does not answer.
-    const rail = page.locator('.nav-rail')
-    await expect(rail).toHaveAttribute('role', 'slider')
-    await expect(rail).toHaveAttribute('aria-label', /.+/)
+    // the ONLY control for anyone a pinch excludes: keyboard users, switch access,
+    // screen readers, anyone who cannot make a two-finger gesture. `adr/009`
+    // records this as the one DECISIONS §15 objection the gesture cannot answer,
+    // and `adr/012` records why removing the rail did not remove it.
+    const control = page.locator('.nav-control')
+    await expect(control).toHaveAttribute('aria-label', 'Ir a Murcia')
 
-    await rail.focus()
-    await expect(rail).toBeFocused()
+    // Clipped to a pixel, so it cannot swallow taps meant for the world — but
+    // reachable, which display:none and visibility:hidden would not be.
+    await control.focus()
+    await expect(control).toBeFocused()
 
-    // Paced from inside the page, for the same reason the wheel is: a
-    // `page.keyboard.press` plus a wait is a CDP round trip, and on a main thread
-    // this starved those land further apart than the 0.5s idle gap — so the test
-    // would measure the decay rather than the accumulator. The keydown still
-    // travels the real listener path on the real focused element.
-    //
-    // One press is worth one capped event, the same as a wheel notch, so a keyboard
-    // gesture costs about the same travel as a wheel one.
-    const reached = await page.evaluate(
-      (presses) =>
-        new Promise<boolean>((resolve) => {
-          const el = document.querySelector<HTMLElement>('.nav-rail')!
-          let sent = 0
-          const step = () => {
-            el.dispatchEvent(
-              new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
-            )
-            sent += 1
-            if (sent < presses) setTimeout(step, 60)
-            else setTimeout(() => resolve(true), 100)
-          }
-          step()
-        }),
-      Math.ceil(900 / 120) + 2,
-    )
-    expect(reached).toBe(true)
-
+    // One press, not eight. A button is not the slider it replaced: there is no
+    // accidental Enter on a control you had to tab to and which announced its
+    // destination first.
+    await page.keyboard.press('Enter')
     await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
-  })
 
+    // And the label follows the destination rather than describing the journey.
+    await expect(control).toHaveAttribute('aria-label', 'Volver a la Tierra')
+  })
   test('the wheel still scrolls a panel that has its own overflow', async ({ page }) => {
     await page.goto('/')
     await reachSite(page)

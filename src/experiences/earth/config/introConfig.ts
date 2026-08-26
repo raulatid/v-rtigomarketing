@@ -105,6 +105,70 @@ export interface IntroConfig extends DrawConfig {
   // behind the Earth. Compositional only; the star field is invariant under it.
   skyBandYaw: number
 
+  // ── The polar caps ──
+  // The panorama is a flat photograph with no zenith and no nadir, and the
+  // asset-side correction that removed the resulting pinwheel left each cap an
+  // exactly radially symmetric gradient — a funnel. The shell repairs it by
+  // borrowing structure from a rotated second sample of the same texture.
+  // Full account on `skyCapRotation` in scene/space/galaxyBand.ts.
+
+  // Latitude, degrees, where the borrowing begins.
+  //
+  // THERE IS A HARD FLOOR AT 62.2 AND IT IS NOT A MATTER OF TASTE. At rest the
+  // camera's phi is fixed at 90 degrees, so the nearest sky pole is exactly
+  // 90 - skyBandTilt = 68 degrees off the view axis, and the default yaw puts
+  // the south pole at precisely that worst case. At the e2e viewport of
+  // 1600x900 and normalFov 45 the frame half-diagonal is 40.2 degrees, so a
+  // frame CORNER reaches latitude 62.2. Start below that and the cap blend is
+  // in the resting frame and the committed backdrop baselines move.
+  //
+  // Which makes those baselines passing unchanged the EVIDENCE that this stays
+  // in the caps, exactly as the 2026-08-19 correction used them. If they move,
+  // that is the test working — do not absorb it with `npm run e2e:update`.
+  // `checks/space-backdrop.ts` section 7 asserts the margin from the real
+  // modules so it cannot rot silently.
+  //
+  // 68 is the clean geometric number and leaves 5.8 degrees of margin; a
+  // 2560x1080 ultrawide's corner then sees a weight around 1%.
+  skyCapStart: number
+  // Latitude, degrees, where the borrowing reaches full strength. 84 rather
+  // than 90 because the primary's own structure dies between 75 and 80, so the
+  // borrowed patch arrives at full weight exactly where there is nothing left
+  // for it to double-expose with.
+  skyCapFull: number
+  // How much of the borrowed variation is applied. 0 turns the cap off — and
+  // skips the second texture fetch entirely, which is the mobile escape hatch
+  // as well as the before/after.
+  //
+  // 0.35 was chosen by rendering the pole at 74 degrees FOV at the SCENE's
+  // exposure across 0 / 0.3 / 0.5 / 0.7, and it is deliberately low. Above
+  // about 0.5 the borrowed patch stops reading as gas and starts reading as a
+  // mottled disc pasted over the pole — the cap becomes its own artifact, which
+  // is the third time this sky has done that. Judge it at brightness 0.60
+  // through ACES, NOT at the preview tool's 2.4x detection gain, which makes
+  // 0.7 look reasonable and 0.35 look like nothing.
+  //
+  // This is the smaller half of the repair and it is meant to be. The dashes
+  // are removed in the ASSET (the polar median in prepare-sky-panorama.mjs);
+  // what is left for this is the perfect radial SYMMETRY of what remains, and
+  // a little real structure is all that takes.
+  skyCapStrength: number
+
+  // ── Grain ──
+  // The other half of the report. The sky is magnified 1.76x (11.4 px/deg of
+  // texture against ~20 px/deg of viewport) and 3.5x at DPR 2, and bilinear
+  // magnification of a soft image reads as "pixeled". The magnification is
+  // fixed by a standing client decision that space backgrounds are 4096x2048,
+  // so it cannot be answered with resolution; what it CAN be given is
+  // high-frequency content for the eye to resolve, which is the same reason
+  // film grain rescues a soft scan.
+  //
+  // 0 disables it and removes its whole cost. It moves every pixel of both e2e
+  // baselines, so it is regenerated deliberately and reviewed as a diff — a
+  // uniform fine texture change with no structural change. If the diff shows
+  // structure, the grain is aliasing and `grainCellDegrees` is too small.
+  skyGrain: number
+
   // ── Bloom ──
   // The one post-process the scene has beyond the warp's motion blur. Without
   // it nothing in the frame can look luminous rather than painted — a star is
@@ -167,6 +231,11 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   skyBandWidth: GALAXY_BAND.defaultWidth,
   skyBandTilt: GALAXY_BAND.defaultTilt,
   skyBandYaw: GALAXY_BAND.defaultYaw,
+
+  skyCapStart: 68,
+  skyCapFull: 84,
+  skyCapStrength: 0.35,
+  skyGrain: 0.12,
 
   bloomStrength: 0.55,
   bloomRadius: 0.5,

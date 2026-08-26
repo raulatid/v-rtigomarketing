@@ -17,9 +17,21 @@ export interface SequenceState {
   // one that can still be non-zero after the intro has landed.
   transitionOverlay: number
   // 0..1 across the Earth<->Murcia warp, the exact counterpart of warpProgress.
-  // Read by both experiences' camera drivers and by RenderPipeline; > 0 means a
-  // transition is playing and the focus rig must stand down.
+  // Read by both experiences' camera drivers and by RenderPipeline.
+  //
+  // > 0 means the warp is somewhere other than rest. It does NOT mean a
+  // transition is playing: since navigation became a scrubbed gesture this is
+  // also non-zero for a reversible drag that will usually be abandoned, and for
+  // the whole of its decay tail. Ask `transitionCommitted` for ownership.
   transitionProgress: number
+  // Whether the non-zero progress above belongs to a COMMITTED cinematic.
+  //
+  // The distinction is camera ownership, and it is the difference between two
+  // behaviours that were conflated until a scrubbed gesture froze Earth's orbit
+  // for the length of its decay: a cinematic OWNS the camera and every other
+  // writer stands down for its duration; a gesture MODIFIES whatever pose the
+  // viewer is currently dragging, and must never take the controls away.
+  transitionCommitted: boolean
   motionBlur: number
   // Flipped by the timeline when the corner logo departs centre — the moment
   // the orbit reveal is allowed to begin.
@@ -43,6 +55,7 @@ export function createSequenceState(): SequenceState {
     swapOverlay: 0,
     transitionOverlay: 0,
     transitionProgress: 0,
+    transitionCommitted: false,
     motionBlur: 0,
     orbitsStarted: false,
   }

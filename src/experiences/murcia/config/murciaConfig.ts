@@ -48,7 +48,7 @@ const REPRESENTATIVE_BUILDING_HEIGHT = 13;
  *    comes from the distance, not from a wide FOV.
  */
 const ELEVATION_DEGREES = 30;
-const CAMERA_DISTANCE = 165;
+const CAMERA_DISTANCE = 195;
 
 export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
@@ -129,7 +129,7 @@ export const murciaConfig: EnvironmentConfig = {
     // with `smoothingTimeConstant` below is now partial: the latency objection
     // that forced 0.09 → 0.03 fires in proportion to the gain, so 0.03 is
     // conservative here rather than mandatory.
-    translationGain: 0.7,
+    translationGain: 0.4,
     // Panning the focus across the ground, world units per second.
     //
     // SIGNED OFF 2026-08-06, with two amendments recorded in PROJECT_MEMORY §7.
@@ -182,7 +182,15 @@ export const murciaConfig: EnvironmentConfig = {
       // and two fingers run out of room sooner than one.
       //
       // That is the right cost for something you do to re-aim, not to travel.
-      degreesPerViewportWidth: 60,
+      degreesPerViewportWidth: 110,
+      // Two thirds of the 12px one finger needs, and lower on purpose. A
+      // two-finger sweep is unambiguous once it is moving, so the cost of
+      // waiting is latency on a deliberate gesture; the cost of not waiting is
+      // the city turning under a gesture that never meant to. 8 is above the
+      // few pixels of asymmetric drift a pinch or a settling grip produces and
+      // below anything a person would call a sweep. JUDGED 2026-08-25, and not
+      // yet driven on a real phone.
+      twoPointerThresholdPx: 8,
       // Left at the signed-off weights. Rotation did not become grab-the-point,
       // so nothing about it argues for the shorter constant translation took.
       // The two are no longer deliberately matched — they are no longer one
@@ -316,15 +324,18 @@ export const murciaConfig: EnvironmentConfig = {
   // Steepening the elevation buys the recession back. Far reach goes as
   // cameraHeight / tan(pitch - fov/2):
   //
-  //   rest   165 @ 30 deg  ->  height 82.5,  effective pitch ~27.3  ->  ~478
-  //   depart 180 @ 50 deg  ->  height 137.9, effective pitch ~48.8  ->  ~227
+  //   rest   195 @ 30 deg  ->  height 97.5   ->  reaches ~573
+  //   depart 210 @ 50 deg  ->  height 160.9  ->  reaches ~339
+  //
+  // Both figures are the worst max ground reach computeGroundFootprint returns
+  // over the four skirt aspects at every 15 deg of yaw, not a closed form.
   //
   // So the departure pose reaches LESS far than the pose the skirt was measured
   // for, and moves away from the ~28 deg floor where the bounds maths
   // degenerates rather than toward it. checks/warp-transition.ts asserts that
   // property directly, against computeGroundFootprint rather than against these
   // numbers — re-run it after changing either one.
-  warpDepartDistance: 180,
+  warpDepartDistance: 210,
   warpDepartElevationDegrees: 50,
 
   contentBounds: { ...PLATE },

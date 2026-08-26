@@ -894,11 +894,12 @@ docs/adr/
 Examples:
 
 ```text
-001-renderer-and-scene-ownership.md    006-the-return-is-an-ascent.md
-002-single-render-pipeline.md          007-loading-has-a-deadline.md
-003-experience-lifecycle.md            008-the-pipeline-draws-a-contract.md
-004-transition-and-prefetch.md         009-navigation-is-a-gesture.md
-005-warp-transition.md                 010-content-is-generated-at-build-time.md
+001-renderer-and-scene-ownership.md    007-loading-has-a-deadline.md
+002-single-render-pipeline.md          008-the-pipeline-draws-a-contract.md
+003-experience-lifecycle.md            009-navigation-is-a-gesture.md  (§4 reversed by 012)
+004-transition-and-prefetch.md         010-content-is-generated-at-build-time.md
+005-warp-transition.md                 011-the-cms-is-sanity.md
+006-the-return-is-an-ascent.md         012-touch-navigates-by-pinching-the-world.md
 ```
 
 An ADR should capture:

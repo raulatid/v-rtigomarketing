@@ -107,6 +107,20 @@ const SECTIONS: Array<{ title: string; controls: Control[] }> = [
       // The depth pair: contrast deepens the darks, brightness sets the level.
       // Raise both together to push the sky back without flattening it.
       { key: 'skyContrast', label: 'Sky contrast', min: 0.6, max: 2.2, step: 0.05, unit: '' },
+      // ── The polar caps ──
+      // Start has a HARD FLOOR at 62.2 degrees and the min here is deliberately
+      // above it: below that the cap blend reaches the resting frame's corners
+      // and the committed e2e backdrop baselines move. checks/space-backdrop.ts
+      // section 7 asserts the margin; see skyCapStart in introConfig.ts for the
+      // geometry. 90 is the top because a cap that starts at the pole is off.
+      { key: 'skyCapStart', label: 'Cap start', min: 63, max: 90, step: 1, unit: 'deg' },
+      { key: 'skyCapFull', label: 'Cap full', min: 63, max: 90, step: 1, unit: 'deg' },
+      // The one worth dragging. 0 turns the cap off AND skips its texture
+      // fetch, so it is the before/after and the mobile escape hatch at once.
+      { key: 'skyCapStrength', label: 'Cap strength', min: 0, max: 1.5, step: 0.05, unit: '' },
+      // 0 removes the grain and its whole cost. Above ~0.25 it stops reading as
+      // dust in the gas and starts reading as noise over it.
+      { key: 'skyGrain', label: 'Grain', min: 0, max: 0.4, step: 0.01, unit: '' },
       { key: 'skyBandWidth', label: 'Band width', min: 0.1, max: 0.8, step: 0.01, unit: '' },
       { key: 'skyBandTilt', label: 'Band tilt', min: -90, max: 90, step: 1, unit: 'deg' },
       { key: 'skyBandYaw', label: 'Band yaw', min: 0, max: 360, step: 2, unit: 'deg' },

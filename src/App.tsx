@@ -11,7 +11,7 @@ import type { LegalDocId } from './content/site'
 import { InteractionHandle } from './experiences/earth/interaction/InteractionLayer'
 import { DebugOverlay } from './components/DebugOverlay'
 import { CustomCursor } from './components/CustomCursor'
-import { NavigationRail } from './components/NavigationRail'
+import { NavigationControl } from './components/NavigationControl'
 import { OrbitSystem } from './experiences/earth/orbit/createOrbitSystem'
 import type { SatelliteDef } from './experiences/earth/orbit/orbitConfig'
 import { orbitAssignments } from './experiences/earth/orbit/orbitAssignments'
@@ -109,7 +109,7 @@ export default function App() {
   const navigationRef = useRef<HTMLDivElement>(null)
   const settleNavigationRef = useRef<() => void>(() => {})
 
-  const { transitionTo, transitioning } = useExperienceTransition({
+  const { transitionTo, transitioning, scrub } = useExperienceTransition({
     state,
     onSwap: setActiveExperience,
     // The REAL end of the warp, not the `transitioning` flag, which lands a
@@ -180,7 +180,7 @@ export default function App() {
     reset: resetNavigation,
     contextChanged: navigationContextChanged,
   } = useSceneNavigation({
-    railRef: navigationRef,
+    rootRef: navigationRef,
     getContext: () => ({
       current: activeExperience,
       canNavigate:
@@ -200,6 +200,10 @@ export default function App() {
         !murciaRef.current?.hasFocusedDistrict,
     }),
     onCommit: (intent) => transitionTo(intent === 'enter-murcia' ? 'murcia' : 'earth'),
+    // The scene IS the progress indicator now. The gesture drives the departing
+    // half of the real warp, reversibly, and the cinematic picks up from
+    // wherever it left the camera (`scrub` in useExperienceTransition).
+    onProgress: scrub,
   })
   settleNavigationRef.current = settleNavigation
 
@@ -386,7 +390,7 @@ export default function App() {
           Mounted for both experiences and never gated on one. Unmounting it would
           tear down the wheel listener with it, and that listener is the only thing
           stopping the page scrolling behind the canvas. */}
-      <NavigationRail ref={navigationRef} label="Navegar entre la Tierra y Murcia" />
+      <NavigationControl ref={navigationRef} />
 
       {/* The context is gone and nothing will draw again. Spanish, like every
           other visitor-facing string (DECISIONS §11), and it offers the only

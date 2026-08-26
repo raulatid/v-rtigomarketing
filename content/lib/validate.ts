@@ -206,6 +206,7 @@ export function remoteMediaUrl(
   path: string,
   value: unknown,
   allowedOrigin: string,
+  allowedExtensions?: string[],
 ): string | undefined {
   if (value === null || value === undefined || value === '') return undefined
   if (typeof value !== 'string') return report.fail(path, 'expected a string, got ' + typeOf(value))
@@ -235,7 +236,63 @@ export function remoteMediaUrl(
   if (/\.svgz?$/i.test(url.pathname)) {
     return report.fail(path, 'SVG is not an allowed logo format')
   }
+  // Everything else is an ALLOWLIST when the caller supplies one, and the SVG
+  // branch above is kept separate rather than merged into it: "SVG is a stored
+  // XSS vector" and "JPEG has no alpha channel" are different arguments, and a
+  // reader who only sees "extension not allowed" learns neither.
+  if (allowedExtensions !== undefined) {
+    const extension = mediaExtension(url.pathname)
+    if (extension === undefined || !allowedExtensions.includes(extension)) {
+      return report.fail(
+        path,
+        (extension === undefined ? 'has no file extension' : '.' + extension + ' is not allowed') +
+          '; must be one of ' +
+          allowedExtensions.map((one) => '.' + one).join(', '),
+      )
+    }
+  }
   return url.toString()
+}
+
+/** Lower-case, no dot. `undefined` when the basename has no extension at all. */
+function mediaExtension(pathname: string): string | undefined {
+  const name = pathname.slice(pathname.lastIndexOf('/') + 1)
+  const dot = name.lastIndexOf('.')
+  if (dot < 1 || dot === name.length - 1) return undefined
+  return name.slice(dot + 1).toLowerCase()
+}
+
+/**
+ * The pixel dimensions of a Sanity image, read off its URL.
+ *
+ * Sanity names an image asset `<hash>-<width>x<height>.<ext>`, so the geometry
+ * of an upload is knowable without downloading or decoding it — and it survives
+ * mirroring, because `mirror.ts` keeps the CMS basename verbatim.
+ *
+ * `undefined` for anything that does not match, which is not a failure: the seed
+ * and the fixtures carry hand-written local paths like
+ * `/logos/satellite-01-isotipo.webp`, and those are never mirrored and never
+ * measured. Only a name that CLAIMS dimensions is held to them.
+ */
+export function sanityImageDimensions(
+  url: string,
+): { width: number; height: number } | undefined {
+  let pathname: string
+  try {
+    pathname = new URL(url).pathname
+  } catch {
+    pathname = url
+  }
+  const name = pathname.slice(pathname.lastIndexOf('/') + 1)
+  const match = /-(\d+)x(\d+)\.[A-Za-z0-9]+$/.exec(name)
+  if (match === null) return undefined
+
+  const width = Number(match[1])
+  const height = Number(match[2])
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    return undefined
+  }
+  return { width, height }
 }
 
 function typeOf(value: unknown): string {

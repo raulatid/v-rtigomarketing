@@ -98,3 +98,71 @@ export function skyOrientation(tiltDegrees: number, yawDegrees: number): THREE.M
     new THREE.Matrix4().makeRotationFromQuaternion(yaw.multiply(toPole)),
   )
 }
+
+/**
+ * Panorama frame -> cap-sample frame: the rotation the sky shell borrows its
+ * POLAR CAPS through.
+ *
+ * ── The defect this exists to repair ──
+ * The panorama is a flat 2:1 photograph, not an equirectangular projection
+ * (DECISIONS §19, 2026-08-19), so its top and bottom strips are not a zenith
+ * and a nadir. Wrapped into a disc they produced a pinwheel of radial spokes,
+ * and `convergePoles` in scripts/prepare-sky-panorama.mjs removed that by
+ * fading each row toward its own azimuthal mean above 55° of latitude.
+ *
+ * That worked, and it left a SECOND artifact behind. Above ~78° the image now
+ * has almost no azimuthal variation at all — measured on the shipped AVIF, the
+ * relative variation around a ring 8° from the pole is 0.006 north and 0.003
+ * south against 0.027 for ordinary sky — so each cap is an EXACTLY radially
+ * symmetric smooth gradient. That is what reads as a funnel, and it is what
+ * gets reported as "you can see where the sphere closes".
+ *
+ * **The darkness is not the defect and must not be "fixed".** `convergePoles`
+ * is mean-preserving on both of its passes — the circular box blur preserves
+ * each row's sum, and `row += (mean - row) * fade` preserves the mean by
+ * construction — so the caps' brightness is the SOURCE PHOTOGRAPH's own dark
+ * top and bottom edges, not something the filter took away. A real galactic
+ * pole is dark too, and the star field agrees: `bandDensity` at the pole is
+ * under 0.01. Restore the structure at the level the cap already has.
+ *
+ * ── Why exactly 90 degrees ──
+ * Not one choice among several. A 90° rotation puts THREE things exactly on
+ * the panorama's own equator, where the cap weight has already fallen to zero:
+ *
+ *   - the cap frame's own poles, so the borrowed patch can never show a second
+ *     convergence and the scheme does not recurse;
+ *   - the cap frame's `atan` branch cut, so it can never introduce a second
+ *     wrap seam anywhere it is visible;
+ *   - and it maps the cap's neighbourhood at the same scale in both axes —
+ *     conformal, where the primary sample near its pole is compressed by
+ *     1/cos(lat) in u and is not.
+ *
+ * Any smaller angle drags the substitute's own pole into the cap it is meant to
+ * repair. `setFromUnitVectors` gives exactly 90° when the target sits on the
+ * panorama's equator, which is why this takes an AZIMUTH and not a direction.
+ *
+ * It also means the two caps borrow ANTIPODAL patches — +Y maps to the target,
+ * -Y to its opposite — so north and south cannot read as copies of each other.
+ * That falls out of the rotation rather than needing a second one.
+ *
+ * ── Why the azimuth is a parameter, and why it is 15 ──
+ * It chooses WHICH patch lands on the caps, and the patches differ enormously.
+ * All 12 candidates at 15° steps were scored on the relative azimuthal detail
+ * of both patches a rotation borrows, at 6°, 12° and 18° rings — the radii the
+ * 68°-84° blend band actually samples — measured in LINEAR luminance, which is
+ * what the shader sees. Worst-of-six: 15° scores 0.026, against an ordinary-sky
+ * range of 0.017-0.046. 90° scores 0.005 and 165° scores 0.002; picking by
+ * intuition would very likely have picked one of those.
+ *
+ * Re-derive rather than trust if the source ever changes; the levels in
+ * `SPACE_CONFIG.sky.capLevel` are measured against this azimuth and move with it.
+ */
+export function skyCapRotation(azimuthDegrees: number): THREE.Matrix3 {
+  const a = THREE.MathUtils.degToRad(azimuthDegrees)
+  const target = new THREE.Vector3(Math.cos(a), 0, Math.sin(a))
+  return new THREE.Matrix3().setFromMatrix4(
+    new THREE.Matrix4().makeRotationFromQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), target),
+    ),
+  )
+}

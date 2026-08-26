@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import type { SequenceState } from '../experiences/earth/config/sequenceState'
 import type { ExperienceId } from './experience'
-import { WARP_TRANSITION, flash } from './warpTransition'
+import { WARP_TRANSITION, flash, scrubProgress } from './warpTransition'
 
 // Shaping lives entirely in warpTransition's curves, so the tween is linear.
 // A GSAP ease here would compound with them and destroy the width relationship
@@ -57,6 +57,18 @@ interface Params {
 export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
   const [transitioning, setTransitioning] = useState(false)
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
+  /**
+   * Where the gesture has pushed the warp, 0..SCRUB_CEILING.
+   *
+   * A ref rather than state for the same reason `transitionProgress` is not a
+   * prop: a wheel produces well over a hundred events a second and every one of
+   * them would otherwise be a render of two canvases and all the overlay chrome.
+   *
+   * It is also what the commit reads. The spring lags the accumulator, so at the
+   * moment a gesture commits the camera is somewhere BELOW the ceiling — starting
+   * the timeline at a fixed number would jump it backwards.
+   */
+  const scrubbedRef = useRef(0)
   const onSwapRef = useRef(onSwap)
   onSwapRef.current = onSwap
   // Through a ref for the same reason `onSwap` is: `transitionTo` is memoised on
@@ -73,6 +85,8 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
       // a camera mid-dolly.
       state.transitionOverlay = 0
       state.transitionProgress = 0
+      state.transitionCommitted = false
+      scrubbedRef.current = 0
     }
   }, [state])
 
@@ -100,6 +114,42 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
 
+  /**
+   * The gesture moved. Drives the warp reversibly, short of the cut.
+   *
+   * This is the whole of the scene-driven feedback: no second animation system,
+   * no blend, no hand-over logic. The gesture writes the same number the
+   * cinematic writes, through the same curves, so the two join by construction
+   * rather than by tuning.
+   *
+   * `adr/009` ruled this out — "gesture progress never enters `SequenceState` at
+   * all" — on the grounds that `transitionLeg`/`dollyAmount` assume a single
+   * pass. `scrubProgress` is what answers it: the band stops at
+   * `cut - flashWidth`, entirely inside the departing leg, so the leg flag is
+   * constant however far the gesture goes back and forth, and the flash is
+   * provably zero throughout. checks/warp-transition.ts section 7 asserts both.
+   *
+   * Refused while a timeline is running, and that is load-bearing rather than
+   * defensive: the input layer keeps reporting progress after a commit (the
+   * accumulator is reset, so it reports 0), and honouring that would snap the
+   * camera back to rest on the first frame of the warp it just started.
+   */
+  const scrub = useCallback(
+    (gestureProgress: number) => {
+      if (timelineRef.current) return
+      const p = scrubProgress(gestureProgress)
+      if (p === scrubbedRef.current) return
+      scrubbedRef.current = p
+      state.transitionProgress = p
+      // Zero across the whole band by construction. Written anyway, so that
+      // "whoever moves the progress moves the overlay" has no exception to
+      // remember — and so a future change to the band's ceiling cannot leave a
+      // stale flash behind.
+      state.transitionOverlay = flash(p)
+    },
+    [state],
+  )
+
   const transitionTo = useCallback(
     (to: ExperienceId) => {
       // Re-entrancy guard. Without it a double click starts a second timeline
@@ -108,7 +158,15 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
       if (timelineRef.current) return
 
       setTransitioning(true)
-      const proxy = { progress: 0 }
+      // The cinematic takes the camera from here. Set BEFORE the first tween so
+      // no frame can see non-zero progress that nobody has claimed.
+      state.transitionCommitted = true
+      // Continues from where the gesture left the camera rather than from zero.
+      // Clamped below the cut because everything after it belongs to the
+      // cinematic; the band cannot reach it, and a corrupted value must not
+      // produce a negative duration.
+      const from = Math.min(Math.max(scrubbedRef.current, 0), WARP_TRANSITION.cut)
+      const proxy = { progress: from }
 
       const apply = () => {
         state.transitionProgress = proxy.progress
@@ -122,6 +180,8 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
           // rest of the session. Same guard the intro's warp uses.
           state.transitionProgress = 0
           state.transitionOverlay = 0
+          state.transitionCommitted = false
+          scrubbedRef.current = 0
           timelineRef.current = null
           setTransitioning(false)
           // AFTER the pins and after the ref is cleared, so anything this wakes
@@ -131,10 +191,14 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
         },
       })
 
-      // Half one, to the cut.
+      // Half one, to the cut — minus whatever the gesture already travelled.
+      // The duration shrinks with the distance, which is what keeps the RATE
+      // identical: the ease is linear and all the shaping lives in the curves,
+      // so a shorter first half plays the remainder of the same motion at the
+      // same speed rather than a compressed version of the whole thing.
       tl.to(proxy, {
         progress: WARP_TRANSITION.cut,
-        duration: WARP_TRANSITION.duration * WARP_TRANSITION.cut,
+        duration: WARP_TRANSITION.duration * (WARP_TRANSITION.cut - from),
         ease: TWEEN_EASE,
         onUpdate: apply,
       })
@@ -158,5 +222,5 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
     [state],
   )
 
-  return { transitionTo, transitioning }
+  return { transitionTo, transitioning, scrub }
 }

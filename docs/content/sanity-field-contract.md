@@ -30,7 +30,7 @@ Each collection sends one GROQ query. The projection in `content/collections/*.c
 ```groq
 *[_type == "caseStudy" && !(_id in path("drafts.**"))]
   | order(slug.current asc)
-  { "id": slug.current, label, name, logo, brandColor, ... }
+  { "id": slug.current, label, name, "isotype": isotype.asset->url, "logo": logo.asset->url, ... }
   [0...1001]
 ```
 
@@ -53,7 +53,9 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 | `slug.current` | slug | `^[a-z0-9][a-z0-9-]{0,63}$`, unique | fail |
 | `name` | string | non-empty, ≤ 60 | fail |
 | `label` | string | ≤ 60; falls back to `name` | fail if over |
-| `logo` | image | PNG/WebP, mirrored to `/logos/` at build; see the media contract | fail if declared and unfetchable |
+| `isotype` | image | PNG/WebP, ≥ 432×432, aspect 0.75–1.33:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
+| `logo` | image | PNG/WebP, ≥ 900×400, aspect 1.5–5:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
+| `isotype` + `logo` | — | both present or both absent — they are one decision | fail |
 | `brandColor` | string | `#rrggbb` | fail |
 | `sector` | string | non-empty, ≤ 60 | fail |
 | `location` | string | non-empty, ≤ 60 | fail |
@@ -198,7 +200,8 @@ At the fixed ids `legal-terms` and `legal-notice`, with slugs `terminos` and `av
 
 - **Prefer a public dataset.** Published website content is already public, and a public dataset with no build token removes a secret to rotate, a Vercel variable to misconfigure and a class of build failure. Drafts are excluded by the query, not by permissions, so a public dataset does not expose them.
 - **If the dataset is private,** issue a read-only token with the minimum scope and set it as `SANITY_TOKEN`. Never with a `VITE_` prefix — Vite compiles `VITE_*` into the public bundle.
-- **Do not enable SVG uploads** for logos or editorial images. The build rejects them; see the media contract for why, and for how to change that deliberately.
+- **Do not enable SVG uploads** for logos or editorial images. Both the Studio and the build reject them; see the media contract for why, and for how to change that deliberately.
+- **The brand-mark rules are duplicated on purpose,** in `sanity-studio/schemas/lib/brandMark.ts` and in `caseStudies.collection.ts`. The Studio blocks Publish; the build blocks the deploy, because a dataset import, a restored backup or the HTTP API never passes through the Studio. Change `docs/earth/logo-spec.md` first, then both copies.
 - **Keep slugs stable once published.** They are the ids the application, the scene bindings and the orbit assignments use.
 - **Treat the Vercel Deploy Hook URL as a secret.** Anyone holding it can trigger builds.
 

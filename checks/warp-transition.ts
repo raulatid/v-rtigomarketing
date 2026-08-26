@@ -21,12 +21,14 @@
 import * as THREE from 'three';
 
 import {
+  SCRUB_CEILING,
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
   earthRadiusScale,
   flash,
   motionBlur,
+  scrubProgress,
   speed,
   transitionLeg,
 } from '../src/app/warpTransition';
@@ -293,7 +295,7 @@ section('6. No warp pose reaches further across the ground than rest');
 // stated RELATIVE to the same scale — "no warp pose out-reaches the resting pose
 // at the user's current zoom" — because comparing against a rest pose they are
 // not actually at would be the wrong comparison. That the resting pose is itself
-// safe at every scale is what checks/navigation-zoom.ts proves; this section
+// safe at every scale is what checks/footprint.ts proves; this section
 // only has to show the warp adds nothing on top.
 const ASPECTS: Array<[string, number]> = [
   ['16:9', 16 / 9],
@@ -393,6 +395,138 @@ check(
   anyClamped
     ? `clamped at ${clampedLabel} — a clamped ray is a degenerate pose, not the mechanism working`
     : 'every corner ray still hits the ground at every warp pose',
+);
+
+// ---------------------------------------------------------------------------
+section('7. The reversible scrub band is safe to drive from a gesture');
+
+// The band is where a GESTURE drives the warp: reversible, usually abandoned,
+// never concealed. `adr/009` refused to let gesture progress become
+// `state.transitionProgress` because "the warp's progress is monotonic through a
+// concealed cut; the gesture's is reversible and usually never arrives". This
+// section is the answer to that objection, asserted rather than argued.
+//
+// Section 6 above already sweeps the whole departing leg through the real
+// footprint maths, and the band is a strict subset of it — so the safety case
+// costs nothing new. What is asserted here is what makes the band a band.
+
+const bandPoses = samples.map(scrubProgress);
+
+check(
+  'the band is derived from the flash bell, not chosen',
+  Math.abs(SCRUB_CEILING - (WARP_TRANSITION.cut - WARP_TRANSITION.flashWidth)) < 1e-12,
+  `SCRUB_CEILING ${SCRUB_CEILING.toFixed(4)} = cut ${WARP_TRANSITION.cut} - flashWidth ${WARP_TRANSITION.flashWidth}`,
+);
+
+const litBand = bandPoses.filter((p) => flash(p) > 0);
+check(
+  'no gesture position anywhere in the band darkens the screen',
+  litBand.length === 0,
+  litBand.length === 0
+    ? `flash is exactly 0 across all ${bandPoses.length} sampled gesture positions`
+    : `${litBand.length} positions carry a flash — an abandoned gesture would strand a dimmed screen`,
+);
+
+const arrivingInBand = bandPoses.filter((p) => !transitionLeg(p).departing);
+check(
+  'the whole band lies in the departing leg, so a reversal cannot cross a leg',
+  arrivingInBand.length === 0,
+  arrivingInBand.length === 0
+    ? 'transitionLeg().departing is true at every sampled gesture position'
+    : `${arrivingInBand.length} positions fall in the arriving leg — transitionLeg assumes a single pass`,
+);
+
+let bandMonotone = true;
+for (let i = 1; i < bandPoses.length; i++) {
+  if (bandPoses[i] <= bandPoses[i - 1]) bandMonotone = false;
+}
+check(
+  'more gesture is always more travel',
+  bandMonotone && bandPoses[0] === 0 && bandPoses[bandPoses.length - 1] === SCRUB_CEILING,
+  `0 -> ${bandPoses[bandPoses.length - 1].toFixed(4)}, strictly increasing: ${bandMonotone}`,
+);
+
+// The band must not eat the whole departure, or the committed warp has nothing
+// left to play and the cut arrives with no acceleration behind it.
+const bandAmount = dollyAmount(SCRUB_CEILING).amount;
+check(
+  'the band spends less than two thirds of the departure',
+  bandAmount > 0.2 && bandAmount < 0.67,
+  `dolly amount at the ceiling is ${bandAmount.toFixed(3)} of the way to the cut`,
+);
+
+check(
+  'the cinematic still owns the surge, the blur peak and the whole flash',
+  earthFov(SCRUB_CEILING) < earthFov(WARP_TRANSITION.cut) &&
+    motionBlur(SCRUB_CEILING) < motionBlur(WARP_TRANSITION.cut) &&
+    speed(SCRUB_CEILING) < 1,
+  `at the ceiling: fov ${earthFov(SCRUB_CEILING).toFixed(1)} of ${earthFov(WARP_TRANSITION.cut).toFixed(1)}, blur ${motionBlur(SCRUB_CEILING).toFixed(3)} of ${motionBlur(WARP_TRANSITION.cut).toFixed(3)}`,
+);
+
+// Stated as a number so a regression reads as one, rather than as "the scrub
+// feels different now".
+check(
+  'Earth visibly closes on the planet across the band',
+  earthRadiusScale(bandAmount) < 0.75 && earthRadiusScale(bandAmount) > 0.4,
+  `radius scales to ${(earthRadiusScale(bandAmount) * 100).toFixed(1)}% at full gesture`,
+);
+
+// ── What the gesture actually looks like, which is not the same as how far the
+//    camera moved ──
+//
+// Angular size goes as 1/distance AND as 1/tan(fov/2). The scrub used to write
+// `earthFov` for continuity with the cinematic, and that made the two fight: the
+// dolly magnifies x1.587 across the band while the surge de-magnifies x0.725, so
+// the net PEAKED around half a gesture and went backwards after it. `scrubPose`
+// now holds the lens at rest and the commit pays for the continuity instead.
+//
+// Both halves are asserted, because both are easy to undo by accident and they
+// fail in opposite directions.
+
+const halfAngle = (deg: number) => Math.tan((deg * Math.PI) / 360);
+const restHalfAngle = halfAngle(WARP_TRANSITION.earthRestFov);
+
+/** On-screen scale as the scrub actually draws it: lens fixed, dolly only. */
+const scrubScale = (g: number) => 1 / earthRadiusScale(dollyAmount(scrubProgress(g)).amount);
+
+/** And as it would be if the surge were applied here, which it must not be. */
+const scaleWithSurge = (g: number) => {
+  const p = scrubProgress(g);
+  return scrubScale(g) * (restHalfAngle / halfAngle(earthFov(p)));
+};
+
+let scrubMonotone = true;
+for (let i = 1; i < samples.length; i++) {
+  if (scrubScale(samples[i]) <= scrubScale(samples[i - 1])) scrubMonotone = false;
+}
+check(
+  'more gesture always makes the world BIGGER, not merely nearer',
+  scrubMonotone,
+  `on-screen scale runs 1.000 -> ${scrubScale(1).toFixed(3)}, strictly increasing across ${samples.length} samples`,
+);
+
+check(
+  'and a full gesture is worth a scale change a person can see',
+  scrubScale(1) > 1.5,
+  `x${scrubScale(1).toFixed(3)} at full gesture — below about 1.5 the gesture stops reading as an approach`,
+);
+
+// The guard against the natural-looking regression: "the scrub should set the
+// FOV too, so the cinematic has nothing to jump over."
+let surgePeak = 0;
+for (const g of samples) surgePeak = Math.max(surgePeak, scaleWithSurge(g));
+check(
+  'applying the surge here would cancel the gesture, so it is not applied here',
+  scaleWithSurge(1) < surgePeak - 0.02 && surgePeak < 1.25,
+  `with the surge the scale would peak at x${surgePeak.toFixed(3)} and fall back to x${scaleWithSurge(1).toFixed(3)} at full gesture — the world would shrink while the viewer kept pulling`,
+);
+
+// And the pop that the commit's FOV catch-up exists to absorb. If this ever
+// stops being true, FOV_CATCHUP_SECONDS in CameraController is dead weight.
+check(
+  'the commit inherits a lens the cinematic immediately disagrees with',
+  earthFov(SCRUB_CEILING) - WARP_TRANSITION.earthRestFov > 10,
+  `the scrub hands over at ${WARP_TRANSITION.earthRestFov} deg and the cinematic wants ${earthFov(SCRUB_CEILING).toFixed(1)} deg — blended over FOV_CATCHUP_SECONDS rather than cut`,
 );
 
 // ---------------------------------------------------------------------------

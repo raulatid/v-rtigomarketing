@@ -77,6 +77,39 @@ export interface SanitySourceSpec {
    * atlas, is brought in-house.
    */
   mirror?: string[]
+  /**
+   * Per-field format and geometry rules, keyed by the same dotted paths listed
+   * in `mirror`. A field with no entry here is mirrored on the existing checks
+   * alone — origin, https, filename, reachability, size.
+   *
+   * Separate from `mirror` rather than folded into it so that adding a rule to
+   * an already-mirrored field is an additive change, and so a field can be
+   * mirrored without anyone having to invent numbers for it.
+   */
+  mediaRules?: Record<string, MediaRule>
+}
+
+/**
+ * What a mirrored image must be, beyond being fetchable.
+ *
+ * Every bound is read off the CMS URL — Sanity names its assets
+ * `<hash>-1600x800.webp` — so nothing here decodes an image or shells out.
+ *
+ * These are the ERROR-tier numbers only. The Studio
+ * (`sanity-studio/schemas/lib/brandMark.ts`) carries the same ones plus an
+ * advisory tier, and the two are duplicated on purpose: the Studio is a separate
+ * npm package and neither side may import the other, exactly as with the
+ * isotype/logo pairing rule. `docs/earth/logo-spec.md` is the source both
+ * copies follow.
+ */
+export interface MediaRule {
+  /** Lower-case, no dot, e.g. `['png', 'webp']`. Anything else fails the build. */
+  extensions: string[]
+  minWidth: number
+  minHeight: number
+  /** width / height, inclusive bounds. */
+  minAspect: number
+  maxAspect: number
 }
 
 export type MapResult<T> = { ok: true; value: T } | { ok: false; problems: Problem[] }

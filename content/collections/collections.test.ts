@@ -551,4 +551,26 @@ describe('the case-study projection hands the mirror what it expects', () => {
     // failing.
     expect([...caseStudiesCollection.source.mirror!].sort()).toEqual(['isotype', 'logo'])
   })
+
+  it('gives each brand mark a format and geometry rule', () => {
+    // Same reasoning as the assertion above, one layer further in. Every fixture
+    // and seed logo is null, so a `mediaRules` entry that stopped being applied
+    // — renamed, or keyed off something other than the field name — would break
+    // nothing locally and let a JPEG or a 300x300 symbol onto the deployment.
+    const rules = caseStudiesCollection.source.mediaRules!
+    expect(Object.keys(rules).sort()).toEqual(['isotype', 'logo'])
+    for (const mark of ['isotype', 'logo'] as const) {
+      expect(rules[mark].extensions).toEqual(['png', 'webp'])
+    }
+    // The floors are the atlas boxes in createBrandAtlas.ts: a 512² cell padded
+    // by 40, a 1024×512 cell padded by 64/56. If those change, these follow.
+    expect(rules.isotype.minWidth).toBe(432)
+    expect(rules.isotype.minHeight).toBe(432)
+    expect(rules.logo.minWidth).toBe(900)
+    expect(rules.logo.minHeight).toBe(400)
+    // Square-ish for the resting panel, landscape for the 2:1 expanded one.
+    expect(rules.isotype.minAspect).toBeLessThan(1)
+    expect(rules.isotype.maxAspect).toBeGreaterThan(1)
+    expect(rules.logo.minAspect).toBeGreaterThan(1)
+  })
 })

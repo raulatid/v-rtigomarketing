@@ -1,7 +1,14 @@
 // Real Vertigo isotype geometry in SVG viewBox coordinates (0 0 400 400).
-// The two paths were traced from the brand asset docs/isotipo.png with
-// potrace (scripts/trace-isotype.mjs) and scaled into the viewBox
-// (scripts/scale-paths.mjs). The original asset is untouched.
+//
+// The two paths were traced from the brand mark with potrace and scaled into
+// the viewBox by two one-off scripts. Both scripts were DELETED on 2026-08-25
+// along with the `potrace` devDependency: their inputs (`docs/isotipo-mask.png`,
+// `docs/isotipo-traced.svg`) had already been removed, so neither could run, and
+// potrace was the sole cause of five of the seven advisories `npm audit`
+// reported. The original mark lives outside the repo at `03_UX-UI/isotipo.png`;
+// re-tracing means installing potrace with `--no-save` for the afternoon, not
+// restoring a dependency. The paths below ARE the output and are the source of
+// truth for the drawn mark.
 
 // Lives inside intro-draw because the mark is drawn in P0 and nowhere else on
 // the site — the corner logo uses the GLB, not these paths. The module that

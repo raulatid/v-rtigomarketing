@@ -28,6 +28,25 @@ export const INTERACTION_CONFIG = {
     // every tap was classified as a drag and swallowed, which is half of why
     // the site was mouse-only.
     touchDragClickThreshold: 12,
+    // How far a finger must travel before it turns the globe AT ALL.
+    //
+    // Distinct from the tolerance above, which decides after the fact whether a
+    // finished gesture counted as a click. This one gates the orbit itself, and
+    // until 2026-08-25 Earth had no equivalent: the very first pointermove wrote
+    // theta and phi, so resting a finger on the globe nudged it.
+    //
+    // Two things depend on it. A tap stops moving the planet, and — because the
+    // rig re-anchors when it fires — a navigation classifier can hold the first
+    // few pixels of a gesture back while it decides, then hand them over with
+    // nothing lost and nothing jumped. That is what makes a DECLINE free, and it
+    // is why this survived the one-finger prototype it was first written for.
+    // Murcia has had exactly this since it learned the same lesson
+    // (`touchDragThresholdPx`, murciaConfig).
+    //
+    // 12 matches both that value and the click tolerance above, which is not a
+    // coincidence: it is the size of the wander a real finger produces, and all
+    // three questions are asking about the same wander.
+    touchDragThresholdPx: 12,
     // How far the overview camera sits from the origin. FIXED — this replaced
     // `zoomMin: 3R`, `zoomMax: 11R` and `zoomSensitivity`, which existed for the
     // wheel. The wheel belongs to scene navigation now (`adr/009`), so nothing

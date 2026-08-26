@@ -60,10 +60,15 @@ Four files ship; exactly one is ever fetched.
 
 | file | size | block ratio | VRAM |
 |---|---|---|---|
-| `sky-panorama.avif` | 194,642 bytes | 1.666 | 33.6 MB |
-| `sky-panorama.webp` | 279,050 bytes | 2.615 | 33.6 MB |
-| `sky-panorama-narrow.avif` | 81,648 bytes | 1.434 | 8.4 MB |
-| `sky-panorama-narrow.webp` | 114,480 bytes | 1.794 | 8.4 MB |
+| `sky-panorama.avif` | 188,787 bytes | 1.747 | 33.6 MB |
+| `sky-panorama.webp` | 217,166 bytes | 3.459 | 33.6 MB |
+| `sky-panorama-narrow.avif` | 82,088 bytes | 1.549 | 8.4 MB |
+| `sky-panorama-narrow.webp` | 88,002 bytes | 2.314 | 8.4 MB |
+
+Regenerated 2026-08-25 with the latitude-ramped median (see below). The desktop AVIF got
+**smaller and cleaner while its block ratio went UP** — that is the ruler, not the picture. The
+ratio is block-boundary steps over WITHIN-block steps, and removing point stars near the poles
+shrinks the denominator. Rank encoder settings with the ladder; let the scene decide.
 
 **The desktop AVIF is held under a client budget of 200 KB.** Do not raise the quality to improve
 the block ratio without checking that number first. Sizes are given in **bytes** on purpose:
@@ -111,7 +116,29 @@ background), no attribution obligation of any kind, desktop AVIF under 200,000 b
 ratio near the reference rather than near the candidates. Then **look at it** —
 `node scripts/preview-sky-poles.mjs <candidate.png>` — because the pole ratio is a good source
 screen and is useless for verifying a correction. Full working in
-`docs/audits/sky-panorama-projection-2026-08-19.md`.
+`docs/audits/reports/sky-panorama-projection-2026-08-19.md`.
+
+### Amended 2026-08-25 — the spokes were still there, and the caps are now repaired at runtime
+
+The 2026-08-19 `convergePoles` pass removed the pinwheel **above about 75 degrees only**. Its fade
+is a smoothstep from 55 to 90, so its weight at 60 degrees of latitude is 0.06 — everything from
+roughly 45 to 75 degrees was untouched, and that is most of a pole view. Every star the 5x5 median
+left behind was still being drawn as a radial dash, because a point in a flat image maps near a
+pole to a shape whose radial extent is constant while its azimuthal extent shrinks.
+
+Two changes, one in the asset and one at runtime:
+
+1. **The median window now ramps with latitude** — 5 at the galactic plane, 15 by 60 degrees, ramp
+   starting at 25. The core and the dust lanes are inside 25 degrees and keep the original filter
+   exactly, so the "median 9 softens the core" trade that rejected a stronger global filter is
+   declined rather than paid. Point stars are high-entropy, so this freed 50 KB, which was spent
+   back on quality: **AVIF q59 to q70**, re-measured from scratch.
+2. **The caps' remaining radial symmetry is repaired in `shell.frag.glsl`**, by sampling this same
+   texture a second time through a fixed 90-degree rotation and applying it as a multiplier whose
+   mean over the cap is 1 by construction. The shipped files are unaffected by this half.
+
+**The caps are dark because the source's top and bottom rows are dark**, not because
+`convergePoles` darkened them — it is mean-preserving on both passes. Do not brighten them.
 
 This source is dimmer than the ESO one, so `skyBrightness` in
 `src/experiences/earth/config/introConfig.ts` moved from 0.22 to 0.60 and `skyContrast` from 1.25

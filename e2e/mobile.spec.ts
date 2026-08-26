@@ -68,6 +68,28 @@ async function asLayoutTest(page: Page): Promise<void> {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 }
 
+/**
+ * Waits for the intro to hand over, which is NOT the same as booting.
+ *
+ * `bootToReady` waits for the loader to finish; the intro then plays for about
+ * nine seconds more, and navigation is refused for all of it (the intro owns the
+ * camera until phase 'site'). A navigation test that skipped this would find the
+ * gesture inert — and worse, a test asserting a gesture does NOTHING would pass
+ * for the wrong reason. The audit trigger only exists at 'site'.
+ */
+async function reachSite(page: Page): Promise<void> {
+  await page.waitForSelector('.audit-trigger', { timeout: 75_000 })
+  await page.waitForTimeout(400)
+}
+
+/** True once Murcia is the experience being drawn. Its UI host is the tell. */
+async function inMurcia(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const host = document.querySelector('.murcia-ui')
+    return host ? getComputedStyle(host).display !== 'none' : false
+  })
+}
+
 async function bootToReady(page: Page): Promise<void> {
   await page.goto('/')
   await expect
@@ -312,33 +334,131 @@ test('the loading caption wraps instead of being clipped', async ({ page }) => {
   expect(fits!.right).toBeLessThanOrEqual(fits!.viewport)
 })
 
-test('the navigation rail is a real touch target and owns its gesture', async ({ page }) => {
-  // On touch this is the ONLY way between the two worlds — the marker no longer
-  // navigates and the return button is gone (`adr/009`) — which makes it a primary
-  // control rather than chrome, and the 44px minimum applies to it directly.
-  //
-  // The audit that set that rule found six controls below it, and named
-  // `.experience-switch` as the one that mattered because it was "the only way out
-  // of Murcia". This is that control's replacement, so it inherits the assertion.
-  await page.goto('/')
-  await page.waitForFunction(() => window.__vertigoIntro !== undefined, undefined, {
-    timeout: 30_000,
-  })
+/**
+ * A two-finger gesture, dispatched from inside the page.
+ *
+ * Real touch events with controlled timing, paced by `setTimeout` for the same
+ * reason `wheelStream` is: Playwright's own touch dispatch is a CDP round trip,
+ * and on a main thread this starved by a software renderer those land seconds
+ * apart. `event.timeStamp` is generation time, so a real finger produces true
+ * timings however late the handler runs.
+ *
+ * It proves the LOGIC and nothing else. Both mobile projects are Chromium
+ * (playwright.config.ts says so at length), so this says nothing about Safari,
+ * and no synthetic gesture can say anything about feel.
+ */
+async function pinch(
+  page: Page,
+  opts: { from: number; to: number; shiftX?: number; steps?: number; lift?: boolean },
+) {
+  const { from, to, shiftX = 0, steps = 20, lift = true } = opts
+  await page.evaluate(
+    ([f, t, shift, n, doLift]) =>
+      new Promise<void>((resolve) => {
+        const canvas = document.querySelector('canvas')!
+        const cx = window.innerWidth / 2
+        const cy = window.innerHeight / 2
+        const fire = (type: string, id: number, x: number) =>
+          canvas.dispatchEvent(
+            new PointerEvent(type, {
+              pointerId: id,
+              pointerType: 'touch',
+              button: 0,
+              buttons: 1,
+              clientX: x,
+              clientY: cy,
+              bubbles: true,
+              cancelable: true,
+            }),
+          )
+        fire('pointerdown', 1, cx - (f as number) / 2)
+        fire('pointerdown', 2, cx + (f as number) / 2)
+        let i = 0
+        const step = () => {
+          i += 1
+          const d = (f as number) + (((t as number) - (f as number)) * i) / (n as number)
+          const off = ((shift as number) * i) / (n as number)
+          fire('pointermove', 1, cx - d / 2 + off)
+          fire('pointermove', 2, cx + d / 2 + off)
+          if (i < (n as number)) {
+            setTimeout(step, 16)
+            return
+          }
+          if (doLift) {
+            fire('pointerup', 1, cx - d / 2 + off)
+            fire('pointerup', 2, cx + d / 2 + off)
+          }
+          setTimeout(resolve, 80)
+        }
+        setTimeout(step, 16)
+      }),
+    [from, to, shiftX, steps, lift] as const,
+  )
+}
 
-  const rail = page.locator('.nav-rail')
-  await expect(rail).toBeVisible()
+/** How far the fingers must separate to commit, on this viewport. */
+function commitGrowth(page: Page) {
+  const v = page.viewportSize()!
+  // Mirrors `pinchGain`: the shorter side is what constrains how far two fingers
+  // can travel apart, whichever way the phone is held.
+  return Math.min(v.width, v.height) * 0.42
+}
 
-  const box = await rail.boundingBox()
-  expect(box?.width).toBeGreaterThanOrEqual(44)
-  expect(box?.height).toBeGreaterThanOrEqual(44)
+test('two fingers spreading enter Murcia, and closing come back', async ({ page }) => {
+  // On touch this is the ONLY way between the two worlds — the rail is gone
+  // (`adr/012`), the marker no longer navigates and the return button went with
+  // `adr/009`. Everything below is therefore a primary control, not chrome.
+  await bootToReady(page)
+  await reachSite(page)
+  const growth = commitGrowth(page)
 
-  // It must sit inside the viewport, not hang off the edge it is docked to.
-  const viewport = page.viewportSize()!
-  expect(box!.x).toBeGreaterThanOrEqual(0)
-  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1)
+  // Not enough, and released: the world must come back rather than commit.
+  await pinch(page, { from: 60, to: 60 + growth * 0.45 })
+  await page.waitForTimeout(1800)
+  expect(await inMurcia(page)).toBe(false)
 
-  // `touch-action: none` is what stops the browser claiming the vertical drag as a
-  // scroll. The canvas sets its own; this element is a SIBLING and inherits nothing.
-  const touchAction = await rail.evaluate((el) => getComputedStyle(el).touchAction)
-  expect(touchAction).toBe('none')
+  // A deliberate opening of the hand.
+  await pinch(page, { from: 60, to: 60 + growth * 1.05 })
+  await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
+
+  // Closing is the way out, because leaving is an ascent (ADR 006).
+  const wide = growth * 1.1 + 40
+  await pinch(page, { from: wide, to: wide - growth * 1.05 })
+  await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(false)
+})
+
+test('ordinary two-finger use is left alone', async ({ page }) => {
+  await bootToReady(page)
+  await reachSite(page)
+  const growth = commitGrowth(page)
+
+  // Two fingers carried sideways together is Murcia's rotate, and on Earth it is
+  // nothing at all. Either way it must not travel between worlds.
+  await pinch(page, { from: 200, to: 200, shiftX: growth, steps: 16 })
+  await page.waitForTimeout(600)
+  expect(await inMurcia(page)).toBe(false)
+
+  // Closing on Earth is the wrong way out and must do nothing, however far.
+  await pinch(page, { from: 40 + growth, to: 40, steps: 22 })
+  await page.waitForTimeout(600)
+  expect(await inMurcia(page)).toBe(false)
+})
+
+test('the accessible control is reachable and names its destination', async ({ page }) => {
+  // A pinch is not a universal input. This is the path for everyone it excludes,
+  // and the reason removing the rail did not remove anyone's route to Murcia.
+  await bootToReady(page)
+  await reachSite(page)
+
+  const control = page.locator('.nav-control')
+  await expect(control).toHaveAttribute('aria-label', 'Ir a Murcia')
+
+  // Clipped rather than hidden: a transparent 44px box over the canvas would
+  // swallow taps meant for the world, but display:none would not be focusable.
+  await control.focus()
+  await expect(control).toBeFocused()
+
+  // Visible once focused, so a sighted keyboard user can see what they landed on.
+  const box = await control.boundingBox()
+  expect(box!.height).toBeGreaterThanOrEqual(44)
 })

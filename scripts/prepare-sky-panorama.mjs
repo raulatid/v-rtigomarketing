@@ -219,6 +219,44 @@ const OUT_DIR = join(ROOT, 'public', 'textures')
 
 const MEDIAN_WINDOW = 5
 
+// ── The polar median, added 2026-08-25, and the reason it exists ──
+// A point in a FLAT image maps near a pole to a shape whose radial extent is
+// constant and whose azimuthal extent shrinks in proportion to the distance
+// from the pole. So every star the 5x5 median leaves behind becomes a RADIAL
+// DASH, thinner and more streak-like the closer to the pole it lands, and the
+// whole cap reads as a warp-speed tunnel converging on a vertex.
+//
+// This is the "pinwheel of radial spokes" the 2026-08-19 work named, and that
+// work did NOT remove it — it only looked at the innermost few degrees.
+// `convergePoles`'s fade is a smoothstep from POLE_FADE_START_DEG to 90, so its
+// weight at 60 degrees of latitude is 0.06 and at 70 it is 0.40: everything
+// from roughly 45 to 75 degrees was left completely untouched, which is most of
+// a pole view at any FOV the scene uses. It was reported again, in those words,
+// on 2026-08-25.
+//
+// It cannot be fixed downstream. A shader cannot remove the dashes by
+// modulating them — multiplying a dash by anything leaves a dash — and the
+// azimuthal average that WOULD remove them is affordable here and nowhere else.
+//
+// So the median window ramps with latitude: MEDIAN_WINDOW at the galactic plane
+// where the dust lanes are, MEDIAN_WINDOW_POLAR toward the poles where there is
+// no fine structure to protect and every surviving speck becomes a dash.
+//
+// ── Why this is not the "median 9 softens the dust lanes" trade ──
+// It is the same trade, declined. 9 was rejected globally because it softens
+// the galactic core; this applies 15 only where the core is not. The ramp ENDS
+// at 60 and STARTS at 25, so everything inside 25 degrees of the plane — which
+// is where all of the structure worth keeping lives, and what the resting
+// camera is pointed at — keeps the original 5x5 exactly.
+//
+// ── It also pays for itself twice ──
+// Point stars are high-entropy, so removing them near the poles took the
+// desktop AVIF from 194,642 bytes to 144,318 at the same quality. That headroom
+// was spent back on quality rather than pocketed: see AVIF_QUALITY.
+const MEDIAN_WINDOW_POLAR = 15
+const MEDIAN_RAMP_START_DEG = 25
+const MEDIAN_RAMP_END_DEG = 60
+
 // Widths, and why there are two. 4096 is the ceiling the SOURCE allows —
 // anything wider is empty upscaling — and it costs 33.6 MB of VRAM
 // (4096 * 2048 * 4, no mipmaps).
@@ -234,12 +272,23 @@ const MEDIAN_WINDOW = 5
 const WIDTH_WIDE = 4096
 const WIDTH_NARROW = 2048
 
-// See the block-ratio table above before touching this. Higher is not better —
-// q65 blocks worse than q60 AND busts the budget — and this value was measured
-// on THIS source AFTER convergePoles. It is capped by the 200 KB budget rather
-// than chosen freely: q60 crosses 200,000 bytes, which is why this is 59 and
-// not a round number. See the header.
-const AVIF_QUALITY = 59
+// RE-MEASURED 2026-08-25, after the polar median, because the header's own rule
+// is that the ladder is per-image and must not be inherited — and the polar
+// median changed the content the encoder sees more than convergePoles did:
+//
+//   q59   144,318 bytes   block 1.850
+//   q65   163,485         block 1.838
+//   q70   188,787         block 1.747   <- shipped, under 200,000 AND under 200 KiB
+//   q75   217,462         block 1.716   OVER
+//   q80   259,657         block 1.629   OVER
+//
+// Note the block ratio went UP against the old asset's 1.666 while the file got
+// SMALLER and the picture got cleaner. That is the ruler, not the picture: the
+// ratio is block-boundary steps over WITHIN-block steps, and removing point
+// stars near the poles shrinks the denominator. The header already warns that a
+// smoother image can score worse; this is that, measured a second time. Rank
+// encoder settings with the ladder and let the scene decide.
+const AVIF_QUALITY = 70
 // Only reached by browsers without AVIF. Quality is chosen for size rather than
 // for blocking, because blocking is unavoidable in WebP and this is a fallback.
 const WEBP_QUALITY = 88
@@ -617,10 +666,35 @@ async function blockRatio(buffer) {
 // The median runs ONCE at source resolution, then feeds both widths. Running it
 // per-width would remove a different set of stars at each, so the two variants
 // would not be the same sky.
-const filtered = await sharp(input)
-  .median(MEDIAN_WINDOW)
-  .modulate({ saturation: SATURATION })
-  .removeAlpha()
+//
+// TWO passes, blended by latitude — see MEDIAN_WINDOW_POLAR. sharp's median is
+// whole-image, so the ramp is applied here rather than by asking for a
+// per-region filter that does not exist. Two full-image medians on a 4096x2048
+// source cost well under a second together, which is not worth optimising in a
+// tool that runs by hand once a year.
+const [plane, polar] = await Promise.all([
+  sharp(input).median(MEDIAN_WINDOW).modulate({ saturation: SATURATION }).removeAlpha()
+    .raw().toBuffer({ resolveWithObject: true }),
+  sharp(input).median(MEDIAN_WINDOW_POLAR).modulate({ saturation: SATURATION }).removeAlpha()
+    .raw().toBuffer({ resolveWithObject: true }),
+])
+const { width: srcWidth, height: srcHeight, channels: srcChannels } = plane.info
+const blended = Buffer.alloc(plane.data.length)
+for (let y = 0; y < srcHeight; y++) {
+  const latitude = Math.abs((0.5 - y / (srcHeight - 1)) * 180)
+  const weight = smoothstep(MEDIAN_RAMP_START_DEG, MEDIAN_RAMP_END_DEG, latitude)
+  const row = y * srcWidth * srcChannels
+  for (let i = row; i < row + srcWidth * srcChannels; i++) {
+    // Rounded rather than truncated. The ramp is gradual down the image, so
+    // truncation would print it as horizontal terraces — the same staircase
+    // `levelSeam` and `convergePoles` dither away, and for the same reason.
+    blended[i] = Math.round(plane.data[i] * (1 - weight) + polar.data[i] * weight)
+  }
+}
+const filtered = await sharp(blended, {
+  raw: { width: srcWidth, height: srcHeight, channels: srcChannels },
+})
+  .png()
   .toBuffer()
 
 async function emit(width, format, quality) {
@@ -672,7 +746,10 @@ async function emit(width, format, quality) {
 }
 
 console.log(`source: ${input} (${width}x${height})`)
-console.log(`median ${MEDIAN_WINDOW}, saturation ${SATURATION}, seam levelled by median offset`)
+console.log(
+  `median ${MEDIAN_WINDOW} at the plane -> ${MEDIAN_WINDOW_POLAR} by ${MEDIAN_RAMP_END_DEG} deg, ` +
+    `saturation ${SATURATION}, seam levelled by median offset`,
+)
 await emit(WIDTH_WIDE, 'avif', AVIF_QUALITY)
 await emit(WIDTH_WIDE, 'webp', WEBP_QUALITY)
 await emit(WIDTH_NARROW, 'avif', AVIF_QUALITY)

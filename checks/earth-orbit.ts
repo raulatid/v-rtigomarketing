@@ -39,6 +39,7 @@ import { createCursorManager } from '../src/interaction/cursorManager';
 import { EARTH_CONFIG } from '../src/experiences/earth/config/earthConfig';
 import { banner, check, close, finish, section } from './lib/assert';
 import { createStubElement } from './lib/stubDom';
+import type { StubElement } from './lib/stubDom';
 
 const cfg = INTERACTION_CONFIG.camera;
 const R = EARTH_CONFIG.radius;
@@ -56,6 +57,8 @@ const PX_PER_RADIAN = 1 / cfg.orbitSensitivity;
 
 interface Harness {
   rig: ReturnType<typeof createFocusCameraRig>;
+  /** Section 7 fires raw multi-pointer sequences the helpers below cannot express. */
+  stub: StubElement;
   camera: THREE.PerspectiveCamera;
   /** Cumulative yaw the drag has ASKED for, radians. Independent of the rig. */
   requested: number;
@@ -100,6 +103,7 @@ function makeHarness(): Harness {
 
   const h: Harness = {
     rig,
+    stub,
     camera,
     requested: 0,
     observed: 0,
@@ -373,6 +377,126 @@ section('6. Returning from a close-up takes the SHORT way');
     'at the overview radius',
     close(h.camera.position.length(), OVERVIEW_RADIUS, 0.05),
     `${h.camera.position.length().toFixed(4)} vs ${OVERVIEW_RADIUS}`,
+  );
+}
+
+
+section('7. A second contact point is a passenger, never a driver');
+
+// Earth has no multi-touch navigation and is not gaining one here: what a second
+// finger must do is NOTHING, and it must do it without damaging the gesture the
+// first finger is already making. Both halves were wrong until 2026-08-25 and
+// both were invisible while two fingers on the globe were an accident. A pinch
+// makes every navigation gesture two fingers, so they become load-bearing.
+
+{
+  const h = makeHarness();
+  h.pointerDown();
+  h.dragPixels(-200, 0);
+  // Settled to REST, not merely stepped. The rig eases at `lerpK: 3`, so a short
+  // settle leaves the camera still travelling toward the first drag's target and
+  // the residual would be measured as the second pointer's doing (~8 deg at 0.5s).
+  h.settle(4);
+  const afterFirst = h.observed;
+
+  // A second finger lands and sweeps a long way. It was rejected at pointerdown
+  // and its moves are dropped in pointermove, so the camera must not move.
+  h.stub.fire('pointerdown', {
+    button: 0,
+    clientX: 900,
+    clientY: 500,
+    pointerId: 2,
+    pointerType: 'touch',
+  });
+  h.stub.fire('pointermove', { clientX: 1500, clientY: 900, pointerId: 2 });
+  h.stub.fire('pointermove', { clientX: 300, clientY: 200, pointerId: 2 });
+  h.settle(4);
+
+  // Tolerance in DEGREES, not an exact equality: the rig eases asymptotically, so
+  // a settled camera is still converging by ~1e-4 deg per frame forever. The
+  // number that makes this assertion mean something is the contrast — 1800px of
+  // travel WOULD be 412 deg if this pointer drove the orbit, so the guard is four
+  // and a half orders of magnitude below the effect it exists to catch.
+  const passengerDeg = Math.abs(h.observed - afterFirst) * DEG;
+  const ifItDroveDeg = 1800 * cfg.orbitSensitivity * DEG;
+  check(
+    'a second pointer moves the camera by nothing at all',
+    passengerDeg < 0.01,
+    `azimuth moved ${passengerDeg.toFixed(6)} deg across 1800px of second-finger travel, which would be ${ifItDroveDeg.toFixed(0)} deg if it drove`,
+  );
+
+  check(
+    'and the first finger still owns the gesture',
+    h.rig.isDragging(),
+    'a passenger arriving must not end the drag it arrived during',
+  );
+
+  // THE FIX. The passenger lifts. `onPointerUp` took no argument and checked no
+  // id, so this ended the first finger's drag and released capture for a pointer
+  // still on the glass.
+  h.stub.fire('pointerup', { pointerId: 2 });
+
+  check(
+    'the passenger lifting does not end the drag',
+    h.rig.isDragging(),
+    'onPointerUp must compare pointerId against the pointer that claimed the gesture',
+  );
+
+  // And the survivor must still steer, not merely still be flagged as dragging.
+  const beforeResume = h.observed;
+  h.dragPixels(-200, 0);
+  h.settle(4);
+  check(
+    'and the owning finger still steers afterwards',
+    Math.abs(h.observed - beforeResume) > 0.05,
+    `azimuth moved ${((h.observed - beforeResume) * DEG).toFixed(2)} deg on the next 200px — a drag that survives in name only is no better than one that ended`,
+  );
+
+  h.pointerUp();
+  check(
+    'and the owning finger still ends it',
+    !h.rig.isDragging(),
+    'the id check must not make the gesture unstoppable',
+  );
+}
+
+{
+  // The tap half. `dragDistance` accumulates only the ACTIVE pointer's travel,
+  // so a two-finger gesture whose anchor barely moves would end under the tap
+  // tolerance — and a click synthesised from it would read as a clean tap and
+  // select a satellite.
+  const h = makeHarness();
+  h.pointerDown();
+  h.dragPixels(-2, 0); // the anchor finger barely moves, as in a real pinch
+
+  check(
+    'one nearly-still finger alone still reads as a tap',
+    h.rig.getDragDistance() <= h.rig.getDragClickThreshold(),
+    `dragDistance ${h.rig.getDragDistance()} against a threshold of ${h.rig.getDragClickThreshold()} — the premise of the check below`,
+  );
+
+  h.stub.fire('pointerdown', {
+    button: 0,
+    clientX: 900,
+    clientY: 500,
+    pointerId: 2,
+    pointerType: 'touch',
+  });
+
+  check(
+    'a second contact point can never be a tap',
+    h.rig.getDragDistance() > h.rig.getDragClickThreshold(),
+    `dragDistance ${h.rig.getDragDistance()} against a threshold of ${h.rig.getDragClickThreshold()}`,
+  );
+
+  // It must not poison the NEXT gesture, or every tap after a pinch is dead.
+  h.stub.fire('pointerup', { pointerId: 2 });
+  h.pointerUp();
+  h.pointerDown();
+  check(
+    'and the next single-pointer gesture starts clean',
+    h.rig.getDragDistance() <= h.rig.getDragClickThreshold(),
+    `dragDistance ${h.rig.getDragDistance()} — pointerdown reseeds it, so the poison cannot outlive its gesture`,
   );
 }
 
