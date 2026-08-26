@@ -92,6 +92,33 @@ describe('the brand panel', () => {
     expect(ORBIT_CONFIG.panel.expandDuration).toBeLessThan(1)
   })
 
+  it('deploys its wings exactly to the 2:1 field, and no further', () => {
+    // The lockup is contain-fitted into a 2:1 field centred on the core. Wings
+    // that stop short would leave the logo's ends floating past the structure;
+    // wings that overshoot would frame empty field.
+    const panel = ORBIT_CONFIG.panel
+    const deployedWidth = panel.height * (1 + 2 * (panel.wingGap + panel.wingLength))
+    expect(deployedWidth).toBeCloseTo(panel.expandedWidth, 10)
+  })
+
+  it('keeps the lockup ink inside the wings', () => {
+    // The logo atlas pads 56 px of a 512 px cell per side vertically, so the
+    // artwork occupies the central 78%. The wings must be at least that tall
+    // or a real logo's top and bottom would hang outside the structure.
+    expect(ORBIT_CONFIG.panel.wingHeight).toBeGreaterThanOrEqual(1 - (2 * 56) / 512)
+    expect(ORBIT_CONFIG.panel.wingHeight).toBeLessThan(1)
+  })
+
+  it('lets the stem reach the satellite model', () => {
+    // The emitter is the cue that the satellite projects the hologram (plan
+    // 007 phase 7). A stem whose foot ends above the model's top leaves a
+    // visible gap the eye reads as "floating", which is the thing being fixed.
+    const { panel, satellite } = ORBIT_CONFIG
+    const stemFoot = panel.offsetY - panel.height / 2 - panel.stemLength * panel.height
+    expect(stemFoot).toBeLessThan(satellite.modelSize / 2)
+    expect(panel.stemLength).toBeGreaterThan(0)
+  })
+
   it('keeps the panel clear of the satellite model it floats above', () => {
     // offsetY is derived from modelSize: the model's top sits near modelSize/2,
     // and the panel's lower edge at offsetY - height/2. Raising `height` for

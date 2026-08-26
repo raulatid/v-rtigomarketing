@@ -23,6 +23,8 @@ import type { CaseStudy } from '../../../content/types'
  * `satellite.modelSize` reasoning documented there.
  */
 const PANEL_HEIGHT = 0.14
+// See `panel.wingGap`. Hoisted because `panel.wingLength` is derived from it.
+const WING_GAP = 0.04
 
 export const ORBIT_CONFIG = {
   orbit: {
@@ -93,26 +95,55 @@ export const ORBIT_CONFIG = {
     // at any point: selecting another satellite mid-unfold turns this one around
     // from wherever it is.
     expandDuration: 0.35,
-    // Height above the satellite's centre. DERIVED FROM `modelSize`, not chosen
-    // independently: the model's max dimension is `modelSize` (0.52), so its top
-    // sits near 0.26, and the panel's lower edge is `offsetY - height / 2`. At
-    // 0.30 that edge lands at 0.23 — tucked slightly behind the top of the model
-    // rather than floating clear of it, which is the relation this had at the
-    // model's old half size. Raise toward 0.36 for full separation.
+    // Height of the CORE'S CENTRE above the satellite's centre. DERIVED FROM
+    // `modelSize`, not chosen independently: the model's max dimension is
+    // `modelSize` (0.52), so its top sits near 0.26, and the core's lower edge
+    // is `offsetY - height / 2`. At 0.34 that edge lands at 0.27 — just clear
+    // of the model — and the stem (`stemLength` × `height` ≈ 0.05) reaches back
+    // down to 0.22, so the emitter beam visibly enters the model's top rather
+    // than stopping short of it or the core sitting on it.
     //
     // Note the panel itself did NOT double with the model: doubling `offsetY`
     // alone would have pushed the plate DEEPER into the model, because the
     // half-height being subtracted stayed put.
-    offsetY: 0.30,
+    offsetY: 0.34,
     // Ceiling on the panel's fade, so the entrance can drive it 0→1 while the
     // panel still reads as a projection rather than a solid card.
     maxOpacity: 0.95,
-    // Fraction of the quad the glass pane occupies, centred. The band outside
-    // it is where the corner ticks and the emitter's bloom are drawn — chrome
-    // that belongs OUTSIDE the surface, so the pane itself can stay clean. At
-    // 0.92 the band is ~4% of the quad per side: enough for a tick and for the
-    // bloom to fade out before the quad's edge clips it.
-    inset: 0.92,
+
+    // ── The split plate (plan 007) ──
+    // The hologram is a square CORE that holds the isotype, with two lateral
+    // WINGS that deploy from it on selection to make the 2:1 field the lockup
+    // needs, and a STEM beneath it carrying the emitter beam down toward the
+    // satellite. Everything below is in PANE HEIGHTS — multiples of `height` —
+    // so the composition is one shape that `height` scales as a whole.
+    //
+    // The quad itself never changes size: it is always the fully deployed
+    // footprint, and the shader draws only the parts the expansion has opened.
+    // That is what lets one quad and one draw call carry a three-part silhouette.
+
+    // Space between the core's edge and a wing's root. The wings are a
+    // separate structure that deploys, not the core getting wider; the gap is
+    // what says so.
+    wingGap: 0.04,
+    // Each wing's deployed length. Derived so core + gap + wing on both sides
+    // lands exactly on `expandedWidth`: the wings terminate where the 2:1 field
+    // ends, and the lockup's contain-fit reaches the wing tips and no further.
+    wingLength: 0.5 - WING_GAP,
+    // Wing height as a fraction of the core's. Shorter than the core, so the
+    // silhouette steps down at the wing roots (┌─ ─┐ / ───┤ ├───) instead of
+    // one rectangle stretching. The logo cell's vertical padding (56/512 per
+    // side) keeps the lockup's ink inside this band.
+    wingHeight: 0.82,
+    // Length of the stem below the core's bottom edge, where the emitter beam
+    // fades toward the satellite. At 0.35 pane heights the beam's foot lands
+    // just above the model's top (see `offsetY`) so the two visibly meet.
+    stemLength: 0.35,
+    // Arm length of the core's corner brackets, from the corner along each edge.
+    bracketLength: 0.14,
+    // Transparent margin around the deployed footprint, so hairlines and the
+    // wings' terminal nodes are never clipped by the quad's edge.
+    margin: 0.06,
     // Peak alpha of the dark glass, at the pane's bottom edge; the top edge
     // sits at 70% of it. Matches `.case-panel` beside it — the two describe
     // the same brand and should look like the same material. The chrome is

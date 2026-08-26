@@ -2,22 +2,34 @@ import * as THREE from 'three'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
 import { advanceExpansion, easeExpansion } from './panelExpansion'
+import { deploymentFrom } from './holoDeployment'
+import { prefersReducedMotion } from '../../../app/warpTransition'
+import { PROTO_HOLO } from '../../../app/protoHolo'
 
 // The holographic brand panel floating above a satellite.
 //
-// It has two states. At rest it is a SQUARE showing the brand's isotype — its
-// symbol alone. While its case study is selected it UNFOLDS to a 2:1 quad
-// showing the full logo lockup, and folds back on deselect. Six wordmarks
-// permanently on screen was a lot of horizontal text competing with the Earth;
-// the isotype is the same identity at a quarter of the footprint, and the
-// lockup is a reward for showing interest.
+// It has two states. At rest it is a SQUARE CORE showing the brand's isotype —
+// its symbol alone. While its case study is selected, two lateral WINGS deploy
+// from the core to open the 2:1 field the full logo lockup needs, and fold back
+// on deselect. Six wordmarks permanently on screen was a lot of horizontal text
+// competing with the Earth; the isotype is the same identity at a quarter of
+// the footprint, and the lockup is a reward for showing interest.
+//
+// A PROJECTION SYSTEM DEPLOYS; A RECTANGLE DOES NOT GET WIDER. That is plan
+// 007's one conceptual shift, and it decides the geometry: the quad is always
+// the fully deployed footprint, and the fragment shader draws only the parts
+// the expansion has opened — the core at rest, the wings travelling out from a
+// gap beside it, a stem beneath carrying the emitter beam toward the satellite.
+// One quad, one draw call per panel, and a three-part silhouette; separate
+// wing meshes would each need a view-space offset to survive the billboard
+// below, for no visual gain.
 //
 // ONE EASED VALUE DRIVES EVERYTHING. Each frame produces a single number and
-// the quad's width, the frame's aspect correction and the isotype→logo
-// crossfade are all derived from it. They are not three tweens that happen to
-// share a duration — that arrangement drifts, and it drifts visibly: an aspect
-// correction a frame behind the width draws a border thicker on one axis than
-// the other, which is exactly the kind of wrong that survives review.
+// `holoDeployment.ts` remaps it into the stages the shader consumes — the
+// core's activation, the wings' travel, the logo's resolve. They are not three
+// tweens that happen to share a duration — that arrangement drifts, and it
+// drifts visibly: a field aspect a frame behind the wings draws the lockup past
+// the structure that is meant to hold it.
 //
 // Geometry is a plain unit quad created in code — a Blender round trip would
 // add a GLB fetch and a Draco decode for two triangles, and would freeze the
@@ -62,21 +74,38 @@ const FRAGMENT = /* glsl */ `
   uniform vec2 uLogoScale;
   uniform float uLogoAspect;
 
+  // The single scalar, eased, and its stages: (activation, deploy, resolve,
+  // wing extent). See holoDeployment.ts — the shader never remaps ranges.
   uniform float uExpand;
+  uniform vec4 uDeploy;
+
   uniform vec3 uBrandColor;
   uniform float uOpacity;
   uniform float uTime;
-  uniform float uAspect;
-  uniform float uInset;
+  uniform float uBreath;
   uniform float uGlassAlpha;
+
+  // Quad → pane space. The quad's size in pane heights, and the core's centre
+  // in quad uv. Constant per panel; both come from the config.
+  uniform vec2 uQuadScale;
+  uniform vec2 uOrigin;
+  // (wing gap, wing height / 2, bracket length, stem length), in pane heights.
+  uniform vec4 uShape;
 
   varying vec2 vUv;
 
   // The pane. rgb(12, 15, 22) — the case panel's dark — given here in LINEAR
   // space, since everything below colorspace_fragment is linear.
   const vec3 GLASS = vec3(0.0037, 0.0048, 0.0080);
-  // The frame and ticks: white at a whisper, the case panel's 1px hairline.
+  // The structure: white at a whisper, the case panel's 1px hairline.
   const float HAIRLINE_ALPHA = 0.16;
+  // Mid-edge registration segments on the core's top and bottom, half-length.
+  const float MID_SEGMENT = 0.09;
+  // Alignment ticks along the wing rails: spacing and length.
+  const float TICK_SPACING = 0.15;
+  const float TICK_LENGTH = 0.05;
+  // The terminal node at each rail's end: half-side of the filled square.
+  const float NODE_HALF = 0.018;
 
   // Straight-alpha "over": lays (sc, sa) on top of the running (c, a).
   // Everything in this panel is a layer over transparent space, and the
@@ -88,11 +117,24 @@ const FRAGMENT = /* glsl */ `
     a = na;
   }
 
-  // Quad uv → art uv, artwork CONTAINED and centred in a quad of aspect Q.
+  // A screen-constant hairline at d == 0. Width from the screen-space
+  // derivative, so it is ~1px at the close-up AND ~1px on the 30px resting
+  // core. A width fixed in pane units would be a fat band on the small panel —
+  // the loudest thing in it, six times over.
+  float line(float d, float px) {
+    return 1.0 - smoothstep(px * 0.8, px * 2.0, abs(d));
+  }
+
+  // 1 inside [a, b].
+  float seg(float t, float a, float b) {
+    return step(a, t) * step(t, b);
+  }
+
+  // Field uv → art uv, artwork CONTAINED and centred in a field of aspect Q.
   //
-  // Needed because the quad's aspect animates from 1:1 to 2:1 while each
+  // Needed because the field's aspect animates from 1:1 to 2:1 while each
   // artwork's is fixed. Without it the isotype would stretch to twice its width
-  // as the panel unfolds, which is precisely the "never deform a trademark"
+  // as the wings deploy, which is precisely the "never deform a trademark"
   // rule the atlas already goes to some trouble to honour.
   vec2 containUv(vec2 uv, float Q, float A) {
     vec2 cover = A > Q ? vec2(1.0, Q / A) : vec2(A / Q, 1.0);
@@ -115,81 +157,141 @@ const FRAGMENT = /* glsl */ `
     return texture2D(atlas, offset + art * scale);
   }
 
-  // Corner ticks, in pane-height units: how far past the corner each edge line
-  // is continued, and the gap before it starts. Registration marks, not
-  // brackets — the same "this is a projection" cue at a tenth of the weight.
-  const float TICK_GAP = 0.006;
-  const float TICK_LEN = 0.022;
-
   // THE CHROME IS DESIGNED TO BE LOOKED THROUGH, NOT AT. Dark glass, a
-  // screen-constant hairline, the artwork untouched, and exactly one
-  // brand-coloured element — the emitter line along the bottom edge, whose
-  // bloom is what makes the panel read as projected up from the satellite. The
-  // brand colour lives on the light source, never on the pane, so a real
-  // full-colour trademark shows its own colours with no cast.
+  // screen-constant hairline, the artwork untouched, and the brand colour on
+  // exactly one thing — the light: the emitter line under the core, the beam
+  // it stands on, and the trace that runs out along the wings. The brand colour
+  // lives on the light source, never on the pane, so a real full-colour
+  // trademark shows its own colours with no cast.
   void main() {
+    float activation = uDeploy.x;
+    float deploy = uDeploy.y;
+    float resolve = uDeploy.z;
+    float extent = uDeploy.w;
+
+    float gap = uShape.x;
+    float wingHalf = uShape.y;
+    float bracket = uShape.z;
+    float stem = uShape.w;
+
     // ── Pane space ──
-    // The glass occupies the central uInset of the quad. uv is the pane's own
-    // 0..1 space and runs a little past it into the band where the ticks and
-    // the bloom live; q is the same space aspect-corrected and centred, so a
-    // distance measured in it is the same on both axes of a 2:1 panel.
-    vec2 uv = (vUv - 0.5) / uInset + 0.5;
-    vec2 q = (uv - 0.5) * vec2(uAspect, 1.0);
-    vec2 d = abs(q) - vec2(uAspect, 1.0) * 0.5;   // signed distance past each pane edge
-    vec2 px = fwidth(q);                          // one screen pixel, per axis
-    float band = (1.0 / uInset - 1.0) * 0.5;      // the outside band, in uv units
-    float inside = step(max(d.x, d.y), 0.0);
+    // Pane-height units, origin at the core's centre: the core is the unit
+    // square |p| <= 0.5, the wings lie along ±x beyond it, the stem below it.
+    // A distance measured here is the same on both axes and at every point of
+    // the deployment, because the quad never changes shape.
+    vec2 p = (vUv - uOrigin) * uQuadScale;
+    vec2 px = fwidth(p);                       // one screen pixel, per axis
+    float ax = abs(p.x);
+    vec2 dc = abs(p) - 0.5;                    // signed distance past each core edge
+    float insideCore = step(max(dc.x, dc.y), 0.0);
+
+    // The selected-state energy: a small surge as the core activates, easing
+    // back into a stable glow once the logo has resolved. Peak, then settle.
+    float energy = 1.0 + 0.35 * activation - 0.15 * resolve;
 
     // ── The brand plate ──
-    // Both artworks are fitted against the CURRENT pane aspect, so each stays
-    // undistorted at every point of the unfold, and the crossfade is the only
-    // thing that changes between them. Sampled clean: no scanlines, no grain.
-    // The plate is a trademark and is drawn exactly as delivered.
-    vec4 isotype = sampleArt(uIsotype, uIsoOffset, uIsoScale, uv, uAspect, uIsoAspect);
-    vec4 logo = sampleArt(uLogo, uLogoOffset, uLogoScale, uv, uAspect, uLogoAspect);
-    vec4 plate = mix(isotype, logo, uExpand);
+    // The artwork field is centred on the core and opens from 1:1 to 2:1 with
+    // the wings — the same stage, so the lockup can never be fitted into a
+    // field the structure has not yet opened. Both artworks are fitted against
+    // the CURRENT field aspect, so each stays undistorted at every point of the
+    // deployment, and the crossfade is the only thing that changes between
+    // them. Sampled clean: no scanlines, no grain. The plate is a trademark and
+    // is drawn exactly as delivered.
+    float fieldAspect = 1.0 + deploy;
+    vec2 fuv = p / vec2(fieldAspect, 1.0) + 0.5;
+    vec4 isotype = sampleArt(uIsotype, uIsoOffset, uIsoScale, fuv, fieldAspect, uIsoAspect);
+    vec4 logo = sampleArt(uLogo, uLogoOffset, uLogoScale, fuv, fieldAspect, uLogoAspect);
+    vec4 plate = mix(isotype, logo, resolve);
 
-    // ── The glass ──
-    // Neutral dark, a touch denser toward the bottom where the emitter is, and
-    // one faint diagonal sheen — a glass highlight, not a CRT.
-    float sheen = 0.03 * smoothstep(0.35, 0.65, uv.x + uv.y * 0.4);
-    vec3 color = GLASS + vec3(sheen);
-    float alpha = uGlassAlpha * mix(0.7, 1.0, 1.0 - uv.y) * inside;
+    vec3 color = GLASS;
+    float alpha = 0.0;
 
+    // ── The core's projection field ──
+    // Neutral dark, denser at the centre and toward the emitter beneath it,
+    // thinning toward the edges: a field the isotype hangs in, not a card it is
+    // printed on. One faint diagonal sheen — a glass highlight, not a CRT.
+    float radial = 1.0 - 0.45 * smoothstep(0.15, 0.72, length(p));
+    float vertical = mix(0.75, 1.0, 0.5 - p.y);
+    float sheen = 0.03 * smoothstep(0.2, 0.9, (p.x + 0.5) + (p.y + 0.5) * 0.4);
+    float coreGlass = uGlassAlpha * 0.75 * radial * vertical * insideCore;
+    over(color, alpha, GLASS + vec3(sheen), coreGlass);
+
+    // A soft internal glow behind the symbol, brightening a little on
+    // activation. White, not brand: a tint behind a trademark is a cast on it.
+    float halo = exp(-length(p) * 3.2) * (0.05 + 0.04 * activation) * insideCore;
+    over(color, alpha, vec3(1.0), halo);
+
+    // ── The wings' projection wash ──
+    // Faint, fading toward the tips: the field thins as it leaves the core.
+    float root = 0.5 + gap;
+    float tip = root + extent;
+    float insideWing = seg(ax, root, tip) * step(abs(p.y), wingHalf);
+    float reach = extent > 0.0 ? clamp((ax - root) / extent, 0.0, 1.0) : 0.0;
+    float wingGlass = uGlassAlpha * 0.38 * (1.0 - 0.6 * reach) * insideWing * deploy;
+    over(color, alpha, GLASS, wingGlass);
+
+    // The artwork sits over the glass of both, untinted.
     over(color, alpha, plate.rgb, plate.a);
 
-    // ── The hairline ──
-    // Width from screen-space derivatives, so it is ~1px at the close-up AND
-    // ~1px on the 30px resting isotype. A width fixed in uv would be a fat band
-    // on the small panel — the loudest thing in it, six times over.
-    float edge = max(d.x, d.y);
-    float epx = fwidth(edge);
-    float hairline = 1.0 - smoothstep(epx * 0.8, epx * 2.0, abs(edge));
+    // ── The core's structure ──
+    // No complete outline — that is the card language being left behind. Four
+    // corner brackets, two registration segments at the middle of the top and
+    // bottom edges, and nothing along the sides: that is where the wings root.
+    float onH = line(dc.y, px.y);              // on the top or bottom edge line
+    float onV = line(dc.x, px.x);              // on the left or right edge line
+    float corner = onH * seg(ax, 0.5 - bracket, 0.5 + px.x)
+                 + onV * seg(abs(p.y), 0.5 - bracket, 0.5 + px.y);
+    float mid = onH * step(ax, MID_SEGMENT);
+    float structure = clamp(corner + mid, 0.0, 1.0);
 
-    // Corner ticks: each edge line continued past the corner, after a gap.
-    float onH = 1.0 - smoothstep(px.y * 0.8, px.y * 2.0, abs(d.y));
-    float onV = 1.0 - smoothstep(px.x * 0.8, px.x * 2.0, abs(d.x));
-    float tickH = onH * step(TICK_GAP, d.x) * step(d.x, TICK_GAP + TICK_LEN);
-    float tickV = onV * step(TICK_GAP, d.y) * step(d.y, TICK_GAP + TICK_LEN);
+    // ── The wings' structure ──
+    // A root bracket that appears with activation — the wing's origin, visible
+    // before it travels — then rails along the top and bottom edges, alignment
+    // ticks hanging from them, and a filled node terminating each rail.
+    float rootLine = line(ax - root, px.x) * step(abs(p.y), wingHalf) * activation;
+    float rails = line(abs(p.y) - wingHalf, px.y) * seg(ax, root, tip);
+    float endCap = line(ax - tip, px.x) * step(abs(p.y), wingHalf) * step(0.001, extent);
+    float along = ax - root;
+    float tickIndex = floor(along / TICK_SPACING + 0.5);
+    float tickDist = abs(along - tickIndex * TICK_SPACING);
+    float ticks = line(tickDist, px.x) * step(1.0, tickIndex) * step(ax, tip - NODE_HALF)
+                * seg(abs(p.y), wingHalf - TICK_LENGTH, wingHalf);
+    vec2 node = vec2(ax - tip, abs(p.y) - wingHalf);
+    float nodes = step(max(abs(node.x), abs(node.y)), NODE_HALF) * step(0.001, extent);
+    float wingStructure = clamp(rootLine + (rails + endCap + ticks + nodes) * deploy, 0.0, 1.0);
 
-    over(color, alpha, vec3(1.0), max(hairline, max(tickH, tickV)) * HAIRLINE_ALPHA);
+    over(color, alpha, vec3(1.0), max(structure, wingStructure) * HAIRLINE_ALPHA * energy);
 
     // ── The emitter ──
-    // The signature. A brand-colour line along the pane's bottom edge, the
-    // exact width of the pane, with a soft bloom falling away beneath it into
-    // the band — fading to nothing before the quad's edge would clip it. The
-    // bloom breathes, slowly; nothing flickers.
-    float onBottom = 1.0 - smoothstep(px.y * 0.8, px.y * 2.0, abs(uv.y));
-    float span = step(0.0, uv.x) * step(uv.x, 1.0);
-    float emit = onBottom * span * 0.9;
+    // The signature. A brand-colour line along the core's bottom edge, the
+    // core's exact width; beneath it a beam narrowing down the stem toward the
+    // satellite, with a soft cone of light that is widest under the line and
+    // gathers to a point at the foot, where a small glow marks the origin.
+    // The viewer should infer satellite → emitter → hologram. The cone
+    // breathes, slowly; nothing flickers.
+    float onBottom = line(p.y + 0.5, px.y) * step(ax, 0.5);
+    float emit = onBottom * 0.9 * energy;
 
-    float below = max(-uv.y, 0.0);
-    float fall = exp(-below / band * 4.0);
-    float ends = 1.0 - smoothstep(0.0, band, max(-uv.x, uv.x - 1.0));
-    float breath = 0.92 + 0.08 * sin(uTime * 1.4);
-    float bloom = step(uv.y, 0.0) * fall * ends * 0.35 * breath;
+    float down = -0.5 - p.y;                   // distance below the core's edge
+    float u = clamp(down / stem, 0.0, 1.0);    // 0 at the core, 1 at the foot
+    float inStem = step(0.0, down) * step(down, stem);
+    float beam = line(p.x, px.x) * inStem * (1.0 - u) * 0.6 * energy;
 
-    over(color, alpha, uBrandColor, max(emit, bloom));
+    float breath = 1.0 - uBreath + uBreath * (0.92 + 0.08 * sin(uTime * 1.4));
+    float coneWidth = mix(0.42, 0.03, u);
+    float cone = exp(-ax / coneWidth) * exp(-u * 2.6) * inStem * 0.32 * breath * energy;
+
+    vec2 foot = vec2(0.0, -0.5 - stem);
+    float footGlow = exp(-length(p - foot) / 0.05) * 0.55 * energy;
+
+    // The wings' bottom rails carry the light out from the core — the one
+    // brand-coloured element extends rather than a second one appearing — and
+    // a short trace at each root joins rail to emitter line.
+    float trace = line(p.y + wingHalf, px.y) * seg(ax, root, tip) * 0.7 * deploy;
+    float joint = line(ax - root, px.x) * seg(-p.y, wingHalf, 0.5) * 0.7 * deploy;
+
+    float light = max(max(emit, beam), max(max(cone, footGlow), max(trace, joint)));
+    over(color, alpha, uBrandColor, light);
 
     gl_FragColor = vec4(color, alpha * uOpacity);
 
@@ -228,6 +330,22 @@ export function disposeSharedGeometry(): void {
   sharedGeometry = null
 }
 
+/**
+ * The quad's footprint, in pane heights, and where the core's centre sits in it.
+ *
+ * Exported for the config tests: the footprint is the fully deployed structure
+ * plus a margin, and the core is offset upward by the stem below it. Neither
+ * number is otherwise visible outside the shader.
+ */
+export function panelFootprint(cfg = ORBIT_CONFIG.panel) {
+  const width = 1 + 2 * (cfg.wingGap + cfg.wingLength + cfg.margin)
+  const height = 1 + cfg.stemLength + 2 * cfg.margin
+  // Quad uv of the core's centre: from the bottom, the margin, then the stem,
+  // then half the core.
+  const originY = (cfg.margin + cfg.stemLength + 0.5) / height
+  return { width, height, originY }
+}
+
 interface Options {
   /** The square symbol, shown at rest. */
   isotypeAtlas: BrandAtlas
@@ -242,6 +360,14 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
   const cfg = ORBIT_CONFIG.panel
   const isoCell = isotypeAtlas.cellUv(index)
   const logoCell = logoAtlas.cellUv(index)
+  const footprint = panelFootprint(cfg)
+
+  // Sampled once, at construction, the way SpaceBackdrop samples it for the
+  // twinkle: under reduced motion the deployment resolves immediately (a zero
+  // duration snaps — see advanceExpansion) and the emitter's breathing stops.
+  // Selection semantics and the isotype/logo state are untouched.
+  const reducedMotion = prefersReducedMotion()
+  const expandDuration = reducedMotion ? 0 : cfg.expandDuration
 
   const uniforms = {
     uIsotype: { value: isotypeAtlas.texture },
@@ -254,16 +380,23 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     uLogoScale: { value: logoCell.scale },
     uLogoAspect: { value: logoAtlas.aspect },
 
+    // Both written every frame by applyExpansion, never independently — see
+    // the header note. Seeded collapsed so the first frame drawn before any
+    // update() is already correct.
     uExpand: { value: 0 },
+    uDeploy: { value: new THREE.Vector4(0, 0, 0, 0) },
+
     uBrandColor: { value: new THREE.Color(brandColor) },
     uOpacity: { value: 0 },
-    uInset: { value: cfg.inset },
-    uGlassAlpha: { value: cfg.glassAlpha },
     uTime: { value: Math.random() * 100 },
-    // Written every frame by applyExpansion, never independently — see the
-    // header note. Seeded with the collapsed value so the first frame drawn
-    // before any update() is already correct.
-    uAspect: { value: cfg.collapsedWidth / cfg.height },
+    uBreath: { value: reducedMotion ? 0 : 1 },
+    uGlassAlpha: { value: cfg.glassAlpha },
+
+    uQuadScale: { value: new THREE.Vector2(footprint.width, footprint.height) },
+    uOrigin: { value: new THREE.Vector2(0.5, footprint.originY) },
+    uShape: {
+      value: new THREE.Vector4(cfg.wingGap, cfg.wingHeight / 2, cfg.bracketLength, cfg.stemLength),
+    },
   }
 
   const material = new THREE.ShaderMaterial({
@@ -280,8 +413,11 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
   })
 
   const mesh = new THREE.Mesh(getGeometry(), material)
-  mesh.scale.set(cfg.collapsedWidth, cfg.height, 1)
-  mesh.position.y = cfg.offsetY
+  // The FULLY DEPLOYED footprint, always: the shader opens and closes the
+  // structure inside it. Positioned so the core's centre — not the quad's —
+  // sits at offsetY; the stem hangs below toward the satellite.
+  mesh.scale.set(footprint.width * cfg.height, footprint.height * cfg.height, 1)
+  mesh.position.y = cfg.offsetY - (footprint.originY - 0.5) * footprint.height * cfg.height
   // The panel is decoration and must never intercept the satellite's hover
   // sphere, which is smaller and sits below it.
   mesh.raycast = () => {}
@@ -292,28 +428,27 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     uniforms.uOpacity.value = factor * cfg.maxOpacity
   }
 
-  // Raw, un-eased position of the unfold. Stored as a VALUE rather than a start
-  // timestamp so a target flipped mid-flight reverses from where the panel
-  // actually is — see panelExpansion.ts.
+  // Raw, un-eased position of the deployment. Stored as a VALUE rather than a
+  // start timestamp so a target flipped mid-flight reverses from where the
+  // panel actually is — see panelExpansion.ts.
   let expansion = 0
   let expansionTarget = 0
 
   /**
-   * The single point where the eased value becomes geometry and uniforms.
+   * The single point where the eased value becomes uniforms.
    *
-   * Note `uAspect` is derived from the width that was just written, not lerped
-   * in parallel with it. The frame's aspect correction and the quad's real shape
-   * are then the same number by construction, and cannot disagree for a frame.
+   * Every stage the shader reads is derived here from the one value that was
+   * just eased — never lerped in parallel with it — so the wings' travel, the
+   * field's aspect and the logo's crossfade cannot disagree for a frame.
    */
   function applyExpansion() {
     const eased = easeExpansion(expansion)
-    const width = THREE.MathUtils.lerp(cfg.collapsedWidth, cfg.expandedWidth, eased)
-    mesh.scale.x = width
-    uniforms.uAspect.value = width / cfg.height
+    const d = deploymentFrom(eased, cfg.wingLength)
     uniforms.uExpand.value = eased
+    uniforms.uDeploy.value.set(d.activation, d.deploy, d.resolve, d.wingExtent)
   }
 
-  /** Asks the panel to unfold or fold. Animated; takes effect over `expandDuration`. */
+  /** Asks the panel to deploy or fold. Animated; takes effect over `expandDuration`. */
   function setExpanded(on: boolean) {
     expansionTarget = on ? 1 : 0
   }
@@ -334,9 +469,21 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
   }
 
   function update(delta: number) {
-    uniforms.uTime.value += delta
+    // Prototype scaffolding (plan 007 phase 2): `?holo=1&holoExpand=` pins
+    // every panel at one expansion so the structure can be inspected in the
+    // real scene without the select/deselect journey. Inert unless the gate is
+    // open, and unreachable in production — see protoHolo.ts.
+    if (!PROTO_HOLO.freeze) uniforms.uTime.value += delta
+    if (PROTO_HOLO.expand !== null) {
+      if (expansion !== PROTO_HOLO.expand) {
+        expansion = PROTO_HOLO.expand
+        expansionTarget = PROTO_HOLO.expand
+        applyExpansion()
+      }
+      return
+    }
     if (expansion !== expansionTarget) {
-      expansion = advanceExpansion(expansion, expansionTarget, delta, cfg.expandDuration)
+      expansion = advanceExpansion(expansion, expansionTarget, delta, expandDuration)
       applyExpansion()
     }
   }
