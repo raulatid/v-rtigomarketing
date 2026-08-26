@@ -9,6 +9,7 @@ import { generateStarField } from './space/starDistribution'
 import { createStarMaterial } from './space/starShader'
 import { SPACE_CONFIG } from './space/spaceConfig'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
+import { PROTO_SKY } from '../../../app/protoSky'
 
 // The persistent star field the resting scene sits in.
 //
@@ -58,7 +59,13 @@ export function SpaceBackdrop({ config, state, active }: Props) {
 
   const geometry = useMemo(() => {
     const field = generateStarField({
-      count: config.backdropStarCount,
+      // ?stars=<n> overrides this for the cubemap prototype, and null — the
+      // default, and the only value in a production build — leaves it alone.
+      // The whole first capture pass runs at 0: the shipped panorama contains
+      // no stars at all (the median filter removed them), so every star on
+      // screen today is one of these particles, and a baked sky has to be
+      // judged without them before the two are judged together.
+      count: PROTO_SKY.stars ?? config.backdropStarCount,
       radius: config.backdropRadius,
       jitter: config.backdropJitter,
       clusterStrength: config.backdropClusterStrength,

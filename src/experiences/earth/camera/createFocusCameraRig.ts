@@ -405,6 +405,61 @@ export function createFocusCameraRig({
     }
   }
 
+  /**
+   * Snap the rig to an exact pose. The sky-cubemap prototype's camera hook is
+   * the only caller, and that hook is dev-gated — see debugCameraHook.ts.
+   *
+   * It lives HERE, on the rig, because the alternative is a second camera
+   * owner, and ADR 001/002 and this file's own header refuse one: two things
+   * writing camera.position fight every frame, and the loser is whichever ran
+   * first. So this writes the rig's OWN state and lets update() carry it.
+   *
+   * Snapping means writing three things that are normally allowed to differ:
+   * `orbit` (where the drag has asked to be), `eased` (where the camera
+   * actually is) and `current`. Setting only the first would make update()
+   * ease toward the pose over about a second, and a screenshot taken during
+   * that is a screenshot of the wrong camera. With all three equal, update() is
+   * a fixed point and the pose holds exactly.
+   */
+  function setDebugPose(pose: {
+    radius?: number
+    theta?: number
+    phi?: number
+    fov?: number
+    lookAt?: [number, number, number]
+  }) {
+    if (pose.lookAt) overviewLookAt.set(...pose.lookAt)
+    if (pose.radius !== undefined) orbit.radius = pose.radius
+    if (pose.theta !== undefined) orbit.theta = pose.theta
+    // Clamped like every other writer of phi. The capture matrix's `pole` state
+    // asks for phiMin exactly, which is the worst case reachable by dragging —
+    // going past it is not a harder test, it is a different scene.
+    if (pose.phi !== undefined) {
+      orbit.phi = THREE.MathUtils.clamp(pose.phi, cfg.phiMin, cfg.phiMax)
+    }
+
+    // A close-up would otherwise keep ownership of the target and ignore all of
+    // the above.
+    focused = false
+    mode = 'overview'
+
+    eased.theta = orbit.theta
+    eased.phi = orbit.phi
+    eased.radius = orbit.radius
+    current.position.setFromSphericalCoords(eased.radius, eased.phi, eased.theta)
+    target.position.copy(current.position)
+    current.lookAt.copy(overviewLookAt)
+    target.lookAt.copy(overviewLookAt)
+
+    camera.position.copy(current.position)
+    camera.lookAt(current.lookAt)
+
+    if (pose.fov !== undefined) {
+      camera.fov = pose.fov
+      camera.updateProjectionMatrix()
+    }
+  }
+
   function setOrbitEnabled(enabled: boolean) {
     orbitEnabled = enabled
     if (!enabled && orbit.isDragging) endDrag()
@@ -440,6 +495,7 @@ export function createFocusCameraRig({
     // Published so the satellite controller measures a tap the same way this
     // rig does, instead of hardcoding its own copy of the number.
     getDragClickThreshold: dragClickThreshold,
+    setDebugPose,
     dispose,
   }
 }

@@ -103,3 +103,8 @@ desktop.ini
 /sanity-studio/dist/
 /sanity-studio/.sanity/
 /sanity-studio/.out/
+
+# Sky-cubemap prototype faces (docs/plans/005). Six 4096^2 PNGs per variant is
+# well over a hundred megabytes, and they are reproducible from the scene JSON
+# in docs/plans/005-sky-cubemap/scenes/ — which is the actual deliverable.
+/public/proto-sky/

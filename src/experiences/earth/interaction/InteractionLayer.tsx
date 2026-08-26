@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { OrbitSystem } from '../orbit/createOrbitSystem'
 import type { SatelliteDef } from '../orbit/orbitConfig'
 import { createFocusCameraRig, FocusCameraRig } from '../camera/createFocusCameraRig'
+import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
 import { createCursorManager, type CursorManager } from '../../../interaction/cursorManager'
 import { SequenceState } from '../config/sequenceState'
@@ -89,6 +90,10 @@ export function InteractionLayer({
       onDeselect: () => callbacks.current.onDeselect(),
     })
 
+    // Dev-gated, and a no-op in a production build. Installed here because this
+    // is where the rig exists and dies; the hook must not outlive it.
+    const uninstallDebugCamera = installDebugCameraHook(rig)
+
     rigRef.current = rig
     focusRef.current = focus
     handleRef.current = { deselect: () => focus.deselect() }
@@ -98,6 +103,7 @@ export function InteractionLayer({
       rigRef.current = null
       focusRef.current = null
       cursorRef.current = null
+      uninstallDebugCamera()
       focus.dispose()
       rig.dispose()
       cursor.dispose()

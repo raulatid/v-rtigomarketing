@@ -5,6 +5,8 @@ import { EarthScene } from './scene/EarthScene'
 import { Starfield } from './scene/Starfield'
 import { SpaceBackdrop } from './scene/SpaceBackdrop'
 import { SkyShell } from './scene/SkyShell'
+import { SkyShellCube } from './scene/SkyShellCube'
+import { protoSkyActive } from '../../app/protoSky'
 import { OrbitSystemLayer } from './orbit/OrbitSystemLayer'
 import { InteractionLayer, InteractionHandle } from './interaction/InteractionLayer'
 import type { IntroConfig } from './config/introConfig'
@@ -100,7 +102,15 @@ export function EarthExperience({
           gated ON there and never leaves. See plan 004 §4. */}
       {/* Drawn first and depth-free, so it sits behind everything including
           the star shell. Baked during P0; gated on with the Earth. */}
-      <SkyShell config={config} state={state} active={active} />
+      {/* One or the other, never both — two opaque shells at renderOrder -1000
+          would be a draw-order coin flip rather than a comparison. protoSkyActive()
+          is false unless ?sky=<variant> named one AND this is not a production
+          build, so the shipped path here is unchanged. */}
+      {protoSkyActive() ? (
+        <SkyShellCube config={config} state={state} active={active} />
+      ) : (
+        <SkyShell config={config} state={state} active={active} />
+      )}
       <SpaceBackdrop config={config} state={state} active={active} />
       <Suspense fallback={null}>
         <EarthScene

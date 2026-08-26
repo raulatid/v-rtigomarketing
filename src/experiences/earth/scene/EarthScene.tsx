@@ -18,6 +18,7 @@ import {
 } from '../navigation/destination'
 import { spinToFace } from '../orbit/geoUtils'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
+import { isEarthFrozen } from '../camera/debugCameraHook'
 
 interface Props {
   config: IntroConfig
@@ -241,7 +242,13 @@ export function EarthScene({
       // minute absence is most of a full turn, applied instantly. That can spin
       // the destination straight back out of the view the intro deliberately
       // spun it into. See `graphics/frameDelta.ts` for the policy.
-      spinRef.current.rotation.y += clampFrameDelta(delta) * EARTH_CONFIG.rotationSpeed
+      // The spin is the only thing in the resting scene that makes a shot taken
+      // at a wall-clock delay a shot of a different frame each run, so the
+      // prototype's capture script stops it. Always false without ?freezeEarth=1,
+      // and unreachable in a production build — see debugCameraHook.ts.
+      if (!isEarthFrozen()) {
+        spinRef.current.rotation.y += clampFrameDelta(delta) * EARTH_CONFIG.rotationSpeed
+      }
     }
   })
 
