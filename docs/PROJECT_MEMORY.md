@@ -347,7 +347,7 @@ units throughout — 147 today against the original 152.
 > Corrected 2026-08-13. This section and §9 both still read 600 / 0.25 long after §7 recorded
 > the widening to 700 / 0.21, so two sections of this file contradicted a third. The config
 > is the arbiter: `murciaConfig.ts` says 700 and 0.21. Do not copy either number into a test —
-> read them from the config, the way `checks/navigation-zoom.ts` does.
+> read them from the config, the way `checks/footprint.ts` does.
 
 ---
 
@@ -481,7 +481,7 @@ dolly, not worth shipping. `terrainTransition.width` went 600 → 700 to pay for
 puts full zoom-out at +51 — more cushion than the resting pose had before. The binding case
 is 5120×1440 at yaw 30–120, exactly as recorded in §6.
 
-`checks/navigation-zoom.ts` asserts this, and it asserts the strong form: the navigable area
+`checks/footprint.ts` asserts this, and it asserts the strong form: the navigable area
 must stay the **whole plate** at every scale, so zoom-out cannot quietly drag the focus toward
 the plate centre. It also asserts `clampedRays === false` throughout, because a clamped ray
 *under*-reports the footprint — the unsafe direction, and the failure §6 already records.
@@ -594,7 +594,7 @@ does not make panning slower so much as it trades fidelity away, and grab-the-po
 thing users asked for. It is judged rather than derived (0.7 as of 2026-08-13), so it may be
 re-judged; what it must not be is *reasoned* into a new value, and the lever for "panning
 feels too fast" is the camera distance. And `zoom.maxDistanceScale` is not
-tunable by feel at all: raise it only with `checks/navigation-zoom.ts` re-run and passing.
+tunable by feel at all: raise it only with `checks/footprint.ts` re-run and passing.
 
 Reference given: **chartogne-taillet.com** — as *concept, not goal*. The site is fully
 JS-rendered so no values could be read from it.
@@ -868,13 +868,18 @@ units, which is a fixed *angle* (16.2°) against a horizontal half-FOV that coll
 at 16:9 to 10.8° at 9:19.5 — so in portrait the subject of the close-up was pushed outside the
 frustum. 0.395 reproduces the judged desktop composition to three decimals.
 
-**Brand atlas:** one 2048×1536 `CanvasTexture`, 2 columns × 3 rows of **1024×512** cells,
-sRGB, mipmapped, `ClampToEdgeWrapping`, anisotropy 4. Cell aspect is **2:1 and coupled to
-`ORBIT_CONFIG.panel` 0.28 × 0.14** — change one without the other and every plate stretches.
-Cell resolution is set by the case-panel close-up at `closeUp.distance` 0.55R, not the
-overview. Hard cap of 6 plates; `cellUv` clamps past it. Logo artwork is specified at
-1600×800 WebP with alpha, contain-fitted into a 896×400 box (`PAD_X` 64, `PAD_Y` 56) — the
-atlas owns the padding, so files must be trimmed tight (`earth/logo-spec.md`).
+**Brand atlases (two since 2026-08-25, `DECISIONS` §26.21):** one `CanvasTexture` per
+`AtlasKind`, 2 columns × `ceil(n/2)` rows — **isotype 512×512** cells (padding 40) and **logo
+1024×512** cells (padding 64 × 56) — sRGB, mipmapped, `ClampToEdgeWrapping`, anisotropy 4. The
+cell aspect is **no longer coupled to the panel**: the shader contain-fits each sample against the
+quad's current aspect, which animates 1:1 → 2:1 as the panel unfolds. Panel sizes all derive from
+`PANEL_HEIGHT` 0.14 (`collapsedWidth` = height, `expandedWidth` = 2 × height, `expandDuration`
+0.35 s, `inset` 0.92, `glassAlpha` 0.42). Cell resolution is set by the case-panel close-up at
+`closeUp.distance` 0.55R, not the overview; `cellUv` clamps past the last cell. Artwork is
+specified at 512² (isotype) and 1600×800 (logo), WebP with alpha, contain-fitted — the atlas owns
+the padding, so files must be trimmed tight (`earth/logo-spec.md`). The drawn floor is a ring
+monogram and, in the logo atlas, a soft-white wordmark at `rgb(200,200,200)` — that value is
+pinned by the bloom threshold, see §11.58.
 
 **Earth rotation is 0.035 rad/s — a full turn takes ~180 s.** Worth knowing before writing any
 test that waits for a specific place to face the camera: Murcia is on the near side for well
@@ -903,9 +908,15 @@ a sky read as distant, where dimming alone only flattens it, so contrast at 1.00
 source needs none. It was 0.22 · 1.25 for the ESO panorama; see the retuning note below, which
 is the same fact from the other end.  Star seed `20260811`.
 
-Sky texture: **4096 × 2048 AVIF q59, 194,642 bytes on the wire, RGBA8 no mipmaps = 33.6 MB
-VRAM**, with a 2048-wide pair below a 767 px viewport (81,648 bytes, 8.4 MB) and WebP twins for
-browsers without AVIF. **AVIF is load-bearing** — see §11.38 — but the specific quality is set
+Sky texture: **4096 × 2048 AVIF q70, 188,787 bytes on the wire, RGBA8 no mipmaps = 33.6 MB
+VRAM**, with a 2048-wide pair below a 767 px viewport (82,088 bytes, 8.4 MB) and WebP twins for
+browsers without AVIF.
+
+**Regenerated 2026-08-25** with a latitude-ramped median (5 at the plane, 15 by 60°, ramp from
+25°) and requantised from q59 to q70 — the polar median freed 50 KB and it was spent on quality
+rather than pocketed. Polar caps: `skyCapStart` 68° · `skyCapFull` 84° · `skyCapStrength` 0.35 ·
+`capAzimuth` 15° · per-pole `capLevel` 0.036286 / 0.011333 LINEAR · `skyGrain` 0.12 ·
+`grainCellDegrees` 0.10. **AVIF is load-bearing** — see §11.38 — but the specific quality is set
 by a **200 KB client budget** rather than by the block-ratio optimum, which on this source is
 q80. q59 measures 1.666 and looks clean anyway because the shader dithers.
 
@@ -939,7 +950,7 @@ script mitigates the visible consequence (§11.55); it cannot make the image a p
 residual "zoomed" look is a property of the source and only a different source fixes it. Screen
 any replacement with the pole ratio the script prints, and **verify with the picture**:
 `node scripts/preview-sky-poles.mjs`. Full working in
-`docs/audits/sky-panorama-projection-2026-08-19.md`.
+`docs/audits/reports/sky-panorama-projection-2026-08-19.md`.
 
 **The new source is dimmer, so `skyBrightness` went 0.22 → 0.60 and `skyContrast` 1.25 → 1.00.**
 At the old pair this image renders almost entirely black. Any future sky swap needs that pair
@@ -1499,11 +1510,63 @@ must restore it to measure coverage.
     and a symptom disagree, **suspect the metric** — the only thing that caught this was
     rendering the pole and looking at it, which is why `scripts/preview-sky-poles.mjs` exists.
 
+57. **A canvas text limit is a width, not a coordinate.** `drawLockup` computed its shrink
+    threshold as `originX + cell.width - pad - …` — correct for the cell at the origin and
+    1024 px too generous for every plate in the second atlas column, so "PcComponentes" never
+    shrank and ran off its cell. Nothing asserted it: the recorder in `createBrandAtlas.test.ts`
+    returns `text.length * 40` from `measureText`, which is too narrow to trigger the branch.
+    Found by looking at the panel in a browser, 2026-08-25. When a per-cell value is derived
+    from an origin, check it against a cell that is *not* at the origin.
+58. **Alpha does not get you under the bloom threshold.** Earth's `UnrealBloomPass` thresholds
+    at **0.62 linear luminance** (`introConfig.bloomThreshold`), and the brand atlas is
+    SRGB-tagged, so a white pixel samples as 1.0 linear whatever its alpha — a wordmark drawn
+    `rgba(255,255,255,0.92)` bloomed into a halo. Dim the **colour**: `rgb(200,200,200)` is
+    ~0.58 linear, just under the knee. The same applies to anything else drawn into a scene
+    texture that must stay crisp; brand rings in saturated colours *do* glow, and that is
+    accepted as the projection's own light.
+
 ---
 
 ## 12. State of the work
 
-**Sky projection, 2026-08-20 (`DECISIONS` §19 amendment, `audits/sky-panorama-projection-2026-08-19.md`).**
+**Brand panel: isotype at rest, logo on selection, and a redesign of its chrome — 2026-08-25
+(`DECISIONS` §26.21–26.22, §18 amendment; commits `74098b4`, `718f2d0`).** The panel above each
+satellite rests as a square showing the brand's symbol and unfolds to the full lockup only while
+its case study is selected. One eased value in `panelExpansion.ts` drives width, aspect correction
+and crossfade, so reversal mid-unfold is free; two atlases replace one, and the shader contain-fits
+so panel and cell aspect are decoupled. The content model carries `isotype` alongside `logo`
+through Sanity schema, projection, mirror, invariants and fixtures, and the pair is a hard
+requirement enforced at `content:build` and in the Studio. The chrome was then restyled from a
+cyan HUD to dark glass matching `.case-panel` — screen-constant `fwidth` hairline, corner ticks,
+ring monogram, and the brand colour only on an emitter line with a bloom beneath the pane. Verified
+headless: overview (six small dark squares, hairline not a band) and close-up (full lockup, emitter
+across the 2:1 width); 809 unit tests and every harness green. Two bugs found by looking rather than
+testing — §11.57 and §11.58. **Not exercised:** a real full-colour logo through the composite; no
+asset exists yet. The first one to land should be checked for a colour cast before anything else.
+**The plan that produced the mechanics was overwritten** by the redesign plan in the same session
+and reconstructed from the transcript after a crash; the two commits were split by replaying that
+session's edits onto `HEAD`.
+
+**Sky poles, 2026-08-25 — a fix verified against the artifact it was aimed at hid the rest of that
+artifact, and the metric agreed with the broken picture in BOTH directions.** The 2026-08-19 pass
+rendered the pole view looking for spokes, found the innermost degrees clean, and shipped. The
+fade's weight at 60° of latitude is 0.06, so the spokes survived across 45°–75° — most of a pole
+view — for six days. Two general forms, both new:
+
+- **The previous round's fix defines what the next round looks for.** The tool that verified
+  2026-08-19 was aimed at the region 2026-08-19 had repaired. Re-derive the symptom from the
+  picture before reaching for the tool that closed it last time.
+- **A metric that cannot tell signal from artifact cannot be read in either direction.** Azimuthal
+  detail 25° from the pole measured 1.16 against ordinary sky's 0.37–0.80 — *above* healthy, read
+  as "nothing wrong here". It was the dashes. §19's existing lesson was "a metric can agree with a
+  broken picture"; this is the same metric agreeing that a broken picture is BETTER than a good one.
+
+Also: `convergePoles` is **mean-preserving** on both passes, so the dark caps are the flat source's
+own dark edges and no regeneration lightens them; and the cap repair ships at strength 0.35 because
+above ~0.5 it becomes a mottled disc — the third time a fix to this sky has become the next artifact.
+Judge it at the scene's exposure, not at `preview-sky-poles.mjs`'s 2.4× detection gain.
+
+**Sky projection, 2026-08-20 (`DECISIONS` §19 amendment, `audits/reports/sky-panorama-projection-2026-08-19.md`).**
 Reported as "the image is like zoomed" and "you can see the edge of the image". The source is
 a flat 2:1 picture rather than an equirectangular panorama, so the poles rendered as a pinwheel
 on a vertex with a hard meridian wedge; both poles are reachable by ordinary dragging, and the

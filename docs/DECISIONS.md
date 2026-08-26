@@ -330,7 +330,8 @@ a district hovered and the hand never relaxes.
 ## 15. The warp is triggered by a control, never by scroll
 
 > **REVERSED 2026-08-19 — `adr/009-navigation-is-a-gesture.md`.** The warp is now driven by a
-> gesture: wheel on desktop, a right-edge rail drag on touch, accumulating deliberate progress
+> gesture: wheel on desktop, a two-finger pinch on touch (a right-edge rail until `adr/012`),
+> accumulating deliberate progress
 > and committing at a threshold. The control is gone — `ReturnToEarthControl` is deleted and the
 > Spain marker no longer navigates. This was a **product decision, not a technical argument**,
 > and the reasoning below is preserved rather than deleted because most of it is still true and
@@ -489,6 +490,15 @@ probe was skipped.
 
 Artwork requirements are in `earth/logo-spec.md` — it is written to be sent to a client.
 
+> **Amendment, 2026-08-25.** The seam is a **pair**, not a single string: `isotype` (the square
+> symbol, shown at rest) and `logo` (the full lockup, shown under selection) — §26.21. Everything
+> above still holds for both; there are now two atlases and two texture binds rather than one,
+> and `createBrandAtlas(plates, kind)` draws the floor for each. **The pair is a hard
+> requirement**: a case study with one and not the other fails `content:build` naming the case,
+> and the Studio's validation says the same to the editor. A case with neither keeps both drawn
+> plates. Half-authored brand artwork would crossfade from a real mark into a drawn one mid-unfold,
+> which is not a state worth designing for.
+
 ---
 
 ## 19. The sky is a photograph, and it is a mesh rather than a background
@@ -620,7 +630,7 @@ hide it at a breakpoint, or fade it further.
 > a ~20 px/deg viewport, i.e. 1.76× magnification, and accepts it.
 >
 > Full working, including why the metric must be measured PER CHANNEL, in
-> `docs/audits/sky-panorama-projection-2026-08-19.md`.
+> `docs/audits/reports/sky-panorama-projection-2026-08-19.md`.
 >
 > Two further findings, both measured. The seam correction now applies the **median per-channel
 > offset** rather than a smoothed per-row delta: the per-row scheme closed the seam but printed
@@ -636,6 +646,81 @@ hide it at a breakpoint, or fade it further.
 > third-party shapes it forbids (ESO, CC BY, Creative Commons) instead of matching any `©`:
 > the site footer carries the brand's OWN mark (§30), which is not a credit to anyone else
 > and is exactly what the no-third-party-credit requirement leaves room for.
+
+> **Amended, 2026-08-25: the 2026-08-19 fix repaired the innermost 15 degrees and left the rest,
+> and the metric said it was done.** Reported again in the same words — "the collapse point, the
+> point where the sphere closes", plus "pixeled, like zoomed".
+>
+> **What was actually on screen.** A point in a FLAT image maps near a pole to a shape whose
+> radial extent is constant and whose azimuthal extent shrinks in proportion to the distance from
+> the pole. So every star the 5x5 median left behind became a RADIAL DASH, and the cap read as a
+> warp-speed tunnel converging on a vertex. `convergePoles`'s fade is a smoothstep from 55 to 90,
+> so its weight at 60 degrees is **0.06** and at 70 it is **0.40**: everything from roughly 45 to
+> 75 degrees was never touched, which is most of a pole view at any FOV the scene uses.
+>
+> **Why the 2026-08-19 pass did not see it.** It rendered the pole view looking for spokes, found
+> the innermost degrees clean, and stopped. §19's own lesson, in a third costume: the previous
+> round's fix defines what the next round looks for.
+>
+> **The ring metric agreed with a broken picture too, and it agreed the other way round.**
+> Azimuthal detail at 25 degrees from the pole measures 1.16 against ordinary sky's 0.37-0.80 —
+> *above* the healthy range. Read as a number that says "plenty of structure, nothing wrong here".
+> It was the dashes. A metric that cannot tell gas from aliased streaks cannot be read in either
+> direction; only the picture can.
+>
+> **It cannot be fixed downstream.** A shader cannot remove a dash by modulating it — multiplying
+> a dash by anything leaves a dash — and the azimuthal average that does remove it is affordable
+> in the prep script and nowhere else.
+>
+> **So the median window now ramps with latitude**: 5 at the galactic plane where the dust lanes
+> are, 15 by 60 degrees where there is no fine structure to protect. The ramp starts at 25, so
+> everything the resting camera is pointed at keeps the original 5x5 exactly, and the "median 9
+> softens the core" trade that rejected a stronger filter globally is declined rather than paid.
+> Point stars are high-entropy, so this took the desktop AVIF from 194,642 bytes to 144,318 at the
+> same quality — spent back on quality, not pocketed: **q59 to q70**, re-measured, 188,787 bytes.
+>
+> **The darkness of the caps is NOT a defect and must not be "fixed".** `convergePoles` is
+> mean-preserving on both passes — the circular box blur preserves each row's sum, and
+> `row += (mean - row) * fade` preserves the mean by construction. The caps are dark because the
+> flat source's top and bottom rows are dark. A real galactic pole is dark too. Anyone who
+> "corrects" this will brighten the poles and be wrong.
+>
+> **What is left for the shader is the SYMMETRY.** With the dashes gone the caps are almost
+> perfectly radially symmetric smooth gradients, which still reads as a funnel. `shell.frag.glsl`
+> now samples the panorama a second time through a fixed **90-degree** rotation and uses it as a
+> **multiplier whose mean over the cap is 1 by construction**. 90 degrees is forced, not chosen:
+> it puts the borrowed frame's own poles AND its `atan` branch cut exactly on the primary's
+> equator, where the weight is already zero, so the repair cannot recurse or introduce a second
+> seam. It also hands the two caps antipodal patches, so north and south are not copies.
+>
+> A mean-1 multiplier rather than a cross-fade because the two caps' levels differ by **3.2x**: a
+> lerp would trade a dark funnel for a bright one. For the same reason the level is **per pole**,
+> not one shared constant.
+>
+> **The cap ships at strength 0.35, and low on purpose.** Above ~0.5 the borrowed patch stops
+> reading as gas and becomes a mottled disc pasted over the pole — the cap becomes its own
+> artifact, which is now the third time this sky has done that. Judge it at the SCENE's exposure
+> (0.60 through ACES), never at `preview-sky-poles.mjs`'s 2.4x detection gain, which makes 0.7
+> look reasonable and 0.35 look like nothing.
+>
+> **"Pixeled" is answered separately**, by a direction-locked multiplicative grain in the shader.
+> The magnification is 1.76x at DPR 1 and 3.5x at DPR 2 and is fixed by the 4096x2048 standing
+> decision, so it cannot be answered with resolution; grain gives the eye high-frequency content
+> to resolve, the same way it rescues a soft scan. It is NOT the dither, which stays: one code
+> value of white noise for the OutputPass's 8-bit quantisation is a different job from breaking up
+> AVIF block plateaus.
+>
+> **The cap start has a hard geometric floor of 62.2 degrees.** At rest the nearest sky pole is
+> exactly `90 - skyBandTilt` = 68 degrees off the view axis and the 1600x900 frame's half-diagonal
+> is 40.2, so a corner reaches latitude 62.2. Start below that and the repair is in the resting
+> frame. It ships at 68, and `checks/space-backdrop.ts` section 7 recomputes the margin from the
+> real modules — the first cut of that check compared against 27.8 (the angle FROM the pole)
+> instead of 62.2 (the latitude), passed, and guarded nothing.
+>
+> **The resting e2e baselines pass UNCHANGED**, which is the evidence the repair stayed in the
+> caps. If they move, that is the test working.
+>
+> Full working and the numbers in `CREDITS.md` and the header of `scripts/prepare-sky-panorama.mjs`.
 
 **Bloom now exists in the pipeline**, between `RenderPass` and `AfterimagePass`. Before it,
 nothing in the scene could look luminous rather than painted — a star was a bright matte dot
@@ -744,7 +829,7 @@ Four structural consequences, each of which is the reason a number moved:
   gesture entered on purpose can afford to cost more travel — and the gestures now carrying it
   (right-drag, two fingers) have less usable travel than a primary drag does.
 - **Distance became user state, and therefore a footprint input.** So it is bounded by a
-  check and not by a number: `checks/navigation-zoom.ts` proves `maxDistanceScale` against
+  check and not by a number: `checks/footprint.ts` proves `maxDistanceScale` against
   `computeGroundFootprint` at every azimuth on every tested aspect. Same class of hazard as
   §7's warp poses, and it gets the same treatment.
 - **The terrain skirt widened 600 → 700, because the skirt is what pays for zoom-out.** At
@@ -1218,6 +1303,95 @@ inlined). The preload scanner already fetches a 6 KB tag in parallel while the d
 the document is the critical path, and inlining makes it bigger. The numbers are kept in
 `vite.config.ts` so the idea is not re-attempted from the same reasoning.
 
+**26.21 — The brand panel rests on the isotype and unfolds into the logo on selection.** Added
+2026-08-25 (`74098b4`). Six full wordmarks were permanently on screen above the satellites — a
+lot of horizontal text competing with the Earth for a view whose subject is the Earth. The panel
+is now a **square showing the brand's symbol alone**, and while its case study is selected it
+unfolds to 2:1 with the full lockup, folding back on deselect. Selection only, never hover:
+`createSatelliteFocus` already told `selectedId` from `hoveredId`, and the 1.14× bump stays the
+hover's only response.
+
+*One eased value drives everything.* Each frame `panelExpansion.ts` produces a single number
+and the quad's width, the frame's aspect correction and the isotype→logo crossfade are all
+derived from it — `uAspect` is computed **from the width that was just written**, never lerped
+beside it, so the frame cannot disagree with the quad's real shape for a frame. Progress is
+stored as a value rather than a start timestamp, which is what makes reversal free: a panel
+caught halfway open turns around from 0.6, not from 1.0. `reset()` snaps rather than animates,
+for the reason the hover bump is already cleared outright rather than tweened across a replay.
+
+*Two atlases, and the panel aspect is decoupled from the cell aspect.* `createBrandAtlas` takes a
+`kind` — a closed set of exactly two, with the cell sizes as constants keyed by it rather than
+parameters, because a caller able to pass a third combination would build a grid that quietly
+letterboxes instead of failing. The fragment shader **contain-fits** each sample against the
+quad's *current* aspect (`containUv`), with the bounds check on the contained uv **before** the
+cell fold — afterwards the coordinate is inside its cell by construction, and `ClampToEdge`
+would smear the neighbouring plate's border across the letterbox. This retires the "2:1,
+matching the atlas cell aspect — change both together" contract §9 of `PROJECT_MEMORY` used to
+carry. Both widths derive from `PANEL_HEIGHT`; to make the resting square read larger, raise the
+height, never the collapsed width alone.
+
+*The content model carries the pair* — see §18's amendment for the hard requirement.
+
+**How you would know it broke.** A wordmark visible at rest. An isotype that stretches to twice
+its width as the panel unfolds. A border thicker on one axis mid-transition. A panel that snaps
+fully open before closing when the viewer clicks straight from one satellite to another.
+
+**26.22 — The panel's chrome is dark glass, and the brand colour lives on the emitter.** Added
+2026-08-25 (`718f2d0`), immediately after 26.21, because zooming in on the settled state showed
+that the mechanics were right and the look was not: fat cyan corner brackets, a brand-coloured
+wash over the whole pane, a filled-disc "avatar" with a dark initial, a bold underlined wordmark
+and scanlines striping across all of it — a generic sci-fi HUD, none of it a choice made for this
+site. It mattered more than it had a day earlier, twice over: **real trademarks will be seen
+through this chrome**, and a brand-tinted wash under a full-colour logo is a colour cast on
+someone's mark; and **the isotype is on screen six times, permanently**, at ~30 px, where a frame
+drawn as a fixed fraction of the panel was the loudest thing in it.
+
+*The chrome is designed to be looked through, not at.* The panel is the in-scene cousin of
+`.case-panel`: the same near-black glass (`rgb(12,15,22)`, alpha 0.30 → 0.42), a white hairline at
+0.16, four small corner ticks *outside* the pane, and the artwork composited over the glass
+**untinted** through a straight-alpha `over()`. No scanlines, no grain, no flicker — the plate is
+a trademark and is drawn as delivered. `panel.frameColor` is gone.
+
+*The hairline is screen-constant.* Its width comes from `fwidth()` (core in WebGL2, which three
+0.174 targets exclusively), so it is ~1 px at the close-up **and** ~1 px on the resting square.
+The old `smoothstep(0.012, 0.020, edge)` in uv scaled with the panel and was a band at overview
+distance; this single change is why the collapsed state now reads as artwork with a frame rather
+than a frame with something inside.
+
+*Exactly one brand-coloured element.* The **emitter line**: a brand-colour line along the pane's
+bottom edge, the pane's exact width, with a soft bloom falling away beneath it into the band the
+`panel.inset` (0.92) leaves outside the glass, fading out before the quad's edge can clip it. It
+is what makes the panel read as projected up from the satellite, and it is where all the brand
+colour moved to. The bloom breathes at 8% over 1.4 s; nothing else moves. The alternatives —
+pure glass with no signature, or tinting the hairline itself — were considered and rejected: the
+first leaves six identical dark squares with nothing saying "a different client" until the letter
+is read, the second puts saturated colour back beside the artwork.
+
+*The drawn floor is a monogram, not an avatar.* A stroked brand-colour ring (stroke 7% of the
+diameter, drawn inside the radius so its outer edge lands on the padded box like a real isotype)
+with the initial in the brand colour at weight 500. The lockup's wordmark is soft white, 500,
+tracked `0.02em`, with **no rule beneath it** — it contrasts with the ring instead of matching
+it, which is what stops mark, name and ground merging into one hue. Isotype padding tightened
+56 → 40 px, because at 30 px every pixel of margin is a pixel the symbol does not get.
+
+*Two defects the browser check surfaced.* `drawLockup`'s text limit added `originX`, so a name in
+the second atlas column never shrank and "PcComponentes" ran off the cell — it is a width now.
+And the scene's bloom thresholds at **0.62 linear luminance** (§19); the atlas is SRGB-tagged so
+the sampled value of white is 1.0 whatever its alpha, and a translucent white wordmark bloomed
+into a halo. The wordmark is opaque `rgb(200,200,200)`, ~0.58 linear — under the knee.
+
+**Ruled out.** A brand-tinted pane (the cast). Brackets, even thin ones (a targeting reticle).
+Scanlines on the plate (banding across the letterforms, muddy on real logos). Any per-frame hash
+flicker (reads as broken, not holographic).
+
+**How you would know it broke.** A real full-colour logo with a colour cast. A frame that reads
+as a band on the resting square. Saturated colour anywhere in the chrome but the bottom edge. A
+glowing wordmark. A bloom cut off flat at the quad's edge.
+
+**Not exercised.** A real full-colour trademark through the new composite — no asset was
+available. The composite is neutral-over-glass by construction; the day the first real logo
+lands, look for a cast before anything else.
+
 ---
 
 ## 27. Content is generated at build time, and the browser never calls the CMS
@@ -1324,6 +1498,26 @@ some is merely not-yet-moved, and conflating them turns a temporary constraint i
 
 ## 29. The rail's feel is presentation, and its dress is the journey
 
+> **AMENDED 2026-08-26 — `adr/012`. The rail is gone, and the hint waits.** Touch navigates by
+> pinching the scene, so the rail lost both of its jobs: the scene is the indicator now, and there
+> is nothing left to drag. What survives is the accumulator/spring split below (unchanged, and the
+> feel rule with it) and the fact that SOMETHING must say a gesture exists.
+>
+> The hint's rule inverts. Once-per-visit-from-first-paint was right for a rail, because the rail
+> was visible and advertised itself — the hint only had to explain it. A pinch on a bare canvas
+> advertises nothing, so the hint now appears after **five seconds with no navigation input** and
+> offers itself **once per world**, re-armed on arrival because the two worlds are left by opposite
+> gestures and demonstrating one teaches nothing about the other. A two-finger gesture classified
+> as Murcia's ROTATION explicitly does not count as having demonstrated anything.
+>
+> `--nav-progress`, `data-state` and `data-direction` are still written, now as the observable
+> surface e2e reads rather than as anything drawn.
+>
+> **Everything below describes the rail itself and is preserved rather than deleted**, in
+> keeping with this file's habit: the reasoning about where FEEL belongs is still correct and
+> still governs the spring, and the fill/glass paragraphs are the record of a thing that
+> shipped. The rail element, its gradient and its glass no longer exist.
+
 The navigation rail (`adr/009`) is the one control between the worlds, and three 2026-08-20
 decisions govern how it reads and feels. All three live in the presentation layer on
 purpose: the accumulator's constants (`commitDistancePx`, `idleGapSeconds`, `decaySeconds`)
@@ -1356,9 +1550,9 @@ mouse glyph on fine pointers, a swipe glyph on coarse; the input decides, never 
 frame a gesture is in flight, through the one funnel every input path shares, and never
 resurrected by a reset: a reset returns progress to zero, not the viewer to ignorance.
 
-Broken when: the fill animates by anything but transforms, a feel change edits
-`NAVIGATION_GESTURE` instead of `NAVIGATION_SPRING`, the rail learns which scene is behind
-it, or the hint comes back after a gesture.
+Broken when: a feel change edits `NAVIGATION_GESTURE` instead of `NAVIGATION_SPRING`, the control
+learns which scene is behind it, the hint re-appears within a world after a gesture, or the hint
+is shown while the context is refusing navigation.
 
 ## 30. Contact, legal and the brand's own mark
 
@@ -1497,8 +1691,10 @@ renders with a clause missing; or the entry budget fails and the message blames 
 | `SATELLITES` is the single seam an API would replace | **§26.13**, `orbitConfig.ts` | The seam is the generated module. `SATELLITES` is deleted; content is emitted at build time — **§27**, `adr/010` |
 | The satellite↔orbit pairing is positional, and `orbitId` is unread | `createOrbitSystem.ts`, `caseStudies.ts` | `orbitId` is off the content type; `orbitAssignments.ts` binds preset to case and unresolvable ones fail the build — **§28** |
 | `logo` becomes a CMS media URL, needing CORS and an `img-src` entry | **§18**, 2026-08-14 | Media is mirrored into `public/logos/` at build time, so it stays same-origin and the CSP is untouched — **§27** |
-| The warp is triggered by a control, never by scroll | **§15**, inherited from the Murcia prototype | A gesture: wheel, and a right-edge rail on touch. Accumulated, reversible, threshold-committed — **`adr/009`** |
-| A bounded zoom band lands on the wheel and on pinch | **§20**, 2026-08-13 | There is no zoom anywhere. Controlled focus flights on clickable objects are the only way to get closer — **`adr/009`** |
+| `logo` is a single string, and that is the entire media seam; one 2048×1536 atlas whose 2:1 cell is coupled to `panel.width` | **§18**, `PROJECT_MEMORY` §9 | A pair, `isotype` + `logo`, both or neither; two atlases, and the shader contain-fits so panel and cell aspect are independent — **§18** amendment 2026-08-25, **§26.21** |
+| The panel's frame is Vertigo's cyan holographic language (`panel.frameColor`, brackets, scanlines, brand-tinted pane) | `createHoloPanel.ts`, `orbitConfig.ts` until 2026-08-25 | Dark glass matching `.case-panel`, a screen-constant hairline, and the brand colour only on the emitter line — **§26.22** |
+| The warp is triggered by a control, never by scroll | **§15**, inherited from the Murcia prototype | A gesture: wheel on desktop, a two-finger pinch on touch. Accumulated, reversible, threshold-committed — **`adr/009`**, then **`adr/012`** |
+| A bounded zoom band lands on the wheel and on pinch | **§20**, 2026-08-13 | There is no zoom anywhere. Flights are the only way to get closer — **`adr/009`**. A pinch means NAVIGATE, not zoom — **`adr/012`** |
 | Wheel is claimed by both experiences’ cameras | `createFocusCameraRig.ts`, `DragPanController.ts` | One global listener owns the whole wheel stream, which is what makes trackpad momentum tractable — **`adr/009`** |
 | The repo has no test runner | `PROJECT_MEMORY` §2, "no ESLint and no test runner" | Vitest for pure logic; `checks/` unchanged; Playwright local — **§22** |
 | `npm run check` is the gate, and nothing runs it | `PROJECT_MEMORY` §10, audit `VER-1` | `npm run build` runs it, and every harness can fail — **§12** |
@@ -1508,7 +1704,10 @@ renders with a clause missing; or the entry budget fails and the message blames 
 | The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
 | The backdrop is a field of uniform points on a shell | the Earth prototype's "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** |
 | The sky is generated on the GPU, not downloaded | **§19**, first form | It is a 113 KB photograph. The procedural nebula could not be made to look like anything but dirt, for structural reasons — **§19** |
-| The sky source is an equirectangular panorama | **§19**, `CREDITS.md`, `spaceConfig.ts`, and the `width === height * 2` guard that "checked" it | It is a flat 2:1 image, and so is every candidate that was screened. Aspect ratio is not projection. Mitigated by `convergePoles`, not fixed — only a different source fixes it — **§19** amendment 2026-08-20, `audits/sky-panorama-projection-2026-08-19.md` |
+| The sky source is an equirectangular panorama | **§19**, `CREDITS.md`, `spaceConfig.ts`, and the `width === height * 2` guard that "checked" it | It is a flat 2:1 image, and so is every candidate that was screened. Aspect ratio is not projection. Mitigated by `convergePoles`, not fixed — only a different source fixes it — **§19** amendment 2026-08-20, `audits/reports/sky-panorama-projection-2026-08-19.md` |
+| `convergePoles` removed the polar spokes | **§19** amendment 2026-08-19, and a pole view rendered looking only for what it had just fixed | It removed them above ~75 degrees. Its fade weight is 0.06 at 60 and 0.40 at 70, so the dashes survived across 45-75 — most of a pole view — for six days. Fixed 2026-08-25 by ramping the median window with latitude — **§19** amendment 2026-08-25 |
+| The polar caps are dark because `convergePoles` darkened them | the shape of the artifact, and the fact that the fade obviously removes signal | It is **mean-preserving on both passes**: the box blur preserves each row's sum and the fade is `row += (mean - row) * fade`. The darkness is the flat source's own top and bottom rows. Turning the fade off restores the spokes, re-inflates the file, and does not lighten the caps by one code value — **§19** amendment 2026-08-25 |
+| High azimuthal detail near the pole means the sky there is healthy | the ring metric used to verify the 2026-08-25 diagnosis | 1.16 at 25 degrees against ordinary sky's 0.37-0.80 was the DASHES, not gas. The metric cannot tell structure from aliased streaks, so it cannot be read in either direction — **§19** amendment 2026-08-25 |
 | The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** |
 | A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) |
 | Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** |

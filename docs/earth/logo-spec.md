@@ -23,7 +23,7 @@ public/logos/satellite-01.webp           →   logo:    '/logos/satellite-01.web
 **Los dos van juntos o no va ninguno.** La compilación **rechaza** un caso que
 tenga uno y no el otro, y lo dice nombrando el caso: el panel pasaría de una
 marca real a un marcador de posición dibujado a mitad de la animación. Un caso
-sin ninguno de los dos es válido — se queda con la placa generada, un círculo
+sin ninguno de los dos es válido — se queda con la placa generada, un anillo fino
 con la inicial y el color de marca.
 
 El código hace **contain-fit** en los dos: escala la imagen hasta que quepa
