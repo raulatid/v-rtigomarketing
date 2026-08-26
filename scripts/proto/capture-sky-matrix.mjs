@@ -40,7 +40,7 @@ const HEIGHT = 900
 const ASPECT = WIDTH / HEIGHT
 
 /** `baseline` is the shipped panorama — the arm the variants have to beat. */
-const VARIANTS = ['baseline', 'a', 'b', 'c', 'd']
+const VARIANTS = ['baseline', 'a', 'b', 'c', 'd', 'c2', 'c3', 'c4', 'c5', 'c6']
 
 const DEG = Math.PI / 180
 

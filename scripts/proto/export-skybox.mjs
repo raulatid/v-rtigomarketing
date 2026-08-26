@@ -36,6 +36,13 @@ const VARIANTS = {
   b: 'b-nebula.json',
   c: 'c-cinematic.json',
   d: 'd-asymmetric.json',
+  // Refinements of C, the direction that won the first pass. See
+  // docs/plans/005-sky-cubemap-prototype.md and the scene files themselves.
+  c2: 'c2-carved.json',
+  c3: 'c3-filament.json',
+  c4: 'c4-aurora.json',
+  c5: 'c5-aurora.json',
+  c6: 'c6-aurora.json',
 }
 
 const wanted = process.argv.slice(2)

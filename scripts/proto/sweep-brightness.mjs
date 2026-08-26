@@ -8,7 +8,14 @@
  * it, in the composer, through the same ACES tone map, rather than guessed in
  * the editor where there is no tone mapping and no Earth.
  *
- * Usage: node scripts/proto/sweep-brightness.mjs <variant> [state] [values...]
+ * Values are `brightness` or `brightness:contrast`. Contrast matters more than
+ * it looks: the shader applies pow(sky, contrast) BEFORE brightness, so a
+ * contrast above 1 crushes dim gas toward black while leaving bright filaments
+ * nearly untouched. That is a coverage control, and it is the fastest way to
+ * find the transfer curve a scene's colour ramp should be authored to — a
+ * sweep here is seconds against ten minutes for a re-bake.
+ *
+ * Usage: node scripts/proto/sweep-brightness.mjs <variant> [state] [b|b:c ...]
  */
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
@@ -28,7 +35,10 @@ const STATES = {
 
 const [variant, stateName = 'overview', ...rest] = process.argv.slice(2)
 if (!variant) throw new Error('usage: sweep-brightness.mjs <variant> [state] [values...]')
-const values = rest.length ? rest.map(Number) : [1, 2, 3, 4, 6, 8]
+const values = (rest.length ? rest : ['1', '2', '3', '4', '6', '8']).map((v) => {
+  const [b, c = '1'] = String(v).split(':')
+  return { brightness: Number(b), contrast: Number(c) }
+})
 const state = STATES[stateName]
 if (!state) throw new Error(`unknown state "${stateName}" — ${Object.keys(STATES).join(', ')}`)
 
@@ -36,7 +46,7 @@ mkdirSync(OUT, { recursive: true })
 const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 } })
 
-for (const brightness of values) {
+for (const { brightness, contrast } of values) {
   const page = await context.newPage()
   page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message}`))
   const params = new URLSearchParams({
@@ -44,13 +54,15 @@ for (const brightness of values) {
     freezeEarth: '1',
     stars: '0',
     skyBrightness: String(brightness),
+    skyContrast: String(contrast),
   })
   await bootAndSettle(page, `${APP_URL}?${params}`)
   await requireProtoHook(page)
   await waitForCameraControl(page)
   await setCameraChecked(page, { ...state, lookAt: [0, 0, 0] })
-  await page.screenshot({ path: join(OUT, `${variant}-${stateName}-b${brightness}.png`) })
-  console.log(`  ${variant} ${stateName} brightness ${brightness}`)
+  const tag = `b${brightness}-c${contrast}`
+  await page.screenshot({ path: join(OUT, `${variant}-${stateName}-${tag}.png`) })
+  console.log(`  ${variant} ${stateName} ${tag}`)
   await page.close()
 }
 
