@@ -1,6 +1,6 @@
 # Procedural cubemap sky — art-direction discovery
 
-**Ran:** 2026-08-25 → 2026-08-27 · **Against:** `proto/sky-cubemap`, merged to `main`
+**Ran:** 2026-08-25 → 2026-08-27 · **Against:** the work now on `main` (was `proto/sky-cubemap`)
 **Plan:** `plans/005-sky-cubemap-prototype.md` · **Facts it stands on:**
 `plans/005-sky-cubemap-prototype-research.md` (read that first; it is not re-derived here)
 **Touches:** `src/app/protoSky.ts`, `src/experiences/earth/scene/SkyShellCube.tsx`,
