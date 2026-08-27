@@ -25,6 +25,10 @@ import type { CaseStudy } from '../../../content/types'
 const PANEL_HEIGHT = 0.14
 // See `panel.wingGap`. Hoisted because `panel.wingLength` is derived from it.
 const WING_GAP = 0.04
+// See `panel.offsetY`. Hoisted because the emitter cone's mouth is derived from
+// it: the cone has to stop exactly where the field's lower edge begins, and two
+// numbers kept in step by hand drift the moment either is tuned.
+const PANEL_OFFSET_Y = 0.34
 
 export const ORBIT_CONFIG = {
   orbit: {
@@ -106,7 +110,7 @@ export const ORBIT_CONFIG = {
     // Note the panel itself did NOT double with the model: doubling `offsetY`
     // alone would have pushed the plate DEEPER into the model, because the
     // half-height being subtracted stayed put.
-    offsetY: 0.34,
+    offsetY: PANEL_OFFSET_Y,
     // Ceiling on the panel's fade, so the entrance can drive it 0→1 while the
     // panel still reads as a projection rather than a solid card.
     maxOpacity: 0.95,
@@ -130,27 +134,65 @@ export const ORBIT_CONFIG = {
     // lands exactly on `expandedWidth`: the wings terminate where the 2:1 field
     // ends, and the lockup's contain-fit reaches the wing tips and no further.
     wingLength: 0.5 - WING_GAP,
-    // Wing height as a fraction of the core's. Shorter than the core, so the
-    // silhouette steps down at the wing roots (┌─ ─┐ / ───┤ ├───) instead of
-    // one rectangle stretching. The logo cell's vertical padding (56/512 per
-    // side) keeps the lockup's ink inside this band.
-    wingHeight: 0.82,
-    // Length of the stem below the core's bottom edge, where the emitter beam
-    // fades toward the satellite. At 0.35 pane heights the beam's foot lands
-    // just above the model's top (see `offsetY`) so the two visibly meet.
+    // Vertical room reserved BELOW the field, in pane heights. It used to be a
+    // drawn stem; the emitter cone is the beam now, and what is left here is
+    // just quad the emitter wash needs to fade out into without being clipped.
+    // See panelFootprint.
     stemLength: 0.35,
-    // Arm length of the core's corner brackets, from the corner along each edge.
-    bracketLength: 0.14,
     // Transparent margin around the deployed footprint, so hairlines and the
     // wings' terminal nodes are never clipped by the quad's edge.
     margin: 0.06,
-    // Peak alpha of the dark glass, at the pane's bottom edge; the top edge
-    // sits at 70% of it. Matches `.case-panel` beside it — the two describe
-    // the same brand and should look like the same material. The chrome is
-    // deliberately NOT brand-coloured except for the emitter line: the artwork
-    // inside is the brand's, and a tinted pane under a real logo is a colour
-    // cast on someone's trademark.
-    glassAlpha: 0.42,
+    // ── The projection field (plan 008) ──
+    // What replaced the split plate's dark glass. Nothing here draws an edge:
+    // the field is bounded by falloff alone, so there is no rectangle, bracket
+    // or border anywhere in it. Radii are in PANE HEIGHTS, measured in the
+    // field's own space, so they hold as the field opens 1:1 → 2:1.
+
+    // Falloff distance of the rear halo — brand light behind the mark, fading
+    // to nothing in every direction. The only thing that says where the field
+    // is, and it says so without a boundary.
+    haloRadius: 0.46,
+    // Peak alpha of that halo. Six of these are on screen at rest, so this is
+    // the knob that decides whether the overview stays calm.
+    haloStrength: 0.30,
+
+
+    // ── The emitter cone (plan 008) ──
+    // The volume the hologram is projected into: a real frustum mesh parented
+    // to the satellite, not a stripe painted inside the billboard. See
+    // createEmitterCone.ts. These are ABSOLUTE, in the same "Earth radius = 1"
+    // units as `offsetY` — the cone is positioned in the satellite's frame
+    // directly, so pane heights would be an indirection with nothing behind it.
+
+    // Where the cone's foot sits, relative to the satellite's centre. AT the
+    // centre, so the foot is buried inside the model: depth testing then hides
+    // the part within the body and the light appears to come OUT of it. Held
+    // clear of the body instead — the first attempt — the cone tapered to a
+    // point in open space above the satellite and read as a wedge pointing at
+    // it rather than a beam leaving it.
+    coneFootY: 0.0,
+    // Where the mouth ends — exactly the field's lower edge, so the light
+    // arrives at the artwork and stops there instead of washing over it.
+    coneMouthY: PANEL_OFFSET_Y - PANEL_HEIGHT / 2,
+    // Mouth radius at rest, a shade inside the resting field's half-width
+    // (`height / 2`) so the cone reads as arriving at the field rather than
+    // framing it.
+    coneMouthRadius: PANEL_HEIGHT * 0.34,
+    // Foot radius. Narrow, but never zero: a true point makes the taper
+    // converge to a bright singularity that reads as a hotspot.
+    coneFootRadius: 0.012,
+    // How much further the mouth opens at full deployment, as a fraction of
+    // `coneMouthRadius`. The field goes 1:1 → 2:1, so its half-width doubles;
+    // the cone follows most of the way rather than all of it, because a mouth
+    // matching the field's width exactly draws a line along its edge.
+    coneSpread: 0.85,
+    // Overall brightness of the volume, and the knob that decides whether this
+    // reads as light or as a solid object. LOW ON PURPOSE: the material is
+    // additive and double-sided, so a fragment's contribution lands twice —
+    // once through the near shell, once through the far one. At 0.5 the pair
+    // saturated and six opaque funnels hung off the satellites like plumb-bobs.
+    // Nothing here should come close to full white on its own.
+    coneIntensity: 0.26,
   },
 
   cloud: {

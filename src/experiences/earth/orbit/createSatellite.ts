@@ -168,7 +168,7 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
   let holoPanel: HoloPanel | null = null
   if (panel) {
     holoPanel = createHoloPanel(panel)
-    content.add(holoPanel.mesh)
+    content.add(holoPanel.group)
   }
 
   // The spinner carries the model's continuous self-rotation. It advances only

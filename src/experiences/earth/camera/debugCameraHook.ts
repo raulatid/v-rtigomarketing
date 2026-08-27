@@ -43,6 +43,18 @@ export interface VertigoProtoApi {
   getCamera(): ReturnType<FocusCameraRig['getDebugPose']>
   freezeEarth(frozen?: boolean): void
   isEarthFrozen(): boolean
+  /**
+   * True once EVERY satellite has finished its entrance and is idling.
+   *
+   * A capture script needs this because readiness lands long before the
+   * satellites are on screen: the orbit lines draw, then a head rides each one
+   * to its end, and only then does the satellite fade up in its place. Waiting
+   * a fixed number of seconds after `boot.readiness()` instead is a race, and
+   * it is a race that has already produced a checkpoint judged on shots with no
+   * satellites in them — under swiftshader the reveal can still be finishing
+   * seconds after a generous-looking delay.
+   */
+  satellitesIdle(): boolean
   /** The parsed URL parameters, so a script can assert it got the run it asked for. */
   params: typeof PROTO_SKY
 }
@@ -69,8 +81,16 @@ export function isEarthFrozen(): boolean {
 /**
  * Publishes the hook and returns its teardown. Safe to call unconditionally —
  * it installs nothing when the flag is off.
+ *
+ * `satellitesIdle` arrives as a PREDICATE rather than the orbit system itself.
+ * The probe is one boolean and the caller already holds the system; taking the
+ * whole object would put an `orbit/` import into `camera/` to read a single
+ * flag, and this module deliberately knows about nothing but the rig.
  */
-export function installDebugCameraHook(rig: FocusCameraRig): () => void {
+export function installDebugCameraHook(
+  rig: FocusCameraRig,
+  satellitesIdle: () => boolean,
+): () => void {
   if (!DEBUG_TOOLS_ENABLED) return () => {}
 
   window.__vertigoProto = {
@@ -80,6 +100,7 @@ export function installDebugCameraHook(rig: FocusCameraRig): () => void {
       earthFrozen = frozen
     },
     isEarthFrozen: () => earthFrozen,
+    satellitesIdle,
     params: PROTO_SKY,
   }
 

@@ -126,3 +126,6 @@ desktop.ini
 # scripts/proto/capture-holo.mjs. The inspection parameters are the deliverable
 # — they live in the plan document, and in src/app/protoHolo.ts.
 /docs/plans/007-split-plate/shots/
+
+# Projection-field captures (docs/plans/008), regenerable the same way.
+/docs/plans/008-projection-field/shots/

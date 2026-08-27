@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ORBIT_CONFIG, ORBIT_PRESETS, orbitRevealDuration } from './orbitConfig'
+import { panelFootprint } from './createHoloPanel'
 
 // The pairing assertions that stood here moved to resolveOrbitCases.test.ts,
 // and the satellite-id assertion to content/caseStudies.test.ts. Neither was
@@ -101,22 +102,33 @@ describe('the brand panel', () => {
     expect(deployedWidth).toBeCloseTo(panel.expandedWidth, 10)
   })
 
-  it('keeps the lockup ink inside the wings', () => {
-    // The logo atlas pads 56 px of a 512 px cell per side vertically, so the
-    // artwork occupies the central 78%. The wings must be at least that tall
-    // or a real logo's top and bottom would hang outside the structure.
-    expect(ORBIT_CONFIG.panel.wingHeight).toBeGreaterThanOrEqual(1 - (2 * 56) / 512)
-    expect(ORBIT_CONFIG.panel.wingHeight).toBeLessThan(1)
+  it('lets the emitter cone reach the satellite model', () => {
+    // The cone is the cue that the satellite projects the hologram. A cone
+    // whose foot ends above the model leaves a visible gap the eye reads as
+    // "floating", which is the thing being fixed — and it is how the first
+    // attempt failed, tapering to a point in open space above the satellite.
+    const { panel, satellite } = ORBIT_CONFIG
+    expect(panel.coneFootY).toBeLessThan(satellite.modelSize / 2)
+    expect(panel.coneMouthY).toBeGreaterThan(panel.coneFootY)
   })
 
-  it('lets the stem reach the satellite model', () => {
-    // The emitter is the cue that the satellite projects the hologram (plan
-    // 007 phase 7). A stem whose foot ends above the model's top leaves a
-    // visible gap the eye reads as "floating", which is the thing being fixed.
-    const { panel, satellite } = ORBIT_CONFIG
-    const stemFoot = panel.offsetY - panel.height / 2 - panel.stemLength * panel.height
-    expect(stemFoot).toBeLessThan(satellite.modelSize / 2)
-    expect(panel.stemLength).toBeGreaterThan(0)
+  it('lands the cone mouth exactly on the field lower edge', () => {
+    // Derived, not chosen: light that stops short of the artwork leaves the two
+    // visibly unconnected, and light that overshoots washes across the mark.
+    const panel = ORBIT_CONFIG.panel
+    expect(panel.coneMouthY).toBeCloseTo(panel.offsetY - panel.height / 2, 10)
+  })
+
+  it('keeps the halo inside the quad that carries it', () => {
+    // THE FAILURE THIS CATCHES: a falloff still alight at the quad's boundary
+    // is clipped by it, and the clip is a crisp rectangle — the card being left
+    // behind, redrawn in the brand's own colour. The halo has compact support,
+    // so this asserts the support fits: its radius must clear the shorter of
+    // the two vertical distances from the field's centre to the quad's edge.
+    const panel = ORBIT_CONFIG.panel
+    const { height, originY } = panelFootprint(panel)
+    const toTop = (1 - originY) * height
+    expect(panel.haloRadius).toBeLessThan(toTop)
   })
 
   it('keeps the panel clear of the satellite model it floats above', () => {

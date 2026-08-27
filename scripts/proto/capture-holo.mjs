@@ -27,7 +27,15 @@ async function boot(query) {
   // Orbit reveal ≈ 3.5 s after the timeline hands over; wait for all six to idle.
   await page.waitForFunction(() => window.__vertigoIntro.boot.readiness() === "ready", undefined, { timeout: 120_000 })
   await page.waitForFunction(() => { const s = document.querySelector("svg.intro-svg"); return !s || getComputedStyle(s).visibility === "hidden" || getComputedStyle(s).display === "none" || getComputedStyle(s).opacity === "0" }, undefined, { timeout: 120_000 })
-  await page.waitForTimeout(28000)
+  // Wait for the SATELLITES, not for a stopwatch. Readiness lands long before
+  // they are on screen — the orbit lines draw, a head rides each to its end,
+  // then the satellite fades up in its place — and under swiftshader that tail
+  // can outlast any delay that looks generous. The 28 s wait this replaces lost
+  // the race often enough to produce checkpoint shots with no satellites in
+  // them, which is how a rejected design came to look accepted.
+  await page.waitForFunction(() => window.__vertigoProto?.satellitesIdle() === true, undefined, { timeout: 180_000 })
+  // The panels fade in with the satellite's entrance; let the last one land.
+  await page.waitForTimeout(1500)
   return { page, ctx, errors }
 }
 

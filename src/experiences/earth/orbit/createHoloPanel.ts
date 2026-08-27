@@ -3,33 +3,41 @@ import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
 import { advanceExpansion, easeExpansion } from './panelExpansion'
 import { deploymentFrom } from './holoDeployment'
+import { createEmitterCone } from './createEmitterCone'
 import { prefersReducedMotion } from '../../../app/warpTransition'
 import { PROTO_HOLO } from '../../../app/protoHolo'
 
-// The holographic brand panel floating above a satellite.
+// The SATELLITE PROJECTION FIELD: the brand artwork suspended in light above a
+// satellite, with `createEmitterCone.ts` supplying the volume it hangs in.
 //
-// It has two states. At rest it is a SQUARE CORE showing the brand's isotype —
-// its symbol alone. While its case study is selected, two lateral WINGS deploy
-// from the core to open the 2:1 field the full logo lockup needs, and fold back
-// on deselect. Six wordmarks permanently on screen was a lot of horizontal text
-// competing with the Earth; the isotype is the same identity at a quarter of
-// the footprint, and the lockup is a reward for showing interest.
+// It has two states. At rest the field is square and holds the brand's isotype,
+// its symbol alone. While its case study is selected the field opens to the 2:1
+// the full lockup needs, and closes again on deselect. Six wordmarks
+// permanently on screen was a lot of horizontal text competing with the Earth;
+// the isotype is the same identity at a quarter of the footprint, and the
+// lockup is a reward for showing interest.
 //
-// A PROJECTION SYSTEM DEPLOYS; A RECTANGLE DOES NOT GET WIDER. That is plan
-// 007's one conceptual shift, and it decides the geometry: the quad is always
-// the fully deployed footprint, and the fragment shader draws only the parts
-// the expansion has opened — the core at rest, the wings travelling out from a
-// gap beside it, a stem beneath carrying the emitter beam toward the satellite.
-// One quad, one draw call per panel, and a three-part silhouette; separate
-// wing meshes would each need a view-space offset to survive the billboard
-// below, for no visual gain.
+// NOTHING HERE HAS AN EDGE. That is the whole design, and it is what three
+// previous passes got wrong. Every one of them bounded the hologram with a
+// mask — an inset pane, then a core and two wings, each a hard step() — and
+// every one of them therefore read as a CARD, because a hard edge is what a
+// card is. Brackets, ticks and terminal nodes were added on top to make the
+// card look technical, which only made it a busier card. What bounds this field
+// instead is falloff: a halo with compact support, and the artwork itself,
+// feathered at its own boundary rather than cut there. No rectangle, no border,
+// no bracket. See the fragment shader's main().
 //
-// ONE EASED VALUE DRIVES EVERYTHING. Each frame produces a single number and
-// `holoDeployment.ts` remaps it into the stages the shader consumes — the
-// core's activation, the wings' travel, the logo's resolve. They are not three
-// tweens that happen to share a duration — that arrangement drifts, and it
-// drifts visibly: a field aspect a frame behind the wings draws the lockup past
-// the structure that is meant to hold it.
+// The brand colour lives on the LIGHT and never on the artwork, so a real
+// full-colour trademark shows its own colours with no cast. What the artwork
+// does take from the field is its luminance modulation — the same scan and
+// unevenness the light has — which is what stops it reading as a decal laid
+// over a glow rather than something inside it.
+//
+// ONE EASED VALUE DRIVES EVERYTHING, the field and the cone alike. Each frame
+// produces a single number and `holoDeployment.ts` remaps it into the stages
+// both consume. They are not tweens that happen to share a duration — that
+// arrangement drifts, and it drifts visibly: a field aspect a frame behind the
+// deployment draws the lockup past the light meant to be carrying it.
 //
 // Geometry is a plain unit quad created in code — a Blender round trip would
 // add a GLB fetch and a Draco decode for two triangles, and would freeze the
@@ -74,38 +82,23 @@ const FRAGMENT = /* glsl */ `
   uniform vec2 uLogoScale;
   uniform float uLogoAspect;
 
-  // The single scalar, eased, and its stages: (activation, deploy, resolve,
-  // wing extent). See holoDeployment.ts — the shader never remaps ranges.
-  uniform float uExpand;
+  // The eased scalar's stages: (activation, deploy, resolve, rail extent).
+  // See holoDeployment.ts — the shader never remaps ranges of its own.
   uniform vec4 uDeploy;
 
   uniform vec3 uBrandColor;
   uniform float uOpacity;
   uniform float uTime;
   uniform float uBreath;
-  uniform float uGlassAlpha;
 
   // Quad → pane space. The quad's size in pane heights, and the core's centre
   // in quad uv. Constant per panel; both come from the config.
   uniform vec2 uQuadScale;
   uniform vec2 uOrigin;
-  // (wing gap, wing height / 2, bracket length, stem length), in pane heights.
-  uniform vec4 uShape;
+  // (halo radius, halo strength).
+  uniform vec2 uField;
 
   varying vec2 vUv;
-
-  // The pane. rgb(12, 15, 22) — the case panel's dark — given here in LINEAR
-  // space, since everything below colorspace_fragment is linear.
-  const vec3 GLASS = vec3(0.0037, 0.0048, 0.0080);
-  // The structure: white at a whisper, the case panel's 1px hairline.
-  const float HAIRLINE_ALPHA = 0.16;
-  // Mid-edge registration segments on the core's top and bottom, half-length.
-  const float MID_SEGMENT = 0.09;
-  // Alignment ticks along the wing rails: spacing and length.
-  const float TICK_SPACING = 0.15;
-  const float TICK_LENGTH = 0.05;
-  // The terminal node at each rail's end: half-side of the filled square.
-  const float NODE_HALF = 0.018;
 
   // Straight-alpha "over": lays (sc, sa) on top of the running (c, a).
   // Everything in this panel is a layer over transparent space, and the
@@ -125,9 +118,19 @@ const FRAGMENT = /* glsl */ `
     return 1.0 - smoothstep(px * 0.8, px * 2.0, abs(d));
   }
 
-  // 1 inside [a, b].
-  float seg(float t, float a, float b) {
-    return step(a, t) * step(t, b);
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
   }
 
   // Field uv → art uv, artwork CONTAINED and centred in a field of aspect Q.
@@ -141,157 +144,139 @@ const FRAGMENT = /* glsl */ `
     return (uv - 0.5) / cover + 0.5;
   }
 
-  // The sample order is: contain-fit → BOUNDS CHECK → atlas-cell mapping.
+  // The sample order is: contain-fit → BOUNDARY → atlas-cell mapping.
   //
-  // The bounds check has to happen on the contained uv, before the cell fold.
-  // Afterwards the coordinate is inside its cell by construction, so the test
+  // The boundary has to be applied on the contained uv, before the cell fold.
+  // Afterwards the coordinate is inside its cell by construction, so any test
   // would always pass, and the letterbox either side of a contained artwork
   // would instead sample the cell's edge texel — ClampToEdge smearing the
-  // neighbouring plate's border across the gap. Transparent is the only correct
-  // answer outside the artwork.
+  // neighbouring plate's border across the gap.
+  //
+  // FEATHERED, NOT CUT. This used to reject outright, and a hard reject draws a
+  // RECTANGLE: the artwork's own edge, straight, with visible corners. It shows
+  // up worst in the overview, where the panel is small enough that mipmapping
+  // spreads the cell's content out to fill it, so what gets cut is not empty
+  // space but a faint haze — a box with corners around every mark. The window
+  // below fades over about a screen pixel instead, and the clamp keeps the
+  // sample inside its own cell so nothing bleeds in from the neighbouring
+  // brand. Alpha carries the window; rgb is left exactly as delivered.
   vec4 sampleArt(sampler2D atlas, vec2 offset, vec2 scale, vec2 uv, float Q, float A) {
     vec2 art = containUv(uv, Q, A);
-    if (any(lessThan(art, vec2(0.0))) || any(greaterThan(art, vec2(1.0)))) {
-      return vec4(0.0);
-    }
-    return texture2D(atlas, offset + art * scale);
+    // Outside any branch: derivatives are undefined in non-uniform flow.
+    vec2 fw = fwidth(art);
+    vec2 edge = min(art, 1.0 - art);
+    float window = smoothstep(0.0, fw.x * 1.5, edge.x) * smoothstep(0.0, fw.y * 1.5, edge.y);
+    if (window <= 0.0) return vec4(0.0);
+    vec4 texel = texture2D(atlas, offset + clamp(art, 0.0, 1.0) * scale);
+    return vec4(texel.rgb, texel.a * window);
   }
 
-  // THE CHROME IS DESIGNED TO BE LOOKED THROUGH, NOT AT. Dark glass, a
-  // screen-constant hairline, the artwork untouched, and the brand colour on
-  // exactly one thing — the light: the emitter line under the core, the beam
-  // it stands on, and the trace that runs out along the wings. The brand colour
-  // lives on the light source, never on the pane, so a real full-colour
-  // trademark shows its own colours with no cast.
+
+  // A PROJECTION, NOT A PANE. Nothing here has an edge: there is no mask that
+  // gives the field an outline, no rectangle, no bracket, no border. What
+  // bounds it is falloff — the halo fades to nothing, and the artwork is
+  // feathered at its own boundary rather than cut there.
+  //
+  // THERE IS DELIBERATELY NOTHING DARK BEHIND THE MARK. A dilated shadow hugging
+  // the artwork was tried here, to hold it against the daylight Earth. It read
+  // worse, and it brought a rectangle back: the dilation grows outward, the
+  // contain-fit boundary cut it off square, and the result was a dark box with
+  // corners around every logo. Legibility over the lit hemisphere is still an
+  // open problem — solve it in the LIGHT, not with a backing.
+  //
+  // The brand colour stays on the LIGHT — the halo and the emitter — and never
+  // on the artwork, so a real full-colour trademark shows its own colours with
+  // no cast. What the mark does take from the field is its MODULATION: the same
+  // scan and unevenness the light has, in luminance only. That is what stops it
+  // reading as a decal laid over a glow.
   void main() {
     float activation = uDeploy.x;
     float deploy = uDeploy.y;
     float resolve = uDeploy.z;
-    float extent = uDeploy.w;
 
-    float gap = uShape.x;
-    float wingHalf = uShape.y;
-    float bracket = uShape.z;
-    float stem = uShape.w;
+    float haloRadius = uField.x;
+    float haloStrength = uField.y;
 
-    // ── Pane space ──
-    // Pane-height units, origin at the core's centre: the core is the unit
-    // square |p| <= 0.5, the wings lie along ±x beyond it, the stem below it.
-    // A distance measured here is the same on both axes and at every point of
-    // the deployment, because the quad never changes shape.
+    // Pane-height units, origin at the field's centre. A distance measured here
+    // is the same on both axes and at every point of the deployment, because
+    // the quad never changes shape.
     vec2 p = (vUv - uOrigin) * uQuadScale;
-    vec2 px = fwidth(p);                       // one screen pixel, per axis
-    float ax = abs(p.x);
-    vec2 dc = abs(p) - 0.5;                    // signed distance past each core edge
-    float insideCore = step(max(dc.x, dc.y), 0.0);
+    vec2 px = fwidth(p);
 
-    // The selected-state energy: a small surge as the core activates, easing
-    // back into a stable glow once the logo has resolved. Peak, then settle.
+    // The selected-state energy: a surge as the field activates, easing back
+    // once the logo has resolved. Peak, then settle.
     float energy = 1.0 + 0.35 * activation - 0.15 * resolve;
 
-    // ── The brand plate ──
-    // The artwork field is centred on the core and opens from 1:1 to 2:1 with
-    // the wings — the same stage, so the lockup can never be fitted into a
-    // field the structure has not yet opened. Both artworks are fitted against
-    // the CURRENT field aspect, so each stays undistorted at every point of the
-    // deployment, and the crossfade is the only thing that changes between
-    // them. Sampled clean: no scanlines, no grain. The plate is a trademark and
-    // is drawn exactly as delivered.
+    // The artwork field opens from 1:1 to 2:1 with the deployment. Both
+    // artworks are fitted against the CURRENT aspect, so neither distorts at
+    // any point of it, and the crossfade is the only thing that changes.
     float fieldAspect = 1.0 + deploy;
     vec2 fuv = p / vec2(fieldAspect, 1.0) + 0.5;
     vec4 isotype = sampleArt(uIsotype, uIsoOffset, uIsoScale, fuv, fieldAspect, uIsoAspect);
     vec4 logo = sampleArt(uLogo, uLogoOffset, uLogoScale, fuv, fieldAspect, uLogoAspect);
     vec4 plate = mix(isotype, logo, resolve);
 
-    vec3 color = GLASS;
+    // ── The field's unevenness ──
+    // Slow drifting noise plus a soft horizontal scan. Low amplitude on
+    // purpose: this is what keeps the volume from reading as flat glass, and
+    // the moment it is strong enough to notice on its own it is a filter over
+    // somebody's logo.
+    float drift = vnoise(vec2(p.x * 3.1, p.y * 4.3 - uTime * 0.11));
+    float scan = 0.5 + 0.5 * sin(p.y * 26.0 - uTime * 0.8);
+    float modulation = mix(0.88, 1.06, drift * 0.65 + scan * 0.35);
+
+    vec3 color = vec3(0.0);
     float alpha = 0.0;
 
-    // ── The core's projection field ──
-    // Neutral dark, denser at the centre and toward the emitter beneath it,
-    // thinning toward the edges: a field the isotype hangs in, not a card it is
-    // printed on. One faint diagonal sheen — a glass highlight, not a CRT.
-    float radial = 1.0 - 0.45 * smoothstep(0.15, 0.72, length(p));
-    float vertical = mix(0.75, 1.0, 0.5 - p.y);
-    float sheen = 0.03 * smoothstep(0.2, 0.9, (p.x + 0.5) + (p.y + 0.5) * 0.4);
-    float coreGlass = uGlassAlpha * 0.75 * radial * vertical * insideCore;
-    over(color, alpha, GLASS + vec3(sheen), coreGlass);
+    // ── Layer 1: the rear halo ──
+    // Brand light, very soft, wider than the mark and fading to nothing in
+    // every direction. This is the only thing that says where the field is, and
+    // it says it without drawing a boundary.
+    //
+    // COMPACT SUPPORT, NOT AN EXPONENTIAL. exp() never actually reaches zero,
+    // so a halo built from one is still faintly alight at the quad's edge and
+    // the quad clips it — which drew a crisp brand-coloured RECTANGLE around
+    // every panel. That is the card again, in the brand's own colour, arrived
+    // at from the opposite direction. This falloff is exactly zero beyond
+    // haloRadius, so there is nothing left at the boundary to cut.
+    vec2 h = p / vec2(fieldAspect, 1.0);
+    float reach = clamp(1.0 - length(h) / haloRadius, 0.0, 1.0);
+    float halo = pow(reach, 2.2) * haloStrength * modulation
+               * (1.0 + 0.6 * activation);
+    over(color, alpha, uBrandColor, halo);
 
-    // A soft internal glow behind the symbol, brightening a little on
-    // activation. White, not brand: a tint behind a trademark is a cast on it.
-    float halo = exp(-length(p) * 3.2) * (0.05 + 0.04 * activation) * insideCore;
-    over(color, alpha, vec3(1.0), halo);
+    // ── Layer 3: the artwork ──
+    // True colour, untinted. It takes the field's luminance modulation so that
+    // it belongs to the projection, and nothing else.
+    over(color, alpha, plate.rgb * modulation, plate.a);
 
-    // ── The wings' projection wash ──
-    // Faint, fading toward the tips: the field thins as it leaves the core.
-    float root = 0.5 + gap;
-    float tip = root + extent;
-    float insideWing = seg(ax, root, tip) * step(abs(p.y), wingHalf);
-    float reach = extent > 0.0 ? clamp((ax - root) / extent, 0.0, 1.0) : 0.0;
-    float wingGlass = uGlassAlpha * 0.38 * (1.0 - 0.6 * reach) * insideWing * deploy;
-    over(color, alpha, GLASS, wingGlass);
-
-    // The artwork sits over the glass of both, untinted.
-    over(color, alpha, plate.rgb, plate.a);
-
-    // ── The core's structure ──
-    // No complete outline — that is the card language being left behind. Four
-    // corner brackets, two registration segments at the middle of the top and
-    // bottom edges, and nothing along the sides: that is where the wings root.
-    float onH = line(dc.y, px.y);              // on the top or bottom edge line
-    float onV = line(dc.x, px.x);              // on the left or right edge line
-    float corner = onH * seg(ax, 0.5 - bracket, 0.5 + px.x)
-                 + onV * seg(abs(p.y), 0.5 - bracket, 0.5 + px.y);
-    float mid = onH * step(ax, MID_SEGMENT);
-    float structure = clamp(corner + mid, 0.0, 1.0);
-
-    // ── The wings' structure ──
-    // A root bracket that appears with activation — the wing's origin, visible
-    // before it travels — then rails along the top and bottom edges, alignment
-    // ticks hanging from them, and a filled node terminating each rail.
-    float rootLine = line(ax - root, px.x) * step(abs(p.y), wingHalf) * activation;
-    float rails = line(abs(p.y) - wingHalf, px.y) * seg(ax, root, tip);
-    float endCap = line(ax - tip, px.x) * step(abs(p.y), wingHalf) * step(0.001, extent);
-    float along = ax - root;
-    float tickIndex = floor(along / TICK_SPACING + 0.5);
-    float tickDist = abs(along - tickIndex * TICK_SPACING);
-    float ticks = line(tickDist, px.x) * step(1.0, tickIndex) * step(ax, tip - NODE_HALF)
-                * seg(abs(p.y), wingHalf - TICK_LENGTH, wingHalf);
-    vec2 node = vec2(ax - tip, abs(p.y) - wingHalf);
-    float nodes = step(max(abs(node.x), abs(node.y)), NODE_HALF) * step(0.001, extent);
-    float wingStructure = clamp(rootLine + (rails + endCap + ticks + nodes) * deploy, 0.0, 1.0);
-
-    over(color, alpha, vec3(1.0), max(structure, wingStructure) * HAIRLINE_ALPHA * energy);
-
-    // ── The emitter ──
-    // The signature. A brand-colour line along the core's bottom edge, the
-    // core's exact width; beneath it a beam narrowing down the stem toward the
-    // satellite, with a soft cone of light that is widest under the line and
-    // gathers to a point at the foot, where a small glow marks the origin.
-    // The viewer should infer satellite → emitter → hologram. The cone
-    // breathes, slowly; nothing flickers.
-    float onBottom = line(p.y + 0.5, px.y) * step(ax, 0.5);
-    float emit = onBottom * 0.9 * energy;
-
-    float down = -0.5 - p.y;                   // distance below the core's edge
-    float u = clamp(down / stem, 0.0, 1.0);    // 0 at the core, 1 at the foot
-    float inStem = step(0.0, down) * step(down, stem);
-    float beam = line(p.x, px.x) * inStem * (1.0 - u) * 0.6 * energy;
-
+    // ── Layer 4: the emitter ──
+    // Where the cone arrives. A brand-colour line along the field's base, at
+    // the core's width, fading out at both ends rather than stopping — a line
+    // that stops is an edge, and an edge is the whole problem. Above it a short
+    // wash climbs into the field, so the light visibly enters rather than
+    // sitting under it. The cone mesh carries everything below this point.
     float breath = 1.0 - uBreath + uBreath * (0.92 + 0.08 * sin(uTime * 1.4));
-    float coneWidth = mix(0.42, 0.03, u);
-    float cone = exp(-ax / coneWidth) * exp(-u * 2.6) * inStem * 0.32 * breath * energy;
 
-    vec2 foot = vec2(0.0, -0.5 - stem);
-    float footGlow = exp(-length(p - foot) / 0.05) * 0.55 * energy;
+    // A GAUSSIAN, not a super-Gaussian. At exponent 3 this was effectively a box
+    // window — flat across the middle with steep shoulders — which put two
+    // straight vertical cuts at the ends of the emitter and its wash.
+    float ends = exp(-pow(abs(p.x) / 0.46, 2.0));
 
-    // The wings' bottom rails carry the light out from the core — the one
-    // brand-coloured element extends rather than a second one appearing — and
-    // a short trace at each root joins rail to emitter line.
-    float trace = line(p.y + wingHalf, px.y) * seg(ax, root, tip) * 0.7 * deploy;
-    float joint = line(ax - root, px.x) * seg(-p.y, wingHalf, 0.5) * 0.7 * deploy;
-
-    float light = max(max(emit, beam), max(max(cone, footGlow), max(trace, joint)));
-    over(color, alpha, uBrandColor, light);
+    // Signed distance from the emitter line, split so the falloff can differ by
+    // direction. It must be SIGNED: max(0.0, p.y + 0.5) clamps to zero below
+    // the line, and exp(-0) is 1, so the wash was at FULL strength across
+    // everything beneath it — a solid slab running down to the quad's edge,
+    // where the quad cut it into a rectangle with corners. It read as a plate
+    // under every mark, which is the exact thing this design exists to remove.
+    float above = max(0.0, p.y + 0.5);
+    float below = max(0.0, -(p.y + 0.5));
+    float emit = line(p.y + 0.5, px.y) * ends * 0.85 * energy * breath;
+    // Climbs into the field, and drops away quickly downward — below the line
+    // is the cone's territory, and two glows overlapping there just make a
+    // brighter smudge.
+    float wash = exp(-above / 0.20) * exp(-below / 0.05) * ends * 0.16 * energy * breath;
+    over(color, alpha, uBrandColor, max(emit, wash));
 
     gl_FragColor = vec4(color, alpha * uOpacity);
 
@@ -383,20 +368,16 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     // Both written every frame by applyExpansion, never independently — see
     // the header note. Seeded collapsed so the first frame drawn before any
     // update() is already correct.
-    uExpand: { value: 0 },
     uDeploy: { value: new THREE.Vector4(0, 0, 0, 0) },
 
     uBrandColor: { value: new THREE.Color(brandColor) },
     uOpacity: { value: 0 },
     uTime: { value: Math.random() * 100 },
     uBreath: { value: reducedMotion ? 0 : 1 },
-    uGlassAlpha: { value: cfg.glassAlpha },
 
     uQuadScale: { value: new THREE.Vector2(footprint.width, footprint.height) },
     uOrigin: { value: new THREE.Vector2(0.5, footprint.originY) },
-    uShape: {
-      value: new THREE.Vector4(cfg.wingGap, cfg.wingHeight / 2, cfg.bracketLength, cfg.stemLength),
-    },
+    uField: { value: new THREE.Vector2(cfg.haloRadius, cfg.haloStrength) },
   }
 
   const material = new THREE.ShaderMaterial({
@@ -424,8 +405,19 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
   // Transparent, unsorted, always drawn after the opaque scene.
   mesh.renderOrder = 2
 
+  // The volume this field hangs inside. Owned here rather than by the satellite
+  // because the two are one object to everything outside: they share the eased
+  // expansion, they fade together, and a cone that outlived its field — or vice
+  // versa — would be a projection of nothing.
+  const cone = createEmitterCone({ brandColor, animate: !reducedMotion })
+
+  const group = new THREE.Group()
+  group.add(cone.mesh)
+  group.add(mesh)
+
   function setOpacity(factor: number) {
     uniforms.uOpacity.value = factor * cfg.maxOpacity
+    cone.setOpacity(factor)
   }
 
   // Raw, un-eased position of the deployment. Stored as a VALUE rather than a
@@ -444,8 +436,11 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
   function applyExpansion() {
     const eased = easeExpansion(expansion)
     const d = deploymentFrom(eased, cfg.wingLength)
-    uniforms.uExpand.value = eased
     uniforms.uDeploy.value.set(d.activation, d.deploy, d.resolve, d.wingExtent)
+    // The cone reads the SAME stages, from this one call. It is not a second
+    // animation kept in sympathy with the first: a mouth opening a frame behind
+    // the field would show light arriving at a structure that is already there.
+    cone.setDeployment(d.activation, d.deploy)
   }
 
   /** Asks the panel to deploy or fold. Animated; takes effect over `expandDuration`. */
@@ -473,7 +468,10 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     // every panel at one expansion so the structure can be inspected in the
     // real scene without the select/deselect journey. Inert unless the gate is
     // open, and unreachable in production — see protoHolo.ts.
-    if (!PROTO_HOLO.freeze) uniforms.uTime.value += delta
+    if (!PROTO_HOLO.freeze) {
+      uniforms.uTime.value += delta
+      cone.update(delta)
+    }
     if (PROTO_HOLO.expand !== null) {
       if (expansion !== PROTO_HOLO.expand) {
         expansion = PROTO_HOLO.expand
@@ -492,9 +490,10 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     // Geometry is shared and both atlases are owned by createOrbitSystem — only
     // the per-panel material belongs to this instance.
     material.dispose()
+    cone.dispose()
   }
 
-  return { mesh, setOpacity, setExpanded, resetExpansion, update, dispose }
+  return { group, setOpacity, setExpanded, resetExpansion, update, dispose }
 }
 
 export type HoloPanel = ReturnType<typeof createHoloPanel>

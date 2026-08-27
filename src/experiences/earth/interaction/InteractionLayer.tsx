@@ -92,7 +92,9 @@ export function InteractionLayer({
 
     // Dev-gated, and a no-op in a production build. Installed here because this
     // is where the rig exists and dies; the hook must not outlive it.
-    const uninstallDebugCamera = installDebugCameraHook(rig)
+    const uninstallDebugCamera = installDebugCameraHook(rig, () =>
+      orbitSystem.satellites.every((s) => orbitSystem.isSatelliteActive(s.id)),
+    )
 
     rigRef.current = rig
     focusRef.current = focus
