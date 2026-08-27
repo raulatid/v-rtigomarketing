@@ -5,6 +5,7 @@ import {
   CHART_TYPES,
   CHART_VALUES_MAX,
   HEX_COLOR_PATTERN,
+  DEFAULT_BRAND_COLOR,
   ID_PATTERN,
   LOCAL_MEDIA_PATH,
   caseStudyProblems,
@@ -201,7 +202,19 @@ export const caseStudiesCollection = collection<CaseStudy>({
 
     const name = text(scoped, 'name', source.name, { max: NAME_MAX })
     const label = text(scoped, 'label', source.label ?? source.name, { max: NAME_MAX })
-    const brandColor = hexColor(scoped, 'brandColor', source.brandColor, HEX_COLOR_PATTERN)
+    // A brand without a colour of its own is an editorial state, not a defect:
+    // the Studio field is optional and says so. Absent or empty resolves to
+    // white — the panel, cards, chart marks and bullets all read as plain glass
+    // — so the shipped type can keep `brandColor` as a guaranteed hex string
+    // and createBrandAtlas never sees undefined. A value that IS present must
+    // still parse; a typo fails the build exactly as before.
+    const brandColorSource =
+      source.brandColor === undefined ||
+      source.brandColor === null ||
+      (typeof source.brandColor === 'string' && source.brandColor.trim() === '')
+        ? DEFAULT_BRAND_COLOR
+        : source.brandColor
+    const brandColor = hexColor(scoped, 'brandColor', brandColorSource, HEX_COLOR_PATTERN)
     const sector = text(scoped, 'sector', source.sector, { max: NAME_MAX })
     const location = text(scoped, 'location', source.location, { max: NAME_MAX })
     const year = text(scoped, 'year', source.year, { max: 16 })

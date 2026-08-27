@@ -56,7 +56,7 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 | `isotype` | image | PNG/WebP, ≥ 432×432, aspect 0.75–1.33:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `logo` | image | PNG/WebP, ≥ 900×400, aspect 1.5–5:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `isotype` + `logo` | — | both present or both absent — they are one decision | fail |
-| `brandColor` | string | `#rrggbb` | fail |
+| `brandColor` | string | `#rrggbb`; **optional** — empty means the brand has no colour of its own and resolves to `#ffffff` | fail if present and not `#rrggbb` |
 | `sector` | string | non-empty, ≤ 60 | fail |
 | `location` | string | non-empty, ≤ 60 | fail |
 | `year` | string | non-empty, ≤ 16 | fail |

@@ -53,6 +53,12 @@ export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
 
 /** `createBrandAtlas` parses this with `parseInt`; anything else is silent. */
 export const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i
+/**
+ * What a case study's `brandColor` resolves to when the Studio field is left
+ * empty — a brand with no colour of its own. Resolved once, in the content
+ * build, so every consumer can keep reading a guaranteed hex string.
+ */
+export const DEFAULT_BRAND_COLOR = '#ffffff'
 
 /**
  * Logos are always local paths: `content/lib/mirror.ts` brings CMS uploads into

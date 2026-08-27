@@ -205,11 +205,21 @@ html {
   margin-bottom: 1.5rem;
 }
 
+/* `--case-brand` is set inline by CasePanel from the case's Sanity brandColor.
+   A brand with no colour of its own arrives as #ffffff from the content build,
+   so white is also the honest fallback before the first case has been shown. */
+.case-panel {
+  --case-brand: #ffffff;
+}
+
 .case-panel__metric {
   flex: 1;
   padding: 0.875rem 1rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  /* The case's brand colour on the top edge only — the accent every data
+     card carries, without tinting the glass itself. */
+  border-top: 2px solid var(--case-brand);
   border-radius: 10px;
 }
 
@@ -260,7 +270,7 @@ html {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
+  background: var(--case-brand);
 }
 
 /* Hosts the SVG chart. Fixed height so the panel doesn't jump when the
@@ -299,29 +309,32 @@ html {
   stroke-width: 1;
 }
 
+/* The brand colour lives in the MARKS — line, fill, dot, max bar, donut
+   segments — never in the chart's card, grid or ticks, which stay monochrome
+   glass. Translucent variants use color-mix so one hex from Sanity is enough. */
 .case-chart__stroke {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.85);
+  stroke: var(--case-brand);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .case-chart__fill {
-  fill: rgba(255, 255, 255, 0.12);
+  fill: color-mix(in srgb, var(--case-brand) 22%, transparent);
   stroke: none;
 }
 
 .case-chart__dot {
-  fill: #fff;
+  fill: var(--case-brand);
 }
 
 .case-chart__bar {
-  fill: rgba(255, 255, 255, 0.35);
+  fill: color-mix(in srgb, var(--case-brand) 45%, transparent);
 }
 
 .case-chart__bar.is-max {
-  fill: rgba(255, 255, 255, 0.85);
+  fill: var(--case-brand);
 }
 
 .case-chart__tick {
@@ -343,7 +356,7 @@ html {
 
 .case-chart__segment {
   fill: none;
-  stroke: #fff;
+  stroke: var(--case-brand);
   stroke-width: 12;
 }
 
@@ -367,7 +380,7 @@ html {
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  background: #fff;
+  background: var(--case-brand);
   flex: none;
 }
 

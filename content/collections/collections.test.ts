@@ -194,10 +194,24 @@ describe('case study mapping rejects', () => {
   it('a brandColor that is not #rrggbb', () => {
     // parseInt on a non-hex string gives NaN, and canvas ignores an unparseable
     // fillStyle silently — the plate comes out the wrong colour, not blank.
-    for (const colour of ['red', '#fff', 'rgb(1,2,3)', '']) {
+    for (const colour of ['red', '#fff', 'rgb(1,2,3)', '   x']) {
       const record = validCase()
       record.brandColor = colour
       expect(problemsFor(caseStudiesCollection, record), colour).toContain('satellite-01.brandColor')
+    }
+  })
+
+  it('a missing brandColor, by defaulting it to white rather than failing', () => {
+    // A brand with no colour of its own is a designed state (the Studio field is
+    // optional and says so), and the app reads a guaranteed hex string, so the
+    // default is resolved here — once — rather than in every consumer.
+    for (const absent of [undefined, null, '', '   ']) {
+      const record = validCase()
+      if (absent === undefined) delete record.brandColor
+      else record.brandColor = absent
+      const result = caseStudiesCollection.map(record, 0)
+      expect(result.ok, String(absent)).toBe(true)
+      if (result.ok) expect((result.value as unknown as CaseStudy).brandColor).toBe('#ffffff')
     }
   })
 

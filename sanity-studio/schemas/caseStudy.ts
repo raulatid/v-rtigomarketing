@@ -260,14 +260,20 @@ export const caseStudy = defineType({
       title: 'Color de marca',
       description:
         'El color principal de la marca, en formato #rrggbb. Ejemplo: #e0b33c. ' +
-        'Si tienes el Pantone, pide el equivalente en hexadecimal.',
+        'Si tienes el Pantone, pide el equivalente en hexadecimal. ' +
+        '⚠️ Si la marca no tiene un color propio, deja este campo VACÍO: la web ' +
+        'usará blanco (#ffffff) en el panel del satélite y en las tarjetas, ' +
+        'gráficas y viñetas del caso. No inventes un color por rellenarlo.',
       type: 'string',
       fieldset: 'marca',
+      // Optional on purpose — see the description. Empty means "white"; a value
+      // that IS given must still be a real #rrggbb, so a typo cannot ship.
       validation: (rule) =>
         rule
-          .required()
           .regex(/^#[0-9a-fA-F]{6}$/)
-          .error('Escribe el color en formato #rrggbb, por ejemplo #e0b33c'),
+          .error(
+            'Escribe el color en formato #rrggbb, por ejemplo #e0b33c — o déjalo vacío si la marca no tiene color',
+          ),
     }),
     defineField({
       name: 'sector',

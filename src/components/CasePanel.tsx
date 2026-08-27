@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import { CaseChart } from './CaseChart'
 
@@ -66,6 +66,12 @@ export function CasePanel({ data, onClose }: Props) {
       data-stop={stop}
       aria-hidden={!data}
       role="complementary"
+      // The case's own brand colour (Sanity `brandColor`, the same one the
+      // holo panel paints with) drives every accent below — metric-card top
+      // edge, list bullets, chart marks — through one custom property. Read
+      // from `shown`, not `data`, so the exit fade keeps its colour too.
+      // A brand with no colour arrives as #ffffff from the content build.
+      style={shown ? ({ '--case-brand': shown.brandColor } as CSSProperties) : undefined}
     >
       {/* The sheet's grip. Present in the DOM at every size and hidden by CSS
           above the breakpoint, exactly as Murcia's is: it belongs to a layout,
