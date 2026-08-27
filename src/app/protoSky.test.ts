@@ -49,7 +49,21 @@ describe('the prototype sky gate', () => {
       tiltDegrees: -20,
       stars: 900,
       freezeEarth: true,
+      debug: 0,
     })
+  })
+
+  it('reads the diagnostic overlay, and only for a named variant', () => {
+    // It draws the CUBE's own structure, so it means nothing over the shipped
+    // panorama — and a stray ?skyDebug in a shared URL must not be able to
+    // paint the sky people actually see.
+    expect(parseProtoSkyParams('?sky=c6&skyDebug=faces').debug).toBe(1)
+    expect(parseProtoSkyParams('?sky=c6&skyDebug=mesh').debug).toBe(2)
+    expect(parseProtoSkyParams('?sky=c6').debug).toBe(0)
+    expect(parseProtoSkyParams('?skyDebug=faces').debug).toBe(0)
+    // Unknown mode is off, not an error: this is capture scaffolding and a
+    // typo should cost a re-run, not a blank screen with nothing to explain it.
+    expect(parseProtoSkyParams('?sky=c6&skyDebug=edges').debug).toBe(0)
   })
 
   it('distinguishes stars=0 from no stars parameter', () => {

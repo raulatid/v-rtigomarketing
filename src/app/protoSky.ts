@@ -65,6 +65,24 @@ export interface ProtoSkyParams {
    * a wall-clock delay is a shot of a different rotation every run.
    */
   freezeEarth: boolean
+  /**
+   * Which structure to draw over the sky, to answer "is the line I can see the
+   * CUBE or the MESH". 0 off, 1 faces, 2 mesh.
+   *
+   * The two are a genuine confound and they are not distinguishable by looking.
+   * `shell.vert.glsl` hands the fragment shader the interpolated vertex
+   * POSITION of a 48x32 sphere, so the sampled direction is piecewise-warped
+   * with a break at every triangle edge — and that mesh degenerates to a
+   * triangle fan at exactly +/-Y, which is where the seams were reported. A
+   * cube face boundary and a fan seam both draw a straight-ish line through the
+   * pole, so a fix aimed at the wrong one would "work" for a while.
+   *
+   * `faces` tints by dominant axis and lays a hard line on the boundary itself.
+   * `mesh` shows how far the interpolated position sags below the sphere, which
+   * is zero at every vertex and maximal at the centre of every triangle — i.e.
+   * it draws the tessellation directly, without needing to know it here.
+   */
+  debug: 0 | 1 | 2
 }
 
 const INERT: ProtoSkyParams = {
@@ -76,6 +94,7 @@ const INERT: ProtoSkyParams = {
   tiltDegrees: 0,
   stars: null,
   freezeEarth: false,
+  debug: 0,
 }
 
 function number(params: URLSearchParams, key: string, fallback: number): number {
@@ -92,6 +111,13 @@ function starCount(raw: string | null): number | null {
   if (raw === null || raw.trim() === '') return null
   const value = Number(raw)
   return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : null
+}
+
+/** `faces` / `mesh`, or nothing. Anything else is off rather than an error. */
+function debugMode(raw: string | null): 0 | 1 | 2 {
+  if (raw === 'faces') return 1
+  if (raw === 'mesh') return 2
+  return 0
 }
 
 /**
@@ -129,6 +155,11 @@ function parse(search: string): ProtoSkyParams {
     freezeEarth: params.get('freezeEarth') === '1',
   }
 
+  // Belongs with resolution/brightness rather than with the capture pair: it
+  // draws the CUBE's own structure, so it means nothing without a cubemap and
+  // stays off when no variant is named.
+  const debug = debugMode(params.get('skyDebug'))
+
   if (variant === null) return { ...INERT, ...capture }
 
   return {
@@ -138,6 +169,7 @@ function parse(search: string): ProtoSkyParams {
     contrast: number(params, 'skyContrast', INERT.contrast),
     yawDegrees: number(params, 'skyYaw', INERT.yawDegrees),
     tiltDegrees: number(params, 'skyTilt', INERT.tiltDegrees),
+    debug,
     ...capture,
   }
 }

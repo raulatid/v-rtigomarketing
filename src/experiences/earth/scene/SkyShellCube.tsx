@@ -80,6 +80,11 @@ export function SkyShellCube({ config, state, active }: Props) {
           uSkyOrientation: { value: new THREE.Matrix3() },
           uSkyBrightness: { value: PROTO_SKY.brightness },
           uSkyContrast: { value: PROTO_SKY.contrast },
+          // Diagnostic overlay, off unless ?skyDebug= asked for it. Constant
+          // for the run, like every other proto parameter, so two screenshots
+          // of the same URL are the same picture.
+          uSkyDebug: { value: PROTO_SKY.debug },
+          uSkyShellRadius: { value: SPACE_CONFIG.sky.shellRadius },
         },
         vertexShader: shellVertexShader,
         fragmentShader: shellCubeFragmentShader,
@@ -111,9 +116,33 @@ export function SkyShellCube({ config, state, active }: Props) {
         // rather than a formality. If the in-scene render does not match it,
         // NoColorSpace is the alternative, and which one won is a finding.
         texture.colorSpace = THREE.SRGBColorSpace
-        // Off for VRAM, not for the seam: a cubemap has no branch cut, so the
-        // reason SPACE_CONFIG.sky.generateMipmaps is false does not apply here.
-        // 6 x 4096^2 RGBA is already 402 MB; mips would add a third again.
+        // THE SEAM FIX, and it is one line because the defect was one convention.
+        //
+        // The faces come out of the editor through `rgbaToPngBlob`, which flips
+        // rows to turn GL's bottom-up readback into a top-down PNG. That is
+        // correct for a 2D image and WRONG for a cube face: GL defines cube
+        // faces with a top-left origin already, so the flip is not undoing a
+        // convention, it is introducing one. `THREE.CubeTexture` then sets
+        // `flipY = false` in its constructor, so the faces reach the GPU
+        // exactly as stored — upside down, each one independently.
+        //
+        // Which is invisible as long as you look at one face. Every face is
+        // internally coherent, and a vertically mirrored nebula is still a
+        // plausible nebula. It only shows where two faces MEET, and there it
+        // shows as a hard content step — the "seams looking up or down", and
+        // the report's §4.3 "strange quad", which are the same defect.
+        //
+        // Measured over all 12 cube edges against a within-face control, this
+        // is not a judgement call: flipY 1.09 (i.e. a face boundary is
+        // indistinguishable from ordinary sky) against 5.65 as-loaded, and
+        // 4.83-6.15 for every rotation and mirror tested. It is the inverse of
+        // the export flip, not a tweak that happens to look better.
+        texture.flipY = true
+        // Off for VRAM: 6 x 4096^2 RGBA is already 402 MB and mips would add a
+        // third again. NOT off "for the seam" as this comment used to claim —
+        // the seam was never a filtering problem. WebGL2 filters cube edges
+        // seamlessly whatever this says, and the discontinuity above survived
+        // any amount of filtering because it was in the data.
         texture.generateMipmaps = false
         texture.minFilter = THREE.LinearFilter
         texture.magFilter = THREE.LinearFilter
