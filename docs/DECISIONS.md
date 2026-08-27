@@ -766,6 +766,60 @@ read a property of the noise basis as a tuning error.
 
 ---
 
+> **Amended 2026-08-27: a procedural sky is back on the table as a BAKED CUBEMAP, and C6 is
+> the direction — but the photograph still ships.**
+>
+> Plan 005 asked one question: can a procedurally generated high-resolution cubemap give the
+> Earth scene a cleaner, sharper, more controllable backdrop than a flat 2:1 photograph treated
+> as equirectangular. Nine variants were baked and measured; the whole record, with numbers, is
+> `audits/reports/sky-cubemap-discovery-2026-08-27.md`.
+>
+> **The resolution half is answered, decisively.** Measured over the same sky-only region, the
+> shipped photograph has p50 17 — it never reaches black anywhere — and max 114 in a frame
+> containing no bright star, meaning its brightest object is a smeared blob. The cubemap
+> variants have true black negative space and crisp point sources. A cubemap is sharper.
+>
+> **The projection half is answered by construction rather than by tuning.**
+> `shellCube.frag.glsl` is `shell.frag.glsl` with the `equirect()` projection, the second
+> fetch through a 90-degree rotation, the latitude-ramped blend, the directional grain and the
+> dither all *removed*. There is no branch cut and no pole in a cubemap, so `convergePoles`
+> has nothing left to do. That the file is shorter IS the finding.
+>
+> **C6 is the chosen art direction** (`plans/005-sky-cubemap/scenes/c6-aurora.json`, reached
+> at `?sky=c6`): blue and purple both read, the Earth sits in true black, the hero galaxy is
+> aimed upper-right and clear of it, and it needs no runtime correction — brightness and
+> contrast both 1.0, because the exposure curve is baked into the scene. Runtime contrast could
+> not be used: `pow(colour, contrast)` is per channel and drags every colour toward its
+> dominant one, so at 2.5 the violet layer read as plain blue, and purple is the half of the
+> brief that is not negotiable.
+>
+> **Nothing is promoted, and four things block promotion.** `protoSky.ts` is gated on
+> `DEBUG_TOOLS_ENABLED`, so in a production build the variant is unconditionally null and
+> `?sky=c6` from a visitor's address bar does nothing — the same seam `buildFlags.ts` already
+> draws for `/debug`. What is unresolved: **(1)** C6 has not been reviewed for banding,
+> lattice or repetition, which is what killed the previous procedural attempt, and a brightness
+> distribution cannot see structure; **(2)** continuity across the six cube faces is untested —
+> the photograph's seam class is gone, but the baker's is not ruled out; **(3)** the quad below;
+> **(4)** weight, in two forms — C6's six faces are **117 MB** of PNG, so shipping needs
+> KTX2/Basis which plan 005 puts out of scope, and 6 x 4096^2 RGBA is ~402 MB of VRAM with
+> mipmaps off, with the 2048 comparison not yet run. Mobile is a first-class target (§25), so
+> that last one is a gate rather than a footnote.
+>
+> **The quad is not a prototype bug, and it is the item to chase first.** A large hard-edged
+> quad is visible in the `rotated` frame of every bright variant and invisible against the
+> shipped dark sky. It is **not in the cubemap** — the baked faces contain no straight edge
+> anywhere. It is in the Earth scene, shipping today, hidden only because the current backdrop
+> is too dark to reveal it. Any brightening exposes it, whatever the source of the pixels.
+>
+> **What this does NOT overturn.** §19's original case against the procedural nebula was that
+> its failures were *structural* — value-noise lattice walls, and fbm being stationary so no
+> number of octaves buys variety. Those critiques stand against **that** implementation. What
+> C6 shows is that an *authored, aimed, multi-layer* bake is a different technique, not a
+> tuning of the same one: its large-scale structure is placed by hand
+> (`dirLonDeg`/`dirLatDeg`), which is exactly what a stationary field cannot have. It also
+> came at a price the original entry did not anticipate — the byte argument was made against a
+> hypothetical "4K sky", and the real photograph costs 113 KB while C6 costs 117 MB unencoded.
+
 <details>
 <summary>Superseded text: the sky was generated on the GPU, not downloaded</summary>
 
@@ -1757,6 +1811,9 @@ renders with a clause missing; or the entry budget fails and the message blames 
 | `convergePoles` removed the polar spokes | **§19** amendment 2026-08-19, and a pole view rendered looking only for what it had just fixed | It removed them above ~75 degrees. Its fade weight is 0.06 at 60 and 0.40 at 70, so the dashes survived across 45-75 — most of a pole view — for six days. Fixed 2026-08-25 by ramping the median window with latitude — **§19** amendment 2026-08-25 |
 | The polar caps are dark because `convergePoles` darkened them | the shape of the artifact, and the fact that the fade obviously removes signal | It is **mean-preserving on both passes**: the box blur preserves each row's sum and the fade is `row += (mean - row) * fade`. The darkness is the flat source's own top and bottom rows. Turning the fade off restores the spokes, re-inflates the file, and does not lighten the caps by one code value — **§19** amendment 2026-08-25 |
 | High azimuthal detail near the pole means the sky there is healthy | the ring metric used to verify the 2026-08-25 diagnosis | 1.16 at 25 degrees against ordinary sky's 0.37-0.80 was the DASHES, not gas. The metric cannot tell structure from aliased streaks, so it cannot be read in either direction — **§19** amendment 2026-08-25 |
+| A procedural sky cannot be art-directed, because its failures are structural | **§19**, the 2026-08-13 abandonment | True of THAT implementation — value-noise lattice, stationary fbm, one analytic gaussian for all large-scale structure. An authored multi-layer bake with hand-aimed features is a different technique, and C6 delivers blue and purple against true black — **§19** amendment 2026-08-27, `audits/reports/sky-cubemap-discovery-2026-08-27.md` |
+| The carve technique is how a nebula gets its shape | `purple-nebula-complex.xml`, the canonical preset the first refinements copied | A carve removes almost everything from an additive stack that starts from black rather than from a full-sky wash: C2 did exactly that and measured p95 0.07. Coverage is controlled by `powerAmount` (exponent `1/powerAmount`), not by `shelfAmount` — **§19** amendment 2026-08-27 |
+| The sky is too dark to judge, so brightness is the knob | the first brightness sweep | The gas is authored orders of magnitude below the stars: variant C at 10x reaches mean 1.82 while its stars hit max 247, near clipping. The fix is the ramp inside the bake, never `uSkyBrightness` — **§19** amendment 2026-08-27 |
 | The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** |
 | A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) |
 | Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** |
