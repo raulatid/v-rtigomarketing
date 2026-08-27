@@ -119,3 +119,10 @@ desktop.ini
 # two native-pixel crops live there too, deliberately un-resampled — downscaling
 # them would throw away the texel-density evidence they were cut to show.
 /docs/plans/005-sky-cubemap/shots/
+
+# Split-plate hologram captures (docs/plans/007), for the same reason as the
+# 005 shots above: nine PNGs at capture resolution is 57 MB, a clone pays for
+# it forever, and every one of them is regenerable from the URL gate with
+# scripts/proto/capture-holo.mjs. The inspection parameters are the deliverable
+# — they live in the plan document, and in src/app/protoHolo.ts.
+/docs/plans/007-split-plate/shots/
