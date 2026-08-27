@@ -31,6 +31,17 @@ body {
   overflow: hidden;
 }
 
+/* The grey/blue rectangle Chrome and Safari flash over whatever a finger lands
+   on. Removed rather than recoloured: every control here already answers a tap
+   with something of its own, and the default paints the element's BORDER BOX,
+   so on a round control (`.case-panel__close`) or one whose visible mark is a
+   pseudo-element (`.case-panel__handle`) it flashes a rectangle that does not
+   match the thing being pressed. Does NOT touch focus rings — those are
+   declared per control below, and this property is not one of them. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .app {
   position: relative;
   height: 100%;
@@ -157,6 +168,17 @@ body {
     color: #fff;
     border-color: rgba(255, 255, 255, 0.4);
   }
+}
+
+/* The house ring, matching `.audit-close:focus-visible` below and Murcia's
+   `.district-panel-close`. Until now this button and the handle were the only
+   controls in this file with no rule of their own, so they fell through to the
+   UA default — which on Chrome/Android is a blue `outline: auto` and on iOS
+   Safari is nothing at all. That asymmetry is part of what reads as "a blue box
+   only on Android": Android focuses a <button> on tap, WebKit does not. */
+.case-panel__close:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
 }
 
 .case-panel__title {
@@ -481,6 +503,15 @@ body {
     background: rgba(255, 255, 255, 0.28);
   }
 
+  /* Inset, so the ring frames the 44px control instead of bleeding past the
+     sheet's own top edge — the handle spans the full width and is flush with
+     it. Same reasoning as the close button above. */
+  .case-panel__handle:focus-visible {
+    outline: 2px solid rgba(120, 170, 255, 0.9);
+    outline-offset: -4px;
+    border-radius: 8px;
+  }
+
   .case-panel__header {
     flex: 0 0 auto;
     /* Tighter than the desktop's 1.5rem: the handle above it already provides
@@ -497,6 +528,38 @@ body {
        overscroll behind it. */
     touch-action: pan-y;
     overscroll-behavior: contain;
+  }
+
+  /* THIS BOX IS FOCUSABLE ON ANDROID AND NOT ON iOS, and nothing here asked for
+     it. Chrome 127 made scroll containers keyboard-focusable when they hold no
+     focusable child of their own — which is exactly this element, since the
+     handle and the close button sit above it in the header. WebKit has not
+     shipped it. So Chrome paints its default ring around the WHOLE sheet body
+     and Safari paints nothing: the reported "blue box on Android".
+
+     Mobile-only by construction — this is the only place the body scrolls at
+     all, which is why the desktop dock never showed it.
+
+     The ring is kept for a keyboard on a fine pointer (a scroller you can tab
+     to should say so) and dropped for a coarse one, where the scroll is a
+     finger on the sheet and the ring is noise around a panel the viewer is
+     already touching. */
+  .case-panel__body:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  .case-panel__body:focus-visible {
+    /* Inset, like `.district-service-header` in murcia.css: an outset ring on a
+       sheet flush with the frame edges is clipped by the sheet's own bounds. */
+    outline: 2px solid rgba(120, 170, 255, 0.9);
+    outline-offset: -2px;
+  }
+
+  @media (pointer: coarse) {
+    .case-panel__body:focus,
+    .case-panel__body:focus-visible {
+      outline: none;
+    }
   }
 
   /* The reserved min-heights exist so the desktop panel does not resize while
