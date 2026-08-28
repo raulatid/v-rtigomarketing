@@ -25,6 +25,7 @@ import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
 import { resolveDistrict } from './interaction/resolveDistrict';
 import { DistrictInteraction } from './interaction/DistrictInteraction';
+import type { ServiceSiteInput } from './interaction/DistrictInteraction';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
@@ -71,6 +72,11 @@ export class MurciaExperience {
   private transition: TerrainTransition | null = null;
   private debugOverlay: DebugOverlay | null = null;
   private interactionProbe: InteractionProbe | null = null;
+  /**
+   * One interaction per district; today there is one district, engaged
+   * through any of its service buildings. Kept as a list so a second district
+   * is a table row, not a refactor.
+   */
   private districts: DistrictInteraction[] = [];
 
   private loaded: LoadedCity | null = null;
@@ -478,13 +484,15 @@ export class MurciaExperience {
   }
 
   /**
-   * Resolves each configured district and builds its interaction.
+   * Resolves each configured district's service buildings and builds ONE
+   * interaction per district.
    *
-   * A district that cannot be located is skipped entirely rather than
-   * half-initialised: highlighting, picking, flight and UI against an empty mesh
-   * list would give an affordance that does nothing, which is the silent
-   * degradation this project has been bitten by before (PROJECT_MEMORY,
-   * "Things that will bite you again").
+   * A building that cannot be located is skipped rather than half-initialised:
+   * highlighting, picking, flight and UI against an empty mesh list would give
+   * an affordance that does nothing, which is the silent degradation this
+   * project has been bitten by before (PROJECT_MEMORY, "Things that will bite
+   * you again"). Every skip is reported, and a district with no buildings left
+   * is skipped whole.
    */
   private setupDistricts(root: THREE.Object3D): void {
     if (!this.rig || !this.controller) return;
@@ -499,25 +507,63 @@ export class MurciaExperience {
         continue;
       }
 
-      const lookup = resolveDistrict(root, binding);
-      if (this.debugTools) {
-        console.groupCollapsed(`[district] ${binding.contentId}`);
-        console.info(`source   ${lookup.source}`);
-        console.info(`meshes   ${lookup.meshes.length}`);
-        console.groupEnd();
-      }
-      // Outside the gate: a district resolving with warnings is a real problem
-      // with the asset, and the next person to hit it should see it wherever
-      // they are.
-      if (lookup.warnings.length > 0) {
-        console.warn(`[district] ${binding.contentId}:\n- ` + lookup.warnings.join('\n- '));
+      const sites: ServiceSiteInput[] = [];
+      const known = new Set(content.services.map((s) => s.id));
+      for (const building of binding.buildings) {
+        if (!known.has(building.serviceId)) {
+          console.warn(
+            `[district] ${binding.contentId}: building "${building.nodeName}" is bound to ` +
+              `"${building.serviceId}", which is not one of the district's services.`,
+          );
+        }
       }
 
-      if (lookup.source === 'not-found' || lookup.meshes.length === 0) {
-        console.error(
-          `[district] "${binding.contentId}" could not be located (tag "${binding.tag}", ` +
-            `names ${binding.nodeNames.join(', ') || 'none'}). The district is inert.`,
-        );
+      // Content order is the tour order.
+      for (const service of content.services) {
+        const building = binding.buildings.find((b) => b.serviceId === service.id);
+        if (!building) {
+          console.warn(
+            `[district] ${binding.contentId}: service "${service.id}" has no building ` +
+              'in cityDistrictBindings; it is not in the city.',
+          );
+          continue;
+        }
+
+        // Identified by name by contract, so no tag (which also keeps the
+        // "add a custom property" nag off) and no spatial fallback.
+        const lookup = resolveDistrict(root, {
+          id: `${binding.contentId}/${service.id}`,
+          tag: '',
+          nodeNames: [building.nodeName],
+          allowSpatialFallback: false,
+        });
+        if (this.debugTools) {
+          console.groupCollapsed(`[district] ${binding.contentId}/${service.id}`);
+          console.info(`node     ${building.nodeName}`);
+          console.info(`source   ${lookup.source}`);
+          console.info(`meshes   ${lookup.meshes.length}`);
+          console.groupEnd();
+        }
+        // Outside the gate: a building resolving with warnings is a real problem
+        // with the asset, and the next person to hit it should see it wherever
+        // they are.
+        if (lookup.warnings.length > 0) {
+          console.warn(
+            `[district] ${binding.contentId}/${service.id}:\n- ` + lookup.warnings.join('\n- '),
+          );
+        }
+        if (lookup.source === 'not-found' || lookup.meshes.length === 0) {
+          console.error(
+            `[district] "${service.id}" could not be located (node "${building.nodeName}"). ` +
+              'That service is not in the city.',
+          );
+          continue;
+        }
+        sites.push({ service, binding: building, lookup });
+      }
+
+      if (sites.length === 0) {
+        console.error(`[district] "${binding.contentId}" has no locatable buildings. It is inert.`);
         continue;
       }
 
@@ -527,9 +573,9 @@ export class MurciaExperience {
         camera: this.camera,
         rig: this.rig,
         controller: this.controller,
-        district: lookup,
         binding,
         content,
+        sites,
         cursor: this.cursor,
         groundPlaneHeight: this.environment.navigation.groundPlaneHeight,
         // The rig's EFFECTIVE pose, not the configured one. computeFramedFocus
@@ -546,6 +592,10 @@ export class MurciaExperience {
           return this.bounds.effectiveBounds;
         },
         focusFlight: this.environment.focusFlight,
+        tapThresholdPx: {
+          mouse: this.environment.navigation.dragThresholdPx,
+          touch: this.environment.navigation.touchDragThresholdPx,
+        },
         reducedMotion,
         onEngagedChange: this.onAttentionChange,
       });

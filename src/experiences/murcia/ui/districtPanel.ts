@@ -1,8 +1,7 @@
-import type { DistrictContent } from '../../../content/types';
 import type { ScreenRect } from '../camera/cameraFraming';
 
 /**
- * Content panel for a selected district.
+ * Content panel for the selected service building.
  *
  * One component, two layouts. On desktop it docks to the right; below 768px it
  * is a bottom sheet with two stops. That split is not decoration: at the shipped
@@ -13,16 +12,30 @@ import type { ScreenRect } from '../camera/cameraFraming';
  *
  * The panel does not know about the camera. It reports its own rectangle through
  * `getObstructionRect()` and the framing code measures it — which is what keeps
- * a CSS change to its width from silently breaking the composition. Note that
- * opening an accordion section changes only the height of content *inside* the
- * scrolling body, so the reported rectangle never moves and the camera framing
- * is never invalidated by it.
+ * a CSS change to its width from silently breaking the composition.
+ *
+ * It shows ONE service at a time. Stepping to a neighbour goes through
+ * `onStep`, which the interaction turns into a building selection — the panel
+ * never decides what it shows next, it only reports the gesture.
  */
 
 export type SheetStop = 'peek' | 'expanded';
 
+/** What the panel renders. Assembled by the interaction from content + tour position. */
+export interface ServicePanelView {
+  /** e.g. "Servicios · 2 / 5" */
+  eyebrow: string;
+  title: string;
+  body: string;
+  /** Titles of the neighbours, for the step buttons' accessible names. */
+  prevTitle: string;
+  nextTitle: string;
+}
+
 export interface DistrictPanelEvents {
   onClose: () => void;
+  /** Prev (-1) or next (+1) requested. Wrap-around is the caller's decision. */
+  onStep: (direction: -1 | 1) => void;
   /** Fired when the mobile sheet settles at a new stop. */
   onStopChanged?: (stop: SheetStop) => void;
 }
@@ -30,43 +43,36 @@ export interface DistrictPanelEvents {
 /** Breakpoint shared with the stylesheet. */
 const DESKTOP_MIN_WIDTH = 768;
 
-interface AccordionSection {
-  header: HTMLButtonElement;
-  heading: HTMLHeadingElement;
-  region: HTMLDivElement;
-}
+/** Staged reveal on first open, ms. Copy arrives while the camera is still flying. */
+const REVEAL_DELAYS = { eyebrow: 300, title: 380, copy: 480, nav: 600 } as const;
+/** Shorter restage on a swap: the panel is already there, only the text changed. */
+const SWAP_DELAYS = { eyebrow: 40, title: 100, copy: 180, nav: 0 } as const;
 
 export class DistrictPanel {
   private readonly el: HTMLElement;
   private readonly handle: HTMLButtonElement;
   private readonly closeButton: HTMLButtonElement;
+  private readonly eyebrowEl: HTMLParagraphElement;
   private readonly titleEl: HTMLHeadingElement;
-  private readonly summaryEl: HTMLParagraphElement;
-  private readonly introEl: HTMLParagraphElement;
-  private readonly listEl: HTMLDivElement;
+  private readonly copyEl: HTMLDivElement;
+  private readonly nav: HTMLElement;
+  private readonly prevButton: HTMLButtonElement;
+  private readonly nextButton: HTMLButtonElement;
   private readonly body: HTMLDivElement;
   private readonly events: DistrictPanelEvents;
-  private readonly instanceId: string;
-
-  private sections: AccordionSection[] = [];
-  /** Index of the one open section, or -1. Only ever one at a time. */
-  private openIndex = -1;
 
   private open = false;
   private stop: SheetStop = 'peek';
-  private reducedMotion = false;
   /** Element focused before opening, restored on close. */
   private previouslyFocused: HTMLElement | null = null;
   private readonly revealTimers: number[] = [];
 
   /**
    * `instanceId` keeps ids unique. One panel per district, and duplicate ids
-   * would break both `aria-labelledby` and any future id-based styling the
-   * moment a second district exists.
+   * would break `aria-labelledby` the moment a second district exists.
    */
   constructor(parent: HTMLElement, instanceId: string, events: DistrictPanelEvents) {
     this.events = events;
-    this.instanceId = instanceId;
     const titleId = `district-panel-title-${instanceId}`;
 
     this.el = document.createElement('section');
@@ -87,33 +93,43 @@ export class DistrictPanel {
     this.closeButton.setAttribute('aria-label', 'Cerrar');
     this.closeButton.textContent = '×';
 
+    this.eyebrowEl = document.createElement('p');
+    this.eyebrowEl.className = 'district-panel-eyebrow reveal';
+
     this.titleEl = document.createElement('h2');
     this.titleEl.id = titleId;
     this.titleEl.className = 'district-panel-title reveal';
 
-    this.summaryEl = document.createElement('p');
-    this.summaryEl.className = 'district-panel-summary reveal';
+    this.copyEl = document.createElement('div');
+    this.copyEl.className = 'district-panel-copy reveal';
 
-    this.introEl = document.createElement('p');
-    this.introEl.className = 'district-panel-intro reveal';
+    this.prevButton = this.makeStepButton(-1, 'Anterior');
+    this.nextButton = this.makeStepButton(1, 'Siguiente');
+    this.nav = document.createElement('nav');
+    this.nav.className = 'district-panel-nav reveal';
+    this.nav.setAttribute('aria-label', 'Recorrer los servicios');
+    this.nav.append(this.prevButton, this.nextButton);
 
-    this.listEl = document.createElement('div');
-    this.listEl.className = 'district-panel-services';
+    // Header row (eyebrow + close) is fixed; the body is the only thing that
+    // scrolls — the case panel's structure, which this panel's design copies.
+    const header = document.createElement('div');
+    header.className = 'district-panel-header';
+    header.append(this.eyebrowEl, this.closeButton);
 
     this.body = document.createElement('div');
     this.body.className = 'district-panel-body';
-    this.body.append(this.titleEl, this.summaryEl, this.introEl, this.listEl);
+    // Nav before copy in the DOM: on the mobile peek stop the sheet is 40%
+    // tall, and the step buttons must be reachable without expanding it. On
+    // desktop CSS sends the nav to the foot of the card with `order`.
+    this.body.append(this.titleEl, this.nav, this.copyEl);
 
-    this.el.append(this.handle, this.closeButton, this.body);
+    this.el.append(this.handle, header, this.body);
     parent.appendChild(this.el);
 
     this.closeButton.addEventListener('click', this.onCloseClick);
     this.handle.addEventListener('click', this.onHandleClick);
     this.el.addEventListener('keydown', this.onKeyDown);
-    // Delegated, so the listener count does not scale with the service count and
-    // dispose() stays a single removal regardless of how the content changes.
-    this.listEl.addEventListener('click', this.onSectionClick);
-    this.listEl.addEventListener('keydown', this.onSectionKeyDown);
+    this.nav.addEventListener('click', this.onStepClick);
   }
 
   get isOpen(): boolean {
@@ -124,38 +140,27 @@ export class DistrictPanel {
     return this.stop;
   }
 
-  /** Index of the open accordion section, or -1. Exposed for testing. */
-  get openSectionIndex(): number {
-    return this.openIndex;
-  }
-
   static get isDesktopLayout(): boolean {
     return window.innerWidth >= DESKTOP_MIN_WIDTH;
   }
 
   /**
-   * Opens with a staged reveal: structure first, then the copy, then the
-   * sections.
+   * Opens with a staged reveal: structure first, then the copy.
    *
    * The stages start immediately and run *alongside* the camera flight, rather
    * than after it. Waiting for arrival makes the click feel unacknowledged;
    * showing the finished panel up front makes the flight feel decorative.
    */
-  show(content: DistrictContent, reducedMotion: boolean): void {
+  show(view: ServicePanelView, reducedMotion: boolean): void {
     this.clearTimers();
-    this.reducedMotion = reducedMotion;
     this.previouslyFocused = document.activeElement as HTMLElement | null;
 
-    this.titleEl.textContent = content.label;
-    this.summaryEl.textContent = content.summary;
-    this.introEl.textContent = content.intro;
+    this.render(view);
 
-    // Reset the stop *before* building, so the sections are constructed against
-    // coherent state rather than against whatever stop the last open left behind.
+    // Reset the stop *before* showing, so the sheet opens at peek regardless
+    // of where the last open left it.
     this.stop = 'peek';
     this.el.dataset['stop'] = this.stop;
-
-    this.buildSections(content, reducedMotion);
 
     this.el.hidden = false;
     this.open = true;
@@ -165,23 +170,43 @@ export class DistrictPanel {
     void this.el.offsetWidth;
     this.el.classList.add('open');
 
+    this.unreveal();
     if (reducedMotion) {
       this.revealAll();
     } else {
-      this.revealTimers.push(
-        window.setTimeout(() => this.titleEl.classList.add('shown'), 300),
-        window.setTimeout(() => this.summaryEl.classList.add('shown'), 400),
-        window.setTimeout(() => this.introEl.classList.add('shown'), 500),
-        window.setTimeout(() => {
-          for (const section of this.sections) {
-            section.heading.classList.add('shown');
-            section.region.classList.add('shown');
-          }
-        }, 640),
-      );
+      this.reveal(REVEAL_DELAYS);
     }
 
     this.closeButton.focus({ preventScroll: true });
+  }
+
+  /**
+   * Replaces the service while the panel stays open — the viewer stepped to a
+   * neighbouring building, or tapped one.
+   *
+   * Deliberately NOT `hide()` + `show()`: that would reset the sheet to peek,
+   * steal focus back to the close button mid-tour, and replay the entry
+   * transition on a panel that never left. The stop and the focused element
+   * are the viewer's; only the text is ours to change.
+   */
+  swap(view: ServicePanelView, reducedMotion: boolean): void {
+    if (!this.open) {
+      this.show(view, reducedMotion);
+      return;
+    }
+    this.clearTimers();
+    this.render(view);
+    this.body.scrollTop = 0;
+
+    if (reducedMotion) {
+      this.revealAll();
+      return;
+    }
+    // Restage the text only. The nav stays put — it is what the viewer is
+    // pressing, and a control that blinks under the finger reads as broken.
+    for (const el of [this.eyebrowEl, this.titleEl, this.copyEl]) el.classList.remove('shown');
+    void this.body.offsetWidth;
+    this.reveal(SWAP_DELAYS, { nav: false });
   }
 
   hide(): void {
@@ -190,13 +215,7 @@ export class DistrictPanel {
     this.open = false;
     this.el.classList.remove('open');
     this.el.hidden = true;
-    this.titleEl.classList.remove('shown');
-    this.summaryEl.classList.remove('shown');
-    this.introEl.classList.remove('shown');
-    for (const section of this.sections) {
-      section.heading.classList.remove('shown');
-      section.region.classList.remove('shown');
-    }
+    this.unreveal();
 
     // Returning focus to where it was is the half of focus management that is
     // usually forgotten; without it a keyboard user lands back at the top.
@@ -229,163 +248,75 @@ export class DistrictPanel {
     return { left: this.el.offsetLeft, top: this.el.offsetTop, width, height };
   }
 
-  // --- Accordion -------------------------------------------------------------
+  // --- Content ---------------------------------------------------------------
 
-  /**
-   * Builds one `h3 > button` header and one region per service.
-   *
-   * A heading rather than a bare button because the panel title is already an
-   * `h2`: assistive technology should get a real document outline, not a stack
-   * of controls.
-   */
-  private buildSections(content: DistrictContent, reducedMotion: boolean): void {
-    const nodes: HTMLElement[] = [];
-    this.sections = content.services.map((service, index) => {
-      const headerId = `district-${this.instanceId}-header-${service.id}`;
-      const regionId = `district-${this.instanceId}-region-${service.id}`;
+  private render(view: ServicePanelView): void {
+    this.eyebrowEl.textContent = view.eyebrow;
+    this.titleEl.textContent = view.title;
 
-      const heading = document.createElement('h3');
-      heading.className = 'district-service-heading reveal';
+    // One <p> per paragraph. The body is authored as plain text with blank
+    // lines between paragraphs (Sanity `text`, max 900 chars).
+    const paragraphs = view.body
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    this.copyEl.replaceChildren(
+      ...paragraphs.map((text) => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        return p;
+      }),
+    );
 
-      const header = document.createElement('button');
-      header.type = 'button';
-      header.className = 'district-service-header';
-      header.id = headerId;
-      header.setAttribute('aria-controls', regionId);
-      header.dataset['index'] = String(index);
-
-      const chevron = document.createElement('span');
-      chevron.className = 'district-service-chevron';
-      chevron.setAttribute('aria-hidden', 'true');
-
-      const titleSpan = document.createElement('span');
-      titleSpan.textContent = service.title;
-
-      header.append(titleSpan, chevron);
-      heading.appendChild(header);
-
-      // The region is the grid wrapper; the inner div is the grid child that
-      // clips. Two elements are needed because `grid-template-rows: 0fr -> 1fr`
-      // animates the *track*, and the content has to be able to overflow it.
-      const region = document.createElement('div');
-      region.className = 'district-service-region reveal';
-      region.id = regionId;
-      region.setAttribute('role', 'region');
-      region.setAttribute('aria-labelledby', headerId);
-
-      const inner = document.createElement('div');
-      inner.className = 'district-service-inner';
-      const paragraph = document.createElement('p');
-      paragraph.textContent = service.body;
-      inner.appendChild(paragraph);
-      region.appendChild(inner);
-
-      if (!reducedMotion) {
-        const delay = `${index * 70}ms`;
-        heading.style.transitionDelay = delay;
-        region.style.transitionDelay = delay;
-      }
-
-      nodes.push(heading, region);
-      return { header, heading, region };
-    });
-
-    this.listEl.replaceChildren(...nodes);
-    // Start with the first section open: an all-collapsed list of buttons reads
-    // as a menu rather than as content.
-    //
-    // `fromUser: false` matters. Opening a section normally raises the mobile
-    // sheet to its reading stop — but this open is the panel's initial state,
-    // not a gesture, so routing it through the same path would jump straight to
-    // 85% the instant the panel appeared and the peek stop would never be seen.
-    this.openIndex = -1;
-    if (this.sections.length > 0) this.setOpenSection(0, { fromUser: false });
+    this.prevButton.setAttribute('aria-label', `Anterior: ${view.prevTitle}`);
+    this.nextButton.setAttribute('aria-label', `Siguiente: ${view.nextTitle}`);
   }
 
-  /**
-   * Opens one section and closes whatever was open.
-   *
-   * Single-open is the point: in a 380px column several open sections make the
-   * reader lose their place, which is what the accordion exists to prevent.
-   *
-   * `fromUser` distinguishes a gesture from the initial state. Only a gesture
-   * scrolls the header into view or raises the mobile sheet.
-   */
-  private setOpenSection(index: number, options: { fromUser?: boolean } = {}): void {
-    const fromUser = options.fromUser ?? true;
-    const next = index === this.openIndex ? -1 : index;
-    this.openIndex = next;
+  private makeStepButton(direction: -1 | 1, label: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'district-panel-step';
+    button.dataset['step'] = String(direction);
 
-    this.sections.forEach((section, i) => {
-      const expanded = i === next;
-      section.header.setAttribute('aria-expanded', String(expanded));
-      section.region.classList.toggle('expanded', expanded);
-      // Collapsed content must leave the tab order, or a keyboard user tabs
-      // into text they cannot see.
-      section.region.inert = !expanded;
-    });
+    const chevron = document.createElement('span');
+    chevron.className = 'district-panel-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
 
-    if (next === -1 || !fromUser) return;
+    const text = document.createElement('span');
+    text.textContent = label;
 
-    // On mobile the peek stop is for orientation, not reading: revealing a
-    // paragraph into a 40%-tall window would put most of it below the fold, so
-    // opening a section raises the sheet in the same gesture. The camera
-    // deliberately does not follow — at the reading stop the user has chosen
-    // content over scene.
-    if (!DistrictPanel.isDesktopLayout && this.stop === 'peek') {
-      this.setStop('expanded');
-    }
-
-    this.sections[next]?.heading.scrollIntoView({
-      block: 'nearest',
-      behavior: this.reducedMotion ? 'auto' : 'smooth',
-    });
+    if (direction < 0) button.append(chevron, text);
+    else button.append(text, chevron);
+    return button;
   }
 
-  private sectionIndexFrom(target: EventTarget | null): number | null {
-    if (!(target instanceof Element)) return null;
-    const header = target.closest('.district-service-header');
-    if (!(header instanceof HTMLElement)) return null;
-    const index = Number(header.dataset['index']);
-    return Number.isInteger(index) ? index : null;
+  // --- Reveal ----------------------------------------------------------------
+
+  private reveal(
+    delays: { eyebrow: number; title: number; copy: number; nav: number },
+    include: { nav: boolean } = { nav: true },
+  ): void {
+    const stage = (el: HTMLElement, delay: number): void => {
+      this.revealTimers.push(window.setTimeout(() => el.classList.add('shown'), delay));
+    };
+    stage(this.eyebrowEl, delays.eyebrow);
+    stage(this.titleEl, delays.title);
+    stage(this.copyEl, delays.copy);
+    if (include.nav) stage(this.nav, delays.nav);
   }
 
-  private readonly onSectionClick = (event: MouseEvent): void => {
-    const index = this.sectionIndexFrom(event.target);
-    if (index === null) return;
-    this.setOpenSection(index);
-  };
+  private revealAll(): void {
+    for (const el of [this.eyebrowEl, this.titleEl, this.copyEl, this.nav]) el.classList.add('shown');
+  }
 
-  /**
-   * Arrow, Home and End move between headers, per the WAI-ARIA accordion
-   * pattern. Enter and Space come free with a real `<button>`.
-   */
-  private readonly onSectionKeyDown = (event: KeyboardEvent): void => {
-    const index = this.sectionIndexFrom(event.target);
-    if (index === null || this.sections.length === 0) return;
+  private unreveal(): void {
+    for (const el of [this.eyebrowEl, this.titleEl, this.copyEl, this.nav]) el.classList.remove('shown');
+  }
 
-    const last = this.sections.length - 1;
-    let next: number | null = null;
-    switch (event.key) {
-      case 'ArrowDown':
-        next = index === last ? 0 : index + 1;
-        break;
-      case 'ArrowUp':
-        next = index === 0 ? last : index - 1;
-        break;
-      case 'Home':
-        next = 0;
-        break;
-      case 'End':
-        next = last;
-        break;
-      default:
-        return;
-    }
-
-    event.preventDefault();
-    this.sections[next]?.header.focus();
-  };
+  private clearTimers(): void {
+    for (const timer of this.revealTimers) window.clearTimeout(timer);
+    this.revealTimers.length = 0;
+  }
 
   // --- Sheet -----------------------------------------------------------------
 
@@ -396,20 +327,20 @@ export class DistrictPanel {
     this.events.onStopChanged?.(stop);
   }
 
-  private revealAll(): void {
-    this.titleEl.classList.add('shown');
-    this.summaryEl.classList.add('shown');
-    this.introEl.classList.add('shown');
-    for (const section of this.sections) {
-      section.heading.classList.add('shown');
-      section.region.classList.add('shown');
-    }
-  }
+  // --- Input -----------------------------------------------------------------
 
-  private clearTimers(): void {
-    for (const timer of this.revealTimers) window.clearTimeout(timer);
-    this.revealTimers.length = 0;
-  }
+  private readonly onStepClick = (event: MouseEvent): void => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest('.district-panel-step');
+    if (!(button instanceof HTMLElement)) return;
+    const step = Number(button.dataset['step']);
+    if (step !== -1 && step !== 1) return;
+    // A step does NOT change the sheet stop. The viewer is touring buildings
+    // and the camera is what moves; raising the sheet would hide the very
+    // thing they just asked to see.
+    this.events.onStep(step);
+  };
 
   private readonly onCloseClick = (): void => {
     this.events.onClose();
@@ -423,6 +354,17 @@ export class DistrictPanel {
     if (event.key === 'Escape') {
       event.stopPropagation();
       this.events.onClose();
+      return;
+    }
+    // Arrow keys tour the buildings while the panel has focus. Not on a text
+    // field — there are none — and not when a modifier is held.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.events.onStep(-1);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.events.onStep(1);
     }
   };
 
@@ -431,9 +373,7 @@ export class DistrictPanel {
     this.closeButton.removeEventListener('click', this.onCloseClick);
     this.handle.removeEventListener('click', this.onHandleClick);
     this.el.removeEventListener('keydown', this.onKeyDown);
-    this.listEl.removeEventListener('click', this.onSectionClick);
-    this.listEl.removeEventListener('keydown', this.onSectionKeyDown);
-    this.sections = [];
+    this.nav.removeEventListener('click', this.onStepClick);
     this.el.remove();
   }
 }

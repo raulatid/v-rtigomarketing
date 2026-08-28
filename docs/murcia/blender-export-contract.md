@@ -12,8 +12,9 @@ either broke or could not be built without it.
 called `edificios_servicios` produces **no node of that name**, and no trace of
 the grouping survives. Only object names become nodes.
 
-This was confirmed by dumping all 294 node names in `city-prototype.glb`. The
-names present are `Plane.013`, `Edificios_Procedurales`, `parque.007`,
+This was confirmed by dumping every node name in `city-prototype.glb` (294 in
+the first export, 1079 in the 2026-08-27 one). The names present are
+`suelo-principal`, `Edificios_Procedurales`, `edificio-servicio-001`,
 `blog_edificios`, `Estadio futbol` and similar. No collection name appears.
 
 **So a collection can never be a runtime contract.** Organise in collections
@@ -43,12 +44,19 @@ will tell you about.
 Custom properties land in glTF `extras`, which `GLTFLoader` puts on
 `object.userData`. `resolveDistrict` reads `userData.district`.
 
-### What happens today, before the re-export
+### Service buildings are identified by object name
 
-`src/experiences/murcia/scene/cityDistrictBindings.ts` lists `blog_edificios` and
-`blog_edificios.001` as a **stand-in** so the interaction can be built and
-judged. Once the objects carry `district = "servicios"` the tag path wins
-automatically and no code changes.
+Since the 2026-08-27 re-export the services district is not a cluster picked as
+a whole but **one building per service**: objects named `edificio-servicio-NNN`
+(`001`–`007`, `009` today). These are identified by **object name**, not by
+tag — a per-building custom property would add nothing the name does not
+already say, and the names are dot-free so sanitisation cannot bite.
+
+Which building shows which service lives in one place,
+`src/experiences/murcia/scene/cityDistrictBindings.ts` (`buildings[]`). Every
+service slug in Sanity needs a row there — the unit test fails otherwise — and a
+row whose node is missing from the GLB is reported at load and skipped. Unbound
+`edificio-servicio-*` objects are plain city.
 
 ---
 
@@ -108,7 +116,7 @@ light count invalidates every material's shader program (§2.3, §10.4).
 
 - **Apply transforms.** Negative scale is reported as a warning by
   `buildSceneReport` and breaks normals.
-- **The terrain plate** is located by name (`Plane.013`) with a largest-flat-mesh
+- **The terrain plate** is located by name (`suelo-principal`) with a largest-flat-mesh
   fallback. Renaming it is fine; the fallback and the reported `terrainSource`
   will say what happened.
 - Keep 1 unit ≈ 1 metre. Every camera and navigation value assumes it.

@@ -1,6 +1,27 @@
 import * as THREE from 'three';
 import { findByAnyNameSpelling } from '../assets/nodeNames';
-import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
+import type { BoundsRect } from '../config/environmentConfig';
+
+/**
+ * What the resolver needs to locate one piece of geometry. Structural rather
+ * than the scene binding itself, so the same resolver serves a whole district
+ * and a single service building.
+ */
+export interface DistrictLookupSpec {
+  /** Used in messages only. */
+  id: string;
+  /**
+   * Value expected in `userData.district`. Empty when the geometry is not tagged
+   * by contract — service buildings are identified by name alone, and an empty
+   * tag also silences the "add the custom property" warning that would
+   * otherwise fire once per building.
+   */
+  tag: string;
+  /** Blender spellings; all three runtime spellings are tried. */
+  nodeNames: string[];
+  fallbackRect?: BoundsRect;
+  allowSpatialFallback: boolean;
+}
 
 /**
  * How a district's geometry was located. Surfaced so a fallback is never silent
@@ -41,32 +62,34 @@ export interface DistrictLookup {
  */
 export function resolveDistrict(
   root: THREE.Object3D,
-  binding: DistrictSceneBinding,
+  spec: DistrictLookupSpec,
 ): DistrictLookup {
   root.updateWorldMatrix(true, true);
   const warnings: string[] = [];
 
-  const byTag = collectByTag(root, binding.tag);
+  const byTag = spec.tag ? collectByTag(root, spec.tag) : [];
   if (byTag.length > 0) {
     return finish(byTag, 'tag', warnings);
   }
 
-  const byName = collectByNames(root, binding.nodeNames, warnings);
+  const byName = collectByNames(root, spec.nodeNames, warnings);
   if (byName.length > 0) {
-    warnings.push(
-      `District "${binding.contentId}" resolved by node name, not by tag. Add the ` +
-        `custom property district = "${binding.tag}" in Blender and re-export with ` +
-        'Include > Custom Properties.',
-    );
+    if (spec.tag) {
+      warnings.push(
+        `District "${spec.id}" resolved by node name, not by tag. Add the ` +
+          `custom property district = "${spec.tag}" in Blender and re-export with ` +
+          'Include > Custom Properties.',
+      );
+    }
     return finish(byName, 'name', warnings);
   }
 
-  if (binding.fallbackRect && binding.allowSpatialFallback) {
-    const r = binding.fallbackRect;
+  if (spec.fallbackRect && spec.allowSpatialFallback) {
+    const r = spec.fallbackRect;
     const byRect = collectByRect(root, r);
     if (byRect.length > 0) {
       warnings.push(
-        `District "${binding.contentId}" resolved by SPATIAL FALLBACK over ` +
+        `District "${spec.id}" resolved by SPATIAL FALLBACK over ` +
           `X [${r.minX}, ${r.maxX}] Z [${r.minZ}, ${r.maxZ}] — ${byRect.length} mesh(es). ` +
           'This is a development crutch: hardcoded world coordinates drift on ' +
           're-export. Tag the objects in Blender before shipping.',

@@ -43,11 +43,13 @@ falling outward. Density falls off with distance so the outer band is sparse.
 `DistrictInteraction` raycasts an explicit allowlist, non-recursively:
 
 ```ts
-this.pickables = [...deps.district.meshes, this.highlight.proxy];
+// every bound service building's meshes, plus each one's pick proxy
+this.pickables = Array.from(this.siteByObject.keys());
 ```
 
-and `resolveDistrict` only ever matches `userData.district` tags or names listed in
-`cityDistrictBindings.ts`. **Untagged, unlisted geometry is unreachable by construction.**
+and `resolveDistrict` only ever matches `userData.district` tags or the node names listed in
+`cityDistrictBindings.ts` (`buildings[].nodeName`). **Untagged, unlisted geometry is unreachable
+by construction.**
 
 The backdrop therefore carries no `district` custom property and appears in no binding.
 Do not invent an opt-out flag for it — it would be dead code.

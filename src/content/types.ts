@@ -305,13 +305,18 @@ export interface CaseStudy {
  */
 export interface Service {
   /**
-   * Stable identifier. Used to wire the district accordion's `aria-controls` to
-   * its region, so duplicates silently break the panel for screen-reader users —
-   * `checks/district-flight.ts` asserts uniqueness.
+   * Stable identifier. Keys the service to its building in
+   * `scene/cityDistrictBindings.ts` (every service needs a row there — the
+   * binding test fails otherwise), so duplicates would put two services on one
+   * building — `checks/district-flight.ts` asserts uniqueness.
    */
   id: string
+  /** On the building's projected label and as the panel heading. */
   title: string
-  /** Revealed when the section is opened. One or two short paragraphs. */
+  /**
+   * The panel body once the building is selected. One or two short paragraphs,
+   * separated by a blank line.
+   */
   body: string
 }
 
@@ -327,18 +332,17 @@ export type DistrictService = Service
 export interface DistrictContent {
   /** Stable identifier, referenced by a scene binding's `contentId`. */
   id: string
-  /** Short name, used on the projected label and as the panel heading. */
+  /** Short name, used as the panel eyebrow ("Servicios · 2 / 5"). */
   label: string
   /**
-   * One sentence, and it must stay one sentence: this is what shows at the
-   * mobile peek stop, where the sheet is only 40% of the viewport tall.
+   * Currently unread. It was the district panel's one-line lead when the
+   * district was picked as a whole; since one service per building
+   * (2026-08-27) the panel shows a single service and nothing renders this.
+   * Kept in the contract until the Sanity schema is revisited.
    */
   summary: string
-  /**
-   * The panel's opening paragraph. Separate from `summary` because it has a
-   * different job — it is never asked to survive in a 40%-tall sheet, so it can
-   * take the room it needs.
-   */
+  /** Currently unread, for the same reason as `summary`. */
   intro: string
+  /** The tour order: prev/next and tab order follow this array. */
   services: DistrictService[]
 }

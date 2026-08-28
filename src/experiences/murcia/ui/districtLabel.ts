@@ -1,12 +1,12 @@
 /**
- * Projected label for an interactive district.
+ * Projected label for an interactive building (one per service).
  *
  * Two jobs, and the second is the reason it is a `<button>` rather than a div:
  *
- * 1. It names the district on screen. On desktop it appears on hover; on
+ * 1. It names the service on screen. On desktop it appears on hover; on
  *    devices with no hover it stays visible, because otherwise nothing on a
- *    touch screen would say the district is interactive at all.
- * 2. It is the district's **keyboard** affordance. A WebGL raycast cannot be
+ *    touch screen would say the building is interactive at all.
+ * 2. It is the building's **keyboard** affordance. A WebGL raycast cannot be
  *    tabbed to or activated by Enter, so accessibility cannot depend on picking.
  */
 export interface DistrictLabelEvents {
@@ -31,7 +31,7 @@ export class DistrictLabel {
     this.el.type = 'button';
     this.el.className = 'district-label';
     this.el.textContent = label;
-    this.el.setAttribute('aria-label', `${label} — abrir distrito`);
+    this.el.setAttribute('aria-label', `${label} — ver servicio`);
     this.el.addEventListener('click', this.onClick);
     parent.appendChild(this.el);
 

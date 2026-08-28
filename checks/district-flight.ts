@@ -391,7 +391,10 @@ console.log('\n7. Framing puts the district in the unobstructed region');
   );
 
   const binding = cityDistrictBindings[0]!;
-  const target = { x: -340, z: 184 };
+  // A point in the service-building cluster (X [-188, -100] Z [388, 462]).
+  // Deliberately close to the plate's +Z edge (473): that is where the framing
+  // solve is most likely to push the focus out of bounds.
+  const target = { x: -144, z: 425 };
   const pose = env.camera;
 
   const viewports: Array<[string, number, number, { left: number; top: number; width: number; height: number } | null]> = [
@@ -404,12 +407,27 @@ console.log('\n7. Framing puts the district in the unobstructed region');
 
   for (const [label, w, h] of viewports) {
     const canvasRect = { left: 0, top: 0, width: w, height: h };
+    // Desktop: the service card — the case panel's placement, `right: 20vw`,
+    // `width: min(420px, 38vw)`, vertically centred. A representative height;
+    // the real one is content-sized and measured at runtime.
+    const cardWidth = Math.min(420, 0.38 * w);
+    const cardHeight = Math.min(420, h - 48);
     const obstruction =
-      w >= 768
-        ? { left: w - 380, top: 0, width: 380, height: h }
+      w >= 768 && h > 500
+        ? { left: w - 0.2 * w - cardWidth, top: (h - cardHeight) / 2, width: cardWidth, height: cardHeight }
         : { left: 0, top: h - Math.round(h * 0.4), width: w, height: Math.round(h * 0.4) };
 
     const ndc = unobstructedCenterNdc(canvasRect, obstruction);
+    if (w >= 768 && h > 500) {
+      // The card floats right of centre, so the clear region — and the building
+      // — must land LEFT of it, never behind it.
+      const cardLeftNdc = (obstruction.left / w) * 2 - 1;
+      check(
+        `${label} frames the building left of the card`,
+        ndc.x < cardLeftNdc,
+        `centre ndc x ${ndc.x.toFixed(3)} vs card left edge ${cardLeftNdc.toFixed(3)}`,
+      );
+    }
     const framed = computeFramedFocus({
       pose,
       aspect: w / h,
@@ -716,12 +734,81 @@ console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
   }
 }
 
+// --- 7d. Swapping buildings keeps the distance --------------------------------
+
+console.log('\n7d. Moving from one building to the next never dollies out');
+{
+  // With one service per building, the panel's prev/next re-aims the flight
+  // while the rig is already at the approach scale. The distance delta of the
+  // second flight is zero, so the camera must glide sideways — a dip back
+  // towards rest between two buildings would read as the interface closing and
+  // reopening the district.
+  const scale = 0.78;
+  const a = { x: -168, z: 394 };
+  const b = { x: -106, z: 451 };
+
+  const h = makeHarness();
+  h.controller.beginExternalControl();
+  h.flight.playTo({ ...a, yawDegrees: -35, distanceScale: scale });
+  h.run(0.4);
+  const midway = h.rig.getDistanceScale();
+  // Re-aim mid-flight, exactly as a tap on the next building would.
+  h.controller.beginExternalControl();
+  h.flight.playTo({ ...b, yawDegrees: -35, distanceScale: scale });
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < 240; i += 1) {
+    h.frame(1 / 60);
+    const s = h.rig.getDistanceScale();
+    min = Math.min(min, s);
+    max = Math.max(max, s);
+  }
+  check(
+    'a mid-flight re-aim keeps dollying in, never out',
+    max <= midway + 1e-9 && close(h.rig.getDistanceScale(), scale, 1e-9),
+    `midway ${midway.toFixed(4)}, then [${min.toFixed(4)}, ${max.toFixed(4)}], landed ${h.rig.getDistanceScale().toFixed(4)}`,
+  );
+  check(
+    'and lands on the second building',
+    close(h.rig.focus.x, b.x, 1e-6) && close(h.rig.focus.z, b.z, 1e-6),
+    `focus (${h.rig.focus.x.toFixed(2)}, ${h.rig.focus.z.toFixed(2)})`,
+  );
+
+  // From rest at the first building, a step to the second is pure translation.
+  h.controller.beginExternalControl();
+  h.flight.playTo({ ...a, yawDegrees: -35, distanceScale: scale });
+  h.run(4);
+  const seen: number[] = [];
+  h.controller.beginExternalControl();
+  h.flight.playTo({ ...b, yawDegrees: -35, distanceScale: scale });
+  for (let i = 0; i < 240; i += 1) {
+    h.frame(1 / 60);
+    seen.push(h.rig.getDistanceScale());
+  }
+  check(
+    'a step between two settled buildings holds the distance exactly',
+    seen.every((s) => close(s, scale, 1e-9)),
+    `${seen.length} frames at ${scale}`,
+  );
+}
+
 // --- 8. Resolver -------------------------------------------------------------
 
 console.log('\n8. District resolution reports how it found things');
 {
   const binding = cityDistrictBindings[0]!;
   check('every binding has content', findDistrictContent(DISTRICT_CONTENT, binding.contentId) !== null, binding.contentId);
+
+  // The resolver is exercised against a local spec rather than the shipped
+  // table: these checks are about HOW it finds things, and never needed the
+  // real node names. The table's own invariants live in
+  // cityDistrictBindings.test.ts.
+  const spec = {
+    id: 'harness',
+    tag: 'servicios',
+    nodeNames: ['blog_edificios', 'blog_edificios.001'],
+    allowSpatialFallback: false,
+  };
 
   // districts.ts is meant to be edited by whoever writes the copy, so a bad edit
   // there is the most likely future breakage in this feature. These are cheap.
@@ -768,7 +855,7 @@ console.log('\n8. District resolution reports how it found things');
   addMesh('blog_edificios.001', -310, 195);
   const outsider = addMesh('Plane.021', -356, 253);
 
-  const byName = resolveDistrict(root, binding);
+  const byName = resolveDistrict(root, spec);
   check(
     'resolves by name against sanitized node names',
     byName.source === 'name' && byName.meshes.length === 2,
@@ -785,8 +872,17 @@ console.log('\n8. District resolution reports how it found things');
     'points at the Blender fix',
   );
 
-  outsider.userData['district'] = binding.tag;
-  const byTag = resolveDistrict(root, binding);
+  // Service buildings are identified by name by contract, so an untagged spec
+  // must not nag about a custom property once per building.
+  const untagged = resolveDistrict(root, { ...spec, tag: '' });
+  check(
+    'an untagged spec resolving by name does not ask for a tag',
+    untagged.source === 'name' && !untagged.warnings.some((w) => w.includes('custom property')),
+    `source ${untagged.source}, ${untagged.warnings.length} warning(s)`,
+  );
+
+  outsider.userData['district'] = spec.tag;
+  const byTag = resolveDistrict(root, spec);
   check(
     'a tag beats configured names',
     byTag.source === 'tag' && byTag.meshes.length === 1 && byTag.meshes[0] === outsider,
@@ -794,7 +890,12 @@ console.log('\n8. District resolution reports how it found things');
   );
   delete outsider.userData['district'];
 
-  const noIdentity = { ...binding, tag: 'absent', nodeNames: [] };
+  const noIdentity = {
+    ...spec,
+    tag: 'absent',
+    nodeNames: [] as string[],
+    fallbackRect: { minX: -381, maxX: -299, minZ: 156, maxZ: 212 },
+  };
   check(
     'the spatial fallback cannot run when it is not allowed',
     resolveDistrict(root, noIdentity).source === 'not-found',
@@ -807,7 +908,7 @@ console.log('\n8. District resolution reports how it found things');
     `source ${allowed.source}, ${allowed.meshes.length} mesh(es) by bounds intersection`,
   );
 
-  const empty = resolveDistrict(new THREE.Object3D(), binding);
+  const empty = resolveDistrict(new THREE.Object3D(), spec);
   check(
     'nothing found leaves the feature inert, with empty bounds',
     empty.source === 'not-found' && empty.meshes.length === 0 && empty.bounds.isEmpty(),
@@ -822,11 +923,11 @@ console.log('\n8. District resolution reports how it found things');
     new THREE.MeshStandardMaterial(),
     4,
   );
-  inst.userData['district'] = binding.tag;
+  inst.userData['district'] = spec.tag;
   instRoot.add(inst);
   check(
     'a tagged InstancedMesh is flagged, not silently material-swapped',
-    resolveDistrict(instRoot, binding).warnings.some((w) => w.includes('InstancedMesh')),
+    resolveDistrict(instRoot, spec).warnings.some((w) => w.includes('InstancedMesh')),
     'warning explains that per-instance attributes are needed',
   );
 }

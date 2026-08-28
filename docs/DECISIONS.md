@@ -1780,10 +1780,66 @@ renders with a clause missing; or the entry budget fails and the message blames 
 
 ---
 
+## 32. One service per building, one interaction per district
+
+**Decided** 2026-08-27, when the re-exported city shipped `edificio-servicio-001..007` and `009`.
+
+**The district is engaged through a building, never picked as a whole.** Until now "Servicios" was
+one cluster (`blog_edificios*`, a stand-in) that opened an accordion of all five services. The
+new asset has a building per service, so the unit of attention is the building: hover lights one,
+tapping one frames it and the panel shows that service alone. The accordion is gone.
+
+**Which building shows which service is scene composition, not copy (§28).** It lives in
+`cityDistrictBindings.ts` as `buildings[] { serviceId, nodeName }`. Buildings are identified by
+**object name** — a per-building custom property would say nothing the name does not, and the
+names are dot-free by contract. Every service in the content needs a row, and the binding test
+fails otherwise: a service published in Sanity that silently never appeared in the city is the
+failure §28 exists to prevent. Unbound `edificio-servicio-*` objects (006, 007, 009 today) are plain
+city until a service is written for them.
+
+**One `DistrictInteraction` owns N sites; it is not instantiated once per building.** Each instance
+owns a `CameraFlight`, four canvas listeners and a panel. Five of them would mean that tapping
+building B while A is open has two flights writing the rig in the same frame — exactly the failure
+the external-control handover (§20) exists to prevent — plus five panels and a hover/close race.
+One raycaster over every site's meshes and proxies answers "which building"; one flight, one panel.
+
+**A swap keeps the distance.** Selecting another building while one is open re-aims the flight
+without closing the panel, resetting the sheet stop, moving keyboard focus, or dollying out. The
+rig is already at the approach scale, so the second flight's distance delta is zero and the camera
+glides sideways (`checks/district-flight.ts` §7d). Closing still returns the distance to rest and
+nothing else (§20).
+
+**The service card is the case panel's design, floating.** Amended 2026-08-27, same day: the
+docked full-height sidebar was replaced by a floating glass card with the case panel's every
+value — `right: 20vw`, `width: min(420px, 38vw)`, vertically centred, gradient glass, 14px
+radius, the white-tick eyebrow, the 28px close, 220/340 ms rise-in/fade-out — so the two
+panels read as one family. The values are copied into `murcia.css`, the classes are not
+shared: `e2e/mobile.spec.ts` locates `.case-panel` strictly and this element is always in the
+DOM. It is centred **without a transform** (`top/bottom: 0; margin: auto 0; height:
+fit-content`): `getObstructionRect()` measures the offset box, which is pre-transform, so a
+`translateY(-50%)` centring would report the card half a height too low and the camera would
+frame the building behind it. `checks/district-flight.ts` §7 now describes that card and
+asserts the framed centre lands left of it.
+
+**Prev/next wrap.** Both buttons stay enabled at the ends, so keyboard focus never sits on a control
+that just became `disabled` and fell to `<body>`. The eyebrow "Servicios · n / N" carries position.
+On mobile a step does **not** raise the sheet: the viewer is touring buildings and the camera is
+what moves; raising the sheet would hide the thing they asked to see. The nav therefore sits above
+the copy in the DOM so it is reachable at the 40dvh peek stop, and CSS `order` sends it to the
+foot of the desktop column.
+
+**Left open.** `DistrictContent.summary` and `intro` have no reader now; the contract is untouched
+until the Sanity schema is revisited. Per-building `approachYawDegrees` exists in the table for the
+buildings against the +Z plate edge, where the framing solve may clamp; it is tuned by looking.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| "Servicios" is one district, picked as a cluster, opening an accordion of every service | `cityDistrictBindings.ts` (`blog_edificios*` stand-in), `districtPanel.ts` accordion, §20 | One building per service (`edificio-servicio-NNN`), engaged one at a time; the panel shows one service with prev/next — **§32** |
+| The terrain plate is `Plane.013` | `murciaConfig.ts`, `blender-export-contract.md` §5 | `suelo-principal` since the 2026-08-27 re-export; the largest-flat-mesh fallback covered the gap and warned — **§32** |
 | WordPress is the editorial source of truth | **§27**, `adr/010` | Sanity. The WordPress mapping never worked — flat keys against a `rendered`/`acf` envelope — so nothing working was replaced — **§31**, `adr/011` |
 | `WP_CONTENT_BASE`'s presence selects the source; `wp \| fixture \| seed` | `scripts/build-content.ts` | `SANITY_PROJECT_ID` selects it; `sanity \| fixture \| seed`. A leftover `WP_CONTENT_BASE` fails with a message naming what changed — **§31** |
 | A torn pull is caught by asserting `X-WP-Total` against what arrived | `content/lib/source.ts` | One GROQ query per collection removes the failure class. Eventual consistency after a publish remains, and is documented rather than slept on — **§31**, `adr/011` |
