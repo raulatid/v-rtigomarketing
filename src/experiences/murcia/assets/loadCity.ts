@@ -4,8 +4,23 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { findByAnyNameSpelling } from './nodeNames';
 import { applyTrimSheet } from './applyTrimSheet';
 import { loadTrimSheet } from './loadTrimSheet';
-import type { TrimSheetConfig } from '../config/environmentConfig';
+import type { BoundsRect, TrimSheetConfig } from '../config/environmentConfig';
 import { collectTextures, disposeObject3D } from '../../../graphics/disposal';
+import { createRioWater, type RioWater } from '../water/createRioWater';
+import { DEFAULT_RIO_WATER_CONFIG } from '../water/rioWaterConfig';
+import { computeRiverFrame } from '../water/riverFrame';
+
+/**
+ * The river mesh in the GLB.
+ *
+ * A module constant here rather than in `murciaConfig.ts`, matching
+ * `CITY_MATERIAL_NAME`: it is the name of a node in the asset, not something a
+ * scene is configured with.
+ */
+export const RIVER_OBJECT_NAME = 'rio';
+
+/** The river's material. Named for the same reason the other two are. */
+export const WATER_MATERIAL_NAME = 'MAT_CITY_WATER';
 
 /** How the terrain plate was located. Surfaced so a fallback is never silent. */
 export type TerrainSource =
@@ -54,6 +69,20 @@ export interface LoadedCity {
   terrainSource: TerrainSource;
   timings: LoadTimings;
   report: SceneReport;
+  /**
+   * The river water, or null if the GLB has no `rio` mesh. The caller has to
+   * drive `update()` every frame; disposal is covered by `disposeCity`.
+   */
+  water: RioWater | null;
+  /**
+   * World-space XZ footprint of the river channel, or null if there is no `rio`.
+   *
+   * Reported because the channel is an AUTHORED OPENING in the ground that
+   * reaches the plate perimeter, and `createTerrainTransition` has to leave it
+   * open instead of paving over it. Sourced here so `rio` stays one module's
+   * business.
+   */
+  riverBounds: BoundsRect | null;
 }
 
 export interface SceneReport {
@@ -167,8 +196,12 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   //   3. `configureTrimTextures` then finds the new textures by walking the
   //      root, so wrapping and anisotropy are applied without this function
   //      knowing anything about either;
-  //   4. `buildSceneReport` counts a non-zero texture and so tells the truth
-  //      about what a missing UV set now costs, instead of calling it harmless.
+  //   4. the river material has to be assigned AFTER `applyTrimSheet`, which
+  //      blanket-assigns the buildings material to every mesh it walks — do it
+  //      before and the water is silently overwritten with grey concrete;
+  //   5. `buildSceneReport` counts a non-zero texture and so tells the truth
+  //      about what a missing UV set now costs, instead of calling it harmless,
+  //      and it runs last so its material count includes the water.
   const found = findTerrainPlate(root, options.terrainObjectName);
   if (sheet) {
     applyTrimSheet({
@@ -183,6 +216,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     });
   }
   configureTrimTextures(root);
+  const river = attachRiverWater(root);
   const report = buildSceneReport(gltf, found, options.terrainObjectName);
 
   return {
@@ -192,6 +226,53 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     terrainSource: found.source,
     timings,
     report,
+    water: river?.water ?? null,
+    riverBounds: river?.bounds ?? null,
+  };
+}
+
+/**
+ * Replaces the river mesh's material with the water shader.
+ *
+ * Everything the shader needs about the channel — where the banks are, which
+ * way the current runs — is solved from the ribbon's positions and topology by
+ * `computeRiverFrame`, never from its UVs: `rio` ships a `TEXCOORD_0` whose 22
+ * vertices all carry the identical (0, 1), so a UV-driven version renders a
+ * plausible-looking but completely wrong river. See `riverFrame.ts`.
+ *
+ * A missing `rio` warns and returns null rather than throwing. The river is one
+ * mesh of a city that must still load without it.
+ */
+function attachRiverWater(root: THREE.Object3D): { water: RioWater; bounds: BoundsRect } | null {
+  const match = findByAnyNameSpelling(root, RIVER_OBJECT_NAME, isMesh);
+  if (!match) {
+    console.warn(
+      `[rio] no "${RIVER_OBJECT_NAME}" mesh in the model; the river keeps the city material.`,
+    );
+    return null;
+  }
+
+  const river = match.object as THREE.Mesh;
+  const frame = computeRiverFrame(river.geometry);
+  for (const warning of frame.warnings) console.warn('[rio]', warning);
+
+  const water = createRioWater(DEFAULT_RIO_WATER_CONFIG);
+  water.material.name = WATER_MATERIAL_NAME;
+
+  // Replace, never mutate: `applyTrimSheet` handed this mesh the one buildings
+  // material every other mesh is also holding.
+  river.material = water.material;
+
+  // The bank outline and flow axis are solved in local space and pushed as
+  // world-space uniforms, so the mesh's world matrix has to be current first.
+  river.updateWorldMatrix(true, false);
+  water.setBankSegments(frame.bankSegments, river.matrixWorld);
+  water.setFlowAxis(frame.axis, river.matrixWorld, DEFAULT_RIO_WATER_CONFIG.flowReversed);
+
+  const box = new THREE.Box3().setFromObject(river);
+  return {
+    water,
+    bounds: { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z },
   };
 }
 
@@ -350,6 +431,11 @@ export function disposeLoadedCity(city: LoadedCity): void {
   // once — including an ORM texture sitting in three slots, which
   // `collectTextures` dedupes by identity. A second dispose here would look
   // like diligence and be a double free.
+  //
+  // `city.water` is covered by the same traversal, for the same reason:
+  // `RioWater.dispose` is only `material.dispose()`, and the material is
+  // reachable from the `rio` mesh. Adding a `water.dispose()` call here is the
+  // double free that comment is warning about.
 }
 
 /**

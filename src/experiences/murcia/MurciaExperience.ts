@@ -80,6 +80,15 @@ export class MurciaExperience {
   private districts: DistrictInteraction[] = [];
 
   private loaded: LoadedCity | null = null;
+  /**
+   * Elapsed seconds handed to the water shader.
+   *
+   * `update` receives a DELTA and the shader wants absolute time, so it has to
+   * be accumulated. It lives past the early-return in `update`, so the river
+   * holds still while Murcia is not the active experience instead of jumping
+   * forward by the whole time away on the next frame it draws.
+   */
+  private waterTime = 0;
   private active = false;
   private suspendedController = false;
   private onLoadProgress: ((fraction: number) => void) | undefined;
@@ -430,7 +439,12 @@ export class MurciaExperience {
     // Built before the bounds, because the skirt is what defines the visual
     // extent that the bounds are inset from.
     if (env.terrainTransition.enabled && loaded.terrain) {
-      const transition = createTerrainTransition(loaded.terrain, env.terrainTransition);
+      // The river channel is an authored opening that reaches the plate edge on
+      // both sides, so the collar has to be told about it or it seals the two
+      // river mouths shut.
+      const transition = createTerrainTransition(loaded.terrain, env.terrainTransition, {
+        openings: loaded.riverBounds ? [loaded.riverBounds] : [],
+      });
       this.sceneBundle.scene.add(transition.group);
       this.transition = transition;
       this.bounds.setVisualBounds(transition.visualBounds);
@@ -733,6 +747,14 @@ export class MurciaExperience {
     // Advances drag smoothing and release momentum. Cheap arithmetic only —
     // no raycasting happens here, only on pointer events.
     this.controller?.update(delta);
+
+    // One uniform write. `water.update` wants elapsed seconds, not the delta —
+    // passing `delta` straight through pins uTime at about 1/60 and the river
+    // renders as a still photograph of plausible water.
+    if (this.loaded?.water) {
+      this.waterTime += delta;
+      this.loaded.water.update(this.waterTime);
+    }
 
     if (!this.firstFrameRecorded && this.loaded) {
       this.loaded.timings.firstRenderedFrameTime = performance.now();
