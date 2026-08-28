@@ -71,6 +71,10 @@ Two things forced the question.
 
 **A field contract now exists in two places that must agree.** The Studio schema tells the editor what is allowed while they type; the build asserts it. That duplication is deliberate — one is a convenience, the other is the guarantee — but a schema widened without widening ingestion produces content that refuses to publish, and the reverse produces a field nothing can fill.
 
+**Publishing is disclosure, and only the code knew it.** The dataset answers anonymous reads of published documents — the deliberate consequence of a public dataset with no build token, and the right trade for a marketing site whose content is public anyway. What the decision did not carry was the operational half: *published* means readable by anyone on the internet, including every field the site does not render and every document type it has no page for. The 2026-08-27 security audit verified it by reading the published `blogPost` documents through the query API while the site renders no blog (ORG-2). Drafts are not exposed on that path — Sanity hides the `drafts.` namespace from unauthenticated reads, which is a second reason the build's `!(_id in path("drafts.**"))` filter is not the only thing standing between a draft and the public. The `production` dataset also answers anonymously and is currently empty; whoever seeds it is publishing, not staging.
+
+The consequence for the content model is a rule, not a warning: **a field must never exist to hold information that must not be public.** Internal notes, personal data, credentials and private phone numbers have no home in this dataset, and "the frontend does not render it" is not a privacy control — it is a rendering decision that a future commit can reverse without anybody thinking about disclosure. `GUIA-EDITOR.md` says the same thing in the editor's language, because the person who publishes is not the person reading this file.
+
 **Two singleton invariants are enforced twice each,** for the same reason: Studio structure hides the "create another" button, and `audit` fails the build if a second document exists anyway. A restored backup or the HTTP API can produce one the Studio never showed anybody.
 
 **Historical WordPress documentation is superseded, not deleted.** `docs/content/wordpress-field-contract.md` carries a superseded header pointing at its replacements. The audit reports are dated snapshots and are untouched — an audit that is rewritten to match the present is an audit nobody can rely on.
@@ -82,6 +86,7 @@ Two things forced the question.
 - `SANITY_TOKEN` or any `VITE_SANITY_*` appears in `dist/`.
 - A generated module changes bytes on a build where no content changed — the mirror re-downloaded, an ordering went implicit, or something learned the time.
 - A draft appears on the public site.
+- A schema gains a field for something that must not be public — an internal note, a private phone number, a credential — on the reasoning that nothing renders it.
 - A collection quietly shrinks to 1000 records.
 - A legal document renders with a clause missing, or renders a heading as a paragraph — ingestion started dropping what it does not recognise instead of failing.
 - `dangerouslySetInnerHTML` appears anywhere near content.

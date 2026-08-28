@@ -15,7 +15,7 @@ Esta guía es para quien va a cambiar textos, casos de éxito o datos de contact
 | **Casos de éxito** | Las marcas que giran alrededor del planeta. Cada una tiene su ficha, su texto y su gráfico. |
 | **Distritos** | Las zonas de la ciudad. Hay una: aquí se edita su texto y qué servicios muestra. |
 | **Servicios** | Cada servicio de la agencia, con su nombre y su descripción. Los distritos los muestran. |
-| **Blog** | Las entradas del blog. **Todavía no se ven en la web**: se guardan y aparecerán cuando la sección esté lista. |
+| **Blog** | Las entradas del blog. **Todavía no se ven en la web**: se guardan y aparecerán cuando la sección esté lista. Publicarlas sí las hace públicas — lee «Publicar es hacerlo público». |
 | **Ajustes del sitio** | Teléfonos, correo de contacto y línea de copyright. |
 | **Términos y privacidad** / **Aviso legal** | Los dos documentos legales que enlaza el pie de página. |
 
@@ -26,6 +26,18 @@ Esta guía es para quien va a cambiar textos, casos de éxito o datos de contact
 - Si un campo tiene un error, el botón de publicar no se activa y el campo te dice qué falta. Corrígelo y vuelve a publicar.
 - **Los cambios tardan un par de minutos en verse en la web.** Al publicar, la web se reconstruye entera con el contenido nuevo. Si pasados cinco minutos no ves el cambio, avisa al equipo técnico.
 - **En el ordenador de desarrollo la web no se actualiza sola.** Quien tenga la web en local tiene que ejecutar `npm run content:build` después de cada publicación; hasta entonces sigue mostrando el contenido anterior. No es un fallo.
+
+## Publicar es hacerlo público
+
+Pulsar «Publicar» deja el documento accesible para cualquiera en internet, aunque la web todavía no lo enseñe en ninguna página. Que no se vea en la web **no** quiere decir que sea privado.
+
+- **Todo lo publicado es información pública.** También los campos que la web no muestra: si está publicado, alguien puede leerlo aunque no aparezca en ninguna pantalla.
+- **Los borradores no.** Lo que escribes y no publicas solo lo ves tú, aquí dentro. La diferencia entre privado y público es exactamente el botón «Publicar».
+- **Una entrada del blog publicada ya es pública**, aunque la sección del blog no exista todavía en la web. Si no quieres que se lea aún, déjala en borrador.
+- **No escribas aquí nada que no pueda leerse fuera:** notas internas, datos personales de nadie, contraseñas, teléfonos particulares o cualquier cosa confidencial. No hay ningún campo de este editor pensado para eso.
+- **Que la web no muestre un campo no lo protege.** Lo que decide si algo es público es haberlo publicado, no lo que la web haga con ello después.
+
+Si dudas de si algo puede publicarse, déjalo en borrador y pregunta al equipo técnico.
 
 ## Cosas que conviene saber
 
