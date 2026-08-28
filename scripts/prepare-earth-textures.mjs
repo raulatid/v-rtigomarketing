@@ -28,13 +28,31 @@
 // than inheriting if the close-up framing ever changes: a globe that fills a
 // phone screen is a different calculation from one that occupies a third of it.
 //
-// ── Why JPEG, and why quality 90 ──
+// ── Why JPEG, and why quality 70 ──
 // The sources are JPEG and the sky's AVIF work does not transfer. That work was
 // about smooth dark gradients magnified on screen, where WebP's macroblocking is
 // the dominant artifact (PROJECT_MEMORY 11.38). These are daylight surface maps:
 // high-frequency, mid-to-high luminance, and drawn at roughly 1:1 rather than
-// magnified. JPEG at 90 keeps them well inside the noise floor of that use, and
-// keeping the format means `EarthScene`'s loader path does not change at all.
+// magnified. Keeping the format means `EarthScene`'s loader path does not change
+// at all.
+//
+// The quality number is NOT a taste judgement, and choosing one by taste is what
+// went wrong the first time. This script shipped at 90, which produced narrow
+// files carrying two to three times the desktop set's bits per pixel: a quarter
+// of the pixels bought only ~30% less transfer, so the phone paid for a
+// resolution cut it barely received.
+//
+// The number to match is the one already in the source files. Reading the
+// quantization tables out of their DQT markers gives an IJG-equivalent quality
+// of ~60 — luma DQT[0..3] = 13,9,8,13 for day and specularClouds, 12,9,8,12 for
+// night — against 3,3,3,4 for the narrow files written at 90.
+//
+// 70 rather than 60, because mozjpeg's tables are flatter than the IJG ones and
+// the number does not transfer literally: mozjpeg at 70 quantizes to 10,10,10,11,
+// at or finer than the sources near DC, where mozjpeg at 60 gives 13,13,13,14 and
+// is genuinely coarser than the set these are derived from. These are a second
+// generation encode of an already-lossy source, so parity with the source tables
+// is the floor and not the target.
 //
 // `specularClouds.jpg` carries data rather than colour — the shader reads .rg —
 // so it gets the same treatment but must NOT be chroma-subsampled, which would
@@ -52,7 +70,8 @@ const DIR = join(ROOT, 'public', 'earth')
 const WIDTH = 2048
 const HEIGHT = 1024
 
-const QUALITY = 90
+// Matched to the source maps' own quantization, not chosen by eye. See header.
+const QUALITY = 70
 
 const MAPS = [
   // `chromaSubsampling: '4:4:4'` on the data map only. The other two are
@@ -75,6 +94,11 @@ try {
 }
 
 const kb = (n) => `${Math.round(n / 1024)} KB`
+// Bits per pixel is the number that catches a mismatched quality setting, and
+// bytes alone hide it: a narrow file is smaller than its source no matter how
+// badly it is encoded. Printed against the source's own rate so the next person
+// to run this can see at a glance whether the two sets still agree.
+const bpp = (bytes, w, h) => bytes / (w * h)
 // RGBA8 plus a full mip chain is 4/3 of the base level.
 //
 // Decimal MB, not MiB, because that is the unit every other memory figure in
@@ -108,9 +132,13 @@ for (const { name, data } of MAPS) {
   await writeFile(target, encoded)
 
   const before = (await stat(source)).size
+  const rateBefore = bpp(before, meta.width, meta.height)
+  const rateAfter = bpp(encoded.length, WIDTH, HEIGHT)
   console.log(
     `${name}: ${meta.width}x${meta.height} ${kb(before)} -> ` +
       `${WIDTH}x${HEIGHT} ${kb(encoded.length)}  |  ` +
+      `${rateBefore.toFixed(4)} -> ${rateAfter.toFixed(4)} bpp ` +
+      `(x${(rateAfter / rateBefore).toFixed(2)} the source's rate)  |  ` +
       `VRAM ${vram(meta.width, meta.height).toFixed(1)} MB -> ${vram(WIDTH, HEIGHT).toFixed(1)} MB`,
   )
 }
