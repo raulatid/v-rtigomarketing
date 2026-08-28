@@ -6,7 +6,8 @@ import type { EnvironmentConfig } from './environmentConfig';
  * Every world-space number below is derived from the Phase 1 audit
  * (docs/plans/002 Appendix A), which measured the shipped GLB directly:
  *
- *   terrain plate `Plane.013`   X [-438.2, -86.4]   Z [120.5, 473.3]
+ *   terrain plate `suelo-principal` (was `Plane.013` until the 2026-08-27
+ *   re-export)                  X [-438.2, -86.4]   Z [120.5, 473.3]
  *   plate size                  351.8 x 352.8       Y [-1.15, 1.41]
  *   representative building     ~13 units           tallest landmark 45
  *   scale                       1 unit ~ 1 metre
@@ -248,14 +249,11 @@ export const murciaConfig: EnvironmentConfig = {
 
   terrainTransition: {
     enabled: true,
-    // The audit found none of the contract names present; this is the actual
-    // node name in the shipped GLB.
-    //
-    // Note it is written with the dot. GLTFLoader strips reserved characters
-    // ([].:/) from node names, so at runtime this object is called "Plane013".
-    // findTerrainPlate tries the configured spelling, the sanitized spelling,
-    // and userData.name, so either form works here.
-    terrainObjectName: 'Plane.013',
+    // The 2026-08-27 re-export named the plate explicitly (it was the
+    // auto-generated `Plane.013` before). Dot-free, so GLTFLoader's reserved
+    // character stripping ([].:/) no longer applies; findTerrainPlate still tries
+    // the sanitized spelling and userData.name in case that changes again.
+    terrainObjectName: 'suelo-principal',
     // Generous on purpose. The skirt is what keeps the plate edge out of frame,
     // which is what lets the navigable area be the whole model rather than an
     // inset rectangle (docs/plans/002 Appendix A).
