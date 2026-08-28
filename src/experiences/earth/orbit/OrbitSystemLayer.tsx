@@ -58,9 +58,15 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
     // materials, the sprite materials and the cloud would compile on the frame
     // the reveal begins (plan 003 §3).
     //
-    // Construction is synchronous and includes the 2048×1536 atlas raster, so
-    // this lands after a real stall — reported so the drawing owns that pause
-    // rather than being silently stuttered by it.
+    // Construction is synchronous and rasterises BOTH brand atlases — one per
+    // `AtlasKind`, isotype and logo, each its own canvas — so this lands after
+    // a real stall. Reported so the drawing owns that pause rather than being
+    // silently stuttered by it.
+    //
+    // Their pixel dimensions are not stated here because they are derived, not
+    // chosen: cell geometry (`CELL` in createBrandAtlas.ts) times a grid that
+    // grows with the number of case studies. Adding a case can change both
+    // rasters, so a number written here is wrong one publish later.
     loadProgress.markDone('orbits:build')
 
     return () => {

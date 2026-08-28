@@ -58,9 +58,15 @@ const RESOURCES: Record<StepId, Resource> = {
   'satellite:assets': { weight: 15, required: false },
   // NOT required: Murcia is a different experience entirely, reachable only by
   // a button that does not exist until the intro has landed. It loads here
-  // rather than on demand so the transition never waits on a 456KB Draco parse
-  // and a shader compile (ADR 004) — but it must never be able to hold the
-  // intro back, which is exactly what `required: false` buys.
+  // rather than on demand so the transition never waits on a Draco decode of
+  // the whole city and a shader compile (ADR 004) — but it must never be able
+  // to hold the intro back, which is exactly what `required: false` buys.
+  //
+  // Deliberately not stated in bytes. This line said "456KB" for long enough
+  // that the asset grew past 1.2 MB underneath it, and a re-export can move
+  // that figure again next week. What does not move is the shape of the
+  // argument: a whole city has to be decoded and compiled, that takes long
+  // enough to be felt, and the intro is the only place with time to spend.
   //
   // Weight kept low deliberately: this is the one manifest entry whose bytes
   // the viewer is not waiting for, so it should not dominate the drawing's

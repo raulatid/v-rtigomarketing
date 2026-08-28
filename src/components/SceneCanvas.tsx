@@ -118,11 +118,23 @@ export function SceneCanvas({
       dpr={[1, 2]}
       gl={{
         antialias: true,
-        // R3F defaults this to TRUE, and nothing here wants it. The scene is
-        // fully opaque — SkyShell is an opaque mesh at renderOrder -1000 and
-        // Murcia sets scene.background — so a transparent drawing buffer buys
-        // nothing and costs a per-frame composite of the WebGL layer against
-        // the page, which iOS cannot elide.
+        // R3F defaults this to TRUE, and nothing here wants a see-through
+        // scene: SkyShell is an opaque mesh at renderOrder -1000 and Murcia
+        // sets scene.background, so there is never anything behind the canvas
+        // worth showing.
+        //
+        // WHAT THIS DOES NOT BUY is the compositing saving this comment used to
+        // claim. `three` builds its WebGL context attributes with a hardcoded
+        // `alpha: true`, so the drawing buffer is allocated with an alpha
+        // channel whatever is asked for here; the 2026-08-27 performance audit
+        // read `{alpha: true, …}` back off the live context (P2-L). The request
+        // is honoured in-engine only.
+        //
+        // It is kept because the in-engine half is the half that matters here:
+        // it is what makes the opaque clear below correct. Nobody should
+        // re-derive a per-frame composite saving from this line — that saving
+        // is decided by the context attribute, and the context attribute is
+        // not ours.
         alpha: false,
       }}
       onCreated={({ gl }) => {

@@ -44,16 +44,30 @@ export interface DistrictLookup {
  *
  * Resolution order, most to least trustworthy:
  *
- *   1. `userData.district === binding.tag` — a Blender custom property, exported
- *      into glTF `extras`. This is the production mechanism.
+ *   1. `userData.district === spec.tag` — a Blender custom property, exported
+ *      into glTF `extras`.
  *   2. Explicit node names, in all three spellings (see `findByAnyNameSpelling`).
  *   3. A world-XZ rectangle, development only.
  *   4. not-found.
  *
+ * WHICH STEP APPLIES IS THE CALLER'S DECISION, and the shipped one uses (2).
+ * Since the 2026-08-27 re-export the city holds one building per service, named
+ * `edificio-servicio-NNN`, and `MurciaExperience` resolves each with
+ * `tag: ''` — a per-building custom property would add nothing the name does
+ * not already say, and the empty tag also keeps step 1's "add the custom
+ * property" warning from firing once per building. For that shape the NAME is
+ * the contract, and `checks/city-asset.ts` asserts every bound name is really
+ * in the GLB.
+ *
+ * Step 1 is neither dead nor deprecated: a tag is still the better answer for a
+ * district resolved as a WHOLE — a cluster of geometry with no single stable
+ * name to ask for — which is the shape the city had before the re-export and
+ * may have again. It is simply not the shape anything ships today.
+ *
  * Blender **collection** names are deliberately absent from that list: the glTF
  * exporter flattens collections, so a collection called `edificios_servicios`
- * produces no node of that name and can never be a runtime contract. All 294
- * node names in the shipped GLB were dumped to confirm it.
+ * produces no node of that name and can never be a runtime contract. Every node
+ * name in the shipped GLB was dumped to confirm it.
  *
  * The spatial rectangle is a crutch for working against an asset that carries
  * neither tag nor stable names. World coordinates drift the moment the model is
