@@ -73,6 +73,33 @@ export function MurciaLayer({ active, state, experienceRef, onReady, onAttention
     hostRef.current = host
 
     const build = async () => {
+      // Not until the intro has handed over.
+      //
+      // Everything below competes with the boot it is not part of: 1.26 MB of
+      // city, the Draco and Basis decoders (707 KB of wasm between them) and a
+      // KTX2 bake, all fetched by three's FileLoader over XHR — which Chrome
+      // gives HIGH priority, while the Earth textures readiness actually waits
+      // for are preloaded LOW so they cannot out-rank the app chunk. Neither
+      // decision is wrong alone; together they invert the intended order
+      // (audit 2026-08-27, P1-D). And the bytes are the smaller half: the Draco
+      // parse and the GPU warm run on the same main thread the drawing is
+      // animating on.
+      //
+      // Waiting costs nothing that is visible. Navigation already requires BOTH
+      // `murciaReady` AND phase `site` (App.tsx's canNavigate), so the city can
+      // never be reached before it is built — deferring it moves work off the
+      // critical path rather than making the viewer wait for it later.
+      //
+      // `completed` and not `scene-ready`: readiness is when the scene COULD be
+      // shown, and the drawing keeps running for its own ending after that.
+      // The intro's last second is still the intro.
+      //
+      // Missing boot entry is the one case that must not wait forever — the
+      // page was assembled wrong, useIntroDraw fails open, and so does this.
+      const intro = window.__vertigoIntro
+      if (intro) await intro.completed
+      if (disposed) return
+
       const { MurciaExperience: Ctor } = await import(
         '../experiences/murcia/MurciaExperience'
       )
