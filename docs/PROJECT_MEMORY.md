@@ -858,37 +858,55 @@ translation +1.41, so it is a slab whose top face sits at world Y 1.41. `Plane.0
 channel cut through the plate, and the reason the services district approaches at
 `approachYawDegrees: −35`.
 
-**The GLB** (`/models/city-prototype.glb`, 456 KB, Draco + `EXT_mesh_gpu_instancing`,
-Blender glTF I/O v5.1.20): 294 nodes · 111 meshes · 957 GPU-instanced buildings · **0
-materials · 0 textures · 0 `extras`**. Representative building ~13 units, tallest landmark
-`Plane.019` at 45. Scale is 1 unit ≈ 1 metre. All meshes share one default
-`MeshStandardMaterial` — always clone before modifying. And with no `extras`, districts
-resolve by **node name**, not by tag. The city currently renders monochrome as a result.
+**The GLB** (`/models/city-prototype.glb`, **1 286 596 B**, Draco +
+`EXT_mesh_gpu_instancing`, Blender glTF I/O v5.1.20, committed `dccb900` on 2026-08-27):
+**1079 nodes · 222 meshes · 222 primitives · 6690 instances across 16 instanced nodes** ·
+**0 materials · 0 textures · 0 images**. Representative building ~13 units, tallest landmark
+`Plane.019` at 45. Scale is 1 unit ≈ 1 metre.
 
-> ⚠️ **Those numbers describe the committed GLB. The working tree currently holds a different
-> one** (measured 2026-08-11): **1 245 164 B · 1 070 nodes · 257 meshes**, against 455 616 B ·
-> 294 · 111 at `HEAD`. Still Draco, still `EXT_mesh_gpu_instancing`, still 0 materials and —
-> importantly — **still 0 `extras`**, so the re-export did not close the district-tagging gap.
-> It is uncommitted and its provenance is unknown; it was already in the tree when the
-> readiness re-audit began. It sits on the intro's prefetch path, so +790 KB competes with the
-> 2.43 MB of Earth textures. **Verify which file you are measuring before trusting either set
-> of numbers, and update this paragraph when the asset is settled.** Audit `ASSET-2`.
+The earlier figures this paragraph carried — 456 KB · 294 nodes · 111 meshes · 957 instances
+— described the pre-2026-08-27 export and are gone rather than kept, along with the warning
+box about an uncommitted file of unknown provenance (audit `ASSET-2`): that file is the one
+that was committed, and the question is closed. **957 instances** still appears in a handful
+of comments and in `DECISIONS` §5/§33 as the reason a warm-up exists; the reasoning holds and
+the number is stale.
+
+**With no materials in the file, the runtime builds the city's.** `GLTFLoader` fabricates a
+single `metalness: 1` default and hands it to all 222 primitives, which is nobody's authored
+intent — a fully metallic surface under this rig, which has no environment map, has almost no
+diffuse term. Since 2026-08-28 `applyTrimSheet` replaces it with `MAT_CITY_BUILDINGS`
+(`metalness: 0`) carrying the trim sheet, plus a second map-free material for the terrain
+plate. **The moment the export ships a material of its own, the runtime stops replacing it**
+and assigns the maps onto what arrived instead. Districts resolve by **node name**; the
+`extras` tag mechanism was retired on 2026-08-27 (§32).
 
 **Stop measuring it by hand.** `npm run check:asset` (`checks/city-asset.ts`) reads the GLB's
 JSON chunk and reports every number in this section, then asserts the export contract on top of
-them. Run it before trusting anything written here. Against the working-tree file on
-2026-08-14 it reports **6/9**, and the three failures are the three known gaps:
+them. Run it before trusting anything written here. On 2026-08-28 it reports **7/8**, and the
+single failure is the single remaining gap:
 
 | | |
 |---|---|
-| `TEXCOORD_0` on every primitive | **73 / 257** — and the 184 without it are exactly the Geometry Nodes buildings, the ones the exporter names `Mesh` |
-| nodes carrying `extras` | **0** — Include → Custom Properties was never checked, so districts still resolve by node name |
-| a node tagged `district=` | **0** — same cause |
-| instancing (passing) | 14 instanced nodes · **6602 instances**, so trim variation is per-geometry-variant, never per-building |
+| `TEXCOORD_0` on every primitive | **39 / 222** — and the 183 without it are exactly the Geometry Nodes buildings, the ones the exporter names `Mesh` |
+| service buildings exist (passing) | 5/5 — the name-based contract that replaced the retired `extras`/`district=` assertions |
+| instancing (passing) | 16 instanced nodes · **6690 instances**, so trim variation is per-geometry-variant, never per-building |
 
-It is deliberately **not** in the `check:harnesses` chain: the UV assertion fails today by
-design, and chaining it would fail `npm run build` for a gap it was written to measure. Add it
-to the chain in the same commit that lands the trim-sheet re-export.
+**39/222 flatters it, and the harness cannot see why.** Decoding the Draco UV attributes on
+2026-08-28 splits those 39 in two: **20 meshes have a real unwrap and 19 have a `TEXCOORD_0`
+in which every vertex holds the same value**. A constant UV is *present*, so the file-level
+check passes it, and it samples exactly one texel, so the surface is flat — the gate says
+green and the city says wrong. `suelo-principal`, `rio`, `plaza-toros-fachada`,
+`edificio-servicio-003` and `-004` are in that 19. The runtime catches it instead
+(`meshesWithConstantUv` in the load report), because it has the decoded geometry the harness
+deliberately does not. And none of the 20 real unwraps is mapped into bands — they are plain
+0..1 box unwraps, so the sheet stretches across each surface.
+
+So the trim-sheet work is **two jobs in Blender, not one**: add UVs to the Geometry Nodes
+buildings, and re-map the ones that already have them.
+
+`check:asset` is deliberately **not** in the `check:harnesses` chain: the UV assertion fails
+today by design, and chaining it would fail `npm run build` for a gap it was written to
+measure. Add it to the chain in the same commit that lands the trim-sheet re-export.
 
 **Tap tolerances — two numbers, per pointer type, and they must stay two.** Camera rig:
 `dragClickThreshold` 4 px (mouse/pen) · `touchDragClickThreshold` 12 px. **Murcia's drag:
@@ -1231,10 +1249,14 @@ must restore it to measure coverage.
    load and keep the constants as a last-resort fallback — which is what
    `deriveBoundsFromTerrain: true` is for. The district resolver's `fallbackRect` is a
    development crutch for the same reason, and is gated behind `allowSpatialFallback`.
-6. **All meshes share one material instance** while the GLB ships no materials. Clone before
-   touching anything, and clone **by original identity** so the mapping survives the
-   texturing work. Un-assign a clone before disposing it, or the mesh keeps a dangling
-   reference across a remount.
+6. **All meshes share one material instance.** Until 2026-08-28 that was `GLTFLoader`'s
+   fabricated default, because the GLB ships none; now it is `MAT_CITY_BUILDINGS`, built by
+   `applyTrimSheet` — same hazard, one owner. Clone before touching anything, and clone **by
+   original identity** so the mapping survives the texturing work. Un-assign a clone before
+   disposing it, or the mesh keeps a dangling reference across a remount. The terrain plate
+   is the one exception: it gets its own map-free material, because
+   `createTerrainTransition` clones it for the horizon collar and skirt and those two
+   geometries have no UV attribute at all.
 7. **Changing the light count recompiles every shader** — a stall at exactly the moment of a
    warp. Keep the count and types identical across experiences and vary only position,
    colour and intensity; those can then animate through a transition for free. This is why
@@ -1606,6 +1628,30 @@ must restore it to measure coverage.
 
 ## 12. State of the work
 
+**The city can wear a trim sheet — 2026-08-28 (`plans/009`, `blender-export-contract.md` §6,
+`DECISIONS` Superseded ×2). Committed.** The mechanism, end to end: the sheet is served from
+`/textures/murcia/`, loaded beside the GLB, and put onto a material the runtime builds —
+because the file declares none. Replacing the sheet is overwriting a PNG and reloading;
+promoting it to the production KTX2 set is three path strings. Both are deliberate: plan 001
+had the texture arriving inside the GLB, which makes every colour change a re-export of
+1.29 MB of Draco geometry, and the sheet will be iterated dozens of times first.
+
+**The look is not what shipped — the plumbing is.** Plan 009's Phase 1 audit is what
+redirected it. Only 20 of 222 meshes have a real UV unwrap, 19 more have a `TEXCOORD_0` whose
+every vertex holds the same value, and 183 have none; none of the 20 is mapped into bands
+(§9). Making the city *look* right is Blender work on a `.blend` that is not in this
+repository, so what was built is everything that does not depend on it, plus the contract the
+Blender work is written against.
+
+**What it did change on screen:** the city is no longer dull metal. `GLTFLoader`'s fabricated
+default is `metalness: 1`, and a fully metallic surface under a rig with no environment map
+has almost no diffuse term — most of the monochrome look was that, not the missing texture.
+
+**Not done, and not startable from here:** UVs on the Geometry Nodes buildings, re-mapping the
+20 that have them, and the region layout itself — which is deliberately absent from the code
+and from §6.3, because the artist owns it and it will move. `check:asset` still fails at
+39/222 and stays out of `check:harnesses` until the re-export lands.
+
 **Touch navigates by pinching the world, and the rail is gone — 2026-08-25/26 (`adr/012`,
 `plans/006-pinch-navigation.md`, `DECISIONS` §15/§20/§29 amendments). Uncommitted.** Real users on real phones spread two fingers
 to enter the city without being taught, and were frustrated when nothing happened; nobody reached
@@ -1873,10 +1919,10 @@ iOS report are what would move those findings from *strongly inferred* to *verif
 | **Only Chromium is ever tested** | Unchanged, and now also true of all three Playwright projects — the two mobile ones added on 2026-08-14 are Chromium with a device profile, which makes `(hover: none)` and `(pointer: coarse)` rules apply but says nothing about WebKit. iOS Safari is still where the KTX2 transcoder and `compileAsync` are most likely to differ. **No code change closes this**; the device matrix in `audits/ios-safari-2026-08-14.md` §4 is what would. |
 | **Murcia has no portrait camera pose** | `cameraPortraitOverrides` is built, unit-tested and fed `null`, so `resolveCameraPose` returns the landscape pose at every aspect — and the pose itself is tuned against wide viewports, with a footprint analysis that only guards *too large*. Deliberate: any resting-pose change invalidates the terrain-skirt margin and needs the full azimuth sweep (§5) plus a composition judged by a person. Named as architectural in the mobile audit (M9) rather than patched. |
 | ~~**Six case markers are invisible on touch**~~ | **Closed 2026-08-17.** The five case city markers were retired outright — they carried placeholder copy and were never going to be used. `GEO_MARKERS` collapsed to a single `DESTINATION_MARKER`, so the only tag left is Murcia's, which already had the `(hover: none)` fallback. Mobile audit M10 no longer has a subject. |
-| **`check:asset` is not in `check:harnesses`** | `checks/city-asset.ts` exists, has an npm script, and is wired into nothing — so it never runs on `npm run check`, on `npm run build`, or on the deploy path. Noticed 2026-08-26 while counting harnesses for this file; not fixed in that pass because wiring a harness that has never gated anything is a change that deserves its own verification, not a ride-along. Every other harness is wired. |
+| **`check:asset` is not in `check:harnesses`** | `checks/city-asset.ts` exists, has an npm script, and is wired into nothing, so it never runs on `npm run check`, on `npm run build`, or on the deploy path. Every other harness is wired. Noticed 2026-08-26. **The reason narrowed twice since:** two of its three failures were retired on 2026-08-27 as obsolete (they asserted the `extras` tag mechanism nothing uses), and the one that remains — `TEXCOORD_0` at 39/222 — is a real, open gap with a named unblocker. It is not wired because a gate that is expected to fail is not a gate. **Wire it in the same commit that lands the trim-sheet re-export**, which is the only thing that makes it green. |
 | **The `.reveal` ordering is unasserted** | §8 claimed `checks/` verified it in the built CSS. No such check exists or ever did; the claim was corrected rather than implemented. The ordering is currently held by source order alone. |
 | **No analytics, no error reporting** | Production failures will be completely invisible after launch. The instrumentation already exists (`bootState.fatalReason()`, `pending()`, `readiness()`); what is missing is a sink. Audit `OBS-1`. |
-| **The city GLB in the working tree ≠ the committed one** | ~3× the nodes and +790 KB, uncommitted, still without `extras`. Needs an owner's decision before it ships. §9, audit `ASSET-2`. |
+| ~~**The city GLB in the working tree ≠ the committed one**~~ | **Closed 2026-08-27.** The larger file was committed as the 2026-08-27 re-export (`dccb900`): 1 286 596 B · 1079 nodes · 222 meshes. The `extras` half of the row closed differently — by retiring the tag mechanism rather than by adding tags (§32). Audit `ASSET-2` has no subject. §9. |
 
 ### Open questions
 
@@ -1887,10 +1933,12 @@ Closed, kept here because each was open long enough to shape the code:
 - ~~Whether 180° per viewport width is the right rotation sensitivity.~~ **No — 120°.**
 - ~~The district copy is English while its label is Spanish.~~ **Settled: Spanish**, per
   `DECISIONS.md` §11.
-- ~~Interactive objects need `extras` before selection can be tested.~~ **Worked around, not
-  closed.** `resolveDistrict` resolves by node name against a stand-in cluster, so the
-  interaction is testable now; the `extras` tag remains the production mechanism and the
-  district is still a placeholder until the re-export lands.
+- ~~Interactive objects need `extras` before selection can be tested.~~ **Closed by
+  retiring the question, 2026-08-27.** Service buildings are identified by object name, the
+  only production caller of `resolveDistrict` passes `tag: ''`, and `check:asset`'s two
+  `extras` assertions were removed as obsolete (§32). The tag path still exists and is still
+  the better answer for a district resolved as a whole cluster — it is simply not what
+  anything ships.
 
 Still open:
 
@@ -1903,7 +1951,13 @@ Still open:
 - **`initialFocus` is the plate centre**, chosen arithmetically. It also determines Murcia's
   opening heading, and neither has been judged as a composition.
 - **Whether the rectangular fade reads correctly**, or the coastline needs following (§6).
-- **The monochrome look has not been confirmed as intended.** The GLB has no materials.
+- **The city's look is unjudged, and now it is unjudged with a texture on it.** The GLB
+  still has no materials; since 2026-08-28 the runtime builds one and dresses it from
+  `/textures/murcia/`. The sheet in the tree is a **calibration chart** — eight saturated
+  bands — not art, so what is on screen today is a diagnostic, not a proposal. The monochrome
+  question underneath it is half answered: the grey was `metalness: 1` with no environment
+  map, which is fixed; whether the city should be textured at all, and how, is the artist's
+  call and has never been made.
 - **Whether losing strafe is acceptable.** Free yaw was chosen over sideways panning because
   one gesture cannot carry three axes. If it turns out to matter, the fallback is
   dominant-axis locking at drag start — modal, and worse in every other respect. It survived
