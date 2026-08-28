@@ -1,6 +1,7 @@
 import { DocumentTextIcon } from '@sanity/icons/DocumentText'
 import { defineField, defineType } from 'sanity'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
+import { slugOptions, slugValidation } from './lib/slug'
 
 /**
  * A legal document.
@@ -46,9 +47,9 @@ export const legalDoc = defineType({
       description: LOCKED_ID_DESCRIPTION,
       type: 'slug',
       fieldset: 'tecnico',
-      options: { source: 'title', maxLength: 64 },
+      options: slugOptions('title'),
       readOnly: lockedOnceSet,
-      validation: (rule) => rule.required(),
+      validation: (rule) => slugValidation(rule),
     }),
   ],
   preview: {

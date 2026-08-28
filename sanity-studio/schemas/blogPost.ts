@@ -1,6 +1,7 @@
 import { ComposeIcon } from '@sanity/icons/Compose'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
+import { slugOptions, slugValidation } from './lib/slug'
 
 /**
  * A blog post.
@@ -107,9 +108,9 @@ export const blogPost = defineType({
       description: LOCKED_ID_DESCRIPTION,
       type: 'slug',
       fieldset: 'tecnico',
-      options: { source: 'title', maxLength: 64 },
+      options: slugOptions('title'),
       readOnly: lockedOnceSet,
-      validation: (rule) => rule.required().error('Pulsa "Generar" para crear el identificador.'),
+      validation: (rule) => slugValidation(rule, 'Pulsa "Generar" para crear el identificador.'),
     }),
   ],
   orderings: [

@@ -1,6 +1,7 @@
 import { PinIcon } from '@sanity/icons/Pin'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
+import { slugOptions, slugValidation } from './lib/slug'
 
 /**
  * A district — the copy behind one interactive area of the city.
@@ -89,9 +90,9 @@ export const district = defineType({
       description: LOCKED_ID_DESCRIPTION,
       type: 'slug',
       fieldset: 'tecnico',
-      options: { source: 'label', maxLength: 64 },
+      options: slugOptions('label'),
       readOnly: lockedOnceSet,
-      validation: (rule) => rule.required(),
+      validation: (rule) => slugValidation(rule),
     }),
   ],
   preview: { select: { title: 'label', subtitle: 'summary' } },

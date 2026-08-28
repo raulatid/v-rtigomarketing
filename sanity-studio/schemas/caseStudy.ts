@@ -2,6 +2,7 @@ import { EarthGlobeIcon } from '@sanity/icons/EarthGlobe'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { brandMarkAdvice, brandMarkErrors } from './lib/brandMark'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
+import { slugOptions, slugValidation } from './lib/slug'
 
 /**
  * A case study — one of the brands riding an orbit around the Earth.
@@ -380,9 +381,9 @@ export const caseStudy = defineType({
       description: LOCKED_ID_DESCRIPTION,
       type: 'slug',
       fieldset: 'tecnico',
-      options: { source: 'name', maxLength: 64 },
+      options: slugOptions('name'),
       readOnly: lockedOnceSet,
-      validation: (rule) => rule.required().error('Pulsa "Generar" para crear el identificador.'),
+      validation: (rule) => slugValidation(rule, 'Pulsa "Generar" para crear el identificador.'),
     }),
   ],
   preview: {
