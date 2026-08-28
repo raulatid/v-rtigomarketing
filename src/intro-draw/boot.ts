@@ -58,6 +58,7 @@ function boot(): VertigoIntro {
 
   let waited = false
   let sawVisible = false
+  let sawReady = false
 
   const handle = createIntroDraw({
     // Two separate inputs, deliberately. Progress moves the drawing; readiness
@@ -106,8 +107,13 @@ function boot(): VertigoIntro {
     )
   }, DRAW_TIMING.hardDeadline * 1000)
 
+  // `ready` is latched, and the optional resources keep notifying after it, so
+  // this subscription sees the ready state many times on a slow load. The mark
+  // is the TRANSITION, not the state: marking it again would move the recorded
+  // timestamp onto the last late notification. Same latch as `sawVisible`.
   bootState.subscribe(() => {
-    if (bootState.readiness() === 'ready') {
+    if (!sawReady && bootState.readiness() === 'ready') {
+      sawReady = true
       mark('vertigo:scene-ready')
       window.clearTimeout(deadline)
     }
