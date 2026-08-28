@@ -2,12 +2,17 @@
  * The Blender export contract, asserted against the shipped GLB.
  *
  * `docs/murcia/blender-export-contract.md` writes down what has to be true of
- * the asset. Until now nothing checked, and the cost is on the record twice: the
- * terrain plate was looked up by a name the exporter had rewritten, and the
- * navigable area silently collapsed to 3.6% of the plate; and the district tags
- * the contract has demanded since it was written are *still* absent from the
- * asset three re-exports later, which nothing reported because the runtime
- * fallback works.
+ * the asset. Until this harness existed nothing checked, and the cost is on the
+ * record: the terrain plate was looked up by a name the exporter had rewritten,
+ * and the navigable area silently collapsed to 3.6% of the plate.
+ *
+ * The mirror-image cost is on the record too, and §5 is where it landed. This
+ * file used to assert the district custom properties the contract asked for
+ * before the 2026-08-27 re-export. Those assertions outlived the mechanism —
+ * service buildings are identified by object name now and nothing reads
+ * `extras.district` any more — and a harness that stays red for a retired rule
+ * teaches its readers to ignore it, which costs exactly what not checking
+ * costs. An assertion has to be retired as deliberately as it was added.
  *
  * That is the failure mode this file exists for. An export regression is not a
  * crash — it is a quieter city, a district that stops being tappable, a material
@@ -26,14 +31,17 @@
  * populated, so the UV assertion below is valid without decoding anything. The
  * extension's own attribute map is checked too, for the same answer twice.
  *
- * NOT YET IN `check:harnesses`, deliberately. The UV assertion fails against the
- * GLB in the tree today — 73 of 257 primitives — because the trim-sheet
+ * NOT YET IN `check:harnesses`, deliberately, and §1 is the whole reason. The UV
+ * assertion fails against the GLB in the tree today because the trim-sheet
  * re-export has not happened. Chaining it now would fail `npm run build` for a
  * gap this harness was written to *measure*. Add `check:asset` to the chain in
- * `package.json` in the same commit that lands the re-exported GLB.
+ * `package.json` in the same commit that lands the re-exported GLB — and not
+ * before, because a gate that is expected to fail is not a gate.
  */
 import fs from 'node:fs';
+import { PropertyBinding } from 'three';
 import { banner, check, finish, section } from './lib/assert';
+import { cityDistrictBindings } from '../src/experiences/murcia/scene/cityDistrictBindings';
 
 const MODEL = process.argv[2] ?? 'public/models/city-prototype.glb';
 
@@ -57,7 +65,7 @@ interface Gltf {
   asset?: { generator?: string; version?: string };
   extensionsUsed?: string[];
   extensionsRequired?: string[];
-  nodes?: Array<{ name?: string; extras?: unknown; extensions?: Record<string, unknown> }>;
+  nodes?: Array<{ name?: string; extensions?: Record<string, unknown> }>;
   meshes?: Array<{ name?: string; primitives?: Primitive[] }>;
   materials?: Array<Record<string, unknown>>;
   textures?: Array<{ source?: number; sampler?: number; extensions?: Record<string, unknown> }>;
@@ -169,6 +177,19 @@ check(
     : `${primitives.length - missingUv.length}/${primitives.length} — missing on ${list(missingUv.map((p) => p.owner))}`,
 );
 
+// Printed rather than left to be inferred from the word FAIL, because this file
+// has now retired two assertions that failed for a mechanism nobody uses, and a
+// reader is entitled to ask which kind this one is. It is the other kind: a
+// real, open gap in the asset, measured deliberately, and the only thing
+// keeping `check:asset` out of `check:harnesses`.
+if (missingUv.length > 0) {
+  console.log(
+    `        ^ OPEN ASSET GAP, not an obsolete rule — awaiting the trim-sheet\n` +
+      `          re-export (plan 001 Phase 3). ${missingUv.length} of ${primitives.length} primitives\n` +
+      `          sample texel (0,0) of the atlas across their whole surface.`,
+  );
+}
+
 // TEXCOORD_1 is not wanted and its presence is a signal, not an error: it means
 // a second UV map survived the export, which doubles per-vertex cost for
 // nothing unless something is deliberately using it. glTF's occlusion texture
@@ -256,32 +277,83 @@ check(
   used.includes('KHR_lights_punctual') ? 'KHR_lights_punctual present' : 'none',
 );
 
-// --- 5. District tags -------------------------------------------------------
-// The contract has asked for these since it was written and no export has ever
-// carried them, so districts resolve by node name against a hardcoded stand-in.
-// Include → Custom Properties is the checkbox.
+// --- 5. Service buildings ---------------------------------------------------
+// RETIRED HERE: "nodes carry glTF extras" and "at least one node tagged
+// district=". They asserted the pre-2026-08-27 mechanism, where a district was
+// a cluster located through a Blender custom property exported into glTF
+// `extras`. The city now ships one building per service, and the only
+// production caller of `resolveDistrict` (`MurciaExperience`) passes `tag: ''`,
+// so no code path reads `extras.district` at all. Those two checks could only
+// ever fail, and their failing said nothing about the asset.
+//
+// The resolver still HAS the tag path, and this is not an argument for deleting
+// it. It is the argument for not asserting a mechanism no caller uses.
+//
+// What replaced them is below, and it is a real contract with a real failure
+// mode. Names are the identity of these objects, and a rename in Blender is
+// silent: the building keeps rendering, loses its service, and the only report
+// is a console line at load on a page nobody has open.
 
-section('5. District tags (export contract §1)');
+section('5. Service buildings (cityDistrictBindings — object names ARE the identity)');
 
-const withExtras = nodes.filter((n) => n.extras != null);
-const tagged = withExtras.filter(
-  (n) => (n.extras as Record<string, unknown>).district != null,
+console.log(
+  '        district tags (extras.district) retired 2026-08-27 with the\n' +
+    '        one-building-per-service re-export — no longer checked here.',
 );
 
-check(
-  'nodes carry glTF extras',
-  withExtras.length > 0,
-  withExtras.length > 0
-    ? `${withExtras.length} node(s)`
-    : 'none — "Include → Custom Properties" was unchecked on export',
-);
+/**
+ * Every GLB node name that `configured` would resolve to at runtime.
+ *
+ * `findByAnyNameSpelling` tries three spellings and two of them are decidable
+ * from the file: GLTFLoader renames every node through
+ * `PropertyBinding.sanitizeNodeName`, so a configured name matches a GLB name
+ * either verbatim (the `userData.name` path) or after sanitisation (the
+ * `getObjectByName` path). The sanitiser is imported rather than reimplemented
+ * — a second copy of that rule drifting from the first is precisely the class
+ * of bug this harness exists to catch.
+ */
+function nodesNamed(configured: string): string[] {
+  return nodes
+    .map((n) => n.name)
+    .filter(
+      (name): name is string =>
+        name != null &&
+        (name === configured || PropertyBinding.sanitizeNodeName(name) === configured),
+    );
+}
 
-check(
-  'at least one node tagged district=',
-  tagged.length > 0,
-  tagged.length > 0
-    ? `${tagged.length} node(s): ${list(tagged.map((n) => n.name ?? '(unnamed)'))}`
-    : 'none — resolveDistrict will fall back to node names',
+for (const binding of cityDistrictBindings) {
+  const missing: string[] = [];
+  const ambiguous: string[] = [];
+  for (const building of binding.buildings) {
+    const hits = nodesNamed(building.nodeName);
+    if (hits.length === 0) missing.push(`${building.serviceId} -> ${building.nodeName}`);
+    // Reported, not asserted: `getObjectByName` returns the first match, so two
+    // nodes sharing a bound name means the service points at whichever one the
+    // exporter happened to write first.
+    else if (hits.length > 1) ambiguous.push(`${building.nodeName} x${hits.length}`);
+  }
+  const total = binding.buildings.length;
+  check(
+    `"${binding.contentId}" buildings all exist in the GLB`,
+    missing.length === 0,
+    missing.length === 0
+      ? `${total}/${total} node(s)${ambiguous.length ? ` — AMBIGUOUS: ${list(ambiguous)}` : ''}`
+      : `${total - missing.length}/${total} — missing ${list(missing)}`,
+  );
+}
+
+// Informational. Unbound `edificio-servicio-*` objects are plain city by design
+// — three of them are waiting for services that do not exist yet — but the
+// count is worth printing: a re-export that renamed the whole family would show
+// up here as every building unbound, rather than as one missing row.
+const boundNames = new Set(cityDistrictBindings.flatMap((d) => d.buildings.map((b) => b.nodeName)));
+const unbound = nodes
+  .map((n) => n.name ?? '')
+  .filter((name) => /^edificio-servicio-/.test(name) && !boundNames.has(name));
+console.log(
+  `        ${boundNames.size} bound · ${unbound.length} unbound edificio-servicio-* (plain city)` +
+    `${unbound.length ? `: ${list(unbound)}` : ''}`,
 );
 
 // --- 6. Samplers ------------------------------------------------------------
