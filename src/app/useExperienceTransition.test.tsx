@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import gsap from 'gsap'
+import gsap from 'gsap/gsap-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useExperienceTransition } from './useExperienceTransition'
 import { SCRUB_CEILING, WARP_TRANSITION, scrubProgress } from './warpTransition'

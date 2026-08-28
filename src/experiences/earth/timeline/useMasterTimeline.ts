@@ -1,5 +1,5 @@
 import { RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import gsap from 'gsap'
+import gsap from 'gsap/gsap-core'
 import { IntroConfig, Phase } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { cinematicSpeed } from '../../../utils/easing'

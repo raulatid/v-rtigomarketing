@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import gsap from 'gsap'
+import gsap from 'gsap/gsap-core'
+// gsap-core's own declarations stop short of the `gsap.core` namespace that the
+// timeline refs here, in useMasterTimeline and in DebugOverlay are typed
+// against. This type-only import registers the full ambient declarations once
+// for the whole program and is erased at build time, so CSSPlugin — the reason
+// for importing the core build rather than the convenience bundle — still never
+// reaches the entry chunk.
+import type {} from 'gsap'
 import type { SequenceState } from '../experiences/earth/config/sequenceState'
 import type { ExperienceId } from './experience'
 import { WARP_TRANSITION, flash, scrubProgress } from './warpTransition'
