@@ -1,8 +1,20 @@
 import * as THREE from 'three';
 import type { BoundsRect, TerrainTransitionConfig } from '../config/environmentConfig';
-import { extractBoundaryLoops, offsetLoopInward, signedAreaXZ } from './meshBoundary';
 import { expandRect } from '../navigation/navigationBounds';
-import type { BoundaryLoop } from './meshBoundary';
+
+export interface TerrainTransitionOptions {
+  /**
+   * World-space rectangles of authored openings in the ground — today, the
+   * river channel.
+   *
+   * Only openings that REACH the plate perimeter matter here; an opening that
+   * stops short of it is interior, and nothing in this module ever touches the
+   * plate's interior. Where one does reach an edge, the collar is interrupted
+   * across it so the channel reads as continuing out of the scene rather than
+   * being sealed by a wall of terrain.
+   */
+  openings?: readonly BoundsRect[];
+}
 
 export interface TerrainTransition {
   /** Holds the collar and the skirt. Add/remove this, not the meshes. */
@@ -11,47 +23,54 @@ export interface TerrainTransition {
   plateBounds: BoundsRect;
   /** Plate plus skirt — the full visual extent of the ground. */
   visualBounds: BoundsRect;
-  /** True when the plate's real outline was used to build a collar. */
-  hasCollar: boolean;
   warnings: string[];
   dispose: () => void;
 }
 
 /**
- * Hides the terrain plate's hard edge, in two parts.
+ * Keeps the terrain plate from reading as a finite slab floating in the scene,
+ * in two parts, BOTH ENTIRELY OUTSIDE the authored ground.
  *
- * **Collar** — the plate is an irregular low-poly polygon (134 vertices, 88
- * triangles), so it does not fill its own bounding rectangle. The gap between
- * its real outline and that rectangle was showing the scene background. The
- * collar is the exact difference between the two: an opaque ring triangulated
- * from the plate's extracted boundary loop out to the rectangle.
+ * **Collar** — an opaque band of four strips around the plate's rectangular
+ * footprint, so the ground continues past the authored edge.
  *
- * **Skirt** — a rectangular fade continuing outward from the rectangle, from
- * fully opaque to fully transparent.
+ * **Skirt** — a rectangular fade continuing outward from there, from fully
+ * opaque to fully transparent.
  *
- * Deliberate choices, from the Phase 1 audit:
+ * WHY THE INTERIOR IS OFF LIMITS. This used to work the other way round: it
+ * extracted the plate's boundary loop and filled everything between that
+ * outline and the bounding rectangle, on the premise that the plate was an
+ * irregular polygon that did not fill its own AABB. The ground has since been
+ * authored with a rectangular perimeter and an intentional river channel cut
+ * through it, and that premise inverted:
+ *
+ *  - the channel splits the plate into TWO pieces, so there are two boundary
+ *    loops, and taking `loops[0]` silently ignored 36% of the ground;
+ *  - the only region inside the rectangle not covered by the plate is the
+ *    channel, so "fill the difference" meant "pave over the river".
+ *
+ * Authored geometry is authoritative. Interior holes are intentional and are
+ * never reconstructed. The only thing this module may draw is terrain beyond
+ * the outer footprint.
+ *
+ * Deliberate choices carried over from the Phase 1 audit:
  *
  *  - **Alpha reaches zero rather than matching the background colour.** The
  *    renderer uses ACES tone mapping, but `scene.background` is written as an
  *    untone-mapped clear colour, so a mesh authored to the background value
  *    renders visibly darker. Fading to transparent sidesteps the mismatch.
  *  - **Materials are cloned from the terrain.** The GLB ships zero materials, so
- *    all 111 meshes share one default instance; modifying it in place would
- *    change the whole city. Cloning also keeps the join matching automatically
- *    once real materials arrive.
- *  - **Nothing is coplanar with the plate.** The collar sits `verticalOffset`
- *    below the plate's top and tucks `innerOverlap` under its outline, so the
+ *    all meshes share one default instance; modifying it in place would change
+ *    the whole city. Cloning also keeps the join matching automatically once
+ *    real materials arrive.
+ *  - **Nothing is coplanar with the plate.** Both meshes sit `verticalOffset`
+ *    below the plate's top and tuck `innerOverlap` under its edge, so the
  *    opaque plate wins the depth test in the overlap instead of z-fighting.
- *
- * Why the fade is not simply offset along the boundary: offsetting a concave
- * outline outward self-intersects wherever a feature is narrower than the
- * offset, and the skirt reaches 380 units on a plate only 352 across. Morphing
- * to the bounding rectangle first keeps the geometry simple and robust; the
- * cost is that the fade is rectangular rather than following the coastline.
  */
 export function createTerrainTransition(
   terrain: THREE.Mesh,
   config: TerrainTransitionConfig,
+  options: TerrainTransitionOptions = {},
 ): TerrainTransition {
   const warnings: string[] = [];
 
@@ -63,7 +82,7 @@ export function createTerrainTransition(
     minZ: box.min.z,
     maxZ: box.max.z,
   };
-  const plateTopY = box.max.y;
+  const topY = box.max.y - config.verticalOffset;
 
   const group = new THREE.Group();
   group.name = 'TerrainTransition';
@@ -72,52 +91,16 @@ export function createTerrainTransition(
   const material = resolveMaterial(terrain, warnings);
   disposables.push(material);
 
-  // --- Collar --------------------------------------------------------------
-  const boundary = extractBoundaryLoops(terrain);
-  warnings.push(...boundary.warnings);
+  const gaps = perimeterGaps(plateBounds, options.openings ?? [], warnings);
 
-  let hasCollar = false;
-  const outerLoop = boundary.loops[0];
+  const collar = buildCollar(plateBounds, topY, config, gaps, material.clone());
+  group.add(collar.mesh);
+  disposables.push(collar);
 
-  if (outerLoop && outerLoop.length >= 3) {
-    const coverage = loopCoverage(outerLoop, plateBounds);
-    if (coverage < 0.995) {
-      warnings.push(
-        `Plate outline covers ${(coverage * 100).toFixed(1)}% of its bounding rectangle; ` +
-          'collar fills the remainder.',
-      );
-    }
-    const collar = buildCollar(
-      outerLoop,
-      plateBounds,
-      plateTopY - config.verticalOffset,
-      config.innerOverlap,
-      material.clone(),
-      warnings,
-    );
-    if (collar) {
-      group.add(collar.mesh);
-      disposables.push(collar);
-      hasCollar = true;
-    }
-  }
-
-  if (!hasCollar) {
-    warnings.push(
-      'Could not build a boundary collar; the skirt starts at the bounding rectangle, ' +
-        'so any gap between the plate outline and that rectangle will show the background.',
-    );
-  }
-
-  // --- Skirt ---------------------------------------------------------------
-  // Joins the collar's outer edge, which is flat at the rectangle, so the inner
-  // ring height is known rather than sampled.
-  const skirt = buildSkirt(
-    plateBounds,
-    plateTopY - config.verticalOffset,
-    config,
-    material.clone(),
-  );
+  // The skirt is notched too, not just the collar. It reaches alpha 1 at the
+  // plate edge, so a skirt left closed would paint over the mouths the collar
+  // just opened and the notch would be invisible.
+  const skirt = buildSkirt(plateBounds, topY, config, gaps, material.clone());
   group.add(skirt.mesh);
   disposables.push(skirt);
 
@@ -125,7 +108,6 @@ export function createTerrainTransition(
     group,
     plateBounds,
     visualBounds: terrainVisualBounds(plateBounds, config),
-    hasCollar,
     warnings,
     dispose: () => {
       for (const item of disposables) item.dispose();
@@ -133,7 +115,87 @@ export function createTerrainTransition(
   };
 }
 
-// --- Collar ----------------------------------------------------------------
+// --- Perimeter openings -----------------------------------------------------
+
+/** A run along one side of the rectangle, in that side's own axis. */
+interface Span {
+  min: number;
+  max: number;
+}
+
+/**
+ * The four sides. `minX`/`maxX` run along Z; `minZ`/`maxZ` run along X.
+ */
+interface SideGaps {
+  minX: Span[];
+  maxX: Span[];
+  minZ: Span[];
+  maxZ: Span[];
+}
+
+/** How close an opening must come to an edge to count as reaching it. */
+const EDGE_TOLERANCE = 1;
+
+/**
+ * Which stretches of each side an authored opening reaches, so the collar can
+ * be interrupted there.
+ *
+ * An opening that does not come within `EDGE_TOLERANCE` of a side is interior
+ * and contributes nothing: the collar never needed to know it existed.
+ */
+function perimeterGaps(
+  plate: BoundsRect,
+  openings: readonly BoundsRect[],
+  warnings: string[],
+): SideGaps {
+  const gaps: SideGaps = { minX: [], maxX: [], minZ: [], maxZ: [] };
+
+  for (const opening of openings) {
+    if (Math.abs(opening.minX - plate.minX) <= EDGE_TOLERANCE) {
+      gaps.minX.push({ min: opening.minZ, max: opening.maxZ });
+    }
+    if (Math.abs(opening.maxX - plate.maxX) <= EDGE_TOLERANCE) {
+      gaps.maxX.push({ min: opening.minZ, max: opening.maxZ });
+    }
+    if (Math.abs(opening.minZ - plate.minZ) <= EDGE_TOLERANCE) {
+      gaps.minZ.push({ min: opening.minX, max: opening.maxX });
+    }
+    if (Math.abs(opening.maxZ - plate.maxZ) <= EDGE_TOLERANCE) {
+      gaps.maxZ.push({ min: opening.minX, max: opening.maxX });
+    }
+  }
+
+  const reached =
+    gaps.minX.length + gaps.maxX.length + gaps.minZ.length + gaps.maxZ.length;
+  if (openings.length > 0 && reached === 0) {
+    warnings.push(
+      `${openings.length} authored opening(s) reported, none reaching the plate perimeter; ` +
+        'the collar is a plain ring. If the river now stops short of the edge this is correct, ' +
+        'and the opening no longer needs to be passed in.',
+    );
+  }
+
+  return gaps;
+}
+
+/** `full`, minus every gap, as the runs that remain. Gaps may overlap. */
+function spansOutsideGaps(full: Span, gaps: readonly Span[]): Span[] {
+  const sorted = gaps
+    .map((g) => ({ min: Math.max(g.min, full.min), max: Math.min(g.max, full.max) }))
+    .filter((g) => g.max > g.min)
+    .sort((a, b) => a.min - b.min);
+
+  const runs: Span[] = [];
+  let cursor = full.min;
+  for (const gap of sorted) {
+    if (gap.min > cursor) runs.push({ min: cursor, max: gap.min });
+    cursor = Math.max(cursor, gap.max);
+  }
+  if (cursor < full.max) runs.push({ min: cursor, max: full.max });
+  return runs;
+}
+
+// --- Collar ------------------------------------------------------------------
 
 interface BuiltMesh {
   mesh: THREE.Mesh;
@@ -141,68 +203,57 @@ interface BuiltMesh {
 }
 
 /**
- * Triangulates the region between the plate's real outline and its bounding
- * rectangle, using earcut via ShapeUtils with the outline as a hole.
+ * Four opaque strips around the plate's rectangular footprint.
  *
- * Heights are interpolated: outline vertices keep the plate's actual edge
- * height, rectangle vertices take the plate top, so the join has no step.
+ * The two Z-running sides span the full extended X range so the corners are
+ * covered once and without a seam; the two X-running sides span only the
+ * plate's own Z range. Every strip is split by the gaps its side carries, so an
+ * opening that reaches the perimeter is left open rather than paved over.
+ *
+ * Flat at `topY` rather than following the plate's edge heights: with a
+ * rectangular perimeter every edge vertex is already at the plate top, so
+ * interpolating would be arithmetic with no visible effect.
  */
 function buildCollar(
-  loop: BoundaryLoop,
-  rect: BoundsRect,
+  plate: BoundsRect,
   topY: number,
-  innerOverlap: number,
+  config: TerrainTransitionConfig,
+  gaps: SideGaps,
   material: THREE.Material,
-  warnings: string[],
-): BuiltMesh | null {
-  // Tuck slightly under the plate so the seam cannot show a hairline gap.
-  const hole = offsetLoopInward(loop, innerOverlap);
+): BuiltMesh {
+  const w = Math.max(config.collarWidth, 0);
+  const tuck = config.innerOverlap;
+  const outer = expandRect(plate, w);
 
-  // Contour must enclose the hole; the rectangle is the plate's own AABB, so
-  // nudge it out a fraction to guarantee strict containment.
-  const outer = expandRect(rect, 0.01);
-  const contour2D = [
-    new THREE.Vector2(outer.minX, outer.minZ),
-    new THREE.Vector2(outer.maxX, outer.minZ),
-    new THREE.Vector2(outer.maxX, outer.maxZ),
-    new THREE.Vector2(outer.minX, outer.maxZ),
-  ];
-  const hole2D = hole.map((p) => new THREE.Vector2(p.x, p.z));
-
-  let faces: number[][];
-  try {
-    faces = THREE.ShapeUtils.triangulateShape(contour2D, [hole2D]);
-  } catch (error) {
-    warnings.push(
-      `Collar triangulation failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return null;
-  }
-  if (faces.length === 0) {
-    warnings.push('Collar triangulation produced no faces.');
-    return null;
-  }
-
-  const heights = [
-    ...contour2D.map(() => topY),
-    ...hole.map((p) => Math.min(p.y, topY)),
-  ];
-  const points = [...contour2D, ...hole2D];
-
-  const positions = new Float32Array(points.length * 3);
-  for (let i = 0; i < points.length; i += 1) {
-    positions[i * 3] = points[i]!.x;
-    positions[i * 3 + 1] = heights[i]!;
-    positions[i * 3 + 2] = points[i]!.y;
-  }
-
+  const positions: number[] = [];
   const indices: number[] = [];
-  for (const face of faces) indices.push(face[0]!, face[1]!, face[2]!);
+
+  const quad = (minX: number, maxX: number, minZ: number, maxZ: number): void => {
+    if (maxX - minX <= 0 || maxZ - minZ <= 0) return;
+    const base = positions.length / 3;
+    positions.push(minX, topY, minZ, maxX, topY, minZ, maxX, topY, maxZ, minX, topY, maxZ);
+    // Wound so the faces point +Y.
+    indices.push(base, base + 3, base + 2, base, base + 2, base + 1);
+  };
+
+  // Z-running sides first: they own the corners.
+  for (const run of spansOutsideGaps({ min: outer.minX, max: outer.maxX }, gaps.minZ)) {
+    quad(run.min, run.max, outer.minZ, plate.minZ + tuck);
+  }
+  for (const run of spansOutsideGaps({ min: outer.minX, max: outer.maxX }, gaps.maxZ)) {
+    quad(run.min, run.max, plate.maxZ - tuck, outer.maxZ);
+  }
+  // X-running sides fill between them.
+  for (const run of spansOutsideGaps({ min: plate.minZ, max: plate.maxZ }, gaps.minX)) {
+    quad(outer.minX, plate.minX + tuck, run.min, run.max);
+  }
+  for (const run of spansOutsideGaps({ min: plate.minZ, max: plate.maxZ }, gaps.maxX)) {
+    quad(plate.maxX - tuck, outer.maxX, run.min, run.max);
+  }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
-  ensureUpwardWinding(geometry);
   geometry.computeVertexNormals();
 
   const mesh = new THREE.Mesh(geometry, material);
@@ -220,57 +271,19 @@ function buildCollar(
   };
 }
 
-/**
- * Flips the index order if the faces point downward.
- *
- * Triangulation happens in a 2D space where world Z stands in for Y, which
- * mirrors handedness; rather than reasoning about it, measure and correct.
- */
-function ensureUpwardWinding(geometry: THREE.BufferGeometry): void {
-  const index = geometry.getIndex();
-  const position = geometry.getAttribute('position');
-  if (!index || !position) return;
-
-  const a = new THREE.Vector3();
-  const b = new THREE.Vector3();
-  const c = new THREE.Vector3();
-  const ab = new THREE.Vector3();
-  const ac = new THREE.Vector3();
-  const cross = new THREE.Vector3();
-  let upward = 0;
-
-  for (let i = 0; i < index.count; i += 3) {
-    a.fromBufferAttribute(position, index.getX(i));
-    b.fromBufferAttribute(position, index.getX(i + 1));
-    c.fromBufferAttribute(position, index.getX(i + 2));
-    ab.subVectors(b, a);
-    ac.subVectors(c, a);
-    cross.crossVectors(ab, ac);
-    upward += cross.y;
-  }
-
-  if (upward >= 0) return;
-
-  const flipped = new Uint32Array(index.count);
-  for (let i = 0; i < index.count; i += 3) {
-    flipped[i] = index.getX(i);
-    flipped[i + 1] = index.getX(i + 2);
-    flipped[i + 2] = index.getX(i + 1);
-  }
-  geometry.setIndex(new THREE.BufferAttribute(flipped, 1));
-}
-
 // --- Skirt -----------------------------------------------------------------
 
 function buildSkirt(
   plateBounds: BoundsRect,
   topY: number,
   config: TerrainTransitionConfig,
+  gaps: SideGaps,
   material: THREE.Material,
 ): BuiltMesh {
   const loops = Math.max(2, Math.floor(config.loops));
   const segments = Math.max(1, Math.floor(config.segmentsPerSide));
-  const perimeterCount = segments * 4;
+  const ring = buildRing(plateBounds, segments, gaps);
+  const perimeterCount = ring.length;
   const vertexCount = perimeterCount * (loops + 1);
 
   const positions = new Float32Array(vertexCount * 3);
@@ -284,7 +297,8 @@ function buildSkirt(
 
     for (let p = 0; p < perimeterCount; p += 1) {
       const index = loop * perimeterCount + p;
-      const point = perimeterPoint(rect, p, segments);
+      const sample = ring[p]!;
+      const point = perimeterPoint(rect, sample.side, sample.fraction);
 
       positions[index * 3] = point.x;
       positions[index * 3 + 1] = topY;
@@ -302,6 +316,7 @@ function buildSkirt(
   const indices: number[] = [];
   for (let loop = 0; loop < loops; loop += 1) {
     for (let p = 0; p < perimeterCount; p += 1) {
+      if (ring[p]!.openAfter) continue;
       const q = (p + 1) % perimeterCount;
       const a = loop * perimeterCount + p;
       const b = loop * perimeterCount + q;
@@ -380,26 +395,86 @@ export function terrainVisualBounds(
 
 // --- Shared helpers ---------------------------------------------------------
 
-/** Fraction of the bounding rectangle the outline actually encloses. */
-function loopCoverage(loop: BoundaryLoop, rect: BoundsRect): number {
-  const rectArea = (rect.maxX - rect.minX) * (rect.maxZ - rect.minZ);
-  if (rectArea <= 0) return 1;
-  return Math.min(1, Math.abs(signedAreaXZ(loop)) / rectArea);
+/** One sample on the perimeter walk, shared by every loop of the skirt. */
+interface RingSample {
+  /** 0: minZ, 1: maxX, 2: maxZ, 3: minX — the walk order. */
+  side: number;
+  /** Position along that side, 0..1 in the side's own direction of travel. */
+  fraction: number;
+  /** True when the span from here to the next sample is an open channel. */
+  openAfter: boolean;
 }
 
 /**
- * Walks the rectangle perimeter with `segments` steps per side. Index `p` maps
- * to the same fractional position on every loop, so consecutive loops can be
- * joined by quads without any corner special-casing.
+ * The perimeter walk, as fractions rather than a fixed step count.
+ *
+ * Every loop of the skirt reuses this one list, so sample `p` sits at the same
+ * fractional position on every loop and consecutive loops still join with plain
+ * quads — the property the uniform walk had, kept while allowing extra samples.
+ *
+ * Gaps are held as FRACTIONS of the base plate side, not as world coordinates.
+ * That makes the opening splay outward with the skirt rather than staying a
+ * fixed width, which is both what a channel running to the horizon should look
+ * like and the only version where the sample order cannot change between loops
+ * — a world-fixed gap would drift past the uniform samples as the rectangle
+ * expands and twist the strip.
  */
-function perimeterPoint(
-  rect: BoundsRect,
-  p: number,
-  segments: number,
-): { x: number; z: number } {
-  const side = Math.floor(p / segments);
-  const f = (p % segments) / segments;
+function buildRing(plate: BoundsRect, segments: number, gaps: SideGaps): RingSample[] {
+  const spanX = plate.maxX - plate.minX;
+  const spanZ = plate.maxZ - plate.minZ;
 
+  /** A side's gaps as fractions, in that side's direction of travel. */
+  const fractionsFor = (side: number): Span[] => {
+    const map = (min: number, max: number): Span => {
+      switch (side) {
+        case 0:
+          return { min: (min - plate.minX) / spanX, max: (max - plate.minX) / spanX };
+        case 1:
+          return { min: (min - plate.minZ) / spanZ, max: (max - plate.minZ) / spanZ };
+        case 2:
+          return { min: (plate.maxX - max) / spanX, max: (plate.maxX - min) / spanX };
+        default:
+          return { min: (plate.maxZ - max) / spanZ, max: (plate.maxZ - min) / spanZ };
+      }
+    };
+    const source = [gaps.minZ, gaps.maxX, gaps.maxZ, gaps.minX][side]!;
+    return source
+      .map((g) => map(g.min, g.max))
+      // A gap touching a corner would leave the ring open around it; clamp
+      // strictly inside so every side always starts and ends closed.
+      .map((g) => ({ min: Math.max(g.min, 1e-4), max: Math.min(g.max, 1 - 1e-4) }))
+      .filter((g) => g.max > g.min);
+  };
+
+  const ring: RingSample[] = [];
+  for (let side = 0; side < 4; side += 1) {
+    const sideGaps = fractionsFor(side);
+    const fractions = new Set<number>();
+    for (let i = 0; i < segments; i += 1) fractions.add(i / segments);
+    for (const gap of sideGaps) {
+      fractions.add(gap.min);
+      fractions.add(gap.max);
+    }
+    const ordered = [...fractions].sort((a, b) => a - b);
+
+    ordered.forEach((fraction, i) => {
+      // The last sample of a side spans the corner into the next side, which is
+      // never part of a gap.
+      const next = ordered[i + 1];
+      const openAfter =
+        next !== undefined &&
+        sideGaps.some((g) => {
+          const mid = (fraction + next) / 2;
+          return mid > g.min && mid < g.max;
+        });
+      ring.push({ side, fraction, openAfter });
+    });
+  }
+  return ring;
+}
+
+/** Point at `fraction` along one side of the rectangle. */
+function perimeterPoint(rect: BoundsRect, side: number, f: number): { x: number; z: number } {
   switch (side) {
     case 0:
       return { x: THREE.MathUtils.lerp(rect.minX, rect.maxX, f), z: rect.minZ };

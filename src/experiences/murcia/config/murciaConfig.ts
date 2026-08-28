@@ -312,6 +312,12 @@ export const murciaConfig: EnvironmentConfig = {
     // but a gradient that scaled with it would wash the horizon. The remainder
     // is already fully transparent and exists only to guarantee coverage.
     fadeEndFraction: 0.21,
+    // 30 against a 147-unit fade: enough that the ground reads as unambiguously
+    // solid where it leaves the authored plate, and only a fifth of the
+    // gradient, so the terrain still dissolves into the background well before
+    // the skirt ends. The collar used to fill the plate's INTERIOR, which is
+    // why this number is new — see `createTerrainTransition`.
+    collarWidth: 30,
     loops: 10,
     segmentsPerSide: 12,
     innerOverlap: 0.5,

@@ -256,6 +256,15 @@ export interface TerrainTransitionConfig {
   terrainObjectName: string;
   /** How far the skirt extends beyond the plate, world units. */
   width: number;
+  /**
+   * How far the opaque collar extends beyond the plate, world units.
+   *
+   * Must stay well inside the skirt's fade (`width * fadeEndFraction`): the
+   * collar is opaque, so ground still covered by it cannot fade toward the
+   * background, and a collar reaching past the fade would leave the terrain
+   * ending in a hard edge instead of dissolving.
+   */
+  collarWidth: number;
   /** Concentric loops across the skirt. More loops = smoother gradient. */
   loops: number;
   /** Subdivisions along each side of the rectangle. */
