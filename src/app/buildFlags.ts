@@ -23,10 +23,6 @@
  */
 declare const __VERTIGO_ENV__: string | undefined
 
-function environment(): string {
-  return typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__
-}
-
 /**
  * True everywhere except a production deployment: local dev, `vite preview`,
  * and every Vercel Preview build.
@@ -34,9 +30,12 @@ function environment(): string {
  * Preview keeps the tools deliberately. A preview deployment is where you
  * verify a change on real hardware, which is exactly when you want the FPS
  * meter and the bounds wireframe — and it is noindexed and unadvertised.
+ *
+ * One expression, deliberately. This used to read the define through an
+ * `environment()` helper, and esbuild does not propagate a constant through a
+ * call — the production bundle carried `function Tg(){return"production"}` and
+ * every gated branch with it (SEC-11). Written inline, the right-hand side
+ * folds to a literal and the minifier drops the branches.
  */
-export const DEBUG_TOOLS_ENABLED = environment() !== 'production'
-
-// A `BUILD_ENV = environment()` export lived here for "diagnostics" and had no
-// readers. `environment()` is still the single source of truth for the flag
-// above; re-export it if something ever actually needs the string.
+export const DEBUG_TOOLS_ENABLED =
+  (typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__) !== 'production'

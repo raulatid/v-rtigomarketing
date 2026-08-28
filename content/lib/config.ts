@@ -44,6 +44,18 @@ function clean(value: string | undefined): string {
 }
 
 export function readConfig(env: Env): ConfigResult {
+  // Vercel always sets VERCEL=1; VERCEL_ENV arrives only while "Automatically
+  // expose System Environment Variables" is on. Without it every deployment
+  // would build as development — debug tools shipped, robots Disallow — and
+  // the production guard below could never fire. Refuse the state rather than
+  // document it (SEC-9).
+  if (clean(env.VERCEL).length > 0 && clean(env.VERCEL_ENV).length === 0) {
+    return fail(
+      'VERCEL is set but VERCEL_ENV is not — enable "Automatically expose System ' +
+        'Environment Variables" in the Vercel project. Refusing to guess the environment.',
+    )
+  }
+
   const requested = clean(env.CONTENT_SOURCE).toLowerCase()
 
   if (requested.length > 0 && requested !== 'sanity' && requested !== 'fixture' && requested !== 'seed') {
@@ -60,6 +72,14 @@ export function readConfig(env: Env): ConfigResult {
     )
   }
 
+  // Fixtures are demo content. Production may ship the committed seed — loudly,
+  // with a banner — but never the fixtures, named or not (SEC-7).
+  if (requested === 'fixture' && env.VERCEL_ENV === 'production') {
+    return fail(
+      'CONTENT_SOURCE=fixture is not allowed in production — set SANITY_PROJECT_ID and ' +
+        'SANITY_DATASET, or CONTENT_SOURCE=seed for a code-only hotfix from the committed snapshot.',
+    )
+  }
   if (requested === 'fixture' || requested === 'seed') return { ok: true, config: { mode: requested } }
 
   if (requested === 'sanity' || clean(env.SANITY_PROJECT_ID).length > 0) return sanityConfig(env)

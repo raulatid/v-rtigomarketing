@@ -116,3 +116,18 @@ describe('the Sanity token', () => {
     expect(sanityConfigOf({ ...sanityEnv, SANITY_TOKEN: ' sk-x ' }).token).toBe('sk-x')
   })
 })
+
+describe('fail-closed environment states', () => {
+  it('refuses fixtures in production even when named explicitly', () => {
+    // SEC-7: by omission was already refused; by commission it shipped the demo
+    // content behind one log line. `seed` is the only documented escape hatch.
+    expect(messageOf({ VERCEL_ENV: 'production', CONTENT_SOURCE: 'fixture' })).toMatch(/seed/)
+  })
+
+  it('refuses a Vercel build whose environment is unknown', () => {
+    // SEC-9: Vercel always sets VERCEL=1; VERCEL_ENV arrives only while "expose
+    // system environment variables" is on. Without it every deployment would
+    // build as development and the production guard above could never fire.
+    expect(messageOf({ VERCEL: '1', CONTENT_SOURCE: 'seed' })).toMatch(/VERCEL_ENV/)
+  })
+})

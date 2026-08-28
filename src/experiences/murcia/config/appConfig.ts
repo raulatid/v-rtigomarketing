@@ -87,18 +87,42 @@ export function applyQueryOverrides(
   const debugOverlay = params.get('debug');
   if (debugOverlay !== null) next.debugOverlayEnabled = isTruthy(debugOverlay);
 
-  // Same-origin absolute paths only. This value is handed straight to
+  // Same-origin paths under /models/ only. This value is handed straight to
   // GLTFLoader, so accepting an arbitrary URL would let any link fetch and
-  // execute a third-party asset in the page's context. A single leading slash
-  // rules out both absolute URLs and protocol-relative "//host/..." ones.
+  // decode a third-party asset in the page's context.
   const model = params.get('model');
-  if (model !== null && /^\/(?!\/)/.test(model)) {
-    next.modelPathOverride = model;
-  } else if (model !== null && model.length > 0) {
-    console.warn(`[murcia] ignoring ?model= "${model}" — must be a root-relative path.`);
+  if (model !== null) {
+    const path = sameOriginModelPath(model);
+    if (path !== null) next.modelPathOverride = path;
+    else if (model.length > 0) {
+      console.warn(`[murcia] ignoring ?model= "${model}" — must be a path under /models/.`);
+    }
   }
 
   return next;
+}
+
+/**
+ * The normalised path, or null if the value would leave the origin.
+ *
+ * Parsed against a placeholder origin rather than pattern-matched: the WHATWG
+ * parser treats a backslash as a slash, so `/\evil.example/x.glb` passed the
+ * old "single leading slash" regex and resolved off-origin (SEC-1). Resolving
+ * relative to a fixed base and comparing `origin` catches that, `//host`,
+ * absolute URLs and percent-encoded variants at once; the `/models/` prefix
+ * then rules out `..` traversal into anything else the site serves.
+ */
+function sameOriginModelPath(value: string): string | null {
+  const base = 'https://model.invalid';
+  let url: URL;
+  try {
+    url = new URL(value, base);
+  } catch {
+    return null;
+  }
+  if (url.origin !== base) return null;
+  if (!url.pathname.startsWith('/models/')) return null;
+  return url.pathname;
 }
 
 function isTruthy(value: string): boolean {

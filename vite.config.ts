@@ -218,6 +218,16 @@ function introEntry(): Plugin {
 // VITE_-prefixed copy, so both are read — the unprefixed one is what a `vercel
 // build` locally provides, the prefixed one is what the docs promise for Vite.
 // Anything else, including a plain `npm run build` on a laptop, is development.
+//
+// Except on Vercel itself, where guessing is refused: VERCEL=1 is always set,
+// and a missing VERCEL_ENV means system environment variables are not exposed —
+// a production deployment would ship the debug console and a Disallow robots.
+if (process.env.VERCEL && !process.env.VERCEL_ENV) {
+  throw new Error(
+    '[vertigo] VERCEL is set but VERCEL_ENV is not — enable "Automatically expose System ' +
+      'Environment Variables" in the Vercel project settings.',
+  )
+}
 const BUILD_ENV = process.env.VERCEL_ENV ?? process.env.VITE_VERCEL_ENV ?? 'development'
 const IS_PRODUCTION = BUILD_ENV === 'production'
 
