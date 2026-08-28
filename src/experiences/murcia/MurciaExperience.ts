@@ -241,11 +241,30 @@ export class MurciaExperience {
 
     const target = new THREE.WebGLRenderTarget(1, 1);
     const previousTarget = this.renderer.getRenderTarget();
+    // The render target is not the only thing this render moves.
+    //
+    // three's WebGLBackground applies `scene.background` by calling
+    // setClearColor on the RENDERER, and never puts it back — it is renderer
+    // state, not scene state. This scene's background is the daylight sky
+    // (`0x9fb4c7`), so a warm-up that only restores the target leaves the
+    // shared renderer clearing to pale blue. Earth's RenderPass declares no
+    // clear colour of its own, so its very next clear used that one, and with
+    // the Earth still tiny mid-intro the result was a full pale-blue viewport
+    // for exactly one frame. That is the white flash people reported: measured
+    // at 3/3 reload captures with this restore absent and 0/8 with it present
+    // (plan 008, `scripts/proto/capture-boot.mjs`).
+    //
+    // Restored in the same `finally` as the target, because it is the same
+    // class of borrowed state and the next person to add a line here should
+    // find both together.
+    const previousClear = this.renderer.getClearColor(new THREE.Color());
+    const previousClearAlpha = this.renderer.getClearAlpha();
     try {
       this.renderer.setRenderTarget(target);
       this.renderer.render(this.sceneBundle.scene, this.camera);
     } finally {
       this.renderer.setRenderTarget(previousTarget);
+      this.renderer.setClearColor(previousClear, previousClearAlpha);
       target.dispose();
     }
   }

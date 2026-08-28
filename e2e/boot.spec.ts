@@ -140,3 +140,78 @@ test('never reports ready before it is', async ({ page }) => {
 
   expect(lied, `claimed ready while still pending: ${JSON.stringify(lied)}`).toBeNull()
 })
+
+test('never paints a light frame during boot', async ({ page, context }) => {
+  // The regression this exists for: Murcia's GPU warm-up rendered its city with
+  // `scene.background` set, three's WebGLBackground pushed that colour into the
+  // SHARED renderer's clear colour and left it there, and Earth's next clear
+  // painted the whole viewport pale blue for one frame. Users reported it as
+  // the screen flashing white. Nothing structural catches it: the DOM is
+  // correct, CLS is 0, and the frame is gone in 16 ms — only the pixels show it.
+  //
+  // A RELOAD rather than a first navigation, deliberately. Before a page's first
+  // paint the browser still shows the PREVIOUS document, and in a fresh context
+  // that is about:blank — a white frame that belongs to the blank tab and not to
+  // this site. Reloading makes the previous document this same dark page, so any
+  // light frame that appears is genuinely ours.
+  await page.goto('/')
+  await page.waitForFunction(() => window.__vertigoIntro !== undefined, undefined, {
+    timeout: 30_000,
+  })
+  await page.evaluate(
+    () => new Promise<void>((resolve) => void window.__vertigoIntro!.completed.then(() => resolve())),
+  )
+
+  const client = await context.newCDPSession(page)
+  const frames: string[] = []
+  client.on('Page.screencastFrame', (frame: { data: string; sessionId: number }) => {
+    void client.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {})
+    frames.push(frame.data)
+  })
+  await client.send('Page.startScreencast', { format: 'jpeg', quality: 80, everyNthFrame: 1 })
+
+  await page.reload()
+  await page.waitForFunction(() => window.__vertigoIntro !== undefined, undefined, {
+    timeout: 30_000,
+  })
+  await page.evaluate(
+    () => new Promise<void>((resolve) => void window.__vertigoIntro!.completed.then(() => resolve())),
+  )
+  await client.send('Page.stopScreencast')
+
+  expect(frames.length, 'the screencast captured nothing').toBeGreaterThan(10)
+
+  // Decoded in a blank tab rather than in node: `sharp` is deliberately not a
+  // dependency (see scripts/prepare-earth-textures.mjs), and this needs no more
+  // than an OffscreenCanvas.
+  const decoder = await context.newPage()
+  const means: number[] = await decoder.evaluate(async (datas: string[]) => {
+    const canvas = new OffscreenCanvas(160, 90)
+    const g = canvas.getContext('2d', { willReadFrequently: true })!
+    const out: number[] = []
+    for (const data of datas) {
+      const blob = await (await fetch(`data:image/jpeg;base64,${data}`)).blob()
+      const bmp = await createImageBitmap(blob)
+      g.drawImage(bmp, 0, 0, 160, 90)
+      bmp.close()
+      const { data: px } = g.getImageData(0, 0, 160, 90)
+      let sum = 0
+      for (let k = 0; k < px.length; k += 4) {
+        sum += 0.2126 * px[k] + 0.7152 * px[k + 1] + 0.0722 * px[k + 2]
+      }
+      out.push(sum / (px.length / 4))
+    }
+    return out
+  }, frames)
+  await decoder.close()
+
+  // #050507 is luma 5.5 and the drawing's white isotype on black lifts the mean
+  // only into the low twenties; the regression measured 190. 60 sits far above
+  // anything this design draws and far below the failure, so it needs no tuning
+  // when the composition changes.
+  const brightest = Math.max(...means)
+  expect(
+    brightest,
+    `brightest boot frame had mean luminance ${brightest.toFixed(1)} across ${means.length} frames`,
+  ).toBeLessThan(60)
+})
