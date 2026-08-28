@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { findByAnyNameSpelling } from './nodeNames';
+import { applyTrimSheet } from './applyTrimSheet';
+import { loadTrimSheet } from './loadTrimSheet';
+import type { TrimSheetConfig } from '../config/environmentConfig';
 import { collectTextures, disposeObject3D } from '../../../graphics/disposal';
 
 /** How the terrain plate was located. Surfaced so a fallback is never silent. */
@@ -26,6 +29,15 @@ export interface LoadCityOptions {
   modelPath: string;
   /** Name of the terrain plate mesh in the GLB. */
   terrainObjectName: string;
+  /**
+   * The trim sheet to dress the city in, and the renderer the compressed-texture
+   * transcoder needs to ask the GPU what formats it has.
+   *
+   * Optional as a pair: omitting them loads the city untextured, which is what
+   * the tests and any future caller that only wants the geometry get.
+   */
+  trimSheet?: TrimSheetConfig;
+  renderer?: THREE.WebGLRenderer;
   /**
    * Download progress, 0..1, when the server reports a content length.
    *
@@ -67,6 +79,20 @@ export interface SceneReport {
    * (`checks/city-asset.ts` asserts the same thing on the file itself).
    */
   meshesMissingUv: string[];
+  /**
+   * Meshes whose `uv` attribute exists but holds one value for every vertex.
+   *
+   * The worse half of the problem above, because it hides from the harness that
+   * was built to catch it: `checks/city-asset.ts` reads the container and can
+   * only ask whether TEXCOORD_0 is *present*. A constant UV is present, passes,
+   * and still samples exactly one texel of the sheet — so the export goes green
+   * and the building comes out one flat colour.
+   *
+   * Detected here rather than there because this side has the decoded geometry;
+   * the harness would need a Draco decoder to see it, which is the dependency it
+   * exists to avoid.
+   */
+  meshesWithConstantUv: string[];
   warnings: string[];
 }
 
@@ -89,7 +115,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     bytesLoaded: null,
   };
 
-  const gltf = await new Promise<GLTF>((resolve, reject) => {
+  const gltfPromise = new Promise<GLTF>((resolve, reject) => {
     options.loader.load(
       options.modelPath,
       (result) => {
@@ -114,9 +140,49 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     );
   });
 
+  // Alongside the model, not after it. The sheet is a few tens of KB against
+  // the GLB's 1.29 MB, so serialising them would spend a round trip to save
+  // nothing — and `loadTrimSheet` never rejects, so it cannot turn a texture
+  // problem into a failed city.
+  //
+  // Progress stays the GLB's byte count alone. Folding the sheet in would mean
+  // a new `StepId` in `bootState`, and `intro-draw/` is the one module that may
+  // import nothing and is held to a 16 KB budget; a few tens of KB is not worth
+  // spending that on.
+  const sheetPromise =
+    options.trimSheet && options.renderer
+      ? loadTrimSheet({ paths: options.trimSheet, renderer: options.renderer })
+      : Promise.resolve(null);
+
+  const [gltf, sheet] = await Promise.all([gltfPromise, sheetPromise]);
+
   const root = gltf.scene;
-  configureTrimTextures(root);
+
+  // Order matters here, and every step depends on the one above it:
+  //
+  //   1. the plate has to be identified before the material is applied, because
+  //      it is the one mesh that must NOT get the sheet;
+  //   2. the material has to exist before anything looks at materials, and the
+  //      GLB supplies none;
+  //   3. `configureTrimTextures` then finds the new textures by walking the
+  //      root, so wrapping and anisotropy are applied without this function
+  //      knowing anything about either;
+  //   4. `buildSceneReport` counts a non-zero texture and so tells the truth
+  //      about what a missing UV set now costs, instead of calling it harmless.
   const found = findTerrainPlate(root, options.terrainObjectName);
+  if (sheet) {
+    applyTrimSheet({
+      root,
+      sheet,
+      terrain: found.mesh,
+      // The FILE's answer, not the scene graph's: once GLTFLoader has finished,
+      // a fabricated default and an authored material are indistinguishable.
+      // Same reason `checks/city-asset.ts` reads the JSON chunk rather than
+      // loading through the loader.
+      authored: (gltf.parser.json.materials?.length ?? 0) > 0,
+    });
+  }
+  configureTrimTextures(root);
   const report = buildSceneReport(gltf, found, options.terrainObjectName);
 
   return {
@@ -279,6 +345,32 @@ function findLargestFlatMesh(root: THREE.Object3D): THREE.Mesh | null {
 export function disposeLoadedCity(city: LoadedCity): void {
   disposeObject3D(city.root);
   city.root.removeFromParent();
+  // The trim sheet needs no line of its own. `disposeObject3D` reaches its
+  // textures through the material they were hung on and disposes each exactly
+  // once — including an ORM texture sitting in three slots, which
+  // `collectTextures` dedupes by identity. A second dispose here would look
+  // like diligence and be a double free.
+}
+
+/**
+ * True when every vertex carries the same UV.
+ *
+ * Exact equality, not a tolerance. The case this catches is not "nearly flat"
+ * geometry — it is an attribute written once and copied, which is what a UV
+ * node produces when it is wired to a constant, and those values are bit
+ * identical. A tolerance would start reporting small but real trims as broken.
+ *
+ * Exported for its own test; it is the kind of loop that is easy to write
+ * subtly wrong and impossible to notice.
+ */
+export function isConstantUv(attribute: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | undefined): boolean {
+  if (!attribute || attribute.count < 2) return false;
+  const u = attribute.getX(0);
+  const v = attribute.getY(0);
+  for (let i = 1; i < attribute.count; i += 1) {
+    if (attribute.getX(i) !== u || attribute.getY(i) !== v) return false;
+  }
+  return true;
 }
 
 function buildSceneReport(
@@ -301,6 +393,7 @@ function buildSceneReport(
     doubleSidedMaterialCount: 0,
     negativeScaleObjects: [],
     meshesMissingUv: [],
+    meshesWithConstantUv: [],
     warnings: [],
   };
 
@@ -321,6 +414,8 @@ function buildSceneReport(
 
       if (mesh.geometry && !mesh.geometry.attributes.uv) {
         report.meshesMissingUv.push(mesh.name || '(unnamed)');
+      } else if (mesh.geometry && isConstantUv(mesh.geometry.attributes.uv)) {
+        report.meshesWithConstantUv.push(mesh.name || '(unnamed)');
       }
 
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -362,6 +457,16 @@ function buildSceneReport(
           ? 'They sample texel (0,0) of every texture — a flat colour that looks deliberate. ' +
             'Fix the export, not the runtime: no fallback UVs are generated here.'
           : 'Harmless while the model ships no textures; blocking for the trim sheet.'),
+    );
+  }
+  if (report.meshesWithConstantUv.length > 0) {
+    const names = report.meshesWithConstantUv.slice(0, 3).join(', ');
+    const rest = report.meshesWithConstantUv.length - 3;
+    report.warnings.push(
+      `${report.meshesWithConstantUv.length} mesh(es) have a UV set that never varies ` +
+        `(${names}${rest > 0 ? `, +${rest} more` : ''}). ` +
+        'They pass the exported-file check, which can only see that TEXCOORD_0 exists, ' +
+        'and still sample one texel. Unwrap them in Blender.',
     );
   }
   if (report.meshCount > 500) {

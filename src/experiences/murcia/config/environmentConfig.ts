@@ -294,9 +294,33 @@ export interface SceneStateConfig {
   };
 }
 
+/**
+ * Where the city's trim sheet is served from.
+ *
+ * Paths, not regions. Which band means brick and which means roof tile is an
+ * authoring decision that lives in the .blend and in the sheet itself; the
+ * runtime only ever loads an image and hands it to a material, and it must stay
+ * that way — a region list in code would have to be kept in step with an artist
+ * iterating in Affinity, by hand, forever.
+ *
+ * A null map is simply not loaded. All three null is the state before the first
+ * sheet lands: the city renders untextured and nothing warns, because that is
+ * not an error yet.
+ *
+ * The extension decides the loader (`loadTrimSheet`), so promoting the test PNG
+ * to the production KTX2 set is an edit to these three strings.
+ */
+export interface TrimSheetConfig {
+  baseColor: string | null;
+  normal: string | null;
+  /** Occlusion in R, roughness in G, metallic in B — the glTF packing. */
+  orm: string | null;
+}
+
 export interface EnvironmentConfig {
   id: string;
   modelPath: string;
+  trimSheet: TrimSheetConfig;
   sceneState: SceneStateConfig;
   camera: CameraPoseConfig;
   /**

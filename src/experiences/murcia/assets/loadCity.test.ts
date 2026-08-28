@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
-import { configureTrimTextures } from './loadCity'
+import { configureTrimTextures, isConstantUv } from './loadCity'
 
 // The trim sheet's two runtime invariants, asserted without a GLB, a renderer or
 // a GPU. Both of them fail *silently* in the browser — a wrong wrap mode samples
@@ -92,5 +92,41 @@ describe('configureTrimTextures', () => {
     configureTrimTextures(root)
 
     expect(map.wrapS).toBe(THREE.RepeatWrapping)
+  })
+})
+
+describe('isConstantUv', () => {
+  // The trap this exists for: `checks/city-asset.ts` reads the exported file and
+  // can only ask whether TEXCOORD_0 is PRESENT. An attribute written once and
+  // copied to every vertex is present, passes, and still samples one texel — so
+  // the export goes green and the building comes out flat.
+
+  function uv(pairs: number[][]): THREE.BufferAttribute {
+    return new THREE.BufferAttribute(new Float32Array(pairs.flat()), 2)
+  }
+
+  it('catches an attribute that holds one value for every vertex', () => {
+    // Measured shape: `suelo-principal` ships 106 vertices all at (0, 1).
+    expect(isConstantUv(uv([[0, 1], [0, 1], [0, 1], [0, 1]]))).toBe(true)
+  })
+
+  it('passes a real unwrap, however small the variation', () => {
+    // Exact equality rather than a tolerance: the case being caught is an
+    // attribute copied from a constant, and those values are bit identical. A
+    // tolerance would start calling tight, legitimate trims broken.
+    expect(isConstantUv(uv([[0, 1], [0, 1], [0, 0.999], [0, 1]]))).toBe(false)
+  })
+
+  it('notices a U that varies while V does not', () => {
+    // A band layout stacks in V, so V being constant across a face is normal
+    // and only BOTH being constant is the defect.
+    expect(isConstantUv(uv([[0, 0.5], [1, 0.5], [2, 0.5]]))).toBe(false)
+  })
+
+  it('says nothing about a missing or single-vertex attribute', () => {
+    // Absent UVs are `meshesMissingUv`'s business, and one vertex cannot vary
+    // from itself — reporting either here would double-count a mesh.
+    expect(isConstantUv(undefined)).toBe(false)
+    expect(isConstantUv(uv([[0, 1]]))).toBe(false)
   })
 })

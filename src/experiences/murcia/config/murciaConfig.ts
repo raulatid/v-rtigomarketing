@@ -57,6 +57,21 @@ export const murciaConfig: EnvironmentConfig = {
   // route and 404s anywhere but the root.
   modelPath: '/models/city-prototype.glb',
 
+  // The sheet in the tree is a CALIBRATION CHART, not art: eight saturated
+  // 256px bands, there so the mechanism can be seen working before anyone has
+  // painted anything. Replacing it is a file drop at the same path — that is
+  // the whole reason the textures are served rather than exported into the GLB
+  // (docs/plans/009 Phase 4).
+  //
+  // Normal and ORM are null until they exist. They are not placeholders waiting
+  // to be filled in with something plausible: a wrong normal map is worse than
+  // none, and the material simply omits the slot.
+  trimSheet: {
+    baseColor: '/textures/murcia/murcia-basecolor.png',
+    normal: null,
+    orm: null,
+  },
+
   sceneState: {
     backgroundColor: 0x9fb4c7,
     // Left null until the transition skirt is validated on its own. Fog is

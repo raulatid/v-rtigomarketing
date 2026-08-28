@@ -1,0 +1,153 @@
+import * as THREE from 'three';
+import type { TrimSheet } from './loadTrimSheet';
+
+/**
+ * The name the city's architecture material carries.
+ *
+ * Not decoration. `checks/district-flight.ts` already asserts the highlight
+ * path against a fixture material of this name, written before the material
+ * existed; plan 001 Phase 7 specifies it. Plan 009 proposes
+ * `Murcia_ProceduralArchitecture` instead, which would mean editing a passing
+ * harness to gain nothing, so the name the repository already encodes wins.
+ */
+export const CITY_MATERIAL_NAME = 'MAT_CITY_BUILDINGS';
+
+/** The terrain plate's. See `applyTrimSheet` for why it is a second material. */
+export const GROUND_MATERIAL_NAME = 'MAT_CITY_GROUND';
+
+export interface ApplyTrimSheetOptions {
+  root: THREE.Object3D;
+  sheet: TrimSheet;
+  /**
+   * The terrain plate, which is kept off the sheet. Null means it was not
+   * found, and then nothing is excluded.
+   */
+  terrain: THREE.Mesh | null;
+  /**
+   * Whether the GLB declared materials of its own — read from the file's JSON,
+   * not from the scene graph, because by the time `GLTFLoader` has finished the
+   * two cases are indistinguishable.
+   */
+  authored: boolean;
+}
+
+export interface AppliedTrimSheet {
+  /** Every material now carrying the sheet. */
+  textured: THREE.Material[];
+  /** The plate's, when it was separated out. */
+  ground: THREE.Material | null;
+}
+
+/**
+ * Puts the trim sheet on the city.
+ *
+ * ## Why this creates a material rather than setting `.map` on one
+ *
+ * The shipped GLB declares zero materials, so `GLTFLoader` fabricates one for
+ * the whole file — `createDefaultMaterial` caches a single
+ * `MeshStandardMaterial` on the parser's registry and hands that same instance
+ * to all 222 primitives (`GLTFLoader.js:2260-2277, 3780`). It is per-load
+ * rather than application-wide, so writing to it could not reach the satellites
+ * — but it is shared across the entire city, which is the hazard the export
+ * contract §4 names: modify it and you have recoloured everything.
+ *
+ * It is also nobody's authored intent. It is `metalness: 1`, and this scene has
+ * no environment map, so a fully metallic surface has almost no diffuse term:
+ * a base-colour map on it is very nearly invisible. Shipping the sheet without
+ * changing that would look like the texture had failed to load.
+ *
+ * ## Two paths, because the answer changes when the artist exports a material
+ *
+ * Today the file declares none and the fabricated default must be replaced.
+ * The moment the re-export ships a real material — §6.4 asks for one, and
+ * `DistrictHighlight` already reads an authored emissive and *scales* rather
+ * than overwrites it — replacing it would throw away what the artist authored.
+ * That is precisely what plan 001 Phase 4 exists to prevent, so the authored
+ * path assigns the maps onto what arrived and touches nothing else.
+ *
+ * ## Why the terrain plate is excluded
+ *
+ * Not squeamishness about the ground: `createTerrainTransition` clones the
+ * plate's material as the template for the collar and the skirt
+ * (`createTerrainTransition.ts:419-429`, `:96`, `:120`), and those two
+ * geometries are built here from positions and vertex colours with **no `uv`
+ * attribute at all**. A map inherited down that chain samples texel (0,0)
+ * across the whole horizon skirt — one flat calibration colour smeared over
+ * hundreds of units, which is neither correct nor diagnostic.
+ *
+ * The plate gets the same parameters minus the maps rather than being left
+ * behind, because leaving it on the fabricated default would light the ground
+ * and the buildings differently — a new inconsistency introduced by fixing
+ * `metalness`, which is worse than the problem.
+ */
+export function applyTrimSheet(options: ApplyTrimSheetOptions): AppliedTrimSheet {
+  const { root, sheet, terrain, authored } = options;
+
+  if (authored) {
+    const textured: THREE.Material[] = [];
+    const seen = new Set<THREE.Material>();
+    root.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!mesh.isMesh || mesh === terrain) return;
+      for (const mat of materialsOf(mesh)) {
+        if (seen.has(mat)) continue;
+        seen.add(mat);
+        attachMaps(mat as THREE.MeshStandardMaterial, sheet);
+        textured.push(mat);
+      }
+    });
+    return { textured, ground: null };
+  }
+
+  const buildings = new THREE.MeshStandardMaterial({
+    name: CITY_MATERIAL_NAME,
+    metalness: 0,
+    roughness: 1,
+  });
+  attachMaps(buildings, sheet);
+
+  // Identical but for the maps. White and untinted, which is what the material
+  // it replaces already specified — the fix here is the metalness, and putting
+  // a chosen ground colour in the same change would be an art decision nobody
+  // asked for.
+  const ground = terrain
+    ? new THREE.MeshStandardMaterial({
+        name: GROUND_MATERIAL_NAME,
+        metalness: 0,
+        roughness: 1,
+      })
+    : null;
+
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.material = mesh === terrain && ground ? ground : buildings;
+  });
+
+  return { textured: [buildings], ground };
+}
+
+function materialsOf(mesh: THREE.Mesh): THREE.Material[] {
+  return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+}
+
+function attachMaps(material: THREE.MeshStandardMaterial, sheet: TrimSheet): void {
+  if (sheet.textures.baseColor) material.map = sheet.textures.baseColor;
+  if (sheet.textures.normal) material.normalMap = sheet.textures.normal;
+
+  // One ORM texture in three slots, which is the glTF packing and is safe to
+  // share: three picks a map's UV set from `Texture.channel`, and `channel`
+  // belongs to the texture rather than the slot — so one instance cannot
+  // disagree with itself, and its default of 0 is the `uv` attribute the city
+  // has. The old "AO needs a second UV set" rule is pre-r151 and does not apply.
+  // Plan 009 Phase 6 asked for this to be confirmed rather than assumed; it was,
+  // against three 0.174 (`Texture.js:114`, `ShaderChunk/uv_vertex.glsl.js:24`).
+  const orm = sheet.textures.orm;
+  if (orm) {
+    material.aoMap = orm;
+    material.roughnessMap = orm;
+    material.metalnessMap = orm;
+  }
+
+  material.needsUpdate = true;
+}

@@ -404,6 +404,10 @@ export class MurciaExperience {
       loader: this.assetLoader.gltf,
       modelPath: env.modelPath,
       terrainObjectName: env.terrainTransition.terrainObjectName,
+      // The renderer travels with the sheet because a KTX2 set cannot be
+      // decoded without asking this GPU which compressed formats it has.
+      trimSheet: env.trimSheet,
+      renderer: this.renderer,
       onProgress: this.onLoadProgress,
     });
     this.loaded = loaded;
