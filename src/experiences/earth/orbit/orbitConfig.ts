@@ -156,6 +156,35 @@ export const ORBIT_CONFIG = {
     // the knob that decides whether the overview stays calm.
     haloStrength: 0.30,
 
+    // ── The rails ──
+    // The projection's one structural element, present only while it is open.
+    // Fragmented and asymmetric by construction — see the shader. The first two
+    // are fractions of the field's CURRENT half-width, so the run travels
+    // outward with the opening rather than waiting at a fixed distance.
+
+    // Where the run starts, outboard of the artwork's flank. Clear of the
+    // lockup's ink: the logo cell pads 64 px of 1024 per side, so the artwork
+    // reaches about 0.87 of the half-width at most.
+    railInner: 0.64,
+    // Where it ends — outside the nominal field, so the rails read as
+    // structure the projection extends INTO rather than a border around it.
+    railOuter: 1.02,
+    // Heights of the two runs. DELIBERATELY UNEQUAL: matched heights read as
+    // one frame seen twice, which is the closed box being rebuilt by
+    // implication even though no single line is continuous.
+    railTopY: 0.46,
+    railBottomY: 0.41,
+    // Peak alpha. The rails are a whisper — they say "deploying", they are not
+    // the composition.
+    railAlpha: 0.34,
+    // Dashes across the top run; the bottom run uses a different count, so the
+    // two never fall into step with each other.
+    railDashes: 3.0,
+    // Hash seeds for the top and bottom runs. Arbitrary, and only ever want to
+    // be different from each other — change them to reshuffle the pattern.
+    railSeedTop: 3.0,
+    railSeedBottom: 19.0,
+
 
     // ── The emitter cone (plan 008) ──
     // The volume the hologram is projected into: a real frustum mesh parented

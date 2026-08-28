@@ -8,27 +8,30 @@
 // range constants of its own and the stages cannot drift apart.
 //
 // Overlapping ranges, deliberately. Three disjoint ranges would read as three
-// animations played back to back; overlapped, the wings begin travelling while
-// the core is still brightening and the logo begins arriving before the wings
-// settle — one gesture with internal rhythm. The numbers are artistic guidance
-// and may be retuned; the shape (activation leads, resolve lands last) is what
-// the test protects.
+// animations played back to back; overlapped, the field begins opening while it
+// is still brightening and the logo begins arriving before the opening settles —
+// one gesture with internal rhythm. The numbers are artistic guidance and may be
+// retuned; the shape (activation leads, resolve lands last) is what the test
+// protects.
+//
+// `wingExtent` used to be returned here too, the split plate's per-wing travel.
+// It went with the wings: the rails that replaced them are positioned relative
+// to the field's own half-width, so they track `fieldAspect` and need no second
+// length of their own. One derived quantity cannot disagree with itself.
 //
 // Pure, like panelExpansion.ts, so it is testable in Node. Because it is a pure
 // function of the eased value, reversal costs nothing: the closing sequence is
 // the opening one sampled backwards.
 
 export interface Deployment {
-  /** The core's energy response: brackets brighten, wing origins appear. */
+  /** The field's energy response: the halo brightens, the emitter surges. */
   activation: number
-  /** The wings' travel and the projection field's opening. */
+  /** The field's opening, and the rails' arrival with it. */
   deploy: number
   /** The isotype→logo crossfade and the settle of the selected-state glow. */
   resolve: number
-  /** Aspect of the artwork field, 1 (square core) → 2 (core plus both wings). */
+  /** Aspect of the artwork field, 1 (square, the isotype) → 2 (the lockup). */
   fieldAspect: number
-  /** Each wing's current length, in pane heights. */
-  wingExtent: number
 }
 
 /** [start, end] of each stage over the eased expansion. */
@@ -38,7 +41,7 @@ export const DEPLOYMENT_STAGES = {
   resolve: [0.75, 1.0],
 } as const
 
-export function deploymentFrom(eased: number, wingLength: number): Deployment {
+export function deploymentFrom(eased: number): Deployment {
   const t = clamp01(eased)
   const activation = stage(t, DEPLOYMENT_STAGES.activation)
   const deploy = stage(t, DEPLOYMENT_STAGES.deploy)
@@ -48,7 +51,6 @@ export function deploymentFrom(eased: number, wingLength: number): Deployment {
     deploy,
     resolve,
     fieldAspect: 1 + deploy,
-    wingExtent: wingLength * deploy,
   }
 }
 

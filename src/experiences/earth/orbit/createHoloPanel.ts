@@ -82,8 +82,11 @@ const FRAGMENT = /* glsl */ `
   uniform vec2 uLogoScale;
   uniform float uLogoAspect;
 
-  // The eased scalar's stages: (activation, deploy, resolve, rail extent).
-  // See holoDeployment.ts — the shader never remaps ranges of its own.
+  // The eased scalar's stages: (activation, deploy, resolve, field aspect).
+  // See holoDeployment.ts — the shader never remaps ranges of its own, and it
+  // does not recompute the aspect from deploy either: one derived value,
+  // produced once, so the field and the rails cannot disagree about how far
+  // open the projection is.
   uniform vec4 uDeploy;
 
   uniform vec3 uBrandColor;
@@ -97,6 +100,12 @@ const FRAGMENT = /* glsl */ `
   uniform vec2 uOrigin;
   // (halo radius, halo strength).
   uniform vec2 uField;
+  // (inner start, outer end, top height, bottom height) — the rails. The first
+  // two are fractions of the field's CURRENT half-width, so the run travels
+  // outward as the projection opens instead of sitting at a fixed distance.
+  uniform vec4 uRail;
+  // (alpha, dashes per run, top seed, bottom seed).
+  uniform vec4 uRailStyle;
 
   varying vec2 vUv;
 
@@ -120,6 +129,29 @@ const FRAGMENT = /* glsl */ `
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  // ONE BROKEN RUN OF DASHES along t in 0..1, each a different length, each
+  // starting at a different place inside its slot.
+  //
+  // The point is that it must not read as a rule, a HUD frame or a row of
+  // evenly spaced ticks — all three are the card language this design exists to
+  // leave behind, and a tick row is the most tempting of them because it looks
+  // technical. Every dash takes its length and offset from a hash of its own
+  // index, so the run is irregular but STABLE: it is a function of position,
+  // not of time, so nothing crawls or flickers.
+  //
+  // The seed is what makes the four runs — top and bottom, left and right —
+  // differ from each other. Mirror symmetry would rebuild the frame by
+  // implication even though no line is continuous.
+  float dashes(float t, float freq, float seed, float w) {
+    float s = t * freq;
+    float i = floor(s);
+    float f = fract(s);
+    float len = mix(0.26, 0.80, hash(vec2(i, seed)));
+    float off = (1.0 - len) * hash(vec2(i, seed + 13.7));
+    float e = max(w * freq, 1e-4);
+    return smoothstep(off - e, off + e, f) * (1.0 - smoothstep(off + len - e, off + len + e, f));
   }
 
   float vnoise(vec2 p) {
@@ -202,6 +234,7 @@ const FRAGMENT = /* glsl */ `
     // the quad never changes shape.
     vec2 p = (vUv - uOrigin) * uQuadScale;
     vec2 px = fwidth(p);
+    float ax = abs(p.x);
 
     // The selected-state energy: a surge as the field activates, easing back
     // once the logo has resolved. Peak, then settle.
@@ -210,7 +243,10 @@ const FRAGMENT = /* glsl */ `
     // The artwork field opens from 1:1 to 2:1 with the deployment. Both
     // artworks are fitted against the CURRENT aspect, so neither distorts at
     // any point of it, and the crossfade is the only thing that changes.
-    float fieldAspect = 1.0 + deploy;
+    // Clamped: the field is square at rest and never narrower, so anything
+    // below 1 is a uniform that was never written. It divides into fuv below,
+    // and a zero there does not degrade the artwork — it deletes it.
+    float fieldAspect = max(uDeploy.w, 1.0);
     vec2 fuv = p / vec2(fieldAspect, 1.0) + 0.5;
     vec4 isotype = sampleArt(uIsotype, uIsoOffset, uIsoScale, fuv, fieldAspect, uIsoAspect);
     vec4 logo = sampleArt(uLogo, uLogoOffset, uLogoScale, fuv, fieldAspect, uLogoAspect);
@@ -250,7 +286,42 @@ const FRAGMENT = /* glsl */ `
     // it belongs to the projection, and nothing else.
     over(color, alpha, plate.rgb * modulation, plate.a);
 
-    // ── Layer 4: the emitter ──
+    // ── Layer 4: the rails ──
+    // The one structural element, and it exists to say DEPLOYING — it arrives
+    // with the opening and is absent at rest, so the resting field is light and
+    // artwork and nothing else.
+    //
+    // Fragmented on purpose. The silhouette to reach for is
+    //
+    //      ┌─                          ─┐
+    //   ─  ─┤       BRAND LOGO         ├─  ──
+    //      └                            ─┘
+    //
+    // and emphatically NOT the closed box the split plate drew. So: no end cap,
+    // no root line, no evenly spaced ticks, no filled terminal nodes, and no
+    // mirror symmetry — each of the four runs carries its own seed, and each
+    // dash its own length. The runs fade out at both ends rather than stopping,
+    // because a line that stops is an edge and an edge is the whole problem.
+    float halfW = fieldAspect * 0.5;
+    float inner = halfW * uRail.x;
+    float outer = halfW * uRail.y;
+    float span = max(outer - inner, 1e-4);
+    float t = (ax - inner) / span;
+    // Fade in off the artwork's flank, fade out into nothing at the far end.
+    float run = smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.70, 1.0, t));
+    // Left and right differ, and so do top and bottom: four independent runs.
+    float side = p.x < 0.0 ? 0.0 : 37.0;
+    float top = line(p.y - uRail.z, px.y)
+              * dashes(t, uRailStyle.y, uRailStyle.z + side, px.x / span);
+    float bottom = line(p.y + uRail.w, px.y)
+                 * dashes(t, uRailStyle.y * 0.78, uRailStyle.w + side, px.x / span);
+    // Strongest where they leave the artwork, thinning outward: the run reads
+    // as reaching away from the mark rather than as a detached tick cluster.
+    float taper = 1.0 - 0.55 * clamp(t, 0.0, 1.0);
+    float rails = max(top, bottom) * run * taper * uRailStyle.x * deploy * energy;
+    over(color, alpha, uBrandColor, rails);
+
+    // ── Layer 5: the emitter ──
     // Where the cone arrives. A brand-colour line along the field's base, at
     // the core's width, fading out at both ends rather than stopping — a line
     // that stops is an edge, and an edge is the whole problem. Above it a short
@@ -368,7 +439,20 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     // Both written every frame by applyExpansion, never independently — see
     // the header note. Seeded collapsed so the first frame drawn before any
     // update() is already correct.
-    uDeploy: { value: new THREE.Vector4(0, 0, 0, 0) },
+    // SEEDED FROM THE SAME FUNCTION THAT WRITES IT, never from literals.
+    //
+    // `applyExpansion` only runs when the eased value CHANGES, so a panel that
+    // is never touched keeps whatever it was constructed with — which is the
+    // resting state of every satellite in the overview, and the pinned state
+    // under `?holoExpand=`. Hardcoding zeros here was correct while .w carried
+    // the wings' extent, whose rest value really is 0. It became a division by
+    // zero the moment .w started carrying the field's ASPECT, and every resting
+    // panel lost its isotype: the mark vanished, the emitter line stayed, and
+    // it read as a tuning problem rather than as the regression it was.
+    uDeploy: { value: (() => {
+      const rest = deploymentFrom(0)
+      return new THREE.Vector4(rest.activation, rest.deploy, rest.resolve, rest.fieldAspect)
+    })() },
 
     uBrandColor: { value: new THREE.Color(brandColor) },
     uOpacity: { value: 0 },
@@ -378,6 +462,17 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     uQuadScale: { value: new THREE.Vector2(footprint.width, footprint.height) },
     uOrigin: { value: new THREE.Vector2(0.5, footprint.originY) },
     uField: { value: new THREE.Vector2(cfg.haloRadius, cfg.haloStrength) },
+    uRail: {
+      value: new THREE.Vector4(cfg.railInner, cfg.railOuter, cfg.railTopY, cfg.railBottomY),
+    },
+    uRailStyle: {
+      value: new THREE.Vector4(
+        cfg.railAlpha,
+        cfg.railDashes,
+        cfg.railSeedTop,
+        cfg.railSeedBottom,
+      ),
+    },
   }
 
   const material = new THREE.ShaderMaterial({
@@ -435,8 +530,8 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
    */
   function applyExpansion() {
     const eased = easeExpansion(expansion)
-    const d = deploymentFrom(eased, cfg.wingLength)
-    uniforms.uDeploy.value.set(d.activation, d.deploy, d.resolve, d.wingExtent)
+    const d = deploymentFrom(eased)
+    uniforms.uDeploy.value.set(d.activation, d.deploy, d.resolve, d.fieldAspect)
     // The cone reads the SAME stages, from this one call. It is not a second
     // animation kept in sympathy with the first: a mouth opening a frame behind
     // the field would show light arriving at a structure that is already there.
