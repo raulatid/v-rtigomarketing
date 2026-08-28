@@ -132,8 +132,19 @@ async function runArm(name, { reload = false } = {}) {
     }
   })
 
-  // Long tasks, installed before any application code runs.
+  // Long tasks and the intro's own frame pacing, installed before any
+  // application code runs. Pacing is recorded here rather than inferred from
+  // the screencast: the screencast's rate is the compositor's and the ack
+  // loop's, not the page's, so it cannot answer "did the drawing drop frames".
   await page.addInitScript(() => {
+    window.__frameIntervals = []
+    let last = performance.now()
+    const tick = (now) => {
+      window.__frameIntervals.push({ at: now, dt: now - last })
+      last = now
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
     window.__bootLongTasks = []
     try {
       new PerformanceObserver((list) => {
@@ -211,7 +222,7 @@ async function runArm(name, { reload = false } = {}) {
         domContentLoaded: e.domContentLoadedEventStart,
       }))[0] ?? null,
       longTasks: window.__bootLongTasks ?? [],
-      pipeLog: window.__pipeLog ?? [],
+      frameIntervals: window.__frameIntervals ?? [],
     }
   })
 
@@ -295,6 +306,15 @@ for (const spec of WANTED) {
   console.log(`color-scheme  html=${result.layers.html?.colorScheme} body=${result.layers.body?.colorScheme}`)
   console.log(`backgrounds   body=${result.layers.body?.background} root=${result.layers.root?.background} intro=${result.layers.introRoot?.background} canvas=${result.layers.canvas?.background}`)
   console.log(`gl alpha      ${result.layers.contextAttributes?.alpha}`)
+  // Frame pacing over the VISIBLE intro only — from the drawing's first frame
+  // to the handover. Long tasks elsewhere are not this task's business.
+  const iv = result.timings.frameIntervals.filter(
+    (f) => f.at >= (m.introVisible ?? 0) && f.at <= (m.introComplete ?? Infinity),
+  )
+  const dts = iv.map((f) => f.dt).sort((a, b) => a - b)
+  const pct = (q) => dts[Math.floor(dts.length * q)] ?? NaN
+  const dropped = dts.filter((d) => d > 33).length
+  console.log(`intro pacing  ${iv.length} frames · median ${pct(0.5)?.toFixed(1)}ms · p95 ${pct(0.95)?.toFixed(1)}ms · worst ${dts[dts.length-1]?.toFixed(0)}ms · ${dropped} over 33ms (${((dropped/dts.length)*100).toFixed(0)}%)`)
   const longest = [...result.timings.longTasks].sort((a, b) => b.duration - a.duration).slice(0, 3)
   console.log(`long tasks    ${result.timings.longTasks.length}, longest ${longest.map((t) => `${t.duration.toFixed(0)}ms@${t.at.toFixed(0)}`).join(', ')}`)
   if (result.errors.length) console.log(`errors        ${result.errors.slice(0, 3).join(' | ')}`)
