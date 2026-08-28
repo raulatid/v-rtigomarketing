@@ -1834,10 +1834,60 @@ buildings against the +Z plate edge, where the framing solve may clamp; it is tu
 
 ---
 
+## 33. The boot is measured in pixels, and the city is not part of it
+
+**Decided** 2026-08-28, from plan 008. Users reported the screen "flashing white" during the
+opening and the intro feeling rough.
+
+**Renderer state is borrowed state, and `warm()` must give all of it back.** The flash was one
+frame of Murcia's daylight sky over the whole viewport. `MurciaExperience.warm()` renders the city
+once so the transition frame does not pay for 957 instanced buildings, and it already saved and
+restored the render target — but three's `WebGLBackground` applies `scene.background` by calling
+`setClearColor` on the **renderer** and never puts it back. Murcia's background is `0x9fb4c7`,
+Earth's `RenderPass` declares no clear colour of its own, and mid-intro the Earth is small enough
+that the clear IS the frame. The clear colour is now restored in the same `finally` as the target.
+**Anything that borrows the shared renderer restores every piece of state it touched, not the
+obvious one.** The renderer is shared by two experiences (ADR 001/002); this is the second time
+that sharing has leaked, and it will not be the last.
+
+**A visual defect needs a visual test.** Nothing structural could see this: the DOM is correct, CLS
+is 0, and the frame is gone in 16 ms. `scripts/proto/capture-boot.mjs` takes a CDP screencast and
+reduces each frame to a mean luminance, which turns "it flashes" into a number — 190 against a
+5-to-25 baseline. `e2e/boot.spec.ts` asserts that ceiling permanently. The capture **reloads**
+rather than navigating: before a page's first paint the browser still shows the PREVIOUS document,
+which in a fresh context is `about:blank`, and counting its white manufactures the bug being looked
+for. That artifact cost a wrong diagnosis first — `color-scheme: dark` was written, measured,
+found to change nothing, and reverted.
+
+**The city is not part of the boot.** `MurciaLayer` built the environment on mount, i.e. through
+the intro: 1.26 MB of city plus 707 KB of decoder wasm at HIGH priority (three's `FileLoader` uses
+XHR, which Chrome prioritises that way) against Earth textures deliberately preloaded LOW so they
+could not out-rank the app chunk. It waits for `__vertigoIntro.completed` now. Nothing visible
+waits longer: `canNavigate` already requires `murciaReady` AND phase `site`, and `murcia:model`
+completes *before* the phase-`site` trigger exists. Slow 4G scene-ready 31.5 s → 25.1 s.
+
+**The Earth preloads stay `fetchpriority="low"`, and this is now measured rather than argued.**
+Promoting all six maps to `high` left scene-ready unchanged (within noise) and cost **310 ms** of
+time-to-first-drawn-frame. The demotion's original reason holds. Do not re-derive this.
+
+**The remaining intro stalls are required work, deliberately placed.** 23 % of frames over 33 ms on
+Fast 4G + 4× CPU, attributed: three 4096×2048 Earth uploads (324/412/485 ms), the synchronous
+brand-atlas raster (250 ms), `compileAsync` (377 ms). The warm-up exists to pay exactly these while
+the drawing covers the screen. The lever is fewer/smaller bytes — `specularClouds.jpg` is 1.65 MB
+and is the last required byte on Slow 4G — not rescheduling.
+
+**Left open.** Satellite assets and the decoders still fetch HIGH before the handover (915 KB
+through the gate window). They are `required: false`, but they are on screen in P5 seconds after
+the handover and on Slow 4G would need ~5.5 s from a handover start — so the scheduling point has
+to come from a measured reveal deadline, not from reusing the city's answer.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| Murcia loads during the Earth intro so the transition never waits on it | `MurciaLayer.tsx`, ADR 004 | It loads after the handover. The transition still never waits — `canNavigate` gates on `murciaReady`, which lands before phase `site` — and the intro stops competing with 2 MB it does not need — **§33** |
 | "Servicios" is one district, picked as a cluster, opening an accordion of every service | `cityDistrictBindings.ts` (`blog_edificios*` stand-in), `districtPanel.ts` accordion, §20 | One building per service (`edificio-servicio-NNN`), engaged one at a time; the panel shows one service with prev/next — **§32** |
 | The terrain plate is `Plane.013` | `murciaConfig.ts`, `blender-export-contract.md` §5 | `suelo-principal` since the 2026-08-27 re-export; the largest-flat-mesh fallback covered the gap and warned — **§32** |
 | WordPress is the editorial source of truth | **§27**, `adr/010` | Sanity. The WordPress mapping never worked — flat keys against a `rendered`/`acf` envelope — so nothing working was replaced — **§31**, `adr/011` |
