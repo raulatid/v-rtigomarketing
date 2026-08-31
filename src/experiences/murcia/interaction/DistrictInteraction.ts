@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { DistrictContent, Service } from '../../../content/types';
+import type { Service } from '../../../content/types';
 import type {
   DistrictSceneBinding,
   ServiceBuildingBinding,
@@ -20,15 +20,18 @@ import type {
   CameraPoseConfig,
   FocusFlightConfig,
 } from '../config/environmentConfig';
-import { DistrictPanel } from '../ui/districtPanel';
-import type { ServicePanelView } from '../ui/districtPanel';
-import { DistrictLabel } from '../ui/districtLabel';
 import type { CursorManager } from '../../../interaction/cursorManager';
+import type { DistrictSnapshot, DistrictState } from '../district/districtState';
+import type { ServicesDisplay } from '../district/display/servicesDisplay';
+import { controlAt } from '../district/display/displayConfig';
+import type { DisplayControl } from '../district/display/displayConfig';
 
 export type DistrictInteractionState =
   | { type: 'idle' }
-  | { type: 'hovering'; serviceId: string }
-  | { type: 'focusing'; serviceId: string }
+  /** The pointer is over the cluster and the district is closed. */
+  | { type: 'hovering' }
+  /** Flying in. The district is already active; the camera has not landed. */
+  | { type: 'entering' }
   | { type: 'open'; serviceId: string };
 
 /** One service building, resolved. Supplied in tour order. */
@@ -39,15 +42,12 @@ export interface ServiceSiteInput {
 }
 
 export interface DistrictInteractionDeps {
-  container: HTMLElement;
   canvas: HTMLCanvasElement;
   camera: THREE.PerspectiveCamera;
   rig: CameraRig;
   controller: DragPanController;
-  /** Shared camera decision for the district (per-building overrides apply on top). */
+  /** The district's shared camera decision. */
   binding: DistrictSceneBinding;
-  /** The label feeds the panel eyebrow; `services[]` is the tour order. */
-  content: DistrictContent;
   /** At least one, in tour order. */
   sites: ServiceSiteInput[];
   /**
@@ -65,20 +65,30 @@ export interface DistrictInteractionDeps {
   /** The floor a focus flight may dolly to. Clamped against, never trusted. */
   focusFlight: FocusFlightConfig;
   /**
-   * Tap tolerance per pointer type, the same numbers the drag controller uses
-   * (`NavigationConfig.dragThresholdPx` / `touchDragThresholdPx`). Measured here
-   * as well, not only read off the controller: a browser can cancel or
-   * recapture a pointer mid-gesture, and a release the controller has already
-   * forgotten must still not count as a tap on whatever it landed on.
+   * Tap tolerance per pointer type, the same numbers the drag controller uses.
+   * Measured here as well, not only read off the controller: a browser can
+   * cancel or recapture a pointer mid-gesture, and a release the controller has
+   * already forgotten must still not count as a tap on whatever it landed on.
    */
   tapThresholdPx: { mouse: number; touch: number };
   reducedMotion: boolean;
   /**
+   * The authoritative district state. This class WRITES it through named
+   * transitions and is told the result through `applySnapshot`; it never keeps
+   * a second copy of which service is active.
+   */
+  state: DistrictState;
+  /** The display. Its panel is the only hit surface once the district is open. */
+  display: ServicesDisplay;
+  /** Where the camera settles when the district is entered: the plaza, world XZ. */
+  districtCenter: { x: number; z: number };
+  /** Names this district in cursor keys and warnings. */
+  districtId: string;
+  /**
    * Fired when `isEngaged` flips, either way. Carries no payload on purpose:
    * the consumer re-reads the aggregate it cares about
    * (`MurciaExperience.hasFocusedDistrict`) rather than being handed a copy of
-   * this district's state. The application uses it to re-derive navigation
-   * availability the moment attention changes, instead of on the next gesture.
+   * this district's state.
    */
   onEngagedChange?: () => void;
 }
@@ -90,14 +100,15 @@ interface Site {
   binding: ServiceBuildingBinding;
   lookup: DistrictLookup;
   highlight: DistrictHighlight;
-  label: DistrictLabel;
 }
 
 /**
- * Per-building highlight sizing. The defaults were judged for a two-building
- * cluster; these buildings stand 15–40 m apart, so the proxy padding that made
- * a cluster's gaps clickable would make neighbouring proxies overlap and turn
- * a tap between two buildings into a coin toss.
+ * Per-building highlight sizing. These buildings stand 15–40 m apart, so the
+ * proxy padding that made a tight cluster's gaps clickable would make
+ * neighbouring proxies overlap and turn a tap between two buildings into a coin
+ * toss. They are one entry target now, so overlap would no longer pick the wrong
+ * service — but it would still put a hover glow on a building the pointer is
+ * nowhere near.
  */
 const SITE_HIGHLIGHT: DistrictHighlightConfig = {
   highlightColor: 0x4fb0ff,
@@ -113,33 +124,50 @@ const SITE_HIGHLIGHT: DistrictHighlightConfig = {
   proxyPadding: 2,
 };
 
+/** Wheel notches to scroll fraction. */
+const WHEEL_SCROLL_SCALE = 0.0016;
+/** Drag pixels to scroll fraction. */
+const DRAG_SCROLL_SCALE = 0.0026;
+
 /**
- * Owns the district's interaction state and every transition between states.
+ * Owns the district's interaction and every transition between states.
  *
- * ONE interaction for the whole district, holding N **sites** — one per
- * service building. Not one instance per building: each instance would own a
- * `CameraFlight` and a set of canvas listeners, so selecting building B while
- * A is open would have two flights writing the rig in the same frame, which is
- * exactly the failure the external-control handover exists to prevent. One
- * raycaster, one flight, one panel; the sites are what the state names.
+ * ONE interaction for the whole district, holding N **sites** — one per service
+ * building. Not one instance per building: each would own a `CameraFlight` and a
+ * set of canvas listeners, so two of them could write the rig in the same frame,
+ * which is exactly the failure the external-control handover exists to prevent.
+ * One raycaster, one flight, one display; the sites are what the state names.
  *
- * Kept out of `MurciaExperience` deliberately. The awkward cases here — a click
- * arriving mid-flight, the panel closing before the camera lands, a resize
- * during a transition, a swap while a flight is in the air — are exactly the
- * ones that turn into contradictory behaviour when the state is spread across
- * five modules that each hold a piece. `MurciaExperience` keeps composition,
- * ticking and disposal.
+ * ## The buildings are not navigation
+ *
+ * Since plan 003 the projected display is the district's only interaction
+ * surface. The buildings are one ENTRY target — a tap on any of them opens the
+ * district on its first service — and after that they are scenery that reacts to
+ * the active index. There is no per-building flight and no building-to-service
+ * click mapping; `districtState` holds the active index and this class reads it
+ * back rather than keeping its own.
+ *
+ * ## Two hit tests, never both at once
+ *
+ * Closed, the raycast is against the sites' meshes and their picking proxies.
+ * Open, it is `intersectObject(panel, false)` and nothing else. The two never
+ * overlap, which is what makes the arbitration a mode switch rather than an
+ * ordering rule.
+ *
+ * Kept out of `MurciaExperience` deliberately. The awkward cases here — a press
+ * arriving mid-flight, a drag that ends over a control, a resize during a
+ * transition, a scroll gesture that must not pan the city — are exactly the ones
+ * that turn into contradictory behaviour when the state is spread across five
+ * modules that each hold a piece.
  */
 export class DistrictInteraction {
   private readonly deps: DistrictInteractionDeps;
   private readonly sites: Site[];
   private readonly siteById = new Map<string, Site>();
-  /** Every pickable object → its site, so one raycast answers "which building". */
+  /** Every pickable object → its site, so one raycast answers "is this the district". */
   private readonly siteByObject = new Map<THREE.Object3D, Site>();
   private readonly group = new THREE.Group();
-
   private readonly flight: CameraFlight;
-  private readonly panel: DistrictPanel;
 
   /** Namespaced so this district retracting its hover cannot clear another's. */
   private readonly cursorKey: string;
@@ -148,7 +176,6 @@ export class DistrictInteraction {
   private readonly pickables: THREE.Object3D[];
   private readonly hits: THREE.Intersection[] = [];
   private readonly ndc = new THREE.Vector2();
-  private readonly projected = new THREE.Vector3();
 
   private state: DistrictInteractionState = { type: 'idle' };
 
@@ -157,33 +184,34 @@ export class DistrictInteraction {
   private pointerClientY = 0;
   private hoverDirty = false;
   private readonly hoverSupported: boolean;
-  /**
-   * Whether this district accepts input. Defaults to true so the interaction is
-   * complete on its own; `MurciaExperience` seeds it from its active flag at
-   * construction, because districts are built during the Earth intro — while
-   * the city is still hidden.
-   */
   private enabled = true;
 
   /**
-   * Pointer sequence that cancelled a flight. Its pointerup must not select or
-   * dismiss anything: the press was a "stop", not a "choose".
+   * Pointer sequence that cancelled a flight. Its pointerup must not activate
+   * anything: the press was a "stop", not a "choose".
    */
   private suppressedPointerId: number | null = null;
 
   /** Where the current pointer sequence began, to tell a tap from a drag. */
   private press: { id: number; x: number; y: number; touch: boolean } | null = null;
 
-  /** One warning per building, not one per selection. See computeDestination. */
+  /**
+   * The detail-scroll gesture, while one is claimed.
+   *
+   * `tookControl` records whether WE called `beginExternalControl`, so releasing
+   * cannot hand the rig back on behalf of a flight that took it first.
+   */
+  private scrollGesture: { id: number; lastY: number; tookControl: boolean } | null = null;
+
   private readonly framingMissWarned = new Set<string>();
 
   constructor(deps: DistrictInteractionDeps) {
     if (deps.sites.length === 0) {
-      throw new Error(`[district] "${deps.content.id}" has no sites.`);
+      throw new Error(`[district] "${deps.districtId}" has no sites.`);
     }
     this.deps = deps;
-    this.cursorKey = `district:${deps.content.id}`;
-    this.group.name = `District:${deps.content.id}`;
+    this.cursorKey = `district:${deps.districtId}`;
+    this.group.name = `District:${deps.districtId}`;
 
     this.hoverSupported =
       typeof window.matchMedia !== 'function' || !window.matchMedia('(hover: none)').matches;
@@ -195,17 +223,12 @@ export class DistrictInteraction {
         SITE_HIGHLIGHT,
         deps.reducedMotion,
       );
-      // Created in tour order, so tab order IS tour order.
-      const label = new DistrictLabel(deps.container, input.service.title, {
-        onActivate: () => this.select(input.service.id),
-      });
       const site: Site = {
         index,
         service: input.service,
         binding: input.binding,
         lookup: input.lookup,
         highlight,
-        label,
       };
       this.siteById.set(input.service.id, site);
       for (const mesh of input.lookup.meshes) this.siteByObject.set(mesh, site);
@@ -224,24 +247,26 @@ export class DistrictInteraction {
       deps.reducedMotion,
     );
 
-    this.panel = new DistrictPanel(deps.container, deps.content.id, {
-      onClose: () => this.close(),
-      onStep: (direction) => this.step(direction),
-    });
-
     // Only the sites' own meshes and proxies are ever raycast — never the
     // Scene. The proxies live on their own layer, so the raycaster has to opt in.
     this.pickables = Array.from(this.siteByObject.keys());
     this.raycaster.layers.enable(0);
     this.raycaster.layers.enable(INTERACTION_LAYER);
 
-    // Capture phase, so this runs before DragPanController's own pointerdown
-    // listener. A press that cancels a flight then falls through and starts the
-    // drag in the same event — no synthetic re-dispatch, no dead first gesture.
+    // Capture phase so a press that cancels a flight is seen before anything
+    // else acts on it. It does NOT run before `DragPanController`, which listens
+    // on the same canvas and registered first — at the target node, listeners
+    // fire in registration order whatever their capture flag. That is why the
+    // detail-scroll gesture takes external control rather than trying to stop
+    // propagation, which on a shared target cannot work.
     deps.canvas.addEventListener('pointerdown', this.onPointerDownCapture, { capture: true });
     deps.canvas.addEventListener('pointermove', this.onPointerMove);
     deps.canvas.addEventListener('pointerup', this.onPointerUp);
     deps.canvas.addEventListener('pointercancel', this.onPointerCancel);
+    // Non-passive: it calls preventDefault while the detail copy owns the wheel.
+    // Safe beside `createNavigationInput`'s window-level handler, which is the
+    // app's only other one and already stands down while a district is engaged.
+    deps.canvas.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', this.onKeyDown);
   }
 
@@ -254,21 +279,15 @@ export class DistrictInteraction {
    *
    * These listeners are on the SHARED canvas and the raycast is against this
    * district's own meshes, so an Earth click landing where the hidden city
-   * happens to be would select a building and fly Murcia's camera. Frozen state
+   * happens to be would open the district and fly Murcia's camera. Frozen state
    * that a stray click can still move is not frozen.
-   *
-   * The listeners are left attached rather than removed: `dispose()` owns
-   * teardown, and attach/detach cycles on every warp would be one more pairing
-   * to get wrong. Panels and flights already in progress are untouched — this
-   * only stops NEW input, exactly as `update()` only stops new frames.
    */
   setEnabled(next: boolean): void {
     this.enabled = next;
     if (!next) {
-      // Resolved in update(), which is about to stop — a hover held now could
-      // never be retracted.
       this.hoverDirty = false;
       this.suppressedPointerId = null;
+      this.releaseScrollGesture();
     }
   }
 
@@ -282,34 +301,19 @@ export class DistrictInteraction {
   }
 
   /**
-   * The only writer of `this.state`. Assignment goes through here so an
-   * engagement flip is a semantic event the outside can subscribe to
-   * (`onEngagedChange`), not something it has to poll for — the navigation
-   * rail's visibility derives from it.
-   */
-  private setState(next: DistrictInteractionState): void {
-    const wasEngaged = this.isEngaged;
-    this.state = next;
-    if (this.isEngaged !== wasEngaged) this.deps.onEngagedChange?.();
-  }
-
-  /**
-   * True while this district holds the viewer's attention: flying to one of
-   * its buildings, or open on one.
+   * True while this district holds the viewer's attention.
    *
-   * The application reads this (aggregated by `MurciaExperience.hasFocusedDistrict`)
-   * to stand global scene navigation down — you close the district before you leave
-   * the city (`adr/009`). It is a boolean rather than the state itself because the
-   * four-state union is this class's mechanics and nothing outside needs to name a
-   * transition.
+   * The application reads this (aggregated by
+   * `MurciaExperience.hasFocusedDistrict`) to stand global scene navigation
+   * down — you close the district before you leave the city (`adr/009`).
    *
-   * `hovering` is deliberately NOT engaged. It is re-resolved every frame from the
-   * pointer position, so including it would make the navigation rail flicker on and
-   * off as the pointer crossed a building — and hovering is not attention, it is
+   * `hovering` is deliberately NOT engaged. It is re-resolved every frame from
+   * the pointer position, so including it would make the navigation rail flicker
+   * as the pointer crossed a building — hovering is not attention, it is
    * proximity.
    */
   get isEngaged(): boolean {
-    return this.state.type === 'focusing' || this.state.type === 'open';
+    return this.state.type === 'entering' || this.state.type === 'open';
   }
 
   /** True while the flight owns the rig — the caller must not tick the controller. */
@@ -327,92 +331,84 @@ export class DistrictInteraction {
 
     this.flight.update(deltaTime);
     for (const site of this.sites) site.highlight.update(deltaTime);
-    this.updateLabelPositions();
   }
 
-  // --- Transitions ----------------------------------------------------------
+  // --- State ----------------------------------------------------------------
 
-  /** The engaged site, if any. */
-  private engagedSite(): Site | null {
-    if (this.state.type !== 'focusing' && this.state.type !== 'open') return null;
-    return this.siteById.get(this.state.serviceId) ?? null;
-  }
+  /**
+   * Applies an authoritative snapshot: the camera on an activity edge, and the
+   * building highlights on every change.
+   *
+   * Called by whoever owns the subscription rather than subscribing here, so
+   * that the display, the flow and this class are updated in one known order
+   * from one place instead of racing three independent listeners.
+   */
+  applySnapshot(snapshot: DistrictSnapshot): void {
+    const wasActive = this.isEngaged;
 
-  private select(serviceId: string): void {
-    const site = this.siteById.get(serviceId);
-    if (!site) return;
-    // Re-selecting the building that is already open is a no-op rather than a
-    // second flight to the same place.
-    const current = this.engagedSite();
-    if (current === site) return;
-
-    if (current) {
-      // SWAP: the viewer moved from one building to another with the panel up.
-      // The old site stands down; the panel keeps its stop and focus; the
-      // flight is simply re-aimed (the controller is already under external
-      // control, and beginExternalControl is idempotent). Distance is NOT
-      // touched — the rig is already at the district's approach scale, so the
-      // new destination's delta is zero and the camera glides sideways.
-      current.highlight.setState('idle');
-      current.label.setVisible(!this.hoverSupported);
-      this.panel.swap(this.viewFor(site), this.deps.reducedMotion);
-    } else {
-      this.panel.show(this.viewFor(site), this.deps.reducedMotion);
+    if (snapshot.districtActive) {
+      const site = this.sites[snapshot.activeServiceIndex];
+      const serviceId = site?.service.id ?? this.sites[0].service.id;
+      if (!wasActive) {
+        this.setInteractionState({ type: 'entering' });
+        this.beginEntry();
+      } else if (this.state.type === 'open') {
+        this.setInteractionState({ type: 'open', serviceId });
+      }
+    } else if (wasActive) {
+      this.setInteractionState({ type: 'idle' });
+      this.beginExit();
     }
 
-    this.setState({ type: 'focusing', serviceId });
-    // Immediate acknowledgement: the highlight and the panel both start now,
-    // while the camera is still moving.
-    site.highlight.setState('active');
-    site.label.setVisible(false);
-    // `resolveHover` stands down for focusing and open, so a hover held from the
-    // press that got here would never be retracted and the pointing hand would
-    // stay up for as long as the panel is. Released here; `close()` returns to
-    // idle and the next pointer move re-establishes it if it still applies.
+    this.applyHighlights(snapshot);
+  }
+
+  private applyHighlights(snapshot: DistrictSnapshot): void {
+    for (const site of this.sites) {
+      if (!snapshot.districtActive) {
+        site.highlight.setState('idle');
+        continue;
+      }
+      // Visual hierarchy, not a disabled state: the unselected buildings stay
+      // at their idle treatment rather than being dimmed out (plan 003 §6).
+      site.highlight.setState(site.index === snapshot.activeServiceIndex ? 'active' : 'idle');
+    }
+  }
+
+  /**
+   * The only writer of `this.state`. Assignment goes through here so an
+   * engagement flip is a semantic event the outside can subscribe to
+   * (`onEngagedChange`), not something it has to poll for.
+   */
+  private setInteractionState(next: DistrictInteractionState): void {
+    const wasEngaged = this.isEngaged;
+    this.state = next;
+    if (this.isEngaged !== wasEngaged) this.deps.onEngagedChange?.();
+  }
+
+  // --- Camera ---------------------------------------------------------------
+
+  private beginEntry(): void {
+    // `resolveHover` stands down once engaged, so a hover held from the press
+    // that got here would never be retracted and the pointing hand would stay up
+    // for as long as the district is open.
     this.deps.cursor.request(this.cursorKey, '');
-
-    // The panel's rectangle is only meaningful once it is laid out, and the
-    // framing is computed from that measured rectangle rather than from the
-    // breakpoint — so a CSS width change cannot silently break the composition.
-    const destination = this.computeDestination(site);
-
     this.deps.controller.beginExternalControl();
-    this.flight.playTo(destination);
+    this.flight.playTo(this.computeDestination());
   }
 
-  /** Prev/next from the panel. Wraps at both ends. */
-  private step(direction: -1 | 1): void {
-    const current = this.engagedSite();
-    if (!current) return;
-    const count = this.sites.length;
-    const next = this.sites[(current.index + direction + count) % count];
-    if (next) this.select(next.service.id);
-  }
-
-  private close(): void {
-    if (this.state.type === 'idle') return;
-    const current = this.engagedSite();
-    this.setState({ type: 'idle' });
-    this.panel.hide();
-    if (current) {
-      current.highlight.setState('idle');
-      current.label.setVisible(!this.hoverSupported);
-    }
+  private beginExit(): void {
     if (this.flight.isPlaying) this.flight.cancel();
 
-    // Still deliberately no flight back for FOCUS or YAW: returning the view
-    // discards wherever the viewer chose to be, and reads as the interface undoing
-    // their navigation.
+    // Deliberately no flight back for FOCUS or YAW: returning the view discards
+    // wherever the viewer chose to be, and reads as the interface undoing their
+    // navigation.
     //
-    // Distance is not like that, and the asymmetry is the point. It was never user
-    // state to preserve — the viewer did not choose it, selecting a building did —
-    // and with the zoom band gone (`adr/009`) there is no way to undo it by hand.
-    // Leaving them dollied in with no way out is the one outcome worse than moving
-    // the camera on a close.
-    //
-    // A flight rather than a snap, and it takes external control for the same reason
-    // `select()` does: two systems writing the rig in one frame is the failure this
-    // whole handover exists to prevent.
+    // Distance is not like that, and the asymmetry is the point. It was never
+    // user state to preserve — the viewer did not choose it, entering the
+    // district did — and with the zoom band gone (`adr/009`) there is no way to
+    // undo it by hand. Leaving them dollied in with no way out is the one
+    // outcome worse than moving the camera on a close.
     if (this.deps.rig.getDistanceScale() !== 1) {
       this.deps.controller.beginExternalControl();
       this.flight.playTo({
@@ -424,48 +420,41 @@ export class DistrictInteraction {
     }
   }
 
-  private viewFor(site: Site): ServicePanelView {
-    const count = this.sites.length;
-    const prev = this.sites[(site.index - 1 + count) % count]!;
-    const next = this.sites[(site.index + 1) % count]!;
-    return {
-      eyebrow: `${this.deps.content.label} · ${site.index + 1} / ${count}`,
-      title: site.service.title,
-      body: site.service.body,
-      prevTitle: prev.service.title,
-      nextTitle: next.service.title,
-    };
-  }
-
   /**
-   * Where to fly, framed into the part of the canvas the panel does not cover.
+   * Where to fly when the district opens: the plaza, centred.
    *
-   * Computed against a detached rig inside `computeFramedFocus`, so the live rig
-   * is never moved to take the measurement — doing that would jump the camera
-   * for a frame and fire the yaw-changed side effects on the way through.
+   * ONE destination for the whole district, not one per building. The display
+   * hangs above the plaza and is what the visitor reads, so the camera settles
+   * once and stays there while they page through the services — a flight per
+   * service would move the world under a UI that had not moved.
+   *
+   * There is no DOM panel to frame around any more, so the target NDC is simply
+   * the centre. `unobstructedCenterNdc` is still the thing that says so, rather
+   * than a hardcoded `(0, 0)`, because it is where that decision lives.
    */
-  private computeDestination(site: Site): FlightDestination {
+  private computeDestination(): FlightDestination {
     const { binding } = this.deps;
-    const target = { x: site.lookup.center.x, z: site.lookup.center.z };
-    const yawDegrees = site.binding.approachYawDegrees ?? binding.approachYawDegrees;
-    const requestedScale = site.binding.focusDistanceScale ?? binding.focusDistanceScale;
+    const target = { x: this.deps.districtCenter.x, z: this.deps.districtCenter.z };
+    const yawDegrees = binding.approachYawDegrees;
 
-    // Clamped rather than trusted, and never above 1. Outward is the direction whose
-    // ground footprint outgrows the terrain skirt, and only the range from the floor
-    // up to rest is proven safe (`checks/footprint.ts`).
+    // Clamped rather than trusted, and never above 1. Outward is the direction
+    // whose ground footprint outgrows the terrain skirt, and only the range from
+    // the floor up to rest is proven safe (`checks/footprint.ts`).
     const distanceScale =
-      requestedScale === null
+      binding.focusDistanceScale === null
         ? null
-        : Math.min(1, Math.max(this.deps.focusFlight.minDistanceScale, requestedScale));
+        : Math.min(
+            1,
+            Math.max(this.deps.focusFlight.minDistanceScale, binding.focusDistanceScale),
+          );
 
-    const canvasRect = this.canvasRect();
-    const ndc = unobstructedCenterNdc(canvasRect, this.panel.getObstructionRect());
+    const ndc = unobstructedCenterNdc(this.canvasRect(), null);
 
-    // Framed against the pose the flight will ARRIVE at, not the one it leaves from.
-    // The framing solve places the building at a chosen NDC by moving the focus, and
-    // how far the focus has to move depends on the distance — so solving it against
-    // the current distance and then dollying somewhere else lands the building off
-    // the panel-free region by the ratio between them.
+    // Framed against the pose the flight will ARRIVE at, not the one it leaves
+    // from. The framing solve places the target at a chosen NDC by moving the
+    // focus, and how far the focus has to move depends on the distance — so
+    // solving against the current distance and then dollying somewhere else
+    // lands the district off by the ratio between them.
     const arrivalPose =
       distanceScale === null
         ? this.deps.getPose()
@@ -481,18 +470,14 @@ export class DistrictInteraction {
     });
 
     // A near-horizon NDC can miss the ground plane. Falling back to the unframed
-    // centre is worse framing but never a wrong position.
-    //
-    // Said out loud, because flying closer makes the miss MORE likely: a lower camera
-    // puts the panel-free NDC nearer the horizon, and a silent fallback would degrade
-    // the composition with nothing to say it had. Warned once per building rather
-    // than per selection, so it reports without becoming noise.
-    if (!framed && !this.framingMissWarned.has(site.service.id)) {
-      this.framingMissWarned.add(site.service.id);
+    // centre is worse framing but never a wrong position. Warned once, so it
+    // reports without becoming noise.
+    if (!framed && !this.framingMissWarned.has(this.deps.districtId)) {
+      this.framingMissWarned.add(this.deps.districtId);
       console.warn(
-        `[district] ${this.deps.content.id}/${site.service.id}: the framing ray missed ` +
-          'the ground plane, so the building is centred rather than framed clear of ' +
-          'the panel. Usually means the approach distance is too close for this viewport.',
+        `[district] ${this.deps.districtId}: the framing ray missed the ground plane, ` +
+          'so the district is centred by fallback. Usually means the approach ' +
+          'distance is too close for this viewport.',
       );
     }
 
@@ -501,8 +486,10 @@ export class DistrictInteraction {
 
   private onFlightSettled(): void {
     this.deps.controller.endExternalControl({ adoptRigState: true });
-    if (this.state.type === 'focusing') {
-      this.setState({ type: 'open', serviceId: this.state.serviceId });
+    if (this.state.type === 'entering') {
+      const snapshot = this.deps.state.get();
+      const site = this.sites[snapshot.activeServiceIndex] ?? this.sites[0];
+      this.setInteractionState({ type: 'open', serviceId: site.service.id });
     }
   }
 
@@ -513,28 +500,32 @@ export class DistrictInteraction {
     // Hover during a drag would fight the gesture, and during a flight the
     // camera is moving under a stationary pointer.
     if (this.deps.controller.isDragging || this.flight.isPlaying) return;
-    if (this.state.type === 'focusing' || this.state.type === 'open') return;
+
+    if (this.deps.state.get().districtActive) {
+      // Open: the display owns hover entirely, and nothing else is pickable.
+      const control = this.controlUnderPointer(this.pointerClientX, this.pointerClientY);
+      this.deps.display.setHover(control);
+      this.deps.cursor.request(this.cursorKey, control && control !== 'detail-viewport' ? 'pointer' : '');
+      return;
+    }
+
+    if (this.state.type === 'entering') return;
 
     const hovering = this.pickAt(this.pointerClientX, this.pointerClientY);
-    const previous =
-      this.state.type === 'hovering' ? (this.siteById.get(this.state.serviceId) ?? null) : null;
-    if (hovering === previous) return;
+    const wasHovering = this.state.type === 'hovering';
+    if (!!hovering === wasHovering) return;
 
-    // Leave the old one and enter the new one in the same frame, so crossing
-    // straight from A to B never shows two lit buildings or none.
-    if (previous) {
-      previous.highlight.setState('idle');
-      previous.label.setHovered(false);
-    }
     if (hovering) {
-      this.setState({ type: 'hovering', serviceId: hovering.service.id });
-      hovering.highlight.setState('hover');
-      hovering.label.setHovered(true);
+      this.setInteractionState({ type: 'hovering' });
       this.deps.cursor.request(this.cursorKey, 'pointer');
     } else {
-      this.setState({ type: 'idle' });
+      this.setInteractionState({ type: 'idle' });
       this.deps.cursor.request(this.cursorKey, '');
     }
+    // The whole cluster lights as one: it is one entry target, and lighting a
+    // single building would promise a per-building selection that no longer
+    // exists.
+    for (const site of this.sites) site.highlight.setState(hovering ? 'hover' : 'idle');
   }
 
   private pickAt(clientX: number, clientY: number): Site | null {
@@ -545,9 +536,41 @@ export class DistrictInteraction {
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
     this.hits.length = 0;
     this.raycaster.intersectObjects(this.pickables, false, this.hits);
-    // Hits arrive sorted by distance; the nearest decides.
     const first = this.hits[0];
     return first ? (this.siteByObject.get(first.object) ?? null) : null;
+  }
+
+  /**
+   * Which display control is under the pointer, if any.
+   *
+   * `intersectObject(panel, false)` — NON-recursive, and that is load-bearing.
+   * The shell plate is a child of the panel, and `ExtrudeGeometry` gives its rim
+   * walls a `uv` of (position along the contour, depth), which is meaningless
+   * here. A recursive test would return those and the controls would fire at
+   * wrong positions rather than fail loudly.
+   */
+  private controlUnderPointer(clientX: number, clientY: number): DisplayControl | null {
+    const rect = this.canvasRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+
+    clientToNdc(rect, clientX, clientY, this.ndc);
+    this.raycaster.setFromCamera(this.ndc, this.deps.camera);
+    this.hits.length = 0;
+    this.raycaster.intersectObject(this.deps.display.panel, false, this.hits);
+
+    const hit = this.hits[0];
+    if (!hit?.uv) return null;
+
+    // The panel's UVs span the whole plane; the controls are authored against
+    // the readable CORE inside it. One conversion, from the same uniform the
+    // shader draws with, so the two cannot disagree.
+    const inset = this.deps.display.panelMaterial.uniforms['uCoreInset'].value as number;
+    const x = (hit.uv.x - 0.5) / inset + 0.5;
+    const y = (hit.uv.y - 0.5) / inset + 0.5;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+
+    // Rects are authored top-down, the way the copy reads; UVs run bottom-up.
+    return controlAt(x, 1 - y, this.deps.state.get().detailOpen);
   }
 
   private canvasRect(): ScreenRect {
@@ -555,33 +578,41 @@ export class DistrictInteraction {
     return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
   }
 
-  private updateLabelPositions(): void {
-    const rect = this.canvasRect();
-    for (const site of this.sites) {
-      const bounds = site.lookup.bounds;
-      this.projected.set(
-        site.lookup.center.x,
-        bounds.isEmpty() ? this.deps.groundPlaneHeight : bounds.max.y + 4,
-        site.lookup.center.z,
-      );
-      this.projected.project(this.deps.camera);
+  // --- Input ----------------------------------------------------------------
 
-      const onScreen =
-        this.projected.z < 1 &&
-        this.projected.x >= -1 &&
-        this.projected.x <= 1 &&
-        this.projected.y >= -1 &&
-        this.projected.y <= 1;
-
-      site.label.setPosition(
-        rect.left + ((this.projected.x + 1) / 2) * rect.width,
-        rect.top + ((1 - this.projected.y) / 2) * rect.height,
-        onScreen,
-      );
+  private activate(control: DisplayControl): void {
+    const state = this.deps.state;
+    switch (control) {
+      case 'previous':
+        state.previousService();
+        break;
+      case 'next':
+        state.nextService();
+        break;
+      case 'detail':
+        state.openDetail();
+        break;
+      case 'close':
+        state.closeDetail();
+        break;
+      case 'back':
+        state.exitDistrict();
+        break;
+      case 'detail-viewport':
+        // A reading area, not a button. Taps on it do nothing.
+        break;
     }
   }
 
-  // --- Input ----------------------------------------------------------------
+  private releaseScrollGesture(): void {
+    const gesture = this.scrollGesture;
+    this.scrollGesture = null;
+    if (!gesture?.tookControl) return;
+    // Only if a flight has not taken the rig in the meantime — handing it back
+    // on the flight's behalf would drop it mid-air.
+    if (this.flight.isPlaying) return;
+    this.deps.controller.endExternalControl({ adoptRigState: true });
+  }
 
   private readonly onPointerDownCapture = (event: PointerEvent): void => {
     if (!this.enabled) return;
@@ -593,17 +624,49 @@ export class DistrictInteraction {
         touch: event.pointerType === 'touch',
       };
     }
-    if (!this.flight.isPlaying) return;
-    // Any press interrupts. Locking the user out of a one-second animation is
-    // the more annoying failure.
-    this.flight.cancel();
-    this.suppressedPointerId = event.pointerId;
+
+    if (this.flight.isPlaying) {
+      // Any press interrupts. Locking the user out of a one-second animation is
+      // the more annoying failure.
+      this.flight.cancel();
+      this.suppressedPointerId = event.pointerId;
+      return;
+    }
+
+    const snapshot = this.deps.state.get();
+    if (!snapshot.districtActive) return;
+
+    const control = this.controlUnderPointer(event.clientX, event.clientY);
+    this.deps.display.setPressed(control);
+
+    if (snapshot.detailOpen && control === 'detail-viewport' && this.scrollGesture === null) {
+      // Claim the gesture before it moves. `DragPanController` listens on this
+      // same canvas and registered first, so its pointerdown has already run —
+      // `beginExternalControl` releases the pointers it captured and stops it
+      // writing the rig, which is the only mechanism that works on a shared
+      // target. Reading and panning cannot both happen, and reading wins
+      // (plan 003 §13).
+      const tookControl = !this.deps.controller.isExternallyControlled;
+      if (tookControl) this.deps.controller.beginExternalControl();
+      this.scrollGesture = { id: event.pointerId, lastY: event.clientY, tookControl };
+    }
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
     if (!this.enabled) return;
     this.pointerClientX = event.clientX;
     this.pointerClientY = event.clientY;
+
+    const gesture = this.scrollGesture;
+    if (gesture && gesture.id === event.pointerId) {
+      // Natural direction: dragging UP moves the copy up and reveals what comes
+      // next, which is what every touch surface does. The lab drove this the
+      // other way and never had a browser to try it in.
+      this.deps.display.scrollDetail((gesture.lastY - event.clientY) * DRAG_SCROLL_SCALE);
+      gesture.lastY = event.clientY;
+      return;
+    }
+
     // Coalesced to one raycast per frame in update(); a pointermove burst must
     // not turn into a burst of raycasts.
     this.hoverDirty = true;
@@ -611,51 +674,77 @@ export class DistrictInteraction {
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     if (!this.enabled) return;
+
+    const wasScrolling = this.scrollGesture?.id === event.pointerId;
+    if (wasScrolling) this.releaseScrollGesture();
+
     const suppressed = this.suppressedPointerId === event.pointerId;
     this.suppressedPointerId = null;
-    // The press that stopped a flight also produces a pointerup, and the click
-    // guard below only tests the drag threshold — so a sub-threshold tap would
-    // otherwise fall straight through into selecting and flying again.
-    if (suppressed) return;
 
     const press = this.press?.id === event.pointerId ? this.press : null;
     if (press) this.press = null;
 
+    this.deps.display.setPressed(null);
+
+    // The press that stopped a flight also produces a pointerup, and the tap
+    // guard below only tests the drag threshold — so a sub-threshold tap would
+    // otherwise fall straight through into acting again.
+    if (suppressed || wasScrolling) return;
     if (event.button !== 0) return;
-    // A drag that began over a building left its hover lit — resolveHover
-    // stands down for the whole drag, and nothing moves the pointer afterwards.
-    // Re-resolve on the next frame so the label and glow follow the pointer,
-    // not the press.
+
     this.pointerClientX = event.clientX;
     this.pointerClientY = event.clientY;
     this.hoverDirty = true;
+
     if (this.deps.controller.isDragging) return;
     // Measured against the press, independently of the controller: the release
-    // of a drag is not a tap on whatever building it happens to end over. And a
-    // release with no press on record — the browser cancelled the pointer
-    // mid-gesture, or the press landed on a label — is not a tap either.
+    // of a drag is not a tap on whatever it happens to end over. And a release
+    // with no press on record — the browser cancelled the pointer mid-gesture —
+    // is not a tap either.
     if (!press) return;
     const threshold = press.touch ? this.deps.tapThresholdPx.touch : this.deps.tapThresholdPx.mouse;
     if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > threshold) return;
 
-    const site = this.pickAt(event.clientX, event.clientY);
-    if (site) {
-      this.select(site.service.id);
-    } else if (this.state.type === 'open' || this.state.type === 'focusing') {
-      this.close();
+    if (this.deps.state.get().districtActive) {
+      const control = this.controlUnderPointer(event.clientX, event.clientY);
+      if (control) this.activate(control);
+      return;
     }
+
+    // Closed: any building opens the district. They carry no service meaning.
+    if (this.pickAt(event.clientX, event.clientY)) this.deps.state.enterDistrict();
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
     if (this.suppressedPointerId === event.pointerId) this.suppressedPointerId = null;
     if (this.press?.id === event.pointerId) this.press = null;
+    if (this.scrollGesture?.id === event.pointerId) this.releaseScrollGesture();
+    this.deps.display.setPressed(null);
+  };
+
+  private readonly onWheel = (event: WheelEvent): void => {
+    if (!this.enabled) return;
+    const snapshot = this.deps.state.get();
+    if (!snapshot.districtActive || !snapshot.detailOpen) return;
+    if (this.controlUnderPointer(event.clientX, event.clientY) !== 'detail-viewport') return;
+
+    // Claimed only over the reading area, and only while reading. Everywhere
+    // else the wheel still belongs to `createNavigationInput`, which is the
+    // app's single wheel owner — and which is already inert while a district is
+    // engaged, so this cannot fight it.
+    event.preventDefault();
+    this.deps.display.scrollDetail(event.deltaY * WHEEL_SCROLL_SCALE);
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     // This one is on `window`, so it fires even while Earth owns the screen.
     if (!this.enabled) return;
     if (event.key !== 'Escape') return;
-    if (this.state.type === 'open' || this.state.type === 'focusing') this.close();
+    const snapshot = this.deps.state.get();
+    if (!snapshot.districtActive) return;
+    // One level at a time, the same order VOLVER walks.
+    if (snapshot.detailOpen) this.deps.state.closeDetail();
+    else this.deps.state.exitDistrict();
   };
 
   dispose(): void {
@@ -664,15 +753,13 @@ export class DistrictInteraction {
     canvas.removeEventListener('pointermove', this.onPointerMove);
     canvas.removeEventListener('pointerup', this.onPointerUp);
     canvas.removeEventListener('pointercancel', this.onPointerCancel);
+    canvas.removeEventListener('wheel', this.onWheel);
     window.removeEventListener('keydown', this.onKeyDown);
     this.deps.cursor.request(this.cursorKey, '');
+    this.releaseScrollGesture();
 
     if (this.flight.isPlaying) this.flight.cancel();
-    this.panel.dispose();
-    for (const site of this.sites) {
-      site.label.dispose();
-      site.highlight.dispose();
-    }
+    for (const site of this.sites) site.highlight.dispose();
     this.group.removeFromParent();
     this.group.clear();
   }

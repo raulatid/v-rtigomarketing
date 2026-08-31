@@ -36,8 +36,7 @@
 }
 
 .murcia-ui .overlay,
-.murcia-ui .district-panel,
-.murcia-ui .district-label {
+.murcia-ui .district-a11y-control {
   pointer-events: auto;
 }
 
@@ -117,342 +116,58 @@
   margin-right: 0.3rem;
 }
 
-/* --- District interaction -------------------------------------------------- */
-
-/* Projected label. Not an .overlay: it must be clickable and focusable, since
-   it is the district's only keyboard affordance — a raycast cannot be tabbed to. */
-.murcia-ui .district-label {
+/* --- District keyboard surface ---------------------------------------------
+ *
+ * The services district's only DOM. Its visible UI is the projected display,
+ * drawn in a fragment shader on a mesh — which a pointer can raycast and
+ * nothing else can reach. These controls carry the same transitions for
+ * keyboard and assistive technology (`district/ui/districtA11y.ts`).
+ *
+ * The .nav-control pattern from styles.css, for the reason skip links use it:
+ * clipped to a pixel so it never covers the world, unclipped on :focus-visible
+ * so a sighted keyboard user can see what they landed on. It must not be
+ * display:none or hidden — both remove it from the tab order, which is the one
+ * thing it exists to be in. */
+.murcia-ui .district-a11y {
   position: fixed;
   top: 0;
   left: 0;
-  /* Below the panel (15): with five labels in a cluster, one is always going to
-     project onto the sheet or the column, and a pill floating over the copy
-     reads as a bug. */
-  z-index: 14;
-  /* 6px 12px until 2026-08-14, which made the control ~31px tall. It grows
-     rather than gaining an invisible hit area like the chrome controls in
-     styles.css, because on a touch device this IS the district's affordance:
-     `districtLabel.ts` makes it permanently visible under `(hover: none)`
-     precisely because there is no hover to reveal anything else. A primary
-     control should be the size it needs to be, not a small target with a large
-     secret. */
-  padding: 11px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  background: rgba(20, 28, 38, 0.82);
-  color: #e6edf3;
-  font: inherit;
-  font-size: 0.8rem;
-  cursor: pointer;
-  /* Prefixed first: Safari accepted `backdrop-filter` unprefixed only from
-     18.0, so iOS 15-17 needs this to get the blur at all. The plate behind it
-     is opaque enough to stay legible either way. */
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.22s ease;
-}.murcia-ui .district-label.shown {
-  opacity: 1;
-  visibility: visible;
 }
 
-/* Keyboard users must be able to reach it even while it is visually hidden. */
-.murcia-ui .district-label:focus-visible {
-  opacity: 1;
-  visibility: visible;
-  outline: 2px solid #4fb0ff;
-  outline-offset: 3px;
+.murcia-ui .district-a11y-live,
+.murcia-ui .district-a11y-control {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: inherit;
 }
 
-/* --- Service card ------------------------------------------------------------
-   THE CASE PANEL'S DESIGN, on purpose. Every surface, type and motion value
-   below is copied from `.case-panel*` in `src/styles.css` so the two panels read
-   as one family: a floating glass card right of centre on desktop, a two-stop
-   sheet on a phone. The classes are NOT shared — `e2e/mobile.spec.ts` locates
-   `.case-panel` strictly and this element is always in the DOM — so when one
-   changes, change both. `CasePanel.tsx` declares the same pairing the other way.
-
-   Centred WITHOUT a transform. `getObstructionRect()` measures the offset box
-   (the framing runs while the entry transition is mid-flight), and offsets are
-   pre-transform: a `top: 50%; translateY(-50%)` centring would report the card
-   half a height too low and the camera would frame against the wrong region.
-   `top/bottom: 0; margin: auto 0; height: fit-content` puts the layout box where
-   the card rests; the 8px entry rise is a transform the offsets ignore. */
-.murcia-ui .district-panel {
-  position: fixed;
-  z-index: 15;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(160deg, rgba(12, 15, 22, 0.82), rgba(4, 6, 10, 0.86));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-  color: #fff;
-  /* The canvas sets touch-action: none so a one-finger drag navigates the city.
-     The panel must claim its own gestures back, or scrolling it would pan. */
-  touch-action: pan-y;
-  overscroll-behavior: contain;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  /* EXIT timing; `.open` owns the entry. Longer and ease-out so the close
-     settles instead of snapping — the visibility flip is delayed to match. */
-  transition: opacity 340ms ease-out, transform 340ms ease-out, visibility 0s linear 340ms;
-}.murcia-ui .district-panel.open {
-  opacity: 1;
-  visibility: visible;
+.murcia-ui .district-a11y-control {
   pointer-events: auto;
-  transition: opacity 220ms ease, transform 220ms ease;
-}
-
-/* Header row: eyebrow + close. Fixed; the body is the only thing that scrolls. */
-.murcia-ui .district-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex: 0 0 auto;
-  margin-bottom: 1.5rem;
-}.murcia-ui .district-panel-eyebrow {
-  font-size: 0.68rem;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.55);
-  text-transform: uppercase;
-  /* Small accent tick anchors the label without adding a new element. */
-  padding-left: 0.75rem;
-  border-left: 2px solid rgba(255, 255, 255, 0.55);
-}.murcia-ui .district-panel-close {
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.8rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
-}
-/* Gated: iOS holds :hover after a tap, so an ungated rule leaves the close
-   button lit until something else is tapped. */
-@media (hover: hover) {
-  .murcia-ui .district-panel-close:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.4);
-  }
-}
-.murcia-ui .district-panel-close:focus-visible,
-.murcia-ui .district-panel-handle:focus-visible,
-.murcia-ui .district-panel-step:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
-  outline-offset: 2px;
-}
-
-/* The close button stays 28px visually and gains the missing 16px as an
-   invisible hit area, only where the pointer is coarse. */
-@media (pointer: coarse) {
-  .murcia-ui .district-panel-close {
-    position: relative;
-  }.murcia-ui .district-panel-close::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 44px;
-    height: 44px;
-    transform: translate(-50%, -50%);
-  }
-}
-
-.murcia-ui .district-panel .district-panel-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Staged reveal, driven by classes added on a timer so the copy arrives while
-   the camera is still flying rather than after it lands. */
-.murcia-ui .reveal {
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.35s ease, transform 0.35s ease;
-}.murcia-ui .reveal.shown {
-  opacity: 1;
-  transform: none;
-}
-
-.murcia-ui .district-panel-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  margin: 0 0 1.5rem;
-}.murcia-ui .district-panel-copy {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.85rem;
-  line-height: 1.6;
-}.murcia-ui .district-panel-copy p + p {
-  margin-top: 1rem;
-}
-
-/* Prev / next. Always both enabled — the tour wraps — so keyboard focus never
-   sits on a button that just became disabled, which would drop it to <body>.
-   Styled as the case panel's control family (the close button's border, colour
-   and hover), as pills. */
-.murcia-ui .district-panel-nav {
-  display: flex;
-  gap: 0.75rem;
-  flex: 0 0 auto;
-}.murcia-ui .district-panel-step {
-  display: flex;
-  flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  /* 44px minimum. This is the one place in this interface where that figure
-     genuinely applies — unlike the 3D picking proxy. */
-  min-height: 44px;
-  padding: 0 0.75rem;
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.7);
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
-}
-@media (hover: hover) {
-  .murcia-ui .district-panel-step:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.4);
-  }
-}
-.murcia-ui .district-panel-chevron {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
-}.murcia-ui .district-panel-step[data-step='-1'] .district-panel-chevron {
-  transform: rotate(135deg);
 }
 
-/* The sheet's grip. Hidden wherever the panel is a card — it is a control for
-   raising and lowering a sheet, and there is no sheet on a desktop. */
-.murcia-ui .district-panel-handle {
-  display: none;
-}
-
-/* Desktop: a floating card right of centre, the case panel's placement. */
-@media (min-width: 768px) and (min-height: 501px) {
-  .murcia-ui .district-panel {
-    top: 0;
-    bottom: 0;
-    right: 20vw;
-    margin: auto 0;
-    height: fit-content;
-    max-height: calc(100dvh - 3rem);
-    width: min(420px, 38vw);
-    /* Taller than the case panel's 2.25rem all round: with no metrics or chart
-       the card holds only a title and a paragraph, and at equal padding it read
-       as cramped. The extra room goes top and bottom, and into the gaps. */
-    padding: 3rem 2.25rem;
-    border-radius: 14px;
-    transform: translateY(8px);
-  }.murcia-ui .district-panel.open {
-    transform: none;
-  }.murcia-ui .district-panel-header {
-    margin-bottom: 2rem;
-  }.murcia-ui .district-panel-title {
-    margin-bottom: 1.75rem;
-  }
-  /* The nav sits FIRST in the DOM for the mobile peek stop; the card has room,
-     so it goes to the foot. */
-  .murcia-ui .district-panel-nav {
-    order: 10;
-    margin-top: 2.25rem;
-  }
-}
-
-/* Mobile (and short landscape): two-stop bottom sheet, the case panel's. */
-@media (max-width: 767px), (max-height: 500px) {
-  .murcia-ui .district-panel {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 40dvh;
-    padding: 0 1.5rem 1.5rem;
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-    border-radius: 14px 14px 0 0;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
-    transform: translateY(100%);
-    transition:
-      opacity 340ms ease-out,
-      transform 340ms ease-out,
-      height 320ms ease,
-      visibility 0s linear 340ms;
-  }.murcia-ui .district-panel.open {
-    transform: none;
-    transition: opacity 220ms ease, transform 220ms ease, height 320ms ease;
-  }.murcia-ui .district-panel[data-stop='expanded'] {
-    height: 85dvh;
-  }.murcia-ui .district-panel-handle {
-    display: block;
-    flex: 0 0 auto;
-    width: calc(100% + 3rem);
-    height: 44px;
-    margin: 0 -1.5rem;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    position: relative;
-  }.murcia-ui .district-panel-handle::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 36px;
-    height: 4px;
-    margin-left: -18px;
-    margin-top: -2px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.28);
-  }.murcia-ui .district-panel-handle:focus-visible {
-    outline-offset: -4px;
-    border-radius: 8px;
-  }.murcia-ui .district-panel-header {
-    margin-bottom: 1rem;
-  }.murcia-ui .district-panel .district-panel-body {
-    flex: 1 1 auto;
-    touch-action: pan-y;
-  }.murcia-ui .district-panel-nav {
-    margin-bottom: 1rem;
-  }
-}
-
-/* Motion that only decorates is removed; motion that communicates state is
-   shortened rather than deleted. The camera flight is shortened in code.
-   `transition-delay: 0` matters: the exit's `visibility 0s linear 340ms` is a
-   DELAY, which a duration override does not touch. */
-@media (prefers-reduced-motion: reduce) {
-  .murcia-ui .district-panel,
-  .murcia-ui .reveal,
-  .murcia-ui .district-label {
-    transition-duration: 0.01ms;
-    transition-delay: 0ms;
-  }
+.murcia-ui .district-a11y-control:focus-visible {
+  width: auto;
+  height: auto;
+  left: 16px;
+  top: 16px;
+  clip-path: none;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 8px;
+  background: rgba(5, 5, 7, 0.92);
+  color: #fff;
+  outline: 2px solid #7fd4ff;
+  outline-offset: 2px;
+  z-index: 1;
 }
 
 /* Debug overlay */

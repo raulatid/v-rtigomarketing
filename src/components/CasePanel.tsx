@@ -12,9 +12,10 @@ type SheetStop = 'peek' | 'expanded'
 
 // "Caso de éxito" panel, shown while a satellite is focused.
 //
-// ONE COMPONENT, TWO LAYOUTS — the same split Murcia's district panel makes,
-// for the same reason (`experiences/murcia/ui/districtPanel.ts`, which is the
-// reference implementation for everything about the sheet below).
+// ONE COMPONENT, TWO LAYOUTS. Murcia's district panel made the same split for
+// the same reason; it was retired on 2026-08-31 when that district moved to a
+// projected in-world display, so this is now the only implementation of the
+// sheet below rather than a copy of one.
 //
 // On desktop it docks to the right, and that composition is a contract with the
 // camera: the close-up pushes the satellite LEFT of centre precisely to clear
@@ -47,10 +48,9 @@ export function CasePanel({ data, onClose }: Props) {
 
   const [stop, setStop] = useState<SheetStop>('peek')
 
-  // Every new selection starts at the peek stop. districtPanel.show() resets
-  // before it builds, for the reason its comment gives — carrying the previous
-  // stop over means the next case opens already expanded, with the satellite
-  // the viewer just tapped hidden behind it.
+  // Every new selection starts at the peek stop. Carrying the previous stop
+  // over means the next case opens already expanded, with the satellite the
+  // viewer just tapped hidden behind it.
   //
   // Keyed on the case id rather than on `data` being truthy: re-selecting while
   // one is already open is a new case and should re-peek, and the deselect that

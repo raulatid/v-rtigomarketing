@@ -24,8 +24,9 @@ import { DebugOverlay } from './debug/DebugOverlay';
 import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
 import { resolveDistrict } from './interaction/resolveDistrict';
-import { DistrictInteraction } from './interaction/DistrictInteraction';
 import type { ServiceSiteInput } from './interaction/DistrictInteraction';
+import { createServicesDistrict } from './district/createServicesDistrict';
+import type { ServicesDistrict } from './district/createServicesDistrict';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
@@ -73,11 +74,11 @@ export class MurciaExperience {
   private debugOverlay: DebugOverlay | null = null;
   private interactionProbe: InteractionProbe | null = null;
   /**
-   * One interaction per district; today there is one district, engaged
-   * through any of its service buildings. Kept as a list so a second district
-   * is a table row, not a refactor.
+   * One assembly per district; today there is one, entered through any of its
+   * service buildings. Kept as a list so a second district is a table row, not
+   * a refactor.
    */
-  private districts: DistrictInteraction[] = [];
+  private districts: ServicesDistrict[] = [];
 
   private loaded: LoadedCity | null = null;
   /**
@@ -604,7 +605,8 @@ export class MurciaExperience {
         continue;
       }
 
-      const interaction = new DistrictInteraction({
+      const district = createServicesDistrict({
+        root,
         container: this.container,
         canvas: this.renderer.domElement,
         camera: this.camera,
@@ -640,10 +642,10 @@ export class MurciaExperience {
       // Seeded, not assumed: districts are built during the Earth intro (ADR
       // 004 prefetches the city), so at this point `active` is normally false
       // and setActive() will not fire again to correct it.
-      interaction.setEnabled(this.active);
+      district.setEnabled(this.active);
 
-      this.sceneBundle.scene.add(interaction.object3D);
-      this.districts.push(interaction);
+      this.sceneBundle.scene.add(district.object3D);
+      this.districts.push(district);
     }
   }
 

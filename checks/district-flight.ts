@@ -368,22 +368,14 @@ console.log('\n6. Identical outcome at 30, 60 and 120 fps');
 
 // --- 7. Framing --------------------------------------------------------------
 
-console.log('\n7. Framing puts the district in the unobstructed region');
+console.log('\n7. Framing centres the district');
 {
+  // The district's UI is the projected display, which lives IN the world and
+  // turns with the camera, so there is nothing on the canvas to frame around.
+  // The interaction passes `null` and gets the centre; the obstruction cases
+  // `unobstructedCenterNdc` still supports belong to its own unit test now that
+  // no district uses them.
   const canvas = { left: 0, top: 0, width: 1440, height: 900 };
-  const panel = { left: 1060, top: 0, width: 380, height: 900 };
-  check(
-    'a right-docked panel gives ndc x = -panelWidth / canvasWidth',
-    close(unobstructedCenterNdc(canvas, panel).x, -380 / 1440, 1e-9),
-    `${unobstructedCenterNdc(canvas, panel).x.toFixed(4)} vs ${(-380 / 1440).toFixed(4)}`,
-  );
-  const phone = { left: 0, top: 0, width: 390, height: 844 };
-  const sheet = { left: 0, top: 844 - 338, width: 390, height: 338 };
-  check(
-    'a bottom sheet gives ndc y = sheetHeight / canvasHeight',
-    close(unobstructedCenterNdc(phone, sheet).y, 338 / 844, 1e-9),
-    `${unobstructedCenterNdc(phone, sheet).y.toFixed(4)} vs ${(338 / 844).toFixed(4)}`,
-  );
   check(
     'no obstruction leaves the centre alone',
     unobstructedCenterNdc(canvas, null).x === 0 && unobstructedCenterNdc(canvas, null).y === 0,
@@ -398,36 +390,16 @@ console.log('\n7. Framing puts the district in the unobstructed region');
   const pose = env.camera;
 
   const viewports: Array<[string, number, number, { left: number; top: number; width: number; height: number } | null]> = [
-    ['1024x768   desktop panel', 1024, 768, null],
-    ['1440x900   desktop panel', 1440, 900, null],
-    ['390x844    mobile sheet', 390, 844, null],
-    ['844x390    mobile landscape', 844, 390, null],
-    ['5120x1440  ultrawide panel', 5120, 1440, null],
+    ['1024x768   desktop', 1024, 768, null],
+    ['1440x900   desktop', 1440, 900, null],
+    ['390x844    portrait', 390, 844, null],
+    ['844x390    landscape', 844, 390, null],
+    ['5120x1440  ultrawide', 5120, 1440, null],
   ];
 
   for (const [label, w, h] of viewports) {
     const canvasRect = { left: 0, top: 0, width: w, height: h };
-    // Desktop: the service card — the case panel's placement, `right: 20vw`,
-    // `width: min(420px, 38vw)`, vertically centred. A representative height;
-    // the real one is content-sized and measured at runtime.
-    const cardWidth = Math.min(420, 0.38 * w);
-    const cardHeight = Math.min(420, h - 48);
-    const obstruction =
-      w >= 768 && h > 500
-        ? { left: w - 0.2 * w - cardWidth, top: (h - cardHeight) / 2, width: cardWidth, height: cardHeight }
-        : { left: 0, top: h - Math.round(h * 0.4), width: w, height: Math.round(h * 0.4) };
-
-    const ndc = unobstructedCenterNdc(canvasRect, obstruction);
-    if (w >= 768 && h > 500) {
-      // The card floats right of centre, so the clear region — and the building
-      // — must land LEFT of it, never behind it.
-      const cardLeftNdc = (obstruction.left / w) * 2 - 1;
-      check(
-        `${label} frames the building left of the card`,
-        ndc.x < cardLeftNdc,
-        `centre ndc x ${ndc.x.toFixed(3)} vs card left edge ${cardLeftNdc.toFixed(3)}`,
-      );
-    }
+    const ndc = unobstructedCenterNdc(canvasRect, null);
     const framed = computeFramedFocus({
       pose,
       aspect: w / h,
@@ -454,19 +426,11 @@ console.log('\n7. Framing puts the district in the unobstructed region');
     );
   }
 
-  // The canvas does not fill the viewport and the UI is not flush with its edge.
-  // Both assumptions stop holding once the app shell owns the layout.
+  // The canvas does not have to fill the viewport, and the framing solve reads
+  // its own rect rather than the window's. Kept as a case because the app shell
+  // owns the layout and could inset the canvas at any time.
   const inset = { left: 120, top: 60, width: 1000, height: 700 };
-  const dock = { left: 800, top: 60, width: 400, height: 700 };
-  const insetNdc = unobstructedCenterNdc(inset, dock);
-  // Visible strip is 120..800 within a canvas spanning 120..1120: centre 460,
-  // which is (460-120)/1000*2-1 = -0.32 in canvas NDC.
-  check(
-    'framing is relative to the canvas rect, not the viewport',
-    close(insetNdc.x, -0.32, 1e-9),
-    `ndc x ${insetNdc.x.toFixed(4)} for a canvas offset 120px from the viewport edge`,
-  );
-
+  const insetNdc = unobstructedCenterNdc(inset, null);
   const framedInset = computeFramedFocus({
     pose,
     aspect: inset.width / inset.height,
@@ -734,61 +698,64 @@ console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
   }
 }
 
-// --- 7d. Swapping buildings keeps the distance --------------------------------
+// --- 7d. Leaving the district returns the dolly -------------------------------
 
-console.log('\n7d. Moving from one building to the next never dollies out');
+console.log('\n7d. Leaving the district returns the dolly and nothing else');
 {
-  // With one service per building, the panel's prev/next re-aims the flight
-  // while the rig is already at the approach scale. The distance delta of the
-  // second flight is zero, so the camera must glide sideways — a dip back
-  // towards rest between two buildings would read as the interface closing and
-  // reopening the district.
+  // Paging between services no longer flies anywhere: the camera settles on the
+  // plaza once and the projected display does the rest, so the mid-flight
+  // re-aim the old per-building selection needed is gone with it.
+  //
+  // What IS still a flight is the way out, and its asymmetry is deliberate.
+  // Focus and yaw are left wherever the visitor put them — restoring them reads
+  // as the interface undoing their navigation — while distance goes back to 1,
+  // because the visitor never chose it and `adr/009` left no way to undo it by
+  // hand.
   const scale = 0.78;
-  const a = { x: -168, z: 394 };
-  const b = { x: -106, z: 451 };
+  const plaza = { x: -144, z: 425 };
 
   const h = makeHarness();
   h.controller.beginExternalControl();
-  h.flight.playTo({ ...a, yawDegrees: -35, distanceScale: scale });
-  h.run(0.4);
-  const midway = h.rig.getDistanceScale();
-  // Re-aim mid-flight, exactly as a tap on the next building would.
-  h.controller.beginExternalControl();
-  h.flight.playTo({ ...b, yawDegrees: -35, distanceScale: scale });
-  let min = Infinity;
-  let max = -Infinity;
-  for (let i = 0; i < 240; i += 1) {
-    h.frame(1 / 60);
-    const s = h.rig.getDistanceScale();
-    min = Math.min(min, s);
-    max = Math.max(max, s);
-  }
+  h.flight.playTo({ ...plaza, yawDegrees: 45, distanceScale: scale });
+  h.run(4);
+
+  const settledFocus = { x: h.rig.focus.x, z: h.rig.focus.z };
+  const settledYaw = h.rig.getAzimuthDegrees();
   check(
-    'a mid-flight re-aim keeps dollying in, never out',
-    max <= midway + 1e-9 && close(h.rig.getDistanceScale(), scale, 1e-9),
-    `midway ${midway.toFixed(4)}, then [${min.toFixed(4)}, ${max.toFixed(4)}], landed ${h.rig.getDistanceScale().toFixed(4)}`,
-  );
-  check(
-    'and lands on the second building',
-    close(h.rig.focus.x, b.x, 1e-6) && close(h.rig.focus.z, b.z, 1e-6),
-    `focus (${h.rig.focus.x.toFixed(2)}, ${h.rig.focus.z.toFixed(2)})`,
+    'entering settles at the district scale',
+    close(h.rig.getDistanceScale(), scale, 1e-9),
+    `scale ${h.rig.getDistanceScale().toFixed(4)}`,
   );
 
-  // From rest at the first building, a step to the second is pure translation.
+  // The exit, exactly as the display's VOLVER issues it: current focus, null
+  // yaw, scale 1.
   h.controller.beginExternalControl();
-  h.flight.playTo({ ...a, yawDegrees: -35, distanceScale: scale });
-  h.run(4);
-  const seen: number[] = [];
-  h.controller.beginExternalControl();
-  h.flight.playTo({ ...b, yawDegrees: -35, distanceScale: scale });
+  h.flight.playTo({ x: h.rig.focus.x, z: h.rig.focus.z, yawDegrees: null, distanceScale: 1 });
+  let maxScale = -Infinity;
   for (let i = 0; i < 240; i += 1) {
     h.frame(1 / 60);
-    seen.push(h.rig.getDistanceScale());
+    maxScale = Math.max(maxScale, h.rig.getDistanceScale());
   }
+
   check(
-    'a step between two settled buildings holds the distance exactly',
-    seen.every((s) => close(s, scale, 1e-9)),
-    `${seen.length} frames at ${scale}`,
+    'leaving returns the distance to rest',
+    close(h.rig.getDistanceScale(), 1, 1e-9),
+    `scale ${h.rig.getDistanceScale().toFixed(4)}, peak ${maxScale.toFixed(4)}`,
+  );
+  check(
+    'and never overshoots past rest on the way out',
+    maxScale <= 1 + 1e-9,
+    `peak ${maxScale.toFixed(4)}`,
+  );
+  check(
+    'leaving does not move the focus back',
+    close(h.rig.focus.x, settledFocus.x, 1e-6) && close(h.rig.focus.z, settledFocus.z, 1e-6),
+    `focus (${h.rig.focus.x.toFixed(2)}, ${h.rig.focus.z.toFixed(2)})`,
+  );
+  check(
+    'and does not turn the yaw back',
+    close(h.rig.getAzimuthDegrees(), settledYaw, 1e-6),
+    `yaw ${h.rig.getAzimuthDegrees().toFixed(2)} deg`,
   );
 }
 

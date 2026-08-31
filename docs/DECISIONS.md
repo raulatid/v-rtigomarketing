@@ -1883,10 +1883,83 @@ to come from a measured reveal deadline, not from reusing the city's answer.
 
 ---
 
+## 34. The services district is driven by a projected display, not by its buildings
+
+**Decided** 2026-08-31, porting the design from `prototypes/vertigo-lab`
+(`src/experiments/services-buildings/`). The plans it was built against are copied to
+`docs/plans/010-services-district/`; plan 003 is the current one and the code cites it by section.
+
+**This replaces §32 outright.** Buildings as click targets, the floating DOM card, per-building
+framing and the swap-keeps-the-distance flight are all gone. It is not additive and there are no
+compatibility paths: §32 describes what the district was between 2026-08-27 and 2026-08-31.
+
+**One surface owns the interaction.** A tilted 48×48 plane hangs 28 units above the plaza, backed
+by a thin extruded plate, lit by beams from the three `foco` nodes, and carrying every control the
+district has: previous, next, SABER MÁS, VOLVER. It is drawn by a `ShaderMaterial` whose copy comes
+from a `CanvasTexture`, and it follows the camera in **yaw only**, clamped to ±42° around the
+approach heading — never a billboard, because the lean is part of the object.
+
+**The buildings became scenery that reacts.** A tap on any of them means "enter", carries no service
+meaning, and lights the whole cluster on hover because the cluster is one entry target. Once open,
+the active building takes the emissive highlight and its connection wedge runs the active accent
+inward to the ring — which is the building→display signal plan 003 §7 asks for, built out of
+geometry that was already there rather than a new effect.
+
+**`districtState.ts` is the single source of truth**, and it holds three fields:
+`activeServiceIndex`, `detailOpen`, `districtActive`. Everything else derives. There is deliberately
+no second "selected building": two fields describing one fact are two fields that can disagree.
+One subscription in `createServicesDistrict.ts` pushes each snapshot to the interaction, the flow,
+the display and the announcement, in that fixed order — four independent subscribers would race.
+
+**Two hit tests, never both.** Closed, the raycast is the sites' meshes and their layer-1 proxies.
+Open, it is `intersectObject(panel, false)` and nothing else, with the UV mapped through
+`uCoreInset` into the same rects `displayConfig.ts` gives the shader. Non-recursive is load-bearing:
+the plate is a child, and `ExtrudeGeometry` gives its rim walls a meaningless `uv`.
+
+**The camera settles once.** Entering flies to the plaza at the district's `focusDistanceScale`;
+paging does not move it, because the UI has not moved. Leaving returns the distance to rest and
+leaves focus and yaw where the visitor put them, exactly as §20 had it.
+
+**Reading claims its gesture through the external-control handover.** `DragPanController` listens
+on the same canvas and registered first, so at the target node it runs first whatever the capture
+flag says — `stopPropagation` cannot work here. `beginExternalControl()` releases its pointers and
+stops it writing the rig; the release hands it back with `adoptRigState`. The wheel is claimed only
+over the reading area and only while reading, which is safe beside `createNavigationInput` —
+the app's single wheel owner — because that already stands down while a district is engaged.
+
+**Copy is split, not re-authored.** `Service` stays `{ id, title, body }` (§28, §31). Measured
+2026-08-31, every published body is one paragraph of 265–355 characters, so
+`district/serviceCopy.ts` takes the leading sentences up to 150 characters as the summary and the
+whole body as the detail — a paragraph break wins where an editor wrote one. Accents are scene
+composition and live in `cityDistrictBindings.ts` beside the node names.
+
+**The DOM that went is replaced by a keyboard surface, not by nothing.** `districtPanel.ts` and
+`districtLabel.ts` are deleted. A shader cannot be tabbed to or read aloud, so
+`district/ui/districtA11y.ts` carries the same five transitions as clipped `.nav-control`-pattern
+buttons plus a polite live region. It is a second way to reach one navigation model, never a second
+model (plan 003 §20).
+
+**Panning stays available while the display is open.** Decided 2026-08-31, against the lab, which
+set `enablePan = false` inside the district. `DragPanController` has no per-axis gate and
+`beginExternalControl` is all-or-nothing, so freezing pan would freeze the rotation plan 003 §E
+wants kept. The cost is that a deliberate drag can carry the display off-screen; Escape and the
+keyboard VOLVER both recover, and the app's "you can always move the map" model (§20) wins over
+adding a mode to the navigation module.
+
+**Left open.** With the labels gone nothing at rest marks where the services are — the wayfinding
+gap §32 already recorded, now more visible. `focusDistanceScale` and the display's elevation are a
+tuning pair that arithmetic cannot settle and no automated check can see. `DistrictContent.summary`
+and `intro` still have no reader.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| The services district is engaged through a building, and a floating card shows that service | `DistrictInteraction.ts`, `districtPanel.ts`, `districtLabel.ts`, **§32** | A projected in-world display owns every control; buildings are one entry target and otherwise scenery — **§34** |
+| A swap between buildings re-aims the flight and keeps the distance | **§32**, `checks/district-flight.ts` §7d | Paging moves no camera at all. The only district flights are in and out — **§34** |
+| The district camera frames around the panel that covers part of the canvas | **§32**, `unobstructedCenterNdc(rect, panel.getObstructionRect())` | The display is in the world and moves with the camera, so the framing target is simply the centre — **§34** |
 | Murcia loads during the Earth intro so the transition never waits on it | `MurciaLayer.tsx`, ADR 004 | It loads after the handover. The transition still never waits — `canNavigate` gates on `murciaReady`, which lands before phase `site` — and the intro stops competing with 2 MB it does not need — **§33** |
 | "Servicios" is one district, picked as a cluster, opening an accordion of every service | `cityDistrictBindings.ts` (`blog_edificios*` stand-in), `districtPanel.ts` accordion, §20 | One building per service (`edificio-servicio-NNN`), engaged one at a time; the panel shows one service with prev/next — **§32** |
 | The terrain plate is `Plane.013` | `murciaConfig.ts`, `blender-export-contract.md` §5 | `suelo-principal` since the 2026-08-27 re-export; the largest-flat-mesh fallback covered the gap and warned — **§32** |

@@ -56,7 +56,10 @@ describe('city district bindings', () => {
 
   it('names each node once, non-empty, and free of characters the loader strips', () => {
     for (const binding of cityDistrictBindings) {
-      const names = binding.buildings.map((b) => b.nodeName)
+      // Buildings and connections share one namespace: they are objects in the
+      // same export, so a name colliding across the two kinds would be just as
+      // wrong as one colliding within them.
+      const names = binding.buildings.flatMap((b) => [b.nodeName, b.connectionNodeName])
       expect(new Set(names).size).toBe(names.length)
       for (const name of names) {
         expect(name.trim().length, `empty node name`).toBeGreaterThan(0)
@@ -65,14 +68,30 @@ describe('city district bindings', () => {
     }
   })
 
+  it('gives every service a distinct accent inside the 24-bit range', () => {
+    // The accent identifies a service in the world — the ring and its
+    // connection both take it on selection — so two services sharing one would
+    // make them indistinguishable exactly when one is chosen. Out-of-range
+    // values do not throw: THREE.Color.setHex masks them, so a typo'd literal
+    // would silently render as some other colour.
+    for (const binding of cityDistrictBindings) {
+      const accents = binding.buildings.map((b) => b.accent)
+      expect(new Set(accents).size, 'two services share an accent').toBe(accents.length)
+      for (const accent of accents) {
+        expect(Number.isInteger(accent)).toBe(true)
+        expect(accent).toBeGreaterThanOrEqual(0)
+        expect(accent).toBeLessThanOrEqual(0xffffff)
+      }
+    }
+  })
+
   it('keeps every focus distance inside the proven range', () => {
     // Below the floor the ground footprint outgrows the terrain skirt; above 1
     // was never checked (checks/footprint.ts). Null means "keep the default".
     const floor = murciaConfig.focusFlight.minDistanceScale
-    const scales = cityDistrictBindings.flatMap((binding) => [
-      binding.focusDistanceScale,
-      ...binding.buildings.map((b) => b.focusDistanceScale),
-    ])
+    // One scale per district, not per building: the camera settles on the plaza
+    // once and the display does the rest (plan 003 §5).
+    const scales = cityDistrictBindings.map((binding) => binding.focusDistanceScale)
     for (const scale of scales) {
       if (scale == null) continue
       expect(scale).toBeGreaterThanOrEqual(floor)

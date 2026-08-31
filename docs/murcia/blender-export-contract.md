@@ -14,7 +14,7 @@ the grouping survives. Only object names become nodes.
 
 This was confirmed by dumping every node name in `city-prototype.glb` (294 in
 the first export, 1079 in the 2026-08-27 one). The names present are
-`suelo-principal`, `Edificios_Procedurales`, `edificio-servicio-001`,
+`suelo-principal`, `Edificios_Procedurales`, `Edificios-servicios-001`,
 `blog_edificios`, `Estadio futbol` and similar. No collection name appears.
 
 **So a collection can never be a runtime contract.** Organise in collections
@@ -44,19 +44,41 @@ will tell you about.
 Custom properties land in glTF `extras`, which `GLTFLoader` puts on
 `object.userData`. `resolveDistrict` reads `userData.district`.
 
-### Service buildings are identified by object name
+### The services district is identified by object name
 
-Since the 2026-08-27 re-export the services district is not a cluster picked as
-a whole but **one building per service**: objects named `edificio-servicio-NNN`
-(`001`–`007`, `009` today). These are identified by **object name**, not by
-tag — a per-building custom property would add nothing the name does not
-already say, and the names are dot-free so sanitisation cannot bite.
+Since the 2026-08-31 re-export the district is a whole assembly, not just a set
+of buildings, and every part of it is found by **object name** — not by tag. A
+per-object custom property would add nothing the name does not already say, and
+the names are dot-free so sanitisation cannot bite.
 
-Which building shows which service lives in one place,
-`src/experiences/murcia/scene/cityDistrictBindings.ts` (`buildings[]`). Every
-service slug in Sanity needs a row there — the unit test fails otherwise — and a
-row whose node is missing from the GLB is reported at load and skipped. Unbound
-`edificio-servicio-*` objects are plain city.
+| Object | What reads it |
+|---|---|
+| `Edificios-servicios-plaza` | the display's anchor and the camera's destination |
+| `Edificios-servicios-anillo-shader-interior` | the ring the fluid shader is drawn on |
+| `Edificios-servicios-001` … `-005` | one building per service; the entry target |
+| `Edificios-servicios-conneccion-001` … `-005` | the wedge running from that building in to the ring |
+| `Edificios-servicios-foco-001` … `-003` | where the display's projector beams start |
+
+**`conneccion` carries the authored double `c`.** It is what the artist named,
+and correcting it here would only stop the lookup resolving.
+
+**The ring and the connections must keep their own primitives and real
+geometry.** `districtFlow` measures each one's radial, angular and vertical
+extent off its position attribute, and takes the district's axis from the ring's
+world bounding box. A ring merged into another mesh, or flattened, changes the
+pattern silently rather than failing.
+
+**The ring band and the connection wedges have thickness.** The shader unrolls
+the flow over the band's lip using the measured height range; a zero-height mesh
+falls back to a unit span and the unrolling term multiplies out, which is right
+for a flat mesh and wrong-looking on one that should have had depth.
+
+Which building shows which service, and what colour it claims, lives in one
+place: `src/experiences/murcia/scene/cityDistrictBindings.ts` (`buildings[]`).
+Every service slug in Sanity needs a row there — the unit test fails otherwise —
+and a row whose node is missing from the GLB is reported at load and skipped.
+The district is skipped whole if none of its buildings resolve, which is what
+makes a missing or half-renamed export a console error rather than a crash.
 
 ---
 
