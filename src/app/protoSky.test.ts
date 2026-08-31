@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseProtoSkyParams, protoSkyFaceUrls } from './protoSky'
+import { parseProtoSkyParams, protoSkyFaceUrls, protoSkyImageUrl } from './protoSky'
 
 // These tests are about ONE property above all others: with no `?sky=` in the
 // URL, nothing this module reports can change what the app renders. The e2e
@@ -14,6 +14,7 @@ describe('the prototype sky gate', () => {
     expect(p.freezeEarth).toBe(false)
     expect(p.brightness).toBe(1)
     expect(p.contrast).toBe(1)
+    expect(p.image).toBeNull()
   })
 
   it('ignores the cubemap knobs when no variant was named', () => {
@@ -50,6 +51,8 @@ describe('the prototype sky gate', () => {
       stars: 900,
       freezeEarth: true,
       debug: 0,
+      // Named no image, so the panorama path is untouched.
+      image: null,
     })
   })
 
@@ -85,6 +88,56 @@ describe('the prototype sky gate', () => {
     const p = parseProtoSkyParams('?sky=a&skyBrightness=abc&skyRes=')
     expect(p.brightness).toBe(1)
     expect(p.resolution).toBe(4096)
+  })
+
+  // ── ?skyImage=, the candidate-audition override ──
+  //
+  // Separate from the cubemap entirely: it swaps the PANORAMA path's texture,
+  // which is the arm with no `?sky=` variant. Its whole purpose is that a
+  // candidate sky can be judged in the running scene at the scene's own
+  // exposure, which is the step the 2026-08 screening round skipped.
+
+  it('reads a scratch image with no variant named', () => {
+    const p = parseProtoSkyParams('?skyImage=sky-test-001.png')
+    expect(p.variant).toBeNull()
+    expect(p.image).toBe('sky-test-001.png')
+  })
+
+  it('accepts every extension the texture loader can decode', () => {
+    for (const ext of ['png', 'jpg', 'jpeg', 'webp', 'avif']) {
+      expect(parseProtoSkyParams(`?skyImage=sky-test-a.${ext}`).image).toBe(`sky-test-a.${ext}`)
+    }
+  })
+
+  it('requires the sky-test- prefix, so a scratch file cannot be committed by accident', () => {
+    // The prefix is what `.gitignore` matches. Without it the override would
+    // happily load a real deliverable, and a 20 MB candidate PNG dropped into
+    // public/textures/ would be staged by the next `git add`.
+    expect(parseProtoSkyParams('?skyImage=sky-panorama.avif').image).toBeNull()
+    expect(parseProtoSkyParams('?skyImage=anything.png').image).toBeNull()
+  })
+
+  it('refuses to build a path out of a traversal attempt', () => {
+    // The pattern contains no slash, so this cannot escape public/textures/
+    // anyway. Asserted because a URL parameter that becomes a fetch path should
+    // never be the loose kind, dev-only or not.
+    expect(parseProtoSkyParams('?skyImage=../../etc/passwd').image).toBeNull()
+    expect(parseProtoSkyParams('?skyImage=sky-test-../x.png').image).toBeNull()
+    expect(parseProtoSkyParams('?skyImage=sky-test-a.png/../../x').image).toBeNull()
+  })
+
+  it('rejects a name with no extension, rather than fetching a directory', () => {
+    expect(parseProtoSkyParams('?skyImage=sky-test-001').image).toBeNull()
+    // A literal dot, not "any character" — the escape in the pattern is real.
+    expect(parseProtoSkyParams('?skyImage=sky-test-001xpng').image).toBeNull()
+  })
+
+  it('treats an empty value as absent', () => {
+    expect(parseProtoSkyParams('?skyImage=').image).toBeNull()
+  })
+
+  it('puts a scratch image beside the files it is auditioning to replace', () => {
+    expect(protoSkyImageUrl('sky-test-001.png')).toBe('/textures/sky-test-001.png')
   })
 
   it('names the six faces in CubeTextureLoader order', () => {

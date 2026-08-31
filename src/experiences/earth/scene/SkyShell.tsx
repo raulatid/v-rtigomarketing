@@ -5,6 +5,7 @@ import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { backdropVisible } from '../config/sceneVisibility'
 import { loadProgress } from '../../../loading/progress'
+import { PROTO_SKY, protoSkyImageUrl } from '../../../app/protoSky'
 import { skyCapRotation, skyOrientation } from './space/galaxyBand'
 import { SPACE_CONFIG } from './space/spaceConfig'
 import shellVertexShader from '../shaders/sky/shell.vert.glsl'
@@ -56,6 +57,15 @@ interface Props {
  * mismatch it corrects.
  */
 function skyCandidates(): string[] {
+  // The dev-time override, ahead of everything and deliberately with NO
+  // fallback chain: the point of naming one file is to see THAT file, or to see
+  // it fail loudly. Falling back to the shipped sky on a typo would show a
+  // perfectly good backdrop and quietly answer the wrong question.
+  //
+  // Inert in production — protoSky.ts returns INERT when DEBUG_TOOLS_ENABLED is
+  // false, so this is null for every visitor and the two lines cost a branch.
+  if (PROTO_SKY.image) return [protoSkyImageUrl(PROTO_SKY.image)]
+
   const cfg = SPACE_CONFIG.sky
   const set = window.innerWidth <= cfg.narrowMaxWidth ? cfg.narrow : cfg.wide
   return [set.avif, set.webp]

@@ -83,6 +83,23 @@ export interface ProtoSkyParams {
    * it draws the tessellation directly, without needing to know it here.
    */
   debug: 0 | 1 | 2
+  /**
+   * A raw image dropped into `public/textures/`, loaded AS IS with no
+   * preparation at all, or null for the shipped panorama.
+   *
+   * This exists to answer "I have candidate skies, is any of them any good",
+   * and the only honest way to answer it is to put each one in the running
+   * scene at the scene's own exposure through ACES. Screening a candidate as a
+   * flat file is what the 2026-08 round did, and it is how six images that are
+   * not panoramas got through: `scripts/screen-sky-source.mjs` says whether an
+   * image is worth looking at, and this says what it looks like.
+   *
+   * The name must begin `sky-test-`, which does three jobs at once. Directory
+   * traversal becomes impossible; it matches the `.gitignore` entry, so a 20 MB
+   * scratch PNG cannot be committed by accident; and it says out loud that the
+   * file is scaffolding rather than a deliverable.
+   */
+  image: string | null
 }
 
 const INERT: ProtoSkyParams = {
@@ -95,6 +112,7 @@ const INERT: ProtoSkyParams = {
   stars: null,
   freezeEarth: false,
   debug: 0,
+  image: null,
 }
 
 function number(params: URLSearchParams, key: string, fallback: number): number {
@@ -131,6 +149,23 @@ function variantName(raw: string | null): string | null {
   return /^[a-z0-9][a-z0-9-]{0,31}$/i.test(raw) ? raw : null
 }
 
+/**
+ * A scratch image in `public/textures/`, or nothing.
+ *
+ * The `sky-test-` prefix is required rather than conventional — see the field's
+ * doc comment. The pattern contains no `/`, so `..` cannot traverse out of the
+ * directory, and the explicit check below is belt and braces for the same
+ * reason `variantName` gives: a URL parameter assembled into a fetch path
+ * should never be the loose kind, dev-only or not.
+ */
+const SKY_TEST_IMAGE = /^sky-test-[a-z0-9][a-z0-9._-]{0,47}\.(png|jpe?g|webp|avif)$/i
+
+function imageName(raw: string | null): string | null {
+  if (raw === null) return null
+  if (raw.includes('..')) return null
+  return SKY_TEST_IMAGE.test(raw) ? raw : null
+}
+
 function parse(search: string): ProtoSkyParams {
   if (!DEBUG_TOOLS_ENABLED) return INERT
 
@@ -153,6 +188,11 @@ function parse(search: string): ProtoSkyParams {
   const capture = {
     stars: starCount(params.get('stars')),
     freezeEarth: params.get('freezeEarth') === '1',
+    // With the capture pair rather than with resolution/brightness, because it
+    // applies to the PANORAMA path — the arm with no `?sky=` variant. When a
+    // cubemap variant IS named, EarthExperience mounts SkyShellCube instead and
+    // this is inert; harmless, and not worth a second gate.
+    image: imageName(params.get('skyImage')),
   }
 
   // Belongs with resolution/brightness rather than with the capture pair: it
@@ -200,6 +240,15 @@ export function protoSkyFaceUrls(variant: string, resolution: number): string[] 
   return ['posx', 'negx', 'posy', 'negy', 'posz', 'negz'].map(
     (face) => `/proto-sky/${variant}/${resolution}/${face}.png`,
   )
+}
+
+/**
+ * Where a scratch sky image lives. `public/textures/` rather than a directory
+ * of its own, so the candidate sits beside the files it is auditioning to
+ * replace and the same Vite static path serves both.
+ */
+export function protoSkyImageUrl(image: string): string {
+  return `/textures/${image}`
 }
 
 export { parse as parseProtoSkyParams }

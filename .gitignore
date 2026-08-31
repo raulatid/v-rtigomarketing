@@ -109,6 +109,12 @@ desktop.ini
 # in docs/plans/005-sky-cubemap/scenes/ — which is the actual deliverable.
 /public/proto-sky/
 
+# Candidate sky images being auditioned through ?skyImage=. Scratch files, often
+# multi-megabyte PNGs straight off a download, and never a deliverable — the
+# shipped sky is the four prepared files in public/textures/sky-panorama.*.
+# The sky-test- prefix is enforced by protoSky.ts, so this cannot drift from it.
+/public/textures/sky-test-*
+
 # And the captures taken through them. 34 PNGs at 1600x900 and 3200x1800 is
 # 25 MB, which is not weight a marketing site's repository should carry for the
 # rest of its life — a clone pays for it forever, and the shots are regenerable

@@ -213,6 +213,9 @@
 import { writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// Moved out so the screening tool and this pipeline cannot disagree about the
+// one number the whole feature turns on. See scripts/lib/sky-metrics.mjs.
+import { poleRatios, seamDelta, seamMetrics } from './lib/sky-metrics.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = join(ROOT, 'public', 'textures')
@@ -314,10 +317,21 @@ const SATURATION = 1.35
 // this latitude is pulled toward its own row mean by some amount.
 const POLE_FADE_START_DEG = 55
 
-const SOURCE = process.argv[2]
+// The flags below may appear on either side of the path, so the source is the
+// first argument that is not one of them. Without this, `--flat-source <path>`
+// would take the flag itself as the source and fail with a confusing error
+// about an unreadable file.
+const SOURCE = process.argv.slice(2).find((a) => !a.startsWith('--'))
 if (!SOURCE) {
   console.error(
-    'usage: node scripts/prepare-sky-panorama.mjs <path-to-equirectangular-png>\n\n' +
+    'usage: node scripts/prepare-sky-panorama.mjs <path-to-equirectangular-png>\n' +
+      '       [--flat-source | --no-flat-source]\n\n' +
+      'Whether the source is a REAL equirectangular panorama decides two passes:\n' +
+      'convergePoles and the latitude-ramped median. Both are corrections for a\n' +
+      'flat source, and both are damage to a real one. It is measured from the\n' +
+      "source's own pole rows and printed; the flags force it either way.\n\n" +
+      'Screen a candidate first — read-only, writes nothing:\n' +
+      '  node scripts/screen-sky-source.mjs <image>\n\n' +
       "The shipped sky is '04_Assets/fonde del espacio/sky-panorama-001.png'.\n",
   )
   process.exit(1)
@@ -356,12 +370,6 @@ function dither(x, y, c) {
 function smoothstep(edge0, edge1, x) {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)))
   return t * t * (3 - 2 * t)
-}
-
-function median(values) {
-  const sorted = Float64Array.from(values).sort()
-  const mid = sorted.length >> 1
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
 /**
@@ -411,16 +419,12 @@ function median(values) {
  * instead.
  */
 function levelSeam(data, width, height, channels) {
-  const report = []
+  // Measured by the shared library, applied here. The split is what lets
+  // screen-sky-source.mjs report the same offset and spread without writing to
+  // anything at all.
+  const report = seamMetrics(data, width, height, channels)
   for (let c = 0; c < channels; c++) {
-    const rowDelta = new Float64Array(height)
-    for (let y = 0; y < height; y++) {
-      rowDelta[y] = data[y * width * channels + c] - data[(y * width + width - 1) * channels + c]
-    }
-    const offset = median(rowDelta)
-    const spread = median(Float64Array.from(rowDelta, (d) => Math.abs(d - offset)))
-    report.push({ offset, spread })
-
+    const { offset } = report[c]
     if (offset === 0) continue
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -431,77 +435,6 @@ function levelSeam(data, width, height, channels) {
     }
   }
   return report
-}
-
-/**
- * The SIGNED mean of `px(0) - px(W-1)`, in 0-255 units. The number `levelSeam`
- * exists to drive toward zero, and the only honest way to check that it did.
- *
- * On a source whose edges hold different content this stays large however good
- * the correction is, because the difference is real. Read `spread` alongside it.
- */
-function seamDelta(data, width, height, channels) {
-  let sum = 0
-  for (let y = 0; y < height; y++) {
-    for (let c = 0; c < channels; c++) {
-      sum += data[y * width * channels + c] - data[(y * width + width - 1) * channels + c]
-    }
-  }
-  return sum / (height * channels)
-}
-
-/**
- * Row standard deviation at the two poles, each over the equator's. THE test
- * for whether a source is really an equirectangular panorama.
- *
- * The shader maps v = asin(dir.y)/PI + 0.5, so the top row IS the zenith: one
- * point smeared across every column. In a real panorama those W pixels are
- * therefore near-identical and the ratio is near 0. A flat 2:1 image has as
- * much detail there as anywhere, and scores in the same range as its own
- * middle. Measured:
- *
- *   eso0932a.tif  (a real panorama)   0.029 / 0.152
- *   sky-panorama-001.png  (shipped)   0.670 / 0.383
- *   candidates 002-006                0.319-0.838 / 0.174-1.257
- *
- * Every CC0 candidate that was screened fails it. That is the finding, not a
- * property of the one that shipped: the screen those six went through checked
- * wrapping and whether they had a galactic plane, and nothing looked at a pole.
- *
- * Read the gap, not a threshold. The reference itself measures 0.152 at the
- * bottom, so "under 0.05" would reject a real panorama; the candidates sit at
- * 0.319 and above, which is the separation that actually means something.
- *
- * Reported both sides of convergePoles. The BEFORE number is the diagnostic —
- * it says whether the source was a panorama, at the width that ships. The AFTER
- * number only confirms the correction ran, and is near 0 by construction.
- */
-function poleRatios(data, width, height, channels) {
-  // PER CHANNEL, averaged. Pooling all three into one distribution also
-  // measures the spread BETWEEN the channel means, so a perfectly converged row
-  // — flat in R, flat in G, flat in B, at three different levels — still scores
-  // non-zero and the metric can never reach 0. Measured on this source, pooling
-  // reported 0.473 for a pole row that was in fact constant; per channel the
-  // same row reads 0.014. That very nearly sent someone after a bug in the
-  // correction that was only ever in the ruler.
-  const rowSd = (y) => {
-    let total = 0
-    for (let c = 0; c < channels; c++) {
-      let sum = 0
-      let sumSq = 0
-      for (let x = 0; x < width; x++) {
-        const v = data[(y * width + x) * channels + c]
-        sum += v
-        sumSq += v * v
-      }
-      const mean = sum / width
-      total += Math.sqrt(Math.max(0, sumSq / width - mean * mean))
-    }
-    return total / channels
-  }
-  const equator = rowSd(height >> 1)
-  if (equator === 0) return { top: 0, bottom: 0 }
-  return { top: rowSd(0) / equator, bottom: rowSd(height - 1) / equator }
 }
 
 /**
@@ -663,6 +596,70 @@ async function blockRatio(buffer) {
   return edgeSum / edgeCount / (interiorSum / interiorCount)
 }
 
+// ── Which of two treatments this source gets, decided from its own pixels ──
+//
+// `convergePoles` and the latitude-ramped median exist for the SAME reason: a
+// flat 2:1 image has no zenith, so its top rows smear into a pinwheel and the
+// point stars that survive the median become radial dashes. Both are
+// CORRECTIONS. On a source that does not have the defect they are DAMAGE — and
+// convergePoles in particular is the dangerous one, because fading every row
+// above 55 degrees toward its own azimuthal mean erases real polar sky and
+// manufactures the exact funnel it was written to remove. It is mean-preserving,
+// so it will not look like a brightness bug. It will look like "you can see
+// where the sphere closes", in those words, for the fourth time.
+//
+// So they live and die together, on one measured decision, printed.
+//
+// MEASURED ON THE UNTOUCHED SOURCE, and that is the whole point of doing it
+// here rather than inside emit(). A 15x15 median flattens the pole rows itself,
+// so a ratio taken after it reports the FILTER's work rather than the image's
+// projection — this source reads 0.67 raw and 0.37 post-median, and the second
+// number is most of the way to looking acceptable against the 0.15 guidance
+// below. The decision would quietly confirm itself.
+const probe = await sharp(input).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+const sourcePoles = poleRatios(probe.data, probe.info.width, probe.info.height, probe.info.channels)
+const worstPole = Math.max(sourcePoles.top, sourcePoles.bottom)
+
+// The GAP, not a tuned edge, and the same constant scripts/screen-sky-source.mjs
+// reports against. A real panorama measures 0.029 / 0.152 (ESO's eso0932a.tif);
+// this flat source 0.670 / 0.383; the worst screened candidate 0.838. 0.20 sits
+// in the empty space between the two populations. Tightening it toward 0.05
+// would reject the reference panorama on its own bottom pole.
+const EQUIRECT_POLE_RATIO = 0.2
+
+// Two-way, and both directions print. An auto-gate with no override is a hard
+// throw wearing different clothes — the header is deliberate that there is no
+// hard throw on the pole ratio — and a flag with no auto-gate would be
+// forgotten exactly once, silently, on the one source it matters for.
+const FLAT_SOURCE =
+  process.argv.includes('--flat-source') ? true
+  : process.argv.includes('--no-flat-source') ? false
+  : worstPole >= EQUIRECT_POLE_RATIO
+
+const decidedBy = process.argv.some((a) => a === '--flat-source' || a === '--no-flat-source')
+  ? 'forced'
+  : 'auto'
+
+console.log(
+  `  source poles ${sourcePoles.top.toFixed(3)} / ${sourcePoles.bottom.toFixed(3)}` +
+    ` (worst ${worstPole.toFixed(3)}, threshold ${EQUIRECT_POLE_RATIO}) — measured before any filter`,
+)
+if (FLAT_SOURCE) {
+  console.log(`  flat-source compensation: ON (${decidedBy})`)
+  console.log('    convergePoles   runs — the source has no real zenith, so its top and bottom')
+  console.log('                    rows would wrap into a pinwheel of radial spokes')
+  console.log(`    median window   ${MEDIAN_WINDOW} at the plane -> ${MEDIAN_WINDOW_POLAR} by ${MEDIAN_RAMP_END_DEG} deg, to kill the dashes`)
+  console.log('    Force the other way with --no-flat-source.')
+} else {
+  console.log(`  flat-source compensation: OFF (${decidedBy})`)
+  console.log('    convergePoles   SKIPPED — the source has real polar content, and fading each')
+  console.log('                    row to its azimuthal mean would erase it and manufacture the')
+  console.log('                    funnel this pass exists to remove')
+  console.log(`    median window   ${MEDIAN_WINDOW} everywhere — the latitude ramp targets radial`)
+  console.log('                    dashes, which a true equirectangular source never produces')
+  console.log('    Force the other way with --flat-source.')
+}
+
 // The median runs ONCE at source resolution, then feeds both widths. Running it
 // per-width would remove a different set of stars at each, so the two variants
 // would not be the same sky.
@@ -675,12 +672,17 @@ async function blockRatio(buffer) {
 const [plane, polar] = await Promise.all([
   sharp(input).median(MEDIAN_WINDOW).modulate({ saturation: SATURATION }).removeAlpha()
     .raw().toBuffer({ resolveWithObject: true }),
-  sharp(input).median(MEDIAN_WINDOW_POLAR).modulate({ saturation: SATURATION }).removeAlpha()
-    .raw().toBuffer({ resolveWithObject: true }),
+  // Not run at all on a real panorama: a 15x15 median at 60 degrees of latitude
+  // destroys genuine structure across a third of the image and buys nothing.
+  FLAT_SOURCE
+    ? sharp(input).median(MEDIAN_WINDOW_POLAR).modulate({ saturation: SATURATION }).removeAlpha()
+        .raw().toBuffer({ resolveWithObject: true })
+    : null,
 ])
 const { width: srcWidth, height: srcHeight, channels: srcChannels } = plane.info
 const blended = Buffer.alloc(plane.data.length)
-for (let y = 0; y < srcHeight; y++) {
+if (!FLAT_SOURCE) plane.data.copy(blended)
+for (let y = 0; FLAT_SOURCE && y < srcHeight; y++) {
   const latitude = Math.abs((0.5 - y / (srcHeight - 1)) * 180)
   const weight = smoothstep(MEDIAN_RAMP_START_DEG, MEDIAN_RAMP_END_DEG, latitude)
   const row = y * srcWidth * srcChannels
@@ -713,8 +715,11 @@ async function emit(width, format, quality) {
   // per-channel offset across the width; running it second would paint that
   // ramp — a few units, against a sky background near 12/255 — back across the
   // pole rows and reopen exactly what this just closed.
+  // Reported unconditionally. With the pass off, before === after, and the two
+  // equal numbers in the output are the confirmation that the skip took effect
+  // rather than something to squint at.
   const polesBefore = poleRatios(data, info.width, info.height, info.channels)
-  convergePoles(data, info.width, info.height, info.channels)
+  if (FLAT_SOURCE) convergePoles(data, info.width, info.height, info.channels)
   const polesAfter = poleRatios(data, info.width, info.height, info.channels)
 
   const encoder = sharp(data, {
@@ -747,7 +752,9 @@ async function emit(width, format, quality) {
 
 console.log(`source: ${input} (${width}x${height})`)
 console.log(
-  `median ${MEDIAN_WINDOW} at the plane -> ${MEDIAN_WINDOW_POLAR} by ${MEDIAN_RAMP_END_DEG} deg, ` +
+  (FLAT_SOURCE
+    ? `median ${MEDIAN_WINDOW} at the plane -> ${MEDIAN_WINDOW_POLAR} by ${MEDIAN_RAMP_END_DEG} deg, `
+    : `median ${MEDIAN_WINDOW}, no polar ramp, no pole convergence, `) +
     `saturation ${SATURATION}, seam levelled by median offset`,
 )
 await emit(WIDTH_WIDE, 'avif', AVIF_QUALITY)
