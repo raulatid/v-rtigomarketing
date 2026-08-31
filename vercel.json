@@ -29,7 +29,6 @@
       ]
     },
     {
-      "comment": "Font filenames carry a content hash, so a change is a new URL and this can be immutable. The /assets/ rule above only covers hashed build output; public/ is copied verbatim.",
       "source": "/fonts/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
