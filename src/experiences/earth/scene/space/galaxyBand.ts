@@ -13,34 +13,11 @@ import * as THREE from 'three'
 // Nothing in this module may import a `.glsl` file or touch `window`: it is
 // bundled into `checks/space-backdrop.ts` and run in Node.
 
-export const GALAXY_BAND = {
-  // Degrees away from a horizontal band. 0 puts the galactic plane on the XZ
-  // plane; the default tips it so the band cuts the frame diagonally rather
-  // than sitting level with the Earth's equator.
-  defaultTilt: 22,
-  // Half-width of the gaussian, in units of `dot(direction, axis)`.
-  //
-  // Tuned down from 0.35 on the evidence of a screenshot: 0.35 puts the band's
-  // edges about 41 degrees off the plane, so against a 45 degree FOV the gas
-  // ran past both edges of the frame and there was no dark sky to read it
-  // against. A band you cannot see the edge of is not a band.
-  defaultWidth: 0.22,
-  // Rotation about the galactic pole, in degrees — which stretch of the Milky
-  // Way ends up behind the Earth. Purely compositional: it changes the view,
-  // never the geometry, and the star field is invariant under it because the
-  // band is rotationally symmetric about its own axis.
-  //
-  // At 0 the default camera (down -Z) looks at u = 0.25 of the panorama, a
-  // plain stretch of the band. u falls by 1/360 per degree of yaw, so 270 puts
-  // the galactic core — u = 0.5, the brightest and most structured thing in the
-  // sky — dead centre, which is exactly where the Earth is and therefore the
-  // one place it cannot be seen.
-  //
-  // 250 offsets it by about 0.055 in u. The 16:9 frame spans ~0.2 at a 45
-  // degree vertical FOV and the Earth covers roughly the middle 0.04 of that,
-  // so the core clears the planet and still sits well inside the frame.
-  defaultYaw: 250,
-} as const
+// The defaults live in a three-free sibling, and are re-exported here so this
+// module stays the single import for everything about the band. The split is a
+// load-time one — the app entry reaches these numbers and must not reach three
+// through them. Full account in galaxyBandConfig.ts.
+export { GALAXY_BAND } from './galaxyBandConfig'
 
 /** The galactic pole. Unit length by construction, at any tilt. */
 export function bandAxis(tiltDegrees: number): THREE.Vector3 {

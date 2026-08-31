@@ -9,9 +9,9 @@
  * This module decides whether `?tema=analitica` is SHAPED like a topic. It
  * cannot decide whether `analitica` names a real one, and it must not try:
  * answering that means importing the generated content, and this module is
- * reached from `src/main.tsx` — the app entry has a hard 332,000 B budget and
- * the dataset would blow it while reporting itself as a three.js leak
- * (`checks/architecture.ts`).
+ * reached from `src/main.tsx`, so the dataset would land in the initial JS
+ * closure of `/` — which `vite.config.ts` budgets as a whole, and
+ * `checks/architecture.ts` forbids at the import.
  *
  * The semantic half lives in the lazy blog chunk, where the categories are
  * already loaded. A well-formed topic that names nothing is treated as no

@@ -2,7 +2,7 @@ import { defineConfig, HtmlTagDescriptor, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import glsl from 'vite-plugin-glsl'
 import type { OutputChunk } from 'rollup'
-import { gzipSync } from 'node:zlib'
+import { brotliCompressSync, gzipSync } from 'node:zlib'
 import fs from 'node:fs'
 import path from 'node:path'
 // The generated content is a BUILD ARTIFACT, and importing it here is safe only
@@ -26,36 +26,44 @@ import { postHead, replaceRegion, shellProblems } from './scripts/blogShell'
 // knowing what was added; gzipped is what the user waits for, and the build
 // prints both.
 const INTRO_BUDGET_BYTES = 16_000
-// three.js + R3F + the scene must never land in the app's entry chunk either.
+// WHAT A COLD `/` ACTUALLY COSTS, measured 2026-08-31 against the production
+// build with a headless browser: 1,525,267 B of JavaScript over 9 requests
+// (386,597 B brotli), all of it requested within ~130 ms of navigation start.
 //
-// Measured, not guessed. History, so the next raise is an informed one:
-//   307KB  the app shell, before the Sanity content pipeline
-//   322KB  + generated content, the holo panels, the scrub, the pinch (2026-08-26)
-// Raised to 332KB when the assertion fired at 322853B, which is exactly its job.
+// The number below used to be a budget on the app ENTRY CHUNK alone, and that
+// was the wrong thing to measure from the day the modulepreload loop in
+// `introEntry` landed. That loop injects a link for EVERY non-entry chunk, so
+// `/`'s initial closure is the whole bundle minus the blog document's entry —
+// the entry chunk is 110,828 B of it, 7.3%. A 332,000 B guard on 7.3% of the
+// payload left 221 KB of silent headroom and could not see the growth vector
+// that matters: a new lazy chunk joins the initial load automatically, and
+// nothing noticed when `BlogRoute` (14,050 B) did exactly that.
 //
-// BEFORE RAISING IT AGAIN, check what this guard is actually for. It exists to
-// catch three.js coming back into the entry, and three is 820KB — a leak reads
-// as a quarter-million-byte jump, not a two-thousand-byte one. A small overage
-// is ordinary application growth, and the honest response is to confirm the
-// leak has not happened and then decide whether the growth was worth it. On
-// 2026-08-26 that check was: three is still its own chunk and the entry only
-// imports it; no Murcia config crossed the app/experiences boundary; the
-// generated content modules are 22KB total and are not what grew.
+// It also could not see three.js. Adding `blog.html` as a second HTML entry
+// (adr/013) gave Rollup two consumers for React and it hoisted React into a
+// shared chunk, which is why the entry FELL from ~322 KB to 110,828 B in one
+// commit while what a visitor downloads stayed the same — the bytes moved next
+// door. Redistribution reads as a 65% improvement to a single-chunk budget.
 //
-// 2026-08-31: the number MOVED, and not because anything shrank. Adding
-// blog.html as a second HTML entry (adr/013) gave Rollup two consumers for
-// React, so it hoisted React into a shared chunk that both documents import.
-// The measured entry fell from ~322KB to 110,807B in one commit while the bytes
-// a visitor downloads stayed the same — they just moved next door.
+// So the primary gate is the whole closure, and the request count beside it:
+// bytes alone would let a new 70 KB route chunk onto the initial load in
+// silence, and a new REQUEST on `/` is the thing worth a human look regardless
+// of its size.
 //
-// So this figure is NOT comparable to the history above, and the budget is now
-// slack rather than tight. It is deliberately NOT lowered to match: the guard
-// exists to catch three.js (820KB) or the blog dataset landing here, and both
-// would still blow 332KB from a base of 110KB. Tightening it to hug the new
-// number would buy noise on every ordinary edit.
+// Headroom is deliberate and small — about 4.9%, roughly 75 KB. When this
+// fires, read the itemised list in the message before raising it: a NEW chunk
+// in the list is a loading decision, an existing one growing is app growth, and
+// they do not have the same fix.
+const INITIAL_JS_BUDGET_BYTES = 1_600_000
+const INITIAL_JS_REQUEST_BUDGET = 10
+
+// Secondary, and narrow now that the closure above is the real gate: it only
+// answers "did a large dependency or the generated dataset land in the ENTRY".
+// three.js is no longer this budget's job — it has its own structural assertion
+// below, on the emitted chunk graph rather than on a size.
 //
-// Gzipped is what the user waits for, and the build prints both.
-const ENTRY_BUDGET_BYTES = 332_000
+// Measured 110,828 B on 2026-08-31.
+const ENTRY_BUDGET_BYTES = 160_000
 
 /**
  * The blog chunk carries the UI, the serializer and the WHOLE post dataset, so
@@ -72,6 +80,23 @@ const BLOG_BUDGET_BYTES = 120_000
 /** Which document a transformIndexHtml call is for. */
 function isBlogDocument(path: string): boolean {
   return path.replace(/^\//, '') === 'blog.html'
+}
+
+/**
+ * Chunks that `index.html` modulepreloads: every non-entry chunk in the bundle.
+ *
+ * ONE PREDICATE, TWO CONSUMERS, and that is the point of extracting it. The
+ * loop in `introEntry` emits the links; `assertChunkBudgets` sizes the result.
+ * Written twice they could disagree, and a budget that measures a set the HTML
+ * does not emit is worse than no budget — it would report a healthy number
+ * while the browser downloaded something else.
+ *
+ * Add `/`'s two entry chunks (the app entry and the intro entry, which are
+ * script tags rather than preloads) and this IS the initial JS closure of `/`:
+ * the whole bundle except the blog document's own entry.
+ */
+function isPreloadedOnIndex(chunk: OutputChunk): boolean {
+  return !chunk.isEntry
 }
 
 function assertChunkBudgets(): Plugin {
@@ -128,18 +153,103 @@ function assertChunkBudgets(): Plugin {
       }
 
       const entry = chunks.find((c) => c.isEntry && c.name === 'index')
-      const entrySize = entry ? Buffer.byteLength(entry.code, 'utf8') : 0
-      if (entry && entrySize > ENTRY_BUDGET_BYTES) {
-        // The message used to assert the cause rather than name the suspect,
-        // and sent a reader hunting a three.js leak that had not happened.
-        const threeChunk = chunks.find((c) => c.name === 'three')
-        const threeSplit = Boolean(threeChunk) && !entry.code.includes('BufferGeometry')
+      if (!entry) {
+        // Previously a silent skip: a missing entry left the size at 0 and every
+        // check below it passed. A budget that disappears when its subject does
+        // is not a budget.
+        this.error(
+          'app entry chunk not found (expected the chunk named "index"). ' +
+            `Entry chunks present: ${chunks
+              .filter((c) => c.isEntry)
+              .map((c) => c.name)
+              .join(', ')}.`,
+        )
+        return
+      }
+
+      // THREE.JS MUST REACH `/` THROUGH A DYNAMIC IMPORT AND NOTHING ELSE.
+      //
+      // Asserted on the emitted chunk graph, which is the only place the real
+      // property is visible. `manualChunks` pins three to its own chunk
+      // unconditionally, so the test that used to live here — "is three still a
+      // separate chunk", spelled `!entry.code.includes('BufferGeometry')` — was
+      // true by construction and could never fire. Meanwhile the entry carried a
+      // static `import ... from "./three-*.js"` for three numeric constants, and
+      // nothing noticed.
+      //
+      // A static edge is not a download. Every modulepreload below fetches three
+      // either way; what a static edge adds is EVALUATION — the whole library
+      // runs on the main thread before the entry's own body does, and therefore
+      // before React renders anything. Measured at t=369ms under a 4x CPU
+      // throttle, inside the boot long-task cluster.
+      const threeChunk = chunks.find((c) => c.name === 'three')
+      if (threeChunk && entry.imports.includes(threeChunk.fileName)) {
+        this.error(
+          `the app entry statically imports ${threeChunk.fileName}, so all of ` +
+            'three.js is evaluated during boot, before React renders. It must be ' +
+            'reached through a dynamic import only — LazyScene is the seam. To find ' +
+            'the edge: VERTIGO_SKIP_BUDGETS=1 npx vite build, then grep the emitted ' +
+            'dist/assets/index-*.js for a static import of the three chunk and trace ' +
+            'the binding back. The usual cause is a config module reaching a ' +
+            'three-importing module for plain constants — galaxyBandConfig.ts is the ' +
+            'fix that pattern takes.',
+        )
+      }
+
+      const entrySize = Buffer.byteLength(entry.code, 'utf8')
+      if (entrySize > ENTRY_BUDGET_BYTES) {
         this.error(
           `app entry is ${entrySize}B, over the ${ENTRY_BUDGET_BYTES}B budget ` +
-            `(over by ${entrySize - ENTRY_BUDGET_BYTES}B). three.js is ${
-              threeSplit ? 'still a separate chunk, so this is app growth rather than a leak'
-                         : 'NOT SPLIT OUT — it has leaked into the entry via a value import'
-            }.`,
+            `(over by ${entrySize - ENTRY_BUDGET_BYTES}B). This is a SECONDARY guard: ` +
+            'three.js has its own structural assertion above, so what this catches is a ' +
+            'large dependency or a generated dataset landing in the entry itself. Read ' +
+            'the initial-closure total first — if that is healthy, the bytes only moved ' +
+            'into the entry rather than being newly added.',
+        )
+      }
+
+      // ── THE PRIMARY GATE: what a cold `/` actually downloads ──
+      //
+      // Not one chunk. The modulepreload loop in `introEntry` emits a link for
+      // every chunk `isPreloadedOnIndex` accepts, so the browser has all of them
+      // in flight before the app entry has finished evaluating — measured at 9
+      // requests inside ~130ms. Add the two script tags `/` carries (the app
+      // entry and the intro entry) and this is the whole initial JS closure.
+      //
+      // Deliberately shares `isPreloadedOnIndex` with the loop that emits the
+      // links, so the set measured here cannot drift from the set the HTML asks
+      // for. The blog document's own entry is the only chunk left out, which is
+      // adr/013 working: `/blog` pays for none of this.
+      const initial = chunks.filter((c) => isPreloadedOnIndex(c) || c === entry || c === intro)
+      const counted = initial
+        .map((c) => ({ name: c.fileName, bytes: Buffer.byteLength(c.code, 'utf8') }))
+        .sort((a, b) => b.bytes - a.bytes)
+      const initialBytes = counted.reduce((n, c) => n + c.bytes, 0)
+
+      // Itemised, because the total alone does not say what to do about it. A
+      // NEW name in this list is a loading decision — something became reachable
+      // from `/` that was not before — and an existing name growing is app
+      // growth. They do not have the same fix, and the list is what tells them
+      // apart at a glance.
+      const itemised = counted.map((c) => `    ${String(c.bytes).padStart(9)}  ${c.name}`).join('\n')
+
+      if (initialBytes > INITIAL_JS_BUDGET_BYTES) {
+        this.error(
+          `initial JS for / is ${initialBytes}B over ${counted.length} requests, past the ` +
+            `${INITIAL_JS_BUDGET_BYTES}B budget by ${initialBytes - INITIAL_JS_BUDGET_BYTES}B.\n` +
+            `  counted (every non-entry chunk, plus the app and intro entries):\n${itemised}\n` +
+            '  A new name here is a loading decision; an existing one growing is app growth.',
+        )
+      }
+
+      if (counted.length > INITIAL_JS_REQUEST_BUDGET) {
+        this.error(
+          `initial JS for / is ${counted.length} requests, past the ` +
+            `${INITIAL_JS_REQUEST_BUDGET} allowed (${initialBytes}B total).\n` +
+            `  counted (every non-entry chunk, plus the app and intro entries):\n${itemised}\n` +
+            '  A chunk joins this set the moment it exists — the modulepreload loop in ' +
+            'introEntry takes every non-entry chunk. If the new one is not wanted on / at ' +
+            'all, exclude it there rather than raising this number.',
         )
       }
 
@@ -158,11 +268,20 @@ function assertChunkBudgets(): Plugin {
         )
       }
 
-      // Gzip is what the user actually waits for, so report that alongside.
+      // Compressed is what the user actually waits for, so report that alongside
+      // the raw figures the budgets assert on. Raw is what is asserted because it
+      // moves only when the payload does; a brotli number also moves when the
+      // compressor's view of the text changes, which is noise in a gate.
       const gz = (code: string) => gzipSync(Buffer.from(code, 'utf8')).length
+      const initialBr = initial.reduce(
+        (n, c) => n + brotliCompressSync(Buffer.from(c.code, 'utf8')).length,
+        0,
+      )
       this.info(
-        `chunk budgets ok — intro ${introSize}B (${gz(intro.code)}B gz), ` +
-          `app entry ${entrySize}B${entry ? ` (${gz(entry.code)}B gz)` : ''}` +
+        `chunk budgets ok — initial JS for / ${initialBytes}B (${initialBr}B br) over ` +
+          `${counted.length} requests, budget ${INITIAL_JS_BUDGET_BYTES}B/` +
+          `${INITIAL_JS_REQUEST_BUDGET}; intro ${introSize}B (${gz(intro.code)}B gz), ` +
+          `app entry ${entrySize}B (${gz(entry.code)}B gz)` +
           `${blog ? `, blog ${blogSize}B (${gz(blog.code)}B gz)` : ''}`,
       )
     },
@@ -326,7 +445,7 @@ function introEntry(): Plugin {
         // import(), two frames after the drawing has painted.
         if (ctx.bundle) {
           for (const chunk of Object.values(ctx.bundle)) {
-            if (chunk.type !== 'chunk' || chunk.isEntry) continue
+            if (chunk.type !== 'chunk' || !isPreloadedOnIndex(chunk)) continue
             // Not all of these are wanted equally soon. modulepreload is High
             // priority by default, so the chunks for a world the visitor cannot
             // reach until they click a marker were competing for bandwidth with
@@ -509,6 +628,16 @@ function blogRoutes(): Plugin {
       const outDir = 'dist'
       const shellPath = path.join(outDir, 'blog.html')
       if (!fs.existsSync(shellPath)) {
+        // An ABORTED build looks exactly like a missing input from here, and
+        // this hook runs either way — Vite closes the bundle in a finally. When
+        // a budget assertion upstream stopped the build, nothing was written at
+        // all, and erroring here replaced that plugin's message with a question
+        // about Rollup inputs. The real failure was invisible in the log.
+        //
+        // index.html is the tell: it comes from the same write, so if it is
+        // missing too the build produced nothing and something upstream has
+        // already reported why.
+        if (!fs.existsSync(path.join(outDir, 'index.html'))) return
         this.error('[blog shells] dist/blog.html was not emitted — is blog.html still a Rollup input?')
         return
       }

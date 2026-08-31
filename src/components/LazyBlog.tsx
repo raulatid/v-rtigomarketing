@@ -8,10 +8,10 @@ import type { Route } from '../app/route'
  * THIS FILE IS THE BOUNDARY, and it is deliberately almost empty. Everything the
  * blog needs — the UI, the serializer, the stylesheet and the whole generated
  * dataset — hangs off the `import()` below, so none of it is statically
- * reachable from `src/main.tsx`. The app entry has a hard 332,000 B budget, and
- * a static import of the dataset would blow it while
- * `vite.config.ts` reported the failure as a three.js leak, sending whoever read
- * that message somewhere with no bug in it.
+ * reachable from `src/main.tsx`. A static import would put every article body
+ * on the initial load of `/` — the closure `vite.config.ts` budgets with
+ * INITIAL_JS_BUDGET_BYTES — and it grows with the article library rather than
+ * with the code.
  *
  * `checks/architecture.ts` asserts both halves: that nothing static reaches the
  * blog from the app entry, and — the guard on the guard — that something dynamic

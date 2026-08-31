@@ -30,9 +30,10 @@ import { collection } from './types'
  * exchange for nothing.
  *
  * ── The generated module is lazy-only, and that is still a hard rule ──
- * The application entry chunk has a 332,000 B budget. A static import of the
- * whole blog dataset from the WebGL entry would blow it, and the failure would
- * look like a bundler problem rather than a content one. The blog UI arrived
+ * A static import of the whole blog dataset from the WebGL entry would put every
+ * article body on the initial load of `/` — the closure `vite.config.ts` budgets
+ * with INITIAL_JS_BUDGET_BYTES — and it grows with the article library rather
+ * than with the code. The blog UI arrived
  * with `adr/013`, so `checks/architecture.ts` no longer asserts that nothing
  * imports this — it asserts that nothing reaches it STATICALLY from
  * `src/main.tsx`. The reason is unchanged; only the shape of the rule moved.
@@ -409,6 +410,6 @@ export const blogPostsCollection = collection<BlogPost>({
     typeAnnotation: 'BlogPost[]',
     typeImport: { names: ['BlogPost'], from: '../types' },
     description:
-      'Blog posts, as published. NOT imported by the application — see content/collections/blogPosts.collection.ts.',
+      'Blog posts, as published. Reached only behind the lazy seam in LazyBlog and from the blog document entry (adr/013), never statically from the app entry — checks/architecture.ts asserts it.',
   },
 })

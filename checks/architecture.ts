@@ -195,16 +195,16 @@ forbid('content/ does not import graphics', 'src/content/', 'src/graphics/', '')
 // and it must stay out of the application entirely until there is a blog UI —
 // which belongs behind route-level lazy loading, not a static import.
 //
-// The entry chunk budget is 332,000 B with roughly 2 KB spare. A static import
-// of the whole blog dataset would blow it, and `vite.config.ts` would report it
-// as "three.js has probably leaked back in", sending whoever reads that message
-// somewhere with no bug in it.
+// A static import of the whole dataset from the WebGL entry would land it in
+// the initial JS closure of `/`, which `vite.config.ts` budgets as a whole
+// (INITIAL_JS_BUDGET_BYTES) rather than one chunk at a time. Catching it HERE,
+// at the import, says which edge to delete; catching it there says only that a
+// total moved.
 // The blog HAS a UI now (adr/013), so the old rule here — "nothing imports the
 // generated blog content" — expired with the decision it was enforcing. What did
 // not expire is the reason underneath it: a static import of the whole dataset
-// from the WebGL entry blows the 332,000 B budget, and `vite.config.ts` reports
-// that as "three.js has probably leaked back in", sending whoever reads the
-// message somewhere with no bug in it.
+// from the WebGL entry puts every article body on the initial load of `/`, and
+// it grows with the article library rather than with the code.
 //
 // So the rule NARROWED rather than went away, and it is rooted at the entry
 // rather than stated over `src/`: `src/entries/blog.tsx` is a second Rollup
@@ -214,7 +214,7 @@ forbidReachable(
   'the app entry cannot statically reach the generated blog content',
   'src/main.tsx',
   'src/content/generated/blogPosts',
-  'the dataset rides the blog chunk — see the ENTRY_BUDGET_BYTES history in vite.config.ts',
+  'the dataset rides the blog chunk — see BLOG_BUDGET_BYTES in vite.config.ts',
 );
 forbidReachable(
   'the app entry cannot statically reach the blog UI',

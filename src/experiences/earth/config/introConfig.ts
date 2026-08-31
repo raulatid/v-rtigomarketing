@@ -11,11 +11,23 @@
 // Note the P0 fields are RELATIVE STAGE WEIGHTS, not seconds — P0's duration
 // comes from load progress. `fillDuration` is the exception, still real seconds.
 import type { DrawConfig } from '../../../intro-draw/drawConfig'
-// A VALUE import, unlike the type-only one above, and safe for the same reason
-// that one is not: the boot entry never reaches this module. It is here so the
-// band defaults have one source of truth shared with the star distribution and
-// the sky shell. The build's chunk assertion is what actually guards this.
-import { GALAXY_BAND } from '../scene/space/galaxyBand'
+// A VALUE import, unlike the type-only one above, and it is here so the band
+// defaults have one source of truth shared with the star distribution and the
+// sky shell.
+//
+// Pointed at `galaxyBandConfig` rather than `galaxyBand` deliberately, though
+// not load-bearingly. This module sits in the app ENTRY chunk, and
+// `galaxyBand.ts` imports three at module scope; while the constants lived
+// there, the entry carried a static import of the 820 KB three chunk for three
+// numbers — which is not a download (the scene modulepreloads three anyway) but
+// an EVALUATION, the whole library running on the main thread before React
+// rendered. Splitting the constants into their own module is what fixed that,
+// and Rollup does tree-shake through the re-export, so both spellings emit the
+// same bundle today — measured, not assumed. Naming the three-free module keeps
+// it true by intent rather than by the optimiser's discretion, and tells whoever
+// adds a second constant here which side of the line they are on. The build's
+// structural assertion on the entry's chunk imports is what actually guards it.
+import { GALAXY_BAND } from '../scene/space/galaxyBandConfig'
 
 export interface IntroConfig extends DrawConfig {
   // ── P1 shrink ──

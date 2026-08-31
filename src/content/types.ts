@@ -183,8 +183,8 @@ export interface EmbedBlock {
  * The generated module is still reachable only through the lazy blog chunk. The
  * architecture rule that used to forbid importing it at all now forbids
  * importing it STATICALLY from `src/main.tsx`, for the reason the original rule
- * gave: the app entry has a hard 332,000 B budget and the dataset would blow it
- * while reporting itself as a three.js leak.
+ * gave: a static import puts every article body on the initial load of `/`,
+ * and the dataset grows with the article library rather than with the code.
  */
 export type BlogBlock =
   | ParagraphBlock
