@@ -161,6 +161,8 @@ cover {
 }
 ```
 
+**A description without an upload is a failure, not an empty field.** Sanity keeps `{_type: 'imageMedia', alt: '…'}` in the document when an editor writes the description and never picks a file, or removes one later — so the projection above returns an object whose `src`, `width` and `height` are all null, where a field nobody has touched returns `null` outright. The Studio rejects that state while the editor is working and the build rejects it at the deploy, the same two-places arrangement the brand marks use and for the same reason: a dataset import, a restored backup or the HTTP API never passes through the Studio. The build reports it once, at the field, rather than as three problems about `src`, `width` and `height` — those are derived from the upload, and naming them tells whoever edits the CMS nothing.
+
 When a blog renderer eventually exists, `img-src` in `vercel.json` will need `https://cdn.sanity.io` added — and that is the moment to decide whether these should be mirrored too. Not before.
 
 ---

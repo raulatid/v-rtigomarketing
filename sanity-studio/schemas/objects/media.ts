@@ -41,7 +41,24 @@ export const imageMedia = defineType({
       validation: (rule) => rule.max(200).error('Demasiado largo: como máximo 200 caracteres.'),
     }),
   ],
-  validation: (rule) => rule.required().error('Sube una imagen.'),
+  // NOT `required()`, and not `assetRequired()` either.
+  //
+  // `required()` checks that a VALUE is present, not that an image is attached,
+  // so `{alt: 'una foto'}` — what Sanity leaves behind when an editor writes the
+  // description and never uploads the file — satisfies it, publishes, and fails
+  // the build instead. It is also too strict in the other direction: `cover` and
+  // `ogImage` are optional by intent, and a required error on an empty optional
+  // field is what pushes an editor into filling it with something.
+  //
+  // `assetRequired()` is `!value || !value.asset || !value.asset._ref`, so it
+  // fires on the empty optional field too. Hence the explicit rule: say nothing
+  // about an untouched field, reject a half-filled one.
+  validation: (rule) =>
+    rule.custom((value?: { asset?: { _ref?: string } }) =>
+      value === undefined || value === null || typeof value.asset?._ref === 'string'
+        ? true
+        : 'Sube una imagen, o borra el campo entero para dejarlo vacío.',
+    ),
 })
 
 export const videoMedia = defineType({

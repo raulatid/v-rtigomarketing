@@ -41,11 +41,39 @@ const DIMENSION_MAX = 8192
  */
 const CDN_URL = new RegExp('^' + SANITY_CDN_ORIGIN.replace(/[.]/g, '\\.') + '/[\\w./%-]+$')
 
+/**
+ * True when nothing the projection resolves from the asset came back.
+ *
+ * Sanity keeps `{_type: 'imageMedia', alt: '…'}` in the document when an editor
+ * writes the description and never uploads the file, or removes one later, so
+ * the projection returns an object whose asset-derived members are all null
+ * rather than the null it returns for a field that was never touched.
+ */
+function assetless(source: Record<string, unknown>): boolean {
+  return (
+    (source.src === null || source.src === undefined) &&
+    (source.width === null || source.width === undefined) &&
+    (source.height === null || source.height === undefined)
+  )
+}
+
 export function imageMedia(report: Report, path: string, raw: unknown): ImageMedia | undefined {
   if (raw === null || typeof raw !== 'object') {
     return report.fail(path, 'expected an image object')
   }
   const source = raw as Record<string, unknown>
+
+  // Reported ONCE, at the field, rather than as three "expected a string, got
+  // null" lines about `src`, `width` and `height`. Whoever reads a content
+  // failure is whoever edits the CMS, and those three are not fields they have
+  // ever seen — they are derived from the upload. A dangling asset reference
+  // lands here too, and the same sentence is the right thing to say about it.
+  if (assetless(source)) {
+    return report.fail(
+      path,
+      'no image was uploaded — upload one, or clear the whole field in the Studio',
+    )
+  }
 
   const src = matching(report, path + '.src', source.src, CDN_URL, 'a Sanity CDN image url')
   // An SVG is served at its own url, which makes it stored XSS for anyone who

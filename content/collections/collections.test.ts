@@ -534,6 +534,45 @@ describe('blog category, reading time and SEO', () => {
     expect(mapped(post({ ogImage: null, cover: null })).seo.image.src).toBe('/og-default.png')
   })
 
+  it('rejects an image field that has a description but no upload, in ONE sentence', () => {
+    // What the Studio leaves in the document when an editor writes the
+    // description and never uploads the file. The GROQ projection cannot return
+    // null for it — every asset-derived member comes back null instead — and
+    // this shape reaching production as three "expected a string, got null"
+    // problems about src, width and height is how a build failure ends up
+    // naming fields no editor has ever seen. Counting the problems is the
+    // assertion that matters: three IS the bug.
+    const assetless = { src: null, width: null, height: null, alt: 'a', caption: null }
+    const result = blogPostsCollection.map(post({ ogImage: assetless }), 0)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.problems).toHaveLength(1)
+    expect(result.problems[0].path).toBe('como-medimos-el-seo.ogImage')
+    expect(result.problems[0].message).toContain('no image was uploaded')
+  })
+
+  it('rejects the same residue once the description has been cleared too', () => {
+    // Emptying the description does not necessarily remove the object; a bare
+    // `{_type: 'imageMedia'}` projects to all-null as well, and the message has
+    // to stay true when there is no description left to mention.
+    const empty = { src: null, width: null, height: null, alt: null, caption: null }
+    const result = blogPostsCollection.map(post({ ogImage: empty }), 0)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.problems).toHaveLength(1)
+    expect(result.problems[0].path).toBe('como-medimos-el-seo.ogImage')
+  })
+
+  it('holds the cover to the same rule', () => {
+    // Same projection, same optional field, same latent defect.
+    const assetless = { src: null, width: null, height: null, alt: 'portada', caption: null }
+    const result = blogPostsCollection.map(post({ cover: assetless }), 0)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.problems).toHaveLength(1)
+    expect(result.problems[0].path).toBe('como-medimos-el-seo.cover')
+  })
+
   it('carries an image caption through, and omits it when blank', () => {
     const withCaption = {
       src: 'https://cdn.sanity.io/images/x/y/cccc-1600x900.jpg',
