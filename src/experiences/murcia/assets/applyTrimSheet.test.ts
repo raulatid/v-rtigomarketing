@@ -93,6 +93,36 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     expect(ground.roughness).toBe(buildings.roughness)
   })
 
+  it('tints the ground with the colour it is given, and only the ground', () => {
+    // The plate is the one large flat surface in the scene, so its albedo is
+    // what decides how bright the floor is. At white it reached 227/255 and the
+    // warp's borrowed bloom pass caught it. The buildings take their colour from
+    // the sheet and must not be tinted with it.
+    const { root, terrain } = city(2)
+
+    const applied = applyTrimSheet({
+      root,
+      sheet: sheet(),
+      terrain,
+      authored: false,
+      groundColor: 0x8a8f94,
+    })
+
+    expect((applied.ground as THREE.MeshStandardMaterial).color.getHex()).toBe(0x8a8f94)
+    expect((applied.textured[0] as THREE.MeshStandardMaterial).color.getHex()).toBe(0xffffff)
+  })
+
+  it('leaves the ground white when no colour is given', () => {
+    // A caller that only wants geometry has no opinion about the art, and the
+    // absent case must stay the material's own default rather than some
+    // fallback invented here.
+    const { root, terrain } = city(1)
+
+    const applied = applyTrimSheet({ root, sheet: sheet(), terrain, authored: false })
+
+    expect((applied.ground as THREE.MeshStandardMaterial).color.getHex()).toBe(0xffffff)
+  })
+
   it('never writes to the material it displaces', () => {
     // That instance is shared by every primitive of this load, so setting a map
     // on it would texture the whole city at once — including the plate this
@@ -210,6 +240,29 @@ describe('applyTrimSheet, on a GLB that declares its own materials', () => {
 
     expect(authoredMaterial.map).not.toBeNull()
     expect(groundMaterial.map).toBeNull()
+  })
+
+  it('does not tint an authored ground material', () => {
+    // Same rule as the emissive above: once the artist exports a material, the
+    // config's colour is a default that has been superseded, not an override.
+    const authoredMaterial = new THREE.MeshStandardMaterial({ name: 'ciudad' })
+    const groundMaterial = new THREE.MeshStandardMaterial({ name: 'suelo', color: 0x223344 })
+    const root = new THREE.Group()
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), authoredMaterial))
+    const terrain = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), groundMaterial)
+    root.add(terrain)
+
+    const applied = applyTrimSheet({
+      root,
+      sheet: sheet({ baseColor: named('base') }),
+      terrain,
+      authored: true,
+      groundColor: 0x8a8f94,
+    })
+
+    expect(applied.ground).toBeNull()
+    expect(terrain.material).toBe(groundMaterial)
+    expect(groundMaterial.color.getHex()).toBe(0x223344)
   })
 })
 

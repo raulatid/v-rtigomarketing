@@ -29,6 +29,15 @@ export interface ApplyTrimSheetOptions {
    * two cases are indistinguishable.
    */
   authored: boolean;
+  /**
+   * Base colour for the fabricated ground material.
+   *
+   * Optional, and omitting it leaves the material's own white: a caller that
+   * only wants geometry has no opinion here, and the tests are such callers.
+   * Ignored entirely on the authored path, which may not overwrite what an
+   * artist exported.
+   */
+  groundColor?: number;
 }
 
 export interface AppliedTrimSheet {
@@ -75,13 +84,14 @@ export interface AppliedTrimSheet {
  * across the whole horizon skirt — one flat calibration colour smeared over
  * hundreds of units, which is neither correct nor diagnostic.
  *
- * The plate gets the same parameters minus the maps rather than being left
- * behind, because leaving it on the fabricated default would light the ground
- * and the buildings differently — a new inconsistency introduced by fixing
- * `metalness`, which is worse than the problem.
+ * The plate gets the same lighting parameters — minus the maps, and with its
+ * own colour — rather than being left behind, because leaving it on the
+ * fabricated default would light the ground and the buildings differently: a
+ * new inconsistency introduced by fixing `metalness`, which is worse than the
+ * problem.
  */
 export function applyTrimSheet(options: ApplyTrimSheetOptions): AppliedTrimSheet {
-  const { root, sheet, terrain, authored } = options;
+  const { root, sheet, terrain, authored, groundColor } = options;
 
   if (authored) {
     const textured: THREE.Material[] = [];
@@ -106,15 +116,19 @@ export function applyTrimSheet(options: ApplyTrimSheetOptions): AppliedTrimSheet
   });
   attachMaps(buildings, sheet);
 
-  // Identical but for the maps. White and untinted, which is what the material
-  // it replaces already specified — the fix here is the metalness, and putting
-  // a chosen ground colour in the same change would be an art decision nobody
-  // asked for.
+  // Identical but for the maps, and for the colour, which the plate needs and
+  // the buildings get from the sheet. Left white here until 2026-08-31, on the
+  // grounds that choosing one was an art decision nobody had asked for; what
+  // white actually meant was albedo 1.0 on the one large flat surface in the
+  // scene, which put the floor at 227/255 and made it the brightest thing in
+  // the city. The number now lives in `sceneState.groundColor`, with the
+  // measurement beside it.
   const ground = terrain
     ? new THREE.MeshStandardMaterial({
         name: GROUND_MATERIAL_NAME,
         metalness: 0,
         roughness: 1,
+        ...(groundColor === undefined ? {} : { color: groundColor }),
       })
     : null;
 

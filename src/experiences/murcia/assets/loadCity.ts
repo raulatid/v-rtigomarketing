@@ -54,6 +54,11 @@ export interface LoadCityOptions {
   trimSheet?: TrimSheetConfig;
   renderer?: THREE.WebGLRenderer;
   /**
+   * Base colour for the terrain plate's material. Travels with the sheet
+   * because it is only ever applied on the same pass; see `applyTrimSheet`.
+   */
+  groundColor?: number;
+  /**
    * Download progress, 0..1, when the server reports a content length.
    *
    * Reports bytes only — not parse, not GPU upload — so a caller driving a
@@ -213,6 +218,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
       // Same reason `checks/city-asset.ts` reads the JSON chunk rather than
       // loading through the loader.
       authored: (gltf.parser.json.materials?.length ?? 0) > 0,
+      groundColor: options.groundColor,
     });
   }
   configureTrimTextures(root);

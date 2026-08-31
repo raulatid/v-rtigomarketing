@@ -291,6 +291,17 @@ export interface TerrainTransitionConfig {
  */
 export interface SceneStateConfig {
   backgroundColor: number;
+  /**
+   * The terrain plate's base colour, and so the collar's and the skirt's, which
+   * are clones of its material.
+   *
+   * The odd one out in this interface: `createScene` does not apply it, because
+   * it is a material property of a mesh that does not exist until the GLB has
+   * loaded — `applyTrimSheet` sets it, and only on the fabricated default. It
+   * lives here anyway because it is an art value, and it is meaningless apart
+   * from the background and the light rig it has to be judged against.
+   */
+  groundColor: number;
   fog: { color: number; near: number; far: number } | null;
   /**
    * Light rig parameters. Keep the light count and types identical across

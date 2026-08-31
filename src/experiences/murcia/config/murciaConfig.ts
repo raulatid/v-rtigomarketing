@@ -74,6 +74,21 @@ export const murciaConfig: EnvironmentConfig = {
 
   sceneState: {
     backgroundColor: 0x9fb4c7,
+    // The ground, and with it the collar and the skirt cloned from it.
+    //
+    // It was left at the material default — white, albedo 1.0 — when the
+    // fabricated materials were introduced, on the grounds that choosing a
+    // colour was an art decision nobody had asked for. What that produced: a
+    // flat +Y surface here receives 1.4 (hemisphere, full at this normal) +
+    // 1.6 * 0.811 (directional) = 2.698 of irradiance, so Lambert puts the
+    // plate at 2.698 / PI = 0.859 linear, which is 227/255 through ACES. The
+    // floor was the brightest thing in the city and read as paper.
+    //
+    // 0x8a8f94 is 0.254 linear, so 0.218 radiance and about 155/255 on screen.
+    // Retune against those numbers rather than by eye, and keep it under the
+    // 0.62 bloom threshold Earth's composer thresholds at — the warp borrows
+    // that composer, and the ground is what it would catch first.
+    groundColor: 0x8a8f94,
     // Left null until the transition skirt is validated on its own. Fog is
     // support, not the edge-hiding mechanism (docs/plans/002 Phase 6).
     fog: null,

@@ -436,6 +436,9 @@ export class MurciaExperience {
       // decoded without asking this GPU which compressed formats it has.
       trimSheet: env.trimSheet,
       renderer: this.renderer,
+      // Applied here rather than after the fact because the collar and the
+      // skirt clone the plate's material, and they are built below.
+      groundColor: env.sceneState.groundColor,
       onProgress: this.onLoadProgress,
     });
     this.loaded = loaded;

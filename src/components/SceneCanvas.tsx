@@ -6,7 +6,7 @@ import { CornerLogoLayer } from './CornerLogoLayer'
 import { MurciaLayer } from './MurciaLayer'
 import { RenderPipeline } from '../graphics/RenderPipeline'
 import { DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
-import type { FrameSettings } from '../graphics/renderableExperience'
+import type { FrameSettings, RenderRoute } from '../graphics/renderableExperience'
 import { motionBlur as warpMotionBlur } from '../app/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { SequenceState } from '../experiences/earth/config/sequenceState'
@@ -91,25 +91,32 @@ export function SceneCanvas({
   const readSettings = useCallback((): FrameSettings => {
     const warping = state.transitionProgress > 0
     const motionBlur = warping ? warpMotionBlur(state.transitionProgress) : state.motionBlur
+    // Gated on the BLUR, not on the warp being non-zero, and that distinction
+    // only started to matter when the gesture began driving the warp.
+    //
+    // `direct-composited` exists to lend the direct experience the composer's
+    // afterimage — which is most of what makes a warp read as one. `speed()` is
+    // exactly zero for the whole lower half of the scrub band (its bell is
+    // `cut ± speedPeakWidth`, and the band ends at `cut - flashWidth`), so the
+    // cheap route covers the part of the gesture that has nothing to composite
+    // anyway.
+    const route: RenderRoute = earthActive
+      ? 'composer'
+      : motionBlur > 0
+        ? 'direct-composited'
+        : 'direct'
     return {
-      // Gated on the BLUR, not on the warp being non-zero, and that distinction
-      // only started to matter when the gesture began driving the warp.
-      //
-      // `direct-composited` exists to lend the direct experience the composer's
-      // afterimage — which is most of what makes a warp read as one. But
-      // borrowing the composer also brings its bloom pass, so flipping route the
-      // instant progress leaves zero changes how Murcia LOOKS. During a 1.6s
-      // cinematic that is hidden by speed; during a scrub it is a pop on the
-      // first wheel notch, held for as long as the viewer hesitates.
-      //
-      // `speed()` is exactly zero for the whole lower half of the scrub band
-      // (its bell is `cut ± speedPeakWidth`, and the band ends at
-      // `cut - flashWidth`), so this also means the cheap route covers the part
-      // of the gesture that has nothing to composite anyway.
-      route: earthActive ? 'composer' : motionBlur > 0 ? 'direct-composited' : 'direct',
+      route,
       motionBlur,
       afterimageDampMax: config.afterimageDampMax,
-      bloomStrength: config.bloomStrength,
+      // WITHHELD on the borrowed route, and that is the whole point of naming
+      // it. Borrowing the composer also brings its bloom pass, which is Earth's
+      // — tuned for a black sky, thresholding at 0.62 — and Murcia's ground is
+      // a diffuse plate under 2.7 of irradiance. It clears that threshold, so
+      // the city used to light up the moment the route flipped: invisible
+      // inside a 1.6s cinematic, a step change during a scrub, held for as long
+      // as the viewer hesitated. Murcia borrows the smear and nothing else.
+      bloomStrength: route === 'direct-composited' ? 0 : config.bloomStrength,
       bloomRadius: config.bloomRadius,
       bloomThreshold: config.bloomThreshold,
     }
