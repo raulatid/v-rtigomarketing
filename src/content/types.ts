@@ -40,6 +40,16 @@ export interface ImageMedia {
   alt: string
   width: number
   height: number
+  /**
+   * Optional visible caption, rendered in a `<figcaption>`.
+   *
+   * NOT a second `alt`, and the distinction is why it is a separate field
+   * rather than a reuse. `alt` REPLACES the image for someone who cannot see
+   * it; a caption is read BESIDE the image by everyone. Serialising `alt` into
+   * a figcaption announces the same sentence twice to a screen reader and hands
+   * a sighted reader a description of what they are already looking at.
+   */
+  caption?: string
 }
 
 export interface SitePhone {
@@ -165,11 +175,16 @@ export interface EmbedBlock {
 /**
  * What a blog post may contain.
  *
- * Richer than `LegalBlock` because a blog post reasonably is. NOTHING renders
- * this yet — see `blogPosts.collection.ts` — and the generated module is
- * deliberately imported by no part of the application, because the app entry
- * has a hard 320,000 B budget and a blog belongs behind route-level lazy
- * loading whenever it arrives.
+ * Richer than `LegalBlock` because a blog post reasonably is. Rendered since
+ * `adr/013` by `src/blog/PostBody.tsx`, which handles all seven kinds and ends
+ * in an exhaustiveness assertion — so adding a member here is a type error there
+ * rather than a block that silently renders nothing.
+ *
+ * The generated module is still reachable only through the lazy blog chunk. The
+ * architecture rule that used to forbid importing it at all now forbids
+ * importing it STATICALLY from `src/main.tsx`, for the reason the original rule
+ * gave: the app entry has a hard 332,000 B budget and the dataset would blow it
+ * while reporting itself as a three.js leak.
  */
 export type BlogBlock =
   | ParagraphBlock
@@ -179,6 +194,57 @@ export type BlogBlock =
   | ImageBlock
   | VideoBlock
   | EmbedBlock
+
+/**
+ * The topic a post belongs to: the eyebrow above the title, and the pills on the
+ * blog index.
+ *
+ * A REFERENCE to a service, dereferenced by the GROQ projection, not a free
+ * string and not an enum. Three consequences, all of them the point:
+ *
+ * - the set of topics is CMS-owned, so no list of category identifiers is
+ *   duplicated between the Studio, the build and the UI;
+ * - Sanity enforces that the target exists, so a topic can never name a service
+ *   that was deleted;
+ * - the pills on the index and the buildings in the Murcia services district are
+ *   the same five things, because they are literally the same documents.
+ */
+export interface BlogCategory {
+  /** A `Service.id`. Also the `?tema=` query value. */
+  id: string
+  /** The full service title, e.g. "Estrategia de contenidos". */
+  label: string
+  /**
+   * What the pills and card eyebrows show, e.g. "Contenidos".
+   *
+   * Falls back to `label` at ingest when the editor has not written one, so a
+   * consumer never has to decide. Editorial rather than derived: no rule turns
+   * "Identidad de marca" into "Marca".
+   */
+  shortLabel: string
+}
+
+/**
+ * What a crawler and a social scraper are told about a post.
+ *
+ * EVERY FIELD IS RESOLVED AT INGEST and none of them is null. The fallbacks —
+ * title from the post title, description from the excerpt, image from the cover
+ * and then from the site default — are applied in the mapper rather than in the
+ * renderer, following `DEFAULT_BRAND_COLOR` in `invariants.ts`: resolved once,
+ * in the content build, so every consumer reads a guaranteed value.
+ *
+ * That guarantee is load-bearing downstream. The static blog shells emitted by
+ * `vite.config.ts` are verified to carry exactly one `og:image`, which is only
+ * a check worth making because `image` cannot be absent.
+ */
+export interface BlogSeo {
+  /** Never empty. `seoTitle`, else the post title. */
+  title: string
+  /** Never empty. `metaDescription`, else the excerpt cut at a word boundary. */
+  description: string
+  /** Never null. `ogImage`, else `cover`, else the site-wide default. */
+  image: ImageMedia
+}
 
 export interface BlogPost {
   id: string
@@ -190,6 +256,31 @@ export interface BlogPost {
   publishedAt: string
   tags: string[]
   body: BlogBlock[]
+  /**
+   * NULLABLE, and deliberately not defaulted.
+   *
+   * The Studio requires it, so every post written from now on has one. Posts
+   * that predate the field do not, and the honest options were to fail the build
+   * on live content, to guess from `tags[0]`, or to say so. Guessing was
+   * rejected: a category carries a visible label, and `map` has no access to the
+   * services collection to check that a guess names a real one — `Collection`
+   * gives `map` one record at a time on purpose. A post with no category shows
+   * no eyebrow and appears under no pill, which is visibly incomplete rather
+   * than confidently wrong.
+   *
+   * MIGRATION STATE, not a design. Once the dataset is filled in, this becomes
+   * `BlogCategory` and the projection stops coalescing.
+   */
+  category: BlogCategory | null
+  /**
+   * Minutes, computed from `body` at build time — never authored.
+   *
+   * An authored number drifts silently the moment the body is edited and nobody
+   * notices, which is the same argument `ImageMedia` makes for not carrying
+   * metadata no one reads. A derivation the build can do is not editorial.
+   */
+  readingTime: number
+  seo: BlogSeo
 }
 
 export interface CaseStudyMetric {

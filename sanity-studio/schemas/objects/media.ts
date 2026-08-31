@@ -30,6 +30,16 @@ export const imageMedia = defineType({
         rule.max(200).error('Demasiado largo: como máximo 200 caracteres.'),
       ],
     }),
+    defineField({
+      name: 'caption',
+      title: 'Pie de foto',
+      description:
+        'Opcional. El texto que se lee DEBAJO de la imagen, visible para todo el mundo. ' +
+        'No repitas aquí la descripción de arriba: esa la lee quien no ve la imagen, y ' +
+        'escribir lo mismo en las dos hace que se anuncie dos veces.',
+      type: 'string',
+      validation: (rule) => rule.max(200).error('Demasiado largo: como máximo 200 caracteres.'),
+    }),
   ],
   validation: (rule) => rule.required().error('Sube una imagen.'),
 })

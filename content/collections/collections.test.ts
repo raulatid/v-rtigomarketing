@@ -414,8 +414,149 @@ describe('site settings is a singleton the build proves', () => {
   })
 })
 
+describe('blog category, reading time and SEO', () => {
+  const post = (over: Record<string, unknown> = {}) => {
+    const found = blogFixtures.find((entry) => entry.id === 'como-medimos-el-seo')
+    if (found === undefined) throw new Error('fixture como-medimos-el-seo is missing')
+    return { ...(structuredClone(found) as Record<string, unknown>), ...over }
+  }
+  const mapped = (record: Record<string, unknown>) => {
+    const result = blogPostsCollection.map(record, 0)
+    if (!result.ok) {
+      throw new Error('expected a valid post, got: ' + JSON.stringify(result.problems))
+    }
+    return result.value as unknown as BlogPost
+  }
+
+  it('keeps a category that dereferenced to a service', () => {
+    expect(mapped(post()).category).toEqual({ id: 'seo', label: 'SEO', shortLabel: 'SEO' })
+  })
+
+  it('leaves the category null when the post predates the field', () => {
+    // The Studio requires it; the build does not, because posts written before
+    // the field exist and failing every deployment until someone opens each one
+    // is not a migration plan.
+    expect(mapped(post({ category: null })).category).toBeNull()
+    expect(mapped(post({ category: undefined })).category).toBeNull()
+  })
+
+  it('never guesses a category from tags', () => {
+    // The first tag here is 'seo', which happens to BE a service id — so a
+    // mapper that guessed would look correct on this record and be wrong on the
+    // next. A category carries a visible label, and map() cannot check that a
+    // guess names a real service: it receives one record at a time by design.
+    expect(mapped(post({ category: null, tags: ['seo', 'analitica'] })).category).toBeNull()
+  })
+
+  it('rejects a category whose id would not survive a url segment', () => {
+    const problems = problemsFor(
+      blogPostsCollection,
+      post({ category: { id: 'Con Mayúsculas', label: 'X', shortLabel: 'X' } }),
+    )
+    expect(problems.length).toBeGreaterThan(0)
+  })
+
+  it('computes reading time rather than reading it from the record', () => {
+    // An authored value must not win, or the number drifts the moment the body
+    // is edited and nothing reports it.
+    expect(mapped(post({ readingTime: 99 })).readingTime).toBe(1)
+  })
+
+  it('falls back to the post title and the excerpt for search results', () => {
+    const value = mapped(post())
+    expect(value.seo.title).toBe(value.title)
+    expect(value.seo.description).toBe(value.excerpt)
+  })
+
+  it('prefers the editor SEO fields when they are filled in', () => {
+    const value = mapped(
+      post({ seoTitle: 'Medir SEO por ingresos', metaDescription: 'Cómo lo medimos.' }),
+    )
+    expect(value.seo.title).toBe('Medir SEO por ingresos')
+    expect(value.seo.description).toBe('Cómo lo medimos.')
+  })
+
+  it('treats a blank SEO field as unset rather than as an empty value', () => {
+    // Clearing a field in the Studio leaves an empty string behind, not
+    // undefined, and an empty <title> is worse than a fallback.
+    const value = mapped(post({ seoTitle: '', metaDescription: '' }))
+    expect(value.seo.title).toBe(value.title)
+    expect(value.seo.description).toBe(value.excerpt)
+  })
+
+  it('does NOT fail on an over-long SEO field', () => {
+    // 60 and 160 are where Google truncates, not where content stops being
+    // valid. The Studio warns; the build publishes. A Studio that says "fine"
+    // and a deploy that then fails is the worst arrangement available.
+    const long = 'a'.repeat(400)
+    const value = mapped(post({ seoTitle: long, metaDescription: long }))
+    expect(value.seo.title).toBe(long)
+    expect(value.seo.description).toBe(long)
+  })
+
+  it('cuts the excerpt fallback at a word boundary', () => {
+    const excerpt =
+      'Una posición no paga facturas y por eso conectamos cada consulta de búsqueda con los ingresos que un negocio puede reconocer al final del trimestre sin discutirlo.'
+    const value = mapped(post({ excerpt }))
+    expect(value.seo.description.length).toBeLessThanOrEqual(161)
+    // Ends on a whole word plus an ellipsis, never mid-word: a search result
+    // ending "...puede rec" reads as a broken site rather than a truncated field.
+    expect(value.seo.description.endsWith('…')).toBe(true)
+    expect(value.seo.description).not.toMatch(/\s…$/)
+    expect(excerpt.startsWith(value.seo.description.slice(0, -1))).toBe(true)
+  })
+
+  it('resolves an og:image for every fixture post', () => {
+    // BlogSeo.image is never null, which is what lets the emitted shells require
+    // exactly one og:image instead of tolerating its absence.
+    for (const entry of blogFixtures) {
+      const value = mapped(structuredClone(entry) as Record<string, unknown>)
+      expect(value.seo.image, entry.id).not.toBeNull()
+      expect(value.seo.image.width, entry.id).toBeGreaterThan(0)
+    }
+  })
+
+  it('prefers ogImage, then cover, then the site default', () => {
+    const og = {
+      src: 'https://cdn.sanity.io/images/x/y/aaaa-1200x630.jpg',
+      width: 1200,
+      height: 630,
+      alt: 'og',
+    }
+    const cover = {
+      src: 'https://cdn.sanity.io/images/x/y/bbbb-1600x900.jpg',
+      width: 1600,
+      height: 900,
+      alt: 'cover',
+    }
+    expect(mapped(post({ ogImage: og, cover })).seo.image.alt).toBe('og')
+    expect(mapped(post({ ogImage: null, cover })).seo.image.alt).toBe('cover')
+    expect(mapped(post({ ogImage: null, cover: null })).seo.image.src).toBe('/og-default.png')
+  })
+
+  it('carries an image caption through, and omits it when blank', () => {
+    const withCaption = {
+      src: 'https://cdn.sanity.io/images/x/y/cccc-1600x900.jpg',
+      width: 1600,
+      height: 900,
+      alt: 'alt text',
+      caption: 'Pie de foto',
+    }
+    expect(mapped(post({ cover: withCaption })).cover?.caption).toBe('Pie de foto')
+    expect(mapped(post({ cover: { ...withCaption, caption: '' } })).cover?.caption).toBeUndefined()
+  })
+})
+
 describe('blog mapping rejects', () => {
-  const validPost = () => structuredClone(blogFixtures[0]) as Record<string, unknown>
+  // Selected by id, not by position: the fixture array is ordered
+  // `publishedAt desc` to match what the collection asks Sanity for, so adding
+  // a newer post silently moved index 0 and every assertion below started
+  // naming the wrong entry.
+  const validPost = () => {
+    const found = blogFixtures.find((post) => post.id === 'como-medimos-el-seo')
+    if (found === undefined) throw new Error('fixture como-medimos-el-seo is missing')
+    return structuredClone(found) as Record<string, unknown>
+  }
   const textBlock = (text: string) => ({ _type: 'block', style: 'normal', children: [{ _type: 'span', text }] })
 
   it('a slug that would not survive being used as a url segment', () => {

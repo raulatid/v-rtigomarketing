@@ -13,6 +13,7 @@
  * tree-shake it away entirely.
  */
 import type {
+  BlogPost,
   CaseChartType,
   CaseStudy,
   DistrictContent,
@@ -71,6 +72,22 @@ export const DEFAULT_BRAND_COLOR = '#ffffff'
  * origin, which is the whole class this constant exists to exclude.
  */
 export const LOCAL_MEDIA_PATH = /^\/(?!\/)[\w./-]+$/
+
+/**
+ * Where editorial imagery is served from.
+ *
+ * ONE DEFINITION, TWO CONSUMERS, and they sit on opposite sides of the pipeline:
+ * `content/collections/media.ts` refuses to ingest an image url with any other
+ * origin, and `src/blog/sanityImage.ts` refuses to append transform parameters
+ * to one. If those two ever disagreed they would be wrong about the same string
+ * — either an image nothing renders, or a query appended to a local path that
+ * has no idea what to do with it.
+ *
+ * Editorial images are NOT mirrored, unlike the brand logos LOCAL_MEDIA_PATH
+ * guards. `adr/013` settled it: the library grows without bound, and the CDN's
+ * own transforms are how the blog gets responsive images at all.
+ */
+export const SANITY_CDN_ORIGIN = 'https://cdn.sanity.io'
 
 export interface Problem {
   /** Dotted path to the offending value, e.g. `satellite-02.chart.values[3]`. */
@@ -315,6 +332,82 @@ function spans(
       }
     }
   })
+}
+
+/**
+ * A blog post, checked against what the renderer and the emitted shells assume.
+ *
+ * Mirrors `legalDocProblems`: ingestion has already rejected an unknown
+ * Portable Text style, and this re-checks the RESULT, so `PostBody`'s switch has
+ * no unreachable case and the shell verifier has no absent value to tolerate.
+ *
+ * WHAT IS DELIBERATELY NOT CHECKED: the length of `seo.title` and
+ * `seo.description`. 60 and 160 are where Google truncates, not where content
+ * stops being valid, and `adr/013` makes them advisory. The Studio warns the
+ * editor while they type; a build that then refused to deploy would be the worst
+ * of both worlds — told it was fine, then broken. Structure is fail-closed here;
+ * search-result cosmetics are not.
+ */
+export function blogPostProblems(entry: BlogPost): Problem[] {
+  const problems: Problem[] = []
+  const at = (path: string, message: string) =>
+    problems.push({ path: entry.id + '.' + path, message })
+
+  if (!ID_PATTERN.test(entry.id)) {
+    problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
+  }
+  if (!nonEmpty(entry.title)) at('title', 'must be a non-empty string')
+  if (!nonEmpty(entry.excerpt)) at('excerpt', 'must be a non-empty string')
+  if (entry.body.length === 0) at('body', 'must have at least one block')
+
+  // The id reaches `?tema=` and a filter key, so it is held to the same alphabet
+  // as every other id even though Sanity guarantees the reference resolves.
+  if (entry.category !== null) {
+    if (!ID_PATTERN.test(entry.category.id)) {
+      at('category.id', 'must match ' + ID_PATTERN)
+    }
+    if (!nonEmpty(entry.category.label)) at('category.label', 'must be a non-empty string')
+    if (!nonEmpty(entry.category.shortLabel)) {
+      at('category.shortLabel', 'must be a non-empty string')
+    }
+  }
+
+  // Computed, so a bad value means the derivation broke rather than that an
+  // editor typed something — which is exactly why it is worth asserting.
+  if (!Number.isInteger(entry.readingTime) || entry.readingTime < 1) {
+    at('readingTime', 'must be a whole number of minutes, at least 1')
+  }
+
+  if (!nonEmpty(entry.seo.title)) at('seo.title', 'must be a non-empty string')
+  if (!nonEmpty(entry.seo.description)) at('seo.description', 'must be a non-empty string')
+  // Never null by construction (ogImage -> cover -> site default), and asserted
+  // rather than assumed because the emitted shells require exactly one og:image.
+  // A local path is legitimate here: the default is same-origin and committed,
+  // because a scraper will not run JavaScript or follow a transform chain.
+  const image = entry.seo.image
+  if (image === null || image === undefined) {
+    at('seo.image', 'must be resolved at ingest, never null')
+  } else if (
+    !image.src.startsWith(SANITY_CDN_ORIGIN + '/') &&
+    !LOCAL_MEDIA_PATH.test(image.src)
+  ) {
+    at('seo.image.src', 'must be on ' + SANITY_CDN_ORIGIN + ' or a local path')
+  }
+
+  entry.body.forEach((block, i) => {
+    const where = 'body[' + i + ']'
+    if (block.kind === 'list') {
+      if (block.items.length === 0) at(where, 'a list needs at least one item')
+      block.items.forEach((item, j) => spans(at, where + '.items[' + j + ']', item))
+      return
+    }
+    if (block.kind === 'heading' && block.level !== 2 && block.level !== 3) {
+      at(where, 'heading level must be 2 or 3')
+    }
+    if (block.kind === 'image' || block.kind === 'video' || block.kind === 'embed') return
+    spans(at, where, block.spans)
+  })
+  return problems
 }
 
 /** Collection-level bounds: the ones a single entry cannot see. */

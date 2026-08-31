@@ -22,12 +22,31 @@ const INTERACTIVE_SELECTOR = 'a, button, [role="button"], input, select, textare
 // (compositor work, no layout/paint), and visual states (hover grow, grabbing
 // shrink, show/hide) live in CSS keyed off a data attribute so they never
 // touch the JS hot path.
-export function CustomCursor() {
+interface Props {
+  /**
+   * Off on blog routes, and this is the one place the "never unmount me" note in
+   * App.tsx does not apply.
+   *
+   * `styles.css` sets `cursor: none !important` on EVERY element while this is
+   * running, so a page of serif prose would have no I-beam and no visible
+   * text-selection affordance. The white hand is drawn for a dark canvas and
+   * cannot become a caret.
+   *
+   * Disabling runs the effect cleanup below, which is already exactly the three
+   * things that have to happen: the `has-custom-cursor` class comes off <html>,
+   * the settle rAF is cancelled, and every listener is removed. Re-enabling
+   * rebuilds all of it from the same effect.
+   */
+  enabled?: boolean
+}
+
+export function CustomCursor({ enabled = true }: Props) {
   const layerRef = useRef<HTMLDivElement>(null)
   const leadRef = useRef<HTMLDivElement>(null)
   const followRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!enabled) return
     // Coarse pointers (touch) get no custom cursor — it would just be a dot
     // frozen wherever the last tap landed. Native cursor behavior stays.
     if (!window.matchMedia('(pointer: fine)').matches) return
@@ -156,7 +175,12 @@ export function CustomCursor() {
       cancelAnimationFrame(raf)
       document.documentElement.classList.remove('has-custom-cursor')
     }
-  }, [])
+  }, [enabled])
+
+  // Nothing rendered while disabled, so no stale `is-visible` layer can be left
+  // painted over the blog. The component itself stays mounted, so the effect
+  // above owns the teardown rather than the parent.
+  if (!enabled) return null
 
   return (
     <div className="cursor-layer" ref={layerRef} aria-hidden="true">

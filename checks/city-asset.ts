@@ -42,8 +42,29 @@ import fs from 'node:fs';
 import { PropertyBinding } from 'three';
 import { banner, check, finish, section } from './lib/assert';
 import { cityDistrictBindings } from '../src/experiences/murcia/scene/cityDistrictBindings';
+import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/interaction/BlogBuilding';
 
-const MODEL = process.argv[2] ?? 'public/models/city-prototype.glb';
+const MODEL =
+  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/city-prototype.glb';
+
+/**
+ * `--contract-only` runs the NAME sections and skips the pending UV assertion.
+ *
+ * Why it exists: §1 is a real, OPEN asset gap — most primitives still carry no
+ * TEXCOORD_0 while the trim-sheet re-export is outstanding — and the note at the
+ * top of this file is right that a gate expected to fail is not a gate, which is
+ * why the whole harness sits outside `check:harnesses`.
+ *
+ * Meanwhile the blog's only entry point is two node names in this same GLB, and
+ * "a re-export renamed them" has to fail a build rather than log a warning
+ * nobody reads. So the narrow gate is chained and the full one is not.
+ *
+ * NOTHING IS DISABLED. `npm run check:asset` still runs every section and still
+ * reports the UV gap exactly as loudly as before; this only adds a subset that
+ * can honestly be green today. When the re-export lands, chain the full harness
+ * and delete this flag.
+ */
+const CONTRACT_ONLY = process.argv.includes('--contract-only');
 
 /**
  * Ceilings, not targets. The trim sheet's whole promise is that many procedural
@@ -166,6 +187,15 @@ console.log(`  extensions: ${used.join(', ') || 'none'}`);
 // surface — a flat, plausible-looking colour, which is exactly why this has to
 // be an assertion and not an eyeball.
 
+if (CONTRACT_ONLY) {
+  console.log(
+    '        --contract-only: skipping the UV, economy and sampler sections.\n' +
+      '        They measure an open gap rather than gate one. Run\n' +
+      '        `npm run check:asset` for the full report.',
+  );
+}
+
+if (!CONTRACT_ONLY) {
 section('1. UV coordinates (plan 001 Phase 3 — Blender owns trim placement)');
 
 const missingUv = primitives.filter((p) => !attributeNames(p.prim).has('TEXCOORD_0'));
@@ -243,6 +273,8 @@ check(
 // 14 shared geometries with thousands of unique ones. The GLB would still load,
 // still look identical, and cost the download, the vertex memory and the
 // draw calls all at once.
+
+}
 
 section('3. GPU instancing (kept — see the trim-sheet plan, decision 1)');
 
@@ -356,6 +388,30 @@ console.log(
     `${unbound.length ? `: ${list(unbound)}` : ''}`,
 );
 
+// --- 5b. The blog's entry point ---------------------------------------------
+//
+// The blog is reachable from the city through exactly one cluster, and a
+// re-export that renames or removes it takes the way in with it. That failure
+// is silent in the worst way: the city still loads, the district still works,
+// and the only symptom is a building that quietly stopped doing anything.
+//
+// BOTH runtime spellings are asserted, and the second is the whole point:
+// `blog_edificios.001` is renamed by GLTFLoader to `blog_edificios001`, and the
+// 2026-08-11 audit recorded exactly that biting on this same cluster.
+
+section("5b. The blog's entry point (BlogBuilding.ts — names ARE the identity)");
+
+for (const configured of BLOG_BUILDING_NODE_NAMES) {
+  const matches = nodesNamed(configured);
+  check(
+    `"${configured}" is in the GLB`,
+    matches.length > 0,
+    matches.length > 0
+      ? `as ${list(matches)}`
+      : 'the blog has no way in from the city — see murcia/interaction/BlogBuilding.ts',
+  );
+}
+
 // --- 6. Samplers ------------------------------------------------------------
 // Reported, never asserted. Blender's Image Texture *Extension* is per-node and
 // cannot express the split the banded atlas needs — repeat along U so trims tile
@@ -363,6 +419,7 @@ console.log(
 // split is applied at load in `loadCity.ts`, and is the single deliberate
 // exception to "Blender owns the sampling".
 
+if (!CONTRACT_ONLY) {
 section('6. Samplers (informational — wrapping is set at load, see loadCity.ts)');
 
 const WRAP = new Map([
@@ -377,6 +434,8 @@ for (const [i, sampler] of (json.samplers ?? []).entries()) {
   const s = WRAP.get(sampler.wrapS ?? 10497) ?? String(sampler.wrapS);
   const t = WRAP.get(sampler.wrapT ?? 10497) ?? String(sampler.wrapT);
   console.log(`        sampler[${i}] wrapS ${s} · wrapT ${t}  (overridden at load)`);
+}
+
 }
 
 finish();

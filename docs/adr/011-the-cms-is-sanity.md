@@ -43,6 +43,14 @@ Two things forced the question.
 
 **The blog is modelled and not rendered.** No page, no route, no renderer. The schema exists so the format does not have to be invented later against live editorial copy, and `checks/architecture.ts` asserts that nothing under `src/` imports the generated module — the entry chunk has a hard 320,000 B budget with roughly 2 KB spare, and a static import would blow it while reporting itself as a bundler problem.
 
+> **Superseded 2026-08-31 by `adr/013`.** The blog now has a route, a document of its own and a
+> renderer. What this paragraph got right outlived the decision it was arguing for: the budget
+> reasoning is why the architecture rule was *narrowed* — the blog must not be **statically**
+> reachable from `src/main.tsx` — rather than deleted. Modelling the format before there was a
+> renderer is also what made the implementation cheap: the ingestion, the Portable Text policy
+> and the hostile-input tests were already there and did not change. The budget figure is
+> 332,000 B, not 320,000; it was raised in `vite.config.ts` and this line was not updated with it.
+
 **No Sanity code reaches the browser.** No `@sanity/client` — one `fetch` behind the existing `ContentSource` interface. No `VITE_SANITY_*`. The Studio is a separate package with its own dependency tree, excluded from the root tsconfig and vitest config. A read token, if a private dataset is ever chosen, is a build-time header and nothing else.
 
 ## Alternatives considered

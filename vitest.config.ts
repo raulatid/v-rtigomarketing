@@ -52,7 +52,13 @@ export default defineConfig({
     // generator). It lives outside src/ because it must never be bundled for the
     // browser, but it is ordinary unit-testable code and belongs in this tier —
     // not in checks/, which is for harnesses that need a DOM stub and a scene.
-    include: ['src/**/*.test.{ts,tsx}', 'content/**/*.test.ts'],
+    // `scripts/` joined the tier for the same reason `content/` did: it is
+    // Node-side build code that must never be bundled for the browser, but is
+    // ordinary unit-testable logic. `scripts/blogShell.ts` takes CMS-authored
+    // strings and writes them into HTML, which is exactly the kind of thing that
+    // wants hostile-input tests — and `vite.config.ts`, where it is used, is not
+    // somewhere a test can reach.
+    include: ['src/**/*.test.{ts,tsx}', 'content/**/*.test.ts', 'scripts/**/*.test.ts'],
 
     // No globals. `noUnusedLocals` is on and this repo has no ambient-global
     // habit, so `describe`/`it`/`expect` are imported like anything else.

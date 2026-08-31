@@ -26,6 +26,8 @@ import { InteractionProbe } from './interaction/InteractionProbe';
 import { resolveDistrict } from './interaction/resolveDistrict';
 import type { ServiceSiteInput } from './interaction/DistrictInteraction';
 import { createServicesDistrict } from './district/createServicesDistrict';
+import { createBlogBuilding } from './interaction/BlogBuilding';
+import type { BlogBuilding } from './interaction/BlogBuilding';
 import type { ServicesDistrict } from './district/createServicesDistrict';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
@@ -63,6 +65,18 @@ export class MurciaExperience {
   private readonly debugTools: boolean;
   /** See the constructor option of the same name. */
   private readonly onAttentionChange?: () => void;
+
+  /**
+   * The blog's entry point in the city.
+   *
+   * Emits a bare signal outward and nothing else — no argument, no category, no
+   * knowledge of what the application does with it. Murcia must not learn that a
+   * blog exists: `checks/architecture.ts` forbids `src/experiences/` from
+   * importing `src/blog/` or the routing, and a callback with no payload is what
+   * keeps that true rather than merely unenforced.
+   */
+  private readonly onOpenBlog?: () => void;
+  private blogBuilding: BlogBuilding | null = null;
 
   private sceneBundle!: SceneBundle;
   private camera!: THREE.PerspectiveCamera;
@@ -142,12 +156,15 @@ export class MurciaExperience {
        * `hasFocusedDistrict`, the same aggregate they already poll.
        */
       onAttentionChange?: () => void;
+      /** A tap landed on the blog building. */
+      onOpenBlog?: () => void;
     } = {},
   ) {
     this.container = container;
     this.renderer = renderer;
     this.debugTools = options.debugTools ?? false;
     this.onAttentionChange = options.onAttentionChange;
+    this.onOpenBlog = options.onOpenBlog;
     this.appConfig = applyQueryOverrides(
       createAppConfig(),
       window.location.search,
@@ -375,6 +392,7 @@ export class MurciaExperience {
     // Murcia's camera, so you warped into a city that had moved behind your
     // back. Frozen has to mean deaf as well as still.
     for (const district of this.districts) district.setEnabled(next);
+    this.blogBuilding?.setEnabled(next);
 
     // The drag controller listens on the SHARED canvas, so while Earth is
     // showing, every Earth drag also reaches it — its target focus and yaw
@@ -516,9 +534,56 @@ export class MurciaExperience {
     }
 
     this.setupDistricts(loaded.root);
+    this.setupBlogBuilding(loaded.root);
 
     this.setupClickInteraction();
     this.statusOverlay.hide();
+  }
+
+  /**
+   * The blog CTA: the `blog_edificios` cluster, and nothing else.
+   *
+   * Deliberately NOT a district and not part of `DistrictInteraction`. A tap
+   * emits one signal and the module is finished — no flight, no panel, no state.
+   * Folding it into the district interaction would teach the services district
+   * that a blog exists, and that class is 766 lines because entering a district
+   * is genuinely complicated; entering the blog is not.
+   *
+   * Absent from the city is survivable and loud: the cluster is inert scenery
+   * that has been in the GLB since it was the district stand-in, and
+   * `check:asset:contract` fails the build if a re-export removes it.
+   */
+  private setupBlogBuilding(root: THREE.Object3D): void {
+    if (this.onOpenBlog === undefined) return;
+    const onOpenBlog = this.onOpenBlog;
+    this.blogBuilding = createBlogBuilding({
+      root,
+      camera: this.camera,
+      canvas: this.renderer.domElement,
+      cursor: this.cursor,
+      tapThresholdPx: {
+        mouse: this.environment.navigation.dragThresholdPx,
+        touch: this.environment.navigation.touchDragThresholdPx,
+      },
+      // A district panel or a flight owns attention; a tap that reaches a
+      // building behind one of those is not a request to leave for the blog.
+      blocked: () => this.hasFocusedDistrict,
+      onActivate: onOpenBlog,
+    });
+    // Seeded for the same reason the districts are: the city is built during
+    // the Earth intro, so `active` is normally still false here and setActive()
+    // will not fire again to correct it.
+    this.blogBuilding?.setEnabled(this.active);
+
+    // Test seam, on the same flag as every other debug tool. The e2e round trip
+    // must tap this building, and where it is on screen depends on the camera
+    // pose and the GLB — not on anything a spec could hardcode without becoming
+    // a test of the city's layout instead of the blog's behaviour.
+    if (this.debugTools && this.blogBuilding) {
+      const building = this.blogBuilding;
+      (window as unknown as Record<string, unknown>).__vertigoBlogBuildingPoint = () =>
+        building.screenPoint();
+    }
   }
 
   /**
@@ -732,6 +797,7 @@ export class MurciaExperience {
    * version derived it from its own performance.now() bookkeeping.
    */
   update(delta: number): void {
+    this.blogBuilding?.update();
     if (!this.active || !this.sceneBundle) return;
 
     const now = performance.now();
@@ -790,6 +856,8 @@ export class MurciaExperience {
   }
 
   dispose(): void {
+    this.blogBuilding?.dispose();
+    this.blogBuilding = null;
     this.active = false;
 
     this.renderer.domElement.removeEventListener('pointerup', this.onPointerUpForClick);

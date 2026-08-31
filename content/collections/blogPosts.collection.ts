@@ -1,5 +1,20 @@
-import type { BlogBlock, BlogPost, EmbedBlock, ImageMedia, VideoBlock } from '../../src/content/types'
-import { ID_PATTERN, collectionProblems } from '../../src/content/invariants'
+import type {
+  BlogBlock,
+  BlogCategory,
+  BlogPost,
+  BlogSeo,
+  EmbedBlock,
+  ImageMedia,
+  VideoBlock,
+} from '../../src/content/types'
+import { ID_PATTERN, blogPostProblems, collectionProblems } from '../../src/content/invariants'
+import {
+  BLOG_META_DESCRIPTION_FALLBACK_MAX,
+  DEFAULT_OG_IMAGE_PATH,
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_WIDTH,
+} from '../../src/content/blogPolicy'
+import { readingMinutes } from '../lib/readingTime'
 import { BLOG_TEXT_POLICY, richBlocks } from '../lib/portableText'
 import { Report, boundedArray, matching, oneOf, slug, text } from '../lib/validate'
 import { imageMedia, optionalImageMedia } from './media'
@@ -14,12 +29,13 @@ import { collection } from './types'
  * known to be insufficient buys a content migration on live editorial copy in
  * exchange for nothing.
  *
- * ── Nothing imports the generated module, and that is a hard rule ──
- * The application entry chunk has a 320,000 B budget with roughly 2 KB spare
- * (`vite.config.ts`). A static import of the whole blog dataset from the WebGL
- * entry point would blow it, and the failure would look like a bundler problem
- * rather than a content one. `checks/architecture.ts` asserts the absence.
- * When a blog UI arrives it belongs behind route-level lazy loading.
+ * ── The generated module is lazy-only, and that is still a hard rule ──
+ * The application entry chunk has a 332,000 B budget. A static import of the
+ * whole blog dataset from the WebGL entry would blow it, and the failure would
+ * look like a bundler problem rather than a content one. The blog UI arrived
+ * with `adr/013`, so `checks/architecture.ts` no longer asserts that nothing
+ * imports this — it asserts that nothing reaches it STATICALLY from
+ * `src/main.tsx`. The reason is unchanged; only the shape of the rule moved.
  *
  * ── Video and embeds are boundaries, not features ──
  * There is no transcoding pipeline and no player. What exists is the schema, so
@@ -162,6 +178,100 @@ function body(report: Report, path: string, raw: unknown): BlogBlock[] | undefin
   return out
 }
 
+/**
+ * The topic, dereferenced from the service it references.
+ *
+ * NULL rather than guessed when absent. The Studio requires the field, so every
+ * post written since `adr/013` has one; posts that predate it do not, and the
+ * three options were to fail the build on live content, to infer a topic from
+ * `tags[0]`, or to say nothing. Inference was rejected twice over: a category
+ * carries a visible LABEL, so a wrong guess is wrong on screen rather than
+ * silently, and `map` receives one record at a time by design
+ * (`content/collections/types.ts`) so it cannot check that a guessed id names a
+ * real service. A post with no topic shows no eyebrow and sits under no pill,
+ * which is visibly incomplete instead of confidently wrong.
+ *
+ * MIGRATION STATE. When the dataset is filled in this becomes required and the
+ * null branch goes with it.
+ */
+function category(report: Report, path: string, raw: unknown): BlogCategory | null | undefined {
+  if (raw === null || raw === undefined) return null
+  if (typeof raw !== 'object') return report.fail(path, 'expected a category object')
+  const source = raw as Record<string, unknown>
+
+  const id = slug(report, path + '.id', source.id, ID_PATTERN)
+  const label = text(report, path + '.label', source.label, { max: CATEGORY_LABEL_MAX })
+  // Coalesced to `title` in GROQ, so it is present whenever `label` is.
+  const shortLabel = text(report, path + '.shortLabel', source.shortLabel, {
+    max: CATEGORY_LABEL_MAX,
+  })
+
+  if (id === undefined || label === undefined || shortLabel === undefined) return undefined
+  return { id, label, shortLabel }
+}
+
+/**
+ * Cuts at a word boundary, never mid-word.
+ *
+ * Only ever applied to the excerpt when it stands in for an absent
+ * `metaDescription`. A search result ending "...that a business can rec" reads
+ * as a broken site rather than as a truncated field, and the editor who wrote a
+ * fine 300-character excerpt never asked for it to be shown whole.
+ */
+function cutToWord(value: string, max: number): string {
+  if (value.length <= max) return value
+  const clipped = value.slice(0, max)
+  const lastSpace = clipped.lastIndexOf(' ')
+  return (lastSpace > 0 ? clipped.slice(0, lastSpace) : clipped).replace(/[\s,;:.\u2013-]+$/, '') + '…'
+}
+
+/**
+ * What a crawler and a social scraper are told, resolved here rather than in the
+ * renderer.
+ *
+ * Same principle as `DEFAULT_BRAND_COLOR`: resolved once, in the content build,
+ * so every consumer reads a guaranteed value. The payoff is concrete — the
+ * static blog shells are verified to carry exactly one `og:image`, and that is
+ * only a check worth writing because `image` cannot be absent.
+ *
+ * The default image is same-origin and committed rather than a CDN transform. A
+ * scraper will not run JavaScript, will not negotiate a format and will not
+ * follow a chain of redirects to find a picture.
+ */
+function seo(
+  title: string,
+  excerpt: string,
+  cover: ImageMedia | null,
+  ogImage: ImageMedia | null,
+  seoTitle: string | undefined,
+  metaDescription: string | undefined,
+): BlogSeo {
+  return {
+    title: seoTitle ?? title,
+    description: metaDescription ?? cutToWord(excerpt, BLOG_META_DESCRIPTION_FALLBACK_MAX),
+    image:
+      ogImage ??
+      cover ?? {
+        src: DEFAULT_OG_IMAGE_PATH,
+        alt: 'Vértigo',
+        width: OG_IMAGE_WIDTH,
+        height: OG_IMAGE_HEIGHT,
+      },
+  }
+}
+
+/**
+ * Advisory in the Studio and unbounded here, deliberately.
+ *
+ * 60 and 160 are where Google truncates, not where content stops being valid.
+ * The Studio warns the editor while they type; a build that then refused to
+ * deploy would be the worst of both worlds — told it was fine, then broken. So
+ * these are bounded only against the absurd, to catch a whole article pasted
+ * into a one-line field.
+ */
+const SEO_FIELD_MAX = 2000
+const CATEGORY_LABEL_MAX = 60
+
 export const blogPostsCollection = collection<BlogPost>({
   key: 'blogPosts',
   source: {
@@ -176,11 +286,26 @@ export const blogPostsCollection = collection<BlogPost>({
       excerpt,
       publishedAt,
       tags,
+      category->{
+        "id": slug.current,
+        "label": title,
+        "shortLabel": coalesce(shortTitle, title)
+      },
+      "seoTitle": seoTitle,
+      "metaDescription": metaDescription,
+      ogImage {
+        "src": asset->url,
+        "width": asset->metadata.dimensions.width,
+        "height": asset->metadata.dimensions.height,
+        alt,
+        caption
+      },
       cover {
         "src": asset->url,
         "width": asset->metadata.dimensions.width,
         "height": asset->metadata.dimensions.height,
-        alt
+        alt,
+        caption
       },
       body[]{
         ...,
@@ -189,7 +314,8 @@ export const blogPostsCollection = collection<BlogPost>({
           "src": asset->url,
           "width": asset->metadata.dimensions.width,
           "height": asset->metadata.dimensions.height,
-          alt
+          alt,
+          caption
         }
       }
     }`,
@@ -217,6 +343,25 @@ export const blogPostsCollection = collection<BlogPost>({
     )
     const blocks = body(scoped, 'body', source.body)
 
+    const topic = category(scoped, 'category', source.category)
+    const ogImage: ImageMedia | null | undefined = optionalImageMedia(
+      scoped,
+      'ogImage',
+      source.ogImage,
+    )
+    // Absent and blank both mean "unset", so the fallback runs. An editor who
+    // clears a field leaves '' behind, not undefined.
+    const seoTitle =
+      source.seoTitle === null || source.seoTitle === undefined || source.seoTitle === ''
+        ? undefined
+        : text(scoped, 'seoTitle', source.seoTitle, { max: SEO_FIELD_MAX })
+    const metaDescription =
+      source.metaDescription === null ||
+      source.metaDescription === undefined ||
+      source.metaDescription === ''
+        ? undefined
+        : text(scoped, 'metaDescription', source.metaDescription, { max: SEO_FIELD_MAX })
+
     const problems = [...report.problems, ...scoped.problems]
     if (
       problems.length > 0 ||
@@ -226,15 +371,32 @@ export const blogPostsCollection = collection<BlogPost>({
       published === undefined ||
       cover === undefined ||
       tags === undefined ||
-      blocks === undefined
+      blocks === undefined ||
+      topic === undefined ||
+      ogImage === undefined
     ) {
       return { ok: false, problems }
     }
 
-    return {
-      ok: true,
-      value: { id, title, excerpt, cover, publishedAt: published, tags, body: blocks },
+    const value: BlogPost = {
+      id,
+      title,
+      excerpt,
+      cover,
+      publishedAt: published,
+      tags,
+      body: blocks,
+      category: topic,
+      // Computed, never authored: an authored number drifts the moment the body
+      // is edited and nothing reports the drift.
+      readingTime: readingMinutes(blocks),
+      seo: seo(title, excerpt, cover, ogImage, seoTitle, metaDescription),
     }
+
+    const residual = blogPostProblems(value)
+    if (residual.length > 0) return { ok: false, problems: residual }
+
+    return { ok: true, value }
   },
 
   audit(items) {

@@ -5,6 +5,7 @@ import type { InteractionHandle } from '../experiences/earth/EarthExperience'
 import { CornerLogoLayer } from './CornerLogoLayer'
 import { MurciaLayer } from './MurciaLayer'
 import { RenderPipeline } from '../graphics/RenderPipeline'
+import { DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
 import type { FrameSettings } from '../graphics/renderableExperience'
 import { motionBlur as warpMotionBlur } from '../app/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
@@ -32,8 +33,24 @@ interface Props {
   onMurciaReady: () => void
   /** A Murcia district was engaged or released — attention changed. */
   onMurciaAttentionChange: () => void
+  /** The blog building in the city was tapped. */
+  onOpenBlog: () => void
   /** The WebGL context was lost. Nothing will draw again without a reload. */
   onContextLost: (reason: string) => void
+  /**
+   * The blog is showing, so stop drawing.
+   *
+   * THIS IS THE WHOLE SUSPENSION MECHANISM. It must be a `frameloop` change and
+   * not a gate inside RenderPipeline: that callback runs at useFrame priority 1,
+   * which takes gl.render() away from R3F, so an early return there leaves a
+   * BLANK canvas rather than a frozen one. Stopping the loop above it keeps the
+   * last completed frame in the drawing buffer, which is what makes the return
+   * free.
+   *
+   * Nothing is disposed. The context, the composer, the city and the shared
+   * decoder pools all stay exactly as they were (ADR 003, adr/013).
+   */
+  suspended: boolean
 }
 
 // Both the starfield and the Earth stay mounted for the whole sequence and
@@ -54,7 +71,9 @@ export function SceneCanvas({
   onLogoLoadFailed,
   onMurciaReady,
   onMurciaAttentionChange,
+  onOpenBlog,
   onContextLost,
+  suspended,
 }: Props) {
   // Earth stays mounted whichever experience is showing; this only decides
   // whether it consumes input and does per-frame work (ADR 003).
@@ -99,6 +118,11 @@ export function SceneCanvas({
   return (
     <Canvas
       className="scene-canvas"
+      // Visible in DevTools rather than only in React state: when someone is
+      // looking at a frozen scene wondering why, the answer should be on the
+      // element.
+      data-suspended={String(suspended)}
+      frameloop={suspended ? 'never' : 'always'}
       camera={{ fov: config.normalFov, near: 0.1, far: 5000, position: [0, 0, 200] }}
       // Explicit, and that is the point. Until 2026-08-14 this was the only
       // renderer configuration in the codebase, so `dpr`, `alpha` and
@@ -138,6 +162,21 @@ export function SceneCanvas({
         alpha: false,
       }}
       onCreated={({ gl }) => {
+        // A window probe for the e2e round trip, compiled out of production by the
+        // same constant that removes the debug overlay.
+        //
+        // `frame` is the only observable that can prove `frameloop="never"`
+        // actually suspends — nothing else in the suite watches the render loop.
+        // `geometries`/`textures` show the scene was not disposed and rebuilt,
+        // but only alongside DOM node identity: a full teardown plus rebuild can
+        // land on the same counts, so equality is necessary and not sufficient.
+        if (DEBUG_TOOLS_ENABLED) {
+          ;(window as unknown as Record<string, unknown>).__vertigoGl = () => ({
+            geometries: gl.info.memory.geometries,
+            textures: gl.info.memory.textures,
+            frame: gl.info.render.frame,
+          })
+        }
         // Required BY the line above, not incidental to it. With alpha off the
         // canvas is cleared to an opaque colour instead of showing the page
         // through, and three's default is pure black — which would have
@@ -176,6 +215,7 @@ export function SceneCanvas({
         experienceRef={murciaRef}
         onReady={onMurciaReady}
         onAttentionChange={onMurciaAttentionChange}
+        onOpenBlog={onOpenBlog}
       />
       {/* Every decision the pipeline used to make for itself is made here:
           which experience is showing, whether a transition is playing, and

@@ -1,5 +1,88 @@
 [
   {
+    "id": "una-analitica-sobre-la-que-nadie-actua",
+    "title": "Una analítica sobre la que nadie actúa es un coste",
+    "excerpt": "Recoger datos es barato y mirarlos no. La diferencia entre un panel que se consulta y uno que se ignora casi nunca está en la herramienta.",
+    "publishedAt": "2026-08-25T09:00:00.000Z",
+    "tags": [
+      "analitica",
+      "medicion"
+    ],
+    "category": {
+      "id": "web-analysis",
+      "label": "Analítica web",
+      "shortLabel": "Analítica"
+    },
+    "cover": {
+      "_type": "imageMedia",
+      "src": "https://cdn.sanity.io/images/qxpcrdaw/development/8f2c1a9b4d6e0f3a7c5b2d8e1f4a6c9b0d3e5f7a-1600x900.jpg",
+      "width": 1600,
+      "height": 900,
+      "alt": "Un panel de analítica con una sola métrica destacada sobre el resto",
+      "caption": "Un panel que responde una pregunta se lee. Uno que responde cuarenta, no."
+    },
+    "body": [
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Casi todos los sitios con los que trabajamos ya medían algo. El problema rara vez era la falta de datos: era que nadie había decidido qué pregunta debía contestar el panel, así que contestaba todas a la vez y por tanto ninguna."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "h2",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Empezar por la decisión, no por la métrica"
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Una métrica que no cambia ninguna decisión es un coste de mantenimiento con aspecto de rigor. Antes de instalar nada preguntamos qué se haría distinto si el número subiera, y qué si bajara. Si no hay respuesta, no hay métrica."
+          }
+        ]
+      },
+      {
+        "_type": "imageMedia",
+        "src": "https://cdn.sanity.io/images/qxpcrdaw/development/1c4e7a2b9d5f8e0a3c6b1d4e7f0a3c6b9d2e5f8a-1400x788.jpg",
+        "width": 1400,
+        "height": 788,
+        "alt": "Comparativa entre sesiones registradas y decisiones tomadas a lo largo de seis meses",
+        "caption": "Sesiones frente a decisiones tomadas, mes a mes."
+      },
+      {
+        "_type": "block",
+        "style": "blockquote",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Si el número sube y nadie hace nada distinto, no era una métrica: era decoración."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "El resultado suele ser un panel más corto. Tres o cuatro cifras que alguien mira el lunes y sobre las que se actúa el martes, en lugar de treinta que se revisan cuando algo ya ha ido mal."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "como-medimos-el-seo",
     "title": "Cómo medimos el SEO cuando el ranking no es el objetivo",
     "excerpt": "Una posición no paga facturas. Así es como conectamos la búsqueda con los ingresos que un negocio puede reconocer.",
@@ -112,7 +195,12 @@
           }
         ]
       }
-    ]
+    ],
+    "category": {
+      "id": "seo",
+      "label": "SEO",
+      "shortLabel": "SEO"
+    }
   },
   {
     "id": "la-web-como-activo",
@@ -144,6 +232,11 @@
           }
         ]
       }
-    ]
+    ],
+    "category": {
+      "id": "content-strategy",
+      "label": "Estrategia de contenidos",
+      "shortLabel": "Contenidos"
+    }
   }
 ]

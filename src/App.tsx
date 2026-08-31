@@ -25,6 +25,8 @@ import { useSceneNavigation } from './app/navigation/useSceneNavigation'
 import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
 import { loadProgress } from './loading/progress'
+import { useRoute } from './app/useRoute'
+import { LazyBlog } from './components/LazyBlog'
 
 // The debug panel lives on its own path (/debug) so the main site can be
 // reviewed clean; open http://localhost:5173/debug during development to tune.
@@ -91,6 +93,17 @@ export default function App() {
   // drive reset()/snapToCorner() from here.
   const logoRef = useRef<CornerLogo | null>(null)
   const cornerLogo = useRef<CornerLogoHandle | null>(null)
+
+  // Which page the URL names. The blog is a route, not a panel: it has its own
+  // URL, its own history entries and its own document when opened cold
+  // (`adr/013`).
+  //
+  // `<LazyScene>` below is NOT conditional on this and must never become so.
+  // Unmounting it would destroy the GL context, dispose the composer, tear down
+  // the city and release the shared Draco/KTX2 pools — the exact rebuild ADR 003
+  // exists to prevent. The blog suspends the scene; it never replaces it.
+  const nav = useRoute()
+  const blogOpen = nav.route.name !== 'site'
 
   // Which experience is showing. Both stay mounted; this only decides which one
   // renders and consumes input (ADR 003).
@@ -184,6 +197,9 @@ export default function App() {
     getContext: () => ({
       current: activeExperience,
       canNavigate:
+        // The blog owns the viewport. A gesture accumulating behind it would
+        // warp a reader who is four paragraphs into an article.
+        !blogOpen &&
         // Never drop the viewer into a world that has not finished building.
         murciaReady &&
         !transitioning &&
@@ -229,6 +245,7 @@ export default function App() {
     selectedCase,
     murciaReady,
     transitioning,
+    blogOpen,
     navigationContextChanged,
   ])
 
@@ -290,6 +307,35 @@ export default function App() {
 
   const handleDeselectCase = useCallback(() => setSelectedCase(null), [])
 
+  /**
+   * Opening the blog from the city.
+   *
+   * Guarded here rather than upstream. The CTA is a BUILDING in the scene, not a
+   * control inside a panel, so nothing refuses a tap that lands mid-warp the way
+   * `canNavigate` does for the panels — and `murciaReady` is checked because a
+   * handler should not assume the city exists just because a mesh in it was hit.
+   */
+  const handleOpenBlog = useCallback(() => {
+    if (transitioning || !murciaReady) return
+    nav.openBlogIndex()
+  }, [transitioning, murciaReady, nav])
+
+  /**
+   * Leaving the blog, warm.
+   *
+   * `history.back()` and nothing else: it changes the URL, the popstate listener
+   * in `useRoute` parses it, and the scene un-suspends from that one path.
+   * Setting the route here as well would drive the same transition twice, once
+   * from a URL that had not changed yet.
+   *
+   * The fallback covers a blog reached without a push — which cannot happen in
+   * this host today, since `index.html` only ever gets here through
+   * `openBlogIndex`, but a silent no-op would strand the reader if it ever did.
+   */
+  const handleExitBlog = useCallback(() => {
+    if (!nav.exitToSceneByHistory()) window.location.assign('/')
+  }, [nav])
+
   // The ✕ goes through the interaction controller rather than just clearing
   // state, so the camera returns to overview and the satellite resumes its
   // orbit — closing the panel is a deselect, not a hide.
@@ -308,17 +354,45 @@ export default function App() {
       // Murcia owns Escape while it is showing — its districts close on it.
       // Skipping an intro the viewer has already finished would also be
       // meaningless there.
+      // The blog owns Escape while it is open, and skipping an intro from
+      // behind a reading page would be meaningless anyway.
+      if (blogOpen) return
       if (!earthActive) return
       if (e.key === 'Escape' && !selectedCase && !auditOpen && !contactOpen && !legalDoc)
         handleSkip()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleSkip, selectedCase, auditOpen, contactOpen, legalDoc, earthActive])
+  }, [handleSkip, selectedCase, auditOpen, contactOpen, legalDoc, earthActive, blogOpen])
 
   return (
     <div className="app">
+      {/* THE SCENE WRAPPER, and every word of this is load-bearing.
+
+          PERMANENTLY PRESENT. Never rendered conditionally, never keyed. A
+          wrapper that appears and disappears remounts its subtree, and
+          remounting this subtree is the rebuild ADR 003 exists to prevent.
+
+          HIDDEN WITH `visibility`, never `display: none`. R3F measures its inner
+          container with a ResizeObserver; a collapsed box measures 0x0, which
+          flows into gl.setSize(0, 0) — the drawing buffer is reallocated and the
+          frozen frame destroyed — then composer.setSize(0, 0), which rebuilds
+          five bloom mip targets, then MurciaLayer's setViewport with aspect 0,
+          into the ground-footprint maths check:footprint exists to protect.
+          `visibility` removes painting and hit-testing and leaves every layout
+          box exactly where it was, so nothing measures and nothing resizes.
+
+          WRAPS MORE THAN THE CANVAS. `.murcia-ui` is already inside
+          `.scene-canvas` and needs nothing, but the warp overlay, the footer,
+          the navigation rail and the audit/contact triggers are siblings of
+          <LazyScene> and would otherwise paint over a reading page.
+
+          `inert` is the accessibility half: without it the browser blurs
+          whatever was focused in here to <body> and the reader loses their
+          place, and a screen reader can still walk a scene nobody can see. */}
+      <div className="app__scene" data-hidden={String(blogOpen)} inert={blogOpen}>
       <LazyScene
+        suspended={blogOpen}
         config={config}
         state={state}
         overlayEl={overlayRef}
@@ -333,6 +407,7 @@ export default function App() {
         onLogoLoadFailed={handleLoadFailed}
         onMurciaReady={handleMurciaReady}
         onMurciaAttentionChange={navigationContextChanged}
+        onOpenBlog={handleOpenBlog}
         onContextLost={handleContextLost}
       />
 
@@ -375,8 +450,17 @@ export default function App() {
           strips the `cursor: none` rule it installs, which hands the viewer the
           native arrow back mid-session. The two experiences cannot fight over
           the cursor because neither writes it directly — each owns a cursor
-          manager whose arbitrated result arrives here through cursorSignal. */}
-      <CustomCursor />
+          manager whose arbitrated result arrives here through cursorSignal.
+
+          DISABLED — not unmounted — on the blog, which is the one place the
+          paragraph above does not apply. `styles.css` sets
+          `cursor: none !important` on every element while the custom cursor is
+          running, so a 680px column of serif prose would have no I-beam and no
+          visible text-selection affordance. The white ring is drawn for a dark
+          canvas and cannot become a caret. Data-nulled through `enabled` rather
+          than unmounted, matching CasePanel and LegalPanel, so the listeners and
+          the rAF are torn down and rebuilt by the component's own effect. */}
+      <CustomCursor enabled={!blogOpen} />
 
       {/* BOTH directions are this one control now (`adr/009`). The Spain marker
           is still on the globe and still the warp's aim target, but it no longer
@@ -413,7 +497,26 @@ export default function App() {
         </div>
       )}
 
-      {DEBUG_MODE && (
+      </div>
+
+      {/* A sibling of the scene wrapper, never a child: it must stay visible
+          and interactive while everything above is hidden and inert. */}
+      <LazyBlog
+        route={nav.route}
+        host={{
+          exitToScene: handleExitBlog,
+          openPost: nav.openPost,
+          returnToIndex: nav.returnToIndex,
+          replaceTopic: nav.replaceTopic,
+          rememberScroll: nav.rememberScroll,
+          storedScrollTop: nav.storedScrollTop,
+        }}
+      />
+
+      {/* Route-gated as well as build-gated: a viewer who opened the blog from
+          /debug would otherwise get a 210-line tuning console at z 100 on top of
+          an article. */}
+      {DEBUG_MODE && !blogOpen && (
         <DebugOverlay
           config={config}
           phase={phase}

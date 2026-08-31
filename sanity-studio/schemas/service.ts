@@ -34,6 +34,16 @@ export const service = defineType({
       ],
     }),
     defineField({
+      name: 'shortTitle',
+      title: 'Título corto',
+      description:
+        'Opcional. Una o dos palabras para donde no cabe el título entero: los filtros del ' +
+        'blog y las tarjetas de las entradas. Ejemplo: "Contenidos" para "Estrategia de ' +
+        'contenidos". Si lo dejas vacío se usa el título completo.',
+      type: 'string',
+      validation: (rule) => rule.max(24).warning('Cuanto más corto, mejor encaja en un filtro.'),
+    }),
+    defineField({
       name: 'body',
       title: 'Descripción',
       description: 'Uno o dos párrafos. Se muestra al abrir la sección.',

@@ -17,6 +17,8 @@ interface Props {
   onReady?: () => void
   /** Forwarded to MurciaExperience: a district was engaged or released. */
   onAttentionChange?: () => void
+  /** A tap landed on the blog building in the city. */
+  onOpenBlog?: () => void
 }
 
 // Drives the Murcia environment from R3F's frame loop.
@@ -33,7 +35,14 @@ interface Props {
 // The module is imported DYNAMICALLY for the same reason the rest of the scene
 // is: it pulls in GLTFLoader, DRACOLoader and the whole city stack, none of
 // which may sit in the entry chunk.
-export function MurciaLayer({ active, state, experienceRef, onReady, onAttentionChange }: Props) {
+export function MurciaLayer({
+  active,
+  state,
+  experienceRef,
+  onReady,
+  onAttentionChange,
+  onOpenBlog,
+}: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
 
@@ -46,6 +55,8 @@ export function MurciaLayer({ active, state, experienceRef, onReady, onAttention
   // callback identity from a parent re-render must not rebuild the city.
   const onAttentionChangeRef = useRef(onAttentionChange)
   onAttentionChangeRef.current = onAttentionChange
+  const onOpenBlogRef = useRef(onOpenBlog)
+  onOpenBlogRef.current = onOpenBlog
   // build() is async, so the `active` effect below can run — and finish — long
   // before the experience exists. This is what the build applies on arrival so
   // a transition that happens mid-load is not silently dropped.
@@ -105,9 +116,22 @@ export function MurciaLayer({ active, state, experienceRef, onReady, onAttention
       )
       if (disposed) return
 
+      // Counts how many times the city has been BUILT in this document.
+      //
+      // The acceptance criterion for the whole blog feature is that a round trip
+      // through it does not rebuild the scene, and this is the cheapest thing
+      // that can say so: this runs once per Canvas lifetime, so a second
+      // increment means the Canvas remounted — the rebuild ADR 003 exists to
+      // prevent. Compiled out of production with the rest of the debug tools.
+      if (DEBUG_TOOLS_ENABLED) {
+        const scope = window as unknown as Record<string, number>
+        scope.__vertigoMurciaBuilds = (scope.__vertigoMurciaBuilds ?? 0) + 1
+      }
+
       experience = new Ctor(host, gl, {
         debugTools: DEBUG_TOOLS_ENABLED,
         onAttentionChange: () => onAttentionChangeRef.current?.(),
+        onOpenBlog: () => onOpenBlogRef.current?.(),
       })
       // Before load(), so the camera is constructed with the real aspect and
       // the first bounds computation uses the real footprint.

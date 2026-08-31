@@ -153,3 +153,19 @@ Regenerate with `node scripts/prepare-sky-panorama.mjs <path-to-png>`.
 Provenance not recorded when these were added. **Outstanding:** confirm the source and licence
 of the Earth maps and record them here. They are almost certainly NASA Visible Earth / Blue
 Marble, which is public domain, but "almost certainly" is not a licence record.
+
+## Typefaces (blog)
+
+The blog self-hosts two families. They are served from `public/fonts/` as
+latin and latin-ext woff2 subsets, and declared in `src/blog/blog.css` under the
+family names `Vertigo Blog Inter` and `Vertigo Blog Serif` — renamed so that
+loading the blog's stylesheet in a warm session cannot restyle the 3D site, which
+asks for `Inter` and deliberately resolves to `system-ui`.
+
+- **Inter**, by Rasmus Andersson. SIL Open Font License 1.1.
+  https://github.com/rsms/inter
+- **Source Serif 4**, by Frank Grießhammer for Adobe. SIL Open Font License 1.1.
+  https://github.com/adobe-fonts/source-serif
+
+Both are unmodified apart from subsetting; the OFL permits renaming the declared
+CSS family, which is not a Reserved Font Name change to the fonts themselves.

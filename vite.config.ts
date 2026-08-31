@@ -3,6 +3,13 @@ import react from '@vitejs/plugin-react'
 import glsl from 'vite-plugin-glsl'
 import type { OutputChunk } from 'rollup'
 import { gzipSync } from 'node:zlib'
+import fs from 'node:fs'
+import path from 'node:path'
+// The generated content is a BUILD ARTIFACT, and importing it here is safe only
+// because `precheck` runs `content:build` before `vite build`. If the sitemap or
+// the blog shells ever come out empty, that ordering is the first thing to check.
+import { BLOG_POSTS } from './src/content/generated/blogPosts'
+import { postHead, replaceRegion, shellProblems } from './scripts/blogShell'
 
 // The loading animation is worthless if it is itself waiting on a bundle, so
 // the boot entry's standalone-ness is a build-time invariant rather than a
@@ -35,8 +42,37 @@ const INTRO_BUDGET_BYTES = 16_000
 // imports it; no Murcia config crossed the app/experiences boundary; the
 // generated content modules are 22KB total and are not what grew.
 //
+// 2026-08-31: the number MOVED, and not because anything shrank. Adding
+// blog.html as a second HTML entry (adr/013) gave Rollup two consumers for
+// React, so it hoisted React into a shared chunk that both documents import.
+// The measured entry fell from ~322KB to 110,807B in one commit while the bytes
+// a visitor downloads stayed the same — they just moved next door.
+//
+// So this figure is NOT comparable to the history above, and the budget is now
+// slack rather than tight. It is deliberately NOT lowered to match: the guard
+// exists to catch three.js (820KB) or the blog dataset landing here, and both
+// would still blow 332KB from a base of 110KB. Tightening it to hug the new
+// number would buy noise on every ordinary edit.
+//
 // Gzipped is what the user waits for, and the build prints both.
 const ENTRY_BUDGET_BYTES = 332_000
+
+/**
+ * The blog chunk carries the UI, the serializer and the WHOLE post dataset, so
+ * it grows with the article library rather than with the code. At three posts it
+ * is a rounding error; at fifty it is the thing a reader waits for.
+ *
+ * A ceiling rather than a target, and deliberately generous: the point is to
+ * notice the day the library became the payload, not to police editorial. When
+ * it fires, the fix is to split index metadata from article bodies, not to raise
+ * the number without reading it.
+ */
+const BLOG_BUDGET_BYTES = 120_000
+
+/** Which document a transformIndexHtml call is for. */
+function isBlogDocument(path: string): boolean {
+  return path.replace(/^\//, '') === 'blog.html'
+}
 
 function assertChunkBudgets(): Plugin {
   return {
@@ -107,13 +143,105 @@ function assertChunkBudgets(): Plugin {
         )
       }
 
+      // The blog rides its own chunk, and its size is the library rather than
+      // the code. Matched on the source module, like the intro entry above,
+      // because chunk names are derived and not stable enough to hardcode.
+      const blog = chunks.find((c) =>
+        c.facadeModuleId?.replace(/\\/g, '/').endsWith('src/blog/BlogRoute.tsx'),
+      )
+      const blogSize = blog ? Buffer.byteLength(blog.code, 'utf8') : 0
+      if (blog && blogSize > BLOG_BUDGET_BYTES) {
+        this.error(
+          `blog chunk is ${blogSize}B, over the ${BLOG_BUDGET_BYTES}B budget. This chunk ` +
+            'carries every article body, so it grows with the content: check whether the ' +
+            'library outgrew the payload before raising the number.',
+        )
+      }
+
       // Gzip is what the user actually waits for, so report that alongside.
       const gz = (code: string) => gzipSync(Buffer.from(code, 'utf8')).length
       this.info(
         `chunk budgets ok — intro ${introSize}B (${gz(intro.code)}B gz), ` +
-          `app entry ${entrySize}B${entry ? ` (${gz(entry.code)}B gz)` : ''}`,
+          `app entry ${entrySize}B${entry ? ` (${gz(entry.code)}B gz)` : ''}` +
+          `${blog ? `, blog ${blogSize}B (${gz(blog.code)}B gz)` : ''}`,
       )
     },
+  }
+}
+
+/**
+ * Serves `/blog` and `/blog/<slug>` from `blog.html` in dev and preview, the way
+ * `vercel.json` does in production.
+ *
+ * Without this the two disagree about the one thing the blog depends on: the
+ * PATHNAME. `parseRoute` reads `/blog` and `/blog/<slug>`; a dev server handing
+ * back `/blog.html` parses as the site route and the blog renders nothing. That
+ * failure is silent — a blank page, no console error — and it would also mean
+ * every e2e assertion ran against a URL production never serves.
+ *
+ * Deliberately a REWRITE and not a redirect, again matching Vercel: the address
+ * bar must keep saying `/blog/<slug>`, because that is what the application
+ * routes on and what a reader copies.
+ *
+ * ── And it defers to a real file, which is the half that is easy to miss ──
+ *
+ * Vercel resolves a request against the filesystem BEFORE applying a rewrite, so
+ * a prerendered `dist/blog/<slug>/index.html` wins and the rewrite fires only for
+ * slugs that have no shell. Middleware runs BEFORE static serving, so a rewrite
+ * that did not check would shadow every shell in `vite preview` — the shells
+ * would be dead files locally, e2e would assert against the unfilled document,
+ * and the difference would only appear in production.
+ *
+ * In dev there is no `dist/`, so nothing is found and everything rewrites, which
+ * is correct: there are no shells to defer to.
+ */
+function blogRouting(): Plugin {
+  const DIST = 'dist'
+  const shellFor = (clean: string): string | null => {
+    const slug = /^\/blog\/([^/]+)$/.exec(clean)?.[1]
+    if (slug === undefined) return clean === '/blog' ? `${DIST}/blog/index.html` : null
+    return `${DIST}/blog/${slug}/index.html`
+  }
+
+  const rewrite = (url: string | undefined, deferToFiles: boolean): string | null => {
+    if (url === undefined) return null
+    const [pathname] = url.split('?')
+    const clean = pathname.replace(/\/+$/, '')
+    if (clean !== '/blog' && !/^\/blog\/[^/]+$/.test(clean)) return null
+    // Let the static layer serve a prerendered shell when one exists, exactly as
+    // Vercel would. Only an unknown slug falls through to the SPA document.
+    if (deferToFiles) {
+      const shell = shellFor(clean)
+      // Pointed at explicitly rather than by returning null. Vercel resolves an
+      // extensionless path to a directory index; the static layer under
+      // `vite preview` (sirv) does not, so leaving it alone would 404 into the
+      // SPA fallback and every shell would look dead locally.
+      if (shell !== null && fs.existsSync(shell)) return shell.slice(DIST.length)
+    }
+    return '/blog.html'
+  }
+  interface RequestLike {
+    url?: string
+  }
+  interface ServerLike {
+    middlewares: {
+      use: (fn: (req: RequestLike, res: unknown, next: () => void) => void) => void
+    }
+  }
+  const middleware =
+    (deferToFiles: boolean) =>
+    (server: ServerLike): void => {
+      server.middlewares.use((req, _res, next) => {
+        const target = rewrite(req.url, deferToFiles)
+        if (target !== null) req.url = target
+        next()
+      })
+    }
+  return {
+    name: 'vertigo-blog-routing',
+    // Dev has no dist/ and therefore no shells; preview must defer to them.
+    configureServer: middleware(false),
+    configurePreviewServer: middleware(true),
   }
 }
 
@@ -129,11 +257,24 @@ function introEntry(): Plugin {
   return {
     name: 'vertigo-intro-entry',
     config: () => ({
-      build: { rollupOptions: { input: { index: 'index.html', intro: INTRO_ENTRY } } },
+      build: {
+        rollupOptions: {
+          // Three inputs, and the third is the whole of adr/013: /blog is its
+          // own document, so a cold reader never receives the intro script, the
+          // scene modulepreloads or 2.43 MB of Earth textures. Making that an
+          // absence rather than a set of guards is the point.
+          input: { index: 'index.html', blog: 'blog.html', intro: INTRO_ENTRY },
+        },
+      },
     }),
     transformIndexHtml: {
       order: 'post',
       handler(_html, ctx) {
+        // blog.html gets NONE of this: no intro script, and no modulepreload for
+        // three, the scene or Murcia. It is a 2D document and the reader is
+        // here to read. The build asserts the result — see assertChunkBudgets.
+        if (isBlogDocument(ctx.path)) return []
+
         // LINKED, not inlined — and that was measured rather than assumed.
         //
         // Inlining the chunk into the document is the obvious next move here:
@@ -192,7 +333,11 @@ function introEntry(): Plugin {
             // the ones the first frame after the intro actually needs. Nothing
             // here is needed DURING P0 at all — the point of the split is to
             // fetch without evaluating — but the queue still has an order.
-            const deferred = /MurciaExperience|disposal/.test(chunk.fileName)
+            // The blog is a route nobody has asked for yet. Preloading it at
+            // High priority would put it in front of the chunks the first frame
+            // after the intro actually needs, so it rides at low priority with
+            // the world the visitor cannot reach until they tap a building.
+            const deferred = /MurciaExperience|disposal|BlogRoute/.test(chunk.fileName)
             tags.push({
               tag: 'link',
               attrs: {
@@ -275,27 +420,46 @@ function seoAssets(): Plugin {
 
       this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robots })
 
-      // One URL, because there genuinely is one URL: no router, no routes. A
-      // sitemap listing a single page is still worth emitting — it is how the
-      // canonical origin gets stated to a crawler that arrived some other way.
+      // There is more than one URL now (adr/013): the site, the blog index, and
+      // one per post. The comment this replaced said "there genuinely is one
+      // URL", which was true and is not any more.
+      //
+      // `lastmod` is the publication date rather than a build timestamp. A
+      // sitemap that claims every page changed on every deploy trains a crawler
+      // to ignore the field.
       if (IS_PRODUCTION) {
+        const urls = [
+          `  <url><loc>${PRODUCTION_ORIGIN}/</loc></url>`,
+          `  <url><loc>${PRODUCTION_ORIGIN}/blog</loc></url>`,
+          ...BLOG_POSTS.map(
+            (post) =>
+              `  <url><loc>${PRODUCTION_ORIGIN}/blog/${post.id}</loc>` +
+              `<lastmod>${post.publishedAt.slice(0, 10)}</lastmod></url>`,
+          ),
+        ]
         this.emitFile({
           type: 'asset',
           fileName: 'sitemap.xml',
           source:
             '<?xml version="1.0" encoding="UTF-8"?>\n' +
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-            `  <url><loc>${PRODUCTION_ORIGIN}/</loc></url>\n` +
-            '</urlset>\n',
+            urls.join('\n') +
+            '\n</urlset>\n',
         })
       }
     },
     transformIndexHtml: {
       order: 'post',
-      handler() {
+      handler(_html, ctx) {
+        // Each document declares its own canonical. blog.html's is /blog, and
+        // the per-post shells rewrite it to /blog/<slug> in blogRoutes below —
+        // which is why the exact string emitted here is also an anchor there.
+        const self = isBlogDocument(ctx.path)
+          ? `${PRODUCTION_ORIGIN}/blog`
+          : `${PRODUCTION_ORIGIN}/`
         const tags: HtmlTagDescriptor[] = [
-          { tag: 'link', attrs: { rel: 'canonical', href: `${PRODUCTION_ORIGIN}/` }, injectTo: 'head' },
-          { tag: 'meta', attrs: { property: 'og:url', content: `${PRODUCTION_ORIGIN}/` }, injectTo: 'head' },
+          { tag: 'link', attrs: { rel: 'canonical', href: self }, injectTo: 'head' },
+          { tag: 'meta', attrs: { property: 'og:url', content: self }, injectTo: 'head' },
         ]
         if (!IS_PRODUCTION) {
           tags.push({
@@ -310,8 +474,128 @@ function seoAssets(): Plugin {
   }
 }
 
+/**
+ * Emits one static document per blog post, so a crawler and a social scraper get
+ * a correct `<head>` without running any JavaScript.
+ *
+ * ── The emitted tree mirrors the public URLs ──
+ *
+ *   dist/blog.html                     the SPA document; the rewrite fallback
+ *   dist/blog/index.html               /blog
+ *   dist/blog/<slug>/index.html        /blog/<slug>
+ *
+ * Vercel resolves a request against the filesystem BEFORE applying a rewrite, so
+ * a known slug is served its own prerendered head and the `/blog/:slug` rewrite
+ * never fires for it. The rewrite survives only for slugs that do not exist,
+ * which is exactly the case that should reach the SPA and render "Entrada no
+ * encontrada" at HTTP 200.
+ *
+ * An earlier revision of this emitted `dist/blog/<slug>.html` while the rewrite
+ * pointed at `blog.html`; the two designs never met, so every shell was a dead
+ * file and every article silently fell through to the unfilled document. Hence
+ * the assertion below that every post has a directory and nothing else does.
+ *
+ * ── closeBundle, not generateBundle ──
+ *
+ * Vite's own HTML transform runs inside its `generateBundle`, and racing it is
+ * the single thing here most likely to work on one machine and fail on Vercel.
+ * `closeBundle` runs after everything is on disk. Boring and predictable.
+ */
+function blogRoutes(): Plugin {
+  return {
+    name: 'vertigo-blog-routes',
+    apply: 'build',
+    closeBundle() {
+      const outDir = 'dist'
+      const shellPath = path.join(outDir, 'blog.html')
+      if (!fs.existsSync(shellPath)) {
+        this.error('[blog shells] dist/blog.html was not emitted — is blog.html still a Rollup input?')
+        return
+      }
+      const shell = fs.readFileSync(shellPath, 'utf8')
+
+      const indexCanonical = `<link rel="canonical" href="${PRODUCTION_ORIGIN}/blog">`
+      const indexOgUrl = `<meta property="og:url" content="${PRODUCTION_ORIGIN}/blog">`
+
+      // /blog itself, as a real directory index alongside the fallback document.
+      fs.mkdirSync(path.join(outDir, 'blog'), { recursive: true })
+      fs.writeFileSync(path.join(outDir, 'blog', 'index.html'), shell)
+
+      for (const post of BLOG_POSTS) {
+        const url = `${PRODUCTION_ORIGIN}/blog/${post.id}`
+        let html: string
+        try {
+          html = replaceRegion(shell, postHead(post, { origin: PRODUCTION_ORIGIN }), post.id)
+          html = replaceExactlyOnceOrThrow(html, indexCanonical, `<link rel="canonical" href="${url}">`, `${post.id} canonical`)
+          html = replaceExactlyOnceOrThrow(html, indexOgUrl, `<meta property="og:url" content="${url}">`, `${post.id} og:url`)
+        } catch (error) {
+          this.error(String(error instanceof Error ? error.message : error))
+          return
+        }
+
+        const problems = shellProblems(html, post, { origin: PRODUCTION_ORIGIN })
+        if (problems.length > 0) {
+          this.error(`[blog shells] ${post.id} failed verification:\n  - ${problems.join('\n  - ')}`)
+          return
+        }
+
+        const dir = path.join(outDir, 'blog', post.id)
+        fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(path.join(dir, 'index.html'), html)
+      }
+
+      // One directory per post and nothing else, in both directions. A stale
+      // directory from a deleted post would keep serving a page the site no
+      // longer links to, and a missing one is the dead-file bug above.
+      const expected = new Set(BLOG_POSTS.map((post) => post.id))
+      const actual = fs
+        .readdirSync(path.join(outDir, 'blog'), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+      const orphans = actual.filter((name) => !expected.has(name))
+      const missing = [...expected].filter((id) => !actual.includes(id))
+      if (orphans.length > 0 || missing.length > 0) {
+        this.error(
+          `[blog shells] emitted tree does not match the posts — ` +
+            `orphans: [${orphans.join(', ')}], missing: [${missing.join(', ')}]`,
+        )
+        return
+      }
+
+      this.info(`blog shells ok — ${BLOG_POSTS.length} post(s) + /blog`)
+    },
+  }
+}
+
+/** Local mirror of the helper in scripts/blogShell.ts, throwing for the plugin. */
+function replaceExactlyOnceOrThrow(
+  haystack: string,
+  needle: string,
+  replacement: string,
+  what: string,
+): string {
+  const count = haystack.split(needle).length - 1
+  if (count !== 1) {
+    throw new Error(
+      `[blog shells] ${what}: expected exactly one match, found ${count}. ` +
+        `Needle: ${JSON.stringify(needle)}`,
+    )
+  }
+  return haystack.replace(needle, replacement)
+}
+
 export default defineConfig({
-  plugins: [react(), glsl(), introEntry(), seoAssets(), assertChunkBudgets()],
+  plugins: [
+    react(),
+    glsl(),
+    blogRouting(),
+    introEntry(),
+    seoAssets(),
+    assertChunkBudgets(),
+    // Last, and it reads from disk in closeBundle: everything above must have
+    // finished writing before a shell can be cloned from the result.
+    blogRoutes(),
+  ],
   define: {
     // Compile-time literal, so `DEBUG_TOOLS_ENABLED` folds to a constant and
     // the whole /debug panel becomes unreachable code the minifier removes.

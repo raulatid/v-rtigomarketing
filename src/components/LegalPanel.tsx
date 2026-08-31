@@ -1,39 +1,20 @@
 import { useEffect, useRef } from 'react'
 import { LEGAL_DOCS } from '../content/site'
 import type { LegalDocId } from '../content/site'
-import type { LegalBlock, TextSpan } from '../content/types'
+import type { LegalBlock } from '../content/types'
+import { spans } from './textSpans'
 
 /**
- * The serializer.
+ * The block half of the serializer.
  *
  * An EXPLICIT map from block kind to element, not a rich-text library and not
- * `dangerouslySetInnerHTML`. The content build converts Portable Text into this
- * small vocabulary and rejects anything outside it, so every value below has
- * already been proved to be what it claims — including `href`, which ingestion
- * restricted to `https:` and `mailto:` by parsing the URL rather than matching a
- * pattern.
+ * `dangerouslySetInnerHTML`. The inline half — marks and links — moved to
+ * `textSpans.tsx` when the blog needed the same rules; the argument for it is
+ * recorded there.
  *
  * The switch has no default that renders nothing: a block kind that reached here
  * without a case would be a type error, which is the point of the union.
  */
-function spans(items: TextSpan[]) {
-  return items.map((span, i) => {
-    let node = <>{span.text}</>
-    if (span.marks?.includes('em')) node = <em>{node}</em>
-    if (span.marks?.includes('strong')) node = <strong>{node}</strong>
-    // rel on every link: these are the only outbound links in the application,
-    // and a legal notice is exactly where a referrer leak is least welcome.
-    if (span.href !== undefined) {
-      node = (
-        <a href={span.href} rel="noreferrer">
-          {node}
-        </a>
-      )
-    }
-    return <span key={i}>{node}</span>
-  })
-}
-
 function Block({ block }: { block: LegalBlock }) {
   if (block.kind === 'heading') {
     // The panel's own title is the h2, so a document heading starts at h3 and

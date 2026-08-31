@@ -52,7 +52,26 @@ html {
    16 murcia UI · 20 SVG intro · 35 case panel · 40 warp overlay ·
    42 site footer · 45 navigation rail · 60 audit overlay ·
    62 contact/legal modals · 70 audit + contact triggers ·
-   80 context-lost notice · 100 debug overlay · 999 cursor                     */
+   80 context-lost notice · 90 blog · 100 debug overlay · 999 cursor           */
+
+/* The scene and all of its chrome, hidden as one while the blog is showing.
+ *
+ * VISIBILITY, NEVER `display: none`. R3F measures the canvas container with a
+ * ResizeObserver; a collapsed box measures 0x0, and that flows into
+ * gl.setSize(0, 0) — the drawing buffer is reallocated and the frozen frame
+ * destroyed — then composer.setSize(0, 0), which rebuilds five bloom mip
+ * targets, then a viewport aspect of 0 into the ground-footprint maths.
+ * `visibility` removes painting and hit-testing and leaves every layout box
+ * exactly where it was, so nothing measures and nothing resizes (adr/013).
+ *
+ * The wrapper rather than `.scene-canvas` alone: `.murcia-ui` is already inside
+ * the canvas element, but the warp overlay, the footer, the navigation rail and
+ * the audit/contact triggers are siblings and would otherwise paint over a
+ * reading page. `inert` on the same element handles focus and the a11y tree. */
+.app__scene[data-hidden='true'] {
+  visibility: hidden;
+  pointer-events: none;
+}
 
 .scene-canvas {
   position: fixed !important;

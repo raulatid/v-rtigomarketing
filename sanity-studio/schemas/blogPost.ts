@@ -6,15 +6,21 @@ import { slugOptions, slugValidation } from './lib/slug'
 /**
  * A blog post.
  *
- * MODELLED, NOT RENDERED. There is no blog page yet, and `checks/architecture.ts`
- * asserts that nothing in the application imports the generated blog module —
- * the entry chunk has a hard 320,000 B budget and a blog belongs behind
- * route-level lazy loading. The schema exists now so that the format does not
- * have to be invented later against live editorial copy.
+ * RENDERED since `adr/013` — at `/blog` and `/blog/<identificador>`, from a
+ * document of its own so a reader never pays for the 3D scene. The fieldset
+ * description that used to warn the editor their work was invisible is gone with
+ * it; leaving it would be worse than never having written it.
  *
- * The editor is told this in the first fieldset's description, in plain words,
- * because a section that accepts posts and shows them nowhere is the kind of
- * thing that costs someone an afternoon.
+ * ── Two fields the build treats differently from this schema ──
+ *
+ * `seoTitle` and `metaDescription` warn rather than error at 60 and 160. Those
+ * are where Google truncates, not where content stops being valid, so the build
+ * publishes them at any length. A Studio that says "fine" and a deploy that then
+ * fails is the worst arrangement available.
+ *
+ * `category` is REQUIRED here and nullable in the build. Posts that predate the
+ * field exist, and failing every deployment until someone opens each one is not
+ * a migration plan. See `content/collections/blogPosts.collection.ts`.
  */
 export const blogPost = defineType({
   name: 'blogPost',
@@ -22,14 +28,16 @@ export const blogPost = defineType({
   icon: ComposeIcon,
   type: 'document',
   fieldsets: [
-    {
-      name: 'contenido',
-      title: 'Contenido',
-      description:
-        'Aviso: el blog todavía no se muestra en la web. Lo que escribas aquí se guarda y ' +
-        'aparecerá cuando la sección del blog esté lista.',
-    },
+    { name: 'contenido', title: 'Contenido' },
     { name: 'publicacion', title: 'Publicación' },
+    {
+      name: 'seo',
+      title: 'Buscadores y redes',
+      description:
+        'Opcional. Controla cómo se ve la entrada en Google y al compartirla. ' +
+        'Si lo dejas vacío se usa el título y la entradilla de arriba.',
+      options: { collapsible: true, collapsed: true },
+    },
     TECH_FIELDSET,
   ],
   fields: [
@@ -81,6 +89,17 @@ export const blogPost = defineType({
       validation: (rule) => rule.required().error('Elige una fecha de publicación.'),
     }),
     defineField({
+      name: 'category',
+      title: 'Tema principal',
+      description:
+        'El servicio del que trata la entrada. Es lo que aparece encima del título y lo que ' +
+        'agrupa las entradas en el listado del blog.',
+      type: 'reference',
+      to: [{ type: 'service' }],
+      fieldset: 'publicacion',
+      validation: (rule) => rule.required().error('Elige el tema principal de la entrada.'),
+    }),
+    defineField({
       name: 'tags',
       title: 'Temas',
       description:
@@ -101,6 +120,38 @@ export const blogPost = defineType({
         rule.max(8).error('Como máximo 8 temas.'),
         rule.unique().error('Ese tema ya está en la lista.'),
       ],
+    }),
+    defineField({
+      name: 'seoTitle',
+      title: 'Título para buscadores',
+      description:
+        'Opcional. Si lo dejas vacío se usa el título de la entrada. Google suele cortar a ' +
+        'partir de unos 60 caracteres.',
+      type: 'string',
+      fieldset: 'seo',
+      validation: (rule) =>
+        rule.max(60).warning('Google suele cortar a partir de unos 60 caracteres.'),
+    }),
+    defineField({
+      name: 'metaDescription',
+      title: 'Descripción para buscadores',
+      description:
+        'Opcional. Si la dejas vacía se usa la entradilla. Google suele cortar a partir de ' +
+        'unos 160 caracteres.',
+      type: 'text',
+      rows: 2,
+      fieldset: 'seo',
+      validation: (rule) =>
+        rule.max(160).warning('Google suele cortar a partir de unos 160 caracteres.'),
+    }),
+    defineField({
+      name: 'ogImage',
+      title: 'Imagen para redes sociales',
+      description:
+        'Opcional. La imagen que se ve al compartir la entrada. Si la dejas vacía se usa la ' +
+        'de portada. Se recorta a 1200 × 630.',
+      type: 'imageMedia',
+      fieldset: 'seo',
     }),
     defineField({
       name: 'slug',
