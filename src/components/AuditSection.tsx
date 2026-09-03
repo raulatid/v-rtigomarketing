@@ -7,12 +7,16 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { auditView, shiftsFor, type AuditPhase } from '../auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
 import type { LegalDocId } from '../content/site'
+import './auditSection.css'
 
-// Audit section (plan 005): a fixed trigger in the top-right corner and a solid
-// black form panel that curtains in from the left over the live scene.
+// Audit section (plan 005): a trigger in the site header and a solid black form
+// panel that curtains in from the left over whatever is showing — Earth, Murcia
+// or the blog (2026-09-03). The stylesheet is imported here, not by styles.css,
+// because the cold blog document mounts this too.
 //
 // The four-state machine below is the plan's §14 model verbatim. All motion is
 // CSS transitions keyed off data-state — the timeline/GSAP clock is for the
@@ -118,12 +122,14 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
  * `undefined` is how JSX omits an attribute.
  */
 function AuditField({
+  idPrefix,
   field,
   def,
   controlProps,
   onChange,
   error,
 }: {
+  idPrefix: string
   field: Field
   def: FieldDef
   controlProps: Record<string, unknown>
@@ -132,7 +138,7 @@ function AuditField({
 }) {
   return (
     <div className="audit-field">
-      <label className="audit-label" htmlFor={`audit-${field}`}>
+      <label className="audit-label" htmlFor={`${idPrefix}-${field}`}>
         {def.label}
         {def.kind === 'input' && def.optional ? (
           <>
@@ -213,12 +219,25 @@ interface Props {
   // The trigger stays off-screen until the intro fully lands (satellites
   // revealed, phase 'site') — no interaction is offered over a half-built scene.
   ready: boolean
-  // False while another experience is showing. This section is Earth's chrome:
-  // it is positioned over Earth's scene, its camera shift writes Earth's camera,
-  // and its curtain would occlude Murcia's return control. The component stays
-  // mounted (the form keeps what was typed) but it is forced closed here — see
-  // the reset effect below.
-  active: boolean
+  /**
+   * Where the trigger renders: the site header's actions cell, through a
+   * portal. Null renders it inline where the section is — the arrangement the
+   * tests use, and the one this component had before the header existed.
+   */
+  triggerHost?: HTMLElement | null
+  /**
+   * Whether opening writes `auditView.open`, the flag AuditCameraShift reads to
+   * recompose Earth's camera beside the curtain. The blog mounts a second
+   * instance over a suspended canvas and passes false, so the flag keeps
+   * exactly one writer per rendered scene (see the effect below).
+   */
+  recomposesScene?: boolean
+  /**
+   * Prefix for every element id (title, fields, error lines). Two instances
+   * share a warm document — App's, hidden and inert behind the blog, and the
+   * blog's own — and ids are document-global.
+   */
+  idPrefix?: string
   /** Opens a legal document panel. App owns which one is showing. The links
       sit at the foot of this panel (DECISIONS §30): the consent question
       belongs beside the form that asks for the data, not on the floor line. */
@@ -233,7 +252,9 @@ type Submission = 'idle' | 'submitting' | 'success' | 'error'
 export function AuditSection({
   onOpenChange,
   ready,
-  active,
+  triggerHost = null,
+  recomposesScene = true,
+  idPrefix = 'audit',
   onOpenLegal,
   submit = submitAuditRequest,
 }: Props) {
@@ -291,8 +312,10 @@ export function AuditSection({
     }, reducedRef.current ? REDUCED_MS : LEAVE_MS)
   }, [phase, onOpenChange])
 
-  // THE ONLY WRITER of `auditView.open`, and it runs for every phase including
-  // 'closed'. Two properties matter and the previous version had neither:
+  // THE ONLY WRITER of `auditView.open` (per rendered scene — an instance with
+  // `recomposesScene` false never touches it), and it runs for every phase
+  // including 'closed'. Two properties matter and the previous version had
+  // neither:
   //
   //  - It is not a partial view. `shiftsFor` maps (phase, breakpoint) to the
   //    flag, so the effect cannot disagree with a write made somewhere else —
@@ -308,6 +331,7 @@ export function AuditSection({
   // with the section open and it crosses 768px, and a one-shot read taken when
   // the gesture started would have the camera keeping its portrait answer.
   useEffect(() => {
+    if (!recomposesScene) return
     const wide = window.matchMedia(`(min-width: ${MOBILE_MAX}px)`)
     const sync = () => {
       auditView.open = shiftsFor(phase, wide.matches)
@@ -318,23 +342,13 @@ export function AuditSection({
       wide.removeEventListener('change', sync)
       auditView.open = false
     }
-  }, [phase])
+  }, [phase, recomposesScene])
 
-  // Earth stopped showing. The section is Earth's chrome, so it goes with it:
-  // the curtain sits at z-index 60 over Murcia and above its return control, the
-  // trigger at 70, and the camera shift writes a camera that is no longer being
-  // drawn. Reset is a hard cut to 'closed' rather than a close() — there is no
-  // exit animation to play under a warp that already covers the screen, and
-  // close() only accepts 'open' anyway.
-  //
-  // `values` are deliberately kept: the viewer may be mid-form, and the swap is
-  // a navigation, not a cancel.
-  useEffect(() => {
-    if (active) return
-    window.clearTimeout(timerRef.current)
-    setPhase('closed')
-    onOpenChange(false)
-  }, [active, onOpenChange])
+  // No hard-close on an experience swap any more (2026-09-03): the header, and
+  // with it this section, lives on Murcia as well as Earth, and a warp cannot
+  // start while the section is open — App's `canNavigate` refuses it. In Murcia
+  // the curtain simply covers the left strip; the camera recomposition is
+  // Earth's (AuditCameraShift is a no-op there).
 
   // Focus moves to the section heading once the entry completes; form controls
   // are already interactive before that (pointer-events are never blocked).
@@ -459,10 +473,10 @@ export function AuditSection({
   const fieldProps = (field: Field) => {
     const error = showError(field)
     return {
-      id: `audit-${field}`,
+      id: `${idPrefix}-${field}`,
       value: values[field],
       'aria-invalid': error ? true : undefined,
-      'aria-describedby': error ? `audit-${field}-error` : undefined,
+      'aria-describedby': error ? `${idPrefix}-${field}-error` : undefined,
       onBlur: fieldHandlers[field].onBlur,
       ref: fieldHandlers[field].ref,
     }
@@ -472,7 +486,7 @@ export function AuditSection({
     const error = showError(field)
     if (!error) return null
     return (
-      <p className="audit-field__error" id={`audit-${field}-error`}>
+      <p className="audit-field__error" id={`${idPrefix}-${field}-error`}>
         {error}
       </p>
     )
@@ -480,34 +494,38 @@ export function AuditSection({
 
   const isOpenish = phase === 'entering' || phase === 'open'
 
+  // Opens only. While the section is open the trigger fades out entirely
+  // (closing lives on the panel's back arrow) but stays MOUNTED: it is the fade
+  // target on the way out, and close() returns focus to it. Disabled in every
+  // non-closed phase so the invisible control cannot be clicked mid-fade. Kept
+  // mounted while the section is open even if `ready` drops (a debug replay
+  // rewinds the phase).
+  const trigger = (ready || phase !== 'closed') && (
+    <button
+      ref={triggerRef}
+      type="button"
+      className="audit-trigger"
+      data-state={phase}
+      aria-expanded={isOpenish}
+      aria-hidden={isOpenish}
+      disabled={phase !== 'closed'}
+      onClick={open}
+    >
+      Auditoría
+    </button>
+  )
+
   return (
     <>
-      {/* Opens only. While the section is open the trigger fades out entirely
-          (closing lives on the panel's back arrow) but stays MOUNTED: it is the
-          fade target on the way out, and close() returns focus to it. Disabled
-          in every non-closed phase so the invisible control cannot be clicked
-          mid-fade. Kept mounted while the section is open even if `ready` drops
-          (a debug replay rewinds the phase). */}
-      {(ready || phase !== 'closed') && (
-        <button
-          ref={triggerRef}
-          type="button"
-          className="audit-trigger"
-          data-state={phase}
-          aria-expanded={isOpenish}
-          aria-hidden={isOpenish}
-          disabled={phase !== 'closed'}
-          onClick={open}
-        >
-          Auditoría
-        </button>
-      )}
+      {/* Into the site header when there is one; the section keeps owning the
+          button either way (SiteHeader.tsx explains the arrangement). */}
+      {triggerHost ? createPortal(trigger, triggerHost) : trigger}
 
       <section
         className="audit-overlay"
         data-state={phase}
         aria-hidden={phase === 'closed'}
-        aria-labelledby="audit-title"
+        aria-labelledby={`${idPrefix}-title`}
       >
         {/* The curtain translates at its final width — transform only, never
             an animated width (plan 005 §5). */}
@@ -539,7 +557,7 @@ export function AuditSection({
                 <div className="audit-group">
                   <h2
                     className="audit-title"
-                    id="audit-title"
+                    id={`${idPrefix}-title`}
                     tabIndex={-1}
                     ref={successHeadingRef}
                   >
@@ -563,7 +581,7 @@ export function AuditSection({
                 </div>
 
                 <div className="audit-group audit-group--2">
-                  <h2 className="audit-title" id="audit-title" tabIndex={-1} ref={headingRef}>
+                  <h2 className="audit-title" id={`${idPrefix}-title`} tabIndex={-1} ref={headingRef}>
                     Solicita la auditoría de tu presencia digital
                   </h2>
                   <p className="audit-description">
@@ -576,6 +594,7 @@ export function AuditSection({
                   {FIELD_ORDER.map((field) => (
                     <AuditField
                       key={field}
+                      idPrefix={idPrefix}
                       field={field}
                       def={FIELD_DEFS[field]}
                       controlProps={fieldProps(field)}

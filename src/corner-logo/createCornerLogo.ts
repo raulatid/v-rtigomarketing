@@ -2,10 +2,11 @@ import * as THREE from 'three'
 import { loadProgress } from '../loading/progress'
 import { disposeObject3D } from '../graphics/disposal'
 import { loadLogoAssets, type LogoAssets } from './loadLogoAssets'
-import { createLogoMotion, type LogoMotion } from './logoMotion'
+import { createLogoMotion, type CornerMetrics, type LogoMotion } from './logoMotion'
 import type { CornerLogoConfig } from './cornerLogoConfig'
 
 export type { CornerLogoConfig } from './cornerLogoConfig'
+export type { CornerMetrics } from './logoMotion'
 
 // 3D brand logo revealed at screen centre by the P3 crossover, which then spins
 // 360°, flies to the top-left corner and idles there.
@@ -54,6 +55,8 @@ export interface CornerLogo {
   readonly camera: THREE.PerspectiveCamera
   update(delta: number): void
   setSize(width: number, height: number): void
+  /** Where the header's line is, measured off the DOM by CornerLogoLayer. */
+  setCornerMetrics(metrics: CornerMetrics): void
   isDrawable(): boolean
   startSequence(): void
   snapToCorner(): void
@@ -134,6 +137,9 @@ export function createCornerLogo({
     // (extraction 001 §5). Nothing moves the camera after this, which is why
     // logoMotion can read the framing distance back off camera.position.z.
     const size = box.getSize(new THREE.Vector3())
+    // The motion module anchors the box's EDGE to the header's inset and sizes
+    // it to the header's line, so it needs the box, not just the fit distance.
+    motion.setModelSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
     const fovRad = THREE.MathUtils.degToRad(camera.fov)
     const framedDistance = (maxDim / 2 / Math.tan(fovRad / 2)) * config.cornerFramePadding
@@ -196,6 +202,8 @@ export function createCornerLogo({
       camera.aspect = width / height
       camera.updateProjectionMatrix()
     },
+
+    setCornerMetrics: (metrics) => motion.setCornerMetrics(metrics),
 
     // Nothing to draw while hidden — the pipeline skips both the update and the
     // pass, which is what the old dedicated rAF's early return did. Advancing

@@ -5,6 +5,11 @@ import type { Route } from '../app/route'
 import { BlogFigure } from './BlogFigure'
 import { PostBody } from './PostBody'
 import { filterPosts, topicsOf } from './blogFilter'
+import { SiteHeader } from '../components/SiteHeader'
+import { AuditSection } from '../components/AuditSection'
+import { ContactSection } from '../components/ContactSection'
+import { LegalPanel } from '../components/LegalPanel'
+import type { LegalDocId } from '../content/site'
 import './blog.css'
 
 /**
@@ -69,10 +74,18 @@ const Meta = ({ post }: { post: BlogPost }) => (
   </span>
 )
 
+/**
+ * Two glyphs, one per breakpoint, because a viewBox does not rescale.
+ *
+ * The desktop artboard draws a long arrow beside the word; the phone artboard
+ * draws a square chevron alone. Constraining the 44x16 arrow to a 44px square —
+ * which is what the mobile rule did before — renders it at 22x8, adrift in the
+ * middle of its own tap target. CSS shows exactly one of these at a time.
+ */
 function BackControl({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button type="button" className="blog-back" onClick={onClick}>
-      <svg viewBox="0 0 44 16" width="44" height="16" aria-hidden="true">
+      <svg className="blog-back__arrow" viewBox="0 0 44 16" width="44" height="16" aria-hidden="true">
         <path
           d="M9 1 L2 8 L9 15"
           fill="none"
@@ -83,31 +96,150 @@ function BackControl({ label, onClick }: { label: string; onClick: () => void })
         />
         <line x1="2" y1="8" x2="43" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
+      <svg
+        className="blog-back__chevron"
+        viewBox="0 0 24 24"
+        width="22"
+        height="22"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M15 5l-7 7 7 7" />
+      </svg>
       <span className="blog-back__label">{label}</span>
     </button>
   )
 }
 
-function TopBar({ onBack }: { onBack: () => void }) {
+const VertigoMark = () => (
+  <svg viewBox="0 0 400 400" width="26" height="26" aria-hidden="true">
+    <path
+      fill="currentColor"
+      d="M33.7 13.6 7.7 39.4l4.7 3.4c92.3 67.2 193 82.8 292.7 45.5 30.2-11.3 63.8-30.1 85-47.4L354.1.2l-3.4 2.3c-37.9 26-78.1 42.2-118.4 47.7-19.1 2.6-39.4 2.9-58.5.7-26.4-3-52.3-10.2-77.5-21.7C79.3 21.5 62.2 11.4 49.9 1.8L47.5 0Z"
+    />
+    <path
+      fill="currentColor"
+      d="M34.5 99.7 168.6 399.5h62.5L365 99.7l-6 2.9c-20.4 10.2-45.7 20.3-65.4 26l-2.5.9-45.5 101.1-45.4 101.2-45.6-101.1L109.1 129.3l-1.7-.3c-13.6-2.4-43.2-14.2-69.4-27.7Z"
+    />
+  </svg>
+)
+
+const noop = () => {}
+
+/**
+ * The bar, and how many controls it carries depends on where you are.
+ *
+ * It is the SITE's header (components/SiteHeader.tsx, 2026-09-03) in its blog
+ * dress — paper, a hairline, the mark centred where the scene draws its 3D logo
+ * — carrying the two doors every surface carries, Contacto and Auditoría. Both
+ * sections mount HERE, in the blog, with their own ids: in a warm session App's
+ * copies sit hidden and inert behind this page, and a cold `blog.html` has no
+ * App at all. This component still knows nothing about which document it is in.
+ *
+ * On the INDEX there is nowhere for a mark or a search icon to go — the search
+ * field is already on the page and the mark would link to the page you are on —
+ * so the mark is decorative and the third cell holds the doors alone.
+ *
+ * On an ARTICLE both have somewhere to go, and `MovilArticulo.dc.html` draws all
+ * three as 44x44 targets. The search control is in the markup at every width and
+ * hidden above the breakpoint, where the desktop artboards draw none.
+ */
+function TopBar({
+  onBack,
+  onHome,
+  onSearch,
+}: {
+  onBack: () => void
+  onHome?: () => void
+  onSearch?: () => void
+}) {
+  const [actionsHost, setActionsHost] = useState<HTMLElement | null>(null)
+  const [auditOpen, setAuditOpen] = useState(false)
+  const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null)
+
   return (
-    <header className="blog-topbar">
-      {/* Both hosts render the same control; only what it does differs, and on
-          an article it goes to the index rather than out of the blog. */}
-      <BackControl label="Ir atrás" onClick={onBack} />
-      <span className="blog-topbar__mark" aria-hidden="true">
-        <svg viewBox="0 0 400 400" width="26" height="26">
-          <path
-            fill="currentColor"
-            d="M33.7 13.6 7.7 39.4l4.7 3.4c92.3 67.2 193 82.8 292.7 45.5 30.2-11.3 63.8-30.1 85-47.4L354.1.2l-3.4 2.3c-37.9 26-78.1 42.2-118.4 47.7-19.1 2.6-39.4 2.9-58.5.7-26.4-3-52.3-10.2-77.5-21.7C79.3 21.5 62.2 11.4 49.9 1.8L47.5 0Z"
-          />
-          <path
-            fill="currentColor"
-            d="M34.5 99.7 168.6 399.5h62.5L365 99.7l-6 2.9c-20.4 10.2-45.7 20.3-65.4 26l-2.5.9-45.5 101.1-45.4 101.2-45.6-101.1L109.1 129.3l-1.7-.3c-13.6-2.4-43.2-14.2-69.4-27.7Z"
-          />
-        </svg>
-      </span>
-      <span className="blog-topbar__spacer" />
-    </header>
+    <>
+      <SiteHeader
+        layout="blog"
+        tone="light"
+        hasActions
+        onActionsHost={setActionsHost}
+        // Both hosts render the same control; only what it does differs, and on
+        // an article it goes to the index rather than out of the blog.
+        leading={<BackControl label="Ir atrás" onClick={onBack} />}
+        brand={
+          onHome === undefined ? (
+            <span className="blog-topbar__mark" aria-hidden="true">
+              <VertigoMark />
+            </span>
+          ) : (
+            // Named for what it does rather than for the brand it draws:
+            // "Vertigo" tells a screen-reader user what the picture is, not
+            // where the button goes, and where it goes is the only thing they
+            // cannot see.
+            <button
+              type="button"
+              className="blog-topbar__mark blog-topbar__home"
+              aria-label="Inicio del blog"
+              onClick={onHome}
+            >
+              <VertigoMark />
+            </button>
+          )
+        }
+        extra={
+          onSearch === undefined ? undefined : (
+            <button
+              type="button"
+              className="blog-topbar__search"
+              aria-label="Buscar en el blog"
+              onClick={onSearch}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
+            </button>
+          )
+        }
+      />
+
+      {/* Contacto first: portals append in mount order and it sits to the LEFT
+          of the Auditoría box. The blog has no scene to recompose and no global
+          Escape handler to stand down, hence `recomposesScene={false}` and the
+          no-op. */}
+      <ContactSection
+        ready
+        triggerHost={actionsHost}
+        idPrefix="blog-contact"
+        suppressed={auditOpen}
+        onOpenChange={noop}
+        onOpenLegal={setLegalDoc}
+      />
+      <AuditSection
+        ready
+        triggerHost={actionsHost}
+        idPrefix="blog-audit"
+        recomposesScene={false}
+        onOpenChange={setAuditOpen}
+        onOpenLegal={setLegalDoc}
+      />
+      <LegalPanel doc={legalDoc} idPrefix="blog-legal" onClose={() => setLegalDoc(null)} />
+    </>
   )
 }
 
@@ -241,9 +373,12 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
 
         <section className="blog-latest">
           <div className="blog-latest__head">
-            <span className="blog-latest__label">
+            {/* A heading, not a label that looks like one: the index had an h1
+                and nothing under it, so navigating by headings landed on the
+                page title and stopped. Styled to render exactly as before. */}
+            <h2 className="blog-latest__label">
               {showFeatured ? 'Últimas entradas' : 'Resultados'}
-            </span>
+            </h2>
             <span className="blog-latest__count">
               {posts.length === 1 ? '1 entrada' : `${posts.length} entradas`}
             </span>
@@ -267,7 +402,15 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
   )
 }
 
-function Article({ host, post }: { host: BlogHost; post: BlogPost }) {
+function Article({
+  host,
+  post,
+  onSearch,
+}: {
+  host: BlogHost
+  post: BlogPost
+  onSearch: () => void
+}) {
   const index = BLOG_POSTS.findIndex((entry) => entry.id === post.id)
   // BLOG_POSTS is ordered `publishedAt desc`, so the NEXT entry in the array is
   // the older post. "Anterior" means earlier in time, which is forward here.
@@ -288,7 +431,7 @@ function Article({ host, post }: { host: BlogHost; post: BlogPost }) {
     <div className="blog-root">
       {/* "Ir atrás" from an article returns to the INDEX, not out of the blog.
           They look alike in the artboards and are different operations. */}
-      <TopBar onBack={host.returnToIndex} />
+      <TopBar onBack={host.returnToIndex} onHome={host.returnToIndex} onSearch={onSearch} />
       <article className="blog-article">
         {post.category !== null && <span className="blog-eyebrow">{post.category.label}</span>}
         <h1 className="blog-article__title" tabIndex={-1}>
@@ -340,7 +483,7 @@ function Article({ host, post }: { host: BlogHost; post: BlogPost }) {
       {related.length > 0 && post.category !== null && (
         <section className="blog-related">
           <div className="blog-latest__head">
-            <span className="blog-eyebrow">Más de {post.category.shortLabel}</span>
+            <h2 className="blog-eyebrow">Más de {post.category.shortLabel}</h2>
             <button type="button" className="blog-related__all" onClick={host.returnToIndex}>
               Ver todo el blog
             </button>
@@ -385,19 +528,51 @@ function Footer() {
 }
 
 export default function BlogRoute({ route, host }: Props) {
+  /**
+   * "The reader asked for search on the way here", carried across one route
+   * change.
+   *
+   * A REF rather than state, and rather than anything on `BlogHost`. The index
+   * is where the search field lives, so the article's search control has to
+   * navigate before it can focus anything — and the two are separated by a
+   * `history.go`, which resolves asynchronously in a later task. State would
+   * work, but clearing it is a second render that re-runs the effect below and
+   * takes the focus straight back off the input. A ref is read and spent in the
+   * same pass, and no component below re-renders because of it.
+   *
+   * It deliberately does NOT live in `history.state`: an intent is not a
+   * location, and a reader who used the back button to arrive at this same entry
+   * should land on the heading like everyone else.
+   */
+  const searchIntent = useRef(false)
+  const openSearch = () => {
+    searchIntent.current = true
+    host.returnToIndex()
+  }
+
   // Focus moves into the blog on arrival. When the scene wrapper goes `inert`
   // the browser blurs whatever was focused inside it to <body>, which loses the
   // reader's place entirely; the heading is the deterministic landing point, and
   // `preventScroll` stops the focus call fighting the scroll restore.
   const target = route.name === 'blog-post' ? route.slug : 'index'
   useEffect(() => {
-    document.querySelector<HTMLElement>('.blog-root [tabindex="-1"]')?.focus({ preventScroll: true })
+    const wanted = searchIntent.current
+    searchIntent.current = false
+    const root = document.querySelector('.blog-root')
+    if (root === null) return
+    const search = wanted ? root.querySelector<HTMLElement>('.blog-search__input') : null
+    const landing = search ?? root.querySelector<HTMLElement>('[tabindex="-1"]')
+    landing?.focus({ preventScroll: true })
   }, [target])
 
   if (route.name === 'blog-index') return <Index host={host} topic={route.topic} />
   if (route.name === 'blog-post') {
     const post = BLOG_POSTS.find((entry) => entry.id === route.slug)
-    return post === undefined ? <NotFound host={host} /> : <Article host={host} post={post} />
+    return post === undefined ? (
+      <NotFound host={host} />
+    ) : (
+      <Article host={host} post={post} onSearch={openSearch} />
+    )
   }
   return null
 }

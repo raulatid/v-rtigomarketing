@@ -1,0 +1,587 @@
+/* ---- Audit section (plan 005) ----
+   Imported by AuditSection.tsx rather than by styles.css: the section mounts in
+   the blog document too (2026-09-03), and blog.html never loads styles.css.
+   Layer stack recap: 10 canvas (incl. logo) · 20 intro · 35 case panel ·
+   40 warp overlay · 60 this curtain · 70 the site header that opens it ·
+   100 debug. Palette: white primary, blue (#1c67ff family) strictly for
+   accents/CTA. The trigger's own rules live in siteHeader.css. */
+
+/* blog.css has no global reset, so the curtain carries its own box model. */
+.audit-overlay,
+.audit-overlay * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Full-viewport positioning shell only — the scene strip on the right must
+   stay interactive, so the shell never takes pointer events itself. */
+.audit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.audit-overlay[data-state='closed'] {
+  visibility: hidden;
+}
+
+/* The curtain: final width from day one, moved only by transform (§5). */
+.audit-curtain {
+  /* The back arrow's band, shared with .audit-form's top padding below so the
+     form's content can never rise under the control. */
+  --audit-close-top: clamp(1.4rem, 4vh, 2.4rem);
+  --audit-close-h: 40px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: clamp(480px, 44vw, 720px);
+  pointer-events: auto;
+  transform: translateX(-102%);
+  will-change: transform;
+}
+
+.audit-overlay[data-state='entering'] .audit-curtain,
+.audit-overlay[data-state='open'] .audit-curtain {
+  transform: translateX(0);
+  transition: transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Exit is faster and waits ~160ms for the content to fade first (§7). */
+.audit-overlay[data-state='leaving'] .audit-curtain {
+  transition: transform 620ms cubic-bezier(0.55, 0, 0.3, 1) 160ms;
+}
+
+/* One-pixel blue separator with a soft luminance, on the curtain (not the
+   scrollable panel) so it never scrolls away. */
+.audit-curtain::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: rgba(28, 103, 255, 0.45);
+  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+}
+
+/* Narrow black falloff into the canvas so the boundary is not a hard cut. */
+.audit-curtain__edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 110px;
+  background: linear-gradient(90deg, rgba(5, 5, 6, 0.85), rgba(5, 5, 6, 0));
+  pointer-events: none;
+}
+
+/* The close control: a left-pointing arrowhead with a long trailing line.
+   Anchored to the curtain (z above the panel) so it never scrolls with the
+   form; left edge aligned with the form's own padding. */
+.audit-close {
+  position: absolute;
+  z-index: 2;
+  top: var(--audit-close-top);
+  /* The form's own inline padding, minus the 8px the button carries around the
+     glyph, so the arrow's visible left edge still sits on the text's line. */
+  left: calc(clamp(2rem, 5vw, 4.5rem) - 8px);
+  padding: 12px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.65);
+  transition:
+    color 160ms ease,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease;
+  /* Hidden until the curtain has essentially arrived, then fades in with the
+     staggered content groups. */
+  opacity: 0;
+}
+
+.audit-close svg {
+  display: block;
+  width: 44px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (hover: hover) {
+  .audit-close:hover {
+    color: #fff;
+    transform: translateX(-4px);
+  }
+}
+
+.audit-close:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 4px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.audit-overlay[data-state='entering'] .audit-close,
+.audit-overlay[data-state='open'] .audit-close {
+  opacity: 1;
+  transition-delay: 0ms, 0ms, 420ms;
+}
+
+/* On exit it is the first thing to go — the hand that closed the panel should
+   not see its control linger. */
+.audit-overlay[data-state='leaving'] .audit-close {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.audit-panel {
+  position: absolute;
+  inset: 0;
+  background: #050506;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Firefox: thin blue thumb on an invisible track, matching the accent. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(28, 103, 255, 0.55) transparent;
+}
+
+/* WebKit/Blink: a slim, understated bar in the brand blue — the track stays
+   invisible so only the thumb reads, like an indicator rather than a control. */
+.audit-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.audit-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.audit-panel::-webkit-scrollbar-thumb {
+  background: rgba(28, 103, 255, 0.55);
+  border-radius: 999px;
+}
+
+.audit-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(28, 103, 255, 0.8);
+}
+
+.audit-form {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.75rem;
+  padding: clamp(3rem, 8vh, 5rem) clamp(2rem, 5vw, 4.5rem);
+  /* Three floors, the largest wins: the composition's own top padding, the back
+     arrow's band plus air, and the notch. The form is vertically centred and at
+     ~900px tall its eyebrow used to sit 6px under the arrow; now a short
+     viewport scrolls the panel instead of climbing under the control. */
+  padding-top: max(
+    clamp(3rem, 8vh, 5rem),
+    calc(var(--audit-close-top) + var(--audit-close-h) + 1.75rem),
+    calc(env(safe-area-inset-top) + 2rem)
+  );
+  padding-bottom: max(clamp(3rem, 8vh, 5rem), calc(env(safe-area-inset-bottom) + 2rem));
+}
+
+/* Grouped content reveal (§6): four blocks, small Y + tiny X toward the
+   curtain direction, staggered while the curtain is still arriving. */
+.audit-group {
+  opacity: 0;
+  transform: translate(-6px, 10px);
+}
+
+.audit-overlay[data-state='entering'] .audit-group,
+.audit-overlay[data-state='open'] .audit-group {
+  opacity: 1;
+  transform: translate(0, 0);
+  transition:
+    opacity 380ms ease-out,
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.audit-overlay[data-state='entering'] .audit-group--1,
+.audit-overlay[data-state='open'] .audit-group--1 {
+  transition-delay: 340ms;
+}
+
+.audit-overlay[data-state='entering'] .audit-group--2,
+.audit-overlay[data-state='open'] .audit-group--2 {
+  transition-delay: 430ms;
+}
+
+.audit-overlay[data-state='entering'] .audit-group--3,
+.audit-overlay[data-state='open'] .audit-group--3 {
+  transition-delay: 560ms;
+}
+
+.audit-overlay[data-state='entering'] .audit-group--4,
+.audit-overlay[data-state='open'] .audit-group--4 {
+  transition-delay: 760ms;
+}
+
+.audit-overlay[data-state='leaving'] .audit-group {
+  opacity: 0;
+  transform: translate(0, 8px);
+  transition:
+    opacity 200ms ease-in,
+    transform 200ms ease-in;
+}
+
+.audit-eyebrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  /* Same accent-tick idiom as the case panel eyebrow, in the audit blue. */
+  padding-left: 0.75rem;
+  border-left: 2px solid rgba(28, 103, 255, 0.85);
+}
+
+.audit-title {
+  font-size: clamp(1.75rem, 2.4vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin-bottom: 0.85rem;
+}
+
+.audit-title:focus-visible {
+  outline: none;
+}
+
+.audit-description {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 44ch;
+}
+
+.audit-group--3 {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.audit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.audit-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.02em;
+}
+
+.audit-label__optional {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.audit-input {
+  height: 48px;
+  padding: 0 0.9rem;
+  font-family: inherit;
+  /* 16px, and it is not a type choice — it is the threshold below which iOS
+     Safari zooms the page on focus. It was 0.9rem (14.4px), so focusing any of
+     the five fields in the only lead-capture form on the site zoomed in and,
+     with no `maximum-scale`, never zoomed back out on blur. The visitor was
+     then stuck: the canvas is `touch-action: none` across the whole viewport,
+     so they could not pinch out either.
+     Suppressing zoom instead would be a WCAG 1.4.4 failure and would treat the
+     symptom. The height went 46 -> 48px to keep the text off the border. */
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.audit-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@media (hover: hover) {
+  .audit-input:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.audit-input:focus,
+.audit-input:focus-visible {
+  outline: none;
+  border-color: rgba(28, 103, 255, 0.9);
+  box-shadow: 0 0 0 3px rgba(28, 103, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Error state is border + message text, never colour alone (§11). */
+.audit-input[aria-invalid='true'] {
+  border-color: rgba(255, 122, 122, 0.7);
+}
+
+.audit-field__error {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 158, 158, 0.95);
+}
+
+/* Native select restyled in place; the blue chevron is an inline SVG so it
+   needs no asset and no replacement widget (§9). */
+.audit-select-wrap {
+  position: relative;
+}
+
+.audit-select {
+  width: 100%;
+  /* Prefixed first: Safari only took `appearance` unprefixed at 15.4, and
+     without this the native select chrome comes back on older iOS and collides
+     with the ::after chevron below. */
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.audit-select:invalid,
+.audit-select option[value=''] {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.audit-select option {
+  background: #0a0c12;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.audit-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 0.95rem;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid rgba(28, 103, 255, 0.95);
+  border-bottom: 2px solid rgba(28, 103, 255, 0.95);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.audit-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  height: 50px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(110deg, rgba(18, 49, 145, 0.96), rgba(28, 103, 255, 1));
+  border: 1px solid rgba(96, 145, 255, 0.45);
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.3, 0, 0.4, 1), filter 160ms ease,
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) {
+  .audit-cta:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 20px rgba(28, 103, 255, 0.3);
+  }
+}
+
+.audit-cta:active {
+  transform: scale(0.97);
+}
+
+/* In flight: the control says so and refuses a second press. Dimmed rather
+   than restyled — the label ("Enviando…") carries the state, the dim only
+   confirms it. */
+.audit-cta:disabled {
+  cursor: default;
+  filter: none;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+/* The submission failed. Same red family as the field errors — this is the
+   form-level line of the same voice, sat directly above the retry control. */
+.audit-form__error {
+  margin-bottom: 0.8rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 158, 158, 0.95);
+}
+
+/* The delivered state replaces the form inside the already-open panel, so it
+   plays its own small arrival — the group stagger above only runs with the
+   curtain. One rise, no theatrics: the news is the text. */
+.audit-success .audit-group {
+  animation: audit-success-in 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.audit-success .audit-group:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.audit-success .audit-group:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+@keyframes audit-success-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.audit-cta:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.audit-cta__arrow {
+  color: rgba(190, 214, 255, 0.95);
+  font-size: 1rem;
+}
+
+.audit-note {
+  margin-top: 0.8rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+
+/* The legal links at the panel's foot — the note's own muted register, so they
+   read as fine print and never compete with the CTA above them. They came off
+   the Earth floor line on 2026-08-24 (DECISIONS §30). */
+.audit-legal {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+
+.audit-legal__link {
+  background: none;
+  border: 0;
+  /* A 44px touch height without visual weight, the floor line's own trick. */
+  padding: 12px 2px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.audit-legal__link:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.audit-legal__link + .audit-legal__link::before {
+  content: '·';
+  margin-right: 0.4rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.audit-legal__link:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The `.audit-credit` rules that stood here styled the sky panorama's
+   attribution, which was a CC BY 4.0 licence obligation under ESO's policy.
+   The backdrop is now a public domain image and the client requires the site
+   carry no attribution, so the markup went and these went with it. If a credited
+   asset is ever introduced again, it needs its own visible surface — see
+   CREDITS.md. */
+
+/* Tablet: larger share, tighter padding (§13). */
+@media (max-width: 1024px) {
+  .audit-curtain {
+    width: clamp(420px, 56vw, 640px);
+  }
+}
+
+/* Mobile: full-width solid panel, no scene strip, close within reach (§13). */
+@media (max-width: 767px) {
+  .audit-curtain {
+    width: 100vw;
+  }
+
+  .audit-curtain::after,
+  .audit-curtain__edge {
+    display: none;
+  }
+
+  .audit-form {
+    justify-content: flex-start;
+    padding-top: max(
+      6rem,
+      calc(var(--audit-close-top) + var(--audit-close-h) + 1.75rem),
+      calc(env(safe-area-inset-top) + 5rem)
+    );
+  }
+}
+
+/* Reduced motion: near-instant reveal, no travel, no stagger (§12). The
+   camera-side counterpart is auditView.reducedMotion. */
+@media (prefers-reduced-motion: reduce) {
+  .audit-overlay .audit-curtain,
+  .audit-overlay .audit-group {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .audit-cta {
+    transition: none;
+    animation: none;
+  }
+
+  .audit-success .audit-group {
+    animation: none;
+  }
+
+  .audit-close {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}
+
+/* Touch target: a 44x44 area centred on the arrow whatever its rendered size.
+   The case panel's close takes the same expansion in styles.css. */
+@media (pointer: coarse) {
+  .audit-close {
+    position: relative;
+  }
+
+  .audit-close::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+  }
+}

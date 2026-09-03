@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { submitContactRequest } from '../app/contactSubmission'
 import type { ContactRequest, SubmitContactRequest } from '../app/contactSubmission'
 import { SITE_PHONES } from '../content/site'
 import type { LegalDocId } from '../content/site'
+import './modal.css'
+import './contactSection.css'
 
-// The contact form: a Contacto trigger beside the audit CTA and a compact
-// dialog with three fields. AuditSection is the reference implementation this
-// mirrors — same phase discipline (unmounted before `site`, hard-closed when
-// Earth stops showing), same derived validation, same submission machine
-// against the same kind of injected transport (contactSubmission.ts records
-// why the transport must reject in production). It is deliberately a DIALOG
-// and not a second curtain: the audit is the site's one full-attention ask,
-// and a contact message does not outrank it.
+// The contact form: a Contacto trigger beside the audit CTA in the site header
+// and a compact dialog with three fields. AuditSection is the reference
+// implementation this mirrors — same phase discipline (unmounted before
+// `site`), same derived validation, same submission machine against the same
+// kind of injected transport (contactSubmission.ts records why the transport
+// must reject in production). It is deliberately a DIALOG and not a second
+// curtain: the audit is the site's one full-attention ask, and a contact
+// message does not outrank it. Mounted on Earth, Murcia and the blog alike
+// since 2026-09-03, which is why its stylesheets are imported here rather than
+// by styles.css.
 
 type Field = 'name' | 'email' | 'message'
 
@@ -22,10 +27,14 @@ const FIELD_ORDER: Field[] = ['name', 'email', 'message']
 const EMAIL_RE = /.+@.+\..+/
 
 interface Props {
-  /** Chrome may exist at all — `phase === 'site'` on Earth (DECISIONS §26.16). */
+  /** Chrome may exist at all — `phase === 'site'` (DECISIONS §26.16). */
   ready: boolean
-  /** Earth is the experience showing. Deactivating hard-closes, keeping values. */
-  active: boolean
+  /** The site header's actions cell, which the trigger portals into. Null
+   *  renders it inline (tests). */
+  triggerHost?: HTMLElement | null
+  /** Prefix for element ids; two instances share a warm document (AuditSection
+   *  says why). */
+  idPrefix?: string
   /** The audit section owns the viewer's attention; the trigger stands down. */
   suppressed: boolean
   onOpenChange: (open: boolean) => void
@@ -49,7 +58,8 @@ function validate(values: ContactRequest): Partial<Record<Field, string>> {
 
 export function ContactSection({
   ready,
-  active,
+  triggerHost = null,
+  idPrefix = 'contact',
   suppressed,
   onOpenChange,
   onOpenLegal,
@@ -91,15 +101,6 @@ export function ContactSection({
     })
   }, [onOpenChange])
 
-  // Earth stopped showing: hard cut, no exit choreography, values kept —
-  // the same contract AuditSection documents for its own deactivation.
-  useEffect(() => {
-    if (!active && open) {
-      setOpen(false)
-      onOpenChange(false)
-    }
-  }, [active, open, onOpenChange])
-
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -119,7 +120,7 @@ export function ContactSection({
     setSubmitAttempted(true)
     const firstInvalid = FIELD_ORDER.find((f) => errors[f])
     if (firstInvalid) {
-      document.getElementById(`contact-${firstInvalid}`)?.focus()
+      document.getElementById(`${idPrefix}-${firstInvalid}`)?.focus()
       return
     }
     const seq = ++submitSeqRef.current
@@ -138,10 +139,10 @@ export function ContactSection({
     Boolean(errors[field]) && Boolean(touched[field] || submitAttempted)
 
   const fieldProps = (field: Field) => ({
-    id: `contact-${field}`,
+    id: `${idPrefix}-${field}`,
     value: values[field],
     'aria-invalid': showError(field) || undefined,
-    'aria-describedby': showError(field) ? `contact-${field}-error` : undefined,
+    'aria-describedby': showError(field) ? `${idPrefix}-${field}-error` : undefined,
     onChange: (
       e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>,
     ) => setValues((v) => ({ ...v, [field]: e.target.value })),
@@ -150,27 +151,30 @@ export function ContactSection({
 
   const errorLine = (field: Field) =>
     showError(field) ? (
-      <p className="contact-field__error" id={`contact-${field}-error`}>
+      <p className="contact-field__error" id={`${idPrefix}-${field}-error`}>
         {errors[field]}
       </p>
     ) : null
 
+  const trigger = ready && (
+    <button
+      ref={triggerRef}
+      type="button"
+      className="contact-trigger"
+      data-suppressed={suppressed || open || undefined}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      disabled={suppressed || open}
+      onClick={openDialog}
+    >
+      Contacto
+    </button>
+  )
+
   return (
     <>
-      {ready && (
-        <button
-          ref={triggerRef}
-          type="button"
-          className="contact-trigger"
-          data-suppressed={suppressed || open || undefined}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          disabled={suppressed || open}
-          onClick={openDialog}
-        >
-          Contacto
-        </button>
-      )}
+      {/* Into the site header when there is one (SiteHeader.tsx). */}
+      {triggerHost ? createPortal(trigger, triggerHost) : trigger}
 
       {open && (
         <div className="modal-scrim" onClick={close}>
@@ -178,7 +182,7 @@ export function ContactSection({
             className="modal-panel contact-panel"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="contact-title"
+            aria-labelledby={`${idPrefix}-title`}
             onClick={(e) => e.stopPropagation()}
           >
             <button type="button" className="modal-close" onClick={close} aria-label="Cerrar">
@@ -187,7 +191,7 @@ export function ContactSection({
 
             {submission === 'success' ? (
               <div className="contact-success" role="status">
-                <h2 className="modal-title" id="contact-title" tabIndex={-1} ref={titleRef}>
+                <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
                   Recibido
                 </h2>
                 <p className="contact-success__body">
@@ -200,37 +204,12 @@ export function ContactSection({
             ) : (
               <form className="contact-form" noValidate onSubmit={handleSubmit}>
                 <p className="contact-eyebrow">Hablemos</p>
-                <h2 className="modal-title" id="contact-title" tabIndex={-1} ref={titleRef}>
+                <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
                   Escríbenos para lo que necesites
                 </h2>
 
-                {/* The numbers used to sit on the Earth floor line; they live
-                    here now (DECISIONS §30), offered at the moment someone has
-                    decided to reach out — calling instead of writing is the
-                    alternative this dialog exists to present. Bare tel: links,
-                    never a disclosure inside a disclosure. */}
-                <div className="contact-phones">
-                  <svg
-                    className="contact-phone-icon"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M3 2.5h2.5l1.2 3-1.6 1.2a9.5 9.5 0 0 0 4.2 4.2l1.2-1.6 3 1.2v2.5a1 1 0 0 1-1 1A11.5 11.5 0 0 1 2 3.5a1 1 0 0 1 1-1z" />
-                  </svg>
-                  {SITE_PHONES.map((phone) => (
-                    <a key={phone.tel} className="contact-phone" href={`tel:${phone.tel}`}>
-                      {phone.display}
-                    </a>
-                  ))}
-                </div>
-
                 <div className="contact-field">
-                  <label className="contact-label" htmlFor="contact-name">
+                  <label className="contact-label" htmlFor={`${idPrefix}-name`}>
                     Nombre
                   </label>
                   <input
@@ -243,7 +222,7 @@ export function ContactSection({
                 </div>
 
                 <div className="contact-field">
-                  <label className="contact-label" htmlFor="contact-email">
+                  <label className="contact-label" htmlFor={`${idPrefix}-email`}>
                     Email
                   </label>
                   <input
@@ -256,7 +235,7 @@ export function ContactSection({
                 </div>
 
                 <div className="contact-field">
-                  <label className="contact-label" htmlFor="contact-message">
+                  <label className="contact-label" htmlFor={`${idPrefix}-message`}>
                     Mensaje
                   </label>
                   <textarea
@@ -295,6 +274,31 @@ export function ContactSection({
                   </button>
                   .
                 </p>
+
+                {/* The numbers used to sit on the Earth floor line; they live
+                    here now (DECISIONS §30) — at the dialog's foot since
+                    2026-09-03, under a hairline, offered as the alternative
+                    once the form has made its ask. Bare tel: links, never a
+                    disclosure inside a disclosure. */}
+                <div className="contact-phones">
+                  <svg
+                    className="contact-phone-icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 2.5h2.5l1.2 3-1.6 1.2a9.5 9.5 0 0 0 4.2 4.2l1.2-1.6 3 1.2v2.5a1 1 0 0 1-1 1A11.5 11.5 0 0 1 2 3.5a1 1 0 0 1 1-1z" />
+                  </svg>
+                  {SITE_PHONES.map((phone) => (
+                    <a key={phone.tel} className="contact-phone" href={`tel:${phone.tel}`}>
+                      {phone.display}
+                    </a>
+                  ))}
+                </div>
               </form>
             )}
           </section>

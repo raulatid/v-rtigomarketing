@@ -5,6 +5,10 @@
       {
         "display": "+34 600 000 000",
         "tel": "+34600000000"
+      },
+      {
+        "display": "+34 600 000 001",
+        "tel": "+34600000001"
       }
     ],
     "contactEmail": "hola@vertigomarketing.es",

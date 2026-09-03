@@ -1,0 +1,343 @@
+/* ---- The site header (z 70) ------------------------------------------------
+
+   One component for the whole site since 2026-09-03: Earth, Murcia and the
+   blog all mount SiteHeader.tsx, which imports this file — so, like blog.css,
+   it is loaded by whichever document renders it and never through styles.css.
+
+   The header is three things on one line: the 3D corner logo top-left (drawn
+   by the scene canvas, NOT by this DOM — the blog draws an SVG mark instead),
+   the two triggers top-right, and on a phone a burger that holds them. The
+   `.site-header__row` box is the single source of that line's geometry: CSS
+   lays the controls on it, and CornerLogoLayer MEASURES it to place and size
+   the logo. Change the tokens below and both move together; there is no second
+   copy of these numbers in JavaScript. */
+
+/* `--header-inset` is the horizontal inset AND, on desktop, where the line's
+   CENTRE sits: 25px down plus half a 46px control is 48. A phone anchors the
+   line's TOP instead (12px, or the notch), so the token is the top edge and
+   the desktop value is derived once, here. */
+:root {
+  --header-inset: 48px;
+  --header-control: 46px;
+  --header-line-top: calc(var(--header-inset) - var(--header-control) / 2);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --header-inset: 12px;
+    --header-control: 44px;
+    --header-line-top: max(12px, env(safe-area-inset-top));
+  }
+}
+
+/* blog.css has no global reset, so the header carries its own box model. */
+.site-header,
+.site-header * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* The shell takes no pointer events: over the scene the band it covers is
+   where the visitor starts a drag. Only the controls inside are hit-testable. */
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 70;
+  pointer-events: none;
+  font-family: inherit;
+}
+
+.site-header__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  height: calc(var(--header-line-top) + var(--header-control));
+  padding: var(--header-line-top) var(--header-inset) 0;
+}
+
+.site-header__start,
+.site-header__brand,
+.site-header__tail {
+  display: flex;
+  align-items: center;
+  height: var(--header-control);
+}
+
+.site-header__start {
+  justify-self: start;
+}
+
+.site-header__brand {
+  justify-self: center;
+}
+
+.site-header__tail {
+  justify-self: end;
+  gap: 14px;
+}
+
+.site-header__end {
+  display: flex;
+  align-items: center;
+  /* The optical gap between the bare Contacto text and the Auditoría box. */
+  gap: 14px;
+}
+
+.site-header__start > *,
+.site-header__brand > *,
+.site-header__end > *,
+.site-header__extra > *,
+.site-header__burger {
+  pointer-events: auto;
+}
+
+/* The blog's bar: paper, a hairline, and it takes pointer events as a whole
+   because there is nothing to drag underneath it. Its vertical padding is its
+   own — the 48px line is the scene's composition, and the blog has no 3D logo
+   to share it with. `.blog-root` pads its top by the same band (blog.css). */
+.site-header[data-layout='blog'] {
+  /* UNDER the curtain (60) and the modals (62), which the blog mounts as its
+     siblings inside `.blog-root`: an opaque bar above them would cover the
+     audit's back arrow. Over the scene the header stays at 70 because it is
+     transparent and only its controls take pointer events. */
+  z-index: 50;
+  pointer-events: auto;
+  background: #fbfbfa;
+  border-bottom: 1px solid rgba(11, 11, 13, 0.12);
+}
+
+.site-header[data-layout='blog'] .site-header__row {
+  --header-line-top: 14px;
+  height: calc(var(--header-line-top) * 2 + var(--header-control));
+  padding-bottom: var(--header-line-top);
+}
+
+/* ---- The two triggers ------------------------------------------------------
+   Palette: white primary, blue (#1c67ff family) strictly for accents/CTA. */
+
+.audit-trigger {
+  height: var(--header-control);
+  padding: 0 26px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(110deg, rgba(18, 49, 145, 0.96), rgba(28, 103, 255, 1));
+  border: 1px solid rgba(96, 145, 255, 0.45);
+  box-shadow: 0 0 18px rgba(28, 103, 255, 0.28);
+  cursor: pointer;
+  /* Mounts only once the intro lands (App gates on phase 'site'), so this
+     plays exactly at that moment — a quiet arrival, not a pop. Fill mode is
+     `backwards`, NOT `both`/`forwards`: a forwards fill keeps the keyframes'
+     opacity:1 applied forever, and animations outrank the [data-state] rules
+     below — the open-state fade-out would never happen. */
+  animation: audit-trigger-in 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transition:
+    transform 120ms cubic-bezier(0.3, 0, 0.4, 1),
+    box-shadow 160ms ease,
+    filter 160ms ease,
+    background 200ms ease,
+    border-color 200ms ease,
+    opacity 260ms ease;
+}
+
+@keyframes audit-trigger-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (hover: hover) {
+  .audit-trigger:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 24px rgba(28, 103, 255, 0.4);
+  }
+}
+
+.audit-trigger:active {
+  transform: scale(0.97);
+  filter: brightness(1.18);
+}
+
+.audit-trigger:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+/* While the section is open the trigger disappears entirely — closing belongs
+   to the panel's back arrow. Fade, not unmount: it is still the focus target
+   when the section closes, and unmounting would replay its entry animation. */
+.audit-trigger[data-state='open'],
+.audit-trigger[data-state='entering'] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* On the way out it fades back in, slightly behind the curtain's departure so
+   it reads as the page returning rather than a competing animation. */
+.audit-trigger[data-state='leaving'] {
+  transition-delay: 0ms, 0ms, 0ms, 0ms, 0ms, 320ms;
+}
+
+.audit-trigger:disabled {
+  cursor: default;
+}
+
+/* The audit CTA's quiet sibling: bare TEXT, no box at all (2026-08-24). It
+   keeps the trigger's typography and sits on its line, but drops the border,
+   the fill and the radius — the audit is the site's one ask and only it wears
+   a button; contact is the quieter door beside it. Colour alone carries the
+   hover, so the 38px height stays purely as the touch target. */
+.contact-trigger {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s ease, opacity 0.3s ease;
+  animation: audit-trigger-in 480ms ease 60ms backwards;
+}
+
+.contact-trigger:hover {
+  color: #fff;
+}
+
+.contact-trigger:active {
+  transform: scale(0.97);
+}
+
+.contact-trigger:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+/* Standing down while the audit or its own dialog owns the viewer's
+   attention — faded, never unmounted, the audit trigger's own arrangement. */
+.contact-trigger[data-suppressed] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Over a light ground — Murcia's daylight sky, the blog's paper — the bare
+   text goes ink. The Auditoría box carries its own colour everywhere. */
+.site-header[data-tone='light'] .contact-trigger {
+  color: rgba(11, 11, 13, 0.85);
+}
+
+.site-header[data-tone='light'] .contact-trigger:hover {
+  color: #1c67ff;
+}
+
+/* ---- The burger (phones) ---------------------------------------------------
+   Deliberately minimal (2026-09-03): a 44px button, and when open a white sheet
+   under the bar with the two triggers stacked. A fuller menu is later work. */
+
+.site-header__burger {
+  display: none;
+  position: relative;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.site-header__burger svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.site-header[data-tone='light'] .site-header__burger {
+  color: #0b0b0d;
+}
+
+.site-header__burger:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@media (max-width: 767px) {
+  .site-header__burger {
+    display: flex;
+  }
+
+  .site-header__end {
+    display: none;
+  }
+
+  .site-header[data-menu-open] .site-header__end {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    position: fixed;
+    top: calc(var(--header-line-top) + var(--header-control) + 8px);
+    left: 0;
+    right: 0;
+    z-index: 1;
+    padding: 16px 20px 24px;
+    background: #fff;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+    pointer-events: auto;
+  }
+
+  .site-header[data-layout='blog'][data-menu-open] .site-header__end {
+    top: calc(var(--header-line-top) * 2 + var(--header-control));
+    border-top: 1px solid rgba(11, 11, 13, 0.12);
+    box-shadow: none;
+  }
+
+  .site-header[data-menu-open] .contact-trigger {
+    justify-content: center;
+    height: 44px;
+    color: rgba(11, 11, 13, 0.85);
+  }
+
+  .site-header[data-menu-open] .audit-trigger {
+    width: 100%;
+  }
+
+  /* The row's own controls stay above the sheet. */
+  .site-header__start,
+  .site-header__brand,
+  .site-header__extra {
+    position: relative;
+    z-index: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audit-trigger,
+  .contact-trigger {
+    transition: none;
+    animation: none;
+  }
+}

@@ -820,6 +820,102 @@ read a property of the noise basis as a tuning error.
 > came at a price the original entry did not anticipate — the byte argument was made against a
 > hypothetical "4K sky", and the real photograph costs 113 KB while C6 costs 117 MB unencoded.
 
+
+> **Amended 2026-08-31: the projection question is now a TOOL rather than a habit, the
+> compensation is conditional, and the ESO panorama turns out to be recoverable.**
+>
+> Four rounds of this entry have said some version of "aspect ratio is not projection" and the
+> next round has screened a source without checking a pole anyway. The check is now a command.
+>
+> **`scripts/screen-sky-source.mjs`** takes any image and prints a verdict — read-only, writes
+> nothing, no pipeline run. It reports the per-channel pole ratio and the wrap `spread`, and
+> names the outcome in words (`EQUIRECTANGULAR` / `AMBIGUOUS` / `NOT EQUIRECTANGULAR`, and
+> `CROP` independently). The metrics were **moved**, not copied, into
+> `scripts/lib/sky-metrics.mjs`, which `prepare-sky-panorama.mjs` now imports: two definitions
+> of `poleRatios` drifting apart would mean the screen that accepts a source and the pipeline
+> that processes it were answering different questions. Verified by reproducing the recorded
+> 0.670 / 0.383 on the shipped source and the full 0.319-0.838 range across all six candidates.
+>
+> **The prep script was measuring its own diagnostic in the wrong place, and it flattered the
+> source by nearly 2x.** `poleRatios` was called inside `emit()`, *after* the latitude-ramped
+> median — a 15x15 median at the poles flattens the pole rows itself, so the number described
+> the filter's work rather than the image's projection. `sky-panorama-001` printed **0.37**
+> where the untouched file measures **0.670**, against the script's own printed guidance that
+> "under ~0.15 is consistent with a real equirectangular source". It is now measured on the
+> decoded source before any pass runs. **General form, and this is the fourth costume §19 has
+> seen it in: a metric computed downstream of its own correction confirms the correction.**
+>
+> **`convergePoles` and the latitude-ramped median are now conditional on that measurement.**
+> Both are corrections for a flat source; on a genuine panorama they are damage, and
+> `convergePoles` is the dangerous one — fading every row above 55 degrees toward its azimuthal
+> mean erases real polar sky and manufactures the exact funnel it was written to remove. Being
+> mean-preserving, it would not look like a brightness bug; it would look like "you can see
+> where the sphere closes", for the fourth time. The decision is auto, printed with the number
+> that drove it, and forced either way by `--flat-source` / `--no-flat-source`. The flat-source
+> path still produces **byte-identical** output to the committed assets, which is how the
+> refactor was proved behaviour-preserving.
+>
+> **Cost of turning it off, measured:** forcing the compensation off on the current flat source
+> takes the desktop AVIF from 184 KB to **297 KB**, past the 200,000-byte client budget. The
+> polar median is doing much of the compression work because point stars are high-entropy, so a
+> real panorama must re-run the quality ladder rather than inherit q70.
+>
+> **`?skyImage=` — a candidate can now be judged in the scene in about two minutes.** A
+> dev-only override on `protoSky.ts`'s existing gate loads any raw file from
+> `public/textures/` with no preparation at all, so the audition happens at the scene's own
+> exposure through ACES rather than on a flat file in a viewer. That is the step the 2026-08
+> screening round skipped, and it is how six images that are not panoramas got through. The
+> name must begin `sky-test-`, which makes traversal impossible and matches a `.gitignore`
+> rule so a multi-megabyte scratch PNG cannot be committed by accident. Inert in production and
+> with no `?skyImage=`, which `e2e/backdrop.spec.ts` passing unchanged is the evidence for.
+>
+> **The ESO panorama is recoverable, and the record about it was wrong in one number.**
+> It is *The Milky Way panorama*, ESO id **eso0932a**, by Serge Brunier, 6000 x 3000, released
+> 2009-09-14 — <https://www.eso.org/public/images/eso0932a/>, original TIFF at
+> <https://cdn.eso.org/images/original/eso0932a.tif>. It exists in three places: the derived
+> textures are intact in git at `74c85a7` and reachable from `main`, so unprunable
+> (`sky-panorama.avif` **245,633 B at 6144 x 3072**, `.webp` 410,456 B, narrow pair 82,487 /
+> 131,726 B at 3072 x 1536); the 29,082,084-byte original still sits at
+> `node_modules/.cache/eso0932a.tif`, where the prep script's old `SOURCE_URL` downloaded it,
+> **one `npm ci` from deletion**; and it is still downloadable. Restore a texture with
+> `git show 74c85a7:public/textures/sky-panorama.avif > out.avif` — from Git Bash, since
+> PowerShell's `>` corrupts binary.
+>
+> **The "113 KB" at the top of this entry is wrong.** The real ESO desktop AVIF was 245,633
+> bytes, and this entry contradicts itself twenty lines later with "240 KB". 113 KB is a stale
+> draft figure that has been quoted onward ever since, including into the C6 comparison above.
+>
+> **What has genuinely changed about the attribution, and what has not.** CC BY 4.0 still makes
+> "ESO/S. Brunier" mandatory, and three enforcement points now hold that line:
+> `e2e/backdrop.spec.ts` asserts the credit's *absence* in three separate assertions,
+> `.audit-credit` is gone from `styles.css`, and the markup is gone from `AuditSection.tsx`.
+> But the 2026-08-13 correction above flagged the old placement as weaker than the licence
+> wants, because `.audit-overlay` is hidden until a visitor opens the lead panel.
+> **`src/components/SiteFooter.tsx` now exists and renders persistently** (`App.tsx:445`), which
+> is exactly the condition that correction named: "If a real footer ever appears, the credit
+> belongs there." So the *technical* objection is resolved and only the client's
+> no-third-party-credit requirement remains — a business decision, not one to settle here.
+>
+> **Regardless of the licence, it is the only known-good calibration case this project has.**
+> 0.029 / 0.152 against 0.670 / 0.383. Used locally it proves the screener, proves the gate
+> takes the `OFF` path, and proves a pole view is clean with `skyCapStrength` 0 — none of which
+> requires shipping it or showing any credit.
+>
+> **Still true and unchanged:** the shipped path is a photograph on a mesh at `renderOrder
+> -1000`, never `scene.background`; `equirect()` is correct and was not touched; mipmaps stay
+> off; the grain and dither each do their own job. **None of the tooling above changes a single
+> rendered pixel** (`23f30a3`) — `e2e/backdrop.spec.ts` passing unchanged is the evidence, and
+> the compensation stack is still in place and still doing its job.
+>
+> **What DID change on screen, separately and in the same days, is broken.** `4e590d0` /
+> `528dd42` committed a new sky without running it through the prep script: the narrow pair is
+> named with **spaces** (`sky-panorama - narrow.avif`) against the hyphenated path
+> `spaceConfig.ts` requests, so every viewport at or under 767 px 404s twice and renders black;
+> both narrow files are byte-identical to the wide ones; and all four are **10000 x 5000**, which
+> is 200 MB of VRAM and past `MAX_TEXTURE_SIZE` on many GPUs. `PROJECT_MEMORY` §11.64 and §11.65
+> carry the detail. Fixing it is a prep-script run, not an edit — which is the point of there
+> being a prep script.
+
 <details>
 <summary>Superseded text: the sky was generated on the GPU, not downloaded</summary>
 
@@ -1278,6 +1374,22 @@ correct *by construction* rather than by tuning: the orbits phase holds for
 nothing to focus, tab to or read out — which is also what fires their CSS entry animation
 exactly once. Any future chrome gates on the same prop-from-phase pattern, never its own timer.
 
+> **AMENDED 2026-09-03 — the chrome is one header, and it lives on every surface.** The
+> `site` gate stands; the "and Earth showing" half of it does not. `SiteHeader`
+> (`components/SiteHeader.tsx`) is the site's one header: transparent over Earth and Murcia, a
+> paper bar on the blog, and it is what the two triggers render INTO (a portal from each
+> section, which keeps their focus return and `data-state` choreography where they were). The
+> sections lost their `active` prop and its hard-close: a warp cannot start while either panel
+> is open (`canNavigate`), so Earth never stops showing under one. The blog mounts its own
+> instances of both sections and the legal panel (`idPrefix` keeps the ids apart in a warm
+> document; `recomposesScene={false}` keeps `auditView.open` to one writer per scene), which is
+> why their stylesheets moved out of `styles.css` and next to the components — `blog.html`
+> never loads `styles.css`. The 3D logo no longer has a margin of its own: `CornerLogoLayer`
+> measures `.site-header__row` and the motion module anchors the model's EDGE to that inset and
+> scales it to that line's height, so the two 48px that had drifted (centre vs edge, and a logo
+> that grew with the window while the buttons did not) are one number in one place. Phones get
+> a burger in the same header — a white sheet with the two triggers, nothing more yet.
+
 **26.17 — The cursor glyphs are inlined path data, and `public/icons/*.svg` is the design source
 that is not read at runtime.** Redrawing those files changes nothing on screen until the `d`
 attributes are re-pasted into the component; both the component and the stylesheet say so at the
@@ -1678,6 +1790,13 @@ and joins the rail-suppression context in App.
 > below (blue is the primary CTA's alone) still holds — this only takes it further. Its `right`
 > offset moved 10px → 14px, because with the padding gone the element's edge is the text's edge.
 
+> **Revisited 2026-09-03 — the numbers moved to the dialog's foot.** Under a hairline, after
+> the consent note, as the alternative once the form has made its ask; two placeholder numbers
+> until the client supplies the real ones (they are CMS content, §31 — the fixture carries two,
+> the `development` dataset must be given the second in Studio). The header the trigger sits in
+> is now one component for the whole site (§26.16 amendment), so the dialog opens over Murcia
+> and over the blog as well as over Earth.
+
 **The brand data has one home, and it is not a collection.** `src/content/site.ts` —
 hand-written, like `lookup.ts` — holds the phones, the contact address, the © line and the
 legal texts, all PLACEHOLDER and marked so. The content pipeline is strictly
@@ -1707,7 +1826,7 @@ to forbid (ESO, CC BY, Creative Commons), so the footer's own mark and the clien
 requirement coexist.
 
 Broken when: real contact data is edited anywhere but `site.ts`, a form reaches success in a
-production build, chrome appears before `site` or over Murcia, or a third-party credit
+production build, chrome appears before `site`, or a third-party credit
 passes the narrowed assertion, or the
 phones and the legal links drift back onto the floor line.
 

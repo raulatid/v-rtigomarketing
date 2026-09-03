@@ -7,6 +7,7 @@ import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
 import { LegalPanel } from './components/LegalPanel'
 import { SiteFooter } from './components/SiteFooter'
+import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
 import { InteractionHandle } from './experiences/earth/interaction/InteractionLayer'
 import { DebugOverlay } from './components/DebugOverlay'
@@ -154,8 +155,14 @@ export default function App() {
   const [contactOpen, setContactOpen] = useState(false)
   const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null)
 
-  // A legal panel left open across a warp would be a Murcia overlay nobody
-  // asked for; the contact dialog closes itself through its active prop.
+  // The site header's actions cell, once it exists. The two sections portal
+  // their triggers into it (SiteHeader.tsx); state rather than a ref so the
+  // portals render the moment the node mounts.
+  const [headerActions, setHeaderActions] = useState<HTMLElement | null>(null)
+
+  // Belt and braces: `canNavigate` below already refuses a warp while a legal
+  // panel is open, so this never fires in practice. The header's chrome lives
+  // on both experiences since 2026-09-03 and no longer closes on a swap.
   useEffect(() => {
     if (!earthActive) setLegalDoc(null)
   }, [earthActive])
@@ -391,6 +398,18 @@ export default function App() {
           whatever was focused in here to <body> and the reader loses their
           place, and a screen reader can still walk a scene nobody can see. */}
       <div className="app__scene" data-hidden={String(blogOpen)} inert={blogOpen}>
+      {/* The header shell is ALWAYS mounted, even while the intro still owns the
+          screen: the 3D logo's flight to the corner measures `.site-header__row`
+          to know where the corner is (CornerLogoLayer). It is empty until the
+          sections below portal their triggers into it at phase 'site', and the
+          burger appears only then too. Transparent over both experiences; the
+          bare Contacto text goes ink over Murcia's daylight sky. */}
+      <SiteHeader
+        layout="scene"
+        tone={earthActive ? 'dark' : 'light'}
+        hasActions={phase === 'site'}
+        onActionsHost={setHeaderActions}
+      />
       <LazyScene
         suspended={blogOpen}
         config={config}
@@ -419,26 +438,26 @@ export default function App() {
 
       <CasePanel data={earthActive ? selectedCase : null} onClose={handleClosePanel} />
 
-      {/* The trigger only exists once the intro has fully landed — satellites
-          revealed and the timeline at 'site'. Before that the scene offers no
-          interaction chrome at all. */}
-      <AuditSection
-        onOpenChange={handleAuditOpenChange}
-        ready={phase === 'site' && earthActive}
-        active={earthActive}
+      {/* The two doors in the header. Both gate on `phase === 'site'` — chrome
+          exists only once the intro has fully landed, satellites revealed
+          (DECISIONS §26.16) — and since 2026-09-03 on BOTH experiences: the
+          header is one component for the whole site, and a warp cannot start
+          while either panel is open (`canNavigate` above). Contacto is mounted
+          first because portals append in mount order and it sits to the LEFT
+          of the Auditoría box. The quiet sibling carries the phones (DECISIONS
+          §30); the audit is the site's one full-attention ask. */}
+      <ContactSection
+        ready={phase === 'site'}
+        triggerHost={headerActions}
+        suppressed={auditOpen}
+        onOpenChange={setContactOpen}
         onOpenLegal={setLegalDoc}
       />
 
-      {/* The quiet sibling of the audit CTA and the site's floor line, which
-          now carries the brand mark alone: the phones moved into this dialog
-          and the legal links into the audit panel (DECISIONS §30). Both gate
-          on the same expression as the audit trigger — chrome exists only once
-          the intro has landed, and only over Earth (DECISIONS §26.16). */}
-      <ContactSection
-        ready={phase === 'site' && earthActive}
-        active={earthActive}
-        suppressed={auditOpen}
-        onOpenChange={setContactOpen}
+      <AuditSection
+        onOpenChange={handleAuditOpenChange}
+        ready={phase === 'site'}
+        triggerHost={headerActions}
         onOpenLegal={setLegalDoc}
       />
 

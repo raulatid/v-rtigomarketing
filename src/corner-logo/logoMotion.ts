@@ -18,6 +18,32 @@ const IDLE_FLOAT_FREQUENCY = 0.8 // Hz
 /** One full turn. The spin's total, and the resting rotation it settles at. */
 const SPIN_TOTAL_RAD = Math.PI * 2
 
+/**
+ * Where the header's line is, in CSS px, as measured off the DOM.
+ *
+ * The header (components/siteHeader.css) is the single owner of these numbers;
+ * CornerLogoLayer measures `.site-header__row` and pushes the result here, so
+ * the logo and the buttons cannot drift apart the way two copies did (the
+ * old `cornerMarginX/Y` config placed the logo's CENTRE 48px in while CSS put
+ * the buttons' EDGE 48px in, and on a phone the buttons moved and the logo did
+ * not).
+ */
+export interface CornerMetrics {
+  /** The logo box's left edge, px from the viewport's left. */
+  insetLeftPx: number
+  /** The line's vertical centre, px from the viewport's top. */
+  centerYPx: number
+  /** The logo box's height at rest — the buttons' height. */
+  heightPx: number
+}
+
+/** The desktop header's numbers, used until the DOM has been measured. */
+export const DEFAULT_CORNER_METRICS: CornerMetrics = {
+  insetLeftPx: 48,
+  centerYPx: 48,
+  heightPx: 46,
+}
+
 export interface LogoMotion {
   /** Begins the reveal: bloom up from zero, spin, fly to the corner, idle. */
   start(): void
@@ -27,6 +53,11 @@ export interface LogoMotion {
   reset(): void
   /** False only while hidden — nothing to draw and no clock to advance. */
   isVisible(): boolean
+  /** The model's bounding box at scale 1, from assembly. Anchors the box's edge. */
+  setModelSize(size: THREE.Vector3): void
+  /** Where the header's line is. Re-read per frame while idling, so a resize
+   *  that re-measures re-anchors the logo without any other notice. */
+  setCornerMetrics(metrics: CornerMetrics): void
 }
 
 /**
@@ -55,6 +86,8 @@ export function createLogoMotion(
   let stateT = 0
   const idle = { rotY: 0, elapsed: 0 }
   const cornerTarget = new THREE.Vector3()
+  const modelSize = new THREE.Vector3()
+  let metrics: CornerMetrics = DEFAULT_CORNER_METRICS
 
   // This module owns the group's visibility on every other transition — start()
   // shows it, reset() hides it — so it owns the initial state too. It used to
@@ -65,12 +98,34 @@ export function createLogoMotion(
 
   // ─── Screen-position math (world units at the model plane, z = 0) ───
 
+  /** World units per CSS pixel at z = 0. */
+  function worldPerPx(): number {
+    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z
+    return (2 * halfH) / window.innerHeight
+  }
+
   /**
-   * Where the top-left corner is, in world units at z = 0.
+   * The scale that makes the model's box exactly `heightPx` tall on screen.
    *
-   * The mapping is linear only because the framing padding flattens the frustum
-   * toward orthographic (extraction 001 §5) — with a normal frustum a pixel
-   * margin would not be a constant world offset.
+   * At scale 1 the model's height is `innerHeight / cornerFramePadding` px —
+   * the size the crossover needs it to be at screen centre, and the reason the
+   * corner logo used to grow with the window while the buttons did not. Until
+   * the model is measured (size zero) the scale is 1, so the machine is still
+   * pure arithmetic in a test that never assembles a GLB.
+   */
+  function cornerScale(): number {
+    if (modelSize.y <= 0) return 1
+    return (metrics.heightPx * worldPerPx()) / modelSize.y
+  }
+
+  /**
+   * Where the corner is, in world units at z = 0.
+   *
+   * The model is recentred on its bounding-box centre at assembly, so the box's
+   * left edge is half its (scaled) width left of the target. The mapping is
+   * linear only because the framing padding flattens the frustum toward
+   * orthographic (extraction 001 §5) — with a normal frustum a pixel margin
+   * would not be a constant world offset.
    *
    * Recomputed on every frame that uses it, so a resize re-anchors the logo
    * without anything having to notice the resize.
@@ -78,9 +133,10 @@ export function createLogoMotion(
   function computeCornerTarget(target: THREE.Vector3): THREE.Vector3 {
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z
     const halfW = halfH * camera.aspect
+    const perPx = worldPerPx()
     return target.set(
-      halfW * (-1 + (2 * config.cornerMarginX) / window.innerWidth),
-      halfH * (1 - (2 * config.cornerMarginY) / window.innerHeight),
+      -halfW + metrics.insetLeftPx * perPx + (cornerScale() * modelSize.x) / 2,
+      halfH - metrics.centerYPx * perPx,
       0,
     )
   }
@@ -96,7 +152,7 @@ export function createLogoMotion(
 
     snapToCorner() {
       modelGroup.visible = true
-      modelGroup.scale.setScalar(1)
+      modelGroup.scale.setScalar(cornerScale())
       modelGroup.rotation.y = SPIN_TOTAL_RAD
       idle.rotY = SPIN_TOTAL_RAD
       idle.elapsed = 0
@@ -123,11 +179,16 @@ export function createLogoMotion(
           stateT = 0
         }
       } else if (state === STATES.TO_CORNER) {
+        // Position and size travel together: the centre-stage size was the
+        // crossover's, the corner's is the header's, and the flight is where
+        // one becomes the other.
         const eased = easeInOutCubic(clamp01(stateT / config.toCornerDuration))
         computeCornerTarget(cornerTarget)
         modelGroup.position.set(cornerTarget.x * eased, cornerTarget.y * eased, 0)
+        modelGroup.scale.setScalar(1 + (cornerScale() - 1) * eased)
         if (stateT >= config.toCornerDuration) {
           modelGroup.position.copy(cornerTarget)
+          modelGroup.scale.setScalar(cornerScale())
           idle.rotY = SPIN_TOTAL_RAD
           idle.elapsed = 0
           state = STATES.IDLE
@@ -141,6 +202,7 @@ export function createLogoMotion(
         // Recomputed each frame so a resize re-anchors the corner automatically.
         computeCornerTarget(cornerTarget)
         modelGroup.position.set(cornerTarget.x, cornerTarget.y + float, 0)
+        modelGroup.scale.setScalar(cornerScale())
       }
     },
 
@@ -155,6 +217,14 @@ export function createLogoMotion(
 
     isVisible() {
       return state !== STATES.HIDDEN
+    },
+
+    setModelSize(size) {
+      modelSize.copy(size)
+    },
+
+    setCornerMetrics(next) {
+      metrics = next
     },
   }
 }

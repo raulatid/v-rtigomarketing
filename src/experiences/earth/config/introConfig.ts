@@ -62,11 +62,10 @@ export interface IntroConfig extends DrawConfig {
   spinDuration: number
   toCornerDuration: number
   // Multiplier on the model's fit distance. Higher = smaller on screen AND a
-  // flatter frustum, which keeps the pixel→world corner mapping linear.
+  // flatter frustum, which keeps the pixel→world corner mapping linear. WHERE
+  // the corner is (and how tall the parked logo is) is not tuned here: the
+  // header's CSS owns that line and CornerLogoLayer measures it (2026-09-03).
   cornerFramePadding: number
-  // Distance from the viewport edge to the logo's CENTRE, in px.
-  cornerMarginX: number
-  cornerMarginY: number
 
   // ── Persistent space backdrop (visible from the warp's cut onward) ──
   // Points on a SHELL, not in a volume: nothing can then render between the
@@ -229,8 +228,6 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   spinDuration: 2.0,
   toCornerDuration: 1.2,
   cornerFramePadding: 20,
-  cornerMarginX: 48,
-  cornerMarginY: 48,
 
   backdropStarCount: 3500,
   backdropRadius: 180,

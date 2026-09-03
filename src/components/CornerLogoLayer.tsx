@@ -1,7 +1,8 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
-import type { CornerLogo, CornerLogoConfig } from '../corner-logo/createCornerLogo'
+import type { CornerLogo, CornerLogoConfig, CornerMetrics } from '../corner-logo/createCornerLogo'
+import { DEFAULT_CORNER_METRICS } from '../corner-logo/logoMotion'
 import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
 import { loadProgress } from '../loading/progress'
 
@@ -26,6 +27,38 @@ interface Props {
 // The module is imported DYNAMICALLY: it pulls in GLTFLoader, DRACOLoader and
 // KTX2Loader, none of which may sit in the entry chunk (plan 006 §5.1). Only
 // the type is imported statically.
+
+/**
+ * Where the header's line is, read off the header itself.
+ *
+ * `.site-header__row` (SiteHeader.tsx) pads its top by the header inset and is
+ * exactly one control tall below that, so its content box IS the line the
+ * buttons sit on. Measuring it — rather than repeating the CSS tokens in
+ * TypeScript — is what makes the logo and the buttons one composition: the
+ * phone breakpoint, the safe-area inset and any future retune all arrive here
+ * for free. Computed paddings are absolute px, so `env()` and `max()` in the
+ * tokens are already resolved.
+ *
+ * The SCENE header specifically: in a warm session the blog's header is in the
+ * same document, and it is a bar with its own line.
+ */
+function measureHeaderLine(): CornerMetrics {
+  const row = document.querySelector<HTMLElement>(".site-header[data-layout='scene'] .site-header__row")
+  if (!row) return DEFAULT_CORNER_METRICS
+  const rect = row.getBoundingClientRect()
+  const style = getComputedStyle(row)
+  const padTop = parseFloat(style.paddingTop) || 0
+  const padBottom = parseFloat(style.paddingBottom) || 0
+  const padLeft = parseFloat(style.paddingLeft) || 0
+  const lineHeight = rect.height - padTop - padBottom
+  if (lineHeight <= 0) return DEFAULT_CORNER_METRICS
+  return {
+    insetLeftPx: rect.left + padLeft,
+    centerYPx: rect.top + padTop + lineHeight / 2,
+    heightPx: lineHeight,
+  }
+}
+
 export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -66,6 +99,7 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
         return
       }
 
+      logo.setCornerMetrics(measureHeaderLine())
       logoRef.current = logo
       handleRef.current = {
         startSequence: logo.startSequence,
@@ -101,8 +135,14 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A resize moves the header's line (the phone breakpoint, a rotation), so the
+  // line is re-measured with the projection. The corner is recomputed per frame
+  // from these numbers; nothing else has to notice.
   useEffect(() => {
-    logoRef.current?.setSize(size.width, size.height)
+    const logo = logoRef.current
+    if (!logo) return
+    logo.setSize(size.width, size.height)
+    logo.setCornerMetrics(measureHeaderLine())
   }, [size.width, size.height, logoRef])
 
   return null

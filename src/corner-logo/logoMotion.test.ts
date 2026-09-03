@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import * as THREE from 'three'
-import { createLogoMotion, type LogoMotion } from './logoMotion'
+import { createLogoMotion, DEFAULT_CORNER_METRICS, type LogoMotion } from './logoMotion'
 import type { CornerLogoConfig } from './cornerLogoConfig'
 
 // The reveal was unreachable from a test while it shared a closure with two
@@ -15,8 +15,6 @@ import type { CornerLogoConfig } from './cornerLogoConfig'
 // reason.
 const CONFIG: CornerLogoConfig = {
   cornerFramePadding: 3,
-  cornerMarginX: 80,
-  cornerMarginY: 60,
   spinDuration: 1,
   spinPauseBefore: 0.25,
   swapCrossover: 0.5,
@@ -26,6 +24,20 @@ const CONFIG: CornerLogoConfig = {
 
 const FRAMED_DISTANCE = 100
 const TWO_PI = Math.PI * 2
+
+// A header line that is not the shipped one, for the same reason as CONFIG.
+const METRICS = { insetLeftPx: 80, centerYPx: 60, heightPx: 30 }
+// A model box, as assemble() would measure it: 2 wide, 1 tall.
+const MODEL = new THREE.Vector3(2, 1, 0.2)
+
+function halfHeight(): number {
+  return Math.tan(THREE.MathUtils.degToRad(45 / 2)) * FRAMED_DISTANCE
+}
+
+/** World units per CSS pixel at the model plane — the mapping the machine uses. */
+function worldPerPx(): number {
+  return (2 * halfHeight()) / window.innerHeight
+}
 
 let group: THREE.Group
 let camera: THREE.PerspectiveCamera
@@ -130,16 +142,66 @@ describe('createLogoMotion', () => {
       expect(group.position.y).toBeGreaterThan(0)
     })
 
-    it('places the corner by the closed form the framing implies', () => {
+    it('puts the centre on the header line without a model to measure', () => {
+      // No model size: scale stays 1 and the box has no width to offset by, so
+      // the position IS the inset and the line, converted to world units.
+      motion.setCornerMetrics(METRICS)
       motion.snapToCorner()
-      const halfH = Math.tan(THREE.MathUtils.degToRad(45 / 2)) * FRAMED_DISTANCE
+      const halfH = halfHeight()
       const halfW = halfH * camera.aspect
-      expect(group.position.x).toBeCloseTo(
-        halfW * (-1 + (2 * CONFIG.cornerMarginX) / window.innerWidth),
-        6,
-      )
+      expect(group.scale.x).toBe(1)
+      expect(group.position.x).toBeCloseTo(-halfW + METRICS.insetLeftPx * worldPerPx(), 6)
+      expect(group.position.y).toBeCloseTo(halfH - METRICS.centerYPx * worldPerPx(), 6)
+    })
+
+    it('anchors the box edge to the inset and its height to the line', () => {
+      motion.setModelSize(MODEL)
+      motion.setCornerMetrics(METRICS)
+      motion.snapToCorner()
+      const halfH = halfHeight()
+      const halfW = halfH * camera.aspect
+      const perPx = worldPerPx()
+      // The box is heightPx tall on screen whatever the framing made it.
+      const scale = (METRICS.heightPx * perPx) / MODEL.y
+      expect(group.scale.x).toBeCloseTo(scale, 9)
+      // Left EDGE at the inset: the centre sits half the scaled width further in.
+      const leftEdge = group.position.x - (scale * MODEL.x) / 2
+      expect(leftEdge).toBeCloseTo(-halfW + METRICS.insetLeftPx * perPx, 6)
+      expect(group.position.y).toBeCloseTo(halfH - METRICS.centerYPx * perPx, 6)
+    })
+
+    it('follows the header when the line moves', () => {
+      motion.setModelSize(MODEL)
+      motion.setCornerMetrics(METRICS)
+      motion.snapToCorner()
+      const before = { x: group.position.x, y: group.position.y, s: group.scale.x }
+
+      // The phone breakpoint: a tighter inset, a lower line, a shorter control.
+      motion.setCornerMetrics({ insetLeftPx: 12, centerYPx: 34, heightPx: 24 })
+      motion.update(1 / 60)
+
+      expect(group.position.x).toBeLessThan(before.x)
+      expect(group.position.y).toBeGreaterThan(before.y)
+      expect(group.scale.x).toBeLessThan(before.s)
+    })
+
+    it('flies from the crossover size to the header size', () => {
+      motion.setModelSize(MODEL)
+      motion.setCornerMetrics(METRICS)
+      motion.start()
+      run(CONFIG.spinPauseBefore + CONFIG.spinDuration + 0.05)
+      // Leaving the spin at (or a frame or two past) the size the crossover needed …
+      expect(group.scale.x).toBeCloseTo(1, 1)
+      run(CONFIG.toCornerDuration + 0.1)
+      // … and parked at the size the header asked for.
+      expect(group.scale.x).toBeCloseTo((METRICS.heightPx * worldPerPx()) / MODEL.y, 9)
+    })
+
+    it('uses the desktop header until it is measured', () => {
+      motion.snapToCorner()
+      const halfH = halfHeight()
       expect(group.position.y).toBeCloseTo(
-        halfH * (1 - (2 * CONFIG.cornerMarginY) / window.innerHeight),
+        halfH - DEFAULT_CORNER_METRICS.centerYPx * worldPerPx(),
         6,
       )
     })

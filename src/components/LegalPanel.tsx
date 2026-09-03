@@ -3,6 +3,8 @@ import { LEGAL_DOCS } from '../content/site'
 import type { LegalDocId } from '../content/site'
 import type { LegalBlock } from '../content/types'
 import { spans } from './textSpans'
+import './modal.css'
+import './legalPanel.css'
 
 /**
  * The block half of the serializer.
@@ -33,6 +35,9 @@ interface Props {
    *  unmounted by the caller — the CasePanel precedent. */
   doc: LegalDocId | null
   onClose: () => void
+  /** Prefix for the title id; two instances share a warm document (the blog
+   *  mounts its own — AuditSection says why). */
+  idPrefix?: string
 }
 
 /**
@@ -41,7 +46,7 @@ interface Props {
  * viewer opens. One component for both documents; the content is CMS-owned
  * and reaches here through src/content/site.ts as typed blocks.
  */
-export function LegalPanel({ doc, onClose }: Props) {
+export function LegalPanel({ doc, onClose, idPrefix = 'legal' }: Props) {
   const titleRef = useRef<HTMLHeadingElement>(null)
 
   // Escape belongs to the topmost surface while it is open — the same
@@ -68,13 +73,13 @@ export function LegalPanel({ doc, onClose }: Props) {
         className="modal-panel legal-panel"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="legal-title"
+        aria-labelledby={`${idPrefix}-title`}
         onClick={(e) => e.stopPropagation()}
       >
         <button type="button" className="modal-close" onClick={onClose} aria-label="Cerrar">
           ✕
         </button>
-        <h2 className="modal-title" id="legal-title" tabIndex={-1} ref={titleRef}>
+        <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
           {content.title}
         </h2>
         <div className="legal-panel__body">

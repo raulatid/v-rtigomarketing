@@ -78,7 +78,10 @@ async function asLayoutTest(page: Page): Promise<void> {
  * for the wrong reason. The audit trigger only exists at 'site'.
  */
 async function reachSite(page: Page): Promise<void> {
-  await page.waitForSelector('.audit-trigger', { timeout: 75_000 })
+  // ATTACHED, not visible: on a phone the trigger lives behind the header's
+  // burger (2026-09-03) and is display:none until the sheet opens. It still
+  // mounts only at phase 'site', which is all this gate needs.
+  await page.waitForSelector('.audit-trigger', { state: 'attached', timeout: 75_000 })
   await page.waitForTimeout(400)
 }
 
@@ -461,4 +464,252 @@ test('the accessible control is reachable and names its destination', async ({ p
   // Visible once focused, so a sighted keyboard user can see what they landed on.
   const box = await control.boundingBox()
   expect(box!.height).toBeGreaterThanOrEqual(44)
+})
+
+/**
+ * The blog on a phone.  `design/blog/MovilArticulo.dc.html` is the artboard.
+ *
+ * Driven through the COLD document — `page.goto('/blog')` loads `blog.html`,
+ * which has never heard of three.js. That is not a shortcut around the warm
+ * path: both hosts mount the same `BlogRoute`, and what is asserted here is
+ * layout, type and tap targets, none of which can differ between them.
+ * `e2e/blog.spec.ts` owns the warm/cold distinction itself.
+ *
+ * Every assertion is relational rather than pinned to 390px, because these run
+ * on both mobile projects and a Pixel 7 is 412px wide.
+ */
+
+/** A 2x1 grey PNG. Small enough to inline, real enough to decode. */
+const PIXEL = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEklEQVR4nGP8//8/AzJgYkAFRPMBz2wDGgBjNhAAAAAASUVORK5CYII=',
+  'base64',
+)
+
+/** Keeps the run hermetic; the covers are real Sanity CDN URLs. */
+async function interceptImages(page: Page) {
+  await page.route('https://cdn.sanity.io/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/png', body: PIXEL }),
+  )
+}
+
+/**
+ * Two surfaces, because only one of them is the scroller.
+ *
+ * `.blog-root` is `position: fixed; inset: 0; overflow-y: auto`, and a computed
+ * `overflow-y: auto` drags `overflow-x` to `auto` with it. A full-bleed figure
+ * one pixel too wide therefore produces a horizontal scrollbar on the blog that
+ * `document.documentElement` never sees.
+ */
+async function assertNoSideways(page: Page) {
+  const sizes = await page.evaluate(() => {
+    const root = document.querySelector('.blog-root')!
+    return {
+      docScroll: document.documentElement.scrollWidth,
+      docClient: document.documentElement.clientWidth,
+      rootScroll: root.scrollWidth,
+      rootClient: root.clientWidth,
+    }
+  })
+  expect(sizes.docScroll, 'the document scrolls sideways').toBeLessThanOrEqual(sizes.docClient)
+  expect(sizes.rootScroll, 'the blog scrolls sideways').toBeLessThanOrEqual(sizes.rootClient)
+}
+
+async function openBlogIndex(page: Page) {
+  await interceptImages(page)
+  await page.goto('/blog')
+  await page.waitForSelector('.blog-card')
+}
+
+/** The index's first card is the newest post, and it has a cover. */
+async function openFirstArticle(page: Page) {
+  await page.locator('.blog-card').first().click()
+  await page.waitForSelector('.blog-article')
+}
+
+test.describe('the blog on a phone', () => {
+  test('the index fits the column and every control is a 44px target', async ({ page }) => {
+    const errors = collect(page)
+    await openBlogIndex(page)
+
+    await assertNoSideways(page)
+
+    // The gutter the artboard draws, and the one the full-bleed rule is paired
+    // with. The article moved to 20px before this phase; the index, the related
+    // list and the footer were left at the desktop 24px and did not line up.
+    await expect(page.locator('.blog-page')).toHaveCSS('padding-left', '20px')
+
+    const back = (await page.locator('.blog-back').boundingBox())!
+    expect(back.width).toBeGreaterThanOrEqual(44)
+    expect(back.height).toBeGreaterThanOrEqual(44)
+
+    const pills = page.locator('.blog-pill')
+    expect(await pills.count()).toBeGreaterThan(0)
+    for (const pill of await pills.all()) {
+      const box = (await pill.boundingBox())!
+      expect(box.height, 'a topic pill is under 44px').toBeGreaterThanOrEqual(44)
+    }
+
+    const search = (await page.locator('.blog-search').boundingBox())!
+    expect(search.height).toBeGreaterThanOrEqual(44)
+    // 16px or larger, or iOS zooms the whole page in when the field takes focus
+    // and offers no way back out.
+    const inputSize = await page
+      .locator('.blog-search__input')
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+    expect(inputSize).toBeGreaterThanOrEqual(16)
+
+    // One column, asserted on the track list rather than by comparing two cards'
+    // x: the content carries two posts and one of them is the featured slot, so
+    // a card-to-card comparison would have nothing to compare.
+    const tracks = await page.evaluate(() => ({
+      grid: getComputedStyle(document.querySelector('.blog-grid')!).gridTemplateColumns,
+      featured: getComputedStyle(document.querySelector('.blog-card--featured')!)
+        .gridTemplateColumns,
+    }))
+    expect(tracks.grid.split(' ')).toHaveLength(1)
+    expect(tracks.featured.split(' ')).toHaveLength(1)
+
+    expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+  })
+
+  test('an article reads at the artboard type scale', async ({ page }) => {
+    const errors = collect(page)
+    await openBlogIndex(page)
+    await openFirstArticle(page)
+
+    await assertNoSideways(page)
+    await expect(page.locator('.blog-article')).toHaveCSS('padding-left', '20px')
+
+    const type = await page.evaluate(() => {
+      const title = document.querySelector('.blog-article__title')!
+      const body = document.querySelector('.blog-body')!
+      return {
+        title: parseFloat(getComputedStyle(title).fontSize),
+        body: parseFloat(getComputedStyle(body).fontSize),
+        leading: parseFloat(getComputedStyle(body).lineHeight),
+        serif: getComputedStyle(body).fontFamily,
+        ui: getComputedStyle(title).fontFamily,
+      }
+    })
+
+    // 1.85rem, down from the desktop 2.75rem.
+    expect(type.title).toBeGreaterThan(28)
+    expect(type.title).toBeLessThan(32)
+    // 1.125rem / 1.6 — the reading size, down from 1.25rem / 1.65.
+    expect(type.body).toBeCloseTo(18, 0)
+    expect(type.leading).toBeCloseTo(28.8, 0)
+
+    // The two faces stay on their own sides of the design: Source Serif 4 for
+    // prose, Inter for anything that is interface. Both are registered under
+    // blog-specific family names so they cannot restyle the 3D site.
+    expect(type.serif).toContain('Vertigo Blog Serif')
+    expect(type.ui).toContain('Vertigo Blog Inter')
+
+    expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+  })
+
+  test('article images run edge to edge, and their captions do not', async ({ page }) => {
+    await openBlogIndex(page)
+    await openFirstArticle(page)
+
+    // A body image is the case the old rule missed: it reached
+    // `.blog-article > .blog-figure` only, so the cover bled and every image
+    // after it stayed in a rounded 350px box. The published posts carry no image
+    // block, so the real cover figure is CLONED into `.blog-body` — the markup
+    // under test is still BlogFigure's own output, moved to the position the
+    // rule has to cover. The caption is appended for the same reason: no cover
+    // has one today, and the artboard pushes it back inside the gutter while the
+    // image bleeds past it.
+    await page.evaluate(() => {
+      const cover = document.querySelector('.blog-article > .blog-figure')!
+      const clone = cover.cloneNode(true) as HTMLElement
+      const caption = document.createElement('figcaption')
+      caption.className = 'blog-figure__caption'
+      caption.textContent = 'Pie de foto de prueba.'
+      clone.append(caption)
+      document.querySelector('.blog-body')!.prepend(clone)
+    })
+
+    const figures = page.locator('.blog-article > .blog-figure, .blog-body > .blog-figure')
+    expect(await figures.count(), 'no figure to measure').toBe(2)
+
+    const rootWidth = await page.locator('.blog-root').evaluate((el) => el.clientWidth)
+
+    for (const figure of await figures.all()) {
+      const box = (await figure.boundingBox())!
+      expect(box.x, 'a figure does not start at the left edge').toBeCloseTo(0, 0)
+      expect(box.width, 'a figure is not the full width of the blog').toBeCloseTo(rootWidth, 0)
+      await expect(figure.locator('.blog-figure__img')).toHaveCSS('border-radius', '0px')
+    }
+
+    // Measured on the TEXT, not on the caption box. The caption is a block
+    // inside the bled figure, so its border box legitimately starts at x=0 and
+    // it is the 20px padding that carries the words back inside the gutter — a
+    // bounding-box read would pass whether that padding existed or not.
+    const captionText = await page.evaluate(() => {
+      const caption = document.querySelector('.blog-body .blog-figure__caption')!
+      const range = document.createRange()
+      range.selectNodeContents(caption)
+      return range.getBoundingClientRect().left
+    })
+    expect(captionText, 'the caption bled with the image instead of staying inset').toBeCloseTo(
+      20,
+      0,
+    )
+
+    await assertNoSideways(page)
+  })
+
+  test('the article top bar carries three named 44px controls', async ({ page }) => {
+    await openBlogIndex(page)
+    await openFirstArticle(page)
+
+    // The artboard draws back / mark / search. Before this phase the mark was an
+    // aria-hidden decoration and the third cell an empty spacer, so a phone had
+    // one control where the design has three.
+    const controls = [
+      { locator: page.locator('.blog-back'), name: 'Ir atrás' },
+      { locator: page.locator('.blog-topbar__home'), name: 'Inicio del blog' },
+      { locator: page.locator('.blog-topbar__search'), name: 'Buscar en el blog' },
+    ]
+
+    for (const { locator, name } of controls) {
+      await expect(locator).toHaveAccessibleName(name)
+      const box = (await locator.boundingBox())!
+      expect(box.width, name + ' is under 44px wide').toBeGreaterThanOrEqual(44)
+      expect(box.height, name + ' is under 44px tall').toBeGreaterThanOrEqual(44)
+    }
+
+    // Search is not a decoration either: it unwinds to the index and leaves the
+    // caret in the field, which is the whole reason it is worth a third of the
+    // bar. An icon that only navigated would be named for something it does not
+    // do.
+    await page.locator('.blog-topbar__search').click()
+    await expect(page.locator('.blog-search__input')).toBeFocused()
+    expect(new URL(page.url()).pathname).toBe('/blog')
+  })
+
+  test('the blog scrolls, the page underneath does not, and back returns', async ({ page }) => {
+    await openBlogIndex(page)
+    await openFirstArticle(page)
+
+    const root = page.locator('.blog-root')
+    const scrollable = await root.evaluate((el) => el.scrollHeight - el.clientHeight)
+    expect(scrollable, 'the article must overflow for this to prove anything').toBeGreaterThan(0)
+
+    const moved = await root.evaluate((el) => {
+      el.scrollTop = Math.min(600, el.scrollHeight - el.clientHeight)
+      return el.scrollTop
+    })
+    expect(moved).toBeGreaterThan(0)
+
+    // `.blog-root` is a fixed overlay and the document behind it has nothing
+    // to scroll. If this ever moves, the two are fighting, and a phone gets the
+    // rubber-banding `overscroll-behavior: contain` exists to prevent.
+    expect(await page.evaluate(() => window.scrollY)).toBe(0)
+
+    await page.locator('.blog-back').click()
+    await expect(page.locator('.blog-page')).toBeVisible()
+    expect(new URL(page.url()).pathname).toBe('/blog')
+  })
 })
