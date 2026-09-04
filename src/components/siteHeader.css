@@ -251,6 +251,87 @@
   color: #1c67ff;
 }
 
+/* ---- White over the scene (2026-09-04, plan 012 task 2) -------------------
+
+   CLIENT DIRECTION: Contact reads black over Murcia and should be white.
+
+   Why this needs a scrim rather than just a colour. `tone` says how light the
+   GROUND is, and the rule above is right about that — Murcia's daylight sky is
+   pale, and after the camera dropped to 19 degrees there is MORE sky behind the
+   header than there used to be, not less. White text alone would be lower
+   contrast than the ink it replaces, over exactly the surface the client is
+   looking at. So the white comes with something to sit on.
+
+   Scoped by data-layout, not by tone. `tone='light'` is shared: App.tsx sets it
+   for Murcia and BlogRoute.tsx sets it for the blog, whose bar is #fbfbfa
+   paper. Written against tone alone, this rule would put white text on white
+   paper — and the blog's own header is not what anybody asked to change.
+
+   The scrim is the #controls-hint recipe from murcia.css: dark glass, blurred,
+   fully round. Deliberately lighter than that one (0.42 against 0.72) and with
+   no border — the l.201 note above is explicit that contact is the quieter door
+   beside the Auditoría CTA, and a pill with the same weight as the button would
+   make them a pair of buttons. It reads as a shadow under the word, not as a
+   control. */
+/* PHONE IS DELIBERATELY EXCLUDED, and this was checked rather than assumed.
+
+   The first attempt applied the white at every width, on the reasoning that
+   below 768px Contacto is a row inside the phone menu's "dark glass field" and
+   white would be right there. The field is TRANSLUCENT, not dark: it blurs
+   whatever is behind it, and behind the top of it — after the camera dropped to
+   19 degrees — is Murcia's pale sky. Captured, it renders near-white, and white
+   text on it was less readable than the ink it replaced. The burger had the
+   same problem in the closed state: white bars at 2.06:1 against that sky,
+   where #0b0b0d was never in any doubt.
+
+   So below 768px nothing changes: the [data-tone='light'] ink rule above still
+   applies to both, exactly as it did. The client's report is about the control
+   on the header LINE, which is the only place it is visible at those widths.
+
+   The rules therefore live entirely inside the media query below. */
+
+/* The scrim is the LINE's, and only the line's. The phone menu supplies its own
+   ground — a pill inside the field would be a second surface on top of the
+   glass, and the row design (plan 011) is a bare word against an accent tick.
+   This rule outranks that one on specificity, so it has to be bounded by width
+   rather than left to lose. */
+/* MEASURED, against the sky actually behind the header at the 19-degree pose
+   (about rgb(168,182,199)):
+
+     white on the bare sky              2.06:1   <- what "just make it white" buys
+     white on rgba(20,28,38,0.42)       4.67:1
+     white on rgba(12,18,26,0.55)       6.81:1   <- this
+     the ink it replaces                7.4:1
+
+   0.42 already clears AA. The reason to go darker is not contrast, it is
+   WEIGHT: a mid-grey pill 0.85rem wide sits beside the blue Auditoría box and
+   reads as a second button, which is precisely what the note above says contact
+   must not be. Darker and tighter reads as a shadow under the word instead —
+   it has no fill identity of its own, and at 6.81:1 the text can afford to be
+   the only thing anybody notices. */
+@media (min-width: 768px) {
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger {
+    color: #fff;
+    padding: 0 0.7rem;
+    border-radius: 999px;
+    background: rgba(12, 18, 26, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      opacity 0.3s ease;
+  }
+
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover {
+    color: #fff;
+    background: rgba(12, 18, 26, 0.72);
+  }
+}
+
+/* The burger is the phone-visible sibling and carried the same ink for the same
+   reason. It gets the same treatment or the phone header goes half-and-half:
+   a white Auditoría box beside a black burger on the same pale sky. */
 /* ---- The phone menu: a glass field (2026-09-04, plan 011) -------------------
 
    Below 768px the two triggers fold behind a burger. Open, the menu is not a
