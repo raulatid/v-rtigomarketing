@@ -141,7 +141,43 @@ light count invalidates every material's shader program (§2.3, §10.4).
 - **The terrain plate** is located by name (`suelo-principal`) with a largest-flat-mesh
   fallback. Renaming it is fine; the fallback and the reported `terrainSource`
   will say what happened.
+- **The outer ground** is located by name (`SUELO_CIUDAD`) with **no fallback**, and
+  it is load-bearing in a way the plate is not — see below.
 - Keep 1 unit ≈ 1 metre. Every camera and navigation value assumes it.
+
+### 5.1 The outer ground carries the camera
+
+Added 2026-09-04 with the filler city, and it is the one geometry fact the camera
+pose depends on.
+
+Murcia rests at **19° elevation**, which puts the horizon in frame. That is only
+affordable because `SUELO_CIUDAD` extends **741 units past the authored plate in
+its thinnest direction**, and because the terrain skirt wraps *that* mesh rather
+than the plate. Shrink it, rename it, or drop it and the resting camera starts
+showing the edge of the model — on wide viewports first, silently.
+
+Three rules follow:
+
+1. **`SUELO_CIUDAD` must exist, by that name.** There is deliberately no
+   largest-flat-mesh fallback: that fallback would find this very mesh, so a
+   mistyped *plate* name would hand both lookups the same object and the skirt
+   would wrap the rectangle navigation is bounded to. A miss logs loudly and
+   falls back to wrapping the plate, which fades out the middle of the city.
+2. **It must cover `murciaConfig.groundBounds`.** `checks/city-asset.ts` §7
+   asserts the shipped GLB against that rectangle and runs under
+   `check:asset:contract`, so a re-export that shrinks the ground fails the
+   build. If the ground legitimately changes size, re-measure and update
+   `GROUND` in `murciaConfig.ts` — then re-run `npm run check:footprint`, which
+   is what decides whether the pose is still legal.
+3. **Keep it at the scene root, unrotated, at y = 0.** The contract check reads
+   its bounds from the POSITION accessor plus the node's own translation and
+   scale; it does not walk a parent chain or apply a rotation. Parent it or turn
+   it and the check reports the wrong rectangle (it prints a NOTE if it sees a
+   rotation, but the number is still wrong).
+
+It is also kept off the trim sheet and given the ground material, like the plate:
+it carries no `TEXCOORD_0`, so a sheet applied here samples texel (0,0) and paints
+2000 units of city floor in whichever band sits in the corner of the atlas.
 
 ---
 

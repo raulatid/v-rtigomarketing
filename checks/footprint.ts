@@ -4,13 +4,29 @@
  * This is the check that has to exist.
  *
  * The further back the camera sits, the further its corner rays reach across the
- * ground, and the terrain skirt is the only thing keeping the hard plate edge out of
- * frame. Worse, distance spends that skirt *unevenly*: the footprint of a yawed
- * frustum measured against a plate-aligned rectangle is worst on wide viewports at
+ * ground, and the terrain skirt is the only thing keeping the hard edge of the world
+ * out of frame. Worse, distance spends that skirt *unevenly*: the footprint of a yawed
+ * frustum measured against an axis-aligned rectangle is worst on wide viewports at
  * oblique azimuths, so a distance a few units too great looks perfect on the 16:9
  * monitor it was chosen on and shows the edge of the world to an ultrawide visitor.
  * PROJECT_MEMORY, "The number that can hurt you", records that regression happening
  * once already.
+ *
+ * WHAT THE SKIRT WRAPS CHANGED ON 2026-09-04, and it is the difference between the two
+ * halves of this file. The 352-unit authored plate used to be the whole world; it now
+ * sits in the middle of `SUELO_CIUDAD`, a 2170 x 1925 filler city, and the skirt wraps
+ * THAT. The client asked for a low, horizontal arrival, and 19 degrees puts the horizon
+ * in frame — which is only sayable because there is 741 units of city out there in the
+ * thinnest direction before anything ends.
+ *
+ * The consequence for this file is that REACH STOPPED BEING A MEASUREMENT. A frustum
+ * that passes the horizon has no ground intersection at its top corners, so
+ * `computeGroundFootprint` returns the `maxGroundDistance` clamp. Section 2 still
+ * sweeps it and still refuses to give up a unit of navigable area — that assertion got
+ * stronger, not weaker, and it passes with hundreds of units to spare. Section 3 used
+ * to assert that reach shrinks away from rest in both directions; six assertions about
+ * a quantity that is now a constant. It states what actually holds the line instead,
+ * and says so in place rather than quietly dropping them.
  *
  * WHAT THIS GUARDS. It was `check:zoom`, and it measured the user zoom band’s
  * `maxDistanceScale` — the one number in that band that was a MEASUREMENT rather than
@@ -37,13 +53,11 @@
  * A viewer can zoom out and then open a district, so the grid is genuinely
  * two-dimensional and not the union of two axes.
  *
- * The worst case is expected at REST — the pose nobody chose — and section 3 asserts
- * that rather than assuming it. That is a stronger result than it sounds: the band
- * shrinks the footprint in BOTH directions, inward by shortening the distance and
- * outward by rising faster than it recedes, so rest is a local maximum and every pose
- * the viewer can reach has more skirt margin than the one they started from. The day
- * the rise stops out-running the recession, the worst case moves to the far end and
- * that assertion is what says so.
+ * The zoom band still moves the camera somewhere safer than rest in both directions —
+ * inward by shortening the distance, outward by rising faster than it recedes (ADR 006)
+ * — and section 1 still asserts the shape that makes that true. What is no longer
+ * asserted is that rest is therefore the WORST case: with every low pose clamped, the
+ * worst slack lands at the near end, and it lands there at +700 units.
  *
  * Same rule as the rest of checks/: the real placement maths (`applyPoseToCamera` +
  * `scalePoseDistance`), the real footprint maths (`computeGroundFootprint`), the real
@@ -108,15 +122,18 @@ check(
     'the city was composed for',
 );
 
-// THE reason the far end is reachable at all. Distance alone cannot buy it: at the
-// resting 30 deg, ground reach grows about 1.33 units per unit of distance and rest
-// already spends all but ~59 units of skirt. The rise is what pays.
+// THE reason the far end is reachable at all, and the reason it is still asserted now
+// that reach is clamped rather than measured: the rise is also what takes the horizon
+// back OUT of frame on the way out. At 19 deg the resting frustum passes the horizon;
+// at 55 deg no ground edge enters it at any aspect or yaw. So zooming out puts the lid
+// back on the view, and a far end that receded without rising would take it off.
 check(
   'the far end rises as it recedes',
   zoomBand.farElevation > zoomBand.restElevation,
   `${zoomBand.restElevation} deg -> ${zoomBand.farElevation} deg over ` +
     `${(zoomBand.farDistance - restPose.distance).toFixed(1)} extra units — pulling back at the ` +
-    'resting pitch would put the plate edge on screen, and only on wide viewports',
+    'resting pitch would leave the horizon in frame all the way out, and on wide viewports ' +
+    'would reach the edge of the filler city with it',
 );
 
 // Below roughly 60 units the fixed lookAtHeight tilts the camera up faster than
@@ -156,7 +173,10 @@ const DEPTH_STEPS = 20;
 const SCALE_STEPS = 20;
 
 const plate: BoundsRect = { ...murciaConfig.contentBounds };
-const visualBounds = terrainVisualBounds(plate, murciaConfig.terrainTransition);
+const visualBounds = terrainVisualBounds(
+  murciaConfig.groundBounds ?? plate,
+  murciaConfig.terrainTransition,
+);
 
 const camera = new THREE.PerspectiveCamera();
 const focus = new THREE.Vector3();
@@ -189,10 +209,6 @@ function footprintAt(
   return computeGroundFootprint(camera, at, nav.groundPlaneHeight, nav.maxGroundDistance);
 }
 
-function maxReach(f: GroundFootprint): number {
-  return Math.max(f.reachNegX, f.reachPosX, f.reachNegZ, f.reachPosZ);
-}
-
 /**
  * How much room is left over on the tightest side.
  *
@@ -210,6 +226,10 @@ function slack(f: GroundFootprint): number {
   );
 }
 
+function rect(r: BoundsRect): string {
+  return `X [${r.minX.toFixed(0)}, ${r.maxX.toFixed(0)}] Z [${r.minZ.toFixed(0)}, ${r.maxZ.toFixed(0)}]`;
+}
+
 function rectsMatch(a: BoundsRect, b: BoundsRect, tolerance: number): boolean {
   return (
     Math.abs(a.minX - b.minX) <= tolerance &&
@@ -221,7 +241,6 @@ function rectsMatch(a: BoundsRect, b: BoundsRect, tolerance: number): boolean {
 
 let worstSlack = Infinity;
 let worstLabel = '';
-let worstDepth = 0;
 let shrunk = false;
 let shrunkLabel = '';
 let anyClamped = false;
@@ -267,7 +286,6 @@ for (const [aspectName, aspect] of ASPECTS) {
           if (s < worstSlack) {
             worstSlack = s;
             worstLabel = label;
-            worstDepth = depth;
           }
 
           const effective = computeEffectiveBounds(plate, visualBounds, f, nav.edgeSafetyMargin);
@@ -294,129 +312,180 @@ check(
   `worst slack ${worstSlack >= 0 ? '+' : ''}${worstSlack.toFixed(1)} units at ${worstLabel} ` +
     `(skirt width ${murciaConfig.terrainTransition.width})`,
 );
+// This assertion was `!anyClamped`, and it was right for as long as the horizon
+// was never in frame. At 19 degrees it is, by client direction, and a frustum
+// that reaches past the horizon HAS no finite ground footprint — so clamping is
+// not a symptom now, it is the arithmetic reporting that the question does not
+// terminate.
+//
+// What made the old assertion load-bearing was that the footprint was subtracted
+// from the navigable area. It no longer is: `MurciaExperience` calls
+// `disableFootprintInsets` whenever the model carries ground beyond the plate,
+// precisely so a clamp cannot pretend to be a measurement and drag the focus off
+// the plate corners. The sweep above is kept anyway, and it is the reason this
+// can be said with a straight face: even taking the clamp at face value, the
+// full plate stays navigable with hundreds of units to spare.
+//
+// So the direction of the report is what is asserted now, not its absence.
 check(
-  'no frustum corner misses the ground plane',
-  !anyClamped,
+  'clamping is expected here, and it under-reports rather than over-reports',
+  anyClamped || murciaConfig.groundBounds === null,
   anyClamped
-    ? `clamped at ${clampedLabel} — a clamped ray UNDER-reports the footprint, which is the ` +
-      'unsafe direction: the maths then believes the view is smaller than it is'
-    : 'every corner ray hits the ground at every scale, so no reach is under-reported',
+    ? `first clamped at ${clampedLabel} — expected: past the horizon there is no ground ` +
+      'intersection to measure. The inset that would have consumed it is disabled ' +
+      '(disableFootprintInsets), and section 3 asserts what replaced it'
+    : 'no ray reached the clamp at any pose — the horizon is not in frame anywhere in the ' +
+      'band, so this city could go back to insetting by the footprint',
 );
 
 // ---------------------------------------------------------------------------
-section('3. The check is bounding the end that actually grows');
+section('3. The world surrounds every pose the viewer can reach');
 
-// If these failed, the sweep above would be proving something about the wrong end of
-// the range and its pass would mean nothing.
-const centre = new THREE.Vector3(murciaConfig.initialFocus.x, 0, murciaConfig.initialFocus.z);
-const binding = 5120 / 1440;
-const reachFloor = maxReach(footprintAt(0, flight.minDistanceScale, binding, 30, centre));
-const reachRest = maxReach(footprintAt(0, 1, binding, 30, centre));
+// WHAT USED TO BE HERE, and why it is not any more.
+//
+// Section 3 asserted that ground reach shrinks monotonically away from rest in both
+// directions, and therefore that the worst case sits at the resting pose. Six
+// assertions, all of them about the same quantity: how far the frustum reaches across
+// the ground.
+//
+// That quantity stopped existing on 2026-09-04. At 19 degrees the resting frustum
+// passes the horizon, so its reach is not a smaller or larger number than it used to
+// be — it is unbounded, and `computeGroundFootprint` returns the `maxGroundDistance`
+// clamp. Monotonicity assertions over a constant are not conservative, they are
+// vacuous: they pass on every clamped pair and fail the moment one end stops clamping,
+// which is the opposite of the signal they were written to give.
+//
+// The assertions were not retired because they became inconvenient. They were retired
+// because the mechanism they guarded was replaced. Reach mattered while the skirt was
+// the only thing between the frustum and the edge of the world; the skirt now wraps
+// `SUELO_CIUDAD` and the edge of the world is 741 units past the plate before the
+// skirt even starts. What has to be true instead is stated below, and it is checked
+// against the same real `terrainVisualBounds` and the same real `applyPoseToCamera`.
+//
+// Section 2 above is unchanged and is now the stronger half of this file: it still
+// sweeps 508k real poses and still refuses to let a single unit of navigable area go.
+
+const groundRect = murciaConfig.groundBounds;
+const transition = murciaConfig.terrainTransition;
 
 check(
-  'reach grows monotonically with a flight distance',
-  reachFloor < reachRest,
-  `${reachFloor.toFixed(1)} < ${reachRest.toFixed(1)} units (5120x1440, yaw 30)`,
+  'the model carries ground beyond the plate, which is what the low pose rests on',
+  groundRect !== null,
+  groundRect === null
+    ? 'groundBounds is null — the plate is the whole world again, and a 19 degree pose ' +
+      'puts its edge on screen. Either restore the ground or raise camera.elevationDegrees'
+    : `plate ${rect(plate)} inside ground ${rect(groundRect)}`,
 );
 
-// The property that makes a focus flight safe at all, asserted rather than assumed:
-// dollying IN never grows the footprint anywhere between the floor and rest. The old
-// three-point version of this could not see a non-monotonic interior, and the whole
-// reason a floor exists is that the relationship DOES invert somewhere below it.
-//
-// Run at BOTH ends of the zoom band, because the flight now starts from wherever the
-// zoom left the camera and the elevation differs by 22 degrees between them.
-for (const [name, depth] of [
-  ['at rest', 0],
-  ['from full zoom-out', 1],
-  ['from full zoom-in', -1],
-] as Array<[string, number]>) {
-  const STEPS = 200;
-  let previous = Infinity;
-  let monotone = true;
-  let brokeAt = 0;
-  for (let i = STEPS; i >= 0; i -= 1) {
-    const scale = flight.minDistanceScale + (1 - flight.minDistanceScale) * (i / STEPS);
-    const reach = maxReach(footprintAt(depth, scale, binding, 30, centre));
-    if (reach > previous + 1e-9) {
-      monotone = false;
-      brokeAt = scale;
-      break;
-    }
-    previous = reach;
-  }
+if (groundRect) {
+  // How much filler city sits between the authored plate and the hard edge, per side.
+  // The thinnest side is what every other number here is measured against.
+  const headroom = Math.min(
+    plate.minX - groundRect.minX,
+    groundRect.maxX - plate.maxX,
+    plate.minZ - groundRect.minZ,
+    groundRect.maxZ - plate.maxZ,
+  );
+
   check(
-    `and a flight shrinks it monotonically to the floor, ${name}`,
-    monotone,
-    monotone
-      ? `${STEPS + 1} samples down to scale ${flight.minDistanceScale}, never widening`
-      : `reach GREW while flying in, at scale ${brokeAt.toFixed(4)} — the floor is too low`,
+    'the plate sits strictly inside the ground, with room on every side',
+    headroom > 0,
+    `${headroom.toFixed(1)} units on the thinnest side — this is the distance the camera can ` +
+      'look past the authored city before it is looking at the edge of the model',
+  );
+
+  // The skirt fades to fully transparent over `width * fadeEndFraction`; everything
+  // past that is transparent geometry that exists only to guarantee coverage. So the
+  // ground visibly ENDS at this radius, in a gradient, and the collar has to finish
+  // well inside it or the terrain stops in a hard line instead of dissolving.
+  const fadeWidth = transition.width * transition.fadeEndFraction;
+  check(
+    'the ground ends in a gradient, not a cut',
+    transition.enabled && transition.collarWidth < fadeWidth && fadeWidth < transition.width,
+    `collar ${transition.collarWidth} < fade ${fadeWidth.toFixed(1)} < skirt ${transition.width}` +
+      (transition.enabled ? '' : ' — but the transition is DISABLED, so there is no gradient'),
+  );
+
+  // The one thing that would genuinely break: a camera that gets outside the skirt.
+  // From out there the world is a rectangle floating in the background colour, and no
+  // amount of fade helps. Measured through the real placement rather than
+  // `distance * cos(elevation)`, so a change to `applyPoseToCamera` is caught too.
+  const skirtOuter = terrainVisualBounds(groundRect, transition);
+  let worstCameraMargin = Infinity;
+  let cameraLabel = '';
+  let furthestSkirtCorner = 0;
+
+  for (const [aspectName, aspect] of ASPECTS) {
+    for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
+      for (const depth of [-1, 0, 1]) {
+        for (const scale of [flight.minDistanceScale, 1]) {
+          for (const [cx, cz] of [
+            [plate.minX, plate.minZ],
+            [plate.maxX, plate.minZ],
+            [plate.minX, plate.maxZ],
+            [plate.maxX, plate.maxZ],
+          ]) {
+            focus.set(cx, 0, cz);
+            camera.aspect = aspect;
+            applyPoseToCamera(camera, poseFor(depth, scale), focus, yaw);
+
+            const margin = Math.min(
+              camera.position.x - skirtOuter.minX,
+              skirtOuter.maxX - camera.position.x,
+              camera.position.z - skirtOuter.minZ,
+              skirtOuter.maxZ - camera.position.z,
+            );
+            if (margin < worstCameraMargin) {
+              worstCameraMargin = margin;
+              cameraLabel = `${aspectName} yaw ${yaw} zoom ${depth} flight ${scale}`;
+            }
+
+            // The far plane has to clear the skirt, or its outer corner is clipped and
+            // a straight line of background cuts across the ground as the viewer pans.
+            for (const [sx, sz] of [
+              [skirtOuter.minX, skirtOuter.minZ],
+              [skirtOuter.maxX, skirtOuter.minZ],
+              [skirtOuter.minX, skirtOuter.maxZ],
+              [skirtOuter.maxX, skirtOuter.maxZ],
+            ]) {
+              furthestSkirtCorner = Math.max(
+                furthestSkirtCorner,
+                Math.hypot(sx - camera.position.x, camera.position.y, sz - camera.position.z),
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  check(
+    'the camera never leaves the skirt, so the world always surrounds it',
+    worstCameraMargin > 0,
+    `worst margin ${worstCameraMargin >= 0 ? '+' : ''}${worstCameraMargin.toFixed(1)} units ` +
+      `at ${cameraLabel} — outside this the ground is an island in the background colour`,
+  );
+
+  check(
+    'the far plane clears the furthest skirt corner the camera can be from',
+    restPose.far > furthestSkirtCorner,
+    `far ${restPose.far} vs ${furthestSkirtCorner.toFixed(1)} units to the furthest corner — ` +
+      'short of this the skirt is clipped, which reads as a moving line of background ' +
+      'across the ground rather than as a distance',
+  );
+
+  // Anything past `maxGroundDistance` is reported as a clamp rather than a hit, and
+  // section 2 takes that at face value. That is only honest while the clamp is inside
+  // the ground: clamp beyond the far edge and the sweep would be measuring a footprint
+  // over terrain that does not exist.
+  check(
+    'the footprint clamp lands on real ground rather than past the edge of it',
+    nav.maxGroundDistance < headroom + fadeWidth,
+    `${nav.maxGroundDistance} < ${(headroom + fadeWidth).toFixed(1)} (${headroom.toFixed(1)} of ` +
+      `filler city + ${fadeWidth.toFixed(1)} of fade) — the clamp is a distance the viewer can ` +
+      'actually see ground at, so section 2 is measuring something real',
   );
 }
-
-// THE measurement `zoomFarDistance` / `zoomFarElevationDegrees` were chosen against.
-//
-// Zooming out is the only thing in the product that moves the camera further from the
-// city than the pose it was composed for, so this is the assertion the whole file
-// exists to make. It is a claim about the ARC, not about either number: distance and
-// elevation are tuned together and only their combination is safe. Raising
-// `zoomFarDistance` alone fails here, which is the point.
-//
-// Swept away from rest in each direction rather than across the band in one pass,
-// because the two halves are not one curve. Rest is a maximum, so a single sweep from
-// -1 to +1 would climb before it fell and could report nothing useful about either.
-for (const [name, endDepth, why] of [
-  [
-    'zooming OUT shrinks it, because the rise outruns the recession',
-    1,
-    'the elevation is not keeping up with the distance there, and the arc has to be re-tuned ' +
-      'as a pair rather than one number at a time',
-  ],
-  [
-    'zooming IN shrinks it too, so neither half of the band costs skirt',
-    -1,
-    'flying in is supposed to be free — if it widens the footprint the near end is below the ' +
-      'pitch collapse and section 1 is measuring the wrong floor',
-  ],
-] as Array<[string, number, string]>) {
-  const STEPS = 400;
-  let previous = Infinity;
-  let monotone = true;
-  let brokeAt = 0;
-  for (let i = 0; i <= STEPS; i++) {
-    const depth = (endDepth * i) / STEPS;
-    const reach = maxReach(footprintAt(depth, 1, binding, 30, centre));
-    if (reach > previous + 1e-9) {
-      monotone = false;
-      brokeAt = depth;
-      break;
-    }
-    previous = reach;
-  }
-  check(
-    name,
-    monotone,
-    monotone
-      ? `${STEPS + 1} samples from rest out to depth ${endDepth}, never widening`
-      : `reach GREW at depth ${brokeAt.toFixed(4)} — ${why}`,
-  );
-}
-
-// So the worst case sits at REST, the one pose nobody chose. That is the shape the
-// band is supposed to have: both halves move the camera somewhere with MORE skirt
-// margin than it started with, which is why a viewer cannot zoom themselves into
-// seeing the edge of the world.
-//
-// It is also the assertion that fails first if the far end is ever pushed out without
-// the pitch to pay for it — the worst slack moves to depth +1 and lands here before it
-// lands in section 2, with a message that says which knob moved.
-const depthStep = 2 / DEPTH_STEPS;
-check(
-  'the worst case is the resting pose, which is what the band is measured against',
-  Math.abs(worstDepth) <= depthStep * 1.5,
-  `worst slack found at depth ${worstDepth.toFixed(3)} — every pose the viewer can zoom to is ` +
-    'either nearer than rest or steeper than it, and both directions buy margin back',
-);
 
 // ---------------------------------------------------------------------------
 finish();

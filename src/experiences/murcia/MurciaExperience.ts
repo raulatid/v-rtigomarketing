@@ -529,6 +529,7 @@ export class MurciaExperience {
       loader: this.assetLoader.gltf,
       modelPath: env.modelPath,
       terrainObjectName: env.terrainTransition.terrainObjectName,
+      groundObjectName: env.terrainTransition.groundObjectName,
       // The renderer travels with the sheet because a KTX2 set cannot be
       // decoded without asking this GPU which compressed formats it has.
       trimSheet: env.trimSheet,
@@ -557,16 +558,37 @@ export class MurciaExperience {
     // --- Terrain transition (Phase 6) --------------------------------------
     // Built before the bounds, because the skirt is what defines the visual
     // extent that the bounds are inset from.
-    if (env.terrainTransition.enabled && loaded.terrain) {
+    //
+    // The skirt wraps the OUTER ground when the model has one, and the plate
+    // only when it does not. Both are the same job — dissolve the one hard edge
+    // in the model — but which mesh carries that edge changed with the
+    // 2026-09-04 city, and wrapping the plate now would fade out the middle.
+    const wrapped = loaded.ground ?? loaded.terrain;
+    if (env.terrainTransition.enabled && wrapped) {
       // The river channel is an authored opening that reaches the plate edge on
       // both sides, so the collar has to be told about it or it seals the two
-      // river mouths shut.
-      const transition = createTerrainTransition(loaded.terrain, env.terrainTransition, {
-        openings: loaded.riverBounds ? [loaded.riverBounds] : [],
-      });
+      // river mouths shut. It is a PLATE-perimeter opening: once the skirt has
+      // moved out to the outer ground the channel no longer reaches the edge
+      // being wrapped, and notching for it there would cut two holes in open
+      // countryside.
+      const openings =
+        wrapped === loaded.terrain && loaded.riverBounds ? [loaded.riverBounds] : [];
+      const transition = createTerrainTransition(wrapped, env.terrainTransition, { openings });
       this.sceneBundle.scene.add(transition.group);
       this.transition = transition;
       this.bounds.setVisualBounds(transition.visualBounds);
+      if (loaded.ground) {
+        // With ground past the plate the horizon is deliberately in frame, and
+        // a frustum that reaches past the horizon has no finite ground
+        // footprint — `computeGroundFootprint` returns the `maxGroundDistance`
+        // clamp rather than a measurement. Insetting the navigable area by a
+        // clamp would drag the focus off the plate corners for a reason that is
+        // not real, so the inset is dropped and the skirt's fade carries the
+        // guarantee instead: it completes well inside the outer boundary, and
+        // the camera never leaves that boundary. `checks/footprint.ts` §2
+        // asserts both.
+        this.bounds.disableFootprintInsets(env.contentBounds);
+      }
       if (transition.warnings.length > 0) {
         console.warn('[terrain transition]\n- ' + transition.warnings.join('\n- '));
       }
@@ -946,6 +968,12 @@ export class MurciaExperience {
         // useless for exactly the verification zoom needs.
         cameraDistance: this.rig.getEffectivePose().distance,
         elevationDegrees: this.rig.getPose().elevationDegrees,
+        // The lens and the aim point, so the overlay can report the EFFECTIVE
+        // pitch. That, not the elevation, is what decides whether the frustum
+        // passes the horizon — and it is the number `?elev=` and `?lookAt=` are
+        // really being tuned against.
+        fov: this.rig.getEffectivePose().fov,
+        lookAtHeight: this.rig.getPose().lookAtHeight,
         azimuthDegrees: this.rig.getAzimuthDegrees(),
         insideBounds: containsPoint(
           this.rig.focus.x,

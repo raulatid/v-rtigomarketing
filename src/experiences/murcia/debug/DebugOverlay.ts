@@ -9,10 +9,20 @@ export interface OverlayInputs {
   cameraHeight: number;
   cameraDistance: number;
   elevationDegrees: number;
+  /** Effective, so it follows a `?fov=` override and the warp's lens blend. */
+  fov: number;
+  /** The rig's aim height. Negative aims below the focus and crops the horizon. */
+  lookAtHeight: number;
   /** Pose azimuth plus user yaw. Unbounded, so it shows turns accumulating. */
   azimuthDegrees: number;
   insideBounds: boolean;
   bounds: BoundsRect;
+  /**
+   * Whether any corner ray hit the `maxGroundDistance` clamp instead of the
+   * ground. Since 2026-09-04 this is how the overlay knows the frustum passes
+   * the horizon, which is the intended resting state rather than a fault — see
+   * the line it renders.
+   */
   footprintClamped: boolean;
   timings: LoadTimings;
 }
@@ -98,19 +108,42 @@ export class DebugOverlay {
       `Focus Z        ${f.z.toFixed(2)}\n` +
       `Cam distance   ${i.cameraDistance.toFixed(1)}\n` +
       `Cam height     ${i.cameraHeight.toFixed(1)}\n` +
-      `Elevation      ${i.elevationDegrees.toFixed(1)}°\n` +
+      `Elevation      ${i.elevationDegrees.toFixed(1)}° (rig)\n` +
+      `Eff. pitch     ${effectivePitch(i).toFixed(1)}° (aim ${i.lookAtHeight.toFixed(1)}, fov ${i.fov.toFixed(0)})\n` +
       `Azimuth        ${normalizeDegrees(i.azimuthDegrees).toFixed(1)}° (${i.azimuthDegrees.toFixed(0)}° raw)\n` +
       `${boolLine('Inside bounds', i.insideBounds)}\n` +
       `Bounds X       ${b.minX.toFixed(0)} … ${b.maxX.toFixed(0)}\n` +
       `Bounds Z       ${b.minZ.toFixed(0)} … ${b.maxZ.toFixed(0)}\n` +
       `Nav area       ${(b.maxX - b.minX).toFixed(0)} x ${(b.maxZ - b.minZ).toFixed(0)}\n` +
-      `${boolLine('Footprint ok', !i.footprintClamped)}\n` +
+      // Was `boolLine('Footprint ok', !clamped)`, i.e. red whenever a ray hit
+      // the clamp. That was right while the footprint inset the navigable area;
+      // Murcia now aims below the horizon on purpose and the clamp is the
+      // expected state, so a permanent red light would train the reader to
+      // ignore the overlay. It reports what the clamp MEANS instead.
+      `Horizon        ${i.footprintClamped ? 'in frame' : 'out of frame'}\n` +
       `GLB size       ${sizeMb} MB\n` +
       `Network (~)    ${networkMs}\n` +
       `Parse ready    ${parseMs}\n` +
       `First frame    ${firstFrameMs}\n` +
       `[F3] toggle overlay`;
   }
+}
+
+/**
+ * The angle the camera actually looks down at, which is what decides whether the
+ * frustum passes the horizon — not the rig elevation shown beside it.
+ *
+ * The two differ because `lookAtHeight` is a constant rather than a fraction of
+ * the distance: a positive aim tilts the camera up relative to the rig, a
+ * negative one tilts it down. The horizon is in frame once this drops below
+ * fov/2, which is the whole reason both numbers are on screen while a pose is
+ * being tuned through `?elev=` and `?lookAt=`.
+ */
+function effectivePitch(i: OverlayInputs): number {
+  const ground = Math.sqrt(
+    Math.max(i.cameraDistance * i.cameraDistance - i.cameraHeight * i.cameraHeight, 0),
+  );
+  return (Math.atan2(i.cameraHeight - i.lookAtHeight, ground) * 180) / Math.PI;
 }
 
 /** Wraps to [0, 360) for reading; the raw value is shown alongside. */

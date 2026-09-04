@@ -16,6 +16,28 @@ import type { EnvironmentConfig } from './environmentConfig';
 const PLATE = { minX: -438.2, maxX: -86.4, minZ: 120.5, maxZ: 473.3 };
 
 /**
+ * The OUTER ground, measured from the 2026-09-04 GLB the same way the plate was.
+ *
+ *   node `SUELO_CIUDAD`   translation (-387.55, 0, 274.81)
+ *   local XZ              X [-1030, 1140]   Z [-895.39, 1030]
+ *   world XZ              X [-1417.55, 752.48]   Z [-620.58, 1304.81]   (2170 x 1925)
+ *
+ * This is new, and it is the single fact that changes what Murcia's camera is
+ * allowed to do. Until this export the plate WAS the world: the model bounds and
+ * the plate coincided exactly, so the only ground the camera could reach was
+ * 352 x 353 units of authored city and the skirt existed to stop its edge being
+ * seen. The city now sits in the middle of a filler city six times its area.
+ *
+ * The plate did not move — it is byte-for-byte the rectangle above — so
+ * `contentBounds`, `initialFocus` and the navigable area are all unchanged.
+ *
+ * Read by `checks/footprint.ts`, which cannot open a GLB, and asserted against
+ * the shipped file by `checks/city-asset.ts` §7 — so a re-export that shrinks
+ * the ground fails the build rather than quietly putting its edge on screen.
+ */
+const GROUND = { minX: -1417.5, maxX: 752.4, minZ: -620.5, maxZ: 1304.8 };
+
+/**
  * Inset from the plate to the area the focus may reach.
  *
  * Zero: the whole model is navigable, right out to the plate edge. That is only
@@ -29,27 +51,58 @@ const NAVIGATION_INSET = 0;
 const REPRESENTATIVE_BUILDING_HEIGHT = 13;
 
 /**
- * Camera pose. Chosen against the elevation/navigable-area analysis in
- * Appendix A:
+ * Camera pose.
  *
- *  - elevation 30 deg reads clearly less isometric than the previous 44 deg
- *    while staying above the ~28 deg floor at which the far frustum edge
- *    overshoots the plate and the bounds calculation degenerates.
- *  - distance 165 gives a camera height of 83 (165 * sin 30) against 13-unit
- *    buildings, still far closer than the original 551. Backed off in stages:
- *    90 framed ~84% of the plate width, 110 ~97%, and 165 stands further back
- *    again.
+ * ── 30 deg -> 19 deg, and why that was not previously possible ──
  *
- *    Each step spends skirt margin at the corners. At 110 the worst case
- *    (5120x1440, focus at a plate corner) had 40 units of margin; at 165 that
- *    same case went to -89, i.e. the plate edge on screen. terrainTransition.
- *    width below is sized for 165 *and* for free 360 deg yaw — measured, not
- *    estimated. Change this distance and re-run the azimuth sweep.
- *  - FOV 35 is mid-range for the 30-40 band the plan specifies. Proximity
- *    comes from the distance, not from a wide FOV.
+ * CLIENT DIRECTION, 2026-09-04, against two reference frames: a lower, more
+ * horizontal view, where facades read and the eye travels ACROSS the city
+ * instead of down onto it.
+ *
+ * Every earlier version of this comment explained why the elevation could not
+ * go below about 28: ground reach goes as
+ *
+ *     height / tan(effectivePitch - fov/2)
+ *
+ * so it runs away as the pitch drops, and the skirt is finite. Measured through
+ * the real pose maths (worst over four aspects x 360 deg of yaw, at distance
+ * 225, fov 35, against the 700-unit skirt this file used to ship):
+ *
+ *     26 deg -> 1018      22 deg -> 2112      20 deg -> 5712      18 deg -> horizon
+ *
+ * That argument was never about the elevation. It was about there being nothing
+ * out there: the plate was the whole world, so anything the frustum reached past
+ * it was the edge of the world. `GROUND` above is what changed. There is now
+ * 741 units of city in the thinnest direction beyond the plate, the skirt wraps
+ * THAT instead, and reaching further simply means seeing more city.
+ *
+ *  - **19 degrees** is where the sky enters the frame at this fov and
+ *    lookAtHeight: effective pitch is 17.6 deg against a half-fov of 17.5, so
+ *    the horizon sits on the top edge at 16:9 and opens up at the corners on
+ *    wider viewports. It is the shallowest pose that is still unambiguously a
+ *    view OF the city rather than a view along the ground, and the client asked
+ *    for the horizon. Camera height is 73.3 against 13-unit buildings and a
+ *    45-unit cathedral, so the landmarks now stand above the lens — which is
+ *    most of what reads as "horizontal".
+ *  - **distance 225** is the client's own number, arrived at by hand before this
+ *    work. It is kept. It failed `check:footprint` under the old model (the
+ *    frustum corners clamped and the resting pose stopped being the worst case);
+ *    it is legal now for the same reason 19 degrees is.
+ *  - **FOV 35** is unchanged and should stay. Widening the lens grows the ground
+ *    footprint at no distance cost, which is the one thing that was never
+ *    affordable; and `applyPoseToCamera` carries it straight into the bounds
+ *    maths.
+ *  - **lookAtHeight** is unchanged and is the knob to reach for if the client
+ *    wants the horizon back OUT of frame without giving up the low camera:
+ *    aiming below the focus raises the effective pitch and crops the far
+ *    distance. -20 puts worst reach at 647 and -40 at 413, both inside even the
+ *    old skirt. `?lookAt=` exists for exactly that comparison.
+ *
+ * JUDGED for the look, MEASURED for whether it is allowed. `check:footprint` is
+ * the gate; a failure there is never a tuning question.
  */
-const ELEVATION_DEGREES = 30;
-const CAMERA_DISTANCE = 195;
+const ELEVATION_DEGREES = 19;
+const CAMERA_DISTANCE = 225;
 
 export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
@@ -110,10 +163,23 @@ export const murciaConfig: EnvironmentConfig = {
     // skirt width below accounts for it.
     lookAtHeight: REPRESENTATIVE_BUILDING_HEIGHT * 0.45,
     // Near is generous because nothing approaches the camera closer than the
-    // near frustum edge (~41 units at this pose). Far covers the plate plus the
-    // transition skirt plus maxGroundDistance.
+    // near frustum edge.
+    //
+    // 1200 -> 3500, and this one is forced rather than chosen. The far plane has
+    // to clear the furthest SKIRT vertex that can be in frame, and the skirt now
+    // wraps `GROUND` rather than the plate: its outer rectangle is
+    // X [-2117.6, 1452.5], Z [-1320.6, 2004.8], so a camera near the opposite
+    // plate corner sits about 3000 units from the far corner of it. At 1200 that
+    // corner is clipped — and a clipped skirt is not a subtle artefact, it is a
+    // straight line of background cutting across the ground at a fixed radius
+    // from the camera, moving as you pan.
+    //
+    // Only the FADE band strictly has to be inside this: everything past
+    // `width * fadeEndFraction` is already fully transparent, so clipping it
+    // changes nothing on screen. 3500 covers the whole skirt anyway rather than
+    // relying on that argument staying true if `fadeEndFraction` moves.
     near: 1,
-    far: 1200,
+    far: 3500,
   },
 
   cameraPortraitOverrides: null,
@@ -287,6 +353,20 @@ export const murciaConfig: EnvironmentConfig = {
     // character stripping ([].:/) no longer applies; findTerrainPlate still tries
     // the sanitized spelling and userData.name in case that changes again.
     terrainObjectName: 'suelo-principal',
+    // The skirt wraps the filler city, not the authored plate.
+    //
+    // This one field is what lets the camera lie down. The skirt's job has never
+    // changed — dissolve the one hard edge in the model — but which mesh carries
+    // that edge did, on 2026-09-04: `suelo-principal` used to be the outermost
+    // ground and is now an island in the middle of `SUELO_CIUDAD`. Left pointing
+    // at the plate, the skirt would fade out the middle of the city and the real
+    // edge would still be sitting there, 741 units further out, unhidden.
+    //
+    // Name lookup only, with no largest-flat-mesh fallback — `findOuterGround`
+    // records why: that fallback would find this very mesh, so a mistyped plate
+    // name would hand both lookups the same object and the skirt would wrap the
+    // rectangle navigation is bounded to.
+    groundObjectName: 'SUELO_CIUDAD',
     // Generous on purpose. The skirt is what keeps the plate edge out of frame,
     // which is what lets the navigable area be the whole model rather than an
     // inset rectangle (docs/plans/002 Appendix A).
@@ -382,8 +462,20 @@ export const murciaConfig: EnvironmentConfig = {
   //   depart 330 @ 62 deg  ->  height 291.4  ->  reaches ~460
   //
   // Still far short of rest's ~633, which is the invariant that matters.
-  warpDepartDistance: 330,
-  warpDepartElevationDegrees: 62,
+  //
+  // 330/62 -> 470/66 with the 2026-09-04 pose. Nothing about the argument
+  // changed, only the number it has to stay outside of: the departure has to end
+  // beyond `zoomFarDistance` or a commit from full zoom-out would open by moving
+  // back toward the city, and that moved 280 -> 400. Same arc, one step further
+  // along it again, still elevation-dominant.
+  //
+  // The reach arithmetic above is now historical rather than binding — at 19 deg
+  // the resting pose reaches past the horizon and "reaches ~633" has no finite
+  // value to compare against. What replaced it is in `checks/footprint.ts` §2.
+  // `checks/warp-transition.ts` §7 is unaffected and still asserts the join from
+  // every depth in the band.
+  warpDepartDistance: 470,
+  warpDepartElevationDegrees: 66,
 
   // ─── The user's zoom band (`adr/014`) ───
   //
@@ -417,10 +509,22 @@ export const murciaConfig: EnvironmentConfig = {
   // buildings shrinking is the zoom; the tilt is what pays for it.
   //
   // JUDGED 2026-09-04 for how far to go, MEASURED for whether it is allowed.
-  // There is a great deal of room left — 400 @ 55 deg is still safe — so this is
-  // the number to raise if the zoom reads as timid on real hardware.
-  zoomFarDistance: 280,
-  zoomFarElevationDegrees: 52,
+  //
+  // 280 @ 52 -> 400 @ 55, which is the pair the note above already named as
+  // still safe. CLIENT DIRECTION, same session as the pose change and for the
+  // same reason: the city got six times bigger, so the pose you climb to in
+  // order to see all of it has to climb further. Camera height goes 220.6 -> 328.
+  //
+  // The arc is doing something the low resting pose now depends on. At 19 deg
+  // the horizon is in frame; at 55 deg it is not — measured, no ground edge
+  // enters the frustum at the far end at any aspect or yaw. So zooming out is
+  // also what puts the lid back on the view, and the rise is paying for two
+  // things at once.
+  //
+  // Still the number to raise if the zoom reads timid, and still only through
+  // `check:footprint`.
+  zoomFarDistance: 400,
+  zoomFarElevationDegrees: 55,
 
   // Zooming IN keeps the resting pitch and only shortens the distance, because
   // nothing has to be paid for: flying in shrinks the footprint.
@@ -434,6 +538,14 @@ export const murciaConfig: EnvironmentConfig = {
   zoomNearScale: 0.7,
 
   contentBounds: { ...PLATE },
+
+  // The outer ground, for the harness. See `GROUND` above for the measurement.
+  //
+  // The runtime never reads this — it measures the real mesh at load, which is
+  // the only honest source. It is here because `checks/footprint.ts` runs in
+  // node against no GLB at all, and the alternative is a harness that asserts
+  // its own copy of the number it is checking.
+  groundBounds: { ...GROUND },
 
   // Plate centre. Verified as a starting composition; the plan asks for an
   // explicit value rather than an implicit centre-of-model.

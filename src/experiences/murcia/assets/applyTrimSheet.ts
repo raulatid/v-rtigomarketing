@@ -24,6 +24,19 @@ export interface ApplyTrimSheetOptions {
    */
   terrain: THREE.Mesh | null;
   /**
+   * The outer ground, kept off the sheet for the same reason the plate is, and
+   * given the same fabricated ground material.
+   *
+   * It is ground, not a building: it carries no TEXCOORD_0, so a sheet applied
+   * here samples texel (0,0) and paints 2000 units of city floor in whichever
+   * band happens to sit in the corner of the calibration chart. The skirt then
+   * clones that material and inherits the same wrong colour, which is how a
+   * missing UV set turns into a visible seam at the horizon.
+   *
+   * Null when the model has no ground beyond the plate.
+   */
+  ground?: THREE.Mesh | null;
+  /**
    * Whether the GLB declared materials of its own — read from the file's JSON,
    * not from the scene graph, because by the time `GLTFLoader` has finished the
    * two cases are indistinguishable.
@@ -92,13 +105,14 @@ export interface AppliedTrimSheet {
  */
 export function applyTrimSheet(options: ApplyTrimSheetOptions): AppliedTrimSheet {
   const { root, sheet, terrain, authored, groundColor } = options;
+  const ground = options.ground ?? null;
 
   if (authored) {
     const textured: THREE.Material[] = [];
     const seen = new Set<THREE.Material>();
     root.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
-      if (!mesh.isMesh || mesh === terrain) return;
+      if (!mesh.isMesh || mesh === terrain || mesh === ground) return;
       for (const mat of materialsOf(mesh)) {
         if (seen.has(mat)) continue;
         seen.add(mat);
@@ -123,22 +137,27 @@ export function applyTrimSheet(options: ApplyTrimSheetOptions): AppliedTrimSheet
   // scene, which put the floor at 227/255 and made it the brightest thing in
   // the city. The number now lives in `sceneState.groundColor`, with the
   // measurement beside it.
-  const ground = terrain
-    ? new THREE.MeshStandardMaterial({
-        name: GROUND_MATERIAL_NAME,
-        metalness: 0,
-        roughness: 1,
-        ...(groundColor === undefined ? {} : { color: groundColor }),
-      })
-    : null;
+  // One instance for the plate AND the outer ground: they are the same surface
+  // at two scales, and giving them separate materials would be two things to
+  // keep in step for no gain.
+  const groundMaterial =
+    terrain || ground
+      ? new THREE.MeshStandardMaterial({
+          name: GROUND_MATERIAL_NAME,
+          metalness: 0,
+          roughness: 1,
+          ...(groundColor === undefined ? {} : { color: groundColor }),
+        })
+      : null;
 
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.material = mesh === terrain && ground ? ground : buildings;
+    mesh.material =
+      (mesh === terrain || mesh === ground) && groundMaterial ? groundMaterial : buildings;
   });
 
-  return { textured: [buildings], ground };
+  return { textured: [buildings], ground: groundMaterial };
 }
 
 function materialsOf(mesh: THREE.Mesh): THREE.Material[] {

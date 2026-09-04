@@ -63,11 +63,22 @@ export class NavigableArea {
   }
 
   /**
-   * No skirt was built, so the plate edge is the visual edge and the footprint
-   * insets must not apply. See the asymmetry note above.
+   * Stop insetting the navigable area by the viewport footprint. Two callers,
+   * for opposite reasons — see the asymmetry note above.
+   *
+   *   no skirt        the plate edge is the visual edge and applying the inset
+   *                   against raw content bounds collapses the area to a
+   *                   sliver. An honest usable area with a loud error beats a
+   *                   silently unusable one.
+   *   horizon in frame the footprint is a `maxGroundDistance` clamp rather than
+   *                   a measurement, so insetting by it would pull the focus
+   *                   off the plate for a reach that was never measured.
+   *
+   * A visual rect already supplied by a skirt is kept: it is still what the
+   * debug wireframe draws, and it is still true. Only its use as an inset stops.
    */
   disableFootprintInsets(fallback: BoundsRect): void {
-    this.visual = this.plate ?? { ...fallback };
+    this.visual = this.visual ?? this.plate ?? { ...fallback };
     this.insetsDisabled = true;
   }
 

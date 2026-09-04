@@ -521,7 +521,14 @@ console.log('\n4. Free 360 rotation');
   );
   check(
     'elevation is untouched by yaw (no vertical rotation)',
-    close(h.rig.getHeight(), env.camera.distance * Math.sin((30 * Math.PI) / 180), 1e-6),
+    // Read from the config rather than written as 30: the assertion is that yaw
+    // does not touch the elevation, and hardcoding the elevation makes it fail
+    // for the one reason it is not about.
+    close(
+      h.rig.getHeight(),
+      env.camera.distance * Math.sin((env.camera.elevationDegrees * Math.PI) / 180),
+      1e-6,
+    ),
     `height = ${h.rig.getHeight().toFixed(4)}`,
   );
   check('yaw changes notified for bounds recompute', h.yawEvents > 0, `${h.yawEvents} events`);

@@ -52,14 +52,14 @@ export const WARP_TRANSITION = {
   // ─── Murcia leg ───
 
   /** The configured resting distance. Must equal murciaConfig.camera.distance. */
-  murciaRestDistance: 195,
+  murciaRestDistance: 225,
   /** The configured resting elevation. Must equal murciaConfig.camera.elevationDegrees. */
-  murciaRestElevation: 30,
+  murciaRestElevation: 19,
   /** Closest approach, arriving. See the envelope below before changing this. */
   murciaCloseDistance: 75,
   /** The departure pose, leaving. Must equal murciaConfig.warpDepart*. */
-  murciaDepartDistance: 330,
-  murciaDepartElevation: 62,
+  murciaDepartDistance: 470,
+  murciaDepartElevation: 66,
 
   /**
    * THE SAFETY ENVELOPE. Asserted by checks/warp-transition.ts.
@@ -67,15 +67,20 @@ export const WARP_TRANSITION = {
    * The real invariant is a footprint, not a distance: NO WARP POSE MAY REACH
    * FURTHER ACROSS THE GROUND THAN THE RESTING POSE DOES. The terrain skirt is
    * 700 units wide (murciaConfig.terrainTransition.width — read it there, never
-   * from here). It was sized when rest was 165/30deg, which needs 600 at every
-   * azimuth on a 5120x1440 viewport with only +50 units to spare. Rest is
-   * 195/30deg now and reaches ~573, so the spare is thinner than it was — see
-   * checks/footprint.ts, which is what actually holds this line.
-   * Anything that reaches further puts the plate edge on
-   * screen for ultrawide viewers only, silently, with nothing wrong on the
-   * machine the change was made on. PROJECT_MEMORY, "The number that can hurt
-   * you", records exactly that: going 110 -> 165 silently put the plate edge on
-   * screen for ultrawide users.
+   * from here). Anything that reaches further puts the world's edge on screen
+   * for ultrawide viewers only, silently, with nothing wrong on the machine the
+   * change was made on. PROJECT_MEMORY, "The number that can hurt you", records
+   * exactly that: going 110 -> 165 silently put the plate edge on screen for
+   * ultrawide users.
+   *
+   * WHAT THE SKIRT WRAPS CHANGED on 2026-09-04, and this comment used to state
+   * the old arithmetic as though it were the invariant. It was not. The skirt
+   * now wraps `SUELO_CIUDAD` — the filler city, 741 units past the plate in the
+   * thinnest direction — rather than the plate itself, which is what lets rest
+   * sit at 225/19deg with the horizon in frame at all. "Reaches ~573" no longer
+   * has a finite value to quote: at 19 degrees the resting frustum passes the
+   * horizon and its reach is the `maxGroundDistance` clamp. checks/footprint.ts
+   * §2 states what replaced it, and is what actually holds this line.
    *
    * That invariant is now asserted literally, by running the real
    * computeGroundFootprint over the real poses. The distance bounds below are
@@ -90,13 +95,15 @@ export const WARP_TRANSITION = {
    *
    * Lower bound — below about 60 the intuition "closer is always safer" stops
    * holding. lookAtHeight is a fixed 5.85 rather than a fraction of distance,
-   * so as the camera drops it tilts up relative to the rig, the effective pitch
-   * collapses through the ~28 degree floor where the bounds maths degenerates
-   * (PROJECT_MEMORY, "The number that can hurt you"), and the footprint
-   * diverges again.
+   * so as the camera drops it tilts up relative to the rig and the footprint
+   * diverges again (PROJECT_MEMORY, "The number that can hurt you"). The bound
+   * outlives the ~28 degree pitch floor it used to be justified by — with the
+   * skirt out at the filler city's edge that floor is gone — because the
+   * divergence itself is not about the skirt: it is lookAtHeight being a
+   * constant, and 60 is still where it starts to bite.
    */
-  murciaMaxDistance: 195,
-  murciaDepartMaxDistance: 330,
+  murciaMaxDistance: 225,
+  murciaDepartMaxDistance: 470,
   murciaMinDistance: 60,
 } as const
 

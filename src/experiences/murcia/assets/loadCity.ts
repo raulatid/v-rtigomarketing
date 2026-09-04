@@ -45,6 +45,11 @@ export interface LoadCityOptions {
   /** Name of the terrain plate mesh in the GLB. */
   terrainObjectName: string;
   /**
+   * Name of the outer ground mesh, or null/omitted when the plate is the whole
+   * ground. See `TerrainTransitionConfig.groundObjectName`.
+   */
+  groundObjectName?: string | null;
+  /**
    * The trim sheet to dress the city in, and the renderer the compressed-texture
    * transcoder needs to ask the GPU what formats it has.
    *
@@ -72,6 +77,16 @@ export interface LoadedCity {
   root: THREE.Object3D;
   terrain: THREE.Mesh | null;
   terrainSource: TerrainSource;
+  /**
+   * The outer ground, when the model carries one and it was found by name.
+   *
+   * Null both when the config asks for none and when the lookup missed. There
+   * is deliberately NO largest-flat-mesh fallback here, unlike the plate: that
+   * fallback exists so a rename cannot silently collapse navigation, and it
+   * would find this very mesh — handing the skirt the outer ground while the
+   * plate lookup, running the same fallback, had already claimed it.
+   */
+  ground: THREE.Mesh | null;
   timings: LoadTimings;
   report: SceneReport;
   /**
@@ -208,11 +223,13 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   //      about what a missing UV set now costs, instead of calling it harmless,
   //      and it runs last so its material count includes the water.
   const found = findTerrainPlate(root, options.terrainObjectName);
+  const ground = findOuterGround(root, options.groundObjectName ?? null, found.mesh);
   if (sheet) {
     applyTrimSheet({
       root,
       sheet,
       terrain: found.mesh,
+      ground,
       // The FILE's answer, not the scene graph's: once GLTFLoader has finished,
       // a fabricated default and an authored material are indistinguishable.
       // Same reason `checks/city-asset.ts` reads the JSON chunk rather than
@@ -230,6 +247,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     root,
     terrain: found.mesh,
     terrainSource: found.source,
+    ground,
     timings,
     report,
     water: river?.water ?? null,
@@ -389,6 +407,45 @@ export function findTerrainPlate(
 
 function isMesh(obj: THREE.Object3D): boolean {
   return (obj as THREE.Mesh).isMesh === true;
+}
+
+/**
+ * Locates the outer ground — the surface the skirt wraps when the city has one.
+ *
+ * By name only. `findTerrainPlate`'s largest-flat-mesh fallback exists so a
+ * rename cannot silently collapse navigation to a sliver; the same fallback
+ * here would be actively harmful, because the largest flat mesh in a model that
+ * HAS an outer ground is the outer ground — so a mistyped plate name would hand
+ * both lookups the same mesh, and the skirt would wrap the thing navigation had
+ * just been bounded to.
+ *
+ * A miss is loud but not fatal: the caller falls back to wrapping the plate,
+ * which is the behaviour every city had before this one.
+ */
+export function findOuterGround(
+  root: THREE.Object3D,
+  configuredName: string | null,
+  plate: THREE.Mesh | null,
+): THREE.Mesh | null {
+  if (!configuredName) return null;
+
+  const match = findByAnyNameSpelling(root, configuredName, isMesh);
+  if (!match) {
+    console.warn(
+      `[murcia] no "${configuredName}" mesh in the model; the skirt falls back to wrapping the ` +
+        'plate, which will fade out the middle of the city if there is ground beyond it.',
+    );
+    return null;
+  }
+
+  const mesh = match.object as THREE.Mesh;
+  if (mesh === plate) {
+    console.warn(
+      `[murcia] "${configuredName}" resolved to the same mesh as the terrain plate; ignoring it.`,
+    );
+    return null;
+  }
+  return mesh;
 }
 
 /**

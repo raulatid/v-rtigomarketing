@@ -43,6 +43,7 @@ import { PropertyBinding } from 'three';
 import { banner, check, finish, section } from './lib/assert';
 import { cityDistrictBindings } from '../src/experiences/murcia/scene/cityDistrictBindings';
 import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/interaction/BlogBuilding';
+import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 
 const MODEL =
   process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/city-prototype.glb';
@@ -86,14 +87,22 @@ interface Gltf {
   asset?: { generator?: string; version?: string };
   extensionsUsed?: string[];
   extensionsRequired?: string[];
-  nodes?: Array<{ name?: string; extensions?: Record<string, unknown> }>;
+  nodes?: Array<{
+    name?: string;
+    mesh?: number;
+    translation?: number[];
+    scale?: number[];
+    rotation?: number[];
+    matrix?: number[];
+    extensions?: Record<string, unknown>;
+  }>;
   meshes?: Array<{ name?: string; primitives?: Primitive[] }>;
   materials?: Array<Record<string, unknown>>;
   textures?: Array<{ source?: number; sampler?: number; extensions?: Record<string, unknown> }>;
   images?: Array<{ name?: string; mimeType?: string; uri?: string; bufferView?: number }>;
   samplers?: Array<{ wrapS?: number; wrapT?: number }>;
   bufferViews?: Array<{ byteLength?: number }>;
-  accessors?: Array<{ count?: number }>;
+  accessors?: Array<{ count?: number; min?: number[]; max?: number[] }>;
 }
 
 interface Primitive {
@@ -354,6 +363,47 @@ function nodesNamed(configured: string): string[] {
     );
 }
 
+/** How much a re-export may differ from the configured rectangle, world units. */
+const TOLERANCE = 1;
+
+/**
+ * The XZ extent of a named node's mesh, in world space.
+ *
+ * Deliberately narrow: it reads the POSITION accessor's `min`/`max` — which the
+ * spec requires on every position accessor, Draco or not — and applies the
+ * node's own translation and scale. That covers a ground plane sitting at the
+ * scene root, which is what this is for, and it does NOT walk a parent chain or
+ * apply a rotation matrix. Both would be needed for a general Box3, and the day
+ * the ground is parented or turned, this returns the wrong rectangle rather than
+ * a smaller one — so it asserts that assumption instead of hiding it.
+ */
+function worldXzBounds(
+  configured: string,
+): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+  const node = nodes.find(
+    (n) =>
+      n.name != null &&
+      (n.name === configured || PropertyBinding.sanitizeNodeName(n.name) === configured),
+  );
+  if (!node || node.mesh == null) return null;
+  if (node.rotation || node.matrix) {
+    console.log(`        NOTE: "${configured}" is rotated; its bounds are read unrotated`);
+  }
+
+  const prim = meshes[node.mesh]?.primitives?.[0];
+  const accessor = prim ? json.accessors?.[prim.attributes?.POSITION as number] : undefined;
+  if (!accessor?.min || !accessor?.max) return null;
+
+  const [tx, , tz] = node.translation ?? [0, 0, 0];
+  const [sx, , sz] = node.scale ?? [1, 1, 1];
+  return {
+    minX: tx + accessor.min[0] * sx,
+    maxX: tx + accessor.max[0] * sx,
+    minZ: tz + accessor.min[2] * sz,
+    maxZ: tz + accessor.max[2] * sz,
+  };
+}
+
 for (const binding of cityDistrictBindings) {
   const missing: string[] = [];
   const ambiguous: string[] = [];
@@ -409,6 +459,55 @@ for (const configured of BLOG_BUILDING_NODE_NAMES) {
     matches.length > 0
       ? `as ${list(matches)}`
       : 'the blog has no way in from the city — see murcia/interaction/BlogBuilding.ts',
+  );
+}
+
+// --- 7. The outer ground ----------------------------------------------------
+// A NAME section, so it runs under --contract-only and gates the build.
+//
+// Murcia's camera rests at 19 degrees, which puts the horizon in frame. That is
+// only affordable because `SUELO_CIUDAD` extends 741 units past the authored
+// plate in its thinnest direction and the terrain skirt wraps THAT. Shrink it,
+// rename it, or drop it in a re-export and the low pose starts showing the edge
+// of the world — on wide viewports first, silently, exactly the way
+// PROJECT_MEMORY's "the number that can hurt you" describes.
+//
+// `murciaConfig.groundBounds` is the rectangle `checks/footprint.ts` measures
+// against, and it cannot open a GLB. This is the assertion that keeps the two in
+// step: the shipped file must cover what the config claims.
+
+section('7. The outer ground (murciaConfig.groundBounds — the low pose rests on it)');
+
+const groundName = murciaConfig.terrainTransition.groundObjectName;
+const claimed = murciaConfig.groundBounds;
+
+if (groundName === null || claimed === null) {
+  console.log('        no outer ground configured — the plate is the whole world');
+} else {
+  const groundNodes = nodesNamed(groundName);
+  check(
+    `"${groundName}" is in the GLB`,
+    groundNodes.length > 0,
+    groundNodes.length > 0
+      ? `as ${list(groundNodes)}`
+      : 'the skirt would fall back to wrapping the plate and the filler city would end in a ' +
+        'hard edge — see murciaConfig.terrainTransition.groundObjectName',
+  );
+
+  const measured = groundNodes.length > 0 ? worldXzBounds(groundName) : null;
+  check(
+    'it covers the rectangle murciaConfig.groundBounds claims',
+    measured !== null &&
+      measured.minX <= claimed.minX + TOLERANCE &&
+      measured.maxX >= claimed.maxX - TOLERANCE &&
+      measured.minZ <= claimed.minZ + TOLERANCE &&
+      measured.maxZ >= claimed.maxZ - TOLERANCE,
+    measured === null
+      ? 'no POSITION accessor with bounds — cannot measure it'
+      : `GLB X [${measured.minX.toFixed(0)}, ${measured.maxX.toFixed(0)}] ` +
+        `Z [${measured.minZ.toFixed(0)}, ${measured.maxZ.toFixed(0)}] vs config ` +
+        `X [${claimed.minX.toFixed(0)}, ${claimed.maxX.toFixed(0)}] ` +
+        `Z [${claimed.minZ.toFixed(0)}, ${claimed.maxZ.toFixed(0)}]`,
   );
 }
 

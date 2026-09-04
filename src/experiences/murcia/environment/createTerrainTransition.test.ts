@@ -15,6 +15,9 @@ import type { BoundsRect, TerrainTransitionConfig } from '../config/environmentC
 const CONFIG: TerrainTransitionConfig = {
   enabled: true,
   terrainObjectName: 'plate',
+  // Null: these tests hand `createTerrainTransition` a mesh directly, so which
+  // mesh the caller resolved is not this module's business.
+  groundObjectName: null,
   width: 700,
   collarWidth: 30,
   fadeEndFraction: 0.21,

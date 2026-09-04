@@ -254,6 +254,23 @@ export interface TerrainTransitionConfig {
    * (TERRAIN_VISUAL etc.) are absent from the current asset — see Appendix A.
    */
   terrainObjectName: string;
+  /**
+   * The mesh the skirt WRAPS, when the model carries ground beyond the plate.
+   *
+   * Null means wrap the plate itself, which is what every version of this
+   * before the 2026-09-04 city did: the plate was the whole world, and the
+   * skirt existed to stop its hard edge being seen.
+   *
+   * With a surrounding ground the two jobs separate. The plate is still the
+   * content — it is what navigation is bounded to and the one mesh that must
+   * not get the trim sheet — but it is no longer the edge of anything, so
+   * wrapping it would fade out the middle of the city. The skirt has to wrap
+   * the OUTER ground instead, which is the only hard edge left.
+   *
+   * Resolved by the same three-spelling lookup as `terrainObjectName`, so a
+   * miss degrades to wrapping the plate rather than to no skirt at all.
+   */
+  groundObjectName: string | null;
   /** How far the skirt extends beyond the plate, world units. */
   width: number;
   /**
@@ -412,6 +429,15 @@ export interface EnvironmentConfig {
   zoomNearScale: number;
 
   contentBounds: BoundsRect;
+  /**
+   * The outer ground's XZ extent, or null when the plate is the whole ground.
+   *
+   * A measured mirror of the asset, in the same spirit as `contentBounds`, and
+   * for one reader: the footprint harness runs in node with no GLB and no
+   * loader. The runtime measures the real mesh instead — this is never what
+   * places anything.
+   */
+  groundBounds: BoundsRect | null;
   initialFocus: { x: number; z: number };
 }
 

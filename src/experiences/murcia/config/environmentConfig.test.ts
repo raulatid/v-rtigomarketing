@@ -68,16 +68,41 @@ describe('the shipped Murcia pose', () => {
     expect(height).toBeGreaterThan(lookAtHeight)
   })
 
-  it('stays clear of the pitch floor where the bounds maths degenerates', () => {
+  it('aims below the rig, so lookAtHeight lowers the effective pitch', () => {
     // Effective pitch is measured from the rig's target height, not the rig's
     // elevation, because lookAtHeight is a constant rather than a fraction of
-    // distance. PROJECT_MEMORY records ~28 degrees as the floor.
+    // distance. A positive lookAtHeight tilts the camera UP relative to the rig
+    // and so widens the ground footprint; the sign of that is what the terrain
+    // skirt is sized against, and it inverts if lookAtHeight ever goes negative.
+    //
+    // THIS TEST ALSO ASSERTED `effectivePitch > 26` until 2026-09-04. That floor
+    // was not a property of the pose — it was the angle below which the ground
+    // footprint diverged past a skirt wrapped around the 352-unit plate, and it
+    // is why the elevation could not drop. The skirt now wraps `SUELO_CIUDAD`,
+    // the resting pose is 19 degrees by client direction, and the frustum passes
+    // the horizon on purpose. Re-asserting 26 here would be asserting the old
+    // mechanism against the new one. What replaced it is a sweep, not a
+    // one-liner, and it lives in `checks/footprint.ts` §3 — this file cannot
+    // reach the skirt geometry the guarantee is now made of.
     const { distance, elevationDegrees, lookAtHeight } = murciaConfig.camera
     const height = distance * Math.sin((elevationDegrees * Math.PI) / 180)
     const ground = distance * Math.cos((elevationDegrees * Math.PI) / 180)
     const effectivePitch = (Math.atan2(height - lookAtHeight, ground) * 180) / Math.PI
-    expect(effectivePitch).toBeGreaterThan(26)
+    expect(effectivePitch).toBeGreaterThan(0)
     expect(effectivePitch).toBeLessThan(elevationDegrees)
+  })
+
+  it('carries ground beyond the plate, which is what the low pose rests on', () => {
+    // The one config-level statement of the 2026-09-04 change that a unit test
+    // can make. At 19 degrees the frustum reaches past the horizon, so there has
+    // to BE something past the plate; `checks/footprint.ts` measures how much and
+    // `checks/city-asset.ts` §7 asserts the GLB still ships it.
+    const { groundBounds, contentBounds } = murciaConfig
+    expect(groundBounds).not.toBeNull()
+    expect(groundBounds!.minX).toBeLessThan(contentBounds.minX)
+    expect(groundBounds!.maxX).toBeGreaterThan(contentBounds.maxX)
+    expect(groundBounds!.minZ).toBeLessThan(contentBounds.minZ)
+    expect(groundBounds!.maxZ).toBeGreaterThan(contentBounds.maxZ)
   })
 
   it('keeps the far plane beyond the ground the camera can see', () => {

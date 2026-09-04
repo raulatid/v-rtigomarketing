@@ -6,13 +6,20 @@
  * src/intro-draw/playhead.test.ts: a guard that tests a convenient stand-in
  * guards nothing.
  *
- * The assertion that matters is section 6. Murcia's terrain skirt is 600 units
- * wide because that is what a camera at the resting pose needs at every azimuth
- * on a 5120x1440 viewport, with only +50 units to spare. Any warp pose that
- * reaches further across the ground than rest does puts the plate edge on
- * screen for ultrawide viewers only, silently, with nothing visible on the
- * machine the change was made on. PROJECT_MEMORY, "The number that can hurt
- * you", records that exact regression happening once already.
+ * The assertion that matters is section 6: no warp pose may show the viewer the
+ * edge of the world. It puts that edge on screen for ultrawide viewers only,
+ * silently, with nothing visible on the machine the change was made on.
+ * PROJECT_MEMORY, "The number that can hurt you", records that exact regression
+ * happening once already.
+ *
+ * HOW SECTION 6 SAYS IT CHANGED ON 2026-09-04, and the section says so in place.
+ * It used to assert that no warp pose reaches further across the ground than
+ * rest. That worked while rest was 30 degrees and its reach was a number. Rest
+ * is 19 degrees now — the client asked for a horizontal arrival — so the resting
+ * frustum passes the horizon and its "reach" is the `maxGroundDistance` clamp.
+ * The skirt, meanwhile, moved out to wrap the filler city rather than the
+ * authored plate. So the question is no longer how far the camera SEES but where
+ * the camera IS, and section 6 sweeps the same 270k poses to answer it.
  *
  * Sections 1-2 keep the cheap distance bounds as a first line of defence, but
  * they are only a proxy — since ADR 006 the departure trades distance against
@@ -51,6 +58,7 @@ import {
 import { computeGroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
+import { terrainVisualBounds } from '../src/experiences/murcia/environment/createTerrainTransition';
 
 import { banner, check, finish, section } from './lib/assert';
 
@@ -291,7 +299,7 @@ check(
 );
 
 // ---------------------------------------------------------------------------
-section('6. No warp pose reaches further across the ground than rest');
+section('6. No warp pose escapes the world the skirt draws');
 
 // The real placement maths and the real footprint maths, over the aspects and
 // azimuths the skirt was sized against. 3.56 is 5120x1440, the binding case.
@@ -338,12 +346,16 @@ function footprintAt(
   return computeGroundFootprint(camera, focus, nav.groundPlaneHeight, nav.maxGroundDistance);
 }
 
-function maxReach(f: GroundFootprint): number {
-  return Math.max(f.reachNegX, f.reachPosX, f.reachNegZ, f.reachPosZ);
-}
+// The rectangle the ground actually ends at: the skirt, wrapped around whichever
+// mesh carries the model's outer edge. Past this there is nothing but background.
+const skirtOuter = terrainVisualBounds(
+  murciaConfig.groundBounds ?? murciaConfig.contentBounds,
+  murciaConfig.terrainTransition,
+);
 
-let worstExcess = -Infinity;
+let worstCameraMargin = Infinity;
 let worstLabel = '';
+let furthestSkirtCorner = 0;
 let anyClamped = false;
 let clampedLabel = '';
 let poses = 0;
@@ -373,8 +385,6 @@ const ZOOM_DEPTHS: number[] = [-1, -0.5, 0, 0.25, 0.5, 0.75, 1];
 for (const scale of FLIGHT_SCALES) {
   for (const [aspectName, aspect] of ASPECTS) {
     for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
-      const restReach = maxReach(footprintAt(murciaConfig.camera, aspect, yaw, scale));
-
       for (const depth of ZOOM_DEPTHS) {
         // Exactly what MurciaExperience.applyRigPose builds: the zoom resolves a
         // pose, and the warp's rest end IS that pose.
@@ -410,10 +420,30 @@ for (const scale of FLIGHT_SCALES) {
             clampedLabel = label;
           }
 
-          const excess = maxReach(f) - restReach;
-          if (excess > worstExcess) {
-            worstExcess = excess;
+          // `footprintAt` has just placed the camera at this pose, through the
+          // real `applyPoseToCamera`. Read it rather than recomputing the
+          // spherical offset, so a change to the placement is caught here too.
+          const margin = Math.min(
+            camera.position.x - skirtOuter.minX,
+            skirtOuter.maxX - camera.position.x,
+            camera.position.z - skirtOuter.minZ,
+            skirtOuter.maxZ - camera.position.z,
+          );
+          if (margin < worstCameraMargin) {
+            worstCameraMargin = margin;
             worstLabel = label;
+          }
+
+          for (const [sx, sz] of [
+            [skirtOuter.minX, skirtOuter.minZ],
+            [skirtOuter.maxX, skirtOuter.minZ],
+            [skirtOuter.minX, skirtOuter.maxZ],
+            [skirtOuter.maxX, skirtOuter.maxZ],
+          ]) {
+            furthestSkirtCorner = Math.max(
+              furthestSkirtCorner,
+              Math.hypot(sx - camera.position.x, camera.position.y, sz - camera.position.z),
+            );
           }
         }
       }
@@ -421,17 +451,41 @@ for (const scale of FLIGHT_SCALES) {
   }
 }
 
+// THIS ASSERTION WAS "the warp never out-reaches rest, from any user zoom", and it
+// was retired on 2026-09-04 for the same reason `checks/footprint.ts` §3 was: the
+// resting pose is now 19 degrees, its frustum passes the horizon, and its reach is a
+// `maxGroundDistance` clamp rather than a measurement. Comparing a clamped reach
+// against a clamped reach measures the difference in how far the two cameras sit
+// BEHIND the focus — at the arrival's closest pose that came out as +141.8 units,
+// which is a fact about `distance * cos(elevation)` and not about anything visible.
+//
+// What it was protecting is unchanged: a warp pose must not show the viewer the edge
+// of the world. That is now a statement about where the CAMERA is rather than about
+// how far it sees, because the skirt wraps the filler city and the camera cannot see
+// past a gradient that completes 888 units out. So the sweep is kept, every pose in
+// it is kept, and what is read off each pose changed.
 check(
-  'the warp never out-reaches rest, from any user zoom',
-  worstExcess <= 1e-6,
-  `worst ${worstExcess >= 0 ? '+' : ''}${worstExcess.toFixed(1)} units at ${worstLabel} (${poses} poses)`,
+  'no warp pose puts the camera outside the skirt',
+  worstCameraMargin > 0,
+  `worst margin ${worstCameraMargin >= 0 ? '+' : ''}${worstCameraMargin.toFixed(1)} units at ` +
+    `${worstLabel} (${poses} poses) — outside this the ground is an island in the background ` +
+    'colour and no amount of fade helps',
 );
 check(
-  'no frustum corner misses the ground plane',
-  !anyClamped,
+  'the far plane clears the skirt from every warp pose',
+  murciaConfig.camera.far > furthestSkirtCorner,
+  `far ${murciaConfig.camera.far} vs ${furthestSkirtCorner.toFixed(1)} units to the furthest ` +
+    'corner — the departure is the furthest the camera ever gets, so this is where a far ' +
+    'plane that clips the skirt would show first',
+);
+check(
+  'clamping is expected at the low poses, and nothing consumes it',
+  anyClamped || murciaConfig.groundBounds === null,
   anyClamped
-    ? `clamped at ${clampedLabel} — a clamped ray is a degenerate pose, not the mechanism working`
-    : 'every corner ray still hits the ground at every warp pose',
+    ? `first clamped at ${clampedLabel} — expected past the horizon. Murcia does not inset its ` +
+      'navigable area by the footprint (disableFootprintInsets), so a clamp is reported and ' +
+      'then read by nobody'
+    : 'no warp pose reaches past the horizon — the footprint is a measurement everywhere',
 );
 
 // ---------------------------------------------------------------------------

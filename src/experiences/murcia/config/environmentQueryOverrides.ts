@@ -20,6 +20,30 @@
  * `?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL, which is
  * the comparison most likely to be wanted while reviewing it.
  *
+ * ── The camera pose, added 2026-09-04 ──
+ *
+ *   ?elev=19  ?dist=225  ?fov=35  ?lookAt=5.85  ?farPlane=3500
+ *   ?zoomFar=400  ?zoomFarElev=55  ?zoomNear=0.7
+ *   ?skirt=700  ?fade=0.21
+ *
+ * Here for exactly the reason the feel parameters are: how horizontal a city
+ * should look is a judgement, and it was being made by editing a constant and
+ * waiting for a rebuild. The client drove the 30 -> 19 change from screenshots,
+ * over a call, and every candidate cost a round trip.
+ *
+ * TWO OF THESE ARE NOT FEEL, AND THAT IS THE WARNING. `?elev=` and `?lookAt=`
+ * decide whether the frustum passes the horizon, and `?skirt=`/`?fade=` decide
+ * how far out the ground stops. A URL can put the edge of the world on screen —
+ * which the drag parameters could never do — so a pose found this way is a
+ * CANDIDATE, and `npm run check:footprint` is what makes it a decision.
+ *
+ * The useful comparisons in one line each:
+ *
+ *   ?elev=30                      the pre-2026-09-04 pose, horizon well out of frame
+ *   ?elev=19&lookAt=-30           low camera, horizon cropped by aiming below the focus
+ *   ?elev=24&fov=28               longer lens, less perspective, more of the skyline
+ *   ?zoomFar=500&zoomFarElev=58   a bolder zoom-out, if the current one reads timid
+ *
  * `?zoomMin`, `?zoomMax`, `?wheelZoom` and `?zoomSmooth` were retired with the zoom
  * band (`adr/009`). `?focusMin` replaces the first: it is the floor a district flight
  * may dolly to, and it is the only remaining way distance changes at all. There is no
@@ -62,17 +86,55 @@ export function applyNavigationQueryOverrides(
   // which is the direction whose footprint grows past the terrain skirt.
   const focusMin = readNumber(params, 'focusMin', (v) => v > 0 && v <= 1);
 
-  if (
-    dragGain === null &&
-    yawDegrees === null &&
-    smoothing === null &&
-    release === null &&
-    inertia === null &&
-    yawSmoothing === null &&
-    focusMin === null
-  ) {
-    return env;
-  }
+  // ── Pose ──
+  //
+  // Bounds are sanity, not safety. They reject values that would break the pose
+  // maths outright — a non-positive distance, an elevation at or past vertical
+  // where the azimuth stops meaning anything — and nothing else. Whether a pose
+  // is SAFE is a sweep, and no `valid` predicate here can stand in for it.
+  //
+  // `lookAt` takes any finite number, negative included, and that is the point:
+  // aiming below the focus is what crops the horizon out of frame, and it is the
+  // first thing to reach for if the low pose shows too much distance.
+  const elevation = readNumber(params, 'elev', (v) => v > 0 && v < 90);
+  const distance = readNumber(params, 'dist', (v) => v > 0);
+  const fov = readNumber(params, 'fov', (v) => v > 0 && v < 120);
+  const lookAt = readNumber(params, 'lookAt', () => true);
+  const farPlane = readNumber(params, 'farPlane', (v) => v > 0);
+
+  // ── The zoom band ──
+  const zoomFar = readNumber(params, 'zoomFar', (v) => v > 0);
+  const zoomFarElev = readNumber(params, 'zoomFarElev', (v) => v > 0 && v < 90);
+  const zoomNear = readNumber(params, 'zoomNear', (v) => v > 0 && v <= 1);
+
+  // ── The skirt ──
+  //
+  // `?skirt=0` disables the transition outright rather than building a
+  // zero-width one, which is the comparison worth having: it shows where the
+  // ground actually ends.
+  const skirt = readNumber(params, 'skirt', (v) => v >= 0);
+  const fade = readNumber(params, 'fade', (v) => v > 0 && v <= 1);
+
+  const overrides = [
+    dragGain,
+    yawDegrees,
+    smoothing,
+    release,
+    inertia,
+    yawSmoothing,
+    focusMin,
+    elevation,
+    distance,
+    fov,
+    lookAt,
+    farPlane,
+    zoomFar,
+    zoomFarElev,
+    zoomNear,
+    skirt,
+    fade,
+  ];
+  if (overrides.every((value) => value === null)) return env;
 
   // `?smooth=` hits TRANSLATION ONLY. It used to apply to both axes, on the
   // premise that one gesture carried both so a difference in weight between
@@ -90,6 +152,23 @@ export function applyNavigationQueryOverrides(
 
   const next: EnvironmentConfig = {
     ...env,
+    camera: {
+      ...env.camera,
+      elevationDegrees: elevation ?? env.camera.elevationDegrees,
+      distance: distance ?? env.camera.distance,
+      fov: fov ?? env.camera.fov,
+      lookAtHeight: lookAt ?? env.camera.lookAtHeight,
+      far: farPlane ?? env.camera.far,
+    },
+    zoomFarDistance: zoomFar ?? env.zoomFarDistance,
+    zoomFarElevationDegrees: zoomFarElev ?? env.zoomFarElevationDegrees,
+    zoomNearScale: zoomNear ?? env.zoomNearScale,
+    terrainTransition: {
+      ...env.terrainTransition,
+      enabled: skirt === 0 ? false : env.terrainTransition.enabled,
+      width: skirt !== null && skirt > 0 ? skirt : env.terrainTransition.width,
+      fadeEndFraction: fade ?? env.terrainTransition.fadeEndFraction,
+    },
     navigation: {
       ...env.navigation,
       translationGain: dragGain ?? env.navigation.translationGain,
@@ -119,6 +198,27 @@ export function applyNavigationQueryOverrides(
       focusMinDistanceScale: next.focusFlight.minDistanceScale,
     },
   );
+
+  // Logged separately, and louder, because these are the ones that can put the
+  // edge of the world on screen. Effective pitch is included because it, not the
+  // elevation, is what decides whether the frustum passes the horizon — and it
+  // moves when `?lookAt=` does, which is not obvious from the two numbers.
+  const height = next.camera.distance * Math.sin((next.camera.elevationDegrees * Math.PI) / 180);
+  const groundRun =
+    next.camera.distance * Math.cos((next.camera.elevationDegrees * Math.PI) / 180);
+  const effectivePitch =
+    (Math.atan2(height - next.camera.lookAtHeight, groundRun) * 180) / Math.PI;
+  console.info('[murcia pose] overridden by query parameters — run check:footprint before keeping', {
+    elevationDegrees: next.camera.elevationDegrees,
+    distance: next.camera.distance,
+    fov: next.camera.fov,
+    lookAtHeight: next.camera.lookAtHeight,
+    cameraHeight: Number(height.toFixed(1)),
+    effectivePitch: Number(effectivePitch.toFixed(1)),
+    horizonInFrame: effectivePitch < next.camera.fov / 2,
+    zoomFar: `${next.zoomFarDistance} @ ${next.zoomFarElevationDegrees} deg`,
+    skirt: next.terrainTransition.enabled ? next.terrainTransition.width : 'DISABLED',
+  });
 
   return next;
 }
