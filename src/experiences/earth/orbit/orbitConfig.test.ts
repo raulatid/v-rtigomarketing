@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ORBIT_CONFIG, ORBIT_PRESETS, orbitRevealDuration } from './orbitConfig'
 import { panelFootprint } from './createHoloPanel'
+import { artworkHalfHeight } from './createBrandAtlas'
 
 // The pairing assertions that stood here moved to resolveOrbitCases.test.ts,
 // and the satellite-id assertion to content/caseStudies.test.ts. Neither was
@@ -129,6 +130,32 @@ describe('the brand panel', () => {
     const { height, originY } = panelFootprint(panel)
     const toTop = (1 - originY) * height
     expect(panel.haloRadius).toBeLessThan(toTop)
+  })
+
+  it('keeps the artwork clear of the rail that runs beneath it', () => {
+    // THE FAILURE THIS CATCHES, and it is one this repository actually walked
+    // into on 2026-09-04: the atlas used to draw the whole FILE, so the shipped
+    // lockup's mark reached 0.246 pane heights and the supplier's own baked-in
+    // margin was doing the clearing. Fitting to the measured ink made the mark
+    // as large as the cell allows, which is the point — and took it to 0.422,
+    // through a rail sitting at 0.41.
+    //
+    // The two numbers live in different modules (CELL.padY in createBrandAtlas,
+    // railBottomY here) and nothing connected them, so the collision was
+    // invisible until it was on screen. This is that connection.
+    const panel = ORBIT_CONFIG.panel
+    // The cell's full height maps to p.y in +-0.5 at the deployed field, so the
+    // artwork's half-height in pane units is half the padded fraction.
+    const nearestRail = Math.min(panel.railTopY, panel.railBottomY)
+    // Both kinds, because both are on screen while the rails are lit: the
+    // isotype is still crossfading out over the last quarter of the deploy.
+    for (const kind of ['logo', 'isotype'] as const) {
+      expect(artworkHalfHeight(kind), kind).toBeLessThan(nearestRail)
+      // Not merely 'does not touch': a hairline a thousandth from the mark
+      // reads as a collision. 0.04 is the margin PAD_Y was derived for, with
+      // room to re-tune without silently going tight.
+      expect(nearestRail - artworkHalfHeight(kind), kind).toBeGreaterThan(0.04)
+    }
   })
 
   it('keeps the panel clear of the satellite model it floats above', () => {

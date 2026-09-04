@@ -162,9 +162,20 @@ export const ORBIT_CONFIG = {
     // are fractions of the field's CURRENT half-width, so the run travels
     // outward with the opening rather than waiting at a fixed distance.
 
-    // Where the run starts, outboard of the artwork's flank. Clear of the
-    // lockup's ink: the logo cell pads 64 px of 1024 per side, so the artwork
-    // reaches about 0.87 of the half-width at most.
+    // Where the run starts, outboard of the artwork's flank.
+    //
+    // The old note here read "clear of the lockup's ink: the artwork reaches
+    // about 0.87 of the half-width at most" — which is true of the artwork and
+    // false as a justification, because 0.64 is INSIDE 0.87 and the rails are
+    // nonetheless never on top of the mark. They are horizontal hairlines at a
+    // fixed p.y (see `line(p.y - uRail.z, …)` in the shader): what separates
+    // them from the artwork is HEIGHT, not this number. Checked on 2026-09-04
+    // before changing it, and left alone — it was not the defect the client was
+    // describing, and raising it to "clear the ink" would have shortened the
+    // run from 0.38 to 0.10 of the half-width for no reason at all.
+    //
+    // What this number actually controls is how far the run reaches back toward
+    // the mark, and 0.64 is why it reads as reaching away from it.
     railInner: 0.64,
     // Where it ends — outside the nominal field, so the rails read as
     // structure the projection extends INTO rather than a border around it.

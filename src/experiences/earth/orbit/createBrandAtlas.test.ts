@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBrandAtlas, BrandPlate } from './createBrandAtlas'
+import {
+  createBrandAtlas,
+  BrandPlate,
+  CELL,
+  fitInk,
+  artworkHalfHeight,
+} from './createBrandAtlas'
 
 // createBrandAtlas draws into a real 2D context, which neither Node nor jsdom
 // provides. Rather than pull in a native canvas just to assert geometry, the
@@ -168,5 +174,80 @@ describe('addressing a cell', () => {
     // than a visible failure, which is why this is clamped rather than thrown.
     expect(atlas.cellUv(99).offset.toArray()).toEqual([0.5, 0])
     expect(atlas.cellUv(-1).offset.toArray()).toEqual([0, 0.5])
+  })
+})
+
+describe('normalising the artwork on its ink (plan 012 task 3)', () => {
+  // THE BUG THIS ANSWERS: the atlas used to contain-fit the whole FILE, so a
+  // supplier's baked-in transparent margin became the mark's margin. The
+  // shipped PcComponentes lockup is 1300x650 with 119px of nothing above the
+  // ink and 122 below, so its mark filled 49% of the cell height where a tight
+  // file filled 78% — geometrically centred, optically high, and different per
+  // case study because the margin is per file.
+  //
+  // Fitting the INK makes the extent predictable, which is what lets the rails
+  // be positioned against a constant (orbitConfig.test.ts asserts that half).
+  // These cases are the aspect ratios the client's real assets will bring; the
+  // repository has exactly one logo today, so nothing else exercises them.
+
+  const LOGO_BOX = { w: CELL.logo.width - CELL.logo.padX * 2, h: CELL.logo.height - CELL.logo.padY * 2 }
+
+  it('fills the box in exactly one axis, whatever the ink aspect', () => {
+    // Contain means touching on the binding axis and short on the other. A fit
+    // that touched neither would be leaving the mark smaller than it can be;
+    // one that exceeded either would be cropping a trademark.
+    for (const [label, w, h] of [
+      ['square', 500, 500],
+      ['wide 2:1', 1000, 500],
+      ['very wide 4:1', 2000, 500],
+      ['the shipped lockup 2.86:1', 1171, 409],
+      ['portrait', 400, 900],
+      ['tiny', 40, 20],
+    ] as Array<[string, number, number]>) {
+      const fit = fitInk({ width: w, height: h }, LOGO_BOX.w, LOGO_BOX.h)
+      expect(fit.w, label).toBeLessThanOrEqual(LOGO_BOX.w + 1e-9)
+      expect(fit.h, label).toBeLessThanOrEqual(LOGO_BOX.h + 1e-9)
+      const touchesW = Math.abs(fit.w - LOGO_BOX.w) < 1e-9
+      const touchesH = Math.abs(fit.h - LOGO_BOX.h) < 1e-9
+      expect(touchesW || touchesH, label).toBe(true)
+    }
+  })
+
+  it('never distorts the mark', () => {
+    // The one thing a logo may never survive. Asserted separately from the fit
+    // because a future "fill the cell" change would still pass the bounds above.
+    for (const [w, h] of [[1000, 500], [500, 500], [1171, 409], [400, 900]]) {
+      const fit = fitInk({ width: w, height: h }, LOGO_BOX.w, LOGO_BOX.h)
+      expect(fit.w / fit.h).toBeCloseTo(w / h, 9)
+    }
+  })
+
+  it('sizes the mark by its ink, not by the canvas around it', () => {
+    // The regression, stated as the comparison that actually shows it: one
+    // trademark, delivered twice — trimmed, and inside the shipped 1300x650
+    // canvas with 18% transparent padding. Fitting the INK gives both the same
+    // mark. Fitting the FILE, which is what this module did until 2026-09-04,
+    // gives the padded delivery a visibly smaller one.
+    const ink = { width: 1171, height: 409 }
+    const paddedFile = { width: 1300, height: 650 }
+
+    const byInk = fitInk(ink, LOGO_BOX.w, LOGO_BOX.h)
+    const byFile = fitInk(paddedFile, LOGO_BOX.w, LOGO_BOX.h)
+    // What the mark itself measures once the file's own margins are scaled with
+    // it — the number a person actually sees.
+    const markHeightByFile = byFile.h * (ink.height / paddedFile.height)
+
+    expect(byInk.h).toBeGreaterThan(markHeightByFile)
+    // Not a rounding difference: the old path drew this mark a third smaller.
+    expect(markHeightByFile / byInk.h).toBeLessThan(0.8)
+  })
+
+  it('keeps both cells clear of the lower rail by construction', () => {
+    // The vertical padding is DERIVED from railBottomY (see PAD_Y). This asserts
+    // the derivation survived, from the atlas side; orbitConfig.test.ts asserts
+    // it from the panel side, against the rail itself.
+    for (const kind of ['logo', 'isotype'] as const) {
+      expect(artworkHalfHeight(kind), kind).toBeLessThan(0.41)
+    }
   })
 })

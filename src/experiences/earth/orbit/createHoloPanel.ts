@@ -148,7 +148,22 @@ const FRAGMENT = /* glsl */ `
     float s = t * freq;
     float i = floor(s);
     float f = fract(s);
-    float len = mix(0.26, 0.80, hash(vec2(i, seed)));
+    // 0.26 -> 0.48 on the low end (2026-09-04, plan 012 task 4).
+    //
+    // CLIENT REPORT: the frame reads as "interrupted or clipped" and as having
+    // "several lines on top, fewer below". Both are this function working as
+    // designed — the runs ARE irregular and the bottom one IS sparser — so the
+    // task is to make the asymmetry read as deliberate rather than as damage.
+    //
+    // A dash at 0.26 of its slot, in the bottom run where the slots are widest,
+    // is a stub with a lot of nothing on either side: at a glance it looks like
+    // a line that failed to draw rather than a rule that was broken on purpose.
+    // Raising only the FLOOR keeps the variation (0.48..0.80 is still nearly a
+    // 2:1 spread, still hashed, still stable) while making every dash long
+    // enough to read as a mark. The seeds and the top/bottom frequencies are
+    // untouched: they are what stop the four runs mirroring, which is the part
+    // that is design.
+    float len = mix(0.48, 0.80, hash(vec2(i, seed)));
     float off = (1.0 - len) * hash(vec2(i, seed + 13.7));
     float e = max(w * freq, 1e-4);
     return smoothstep(off - e, off + e, f) * (1.0 - smoothstep(off + len - e, off + len + e, f));

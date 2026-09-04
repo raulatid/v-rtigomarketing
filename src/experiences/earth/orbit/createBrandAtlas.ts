@@ -79,9 +79,69 @@ export type AtlasKind = 'isotype' | 'logo'
  * symbol does not get; the lockup is only ever seen at the close-up, where it
  * can afford to breathe.
  */
-const CELL: Record<AtlasKind, { width: number; height: number; padX: number; padY: number }> = {
-  isotype: { width: 512, height: 512, padX: 40, padY: 40 },
-  logo: { width: 1024, height: 512, padX: 64, padY: 56 },
+/**
+ * Vertical padding, and it is DERIVED rather than chosen (2026-09-04, plan 012).
+ *
+ * The panel's lower rail sits at 0.41 pane heights below the field centre
+ * (`orbitConfig.ts` railBottomY), and the cell's full height maps to
+ * p.y ∈ ±0.5 at the deployed field. So the artwork's half-height in pane units
+ * is 0.5 * (height - 2*padY) / height, and clearing the rail by 0.05 gives
+ *
+ *   0.5 * (512 - 2*padY) / 512 <= 0.41 - 0.05   ->   padY >= 71.7
+ *
+ * 72, for both kinds, because both cells are 512 tall.
+ *
+ * This did not matter before the ink normalisation below. Drawing the whole
+ * FILE meant the shipped lockup's mark reached only 0.246 and the isotype's
+ * 0.335, so the rail was never close — the margins the suppliers baked in were
+ * doing the clearing by accident. Fitting to the ink is what made the extent
+ * predictable, and a predictable extent is what can be given a real clearance
+ * instead of an accidental one. Move the rail and this number moves with it.
+ */
+const PAD_Y = 72
+
+/**
+ * Cell geometry per kind. THE ATLAS OWNS THE PADDING, not the artwork — and
+ * since 2026-09-04 it owns it properly: `drawLogoContained` fits the measured
+ * ink, so a file delivered with built-in whitespace no longer renders smaller
+ * than its neighbours. `docs/earth/logo-spec.md` still asks for a tight trim,
+ * because the wasted resolution is real even once the placement is not.
+ *
+ * Both are sized for the case-panel close-up (closeUp.distance 0.55R), where the
+ * panel is the most magnified thing on screen — at half these dimensions the
+ * wordmark visibly softens there. The isotype cell is square and therefore
+ * smaller, which is correct: a symbol at 512² carries the same detail per
+ * on-screen pixel as a lockup at 1024×512, because the unfolded panel is twice
+ * as wide.
+ *
+ * The isotype is padded tighter HORIZONTALLY. It is the resting state, seen at
+ * ~30px across the overview, where every pixel of margin is a pixel the symbol
+ * does not get; the lockup is only ever seen at the close-up, where it can
+ * afford to breathe. Vertically they share PAD_Y, because they share the rail
+ * they have to clear.
+ */
+export const CELL: Record<
+  AtlasKind,
+  { width: number; height: number; padX: number; padY: number }
+> = {
+  isotype: { width: 512, height: 512, padX: 40, padY: PAD_Y },
+  logo: { width: 1024, height: 512, padX: 64, padY: PAD_Y },
+}
+
+/**
+ * The artwork's half-height at the deployed field, in pane heights.
+ *
+ * Exported because `orbitConfig.test.ts` asserts it clears `railBottomY`, and
+ * the two numbers live in different modules with nothing else connecting them.
+ * Derived here rather than restated there, so the guard cannot pass against a
+ * copy of the value it is supposed to be checking.
+ *
+ * The cell's full height maps to p.y ∈ ±0.5 at the deployed field
+ * (`createHoloPanel`'s `fuv`), so this is half the padded fraction.
+ */
+export function artworkHalfHeight(kind: AtlasKind): number {
+  const cell = CELL[kind]
+  return 0.5 * ((cell.height - cell.padY * 2) / cell.height)
 }
 
 export interface BrandPlate {
@@ -253,10 +313,96 @@ function drawLockup(
   ctx.letterSpacing = '0px'
 }
 
+/**
+ * The artwork's INK, in source pixels — the tightest box containing any pixel
+ * that is not fully transparent.
+ *
+ * Null when the image cannot be measured (a tainted canvas, a context refused
+ * under memory pressure) or when it is entirely transparent, and the caller
+ * falls back to the file's own bounds. Never throws: an unmeasurable logo is a
+ * survivable outcome, and the drawn plate behind it is still correct.
+ *
+ * Scanning the alpha channel rather than trusting the file is the whole point.
+ * `docs/earth/logo-spec.md` asks for a zero-margin trim and records that it is
+ * "el punto que más se incumple" — the shipped PcComponentes lockup is 1300×650
+ * with 119px of transparency above the ink and 122 below, so its mark fills 49%
+ * of the cell where a tight file would fill 78%. Measuring is what stops the
+ * frame having to guess.
+ */
+function inkBounds(
+  img: HTMLImageElement,
+  sw: number,
+  sh: number,
+): { x: number; y: number; width: number; height: number } | null {
+  let data: Uint8ClampedArray
+  try {
+    const probe = document.createElement('canvas')
+    probe.width = sw
+    probe.height = sh
+    const probeCtx = probe.getContext('2d', { willReadFrequently: true })
+    if (!probeCtx) return null
+    probeCtx.drawImage(img, 0, 0)
+    data = probeCtx.getImageData(0, 0, sw, sh).data
+  } catch {
+    return null
+  }
+
+  let minX = sw
+  let minY = sh
+  let maxX = -1
+  let maxY = -1
+  // Anything below this is a soft edge or a compression artefact, not ink. A
+  // strict `> 0` would let a single stray pixel from a lossy encode define the
+  // box and undo the whole measurement.
+  const ALPHA_FLOOR = 8
+
+  for (let y = 0; y < sh; y++) {
+    const row = y * sw * 4
+    for (let x = 0; x < sw; x++) {
+      if (data[row + x * 4 + 3] <= ALPHA_FLOOR) continue
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+    }
+  }
+
+  if (maxX < minX || maxY < minY) return null
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+}
+
+/**
+ * Contain-fit an ink rectangle into the cell's padded box.
+ *
+ * Separated from the drawing so it can be asserted directly across the aspect
+ * ratios the client's real assets will bring. The shipped lockup is the only
+ * artwork in the repository today, and a fit exercised only at 2.86:1 is a fit
+ * nobody has actually checked.
+ *
+ * No upscale clamp. A source smaller than the box is better shown large and
+ * soft than sharp and tiny — the panel's job is to be readable at the close-up,
+ * and an undersized asset is a content problem, not a fit problem.
+ */
+export function fitInk(
+  ink: { width: number; height: number },
+  boxW: number,
+  boxH: number,
+): { w: number; h: number } {
+  const scale = Math.min(boxW / ink.width, boxH / ink.height)
+  return { w: ink.width * scale, h: ink.height * scale }
+}
+
 // CONTAIN, never cover: a cropped trademark is worse than a small one. Aspect is
 // always preserved, so a square or portrait mark simply ends up smaller and
 // centred rather than stretched. Returns false when the image has no usable
 // intrinsic size, which is how an SVG lacking width/height attributes arrives.
+//
+// NORMALISED ON THE INK, not on the file (2026-09-04, plan 012 task 3). The
+// artwork is fitted and centred by its measured alpha bounds, so what lands in
+// the cell is a mark of predictable extent whatever margins the supplier baked
+// in. That is what lets the panel's rails be positioned against a constant —
+// see `orbitConfig.ts` railInner — instead of against whatever this particular
+// file happened to contain. No per-logo information leaves this function.
 function drawLogoContained(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -272,22 +418,35 @@ function drawLogoContained(
   const boxW = cell.width - cell.padX * 2
   const boxH = cell.height - cell.padY * 2
 
-  // No upscale clamp. A source smaller than the box is better shown large and
-  // soft than sharp and tiny — the panel's job is to be readable at the
-  // close-up, and an undersized asset is a content problem, not a fit problem.
-  const scale = Math.min(boxW / sw, boxH / sh)
-  const w = sw * scale
-  const h = sh * scale
+  // Falls back to the whole file when the alpha cannot be read, which is the
+  // pre-2026-09-04 behaviour and still correct — just less tight.
+  const ink = inkBounds(img, sw, sh) ?? { x: 0, y: 0, width: sw, height: sh }
+  const { w, h } = fitInk(ink, boxW, boxH)
 
   // Not gated on a DEV flag: nothing in src/ reads import.meta.env, because
   // checks/ bundles these modules for Node with esbuild where it does not exist.
   //
-  // Threshold is the box the artwork is actually fitted into, so the square
-  // isotype cell does not warn about a perfectly adequate 512² symbol.
-  if (sw < boxW) {
+  // Measured against the INK now, so an asset is called undersized only when the
+  // part that draws is undersized — a 1300px file whose mark is 700px wide was
+  // previously reported as comfortable and was not.
+  if (ink.width < boxW) {
     console.warn(
-      `[brand-atlas] ${kind} source is ${sw}×${sh}; it will be upscaled into a ` +
-        `${boxW}×${boxH} box and soften at the case-panel close-up. See docs/earth/logo-spec.md.`,
+      `[brand-atlas] ${kind} ink is ${ink.width}×${ink.height} (file ${sw}×${sh}); it will be ` +
+        `upscaled into a ${boxW}×${boxH} box and soften at the case-panel close-up. ` +
+        'See docs/earth/logo-spec.md.',
+    )
+  }
+
+  // The margin the supplier baked in, as a fraction of the file. The spec asks
+  // for zero; this is the number that says how far off it is, and it is worth
+  // saying because normalising HIDES the problem — the mark now lands correctly
+  // and the only remaining cost is resolution nobody can see was lost.
+  const marginFraction = 1 - (ink.width * ink.height) / (sw * sh)
+  if (marginFraction > 0.25) {
+    console.warn(
+      `[brand-atlas] ${kind} carries ${Math.round(marginFraction * 100)}% transparent margin ` +
+        '— normalised here, but the file wastes that share of its own resolution. ' +
+        'docs/earth/logo-spec.md asks for a tight trim.',
     )
   }
 
@@ -295,7 +454,19 @@ function drawLogoContained(
   // 1600px-wide source hits against this box.
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, originX + (cell.width - w) / 2, originY + (cell.height - h) / 2, w, h)
+  // Source rectangle is the ink, so the baked-in margins are cropped rather than
+  // drawn — that, and not the destination maths, is what re-centres the mark.
+  ctx.drawImage(
+    img,
+    ink.x,
+    ink.y,
+    ink.width,
+    ink.height,
+    originX + (cell.width - w) / 2,
+    originY + (cell.height - h) / 2,
+    w,
+    h,
+  )
   return true
 }
 
