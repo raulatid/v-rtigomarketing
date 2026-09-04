@@ -147,6 +147,77 @@
   color: #1c67ff;
 }
 
+/* ── the mark's stage: the SVG, and the 3D logo that replaces it ──
+
+   The blog draws the same 3D mark the scene does (BlogHeaderLogo, 2026-09-04),
+   on a canvas of its own because this document has no scene canvas to borrow.
+   The canvas is created by `headerLogoRuntime` and appended here — React never
+   renders it, because a canvas element can only ever hand out one WebGL context
+   and React would reuse the element across a StrictMode remount.
+
+   The stage is 44px square at every width while the glyph inside it is 26px (24
+   on a phone). That margin is not decoration: the model TURNS, and its silhouette
+   is widest at 45°, so a stage fitted to the glyph would clip it four times a
+   revolution. It is also why the box is square when the glyph is not. */
+
+.blog-topbar__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+
+.blog-topbar__glyph {
+  transition: opacity 200ms ease;
+}
+
+.blog-topbar__mark-gl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  /* The button around it takes the clicks; the canvas must not eat them, and on
+     the index there is no button and nothing to click at all. */
+  pointer-events: none;
+}
+
+/* Crossfade, not a swap: the two marks are the same shape at the same size, so
+   the upgrade should be a change of material rather than a pop. */
+.blog-topbar__stage[data-gl='ready'] .blog-topbar__glyph {
+  opacity: 0;
+}
+
+.blog-topbar__stage[data-gl='ready'] .blog-topbar__mark-gl {
+  opacity: 1;
+}
+
+/* The hover cue was `color: #1c67ff` on a `currentColor` glyph, which a textured
+   3D model cannot answer. Once the canvas is up the affordance moves to the
+   stage, so the control still responds to a pointer either way. */
+.blog-topbar__home .blog-topbar__stage {
+  transition: transform 160ms ease;
+}
+
+.blog-topbar__home:hover .blog-topbar__stage[data-gl='ready'] {
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-topbar__glyph,
+  .blog-topbar__mark-gl,
+  .blog-topbar__home .blog-topbar__stage {
+    transition: none;
+  }
+
+  .blog-topbar__home:hover .blog-topbar__stage[data-gl='ready'] {
+    transform: none;
+  }
+}
+
 /* Only the phone artboard draws a search icon here. Hidden rather than
    unrendered so the control does not appear and disappear across a resize; the
    header's grid keeps the mark centred whatever the third cell holds. */

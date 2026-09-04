@@ -133,12 +133,15 @@ One document, at the fixed id `siteSettings`.
 | Field | Type | Rule | On violation |
 |---|---|---|---|
 | `phones[]` | object[] | 1–4 entries | fail |
+| `phones[].label` | string | **optional**, ≤ 24; blank, null and absent all mean "no label" | fail only when present and over-long |
 | `phones[].display` | string | non-empty, ≤ 40; format it however it reads best | fail |
 | `phones[].tel` | string | `^\+?[0-9]{6,20}$` — **digits only** | fail |
 | `contactEmail` | string | a real email address | fail |
 | `copyright` | string | non-empty, ≤ 120 | fail |
 
 **`display` and `tel` are different values on purpose.** `display` is read by a human; `tel` is dialled. A space in `tel` produces a link that silently does nothing on some handsets rather than failing visibly.
+
+**`label` is written without punctuation** — `Madrid`, never `Madrid:`. The colon is added by the stylesheet (`.contact-phone-label:not(:empty)::after`), so it is identical on every entry and cannot be forgotten on one or doubled on another. It is emitted as an **omitted key** rather than an empty string when unset, the same shape as an image `caption`, so a consumer tests `label !== undefined` and never `label !== ''`.
 
 **Exactly one document, asserted by the build.** The Studio hides the "create another" button, but a restored backup or the HTTP API can produce a second one the Studio never shows. `src/content/site.ts` reads the first, so two documents would mean half the site quietly using one and nothing using the other. Zero documents also fails: an empty response is an outage, not a decision to delete the agency's phone number.
 

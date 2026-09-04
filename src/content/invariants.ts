@@ -264,6 +264,15 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   if (!nonEmpty(entry.copyright)) at('copyright', 'must be a non-empty string')
   if (!EMAIL_PATTERN.test(entry.contactEmail)) at('contactEmail', 'is not an email address')
 
+  // The confirmation copy (plan 012). Re-checked here, on the emitted module,
+  // rather than trusted from the mapper — the same guard-on-the-guard
+  // arrangement the rest of this file uses. A blank one is a panel that says
+  // nothing to somebody who has just handed over their email address.
+  if (!nonEmpty(entry.auditSuccessTitle)) at('auditSuccessTitle', 'must be a non-empty string')
+  if (!nonEmpty(entry.auditSuccessBody)) at('auditSuccessBody', 'must be a non-empty string')
+  if (!nonEmpty(entry.contactSuccessTitle)) at('contactSuccessTitle', 'must be a non-empty string')
+  if (!nonEmpty(entry.contactSuccessBody)) at('contactSuccessBody', 'must be a non-empty string')
+
   // The footer renders this list and the contact section links it. An empty one
   // leaves the site with no way to reach anybody, which is a content mistake
   // worth stopping a deployment for.

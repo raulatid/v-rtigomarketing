@@ -65,7 +65,9 @@ En los dos casos el aviso te dice qué mide la imagen y qué debería medir, as�
 
 **Las imágenes** llevan siempre una descripción en una frase (para quien no puede verlas). El editor no te dejará publicar sin ella.
 
-**Teléfonos:** cada uno se escribe dos veces. «Cómo se lee» es con espacios, como en una tarjeta; «cómo se marca» es solo dígitos, seguidos, con el +34 delante.
+**Teléfonos:** el número se escribe dos veces. «Cómo se lee» es con espacios, como en una tarjeta; «cómo se marca» es solo dígitos, seguidos, con el +34 delante.
+
+**La «etiqueta» del teléfono es opcional.** Es la palabra que aparece a la izquierda del número, normalmente la ciudad: `Madrid`. Escríbela **sin los dos puntos** — los pone la web sola, así todos salen iguales. Si la dejas vacía, ese número se muestra solo, sin nada delante. Puedes ponérsela a unos sí y a otros no.
 
 ## Si algo va mal
 

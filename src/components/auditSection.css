@@ -427,19 +427,64 @@
   color: rgba(255, 158, 158, 0.95);
 }
 
-/* The delivered state replaces the form inside the already-open panel, so it
-   plays its own small arrival — the group stagger above only runs with the
-   curtain. One rise, no theatrics: the news is the text. */
+/* ---- The delivered state (plan 012) ----------------------------------------
+
+   The form is gone and this replaces it inside the already-open panel, so it
+   plays its own arrival — the group stagger above only runs with the curtain.
+
+   It is drawn in the site's own language rather than as a plain fade, because
+   this is the one moment the whole panel exists for: the emitter line ignites
+   from the centre, the news rises behind it, and the button follows. Same
+   vocabulary as the phone menu (siteHeader.css) and the satellite hologram —
+   the blue hairline with its glow, the house entry ease, a stagger measured in
+   the same steps as `.audit-group` above.
+
+   No wipe here, deliberately. The panel is already open and already black; a
+   curtain inside a curtain would be motion about motion. */
+.audit-success {
+  position: relative;
+}
+
+/* The emitter line. Ignites from the centre before anything else moves, which
+   is what makes the text look like it arrived rather than merely appeared. */
+.audit-success::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(28, 103, 255, 0.45);
+  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+  /* Feathered at both ends: nothing on this site terminates in a cut. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  transform-origin: center;
+  animation: audit-success-line 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
 .audit-success .audit-group {
-  animation: audit-success-in 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: audit-success-in 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: 120ms;
 }
 
 .audit-success .audit-group:nth-child(2) {
-  animation-delay: 60ms;
+  animation-delay: 200ms;
 }
 
 .audit-success .audit-group:nth-child(3) {
-  animation-delay: 140ms;
+  animation-delay: 320ms;
+}
+
+@keyframes audit-success-line {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
 }
 
 @keyframes audit-success-in {
@@ -556,7 +601,8 @@
     animation: none;
   }
 
-  .audit-success .audit-group {
+  .audit-success .audit-group,
+  .audit-success::before {
     animation: none;
   }
 
@@ -584,4 +630,21 @@
     height: 100%;
     transform: translate(-50%, -50%);
   }
+}
+
+/* ---- The honeypot (plan 012) ------------------------------------------------
+   A real, focusable-by-nothing input that no person encounters. Off screen
+   rather than `display: none` or `visibility: hidden`: the cruder scripts skip
+   both, and skipping is exactly what would make the field useless.
+
+   `aria-hidden` on the wrapper and `tabindex="-1"` on the control keep it away
+   from a screen reader and from the Tab order, so the only way to put a value
+   in it is to fill in every input in the document without looking. */
+.form-honeypot {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }

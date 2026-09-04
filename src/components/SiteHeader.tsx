@@ -15,12 +15,15 @@ import './siteHeader.css'
  * their focus return, their `data-state` choreography and their tests exactly
  * as they were while the header became one thing.
  *
- * ── The scene draws its own brand ──
+ * ── The brand cell is drawn by whoever can draw it ──
  *
- * Over Earth and Murcia the brand cell is empty on purpose: the 3D corner logo
- * is an overlay pass on the scene canvas (ADR 002), and CornerLogoLayer
- * measures `.site-header__row` to put it where this layout says the line is.
- * The blog has no canvas, so it passes an SVG mark as `brand` instead.
+ * Over Earth and Murcia it is empty on purpose: the 3D corner logo is an overlay
+ * pass on the scene canvas (ADR 002), and CornerLogoLayer measures
+ * `.site-header__row` to put it where this layout says the line is.
+ *
+ * The blog has no scene canvas, so it passes `BlogHeaderLogo` as `brand` — an
+ * SVG that upgrades itself into the same 3D mark on a little canvas of its own
+ * (adr/013, amended 2026-09-04). Either way this component only owns the cell.
  *
  * ── Two documents ──
  *
@@ -47,9 +50,27 @@ interface Props {
   brand?: ReactNode
   /** A third control beside the actions — the blog's phone search button. */
   extra?: ReactNode
+  /**
+   * Hears the phone menu open and close. App uses it to keep its global Escape
+   * (skip to the end of the intro) out of the menu's way: both listen on
+   * `window`, and a re-seek to 'site' snaps the parked logo.
+   */
+  onMenuOpenChange?: (open: boolean) => void
 }
 
-export function SiteHeader({ layout, tone, hasActions, onActionsHost, leading, brand, extra }: Props) {
+/** The burger exists only below this width; `siteHeader.css` says the same. */
+const PHONE_QUERY = '(max-width: 767px)'
+
+export function SiteHeader({
+  layout,
+  tone,
+  hasActions,
+  onActionsHost,
+  leading,
+  brand,
+  extra,
+  onMenuOpenChange,
+}: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const rootRef = useRef<HTMLElement>(null)
   const [actionsEl, setActionsEl] = useState<HTMLElement | null>(null)
@@ -99,6 +120,23 @@ export function SiteHeader({ layout, tone, hasActions, onActionsHost, leading, b
     if (!hasActions) setMenuOpen(false)
   }, [hasActions])
 
+  // A rotation to a desktop width puts the actions back on the line; the
+  // stylesheet stops drawing the menu, so the state must not linger either —
+  // an `aria-expanded` burger nobody can see, and a field ready to swallow
+  // the next tap.
+  useEffect(() => {
+    const phone = window.matchMedia(PHONE_QUERY)
+    const onChange = (e: MediaQueryListEvent) => {
+      if (!e.matches) setMenuOpen(false)
+    }
+    phone.addEventListener('change', onChange)
+    return () => phone.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
+    onMenuOpenChange?.(menuOpen)
+  }, [menuOpen, onMenuOpenChange])
+
   const actionsId = `site-header-actions-${layout}`
 
   return (
@@ -113,8 +151,9 @@ export function SiteHeader({ layout, tone, hasActions, onActionsHost, leading, b
         <div className="site-header__start">{leading}</div>
         <div className="site-header__brand">{brand}</div>
         <div className="site-header__tail">
-          <div className="site-header__end" id={actionsId} ref={actionsRef} />
-          {extra !== undefined && <div className="site-header__extra">{extra}</div>}
+          {/* FIRST in the DOM, last on the line (CSS `order`): Tab from the
+              burger has to land on the items it just revealed. Three bars, not
+              two glyphs — the stylesheet morphs them into the ✕. */}
           {hasActions && (
             <button
               type="button"
@@ -124,19 +163,22 @@ export function SiteHeader({ layout, tone, hasActions, onActionsHost, leading, b
               aria-controls={actionsId}
               onClick={() => setMenuOpen((open) => !open)}
             >
-              {menuOpen ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 5l14 14M19 5L5 19" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 7h16M4 12h16M4 17h16" />
-                </svg>
-              )}
+              <span className="site-header__burger-bar" aria-hidden="true" />
+              <span className="site-header__burger-bar" aria-hidden="true" />
+              <span className="site-header__burger-bar" aria-hidden="true" />
             </button>
           )}
+          <div className="site-header__end" id={actionsId} ref={actionsRef} />
+          {extra !== undefined && <div className="site-header__extra">{extra}</div>}
         </div>
       </div>
+      {/* The glass under the line on a phone: the menu's ground and its scrim
+          in one. Decorative to assistive tech; a tap on it is "leave". Closed
+          on click rather than pointerdown so the press that lands here also
+          lifts here — otherwise the field would lose its pointer-events
+          mid-gesture and the click would land on the page beneath. Outside the
+          phone query the stylesheet does not draw it. */}
+      <div className="site-header__field" aria-hidden="true" onClick={() => setMenuOpen(false)} />
     </header>
   )
 }

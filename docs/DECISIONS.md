@@ -953,6 +953,22 @@ the case assumed a photograph must carry its own stars.*
 > flight range rather than a band and renamed `checks/footprint.ts` (`check:footprint`); and **the skirt’s 600 to 700
 > widening, which existed to pay for zoom-out, becomes slack margin.** It is not being narrowed
 > — the warp’s departure pose still reaches past the resting distance the 600 was sized for.
+>
+> **Amended a third time 2026-09-04 — `adr/014`. The zoom band is back**, on the wheel and on
+> the pinch, in Earth and in Murcia, and both of the inversions above invert again: **distance
+> is user state once more**, and **the skirt’s extra 100 units are spent again** rather than
+> slack. `checks/footprint.ts` keeps its name and its job, and now sweeps zoom depth and flight
+> scale together — it is the gate that decided Murcia's far end (280 units at 52°, leaving
+> +59.2 units of skirt at the worst case).
+>
+> What does **not** come back is the band's shape. It is not `distanceScale` any more: the zoom
+> resolves a **pose**, so a controlled flight still owns the scale and the two compose
+> multiplicatively instead of fighting over one number. And neither end is a judgement — the far
+> one is a footprint measurement, and the near one is the district-flight floor, deliberately
+> reused rather than measured a second time.
+>
+> The gesture split below — left/one finger pans, right/two fingers rotate — has now survived
+> all three amendments untouched.
 
 **Left button and one finger pan the ground 1:1 under the cursor, in both axes. Rotation
 moves to the right button and to two fingers, at half the sensitivity. A small, bounded zoom
@@ -1390,6 +1406,40 @@ exactly once. Any future chrome gates on the same prop-from-phase pattern, never
 > that grew with the window while the buttons did not) are one number in one place. Phones get
 > a burger in the same header — a white sheet with the two triggers, nothing more yet.
 
+> **AMENDED 2026-09-04 — the brand cell is 3D on the blog too, and the SVG is now the
+> fallback.** The cell that Earth and Murcia leave empty for the overlay pass is the cell the blog
+> fills with a live mini-canvas of its own: same GLB, same bake, same idle spin, `createCornerLogo`
+> unchanged. Both hosts, because "the mark is 3D over there and flat over here" is exactly the kind
+> of difference that reads as a bug. `blog/BlogHeaderLogo.tsx` paints the SVG first and swaps only
+> when the model is compiled; `blog/headerLogoRuntime.ts` is the dynamic seam that keeps three.js
+> out of the cold blog's initial graph, and it holds ONE renderer per document rather than one per
+> mount — `Index` and `Article` are different component types, so a component-owned context would be
+> rebuilt on every article open. Two things were fixed on the way and are the reusable part:
+> `logoMotion.worldPerPx()` divided by `window.innerHeight`, which is the render surface only while
+> the canvas is the window (`setSurfaceHeight` now supplies it, and a 26px mark is where that was
+> two orders of magnitude wrong); and `CornerLogoLayer` reached `DEFAULT_CORNER_METRICS` out of
+> `logoMotion` for a plain constant, a static edge into a three-importing module that cost a
+> modulepreload on `/` the moment the logo had a second consumer. Placement stayed ONE concept —
+> the motion module anchors the box's left edge, and centring is arithmetic at the call site — rather
+> than growing a second, mutually exclusive framing mode. See `adr/013`'s amendment for the costs
+> that were accepted: two GL contexts in a warm document, `/` at 11 initial requests, and a light
+> material on a paper-white bar.
+
+> **AMENDED 2026-09-04 — the phone menu is a glass field, not a white sheet.** The burger's
+> "nothing more yet" is now the thing itself, and it is drawn in the site's own material: the
+> emitter line (the audit curtain's) ignites under the header, dark glass (the case panel's)
+> wipes down from it over the live scene and thins to nothing at the floor, and the two doors
+> rise into it one behind the other. No edge anywhere — the hologram's rule
+> (`createHoloPanel.ts`), and §6's: the glass wipes under cover, nothing cross-fades. Paper
+> glass over a light ground (Murcia's sky, the blog's bar), keyed off the `tone` the header
+> already has. Still the two doors only; the user chose that over navigation entries. All of it
+> CSS keyed on `[data-menu-open]` with a delayed `visibility` flip — no clock in JavaScript, so
+> reduced motion is one media block. Two things it changed outside the stylesheet: the burger
+> now precedes the items in the DOM so Tab reaches them, and the header reports its open state
+> to App, because the global Escape's re-seek to 'site' snaps the parked logo and had been doing
+> so on every Escape meant to fold the sheet. Working detail, the collisions found and the
+> capture recipe: `plans/011-phone-menu-glass-field.md`.
+
 **26.17 — The cursor glyphs are inlined path data, and `public/icons/*.svg` is the design source
 that is not read at runtime.** Redrawing those files changes nothing on screen until the `d`
 attributes are re-pasted into the component; both the component and the stylesheet say so at the
@@ -1730,6 +1780,21 @@ some is merely not-yet-moved, and conflating them turns a temporary constraint i
 > keeping with this file's habit: the reasoning about where FEEL belongs is still correct and
 > still governs the spring, and the fill/glass paragraphs are the record of a thing that
 > shipped. The rail element, its gradient and its glass no longer exist.
+
+> **AMENDED AGAIN 2026-09-04 — `adr/014`. The hint teaches two stages, and retires earlier.**
+> The gesture is now a persistent zoom followed by a push past its limit, so *"scroll to
+> travel"* described neither half of it.
+>
+> Retirement moves with it, from the accumulator's rising edge to **any accepted travel**. The
+> first 600px of every gesture never reach the accumulator now, so the old rule let a viewer
+> zoom half way across the band with the hint still explaining how to do it. What proves they
+> have found the control is that the world MOVED, and the zoom is what moves it first. The
+> once-per-world rule, the re-arm on arrival and the rotation exclusion are unchanged.
+>
+> The line below about the accumulator's constants being the safety case needs one correction:
+> `commitDistancePx` moved 900 → 300 under `adr/014` — but for the structural reason that the
+> journey is now split in two and 600px of it lives in the band, NOT for feel. The prohibition
+> stands exactly as written.
 
 The navigation rail (`adr/009`) is the one control between the worlds, and three 2026-08-20
 decisions govern how it reads and feels. All three live in the presentation layer on
@@ -2101,6 +2166,8 @@ and `intro` still have no reader.
 | One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** |
 | The Earth prototype keeps its own decisions file | `earth/DECISIONS.md`, 1862 lines, listed above as still authoritative | Retired 2026-08-17; what still binds is **§26**, and this file is the only one — **§26** |
 | The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
+| The cold blog document is 2D by construction, and pays for no 3D at all | **`adr/013`**, 2026-08-31; the ban asserted in `e2e/blog.spec.ts` | It pays for the BRAND MARK and nothing else: three, the two decoders, `model.glb`, `logoBake.ktx2` — deferred until after the article paints, with the SVG as the first paint and the permanent fallback. What it still refuses is the 3D APPLICATION, and the e2e states that as an allow-list in both directions rather than a blanket ban — **`adr/013` amendment**, **§26.16** |
+| The application has one WebGL renderer | **`adr/001`**, **`adr/002`**, and `graphics/decoders.ts`'s "which is all there ever is here" | One renderer for the SCENE. A warm document also holds the blog header's 44×44 `low-power` context — **`adr/013` amendment** |
 | A logo should be delivered at ~1024×512 | `sanity-media-contract.md` and the Studio's own field description, since 2026-08-23 | 1600×800, minimum 900 wide. 1024×512 is barely above the 896×400 box the artwork is fitted into, and `drawLogoContained` already warns below it — the CMS was advising editors towards artwork the renderer complains about. `docs/earth/logo-spec.md` had said 1600×800 all along and was the copy nobody reconciled — **§26.23** |
 | The format and size rules for a brand mark are guidance for the editor | the two `description` strings on `caseStudy.isotype` / `.logo` | They are validation. Wrong format or geometry disables Publicar and fails the build; only the ideal-versus-acceptable difference is advice — **§26.23** |
 | The backdrop is a field of uniform points on a shell | the Earth prototype's "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** |

@@ -1,7 +1,19 @@
 # ADR 006 — The return is an ascent
 
-Status: **Accepted** — 2026-08-07
+Status: **Accepted** — 2026-08-07, **extended 2026-09-04 by `adr/014`**
 Amends: ADR 005 (the symmetric dolly, and "the number that can hurt you" as a *distance*)
+
+> **Extended, not reversed, by `adr/014-zoom-is-a-position-the-viewer-owns.md`.** The ascent is
+> no longer only the cinematic's — the viewer drives the first part of it. Murcia's zoom-out is
+> the same rise-as-it-recedes shape, measured against the same `computeGroundFootprint` by the
+> same harness, and the departing warp now **continues** that arc from wherever the viewer left
+> it (rest 195 @ 30° → zoom 280 @ 52° → departure 330 @ 62°) instead of starting from rest.
+>
+> Everything this ADR decided holds and is now load-bearing in a second place: extra distance
+> must be paid for with extra elevation, or the plate edge comes into frame. The footprint —
+> not the distance — is still the number that can hurt you. What `adr/014` added is that the
+> viewer can now PARK anywhere along the arc, so every pose on it has to be safe, not merely the
+> endpoints of a cinematic that always finishes.
 
 ## Context
 

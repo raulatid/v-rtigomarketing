@@ -1,6 +1,7 @@
 # ADR 009 — Navigation is a gesture, and the wheel has one owner
 
-Status: **Accepted** — 2026-08-19, **§4 reversed 2026-08-26 by `adr/012`**
+Status: **Accepted** — 2026-08-19, **§4 reversed 2026-08-26 by `adr/012`**,
+**"zoom is removed" reversed 2026-09-04 by `adr/014`**
 Reverses: `DECISIONS.md` §15 (*"The warp is triggered by a control, never by scroll"*)
 Amends: `DECISIONS.md` §20 / §21 (the zoom band on wheel and pinch)
 
@@ -13,6 +14,22 @@ Amends: `DECISIONS.md` §20 / §21 (the zoom band on wheel and pinch)
 > 
 > Parts 1–3 — one global wheel authority, raw input never reaching the transition, and the
 > four-state machine — are untouched and are what the pinch was built on.
+
+> **"Zoom is removed" no longer holds either** — `adr/014-zoom-is-a-position-the-viewer-owns.md`,
+> a client decision after driving the build. The viewer owns a persistent signed zoom in both
+> worlds and in both directions; travel fills it first and only the overflow at the
+> transition-facing end reaches the accumulator.
+>
+> **Parts 1–3 survive this one too, and part 1 is what made it buildable.** The single wheel
+> authority is why a zoom could be added back without any experience listening for `wheel`
+> again: the band sits inside that one authority. The accumulator, its decay, its spring, the
+> cooldown and the momentum latch are untouched — they are now the *second* stage of the
+> gesture rather than the whole of it.
+>
+> Three consequences below invert with it: *"zoom is gone from the product"*, *"distance is no
+> longer user state"*, and *"the terrain skirt's 700 units become slack"* — the zoom-out has
+> spent that margin again. The consequences about focus flights are NOT reversed: a flight still
+> dollies inward only, and it now multiplies the zoomed distance rather than the configured one.
 
 ## Context
 

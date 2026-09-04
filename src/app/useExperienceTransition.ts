@@ -9,7 +9,7 @@ import gsap from 'gsap/gsap-core'
 import type {} from 'gsap'
 import type { SequenceState } from '../experiences/earth/config/sequenceState'
 import type { ExperienceId } from './experience'
-import { WARP_TRANSITION, flash, scrubProgress } from './warpTransition'
+import { WARP_TRANSITION, flash } from './warpTransition'
 
 // Shaping lives entirely in warpTransition's curves, so the tween is linear.
 // A GSAP ease here would compound with them and destroy the width relationship
@@ -35,6 +35,18 @@ interface Params {
    * leave any outstanding promise dangling for the life of the page.
    */
   onSettled?: () => void
+  /**
+   * The cut has happened: the scene has been swapped and the world under the
+   * viewer's zoom no longer exists.
+   *
+   * Fired from inside the timeline rather than derived from `onSwap`, because
+   * the two have to be the same frame. Everything discontinuous in this
+   * transition happens under one fully black frame, and returning the zoom to
+   * rest is now one of those things — do it a frame early and the departing
+   * camera snaps in plain view, a frame late and the arriving world pulls back
+   * out to a pose the previous world had chosen.
+   */
+  onCut?: () => void
 }
 
 /**
@@ -61,21 +73,9 @@ interface Params {
  * Neither experience is created or destroyed here — both stay mounted and the
  * render pipeline simply changes which scene it draws (ADR 003).
  */
-export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
+export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Params) {
   const [transitioning, setTransitioning] = useState(false)
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
-  /**
-   * Where the gesture has pushed the warp, 0..SCRUB_CEILING.
-   *
-   * A ref rather than state for the same reason `transitionProgress` is not a
-   * prop: a wheel produces well over a hundred events a second and every one of
-   * them would otherwise be a render of two canvases and all the overlay chrome.
-   *
-   * It is also what the commit reads. The spring lags the accumulator, so at the
-   * moment a gesture commits the camera is somewhere BELOW the ceiling — starting
-   * the timeline at a fixed number would jump it backwards.
-   */
-  const scrubbedRef = useRef(0)
   const onSwapRef = useRef(onSwap)
   onSwapRef.current = onSwap
   // Through a ref for the same reason `onSwap` is: `transitionTo` is memoised on
@@ -83,6 +83,8 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
   // able to rebuild it mid-warp.
   const onSettledRef = useRef(onSettled)
   onSettledRef.current = onSettled
+  const onCutRef = useRef(onCut)
+  onCutRef.current = onCut
 
   useEffect(() => {
     return () => {
@@ -93,7 +95,6 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
       state.transitionOverlay = 0
       state.transitionProgress = 0
       state.transitionCommitted = false
-      scrubbedRef.current = 0
     }
   }, [state])
 
@@ -121,42 +122,6 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
 
-  /**
-   * The gesture moved. Drives the warp reversibly, short of the cut.
-   *
-   * This is the whole of the scene-driven feedback: no second animation system,
-   * no blend, no hand-over logic. The gesture writes the same number the
-   * cinematic writes, through the same curves, so the two join by construction
-   * rather than by tuning.
-   *
-   * `adr/009` ruled this out — "gesture progress never enters `SequenceState` at
-   * all" — on the grounds that `transitionLeg`/`dollyAmount` assume a single
-   * pass. `scrubProgress` is what answers it: the band stops at
-   * `cut - flashWidth`, entirely inside the departing leg, so the leg flag is
-   * constant however far the gesture goes back and forth, and the flash is
-   * provably zero throughout. checks/warp-transition.ts section 7 asserts both.
-   *
-   * Refused while a timeline is running, and that is load-bearing rather than
-   * defensive: the input layer keeps reporting progress after a commit (the
-   * accumulator is reset, so it reports 0), and honouring that would snap the
-   * camera back to rest on the first frame of the warp it just started.
-   */
-  const scrub = useCallback(
-    (gestureProgress: number) => {
-      if (timelineRef.current) return
-      const p = scrubProgress(gestureProgress)
-      if (p === scrubbedRef.current) return
-      scrubbedRef.current = p
-      state.transitionProgress = p
-      // Zero across the whole band by construction. Written anyway, so that
-      // "whoever moves the progress moves the overlay" has no exception to
-      // remember — and so a future change to the band's ceiling cannot leave a
-      // stale flash behind.
-      state.transitionOverlay = flash(p)
-    },
-    [state],
-  )
-
   const transitionTo = useCallback(
     (to: ExperienceId) => {
       // Re-entrancy guard. Without it a double click starts a second timeline
@@ -168,12 +133,20 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
       // The cinematic takes the camera from here. Set BEFORE the first tween so
       // no frame can see non-zero progress that nobody has claimed.
       state.transitionCommitted = true
-      // Continues from where the gesture left the camera rather than from zero.
-      // Clamped below the cut because everything after it belongs to the
-      // cinematic; the band cannot reach it, and a corrupted value must not
-      // produce a negative duration.
-      const from = Math.min(Math.max(scrubbedRef.current, 0), WARP_TRANSITION.cut)
-      const proxy = { progress: from }
+      // From zero, and the whole cinematic plays.
+      //
+      // It used to start part-way in, at wherever a scrubbed gesture had already
+      // pushed the warp. `adr/014` took the gesture back out of the warp: what a
+      // viewer drives now is their own zoom, which each world composes UNDER
+      // this progress rather than sharing it. So there is nothing already spent,
+      // and the transition is the same length however it was triggered — a
+      // property the scrub never had.
+      //
+      // Continuity is not lost by starting at zero, it is bought differently.
+      // Both worlds re-base the warp on the zoomed pose: Earth's dolly is
+      // relative to `camera.position` and Murcia's departure lerps from the
+      // zoom-resolved pose, so amount 0 IS the pose the viewer was looking at.
+      const proxy = { progress: 0 }
 
       const apply = () => {
         state.transitionProgress = proxy.progress
@@ -188,7 +161,6 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
           state.transitionProgress = 0
           state.transitionOverlay = 0
           state.transitionCommitted = false
-          scrubbedRef.current = 0
           timelineRef.current = null
           setTransitioning(false)
           // AFTER the pins and after the ref is cleared, so anything this wakes
@@ -198,23 +170,26 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
         },
       })
 
-      // Half one, to the cut — minus whatever the gesture already travelled.
-      // The duration shrinks with the distance, which is what keeps the RATE
-      // identical: the ease is linear and all the shaping lives in the curves,
-      // so a shorter first half plays the remainder of the same motion at the
-      // same speed rather than a compressed version of the whole thing.
+      // Half one, to the cut.
       tl.to(proxy, {
         progress: WARP_TRANSITION.cut,
-        duration: WARP_TRANSITION.duration * (WARP_TRANSITION.cut - from),
+        duration: WARP_TRANSITION.duration * WARP_TRANSITION.cut,
         ease: TWEEN_EASE,
         onUpdate: apply,
       })
 
       // The cut, at full cover and at the closest point of the dolly.
       // Everything discontinuous happens on this one frame: the active scene,
-      // the active camera, and which experience owns input all change together
-      // and none of it is visible.
-      tl.call(() => onSwapRef.current(to))
+      // the active camera, which experience owns input, and the viewer's zoom
+      // all change together and none of it is visible.
+      //
+      // The zoom goes back to rest BEFORE the swap, so the world arriving is
+      // already composing its pull-out against a resting pose rather than
+      // against the departed world's zoom for one frame.
+      tl.call(() => {
+        onCutRef.current?.()
+        onSwapRef.current(to)
+      })
 
       // Half two, out.
       tl.to(proxy, {
@@ -229,5 +204,5 @@ export function useExperienceTransition({ state, onSwap, onSettled }: Params) {
     [state],
   )
 
-  return { transitionTo, transitioning, scrub }
+  return { transitionTo, transitioning }
 }

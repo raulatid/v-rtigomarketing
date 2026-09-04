@@ -3,6 +3,7 @@ import { BLOG_POSTS } from '../content/generated/blogPosts'
 import type { BlogPost } from '../content/types'
 import type { Route } from '../app/route'
 import { BlogFigure } from './BlogFigure'
+import { BlogHeaderLogo } from './BlogHeaderLogo'
 import { PostBody } from './PostBody'
 import { filterPosts, topicsOf } from './blogFilter'
 import { SiteHeader } from '../components/SiteHeader'
@@ -115,19 +116,6 @@ function BackControl({ label, onClick }: { label: string; onClick: () => void })
   )
 }
 
-const VertigoMark = () => (
-  <svg viewBox="0 0 400 400" width="26" height="26" aria-hidden="true">
-    <path
-      fill="currentColor"
-      d="M33.7 13.6 7.7 39.4l4.7 3.4c92.3 67.2 193 82.8 292.7 45.5 30.2-11.3 63.8-30.1 85-47.4L354.1.2l-3.4 2.3c-37.9 26-78.1 42.2-118.4 47.7-19.1 2.6-39.4 2.9-58.5.7-26.4-3-52.3-10.2-77.5-21.7C79.3 21.5 62.2 11.4 49.9 1.8L47.5 0Z"
-    />
-    <path
-      fill="currentColor"
-      d="M34.5 99.7 168.6 399.5h62.5L365 99.7l-6 2.9c-20.4 10.2-45.7 20.3-65.4 26l-2.5.9-45.5 101.1-45.4 101.2-45.6-101.1L109.1 129.3l-1.7-.3c-13.6-2.4-43.2-14.2-69.4-27.7Z"
-    />
-  </svg>
-)
-
 const noop = () => {}
 
 /**
@@ -171,26 +159,11 @@ function TopBar({
         // Both hosts render the same control; only what it does differs, and on
         // an article it goes to the index rather than out of the blog.
         leading={<BackControl label="Ir atrás" onClick={onBack} />}
-        brand={
-          onHome === undefined ? (
-            <span className="blog-topbar__mark" aria-hidden="true">
-              <VertigoMark />
-            </span>
-          ) : (
-            // Named for what it does rather than for the brand it draws:
-            // "Vertigo" tells a screen-reader user what the picture is, not
-            // where the button goes, and where it goes is the only thing they
-            // cannot see.
-            <button
-              type="button"
-              className="blog-topbar__mark blog-topbar__home"
-              aria-label="Inicio del blog"
-              onClick={onHome}
-            >
-              <VertigoMark />
-            </button>
-          )
-        }
+        // The SVG mark, which upgrades itself to the scene's 3D logo once that
+        // has loaded — deferred, and never at the article's expense. Both the
+        // decorative and the go-home shapes live in there, because which one it
+        // is has nothing to do with how it is drawn.
+        brand={<BlogHeaderLogo onHome={onHome} />}
         extra={
           onSearch === undefined ? undefined : (
             <button

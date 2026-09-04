@@ -53,6 +53,14 @@ export interface ImageMedia {
 }
 
 export interface SitePhone {
+  /**
+   * Optional short label shown to the LEFT of the number — a city, usually.
+   *
+   * Bare: "Madrid", never "Madrid:". The colon is the renderer's, so it cannot
+   * be forgotten on one entry and doubled on another. Absent means the number
+   * stands on its own, which is the shape every phone had before 2026-09-04.
+   */
+  label?: string
   /** What the visitor reads, formatted for reading aloud. */
   display: string
   /** What the `tel:` link dials — digits and `+`, no spaces. */
@@ -75,8 +83,26 @@ export interface SiteSettings {
   /** Fixed. There is one of these, and it is called this. */
   id: string
   phones: SitePhone[]
+  /**
+   * Where a form submission is emailed. Described to the editor as "la
+   * dirección a la que llegan los mensajes", and read by `server/recipient.ts`
+   * — which is the only thing outside the browser that reads any of this.
+   */
   contactEmail: string
   copyright: string
+  /**
+   * What the panel says once a submission has genuinely been delivered.
+   *
+   * Editorial rather than configuration, by the test this file's header sets:
+   * "te responderemos en menos de 24 horas" is a promise about the client's own
+   * working week, and the alternative to a field is a deploy for a sentence.
+   * Four flat strings rather than a nested object, because the GROQ projection
+   * and the mapper are flat and nesting buys nothing here.
+   */
+  auditSuccessTitle: string
+  auditSuccessBody: string
+  contactSuccessTitle: string
+  contactSuccessBody: string
 }
 
 /**

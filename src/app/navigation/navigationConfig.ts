@@ -9,9 +9,62 @@ import { MAX_WHEEL_DELTA_PX } from '../../utils/wheelDelta'
 // reasoning, and the ones that need a human to sit in front of the build are
 // marked. Do not treat an unjudged default as a settled value.
 
+/**
+ * The zoom band: how much travel it costs to cross the camera's own range.
+ *
+ * Added by `adr/014`, which reversed `adr/009`'s removal of zoom on a product
+ * decision. The two halves are separate numbers because they are not the same
+ * question — one of them ends at a threshold that navigates and the other ends
+ * at a wall — and because a scene may want them to cost differently.
+ */
+export interface ZoomBandLimits {
+  /**
+   * Travel from rest to the limit that faces the other world, in CSS pixels.
+   *
+   * Earth zooming IN, Murcia zooming OUT. Together with
+   * `NavigationGestureLimits.commitDistancePx` this is the whole journey from a
+   * resting world to a commit, and the split between the two is the thing to
+   * move if the gesture feels wrong: more here makes the zoom itself longer,
+   * more there makes the final push against the limit longer.
+   *
+   * 600 is two thirds of the 900 that used to be the entire gesture, chosen so
+   * the TOTAL is unchanged at 900 — roughly seven mouse notches, a firm trackpad
+   * sweep, or most of the height of a phone screen. Keeping the total fixed is
+   * what lets every number tuned against it (the pinch's `commitFraction`, the
+   * e2e wheel distances) stay true across the change. STARTING POINT, not
+   * judged: nobody has driven a build with a persistent zoom yet.
+   */
+  towardTravelPx: number
+  /**
+   * Travel from rest to the far limit, in CSS pixels.
+   *
+   * Earth zooming OUT, Murcia zooming IN. A dead end: there is no world out
+   * there, so no amount of pushing past it does anything.
+   *
+   * Equal to `towardTravelPx` deliberately. The two directions of one zoom
+   * control should cost the same per pixel of finger travel or the control
+   * reads as sticky one way round, and the ranges either side of rest are
+   * roughly comparable in both worlds.
+   */
+  awayTravelPx: number
+  /**
+   * Ceiling on what one event may contribute, in normalised pixels.
+   *
+   * Mirrors the accumulator's clamp of the same name, for the same reason and
+   * against the same wheel normalisation.
+   */
+  maxEventTravelPx: number
+}
+
+export const NAVIGATION_ZOOM: ZoomBandLimits = {
+  towardTravelPx: 600,
+  awayTravelPx: 600,
+  maxEventTravelPx: MAX_WHEEL_DELTA_PX,
+}
+
 export interface NavigationGestureLimits {
   /**
-   * Travel required to commit, in CSS pixels.
+   * Travel required to commit ONCE THE ZOOM IS AT ITS LIMIT, in CSS pixels.
    *
    * A PHYSICAL distance, never an event count. Mouse notches, precision-trackpad
    * streams and two fingers on the glass deliver wildly different numbers of events
@@ -19,10 +72,15 @@ export interface NavigationGestureLimits {
    * different on every device — which is exactly what `DECISIONS.md` §15 named
    * when it called wheel and trackpad "incomparable event streams".
    *
-   * 900 is roughly seven mouse notches, or a firm trackpad sweep, or most of the
-   * height of a phone screen. STARTING POINT, not judged: it is the
-   * number most likely to be wrong until someone drives the build, and it is the
-   * one that decides whether navigation feels deliberate or laborious.
+   * This was the whole gesture at 900 until `adr/014`. It is now only the last
+   * stage of it: the zoom band absorbs the first 600 and this is what the viewer
+   * spends pushing against a camera that has stopped moving. Making it the
+   * smaller share is deliberate — the deliberateness `adr/009` needed is already
+   * paid by crossing the band, and this stage has nothing to show for itself,
+   * so a long one would read as the site having stopped responding.
+   *
+   * 300 is a firm extra shove: two and a half mouse notches past the wall, or a
+   * third of the pinch. STARTING POINT, not judged.
    */
   commitDistancePx: number
   /**
@@ -55,28 +113,28 @@ export interface NavigationGestureLimits {
    * unit.
    *
    * Was 0.22 while the only thing that decayed was a progress bar, where a slow
-   * retreat read as the indicator letting go. It drives a CAMERA now, and a
-   * camera drifting home for a second and a half reads as the site being slow —
-   * reported as "way too long a pause, it feels laggy" on 2026-08-25.
+   * retreat read as the indicator letting go. It went to 0.08 when it drove a
+   * CAMERA, because a camera drifting home for a second and a half reads as the
+   * site being slow — reported as "way too long a pause, it feels laggy" on
+   * 2026-08-25.
    *
-   * 0.08 puts the accumulator's own return under a quarter second, which hands
-   * the FEEL of the retreat to `progressSpring` (~0.36s to settle) instead. That
-   * is the right owner: the spring is what makes a release read as elastic
-   * rather than as a snap, and it was already in the path.
+   * It drives no camera again since `adr/014`: what retreats is the push against
+   * a zoom that is already at its limit and stays there, so nothing visibly
+   * moves while this runs. The value is kept anyway, because what it now decides
+   * is how long a viewer who thought better of it stays primed to navigate on
+   * the next nudge — and a quarter of a second is the right answer to that too.
    */
   decaySeconds: number
   /**
    * Where the decay gives up and snaps to zero, as a fraction of
    * `commitDistancePx`.
    *
-   * Relative, and that is the point. This was an absolute 1px, which over a
-   * 900px commit distance is 6.8 time constants — so the floor, not the time
-   * constant, was most of the 1.05s a single wheel notch took to clear. An
-   * absolute floor also means the same constant behaves differently at every
-   * commit distance, which makes `commitDistancePx` unsafe to tune.
-   *
-   * 1% is below what the scrub can draw: at 9px of 900 the dolly amount is
-   * 0.007, which moves Earth's camera by half a percent of its radius.
+   * Relative, and that is the point. This was an absolute 1px, which over the
+   * 900px commit distance of the day was 6.8 time constants — so the floor, not
+   * the time constant, was most of the 1.05s a single wheel notch took to clear.
+   * An absolute floor also means the same constant behaves differently at every
+   * commit distance, which makes `commitDistancePx` unsafe to tune — and
+   * `adr/014` tuned it, from 900 to 300, on exactly that promise.
    */
   snapFraction: number
   /**
@@ -210,20 +268,39 @@ export const NAVIGATION_PINCH: PinchLimits = {
 }
 
 /**
- * Separation growth in CSS pixels -> the accumulator's travel.
+ * The whole journey from a resting world to a commit, in CSS pixels.
  *
- * DERIVED, never written down: `commitDistancePx` has exactly one home and a
- * second copy here would drift from it. Sampled per gesture rather than once at
- * startup, so an orientation change is picked up at the next pinch instead of
- * mid-gesture.
+ * DERIVED, never written down. Since `adr/014` that journey is two stages in
+ * series — across the zoom band, then against its limit — and every input that
+ * has to be scaled against "how much is a full gesture" means this sum rather
+ * than either half of it.
+ */
+export function commitTravelPx(
+  zoom: ZoomBandLimits = NAVIGATION_ZOOM,
+  gesture: NavigationGestureLimits = NAVIGATION_GESTURE,
+): number {
+  return zoom.towardTravelPx + gesture.commitDistancePx
+}
+
+/**
+ * Separation growth in CSS pixels -> travel, in the units both stages use.
+ *
+ * Takes the TOTAL rather than either stage's own limit, and that is the whole
+ * care in it: a pinch is scaled so that `commitFraction` of the viewport is one
+ * complete navigation, and after `adr/014` a complete navigation is the band
+ * plus the push against it. Scaling against the accumulator alone would make a
+ * full-viewport pinch deliver a third of the journey.
+ *
+ * Sampled per gesture rather than once at startup, so an orientation change is
+ * picked up at the next pinch instead of mid-gesture.
  */
 export function pinchGain(
-  gesture: NavigationGestureLimits,
+  totalTravelPx: number,
   viewportShorterSidePx: number,
   pinch: PinchLimits = NAVIGATION_PINCH,
 ): number {
   const commitGrowthPx = Math.max(1, viewportShorterSidePx * pinch.commitFraction)
-  return gesture.commitDistancePx / commitGrowthPx
+  return totalTravelPx / commitGrowthPx
 }
 
 /**
@@ -267,7 +344,7 @@ export interface NavigationCooldownLimits {
 }
 
 export const NAVIGATION_GESTURE: NavigationGestureLimits = {
-  commitDistancePx: 900,
+  commitDistancePx: 300,
   idleGapSeconds: 0.5,
   decaySeconds: 0.08,
   snapFraction: 0.01,

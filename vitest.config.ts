@@ -58,7 +58,18 @@ export default defineConfig({
     // strings and writes them into HTML, which is exactly the kind of thing that
     // wants hostile-input tests — and `vite.config.ts`, where it is used, is not
     // somewhere a test can reach.
-    include: ['src/**/*.test.{ts,tsx}', 'content/**/*.test.ts', 'scripts/**/*.test.ts'],
+    // `server/` joined on the identical argument: it is the form endpoint's
+    // logic, it runs in a Vercel function rather than in the browser, and it is
+    // the most hostile-input-facing code in the repository. It is a directory of
+    // its own rather than `api/_lib/` precisely so it can be tested — Vercel
+    // deploys every file under `api/` as a route, so `api/validate.test.ts`
+    // would answer at `/api/validate.test`.
+    include: [
+      'src/**/*.test.{ts,tsx}',
+      'content/**/*.test.ts',
+      'scripts/**/*.test.ts',
+      'server/**/*.test.ts',
+    ],
 
     // No globals. `noUnusedLocals` is on and this repo has no ambient-global
     // habit, so `describe`/`it`/`expect` are imported like anything else.

@@ -20,6 +20,21 @@ import { forwardRef } from 'react'
  * the rail without leaving this behind would have removed the only way some
  * people could reach Murcia at all.
  *
+ * ## The gesture became two stages, and this control did not
+ *
+ * `adr/014` split the wheel and the pinch in two: the first 600px zoom the world
+ * the viewer is standing in, and only what spills past the far end of that zoom
+ * accumulates toward a commit. That is a longer, more deliberate journey, and it
+ * is deliberate on purpose.
+ *
+ * This button is unchanged by it, and that is the accessibility decision rather
+ * than an omission. It commits OUTRIGHT — one activation, from whatever zoom the
+ * viewer happens to be at, with no equivalent of "keep pushing" — because a
+ * two-stage motion is exactly the kind of thing that is easy with a trackpad and
+ * impossible with a switch. The label names the destination for the same reason
+ * it always did: "Ir a Murcia" is operable information, and it stays true
+ * whatever the camera is currently doing.
+ *
  * ## Screen-reader-only, and visible when focused
  *
  * A transparent 44px target floating over the canvas would swallow taps meant
@@ -66,6 +81,15 @@ export const NavigationControl = forwardRef<HTMLDivElement>(function NavigationC
         The gesture hint: the answer to "nothing on screen says a gesture
         exists" (DECISIONS §15's objection, and §29's once-per-visit rule
         amended 2026-08-26 to a 5s idle clock).
+
+        The glyphs are unchanged by `adr/014` because the MOTION is unchanged —
+        the same scroll and the same pinch, which now zoom before they travel.
+        What changed is how much of the answer the hint has to carry: it used to
+        be teaching a gesture whose only outcome was leaving, and the first notch
+        of that gesture bent the warp a little. It now moves the world visibly
+        and keeps it moved, so the hint only has to get the viewer to try once
+        and the zoom explains the rest. That is also why it still retires on the
+        first gesture in flight rather than on a commit.
 
         A SIBLING of the control, not a child: the control is clipped to a
         pixel for assistive technology and a child would be clipped with it.

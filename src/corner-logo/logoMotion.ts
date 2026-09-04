@@ -58,6 +58,19 @@ export interface LogoMotion {
   /** Where the header's line is. Re-read per frame while idling, so a resize
    *  that re-measures re-anchors the logo without any other notice. */
   setCornerMetrics(metrics: CornerMetrics): void
+  /**
+   * The height, in CSS px, of the surface being rendered into.
+   *
+   * The pixel→world mapping needs the height of the RENDER TARGET, and for the
+   * scene that is the window — which is why this was `window.innerHeight` read
+   * inline. The blog header draws the same logo into a canvas a few dozen
+   * pixels tall (BlogHeaderLogo), where that global is wrong by two orders of
+   * magnitude: the model would be scaled ~30x and placed far off screen.
+   *
+   * Unset means `window.innerHeight`, so the scene is unchanged and the tests
+   * that never call this still describe a full-viewport surface.
+   */
+  setSurfaceHeight(px: number): void
 }
 
 /**
@@ -88,6 +101,8 @@ export function createLogoMotion(
   const cornerTarget = new THREE.Vector3()
   const modelSize = new THREE.Vector3()
   let metrics: CornerMetrics = DEFAULT_CORNER_METRICS
+  /** Null until a caller supplies one — see `setSurfaceHeight`. */
+  let surfaceHeightPx: number | null = null
 
   // This module owns the group's visibility on every other transition — start()
   // shows it, reset() hides it — so it owns the initial state too. It used to
@@ -98,10 +113,15 @@ export function createLogoMotion(
 
   // ─── Screen-position math (world units at the model plane, z = 0) ───
 
-  /** World units per CSS pixel at z = 0. */
+  /**
+   * World units per CSS pixel at z = 0.
+   *
+   * Divides by the SURFACE's height, not the window's. The two are the same
+   * number for the scene canvas and nothing else — see `setSurfaceHeight`.
+   */
   function worldPerPx(): number {
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z
-    return (2 * halfH) / window.innerHeight
+    return (2 * halfH) / (surfaceHeightPx ?? window.innerHeight)
   }
 
   /**
@@ -225,6 +245,14 @@ export function createLogoMotion(
 
     setCornerMetrics(next) {
       metrics = next
+    },
+
+    setSurfaceHeight(px) {
+      // A zero-height surface is a measurement that has not happened yet (a
+      // display:none ancestor, a ResizeObserver's first callback). Keeping the
+      // previous basis is right: dividing by it would make every world offset
+      // infinite.
+      if (px > 0) surfaceHeightPx = px
     },
   }
 }

@@ -1,14 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
-  SCRUB_CEILING,
-  SCRUB_EASE,
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
   earthRadiusScale,
   flash,
   motionBlur,
-  scrubProgress,
   speed,
   transitionLeg,
 } from './warpTransition'
@@ -154,67 +151,20 @@ describe('the safety envelope is internally consistent', () => {
   })
 })
 
-describe('the reversible scrub band', () => {
-  // A gesture is reversible and usually abandoned; a warp runs once and is
-  // concealed. These are the properties that make driving one from the other
-  // safe, and every one of them is the reason a constant may not simply be
-  // retuned in isolation.
-  const GESTURES = Array.from({ length: 201 }, (_, i) => i / 200)
-
-  it('derives its ceiling from the flash bell rather than hardcoding it', () => {
-    expect(SCRUB_CEILING).toBeCloseTo(cut - flashWidth, 12)
+describe('the whole cinematic is available to a commit', () => {
+  // The scrub used to spend the first third of the departing leg before the
+  // commit even started, so this file asserted where the band had to stop. The
+  // zoom that replaced it (`adr/014`) never touches `p` at all: a commit runs
+  // the timeline from 0 whatever the viewer had zoomed to, and it is the POSE
+  // the warp is re-based on, not the progress. What is left to assert is that
+  // the timeline the commit inherits is the entire one.
+  it('starts at rest and conceals nothing before it', () => {
+    expect(dollyAmount(0).amount).toBe(0)
+    expect(flash(0)).toBe(0)
+    expect(transitionLeg(0).departing).toBe(true)
   })
 
-  it('never darkens the screen, anywhere in the band', () => {
-    // THE load-bearing property. If this fails, an abandoned gesture leaves the
-    // viewer looking at a partly black screen with nothing happening.
-    for (const g of GESTURES) expect(flash(scrubProgress(g))).toBe(0)
-  })
-
-  it('stays inside the departing leg for the whole band', () => {
-    // `transitionLeg` splits on the eased value and assumes a single pass. It is
-    // safe here only because the flag never changes across the band, so a
-    // gesture that goes backwards can never cross a leg boundary in reverse.
-    for (const g of GESTURES) expect(transitionLeg(scrubProgress(g)).departing).toBe(true)
-  })
-
-  it('runs 0 -> SCRUB_CEILING exactly, and clamps outside 0..1', () => {
-    expect(scrubProgress(0)).toBe(0)
-    expect(scrubProgress(1)).toBe(SCRUB_CEILING)
-    expect(scrubProgress(-1)).toBe(0)
-    expect(scrubProgress(2)).toBe(SCRUB_CEILING)
-  })
-
-  it('is monotonic and bounded', () => {
-    let previous = -1
-    for (const g of GESTURES) {
-      const p = scrubProgress(g)
-      expect(p).toBeGreaterThan(previous)
-      expect(p).toBeLessThanOrEqual(SCRUB_CEILING)
-      previous = p
-    }
-  })
-
-  it('answers its very first input visibly', () => {
-    // The reason SCRUB_EASE exists. One capped wheel event is 120/900 of the
-    // gesture; mapped straight onto `p` that is an amount of 0.015 — a 1%
-    // camera move, which nobody sees. The band must do better than that, or the
-    // rail was carrying feedback the scene cannot replace.
-    const oneNotch = 120 / 900
-    const { amount } = dollyAmount(scrubProgress(oneNotch))
-    expect(amount).toBeGreaterThan(0.08)
-  })
-
-  it('hands over to the cinematic below the cut, with room for the flash', () => {
-    expect(SCRUB_CEILING).toBeLessThan(cut)
-    // The committed warp still has its whole flash bell left to play.
+  it('still has its whole flash bell left at the cut', () => {
     expect(flash(cut)).toBeGreaterThan(0.99)
-  })
-
-  it('keeps SCRUB_EASE in the range where the curve still reads as a gesture', () => {
-    // Provisional and judged, but not arbitrary: below ~1.5 the first input is
-    // invisible again, above ~3 the travel is spent in the first third.
-    expect(SCRUB_EASE).toBeGreaterThanOrEqual(1.5)
-    expect(SCRUB_EASE).toBeLessThanOrEqual(3)
   })
 })

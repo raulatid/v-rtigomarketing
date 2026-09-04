@@ -4,26 +4,28 @@ import { createRoot, type Root } from 'react-dom/client'
 import gsap from 'gsap/gsap-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useExperienceTransition } from './useExperienceTransition'
-import { SCRUB_CEILING, WARP_TRANSITION, scrubProgress } from './warpTransition'
+import { WARP_TRANSITION } from './warpTransition'
 import { createSequenceState, type SequenceState } from '../experiences/earth/config/sequenceState'
 import type { ExperienceId } from './experience'
 
-// The hand-off between a driven gesture and the committed cinematic.
+// What happens on the one frame nobody can see.
 //
 // These are the assertions that cannot be made against the pure curves, and
 // they are exactly the ones a browser cannot make either: a screenshot taken
-// around the commit races the frame it is trying to observe (measured — the
-// screenshot itself takes long enough for the gesture to start decaying). What
-// matters here is ORDERING, so it is asserted where ordering is deterministic.
+// around the commit races the frame it is trying to observe. What matters here
+// is ORDERING, so it is asserted where ordering is deterministic.
 //
-// The failure they exist to catch is a single frame at rest between the scrub
-// and the warp: the viewer pulls the world 30% of the way in, commits, and the
-// camera snaps back before the cinematic picks it up.
+// The file used to be about the scrub hand-off — whether the cinematic picked
+// the camera up exactly where an abandoned-or-committed gesture had left it.
+// `adr/014` removed the scrub: a viewer drives their own zoom now, and the
+// cinematic always plays from 0. What replaced that concern is the CUT, where
+// the zoom is returned to rest under full cover, and the failure this file
+// exists to catch moved with it: a zoom reset that lands a frame off the swap
+// is a visible snap in one world or the other.
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 interface Harness {
-  scrub: (g: number) => void
   transitionTo: (to: ExperienceId) => void
 }
 
@@ -31,18 +33,20 @@ let container: HTMLDivElement
 let root: Root
 let state: SequenceState
 let api: Harness
-let swaps: ExperienceId[]
+/** Swaps and cuts in one list, because their ORDER is the thing under test. */
+let events: string[]
 let settled: number
 
 function Probe({ onReady }: { onReady: (h: Harness) => void }) {
-  const { transitionTo, scrub } = useExperienceTransition({
+  const { transitionTo } = useExperienceTransition({
     state,
-    onSwap: (to) => swaps.push(to),
+    onSwap: (to) => events.push(`swap:${to}`),
+    onCut: () => events.push('cut'),
     onSettled: () => {
       settled += 1
     },
   })
-  onReady({ transitionTo, scrub })
+  onReady({ transitionTo })
   return null
 }
 
@@ -53,9 +57,16 @@ function liveTimeline(): gsap.core.Timeline | undefined {
     .find((child): child is gsap.core.Timeline => child instanceof gsap.core.Timeline)
 }
 
+/** Runs the timeline forward WITHOUT suppressing its callbacks. */
+function seekTo(seconds: number) {
+  act(() => {
+    liveTimeline()?.seek(seconds, false)
+  })
+}
+
 beforeEach(() => {
   state = createSequenceState()
-  swaps = []
+  events = []
   settled = 0
   container = document.createElement('div')
   document.body.appendChild(container)
@@ -72,69 +83,19 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('scrub', () => {
-  it('drives the warp through the scrub band and never lights the flash', () => {
-    for (const g of [0, 0.25, 0.5, 0.75, 1]) {
-      act(() => api.scrub(g))
-      expect(state.transitionProgress).toBe(scrubProgress(g))
-      expect(state.transitionOverlay).toBe(0)
-    }
-    expect(state.transitionProgress).toBe(SCRUB_CEILING)
-  })
-
-  it('returns the world to rest when the gesture is abandoned', () => {
-    act(() => api.scrub(0.8))
-    expect(state.transitionProgress).toBeGreaterThan(0)
-    act(() => api.scrub(0))
-    expect(state.transitionProgress).toBe(0)
-    expect(state.transitionOverlay).toBe(0)
-  })
-})
-
-describe('the commit hand-off', () => {
-  it('does not pass through rest between the gesture and the cinematic', () => {
-    // The whole point. A full gesture, then the commit — and the very next
-    // reading of the value the cameras use must still be where the gesture left
-    // it, not 0.
-    act(() => api.scrub(1))
-    const handedOver = state.transitionProgress
-    expect(handedOver).toBe(SCRUB_CEILING)
-
-    act(() => api.transitionTo('murcia'))
-    expect(state.transitionProgress).toBe(handedOver)
-    expect(state.transitionOverlay).toBe(0)
-  })
-
-  it('shortens the departure by exactly the distance already travelled', () => {
-    // The rate must not change — the ease is linear and all the shaping lives in
-    // warpTransition's curves, so the remaining warp has to play the REMAINDER
-    // of the same motion, not a compressed copy of the whole thing.
-    act(() => api.scrub(1))
-    act(() => api.transitionTo('murcia'))
-
-    const { duration, cut } = WARP_TRANSITION
-    const expected = duration * (cut - SCRUB_CEILING) + duration * (1 - cut)
-    expect(liveTimeline()?.duration()).toBeCloseTo(expected, 6)
-    // And it is genuinely shorter than an uncommitted warp would have been.
-    expect(expected).toBeLessThan(duration)
-  })
-
-  it('runs the full length when nothing was scrubbed', () => {
+describe('the commit', () => {
+  it('plays the whole cinematic, however the viewer triggered it', () => {
+    // The scrub made this length variable — it started wherever the gesture had
+    // pushed the warp to. A commit is now always the same transition, whether it
+    // came from a wheel held against the zoom limit or from the keyboard.
     act(() => api.transitionTo('murcia'))
     expect(liveTimeline()?.duration()).toBeCloseTo(WARP_TRANSITION.duration, 6)
   })
 
-  it('ignores the gesture once the cinematic owns the warp', () => {
-    // The input layer keeps reporting after a commit — its accumulator is reset,
-    // so it reports 0. Honouring that would blank the camera under the warp.
-    act(() => api.scrub(1))
+  it('starts at rest, with nothing already spent', () => {
     act(() => api.transitionTo('murcia'))
-    const owned = state.transitionProgress
-
-    act(() => api.scrub(0))
-    expect(state.transitionProgress).toBe(owned)
-    act(() => api.scrub(0.5))
-    expect(state.transitionProgress).toBe(owned)
+    expect(state.transitionProgress).toBe(0)
+    expect(state.transitionOverlay).toBe(0)
   })
 
   it('refuses a second transition while one is running', () => {
@@ -145,25 +106,57 @@ describe('the commit hand-off', () => {
   })
 })
 
-describe('transitionCommitted', () => {
-  // Camera OWNERSHIP, which is a different question from "is the warp at rest".
-  // They were the same field until a scrubbed gesture started moving progress
-  // too — at which point Earth's orbit rig stood down for the whole decay tail
-  // of every abandoned gesture, and the globe went dead for ~1.6s after a notch.
-  it('stays false while a gesture scrubs, however far it goes', () => {
-    for (const g of [0.1, 0.5, 1]) {
-      act(() => api.scrub(g))
-      expect(state.transitionProgress).toBeGreaterThan(0)
-      expect(state.transitionCommitted).toBe(false)
-    }
+describe('the cut', () => {
+  const cutAt = WARP_TRANSITION.duration * WARP_TRANSITION.cut
+
+  it('returns the zoom to rest BEFORE the scene swaps', () => {
+    // THE ordering assertion. Both happen under the same fully black frame, but
+    // not in the same instant: the arriving world reads the zoom on its first
+    // active frame, so a reset that landed after the swap would leave it
+    // composing its pull-out against the departed world's zoom.
+    act(() => api.transitionTo('murcia'))
+    seekTo(cutAt)
+    expect(events).toEqual(['cut', 'swap:murcia'])
   })
 
+  it('happens once, not on every frame around it', () => {
+    act(() => api.transitionTo('murcia'))
+    seekTo(cutAt)
+    seekTo(cutAt + 0.1)
+    seekTo(WARP_TRANSITION.duration)
+    expect(events.filter((e) => e === 'cut')).toHaveLength(1)
+  })
+
+  it('lands under full cover', () => {
+    // The reset is only invisible because the screen is black. If the flash bell
+    // ever drifted off the swap this would be a snap in plain view.
+    act(() => api.transitionTo('murcia'))
+    seekTo(cutAt)
+    expect(state.transitionOverlay).toBeGreaterThan(0.99)
+  })
+
+  it('does not fire when the transition never gets that far', () => {
+    act(() => api.transitionTo('murcia'))
+    seekTo(cutAt * 0.5)
+    expect(events).toEqual([])
+  })
+})
+
+describe('transitionCommitted', () => {
+  // Camera OWNERSHIP, which is a different question from "is the warp at rest".
+  // While it is true the experiences stand their own rigs down and let the
+  // cinematic drive; while it is false the viewer's zoom and orbit own the
+  // camera. There is no longer any state in between, which is what the scrub
+  // was and what made this field ambiguous.
   it('is claimed before the cinematic writes its first frame', () => {
     // Set inside transitionTo rather than on the timeline's first update, so no
     // frame can observe non-zero progress that nobody has claimed.
-    act(() => api.scrub(1))
     act(() => api.transitionTo('murcia'))
     expect(state.transitionCommitted).toBe(true)
+  })
+
+  it('is false until something commits', () => {
+    expect(state.transitionCommitted).toBe(false)
   })
 
   it('is released on unmount, alongside the pins it sits with', () => {
@@ -175,9 +168,21 @@ describe('transitionCommitted', () => {
   })
 })
 
+describe('settling', () => {
+  it('reports once, after the pins', () => {
+    act(() => api.transitionTo('murcia'))
+    seekTo(WARP_TRANSITION.duration)
+    expect(settled).toBe(1)
+    expect(state.transitionProgress).toBe(0)
+    expect(state.transitionOverlay).toBe(0)
+    expect(state.transitionCommitted).toBe(false)
+  })
+})
+
 describe('teardown', () => {
   it('leaves no residual dolly or overlay behind on unmount', () => {
-    act(() => api.scrub(1))
+    act(() => api.transitionTo('murcia'))
+    seekTo(WARP_TRANSITION.duration * 0.25)
     expect(state.transitionProgress).toBeGreaterThan(0)
     act(() => root.unmount())
     expect(state.transitionProgress).toBe(0)

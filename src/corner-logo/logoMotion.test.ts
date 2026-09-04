@@ -295,4 +295,73 @@ describe('createLogoMotion', () => {
       expect(group.rotation.y).toBe(0)
     })
   })
+
+  // The pixel→world mapping used to divide by `window.innerHeight`, which is the
+  // render surface only because the scene canvas fills the window. The blog's
+  // header draws the same logo into a canvas a few dozen pixels tall
+  // (blog/headerLogoRuntime.ts), so the divisor is now supplied.
+  describe('the surface the pixels are measured against', () => {
+    /** The blog header's stage: 44 CSS px square. */
+    const SMALL = 44
+
+    function smallWorldPerPx(): number {
+      return (2 * halfHeight()) / SMALL
+    }
+
+    it('defaults to the window, so the scene is unchanged', () => {
+      motion.setModelSize(MODEL)
+      motion.setCornerMetrics(METRICS)
+      motion.snapToCorner()
+
+      // The same expectation the corner cases above assert, restated here so a
+      // regression in the default shows up beside the override that caused it.
+      expect(group.scale.x).toBeCloseTo((METRICS.heightPx * worldPerPx()) / MODEL.y, 6)
+    })
+
+    it('scales the model to the header line within a small surface', () => {
+      motion.setModelSize(MODEL)
+      motion.setSurfaceHeight(SMALL)
+      motion.setCornerMetrics({ insetLeftPx: 0, centerYPx: SMALL / 2, heightPx: 26 })
+      motion.snapToCorner()
+
+      expect(group.scale.x).toBeCloseTo((26 * smallWorldPerPx()) / MODEL.y, 6)
+      // Two orders of magnitude apart from the windowed answer — the bug this
+      // parameter exists to prevent would be invisible in a ratio test.
+      expect(group.scale.x).toBeGreaterThan((26 * worldPerPx()) / MODEL.y)
+    })
+
+    it('centres the model when the inset is half the leftover width', () => {
+      const markHeight = 26
+      const markWidth = (MODEL.x / MODEL.y) * markHeight
+      camera.aspect = 1
+      camera.updateProjectionMatrix()
+
+      motion.setModelSize(MODEL)
+      motion.setSurfaceHeight(SMALL)
+      motion.setCornerMetrics({
+        insetLeftPx: (SMALL - markWidth) / 2,
+        centerYPx: SMALL / 2,
+        heightPx: markHeight,
+      })
+      motion.snapToCorner()
+
+      // This is how headerLogoRuntime centres the mark: the motion module
+      // anchors the box's LEFT EDGE, so centring is arithmetic at the call site
+      // rather than a second placement mode in here.
+      expect(group.position.x).toBeCloseTo(0, 6)
+      expect(group.position.y).toBeCloseTo(0, 6)
+    })
+
+    it('ignores a zero-height surface rather than dividing by it', () => {
+      motion.setModelSize(MODEL)
+      motion.setSurfaceHeight(SMALL)
+      // What a ResizeObserver reports for a box that has not been laid out yet.
+      motion.setSurfaceHeight(0)
+      motion.setCornerMetrics({ insetLeftPx: 0, centerYPx: SMALL / 2, heightPx: 26 })
+      motion.snapToCorner()
+
+      expect(Number.isFinite(group.scale.x)).toBe(true)
+      expect(group.scale.x).toBeCloseTo((26 * smallWorldPerPx()) / MODEL.y, 6)
+    })
+  })
 })

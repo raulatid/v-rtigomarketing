@@ -1,6 +1,6 @@
 # ADR 012 — Touch navigates by pinching the world
 
-Status: **Accepted** — 2026-08-26
+Status: **Accepted** — 2026-08-26, **"zoom is still gone" reversed 2026-09-04 by `adr/014`**
 Reverses: `adr/009` §4 (*"Touch navigates on a right-edge rail, not by a canvas swipe"*) and its
 consequence *"Two-finger centroid rotation survives; pinch does not"*
 Amends: `DECISIONS.md` §20 / §21 (the zoom band on pinch), §29 (the hint's once-per-visit rule)
@@ -61,6 +61,17 @@ Five parts, none of which stands without the others:
   pinch suppressors stay — ctrl+wheel on the wheel path, Safari's `gesture*` events, and Murcia's
   rule that separation does not move its camera. **What changed is that a pinch now means
   *navigate*, not *zoom*.**
+
+  > **Reversed 2026-09-04 — `adr/014`.** A pinch now means *zoom*, and navigating is what lies
+  > past the end of it. The scrub band it wrote into is deleted. Everything else in this
+  > consequence stands, including all three suppressors and Murcia's rule that separation does
+  > not move `CameraRig`'s distance scale — the zoom writes the **pose**, which is why that rule
+  > survived a decision that looks like it should have killed it.
+  >
+  > Part 2 of the Decision is amended rather than reversed: one direction is still eligible *to
+  > commit* per world, and `towardOther` still signs it. Both directions are now eligible to
+  > **move the camera**, so the classifier claims on absolute growth — closing on Earth zooms
+  > out, and can never navigate.
 
 - **The signal is growth, not a ratio, and that was learned on a device.** A ratio is free of screen
   size, DPR and grip, and makes the world's apparent scale track the fingers about 1:1 — all true,

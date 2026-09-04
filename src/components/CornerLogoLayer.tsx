@@ -2,7 +2,6 @@ import { RefObject, useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import type { CornerLogo, CornerLogoConfig, CornerMetrics } from '../corner-logo/createCornerLogo'
-import { DEFAULT_CORNER_METRICS } from '../corner-logo/logoMotion'
 import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
 import { loadProgress } from '../loading/progress'
 
@@ -29,7 +28,16 @@ interface Props {
 // the type is imported statically.
 
 /**
- * Where the header's line is, read off the header itself.
+ * Where the header's line is, read off the header itself — or null.
+ *
+ * NULL RATHER THAN A FALLBACK CONSTANT, and the reason is a build one. Importing
+ * `DEFAULT_CORNER_METRICS` put a static edge from this file to `logoMotion`,
+ * which imports three — the "config module reaching a three-importing module for
+ * plain constants" shape that `vite.config.ts` names as the usual cause of its
+ * worst assertion. It cost a modulepreload on `/` the day the blog header became
+ * a second consumer of the logo: `logoMotion` could no longer live inside the
+ * dynamic corner-logo chunk. The motion module already holds that default and
+ * keeps it when nobody supplies one, so the constant never needed to travel.
  *
  * `.site-header__row` (SiteHeader.tsx) pads its top by the header inset and is
  * exactly one control tall below that, so its content box IS the line the
@@ -42,21 +50,27 @@ interface Props {
  * The SCENE header specifically: in a warm session the blog's header is in the
  * same document, and it is a bar with its own line.
  */
-function measureHeaderLine(): CornerMetrics {
+function measureHeaderLine(): CornerMetrics | null {
   const row = document.querySelector<HTMLElement>(".site-header[data-layout='scene'] .site-header__row")
-  if (!row) return DEFAULT_CORNER_METRICS
+  if (!row) return null
   const rect = row.getBoundingClientRect()
   const style = getComputedStyle(row)
   const padTop = parseFloat(style.paddingTop) || 0
   const padBottom = parseFloat(style.paddingBottom) || 0
   const padLeft = parseFloat(style.paddingLeft) || 0
   const lineHeight = rect.height - padTop - padBottom
-  if (lineHeight <= 0) return DEFAULT_CORNER_METRICS
+  if (lineHeight <= 0) return null
   return {
     insetLeftPx: rect.left + padLeft,
     centerYPx: rect.top + padTop + lineHeight / 2,
     heightPx: lineHeight,
   }
+}
+
+/** Push the header's line at the logo, or leave the module's own default alone. */
+function applyHeaderLine(logo: CornerLogo): void {
+  const metrics = measureHeaderLine()
+  if (metrics) logo.setCornerMetrics(metrics)
 }
 
 export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Props) {
@@ -99,7 +113,7 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
         return
       }
 
-      logo.setCornerMetrics(measureHeaderLine())
+      applyHeaderLine(logo)
       logoRef.current = logo
       handleRef.current = {
         startSequence: logo.startSequence,
@@ -142,7 +156,7 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
     const logo = logoRef.current
     if (!logo) return
     logo.setSize(size.width, size.height)
-    logo.setCornerMetrics(measureHeaderLine())
+    applyHeaderLine(logo)
   }, [size.width, size.height, logoRef])
 
   return null

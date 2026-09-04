@@ -21,14 +21,12 @@
 import * as THREE from 'three';
 
 import {
-  SCRUB_CEILING,
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
   earthRadiusScale,
   flash,
   motionBlur,
-  scrubProgress,
   speed,
   transitionLeg,
 } from '../src/app/warpTransition';
@@ -38,6 +36,14 @@ import {
   murciaWarpPose,
 } from '../src/experiences/murcia/camera/warpPose';
 import type { MurciaWarpTargets } from '../src/experiences/murcia/camera/warpPose';
+import {
+  murciaZoomPose,
+  murciaZoomTargets,
+} from '../src/experiences/murcia/camera/zoomPose';
+import { earthZoomRadius, earthZoomScale } from '../src/experiences/earth/camera/zoomPose';
+import { EARTH_CONFIG } from '../src/experiences/earth/config/earthConfig';
+import { INTERACTION_CONFIG } from '../src/experiences/earth/interaction/interactionConfig';
+import { resolveCameraPose } from '../src/experiences/murcia/config/environmentConfig';
 import {
   applyPoseToCamera,
   scalePoseDistance,
@@ -342,42 +348,73 @@ let anyClamped = false;
 let clampedLabel = '';
 let poses = 0;
 
-// The distance scales a warp can find the rig already sitting at.
+// The poses a warp can find the rig already sitting at.
 //
-// This used to be the user zoom band, min/1/max, because the wheel could leave the
-// camera anywhere in it when a warp started. There is no zoom now (`adr/009`): the
-// only thing that scales distance is a district flight, and a flight can only be in
-// progress or closed. So the sweep is the flight floor and rest.
+// Two independent things move the camera before a warp starts, and both have to
+// be in the sweep because the warp composes with both:
 //
-// The out-of-band scale is gone with the band, which removes the one entry here that
-// was reaching FURTHER than rest — the direction the skirt cannot absorb.
-const DISTANCE_SCALES: number[] = [murciaConfig.focusFlight.minDistanceScale, 1];
+//   the ZOOM       — a position the viewer parked at (`adr/014`), reached
+//                    through the real `murciaZoomPose`, distance AND elevation.
+//                    This is what the departing leg is re-based on.
+//   a FLIGHT scale — a district dolly, which multiplies whatever distance the
+//                    zoom resolved to.
+//
+// The zoom is swept as a band rather than at its ends, because the departing
+// warp lerps FROM it: a commit half way through a zoom is an ordinary thing to
+// do and produces a pose neither end predicts.
+//
+// The invariant is stated relative to the RESTING pose at the same flight scale
+// — "no warp pose out-reaches the pose the viewer would be at if they had not
+// zoomed" — which is the line the terrain skirt was sized against. That the
+// zoomed poses are themselves safe is what checks/footprint.ts proves.
+const FLIGHT_SCALES: number[] = [murciaConfig.focusFlight.minDistanceScale, 1];
+const ZOOM_DEPTHS: number[] = [-1, -0.5, 0, 0.25, 0.5, 0.75, 1];
 
-for (const scale of DISTANCE_SCALES) {
+for (const scale of FLIGHT_SCALES) {
   for (const [aspectName, aspect] of ASPECTS) {
     for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
       const restReach = maxReach(footprintAt(murciaConfig.camera, aspect, yaw, scale));
 
-      for (let i = 0; i <= FOOTPRINT_STEPS; i++) {
-        const p = i / FOOTPRINT_STEPS;
-        const { amount, departing } = dollyAmount(p);
-        const pose = murciaWarpPose(targets, amount, departing);
-        const f = footprintAt(pose, aspect, yaw, scale);
-        poses++;
+      for (const depth of ZOOM_DEPTHS) {
+        // Exactly what MurciaExperience.applyRigPose builds: the zoom resolves a
+        // pose, and the warp's rest end IS that pose.
+        const zoomed = murciaZoomPose(
+          murciaZoomTargets(murciaConfig, resolveCameraPose(murciaConfig, aspect)),
+          depth,
+        );
+        const zoomedTargets: MurciaWarpTargets = {
+          ...targets,
+          restDistance: zoomed.distance,
+          restElevation: zoomed.elevationDegrees,
+        };
 
-        const label =
-          `${aspectName} yaw ${yaw} zoom ${scale} p=${p.toFixed(3)} ` +
-          `d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
+        for (let i = 0; i <= FOOTPRINT_STEPS; i++) {
+          const p = i / FOOTPRINT_STEPS;
+          const { amount, departing } = dollyAmount(p);
+          // Only the departing leg is re-based. Arriving lands in a world whose
+          // zoom was reset at the cut, so it always starts from the configured
+          // rest — modelling it otherwise would assert something that cannot
+          // happen and would hide the case that can.
+          const pose = departing
+            ? murciaDeparturePose(zoomedTargets, amount)
+            : murciaWarpPose(targets, amount, departing);
+          const f = footprintAt(pose, aspect, yaw, scale);
+          poses++;
 
-        if (f.clampedRays && !anyClamped) {
-          anyClamped = true;
-          clampedLabel = label;
-        }
+          const label =
+            `${aspectName} yaw ${yaw} flight ${scale} zoom ${depth} p=${p.toFixed(3)} ` +
+            `d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
 
-        const excess = maxReach(f) - restReach;
-        if (excess > worstExcess) {
-          worstExcess = excess;
-          worstLabel = label;
+          if (f.clampedRays && !anyClamped) {
+            anyClamped = true;
+            clampedLabel = label;
+          }
+
+          const excess = maxReach(f) - restReach;
+          if (excess > worstExcess) {
+            worstExcess = excess;
+            worstLabel = label;
+          }
         }
       }
     }
@@ -385,7 +422,7 @@ for (const scale of DISTANCE_SCALES) {
 }
 
 check(
-  'the warp never out-reaches rest, at any user zoom',
+  'the warp never out-reaches rest, from any user zoom',
   worstExcess <= 1e-6,
   `worst ${worstExcess >= 0 ? '+' : ''}${worstExcess.toFixed(1)} units at ${worstLabel} (${poses} poses)`,
 );
@@ -398,135 +435,169 @@ check(
 );
 
 // ---------------------------------------------------------------------------
-section('7. The reversible scrub band is safe to drive from a gesture');
+section('7. The zoom band and the warp are continuous with each other');
 
-// The band is where a GESTURE drives the warp: reversible, usually abandoned,
-// never concealed. `adr/009` refused to let gesture progress become
-// `state.transitionProgress` because "the warp's progress is monotonic through a
-// concealed cut; the gesture's is reversible and usually never arrives". This
-// section is the answer to that objection, asserted rather than argued.
+// `adr/014` replaced the reversible scrub with a persistent zoom, and what this
+// section used to assert went with it: the scrub's job was to be a SAFE SUBSET
+// of the departing leg, so everything here was about staying inside it.
 //
-// Section 6 above already sweeps the whole departing leg through the real
-// footprint maths, and the band is a strict subset of it — so the safety case
-// costs nothing new. What is asserted here is what makes the band a band.
+// The zoom is not a subset of anything. It is the camera's own range, owned by
+// the viewer, and the warp starts from wherever it left them. So the question
+// changed with the mechanism: not "can a gesture reach somewhere the cinematic
+// cannot conceal", but "does the cinematic CONTINUE the zoom, or contradict it".
+// A commit that reversed the direction the viewer had been pushing would read as
+// the world flinching on the way out, and it is the one failure this design can
+// have that nothing else would catch.
+//
+// Section 6 above already runs every one of these poses through the real ground
+// footprint maths, so the safety case costs nothing new here.
 
-const bandPoses = samples.map(scrubProgress);
+const zoomDepths: number[] = [];
+for (let i = 0; i <= 40; i++) zoomDepths.push(-1 + (2 * i) / 40);
+
+// ── Murcia: one arc, three regions ──
+
+const murciaRest = resolveCameraPose(murciaConfig, 16 / 9);
+const murciaBand = murciaZoomTargets(murciaConfig, murciaRest);
 
 check(
-  'the band is derived from the flash bell, not chosen',
-  Math.abs(SCRUB_CEILING - (WARP_TRANSITION.cut - WARP_TRANSITION.flashWidth)) < 1e-12,
-  `SCRUB_CEILING ${SCRUB_CEILING.toFixed(4)} = cut ${WARP_TRANSITION.cut} - flashWidth ${WARP_TRANSITION.flashWidth}`,
+  'zooming out is a rise, not a pull-back',
+  murciaBand.farDistance > murciaBand.restDistance &&
+    murciaBand.farElevation > murciaBand.restElevation,
+  `rest ${murciaBand.restDistance} @ ${murciaBand.restElevation} deg -> far ` +
+    `${murciaBand.farDistance} @ ${murciaBand.farElevation} deg — extra distance without ` +
+    'extra elevation is unpaid for (ADR 006), and this end is a pose a viewer can PARK at',
 );
-
-const litBand = bandPoses.filter((p) => flash(p) > 0);
 check(
-  'no gesture position anywhere in the band darkens the screen',
-  litBand.length === 0,
-  litBand.length === 0
-    ? `flash is exactly 0 across all ${bandPoses.length} sampled gesture positions`
-    : `${litBand.length} positions carry a flash — an abandoned gesture would strand a dimmed screen`,
+  'zooming in keeps the resting pitch',
+  murciaBand.nearDistance < murciaBand.restDistance,
+  `near ${murciaBand.nearDistance.toFixed(1)} — flying in shrinks the footprint, so it has ` +
+    'nothing to pay for and nothing to change',
 );
-
-const arrivingInBand = bandPoses.filter((p) => !transitionLeg(p).departing);
 check(
-  'the whole band lies in the departing leg, so a reversal cannot cross a leg',
-  arrivingInBand.length === 0,
-  arrivingInBand.length === 0
-    ? 'transitionLeg().departing is true at every sampled gesture position'
-    : `${arrivingInBand.length} positions fall in the arriving leg — transitionLeg assumes a single pass`,
+  'the near end is the district flight floor, not a second opinion about it',
+  Math.abs(
+    murciaBand.nearDistance - murciaRest.distance * murciaConfig.focusFlight.minDistanceScale,
+  ) < 1e-9,
+  `${murciaBand.nearDistance.toFixed(1)} — a closer floor would need its own footprint ` +
+    'measurement, and the two would be free to drift apart',
 );
 
-let bandMonotone = true;
-for (let i = 1; i < bandPoses.length; i++) {
-  if (bandPoses[i] <= bandPoses[i - 1]) bandMonotone = false;
+// THE continuity assertion. The departure has to lie BEYOND the far end of the
+// zoom along the same arc, or a warp committed from full zoom-out opens by
+// moving back toward the city the viewer is leaving.
+check(
+  'the departure continues the zoom-out rather than reversing it',
+  murciaConfig.warpDepartDistance > murciaBand.farDistance &&
+    murciaConfig.warpDepartElevationDegrees > murciaBand.farElevation,
+  `zoom reaches ${murciaBand.farDistance} @ ${murciaBand.farElevation} deg and the warp ` +
+    `departs to ${murciaConfig.warpDepartDistance} @ ${murciaConfig.warpDepartElevationDegrees} deg`,
+);
+
+// And the same thing stated as motion rather than as two numbers: from EVERY
+// depth in the band, the first thing the cinematic does is keep going.
+let murciaReversedAt: number | null = null;
+let murciaWorstStep = Infinity;
+for (const depth of zoomDepths) {
+  const zoomed = murciaZoomPose(murciaBand, depth);
+  const departTargets: MurciaWarpTargets = {
+    ...targets,
+    restDistance: zoomed.distance,
+    restElevation: zoomed.elevationDegrees,
+  };
+  let previous = zoomed.distance;
+  for (let i = 1; i <= 100; i++) {
+    const { amount } = dollyAmount((WARP_TRANSITION.cut * i) / 100);
+    const step = murciaDeparturePose(departTargets, amount).distance - previous;
+    if (step < -1e-9 && murciaReversedAt === null) murciaReversedAt = depth;
+    if (step < murciaWorstStep) murciaWorstStep = step;
+    previous += step;
+  }
 }
 check(
-  'more gesture is always more travel',
-  bandMonotone && bandPoses[0] === 0 && bandPoses[bandPoses.length - 1] === SCRUB_CEILING,
-  `0 -> ${bandPoses[bandPoses.length - 1].toFixed(4)}, strictly increasing: ${bandMonotone}`,
-);
-
-// The band must not eat the whole departure, or the committed warp has nothing
-// left to play and the cut arrives with no acceleration behind it.
-const bandAmount = dollyAmount(SCRUB_CEILING).amount;
-check(
-  'the band spends less than two thirds of the departure',
-  bandAmount > 0.2 && bandAmount < 0.67,
-  `dolly amount at the ceiling is ${bandAmount.toFixed(3)} of the way to the cut`,
+  'and does so from every depth in the band, not merely from the ends',
+  murciaReversedAt === null,
+  murciaReversedAt === null
+    ? `the departing distance never decreases from any of ${zoomDepths.length} depths ` +
+      `(smallest step ${murciaWorstStep.toFixed(4)})`
+    : `committing from depth ${murciaReversedAt} moves the camera back IN — the viewer ` +
+      'pushed away from the city and the transition answered by approaching it',
 );
 
 check(
-  'the cinematic still owns the surge, the blur peak and the whole flash',
-  earthFov(SCRUB_CEILING) < earthFov(WARP_TRANSITION.cut) &&
-    motionBlur(SCRUB_CEILING) < motionBlur(WARP_TRANSITION.cut) &&
-    speed(SCRUB_CEILING) < 1,
-  `at the ceiling: fov ${earthFov(SCRUB_CEILING).toFixed(1)} of ${earthFov(WARP_TRANSITION.cut).toFixed(1)}, blur ${motionBlur(SCRUB_CEILING).toFixed(3)} of ${motionBlur(WARP_TRANSITION.cut).toFixed(3)}`,
+  'a commit from rest still departs, so the keyboard route is not a special case',
+  murciaDeparturePose(targets, dollyAmount(WARP_TRANSITION.cut).amount).distance >
+    targets.restDistance,
+  'the accessible control commits outright from wherever the viewer is, including depth 0',
 );
 
-// Stated as a number so a regression reads as one, rather than as "the scrub
-// feels different now".
-check(
-  'Earth visibly closes on the planet across the band',
-  earthRadiusScale(bandAmount) < 0.75 && earthRadiusScale(bandAmount) > 0.4,
-  `radius scales to ${(earthRadiusScale(bandAmount) * 100).toFixed(1)}% at full gesture`,
-);
+// ── Earth: the band and the dolly are the same multiplication ──
 
-// ── What the gesture actually looks like, which is not the same as how far the
-//    camera moved ──
-//
-// Angular size goes as 1/distance AND as 1/tan(fov/2). The scrub used to write
-// `earthFov` for continuity with the cinematic, and that made the two fight: the
-// dolly magnifies x1.587 across the band while the surge de-magnifies x0.725, so
-// the net PEAKED around half a gesture and went backwards after it. `scrubPose`
-// now holds the lens at rest and the commit pays for the continuity instead.
-//
-// Both halves are asserted, because both are easy to undo by accident and they
-// fail in opposite directions.
-
-const halfAngle = (deg: number) => Math.tan((deg * Math.PI) / 360);
-const restHalfAngle = halfAngle(WARP_TRANSITION.earthRestFov);
-
-/** On-screen scale as the scrub actually draws it: lens fixed, dolly only. */
-const scrubScale = (g: number) => 1 / earthRadiusScale(dollyAmount(scrubProgress(g)).amount);
-
-/** And as it would be if the surge were applied here, which it must not be. */
-const scaleWithSurge = (g: number) => {
-  const p = scrubProgress(g);
-  return scrubScale(g) * (restHalfAngle / halfAngle(earthFov(p)));
-};
-
-let scrubMonotone = true;
-for (let i = 1; i < samples.length; i++) {
-  if (scrubScale(samples[i]) <= scrubScale(samples[i - 1])) scrubMonotone = false;
-}
-check(
-  'more gesture always makes the world BIGGER, not merely nearer',
-  scrubMonotone,
-  `on-screen scale runs 1.000 -> ${scrubScale(1).toFixed(3)}, strictly increasing across ${samples.length} samples`,
-);
+const earthRest = INTERACTION_CONFIG.camera.overviewRadius;
 
 check(
-  'and a full gesture is worth a scale change a person can see',
-  scrubScale(1) > 1.5,
-  `x${scrubScale(1).toFixed(3)} at full gesture — below about 1.5 the gesture stops reading as an approach`,
+  'zooming in moves toward Murcia and zooming out away from it',
+  earthZoomRadius(1) < earthRest && earthZoomRadius(-1) > earthRest,
+  `${earthZoomRadius(-1).toFixed(1)} <- ${earthRest} -> ${earthZoomRadius(1).toFixed(1)} — ` +
+    "+1 faces the other world in both experiences, which is the band's whole convention",
 );
-
-// The guard against the natural-looking regression: "the scrub should set the
-// FOV too, so the cinematic has nothing to jump over."
-let surgePeak = 0;
-for (const g of samples) surgePeak = Math.max(surgePeak, scaleWithSurge(g));
 check(
-  'applying the surge here would cancel the gesture, so it is not applied here',
-  scaleWithSurge(1) < surgePeak - 0.02 && surgePeak < 1.25,
-  `with the surge the scale would peak at x${surgePeak.toFixed(3)} and fall back to x${scaleWithSurge(1).toFixed(3)} at full gesture — the world would shrink while the viewer kept pulling`,
+  'the depth is exactly 1 at rest',
+  earthZoomScale(0) === 1,
+  'the arriving warp pulls back to a hardcoded EARTH_REST, so this has to match to the bit',
 );
 
-// And the pop that the commit's FOV catch-up exists to absorb. If this ever
-// stops being true, FOV_CATCHUP_SECONDS in CameraController is dead weight.
+// Earth's continuity is structural rather than tuned: `applyWarp` captures
+// `cam.position` and multiplies it, so the cinematic is relative to the zoom by
+// construction. What has to be checked is where that composition ENDS.
+const earthClosest = earthZoomRadius(1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut).amount);
+check(
+  'a commit from full zoom-in still stops outside the planet',
+  earthClosest > EARTH_CONFIG.radius,
+  `closest approach ${earthClosest.toFixed(2)} against a planet of radius ${EARTH_CONFIG.radius} — ` +
+    'the dolly multiplies whatever radius the viewer left, so the zoom and the warp compound',
+);
+check(
+  'and a commit from full zoom-out is still a real approach',
+  earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut).amount) < earthRest,
+  `${(earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut).amount)).toFixed(1)} ` +
+    `from ${earthZoomRadius(-1).toFixed(1)} — the furthest a viewer can park is still inside the cut`,
+);
+
+// The lens. The scrub used to hold the FOV at rest and hand the cinematic a
+// 14.5 degree disagreement to blend away over FOV_CATCHUP_SECONDS. A zoom never
+// touches the lens at all, so the disagreement is the same one and the catch-up
+// is still load-bearing — if this stops being true it is dead weight.
 check(
   'the commit inherits a lens the cinematic immediately disagrees with',
-  earthFov(SCRUB_CEILING) - WARP_TRANSITION.earthRestFov > 10,
-  `the scrub hands over at ${WARP_TRANSITION.earthRestFov} deg and the cinematic wants ${earthFov(SCRUB_CEILING).toFixed(1)} deg — blended over FOV_CATCHUP_SECONDS rather than cut`,
+  earthFov(WARP_TRANSITION.cut) - WARP_TRANSITION.earthRestFov > 10,
+  `the zoom holds the lens at ${WARP_TRANSITION.earthRestFov} deg and the cinematic peaks at ` +
+    `${earthFov(WARP_TRANSITION.cut).toFixed(1)} deg — blended over FOV_CATCHUP_SECONDS rather than cut`,
+);
+
+// What the gesture actually looks like, which is not the same as how far the
+// camera moved. Angular size goes as 1/distance AND as 1/tan(fov/2). This is why
+// the zoom must not write a FOV: the scrub did, for continuity with the
+// cinematic, and the two fought — the dolly magnified x1.587 across the band
+// while the surge de-magnified x0.725, so the net PEAKED at half a gesture and
+// went backwards after it. A control that means "bring it closer" cannot shrink
+// what it is driving.
+const zoomScale = (depth: number) => earthRest / earthZoomRadius(depth);
+let zoomMonotone = true;
+for (let i = 1; i < zoomDepths.length; i++) {
+  if (zoomScale(zoomDepths[i]) <= zoomScale(zoomDepths[i - 1])) zoomMonotone = false;
+}
+check(
+  'more zoom always makes the world bigger, across the whole band',
+  zoomMonotone,
+  `on-screen scale runs x${zoomScale(-1).toFixed(3)} -> x${zoomScale(1).toFixed(3)}, strictly ` +
+    `increasing across ${zoomDepths.length} samples`,
+);
+check(
+  'and each half is worth a scale change a person can see',
+  zoomScale(1) > 1.5 && zoomScale(-1) < 0.67,
+  `x${zoomScale(1).toFixed(3)} in, x${zoomScale(-1).toFixed(3)} out — below about 1.5 either ` +
+    'way the control stops reading as a zoom',
 );
 
 // ---------------------------------------------------------------------------

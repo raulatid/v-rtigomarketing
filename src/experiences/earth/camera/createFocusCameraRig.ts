@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
 import { CursorManager } from '../../../interaction/cursorManager'
 import { closeUpScreenOffset } from './closeUpFraming'
+import { earthZoomRadius } from './zoomPose'
 
 // Camera rig for the interactive phase, ported from earth-connections
 // (docs/extractions/003).
@@ -82,6 +83,15 @@ export function createFocusCameraRig({
   const eased = { theta: 0, phi: Math.PI / 2, radius: 1 }
   let dragDistance = 0
 
+  /**
+   * The radius the viewer's zoom asks for (`adr/014`).
+   *
+   * `overviewRadius` until something says otherwise, which is exactly what it
+   * was for the whole of `adr/009`: nothing wrote the orbit radius then, and the
+   * default here is that behaviour.
+   */
+  let zoomRadius = cfg.overviewRadius
+
   function syncOrbitTo(position: THREE.Vector3) {
     const s = new THREE.Spherical().setFromVector3(position)
     orbit.theta = s.theta
@@ -116,7 +126,11 @@ export function createFocusCameraRig({
   function activate() {
     if (active) return
     active = true
-    overviewPosition.set(...overviewPose)
+    // At the viewer's zoom, not at the configured overview. `InteractionLayer`
+    // writes the depth before it calls this, every frame, so what is seeded here
+    // is always current — which is what makes a return from Murcia land at rest
+    // rather than easing out to it from the radius the viewer left.
+    overviewPosition.set(...overviewPose).setLength(zoomRadius)
     current.position.copy(overviewPosition)
     target.position.copy(overviewPosition)
     current.lookAt.copy(overviewLookAt)
@@ -137,6 +151,29 @@ export function createFocusCameraRig({
   function deactivate() {
     active = false
     if (orbit.isDragging) endDrag()
+  }
+
+  /**
+   * The viewer zoomed. -1 is furthest out, 0 the overview, +1 closest in.
+   *
+   * Writes the DRAG's radius and lets `update()` ease toward it, which is the
+   * same seam a drag uses and is where the smoothing comes from: a wheel notch
+   * is a fifth of the band and lands whole, so written to `eased.radius` it
+   * would teleport. That ease already existed for the close-up return — the zoom
+   * gets it for nothing, where the scrub this replaces needed a spring of its own
+   * in the navigation layer.
+   *
+   * `overviewPosition` moves with it, and that is the part worth stating: it is
+   * what a satellite close-up returns TO, so without this a viewer who zoomed in,
+   * opened a case and closed it again would be handed back the intro's distance
+   * rather than their own.
+   */
+  function setZoomDepth(depth: number) {
+    const radius = earthZoomRadius(depth)
+    if (radius === zoomRadius) return
+    zoomRadius = radius
+    overviewPosition.setLength(zoomRadius)
+    orbit.radius = zoomRadius
   }
 
   function updateOrbitTarget() {
@@ -479,6 +516,7 @@ export function createFocusCameraRig({
     deactivate,
     focusOn,
     returnToOverview,
+    setZoomDepth,
     setOrbitEnabled,
     isActive: () => active,
     isDragging: () => orbit.isDragging,

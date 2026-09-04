@@ -386,6 +386,31 @@ export interface EnvironmentConfig {
   warpDepartDistance: number;
   warpDepartElevationDegrees: number;
 
+  /**
+   * The far end of the viewer's own zoom band, reached at depth +1 (`adr/014`).
+   *
+   * Environment data for the same reason the two above are, and constrained the
+   * same way: this is a pose a viewer can PARK at, indefinitely, so it has to be
+   * at least as safe as the resting pose rather than merely survivable in
+   * passing. It rises as it recedes for exactly the reason the departure does.
+   *
+   * Must stay inward of `warpDepart*` along the same arc, or a warp committed
+   * from full zoom-out would begin by moving back toward the city.
+   */
+  zoomFarDistance: number;
+  zoomFarElevationDegrees: number;
+
+  /**
+   * The near end of the zoom band, at depth -1, as a multiple of the resting
+   * distance.
+   *
+   * A scale rather than a distance because it composes with a pose that a
+   * portrait viewport is allowed to rewrite, and because it is the same quantity
+   * `focusFlight.minDistanceScale` expresses. Elevation is untouched on this
+   * half: flying in shrinks the footprint, so there is nothing to pay for.
+   */
+  zoomNearScale: number;
+
   contentBounds: BoundsRect;
   initialFocus: { x: number; z: number };
 }

@@ -10,7 +10,8 @@ import {
 import { createPortal } from 'react-dom'
 import { auditView, shiftsFor, type AuditPhase } from '../auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
-import type { LegalDocId } from '../content/site'
+import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
+import { FORM_MESSAGES, type LegalDocId } from '../content/site'
 import './auditSection.css'
 
 // Audit section (plan 005): a trigger in the site header and a solid black form
@@ -59,6 +60,14 @@ type FieldDef =
       type: 'text' | 'email' | 'url' | 'tel'
       autoComplete: string
       placeholder: string
+      /**
+       * The same number `server/validate.ts` caps this field at. Duplicated on
+       * purpose — the server cannot trust an attribute, and the browser should
+       * not let somebody type two thousand characters it will then refuse — so
+       * a change here is a change somebody has to make twice, deliberately.
+       * (SEC-12: there was no maxLength on any control at all before this.)
+       */
+      maxLength: number
       /** Renders the "(opcional)" qualifier. Only the phone is. */
       optional?: true
     }
@@ -87,6 +96,7 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
     type: 'text',
     autoComplete: 'name',
     placeholder: 'Tu nombre',
+    maxLength: 80,
   },
   email: {
     kind: 'input',
@@ -94,6 +104,7 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
     type: 'email',
     autoComplete: 'email',
     placeholder: 'nombre@empresa.com',
+    maxLength: 254,
   },
   website: {
     kind: 'input',
@@ -101,6 +112,7 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
     type: 'url',
     autoComplete: 'url',
     placeholder: 'https://tuempresa.com',
+    maxLength: 200,
   },
   phone: {
     kind: 'input',
@@ -108,6 +120,7 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
     type: 'tel',
     autoComplete: 'tel',
     placeholder: '+34 600 000 000',
+    maxLength: 32,
     optional: true,
   },
 }
@@ -170,6 +183,7 @@ function AuditField({
           type={def.type}
           autoComplete={def.autoComplete}
           placeholder={def.placeholder}
+          maxLength={def.maxLength}
           {...controlProps}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -181,6 +195,43 @@ function AuditField({
 
 const EMPTY_VALUES: Values = { plan: '', name: '', email: '', website: '', phone: '' }
 
+/**
+ * Hosts the server will refuse, refused here too so the form says so before a
+ * round trip rather than after one.
+ *
+ * The old rule was `/^(https?:\/\/)?[\w-]+(\.[\w-]+)+\S*$/i`, which accepted
+ * `127.0.0.1`, `192.168.1.1` and `169.254.169.254` — the finding recorded as
+ * API-2. `server/validate.ts` is the authority and rejects all of them; this is
+ * the courtesy copy, and the two carry a comment pointing at each other.
+ */
+function websiteProblem(raw: string): string | undefined {
+  const invalid = 'El formato de la URL no es válido.'
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw
+
+  let url: URL
+  try {
+    url = new URL(withScheme)
+  } catch {
+    return invalid
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return invalid
+  if (url.username.length > 0 || url.password.length > 0) return invalid
+
+  const host = url.hostname.toLowerCase()
+  if (!host.includes('.')) return invalid
+  if (host === 'localhost' || host.endsWith('.localhost')) return invalid
+  if (host.endsWith('.local') || host.endsWith('.internal')) return invalid
+  if (/^\d+(\.\d+){0,3}$/.test(host)) {
+    const first = Number(host.split('.')[0])
+    const second = Number(host.split('.')[1] ?? '0')
+    if (first === 0 || first === 127 || first === 10 || first >= 224) return invalid
+    if (first === 169 && second === 254) return invalid
+    if (first === 172 && second >= 16 && second <= 31) return invalid
+    if (first === 192 && second === 168) return invalid
+  }
+  return undefined
+}
+
 function validate(values: Values): Errors {
   const errors: Errors = {}
   if (!values.plan) errors.plan = 'Selecciona un tipo de auditoría.'
@@ -189,9 +240,28 @@ function validate(values: Values): Errors {
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(values.email.trim()))
     errors.email = 'El formato del email no es válido.'
   if (!values.website.trim()) errors.website = 'Introduce la URL de tu web.'
-  else if (!/^(https?:\/\/)?[\w-]+(\.[\w-]+)+\S*$/i.test(values.website.trim()))
-    errors.website = 'El formato de la URL no es válido.'
+  else {
+    const problem = websiteProblem(values.website.trim())
+    if (problem !== undefined) errors.website = problem
+  }
   return errors
+}
+
+/**
+ * What the panel says when a submission failed, by cause.
+ *
+ * THREE outcomes, not seven. A visitor can act on "you sent several in a row"
+ * and on "check the fields"; they cannot act on the difference between a
+ * missing API key and a mail provider timing out, and pretending otherwise
+ * would only tell an attacker how the endpoint is configured. That distinction
+ * lives in the server's log.
+ */
+function failureMessage(code: SubmissionErrorCode): string {
+  if (code === 'rate_limited') {
+    return 'Has enviado varias solicitudes seguidas. Espera un minuto y vuelve a intentarlo.'
+  }
+  if (code === 'invalid') return 'Revisa los datos marcados.'
+  return 'No se ha podido enviar la solicitud. Inténtalo de nuevo.'
 }
 
 // The integration boundary moved to src/app/auditSubmission.ts: this component
@@ -263,6 +333,23 @@ export function AuditSection({
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [submission, setSubmission] = useState<Submission>('idle')
+  /** Why the last attempt failed, so the banner can say something useful. */
+  const [failure, setFailure] = useState<SubmissionErrorCode>('unknown')
+  /**
+   * Field messages the SERVER rejected, which the client's own rules let
+   * through. Cleared as soon as that field is edited, so a corrected field
+   * stops complaining without waiting for another round trip.
+   */
+  const [serverErrors, setServerErrors] = useState<Partial<Record<Field, string>>>({})
+  /**
+   * The honeypot's value, and when this panel opened.
+   *
+   * Refs rather than state: nothing renders from either, and a keystroke in a
+   * field nobody can see must not re-render the form. The pair is what
+   * `server/handleSubmission.ts` reads to tell a person from a script.
+   */
+  const honeypotRef = useRef('')
+  const openedAtRef = useRef(0)
 
   const timerRef = useRef(-1)
   const reducedRef = useRef(false)
@@ -284,6 +371,10 @@ export function AuditSection({
     if (phase !== 'closed') return
     reducedRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     auditView.reducedMotion = reducedRef.current
+    // Measured from when the FORM appeared, not from page load: the server's
+    // question is how long this person spent filling it in.
+    openedAtRef.current = Date.now()
+    honeypotRef.current = ''
     // `auditView.open` is NOT written here — the phase effect below owns it.
     onOpenChange(true)
     setPhase('entering')
@@ -385,6 +476,8 @@ export function AuditSection({
 
   const setValue = useCallback((field: Field, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }))
+    // A server complaint about this field is about the value it just replaced.
+    setServerErrors((prev) => (prev[field] === undefined ? prev : { ...prev, [field]: undefined }))
   }, [])
 
   const markTouched = useCallback((field: Field) => {
@@ -405,14 +498,33 @@ export function AuditSection({
       }
       const seq = ++submitSeqRef.current
       setSubmission('submitting')
-      submit({ ...values }).then(
+      submit({
+        ...values,
+        empresa: honeypotRef.current,
+        startedAt: openedAtRef.current,
+      }).then(
         () => {
           // `success` only on a RESOLVED request — the transport owns what
-          // resolution means (and refuses to fake one in production).
+          // resolution means, and refuses to read anything but a delivered
+          // 2xx as one.
           if (submitSeqRef.current === seq) setSubmission('success')
         },
-        () => {
-          if (submitSeqRef.current === seq) setSubmission('error')
+        (error: unknown) => {
+          if (submitSeqRef.current !== seq) return
+          setFailure(codeOf(error))
+          // Only the server knows some of these — a URL our rules allow and
+          // its rules do not, say. Rendered against the field, not just in the
+          // banner, or the person has to guess which one it meant.
+          const fields = fieldsOf(error)
+          if (fields !== undefined) {
+            const mapped: Partial<Record<Field, string>> = {}
+            for (const field of FIELD_ORDER) {
+              const message = fields[field]
+              if (typeof message === 'string') mapped[field] = message
+            }
+            setServerErrors(mapped)
+          }
+          setSubmission('error')
         },
       )
     },
@@ -440,12 +552,17 @@ export function AuditSection({
       setValues(EMPTY_VALUES)
       setTouched({})
       setSubmitAttempted(false)
+      setServerErrors({})
     }
     setSubmission('idle')
   }, [phase, submission])
 
-  const showError = (field: Field): string | undefined =>
-    touched[field] || submitAttempted ? errors[field] : undefined
+  const showError = (field: Field): string | undefined => {
+    // The server's complaint outranks ours: it saw the value we let through.
+    const fromServer = serverErrors[field]
+    if (fromServer !== undefined) return fromServer
+    return touched[field] || submitAttempted ? errors[field] : undefined
+  }
 
   // Built once, per field, and never rebuilt: a `ref` callback is compared by
   // identity, so a fresh closure on every render makes React call the old one
@@ -561,12 +678,12 @@ export function AuditSection({
                     tabIndex={-1}
                     ref={successHeadingRef}
                   >
-                    Solicitud recibida
+                    {FORM_MESSAGES.auditTitle}
                   </h2>
-                  <p className="audit-description">
-                    Gracias. Revisaremos tu web de forma manual y te contactaremos en
-                    menos de 24 horas con las primeras conclusiones.
-                  </p>
+                  {/* Both strings come from Sanity (plan 012): the promise in
+                      them is about the client's own working week, so they can
+                      reword it without a deploy. */}
+                  <p className="audit-description">{FORM_MESSAGES.auditBody}</p>
                 </div>
                 <div className="audit-group">
                   <button type="button" className="audit-cta" onClick={close}>
@@ -576,6 +693,31 @@ export function AuditSection({
               </div>
             ) : (
               <form className="audit-form" noValidate onSubmit={handleSubmit}>
+                {/* THE HONEYPOT. A real input, off screen, that no person can
+                    see, reach by keyboard or hear read out — so anything that
+                    arrives with a value in it filled in every field it found.
+                    The server answers such a submission 200 and sends nothing,
+                    which is the one place this codebase reports a success that
+                    did not happen; `server/handleSubmission.ts` says why.
+
+                    Positioned off screen rather than `display: none`, because
+                    the cruder scripts skip what is displayed as none — and
+                    `tabIndex={-1}` plus `aria-hidden` keep it away from
+                    everyone the form is actually for. */}
+                <div className="form-honeypot" aria-hidden="true">
+                  <label htmlFor={`${idPrefix}-empresa`}>Empresa</label>
+                  <input
+                    id={`${idPrefix}-empresa`}
+                    name="empresa"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    defaultValue=""
+                    onChange={(e) => {
+                      honeypotRef.current = e.target.value
+                    }}
+                  />
+                </div>
                 <div className="audit-group audit-group--1">
                   <p className="audit-eyebrow">Auditoría SEO</p>
                 </div>
@@ -609,7 +751,7 @@ export function AuditSection({
                       Everything typed is still in the fields above. */}
                   {submission === 'error' && (
                     <p className="audit-form__error" role="alert">
-                      No se ha podido enviar la solicitud. Inténtalo de nuevo.
+                      {failureMessage(failure)}
                     </p>
                   )}
                   <button
@@ -628,6 +770,21 @@ export function AuditSection({
                   </button>
                   <p className="audit-note">
                     Revisamos cada solicitud de forma manual. Sin compromiso.
+                  </p>
+                  {/* The same implied-consent note the contact dialog has
+                      carried since it was written, extended here now that a
+                      submission genuinely leaves the browser. A checkbox waits
+                      on the real legal text (SEC-12 stays open until then). */}
+                  <p className="audit-note">
+                    Al enviar aceptas los{' '}
+                    <button
+                      type="button"
+                      className="audit-legal__link"
+                      onClick={() => onOpenLegal('terminos')}
+                    >
+                      términos y privacidad
+                    </button>
+                    .
                   </p>
                   {/* The legal links, moved off the Earth floor line on
                       2026-08-24 (DECISIONS §30). Form branch only: on the

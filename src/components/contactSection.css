@@ -110,11 +110,17 @@
 /* The phones, at the dialog's foot since 2026-09-03 — the values the Earth
    floor line used to carry (DECISIONS §30), set apart from the form by a
    hairline so the dialog reads as "write to us, or call". */
+/* Three columns — icon · label · number — at EVERY width, one phone per row.
+   It was a wrapping flex row with a `·` between numbers, plus a ≤480px block
+   that turned it into exactly this stack; once each number carries a label to
+   its left, the row form has nowhere to put it and the two layouts collapse
+   into one. The numbers share column 3, so they line up under each other
+   whatever the labels are. */
 .contact-phones {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 14px auto minmax(0, 1fr);
+  column-gap: 0.6rem;
   align-items: center;
-  column-gap: 0.75rem;
   margin-top: 0.4rem;
   padding-top: 1.1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -123,50 +129,40 @@
 }
 
 .contact-phone-icon {
+  grid-column: 1;
+  /* Beside the FIRST number only; the rows below sit under the empty column. */
+  grid-row: 1;
   width: 14px;
   height: 14px;
   opacity: 0.7;
-  flex: none;
+}
+
+.contact-phone-label {
+  grid-column: 2;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+/* The colon is markup, not content: it cannot be forgotten on one entry or
+   doubled on another, and a phone with no label renders an EMPTY cell here —
+   which is what keeps the numbers aligned — so `:not(:empty)` is what stops it
+   showing a lone `:`. */
+.contact-phone-label:not(:empty)::after {
+  content: ':';
 }
 
 .contact-phone {
-  display: inline-flex;
+  grid-column: 3;
+  display: flex;
   align-items: center;
-  /* A 44px touch height without visual weight (mobile audit rule). */
+  /* A 44px touch height without visual weight (mobile audit rule). It is also
+     what sets the row height, so the label sits centred against it. */
   min-height: 44px;
   color: inherit;
   text-decoration: none;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   transition: color 0.2s ease;
-}
-
-.contact-phone + .contact-phone::before {
-  content: '·';
-  margin-right: 0.75rem;
-  color: rgba(255, 255, 255, 0.3);
-}
-
-/* Narrow: one number per row, both under the single icon's column. */
-@media (max-width: 480px) {
-  .contact-phones {
-    display: grid;
-    grid-template-columns: 14px 1fr;
-    column-gap: 0.6rem;
-    align-items: start;
-  }
-
-  .contact-phone-icon {
-    margin-top: 15px;
-  }
-
-  .contact-phone {
-    grid-column: 2;
-  }
-
-  .contact-phone + .contact-phone::before {
-    content: none;
-  }
 }
 
 .contact-phone:hover {
@@ -204,10 +200,75 @@
   outline-offset: 2px;
 }
 
+/* ---- The delivered state (plan 012) ----------------------------------------
+   The audit panel's arrival, at dialog scale: the emitter line ignites from the
+   centre, then the heading, the body and the button rise behind it. Same
+   vocabulary, same easing, shorter — this is a dialog, not a curtain. */
 .contact-success {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+}
+
+.contact-success::before {
+  content: '';
+  position: absolute;
+  top: -0.9rem;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(28, 103, 255, 0.45);
+  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  transform-origin: center;
+  animation: contact-success-line 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.contact-success > * {
+  animation: contact-success-in 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: 120ms;
+}
+
+.contact-success > *:nth-child(2) {
+  animation-delay: 200ms;
+}
+
+.contact-success > *:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+@keyframes contact-success-line {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes contact-success-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shortened rather than deleted: the state still changes, and something has to
+   connect the form leaving with the receipt arriving. The modal's own scrim and
+   panel rules are in modal.css, which carries the same block. */
+@media (prefers-reduced-motion: reduce) {
+  .contact-success::before,
+  .contact-success > * {
+    animation: none;
+  }
 }
 
 .contact-success__body {
@@ -215,3 +276,7 @@
   font-size: 0.92rem;
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* The honeypot's rules live in auditSection.css, which both documents load
+   alongside this file (the audit section is mounted on every surface). Repeated
+   here would be two copies of one decision. */

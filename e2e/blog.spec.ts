@@ -151,7 +151,7 @@ test.describe('the blog', () => {
     await page.evaluate(() => {
       ;(window as unknown as Record<string, unknown>).__e2eLoadId = Math.random()
       document.querySelector('.murcia-ui')?.setAttribute('data-e2e-probe', 'murcia')
-      document.querySelector('canvas')?.setAttribute('data-e2e-probe', 'canvas')
+      document.querySelector('.scene-canvas canvas')?.setAttribute('data-e2e-probe', 'canvas')
     })
     const scrollRestorationBefore = await page.evaluate(() => history.scrollRestoration)
     const bodyFontBefore = await page.evaluate(() => getComputedStyle(document.body).fontFamily)
@@ -189,6 +189,20 @@ test.describe('the blog', () => {
     expect(suspendedB!.geometries).toBe(suspendedA!.geometries)
     expect(suspendedB!.textures).toBe(suspendedA!.textures)
 
+    // ── The warm blog gets the same 3D mark the cold one does ──
+    //
+    // "Both hosts, identically" is the whole reason the header logo lives in
+    // BlogRoute rather than in either entry, and it is invisible to the cold
+    // test. It also pins the claim the ADR amendment makes about cost: a warm
+    // document holds TWO contexts, the scene's frozen one and the header's, and
+    // the assertions above have just proven the first is still frozen with the
+    // second running beside it.
+    await expect(page.locator('.blog-topbar__mark canvas')).toHaveCount(1, { timeout: 20_000 })
+    expect(
+      await page.locator('canvas').count(),
+      'a warm blog has exactly two canvases: the suspended scene, and the mark',
+    ).toBe(2)
+
     // GSAP is quiescent, which is why nothing needed pausing. If this ever
     // fails, pause THAT timeline on the blog edge — never the global one.
     const activeTweens = await page.evaluate(() => {
@@ -223,7 +237,7 @@ test.describe('the blog', () => {
       loadId: typeof (window as unknown as Record<string, unknown>).__e2eLoadId,
       navigations: performance.getEntriesByType('navigation').length,
       murciaProbe: document.querySelector('.murcia-ui')?.getAttribute('data-e2e-probe') ?? null,
-      canvasProbe: document.querySelector('canvas')?.getAttribute('data-e2e-probe') ?? null,
+      canvasProbe: document.querySelector('.scene-canvas canvas')?.getAttribute('data-e2e-probe') ?? null,
       builds: (window as unknown as Record<string, number>).__vertigoMurciaBuilds ?? 0,
       scrollRestoration: history.scrollRestoration,
       bodyFont: getComputedStyle(document.body).fontFamily,
@@ -256,7 +270,7 @@ test.describe('the blog', () => {
     expect(errors).toEqual([])
   })
 
-  test('a cold /blog pays for no 3D at all', async ({ page }) => {
+  test('a cold /blog pays for the mark and nothing else', async ({ page }) => {
     const errors = collect(page)
     await interceptImages(page)
 
@@ -266,19 +280,61 @@ test.describe('the blog', () => {
     await page.goto('/blog')
     await page.waitForSelector('.blog-card')
 
-    // Not merely "no canvas": the point of the second document is that none of
-    // this is even on the page, as a fact about the module graph rather than a
-    // set of guards that could regress one at a time.
-    expect(await page.locator('canvas').count()).toBe(0)
     expect(
       await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).__vertigoIntro),
       'the intro drawing must never execute on a reading page',
     ).toBe('undefined')
 
-    const threeD = requested.filter((url) =>
-      /three-|SceneCanvas|MurciaExperience|city-prototype|\/earth\/|\/draco\/|basis|\.glb|\.ktx2/.test(url),
+    // ── Then the mark arrives, and it is the ONLY thing that does ──
+    //
+    // The old assertion here was `canvas count === 0` and a blanket ban on
+    // anything 3D. The blog's header draws the real logo now (adr/013, amended
+    // 2026-09-04), so the ban narrowed from "3D" to "the 3D APPLICATION" — and
+    // it is stated in both directions, because a ban alone can be widened later
+    // without anyone noticing what walked in behind it.
+    await expect(page.locator('.blog-topbar__mark canvas')).toHaveCount(1, { timeout: 20_000 })
+    expect(
+      await page.locator('canvas').count(),
+      'the mark is the only WebGL surface a reading page may have',
+    ).toBe(1)
+
+    const scene = requested.filter((url) =>
+      /SceneCanvas|MurciaExperience|city-prototype|\/earth\/|sky-panorama/.test(url),
     )
-    expect(threeD, 'a cold blog must request nothing belonging to the 3D application').toEqual([])
+    expect(scene, 'a cold blog must request nothing belonging to the 3D application').toEqual([])
+
+    // The positive half: every heavy request is one the mark itself needs.
+    const heavy = requested.filter((url) => /three-|\.glb$|\.ktx2$|\/draco\/|basis/.test(url))
+    const allowed = /\/three-[^/]*\.js$|\/models\/model\.glb$|\/textures\/logoBake\.ktx2$|\/draco\/|\/basis/
+    expect(
+      heavy.filter((url) => !allowed.test(url)),
+      'only the corner logo\'s own dependencies may be fetched on a reading page',
+    ).toEqual([])
+    expect(
+      heavy.some((url) => url.endsWith('/models/model.glb')),
+      'and the mark must actually be the 3D one, or the assertions above pass on an SVG',
+    ).toBe(true)
+
+    // ── Deferred, stated as ORDER, which is the only form a network log can
+    //    actually prove ──
+    //
+    // Not "nothing 3D has been requested yet", which was the first attempt and
+    // was a race: `.blog-card` is in the prerendered shell, so it resolves in the
+    // same idle period the mark's own callback can fire in. What the promise
+    // really is — the reader's bytes go to the text first — compares positions
+    // in the log instead. The mark waits for `load`, so everything the article
+    // itself asked for is already behind it.
+    const firstIndexOf = (re: RegExp) => requested.findIndex((url) => re.test(url))
+    const firstThreeD = firstIndexOf(/three-|\.glb$|\.ktx2$|\/draco\/|basis/)
+    expect(firstThreeD).toBeGreaterThan(-1)
+    expect(
+      firstIndexOf(/\/assets\/BlogRoute-/),
+      'the blog UI must be requested before anything three-dimensional',
+    ).toBeLessThan(firstThreeD)
+    expect(
+      firstIndexOf(/cdn\.sanity\.io/),
+      "the article's own imagery must be requested before the mark it decorates",
+    ).toBeLessThan(firstThreeD)
 
     // Leaving a cold blog is a real navigation: there is no scene behind this
     // document to return to, so nothing is lost by loading one.

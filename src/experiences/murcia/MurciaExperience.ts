@@ -15,6 +15,7 @@ import { loadCity, disposeLoadedCity } from './assets/loadCity';
 import type { LoadedCity } from './assets/loadCity';
 import { CameraRig } from './camera/CameraRig';
 import { murciaWarpPose } from './camera/warpPose';
+import { murciaZoomPose, murciaZoomTargets } from './camera/zoomPose';
 import { DragPanController } from './navigation/DragPanController';
 import { NavigableArea } from './navigation/navigableArea';
 import { containsPoint, expandRect } from './navigation/navigationBounds';
@@ -36,6 +37,26 @@ import { StatusOverlay, ControlsHint } from './ui/overlays';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc } from '../../interaction/screenSpace';
+
+/**
+ * Rate the applied zoom chases the requested one, per second.
+ *
+ * 3, which is `INTERACTION_CONFIG.camera.lerpK` on Earth. Not a coincidence and
+ * not shared code either: the two rigs are independent by design (ADR 001), so
+ * the number is restated here with the reason rather than imported across an
+ * experience boundary the architecture check forbids. Both worlds have to answer
+ * the same wheel at the same rate or the zoom reads as two different controls.
+ */
+const ZOOM_LERP_K = 3;
+
+/**
+ * Where the ease gives up and lands on the target.
+ *
+ * An exponential never arrives, and every step of this one recomputes the ground
+ * footprint. 0.0005 of the band is well below what the pose can draw: a fifth of
+ * a unit of distance at the far end.
+ */
+const ZOOM_SETTLE_EPSILON = 0.0005;
 
 /**
  * Lifecycle coordinator for the Murcia environment.
@@ -112,6 +133,17 @@ export class MurciaExperience {
   private warpAmount = 0;
   /** True while this city is the one being LEFT, which is the rising leg. */
   private warpDeparting = false;
+  /**
+   * Where the viewer has asked the zoom to be, -1 .. +1 (`adr/014`).
+   *
+   * Two numbers rather than one because a wheel notch is a fifth of the band and
+   * lands whole: written straight through, the city would jump on every notch.
+   * `zoomDepth` is the request and `easedZoomDepth` is where the camera actually
+   * is, which is the same target/current split `CameraRig` and Earth's focus rig
+   * both use, at the same rate.
+   */
+  private zoomDepth = 0;
+  private easedZoomDepth = 0;
 
   private readonly statusOverlay: StatusOverlay;
   private readonly controlsHint: ControlsHint;
@@ -328,18 +360,83 @@ export class MurciaExperience {
     if (!this.rig) return;
     this.warpAmount = amount;
     this.warpDeparting = departing;
-    this.applyWarpPose();
+    this.applyRigPose();
   }
 
-  private applyWarpPose(): void {
+  /**
+   * Where the viewer has zoomed to, -1 (closest) .. +1 (furthest and highest).
+   *
+   * Persistent: nothing here decays it back, which is the whole of `adr/014`.
+   * The application owns the number — one band, shared by both worlds, so the
+   * two cannot disagree about how much travel a zoom costs — and this owns what
+   * the city does with it (`camera/zoomPose.ts`).
+   *
+   * `immediate` skips the smoothing, and its one caller is a committed warp. The
+   * cinematic owns the pose for its duration and resets the depth at the cut, so
+   * a depth still easing across that frame would leave the arriving city pulling
+   * back toward a target that was still moving. In practice the two values are
+   * already equal there — committing means having sat at the limit long enough
+   * to push past it — so this is a guarantee rather than a visible correction.
+   */
+  setZoomDepth(depth: number, immediate = false): void {
+    if (!Number.isFinite(depth)) return;
+    this.zoomDepth = depth;
+    if (immediate && this.easedZoomDepth !== depth) {
+      this.easedZoomDepth = depth;
+      this.applyRigPose();
+      this.recomputeBounds();
+    }
+  }
+
+  /**
+   * Advances the zoom toward what the viewer asked for.
+   *
+   * `lerpK` is Earth's, deliberately: both worlds answer a zoom at the same rate
+   * or the site reads as two different controls. Frame-rate independent, for the
+   * reason every other ease in this project is.
+   */
+  private updateZoom(delta: number): void {
+    if (this.easedZoomDepth === this.zoomDepth) return;
+    const alpha = 1 - Math.exp(-ZOOM_LERP_K * delta);
+    const next = this.easedZoomDepth + (this.zoomDepth - this.easedZoomDepth) * alpha;
+    // Snapped below a threshold the pose cannot draw, so the ease terminates
+    // instead of recomputing the ground footprint forever on an asymptote.
+    this.easedZoomDepth =
+      Math.abs(this.zoomDepth - next) < ZOOM_SETTLE_EPSILON ? this.zoomDepth : next;
+    this.applyRigPose();
+    // The footprint is distance- and elevation-dependent and the zoom moves
+    // both, so the navigable area has to be re-derived exactly as it is for a
+    // yaw change. Four ray/plane intersections; measurably nothing.
+    this.recomputeBounds();
+  }
+
+  /**
+   * The single writer of the rig's pose: the viewer's zoom, then the warp.
+   *
+   * In that order, and the order is the design. A zoom is a POSITION the viewer
+   * parked at and a warp is a JOURNEY away from wherever they are, so the warp
+   * has to be measured from the zoomed pose rather than from the configured
+   * resting one — otherwise the first frame of a cinematic committed from full
+   * zoom-out would move the camera back IN toward the city it is leaving.
+   * `murciaConfig.warpDepart*` sits beyond `zoomFar*` along the same arc so that
+   * the continuation always goes the same way the zoom was going.
+   *
+   * Arriving is unaffected: the depth is reset at the cut, so the pose the city
+   * pulls back out to is the configured rest it has always been.
+   */
+  private applyRigPose(): void {
     if (!this.rig) return;
     // Rest comes from the viewport-resolved pose so portrait overrides survive
-    // the warp; the far ends are environment data.
-    const base = resolveCameraPose(this.environment, this.viewport.aspect);
+    // both the zoom and the warp; the far ends are environment data.
+    const rest = resolveCameraPose(this.environment, this.viewport.aspect);
+    const zoomed = murciaZoomPose(
+      murciaZoomTargets(this.environment, rest),
+      this.easedZoomDepth,
+    );
     const pose = murciaWarpPose(
       {
-        restDistance: base.distance,
-        restElevation: base.elevationDegrees,
+        restDistance: zoomed.distance,
+        restElevation: zoomed.elevationDegrees,
         closeDistance: this.environment.warpCloseDistance,
         departDistance: this.environment.warpDepartDistance,
         departElevation: this.environment.warpDepartElevationDegrees,
@@ -350,7 +447,7 @@ export class MurciaExperience {
     // A FRESH object every time. `rig.getPose()` hands back `murciaConfig.camera`
     // by identity, so mutating it would corrupt the environment config for the
     // rest of the session.
-    this.rig.setPose({ ...base, ...pose });
+    this.rig.setPose({ ...rest, ...pose });
   }
 
   /**
@@ -738,9 +835,9 @@ export class MurciaExperience {
       // Re-resolving the pose covers the portrait-override case; it is a few
       // trig calls and a projection-matrix update, so it is not worth guarding.
       this.rig.setAspect(size.aspect);
-      // Through applyWarpPose, not setPose directly: a resize mid-warp would
-      // otherwise snap the pose back to rest and fight the warp.
-      this.applyWarpPose();
+      // Through applyRigPose, not setPose directly: a resize mid-warp or
+      // mid-zoom would otherwise snap the pose back to rest and fight it.
+      this.applyRigPose();
       // The footprint depends on aspect and pose, so it must be recomputed here
       // — and only here, plus on pose change. It is independent of the focus
       // position, because the camera sits at a fixed offset from it.
@@ -818,6 +915,12 @@ export class MurciaExperience {
     // Advances drag smoothing and release momentum. Cheap arithmetic only —
     // no raycasting happens here, only on pointer events.
     this.controller?.update(delta);
+
+    // After the controller, because both end up writing the rig: the controller
+    // owns focus and yaw, this owns distance and elevation, and `setPose`
+    // re-applies whatever focus is current. A no-op on any frame the viewer is
+    // not zooming, which is nearly all of them.
+    this.updateZoom(delta);
 
     // One uniform write. `water.update` wants elapsed seconds, not the delta —
     // passing `delta` straight through pins uTime at about 1/60 and the river

@@ -6,11 +6,11 @@ export const EARTH_CONFIG = {
   // radius 1, so a future orbit system takes scale={2} rather than a rewrite.
   radius: 2,
   atmosphereDayColor: '#00aaff',
-  atmosphereTwilightColor: '#ff6600',
+  atmosphereTwilightColor: '#CBE7F7',
   sunAzimuth: 0.5,
   sunElevation: 0,
   cloudIntensity: 1,
-  specularIntensity: 1,
+  specularIntensity: 0,
   nightIntensity: 1,
   rotationSpeed: 0.035, // rad/s
 }

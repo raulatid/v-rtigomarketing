@@ -31,21 +31,88 @@ import { collection } from './types'
 const COPYRIGHT_MAX = 120
 const DISPLAY_MAX = 40
 
+/** A city, not a sentence. Same bound as the Studio's rule on the field. */
+const LABEL_MAX = 24
+
 /** More than a handful is a directory, and this is a footer. */
 const PHONES_MAX = 4
+
+/** A heading in a panel, not a sentence. Same bound as the Studio's rule. */
+const SUCCESS_TITLE_MAX = 60
+
+/** Two lines under that heading. Same bound as the Studio's rule. */
+const SUCCESS_BODY_MAX = 240
+
+/**
+ * What the panels say when the CMS has not been given these fields yet.
+ *
+ * ── Why a default here, when this file defaults nothing else ──
+ *
+ * The rule the content build lives by is "never ship fixtures by omission" —
+ * it refuses to GUESS A SOURCE, and refuses a production build that does not
+ * name one. That is about where content comes from, and it is untouched.
+ *
+ * This is a different question: a NEW field arriving in a schema whose dataset
+ * predates it. Requiring these four would mean the deploy after this change
+ * fails until somebody opens the Studio, and it would mean the site's
+ * confirmation copy — which has shipped, correct, for months — could be
+ * removed by clearing a text box. The words below are exactly what the two
+ * components rendered before this change, so an untouched dataset behaves
+ * identically and filling the fields in is an improvement rather than a
+ * migration.
+ *
+ * The Studio still marks all four `required()`, so an editor is asked for them.
+ */
+const SUCCESS_FALLBACKS = {
+  auditSuccessTitle: 'Solicitud recibida',
+  auditSuccessBody:
+    'Gracias por contactarnos. Revisaremos tu web de forma manual y te responderemos en menos de 24 horas.',
+  contactSuccessTitle: 'Recibido',
+  contactSuccessBody: 'Gracias por contactarnos, te responderemos en menos de 24 horas.',
+} as const
+
+/**
+ * Reads one of the four, falling back when the CMS has never been given it.
+ *
+ * Absent means absent: `null`, `undefined` or the empty string an editor leaves
+ * behind after clearing a box. A value that IS present is validated exactly as
+ * any other text field — a too-long or entity-carrying one still fails the
+ * build rather than being quietly replaced.
+ */
+function successCopy(
+  report: Report,
+  path: keyof typeof SUCCESS_FALLBACKS,
+  raw: unknown,
+  max: number,
+): string | undefined {
+  if (raw === null || raw === undefined || raw === '') return SUCCESS_FALLBACKS[path]
+  return text(report, path, raw, { max })
+}
 
 function phone(report: Report, path: string, raw: unknown): SitePhone | undefined {
   if (raw === null || typeof raw !== 'object') {
     return report.fail(path, 'expected an object')
   }
   const source = raw as Record<string, unknown>
+
+  // Optional, and OMITTED rather than empty when unset — the same shape as an
+  // image caption (`media.ts`). `text()` fails on a non-string and has no
+  // optional mode, so the call is GUARDED rather than the helper widened. An
+  // editor who clears the field in the Studio leaves '' behind, not undefined,
+  // which is why blank counts as absent here.
+  let label: string | undefined
+  if (source.label !== null && source.label !== undefined && source.label !== '') {
+    label = text(report, path + '.label', source.label, { max: LABEL_MAX })
+    if (label === undefined) return undefined
+  }
+
   const display = text(report, path + '.display', source.display, { max: DISPLAY_MAX })
   // The display string is free — spaces, parentheses, whatever reads well. This
   // is the one that gets dialled, and a space in it produces a link that
   // silently does nothing on some handsets rather than failing visibly.
   const tel = matching(report, path + '.tel', source.tel, TEL_PATTERN, 'a dialable number')
   if (display === undefined || tel === undefined) return undefined
-  return { display, tel }
+  return label === undefined ? { display, tel } : { label, display, tel }
 }
 
 export const siteSettingsCollection = collection<SiteSettings>({
@@ -59,9 +126,13 @@ export const siteSettingsCollection = collection<SiteSettings>({
     // A deterministic document id, projected to the name the application uses.
     projection: `{
       "id": "site",
-      phones[]{ display, tel },
+      phones[]{ label, display, tel },
       contactEmail,
-      copyright
+      copyright,
+      auditSuccessTitle,
+      auditSuccessBody,
+      contactSuccessTitle,
+      contactSuccessBody
     }`,
   },
 
@@ -91,18 +162,59 @@ export const siteSettingsCollection = collection<SiteSettings>({
     )
     const copyright = text(scoped, 'copyright', source.copyright, { max: COPYRIGHT_MAX })
 
+    // The confirmation copy. `text()` strips HTML and fails on the residue, so
+    // an editor who pastes formatted text out of a document is told rather than
+    // silently having it flattened into something that reads wrong.
+    const auditSuccessTitle = successCopy(
+      scoped,
+      'auditSuccessTitle',
+      source.auditSuccessTitle,
+      SUCCESS_TITLE_MAX,
+    )
+    const auditSuccessBody = successCopy(
+      scoped,
+      'auditSuccessBody',
+      source.auditSuccessBody,
+      SUCCESS_BODY_MAX,
+    )
+    const contactSuccessTitle = successCopy(
+      scoped,
+      'contactSuccessTitle',
+      source.contactSuccessTitle,
+      SUCCESS_TITLE_MAX,
+    )
+    const contactSuccessBody = successCopy(
+      scoped,
+      'contactSuccessBody',
+      source.contactSuccessBody,
+      SUCCESS_BODY_MAX,
+    )
+
     const problems = [...report.problems, ...scoped.problems]
     if (
       problems.length > 0 ||
       id === undefined ||
       phones === undefined ||
       contactEmail === undefined ||
-      copyright === undefined
+      copyright === undefined ||
+      auditSuccessTitle === undefined ||
+      auditSuccessBody === undefined ||
+      contactSuccessTitle === undefined ||
+      contactSuccessBody === undefined
     ) {
       return { ok: false, problems }
     }
 
-    const value: SiteSettings = { id, phones, contactEmail, copyright }
+    const value: SiteSettings = {
+      id,
+      phones,
+      contactEmail,
+      copyright,
+      auditSuccessTitle,
+      auditSuccessBody,
+      contactSuccessTitle,
+      contactSuccessBody,
+    }
 
     const residual = siteSettingsProblems(value)
     if (residual.length > 0) return { ok: false, problems: residual }

@@ -358,16 +358,19 @@ units throughout — 147 today against the original 152.
 ```
 left button / one finger     pan the ground under the cursor, both axes, 1:1
 right button / two fingers   rotate the rig horizontally about the focus, freely, 360°
-wheel                        LEAVE Murcia — scene navigation, not this controller (adr/009)
-two fingers, closing         LEAVE Murcia — scene navigation, not this controller (adr/012)
+wheel                        ZOOM, then LEAVE Murcia — not this controller (adr/009, adr/014)
+two fingers, closing         ZOOM out, then LEAVE Murcia — not this controller (adr/012, adr/014)
+two fingers, opening         ZOOM in — not this controller, and it can never navigate (adr/014)
 middle button                ignored
 ```
 
-**The last two lines are not this controller's.** `createNavigationInput` owns them and Murcia
+**The last three lines are not this controller's.** `createNavigationInput` owns them and Murcia
 never sees them: the wheel because no experience listens for `wheel` at all any more, and the
 pinch because the navigation layer takes the contacts at the claim (one synthetic `pointercancel`
 each) and hands them back untouched otherwise. What this controller lost in `adr/009` was the
-*dolly* — there is still no zoom anywhere. What changed in `adr/012` is only what a pinch MEANS.
+*dolly*, and `adr/014` did **not** give it back — the zoom came back to the product, but it
+writes the POSE through `MurciaExperience.applyRigPose`, so `distanceScale` still has exactly one
+writer and it is still `CameraFlight`. What changed in `adr/012` is only what a pinch MEANS.
 
 Two fingers therefore carry two meanings, and the two are told apart by which signal moves: the
 **centroid** turns the city, the **separation** leaves it. First past the post, with the tie going
@@ -1624,9 +1627,163 @@ must restore it to measure coverage.
     the problem and adding more of it would not have helped. Cancel the animation as well:
     `animation: none`.
 
+62. **A metric computed downstream of its own correction confirms the correction.**
+    `prepare-sky-panorama.mjs` called `poleRatios` inside `emit()`, *after* the latitude-ramped
+    median — and a 15x15 median at the poles flattens the pole rows itself. So the number
+    described the filter's work, not the image's projection: `sky-panorama-001` printed **0.37**
+    where the untouched file measures **0.670**, against the script's own printed guidance that
+    "under ~0.15 is consistent with a real equirectangular source". It under-reported by nearly
+    2x, in the direction of *accepting a bad source*. Fixed 2026-08-31 by probing the decoded
+    source before any pass runs. **Measure the input to a correction on the input, never on the
+    output.** `DECISIONS` §19 has now seen this shape four times in four costumes.
+
+63. **Nothing in `public/` is content-hashed, so an unchanged filename plus a long cache means a
+    redeploy changes nothing.** Vite fingerprints what it bundles (`assets/foo-a1b2c3.js`) and
+    copies `public/` **verbatim** — `public/textures/sky-panorama.avif` keeps that exact name
+    forever. `vercel.json` then gives `/(earth|models|textures|libs|draco|logos)/(.*)` a
+    `max-age=86400, stale-while-revalidate=604800`: a returning browser holds the old bytes for
+    a day and the CDN may serve stale for a further **seven**. Swapping the image and pushing
+    therefore does not change what anyone sees, and it looks exactly like a failed deploy.
+    Diagnosed 2026-08-31 from that symptom. Either change the filename when the content changes,
+    or shorten that rule — unhashed paths and week-long stale-serving do not mix.
+
+64. **Nothing verifies that the sky textures exist at the paths the code asks for.** On
+    2026-08-31 the narrow pair was committed as `sky-panorama - narrow.avif` — spaces around the
+    hyphen — while `spaceConfig.ts` requests `/textures/sky-panorama-narrow.avif`. Every
+    viewport at or under 767 px therefore 404s on the AVIF, 404s again on the WebP fallback,
+    exhausts `loadFirstAvailable`, and renders a **black sky**; the `index.html` preload 404s
+    too. No harness, typecheck or unit test can see this — the paths are strings in a config and
+    the files are copied verbatim — and `markDone` (correctly) refuses to fail the boot over a
+    decorative texture, so it degrades silently. `checks/space-backdrop.ts` covers the geometry
+    and not the delivery.
+
+65. **A texture has a hard dimensional ceiling that has nothing to do with its file size.** The
+    same 2026-08-31 asset was **10000 x 5000** at 294 KB — small on the wire, and 200 MB of VRAM
+    as RGBA8 with mipmaps off, against 33.6 MB before. Worse, 10000 px exceeds `MAX_TEXTURE_SIZE`
+    on many GPUs (commonly 8192, and 4096 on older mobile), where the upload simply fails and
+    leaves a black or undefined sky with no error that names itself. A compressed byte count says
+    nothing about either limit. The 4096 x 2048 standing decision exists for this. The same
+    commit also shipped a "narrow" variant byte-identical to the wide one, which is the whole
+    point of the narrow variant undone.
+
+66. **`node_modules/.cache/` is not storage, and something irreplaceable is sitting in it.**
+    `eso0932a.tif` — 29,082,084 bytes, the original ESO panorama — is there because the prep
+    script at `74c85a7` had a `SOURCE_URL` and cached its download. It is the only copy on this
+    machine, it is gitignored by `.gitignore:2`, and **any `npm ci` or clean reinstall deletes
+    it**. It is re-downloadable (`DECISIONS` §19, 2026-08-31), which is the only reason this is a
+    note rather than a loss. Asset sources belong in `04_Assets/`.
+
+67. **`vercel.json` has no comment syntax, and an unknown key fails the whole deployment.**
+    A comment-style key was added inside the `/fonts/(.*)` header rule; Vercel validates the file
+    against its schema and rejects **any** property it does not define, so the build never ran and
+    the previous deployment kept serving. Fixed 2026-08-31 in `9c2eb18`. Two things make this
+    expensive to diagnose: JSON has no comments, so the habit of annotating config — which this
+    repo has everywhere else, correctly — is the trap; and a rejected deploy is
+    indistinguishable from a successful one at the URL, because the last good build is still
+    answering. `node -e "JSON.parse(...)"` does **not** catch it: the file is valid JSON and
+    invalid `vercel.json`. Combined with §11.63 it produced a fortnight-shaped illusion that a
+    committed, pushed asset change had not deployed.
+
 ---
 
 ## 12. State of the work
+
+**Zoom came back, as a position the viewer owns — 2026-09-04 (`adr/014`,
+`plans/011`, `DECISIONS` §20/§29 amendments, `adr/005`/`006`/`009`/`012` amended). Uncommitted.**
+The client drove the build and said the wheel and the pinch "bounce" — which they did, exactly,
+and it could not be tuned out: there was no zoom state anywhere in the product. `adr/009` had
+deleted zoom, and what looked like zooming was the first third of the warp cinematic being
+scrubbed by the navigation accumulator, which decays by design. It is also why each world only
+moved one way — a scrub only ever runs the *departing* leg.
+
+The model is **absorb, then overflow**: a persistent normalised band takes the first 600px of
+travel, and only what spills out at the transition-facing end reaches the accumulator, which is
+unchanged behind its remaining 300px. Depth `+1` always faces the other world, so Earth commits
+at full zoom-in and Murcia at full zoom-out without anything downstream knowing which it is in.
+The total journey is still 900px, deliberately, so `pinchGain` and every e2e wheel distance stay
+true.
+
+Three things were decided by measurement rather than by reasoning:
+
+- **Murcia's far end is 280 units at 52°**, swept out of `checks/footprint.ts` against the real
+  `computeGroundFootprint`. 400 @ 55° is still safe, so `zoomFarDistance` is the number to raise
+  if it reads as timid. The warp's departure had to move with it, 210/50 → **330/62**, or the
+  cinematic's first frame would have travelled back *inward* from the pose the viewer chose.
+- **The worst footprint case is at REST, not at either end of the band.** Both halves buy margin
+  back — inward by shortening the distance, outward by steepening the pitch — so the reach is not
+  monotonic across the band, and the harness asserts two sweeps out of rest instead of one across.
+- **Earth's ends were not free.** 0.63x in is `earthRadiusScale` at the cut, so a commit from full
+  zoom-in passes 2.21 units from a planet of radius 2; 11/7 out is `zoomMax: 11 * R` from the band
+  `adr/009` retired, brought back unchanged.
+
+**A real defect was found while wiring it, and it is the kind worth remembering.**
+`maxEventTravelPx` lived inside `navigationGesture`, which was correct while the accumulator was
+the only thing an event could reach. With a band in front of it, an uncapped 100,000px flick
+saturated the entire zoom band *and* overflowed by 99,400px, which the accumulator then clamped
+into a full 120px push — one notch of the wheel threw the camera to the end of its travel and
+banked 40% of a warp. The cap now applies where the two stages are fed. **A guarantee stated at
+one layer stops being a guarantee the moment something is inserted in front of that layer.**
+
+Deleted rather than disabled: `earth/camera/scrubPose.ts`, `SCRUB_CEILING`, `SCRUB_EASE`,
+`scrubProgress()`, and `useExperienceTransition`'s `scrub`. It gained `onCut` instead, for the one
+job of resetting the depth on the frame the worlds swap — the only frame that is fully black.
+
+Verified: typecheck clean, 1156 unit tests, and the full harness gate green including
+`check:footprint` 14/14, `check:warp` 49/49 and `check:navigation` 57/57. **E2E is not
+finished** — four of five navigation specs pass and one is failing against a `dist/` that
+predates the per-event-cap fix; `mobile.spec.ts` has been rewritten for the two stages but has
+not been run.
+
+**The sky can be screened and auditioned, and the shipped asset is currently broken —
+2026-08-31 (`DECISIONS` §19 amendment, §11.62-67). Tooling committed as `23f30a3`; the broken
+asset is committed and pushed as `4e590d0` / `528dd42`.**
+
+Three tools landed, none of which changes what a visitor sees:
+
+- **`scripts/screen-sky-source.mjs`** — read-only. Answers "is this actually an
+  equirectangular panorama" for any file, before any pipeline run, in one command. Verdicts are
+  words, not numbers to interpret. The metrics moved to **`scripts/lib/sky-metrics.mjs`** and
+  `prepare-sky-panorama.mjs` now imports them, so the screen and the pipeline cannot drift.
+- **`?skyImage=sky-test-<name>.<ext>`** — drops any raw file into the running scene at the
+  scene's own exposure, with no preparation. `protoSky.ts` + 9 lines of `SkyShell.tsx` + 7
+  parser tests. Inert in production and without the parameter.
+- **The prep script's projection gate** — `convergePoles` and the latitude-ramped median are
+  now conditional on a pole ratio measured *before any pass runs*, printed with the number that
+  drove it, forceable with `--flat-source` / `--no-flat-source`.
+
+Measured: the screener reproduces 0.670 / 0.383 on the shipped source and 0.319-0.838 across
+all six candidates; the flat-source path still produces **byte-identical** output to the
+committed assets. Typecheck clean, 1111 unit tests, `check:space` 36/36. E2E not run.
+
+**The live defect, and it is in what is deployed** (`528dd42`, `4e590d0`). A new sky was
+committed without going through the prep script, and three things are wrong with it at once:
+the narrow pair is named `sky-panorama - narrow.avif` with **spaces**, against the
+`sky-panorama-narrow.avif` that `spaceConfig.ts` requests — so every viewport at or under
+767 px 404s twice and renders a black sky; both "narrow" files are byte-identical to the wide
+ones; and all four are **10000 x 5000**, which is 200 MB of VRAM and over `MAX_TEXTURE_SIZE`
+on many GPUs. The desktop AVIF is 294,470 bytes against the 200,000-byte client budget. The fix
+is to run the source through `prepare-sky-panorama.mjs`, which resizes, names and levels
+correctly. See §11.64 and §11.65.
+
+**"The old sky is still on Vercel" had two causes, and they compound.** The first was a real
+deploy failure: `vercel.json` carried a comment-style key inside the `/fonts/` header rule, and
+Vercel's schema rejects any property it does not define, so the deployment never built and the
+previous one kept serving (§11.67, fixed in `9c2eb18`). The second outlives it — the path is
+unhashed and `/textures/` is cached for a day with a **week** of stale-while-revalidate, so once
+a build does succeed the bytes change and the URL does not (§11.63). A failed deploy and a
+week-long stale cache present identically: the old image, still there, with nothing in the repo
+to explain it.
+
+**Where the sky work picks up.** The compensation stack (the cap uniforms, `skyCapRotation`,
+`capLevel`/`capClamp`/`capAzimuth`, `skyCap*` config, the three debug sliders and
+`checks/space-backdrop.ts` §7 — roughly 250 lines across eight files) is dead code the moment a
+genuinely equirectangular source is confirmed, but **not before**: removing it early would be
+removing the only thing holding the current flat source together. The order is screen, audition,
+look at both poles with `skyCapStrength` 0, then remove. `04_Assets/` gained eight candidate
+images on 2026-08-31 that have not been screened; note that the `ESO_-_Milky_Way*` files are
+Commons renditions of eso0932a and carry the same CC BY obligation, and the
+`2k/8k_stars_milky_way` names are Solar System Scope's, which is also CC BY — licence is a
+separate question from projection and settles independently.
 
 **The city can wear a trim sheet — 2026-08-28 (`plans/009`, `blender-export-contract.md` §6,
 `DECISIONS` Superseded ×2). Committed.** The mechanism, end to end: the sheet is served from

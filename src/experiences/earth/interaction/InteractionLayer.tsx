@@ -11,7 +11,6 @@ import { SequenceState } from '../config/sequenceState'
 import { atOrAfter } from '../config/sceneVisibility'
 import { auditView } from '../../../auditView'
 import { EARTH_REST } from '../camera/CameraController'
-import { applyScrubPose } from '../camera/scrubPose'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 export interface InteractionHandle {
@@ -132,6 +131,23 @@ export function InteractionLayer({
     // satellite is selected — which setEnabled(false) clears. So the whole
     // input surface goes inert here without touching the DOM, and the rig
     // keeps the pose the viewer left so a return does not snap the camera.
+    // The viewer's zoom, and it goes FIRST — ahead of `activate()` and outside
+    // the cinematic guard below, which is not tidiness in either case.
+    //
+    // Ahead of `activate()` because activate seeds the entire rig from
+    // `overviewPosition`, and the zoom is what decides how long that vector is.
+    // Set afterwards, a viewer who zoomed in, warped to Murcia and came back
+    // would be seeded at the radius they left and then eased out to rest in
+    // plain view — the depth is reset at the cut, so the rig would be answering
+    // a change that had already happened.
+    //
+    // Outside the guard because the cut happens DURING a cinematic. That is the
+    // one frame the reset has to land on, and it is fully black; deferring it to
+    // the first frame after the warp would put it on a frame the viewer can see.
+    // Writing here is safe while the cinematic owns the camera because nothing
+    // reads what this writes until `update()` runs again.
+    rig.setZoomDepth(state.zoomDepth)
+
     const interactive = active && atOrAfter(state.phase, 'site')
     if (interactive) rig.activate()
     else if (rig.isActive()) rig.deactivate()
@@ -143,13 +159,18 @@ export function InteractionLayer({
     // freezes it in place with its state intact, which is the same seam the
     // audit panel relies on.
     //
-    // Gated on `transitionCommitted`, NOT on `transitionProgress > 0`. Those
-    // were the same thing until navigation became a scrubbed gesture; now a
-    // gesture drives the same number, reversibly, and its decay tail is
-    // deliberately long. Standing down for that froze the globe for ~1.6s after
-    // a single wheel notch — and worse, `onPointerMove` has no `active` guard,
-    // so the orbit angles kept integrating behind a camera nobody was updating
-    // and the whole drag then replayed as a slow drift.
+    // Gated on `transitionCommitted`, NOT on `transitionProgress > 0`. The two
+    // agree again since `adr/014` took the gesture back out of the warp, and
+    // asking the ownership question directly is still the right one to ask: what
+    // decides whether the rig may run is whether a cinematic OWNS the camera,
+    // not whether some number happens to be non-zero.
+    //
+    // They disagreed for the length of `adr/009`'s scrubbed gesture, and the
+    // difference cost a real defect: standing down whenever progress was
+    // non-zero froze the globe for ~1.6s after a single wheel notch, and
+    // `onPointerMove` has no `active` guard, so the orbit angles kept
+    // integrating behind a camera nobody was updating and the whole drag then
+    // replayed as a slow drift.
     const cinematic = state.transitionCommitted
     // The rig stays active while the audit panel is open — deactivating it
     // would reset to the overview pose and lose the user's drag position, and
@@ -162,12 +183,14 @@ export function InteractionLayer({
 
     focus.update()
     // Clamped so a backgrounded tab cannot teleport the camera on return.
+    //
+    // The zoom was written above, before the rig rather than after it, and that
+    // ordering is the difference between a zoom and the scrub it replaced
+    // (`adr/014`). The scrub had to correct the camera AFTER `rig.update()`,
+    // because the rig would have overwritten anything written first. A zoom is
+    // an input to the rig rather than a correction of it, so it goes in at the
+    // front and comes out smoothed by the rig's own radius ease.
     rig.update(clampFrameDelta(rawDelta))
-    // AFTER the rig, because the rig would otherwise overwrite it — and that
-    // ordering is the whole design (see scrubPose.ts). A no-op at rest.
-    // Cast as CameraController does: the scene camera is a perspective one by
-    // construction (SceneCanvas configures it), and R3F's type is the union.
-    applyScrubPose(camera as THREE.PerspectiveCamera, state.transitionProgress, rig.getLookAt())
   })
 
   return null

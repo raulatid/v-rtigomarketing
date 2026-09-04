@@ -33,24 +33,27 @@ import type { PinchLimits } from './navigationConfig'
 //
 // ── Direction ──
 //
-// One direction per world is eligible, and THE CALLER SIGNS IT — this module is
+// BOTH directions are eligible, and THE CALLER SIGNS THEM — this module is
 // handed growth "toward the other world" and never learns which world that is.
 // Same division of labour as `navigationGesture` next door, and for the same
 // reason: which way leads out of a world already has an owner (`towardOther`),
 // and a second opinion would be a second place to get it wrong.
 //
-// Concretely: on Earth spreading is eligible, because the transition dollies the
+// Concretely: on Earth spreading is positive, because the transition dollies the
 // camera toward the planet — pull the world open and it comes closer, which is
-// the gesture people already use to zoom a map. In Murcia CLOSING is eligible,
+// the gesture people already use to zoom a map. In Murcia CLOSING is positive,
 // because leaving is an ascent (ADR 006): the camera rises away from the city.
-// Both arrive here as a positive number.
 //
-// The wrong way is declined outright rather than ignored, so the verdict latches
-// once and the gesture cannot flip.
+// Only the positive direction was eligible until `adr/014`, and the negative one
+// was declined outright. That was right while a pinch could only mean "leave this
+// world" — but it is a ZOOM now and a zoom has two ends, so what latches is the
+// claim rather than the direction. The magnitude decides, and the sign is passed
+// on to the band, which is the only thing that has to know what it means.
 //
-// Note this is a NAVIGATION verdict, not a zoom: what it eventually moves is
-// `state.transitionProgress` inside the reversible scrub band, and nothing in
-// the pipeline can express a camera distance the committed warp could not.
+// Note the verdict is still about OWNERSHIP, not about navigating: claiming
+// means these two fingers belong to the camera rather than to the city they are
+// resting on. Whether the gesture eventually navigates is decided much later, by
+// whether it runs out of zoom and keeps pushing.
 
 export type PinchVerdict = 'watching' | 'claimed' | 'declined'
 
@@ -133,12 +136,21 @@ export function createPinchClassifier(limits: PinchLimits): PinchClassifier {
       return 'declined'
     }
 
-    // Moving away from the other world, by as much as a claim would need toward
-    // it. Symmetric for free: a signed distance is its own mirror, so one
-    // constant serves both ways and they cannot be tuned into disagreeing.
-    if (eligibleGrowthPx <= -limits.claimGrowthPx) return 'declined'
-
-    if (eligibleGrowthPx >= limits.claimGrowthPx) {
+    // BOTH directions claim, since `adr/014`. The wrong way used to be declined
+    // outright, and it was the right rule while a pinch could only mean "leave
+    // this world": moving away from the other world meant nothing, so latching a
+    // decline stopped the gesture flipping halfway through.
+    //
+    // A pinch is a zoom now, and a zoom has two ends. Closing on Earth is
+    // zooming out and opening in Murcia is zooming in — both are real, both are
+    // persistent, and neither can navigate on its own because the band's far end
+    // returns no overflow. So the threshold is on the MAGNITUDE and the sign is
+    // carried through to the band, which is the only thing that has to know what
+    // it means.
+    //
+    // Symmetric for free either way: a signed distance is its own mirror, so one
+    // constant serves both directions and they cannot be tuned into disagreeing.
+    if (Math.abs(eligibleGrowthPx) >= limits.claimGrowthPx) {
       backlogPx = eligibleGrowthPx
       return 'claimed'
     }

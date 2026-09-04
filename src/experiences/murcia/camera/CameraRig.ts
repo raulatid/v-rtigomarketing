@@ -18,11 +18,17 @@ import { applyPoseToCamera, scalePoseDistance } from './applyPoseToCamera';
  * site instead would mean two writers on `distance` and the warp would silently
  * discard it.
  *
- * THE SCALE IS NO LONGER USER STATE, and that is the whole of what changed with
- * `adr/009`. It was the wheel-and-pinch zoom band; there is no zoom any more. The
- * mechanism survived because a controlled focus flight needs exactly it — a way to
- * move distance that composes with a yaw the user still owns — so it changed owner
- * rather than dying, from `DragPanController` to `CameraFlight`.
+ * THE SCALE IS NOT USER STATE, and it stays that way even though the zoom came
+ * back. It was the wheel-and-pinch band until `adr/009` removed zoom outright,
+ * and the mechanism survived because a controlled focus flight needs exactly it
+ * — a way to move distance that composes with a yaw the user still owns — so it
+ * changed owner rather than dying, from `DragPanController` to `CameraFlight`.
+ *
+ * `adr/014` brought the zoom back, and deliberately NOT to here: it writes the
+ * POSE, through `MurciaExperience.applyRigPose`. That keeps the scale's single
+ * writer single, and it is also the only way the two can compose — a district
+ * flight dollies to a fraction of wherever the viewer has zoomed to, rather than
+ * the two fighting over one number.
  *
  * Distance remains a *ground footprint* input, so anything clamping against the
  * footprint has to be recomputed when it changes, exactly as for yaw. That is now the

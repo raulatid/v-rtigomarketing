@@ -1,6 +1,7 @@
 # ADR 013 — The blog is a second document, and the scene is frozen rather than left running
 
 Status: **Accepted** — 2026-08-31
+Amended: **2026-09-04** — the blog's header draws the real 3D mark (see the amendment below)
 Supersedes: `adr/011` §"The blog is modelled and not rendered" — the schema now has a renderer
 Depends on: `adr/003` (both experiences stay mounted), `adr/002` (one render pipeline)
 
@@ -121,6 +122,54 @@ URLs, root-absolute asset paths, and the markers gone. A best-effort string
 replace would emit a document that looks completely fine and carries the wrong
 metadata, which is the one failure nobody would notice.
 
+## Amendment, 2026-09-04 — the mark is the one thing the blog does pay 3D for
+
+**What changes is the SCOPE of "the cold document is 2D", not the decision underneath it.** The
+client asked for the brand mark in the blog's header to be the same 3D logo the scene draws, on
+both hosts, rather than the flat SVG this ADR shipped. It was chosen over the two cheaper answers
+put beside it — a turntable pre-rendered from the same GLB, and a static render — so this is a
+decision, not an oversight, and it should not be re-litigated as one.
+
+The blog still refuses everything this ADR was actually written about: no `App`, no `LazyScene`,
+no intro boot, no Earth textures, no sky, no city, no navigation gesture, no custom cursor. What it
+now permits is exactly the corner logo's own closure — three.js, the Draco and Basis decoders,
+`/models/model.glb` (~20 KB) and `/textures/logoBake.ktx2` (~23 KB).
+
+**The cost is bounded by ORDER rather than by absence, and that is the part worth testing.** The
+SVG is the first paint. The 3D module is fetched on idle, after the article has rendered, through
+one dynamic import in `blog/BlogHeaderLogo.tsx`, so the reader's bytes go to the text first and the
+mark upgrades in place. Every failure path — no WebGL2, a 404 on the GLB, a lost context, a chunk
+that will not load after a redeploy — leaves the SVG standing, which is what this header shipped
+before. `e2e/blog.spec.ts` asserts the ordering, and states the allow-list in both directions:
+a ban narrowed once can be widened again without anyone noticing what came in behind it.
+
+**A warm document now has two WebGL contexts.** The scene's, suspended and hidden, and the
+header's, 44×44 and `low-power`. "The application's single renderer" (`adr/001`, `adr/002`) scopes
+to the SCENE from here on. The concrete consequence to re-read on any change to load ordering is
+`graphics/decoders.ts`, whose `acquireKtx2Loader` calls `detectSupport(renderer)` on every acquire
+and reasons from "one renderer — which is all there ever is here". It is harmless today (same GPU,
+same formats, and the scene's KTX2 loads complete long before the blog is reachable) and it is no
+longer true.
+
+**The renderer outlives the React component that asks for it.** `Index` and `Article` are different
+component types, so `TopBar` unmounts and remounts on every article open; a component-owned
+renderer would drop its context, re-fetch the GLB and re-compile on each one, flickering back to
+the SVG each time. `blog/headerLogoRuntime.ts` therefore keeps one instance per document and
+re-parents its canvas — the residency argument this ADR already makes for the scene, applied to a
+much smaller thing.
+
+**`/`'s initial request count went from 9 to 11, for 3,317 B.** The header logo's own chunk is
+excluded from the modulepreload loop, so none of that is the feature landing on `/`. It is Rollup
+re-cutting shared modules once the corner logo has two dynamic consumers: `utils/easing` and
+`graphics/decoders` stopped being duplicated into their importers and became chunks of their own.
+One of the three splits was worth fixing and was — `CornerLogoLayer` no longer reaches a constant
+out of `logoMotion`, so that module came back inside the corner-logo chunk.
+
+**Open, and deliberately not settled here: the mark is pale on paper.** `logoBake.ktx2` is a light
+material, correct against a black sky and low-contrast against the blog's `#fbfbfa` bar, where the
+flat SVG was near-black ink. The lights belong to `createCornerLogo` and are shared with the scene,
+so darkening them is an art-direction change for both surfaces rather than a blog-side tweak.
+
 ## Consequences
 
 **Warm and cold are genuinely different products, and that is the point.** A warm blog costs one
@@ -161,7 +210,15 @@ collide.
 - Returning from the blog shows a loading state, a re-drawn intro, or a black canvas.
 - `renderer.info` grows across a blog round trip — something is being disposed and rebuilt.
 - `gl.info.render.frame` advances while the blog is open.
-- A cold `/blog` requests `three-*.js`, `city-prototype.glb` or anything under `public/earth/`.
+- A cold `/blog` requests `city-prototype.glb`, anything under `public/earth/`, or a chunk named for
+  `SceneCanvas` or `MurciaExperience`.
+- A cold `/blog` requests `three-*.js` *before* the article has rendered. The mark is deferred, and
+  order is the whole of what "deferred" means on a network log.
+- More than one `<canvas>` exists on a cold `/blog`.
+- The header's mark flickers back to the flat SVG when an article is opened — the runtime's single
+  instance was disposed with the component instead of being re-parented.
+- `/`'s initial JS budget reports a request count with no matching new entry in the itemised list:
+  the `isPreloadedOnIndex` exclusion for the header-logo chunk has stopped matching.
 - The isotype draws itself over an article.
 - The 3D site's body font changes after a visitor reads a post.
 - "Ir atrás" twice from an article lands on the article instead of the scene.

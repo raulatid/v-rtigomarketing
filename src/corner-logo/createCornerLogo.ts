@@ -63,6 +63,16 @@ export interface CornerLogo {
   reset(): void
   dispose(): void
   isReady(): boolean
+  /**
+   * The model's bounding box, width over height. 1 until it is assembled.
+   *
+   * The motion module anchors the box's LEFT EDGE to `insetLeftPx`, which is
+   * what the site's header wants. A caller that wants the mark CENTRED in its
+   * own little surface — BlogHeaderLogo — has to convert, and the width it needs
+   * is `aspect × heightPx`. Exposed rather than adding a second anchoring mode
+   * to logoMotion for one consumer.
+   */
+  modelAspect(): number
 }
 
 export function createCornerLogo({
@@ -96,6 +106,7 @@ export function createCornerLogo({
 
   let modelReady = false
   let disposed = false
+  let aspect = 1
 
   const load = loadLogoAssets(renderer)
 
@@ -140,6 +151,7 @@ export function createCornerLogo({
     // The motion module anchors the box's EDGE to the header's inset and sizes
     // it to the header's line, so it needs the box, not just the fit distance.
     motion.setModelSize(size)
+    if (size.y > 0) aspect = size.x / size.y
     const maxDim = Math.max(size.x, size.y, size.z)
     const fovRad = THREE.MathUtils.degToRad(camera.fov)
     const framedDistance = (maxDim / 2 / Math.tan(fovRad / 2)) * config.cornerFramePadding
@@ -201,6 +213,11 @@ export function createCornerLogo({
     setSize(width, height) {
       camera.aspect = width / height
       camera.updateProjectionMatrix()
+      // The motion module turns CSS pixels into world units, and the divisor is
+      // the height of the surface being drawn into — which is exactly what this
+      // call already knows. It used to read `window.innerHeight` itself, correct
+      // only while the one surface was the scene canvas.
+      motion.setSurfaceHeight(height)
     },
 
     setCornerMetrics: (metrics) => motion.setCornerMetrics(metrics),
@@ -235,5 +252,7 @@ export function createCornerLogo({
     },
 
     isReady: () => modelReady,
+
+    modelAspect: () => aspect,
   }
 }

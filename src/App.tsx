@@ -117,18 +117,22 @@ export default function App() {
   const [murciaReady, setMurciaReady] = useState(false)
   const handleMurciaReady = useCallback(() => setMurciaReady(true), [])
 
-  // Declared before the transition so `onSettled` can reach it, and assigned
-  // after — the two are mutually recursive by nature: a commit starts a warp, and
-  // the warp ending is what releases the input lock.
+  // Declared before the transition so `onSettled` and `onCut` can reach them, and
+  // assigned after — the two are mutually recursive by nature: a commit starts a
+  // warp, and the warp is what releases the input lock and clears the zoom.
   const navigationRef = useRef<HTMLDivElement>(null)
   const settleNavigationRef = useRef<() => void>(() => {})
+  const resetZoomRef = useRef<() => void>(() => {})
 
-  const { transitionTo, transitioning, scrub } = useExperienceTransition({
+  const { transitionTo, transitioning } = useExperienceTransition({
     state,
     onSwap: setActiveExperience,
     // The REAL end of the warp, not the `transitioning` flag, which lands a
     // render later — long enough for a trackpad momentum tail to be accepted.
     onSettled: () => settleNavigationRef.current(),
+    // The viewer's zoom belongs to the world they were in. Cleared on the cut's
+    // frame, under full cover, alongside every other discontinuity (`adr/014`).
+    onCut: () => resetZoomRef.current(),
   })
 
   // Mirrors the audit section's open state so the global Escape handler can
@@ -153,6 +157,8 @@ export default function App() {
   // them owns the key, and the navigation predicate below refuses a warp
   // while something has the viewer's attention.
   const [contactOpen, setContactOpen] = useState(false)
+  // The phone menu in the header. Escape folds it, and must do only that.
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null)
 
   // The site header's actions cell, once it exists. The two sections portal
@@ -198,6 +204,7 @@ export default function App() {
   const {
     settle: settleNavigation,
     reset: resetNavigation,
+    resetZoom: resetNavigationZoom,
     contextChanged: navigationContextChanged,
   } = useSceneNavigation({
     rootRef: navigationRef,
@@ -223,12 +230,22 @@ export default function App() {
         !murciaRef.current?.hasFocusedDistrict,
     }),
     onCommit: (intent) => transitionTo(intent === 'enter-murcia' ? 'murcia' : 'earth'),
-    // The scene IS the progress indicator now. The gesture drives the departing
-    // half of the real warp, reversibly, and the cinematic picks up from
-    // wherever it left the camera (`scrub` in useExperienceTransition).
-    onProgress: scrub,
+    // The zoom IS the scene feedback. Written straight onto the mutable sequence
+    // state, never through React: a wheel produces well over a hundred events a
+    // second and each world reads this from its own frame callback.
+    //
+    // There is deliberately no `onProgress` any more. It used to drive a scrub
+    // of the warp cinematic — the reversible bend that `adr/014` replaced — and
+    // the accumulator's remaining job is a commit threshold with nothing to
+    // draw: once the zoom is pinned at its limit, pushing further moves nothing
+    // until it navigates. The `--nav-progress` custom property still carries it
+    // for the e2e suite, painted by the input layer itself.
+    onZoom: (depth) => {
+      state.zoomDepth = depth
+    },
   })
   settleNavigationRef.current = settleNavigation
+  resetZoomRef.current = resetNavigationZoom
 
   // Seeking moves the intro phase, backwards included, and a gesture accumulated
   // against the old phase would survive into one where navigation is refused.
@@ -363,14 +380,24 @@ export default function App() {
       // meaningless there.
       // The blog owns Escape while it is open, and skipping an intro from
       // behind a reading page would be meaningless anyway.
+      // The header's phone menu owns it too: a re-seek to 'site' snaps the
+      // parked logo (snapToCorner resets its idle spin), which is a visible
+      // jolt for a viewer who only meant to fold a menu.
       if (blogOpen) return
       if (!earthActive) return
-      if (e.key === 'Escape' && !selectedCase && !auditOpen && !contactOpen && !legalDoc)
+      if (
+        e.key === 'Escape' &&
+        !selectedCase &&
+        !auditOpen &&
+        !contactOpen &&
+        !legalDoc &&
+        !headerMenuOpen
+      )
         handleSkip()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleSkip, selectedCase, auditOpen, contactOpen, legalDoc, earthActive, blogOpen])
+  }, [handleSkip, selectedCase, auditOpen, contactOpen, legalDoc, headerMenuOpen, earthActive, blogOpen])
 
   return (
     <div className="app">
@@ -409,6 +436,7 @@ export default function App() {
         tone={earthActive ? 'dark' : 'light'}
         hasActions={phase === 'site'}
         onActionsHost={setHeaderActions}
+        onMenuOpenChange={setHeaderMenuOpen}
       />
       <LazyScene
         suspended={blogOpen}

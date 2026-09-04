@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { createNavigationInput } from './createNavigationInput'
 import type { NavigationContext } from './createNavigationInput'
+import { NAVIGATION_GESTURE, NAVIGATION_ZOOM } from './navigationConfig'
 
 // The control's painted state must derive from the navigation context, never
 // from the input loop happening to run. The bug these tests pin down: the loop
@@ -26,20 +27,33 @@ function setup(initial: Partial<NavigationContext> = {}) {
   document.body.appendChild(root)
   const context: NavigationContext = { current: 'earth', canNavigate: true, ...initial }
   const commits: string[] = []
+  let depth = 0
   const input = createNavigationInput({
     root,
     hintDelayMs: HINT_MS,
     getContext: () => ({ ...context }),
     onCommit: (intent) => commits.push(intent),
+    onZoom: (value) => {
+      depth = value
+    },
   })
   return {
     root,
     context,
     input,
     commits,
+    depth: () => depth,
+    progress: () => Number(root.style.getPropertyValue('--nav-progress')) || 0,
     hint: root.querySelector<HTMLElement>('.nav-hint')!,
     control: root.querySelector<HTMLElement>('.nav-control')!,
   }
+}
+
+/** One wheel event, in CSS pixels. `deltaMode: 0` is what a browser sends. */
+function wheel(deltaY: number) {
+  window.dispatchEvent(
+    new WheelEvent('wheel', { deltaY, deltaMode: 0, bubbles: true, cancelable: true }),
+  )
 }
 
 const after = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -83,6 +97,43 @@ describe('painted state derives from the navigation context', () => {
     input.contextChanged()
     expect(root.dataset.direction).toBe('up')
     input.dispose()
+  })
+})
+
+describe('one event cannot cross the gesture, whichever stage it lands in', () => {
+  const CAP = NAVIGATION_GESTURE.maxEventTravelPx
+
+  it('caps an absurd wheel event before either stage sees it', async () => {
+    // The hazard `maxEventTravelPx` was written for: macOS momentum delivers
+    // hundreds of pixels in the event at the head of a flick, so one physical
+    // flick could carry a whole gesture.
+    //
+    // It used to be enforced inside `navigationGesture`, which was fine while
+    // that was the only thing an event could reach. `adr/014` put the zoom band
+    // in front of it and briefly broke the guarantee in the worst possible way:
+    // the uncapped event saturated the entire band AND overflowed by 99,400px,
+    // which the accumulator then clamped to a full 120px push. One notch threw
+    // the camera to the end of its travel and banked 40% of a warp.
+    const t = setup()
+    wheel(100_000)
+    await twoFrames()
+
+    expect(t.depth()).toBeCloseTo(CAP / NAVIGATION_ZOOM.towardTravelPx, 6)
+    expect(t.progress()).toBe(0)
+    expect(t.commits).toEqual([])
+    t.input.dispose()
+  })
+
+  it('still lets a stream of ordinary events cross it', async () => {
+    // The other half, without which the cap above is satisfiable by refusing
+    // everything. The band is travel, not a rate limit: enough events get there.
+    const t = setup()
+    const events = Math.ceil(NAVIGATION_ZOOM.towardTravelPx / CAP)
+    for (let i = 0; i < events; i += 1) wheel(CAP)
+    await twoFrames()
+
+    expect(t.depth()).toBeCloseTo(1, 6)
+    t.input.dispose()
   })
 })
 

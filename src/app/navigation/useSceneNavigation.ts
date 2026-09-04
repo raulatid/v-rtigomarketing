@@ -25,6 +25,14 @@ interface Params {
    * render cannot rebuild the listeners and drop a gesture in flight.
    */
   onProgress?: (progress: number) => void
+  /**
+   * The persistent zoom moved, -1..+1. Same ref treatment as the others.
+   *
+   * Separate from `onProgress` because the two are different KINDS of number:
+   * progress is a transient the input owns and animates, the zoom is a position
+   * the viewer owns and nothing here ever takes back.
+   */
+  onZoom?: (depth: number) => void
 }
 
 /**
@@ -44,6 +52,7 @@ export function useSceneNavigation({
   getContext,
   onCommit,
   onProgress,
+  onZoom,
 }: Params) {
   const inputRef = useRef<NavigationInput | null>(null)
 
@@ -53,6 +62,8 @@ export function useSceneNavigation({
   commitRef.current = onCommit
   const progressRef = useRef(onProgress)
   progressRef.current = onProgress
+  const zoomRef = useRef(onZoom)
+  zoomRef.current = onZoom
 
   useEffect(() => {
     const root = rootRef.current
@@ -63,6 +74,7 @@ export function useSceneNavigation({
       getContext: () => contextRef.current(),
       onCommit: (intent) => commitRef.current(intent),
       onProgress: (progress) => progressRef.current?.(progress),
+      onZoom: (depth) => zoomRef.current?.(depth),
     })
     inputRef.current = input
 
@@ -85,6 +97,15 @@ export function useSceneNavigation({
   const reset = useCallback(() => inputRef.current?.reset(), [])
 
   /**
+   * The world under the zoom has been replaced. Wired to the warp's CUT.
+   *
+   * Memoised with no dependencies for the same load-bearing reason `reset` is:
+   * it is handed to `useExperienceTransition`, which reads it through a ref that
+   * must stay correct across a rebuild without ever changing identity.
+   */
+  const resetZoom = useCallback(() => inputRef.current?.resetZoom(), [])
+
+  /**
    * The semantic inputs of `getContext` changed — a panel opened or closed, a
    * world became ready. The control derives its painted state from the context,
    * and the input's frame loop only runs mid-gesture, so this notification is
@@ -101,5 +122,5 @@ export function useSceneNavigation({
   //
   // They close over a ref rather than over the input, so they stay correct across
   // a rebuild without ever changing identity.
-  return { settle, reset, contextChanged }
+  return { settle, reset, resetZoom, contextChanged }
 }

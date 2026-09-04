@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { BlogPost, CaseStudy } from '../../src/content/types'
+import type { BlogPost, CaseStudy, SiteSettings } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
@@ -412,6 +412,55 @@ describe('site settings is a singleton the build proves', () => {
     record.phones = []
     expect(problemsFor(siteSettingsCollection, record).length).toBeGreaterThan(0)
   })
+
+  // The label is OPTIONAL (2026-09-04), which is a claim about three separate
+  // things: a phone written without one still maps, a blank one is treated as
+  // absent rather than carried as '', and the key is omitted rather than set to
+  // undefined — the same shape an image caption has.
+  describe('the phone label', () => {
+    const phones = (record: Record<string, unknown>) => {
+      const result = siteSettingsCollection.map(record, 0)
+      if (!result.ok) throw new Error(result.problems.map((p) => p.path).join(', '))
+      // `collection()` erases the entity type to `{ id: string }` so the
+      // generator can hold a heterogeneous list (types.ts, AnyCollection), so
+      // every reader of a mapped value casts at the edge. This one does what
+      // the generator does.
+      return (result.value as SiteSettings).phones
+    }
+
+    it('is carried through when the editor writes one', () => {
+      const record = validSettings()
+      record.phones = [{ label: 'Madrid', display: '+34 600 000 000', tel: '+34600000000' }]
+      expect(phones(record)[0].label).toBe('Madrid')
+    })
+
+    it('is absent, not empty, when the field is blank, null or missing', () => {
+      // Clearing the field in the Studio leaves '' behind, not undefined. All
+      // three have to mean the same thing, or the renderer would show a stray
+      // colon for one of them.
+      for (const label of ['', null, undefined]) {
+        const record = validSettings()
+        record.phones = [{ label, display: '+34 600 000 000', tel: '+34600000000' }]
+        const [phone] = phones(record)
+        expect(phone.label, String(label)).toBeUndefined()
+        expect('label' in phone, String(label)).toBe(false)
+      }
+    })
+
+    it('rejects one long enough to be a sentence', () => {
+      const record = validSettings()
+      record.phones = [{ label: 'x'.repeat(25), display: '+34 600 000 000', tel: '+34600000000' }]
+      expect(problemsFor(siteSettingsCollection, record)).toContain('site.phones[0].label')
+    })
+
+    it('still accepts a phone that predates the field', () => {
+      // The two-field shape is what every phone in the live dataset looks like
+      // until someone opens the Studio. It must keep mapping.
+      const record = validSettings()
+      record.phones = [{ display: '+34 600 000 000', tel: '+34600000000' }]
+      expect(problemsFor(siteSettingsCollection, record)).toEqual([])
+    })
+  })
 })
 
 describe('blog category, reading time and SEO', () => {
@@ -766,5 +815,103 @@ describe('the case-study projection hands the mirror what it expects', () => {
     expect(rules.isotype.minAspect).toBeLessThan(1)
     expect(rules.isotype.maxAspect).toBeGreaterThan(1)
     expect(rules.logo.minAspect).toBeGreaterThan(1)
+  })
+})
+
+/**
+ * The confirmation copy, editable since 2026-09-04 (plan 012).
+ *
+ * It moved into the CMS for the same reason the phone numbers did: it is a
+ * sentence a client will want to reword — "te responderemos en menos de 24
+ * horas" is a promise about their own working week — and the alternative to a
+ * field is a deploy for a sentence.
+ */
+describe('the forms\' confirmation copy', () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+
+  const FIELDS = [
+    'auditSuccessTitle',
+    'auditSuccessBody',
+    'contactSuccessTitle',
+    'contactSuccessBody',
+  ] as const
+
+  it('carries all four strings through from the fixture', () => {
+    const result = siteSettingsCollection.map(validSettings(), 0)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const value = result.value as SiteSettings
+    for (const field of FIELDS) {
+      expect(typeof value[field], field).toBe('string')
+      expect(value[field].length, field).toBeGreaterThan(0)
+    }
+  })
+
+  it('falls back to the shipped copy when the CMS has never been given one', () => {
+    // A new field arriving in a dataset that predates it must not fail the
+    // build, or the first deploy after this change is blocked on somebody
+    // opening the Studio. The fallbacks are the exact strings the two panels
+    // rendered before the copy became editable, so an untouched dataset
+    // behaves identically. The collection file records the full reasoning.
+    for (const field of FIELDS) {
+      for (const blank of [undefined, null, '']) {
+        const record = validSettings()
+        record[field] = blank
+        const result = siteSettingsCollection.map(record, 0)
+        expect(result.ok, field + '=' + String(blank)).toBe(true)
+        if (result.ok) {
+          expect((result.value as SiteSettings)[field].length).toBeGreaterThan(0)
+        }
+      }
+    }
+  })
+
+  it('still refuses a value that is present and wrong', () => {
+    // The fallback is for ABSENCE. Anything actually written is validated.
+    const record = validSettings()
+    record.auditSuccessTitle = 'a'.repeat(61)
+    expect(problemsFor(siteSettingsCollection, record)).toContain('site.auditSuccessTitle')
+  })
+
+  it('bounds the titles and the bodies at different lengths', () => {
+    // A title is a heading in a panel and a body is two lines under it. The
+    // point of the bound is that neither can silently become a paragraph.
+    const record = validSettings()
+    record.auditSuccessTitle = 'a'.repeat(61)
+    expect(problemsFor(siteSettingsCollection, record)).toContain('site.auditSuccessTitle')
+
+    const longBody = validSettings()
+    longBody.contactSuccessBody = 'a'.repeat(241)
+    expect(problemsFor(siteSettingsCollection, longBody)).toContain('site.contactSuccessBody')
+  })
+
+  it('strips markup out of copy that is rendered as text', () => {
+    // These land in a `<p>` and an `<h2>` as plain strings, so no tag may
+    // survive the mapper. Stripped rather than refused, which is the contract
+    // every other CMS text field in this repository already has (`text()` in
+    // content/lib/validate.ts): an editor pasting from a document gets the
+    // words, and the renderer never receives markup it would have to trust.
+    const record = validSettings()
+    record.contactSuccessBody = 'Gracias <b>de verdad</b> por <script>alert(1)</script>escribirnos.'
+    const result = siteSettingsCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const body = (result.value as SiteSettings).contactSuccessBody
+    expect(body).not.toMatch(/</)
+    expect(body).toContain('de verdad')
+    expect(body).not.toContain('alert(1)')
+  })
+
+  it('decodes an entity rather than shipping it to a text node', () => {
+    // `&amp;` reaching an `<h2>` renders as `&amp;`. Decoding is `text()`'s job
+    // and `content/lib/html.test.ts` owns the rule; this only proves these four
+    // fields go through it rather than around it.
+    const record = validSettings()
+    record.auditSuccessTitle = 'Solicitud &amp; recibida'
+    const result = siteSettingsCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect((result.value as SiteSettings).auditSuccessTitle).toBe('Solicitud & recibida')
+    }
   })
 })

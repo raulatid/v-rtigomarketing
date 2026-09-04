@@ -112,12 +112,17 @@ export function CameraController({
     // stands down (InteractionLayer stops calling its update), so this is the
     // sole camera writer for the duration. Two writers per frame is the failure
     // the source project removed OrbitControls to avoid.
-    // Committed only. A scrubbed gesture also moves transitionProgress, but the
-    // rig is still live and is still the frame's LAST camera writer, so anything
-    // written here would be overwritten before the draw — the scrub is applied
-    // after the rig instead, by `applyScrubPose`. Capturing an anchor once is
-    // right for a cinematic on a stood-down rig, and wrong for a pose the viewer
-    // is actively dragging.
+    // Committed only, and since `adr/014` that is the only thing `progress` can
+    // mean: a viewer-driven gesture moves their own ZOOM, which the rig applies
+    // to its orbit radius, and never this. It mattered while the two shared the
+    // number — the rig was still live and still the frame's last camera writer,
+    // so a scrub written here would have been overwritten before the draw.
+    //
+    // Capturing the dolly anchor once is right for a cinematic on a stood-down
+    // rig, and would be wrong for a pose the viewer is actively moving. It is
+    // also what makes a commit from a zoomed camera seamless: the anchor is the
+    // live `cam.position`, so the warp is relative to wherever the zoom left it
+    // and there is no absolute target to snap to.
     if (state.transitionCommitted) {
       applyWarp(cam, state.transitionProgress, delta)
       applyOverlay()

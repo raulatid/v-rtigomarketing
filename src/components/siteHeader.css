@@ -5,7 +5,8 @@
    it is loaded by whichever document renders it and never through styles.css.
 
    The header is three things on one line: the 3D corner logo top-left (drawn
-   by the scene canvas, NOT by this DOM — the blog draws an SVG mark instead),
+   by the scene canvas, NOT by this DOM — the blog draws the same logo on a
+   small canvas of its own, centred, see blog.css `.blog-topbar__stage`),
    the two triggers top-right, and on a phone a burger that holds them. The
    `.site-header__row` box is the single source of that line's geometry: CSS
    lays the controls on it, and CornerLogoLayer MEASURES it to place and size
@@ -96,8 +97,9 @@
 
 /* The blog's bar: paper, a hairline, and it takes pointer events as a whole
    because there is nothing to drag underneath it. Its vertical padding is its
-   own — the 48px line is the scene's composition, and the blog has no 3D logo
-   to share it with. `.blog-root` pads its top by the same band (blog.css). */
+   own — the 48px line is the scene's composition, and the blog's mark sizes
+   itself from its own cell rather than from that line (it is a bar, not a
+   corner). `.blog-root` pads its top by the same band (blog.css). */
 .site-header[data-layout='blog'] {
   /* UNDER the curtain (60) and the modals (62), which the blog mounts as its
      siblings inside `.blog-root`: an opaque bar above them would cover the
@@ -107,10 +109,12 @@
   pointer-events: auto;
   background: #fbfbfa;
   border-bottom: 1px solid rgba(11, 11, 13, 0.12);
+  /* On the HEADER, not the row: the phone menu's field is the row's sibling
+     and hangs from the same line, so both must read the same value. */
+  --header-line-top: 14px;
 }
 
 .site-header[data-layout='blog'] .site-header__row {
-  --header-line-top: 14px;
   height: calc(var(--header-line-top) * 2 + var(--header-control));
   padding-bottom: var(--header-line-top);
 }
@@ -247,9 +251,28 @@
   color: #1c67ff;
 }
 
-/* ---- The burger (phones) ---------------------------------------------------
-   Deliberately minimal (2026-09-03): a 44px button, and when open a white sheet
-   under the bar with the two triggers stacked. A fuller menu is later work. */
+/* ---- The phone menu: a glass field (2026-09-04, plan 011) -------------------
+
+   Below 768px the two triggers fold behind a burger. Open, the menu is not a
+   sheet but a FIELD: the emitter line ignites under the header, dark glass
+   descends from it over the live scene and thins to nothing towards the floor,
+   and the two doors rise into it. Nothing has an edge — the hologram rule
+   (createHoloPanel.ts): what bounds it is falloff. Materials and timings are
+   the site's own — the audit curtain's line, the case panel's glass, the
+   house entry ease and the exit ease, the audit groups' stagger.
+
+   All of it is CSS keyed on `[data-menu-open]`; there is no clock in
+   JavaScript. Hiding waits on a delayed `visibility` flip (the case-panel
+   idiom), so the close can finish before the box goes away.
+
+   Two elements do the work, in the header's own stacking context (z 70 over
+   the scene, 50 on the blog):
+     0  .site-header__field   the ground: `::before` is the line, `::after`
+                              the glass. Two pseudo-elements because the glass
+                              WIPES with clip-path, and clip-path would clip
+                              the line and its glow with it.
+     1  .site-header__end     the portal host — the two triggers, as they are
+     2  the row's controls    the burger, and the blog's back/brand/search    */
 
 .site-header__burger {
   display: none;
@@ -263,15 +286,45 @@
   cursor: pointer;
 }
 
-.site-header__burger svg {
-  display: block;
-  width: 24px;
-  height: 24px;
-  margin: auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
+/* Three bars that become a ✕. The closed state carries the EXIT ease (the
+   way back); the open rule below swaps in the entry ease. */
+.site-header__burger-bar {
+  position: absolute;
+  left: 11px;
+  top: calc(50% - 1px);
+  width: 22px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: center;
+  transition:
+    transform 280ms cubic-bezier(0.55, 0, 0.3, 1),
+    opacity 280ms cubic-bezier(0.55, 0, 0.3, 1);
+}
+
+.site-header__burger-bar:nth-child(1) {
+  transform: translateY(-6px);
+}
+
+.site-header__burger-bar:nth-child(3) {
+  transform: translateY(6px);
+}
+
+.site-header[data-menu-open] .site-header__burger-bar {
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.site-header[data-menu-open] .site-header__burger-bar:nth-child(1) {
+  transform: rotate(45deg);
+}
+
+.site-header[data-menu-open] .site-header__burger-bar:nth-child(2) {
+  transform: scaleX(0);
+  opacity: 0;
+}
+
+.site-header[data-menu-open] .site-header__burger-bar:nth-child(3) {
+  transform: rotate(-45deg);
 }
 
 .site-header[data-tone='light'] .site-header__burger {
@@ -284,48 +337,217 @@
   border-radius: 8px;
 }
 
+/* Only a phone draws the field; on a wider viewport it is an empty box. */
+.site-header__field {
+  display: none;
+}
+
 @media (max-width: 767px) {
+  /* First in the DOM so Tab reaches the items; last on the line. */
   .site-header__burger {
     display: flex;
+    order: 1;
   }
 
-  .site-header__end {
-    display: none;
-  }
+  /* ---- The field ---------------------------------------------------------- */
 
-  .site-header[data-menu-open] .site-header__end {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+  .site-header__field {
+    display: block;
     position: fixed;
-    top: calc(var(--header-line-top) + var(--header-control) + 8px);
+    top: calc(var(--header-line-top) + var(--header-control));
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+    pointer-events: none;
+    visibility: hidden;
+    /* The close takes 400ms end to end (glass 80 + 320); the box leaves then. */
+    transition: visibility 0s linear 400ms;
+  }
+
+  .site-header[data-layout='blog'] .site-header__field {
+    top: calc(var(--header-line-top) * 2 + var(--header-control));
+  }
+
+  /* The emitter line: the audit curtain's, laid along the header's line and
+     feathered at both ends so it never terminates in a cut. Unclipped. */
+  .site-header__field::before {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(28, 103, 255, 0.45);
+    box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+    transform: scaleX(0);
+    transform-origin: center;
+    opacity: 0;
+    /* Extinguish: the way out. */
+    transition:
+      transform 200ms cubic-bezier(0.55, 0, 0.3, 1),
+      opacity 200ms ease-in;
+  }
+
+  /* The glass: the case panel's material, but a gradient that runs out
+     instead of a border that stops. It wipes down from the line under cover
+     of the line (DECISIONS §6: nothing cross-fades). Prefixed filter first —
+     styles.css explains (Safari < 18). If the wipe ever tears over the blur
+     on iOS, swap the clip-path pair for translateY(-100%) → 0, same timing. */
+  .site-header__field::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(12, 15, 22, 0.86),
+      rgba(4, 6, 10, 0.72) 55%,
+      rgba(4, 6, 10, 0) 100%
+    );
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    /* The gradient thins the TINT; the blur would still run to the floor at
+       full strength and read as a sheet with its edge at the screen's edge.
+       The mask fades the blur out with the tint, so the page beneath comes
+       back into focus where the glass has run out. Verified on Chromium;
+       Safari's handling of a mask over -webkit-backdrop-filter is the thing
+       the iOS device matrix has to confirm. */
+    -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 40%, transparent 100%);
+    clip-path: inset(0 0 100% 0);
+    /* Wipe back up: after the items have gone (80ms), the exit ease. */
+    transition: clip-path 320ms cubic-bezier(0.55, 0, 0.3, 1) 80ms;
+  }
+
+  /* Over a light ground the glass is paper, and the same line runs on it. */
+  .site-header[data-tone='light'] .site-header__field::after {
+    background: linear-gradient(
+      180deg,
+      rgba(251, 251, 250, 0.88),
+      rgba(251, 251, 250, 0.72) 55%,
+      rgba(251, 251, 250, 0) 100%
+    );
+  }
+
+  .site-header[data-menu-open] .site-header__field {
+    visibility: visible;
+    pointer-events: auto;
+    /* A swipe on the glass is not a scroll of the page beneath (the blog). */
+    touch-action: none;
+    transition: none;
+  }
+
+  .site-header[data-menu-open] .site-header__field::before {
+    transform: scaleX(1);
+    opacity: 1;
+    transition:
+      transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 120ms ease-out;
+    /* Then it breathes, as the hologram's line does (uBreath, 1.4 rad/s —
+       a 4.5s period). Delayed past the ignition and unfilled, so the
+       transition owns the first 360ms and the breath takes over from there. */
+    animation: site-header-breath 4.5s ease-in-out 360ms infinite alternate;
+  }
+
+  .site-header[data-menu-open] .site-header__field::after {
+    clip-path: inset(0);
+    transition: clip-path 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+  }
+
+  /* ---- The items ---------------------------------------------------------- */
+
+  /* Always fixed and boxed on a phone, hidden by visibility rather than
+     display: transitions need a box, and the e2e gate for phase 'site'
+     waits for `.audit-trigger` to be ATTACHED, not shown. Two rows, ~150px:
+     it never scrolls, so it needs no touch-action of its own. */
+  .site-header__end {
+    position: fixed;
+    top: calc(var(--header-line-top) + var(--header-control));
     left: 0;
     right: 0;
     z-index: 1;
-    padding: 16px 20px 24px;
-    background: #fff;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
-    pointer-events: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 18px 20px 24px;
+    visibility: hidden;
+    transition: visibility 0s linear 400ms;
   }
 
-  .site-header[data-layout='blog'][data-menu-open] .site-header__end {
+  .site-header[data-layout='blog'] .site-header__end {
     top: calc(var(--header-line-top) * 2 + var(--header-control));
-    border-top: 1px solid rgba(11, 11, 13, 0.12);
-    box-shadow: none;
   }
 
-  .site-header[data-menu-open] .contact-trigger {
-    justify-content: center;
-    height: 44px;
-    color: rgba(11, 11, 13, 0.85);
+  .site-header[data-menu-open] .site-header__end {
+    visibility: visible;
+    transition: none;
   }
 
-  .site-header[data-menu-open] .audit-trigger {
+  /* The doors rise into the field, one behind the other — the audit groups'
+     arrangement. One rest value for the way out: 10px down, 160ms, content
+     first as the curtain does. This transition list REPLACES the triggers'
+     own on a phone; the reveal delays below are what stagger them. */
+  .site-header__end > * {
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 160ms ease-in,
+      transform 160ms ease-in;
+  }
+
+  .site-header[data-menu-open] .site-header__end > * {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 380ms ease-out,
+      transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .site-header[data-menu-open] .site-header__end > :nth-child(1) {
+    transition-delay: 220ms;
+  }
+
+  .site-header[data-menu-open] .site-header__end > :nth-child(2) {
+    transition-delay: 300ms;
+  }
+
+  /* The reveal's transform would otherwise outrank the triggers' press. */
+  .site-header[data-menu-open] .site-header__end > :active {
+    transform: scale(0.97);
+  }
+
+  /* A trigger standing down keeps standing down. The reveal above outranks
+     the triggers' own `[data-state]` / `[data-suppressed]` fades, and it is
+     reachable: over the scene the header (70) sits above the audit curtain
+     (60), so the burger can open the menu onto an audit already open. Same
+     specificity, later in the source, so these win. */
+  .site-header[data-menu-open] .audit-trigger[data-state='open'],
+  .site-header[data-menu-open] .audit-trigger[data-state='entering'],
+  .site-header[data-menu-open] .contact-trigger[data-suppressed] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Contacto as a row: the eyebrow's tick (auditSection.css) carries the
+     accent, the text stays the bare text it is on the line. */
+  .site-header__end > .contact-trigger {
+    height: 52px;
+    justify-content: flex-start;
+    padding-left: 0.75rem;
+    border-left: 2px solid rgba(28, 103, 255, 0.85);
+    border-radius: 0;
+    font-size: 0.85rem;
+  }
+
+  .site-header__end > .audit-trigger {
     width: 100%;
+    height: var(--header-control);
   }
 
-  /* The row's own controls stay above the sheet. */
+  /* The row's own controls stay above the field and the items. */
   .site-header__start,
   .site-header__brand,
   .site-header__extra {
@@ -334,10 +556,37 @@
   }
 }
 
+@keyframes site-header-breath {
+  from {
+    opacity: 0.92;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .audit-trigger,
   .contact-trigger {
     transition: none;
+    animation: none;
+  }
+
+  /* Shortened, not deleted: the state still changes and the box still has to
+     go. The delay too — the visibility flip is a delay, and a duration
+     override alone would hold an invisible field over the page for 400ms
+     after every close (styles.css says the same of the case panel). */
+  .site-header__burger-bar,
+  .site-header__field,
+  .site-header__field::before,
+  .site-header__field::after,
+  .site-header__end,
+  .site-header__end > * {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+
+  .site-header__field::before {
     animation: none;
   }
 }

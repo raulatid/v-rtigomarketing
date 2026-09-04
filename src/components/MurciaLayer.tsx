@@ -235,12 +235,12 @@ export function MurciaLayer({
     // way back to Earth, dropping in on the way down (ADR 006). It flips at the
     // cut in the same frame `active` does, and any disagreement between the two
     // for one frame is under a fully black flash.
-    // Reduced motion suppresses the CINEMATIC's travel — an effect applied TO the
-    // viewer — but keeps a scrub's, which is direct manipulation: 1:1 with their
-    // own fingers, and it stops the moment they stop. That is the split
-    // `scrubPose.ts` makes on Earth, and until now this was the last place the
-    // two worlds disagreed: Murcia gated the whole pose on the flag, so a
-    // reduced-motion viewer could pinch and watch the city do nothing.
+    // Reduced motion suppresses the CINEMATIC's travel — an effect applied TO
+    // the viewer — but never the zoom below, which is direct manipulation: 1:1
+    // with their own fingers, and it stops the moment they stop. That is the
+    // same split Earth makes, and it is why the zoom is written outside this
+    // guard: a reduced-motion viewer pinching the city and watching it do
+    // nothing was a real defect on the pose this replaced.
     //
     // Suppression here means DO NOTHING, not reset. The pose freezes wherever
     // the fingers left it and the scene swaps under the flash, which is the same
@@ -248,6 +248,20 @@ export function MurciaLayer({
     // journey. Resetting instead would snap the city back to rest at the moment
     // of commit, in plain view, which is more motion rather than less.
     const p = state.transitionProgress
+
+    // The viewer's own zoom, straight through. Persistent, so unlike the warp
+    // pose there is no "back to rest" branch here — the only thing that returns
+    // it to rest is the cut, and that writes the state this reads.
+    //
+    // Applied even while Earth is showing, so the city is already at the right
+    // pose on the frame it becomes visible rather than easing into it afterwards
+    // — `update()` is a no-op while inactive, which is what would otherwise make
+    // the eased depth arrive late.
+    //
+    // `immediate` under a committed cinematic: the depth is reset at the cut and
+    // an ease still running across that frame would leave the arriving city
+    // pulling back toward a moving target.
+    experience.setZoomDepth(state.zoomDepth, state.transitionCommitted)
     const suppressed = reducedMotion && state.transitionCommitted
     if (p > 0) {
       if (active && !suppressed) {

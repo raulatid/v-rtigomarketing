@@ -362,10 +362,18 @@ console.log('\n2. Gesture isolation — one input, one effect');
   );
 }
 {
-  // The wheel belongs to scene navigation now (`adr/009`). This controller does not
-  // listen for it at all, and the assertion inverted with the feature: it used to be
-  // "a wheel event zooms and nothing else", and it is now "a wheel event does nothing
-  // whatsoever". A regression that re-added a wheel handler here would fail.
+  // The wheel belongs to scene navigation, and it has since `adr/009`. This
+  // controller does not listen for it at all, and the assertion inverted with that
+  // change: it used to be "a wheel event zooms and nothing else", and it is now "a
+  // wheel event does nothing whatsoever". A regression that re-added a wheel handler
+  // here would fail.
+  //
+  // `adr/014` put a zoom back in the product and this assertion did NOT invert again,
+  // which is worth stating because it is the natural place to expect it to. The zoom
+  // lives one layer up: `createNavigationInput` owns the wheel, and Murcia answers by
+  // writing the rig's POSE from `MurciaExperience.applyRigPose`. Nothing about that
+  // reaches this controller, and it must not — a second wheel owner is exactly the
+  // arrangement `adr/009` removed.
   const h = makeHarness();
   const startX = h.rig.focus.x;
   const startZ = h.rig.focus.z;
@@ -387,6 +395,49 @@ console.log('\n2. Gesture isolation — one input, one effect');
     'and the controller is not left settling toward anything',
     !h.controller.isSettling,
     'a wheel that quietly set a target would show up here',
+  );
+}
+{
+  // The seam the zoom actually arrives through, driven the way `applyRigPose` drives
+  // it: a whole new pose object, written to the rig mid-gesture.
+  //
+  // This is the composition the two-writer rule buys. The viewer's yaw, the district
+  // flight's dolly and the focus all belong to this controller and the rig; the zoom
+  // belongs to the experience above it and touches only `distance` and
+  // `elevationDegrees`. If `setPose` ever stopped preserving the rest, a viewer who
+  // zoomed would have their turn and their district flight silently undone — and it
+  // would happen on every wheel notch, which is to say constantly.
+  const h = makeHarness();
+  drag(h, 260, 0, 2); // turn first, so there is something to lose
+  h.step(1.0);
+  release(h, 2);
+  h.step(1.0);
+  h.rig.setDistanceScale(env.focusFlight.minDistanceScale);
+
+  const yaw = h.rig.getYaw();
+  const scale = h.rig.getDistanceScale();
+  const focusBefore = { x: h.rig.focus.x, z: h.rig.focus.z };
+
+  // The far end of the band, as murciaZoomPose would resolve it.
+  h.rig.setPose({
+    ...env.camera,
+    distance: env.zoomFarDistance,
+    elevationDegrees: env.zoomFarElevationDegrees,
+  });
+
+  check(
+    'a zoom rewrites the pose without touching the yaw, the dolly or the focus',
+    close(h.rig.getYaw(), yaw, 1e-9) &&
+      close(h.rig.getDistanceScale(), scale, 1e-12) &&
+      Math.hypot(h.rig.focus.x - focusBefore.x, h.rig.focus.z - focusBefore.z) < 1e-9,
+    `yaw ${h.rig.getYaw().toFixed(3)} deg and scale ${h.rig.getDistanceScale()} survive a pose ` +
+      'rewrite — the zoom and the flight compose multiplicatively rather than fighting',
+  );
+  check(
+    'and the flight dolly still applies to the ZOOMED distance, not the configured one',
+    close(h.rig.getEffectivePose().distance, env.zoomFarDistance * scale, 1e-9),
+    `${h.rig.getEffectivePose().distance.toFixed(2)} = ${env.zoomFarDistance} x ${scale} — a ` +
+      'flight from a zoomed-out camera has to be inward of where the viewer actually is',
   );
 }
 
@@ -863,9 +914,15 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
 }
 {
   // Pinch used to zoom, and these two blocks asserted it reached its floor and its
-  // ceiling exactly. There is no zoom (`adr/009`), so what has to be guarded is that
-  // ONLY pinch died: a two-finger gesture still turns the city by its centroid, and
-  // the separation between the fingers is now simply ignored.
+  // ceiling exactly. `adr/009` removed it, so what has to be guarded is that ONLY
+  // pinch died: a two-finger gesture still turns the city by its centroid, and the
+  // separation between the fingers is now simply ignored.
+  //
+  // `adr/014` did not bring it back HERE. A pinch drives the zoom band now, but it
+  // does so through `createNavigationInput` — which arbitrates against this
+  // controller's centroid rotation rather than living inside it — and Murcia answers
+  // by having its pose rewritten. To this controller a pinch is still a rotation
+  // input and nothing else, so the block below stays exactly as it was.
   //
   // Both halves matter and they fail differently. Deleting the pinch branch is easy;
   // deleting it and taking the centroid rotation with it is the plausible mistake,
@@ -1066,6 +1123,13 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
 //
 // Section 2 carries what remains of this one: that a wheel event moves nothing here
 // at all, ctrl+wheel included.
+//
+// STILL RETIRED AFTER `adr/014`, which is the interesting part. The product has a
+// wheel zoom again, so the obvious move is to bring these six blocks back — but
+// none of them would compile against what shipped. The zoom is not a band this
+// controller owns any more; it is a normalized depth resolved by `murciaZoomPose`
+// and written as a POSE, which is what section 2's last block asserts. The
+// eased target, the multiplicative band and the ctrl+wheel multiplier stayed dead.
 
 console.log('\n12. Tap tolerance is per pointer type');
 {

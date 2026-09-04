@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createPinchClassifier } from './pinchClassifier'
-import { NAVIGATION_GESTURE, NAVIGATION_PINCH, pinchGain } from './navigationConfig'
+import { NAVIGATION_GESTURE, NAVIGATION_PINCH, commitTravelPx, pinchGain } from './navigationConfig'
 
 const START = 150
 const CLAIM = NAVIGATION_PINCH.claimGrowthPx
@@ -23,26 +23,41 @@ describe('createPinchClassifier', () => {
       expect(c.sample(CLAIM)).toBe('claimed')
     })
 
-    it('declines growth away from it, however deliberate', () => {
+    it('claims growth away from it too, because a zoom has two ends', () => {
+      // The rule this inverts was right while a pinch could only mean "leave
+      // this world". `adr/014` made it a zoom, and the far end of the band is a
+      // real place a viewer parks — declining it left the fingers doing nothing.
       const c = make()
       c.begin(START)
-      expect(c.sample(-CLAIM)).toBe('declined')
+      expect(c.sample(-CLAIM)).toBe('claimed')
     })
 
     it('is symmetric about rest, exactly', () => {
-      // Free, now that the signal is a signed distance rather than a ratio: one
-      // constant serves both ways and they cannot be tuned into disagreeing.
+      // Free, since the signal is a signed distance and the threshold is on its
+      // magnitude: one constant serves both ways and they cannot be tuned into
+      // disagreeing.
       const out = make()
       out.begin(START)
       const back = make()
       back.begin(START)
       expect(out.sample(CLAIM)).toBe('claimed')
-      expect(back.sample(-CLAIM)).toBe('declined')
+      expect(back.sample(-CLAIM)).toBe('claimed')
+    })
+
+    it('carries the sign through to the caller rather than absorbing it', () => {
+      // The magnitude decides ownership; the SIGN is what the band reads to know
+      // which way to zoom. Losing it here would make every pinch zoom the same
+      // way whatever the fingers did.
+      const c = make()
+      c.begin(START)
+      c.sample(-CLAIM * 2)
+      expect(c.backlogPx).toBeCloseTo(-CLAIM * 2, 10)
     })
 
     it('never leaves a backlog behind a declined gesture', () => {
       const c = make()
       c.begin(START)
+      c.decline()
       for (const g of [-4, -9, -20, -60, -120]) c.sample(g)
       expect(c.verdict).toBe('declined')
       expect(c.backlogPx).toBe(0)
@@ -155,9 +170,9 @@ describe('createPinchClassifier', () => {
       const c = make()
       c.begin(START)
       expect(c.sample(CLAIM)).toBe('claimed')
-      // Reversing past the decline threshold must NOT flip it: the scrub is
-      // reversible by design, and ownership changing mid-gesture would hand the
-      // world back at a random position.
+      // Reversing must NOT flip it: the zoom is two-directional by design, and
+      // ownership changing mid-gesture would hand the world back at a random
+      // position — mid-pinch, with the fingers still down.
       expect(c.sample(-CLAIM * 5)).toBe('claimed')
       expect(c.sample(CLAIM * 5)).toBe('claimed')
       // Nor may a rival take it back once it is owned.
@@ -166,9 +181,13 @@ describe('createPinchClassifier', () => {
     })
 
     it('a declined gesture stays declined however the fingers then move', () => {
+      // Declined by the RIVAL, which is the only way a gesture is refused now
+      // that both directions are eligible. It used to be enough to move the
+      // fingers the wrong way; since `adr/014` that is a zoom rather than a
+      // mistake, so the decline has to be provoked by the turn it loses to.
       const c = make()
       c.begin(START)
-      expect(c.sample(-CLAIM)).toBe('declined')
+      expect(c.sample(RIVAL, RIVAL * 2)).toBe('declined')
       expect(c.sample(CLAIM * 10)).toBe('declined')
       expect(c.end()).toBe('declined')
     })
@@ -176,7 +195,7 @@ describe('createPinchClassifier', () => {
     it('reset re-arms it for the next gesture', () => {
       const c = make()
       c.begin(START)
-      c.sample(-CLAIM)
+      c.sample(RIVAL, RIVAL * 2)
       c.reset()
       expect(c.verdict).toBe('watching')
       expect(c.backlogPx).toBe(0)
@@ -212,12 +231,17 @@ describe('createPinchClassifier', () => {
   })
 
   describe('the tuning invariants', () => {
-    it('a full commit growth is worth exactly the commit distance', () => {
-      // The mapping stated as its own definition: gain is derived from these
-      // numbers, so this fails only if someone writes commitDistancePx twice.
-      const gain = pinchGain(NAVIGATION_GESTURE, PHONE_SHORT_SIDE)
+    it('a full commit growth is worth the whole journey, not one stage of it', () => {
+      // The mapping stated as its own definition. It takes the TOTAL — across
+      // the zoom band and then against its limit — because that is what a
+      // full-viewport pinch has to be worth. Scaled against the accumulator
+      // alone, as it was before `adr/014` split the gesture in two, the same
+      // pinch would deliver a third of it and never reach the other world.
+      const total = commitTravelPx()
+      const gain = pinchGain(total, PHONE_SHORT_SIDE)
       const commitGrowthPx = PHONE_SHORT_SIDE * NAVIGATION_PINCH.commitFraction
-      expect(commitGrowthPx * gain).toBeCloseTo(NAVIGATION_GESTURE.commitDistancePx, 6)
+      expect(commitGrowthPx * gain).toBeCloseTo(total, 6)
+      expect(total).toBeGreaterThan(NAVIGATION_GESTURE.commitDistancePx)
     })
 
     it('the claim is a small fraction of a commit, so the world answers early', () => {
@@ -251,7 +275,7 @@ describe('createPinchClassifier', () => {
       // The backlog is handed over as ONE event. Past the clamp the remainder is
       // carried by deliverPinch rather than dropped, but staying under it keeps
       // the claim landing whole in the frame it happens.
-      const gain = pinchGain(NAVIGATION_GESTURE, PHONE_SHORT_SIDE)
+      const gain = pinchGain(commitTravelPx(), PHONE_SHORT_SIDE)
       expect(CLAIM * gain).toBeLessThanOrEqual(NAVIGATION_GESTURE.maxEventTravelPx)
     })
   })

@@ -47,20 +47,27 @@ export const INTERACTION_CONFIG = {
     // coincidence: it is the size of the wander a real finger produces, and all
     // three questions are asking about the same wander.
     touchDragThresholdPx: 12,
-    // How far the overview camera sits from the origin. FIXED — this replaced
-    // `zoomMin: 3R`, `zoomMax: 11R` and `zoomSensitivity`, which existed for the
-    // wheel. The wheel belongs to scene navigation now (`adr/009`), so nothing
-    // writes the orbit radius after it is seeded: drag still turns the globe, it
-    // just cannot change how far away it is.
+    // How far the overview camera sits from the origin.
     //
-    // A single constant rather than a band, and it is the ONE number here that is
-    // read outside the interactive phase. `CameraController.EARTH_REST` is derived
-    // from it so the intro lands exactly where the rig will take over, and
-    // `checks/space-backdrop.ts` measures the star shell against it — the shell has
-    // to enclose the camera or stars render over the planet. Keeping it here rather
-    // than in `CameraController` is what lets a Node harness read it without
-    // pulling React and R3F into the bundle.
+    // The REST POINT of the zoom band since `adr/014`, having been a single fixed
+    // constant under `adr/009` and, before that, the middle of a `zoomMin: 3R` /
+    // `zoomMax: 11R` band the wheel drove directly. It is where the intro lands,
+    // where a session starts, and where the depth is 0.
+    //
+    // It is also the ONE number here that is read outside the interactive phase.
+    // `CameraController.EARTH_REST` is derived from it so the intro lands exactly
+    // where the rig will take over, and `checks/space-backdrop.ts` measures the
+    // star shell against it — the shell has to enclose the camera or stars render
+    // over the planet. Keeping it here rather than in `CameraController` is what
+    // lets a Node harness read it without pulling React and R3F into the bundle.
     overviewRadius: 7 * R,
+
+    // ─── The ends of the zoom band, as multiples of the radius above ───
+    //
+    // Factors rather than radii, so they follow `overviewRadius` if it is ever
+    // retuned. `camera/zoomPose.ts` carries the reasoning for both.
+    zoomNearFactor: 0.63,
+    zoomFarFactor: 11 / 7,
   },
 
   closeUp: {

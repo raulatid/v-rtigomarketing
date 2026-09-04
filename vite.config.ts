@@ -55,7 +55,26 @@ const INTRO_BUDGET_BYTES = 16_000
 // in the list is a loading decision, an existing one growing is app growth, and
 // they do not have the same fix.
 const INITIAL_JS_BUDGET_BYTES = 1_600_000
-const INITIAL_JS_REQUEST_BUDGET = 10
+// Raised 10 -> 12 on 2026-09-04, and here is the itemised reason the message
+// below asks for. The blog's header became a SECOND dynamic consumer of the
+// corner logo, and Rollup re-signatures every module those two dynamic entries
+// share: `utils/easing` (1,207 B) and `graphics/decoders` (420 B) stopped being
+// duplicated into their importers and became chunks of their own.
+//
+// So this is neither of the two cases the note below names. It is not new code
+// on `/` — the initial closure went from 1,527,335 B to 1,530,652 B, and the
+// 3,317 B difference is chunk boilerplate — and it is not a new feature landing
+// on the initial load: the header logo's own chunk is excluded from the preload
+// loop (see `isPreloadedOnIndex`). It is the same bytes, cut differently.
+//
+// Two of the three splits WERE worth fixing and were: `logoMotion` came back
+// inside the corner-logo chunk once `CornerLogoLayer` stopped statically
+// importing a constant out of it (a three-importing module reached for a plain
+// value — the shape the assertion further down warns about). The remaining two
+// are shared-module hoists with no static edge to remove.
+//
+// 12 rather than 11 keeps the one slot of headroom this budget has always had.
+const INITIAL_JS_REQUEST_BUDGET = 12
 
 // Secondary, and narrow now that the closure above is the real gate: it only
 // answers "did a large dependency or the generated dataset land in the ENTRY".
@@ -96,7 +115,27 @@ function isBlogDocument(path: string): boolean {
  * the whole bundle except the blog document's own entry.
  */
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
+  if (isHeaderLogoChunk(chunk)) return false
   return !chunk.isEntry
+}
+
+/**
+ * The blog header's 3D mark (`src/blog/headerLogoRuntime.ts`), which `/` has no
+ * use for.
+ *
+ * The scene draws the same logo as an overlay pass on its own canvas (ADR 002)
+ * and already preloads the chunks this one shares; the only thing `/` would gain
+ * from preloading it is a request. Excluded here rather than raising
+ * `INITIAL_JS_REQUEST_BUDGET`, which is what the budget's own failure message
+ * tells you to do when a new chunk is genuinely not wanted on `/`.
+ *
+ * Matched on the source module, like the intro and blog chunks below: Vite
+ * derives chunk names and they are not stable enough to hardcode.
+ */
+const HEADER_LOGO_MODULE = 'src/blog/headerLogoRuntime.ts'
+
+function isHeaderLogoChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith(HEADER_LOGO_MODULE) === true
 }
 
 function assertChunkBudgets(): Plugin {
@@ -193,6 +232,21 @@ function assertChunkBudgets(): Plugin {
             'the binding back. The usual cause is a config module reaching a ' +
             'three-importing module for plain constants — galaxyBandConfig.ts is the ' +
             'fix that pattern takes.',
+        )
+      }
+
+      // A guard on the guard: `isPreloadedOnIndex` excludes the header-logo
+      // chunk by its source module, and an exclusion that stops matching fails
+      // OPEN — `/` would quietly start preloading the blog's 3D mark and the
+      // request budget would absorb it as ordinary growth. Assert the chunk is
+      // there and singular instead.
+      const headerLogo = chunks.filter(isHeaderLogoChunk)
+      if (headerLogo.length !== 1) {
+        this.error(
+          `expected exactly one chunk faced by ${HEADER_LOGO_MODULE}, found ${headerLogo.length}. ` +
+            'If it was renamed, merged away or deleted, isPreloadedOnIndex is excluding ' +
+            "nothing and / is preloading the blog header's 3D mark. Fix the path there, or " +
+            'remove both if the feature is gone.',
         )
       }
 
@@ -361,6 +415,124 @@ function blogRouting(): Plugin {
     // Dev has no dist/ and therefore no shells; preview must defer to them.
     configureServer: middleware(false),
     configurePreviewServer: middleware(true),
+  }
+}
+
+/**
+ * Serves `POST /api/audit` and `POST /api/contact` in dev and preview, the way
+ * Vercel serves `api/*.ts` in production.
+ *
+ * ── Why this has to exist ──
+ *
+ * `playwright.config.ts` runs `npm run preview` — `vite preview`, not
+ * `vercel dev`. Without this middleware the e2e suite could only ever stub the
+ * endpoint with `page.route`, which proves the client can parse a fixture and
+ * proves nothing about the handler. With it, the same `server/endpoint.ts` that
+ * answers in production answers the suite, and `npm run dev` exercises the real
+ * validation instead of a mock.
+ *
+ * ── Why it does no path parsing whatsoever ──
+ *
+ * Its neighbour `blogRouting` matches `/^\/blog\/([^/]+)$/`, and SEC-18 is the
+ * finding that the class accepts `..`. There is nothing to parse here, so
+ * nothing is: two literal strings, compared with `===`, after the query is
+ * dropped. No regex, no slug, no path ever touches the filesystem.
+ *
+ * The handler is imported DYNAMICALLY, so loading this config never depends on
+ * `src/content/generated/` existing — and a failure inside it surfaces as a
+ * request that failed rather than as a dev server that would not start.
+ */
+function apiRouting(): Plugin {
+  const ROUTES: Record<string, 'audit' | 'contact'> = {
+    '/api/audit': 'audit',
+    '/api/contact': 'contact',
+  }
+  /** Mirrors BODY_LIMIT_BYTES in server/endpoint.ts. */
+  const BODY_LIMIT = 16 * 1024
+
+  interface RequestLike {
+    url?: string
+    method?: string
+    headers: Record<string, string | string[] | undefined>
+    on: (event: string, listener: (chunk: Buffer) => void) => void
+    destroy: () => void
+  }
+  interface ResponseLike {
+    statusCode: number
+    setHeader: (name: string, value: string) => void
+    end: (body?: string) => void
+  }
+  interface ServerLike {
+    middlewares: {
+      use: (fn: (req: RequestLike, res: ResponseLike, next: () => void) => void) => void
+    }
+  }
+
+  /** Collects the body, refusing past the cap rather than buffering it all. */
+  function readBody(req: RequestLike): Promise<string | null> {
+    return new Promise((resolve) => {
+      const chunks: Buffer[] = []
+      let size = 0
+      req.on('data', (chunk) => {
+        size += chunk.length
+        if (size > BODY_LIMIT) {
+          req.destroy()
+          resolve(null)
+          return
+        }
+        chunks.push(chunk)
+      })
+      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+      req.on('error', () => resolve(null))
+    })
+  }
+
+  const middleware = (server: ServerLike): void => {
+    server.middlewares.use((req, res, next) => {
+      const [pathname] = (req.url ?? '').split('?')
+      const kind = ROUTES[pathname]
+      if (kind === undefined) {
+        next()
+        return
+      }
+
+      void (async () => {
+        const body = req.method === 'POST' ? await readBody(req) : null
+        if (req.method === 'POST' && body === null) {
+          res.statusCode = 400
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify({ ok: false, code: 'malformed' }))
+          return
+        }
+
+        const headers = new Headers()
+        for (const [name, value] of Object.entries(req.headers)) {
+          if (typeof value === 'string') headers.set(name, value)
+          else if (Array.isArray(value)) headers.set(name, value.join(', '))
+        }
+
+        const { respond } = await import('./server/endpoint')
+        const response = await respond(
+          kind,
+          new Request('http://localhost' + (req.url ?? '/'), {
+            method: req.method ?? 'GET',
+            headers,
+            ...(body === null ? {} : { body }),
+          }),
+          process.env,
+        )
+
+        res.statusCode = response.status
+        response.headers.forEach((value, name) => res.setHeader(name, value))
+        res.end(await response.text())
+      })()
+    })
+  }
+
+  return {
+    name: 'vertigo-api-routing',
+    configureServer: middleware,
+    configurePreviewServer: middleware,
   }
 }
 
@@ -717,6 +889,9 @@ export default defineConfig({
   plugins: [
     react(),
     glsl(),
+    // Before blogRouting, which rewrites `req.url`: the API paths must be
+    // matched against what the client actually asked for.
+    apiRouting(),
     blogRouting(),
     introEntry(),
     seoAssets(),
@@ -752,6 +927,12 @@ export default defineConfig({
         manualChunks(id) {
           const path = id.replace(/\\/g, '/')
           if (/\/node_modules\/three\//.test(path)) return 'three'
+          // NOT `src/corner-logo/`, and the failed attempt is worth recording.
+          // Naming that directory as a manual chunk made Rollup place the
+          // modules it shares with its neighbours there too — `utils/easing`
+          // among them, which the app entry uses. The entry therefore gained a
+          // static import of a chunk that imports three, and the assertion above
+          // fired. A manual chunk is not a fence; it is a magnet.
         },
       },
     },

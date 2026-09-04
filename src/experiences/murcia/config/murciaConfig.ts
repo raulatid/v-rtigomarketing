@@ -268,8 +268,11 @@ export const murciaConfig: EnvironmentConfig = {
     // widens again (PROJECT_MEMORY, "The number that can hurt you"). 115.5 stays
     // far above that and still reads as clearly closer.
     //
-    // The band’s OUT end (maxDistanceScale 1.2) is gone with the band. A flight may
-    // only move inward, so the direction that ate skirt margin no longer exists.
+    // The band’s OUT end (maxDistanceScale 1.2) did not come back with `adr/014`.
+    // A FLIGHT may still only move inward: the direction that eats skirt margin
+    // belongs to the zoom now, and it pays for it by rising (`zoomFarDistance`).
+    // This scale multiplies whatever the zoom resolved to, so a flight is always
+    // inward of a pose already proven safe.
     minDistanceScale: 0.7,
     // Was the zoom band’s smoothing. It no longer buys a discrete wheel a glide —
     // the flight runs its own closed easing curve — but it still governs the hand
@@ -369,8 +372,66 @@ export const murciaConfig: EnvironmentConfig = {
   // degenerates rather than toward it. checks/warp-transition.ts asserts that
   // property directly, against computeGroundFootprint rather than against these
   // numbers — re-run it after changing either one.
-  warpDepartDistance: 210,
-  warpDepartElevationDegrees: 50,
+  //
+  // 210/50 until `adr/014`. The departure now has to CONTINUE a user-driven
+  // zoom-out rather than start from rest, so it has to end beyond where that
+  // zoom can leave the camera (`zoomFarDistance` below) or the cinematic's first
+  // frame would move back INWARD from the pose the viewer had chosen. Same arc,
+  // one step further along it.
+  //
+  //   depart 330 @ 62 deg  ->  height 291.4  ->  reaches ~460
+  //
+  // Still far short of rest's ~633, which is the invariant that matters.
+  warpDepartDistance: 330,
+  warpDepartElevationDegrees: 62,
+
+  // ─── The user's zoom band (`adr/014`) ───
+  //
+  // `adr/009` removed zoom from the product outright and this is the product
+  // decision that put it back. The band is a POSITION the viewer owns: it stays
+  // where they leave it, and the transition fires only when they keep pushing
+  // after it has run out.
+  //
+  // ── Zooming out is an ascent, not a pull-back ──
+  //
+  // The same constraint the departure pose is built around (ADR 006), and the
+  // reason zooming out cannot simply increase the distance: at a fixed 30 deg,
+  // ground reach grows about 1.33 units per unit of distance and rest already
+  // spends all but ~59 units of the skirt. Pulling straight back to 280 would
+  // reach ~910 against a 700-unit skirt and put the plate edge on screen for
+  // ultrawide viewers only, silently.
+  //
+  // Steepening the pitch as the camera recedes buys that back and then some.
+  // Measured over the four skirt aspects at every 5 deg of yaw with the focus at
+  // each plate corner, through the real computeGroundFootprint:
+  //
+  //   near 136.5 @ 30 deg  ->  reaches ~473,  slack +219
+  //   rest 195   @ 30 deg  ->  reaches ~633,  slack  +59   <- still the worst case
+  //   far  280   @ 52 deg  ->  reaches ~444,  slack +241
+  //
+  // So every pose the viewer can zoom to has MORE skirt margin than the resting
+  // pose they start from, and `checks/footprint.ts` sweeps the whole band to say
+  // so rather than trusting these three rows.
+  //
+  // What the viewer gets for it: the city 30% smaller and seen from above. The
+  // buildings shrinking is the zoom; the tilt is what pays for it.
+  //
+  // JUDGED 2026-09-04 for how far to go, MEASURED for whether it is allowed.
+  // There is a great deal of room left — 400 @ 55 deg is still safe — so this is
+  // the number to raise if the zoom reads as timid on real hardware.
+  zoomFarDistance: 280,
+  zoomFarElevationDegrees: 52,
+
+  // Zooming IN keeps the resting pitch and only shortens the distance, because
+  // nothing has to be paid for: flying in shrinks the footprint.
+  //
+  // Not an independent judgement. It is `focusFlight.minDistanceScale`, and it
+  // has to be: a district flight already dollies to exactly there, so that
+  // distance is already proven safe by checks/footprint.ts and already known to
+  // sit above the ~28 deg pitch collapse. A closer floor would need its own
+  // measurement, and the two would then be free to drift into disagreeing about
+  // what "as close as the city goes" means.
+  zoomNearScale: 0.7,
 
   contentBounds: { ...PLATE },
 

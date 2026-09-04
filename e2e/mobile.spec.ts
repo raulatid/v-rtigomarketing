@@ -79,8 +79,8 @@ async function asLayoutTest(page: Page): Promise<void> {
  */
 async function reachSite(page: Page): Promise<void> {
   // ATTACHED, not visible: on a phone the trigger lives behind the header's
-  // burger (2026-09-03) and is display:none until the sheet opens. It still
-  // mounts only at phase 'site', which is all this gate needs.
+  // burger (2026-09-03) and is `visibility: hidden` until the menu opens. It
+  // still mounts only at phase 'site', which is all this gate needs.
   await page.waitForSelector('.audit-trigger', { state: 'attached', timeout: 75_000 })
   await page.waitForTimeout(400)
 }
@@ -399,7 +399,15 @@ async function pinch(
   )
 }
 
-/** How far the fingers must separate to commit, on this viewport. */
+/**
+ * How far the fingers must separate to commit, on this viewport.
+ *
+ * ONE full journey, which since `adr/014` is two stages: the first two thirds of
+ * this cross the zoom band and the last third pushes against its limit. The
+ * fraction is unchanged by that split on purpose — `pinchGain` is scaled against
+ * the TOTAL, so what a full opening of the hand is worth stayed the same and every
+ * number here kept its meaning.
+ */
 function commitGrowth(page: Page) {
   const v = page.viewportSize()!
   // Mirrors `pinchGain`: the shorter side is what constrains how far two fingers
@@ -415,12 +423,20 @@ test('two fingers spreading enter Murcia, and closing come back', async ({ page 
   await reachSite(page)
   const growth = commitGrowth(page)
 
-  // Not enough, and released: the world must come back rather than commit.
+  // Not enough, and released. What this asserts changed with `adr/014`: it used
+  // to be "the world comes back", and a partial pinch now leaves the camera
+  // exactly where the fingers put it — 45% of a journey is inside the zoom band,
+  // so it zooms and stops. What must still be true is that it does not COMMIT.
   await pinch(page, { from: 60, to: 60 + growth * 0.45 })
   await page.waitForTimeout(1800)
   expect(await inMurcia(page)).toBe(false)
 
-  // A deliberate opening of the hand.
+  // A deliberate opening of the hand. It regrips at the same 60px, because the
+  // classifier measures growth from where the fingers land and knows nothing
+  // about the last gesture — but the CAMERA does: the band is still holding what
+  // the partial pinch put into it, so this one has less of it left to cross.
+  // Which is the whole feel `adr/014` is after, and the reason a full opening is
+  // a comfortable commit rather than a marginal one.
   await pinch(page, { from: 60, to: 60 + growth * 1.05 })
   await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
 
@@ -441,7 +457,10 @@ test('ordinary two-finger use is left alone', async ({ page }) => {
   await page.waitForTimeout(600)
   expect(await inMurcia(page)).toBe(false)
 
-  // Closing on Earth is the wrong way out and must do nothing, however far.
+  // Closing on Earth is the wrong way out. It is no longer nothing — `adr/014`
+  // made it the other half of the zoom, and the classifier claims it so the
+  // globe recedes under the fingers — but that end of the band is a dead stop
+  // that returns no overflow, so it cannot navigate however far it goes.
   await pinch(page, { from: 40 + growth, to: 40, steps: 22 })
   await page.waitForTimeout(600)
   expect(await inMurcia(page)).toBe(false)
@@ -464,6 +483,104 @@ test('the accessible control is reachable and names its destination', async ({ p
   // Visible once focused, so a sighted keyboard user can see what they landed on.
   const box = await control.boundingBox()
   expect(box!.height).toBeGreaterThanOrEqual(44)
+})
+
+/**
+ * The phone menu (plan 011). The two doors fold behind the burger and open onto
+ * a glass field under the header's line. The choreography is CSS and is judged
+ * by eye; what these prove is the contract — what opens it, what closes it,
+ * and where it hangs.
+ */
+
+async function openMenu(page: Page): Promise<void> {
+  await page.locator('.site-header__burger').click()
+  // React writes the boolean as the string "true".
+  await expect(page.locator('.site-header')).toHaveAttribute('data-menu-open', 'true')
+}
+
+async function expectFolded(page: Page): Promise<void> {
+  await expect(page.locator('.site-header')).not.toHaveAttribute('data-menu-open', 'true')
+}
+
+/** Sub-pixel rounding at DPR 3 is not a layout bug. */
+function expectNear(actual: number, expected: number, what: string) {
+  expect(Math.abs(actual - expected), `${what}: ${actual} vs ${expected}`).toBeLessThan(1)
+}
+
+test('the burger unfolds the two doors, and Auditoría opens from one of them', async ({
+  page,
+}) => {
+  const errors = collect(page)
+  await bootToReady(page)
+  await reachSite(page)
+
+  // Folded: mounted (reachSite waited on that) but not shown.
+  const audit = page.locator('.audit-trigger')
+  await expect(audit).toBeHidden()
+
+  await openMenu(page)
+  await expect(page.locator('.contact-trigger')).toBeVisible()
+  await expect(audit).toBeVisible()
+  await expect(page.locator('.site-header__field')).toHaveCSS('pointer-events', 'auto')
+
+  // A full-bleed fixed field is exactly the kind of box that widens a document
+  // by a pixel and gets clipped without anyone noticing.
+  const overflow = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }))
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+
+  // Choosing a door folds the menu before the door's own handler runs — and
+  // the door still opens: the fold is a capture on the host, not a cancel.
+  await page.getByRole('button', { name: 'Auditoría' }).click()
+  await expectFolded(page)
+  await expect(page.locator('.audit-overlay')).toHaveAttribute('data-state', /entering|open/)
+
+  expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+test('the glass field closes the menu, and so does the burger', async ({ page }) => {
+  await bootToReady(page)
+  await reachSite(page)
+
+  await openMenu(page)
+  // Well below the two doors; the field is the scrim.
+  await page.locator('.site-header__field').click({ position: { x: 20, y: 500 } })
+  await expectFolded(page)
+  // Hidden once the close has run its course (a delayed visibility flip).
+  await expect(page.locator('.audit-trigger')).toBeHidden()
+
+  await openMenu(page)
+  await page.locator('.site-header__burger').click()
+  await expectFolded(page)
+  await expect(page.locator('.site-header__burger')).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('the menu hangs from the line, and its doors span the column', async ({ page }) => {
+  await asLayoutTest(page)
+  await bootToReady(page)
+  await reachSite(page)
+  await openMenu(page)
+
+  const g = await page.evaluate(() => {
+    const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect()
+    return {
+      rowBottom: rect('.site-header__row').bottom,
+      fieldTop: rect('.site-header__field').top,
+      endTop: rect('.site-header__end').top,
+      audit: rect('.audit-trigger'),
+      contact: rect('.contact-trigger'),
+      viewport: document.documentElement.clientWidth,
+    }
+  })
+  // The field and the items both hang from the line the header lays the
+  // controls on — the same box the 3D logo measures.
+  expectNear(g.fieldTop, g.rowBottom, 'field top')
+  expectNear(g.endTop, g.rowBottom, 'items top')
+  expectNear(g.audit.width, g.viewport - 40, 'Auditoría width')
+  expectNear(g.audit.height, 44, 'Auditoría height')
+  expectNear(g.contact.height, 52, 'Contacto height')
 })
 
 /**
@@ -711,5 +828,28 @@ test.describe('the blog on a phone', () => {
     await page.locator('.blog-back').click()
     await expect(page.locator('.blog-page')).toBeVisible()
     expect(new URL(page.url()).pathname).toBe('/blog')
+  })
+
+  test('the burger opens the same menu, on paper', async ({ page }) => {
+    await asLayoutTest(page)
+    await openBlogIndex(page)
+    await page.waitForSelector('.audit-trigger', { state: 'attached' })
+    await openMenu(page)
+    await expect(page.locator('.audit-trigger')).toBeVisible()
+
+    const g = await page.evaluate(() => {
+      const field = document.querySelector('.site-header__field')!
+      return {
+        rowBottom: document.querySelector('.site-header__row')!.getBoundingClientRect().bottom,
+        fieldTop: field.getBoundingClientRect().top,
+        glass: getComputedStyle(field, '::after').backgroundImage,
+      }
+    })
+    // Paper glass over paper, and it hangs from the blog bar's own line — the
+    // bar's `--header-line-top` lives on the header so the field, a sibling of
+    // the row, reads the same value.
+    expect(g.glass).toContain('rgba(251, 251, 250')
+    expectNear(g.fieldTop, g.rowBottom, 'field top')
+    await assertNoSideways(page)
   })
 })

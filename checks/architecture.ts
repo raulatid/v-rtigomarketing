@@ -19,7 +19,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { banner, check, finish, section } from './lib/assert';
 
-const SRC = 'src';
+/**
+ * The roots this harness walks.
+ *
+ * `src/` is the browser. `server/` and `api/` are the form endpoint, added
+ * 2026-09-04 with plan 012 — and they are walked rather than ignored because
+ * the rules worth having are about what they may reach: a server module that
+ * imported a React component, or an `api/` adapter that grew logic, are exactly
+ * the drifts this file exists to refuse. Walking only `src/` would leave those
+ * rules inexpressible while the two `src/ -> server/` rules still passed, which
+ * is a partial fence that reads as a complete one.
+ */
+const ROOTS = ['src', 'server', 'api'];
 
 interface Module {
   /** Repo-relative, forward slashes, e.g. `src/graphics/RenderPipeline.tsx`. */
@@ -73,7 +84,7 @@ function resolve(from: string, spec: string): string | null {
 const STATIC_RE = /(?:from\s*|import\s+)['"](\.[^'"]*)['"]/g;
 const DYNAMIC_RE = /import\s*\(\s*['"](\.[^'"]*)['"]/g;
 
-const modules: Module[] = listSources(SRC).map((file) => {
+const modules: Module[] = ROOTS.flatMap((root) => listSources(root)).map((file) => {
   const src = fs.readFileSync(file, 'utf8');
   const imports: Module['imports'] = [];
   // Dynamic first, so a specifier matched by both patterns — `import(` also
@@ -256,6 +267,44 @@ forbid(
   'application chrome, not part of either experience (ADR 002)',
 );
 
+// ── The server tier (plan 012, adr/014) ──
+//
+// `server/` runs in a Vercel function and `api/` is the four-line adapter that
+// calls it. The browser must never reach either: a component importing
+// `server/validate.ts` would look harmless and would put the server's rules —
+// and the shape of its rejections — into the public bundle, which is precisely
+// what `server/validate.ts` says it exists NOT to be.
+forbid(
+  'the browser never imports the server tier',
+  'src/',
+  'server/',
+  'the forms talk to it over HTTP; a shared module would ship the server rules to the client',
+);
+forbid(
+  'the browser never imports a function adapter',
+  'src/',
+  'api/',
+  'api/ is a deployment surface, not a module',
+);
+
+// And the other direction, which is allowed but only narrowly. `server/` reads
+// ONE thing from the browser tree — the published contact address, through
+// `server/recipient.ts` — and nothing else. A React component, a hook or an
+// experience reached from a function is a module that cannot run there.
+forbid(
+  'the server tier imports no component',
+  'server/',
+  'src/components/',
+  'a function has no DOM; recipient.ts reaches src/content/ and nothing else',
+);
+forbid('the server tier imports no application layer', 'server/', 'src/app/', '');
+forbid('the server tier imports no experience', 'server/', 'src/experiences/', '');
+forbid('the server tier imports no graphics', 'server/', 'src/graphics/', '');
+forbid('the server tier imports no blog', 'server/', 'src/blog/', '');
+// The adapters hold the translation and nothing else. Anything they need from
+// the browser tree they should be getting through `server/`.
+forbid('a function adapter reaches only the server tier', 'api/', 'src/', 'keep api/ four lines');
+
 section('2. The two experiences do not know about each other');
 
 forbid(
@@ -380,8 +429,30 @@ section('5. The graph is what the check thinks it is');
 check(
   'the walk found a substantial number of modules',
   byFile.size > 60,
-  `${byFile.size} modules under src/`,
+  `${byFile.size} modules under ${ROOTS.join(', ')}`,
 );
+// GUARD ON THE GUARD for the server tier. Every rule about `server/` and `api/`
+// passes trivially if the walk never reached them — renaming the directory, or
+// dropping it from ROOTS, would make six rules vacuously true and this file
+// would go green on a form endpoint with no fence around it at all.
+{
+  const serverModules = [...byFile.keys()].filter((file) => file.startsWith('server/'));
+  check(
+    'the walk found the server tier',
+    serverModules.length >= 5,
+    `${serverModules.length} modules under server/ — ROOTS must keep naming it`,
+  );
+  check(
+    'both function adapters are present',
+    byFile.has('api/audit.ts') && byFile.has('api/contact.ts'),
+    'the two endpoints the forms post to',
+  );
+  check(
+    'the server tier IS reachable from its adapters',
+    reachable('api/contact.ts').has('server/handleSubmission.ts'),
+    'api/ must keep delegating; logic that moved into the adapter is logic with no tests',
+  );
+}
 check(
   'the walk resolved a substantial number of imports',
   modules.reduce((n, m) => n + m.imports.length, 0) > 150,
@@ -402,6 +473,36 @@ check(
     'the blog dataset IS reachable from the app entry, dynamically',
     fromEntry.has('src/content/generated/blogPosts.ts'),
     'the blog must keep importing its own content',
+  );
+}
+
+// The blog's header draws the REAL 3D mark now (adr/013, amended 2026-09-04),
+// and it reaches three.js through exactly one dynamic import. Both halves are
+// asserted, because each failure mode is silent on its own:
+//
+//   - the seam DISAPPEARING makes `the blog entry never reaches graphics` above
+//     vacuously true, and this file would go green on a feature that is gone;
+//   - the seam going STATIC puts three.js, both decoders and the two asset files
+//     into the blog chunk. The realistic cause is a type-only import: the
+//     scanner records `import type` as a static edge unless its specifier string
+//     is byte-identical to one an `import()` in the same file already used
+//     (DYNAMIC_RE runs first, and the static loop skips what it matched). So
+//     `import type { X } from './headerLogoRuntime'` beside
+//     `import('./headerLogoRuntime')` is safe, and the same type from
+//     `'./headerLogoRuntime.ts'` is not — a one-character difference with three
+//     hundred kilobytes behind it.
+{
+  const HOST = 'src/blog/headerLogoRuntime.ts';
+  check(
+    'the blog IS reachable to the 3D mark, dynamically',
+    reachable('src/entries/blog.tsx').has(HOST),
+    'BlogHeaderLogo must keep its dynamic import, or the cold-blog rules pass on an absent feature',
+  );
+  check(
+    'the blog reaches the 3D mark ONLY through that dynamic seam',
+    !staticallyReachable('src/entries/blog.tsx').has(HOST),
+    'a static edge here puts three.js in the blog chunk — check for a type-only import whose ' +
+      'specifier differs from the dynamic one',
   );
 }
 

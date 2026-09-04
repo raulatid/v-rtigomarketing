@@ -1,7 +1,20 @@
 # ADR 005 — The Earth ⇄ Murcia Warp
 
-Status: **Accepted** — 2026-08-07
+Status: **Accepted** — 2026-08-07, **amended 2026-09-04 by `adr/014`**
 Amends: ADR 001 (Murcia's composer bypass), for the duration of a transition only
+
+> **Amended by `adr/014-zoom-is-a-position-the-viewer-owns.md`: the warp starts from the
+> viewer's pose, not from rest.** A commit can now come from anywhere in a persistent zoom
+> band, and a cinematic whose targets are absolute config numbers would snap on its first
+> frame. Earth needed nothing — it multiplies `camera.position.length()` and anchors on the
+> live camera, so it was already relative. Murcia's `applyRigPose` now resolves the zoom pose
+> first and applies the warp on top of it, and its departure moved to 330 @ 62° so that it
+> continues the viewer's ascent rather than reversing back into the city.
+>
+> One progress value still means one thing, and it now means only the committed cinematic:
+> `adr/009`'s reversible scrub of this ADR's first third is deleted, so `transitionProgress`
+> makes exactly one monotonic pass through the cut again, which is what `transitionLeg` and
+> `dollyAmount` always assumed.
 
 ## Context
 

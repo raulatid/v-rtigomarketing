@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { submitContactRequest } from '../app/contactSubmission'
 import type { ContactRequest, SubmitContactRequest } from '../app/contactSubmission'
-import { SITE_PHONES } from '../content/site'
+import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
+import { FORM_MESSAGES, SITE_PHONES } from '../content/site'
 import type { LegalDocId } from '../content/site'
 import './modal.css'
 import './contactSection.css'
@@ -56,6 +57,19 @@ function validate(values: ContactRequest): Partial<Record<Field, string>> {
   return errors
 }
 
+/**
+ * Three outcomes, not seven. See AuditSection.tsx: a visitor cannot act on
+ * the difference between a missing key and an upstream timeout, and telling
+ * them apart would only describe the deployment to whoever asked.
+ */
+function failureMessage(code: SubmissionErrorCode): string {
+  if (code === 'rate_limited') {
+    return 'Has enviado varios mensajes seguidos. Espera un minuto y vuelve a intentarlo.'
+  }
+  if (code === 'invalid') return 'Revisa los datos marcados.'
+  return 'No se ha podido enviar. Inténtalo de nuevo o escríbenos directamente.'
+}
+
 export function ContactSection({
   ready,
   triggerHost = null,
@@ -71,15 +85,23 @@ export function ContactSection({
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [submission, setSubmission] = useState<Submission>('idle')
 
+  const [failure, setFailure] = useState<SubmissionErrorCode>('unknown')
+  const [serverErrors, setServerErrors] = useState<Partial<Record<Field, string>>>({})
+
   const triggerRef = useRef<HTMLButtonElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const submitSeqRef = useRef(0)
+  /** See AuditSection: the honeypot value and when this dialog opened. */
+  const honeypotRef = useRef('')
+  const openedAtRef = useRef(0)
 
   const errors = useMemo(() => validate(values), [values])
 
   const openDialog = useCallback(() => {
     setOpen(true)
     onOpenChange(true)
+    openedAtRef.current = Date.now()
+    honeypotRef.current = ''
   }, [onOpenChange])
 
   const close = useCallback(() => {
@@ -125,18 +147,37 @@ export function ContactSection({
     }
     const seq = ++submitSeqRef.current
     setSubmission('submitting')
-    submit({ ...values }).then(
+    submit({
+      ...values,
+      empresa: honeypotRef.current,
+      startedAt: openedAtRef.current,
+    }).then(
       () => {
         if (submitSeqRef.current === seq) setSubmission('success')
       },
-      () => {
-        if (submitSeqRef.current === seq) setSubmission('error')
+      (error: unknown) => {
+        if (submitSeqRef.current !== seq) return
+        setFailure(codeOf(error))
+        const fields = fieldsOf(error)
+        if (fields !== undefined) {
+          const mapped: Partial<Record<Field, string>> = {}
+          for (const field of FIELD_ORDER) {
+            const message = fields[field]
+            if (typeof message === 'string') mapped[field] = message
+          }
+          setServerErrors(mapped)
+        }
+        setSubmission('error')
       },
     )
   }
 
-  const showError = (field: Field) =>
-    Boolean(errors[field]) && Boolean(touched[field] || submitAttempted)
+  /** The server saw the value our own rules let through, so it outranks them. */
+  const messageFor = (field: Field): string | undefined =>
+    serverErrors[field] ??
+    (touched[field] || submitAttempted ? errors[field] : undefined)
+
+  const showError = (field: Field) => messageFor(field) !== undefined
 
   const fieldProps = (field: Field) => ({
     id: `${idPrefix}-${field}`,
@@ -145,14 +186,19 @@ export function ContactSection({
     'aria-describedby': showError(field) ? `${idPrefix}-${field}-error` : undefined,
     onChange: (
       e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>,
-    ) => setValues((v) => ({ ...v, [field]: e.target.value })),
+    ) => {
+      setValues((v) => ({ ...v, [field]: e.target.value }))
+      setServerErrors((prev) =>
+        prev[field] === undefined ? prev : { ...prev, [field]: undefined },
+      )
+    },
     onBlur: () => setTouched((t) => ({ ...t, [field]: true })),
   })
 
   const errorLine = (field: Field) =>
     showError(field) ? (
       <p className="contact-field__error" id={`${idPrefix}-${field}-error`}>
-        {errors[field]}
+        {messageFor(field)}
       </p>
     ) : null
 
@@ -192,17 +238,33 @@ export function ContactSection({
             {submission === 'success' ? (
               <div className="contact-success" role="status">
                 <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
-                  Recibido
+                  {FORM_MESSAGES.contactTitle}
                 </h2>
-                <p className="contact-success__body">
-                  Gracias por escribirnos. Te responderemos en menos de 24 horas.
-                </p>
+                {/* From Sanity (plan 012), so the promise in it is the
+                    client's to reword. */}
+                <p className="contact-success__body">{FORM_MESSAGES.contactBody}</p>
                 <button type="button" className="contact-cta" onClick={close}>
                   Volver
                 </button>
               </div>
             ) : (
               <form className="contact-form" noValidate onSubmit={handleSubmit}>
+                {/* The honeypot. See AuditSection.tsx for what it is and what
+                    the server does with it. */}
+                <div className="form-honeypot" aria-hidden="true">
+                  <label htmlFor={`${idPrefix}-empresa`}>Empresa</label>
+                  <input
+                    id={`${idPrefix}-empresa`}
+                    name="empresa"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    defaultValue=""
+                    onChange={(e) => {
+                      honeypotRef.current = e.target.value
+                    }}
+                  />
+                </div>
                 <p className="contact-eyebrow">Hablemos</p>
                 <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
                   Escríbenos para lo que necesites
@@ -216,6 +278,7 @@ export function ContactSection({
                     className="contact-input"
                     type="text"
                     autoComplete="name"
+                    maxLength={80}
                     {...fieldProps('name')}
                   />
                   {errorLine('name')}
@@ -229,6 +292,7 @@ export function ContactSection({
                     className="contact-input"
                     type="email"
                     autoComplete="email"
+                    maxLength={254}
                     {...fieldProps('email')}
                   />
                   {errorLine('email')}
@@ -241,6 +305,7 @@ export function ContactSection({
                   <textarea
                     className="contact-input contact-textarea"
                     rows={4}
+                    maxLength={2000}
                     {...fieldProps('message')}
                   />
                   {errorLine('message')}
@@ -248,7 +313,7 @@ export function ContactSection({
 
                 {submission === 'error' && (
                   <p className="contact-form__error" role="alert">
-                    No se ha podido enviar. Inténtalo de nuevo o escríbenos directamente.
+                    {failureMessage(failure)}
                   </p>
                 )}
 
@@ -293,10 +358,24 @@ export function ContactSection({
                   >
                     <path d="M3 2.5h2.5l1.2 3-1.6 1.2a9.5 9.5 0 0 0 4.2 4.2l1.2-1.6 3 1.2v2.5a1 1 0 0 1-1 1A11.5 11.5 0 0 1 2 3.5a1 1 0 0 1 1-1z" />
                   </svg>
-                  {SITE_PHONES.map((phone) => (
-                    <a key={phone.tel} className="contact-phone" href={`tel:${phone.tel}`}>
-                      {phone.display}
-                    </a>
+                  {/* The label cell is rendered even when there is no label:
+                      it is a grid column, and an omitted cell would slide the
+                      next row's number into it. The colon lives in the
+                      stylesheet, on `:not(:empty)`, so an unlabelled number
+                      shows no stray punctuation.
+
+                      OUTSIDE the anchor, deliberately — the link's accessible
+                      name should be the number a screen-reader user is about to
+                      dial, not "Madrid +34…". */}
+                  {SITE_PHONES.map((phone, i) => (
+                    // Two offices can legitimately share one number, so the tel
+                    // alone is not a key.
+                    <Fragment key={`${phone.tel}-${i}`}>
+                      <span className="contact-phone-label">{phone.label}</span>
+                      <a className="contact-phone" href={`tel:${phone.tel}`}>
+                        {phone.display}
+                      </a>
+                    </Fragment>
                   ))}
                 </div>
               </form>
