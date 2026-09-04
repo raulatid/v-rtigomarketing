@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAuditBody, parseContactBody, CAPS } from './validate'
+import { parseAuditBody, parseContactBody, CAPS, PLANS } from './validate'
 
 /**
  * The server's own reading of a submission. The client validates too, and these
@@ -14,7 +14,9 @@ import { parseAuditBody, parseContactBody, CAPS } from './validate'
  */
 
 const audit = {
-  plan: 'completa',
+  plan: 'auditoria-seo-completa',
+  revenue: '20.000 - 100.000 €',
+  budget: '2.000 - 5.000 €',
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'https://example.com',
@@ -230,13 +232,50 @@ describe('the website (API-2)', () => {
 })
 
 describe('the audit form in particular', () => {
-  it('accepts each of the three plans and nothing else', () => {
-    for (const plan of ['seo-tecnico', 'contenido', 'completa']) {
+  it('accepts each service it offers and nothing else', () => {
+    // Read from PLANS rather than restated, so adding a service to the list is
+    // one edit. The point of the test is the CLOSED set, not the membership.
+    for (const plan of PLANS) {
       expect(auditValue({ plan }).plan, plan).toBe(plan)
     }
-    for (const plan of ['', 'otro', 'completa; DROP', 'COMPLETA']) {
+    // `seo-tecnico` and `completa` are the pre-2026-09-04 values, and they are
+    // in this list on purpose: a client cached with the old select must be
+    // refused rather than quietly recorded against a service that no longer
+    // exists.
+    for (const plan of ['', 'otro', 'seo; DROP', 'SEO', 'seo-tecnico', 'completa']) {
       expect(auditFields({ plan }), plan).toHaveProperty('plan')
     }
+  })
+
+  it('takes the revenue and budget as free text, and still bounds them', () => {
+    // Every one of these is a real answer a person would type. None of them
+    // survives a schema, which is why there is no schema.
+    for (const value of [
+      '20.000 - 100.000 €',
+      '20k / 100k',
+      '20 000 a 100 000 €',
+      '5000',
+      'aprox. 3.000 al mes',
+      '2k-4k',
+      'No definido todavía',
+    ]) {
+      expect(auditValue({ revenue: value, budget: value }).revenue, value).toBe(value)
+      expect(auditValue({ revenue: value, budget: value }).budget, value).toBe(value)
+    }
+
+    // Required, both of them.
+    expect(auditFields({ revenue: '' })).toHaveProperty('revenue')
+    expect(auditFields({ revenue: '   ' })).toHaveProperty('revenue')
+    expect(auditFields({ budget: '' })).toHaveProperty('budget')
+    expect(auditFields({ budget: undefined })).toHaveProperty('budget')
+
+    // Bounded, both of them.
+    expect(auditFields({ revenue: 'a'.repeat(CAPS.revenue + 1) })).toHaveProperty('revenue')
+    expect(auditFields({ budget: 'a'.repeat(CAPS.budget + 1) })).toHaveProperty('budget')
+
+    // Free text is not a hole in the control-character rule.
+    expect(auditValue({ revenue: '20k  / 100k' }).revenue).toBe('20k / 100k')
+    expect(auditValue({ budget: '2.000\r\n- 5.000' }).budget).toBe('2.000 - 5.000')
   })
 
   it('treats the phone as the one optional field', () => {

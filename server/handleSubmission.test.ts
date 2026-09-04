@@ -56,7 +56,9 @@ const contactBody = {
 }
 
 const auditBody = {
-  plan: 'completa',
+  plan: 'auditoria-seo-completa',
+  revenue: '20.000 - 100.000 EUR',
+  budget: '2.000 - 5.000 EUR',
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'example.com',
@@ -113,6 +115,12 @@ describe('a submission that should arrive', () => {
     expect(message.subject).toMatch(/auditor/i)
     // Normalised on the way through, so the recipient sees what was checked.
     expect(message.text).toContain('https://example.com/')
+    // The whole point of the two free-text fields is that a person reads them,
+    // so "it validated" is not the assertion that matters — "it arrived" is.
+    // This is the end of the path the plan names: UI -> validation -> payload
+    // -> server validation -> email.
+    expect(message.text).toContain(auditBody.revenue)
+    expect(message.text).toContain(auditBody.budget)
   })
 
   it('accepts a form somebody left open for an hour', async () => {

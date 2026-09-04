@@ -26,19 +26,57 @@
  */
 export const CAPS = {
   name: 80,
+  // Short business context, not a figure. 60 leaves room for
+  // "20.000 - 100.000 € aprox." and stops well short of anything that would
+  // overrun a row in the email a person actually reads.
+  revenue: 60,
+  budget: 60,
   email: 254,
   website: 200,
   phone: 32,
   message: 2000,
 } as const
 
-/** The three options the audit form's select offers. Nothing else is a plan. */
-export const PLANS = ['seo-tecnico', 'contenido', 'completa'] as const
+/**
+ * The services the audit form's select offers. Nothing else is a plan.
+ *
+ * Still called PLANS, and still `plan` on the wire, after the 2026-09-04
+ * relabelling to "Servicio de interés": the key is shared with
+ * `AuditSection.tsx` and with every submission already in the client's inbox,
+ * and renaming it would break both for the sake of a caption.
+ *
+ * The VALUES did change, so a stale client sending `seo-tecnico` is now
+ * refused rather than quietly accepted as a service the client no longer
+ * offers. That is the right failure: the select is a suggestion and this list
+ * is the authority.
+ */
+export const PLANS = [
+  'seo',
+  'geo',
+  'auditoria-seo-completa',
+  'sem',
+  'diseno-web',
+  'desarrollo',
+  'estrategia-marketing',
+] as const
 
 export type Plan = (typeof PLANS)[number]
 
 export interface AuditSubmission {
   plan: Plan
+  /**
+   * Turnover band and monthly budget, as the visitor typed them.
+   *
+   * FREE TEXT by product decision — the client asked for business context, not
+   * for a figure to compute with, so there is no enum and nothing parses these.
+   * They are read by a person in an email.
+   *
+   * Free text is not unvalidated text: both go through `readText` like every
+   * other field (control characters stripped, line breaks folded, length
+   * capped) and are escaped again at render in `renderEmail.ts`.
+   */
+  revenue: string
+  budget: string
   name: string
   email: string
   /** Absolute, http(s), and checked — never fetched. */
@@ -306,8 +344,34 @@ export function parseAuditBody(raw: unknown): ParseResult<AuditSubmission> {
   const planRaw = asString(body.plan)
   const plan = planRaw === null ? '' : planRaw.trim()
   if (!(PLANS as readonly string[]).includes(plan)) {
-    fields.plan = 'Selecciona un tipo de auditoría.'
+    fields.plan = 'Selecciona un servicio.'
   }
+
+  // Presence and length, and nothing else. There is deliberately no format
+  // rule: every separator, currency, abbreviation and "no lo sé todavía" is a
+  // valid answer here, so a pattern would reject real ones for no gain. The
+  // safety comes from `readText` and from `escapeHtml` downstream, not from a
+  // shape the value was never promised to have.
+  const revenue = readText(
+    {
+      key: 'revenue',
+      raw: body.revenue,
+      cap: CAPS.revenue,
+      missing: 'Indica tu rango de facturación.',
+      tooLong: 'Ese rango de facturación es demasiado largo.',
+    },
+    fields,
+  )
+  const budget = readText(
+    {
+      key: 'budget',
+      raw: body.budget,
+      cap: CAPS.budget,
+      missing: 'Indica tu presupuesto mensual.',
+      tooLong: 'Ese presupuesto es demasiado largo.',
+    },
+    fields,
+  )
 
   const name = readName(body.name, fields)
   const email = readEmail(body.email, fields)
@@ -328,7 +392,7 @@ export function parseAuditBody(raw: unknown): ParseResult<AuditSubmission> {
 
   return {
     ok: true,
-    value: { plan: plan as Plan, name, email, website, phone },
+    value: { plan: plan as Plan, revenue, budget, name, email, website, phone },
     meta: readMeta(body),
   }
 }

@@ -35,11 +35,23 @@ const REDUCED_MS = 60
 // full width in CSS and the camera recomposition is skipped (plan 005 §13).
 const MOBILE_MAX = 768
 
-type Field = 'plan' | 'name' | 'email' | 'website' | 'phone'
+type Field = 'plan' | 'name' | 'email' | 'website' | 'phone' | 'revenue' | 'budget'
 type Values = Record<Field, string>
 type Errors = Partial<Record<Field, string>>
 
-const FIELD_ORDER: Field[] = ['plan', 'name', 'email', 'website', 'phone']
+// `plan` keeps its key through the 2026-09-04 relabelling: the field is now
+// "Servicio de interés" on screen, but the wire name is shared with
+// `server/validate.ts` and with whatever is already sitting in the client's
+// inbox, and renaming it would break both for a caption.
+const FIELD_ORDER: Field[] = [
+  'plan',
+  'revenue',
+  'budget',
+  'name',
+  'email',
+  'website',
+  'phone',
+]
 
 /**
  * What differs between the five fields, which is all that ever differed.
@@ -82,13 +94,50 @@ type FieldDef =
 const FIELD_DEFS: Record<Field, FieldDef> = {
   plan: {
     kind: 'select',
-    label: 'Tipo de auditoría',
+    label: 'Servicio de interés',
     placeholder: 'Selecciona una opción',
+    // The values are wire identifiers and stay ASCII and stable; the labels are
+    // what the visitor reads. `server/validate.ts` PLANS is the authority and
+    // must list exactly these values — a select is a suggestion, not a
+    // guarantee, and nothing here is trusted.
     options: [
-      { value: 'seo-tecnico', label: 'Auditoría SEO técnica' },
-      { value: 'contenido', label: 'Auditoría de contenido y keywords' },
-      { value: 'completa', label: 'Auditoría completa' },
+      { value: 'seo', label: 'SEO' },
+      { value: 'geo', label: 'GEO (Posicionamiento LLMs)' },
+      { value: 'auditoria-seo-completa', label: 'Auditoría SEO completa' },
+      { value: 'sem', label: 'SEM' },
+      { value: 'diseno-web', label: 'Diseño web' },
+      { value: 'desarrollo', label: 'Desarrollo y programación' },
+      { value: 'estrategia-marketing', label: 'Estrategias de marketing' },
     ],
+  },
+  // FREE TEXT, deliberately, and this is the decision most likely to be
+  // second-guessed later. The client asked for business context, not for a
+  // figure to compute with: "20k / 100k", "aprox. 3.000 al mes" and "No
+  // definido todavía" are all useful answers, and a select would have forced
+  // somebody to invent the brackets. Nothing downstream parses these — they
+  // travel as text into an email a person reads.
+  //
+  // Free text is not unvalidated text. Both go through the same `readText`
+  // rule as every other field on the server (control characters stripped, line
+  // breaks folded, length capped) and the same `escapeHtml` in renderEmail.
+  revenue: {
+    kind: 'input',
+    label: 'Rango de facturación de tu empresa',
+    type: 'text',
+    // No autocomplete token describes this. `off` rather than a wrong one:
+    // the browser has nothing useful to offer and a mismatched token invites
+    // it to fill in something else.
+    autoComplete: 'off',
+    placeholder: '20.000 - 100.000 €',
+    maxLength: 60,
+  },
+  budget: {
+    kind: 'input',
+    label: 'Presupuesto mensual',
+    type: 'text',
+    autoComplete: 'off',
+    placeholder: '2.000 - 5.000 €',
+    maxLength: 60,
   },
   name: {
     kind: 'input',
@@ -193,7 +242,15 @@ function AuditField({
   )
 }
 
-const EMPTY_VALUES: Values = { plan: '', name: '', email: '', website: '', phone: '' }
+const EMPTY_VALUES: Values = {
+  plan: '',
+  revenue: '',
+  budget: '',
+  name: '',
+  email: '',
+  website: '',
+  phone: '',
+}
 
 /**
  * Hosts the server will refuse, refused here too so the form says so before a
@@ -234,7 +291,15 @@ function websiteProblem(raw: string): string | undefined {
 
 function validate(values: Values): Errors {
   const errors: Errors = {}
-  if (!values.plan) errors.plan = 'Selecciona un tipo de auditoría.'
+  if (!values.plan) errors.plan = 'Selecciona un servicio.'
+  // Presence and length only. There is deliberately no format rule: every
+  // separator, currency, abbreviation and "no lo sé todavía" is a valid answer,
+  // and a pattern here would reject real ones. The cap mirrors FIELD_DEFS,
+  // which mirrors the server — see the maxLength comment above.
+  if (!values.revenue.trim()) errors.revenue = 'Indica tu rango de facturación.'
+  else if (values.revenue.trim().length > 60) errors.revenue = 'Máximo 60 caracteres.'
+  if (!values.budget.trim()) errors.budget = 'Indica tu presupuesto mensual.'
+  else if (values.budget.trim().length > 60) errors.budget = 'Máximo 60 caracteres.'
   if (!values.name.trim()) errors.name = 'Introduce tu nombre.'
   if (!values.email.trim()) errors.email = 'Introduce tu email.'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(values.email.trim()))
@@ -768,6 +833,21 @@ export function AuditSection({
                       →
                     </span>
                   </button>
+                  {/* The response promise, and it sits ABOVE the fine print
+                      rather than inside it on purpose: it is the answer to
+                      "what happens after I press this", which is the question
+                      being asked at the moment the button is in reach.
+
+                      Local copy, not a SiteSettings field. Every visible string
+                      in this form is local; the four CMS fields exist for the
+                      post-submission state, and a schema field plus mapper plus
+                      fixture plus invariant for one static sentence is churn.
+                      NOTE: the same promise also lives in the CMS-owned
+                      `auditSuccessBody` — if the client ever changes the SLA,
+                      both have to move. */}
+                  <p className="audit-note audit-note--sla">
+                    Solemos responder en menos de 24 horas.
+                  </p>
                   <p className="audit-note">
                     Revisamos cada solicitud de forma manual. Sin compromiso.
                   </p>

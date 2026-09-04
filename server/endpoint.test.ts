@@ -193,7 +193,9 @@ describe('the audit endpoint', () => {
     const response = await respond(
       'audit',
       post({
-        plan: 'completa',
+        plan: 'auditoria-seo-completa',
+        revenue: '20k / 100k',
+        budget: 'aprox. 3.000 al mes',
         name: 'Nombre Prueba',
         email: 'prueba@example.com',
         website: 'example.com',

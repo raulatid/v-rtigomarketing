@@ -37,9 +37,13 @@ export interface RenderedEmail {
 
 /** The three plan slugs, in the words the form used to offer them. */
 const PLAN_LABELS: Record<string, string> = {
-  'seo-tecnico': 'Auditoría SEO técnica',
-  contenido: 'Auditoría de contenido y keywords',
-  completa: 'Auditoría completa',
+  seo: 'SEO',
+  geo: 'GEO (Posicionamiento LLMs)',
+  'auditoria-seo-completa': 'Auditoría SEO completa',
+  sem: 'SEM',
+  'diseno-web': 'Diseño web',
+  desarrollo: 'Desarrollo y programación',
+  'estrategia-marketing': 'Estrategias de marketing',
 }
 
 /** Shown where an optional field was left empty, so the gap reads as a choice. */
@@ -108,7 +112,13 @@ export function renderAuditEmail(submission: AuditSubmission): RenderedEmail {
   const plan = PLAN_LABELS[submission.plan] ?? submission.plan
   const intro = 'Nueva solicitud de auditoría desde la web.'
   const rows: Row[] = [
-    { label: 'Tipo de auditoría', value: plan },
+    { label: 'Servicio de interés', value: plan },
+    // Free text, and it reaches the row exactly as typed. Both label and value
+    // go through escapeHtml in htmlBody, so `<script>` and `<img onerror=…>`
+    // arrive as visible characters in a table cell — the row is the only place
+    // they are ever rendered, and it is never an href.
+    { label: 'Facturación', value: submission.revenue },
+    { label: 'Presupuesto mensual', value: submission.budget },
     { label: 'Nombre', value: submission.name },
     { label: 'Email', value: submission.email },
     { label: 'Web', value: submission.website },

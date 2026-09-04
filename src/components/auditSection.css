@@ -515,6 +515,16 @@
   text-align: center;
 }
 
+/* The response promise. One step out of the fine print — same size and place,
+   brighter — because it is a reason to press the button rather than a caveat
+   about having pressed it. Not a colour of its own and not bold: it sits
+   between the CTA and the note, and anything louder would compete with the CTA
+   it is meant to support. */
+.audit-note--sla {
+  margin-top: 0.9rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 /* The legal links at the panel's foot — the note's own muted register, so they
    read as fine print and never compete with the CTA above them. They came off
    the Earth floor line on 2026-08-24 (DECISIONS §30). */

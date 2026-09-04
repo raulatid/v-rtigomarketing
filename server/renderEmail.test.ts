@@ -14,7 +14,9 @@ import type { AuditSubmission, ContactSubmission } from './validate'
  */
 
 const audit: AuditSubmission = {
-  plan: 'completa',
+  plan: 'auditoria-seo-completa',
+  revenue: '20.000 - 100.000 EUR',
+  budget: '2.000 - 5.000 EUR',
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'https://example.com/',
@@ -50,6 +52,11 @@ describe('what the notification never contains', () => {
       ...audit,
       name: HOSTILE,
       phone: HOSTILE,
+      // The two free-text fields carry no format rule at all, which makes them
+      // the widest opening on the form — so they are in the hostile set rather
+      // than trusted to be short and numeric.
+      revenue: HOSTILE,
+      budget: HOSTILE,
       email: 'a@example.com',
     })
     for (const tag of tagsIn(rendered.html)) expect(ALLOWED_TAGS, tag).toContain(tag)

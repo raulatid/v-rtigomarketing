@@ -22,6 +22,8 @@ const VALID: Record<string, string> = {
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'https://example.com',
+  revenue: '20.000 - 100.000 €',
+  budget: 'aprox. 3.000 al mes',
 }
 
 let container: HTMLDivElement
@@ -78,7 +80,13 @@ function openAndFill() {
     vi.advanceTimersByTime(1500) // past ENTER_MS: phase 'open'
   })
   act(() => {
-    pick(document.querySelector<HTMLSelectElement>('#audit-plan')!, 'completa')
+    pick(document.querySelector<HTMLSelectElement>('#audit-plan')!, 'auditoria-seo-completa')
+    // Free text, and typed the way a person actually would — a currency symbol,
+    // a thousands separator and a hyphen. If any of these ever stopped being
+    // accepted, this fill would silently start failing validation and every
+    // test below it would fail for the wrong reason.
+    type(document.querySelector<HTMLInputElement>('#audit-revenue')!, VALID.revenue)
+    type(document.querySelector<HTMLInputElement>('#audit-budget')!, VALID.budget)
     type(document.querySelector<HTMLInputElement>('#audit-name')!, VALID.name)
     type(document.querySelector<HTMLInputElement>('#audit-email')!, VALID.email)
     type(document.querySelector<HTMLInputElement>('#audit-website')!, VALID.website)

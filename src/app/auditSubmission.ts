@@ -27,7 +27,21 @@ import { SubmissionError, type SubmissionErrorCode } from './submissionError'
 /** The validated payload the form hands over. Values are already trimmed-ish
  *  user input; the transport owns any wire formatting. */
 export interface AuditRequest {
+  /**
+   * Which service the visitor is here about. Still `plan` on the wire after the
+   * 2026-09-04 relabelling to "Servicio de interés" — the key is shared with
+   * `server/validate.ts` and with submissions already in the client's inbox.
+   */
   plan: string
+  /**
+   * Turnover band and monthly budget, as the visitor typed them.
+   *
+   * FREE TEXT and never parsed. "20k / 100k", "aprox. 3.000 al mes" and "No
+   * definido todavía" are all answers a salesperson can use, and none of them
+   * survives a schema. They travel as text into an email a human reads.
+   */
+  revenue: string
+  budget: string
   name: string
   email: string
   website: string

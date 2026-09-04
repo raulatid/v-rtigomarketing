@@ -23,7 +23,9 @@ import { SubmissionError } from './submissionError'
  */
 
 const payload: AuditRequest = {
-  plan: 'completa',
+  plan: 'auditoria-seo-completa',
+  revenue: '20k / 100k',
+  budget: 'aprox. 3.000 al mes',
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'https://example.com',
