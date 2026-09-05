@@ -6,6 +6,7 @@ import {
   LOCAL_MEDIA_PATH,
   TEL_PATTERN,
   collectionProblems,
+  isBookingUrl,
   siteSettingsProblems,
 } from '../../src/content/invariants'
 import { Report, boundedArray, matching, text } from '../lib/validate'
@@ -46,6 +47,39 @@ const {
   /** Two lines under that heading. */
   successBody: SUCCESS_BODY_MAX,
 } = EDITORIAL_BOUNDS.siteSettings
+
+/**
+ * Words on a button, not a sentence. Same bound as the Studio's rule, and the
+ * same number a phone's `label` gets, for the same kind of reason.
+ *
+ * Measured rather than guessed, at the 360px viewport the mobile audit uses:
+ * the scrim spends 16px a side and the panel 2rem (modal.css), leaving 264px of
+ * content; the pill spends 2px on its border, 28px on padding and 22px on the
+ * icon and its gap, leaving ~212px for text. At 0.78rem uppercase with 0.12em
+ * of letterspacing a character averages ~8.8px, so ~24 of them fit. The shipped
+ * wording is 15.
+ *
+ * At 320px the budget is ~19 characters, so a 24-character label wraps there —
+ * which is why the bound is 24 and not 19. The pill is a flex row with a
+ * min-height, so it GROWS to a second line rather than overflowing.
+ */
+const BOOKING_LABEL_MAX = 24
+
+/**
+ * What the booking button says when the CMS has not been given words for it.
+ *
+ * The same reasoning as SUCCESS_FALLBACKS below, and the same value the button
+ * was hardcoded to before the field existed: an untouched dataset renders
+ * exactly what it rendered yesterday, and filling the field in is an
+ * improvement rather than a migration.
+ *
+ * One deliberate difference from those four: the Studio does NOT mark this
+ * `required()`. It marks them, because every site needs confirmation copy.
+ * A client who books no calls at all needs no booking button, and requiring
+ * this would put a red badge on the only settings document over words for a
+ * control that never renders.
+ */
+const BOOKING_LABEL_FALLBACK = 'Agenda una cita'
 
 /**
  * What the panels say when the CMS has not been given these fields yet.
@@ -91,6 +125,44 @@ function successCopy(
 ): string | undefined {
   if (raw === null || raw === undefined || raw === '') return SUCCESS_FALLBACKS[path]
   return text(report, path, raw, { max })
+}
+
+/**
+ * The booking link — optional, and OMITTED rather than empty when unset.
+ *
+ * Same shape as a phone's `label` above, and for the same reason: an editor who
+ * clears the box in the Studio leaves `''` behind, not `undefined`, so blank
+ * counts as absent. Unlike the confirmation copy there is NO fallback — nobody
+ * can guess somebody else's calendar, and the contact dialog reads absence as
+ * "render no button".
+ *
+ * A value that IS present is held to the SHAPE of a booking link rather than to
+ * one platform's domain, so the client can change scheduling providers without
+ * a deploy. The reasoning lives on `isBookingUrl`.
+ */
+function booking(report: Report, path: string, raw: unknown): string | undefined {
+  if (raw === null || raw === undefined || raw === '') return undefined
+  if (typeof raw !== 'string') {
+    report.fail(path, 'expected a string')
+    return undefined
+  }
+  const trimmed = raw.trim()
+  if (!isBookingUrl(trimmed)) {
+    report.fail(path, JSON.stringify(trimmed) + ' is not an https booking link')
+    return undefined
+  }
+  return trimmed
+}
+
+/**
+ * The booking button's words, falling back when the CMS has never been given
+ * them. `successCopy` above with a different default — kept separate because
+ * that one is keyed to the four confirmation fields and this is not one of
+ * them, and widening it would mean widening its key type for one caller.
+ */
+function bookingCopy(report: Report, path: string, raw: unknown): string | undefined {
+  if (raw === null || raw === undefined || raw === '') return BOOKING_LABEL_FALLBACK
+  return text(report, path, raw, { max: BOOKING_LABEL_MAX })
 }
 
 /**
@@ -189,6 +261,8 @@ export const siteSettingsCollection = collection<SiteSettings>({
       "id": "site",
       phones[]{ label, display, tel },
       contactEmail,
+      bookingUrl,
+      bookingLabel,
       copyright,
       auditSuccessTitle,
       auditSuccessBody,
@@ -223,6 +297,14 @@ export const siteSettingsCollection = collection<SiteSettings>({
       EMAIL_PATTERN,
       'an email address',
     )
+    // The link is deliberately absent from the `=== undefined` guard below:
+    // undefined is the SUCCESS value for a field the client has not filled in
+    // yet. A value that is present and wrong reports a problem instead, and
+    // `problems.length` is what fails the record.
+    const bookingUrl = booking(scoped, 'bookingUrl', source.bookingUrl)
+    // The label IS in that guard, like the confirmation copy: the fallback
+    // means undefined can only mean a present value that failed validation.
+    const bookingLabel = bookingCopy(scoped, 'bookingLabel', source.bookingLabel)
     const copyright = text(scoped, 'copyright', source.copyright, { max: COPYRIGHT_MAX })
 
     // The confirmation copy. `text()` strips HTML and fails on the residue, so
@@ -261,6 +343,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       phones === undefined ||
       contactEmail === undefined ||
       copyright === undefined ||
+      bookingLabel === undefined ||
       auditSuccessTitle === undefined ||
       auditSuccessBody === undefined ||
       contactSuccessTitle === undefined ||
@@ -274,13 +357,20 @@ export const siteSettingsCollection = collection<SiteSettings>({
       id,
       phones,
       contactEmail,
+      // Spread rather than assigned, so an unset link leaves the key OUT of the
+      // emitted record instead of writing `"bookingUrl": undefined` — the
+      // emitter is byte-stable and a key that is sometimes there is a diff.
+      ...(bookingUrl === undefined ? {} : { bookingUrl }),
+      // Assigned plainly, unlike the link above: the fallback means this is
+      // never absent, so the key is always there and the emitter stays stable.
+      bookingLabel,
       copyright,
       auditSuccessTitle,
       auditSuccessBody,
       contactSuccessTitle,
       contactSuccessBody,
       // Always present (the switch has a default); the image key inside it is
-      // spread the way an optional link is, for byte-stability.
+      // spread the way `bookingUrl` is, for the same byte-stability reason.
       buildingBanner,
     }
 

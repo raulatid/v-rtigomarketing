@@ -36,6 +36,27 @@ export const SITE_PHONES: SitePhone[] = settings.phones
 export const CONTACT_EMAIL = settings.contactEmail
 
 /**
+ * The client's public booking page, or `undefined` when they have not given us
+ * one — which is the state this shipped in, on purpose.
+ *
+ * `ContactSection` renders its booking button only when this is set, so the
+ * client can turn the button on by pasting a link into the Studio and
+ * republishing, with no code change and nothing to deploy on our side. That
+ * holds when they CHANGE scheduling platform too, which is the point: the
+ * content build checks the shape of a booking link — https, no credentials, a
+ * path beyond the origin — and not whose domain it is, so whatever arrives here
+ * is safe to put in an href without pinning the client to one provider.
+ */
+export const BOOKING_URL: string | undefined = settings.bookingUrl
+
+/**
+ * What that button says. Always a string: the content build substitutes the
+ * shipped wording when the CMS field is blank, so no consumer needs a fallback
+ * of its own and the words exist in exactly one place.
+ */
+export const BOOKING_LABEL: string = settings.bookingLabel
+
+/**
  * What each panel says once a submission has genuinely been delivered.
  *
  * Editable in Sanity since 2026-09-04 (plan 012), because "te responderemos en

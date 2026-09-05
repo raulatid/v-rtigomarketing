@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SITE_SETTINGS } from './generated/siteSettings'
 import { siteSettingsProblems } from './invariants'
-import { CONTACT_EMAIL, COPYRIGHT, SITE_PHONES } from './site'
+import { BOOKING_LABEL, BOOKING_URL, CONTACT_EMAIL, COPYRIGHT, SITE_PHONES } from './site'
 
 /**
  * A guard on the guard.
@@ -31,6 +31,35 @@ describe('the compatibility adapter', () => {
     expect(SITE_PHONES).toEqual(settings.phones)
     expect(CONTACT_EMAIL).toBe(settings.contactEmail)
     expect(COPYRIGHT).toBe(settings.copyright)
+  })
+
+  it('offers at least one dialable number', () => {
+    expect(SITE_PHONES.length).toBeGreaterThan(0)
+    for (const phone of SITE_PHONES) {
+      expect(phone.tel, phone.display).toMatch(/^\+?[0-9]{6,20}$/)
+    }
+  })
+  it('passes the booking link through unchanged, absent included', () => {
+    // Optional by design: the field arrived after the dataset, and there is no
+    // sensible default for somebody else's calendar. `undefined` is the state
+    // the contact dialog reads as "render no button".
+    expect(BOOKING_URL).toBe(SITE_SETTINGS[0].bookingUrl)
+    if (BOOKING_URL !== undefined) {
+      // Asserted on SHAPE, never on a host. The client is changing scheduling
+      // platform, and a test that named one would have to be edited to let
+      // them — which is the coupling the field exists to remove.
+      const url = new URL(BOOKING_URL)
+      expect(url.protocol).toBe('https:')
+      expect(url.pathname.length).toBeGreaterThan(1)
+    }
+  })
+
+  it('always has words for the booking button, even with no link', () => {
+    // The build resolves the fallback, so this is a string whether or not the
+    // client has given us either field. `ContactSection` has no default of its
+    // own, and this is what makes that safe.
+    expect(BOOKING_LABEL).toBe(SITE_SETTINGS[0].bookingLabel)
+    expect(BOOKING_LABEL.length).toBeGreaterThan(0)
   })
 
   it('offers at least one dialable number', () => {

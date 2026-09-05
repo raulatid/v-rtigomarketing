@@ -260,6 +260,57 @@ export const TEL_PATTERN = /^\+?[0-9]{6,20}$/
  */
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
+/**
+ * Whether a string is a usable booking link, whatever platform serves it.
+ *
+ * ── Why any host, and not an allowlist ──
+ * This began as a calendly.com origin check. The client books on Calendly today
+ * and is moving to another platform, and an allowlist makes that migration a
+ * code change and a deploy on our side — they paste the new link, the build
+ * refuses it, and the button silently disappears. Custom domains, which most
+ * scheduling platforms sell, fail the same way.
+ *
+ * The repository already draws this line, and draws it by what the CODE does
+ * with the URL rather than by how much the value is trusted:
+ *
+ *   • a HOST allowlist where code trusts the host — `remoteMediaUrl` in
+ *     content/lib/validate.ts pins the media CDN, and `embed` in
+ *     blogPosts.collection.ts pins the providers it builds an iframe for,
+ *     because an iframe runs whatever the host serves;
+ *   • a PROTOCOL allowlist where the URL is only ever a link a visitor may
+ *     click — `safeHref` in content/lib/portableText.ts takes any host on
+ *     https or mailto, and that covers every link in every blog post.
+ *
+ * This is the second kind: a plain anchor with `rel="noopener noreferrer"`,
+ * carrying no more authority than a link in body copy. So it is checked on
+ * SHAPE, and the shape stays true whatever platform the client moves to.
+ *
+ * PARSED, never matched as a substring — the same reason `remoteMediaUrl`
+ * records under SEC-1. Parsing is also what makes the credentials check below
+ * possible at all; a pattern would not see it.
+ *
+ * A bare origin is refused: `https://cal.com/` is a platform's own marketing
+ * homepage, not anybody's booking page, and a button promising a slot that
+ * lands there is worse than no button.
+ */
+export function isBookingUrl(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  if (url.protocol !== 'https:') return false
+  // Credentials are a phishing shape, never a real booking link:
+  // `https://calendly.com@attacker.net/x` parses with host attacker.net and
+  // username "calendly.com", and reads as Calendly to anyone skimming the
+  // Studio field. Refused on the shape, so dropping the origin allowlist does
+  // not drop this — and it keeps holding for whatever platform comes next.
+  if (url.username !== '' || url.password !== '') return false
+  return url.pathname.length > 1
+}
+
 export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   const problems: Problem[] = []
   const at = (path: string, message: string) =>
@@ -270,6 +321,21 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   }
   if (!nonEmpty(entry.copyright)) at('copyright', 'must be a non-empty string')
   if (!EMAIL_PATTERN.test(entry.contactEmail)) at('contactEmail', 'is not an email address')
+
+  // Absent is fine — the button simply does not render. PRESENT and wrong is
+  // not, and it is checked here as well as in the mapper because this is the
+  // one that runs against the emitted module: a hand-edited generated file is
+  // exactly how a link nobody reviewed would reach the contact dialog.
+  if (entry.bookingUrl !== undefined && !isBookingUrl(entry.bookingUrl)) {
+    at('bookingUrl', 'is not an https booking link')
+  }
+
+  // The button's own words. Unlike the link there IS a shipped default, so an
+  // empty one here does not mean "the client has not filled it in" — it means
+  // the mapper's fallback was bypassed. The consequence is worse than an ugly
+  // button: the anchor's only other child is an aria-hidden icon, so an empty
+  // label is a link with NO accessible name at all. Worth failing a build over.
+  if (!nonEmpty(entry.bookingLabel)) at('bookingLabel', 'must be a non-empty string')
 
   // The confirmation copy (plan 012). Re-checked here, on the emitted module,
   // rather than trusted from the mapper — the same guard-on-the-guard

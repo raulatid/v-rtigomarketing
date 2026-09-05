@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { submitContactRequest } from '../app/contactSubmission'
 import type { ContactRequest, SubmitContactRequest } from '../app/contactSubmission'
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
-import { FORM_MESSAGES, SITE_PHONES } from '../content/site'
+import { BOOKING_LABEL, BOOKING_URL, FORM_MESSAGES, SITE_PHONES } from '../content/site'
 import type { LegalDocId } from '../content/site'
 import './modal.css'
 import './contactSection.css'
@@ -122,6 +122,15 @@ export function ContactSection({
       return 'idle'
     })
   }, [onOpenChange])
+
+  // The audit took the screen (`suppressed` mirrors auditOpen in App.tsx). Its
+  // curtain sits ABOVE this scrim, and the header that opens it sits above both
+  // — so the trigger is reachable while this dialog is up, and without this the
+  // dialog stayed mounted underneath, waiting behind the curtain. Disabling the
+  // trigger only stops the reverse direction; this is the one that fires.
+  useEffect(() => {
+    if (suppressed && open) close()
+  }, [suppressed, open, close])
 
   useEffect(() => {
     if (!open) return
@@ -339,6 +348,47 @@ export function ContactSection({
                   </button>
                   .
                 </p>
+
+                {/* The middle door: write to us, BOOK A SLOT, or call. Opens
+                    the client's own booking page — whatever platform it is on,
+                    which is deliberate: they book on Calendly today and are
+                    moving, and the build checks the link's shape rather than
+                    its domain so that move costs no deploy. Renders only when
+                    they have given us one — the field is optional and empty
+                    until they paste a link into the Studio (`site.ts`), so this
+                    shipped as no button at all rather than as a dead one.
+
+                    An ANCHOR, not a button: this is inside the <form>, where a
+                    <button> without an explicit type submits, and "book a call"
+                    must never post the contact form. It carries the hairline
+                    that opens the alternatives block when it is present, and
+                    hands it back to the phones when it is not — see the
+                    `+ .contact-phones` rule in the stylesheet. */}
+                {BOOKING_URL && (
+                  <a
+                    className="contact-booking"
+                    href={BOOKING_URL}
+                    target="_blank"
+                    // Modern browsers imply noopener with target=_blank; the
+                    // attribute is what makes it true on the ones that do not.
+                    rel="noopener noreferrer"
+                  >
+                    <svg
+                      className="contact-booking__icon"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="2" y="3.5" width="12" height="10" rx="2" />
+                      <path d="M2 6.5h12M5.5 2v3M10.5 2v3" />
+                    </svg>
+                    {BOOKING_LABEL}
+                  </a>
+                )}
 
                 {/* The numbers used to sit on the Earth floor line; they live
                     here now (DECISIONS §30) — at the dialog's foot since

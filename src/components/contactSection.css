@@ -107,6 +107,85 @@
   outline-offset: 2px;
 }
 
+/* The booking link (2026-09-04). A GHOST of `.contact-cta` — same height,
+   radius and letterspacing, no fill and no glow — because the dialog has
+   exactly one primary action and it is "Enviar". This is the alternative
+   offered beside it, and a second filled blue button would make the visitor
+   choose between two things that look equally like the point.
+
+   It opens the alternatives block, so it carries the hairline; when there is no
+   link the phones below carry it instead, exactly as they did before. */
+.contact-booking {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  /* `.contact-cta` is 48px. This is the alternative to it, so it is a touch
+     shorter — and still clear of the 44px touch floor the mobile audit set. */
+  min-height: 44px;
+  /* 0.4rem is the phones' own top margin, and the 1.1rem above it is the air
+     the hairline needs — the two together put the rule drawn by ::before on
+     exactly the line `.contact-phones` used to draw it on. */
+  margin-top: 1.5rem;
+  padding: 0 14px;
+  border: 1px solid rgba(96, 145, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(28, 103, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* The hairline that opens the "or reach us another way" block, drawn INTO this
+   element's own top margin rather than as a border on it — the box already has
+   a full border of its own, and one box cannot carry both. */
+.contact-booking::before {
+  content: '';
+  position: absolute;
+  top: -1.1rem;
+  right: 0;
+  left: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.contact-booking__icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+
+@media (hover: hover) {
+  .contact-booking:hover {
+    border-color: rgba(96, 145, 255, 0.55);
+    background: rgba(28, 103, 255, 0.14);
+    color: #fff;
+  }
+}
+
+.contact-booking:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+/* When the booking link is there it owns the block's opening rule, so the
+   phones give theirs up — two hairlines a row apart would read as a table.
+   Without the link this rule does not match and the phones are unchanged,
+   which is what makes the empty state literally the old layout. */
+.contact-booking + .contact-phones {
+  margin-top: 0;
+  padding-top: 0.5rem;
+  border-top: none;
+}
+
 /* The phones, at the dialog's foot since 2026-09-03 — the values the Earth
    floor line used to carry (DECISIONS §30), set apart from the form by a
    hairline so the dialog reads as "write to us, or call". */

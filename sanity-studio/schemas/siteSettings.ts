@@ -131,6 +131,68 @@ export const siteSettings = defineType({
       validation: (rule) =>
         rule.required().email().error('Escribe una dirección de correo completa, con @ y dominio.'),
     }),
+    // ── El enlace para reservar cita ──
+    //
+    // Opcional de verdad: mientras esté vacío, la web NO enseña el botón. No
+    // hay ningún valor por defecto que tenga sentido — es tu agenda — así que
+    // "vacío" significa "todavía no", no "algo va mal".
+    //
+    // Sirve CUALQUIER plataforma de reservas, no sólo Calendly: si algún día
+    // cambiáis de herramienta, basta con pegar aquí el enlace nuevo. Lo único
+    // que se comprueba es que sea una dirección https:// completa y que lleve a
+    // tu página concreta y no a la portada del servicio — un botón que promete
+    // una cita y aterriza en una página de inicio es peor que no tener botón.
+    defineField({
+      name: 'bookingUrl',
+      title: 'Enlace para reservar cita',
+      description:
+        'Opcional. La dirección pública de tu página de reservas, copiada tal cual de la barra ' +
+        'del navegador. Sirve cualquier plataforma. Ejemplo: ' +
+        'https://tuplataforma.com/vertigo/30min — Mientras esté vacío, el botón no aparece en ' +
+        'el formulario de contacto.',
+      type: 'url',
+      fieldset: 'contacto',
+      validation: (rule) => [
+        rule.uri({ scheme: ['https'] }).error('Tiene que empezar por https://'),
+        rule
+          .custom((value?: string) => {
+            if (value === undefined || value === null || value === '') return true
+            let url: URL
+            try {
+              url = new URL(value)
+            } catch {
+              return 'Escribe la dirección completa, empezando por https://'
+            }
+            // Analizamos la dirección en vez de leerla como texto: así un
+            // enlace que sólo CONTIENE "https://" no cuela.
+            if (url.protocol !== 'https:') return 'Tiene que empezar por https://'
+            // Un enlace con usuario delante de la @ ("https://calendly.com@otro-sitio.com")
+            // parece de una web y lleva a otra. No existe en un enlace de reservas real.
+            if (url.username !== '' || url.password !== '') {
+              return 'Quita lo que va delante de la @: el enlace no lleva a donde parece'
+            }
+            if (url.pathname.length <= 1) {
+              return 'Falta tu página: pega el enlace completo, no sólo el dominio'
+            }
+            return true
+          })
+          .error(),
+      ],
+    }),
+    // El texto del botón. NO es `required()`, a diferencia de los mensajes de
+    // los formularios: marcarlo obligatorio pondría en rojo el único documento
+    // de ajustes por un botón que quizá ni se enseña. Vacío = "Agenda una cita".
+    defineField({
+      name: 'bookingLabel',
+      title: 'Texto del botón de reservar',
+      description:
+        'Opcional. Lo que dice el botón. Si lo dejas vacío pone "Agenda una cita". La web lo ' +
+        'escribe en mayúsculas sola, así que escríbelo normal. Como máximo 24 caracteres: más ' +
+        'largo y no cabe en una línea en el móvil.',
+      type: 'string',
+      fieldset: 'contacto',
+      validation: (rule) => rule.max(24).error('Demasiado largo: como máximo 24 caracteres.'),
+    }),
     defineField({
       name: 'copyright',
       title: 'Línea de copyright',

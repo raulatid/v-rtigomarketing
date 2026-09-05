@@ -986,3 +986,158 @@ describe('the Vertigo building banner (plan 019)', () => {
     expect(rule.minWidth).toBeGreaterThanOrEqual(1024)
   })
 })
+
+describe("the client's booking link", () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+
+  it('carries the booking link through from the fixture', () => {
+    const result = siteSettingsCollection.map(validSettings(), 0)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect((result.value as SiteSettings).bookingUrl).toBe('https://calendly.com/vertigo/30min')
+  })
+
+  it('omits the field when the CMS has never been given one', () => {
+    // A new field arriving in a dataset that predates it must not fail the
+    // build — the same rule the confirmation copy above lives by. There is no
+    // sensible default URL, so absence is absence: the button simply does not
+    // render, and the phones below it are unchanged.
+    for (const blank of [undefined, null, '']) {
+      const record = validSettings()
+      record.bookingUrl = blank
+      const result = siteSettingsCollection.map(record, 0)
+      expect(result.ok, String(blank)).toBe(true)
+      if (!result.ok) continue
+      expect((result.value as SiteSettings).bookingUrl, String(blank)).toBeUndefined()
+    }
+  })
+
+  it('refuses anything that is not a complete https address', () => {
+    // The scheme cases are the point, and they are why this PARSES the URL
+    // rather than matching it. `javascript://calendly.com/%0aalert(1)` parses
+    // cleanly — it has a familiar host and a path — and a check that looked for
+    // the string "https://", or trusted a familiar-looking host, would wave it
+    // through. The protocol is read off the parse, so it does not.
+    for (const url of [
+      'http://calendly.com/vertigo/30min',
+      'http://reservas.vertigomkt.com/cita',
+      'javascript:alert(1)',
+      'javascript://calendly.com/%0aalert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'mailto:hola@vertigomkt.com',
+      '//calendly.com/vertigo',
+      'calendly.com/vertigo',
+    ]) {
+      const record = validSettings()
+      record.bookingUrl = url
+      expect(problemsFor(siteSettingsCollection, record), url).toContain('site.bookingUrl')
+    }
+  })
+
+  it('refuses a link whose credentials hide where it really goes', () => {
+    // `https://calendly.com@attacker.net/x` parses with calendly.com as the
+    // USERNAME and attacker.net as the host, and reads as Calendly to anybody
+    // skimming the Studio field. The origin allowlist used to catch this as a
+    // side effect; it is now refused on its shape, which keeps holding whatever
+    // platform the client moves to.
+    for (const url of [
+      'https://calendly.com@attacker.net/vertigo',
+      'https://user:pass@attacker.net/vertigo',
+    ]) {
+      const record = validSettings()
+      record.bookingUrl = url
+      expect(problemsFor(siteSettingsCollection, record), url).toContain('site.bookingUrl')
+    }
+  })
+
+  it('refuses a bare origin, which books nothing', () => {
+    // A platform's own marketing homepage, not anybody's booking page. The
+    // hosts here are deliberately not calendly.com: nothing in this block
+    // should read as a rule about one provider.
+    for (const url of ['https://reservas.vertigomkt.com', 'https://reservas.vertigomkt.com/']) {
+      const record = validSettings()
+      record.bookingUrl = url
+      expect(problemsFor(siteSettingsCollection, record), url).toContain('site.bookingUrl')
+    }
+  })
+
+  it('accepts a booking page on any platform, custom domains included', () => {
+    // This list IS the requirement. The last two earn their place: a query
+    // string must not confuse the path rule, and a custom domain — which most
+    // of these platforms sell — is exactly what the old allowlist refused.
+    for (const url of [
+      'https://calendly.com/vertigo/30min',
+      'https://www.calendly.com/vertigo/30min',
+      'https://cal.com/vertigo/30min',
+      'https://meetings.hubspot.com/vertigo',
+      'https://tidycal.com/vertigo/30-minute-meeting',
+      'https://vertigo.zohobookings.eu/portal/vertigo',
+      'https://outlook.office.com/bookwithme/user/abc?anonymous',
+      'https://reservas.vertigomkt.com/cita-30min',
+    ]) {
+      const record = validSettings()
+      record.bookingUrl = url
+      expect(problemsFor(siteSettingsCollection, record), url).toEqual([])
+    }
+  })
+})
+
+/**
+ * The booking button's words, editable since 2026-09-05.
+ *
+ * A FALLBACK field, not an optional one — the same arrangement as the
+ * confirmation copy above, and for the same reason. It was a literal in the JSX
+ * until the client asked to be able to change scheduling platform: the button
+ * may need to name whatever they land on. So the shipped wording moved into the
+ * build, as the value a dataset that predates the field resolves to.
+ */
+describe("the booking button's words", () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+
+  it('falls back to the shipped wording when the CMS has none', () => {
+    for (const blank of [undefined, null, '']) {
+      const record = validSettings()
+      record.bookingLabel = blank
+      const result = siteSettingsCollection.map(record, 0)
+      expect(result.ok, String(blank)).toBe(true)
+      if (!result.ok) continue
+      expect((result.value as SiteSettings).bookingLabel, String(blank)).toBe('Agenda una cita')
+    }
+  })
+
+  it('carries the wording the client chose through untouched', () => {
+    const record = validSettings()
+    record.bookingLabel = 'Reserva tu hueco'
+    const result = siteSettingsCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect((result.value as SiteSettings).bookingLabel).toBe('Reserva tu hueco')
+  })
+
+  it('refuses a label too long for the button it has to fit in', () => {
+    const record = validSettings()
+    record.bookingLabel = 'Agenda una cita con nuestro equipo comercial hoy mismo'
+    expect(problemsFor(siteSettingsCollection, record)).toContain('site.bookingLabel')
+  })
+
+  it('flattens pasted markup instead of putting tags on the button', () => {
+    // `text()` STRIPS tags silently — an editor pasting out of a formatted
+    // document gets their words, not a build failure, which is how every other
+    // text field in this file behaves. Asserted rather than assumed, because
+    // the length bound is measured on what survives the strip.
+    const record = validSettings()
+    record.bookingLabel = '<b>Agenda</b> una cita'
+    const result = siteSettingsCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect((result.value as SiteSettings).bookingLabel).toBe('Agenda una cita')
+  })
+
+  it('refuses an entity that survives decoding', () => {
+    // What `text()` does fail on: a double-encoded entity, which is markup that
+    // would reach the button as visible `&amp;` rather than as a character.
+    const record = validSettings()
+    record.bookingLabel = 'Agenda &amp;amp; cita'
+    expect(problemsFor(siteSettingsCollection, record)).toContain('site.bookingLabel')
+  })
+})

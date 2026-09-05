@@ -137,11 +137,15 @@ One document, at the fixed id `siteSettings`.
 | `phones[].display` | string | non-empty, ≤ 40; format it however it reads best | fail |
 | `phones[].tel` | string | `^\+?[0-9]{6,20}$` — **digits only** | fail |
 | `contactEmail` | string | a real email address | fail |
+| `bookingUrl` | url | **optional**; `https://` with a page path, no credentials; **any host** | fail only when present and malformed |
+| `bookingLabel` | string | optional, ≤ 24; blank falls back to "Agenda una cita" | fail only when present and over-long |
 | `copyright` | string | non-empty, ≤ 120 | fail |
 | `bannerEnabled` | boolean | **optional**; absent means ON | fail only when present and not a boolean |
 | `bannerImage` | image | **optional**; PNG/WebP, ≥ 1024×512, aspect 1.6–2.1:1; mirrored to a local path (see the media contract) | fail when present and wrong |
 
 **The building banner is a switch and an image (plan 019, 2026-09-05).** The image is the picture on the four faces of the sign on the Vertigo tower in the city; it is MIRRORED into the deployment like a brand mark, because the browser draws it as a WebGL texture and must never fetch one from a third party. Absent means the city shows its own placeholder through the same material — the switch, not the file, is what turns the sign blank. Video is documented beside the renderer (`murcia/landmark/attachBanner.ts`) and deliberately not a field yet. The projection must hand the mirror a url STRING — `"bannerImage": bannerImage.asset->url` — never the image object. It is emitted as `buildingBanner: { enabled, image? }`, the image key omitted when there is none, so a consumer tests `image !== undefined`.
+
+**The booking host is deliberately not checked.** The client chooses their own scheduling platform and may change it — they are on Calendly today and moving — so an allowlist would mean a deploy per platform, and a validation error about a link that works. Custom domains, which most of these platforms sell, would fail the same way. It gets the rule a Portable Text link gets (`safeHref`: `https:` or `mailto:`, any host), because it is the same kind of value: a visible `<a rel="noopener noreferrer">` the visitor reads before clicking. Host allowlists in this repo are for the cases where code *trusts* a host — the iframe embeds in `blogPosts.collection.ts`, the media CDN in `validate.ts`. Nothing trusts this one. What *is* checked is shape: https, a path beyond the origin (a bare domain is a marketing homepage, not a booking page), and no userinfo (`https://calendly.com@attacker.net/x` reads as one host and resolves to another).
 
 **`display` and `tel` are different values on purpose.** `display` is read by a human; `tel` is dialled. A space in `tel` produces a link that silently does nothing on some handsets rather than failing visibly.
 

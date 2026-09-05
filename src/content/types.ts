@@ -108,6 +108,30 @@ export interface SiteSettings {
    * — which is the only thing outside the browser that reads any of this.
    */
   contactEmail: string
+  /**
+   * The client's public booking page, when they have given us one.
+   *
+   * OPTIONAL, and the only optional field on this record. The others have
+   * either always existed or carry a shipped fallback; there is no sensible
+   * default for somebody else's calendar, so absence is a real state and the
+   * contact dialog renders no button for it.
+   *
+   * Deliberately NOT tied to a platform. The client books on Calendly today and
+   * is switching; the build holds this to the SHAPE of a booking link — https,
+   * no credentials, a path beyond the origin — so the switch is a paste into
+   * the Studio rather than a deploy. See `isBookingUrl` in invariants.ts.
+   */
+  bookingUrl?: string
+  /**
+   * What the button that opens `bookingUrl` says.
+   *
+   * Required here but optional in the CMS: the mapper substitutes the shipped
+   * wording when the field is blank, exactly as it does for the confirmation
+   * copy below, so by the time a record reaches this type it always has words
+   * on it. Editable because the client may want the button to name whatever
+   * platform they land on, or to say something other than "book".
+   */
+  bookingLabel: string
   copyright: string
   /**
    * What the panel says once a submission has genuinely been delivered.
