@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { CASE_STUDIES } from '../../../content/generated/caseStudies'
 import {
   createBrandAtlas,
   BrandPlate,
@@ -249,5 +250,68 @@ describe('normalising the artwork on its ink (plan 012 task 3)', () => {
     for (const kind of ['logo', 'isotype'] as const) {
       expect(artworkHalfHeight(kind), kind).toBeLessThan(0.41)
     }
+  })
+})
+
+/**
+ * The one thing about this module that an EDITOR can change.
+ *
+ * Everything else here is geometry a developer chose. The number of rows is not:
+ * it is `ceil(caseStudies / 2)`, so the atlases grow with the CMS. Two atlases
+ * are uploaded, both RGBA8 with a mip chain, and they are resident the whole
+ * time the overview is — which is most of a visit.
+ *
+ * At the six case studies committed today that is 3 rows: 1024x1536 and
+ * 2048x1536, about 25 MB together. The ceiling below is roughly twice that, so
+ * the client can add case studies without a developer, and a build that would
+ * put 50 MB of atlas on a phone stops instead. When it fires the fix is a
+ * smaller cell or a compressed upload, not a bigger number — the iOS budget it
+ * is measured against is ~226 MB for EVERYTHING
+ * (docs/audits/ios-safari-2026-08-14.md §3).
+ */
+describe('what the CMS can grow', () => {
+  /** RGBA8 plus a full mip chain is 4/3 of the base level. Decimal MB. */
+  const vram = (w: number, h: number) => (w * h * 4 * 4) / 3 / 1e6
+
+  const CEILING_MB = 50
+
+  it('keeps both atlases under a ceiling at the committed case-study count', () => {
+    const real: BrandPlate[] = CASE_STUDIES.map((_, i) => ({
+      name: 'Caso ' + i,
+      brandColor: '#ffffff',
+      isotype: null,
+      logo: null,
+    }))
+
+    const rec = installCanvas()
+    createBrandAtlas(real, 'isotype')
+    createBrandAtlas(real, 'logo')
+
+    const total = rec.canvases.reduce((sum, c) => sum + vram(c.width, c.height), 0)
+    expect(
+      total,
+      `${CASE_STUDIES.length} case studies produce ${total.toFixed(1)} MB of brand atlas ` +
+        `(${rec.canvases.map((c) => `${c.width}x${c.height}`).join(', ')}), over the ` +
+        `${CEILING_MB} MB ceiling. This grows with the CMS, so the fix is a smaller cell ` +
+        'or a compressed upload — see the note above this test.',
+    ).toBeLessThanOrEqual(CEILING_MB)
+  })
+
+  it('grows exactly one row every two case studies, which is why the ceiling exists', () => {
+    const atlasHeight = (count: number) => {
+      const rec = installCanvas()
+      createBrandAtlas(
+        Array.from({ length: count }, (_, i) => ({
+          name: 'C' + i,
+          brandColor: '#ffffff',
+          isotype: null,
+          logo: null,
+        })),
+        'isotype',
+      )
+      return rec.canvases[0].height
+    }
+    expect(atlasHeight(6)).toBe(CELL.isotype.height * 3)
+    expect(atlasHeight(7)).toBe(CELL.isotype.height * 4)
   })
 })

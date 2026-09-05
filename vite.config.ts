@@ -97,6 +97,26 @@ const ENTRY_BUDGET_BYTES = 160_000
  */
 const BLOG_BUDGET_BYTES = 120_000
 
+/**
+ * The chunk that gates READINESS, and the one large chunk nothing budgeted.
+ *
+ * Everything a visitor waits for on `/` is behind it: the R3F canvas, the render
+ * pipeline, the Earth scene, the sky and the space backdrop. `three` is bigger
+ * and is deliberately unbudgeted — it is a pinned dependency that changes on a
+ * version bump and nothing else, so a byte count on it would measure npm rather
+ * than this repository. This one is OURS, it grows with every scene feature, and
+ * it is downloaded before anything is drawn.
+ *
+ * Measured 246,990 B in the 2026-09-05 production build. The ceiling is that
+ * plus about 15%: tight enough that a whole new subsystem landing here fires it,
+ * loose enough that ordinary scene work does not. It is a CEILING, not a target
+ * — when it fires, read the initial-closure total first (it is the primary gate
+ * and it moves for a different set of reasons), then decide whether what was
+ * added belongs behind a lazy seam. Raising it is fine; raising it without
+ * knowing what was added is how a budget stops meaning anything.
+ */
+const SCENE_BUDGET_BYTES = 285_000
+
 /** Which document a transformIndexHtml call is for. */
 function isBlogDocument(path: string): boolean {
   return path.replace(/^\//, '') === 'blog.html'
@@ -236,6 +256,20 @@ function assertChunkBudgets(): Plugin {
             `${c.fileName} entry=${c.isEntry} name=${c.name} ` +
               `size=${Buffer.byteLength(c.code, 'utf8')} imports=[${c.imports.join(' ')}]`,
           )
+          // WHERE THE BYTES CAME FROM, not just how many there are. A budget
+          // that fires tells you a chunk grew; this tells you which module did
+          // it, which is the question you actually have next. Rollup already
+          // knows — `renderedLength` is the post-treeshake, pre-minify size of
+          // each module's contribution — and printing it here means the answer
+          // needs no bundle-analyser dependency and no second build.
+          const modules = Object.entries(c.modules)
+            .map(([id, m]) => [id.replace(/\\/g, '/'), m.renderedLength] as const)
+            .filter(([, size]) => size > 0)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+          for (const [id, size] of modules) {
+            this.warn(`    ${String(size).padStart(8)}  ${id.replace(process.cwd().replace(/\\/g, '/'), '')}`)
+          }
         }
         return
       }
@@ -352,6 +386,32 @@ function assertChunkBudgets(): Plugin {
             "nothing and / is preloading the blog header's 3D mark. Fix the path there, or " +
             'remove both if the feature is gone.',
         )
+      }
+
+      // Matched on the source module, like every other chunk here: Vite derives
+      // the name from the lazy import's specifier and it is not a contract.
+      const scene = chunks.find((c) =>
+        c.moduleIds.some((id) => id.replace(/\\/g, '/').endsWith('src/components/SceneCanvas.tsx')),
+      )
+      if (!scene) {
+        // A budget that disappears when its subject does is not a budget — the
+        // lesson the app-entry lookup above already records.
+        this.error(
+          'the SceneCanvas chunk was not found. If it was renamed, fix the module path ' +
+            'here; if the canvas is no longer lazily loaded, the readiness path changed ' +
+            'shape and this budget needs rewriting rather than deleting.',
+        )
+      } else {
+        const sceneSize = Buffer.byteLength(scene.code, 'utf8')
+        if (sceneSize > SCENE_BUDGET_BYTES) {
+          this.error(
+            `the scene chunk (${scene.fileName}) is ${sceneSize}B, over the ` +
+              `${SCENE_BUDGET_BYTES}B budget by ${sceneSize - SCENE_BUDGET_BYTES}B. ` +
+              'Everything a visitor waits for on / is in here. Read the initial-closure ' +
+              'total below first, then decide whether what was added belongs behind a ' +
+              'lazy seam rather than raising the number.',
+          )
+        }
       }
 
       const entrySize = Buffer.byteLength(entry.code, 'utf8')

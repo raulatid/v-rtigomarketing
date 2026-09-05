@@ -101,7 +101,8 @@ export class MurciaExperience {
 
   private sceneBundle!: SceneBundle;
   private camera!: THREE.PerspectiveCamera;
-  private assetLoader!: AssetLoader;
+  /** Null once the city is decoded, which is the point — see `releaseDecoders`. */
+  private assetLoader: AssetLoader | null = null;
 
   private rig: CameraRig | null = null;
   private controller: DragPanController | null = null;
@@ -248,10 +249,11 @@ export class MurciaExperience {
 
     // The renderer, because the KTX2 transcoder has to ask the GPU which
     // compressed formats it supports before it can transcode anything.
-    this.assetLoader = createAssetLoader(this.renderer);
+    const assetLoader = createAssetLoader(this.renderer);
+    this.assetLoader = assetLoader;
 
     try {
-      await this.loadAndSetup();
+      await this.loadAndSetup(assetLoader);
       this.loadFailed = false;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -261,7 +263,35 @@ export class MurciaExperience {
         `${message}\nExpected model at: ${this.environment.modelPath}`,
       );
       this.loadFailed = true;
+    } finally {
+      this.releaseDecoders();
     }
+  }
+
+  /**
+   * Hands the Draco and Basis worker pools back the moment the city is decoded.
+   *
+   * They were held for the whole mounted session, which is the trade
+   * `graphics/decoders.ts` exists to refuse: it ref-counts precisely so a pool
+   * lives no longer than the load that needs it, and every other consumer —
+   * `loadLogoAssets`, `createSatellite`, `loadTrimSheet` — already releases in a
+   * `finally`. This one held its reference on the EXPERIENCE instead, so once
+   * the intro was over one Draco pool and one Basis pool stayed resident for the
+   * rest of the visit: four workers each at three's default, with a WASM heap
+   * apiece, on exactly the device the reference counting was written for.
+   *
+   * Safe here and nowhere earlier. `loadCity` awaits the GLB and the trim sheet
+   * together (`Promise.all`), the sheet acquires and releases its own
+   * transcoder reference, and nothing in this environment loads an asset after
+   * that — the district, the blog building and the river all work on the graph
+   * already in memory. A later feature that does load one acquires its own pair
+   * rather than reviving this field.
+   *
+   * Idempotent, because `dispose()` can run before a load or after one.
+   */
+  private releaseDecoders(): void {
+    this.assetLoader?.dispose();
+    this.assetLoader = null;
   }
 
   /**
@@ -521,12 +551,12 @@ export class MurciaExperience {
     }
   }
 
-  private async loadAndSetup(): Promise<void> {
+  private async loadAndSetup(assetLoader: AssetLoader): Promise<void> {
     const env = this.environment;
     this.statusOverlay.setLoading('Cargando la ciudad…', env.modelPath);
 
     const loaded = await loadCity({
-      loader: this.assetLoader.gltf,
+      loader: assetLoader.gltf,
       modelPath: env.modelPath,
       terrainObjectName: env.terrainTransition.terrainObjectName,
       groundObjectName: env.terrainTransition.groundObjectName,
@@ -1019,7 +1049,9 @@ export class MurciaExperience {
     }
 
     this.sceneBundle?.dispose();
-    this.assetLoader?.dispose();
+    // Normally released by `load` already. Here for the environment that was
+    // constructed and disposed without ever loading.
+    this.releaseDecoders();
 
     this.statusOverlay.dispose();
     this.controlsHint.dispose();
