@@ -130,7 +130,16 @@ export default function App() {
     onSwap: setActiveExperience,
     // The REAL end of the warp, not the `transitioning` flag, which lands a
     // render later — long enough for a trackpad momentum tail to be accepted.
-    onSettled: () => settleNavigationRef.current(),
+    onSettled: () => {
+      settleNavigationRef.current()
+      // The city names its two clickable places for a viewer who has just
+      // arrived. HERE and not in `setActive`, which fires at the cut: that is
+      // mid-warp under full black cover, and a label fading up there is part of
+      // the transition rather than an address to the viewer. `activeExperience`
+      // is current by now for the same reason `getContext` below can read it —
+      // the swap happened at the cut and re-rendered, ~0.8s ago.
+      if (activeExperience === 'murcia') murciaRef.current?.armBeacons()
+    },
     // The viewer's zoom belongs to the world they were in. Cleared on the cut's
     // frame, under full cover, alongside every other discontinuity (`adr/014`).
     onCut: () => resetZoomRef.current(),

@@ -43,3 +43,44 @@ export function clientToNdc(
   out.y = -((clientY - rect.top) / rect.height) * 2 + 1
   return out
 }
+
+/**
+ * A world position to client coordinates, written into `out`.
+ *
+ * The other direction, and it lives here for the reason `clientToNdc` does: the
+ * Y axis flips and the X axis does not. It was written three times before this
+ * — `BlogBuilding.screenPoint()` and a copy in each of two test files — and the
+ * first of those carries a comment calling itself test-only, which stopped
+ * being true the moment something on screen had to be pinned to a place in the
+ * city.
+ *
+ * `null` rather than a position when the point cannot be pinned to, which is a
+ * meaningful answer and not a failure: the caller should draw nothing.
+ *
+ * ── Why the frustum test is not just `z` ──
+ * `Vector3.project` divides by w, and for a point BEHIND the camera w is
+ * negative — so x and y come back negated and a target behind the viewer
+ * reports a plausible position on the opposite side of the screen. Guarding `z`
+ * alone catches that case, which is why the original did, but it lets a point
+ * that has merely slid off the side of the screen keep reporting: x of 4.2 is
+ * outside the frustum and projects to three viewport widths off the left edge.
+ * Anything anchored there is a DOM node parked far outside the document, which
+ * costs layout and can extend the scroll area. Both are rejected here.
+ */
+export function worldToClient(
+  rect: ElementRect,
+  camera: THREE.Camera,
+  world: THREE.Vector3,
+  out: THREE.Vector3,
+): THREE.Vector3 | null {
+  if (rect.width === 0 || rect.height === 0) return null
+  out.copy(world).project(camera)
+  if (out.z < -1 || out.z > 1) return null
+  if (out.x < -1 || out.x > 1 || out.y < -1 || out.y > 1) return null
+  // Reusing `out` for the result: NDC is consumed by the two lines below and
+  // nothing downstream wants it, so a second vector would exist only to be
+  // discarded on a per-frame path.
+  out.x = rect.left + ((out.x + 1) / 2) * rect.width
+  out.y = rect.top + ((1 - out.y) / 2) * rect.height
+  return out
+}

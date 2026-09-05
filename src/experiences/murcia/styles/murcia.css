@@ -162,3 +162,230 @@
 }.murcia-ui #debug-overlay .bad {
   color: #ff8080;
 }
+
+/* --- Arrival beacons ------------------------------------------------------
+
+   Two labels pinned to the two clickable places, offered when the viewer lands
+   and retired the moment they start exploring. `districtBeacons.ts` carries the
+   reasoning for their existence; this is how they are dressed.
+
+   THE SITE'S OWN VOCABULARY, not a new one. The blue emitter hairline with its
+   glow, feathered at both ends and ignited from the centre on the house entry
+   ease, is the phone menu's field (siteHeader.css) and the audit's delivered
+   state (auditSection.css) and, before either, the satellite hologram's emitter
+   line. The rule those share is `createHoloPanel.ts`'s: NOTHING HAS AN EDGE.
+   What bounds this is falloff — a glass wash that fades out downward under a
+   mask — so there is no border, no bracket and no corner to terminate in a cut.
+
+   Not `.overlay`: that class is listed under a `pointer-events: auto` rule a few
+   lines above its own `pointer-events: none`, and the later declaration is the
+   only reason it ends up inert. Nothing decorative should rest on that. */
+.murcia-ui .district-beacons {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  /* Out on the exit ease, faster than it came, like every other leaving thing
+     on this site. */
+  transition: opacity 260ms cubic-bezier(0.55, 0, 0.3, 1);
+}
+
+.murcia-ui .district-beacons[data-visible] {
+  opacity: 1;
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A district entered, or the blog open. The beacons stand down without
+   retiring: the viewer has not told us they are done, the world has. */
+.murcia-ui .district-beacons[data-suppressed] {
+  opacity: 0;
+}
+
+/* Positioned by `transform` from the frame loop, so the pin itself is a
+   composited property and never touches layout. The translate puts the DOT on
+   the world point; everything else is laid out upward from there, which is why
+   the plate is absolutely positioned above its own origin rather than the
+   element being centred on the anchor. */
+.murcia-ui .district-beacon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  will-change: transform;
+}
+
+/* Off screen or behind the camera. Kept mounted and faded rather than removed:
+   a beacon that unmounts as the city turns would pop back in. */
+.murcia-ui .district-beacon[data-pinned] {
+  opacity: 1;
+}
+
+.murcia-ui .district-beacon__plate {
+  position: absolute;
+  /* Above the dot and centred on it. The beacon's own box is zero-sized and
+     sits exactly on the world point, so every offset here is measured from
+     that point: 74px is where the leader tops out (its 8px stand-off from the
+     dot plus its 66px length), which is what makes the three parts meet. */
+  bottom: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 1rem 0.7rem;
+  min-width: 132px;
+  background: linear-gradient(180deg, rgba(12, 15, 22, 0.86), rgba(4, 6, 10, 0) 100%);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  /* The blur has to fade out with the tint or the glass ends in a hard line
+     exactly where the gradient stops being visible. */
+  -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+  white-space: nowrap;
+}
+
+/* The emitter line: ignites from the centre, then breathes. */
+.murcia-ui .district-beacon__plate::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(28, 103, 255, 0.45);
+  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition:
+    transform 200ms cubic-bezier(0.55, 0, 0.3, 1),
+    opacity 200ms ease-in;
+}
+
+.murcia-ui .district-beacons[data-visible] .district-beacon__plate::before {
+  transform: scaleX(1);
+  opacity: 1;
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 120ms ease-out;
+  /* Then it breathes, as the hologram's line does (uBreath, 1.4 rad/s — a 4.5s
+     period). Delayed past the ignition and unfilled, so the transition owns the
+     first 360ms and the breath takes over from there. */
+  animation: district-beacon-breath 4.5s ease-in-out 360ms infinite alternate;
+}
+
+.murcia-ui .district-beacon__label {
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.murcia-ui .district-beacon__caption {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+/* Both lines rise behind the line that drew them, on the same stagger the audit
+   panel's delivered state uses. */
+.murcia-ui .district-beacon__label,
+.murcia-ui .district-beacon__caption {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 160ms ease-in,
+    transform 160ms ease-in;
+}
+
+.murcia-ui .district-beacons[data-visible] .district-beacon__label,
+.murcia-ui .district-beacons[data-visible] .district-beacon__caption {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 380ms ease-out,
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.murcia-ui .district-beacons[data-visible] .district-beacon__label {
+  transition-delay: 120ms;
+}
+
+.murcia-ui .district-beacons[data-visible] .district-beacon__caption {
+  transition-delay: 200ms;
+}
+
+/* The leader. Feathered at the top so it emerges from the glass rather than
+   butting into it, and drawn from the dot upward. */
+.murcia-ui .district-beacon__leader {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  width: 1px;
+  height: 66px;
+  margin-left: -0.5px;
+  background: linear-gradient(180deg, rgba(28, 103, 255, 0) 0%, rgba(28, 103, 255, 0.5) 100%);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 200ms cubic-bezier(0.55, 0, 0.3, 1);
+}
+
+.murcia-ui .district-beacons[data-visible] .district-beacon__leader {
+  transform: scaleY(1);
+  /* Grows out of the dot before the plate lands on top of it. */
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+}
+
+/* The dot sits ON the world point — the same plane the district's own ground
+   marker pulses on, and it borrows that marker's 3.4s period so the two breathe
+   together instead of beating against each other. */
+.murcia-ui .district-beacon__dot {
+  position: absolute;
+  bottom: -3px;
+  left: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(120, 170, 255, 0.95);
+  box-shadow: 0 0 10px rgba(28, 103, 255, 0.75);
+  transform: scale(0);
+  transition: transform 200ms cubic-bezier(0.55, 0, 0.3, 1);
+}
+
+.murcia-ui .district-beacons[data-visible] .district-beacon__dot {
+  transform: scale(1);
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: district-beacon-pulse 3.4s ease-in-out 320ms infinite alternate;
+}
+
+@keyframes district-beacon-breath {
+  from {
+    opacity: 0.92;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes district-beacon-pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The breath and the pulse are decoration in motion; every fade and the pin
+   itself may stay. Same split the nav hint makes in styles.css. */
+@media (prefers-reduced-motion: reduce) {
+  .murcia-ui .district-beacons[data-visible] .district-beacon__plate::before,
+  .murcia-ui .district-beacons[data-visible] .district-beacon__dot {
+    animation: none;
+  }
+}

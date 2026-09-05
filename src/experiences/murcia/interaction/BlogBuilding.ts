@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { findByAnyNameSpelling } from '../assets/nodeNames';
 import type { CursorManager } from '../../../interaction/cursorManager';
+import { worldToClient } from '../../../interaction/screenSpace';
 
 /**
  * The blog's entry point in the city: a tap on the `blog_edificios` cluster.
@@ -71,6 +72,15 @@ export interface BlogBuilding {
    * meaningful answer rather than a failure: the caller should not tap.
    */
   screenPoint(): { x: number; y: number } | null;
+  /**
+   * The cluster's centre in world space, copied into `out`.
+   *
+   * Static scenery, computed once at construction. Exposed for the arrival
+   * beacon, which pins a label above this building and does its own projection
+   * against a cached canvas rect rather than paying a layout read per frame —
+   * so it wants the world point, not `screenPoint()`'s client one.
+   */
+  anchor(out: THREE.Vector3): THREE.Vector3;
 }
 
 // Namespaced 'source:instance' like every other cursor request. The source half
@@ -184,15 +194,17 @@ export function createBlogBuilding(deps: BlogBuildingDeps): BlogBuilding | null 
     box.getCenter(centre);
   }
 
+  const projected = new THREE.Vector3();
+
   return {
+    anchor(out: THREE.Vector3): THREE.Vector3 {
+      return out.copy(centre);
+    },
+
     screenPoint(): { x: number; y: number } | null {
-      const projected = centre.clone().project(deps.camera as THREE.PerspectiveCamera);
-      if (projected.z > 1 || projected.z < -1) return null;
       const rect = deps.canvas.getBoundingClientRect();
-      return {
-        x: rect.left + ((projected.x + 1) / 2) * rect.width,
-        y: rect.top + ((1 - projected.y) / 2) * rect.height,
-      };
+      const point = worldToClient(rect, deps.camera, centre, projected);
+      return point === null ? null : { x: point.x, y: point.y };
     },
 
     setEnabled(next: boolean): void {
