@@ -76,9 +76,14 @@ describe('the ends are where they are for reasons outside this module', () => {
     // inside the planet before the flash has closed over it.
     const closest = earthZoomRadius(1) * earthRadiusScale(1)
     expect(closest).toBeGreaterThan(EARTH_CONFIG.radius)
-    // And it is the same 2.2 units the cut has always landed on, which is what
-    // makes this a re-derivation of the shipped composition rather than a new one.
-    expect(closest).toBeCloseTo(2.2, 1)
+    // 2.2 -> 2.84 when overviewRadius went 7R -> 9R on 2026-09-05. The margin
+    // over the surface GREW, which is the direction that costs nothing: the
+    // whole band is a set of factors on the overview radius, so pulling the
+    // resting camera back carries the cut out with it. The literal is kept
+    // rather than dropped because it is the one number here that would move
+    // silently — the assertion above only says "outside the planet", and a
+    // future retune could halve this margin without tripping it.
+    expect(closest).toBeCloseTo(2.84, 1)
   })
 
   it('zooming fully out stays well inside the star shell', () => {

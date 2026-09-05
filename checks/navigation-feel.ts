@@ -538,6 +538,12 @@ console.log('\n4. Free 360 rotation');
 console.log('\n5. Pan follows the turned rig');
 {
   const h = makeHarness();
+  // The heading the rig rests at, read BEFORE the turn. The axis assertion
+  // below used to be written against world Z, which was only ever true because
+  // the resting pose happened to have azimuth 0; it is 267 as of 2026-09-05.
+  // What the check is actually about is that turning moves the drag onto a
+  // different axis than the one it started on, so that is what it compares to.
+  const restForward = h.rig.getForward().clone();
   // Turn a quarter circle the way a person would: over ~0.4s, then hold still
   // briefly before letting go. The earlier version of this test moved 960px in
   // a single 16ms sample — a 60,000 px/s flick — and then asserted no coast,
@@ -585,10 +591,16 @@ console.log('\n5. Pan follows the turned rig');
       along > 0 && lateral < 1e-6,
       `along = ${along.toFixed(2)}, lateral = ${lateral.toExponential(2)}`,
     );
+    // A quarter turn must leave the drag moving across the OLD heading rather
+    // than along it. Stated against the resting forward rather than against a
+    // world axis, so it holds at any pose azimuth.
+    const alongRest = Math.abs(movedX * restForward.x + movedZ * restForward.z);
+    const acrossRest = Math.abs(movedX * -restForward.z + movedZ * restForward.x);
     check(
-      'motion is genuinely on a different world axis than before',
-      Math.abs(movedX) > Math.abs(movedZ),
-      `moved dX ${movedX.toFixed(1)}, dZ ${movedZ.toFixed(1)} (was Z-dominant at yaw 0)`,
+      'motion is genuinely on a different axis than before the turn',
+      acrossRest > alongRest,
+      `across the old heading ${acrossRest.toFixed(1)} vs along it ${alongRest.toFixed(1)} ` +
+        `(moved dX ${movedX.toFixed(1)}, dZ ${movedZ.toFixed(1)})`,
     );
     // `drag` does not release, and a second pointerdown on an id already
     // tracked is ignored by design (it is how a mouse's second button is kept

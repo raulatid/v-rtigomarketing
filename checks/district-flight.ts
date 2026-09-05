@@ -124,12 +124,23 @@ console.log('\n1. Yaw takes the shortest path and preserves accumulation');
   const h = makeHarness();
   h.rig.setYaw(350);
   h.controller.beginExternalControl();
+  // `yawDegrees` on a flight destination is an ABSOLUTE rig azimuth — pose
+  // azimuth plus user yaw — so the user yaw it lands on depends on the pose.
+  // This used to assert the literal 370, which held only while the resting
+  // azimuth was 0; it is 267 as of 2026-09-05. The invariant is unchanged: go
+  // the short way round, and do not unwind the turn already accumulated.
+  const startAzimuth = h.rig.getAzimuthDegrees();
+  const expectedYaw = 350 + shortestYawDelta(startAzimuth, 10);
   h.flight.playTo({ x: env.initialFocus.x, z: env.initialFocus.z, yawDegrees: 10, distanceScale: null });
   h.run(3);
+  const landedAzimuth = h.rig.getAzimuthDegrees();
   check(
-    'the rig lands on 370, keeping the accumulated turn',
-    close(h.rig.getYaw(), 370, 1e-6),
-    `yaw ${h.rig.getYaw().toFixed(3)} deg (not normalised to 10)`,
+    'the rig lands on the requested heading the short way, keeping the accumulated turn',
+    close(h.rig.getYaw(), expectedYaw, 1e-6) &&
+      close(((landedAzimuth - 10) % 360 + 360) % 360, 0, 1e-6) &&
+      h.rig.getYaw() > 180,
+    `yaw ${h.rig.getYaw().toFixed(3)} deg -> azimuth ${landedAzimuth.toFixed(1)} deg ` +
+      `(requested 10, and the yaw is not normalised down to it)`,
   );
 
   const wound = makeHarness();

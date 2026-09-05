@@ -93,13 +93,30 @@ export interface IntroConfig extends DrawConfig {
   // Exposure. The panorama is a long-exposure photograph and arrives brighter
   // than a backdrop should be beside a lit planet.
   //
-  // THIS PAIR IS TUNED TO THE IMAGE and does not survive swapping it. At the
-  // old ESO panorama's 0.22 / 1.25 the current public-domain source renders
-  // almost entirely BLACK — it is a dimmer photograph, and a gamma above 1
-  // crushes what little signal it has down in the darks. 0.60 / 1.00 is where
-  // it reads. If a newly swapped sky ever looks broken, drag these two in the
-  // debug overlay before concluding the image is wrong; that is what they are
-  // exposed for, and skipping that step is how a good image gets rejected.
+  // THIS PAIR IS TUNED TO THE IMAGE and does not survive swapping it. If a
+  // newly swapped sky ever looks broken, drag these two in the debug overlay
+  // before concluding the image is wrong; that is what they are exposed for,
+  // and skipping that step is how a good image gets rejected.
+  //
+  // Back to 0.22 / 1.25 on 2026-09-05, with the panorama restored alongside it.
+  // The history is worth keeping because the failure was silent: the panorama
+  // was replaced by hand on 08-31 and again on 09-04 (the second time inside a
+  // commit about forms), and this pair was never retuned. Measured on the
+  // shipped files, luminance 0-255 over the whole image:
+  //
+  //     260f4d8 and earlier   mean 36.0   p50 33.0   p99 103
+  //     4e590d0 / 267bdb9     mean  5.4   p50  4.1   p99  26
+  //
+  // A different photograph, roughly seven times dimmer, and with no Milky Way
+  // in the hemisphere the resting camera faces. That is why the nebula vanished
+  // rather than merely dimmed, and it is why exposure could not bring it back:
+  // rendered at brightness 3.0 the darker image gives a lifted grey field and
+  // still no band. Restoring the image is the only lever that works.
+  //
+  // The pair itself: 0.60 / 1.00 on the restored image floods the frame with a
+  // flat wash (band region reads median 20 against the reference's 1). 0.22 with
+  // a gamma of 1.25 deepens the darks and leaves the core, which is the
+  // reference's shape — mostly black sky with structure in it.
   skyBrightness: number
   // Gamma on the sampled sky, applied before the brightness multiply. Above 1
   // deepens the darks without moving the band's core, which is what makes the
@@ -235,8 +252,8 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   backdropClusterStrength: 0.6,
   backdropTwinkle: 0.15,
 
-  skyBrightness: 0.60,
-  skyContrast: 1.00,
+  skyBrightness: 0.22,
+  skyContrast: 1.25,
   skyBandWidth: GALAXY_BAND.defaultWidth,
   skyBandTilt: GALAXY_BAND.defaultTilt,
   skyBandYaw: GALAXY_BAND.defaultYaw,

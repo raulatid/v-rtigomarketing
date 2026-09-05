@@ -76,18 +76,37 @@ const REPRESENTATIVE_BUILDING_HEIGHT = 13;
  * 741 units of city in the thinnest direction beyond the plate, the skirt wraps
  * THAT instead, and reaching further simply means seeing more city.
  *
- *  - **19 degrees** is where the sky enters the frame at this fov and
- *    lookAtHeight: effective pitch is 17.6 deg against a half-fov of 17.5, so
- *    the horizon sits on the top edge at 16:9 and opens up at the corners on
- *    wider viewports. It is the shallowest pose that is still unambiguously a
- *    view OF the city rather than a view along the ground, and the client asked
- *    for the horizon. Camera height is 73.3 against 13-unit buildings and a
- *    45-unit cathedral, so the landmarks now stand above the lens — which is
- *    most of what reads as "horizontal".
- *  - **distance 225** is the client's own number, arrived at by hand before this
- *    work. It is kept. It failed `check:footprint` under the old model (the
- *    frustum corners clamped and the resting pose stopped being the worst case);
- *    it is legal now for the same reason 19 degrees is.
+ * ── 19 deg / 225 / azimuth 0 -> 18 deg / 285 / azimuth 267, 2026-09-05 ──
+ *
+ * CLIENT DIRECTION again, and this time against a single reference frame of the
+ * arrival rather than a description. Three things had to move together, and only
+ * the third was new:
+ *
+ *  - **azimuth 267** is the change that actually reframes the city, and it is
+ *    the reason the other two moved. The reference looks along the plate's -X
+ *    axis: the Segura runs down the RIGHT of the frame with the services
+ *    district beyond it, and the stadium / plaza / cathedral read left to right
+ *    across the near bank. At azimuth 0 that whole composition is mirrored and
+ *    the river sits flat along the bottom. This was found by sweeping — 180 put
+ *    the landmarks in the right ORDER but the river in the wrong place, and
+ *    only a bearing near 270 puts +Z on the right where the reference has it.
+ *
+ *    It is a POSE azimuth, not a yaw, so it composes with the user's turning
+ *    exactly as before. District flights are unaffected: `approachYawDegrees` in
+ *    `cityDistrictBindings` is compared against `CameraRig.getAzimuthDegrees()`,
+ *    which is pose + yaw, so an absolute heading of 45 is still an absolute
+ *    heading of 45 — `check:district` is the gate on that claim.
+ *
+ *  - **18 degrees**, down from 19. The reference sits lower than the previous
+ *    pose, not higher: the near bank fills the bottom of the frame while the far
+ *    side of the plate is still in it. Camera height is 88.1 (285 * sin 18),
+ *    which is still well above the 13-unit buildings and below the 45-unit
+ *    cathedral, so the landmarks keep standing over the lens.
+ *
+ *  - **distance 285**, up from 225, is what buys the far side back after the
+ *    elevation dropped. 225 at 18 degrees put the frame inside the city; 285 is
+ *    the point where the plate reads whole without the skirt edge entering.
+ *
  *  - **FOV 35** is unchanged and should stay. Widening the lens grows the ground
  *    footprint at no distance cost, which is the one thing that was never
  *    affordable; and `applyPoseToCamera` carries it straight into the bounds
@@ -98,11 +117,24 @@ const REPRESENTATIVE_BUILDING_HEIGHT = 13;
  *    distance. -20 puts worst reach at 647 and -40 at 413, both inside even the
  *    old skirt. `?lookAt=` exists for exactly that comparison.
  *
+ * The numbers were found by capturing the arrival at 1880x966 through the
+ * `?dist=` / `?elev=` overrides and comparing against the client's frame, then
+ * running the harnesses on the result. The same rule as before applies: the
+ * sweep produces a CANDIDATE, the harness decides whether it is allowed — and
+ * here it did. 16 degrees matched the reference marginally better and FAILED
+ * `check:navigation`: at that pitch the top of an upward drag reaches past the
+ * ground solve's usable range, so the point under the cursor slips by 19px
+ * instead of the 1px the drag rework exists to guarantee. The cliff is between
+ * 17 and 18 (7.5px at 17, exact at 18). 18 is the shallowest pitch that keeps
+ * grab-the-point exact, and the framing difference against 16 is small enough
+ * that the client's tolerance absorbs it. Do not lower this without re-reading
+ * that check.
+ *
  * JUDGED for the look, MEASURED for whether it is allowed. `check:footprint` is
  * the gate; a failure there is never a tuning question.
  */
-const ELEVATION_DEGREES = 19;
-const CAMERA_DISTANCE = 225;
+const ELEVATION_DEGREES = 18;
+const CAMERA_DISTANCE = 285;
 
 export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
@@ -154,7 +186,7 @@ export const murciaConfig: EnvironmentConfig = {
   camera: {
     fov: 35,
     elevationDegrees: ELEVATION_DEGREES,
-    azimuthDegrees: 0,
+    azimuthDegrees: 267,
     distance: CAMERA_DISTANCE,
     // ~45% of a representative building. Raising the aim point tilts the camera
     // up without flattening the rig itself, which is what stops the view

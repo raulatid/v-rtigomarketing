@@ -60,7 +60,17 @@ export const INTERACTION_CONFIG = {
     // star shell against it — the shell has to enclose the camera or stars render
     // over the planet. Keeping it here rather than in `CameraController` is what
     // lets a Node harness read it without pulling React and R3F into the bundle.
-    overviewRadius: 7 * R,
+    // 7R -> 9R on 2026-09-05, CLIENT DIRECTION against a reference frame of the
+    // arrival: the globe sits smaller and space carries the frame. Measured
+    // rather than judged, because the disc's angular size is arithmetic — at
+    // 1880x966 and fov 45 the silhouette is 337px across at 7R and 262px at 9R,
+    // against 265px in the reference.
+    //
+    // It moves the whole band with it (the factors below are factors for exactly
+    // this reason), so the zoom now spans 11.34 .. 18 .. 28.29. Closest approach
+    // goes 2.21 -> 2.84 against a planet of radius 2, i.e. FURTHER from the
+    // surface than before, and the far end stays well inside the star shell.
+    overviewRadius: 9 * R,
 
     // ─── The ends of the zoom band, as multiples of the radius above ───
     //
