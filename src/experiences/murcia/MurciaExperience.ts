@@ -33,7 +33,7 @@ import type { ServicesDistrict } from './district/createServicesDistrict';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
-import { StatusOverlay, ControlsHint } from './ui/overlays';
+import { StatusOverlay } from './ui/overlays';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc } from '../../interaction/screenSpace';
@@ -147,7 +147,6 @@ export class MurciaExperience {
   private easedZoomDepth = 0;
 
   private readonly statusOverlay: StatusOverlay;
-  private readonly controlsHint: ControlsHint;
 
   /**
    * This environment's cursor sources — district hovers and the drag — resolved
@@ -214,7 +213,6 @@ export class MurciaExperience {
     );
 
     this.statusOverlay = new StatusOverlay(container);
-    this.controlsHint = new ControlsHint(container);
     this.cursor = createCursorManager(renderer.domElement);
     // After the query overrides, so a `?bounds=` override reaches the pipeline.
     this.bounds = new NavigableArea(this.environment.navigation);
@@ -660,10 +658,6 @@ export class MurciaExperience {
         onYawChanged: () => this.recomputeBounds(),
         onDragStateChanged: (dragging) => {
           this.cursor.request('drag', dragging ? 'grabbing' : '');
-          // A drag or a rotation past the threshold is the viewer demonstrating
-          // the controls; a press is not, which is why the plate no longer
-          // fades on `onFirstInteraction`.
-          if (dragging) this.controlsHint.demonstrated();
         },
       },
     );
@@ -1051,7 +1045,6 @@ export class MurciaExperience {
     this.releaseDecoders();
 
     this.statusOverlay.dispose();
-    this.controlsHint.dispose();
     this.debug.dispose(this.sceneBundle?.scene ?? null);
 
     // The renderer and its canvas belong to the application, not to this

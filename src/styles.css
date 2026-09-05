@@ -957,96 +957,287 @@ html {
    for people using their hands, and this viewer has already found the other way.
 
    `animation: none` is not tidiness. An animated property beats a normal
-   declaration in the cascade, so the breathe keyframes above would keep writing
-   opacity over this and the glyph would sit behind the focused button. */
+   declaration in the cascade; the frame no longer breathes, but its hairline
+   does, and this keeps any future keyframe on the frame from writing opacity
+   over the stand-down. */
 .nav-control:focus-visible ~ .nav-hint {
   opacity: 0;
   animation: none;
 }
 
-/* ---- The gesture hint ----
+/* ---- The hint frame ----
+
+   One glass plate, bottom centre, in both worlds. It carries the gesture that
+   leaves the world the viewer is in, and — in Murcia only — the city's three
+   controls above it. Until 2026-09-05 those were two elements owned by two
+   modules: this hint, bare text with a drop shadow, floating 40px above
+   Murcia's own `#controls-hint` plate. Over the black sky the text read; over
+   a bright city it did not, and the two stacked at the bottom edge looked like
+   two unrelated things. The plate's fade mask into the edge was the other
+   complaint: it cut the last row on a phone and made the whole thing look
+   unfinished. So: one frame, an even tint, no mask, and the beacons' emitter
+   hairline on top so it is unmistakably the same object as the labels the
+   city hangs on its districts (murcia.css, "Arrival beacons").
 
    A sibling of the control, not a child: the control is clipped and a child
-   would be clipped with it. Hidden until createNavigationInput says otherwise —
-   five seconds without a navigation input, once per world (DECISIONS section 29,
-   amended 2026-08-26).
-
-   BOTTOM CENTRE since 2026-08-26. It sat on the right edge because that is
-   where the rail was, and the rail is gone — the hint was inheriting a position
-   from a thing it no longer stands beside. Bottom centre is where a screen puts
-   an instruction about the whole view rather than about one element, and the
-   gesture it teaches belongs to the whole view.
+   would be clipped with it. Hidden until createNavigationInput says otherwise
+   (`data-visible`: a beat after every arrival, closed three seconds after the
+   viewer's first interaction with the scene — DECISIONS section 29). The
+   city's rows show whenever the frame does in Murcia; the direction the input
+   layer paints on `.nav` is what says which world this is.
 
    `fixed` rather than `absolute` because this is centred on the VIEWPORT, and
    `.nav` — its parent — is a 0x0 box pinned to the right edge. `absolute` would
-   measure `left: 50%` against that box and put the hint back where it started.
+   measure `left: 50%` against that box and put the hint back on the edge.
    `fixed` only escapes it because `.nav` carries no `transform`; see the note
-   on `.nav` above, which is where the first attempt at this move went wrong.
+   on `.nav` above. The frame itself MAY transform, and does, for its rise.
 
-   `.nav` keeps its right-edge anchor: what is still parented to it is the
-   focus-visible control, a keyboard affordance, and moving that is a separate
-   decision.
-
-   The offset clears `.site-footer` (bottom max(14px, inset), ~12px tall) rather
-   than trusting a horizontal miss. The mark is right-aligned and this is
-   centred, so they do not collide on a wide viewport — but a narrow one closes
-   that gap, and a hint sitting on the brand mark is the kind of failure that
-   only shows up on a phone. */
+   The offset clears `.site-footer` (bottom max(14px, inset), ~12px tall). The
+   mark is right-aligned and this is centred, so they miss on a wide viewport;
+   a phone closes that gap, which is why the clearance is vertical. */
 .nav-hint {
   position: fixed;
   left: 50%;
-  bottom: max(48px, calc(env(safe-area-inset-bottom) + 34px));
-  transform: translateX(-50%);
+  bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px));
+  transform: translate(-50%, 10px);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: rgba(255, 255, 255, 0.66);
-  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.55));
+  align-items: stretch;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 0 1.25rem;
+  background: rgba(12, 15, 22, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.72);
   opacity: 0;
-  transition: opacity 0.6s ease;
+  visibility: hidden;
+  /* Out: quicker than in, and the visibility flips only once the fade is
+     done, so the blur is not yanked off the scene mid-fade. */
+  transition:
+    opacity 220ms ease-in,
+    transform 220ms ease-in,
+    visibility 0s linear 220ms;
   pointer-events: none;
   user-select: none;
 }
 
 .nav-hint[data-visible] {
   opacity: 1;
-  animation: nav-hint-breathe 2.6s ease-in-out infinite alternate;
+  transform: translate(-50%, 0);
+  visibility: visible;
+  transition:
+    opacity 380ms ease-out,
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
 }
 
-/* In Murcia (`up` is the way home) the bottom-centre already holds the city's
-   controls plate (`#controls-hint`, murcia.css), which the sentence would sit
-   on. Stacked above it — the plate's height plus its 16px bottom offset and a
-   breath of air — and higher again on a phone, where the plate is a three-row
-   list. The plate fades on the first drag; the hint keeps the higher seat, an
-   empty gap being the cheaper failure. */
-.nav[data-direction='up'] .nav-hint {
-  bottom: max(88px, calc(env(safe-area-inset-bottom) + 74px));
+/* The emitter line: ignites from the centre, then breathes. The beacon plate's
+   recipe, restated here rather than shared because murcia.css rides the scene
+   chunk and Earth shows this frame before that chunk has loaded. */
+.nav-hint::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(28, 103, 255, 0.45);
+  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition:
+    transform 200ms cubic-bezier(0.55, 0, 0.3, 1),
+    opacity 200ms ease-in;
 }
 
-@media (max-width: 480px) {
-  .nav[data-direction='up'] .nav-hint {
-    bottom: max(128px, calc(env(safe-area-inset-bottom) + 114px));
-  }
+.nav-hint[data-visible]::before {
+  transform: scaleX(1);
+  opacity: 1;
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 120ms ease-out;
+  /* Delayed past the ignition and unfilled, so the transition owns the first
+     360ms and the breath takes over from there. */
+  animation: nav-hint-breath 4.5s ease-in-out 360ms infinite alternate;
 }
 
-.nav-hint__icon {
-  display: none;
-  width: 40px;
-  height: 40px;
+/* The plate ENDS. The old one dissolved into the screen edge through a mask,
+   which is what read as cut off; a faint rule says the edge is meant. */
+.nav-hint::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
-/* The sentence under the glyph. Four variants and exactly one shown, picked by
-   the same two facts that pick the glyph — input and direction — so the words
-   can never describe a gesture the picture is not drawing. */
+/* ---- The two blocks ----
+
+   The city's block collapses to nothing outside Murcia, through a grid track
+   at 0fr — in BOTH axes, because the frame is `max-content` wide: a row
+   collapsed to no height still measures its full width, and the Earth frame
+   came out as wide as the city's three cells it was not showing. The padding
+   lives on the CHILD for the same reason: it has to collapse too. The track is
+   transitioned so that, should the two blocks ever part again, the frame
+   shrinks rather than jumps. */
+.nav-hint__controls,
+.nav-hint__gesture {
+  display: grid;
+  grid-template-rows: 0fr;
+  grid-template-columns: 0fr;
+  transition:
+    grid-template-rows 280ms ease,
+    grid-template-columns 280ms ease;
+}
+
+.nav-hint__cells,
+.nav-hint__row {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__controls,
+.nav-hint[data-visible] .nav-hint__gesture {
+  grid-template-rows: 1fr;
+  grid-template-columns: 1fr;
+}
+
+/* The rows rise behind the line that drew them, staggered, on the beacon
+   caption's easing. Hidden rows fall the same 8px they rose, faster. */
+.nav-hint__cell,
+.nav-hint__row > * {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 160ms ease-in,
+    transform 160ms ease-in;
+}
+
+.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__cell,
+.nav-hint[data-visible] .nav-hint__row > * {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 380ms ease-out,
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__cell:nth-child(1) {
+  transition-delay: 60ms;
+}
+
+.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__cell:nth-child(2) {
+  transition-delay: 120ms;
+}
+
+.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__cell:nth-child(3) {
+  transition-delay: 180ms;
+}
+
+.nav-hint[data-visible] .nav-hint__row > * {
+  transition-delay: 60ms;
+}
+
+/* Under three rows of controls the gesture row is the last to land. */
+.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__row > * {
+  transition-delay: 240ms;
+}
+
+/* ---- The city's controls ---- */
+.nav-hint__cells {
+  display: flex;
+  /* Wraps between the phone card and a full-width row, so a narrow window
+     gets two lines rather than a clipped one. */
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.5rem;
+  padding: 0.8rem 0 0.7rem;
+}
+
+.nav-hint__cell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+}
+
+.nav-hint__cell .nav-hint__icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+
+.nav-hint__label {
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.nav-hint__caption {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+/* ---- The gesture row ---- */
+.nav-hint__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0 0.75rem;
+}
+
+/* The divider exists only while there is something above it to divide. */
+.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__row {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .nav-hint__text {
   display: none;
   font-size: 0.78rem;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.88);
   white-space: nowrap;
-  text-align: center;
+}
+
+/* ---- Which glyph, which words ----
+
+   Input decides the glyph, never viewport: a small window on a laptop still
+   has a mouse, and teaching a pinch to a mouse says the site was not built for
+   the thing in your hand. Every variant is in the markup; only one of each
+   shows. The fine-pointer set is the default and the coarse block below flips
+   it, with selectors of equal specificity later in source so they win. */
+.nav-hint__icon {
+  display: none;
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+
+.nav-hint__icon--mouse {
+  display: block;
+  width: 20px;
+  height: 40px;
+}
+
+.nav-hint__icon--drag,
+.nav-hint__icon--rotate-mouse,
+.nav-hint__icon--click {
+  display: block;
+}
+
+.nav-hint__label[data-input='coarse'] {
+  display: none;
 }
 
 .nav[data-direction='down'] .nav-hint__text[data-input='fine'][data-direction='down'],
@@ -1054,30 +1245,28 @@ html {
   display: block;
 }
 
-/* Input decides the glyph, never viewport — the Murcia controls hint records the
-   reasoning. Teaching a pinch to a mouse says the site was not built for the
-   thing in your hand. */
-.nav-hint__icon--mouse {
-  display: block;
-  width: 24px;
-  height: 48px;
-}
-
 @media (pointer: coarse) {
-  .nav-hint__icon--mouse {
+  .nav-hint__icon--mouse,
+  .nav-hint__icon--rotate-mouse,
+  .nav-hint__icon--click,
+  .nav-hint__label[data-input='fine'] {
     display: none;
   }
 
-  /* And on touch the DIRECTION decides, because the two worlds are left by
-     opposite gestures: open the hand to fall into the city, close it to climb
-     back out (ADR 006). */
+  .nav-hint__icon--rotate-touch,
+  .nav-hint__icon--tap,
+  .nav-hint__label[data-input='coarse'] {
+    display: block;
+  }
+
+  /* And on touch the DIRECTION decides the gesture glyph, because the two
+     worlds are left by opposite gestures: open the hand to fall into the
+     city, close it to climb back out (ADR 006). */
   .nav[data-direction='down'] .nav-hint__icon--spread,
   .nav[data-direction='up'] .nav-hint__icon--close {
     display: block;
   }
 
-  /* Same specificity as the fine-pointer show rule above, later in source, so
-     it wins; a shorter selector here would lose the cascade and show both. */
   .nav[data-direction] .nav-hint__text[data-input='fine'][data-direction] {
     display: none;
   }
@@ -1088,18 +1277,185 @@ html {
   }
 }
 
-@keyframes nav-hint-breathe {
+/* ---- The phone card ----
+
+   Below a phone's width the inline cells would wrap raggedly (mobile audit
+   M22). Three equal columns, glyph over word over caption, is the intended
+   shape there, not a fallback: it reads at a glance with the thumb still on
+   the glass. Keyed on width — this is a layout question — while the copy above
+   stays keyed on the input. */
+@media (max-width: 480px) {
+  .nav-hint {
+    width: min(360px, calc(100vw - 32px));
+    max-width: none;
+    padding: 0 1rem;
+  }
+
+  .nav-hint__cells {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    padding: 0.9rem 0 0.75rem;
+  }
+
+  .nav-hint__cell {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.3rem;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .nav-hint__cell .nav-hint__icon {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 0.15rem;
+  }
+
+  .nav-hint__label {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+  }
+
+  .nav-hint__caption {
+    font-size: 0.68rem;
+    line-height: 1.25;
+  }
+
+  .nav-hint__row {
+    justify-content: flex-start;
+  }
+
+  .nav-hint__text {
+    white-space: normal;
+  }
+}
+
+/* ---- Motion ----
+
+   Every glyph has one part that moves, slowly, on a loop: the picture shows
+   the motion instead of naming it. Transform and opacity only, and only while
+   the frame is open, so a closed hint costs no compositor work. */
+.nav-hint__part {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.nav-hint[data-visible] .nav-hint__part--wheel {
+  animation: nav-hint-wheel 2.4s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--spread-l {
+  animation: nav-hint-part-left 2.8s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--spread-r {
+  animation: nav-hint-part-right 2.8s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--close-l {
+  animation: nav-hint-part-right 2.8s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--close-r {
+  animation: nav-hint-part-left 2.8s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--slide {
+  animation: nav-hint-slide 3.2s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--turn {
+  animation: nav-hint-turn 3.4s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--blink {
+  animation: nav-hint-blink 2.6s ease-in-out infinite alternate;
+}
+
+.nav-hint[data-visible] .nav-hint__part--ring {
+  animation: nav-hint-ring 2.8s ease-out infinite;
+}
+
+@keyframes nav-hint-breath {
   from {
-    opacity: 0.55;
+    opacity: 0.92;
   }
   to {
     opacity: 1;
   }
 }
 
+@keyframes nav-hint-wheel {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(5px);
+  }
+}
+
+@keyframes nav-hint-part-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes nav-hint-part-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes nav-hint-slide {
+  from {
+    transform: translateX(-4px);
+  }
+  to {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes nav-hint-turn {
+  from {
+    transform: rotate(-12deg);
+  }
+  to {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes nav-hint-blink {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nav-hint-ring {
+  from {
+    transform: scale(0.5);
+    opacity: 0.85;
+  }
+  to {
+    transform: scale(1.05);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  /* The breath is decoration in motion; the opacity fade may stay. */
-  .nav-hint[data-visible] {
+  /* The loops and the breath are decoration in motion; every fade and the
+     rise may stay. Same split the beacons make in murcia.css. */
+  .nav-hint[data-visible]::before,
+  .nav-hint[data-visible] .nav-hint__part {
     animation: none;
   }
 }

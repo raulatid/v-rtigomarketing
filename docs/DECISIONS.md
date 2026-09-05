@@ -1756,7 +1756,7 @@ some is merely not-yet-moved, and conflating them turns a temporary constraint i
 | CMS-compatible, left in code today | What would have to change first |
 |---|---|
 | `introDraw.ts` `CAPTIONS` | the 16 KB boot chunk may import nothing; a generator could inline literals, but there is no editorial value in it |
-| `murcia/ui/overlays.ts` controls hint | it assigns to `innerHTML` — rebuild those nodes with `textContent` first |
+| `NavigationControl.tsx` hint copy (the gesture sentences and the city's controls) | rendered once as JSX with every input × direction variant, which the stylesheet picks between; a CMS field per variant is eight strings for one sentence |
 | `AuditSection` labels, `CasePanel` / `districtPanel` aria strings | nothing structural; no editorial requirement yet |
 | `index.html` title / description / OG | needs a per-entity SEO decision, which needs prerendering this app does not have |
 
@@ -1807,6 +1807,28 @@ some is merely not-yet-moved, and conflating them turns a temporary constraint i
 > settling — hides the moment the viewer navigates, and **returns after fifteen seconds** with no
 > navigation input, as many times as that happens. The re-arm on arrival and the rotation
 > exclusion stand. `HINT_DELAY_MS` 5000 → 15000, `HINT_ARRIVAL_MS` added.
+
+> **AMENDED AGAIN 2026-09-05 (later) — one glass frame, in both worlds, and the city's
+> controls live in it.** The client's review of the day's hints: the sentence was unreadable
+> over Murcia (bare text with a drop shadow, floating 40px above the city's own
+> `#controls-hint` plate, the two reading as unrelated things), the plate's fade mask into the
+> screen edge read as cut off, and none of it moved like the rest of the site. The hint is now
+> a glass plate with the beacons' emitter hairline — even tint, no mask, a 1px bottom rule —
+> and Murcia's three controls (drag, rotate, select) are ROWS IN THAT FRAME rather than a
+> second element: one owner (`createNavigationInput` paints `data-visible`, and the
+> stylesheet shows the city's rows whenever the frame is open in Murcia). `ControlsHint` and
+> its reading clock are gone with the plate, and so is the `matchMedia` read: every copy
+> variant is JSX and `(pointer: coarse)` picks. **And the closing rule is ONE rule**, the
+> client's: offered a beat after every arrival, the frame closes **three seconds after the
+> viewer's first interaction with the scene** — a wheel, a pinch, a press on the canvas, not a
+> press on a button — and does not return until the next arrival. That replaced the
+> hide-on-input, the fifteen-second idle re-offer of the morning and Murcia's fifteen-second
+> reading clock, all at once (`HINT_DELAY_MS` and `CONTROLS_HINT_MIN_MS` deleted,
+> `HINT_LINGER_MS` 3000 added). An interaction that lands before the frame is on screen does
+> not count (the arriving gesture's tail, M22). Choreography: hairline ignites, frame rises,
+> rows land staggered; each glyph has one part that loops slowly (wheel, fingers, hand, turn,
+> ring), all `transform`/`opacity`, all off under reduced motion. Below 480px the controls
+> are a three-column glyph card. The Murcia-only lifts (88/128px) went with the plate.
 
 The navigation rail (`adr/009`) is the one control between the worlds, and three 2026-08-20
 decisions govern how it reads and feels. All three live in the presentation layer on

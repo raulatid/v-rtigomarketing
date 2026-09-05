@@ -10,7 +10,7 @@ import {
   NAVIGATION_COOLDOWN,
   NAVIGATION_GESTURE,
   HINT_ARRIVAL_MS,
-  HINT_DELAY_MS,
+  HINT_LINGER_MS,
   NAVIGATION_PINCH,
   NAVIGATION_SPRING,
   NAVIGATION_ZOOM,
@@ -106,8 +106,8 @@ export interface NavigationInputDeps {
    */
   onZoom?: (depth: number) => void
   pinchLimits?: PinchLimits
-  /** Overridable so a test need not wait fifteen real seconds. */
-  hintDelayMs?: number
+  /** Overridable so a test need not wait three real seconds. */
+  hintLingerMs?: number
   /** Overridable for the same reason. */
   hintArrivalMs?: number
   gestureLimits?: NavigationGestureLimits
@@ -201,22 +201,19 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   // a rail — the rail was visible, so it advertised itself and the hint only had
   // to explain it. A pinch on a bare canvas advertises nothing.
   //
-  // So it is OFFERED, twice over. A beat after every arrival — the intro
-  // handing the world over, each warp settling — because the first thing a
-  // viewer should be told on landing is how to leave. And again whenever they
-  // have been silent for a while, because the clock is the only thing that can
-  // tell a viewer who is looking from a viewer who is stuck. It hides the moment
-  // they navigate, and it is never retired: the once-per-world rule that
-  // preceded this (section 29, amended 2026-08-26 and 2026-09-04) took one
-  // accepted nudge of the wheel as proof the gesture was learnt, and a viewer
-  // who had only brushed it was never reminded again in that world. Amended in
-  // section 29, dated, with the reasoning; see also `adr/012`.
-  //
-  // A CLOCK rather than a frame count, because the frame loop only runs while a
-  // gesture is in flight — an idle scene costs no frames, deliberately, so idle
-  // is exactly the state the loop cannot observe.
+  // So it is OFFERED on every arrival — a beat after the intro hands the world
+  // over, a beat after each warp settles — because the first thing a viewer
+  // should be told on landing is how to leave. And it has ONE closing rule
+  // (2026-09-05, the client's, replacing a hide-on-input plus a fifteen-second
+  // idle re-offer plus, in Murcia, a separate reading clock): the first time
+  // the viewer interacts with the SCENE while the frame is showing — a wheel, a
+  // pinch, a press on the canvas — it lingers three seconds and closes, and
+  // does not come back until the next arrival. A press on a button is not the
+  // viewer trying the world, and an interaction that lands before the frame is
+  // on screen (the tail of the gesture that carried them here — mobile audit
+  // M22) cannot be them having read it. Section 29 records the history.
 
-  const hintDelayMs = deps.hintDelayMs ?? HINT_DELAY_MS
+  const hintLingerMs = deps.hintLingerMs ?? HINT_LINGER_MS
   const hintArrivalMs = deps.hintArrivalMs ?? HINT_ARRIVAL_MS
   /**
    * An arrival was offered while the context was still refusing — the app
@@ -226,6 +223,8 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    */
   let hintArrivalOwed = false
   let hintTimer = 0
+  /** The linger, once the first interaction has started it. */
+  let hintLingerTimer = 0
   let hintVisible = false
 
   // --- The clock -------------------------------------------------------------
@@ -334,7 +333,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // band with the hint still breathing at them about how to do it. What shows
     // they know is that the world MOVED, and the zoom moves it first. The wheel
     // path has already postponed above; this is the pinch's.
-    if (travelPx !== 0) postponeHint()
+    if (travelPx !== 0) hintInteracted()
 
     reportZoom()
   }
@@ -461,11 +460,28 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     if (hint) hint.dataset.visible = 'true'
   }
 
-  /** Hidden, but still owed: the silence clock restarts. */
-  function postponeHint(): void {
+  /**
+   * The viewer did something to the scene. The FIRST time, with the frame on
+   * screen, starts the linger; every later one is ignored, so the close is
+   * three seconds after they began rather than three seconds after they
+   * stopped.
+   */
+  function hintInteracted(): void {
+    if (!hintVisible || hintLingerTimer !== 0) return
+    hintLingerTimer = setTimeout(() => {
+      hintLingerTimer = 0
+      hideHint()
+    }, hintLingerMs) as unknown as number
+  }
+
+  /** Something else owns attention: down now, and nothing pending. */
+  function closeHint(): void {
     hintArrivalOwed = false
+    if (hintTimer !== 0) {
+      clearTimeout(hintTimer)
+      hintTimer = 0
+    }
     hideHint()
-    scheduleHint(hintDelayMs)
   }
 
   /** A world has just settled in front of the viewer: offered after a beat. */
@@ -476,6 +492,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   }
 
   function hideHint(): void {
+    if (hintLingerTimer !== 0) {
+      clearTimeout(hintLingerTimer)
+      hintLingerTimer = 0
+    }
     if (!hintVisible) return
     hintVisible = false
     if (hint) delete hint.dataset.visible
@@ -571,7 +591,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // Someone driving the wheel is not someone who is stuck. Postponed rather
     // than retired: they have used a navigation input, but on touch that says
     // nothing about whether they know the pinch.
-    postponeHint()
+    hintInteracted()
     pushTravel(
       towardOther(raw, context.current),
       event.timeStamp,
@@ -636,7 +656,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     gesture.reset()
     gesture.latch(timeStampMs)
     spring.reset(0)
-    postponeHint()
+    hintInteracted()
     paint(0, 'locked', context.current)
     deps.onCommit(intent)
     ensureRunning()
@@ -916,7 +936,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     pinchOwnsProgress = true
     // Intent is enough — the hint steps aside the moment the viewer makes the
     // gesture, not when they finish it.
-    postponeHint()
+    hintInteracted()
     deliverPinch(classifier.backlogPx, event.timeStamp)
   }
 
@@ -943,6 +963,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   const onPointerDownRelease = (event: PointerEvent): void => {
     const target = event.target
     if (target instanceof Node && root.contains(target)) return
+    // A press ON THE SCENE is the viewer trying the world — what the hint waits
+    // for. Anything else under the pointer (a header button, a panel, the
+    // consent sheet) is chrome, and pressing chrome teaches nothing.
+    if (target instanceof Element && target.closest('.scene-canvas')) hintInteracted()
     gesture.release()
     ensureRunning()
   }
@@ -1009,12 +1033,12 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     spring.reset(progress)
     paint(progress, phaseClass(context), context.current)
     deps.onProgress?.(progress)
-    // A semantic edge is where the hint question changes: a different world has
-    // a different gesture to teach, and a panel closing is the first moment the
-    // teaching would be honest. An arrival still owed from a settle the context
-    // refused is paid here, at the arrival beat.
+    // An arrival still owed from a settle the context refused is paid here, at
+    // the arrival beat. Otherwise the only thing an edge can mean for the hint
+    // is that something took the viewer's attention: a panel over the scene is
+    // not a scene to be taught, so the frame stands down and stays down.
     if (hintArrivalOwed) offerHint()
-    else postponeHint()
+    else if (!context.canNavigate) closeHint()
   }
 
   // The initial paint is a derivation like any other: the JSX may mount the
@@ -1076,6 +1100,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       control.removeEventListener('keydown', onKeyDown)
       control.removeEventListener('click', onClick)
       if (hintTimer !== 0) clearTimeout(hintTimer)
+      if (hintLingerTimer !== 0) clearTimeout(hintLingerTimer)
       document.removeEventListener('visibilitychange', onVisibility)
       if (frame !== 0) {
         cancelAnimationFrame(frame)

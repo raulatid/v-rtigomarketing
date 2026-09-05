@@ -304,18 +304,17 @@ export function pinchGain(
 }
 
 /**
- * Silence after which the gesture hint offers itself again, in milliseconds.
+ * How long the hint frame lingers after the viewer's first interaction with the
+ * scene, in milliseconds, before it closes.
  *
- * Measured from the last NAVIGATION input, not from the last input of any kind:
- * a viewer turning the city has not demonstrated anything about travelling
- * between worlds, and must still be taught. It returns EVERY time this elapses
- * (2026-09-05, replacing the once-per-world rule): one accepted nudge of the
- * wheel used to count as having learnt the gesture, and a viewer who had only
- * brushed it was never reminded again. JUDGED — long enough that anyone getting
- * on with it is never interrupted, short enough that someone who has run out of
- * ideas is not left there.
+ * The one closing rule (2026-09-05, the client's): a viewer who has started
+ * doing something has read it, three seconds is enough to finish the sentence
+ * they were on, and after that it is in the way. It replaced hide-on-input, a
+ * fifteen-second idle re-offer and Murcia's own reading clock, all at once.
+ * Counted from the FIRST interaction, not the last, so a viewer who keeps
+ * going is not followed around by it.
  */
-export const HINT_DELAY_MS = 15000
+export const HINT_LINGER_MS = 3000
 
 /**
  * The beat between a world settling in front of the viewer and the gesture
