@@ -110,6 +110,7 @@ export default defineConfig({
       include: [
         'src/app/auditSubmission.ts',
         'src/app/blogHistory.ts',
+        'src/app/consent.ts',
         'src/app/contactSubmission.ts',
         'src/app/navigation/createNavigationInput.ts',
         'src/app/navigation/navigationGesture.ts',
@@ -127,6 +128,7 @@ export default defineConfig({
         'src/blog/blogFilter.ts',
         'src/blog/sanityImage.ts',
         'src/components/AuditSection.tsx',
+        'src/components/ConsentBanner.tsx',
         'src/components/ContactSection.tsx',
         'src/components/LegalPanel.tsx',
         'src/components/SiteHeader.tsx',

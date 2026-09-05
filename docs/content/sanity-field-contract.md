@@ -155,15 +155,15 @@ One document, at the fixed id `siteSettings`.
 
 ---
 
-## `legalDoc` — two fixed documents
+## `legalDoc` — three fixed documents
 
-At the fixed ids `legal-terms` and `legal-notice`, with slugs `terminos` and `aviso`.
+At the fixed ids `legal-terms`, `legal-notice` and `legal-cookies`, with slugs `terminos`, `aviso` and `cookies`.
 
 **No document id may contain a dot.** Sanity reserves the segment before a dot for `drafts.` and `versions.<release>.`; a document in any other namespace is invisible to unauthenticated queries while staying visible to the Studio and the authenticated CLI. Since the content build reads anonymously, a dotted id produces `collection is empty` with no error anywhere to explain it.
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
-| `slug.current` | slug | `terminos` or `aviso` | fail if either is absent |
+| `slug.current` | slug | `terminos`, `aviso` or `cookies` | fail if any is absent |
 | `title` | string | non-empty, ≤ 80 | fail |
 | `body` | `legalBody` | 1–120 blocks; see below | fail |
 
@@ -177,7 +177,7 @@ At the fixed ids `legal-terms` and `legal-notice`, with slugs `terminos` and `av
 | **bold**, *italic* | raw HTML, any other block or mark |
 | links to `https:` and `mailto:` | `javascript:`, `data:`, `http:` links |
 
-**Both documents must exist.** The footer links them by name; a deleted one leaves a link pointing at nothing. Which documents exist is app composition — the text is entirely editorial, the set is not.
+**All three documents must exist.** The audit panel links the first two by name and the cookie consent banner the third; a deleted one leaves a link pointing at nothing. Which documents exist is app composition — the text is entirely editorial, the set is not.
 
 **An unsupported block fails the build; it is never dropped.** Dropping it would publish a legal document missing a clause an editor believed they had written. If the vocabulary needs to grow, it grows in `content/lib/portableText.ts`, the Studio schema and the renderer together.
 

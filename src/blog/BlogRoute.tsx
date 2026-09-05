@@ -10,6 +10,7 @@ import { SiteHeader } from '../components/SiteHeader'
 import { AuditSection } from '../components/AuditSection'
 import { ContactSection } from '../components/ContactSection'
 import { LegalPanel } from '../components/LegalPanel'
+import { ConsentBanner } from '../components/ConsentBanner'
 import type { LegalDocId } from '../content/site'
 import './blog.css'
 
@@ -214,6 +215,10 @@ function TopBar({
         onOpenLegal={setLegalDoc}
       />
       <LegalPanel doc={legalDoc} idPrefix="blog-legal" onClose={() => setLegalDoc(null)} />
+      {/* The blog's own copy, under its own LegalPanel: the scene's copy is
+          hidden with the scene in a warm session and absent in a cold one. Both
+          read one consent record, so a choice made here closes both. */}
+      <ConsentBanner idPrefix="blog-consent" onOpenLegal={setLegalDoc} />
     </>
   )
 }

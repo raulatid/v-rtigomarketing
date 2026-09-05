@@ -35,6 +35,27 @@ export default defineConfig({
     baseURL: 'http://localhost:4173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Every spec starts with a cookie choice already stored, so the consent
+    // banner (ConsentBanner.tsx, mounted at phase 'site') never sits under a
+    // coordinate click, in a screenshot baseline or over the blog building.
+    // The one spec that wants to see it, consent.spec.ts, clears this with its
+    // own `test.use`. Project-level `use` blocks merge with this one, so all
+    // three projects are seeded; specs that open their own contexts
+    // (degraded.spec.ts) are not, and assert nothing the banner touches.
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: 'http://localhost:4173',
+          localStorage: [
+            {
+              name: 'vertigo:consent',
+              value: JSON.stringify({ v: 1, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
+            },
+          ],
+        },
+      ],
+    },
   },
   projects: [
     {

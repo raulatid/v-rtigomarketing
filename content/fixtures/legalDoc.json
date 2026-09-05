@@ -152,5 +152,101 @@
         ]
       }
     ]
+  },
+  {
+    "id": "cookies",
+    "title": "Política de cookies",
+    "body": [
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Texto provisional. Esta página describe qué cookies y tecnologías similares utiliza este sitio y cómo puedes decidir sobre ellas."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "h2",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Qué utiliza este sitio hoy"
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "En su versión actual, este sitio no instala ninguna cookie ni utiliza servicios de analítica, publicidad o seguimiento. Los formularios se envían a un servidor propio de Vertigo y no crean cookies."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "h2",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Cookies de analítica"
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Vertigo tiene previsto incorporar un servicio de analítica (Google Analytics) para conocer cómo se usa el sitio. Esas cookies solo se instalarán si las aceptas en el aviso que aparece al entrar. Si las rechazas, el sitio funciona exactamente igual."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "h2",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Cómo se guarda tu elección"
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Tu decisión se guarda en el almacenamiento local de tu navegador, sin fecha de caducidad y sin enviarse a ningún servidor. Es necesaria para no volver a preguntarte en cada visita."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "Para cambiar o retirar tu elección, borra los datos de este sitio en la configuración de tu navegador; el aviso volverá a aparecer en la siguiente visita."
+          }
+        ]
+      },
+      {
+        "_type": "block",
+        "style": "normal",
+        "children": [
+          {
+            "_type": "span",
+            "text": "La versión final de este documento debe redactarse y revisarse legalmente antes del lanzamiento del sitio."
+          }
+        ]
+      }
+    ]
   }
 ]

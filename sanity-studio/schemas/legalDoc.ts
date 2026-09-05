@@ -22,10 +22,11 @@ const BOUNDS = EDITORIAL_BOUNDS.legalDoc
 /**
  * A legal document.
  *
- * Two of these exist, at the fixed ids `legal-terms` and `legal-notice` (no
- * dots — a dotted _id is invisible to unauthenticated reads), and
- * `legalDocs.collection.ts` fails the build if either is missing — the footer
- * links to both by name. Which documents exist is app composition; the TEXT is
+ * Three of these exist, at the fixed ids `legal-terms`, `legal-notice` and
+ * `legal-cookies` (no dots — a dotted _id is invisible to unauthenticated
+ * reads), and `legalDocs.collection.ts` fails the build if any is missing — the
+ * site links to each by name (the audit panel to two, the consent banner to
+ * the third). Which documents exist is app composition; the TEXT is
  * entirely editorial. `sanity.config.ts` removes create/duplicate/delete.
  *
  * The body is `legalBody`: paragraphs, two heading levels, lists, bold, italic

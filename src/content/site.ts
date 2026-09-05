@@ -85,22 +85,23 @@ export const BUILDING_BANNER = settings.buildingBanner
 /**
  * Which legal documents the site links to — a union in code, on purpose.
  *
- * The footer names these two, `App.tsx` routes on them and `ContactSection`
- * opens one. That is app composition, not editorial content: the same argument
- * `orbitAssignments.ts` makes for which case study occupies which orbit. A CMS
- * that could delete one would leave a footer link pointing at nothing, and a CMS
- * that could add a third would create a document nothing links to.
+ * The audit panel names two, the consent banner the third, `App.tsx` routes on
+ * them and `ContactSection` opens one. That is app composition, not editorial
+ * content: the same argument `orbitAssignments.ts` makes for which case study
+ * occupies which orbit. A CMS that could delete one would leave a link pointing
+ * at nothing, and a CMS that could add a fourth would create a document nothing
+ * links to.
  *
  * The TEXT is fully editorial. Only the set is not.
  */
-export type LegalDocId = 'terminos' | 'aviso'
+export type LegalDocId = 'terminos' | 'aviso' | 'cookies'
 
 export type { LegalDoc }
 
 /**
- * The two documents, by id.
+ * The three documents, by id.
  *
- * `legalDocs.collection.ts`'s audit fails the build when either id is missing,
+ * `legalDocs.collection.ts`'s audit fails the build when any id is missing,
  * so the throw below can only fire against a hand-edited generated module. It
  * exists because the alternative is `LEGAL_DOCS[doc].title` on undefined, which
  * fails later and says less.
@@ -114,4 +115,5 @@ function required(id: LegalDocId): LegalDoc {
 export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
   terminos: required('terminos'),
   aviso: required('aviso'),
+  cookies: required('cookies'),
 }

@@ -50,7 +50,7 @@ html {
 /* ---- Layer stack (plan 002 §3) ----
    10 scene canvas (incl. the corner-logo overlay pass) ·
    16 murcia UI · 20 SVG intro · 35 case panel · 40 warp overlay ·
-   42 site footer · 45 navigation rail · 60 audit overlay ·
+   42 site footer · 45 navigation rail · 48 consent banner · 60 audit overlay ·
    62 contact/legal modals · 70 site header (both triggers, the burger) ·
    80 context-lost notice · 90 blog · 100 debug overlay · 999 cursor           */
 

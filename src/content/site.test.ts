@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SITE_SETTINGS } from './generated/siteSettings'
 import { siteSettingsProblems } from './invariants'
-import { BOOKING_LABEL, BOOKING_URL, CONTACT_EMAIL, COPYRIGHT, SITE_PHONES } from './site'
+import { BOOKING_LABEL, BOOKING_URL, CONTACT_EMAIL, COPYRIGHT, LEGAL_DOCS, SITE_PHONES } from './site'
 
 /**
  * A guard on the guard.
@@ -33,12 +33,6 @@ describe('the compatibility adapter', () => {
     expect(COPYRIGHT).toBe(settings.copyright)
   })
 
-  it('offers at least one dialable number', () => {
-    expect(SITE_PHONES.length).toBeGreaterThan(0)
-    for (const phone of SITE_PHONES) {
-      expect(phone.tel, phone.display).toMatch(/^\+?[0-9]{6,20}$/)
-    }
-  })
   it('passes the booking link through unchanged, absent included', () => {
     // Optional by design: the field arrived after the dataset, and there is no
     // sensible default for somebody else's calendar. `undefined` is the state
@@ -66,6 +60,19 @@ describe('the compatibility adapter', () => {
     expect(SITE_PHONES.length).toBeGreaterThan(0)
     for (const phone of SITE_PHONES) {
       expect(phone.tel, phone.display).toMatch(/^\+?[0-9]{6,20}$/)
+    }
+  })
+})
+
+describe('the legal documents', () => {
+  it('are exactly the three the site links to, each with a title and a body', () => {
+    // The set is app composition (site.ts says why): the audit panel links two
+    // and the consent banner the third. A generated module missing one would
+    // fail `required()` at import; this pins the set the renderers assume.
+    expect(Object.keys(LEGAL_DOCS).sort()).toEqual(['aviso', 'cookies', 'terminos'])
+    for (const doc of Object.values(LEGAL_DOCS)) {
+      expect(doc.title.length, doc.id).toBeGreaterThan(0)
+      expect(doc.body.length, doc.id).toBeGreaterThan(0)
     }
   })
 })

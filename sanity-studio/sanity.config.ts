@@ -26,6 +26,7 @@ const SINGLETONS = [
   { id: 'siteSettings', type: 'siteSettings', title: 'Ajustes del sitio', icon: CogIcon },
   { id: 'legal-terms', type: 'legalDoc', title: 'Términos y privacidad', icon: DocumentTextIcon },
   { id: 'legal-notice', type: 'legalDoc', title: 'Aviso legal', icon: DocumentsIcon },
+  { id: 'legal-cookies', type: 'legalDoc', title: 'Política de cookies', icon: DocumentTextIcon },
 ]
 
 /**

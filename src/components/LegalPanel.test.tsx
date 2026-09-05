@@ -29,7 +29,7 @@ afterEach(() => {
   host.remove()
 })
 
-function render(doc: 'terminos' | 'aviso' | null) {
+function render(doc: 'terminos' | 'aviso' | 'cookies' | null) {
   act(() => {
     root.render(<LegalPanel doc={doc} onClose={() => {}} />)
   })
@@ -49,7 +49,7 @@ describe('the legal panel', () => {
   it('renders one element per block, and never fewer', () => {
     // A block kind with no case in the serializer would render nothing at all —
     // a clause silently missing from a published legal document.
-    for (const id of ['terminos', 'aviso'] as const) {
+    for (const id of ['terminos', 'aviso', 'cookies'] as const) {
       render(id)
       const body = host.querySelector('.legal-panel__body')
       expect(body, id).not.toBeNull()

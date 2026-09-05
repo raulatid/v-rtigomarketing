@@ -1918,6 +1918,11 @@ are where that text will land.
 "página legal" is an overlay like everything else the viewer opens. The texts are Spanish
 placeholder boilerplate (§11) that must be written and legally reviewed before launch.
 
+> **Revisited 2026-09-05 — there are three, and one of them is linked from a banner.** The
+> cookie consent banner (§35) opens `cookies`, the third legal document; `terminos` still says
+> the forms send nothing to a server, which stopped being true when `api/` landed 2026-09-04.
+> Both texts wait on the same legal review.
+
 **The brand's own © is not a credit.** The 2026-08-18 no-third-party-credit requirement
 (recorded under §19's superseded ESO entry) is about ATTRIBUTION. Its guard in
 `e2e/backdrop.spec.ts` was narrowed from "no © anywhere" to the third-party shapes it exists
@@ -2168,6 +2173,58 @@ adding a mode to the navigation module.
 gap §32 already recorded, now more visible. `focusDistanceScale` and the display's elevation are a
 tuning pair that arithmetic cannot settle and no automated check can see. `DistrictContent.summary`
 and `intro` still have no reader.
+
+---
+
+## 35. Consent is asked once, as the intro's last stroke
+
+**Decided** 2026-09-05, plan 018. The client requires a cookie banner and plans Google Analytics
+after launch; the runtime inventory taken that day found the site setting no cookies, keeping no
+storage, loading no third-party script and embedding nothing. So the banner is a **consent banner
+for future analytics** — Aceptar / Rechazar, one `analytics` category that exists in code with
+nothing behind it — and not an informational notice, which is what today's runtime alone would
+justify. `src/app/consent.ts` is the whole mechanism: a versioned record in `localStorage`
+(`vertigo:consent`), read tolerantly like `history.state`, shared by the same immediate-callback
+signal `cursorSignal.ts` uses. Bumping `CONSENT_VERSION` asks everyone again. A vendor loader,
+when one lands, gates on `hasConsent('analytics')` and nowhere else.
+
+**A stored choice is the site's first persistent storage**, and it is the exempt kind: the record
+of a consent needs no consent. Plan 012's ban on persisted onboarding state stands untouched.
+`localStorage` over a cookie because no server reads it — a cookie would ride every `/api/*`
+request for nobody, and would need an expiry.
+
+**It mounts at `phase === 'site'`, inside each surface, twice.** §26.16 holds: no chrome before the
+intro lands, and the arrival is what fires the entry animation once. It is NOT a sibling of
+`.app__scene`: `.blog-root` is its own stacking context at z 90 and holds the blog's LegalPanel at
+62, which the banner's own link opens — a banner above 90 would cover it. So App mounts one copy
+inside the scene wrapper and the blog's TopBar another, `idPrefix="blog-consent"`, each under its
+own LegalPanel, both closing on the one record. z 48: over the rail (45) and the floor line (42),
+under everything that asks for attention (60, 62, 70, 80).
+
+**Non-modal.** A `region`, no scrim, no focus trap, focus untouched on arrival, and it is in
+neither `canNavigate` nor App's Escape handler: a scroll or a pinch has to keep working under it,
+and Escape keeps its meaning. The cost is that the question can be ignored — which for a choice
+that gates nothing yet is the right cost.
+
+**Drawn like the mark, after it.** The client asked for it "at the start, with the drawing".
+Inside P0 was refused for four reasons: `src/intro-draw/` imports nothing by build assertion,
+`boot.spec.ts` guards the luminance of every intro frame, §26.16, and nobody can read a consent
+text while the screen is a drawing. What ships is the handover's last beat: a dot on the floor
+line the © shares, a leader rising from it, the plate's outline **stroke-drawn** by dash offset
+(the intro's own technique, `pathLength="1"`, local to the component), the glass filling behind
+the nearly closed outline, the emitter hairline igniting and breathing, the copy on the
+120/200/320 stagger. Two ghost buttons of equal weight (§30: the blue is the CTA's). The long
+text is the third `legalDoc`, `cookies` — a code change, as `legalDocs.collection.ts` says any
+addition must be, plus a fixed `legal-cookies` singleton in the Studio and the document imported
+into `development` BEFORE the code required it.
+
+**The e2e suite is seeded.** `playwright.config.ts` stores a choice in every context so no
+first-load banner sits under a coordinate click, in a baseline or over the blog building;
+`consent.spec.ts` is the one spec that clears it.
+
+**Broken when:** a vendor script loads without `hasConsent('analytics')`; the banner blocks a
+warp or swallows Escape; it appears before `site`; a copy mounts outside `.app__scene` or
+`.blog-root`; the policy text stops saying how to withdraw before a control exists.
 
 ---
 

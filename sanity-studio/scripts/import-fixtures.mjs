@@ -48,7 +48,7 @@ const OUT_FILE = path.join(OUT_DIR, 'seed.ndjson')
  * Verified empirically: two documents of the same type imported together,
  * 'probeDotless' and 'probe.dotted' — anonymous saw only the first.
  */
-const LEGAL_IDS = { terminos: 'legal-terms', aviso: 'legal-notice' }
+const LEGAL_IDS = { terminos: 'legal-terms', aviso: 'legal-notice', cookies: 'legal-cookies' }
 
 function read(name) {
   const file = path.join(FIXTURES, name + '.json')

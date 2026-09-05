@@ -24,10 +24,11 @@ import { collection } from './types'
  * on `kind` and there is no `dangerouslySetInnerHTML` anywhere near it.
  *
  * ── Which documents exist is not editorial ──
- * `REQUIRED` is asserted by `audit`. The footer links two documents by name and
- * `LegalDocId` is a union in `src/content/site.ts`; a CMS that could delete one
- * would leave a link pointing at nothing. Adding a third is a code change,
- * because something has to link to it.
+ * `REQUIRED` is asserted by `audit`. The audit panel links two documents by name,
+ * the cookie consent banner a third, and `LegalDocId` is a union in
+ * `src/content/site.ts`; a CMS that could delete one would leave a link pointing
+ * at nothing. Adding one is a code change, because something has to link to it
+ * (the third arrived that way in plan 018).
  */
 
 // Shared with the Studio — see src/content/editorialBounds.ts.
@@ -35,10 +36,10 @@ const TITLE_MAX = EDITORIAL_BOUNDS.legalDoc.title
 
 /**
  * The ids the application links to, and therefore the ones that must exist.
- * These come from fixed Sanity document ids (`legal.terms`, `legal.notice`),
- * projected to the names the UI already used.
+ * These come from fixed Sanity document ids (`legal-terms`, `legal-notice`,
+ * `legal-cookies`), projected to the names the UI already used.
  */
-const REQUIRED = ['terminos', 'aviso'] as const
+const REQUIRED = ['terminos', 'aviso', 'cookies'] as const
 
 export const legalDocsCollection = collection<LegalDoc>({
   key: 'legalDocs',
@@ -104,7 +105,7 @@ export const legalDocsCollection = collection<LegalDoc>({
         problems.push({
           path: 'legalDocs.' + id,
           message:
-            'is required — the site footer links to it by name, and without it that link ' +
+            'is required — the site links to it by name, and without it that link ' +
             'points at nothing',
         })
       }

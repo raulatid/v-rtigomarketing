@@ -5,6 +5,7 @@ import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
 import { blogPostsCollection } from './blogPosts.collection'
+import { legalDocsCollection } from './legalDocs.collection'
 import { COLLECTIONS } from './index'
 import caseFixtures from '../fixtures/caseStudy.json'
 import districtFixtures from '../fixtures/district.json'
@@ -916,77 +917,23 @@ describe('the forms\' confirmation copy', () => {
   })
 })
 
-describe('the Vertigo building banner (plan 019)', () => {
-  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
-  const mapped = (record: unknown) => {
-    const result = siteSettingsCollection.map(record, 0)
-    if (!result.ok) throw new Error(result.problems.map((p) => p.path + ': ' + p.message).join('; '))
-    return (result.value as SiteSettings).buildingBanner
-  }
-
-  it('carries the mirrored image as a local path, and the switch', () => {
-    // By the time a record reaches the mapper the mirror has rewritten the CMS
-    // url to a path under public/. Fixtures carry that path already.
-    const record = validSettings()
-    record.bannerEnabled = true
-    record.bannerImage = '/logos/abc123-1600x870.webp'
-    expect(mapped(record)).toEqual({ enabled: true, image: '/logos/abc123-1600x870.webp' })
-  })
-
-  it('leaves the image key out when the CMS has none, and defaults the switch ON', () => {
-    // A dataset that predates the field: the building shows the placeholder,
-    // the same way an unfilled booking label shows the shipped wording.
-    const record = validSettings()
-    delete record.bannerEnabled
-    delete record.bannerImage
-    expect(mapped(record)).toEqual({ enabled: true })
-  })
-
-  it('treats a blank image like an absent one', () => {
-    const record = validSettings()
-    record.bannerImage = ''
-    expect(mapped(record)).toEqual({ enabled: true })
-  })
-
-  it('keeps the switch OFF when the editor turned it off', () => {
-    const record = validSettings()
-    record.bannerEnabled = false
-    record.bannerImage = '/logos/abc123-1600x870.webp'
-    expect(mapped(record)).toEqual({ enabled: false, image: '/logos/abc123-1600x870.webp' })
-  })
-
-  it('refuses an image that is not a local path', () => {
-    // A cdn.sanity.io url here means the mirror did not run, or a fixture was
-    // written by hand against the CDN. Either way the browser would fetch a
-    // third party for a texture, which is what the mirror exists to prevent.
-    for (const bad of ['https://cdn.sanity.io/images/p/d/abc-1600x870.webp', '//evil.example/x.png', 'logos/x.png']) {
-      const record = validSettings()
-      record.bannerImage = bad
-      expect(problemsFor(siteSettingsCollection, record), bad).toContain('site.buildingBanner.image')
-    }
-  })
-
-  it('refuses a switch that is not a boolean', () => {
-    const record = validSettings()
-    record.bannerEnabled = 'yes'
-    expect(problemsFor(siteSettingsCollection, record)).toContain('site.buildingBanner.enabled')
-  })
-
-  it('mirrors the image with a format and geometry rule of its own', () => {
-    // The same guard the brand marks have: every fixture path is local, so a
-    // mirror entry that stopped being applied would break nothing locally and
-    // let a JPEG or a square image onto the tower.
-    expect(siteSettingsCollection.source.mirror).toEqual(['bannerImage'])
-    const rule = siteSettingsCollection.source.mediaRules!.bannerImage
-    expect(rule.extensions).toEqual(['png', 'webp'])
-    // The band's faces are ~1.84:1 (landmark/vertigoBuildingConfig.ts); the
-    // rule is a band around that so the image is never visibly squashed.
-    expect(rule.minAspect).toBeLessThan(1.84)
-    expect(rule.maxAspect).toBeGreaterThan(1.84)
-    expect(rule.minWidth).toBeGreaterThanOrEqual(1024)
-  })
-})
-
+/**
+ * The booking link, editable since 2026-09-04.
+ *
+ * Same argument as the phone numbers: which slot the client opens for a first
+ * call is theirs to change, and the alternative to a field is a deploy for a
+ * URL. It began pinned to calendly.com; the client books there today and is
+ * moving to another platform, so the pin WAS the deploy it was meant to avoid.
+ *
+ * The HOST IS DELIBERATELY NOT CHECKED. What the code does with this value is
+ * render a visible `<a rel="noopener noreferrer">` that the visitor reads
+ * before they click — the same authority a link in a blog post carries, and
+ * `safeHref` gives those any host on https. The repository's host allowlists
+ * are for the cases where code TRUSTS a host: an iframe it builds (`embed`) or
+ * media it loads (`remoteMediaUrl`). Nothing trusts this one. So every rule
+ * below is about SHAPE, and none of them needs editing when the platform
+ * changes — which is the whole point of the field.
+ */
 describe("the client's booking link", () => {
   const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
 
@@ -1139,5 +1086,89 @@ describe("the booking button's words", () => {
     const record = validSettings()
     record.bookingLabel = 'Agenda &amp;amp; cita'
     expect(problemsFor(siteSettingsCollection, record)).toContain('site.bookingLabel')
+  })
+})
+
+describe('the legal documents are the set the site links to', () => {
+  it('names every required document when the collection is empty', () => {
+    // Which documents exist is a code decision (legalDocs.collection.ts): the
+    // audit panel links `terminos` and `aviso`, the consent banner `cookies`.
+    // A dataset missing any of them must fail the build by name, not render a
+    // link to nothing.
+    const paths = legalDocsCollection.audit([]).map((problem) => problem.path)
+    for (const id of ['terminos', 'aviso', 'cookies']) {
+      expect(paths, id).toContain('legalDocs.' + id)
+    }
+  })
+})
+
+describe('the Vertigo building banner (plan 019)', () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+  const mapped = (record: unknown) => {
+    const result = siteSettingsCollection.map(record, 0)
+    if (!result.ok) throw new Error(result.problems.map((p) => p.path + ': ' + p.message).join('; '))
+    return (result.value as SiteSettings).buildingBanner
+  }
+
+  it('carries the mirrored image as a local path, and the switch', () => {
+    // By the time a record reaches the mapper the mirror has rewritten the CMS
+    // url to a path under public/. Fixtures carry that path already.
+    const record = validSettings()
+    record.bannerEnabled = true
+    record.bannerImage = '/logos/abc123-1600x870.webp'
+    expect(mapped(record)).toEqual({ enabled: true, image: '/logos/abc123-1600x870.webp' })
+  })
+
+  it('leaves the image key out when the CMS has none, and defaults the switch ON', () => {
+    // A dataset that predates the field: the building shows the placeholder,
+    // the same way an unfilled booking label shows the shipped wording.
+    const record = validSettings()
+    delete record.bannerEnabled
+    delete record.bannerImage
+    expect(mapped(record)).toEqual({ enabled: true })
+  })
+
+  it('treats a blank image like an absent one', () => {
+    const record = validSettings()
+    record.bannerImage = ''
+    expect(mapped(record)).toEqual({ enabled: true })
+  })
+
+  it('keeps the switch OFF when the editor turned it off', () => {
+    const record = validSettings()
+    record.bannerEnabled = false
+    record.bannerImage = '/logos/abc123-1600x870.webp'
+    expect(mapped(record)).toEqual({ enabled: false, image: '/logos/abc123-1600x870.webp' })
+  })
+
+  it('refuses an image that is not a local path', () => {
+    // A cdn.sanity.io url here means the mirror did not run, or a fixture was
+    // written by hand against the CDN. Either way the browser would fetch a
+    // third party for a texture, which is what the mirror exists to prevent.
+    for (const bad of ['https://cdn.sanity.io/images/p/d/abc-1600x870.webp', '//evil.example/x.png', 'logos/x.png']) {
+      const record = validSettings()
+      record.bannerImage = bad
+      expect(problemsFor(siteSettingsCollection, record), bad).toContain('site.buildingBanner.image')
+    }
+  })
+
+  it('refuses a switch that is not a boolean', () => {
+    const record = validSettings()
+    record.bannerEnabled = 'yes'
+    expect(problemsFor(siteSettingsCollection, record)).toContain('site.buildingBanner.enabled')
+  })
+
+  it('mirrors the image with a format and geometry rule of its own', () => {
+    // The same guard the brand marks have: every fixture path is local, so a
+    // mirror entry that stopped being applied would break nothing locally and
+    // let a JPEG or a square image onto the tower.
+    expect(siteSettingsCollection.source.mirror).toEqual(['bannerImage'])
+    const rule = siteSettingsCollection.source.mediaRules!.bannerImage
+    expect(rule.extensions).toEqual(['png', 'webp'])
+    // The band's faces are ~1.84:1 (landmark/vertigoBuildingConfig.ts); the
+    // rule is a band around that so the image is never visibly squashed.
+    expect(rule.minAspect).toBeLessThan(1.84)
+    expect(rule.maxAspect).toBeGreaterThan(1.84)
+    expect(rule.minWidth).toBeGreaterThanOrEqual(1024)
   })
 })

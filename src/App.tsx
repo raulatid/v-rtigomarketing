@@ -6,6 +6,7 @@ import { CasePanel } from './components/CasePanel'
 import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
 import { LegalPanel } from './components/LegalPanel'
+import { ConsentBanner } from './components/ConsentBanner'
 import { SiteFooter } from './components/SiteFooter'
 import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
@@ -492,6 +493,16 @@ export default function App() {
       {phase === 'site' && earthActive && <SiteFooter />}
 
       <LegalPanel doc={legalDoc} onClose={() => setLegalDoc(null)} />
+
+      {/* The cookie consent banner, the intro's last stroke. Gated on the same
+          phase as the header's doors (DECISIONS §26.16) and on BOTH experiences.
+          INSIDE the scene wrapper, not beside it: the blog mounts its own copy
+          under its own LegalPanel (BlogRoute), and this one hides with the
+          scene. Non-modal — it is in neither `canNavigate` nor the Escape
+          handler above, because a scroll or a pinch must still work under it.
+          z 48: above the rail and the floor line, under everything that asks
+          for attention. */}
+      {phase === 'site' && <ConsentBanner onOpenLegal={setLegalDoc} />}
 
       {/* Mounted for both experiences, and never gated on one: unmounting it
           strips the `cursor: none` rule it installs, which hands the viewer the

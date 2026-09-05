@@ -1,0 +1,487 @@
+/* ---- z 48 — the cookie consent banner ---------------------------------------
+   Imported by ConsentBanner.tsx, so it is loaded by whichever document mounts
+   the banner (the blog included) and never through styles.css. Every keyframe
+   it needs is local for the same reason: murcia.css is not in the blog.
+
+   The banner is the intro's last stroke. The parts are the district beacon's
+   (murcia.css): a dot on the floor line, a leader growing out of it, a glass
+   plate with the blue emitter hairline that ignites and then breathes. What is
+   new is the frame — the plate's outline drawn as a stroke, the way the intro
+   draws the mark — and the order they arrive in: dot, leader, stroke, glass,
+   hairline, copy. It sits bottom-LEFT on the floor line the © mark shares
+   (styles.css .site-footer insets), clear of the centred nav hint. */
+
+.consent-banner,
+.consent-banner * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* The shell takes no pointer events; only the plate does. Over the scene the
+   empty space around the plate is where a drag may start. */
+.consent-banner {
+  position: fixed;
+  z-index: 48;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: min(340px, 40vw);
+  pointer-events: none;
+  font-family: inherit;
+  color: #fff;
+}
+
+/* The dot ON the floor line, where the leader starts. Same plane and glow as
+   the beacon's, and it arrives first. */
+.consent-banner__dot {
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(120, 170, 255, 0.95);
+  box-shadow: 0 0 10px rgba(28, 103, 255, 0.75);
+  transform: scale(0);
+  transition: transform 200ms cubic-bezier(0.55, 0, 0.3, 1) 120ms;
+}
+
+/* The leader, drawn from the dot upward. Feathered at the top so it emerges
+   from the glass rather than butting into it. */
+.consent-banner__leader {
+  position: absolute;
+  bottom: 8px;
+  left: 3px;
+  width: 1px;
+  height: 66px;
+  margin-left: -0.5px;
+  background: linear-gradient(180deg, rgba(28, 103, 255, 0) 0%, rgba(28, 103, 255, 0.5) 100%);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 200ms cubic-bezier(0.55, 0, 0.3, 1) 120ms;
+}
+
+/* The plate, IN FLOW, standing 74px off the shell's bottom: that is where the
+   leader tops out (its 8px stand-off from the dot plus its 66px length), which
+   is what makes the three parts meet. In flow rather than absolute so the
+   region's own box contains its content — a zero-height landmark is invisible
+   to a bounding-box check and no better for a screen reader. The glass itself
+   is the ::after, so that its mask fades the blur with the tint without
+   touching the frame or the copy. */
+.consent-banner__plate {
+  position: relative;
+  margin-bottom: 74px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem 1rem 0.85rem;
+  pointer-events: auto;
+}
+
+.consent-banner__plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(12, 15, 22, 0.86), rgba(4, 6, 10, 0) 100%);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  /* The blur has to fade out with the tint or the glass ends in a hard line
+     exactly where the gradient stops being visible. */
+  -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+  opacity: 0;
+  transition: opacity 220ms ease-out 100ms;
+}
+
+/* The frame — the last stroke. A 1px hairline that the dash offset reveals
+   from the leader's landing point round the plate and back. Bright while it
+   is being drawn and dimmer once closed (the keyframe carries the colour), so
+   at rest it reads as the trace of a drawing and not as a border. */
+.consent-banner__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.consent-banner__frame path {
+  fill: none;
+  stroke: rgba(28, 103, 255, 0.3);
+  stroke-width: 1px;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 320ms cubic-bezier(0.55, 0, 0.3, 1);
+}
+
+/* The emitter line: ignites from the centre, then breathes. */
+.consent-banner__plate::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(28, 103, 255, 0.45);
+  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition:
+    transform 200ms cubic-bezier(0.55, 0, 0.3, 1),
+    opacity 200ms ease-in;
+}
+
+.consent-banner__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.consent-banner__caption {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+.consent-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+/* Two ghost buttons of equal weight: the blue family belongs to the primary
+   CTA alone (DECISIONS §30), and a refusal must cost no more than an
+   acceptance. The shape is the context-lost action's. */
+.consent-banner__button {
+  min-height: 38px;
+  padding: 0 1.1rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+@media (hover: hover) {
+  .consent-banner__button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+@media (pointer: coarse) {
+  .consent-banner__button,
+  .consent-banner__link {
+    min-height: 44px;
+  }
+}
+
+/* The policy link: the audit panel's legal link, a 44px touch height without
+   visual weight. */
+.consent-banner__link {
+  margin-left: auto;
+  padding: 12px 2px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.consent-banner__link:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.consent-banner__button:focus-visible,
+.consent-banner__link:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.consent-banner__link:focus-visible {
+  border-radius: 4px;
+}
+
+/* Copy rises behind the line that drew it, on the audit panel's stagger. The
+   base rule carries the EXIT transition; the open state below carries the
+   entry (the case panel's split, styles.css). */
+.consent-banner__label,
+.consent-banner__caption,
+.consent-banner__actions {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 160ms ease-in,
+    transform 160ms ease-in;
+}
+
+/* ---- Entry. Mounted only once the intro lands (App gates on phase 'site'),
+   so these play exactly at that moment and exactly once. Fill mode is
+   `backwards`, not `both`/`forwards`: a forwards fill would keep the keyframes'
+   end state applied forever and outrank the leaving rules below (the audit
+   trigger's own note). The order is the drawing's: dot, leader, stroke, glass,
+   hairline, copy. --------------------------------------------------------- */
+
+.consent-banner[data-state='open'] .consent-banner__dot {
+  transform: scale(1);
+  transition: none;
+  animation:
+    consent-dot-in 220ms ease backwards,
+    consent-pulse 3.4s ease-in-out 320ms infinite alternate;
+}
+
+.consent-banner[data-state='open'] .consent-banner__leader {
+  transform: scaleY(1);
+  transition: none;
+  animation: consent-leader-in 420ms cubic-bezier(0.22, 1, 0.36, 1) 60ms backwards;
+}
+
+.consent-banner[data-state='open'] .consent-banner__frame path {
+  stroke-dashoffset: 0;
+  transition: none;
+  animation: consent-stroke-in 800ms cubic-bezier(0.22, 1, 0.36, 1) 420ms backwards;
+}
+
+.consent-banner[data-state='open'] .consent-banner__plate::after {
+  opacity: 1;
+  transition: none;
+  animation: consent-fade-in 260ms ease-out 900ms backwards;
+}
+
+.consent-banner[data-state='open'] .consent-banner__plate::before {
+  transform: scaleX(1);
+  opacity: 1;
+  transition: none;
+  /* Ignites, then breathes as the hologram's line does (uBreath, 1.4 rad/s — a
+     4.5s period). The breath is delayed past the ignition and unfilled, so the
+     ignition owns its 360ms and the breath takes over from there. */
+  animation:
+    consent-ignite 360ms cubic-bezier(0.22, 1, 0.36, 1) 1100ms backwards,
+    consent-breath 4.5s ease-in-out 1460ms infinite alternate;
+}
+
+.consent-banner[data-state='open'] .consent-banner__label,
+.consent-banner[data-state='open'] .consent-banner__caption,
+.consent-banner[data-state='open'] .consent-banner__actions {
+  opacity: 1;
+  transform: translateY(0);
+  transition: none;
+  animation: consent-copy-in 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.consent-banner[data-state='open'] .consent-banner__label {
+  animation-delay: 1340ms;
+}
+
+.consent-banner[data-state='open'] .consent-banner__caption {
+  animation-delay: 1420ms;
+}
+
+.consent-banner[data-state='open'] .consent-banner__actions {
+  animation-delay: 1540ms;
+}
+
+/* ---- Exit. The base rules above already carry the exit transitions and the
+   rest states; 'leaving' only has to cancel the entry animations (a click
+   mid-entry would otherwise be outranked by one still running). The base
+   timings do the staggering: the copy sinks and the stroke retracts first, the
+   glass and the leader fold after. ----------------------------------------- */
+
+.consent-banner[data-state='leaving'] *,
+.consent-banner[data-state='leaving'] .consent-banner__plate::before,
+.consent-banner[data-state='leaving'] .consent-banner__plate::after {
+  animation: none;
+}
+
+@keyframes consent-dot-in {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes consent-leader-in {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes consent-stroke-in {
+  from {
+    stroke-dashoffset: 1;
+    stroke: rgba(28, 103, 255, 0.7);
+  }
+  to {
+    stroke-dashoffset: 0;
+    stroke: rgba(28, 103, 255, 0.3);
+  }
+}
+
+@keyframes consent-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes consent-ignite {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes consent-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes consent-breath {
+  from {
+    opacity: 0.92;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes consent-pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- Phone: a sheet along the bottom edge. No dot and no leader — there is
+   no floor line to rise from — and the glass fades DOWNWARD into the edge the
+   way the city's controls plate does, its fade confined to the bottom padding
+   so no row is eaten. The sheet covers the centred nav hint for the seconds it
+   exists; the hint takes no pointer events and keeps breathing after the
+   exit. Lifting the sheet above it would park it over the globe's lower limb.
+   Full-width buttons at 44px. --------------------------------------------- */
+@media (max-width: 767px) {
+  .consent-banner {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+  }
+
+  .consent-banner__dot,
+  .consent-banner__leader {
+    display: none;
+  }
+
+  .consent-banner__plate {
+    margin-bottom: 0;
+    padding: 0.85rem max(16px, env(safe-area-inset-left)) max(1.4rem, env(safe-area-inset-bottom));
+  }
+
+  .consent-banner__plate::after {
+    background: linear-gradient(180deg, rgba(12, 15, 22, 0.9) calc(100% - 1.4rem), rgba(4, 6, 10, 0) 100%);
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 1.4rem), transparent 100%);
+    mask-image: linear-gradient(180deg, #000 calc(100% - 1.4rem), transparent 100%);
+  }
+
+  /* Only the top edge is drawn: the sheet has no sides to trace. */
+  .consent-banner__frame {
+    display: none;
+  }
+
+  .consent-banner__button {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  .consent-banner__link {
+    flex-basis: 100%;
+    min-height: 44px;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  /* The stroke's 800ms are gone, so the rest of the sequence closes up. */
+  .consent-banner[data-state='open'] .consent-banner__plate::after {
+    animation-delay: 0ms;
+  }
+
+  .consent-banner[data-state='open'] .consent-banner__plate::before {
+    animation-delay: 120ms, 480ms;
+  }
+
+  .consent-banner[data-state='open'] .consent-banner__label {
+    animation-delay: 360ms;
+  }
+
+  .consent-banner[data-state='open'] .consent-banner__caption {
+    animation-delay: 440ms;
+  }
+
+  .consent-banner[data-state='open'] .consent-banner__actions {
+    animation-delay: 560ms;
+  }
+}
+
+/* ---- Reduced motion: the banner fades in as one and out as one. The breath
+   and the pulse are decoration in motion; the fades may stay. The exit timer
+   in ConsentBanner.tsx is 60ms under this query, so every transition here has
+   to be shorter than that — duration AND delay, the case panel's note. ---- */
+@media (prefers-reduced-motion: reduce) {
+  .consent-banner {
+    animation: consent-fade-in 200ms ease backwards;
+  }
+
+  .consent-banner *,
+  .consent-banner .consent-banner__plate::before,
+  .consent-banner .consent-banner__plate::after {
+    animation: none !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .consent-banner[data-state='open'] .consent-banner__frame path {
+    stroke-dashoffset: 0;
+  }
+
+  .consent-banner[data-state='leaving'] {
+    opacity: 0;
+    transition: opacity 1ms;
+  }
+}
