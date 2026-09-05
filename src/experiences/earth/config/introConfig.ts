@@ -252,7 +252,7 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   backdropClusterStrength: 0.6,
   backdropTwinkle: 0.15,
 
-  skyBrightness: 0.22,
+  skyBrightness: 0.60,
   skyContrast: 1.25,
   skyBandWidth: GALAXY_BAND.defaultWidth,
   skyBandTilt: GALAXY_BAND.defaultTilt,

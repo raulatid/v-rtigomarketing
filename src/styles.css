@@ -1616,3 +1616,37 @@ html {
     background: rgba(255, 255, 255, 0.14);
   }
 }
+
+/* --- Earth camera readout -------------------------------------------------
+ *
+ * The `?debug=1` / F3 panel from experiences/earth/debug/CameraReadout.ts.
+ * Deliberately the same look as Murcia's `#debug-overlay` so the two worlds
+ * read the same way — but not the same rule, because that one is scoped under
+ * `.murcia-ui` and this panel belongs to a surface that has no such host.
+ *
+ * Dev-only: nothing mounts this element in a production build, so the rule is
+ * inert there rather than needing its own gate.
+ */
+#earth-camera-readout {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  padding: 8px 10px;
+  margin: 8px;
+  background: rgba(10, 14, 20, 0.78);
+  color: #b9f5c9;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: pre;
+  min-width: 220px;
+  pointer-events: none;
+  user-select: text;
+}
+
+#earth-camera-readout.hidden {
+  display: none;
+}

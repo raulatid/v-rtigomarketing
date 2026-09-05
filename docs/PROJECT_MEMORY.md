@@ -600,16 +600,58 @@ via `1 − exp(−dt/τ)`.
 
 ### Live tuning
 
-`experiences/murcia/config/environmentQueryOverrides.ts` — `?dragGain=` `?yawDeg=` `?smooth=`
-`?yawSmooth=` `?release=` `?inertia=` `?zoomMin=` `?zoomMax=` `?wheelZoom=` `?zoomSmooth=`,
-applied by `MurciaExperience` after the `?model=` override so the two compose. Separate from
-`appConfig`'s overrides because these are experience-scoped rather than shell-scoped.
+`experiences/murcia/config/environmentQueryOverrides.ts`, applied by `MurciaExperience` after
+the `?model=` override so the two compose. Separate from `appConfig`'s overrides because these
+are experience-scoped rather than shell-scoped. Two groups:
+
+- **Feel** — `?dragGain=` `?yawDeg=` `?smooth=` `?yawSmooth=` `?release=` `?inertia=`
+  `?focusMin=`
+- **Pose** — `?dist=` `?elev=` `?azimuth=` `?lookAt=` `?fov=` `?farPlane=` `?focusX=`
+  `?focusZ=`, plus `?zoomFar=` `?zoomFarElev=` `?zoomNear=` and the skirt's `?skirt=` `?fade=`
 
 `?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL — the comparison most
 likely to be wanted while reviewing it.
 
-`?zoomMax=` is not like the others and warns when exceeded: it is the only parameter here
-whose shipped value is a measurement rather than a judgement.
+`?zoomMin=` `?zoomMax=` `?wheelZoom=` `?zoomSmooth=` were **retired with the zoom band**
+(`adr/009`); this section listed them long after they stopped existing. There is no max-side
+parameter any more because there is no outward direction, which also retires the warning that
+used to sit here about `?zoomMax=` being a measurement rather than a judgement.
+
+**The pose group is not feel.** `?elev=` and `?lookAt=` decide whether the frustum passes the
+horizon, and `?skirt=`/`?fade=` decide where the ground stops — a URL can put the edge of the
+world on screen, which no feel parameter can. A pose found this way is a CANDIDATE;
+`npm run check:footprint` is what makes it a decision.
+
+### Reading a pose back out — the `POSE` line
+
+Added 2026-09-05, because the 19°/225/az 0 → 18°/285/az 267 reframe cost about a dozen
+render-and-compare cycles: the framing could only be described in screenshots, and azimuth —
+the field that took four attempts — had no override at all, so every candidate was a rebuild.
+
+Both worlds now print one copy-ready line behind `?debug=1` (**F3** toggles), in config units
+and named by the query parameter that sets each field, so it pastes straight back into a URL
+or to whoever is baking it in:
+
+```
+POSE murcia dist=285.0 elev=18.0 azimuth=267.0 lookAt=5.85 fov=35.0 focusX=-262.30 focusZ=296.90
+POSE earth radius=18.00 fov=45.0
+```
+
+- Murcia: `experiences/murcia/debug/DebugOverlay.ts`. The line reports the **configured**
+  distance, unlike the `Cam distance` line above it, which stays effective so the flight dolly
+  can be watched working. The two disagree mid-flight and that is deliberate.
+- Earth: `experiences/earth/debug/CameraReadout.ts`, a separate small panel — Earth cannot
+  import from `murcia/` (`checks/architecture.ts`), and promoting a shared shell for one
+  caller was not worth rewriting a working module. `radius` is the number that matters; it is
+  what `overviewRadius` sets, and zooming moves it through the band, so zoom until the globe
+  looks right and read it off. `theta`/`phi` are shown for orientation only — the orbit resets
+  on arrival, so they are not defaults anyone can bake.
+
+Baking a pose is never only the constant: Murcia's `dist`/`elev` are mirrored in
+`app/warpTransition.ts` under a hard-equality check (`checks/warp-transition.ts`), and the
+gates are `check:footprint`, `check:warp`, `check:district`, `check:navigation`.
+**Murcia elevation has a floor at 18°** — at 16° grab-the-point slips 19px against the 1px
+`check:navigation` guarantees, and the cliff is sharp (7.5px at 17°, exact at 18°).
 
 They exist because feel is a judgement no harness can make and an edit-rebuild cycle is too
 slow to converge on one. **A tuning tool, not configuration** — a settled value belongs in
@@ -617,7 +659,8 @@ slow to converge on one. **A tuning tool, not configuration** — a settled valu
 
 If a future change *does* have grounds to retune, the order is: rotation too fast →
 `degreesPerViewportWidth`; not smooth enough → `smoothingTimeConstant`; drifting after release
-→ `releaseTimeConstant`; zoom too coarse → `wheelSensitivity`. All are live as query
+→ `releaseTimeConstant`. (`wheelSensitivity` used to end this list; it no longer exists —
+the wheel stopped driving distance when the zoom band was retired.) All are live as query
 parameters, so it is a browser session and not a rebuild cycle. Record the outcome here either
 way, including "tried and went back", which is the entry this section was missing the first
 time.

@@ -34,6 +34,7 @@
  */
 import * as THREE from 'three';
 import { createFocusCameraRig } from '../src/experiences/earth/camera/createFocusCameraRig';
+import { overviewRestPosition } from '../src/experiences/earth/camera/overviewPose';
 import { INTERACTION_CONFIG } from '../src/experiences/earth/interaction/interactionConfig';
 import { createCursorManager } from '../src/interaction/cursorManager';
 import { EARTH_CONFIG } from '../src/experiences/earth/config/earthConfig';
@@ -44,7 +45,11 @@ import type { StubElement } from './lib/stubDom';
 const cfg = INTERACTION_CONFIG.camera;
 const R = EARTH_CONFIG.radius;
 const OVERVIEW_RADIUS = cfg.overviewRadius;
-const OVERVIEW_POSE: [number, number, number] = [0, 0, OVERVIEW_RADIUS];
+// The real rest pose, angles included, so the harness drags from where the
+// viewer actually starts rather than from the z axis it used to assume.
+const OVERVIEW_POSE: [number, number, number] = overviewRestPosition();
+/** The rest azimuth in the harness's own atan2(x, z) convention, radians. */
+const REST_AZIMUTH = Math.atan2(OVERVIEW_POSE[0], OVERVIEW_POSE[2]);
 
 const WIDTH = 1920;
 const HEIGHT = 1080;
@@ -99,7 +104,11 @@ function makeHarness(): Harness {
 
   let pointerX = WIDTH / 2;
   let pointerY = HEIGHT / 2;
-  let previousAzimuth = Math.atan2(camera.position.x, camera.position.z);
+  // From the pose the rig was just seeded with, not from `camera.position`:
+  // the camera object is only written on the first update(), so reading it
+  // here gave the origin's azimuth (0) and the first step then booked the whole
+  // rest azimuth as travel. Invisible while the rest sat on the z axis.
+  let previousAzimuth = REST_AZIMUTH;
 
   const h: Harness = {
     rig,
@@ -370,7 +379,9 @@ section('6. Returning from a close-up takes the SHORT way');
   const settled = Math.atan2(h.camera.position.x, h.camera.position.z) * DEG;
   check(
     'and settles at the overview pose',
-    close(settled, 0, 1),
+    // Against the configured rest azimuth, not world Z: the pose has an
+    // orientation of its own since 2026-09-05.
+    close(settled, REST_AZIMUTH * DEG, 1),
     `azimuth ${settled.toFixed(3)} deg, from ${beforeFocus.toFixed(1)} deg before the close-up`,
   );
   check(

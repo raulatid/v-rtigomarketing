@@ -72,6 +72,22 @@ export const INTERACTION_CONFIG = {
     // surface than before, and the far end stays well inside the star shell.
     overviewRadius: 9 * R,
 
+    // Where on the sphere of that radius the overview camera rests, in the
+    // three.js spherical convention: theta is the azimuth around +Y measured
+    // from +Z, phi is the polar angle down from +Y. Degrees, because they are
+    // read off the F3 camera readout and pasted here.
+    //
+    // CLIENT DIRECTION, 2026-09-05, read off the readout at the framing the
+    // client chose: the camera sits above the equator looking down 26 degrees,
+    // and around to the west so the sun (fixed in world space, EARTH_CONFIG)
+    // lights a crescent on the right. What this bakes is the LIGHTING and the
+    // TILT — the planet spins on its own, so which continent faces the lens
+    // drifts regardless. `camera/overviewPose.ts` turns the pair into the
+    // landing point the intro flies to and the rig rests at; every arrival
+    // from Murcia comes back to it.
+    overviewThetaDegrees: -81.4,
+    overviewPhiDegrees: 63.9,
+
     // ─── The ends of the zoom band, as multiples of the radius above ───
     //
     // Factors rather than radii, so they follow `overviewRadius` if it is ever

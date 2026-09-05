@@ -1,5 +1,5 @@
 import { RefObject, useMemo, useRef } from 'react'
-import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
+import { overviewRestPosition } from './overviewPose'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
@@ -45,15 +45,18 @@ const FOV_CATCHUP_SECONDS = 0.2
 
 const STAR_REST: [number, number, number] = [0, 0, 200]
 const STAR_EXIT: [number, number, number] = [0, 0, -200]
-const EARTH_FAR: [number, number, number] = [0, 0, 80]
+// The far point of the arriving dolly: the rest direction, further out, so the
+// pull-in runs straight along the view ray whatever orientation the rest has.
+const EARTH_FAR: [number, number, number] = overviewRestPosition(80)
 // Exported because the interaction rig adopts this as its overview pose. It
 // must NOT seed from the live camera instead: on a skip, this controller bails
 // before ever moving the camera off STAR_REST, and the rig would inherit z=200.
-export const EARTH_REST: [number, number, number] = [
-  0,
-  0,
-  INTERACTION_CONFIG.camera.overviewRadius,
-]
+//
+// Derived from radius, theta AND phi since 2026-09-05 (it was `[0, 0, radius]`,
+// i.e. theta 0 / phi 90): the client chose a framing, and the rig reads its
+// resting orbit back out of this vector, so this is where the orientation is
+// baked. See `overviewPose.ts`.
+export const EARTH_REST: [number, number, number] = overviewRestPosition()
 
 const STAR_LOOK_AT = new THREE.Vector3(0, 0, -1000)
 const EARTH_LOOK_AT = new THREE.Vector3(0, 0, 0)

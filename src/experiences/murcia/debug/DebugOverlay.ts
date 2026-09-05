@@ -8,6 +8,13 @@ export interface OverlayInputs {
   focus: THREE.Vector3;
   cameraHeight: number;
   cameraDistance: number;
+  /**
+   * The CONFIGURED distance, before the flight dolly — the number that belongs
+   * in `murciaConfig`, which `cameraDistance` above is not while a district
+   * flight is part-way in. Only the `POSE` line uses it: the `Cam distance`
+   * line stays effective, because that one is for watching the dolly work.
+   */
+  configuredDistance: number;
   elevationDegrees: number;
   /** Effective, so it follows a `?fov=` override and the warp's lens blend. */
   fov: number;
@@ -121,6 +128,24 @@ export class DebugOverlay {
       // expected state, so a permanent red light would train the reader to
       // ignore the overlay. It reports what the clamp MEANS instead.
       `Horizon        ${i.footprintClamped ? 'in frame' : 'out of frame'}\n` +
+      // ── The line that exists to be copied ──
+      //
+      // Every field above is here to be WATCHED while something moves. This one
+      // is here to be READ ONCE and pasted — into a URL to replay the framing,
+      // or to whoever is going to bake it into murciaConfig.
+      //
+      // So it differs from the lines above in three deliberate ways: it reports
+      // the CONFIGURED distance rather than the effective one (the dolly is not
+      // part of a resting pose), it normalises the azimuth into [0, 360) so the
+      // accumulated turns do not travel with it, and it names each number with
+      // the query parameter that sets it rather than with a human label. It is
+      // a value, not a report.
+      `\nPOSE murcia dist=${i.configuredDistance.toFixed(1)} ` +
+      `elev=${i.elevationDegrees.toFixed(1)} ` +
+      `azimuth=${normalizeDegrees(i.azimuthDegrees).toFixed(1)} ` +
+      `lookAt=${i.lookAtHeight.toFixed(2)} ` +
+      `fov=${i.fov.toFixed(1)} ` +
+      `focusX=${f.x.toFixed(2)} focusZ=${f.z.toFixed(2)}\n\n` +
       `GLB size       ${sizeMb} MB\n` +
       `Network (~)    ${networkMs}\n` +
       `Parse ready    ${parseMs}\n` +

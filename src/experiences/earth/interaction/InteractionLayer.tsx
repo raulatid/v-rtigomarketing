@@ -6,6 +6,8 @@ import type { SatelliteDef } from '../orbit/orbitConfig'
 import { invitedCaseId } from '../orbit/orbitAssignments'
 import { createFocusCameraRig, FocusCameraRig } from '../camera/createFocusCameraRig'
 import { installDebugCameraHook } from '../camera/debugCameraHook'
+import { installCameraReadout } from '../debug/CameraReadout'
+import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags'
 import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
 import { createCursorManager, type CursorManager } from '../../../interaction/cursorManager'
 import { SequenceState } from '../config/sequenceState'
@@ -96,6 +98,8 @@ export function InteractionLayer({
     const uninstallDebugCamera = installDebugCameraHook(rig, () =>
       orbitSystem.satellites.every((s) => orbitSystem.isSatelliteActive(s.id)),
     )
+    // The on-screen half of the same idea, behind `?debug=1` as Murcia's is.
+    const uninstallReadout = installCameraReadout(rig, DEBUG_TOOLS_ENABLED)
 
     rigRef.current = rig
     focusRef.current = focus
@@ -107,6 +111,7 @@ export function InteractionLayer({
       focusRef.current = null
       cursorRef.current = null
       uninstallDebugCamera()
+      uninstallReadout()
       focus.dispose()
       rig.dispose()
       cursor.dispose()

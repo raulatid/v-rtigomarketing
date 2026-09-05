@@ -22,9 +22,17 @@
  *
  * ── The camera pose, added 2026-09-04 ──
  *
- *   ?elev=19  ?dist=225  ?fov=35  ?lookAt=5.85  ?farPlane=3500
+ *   ?elev=18  ?dist=285  ?azimuth=267  ?lookAt=5.85  ?fov=35  ?farPlane=3500
+ *   ?focusX=-262.3  ?focusZ=296.9
  *   ?zoomFar=400  ?zoomFarElev=55  ?zoomNear=0.7
  *   ?skirt=700  ?fade=0.21
+ *
+ * `?azimuth=`, `?focusX=` and `?focusZ=` were added 2026-09-05 and they close
+ * the loop rather than adding a knob. The overlay has always REPORTED azimuth
+ * and focus; until now neither could be replayed, so a bearing found by turning
+ * the city cost a source edit and a rebuild per candidate — which is exactly
+ * what made the 2026-09-05 reframe expensive (four rebuilds to land on 267).
+ * With these, the overlay's `POSE` line pastes straight back into a URL.
  *
  * Here for exactly the reason the feel parameters are: how horizontal a city
  * should look is a judgement, and it was being made by editing a constant and
@@ -40,7 +48,8 @@
  * The useful comparisons in one line each:
  *
  *   ?elev=30                      the pre-2026-09-04 pose, horizon well out of frame
- *   ?elev=19&lookAt=-30           low camera, horizon cropped by aiming below the focus
+ *   ?elev=19&dist=225&azimuth=0   the pre-2026-09-05 pose, the city from the other side
+ *   ?elev=18&lookAt=-30           low camera, horizon cropped by aiming below the focus
  *   ?elev=24&fov=28               longer lens, less perspective, more of the skyline
  *   ?zoomFar=500&zoomFarElev=58   a bolder zoom-out, if the current one reads timid
  *
@@ -115,6 +124,24 @@ export function applyNavigationQueryOverrides(
   const fov = readNumber(params, 'fov', (v) => v > 0 && v < 120);
   const lookAt = readNumber(params, 'lookAt', () => true);
   const farPlane = readNumber(params, 'farPlane', (v) => v > 0);
+  // Unbounded on purpose: a bearing is periodic, so there is no value that
+  // breaks the maths. 267 and -93 and 627 all name the same heading, and
+  // `applyPoseToCamera` takes the sine and cosine without caring which.
+  const azimuth = readNumber(params, 'azimuth', () => true);
+
+  // ── Where the camera is pointed, as opposed to how it sits ──
+  //
+  // The arrival focus, so a framing reached by PANNING can be replayed from a
+  // URL. Without these the overlay could report a focus that nothing but a
+  // source edit could reproduce, which is the gap that makes the readout a
+  // half-measure: the pose fields round-trip and the aim point does not.
+  //
+  // Unbounded here, and deliberately so. The navigable clamp lives in
+  // `navigableArea`/`contentBounds` and runs every frame; duplicating it as a
+  // predicate would be a second opinion about the plate's edges that could
+  // drift from the first.
+  const focusX = readNumber(params, 'focusX', () => true);
+  const focusZ = readNumber(params, 'focusZ', () => true);
 
   // ── The zoom band ──
   const zoomFar = readNumber(params, 'zoomFar', (v) => v > 0);
@@ -142,6 +169,9 @@ export function applyNavigationQueryOverrides(
     fov,
     lookAt,
     farPlane,
+    azimuth,
+    focusX,
+    focusZ,
     zoomFar,
     zoomFarElev,
     zoomNear,
@@ -173,6 +203,12 @@ export function applyNavigationQueryOverrides(
       fov: fov ?? env.camera.fov,
       lookAtHeight: lookAt ?? env.camera.lookAtHeight,
       far: farPlane ?? env.camera.far,
+      azimuthDegrees: azimuth ?? env.camera.azimuthDegrees,
+    },
+    initialFocus: {
+      ...env.initialFocus,
+      x: focusX ?? env.initialFocus.x,
+      z: focusZ ?? env.initialFocus.z,
     },
     zoomFarDistance: zoomFar ?? env.zoomFarDistance,
     zoomFarElevationDegrees: zoomFarElev ?? env.zoomFarElevationDegrees,
@@ -225,8 +261,10 @@ export function applyNavigationQueryOverrides(
   console.info('[murcia pose] overridden by query parameters — run check:footprint before keeping', {
     elevationDegrees: next.camera.elevationDegrees,
     distance: next.camera.distance,
+    azimuthDegrees: next.camera.azimuthDegrees,
     fov: next.camera.fov,
     lookAtHeight: next.camera.lookAtHeight,
+    focus: `${next.initialFocus.x}, ${next.initialFocus.z}`,
     cameraHeight: Number(height.toFixed(1)),
     effectivePitch: Number(effectivePitch.toFixed(1)),
     horizonInFrame: effectivePitch < next.camera.fov / 2,
