@@ -1,5 +1,21 @@
 import { CogIcon } from '@sanity/icons/Cog'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+
+/**
+ * The lengths this schema refuses, shared with the content build.
+ *
+ * They used to be literals here and literals again in
+ * `content/collections/*.collection.ts`, which is the arrangement where one
+ * gets relaxed and the other quietly does not — and the editor finds out by
+ * having a document accepted here and rejected by the next deployment. The
+ * numbers live in one table now; see `src/content/editorialBounds.ts`,
+ * including why that module has no imports and must not gain any.
+ *
+ * The messages interpolate rather than restate. A message that says "como
+ * máximo 140" beside a rule that allows 200 is worse than no message.
+ */
+const BOUNDS = EDITORIAL_BOUNDS.siteSettings
 
 /**
  * The handful of global values an editor owns.
@@ -55,7 +71,10 @@ export const siteSettings = defineType({
                 'Ejemplo: Madrid. Escríbela SIN los dos puntos: los pone la web, para que ' +
                 'estén siempre igual en todos.',
               type: 'string',
-              validation: (rule) => rule.max(24).error('Demasiado largo: como máximo 24 caracteres.'),
+              validation: (rule) =>
+                rule.max(BOUNDS.label).error(
+                  `Demasiado largo: como máximo ${BOUNDS.label} caracteres.`,
+                ),
             }),
             defineField({
               name: 'display',
@@ -64,7 +83,7 @@ export const siteSettings = defineType({
               type: 'string',
               validation: (rule) => [
                 rule.required().error('Escribe el número como debe leerse.'),
-                rule.max(40).error('Demasiado largo.'),
+                rule.max(BOUNDS.display).error('Demasiado largo.'),
               ],
             }),
             defineField({
@@ -92,7 +111,7 @@ export const siteSettings = defineType({
       ],
       validation: (rule) => [
         rule.required().min(1).error('Añade al menos un teléfono.'),
-        rule.max(4).error('Como máximo 4 teléfonos.'),
+        rule.max(BOUNDS.phones).error(`Como máximo ${BOUNDS.phones} teléfonos.`),
       ],
     }),
     defineField({
@@ -112,7 +131,7 @@ export const siteSettings = defineType({
       fieldset: 'pie',
       validation: (rule) => [
         rule.required().error('Escribe la línea de copyright.'),
-        rule.max(120).error('Demasiado largo: como máximo 120 caracteres.'),
+        rule.max(BOUNDS.copyright).error(`Demasiado largo: como máximo ${BOUNDS.copyright} caracteres.`),
       ],
     }),
 
@@ -132,7 +151,9 @@ export const siteSettings = defineType({
       fieldset: 'formularios',
       validation: (rule) => [
         rule.required().error('Escribe el titular que verá quien envíe el formulario.'),
-        rule.max(60).error('Demasiado largo: como máximo 60 caracteres.'),
+        rule.max(BOUNDS.successTitle).error(
+          `Demasiado largo: como máximo ${BOUNDS.successTitle} caracteres.`,
+        ),
       ],
     }),
     defineField({
@@ -145,7 +166,9 @@ export const siteSettings = defineType({
       fieldset: 'formularios',
       validation: (rule) => [
         rule.required().error('Escribe el texto que verá quien envíe el formulario.'),
-        rule.max(240).error('Demasiado largo: como máximo 240 caracteres.'),
+        rule.max(BOUNDS.successBody).error(
+          `Demasiado largo: como máximo ${BOUNDS.successBody} caracteres.`,
+        ),
       ],
     }),
     defineField({
@@ -156,7 +179,9 @@ export const siteSettings = defineType({
       fieldset: 'formularios',
       validation: (rule) => [
         rule.required().error('Escribe el titular que verá quien te escriba.'),
-        rule.max(60).error('Demasiado largo: como máximo 60 caracteres.'),
+        rule.max(BOUNDS.successTitle).error(
+          `Demasiado largo: como máximo ${BOUNDS.successTitle} caracteres.`,
+        ),
       ],
     }),
     defineField({
@@ -169,7 +194,9 @@ export const siteSettings = defineType({
       fieldset: 'formularios',
       validation: (rule) => [
         rule.required().error('Escribe el texto que verá quien te escriba.'),
-        rule.max(240).error('Demasiado largo: como máximo 240 caracteres.'),
+        rule.max(BOUNDS.successBody).error(
+          `Demasiado largo: como máximo ${BOUNDS.successBody} caracteres.`,
+        ),
       ],
     }),
   ],

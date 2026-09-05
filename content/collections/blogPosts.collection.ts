@@ -8,6 +8,7 @@ import type {
   VideoBlock,
 } from '../../src/content/types'
 import { ID_PATTERN, blogPostProblems, collectionProblems } from '../../src/content/invariants'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
   BLOG_META_DESCRIPTION_FALLBACK_MAX,
   DEFAULT_OG_IMAGE_PATH,
@@ -45,9 +46,11 @@ import { collection } from './types'
  * builds its own iframe from parts that were validated here.
  */
 
-const TITLE_MAX = 120
-const EXCERPT_MAX = 300
-const TAGS_MAX = 8
+// Shared with the Studio, which refuses the same lengths at Publicar — see
+// src/content/editorialBounds.ts for why they cannot be two numbers.
+const { title: TITLE_MAX, excerpt: EXCERPT_MAX, tags: TAGS_MAX } = EDITORIAL_BOUNDS.blogPost
+
+/** Build-side only: nothing in the Studio counts blocks. */
 const BODY_BLOCKS_MAX = 400
 
 /** Hosts each provider is allowed to serve from. An allowlist, not a hint. */

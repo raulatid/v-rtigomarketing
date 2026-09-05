@@ -3,6 +3,22 @@ import { defineArrayMember, defineField, defineType } from 'sanity'
 import { brandMarkAdvice, brandMarkErrors } from './lib/brandMark'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+
+/**
+ * The lengths this schema refuses, shared with the content build.
+ *
+ * They used to be literals here and literals again in
+ * `content/collections/*.collection.ts`, which is the arrangement where one
+ * gets relaxed and the other quietly does not — and the editor finds out by
+ * having a document accepted here and rejected by the next deployment. The
+ * numbers live in one table now; see `src/content/editorialBounds.ts`,
+ * including why that module has no imports and must not gain any.
+ *
+ * The messages interpolate rather than restate. A message that says "como
+ * máximo 140" beside a rule that allows 200 is worse than no message.
+ */
+const BOUNDS = EDITORIAL_BOUNDS.caseStudy
 
 /**
  * A case study — one of the brands riding an orbit around the Earth.
@@ -84,7 +100,7 @@ const chart = defineField({
       type: 'string',
       validation: (rule) => [
         rule.required().error('Escribe qué muestra el gráfico.'),
-        rule.max(80).error('Demasiado largo: como máximo 80 caracteres.'),
+        rule.max(BOUNDS.chartTitle).error(`Demasiado largo: como máximo ${BOUNDS.chartTitle} caracteres.`),
       ],
     }),
     defineField({
@@ -114,7 +130,10 @@ const chart = defineField({
               // other two keeps a line chart's data entry to one number per row.
               hidden: ({ document }) =>
                 !needsLabels((document as { chart?: Chart } | undefined)?.chart?.type),
-              validation: (rule) => rule.max(24).error('Demasiado largo: como máximo 24 caracteres.'),
+              validation: (rule) =>
+                rule.max(BOUNDS.chartLabel).error(
+                  `Demasiado largo: como máximo ${BOUNDS.chartLabel} caracteres.`,
+                ),
             }),
           ],
           preview: {
@@ -128,7 +147,9 @@ const chart = defineField({
       ],
       validation: (rule) => [
         rule.required().min(1).error('Añade al menos un punto.'),
-        rule.max(16).error('Como máximo 16 puntos: con más no se distinguen.'),
+        rule.max(BOUNDS.chartValues).error(
+          `Como máximo ${BOUNDS.chartValues} puntos: con más no se distinguen.`,
+        ),
       ],
     }),
   ],
@@ -202,7 +223,7 @@ export const caseStudy = defineType({
       fieldset: 'marca',
       validation: (rule) => [
         rule.required().error('Escribe el nombre de la marca.'),
-        rule.max(60).error('Demasiado largo: como máximo 60 caracteres.'),
+        rule.max(BOUNDS.name).error(`Demasiado largo: como máximo ${BOUNDS.name} caracteres.`),
       ],
     }),
     defineField({
@@ -211,7 +232,8 @@ export const caseStudy = defineType({
       description: 'Opcional. Si la marca tiene una forma corta o en mayúsculas, ponla aquí. Ejemplo: MANGO',
       type: 'string',
       fieldset: 'marca',
-      validation: (rule) => rule.max(60).error('Demasiado largo: como máximo 60 caracteres.'),
+      validation: (rule) =>
+        rule.max(BOUNDS.name).error(`Demasiado largo: como máximo ${BOUNDS.name} caracteres.`),
     }),
     defineField({
       name: 'isotype',
@@ -284,7 +306,7 @@ export const caseStudy = defineType({
       fieldset: 'ficha',
       validation: (rule) => [
         rule.required().error('Escribe el sector.'),
-        rule.max(60).error('Demasiado largo.'),
+        rule.max(BOUNDS.name).error('Demasiado largo.'),
       ],
     }),
     defineField({
@@ -295,7 +317,7 @@ export const caseStudy = defineType({
       fieldset: 'ficha',
       validation: (rule) => [
         rule.required().error('Escribe la ubicación.'),
-        rule.max(60).error('Demasiado largo.'),
+        rule.max(BOUNDS.name).error('Demasiado largo.'),
       ],
     }),
     defineField({
@@ -318,7 +340,7 @@ export const caseStudy = defineType({
       fieldset: 'panel',
       validation: (rule) => [
         rule.required().error('Escribe un resumen.'),
-        rule.max(400).error('Demasiado largo: como máximo 400 caracteres.'),
+        rule.max(BOUNDS.summary).error(`Demasiado largo: como máximo ${BOUNDS.summary} caracteres.`),
       ],
     }),
     defineField({
@@ -330,10 +352,14 @@ export const caseStudy = defineType({
       of: [
         defineArrayMember({
           type: 'string',
-          validation: (rule) => rule.max(200).error('Demasiado largo: cada línea, como máximo 200 caracteres.'),
+          validation: (rule) =>
+            rule.max(BOUNDS.detailLine).error(
+              `Demasiado largo: cada línea, como máximo ${BOUNDS.detailLine} caracteres.`,
+            ),
         }),
       ],
-      validation: (rule) => rule.max(4).error('Como máximo cuatro puntos clave.'),
+      validation: (rule) =>
+        rule.max(BOUNDS.details).error(`Como máximo ${BOUNDS.details} puntos clave.`),
     }),
     defineField({
       name: 'metrics',
@@ -354,7 +380,9 @@ export const caseStudy = defineType({
               type: 'string',
               validation: (rule) => [
                 rule.required().error('Escribe el nombre de la métrica.'),
-                rule.max(40).error('Demasiado largo: como máximo 40 caracteres.'),
+                rule.max(BOUNDS.metricLabel).error(
+                  `Demasiado largo: como máximo ${BOUNDS.metricLabel} caracteres.`,
+                ),
               ],
             }),
             defineField({
@@ -364,7 +392,9 @@ export const caseStudy = defineType({
               type: 'string',
               validation: (rule) => [
                 rule.required().error('Escribe la cifra.'),
-                rule.max(20).error('Demasiado largo: como máximo 20 caracteres.'),
+                rule.max(BOUNDS.metricValue).error(
+                  `Demasiado largo: como máximo ${BOUNDS.metricValue} caracteres.`,
+                ),
               ],
             }),
           ],
@@ -372,7 +402,12 @@ export const caseStudy = defineType({
         }),
       ],
       validation: (rule) =>
-        rule.required().length(2).error('Hacen falta exactamente dos métricas: el panel tiene dos huecos.'),
+        rule
+          .required()
+          .length(BOUNDS.metrics)
+          .error(
+            `Hacen falta exactamente ${BOUNDS.metrics} métricas: el panel tiene ${BOUNDS.metrics} huecos.`,
+          ),
     }),
     chart,
     defineField({

@@ -1,4 +1,5 @@
 import type { LegalBlock, LegalDoc } from '../../src/content/types'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { ID_PATTERN, collectionProblems, legalDocProblems } from '../../src/content/invariants'
 import { LEGAL_POLICY, richBlocks } from '../lib/portableText'
 import { Report, slug, text } from '../lib/validate'
@@ -29,7 +30,8 @@ import { collection } from './types'
  * because something has to link to it.
  */
 
-const TITLE_MAX = 80
+// Shared with the Studio — see src/content/editorialBounds.ts.
+const TITLE_MAX = EDITORIAL_BOUNDS.legalDoc.title
 
 /**
  * The ids the application links to, and therefore the ones that must exist.

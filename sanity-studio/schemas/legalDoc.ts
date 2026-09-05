@@ -2,6 +2,22 @@ import { DocumentTextIcon } from '@sanity/icons/DocumentText'
 import { defineField, defineType } from 'sanity'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+
+/**
+ * The lengths this schema refuses, shared with the content build.
+ *
+ * They used to be literals here and literals again in
+ * `content/collections/*.collection.ts`, which is the arrangement where one
+ * gets relaxed and the other quietly does not — and the editor finds out by
+ * having a document accepted here and rejected by the next deployment. The
+ * numbers live in one table now; see `src/content/editorialBounds.ts`,
+ * including why that module has no imports and must not gain any.
+ *
+ * The messages interpolate rather than restate. A message that says "como
+ * máximo 140" beside a rule that allows 200 is worse than no message.
+ */
+const BOUNDS = EDITORIAL_BOUNDS.legalDoc
 
 /**
  * A legal document.
@@ -31,7 +47,7 @@ export const legalDoc = defineType({
       type: 'string',
       validation: (rule) => [
         rule.required().error('Escribe el título.'),
-        rule.max(80).error('Demasiado largo: como máximo 80 caracteres.'),
+        rule.max(BOUNDS.title).error(`Demasiado largo: como máximo ${BOUNDS.title} caracteres.`),
       ],
     }),
     defineField({

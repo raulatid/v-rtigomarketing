@@ -1,4 +1,5 @@
 import type { CaseChart, CaseStudy, CaseStudyMetric } from '../../src/content/types'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
   CASE_DETAILS_MAX,
   CASE_METRICS_REQUIRED,
@@ -78,13 +79,16 @@ const BRAND_MARK_RULES: Record<string, MediaRule> = {
  */
 
 /** Generous, but bounded: the panel is a column, not a page. */
-const SUMMARY_MAX = 400
-const DETAIL_MAX = 200
-const NAME_MAX = 60
-const METRIC_LABEL_MAX = 40
-const METRIC_VALUE_MAX = 20
-const CHART_TITLE_MAX = 80
-const CHART_LABEL_MAX = 24
+// Shared with the Studio — see src/content/editorialBounds.ts.
+const {
+  summary: SUMMARY_MAX,
+  detailLine: DETAIL_MAX,
+  name: NAME_MAX,
+  metricLabel: METRIC_LABEL_MAX,
+  metricValue: METRIC_VALUE_MAX,
+  chartTitle: CHART_TITLE_MAX,
+  chartLabel: CHART_LABEL_MAX,
+} = EDITORIAL_BOUNDS.caseStudy
 
 function metric(report: Report, path: string, raw: unknown): CaseStudyMetric | undefined {
   if (raw === null || typeof raw !== 'object') {

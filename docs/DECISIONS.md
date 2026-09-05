@@ -261,7 +261,10 @@ code at 0. Both are now closed (`PROJECT_MEMORY` §10):
 
 - `npm run build` is `npm run check && vite build`, where `check` is
   `typecheck && test && check:harnesses` and npm's `precheck` hook runs `content:build` first
-  (§27). Verified by forcing a failing unit test and a failing harness assertion and confirming
+  (§27). `check:harnesses` gained `check:studio` on 2026-09-05 — the Sanity Studio's own
+  typecheck, run from the root, which SKIPS with a stated reason when that package's
+  `node_modules` are absent. That skip is deliberate and is what keeps a Vercel deployment
+  from depending on the Studio's dependency tree being installed. Verified by forcing a failing unit test and a failing harness assertion and confirming
   `vite build` is never reached, rather than by reading the script. (It was written here as
   `tsc -b && npm run test && npm run check:harnesses && vite build` when this section was
   decided; the shape moved into `check` on 2026-08-13 and gained the content step on 2026-08-20.)

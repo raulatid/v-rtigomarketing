@@ -1,3 +1,5 @@
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+
 /**
  * Length bounds for a service, shared by the two mappers that build one.
  *
@@ -8,11 +10,9 @@
  * own service document accepted.
  */
 
-export const SERVICE_TITLE_MAX = 60
-
-/**
- * Bounded high rather than tight. The accordion scrolls, so a long service body
- * is a design judgement rather than a broken layout — the cap exists to catch a
- * whole rendered post body arriving in a field meant for two paragraphs.
- */
-export const SERVICE_BODY_MAX = 900
+// The numbers themselves moved once more, to src/content/editorialBounds.ts,
+// when it turned out there was a THIRD copy of them: the Studio's own
+// validation, which decides whether the editor may press Publicar at all. This
+// file keeps its names — two mappers import them — and stops owning the values.
+export const SERVICE_TITLE_MAX = EDITORIAL_BOUNDS.service.title
+export const SERVICE_BODY_MAX = EDITORIAL_BOUNDS.service.body

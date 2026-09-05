@@ -1,4 +1,5 @@
 import type { DistrictContent, DistrictService } from '../../src/content/types'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
   DISTRICT_SUMMARY_MAX,
   ID_PATTERN,
@@ -25,11 +26,10 @@ import { SERVICE_BODY_MAX, SERVICE_TITLE_MAX } from './serviceBounds'
  * it.
  */
 
-const LABEL_MAX = 40
-const INTRO_MAX = 600
-
-/** A district presents a menu of services, not a catalogue. */
-const SERVICES_MAX = 12
+// Shared with the Studio — see src/content/editorialBounds.ts. The summary
+// bound lives with the other district invariants as DISTRICT_SUMMARY_MAX, which
+// reads from the same table.
+const { label: LABEL_MAX, intro: INTRO_MAX, services: SERVICES_MAX } = EDITORIAL_BOUNDS.district
 
 function service(report: Report, path: string, raw: unknown): DistrictService | undefined {
   // A reference GROQ could not dereference comes back as null, and it comes back

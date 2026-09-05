@@ -2,6 +2,22 @@ import { PinIcon } from '@sanity/icons/Pin'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+
+/**
+ * The lengths this schema refuses, shared with the content build.
+ *
+ * They used to be literals here and literals again in
+ * `content/collections/*.collection.ts`, which is the arrangement where one
+ * gets relaxed and the other quietly does not — and the editor finds out by
+ * having a document accepted here and rejected by the next deployment. The
+ * numbers live in one table now; see `src/content/editorialBounds.ts`,
+ * including why that module has no imports and must not gain any.
+ *
+ * The messages interpolate rather than restate. A message that says "como
+ * máximo 140" beside a rule that allows 200 is worse than no message.
+ */
+const BOUNDS = EDITORIAL_BOUNDS.district
 
 /**
  * A district — the copy behind one interactive area of the city.
@@ -44,7 +60,7 @@ export const district = defineType({
       fieldset: 'distrito',
       validation: (rule) => [
         rule.required().error('Escribe el nombre del distrito.'),
-        rule.max(40).error('Demasiado largo: como máximo 40 caracteres.'),
+        rule.max(BOUNDS.label).error(`Demasiado largo: como máximo ${BOUNDS.label} caracteres.`),
       ],
     }),
     defineField({
@@ -56,7 +72,9 @@ export const district = defineType({
       fieldset: 'distrito',
       validation: (rule) => [
         rule.required().error('Escribe una frase de resumen.'),
-        rule.max(140).error('Demasiado largo: en el móvil solo caben 140 caracteres.'),
+        rule.max(BOUNDS.summary).error(
+          `Demasiado largo: en el móvil solo caben ${BOUNDS.summary} caracteres.`,
+        ),
       ],
     }),
     defineField({
@@ -68,7 +86,7 @@ export const district = defineType({
       fieldset: 'distrito',
       validation: (rule) => [
         rule.required().error('Escribe la introducción.'),
-        rule.max(600).error('Demasiado largo: como máximo 600 caracteres.'),
+        rule.max(BOUNDS.intro).error(`Demasiado largo: como máximo ${BOUNDS.intro} caracteres.`),
       ],
     }),
     defineField({
@@ -80,7 +98,7 @@ export const district = defineType({
       of: [defineArrayMember({ type: 'reference', to: [{ type: 'service' }] })],
       validation: (rule) => [
         rule.required().min(1).error('Añade al menos un servicio.'),
-        rule.max(12).error('Como máximo 12 servicios.'),
+        rule.max(BOUNDS.services).error(`Como máximo ${BOUNDS.services} servicios.`),
         rule.unique().error('Ese servicio ya está en la lista.'),
       ],
     }),

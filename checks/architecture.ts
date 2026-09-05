@@ -17,6 +17,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { builtinModules } from 'node:module';
 import { banner, check, finish, section } from './lib/assert';
 
 /**
@@ -29,8 +30,15 @@ import { banner, check, finish, section } from './lib/assert';
  * the drifts this file exists to refuse. Walking only `src/` would leave those
  * rules inexpressible while the two `src/ -> server/` rules still passed, which
  * is a partial fence that reads as a complete one.
+ *
+ * The root `content/` joined on the identical argument. It is the BUILD-TIME
+ * content pipeline — it runs under `node`, reads `fs`, and speaks to Sanity over
+ * the network — and it shares a name and a vocabulary with `src/content/`, which
+ * is browser code. Two directories one letter apart, on opposite sides of the
+ * runtime boundary, with imports legitimately crossing in exactly one direction.
+ * That is a boundary worth asserting rather than remembering.
  */
-const ROOTS = ['src', 'server', 'api'];
+const ROOTS = ['src', 'server', 'api', 'content'];
 
 interface Module {
   /** Repo-relative, forward slashes, e.g. `src/graphics/RenderPipeline.tsx`. */
@@ -305,6 +313,101 @@ forbid('the server tier imports no blog', 'server/', 'src/blog/', '');
 // the browser tree they should be getting through `server/`.
 forbid('a function adapter reaches only the server tier', 'api/', 'src/', 'keep api/ four lines');
 
+// ── The content pipeline (plan 017 phase 6) ─────────────────────────────────
+//
+// TWO DIRECTORIES, ONE LETTER APART, ON OPPOSITE SIDES OF THE RUNTIME BOUNDARY.
+//
+// `src/content/` is browser code: the shapes the UI consumes, the copy itself,
+// and the invariants both sides validate against. Root `content/` is the
+// build-time pipeline that fetches from Sanity, validates, and writes
+// `src/content/generated/`. It runs under node and is bundled for node by
+// esbuild.
+//
+// The arrow crosses ONCE, and only that way: the pipeline imports the contracts
+// so that what it emits is checked against what the browser expects. Every other
+// edge is a defect with a different shape at each end —
+//
+//   `content/` -> `src/app`, `src/experiences`, `src/graphics`, `src/components`
+//   drags React, three or a DOM global into a node bundle, where the failure is a
+//   build that dies on `window is not defined` if you are lucky and a mapper that
+//   silently depends on rendering if you are not.
+//
+//   `src/` -> `content/` is worse, because it does not fail: Vite will happily
+//   bundle the pipeline for the browser, and with it the Sanity query strings,
+//   the fetch that carries the read token, and every validator's error text.
+//
+//   `src/content/` -> a node builtin is the same defect one level down, and the
+//   comment above `src/content/` already predicted it: "anything this module
+//   reached for would end up bundled for Node by esbuild, which is how fetch, fs
+//   or a DOM global would arrive somewhere none of them exist."
+
+section('1b. The content pipeline and the content layer stay on their own sides');
+
+forbid(
+  'the browser never imports the content pipeline',
+  'src/',
+  'content/',
+  'content is delivered as generated modules, never as the code that generated them',
+);
+forbid('the pipeline imports no application layer', 'content/', 'src/app/', '');
+forbid('the pipeline imports no experience', 'content/', 'src/experiences/', '');
+forbid('the pipeline imports no graphics', 'content/', 'src/graphics/', '');
+forbid('the pipeline imports no component', 'content/', 'src/components/', '');
+forbid('the pipeline imports no blog UI', 'content/', 'src/blog/', '');
+// And the one edge that IS allowed, asserted as present rather than merely not
+// forbidden. A rule that only says "no" passes when the pipeline stops
+// validating against the browser's contracts altogether, which is the failure it
+// exists to prevent.
+{
+  const crossings = modules
+    .filter((m) => m.file.startsWith('content/'))
+    .flatMap((m) => m.imports.filter((i) => i.target.startsWith('src/content/')).map(() => m.file));
+  check(
+    'the pipeline DOES import the shared content contracts',
+    crossings.length > 0,
+    crossings.length > 0
+      ? `${new Set(crossings).size} pipeline module(s) validate against src/content/`
+      : 'nothing in content/ reaches src/content/ — the emitted modules are no longer ' +
+        'checked against the shapes the browser consumes',
+  );
+}
+
+/**
+ * Bare specifiers that only exist under node.
+ *
+ * Read from `node:module` rather than from a list typed here: a hardcoded list
+ * is a list that goes stale, and this one is the runtime's own.
+ */
+const NODE_BUILTINS = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
+
+const BARE_IMPORT_RE = /(?:from\s*|import\s+|import\s*\(\s*)['"]([^'".][^'"]*)['"]/g;
+
+function forbidNodeBuiltins(label: string, prefix: string, why: string): void {
+  const offenders: string[] = [];
+  for (const mod of modules) {
+    if (!mod.file.startsWith(prefix)) continue;
+    const src = fs.readFileSync(mod.file, 'utf8');
+    for (const m of src.matchAll(BARE_IMPORT_RE)) {
+      if (NODE_BUILTINS.has(m[1])) offenders.push(`${mod.file} -> ${m[1]}`);
+    }
+  }
+  check(label, offenders.length === 0, offenders.length === 0 ? why : offenders.slice(0, 3).join('; '));
+}
+
+forbidNodeBuiltins(
+  'the content layer imports no node builtin',
+  'src/content/',
+  'it is bundled for the browser AND for node; a builtin breaks the first',
+);
+// The same rule over the whole browser tree, which is where it actually belongs.
+// `src/content/` is only the likeliest place for it to happen because the
+// pipeline sits next door and shares the vocabulary.
+forbidNodeBuiltins(
+  'no browser module imports a node builtin',
+  'src/',
+  'src/ is the browser; fs, path and crypto do not exist there',
+);
+
 section('2. The two experiences do not know about each other');
 
 forbid(
@@ -446,6 +549,15 @@ check(
     'both function adapters are present',
     byFile.has('api/audit.ts') && byFile.has('api/contact.ts'),
     'the two endpoints the forms post to',
+  );
+  // Same guard for the same reason: every rule in §1b passes trivially if the
+  // walk never reached the pipeline, and "no offenders" is what an unwalked
+  // directory looks like.
+  const pipelineModules = [...byFile.keys()].filter((file) => file.startsWith('content/'));
+  check(
+    'the walk found the content pipeline',
+    pipelineModules.length >= 10,
+    `${pipelineModules.length} modules under content/ — ROOTS must keep naming it`,
   );
   check(
     'the server tier IS reachable from its adapters',

@@ -12,6 +12,7 @@
  * bundles this for Node with esbuild, and the browser bundle must be able to
  * tree-shake it away entirely.
  */
+import { EDITORIAL_BOUNDS, ID_PATTERN } from './editorialBounds'
 import type {
   BlogPost,
   CaseChartType,
@@ -23,34 +24,40 @@ import type {
   TextSpan,
 } from './types'
 
+// THE VALUES MOVED, THE NAMES DID NOT. These four are declared by the Sanity
+// Studio too, where they decide whether the editor may press Publicar, so the
+// number now has one home — `editorialBounds.ts`, a leaf module the Studio can
+// import without compiling anything else of ours. What each one MEANS still
+// belongs here, next to the predicate that applies it.
+
 /**
  * The district summary shows at the mobile peek stop, where the sheet is only
  * 40% of the viewport tall. A bound, not a judgement about the prose.
  */
-export const DISTRICT_SUMMARY_MAX = 140
+export const DISTRICT_SUMMARY_MAX = EDITORIAL_BOUNDS.district.summary
 
 /** The panel's metric row is a fixed two-up grid. Not a preference. */
-export const CASE_METRICS_REQUIRED = 2
+export const CASE_METRICS_REQUIRED = EDITORIAL_BOUNDS.caseStudy.metrics
 
 /**
  * `CaseChart` normalises a series to its own min/max, so length is a layout
  * bound rather than a data one: past this the line has more points than the
  * chart has horizontal pixels to distinguish them.
  */
-export const CHART_VALUES_MAX = 16
+export const CHART_VALUES_MAX = EDITORIAL_BOUNDS.caseStudy.chartValues
 
 /** The case panel's bullet list is designed for four short lines. */
-export const CASE_DETAILS_MAX = 4
+export const CASE_DETAILS_MAX = EDITORIAL_BOUNDS.caseStudy.details
 
 export const CHART_TYPES: readonly CaseChartType[] = ['line', 'bars', 'area', 'donut']
 
 /**
  * Ids reach `aria-controls`, DOM ids and file names, so the character set is
- * narrower than a CMS slug's. A slug containing a space breaks the
- * accordion for screen-reader users and nobody else, which is why it is a bound
- * rather than something a review would catch.
+ * narrower than a CMS slug's. Re-exported rather than declared: the Studio
+ * validates against the same pattern, and it used to do so from a hand-kept
+ * copy.
  */
-export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
+export { ID_PATTERN }
 
 /** `createBrandAtlas` parses this with `parseInt`; anything else is silent. */
 export const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i

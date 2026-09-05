@@ -1,4 +1,5 @@
 import type { SitePhone, SiteSettings } from '../../src/content/types'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
   EMAIL_PATTERN,
   ID_PATTERN,
@@ -28,20 +29,22 @@ import { collection } from './types'
  * alternative to a one-record collection is a deploy for a phone number.
  */
 
-const COPYRIGHT_MAX = 120
-const DISPLAY_MAX = 40
-
-/** A city, not a sentence. Same bound as the Studio's rule on the field. */
-const LABEL_MAX = 24
-
-/** More than a handful is a directory, and this is a footer. */
-const PHONES_MAX = 4
-
-/** A heading in a panel, not a sentence. Same bound as the Studio's rule. */
-const SUCCESS_TITLE_MAX = 60
-
-/** Two lines under that heading. Same bound as the Studio's rule. */
-const SUCCESS_BODY_MAX = 240
+// "Same bound as the Studio's rule" was written four times here and was true by
+// maintenance rather than by construction. It is one table now — see
+// src/content/editorialBounds.ts — and the Studio reads the same entries.
+const {
+  copyright: COPYRIGHT_MAX,
+  /** A phone number as it is shown. */
+  display: DISPLAY_MAX,
+  /** A city, not a sentence. */
+  label: LABEL_MAX,
+  /** More than a handful is a directory, and this is a footer. */
+  phones: PHONES_MAX,
+  /** A heading in a panel, not a sentence. */
+  successTitle: SUCCESS_TITLE_MAX,
+  /** Two lines under that heading. */
+  successBody: SUCCESS_BODY_MAX,
+} = EDITORIAL_BOUNDS.siteSettings
 
 /**
  * What the panels say when the CMS has not been given these fields yet.

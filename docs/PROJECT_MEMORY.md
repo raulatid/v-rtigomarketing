@@ -81,22 +81,27 @@ TypeScript 5.6 · `vite-plugin-glsl` · stats.js
 npm run dev            # dev server            (predev: content:build)
 npm run build          # content + typecheck + unit tests + all eight harnesses + vite build
 npm run preview        # serve dist/
-npm run check          # typecheck + unit tests + all eight harnesses  ← run this
+npm run check          # typecheck + unit tests + all ten harnesses  ← run this
                        #   (precheck: content:build, so bad CMS content fails HERE)
                        #   CONTENT_SOURCE=sanity | fixture | seed selects the source
 npm run content:build  # query Sanity, validate and emit src/content/generated/  (adr/010, adr/011)
                        #   THE SITE READS SANITY ONLY WHEN THIS RUNS. After publishing in the
                        #   Studio, run it again; Vite hot-reloads the regenerated module.
                        #   Deliberately not a watcher.
-npm test               # Vitest, 706 assertions over the pure logic and the content build
+npm test               # Vitest, 1443 assertions over the pure logic, the content build,
+                       #   the form endpoint and the deploy configuration
 npm run test:watch     # the same, watching
 npm run test:coverage  # scoped coverage, thresholds enforced
-npm run check:architecture # 19 assertions — the dependency directions, enforced
-npm run check:navigation   # 52 assertions — drag feel, signs, bounds, grab-the-point
-npm run check:footprint    # 8  assertions — every reachable distance against the skirt
-npm run check:district     # 68 assertions — flights, the focus dolly, framing, materials
-npm run check:warp         # 36 assertions — the camera envelope and the footprint sweep
-npm run check:space        # 29 assertions — the star shell bound, clumping, the band
+npm run check:architecture # 49 assertions — the dependency directions, enforced
+npm run check:navigation   # 57 assertions — drag feel, signs, bounds, grab-the-point
+npm run check:footprint    # 13 assertions — every reachable distance against the skirt
+npm run check:district     # 71 assertions — flights, the focus dolly, framing, materials
+npm run check:warp         # 50 assertions — the camera envelope and the footprint sweep
+npm run check:space        # 36 assertions — the star shell bound, clumping, the band
+npm run check:asset        # the Blender export contract; the UV section still FAILS
+                       #   by design — check:asset:contract is the subset that gates
+npm run check:studio       # the Sanity Studio's own typecheck; SKIPS, loudly, when its
+                       #   node_modules are absent (which is every Vercel build)
 npm run e2e            # Playwright smoke, against `vite preview`. LOCAL, not a gate.
 ```
 
@@ -909,7 +914,16 @@ buildings, and re-map the ones that already have them.
 
 `check:asset` is deliberately **not** in the `check:harnesses` chain: the UV assertion fails
 today by design, and chaining it would fail `npm run build` for a gap it was written to
-measure. Add it to the chain in the same commit that lands the trim-sheet re-export.
+measure. Add it to the chain in the same commit that lands the trim-sheet re-export, and
+delete the `--contract-only` flag with it.
+
+What IS chained is `check:asset:contract`, the NAME half of the same harness: every node name
+the runtime looks up must exist in the shipped GLB. As of 2026-09-05 that covers the five
+service buildings **and their five connections**, the two blog cluster nodes, the plaza, the
+fluid ring, the three focos, the authored plate `suelo-principal` and `SUELO_CIUDAD` with the
+rectangle `murciaConfig.groundBounds` claims — 13 assertions, all green. Every one of those is
+a silent failure at runtime rather than a crash, which is why they gate the build and the UV
+gap does not.
 
 **Tap tolerances — two numbers, per pointer type, and they must stay two.** Camera rig:
 `dragClickThreshold` 4 px (mouse/pen) · `touchDragClickThreshold` 12 px. **Murcia's drag:
@@ -1197,10 +1211,17 @@ and that is stated in the config rather than left to be discovered.
 instead of by esbuild-transform and a base64 data URL. The disk read only ever existed
 because there was no runner.
 
-**Coverage is scoped, not repository-wide** (`vitest.config.ts`): eleven pure modules, 93%
-statements against an 85% floor. A repository-wide number would be dominated by the WebGL
-surface that is untestable by design, and would end up either meaningless or a reason to
-write fake tests.
+**Coverage is scoped, not repository-wide** (`vitest.config.ts`): every module with a
+`*.test.ts` beside it — 62 of them — at 83.8% statements against an 83% floor. A
+repository-wide number would be dominated by the WebGL surface that is untestable by design,
+and would end up either meaningless or a reason to write fake tests.
+
+The rule replaced a hand-curated list on 2026-09-05, and the reason is worth keeping: three of
+that list's sixteen paths had not existed since the Earth prototype was folded into
+`src/experiences/`. A coverage `include` naming a file that is not there does not fail — it
+contributes nothing, and the percentage quietly becomes a percentage of something smaller.
+Thirteen modules were being measured while forty-seven carried tests nobody counted. The old
+93%/85% pair was that smaller thing; it is not comparable to the numbers above.
 
 ### Verifying the production build, not the dev server
 
@@ -1806,8 +1827,9 @@ has almost no diffuse term — most of the monochrome look was that, not the mis
 
 **Not done, and not startable from here:** UVs on the Geometry Nodes buildings, re-mapping the
 20 that have them, and the region layout itself — which is deliberately absent from the code
-and from §6.3, because the artist owns it and it will move. `check:asset` still fails at
-39/222 and stays out of `check:harnesses` until the re-export lands.
+and from §6.3, because the artist owns it and it will move. `check:asset` still fails its UV
+assertion — 51/238 primitives as of the 2026-09-04 GLB — and the full harness stays out of
+`check:harnesses` until the re-export lands.
 
 **Touch navigates by pinching the world, and the rail is gone — 2026-08-25/26 (`adr/012`,
 `plans/006-pinch-navigation.md`, `DECISIONS` §15/§20/§29 amendments). Uncommitted.** Real users on real phones spread two fingers
@@ -2076,7 +2098,7 @@ iOS report are what would move those findings from *strongly inferred* to *verif
 | **Only Chromium is ever tested** | Unchanged, and now also true of all three Playwright projects — the two mobile ones added on 2026-08-14 are Chromium with a device profile, which makes `(hover: none)` and `(pointer: coarse)` rules apply but says nothing about WebKit. iOS Safari is still where the KTX2 transcoder and `compileAsync` are most likely to differ. **No code change closes this**; the device matrix in `audits/ios-safari-2026-08-14.md` §4 is what would. |
 | **Murcia has no portrait camera pose** | `cameraPortraitOverrides` is built, unit-tested and fed `null`, so `resolveCameraPose` returns the landscape pose at every aspect — and the pose itself is tuned against wide viewports, with a footprint analysis that only guards *too large*. Deliberate: any resting-pose change invalidates the terrain-skirt margin and needs the full azimuth sweep (§5) plus a composition judged by a person. Named as architectural in the mobile audit (M9) rather than patched. |
 | ~~**Six case markers are invisible on touch**~~ | **Closed 2026-08-17.** The five case city markers were retired outright — they carried placeholder copy and were never going to be used. `GEO_MARKERS` collapsed to a single `DESTINATION_MARKER`, so the only tag left is Murcia's, which already had the `(hover: none)` fallback. Mobile audit M10 no longer has a subject. |
-| **`check:asset` is not in `check:harnesses`** | `checks/city-asset.ts` exists, has an npm script, and is wired into nothing, so it never runs on `npm run check`, on `npm run build`, or on the deploy path. Every other harness is wired. Noticed 2026-08-26. **The reason narrowed twice since:** two of its three failures were retired on 2026-08-27 as obsolete (they asserted the `extras` tag mechanism nothing uses), and the one that remains — `TEXCOORD_0` at 39/222 — is a real, open gap with a named unblocker. It is not wired because a gate that is expected to fail is not a gate. **Wire it in the same commit that lands the trim-sheet re-export**, which is the only thing that makes it green. |
+| **`check:asset` is not in `check:harnesses`** | ~~wired into nothing~~ — **narrowed again 2026-09-05**: `check:asset:contract`, the NAME half, is chained and gates the build; the full harness stays out for the UV assertion alone. Noticed 2026-08-26. **The reason narrowed twice before that:** two of its three failures were retired on 2026-08-27 as obsolete (they asserted the `extras` tag mechanism nothing uses), and the one that remains — `TEXCOORD_0` at 39/222 — is a real, open gap with a named unblocker. It is not wired because a gate that is expected to fail is not a gate. **Wire it in the same commit that lands the trim-sheet re-export**, which is the only thing that makes it green. |
 | **The `.reveal` ordering is unasserted** | §8 claimed `checks/` verified it in the built CSS. No such check exists or ever did; the claim was corrected rather than implemented. The ordering is currently held by source order alone. |
 | **No analytics, no error reporting** | Production failures will be completely invisible after launch. The instrumentation already exists (`bootState.fatalReason()`, `pending()`, `readiness()`); what is missing is a sink. Audit `OBS-1`. |
 | ~~**The city GLB in the working tree ≠ the committed one**~~ | **Closed 2026-08-27.** The larger file was committed as the 2026-08-27 re-export (`dccb900`): 1 286 596 B · 1079 nodes · 222 meshes. The `extras` half of the row closed differently — by retiring the tag mechanism rather than by adding tags (§32). Audit `ASSET-2` has no subject. §9. |

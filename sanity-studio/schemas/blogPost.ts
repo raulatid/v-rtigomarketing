@@ -2,6 +2,22 @@ import { ComposeIcon } from '@sanity/icons/Compose'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+
+/**
+ * The lengths this schema refuses, shared with the content build.
+ *
+ * They used to be literals here and literals again in
+ * `content/collections/*.collection.ts`, which is the arrangement where one
+ * gets relaxed and the other quietly does not — and the editor finds out by
+ * having a document accepted here and rejected by the next deployment. The
+ * numbers live in one table now; see `src/content/editorialBounds.ts`,
+ * including why that module has no imports and must not gain any.
+ *
+ * The messages interpolate rather than restate. A message that says "como
+ * máximo 140" beside a rule that allows 200 is worse than no message.
+ */
+const BOUNDS = EDITORIAL_BOUNDS.blogPost
 
 /**
  * A blog post.
@@ -48,7 +64,7 @@ export const blogPost = defineType({
       fieldset: 'contenido',
       validation: (rule) => [
         rule.required().error('Escribe el título de la entrada.'),
-        rule.max(120).error('Demasiado largo: como máximo 120 caracteres.'),
+        rule.max(BOUNDS.title).error(`Demasiado largo: como máximo ${BOUNDS.title} caracteres.`),
       ],
     }),
     defineField({
@@ -61,7 +77,7 @@ export const blogPost = defineType({
       fieldset: 'contenido',
       validation: (rule) => [
         rule.required().error('Escribe una entradilla.'),
-        rule.max(300).error('Demasiado largo: como máximo 300 caracteres.'),
+        rule.max(BOUNDS.excerpt).error(`Demasiado largo: como máximo ${BOUNDS.excerpt} caracteres.`),
       ],
     }),
     defineField({
@@ -117,7 +133,7 @@ export const blogPost = defineType({
       ],
       options: { layout: 'tags' },
       validation: (rule) => [
-        rule.max(8).error('Como máximo 8 temas.'),
+        rule.max(BOUNDS.tags).error(`Como máximo ${BOUNDS.tags} temas.`),
         rule.unique().error('Ese tema ya está en la lista.'),
       ],
     }),

@@ -1,4 +1,5 @@
 import type { SlugRule, SlugValue } from 'sanity'
+import { ID_MAX_LENGTH, ID_PATTERN } from '../../../src/content/editorialBounds'
 
 /**
  * The identifier contract, enforced at the field instead of at the deploy.
@@ -14,13 +15,14 @@ import type { SlugRule, SlugValue } from 'sanity'
  * with no field attached, on a machine the editor cannot see, minutes after
  * they had moved on. P1-A in the 2026-08-27 architecture audit.
  *
- * ── Why the pattern is copied and not imported ──
+ * ── The pattern is imported now, and used to be copied ──
  * This package is deliberately outside the application's dependency graph (see
- * the note at the top of `tsconfig.json`), so it cannot import from `src/`. The
- * copy is the price of that separation and the comment is the mitigation: if
- * `ID_PATTERN` in `src/content/invariants.ts` ever changes, this changes with
- * it. Unifying the ~two dozen bounds duplicated between the two sides is a
- * separate piece of work; this file is only about the one that fails a deploy.
+ * the note at the top of `tsconfig.json`), and for a while that meant the
+ * pattern was duplicated here character for character with a comment asking the
+ * next person to keep the two in step. `src/content/editorialBounds.ts` is the
+ * one module that separation now permits: a leaf with no imports of its own,
+ * holding the bounds and the identifier contract both sides enforce. Verified
+ * against both `sanity build` and `sanity dev` — see the note at the top of it.
  *
  * ── Two layers, because they fail differently ──
  * `slugify` makes the generated value correct — the path an editor actually
@@ -30,13 +32,11 @@ import type { SlugRule, SlugValue } from 'sanity'
  */
 
 /**
- * Kept identical to `ID_PATTERN` in `src/content/invariants.ts`, character for
- * character. `{0,63}` after the leading character is what makes the total 64.
+ * Re-exported under this package's own name: `slugOptions` and the messages
+ * below read better with it, and Sanity's own `maxLength` option is what the
+ * next person will look for.
  */
-const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
-
-/** The 64 in the pattern, named so `options.maxLength` cannot drift from it. */
-export const SLUG_MAX_LENGTH = 64
+export const SLUG_MAX_LENGTH = ID_MAX_LENGTH
 
 /**
  * Title → identifier, for Spanish editorial titles.
