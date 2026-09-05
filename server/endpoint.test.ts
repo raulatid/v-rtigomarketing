@@ -91,6 +91,18 @@ describe('the shape of the request', () => {
     expect(response.status).toBe(400)
   })
 
+  it('measures the cap in BYTES, not in characters', async () => {
+    // A three-byte character per code unit is ordinary for CJK, so a body well
+    // under the cap by `String.length` can be three times over it on the wire.
+    // Built at a third of the cap plus one, which is under the limit as
+    // characters and over it as bytes — the case the old check let through.
+    const wide = '漢'.repeat(Math.ceil(BODY_LIMIT_BYTES / 3))
+    const huge = JSON.stringify({ ...body(), message: wide })
+    expect(huge.length).toBeLessThan(BODY_LIMIT_BYTES * 3)
+    const response = await respond('contact', post(huge), dryRun, { now: () => NOW })
+    expect(response.status).toBe(400)
+  })
+
   it('refuses a lying content-length without reading the stream', async () => {
     const response = await respond(
       'contact',

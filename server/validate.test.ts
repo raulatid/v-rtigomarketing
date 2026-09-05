@@ -108,6 +108,29 @@ describe('the shared text rules', () => {
     expect(auditValue({ name: 'Nombre\nPrueba' }).name).toBe('Nombre Prueba')
   })
 
+  it('strips the bidirectional overrides, which escaping cannot help with', () => {
+    // A right-to-left override renders everything after it backwards, so a name
+    // can be made to display an address nobody typed — in the one email a
+    // person actually acts on. It is not an injection: escapeHtml passes U+202E
+    // through untouched, because as far as HTML is concerned nothing is wrong.
+    // Built from code points so this file stays ASCII and stays readable.
+    const RLO = String.fromCharCode(0x202e)
+    const PDF = String.fromCharCode(0x202c)
+    const LRM = String.fromCharCode(0x200e)
+    const FSI = String.fromCharCode(0x2068)
+    const BOM = String.fromCharCode(0xfeff)
+    expect(auditValue({ name: 'Ana' + RLO + 'moc.live@' + PDF }).name).toBe('Anamoc.live@')
+    expect(auditValue({ name: LRM + 'Ana' + FSI + BOM }).name).toBe('Ana')
+  })
+
+  it('keeps the zero-width joiner, because emoji are made of it', () => {
+    // The line between the two: an override LIES about direction, a joiner is
+    // part of a legitimate grapheme. Stripping U+200D would break every
+    // multi-code-point emoji and several Indic and Persian spellings.
+    const ZWJ = String.fromCharCode(0x200d)
+    expect(auditValue({ name: 'Ana' + ZWJ + 'Ruiz' }).name).toContain(ZWJ)
+  })
+
   it('rejects an empty required field', () => {
     expect(auditFields({ name: '   ' })).toHaveProperty('name')
     expect(auditFields({ email: '' })).toHaveProperty('email')

@@ -136,6 +136,41 @@ const CONTROL_CHARACTERS = new RegExp(
 
 /** Any run of newline-ish whitespace, for fields that are one line by nature. */
 const LINE_BREAKS = new RegExp('[\r\n\u2028\u2029]+', 'g')
+
+/**
+ * The invisible characters that change what a visible string SAYS.
+ *
+ * Stripping control characters is not enough on its own: the bidirectional
+ * formatting characters are ordinary printable-class code points, they survive
+ * every rule above, and a right-to-left override in a name renders the rest of
+ * the line backwards in the notification email — an address nobody typed, in
+ * the one message a person acts on. It is a DISPLAY attack rather than an
+ * injection, which is exactly why escaping does not touch it: `escapeHtml` in
+ * renderEmail.ts passes U+202E through unchanged, because as far as HTML is
+ * concerned nothing is wrong.
+ *
+ * The isolates (U+2066-U+2069) are here for the same reason as the overrides:
+ * an unterminated one leaks into whatever the mail client renders next. U+FEFF
+ * joins them as a zero-width no-break space, which by the time it reaches a
+ * form field is only ever an accident of encoding.
+ *
+ * NOT stripped, deliberately: U+200B-U+200D. The zero-width JOINER carries
+ * every multi-code-point emoji and the non-joiner is meaningful in Persian and
+ * several Indic scripts. They are invisible, but they do not lie about
+ * direction, and removing them would corrupt legitimate text.
+ *
+ * Written with escapes rather than literals for the reason given above
+ * CONTROL_CHARACTERS.
+ */
+const BIDI_AND_FORMAT = new RegExp(
+  '[' +
+    '\u200e\u200f' + // LRM, RLM
+    '\u202a-\u202e' + // LRE, RLE, PDF, LRO, RLO
+    '\u2066-\u2069' + // LRI, RLI, FSI, PDI
+    '\ufeff' + // ZWNBSP / BOM
+    ']',
+  'g',
+)
 /**
  * Hosts that are only ever interesting to something that FETCHES the value.
  *
@@ -198,7 +233,7 @@ function asString(raw: unknown): string | null {
 }
 
 function clean(raw: string, { multiline }: { multiline: boolean }): string {
-  const withoutControls = raw.replace(CONTROL_CHARACTERS, '')
+  const withoutControls = raw.replace(CONTROL_CHARACTERS, '').replace(BIDI_AND_FORMAT, '')
   const flattened = multiline
     ? withoutControls
     : withoutControls.replace(LINE_BREAKS, ' ').replace(/[ \t]{2,}/g, ' ')

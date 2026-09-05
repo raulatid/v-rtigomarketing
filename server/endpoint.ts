@@ -110,8 +110,13 @@ export async function respond(
   } catch {
     return json(400, { ok: false, code: 'malformed' })
   }
-  // A content-length header is a claim; this is the measurement.
-  if (raw.length > BODY_LIMIT_BYTES) {
+  // A content-length header is a claim; this is the measurement — and it has to
+  // be a measurement in the same UNIT. `raw.length` counts UTF-16 code units,
+  // so 16 KB of `content-length` and 16 KB of `raw.length` are different sizes
+  // the moment a body is not ASCII: three bytes per character is ordinary for
+  // CJK, and a body twice the limit passed a header check it had simply omitted.
+  // The cap is named in bytes; count bytes.
+  if (new TextEncoder().encode(raw).length > BODY_LIMIT_BYTES) {
     return json(400, { ok: false, code: 'malformed' })
   }
 
