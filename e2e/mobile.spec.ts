@@ -150,13 +150,18 @@ test('the case panel is a bottom sheet, not a 142px column', async ({ page }) =>
   expect(box.radius).toBe('14px 0px')
 })
 
-test('the sheet has two stops and the peek one leaves the satellite visible', async ({
+test('the sheet opens expanded, and lowering it uncovers the satellite', async ({
   page,
 }) => {
-  // The defect this replaces: one fixed 60dvh sheet whose top edge landed at
-  // 40% of the screen, while the close-up centres the satellite at 50%. Tapping
-  // a satellite hid it behind a panel describing it, and 28-38% of the case sat
-  // behind a scroll with no handle and no stop to say so.
+  // Two stops, and which one a case OPENS at is the thing that changed on
+  // 2026-09-05 at the client's request: it opened at peek, and reaching the
+  // case cost a second deliberate tap on a grip that gave no hint of what it
+  // hid. Peek is still here and still does its job — it is now what the handle
+  // LOWERS to, rather than the state a case starts in.
+  //
+  // The original defect both stops exist for: one fixed 60dvh sheet whose top
+  // edge landed at 40% of the screen, hiding 28-38% of the case behind a scroll
+  // with no handle and no stop to say so.
   //
   // Driven through the DOM rather than by tapping an orbiting satellite, for
   // the reason the test above gives: reaching a real selection is a timing test,
@@ -179,10 +184,53 @@ test('the sheet has two stops and the peek one leaves the satellite visible', as
       }
     })
 
-  // ── Peek ──
+  // ── Opens expanded ──
+  const expanded = await geometry()
+  expect(expanded.stop).toBe('expanded')
+  expect(expanded.height / expanded.vh).toBeCloseTo(0.85, 1)
+
+  // The handle is a real 44px control, not a decorative grip.
+  const handleBox = await handle.boundingBox()
+  expect(handleBox?.height).toBeGreaterThanOrEqual(44)
+
+  // ── The grip sits on the sheet's centre ──
+  // The defect this guards, fixed 2026-09-05: `width: 100%` resolved against the
+  // sheet's CONTENT box while `margin: 0 -1.5rem` bled the button out to the
+  // left edge, so the control stopped 3rem short of the right one. The grip
+  // centres on the BUTTON, so it sat 24px left of the sheet's real centre on
+  // every phone, and the tap target lost 48px off its right side.
+  //
+  // Asserted on the BUTTON rather than on the `::before` pill: the pill's own
+  // centring (left: 50% against a negative half-width margin, on both axes) is
+  // static CSS that cannot drift. What drifted was the box it centres itself
+  // in. Height was asserted here before today; x was not, which is why this
+  // shipped.
+  const alignment = await panel.evaluate((el) => {
+    const sheet = el.getBoundingClientRect()
+    const button = el.querySelector('.case-panel__handle')!.getBoundingClientRect()
+    return {
+      sheetWidth: sheet.width,
+      buttonWidth: button.width,
+      sheetCentre: sheet.left + sheet.width / 2,
+      buttonCentre: button.left + button.width / 2,
+    }
+  })
+  expect(
+    alignment.buttonWidth,
+    `handle is ${alignment.buttonWidth.toFixed(0)}px against a ${alignment.sheetWidth.toFixed(0)}px sheet`,
+  ).toBeCloseTo(alignment.sheetWidth, 0)
+  expect(
+    alignment.buttonCentre,
+    `grip centre ${alignment.buttonCentre.toFixed(1)} against sheet centre ${alignment.sheetCentre.toFixed(1)}`,
+  ).toBeCloseTo(alignment.sheetCentre, 0)
+
+  // ── Lowering it uncovers the satellite ──
+  await handle.click()
+  await expect(panel).toHaveAttribute('data-stop', 'peek')
+  await settle(page)
   const peek = await geometry()
-  expect(peek.stop).toBe('peek')
   expect(peek.height / peek.vh).toBeCloseTo(0.4, 1)
+  expect(peek.height).toBeLessThan(expanded.height)
 
   // THE point of the stop. The satellite is centred vertically, because
   // closeUpScreenOffset returns 0 wherever the panel is a sheet, so the sheet's
@@ -192,23 +240,11 @@ test('the sheet has two stops and the peek one leaves the satellite visible', as
     `sheet top ${peek.top.toFixed(0)} must stay below the vertical centre ${(peek.vh / 2).toFixed(0)}`,
   ).toBeGreaterThan(peek.vh / 2)
 
-  // The handle is a real 44px control, not a decorative grip.
-  const handleBox = await handle.boundingBox()
-  expect(handleBox?.height).toBeGreaterThanOrEqual(44)
-
-  // ── Expanded ──
+  // ── And back up ──
   await handle.click()
   await expect(panel).toHaveAttribute('data-stop', 'expanded')
   await settle(page)
-  const expanded = await geometry()
-  expect(expanded.height / expanded.vh).toBeCloseTo(0.85, 1)
-  expect(expanded.height).toBeGreaterThan(peek.height)
-
-  // ── And back ──
-  await handle.click()
-  await expect(panel).toHaveAttribute('data-stop', 'peek')
-  await settle(page)
-  expect((await geometry()).height).toBeCloseTo(peek.height, 0)
+  expect((await geometry()).height).toBeCloseTo(expanded.height, 0)
 })
 
 test('a phone in landscape gets the sheet, not the desktop dock', async ({ page }) => {

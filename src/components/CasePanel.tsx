@@ -46,18 +46,27 @@ export function CasePanel({ data, onClose }: Props) {
   if (data) lastDataRef.current = data
   const shown = data ?? lastDataRef.current
 
-  const [stop, setStop] = useState<SheetStop>('peek')
+  // OPENS EXPANDED (2026-09-05, client request). It opened at peek until then,
+  // and the reasoning for that is still written on the stops in styles.css and
+  // still true: at 85dvh the sheet's top edge is above the satellite the viewer
+  // just tapped, so opening expanded covers it. That was traded away
+  // deliberately — the case is what the viewer came to read, and reaching it
+  // cost a second deliberate tap on a grip that gave no hint of what it hid.
+  //
+  // Peek is NOT retired: the handle still lowers the sheet to it, which is now
+  // the gesture that uncovers the satellite rather than the state you start in.
+  const [stop, setStop] = useState<SheetStop>('expanded')
 
-  // Every new selection starts at the peek stop. Carrying the previous stop
-  // over means the next case opens already expanded, with the satellite the
-  // viewer just tapped hidden behind it.
+  // Every new selection re-opens at the expanded stop, so a case the viewer
+  // lowered does not leave the NEXT one opening half-shut — the opening height
+  // is a property of opening a case, not something inherited from the last one.
   //
   // Keyed on the case id rather than on `data` being truthy: re-selecting while
-  // one is already open is a new case and should re-peek, and the deselect that
-  // sets `data` to null must NOT reset, or the sheet drops to peek mid-fade.
+  // one is already open is a new case and should re-open, and the deselect that
+  // sets `data` to null must NOT reset, or the sheet jumps stop mid-fade.
   const selectedId = data?.id ?? null
   useEffect(() => {
-    if (selectedId) setStop('peek')
+    if (selectedId) setStop('expanded')
   }, [selectedId])
 
   return (

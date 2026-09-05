@@ -712,21 +712,24 @@ export function AuditSection({
         {/* The curtain translates at its final width — transform only, never
             an animated width (plan 005 §5). */}
         <div className="audit-curtain">
-          {/* The close control: a back arrow at the panel's top-left. Sits on
-              the curtain (not the scrollable panel) so it never scrolls away.
-              close() no-ops outside 'open', so mid-transition clicks are safe. */}
-          <button
-            type="button"
-            className="audit-close"
-            onClick={close}
-            aria-label="Cerrar la auditoría y volver"
-          >
-            <svg viewBox="0 0 44 16" aria-hidden="true" focusable="false">
-              <path d="M9 1 L2 8 L9 15" fill="none" />
-              <line x1="2" y1="8" x2="43" y2="8" />
-            </svg>
-          </button>
           <div className="audit-panel">
+            {/* The close control: a back arrow at the top of the panel's
+                CONTENT, not pinned to the curtain. Absolute inside the scroller
+                means it travels with the form, so it can never end up sitting
+                over the words — a pinned arrow with no backdrop overlapped the
+                description the moment a short viewport scrolled.
+                close() no-ops outside 'open', so mid-transition clicks are safe. */}
+            <button
+              type="button"
+              className="audit-close"
+              onClick={close}
+              aria-label="Cerrar la auditoría y volver"
+            >
+              <svg viewBox="0 0 44 16" aria-hidden="true" focusable="false">
+                <path d="M9 1 L2 8 L9 15" fill="none" />
+                <line x1="2" y1="8" x2="43" y2="8" />
+              </svg>
+            </button>
             {submission === 'success' ? (
               /* The delivered state, in-panel: the person is TOLD their request
                  arrived, where the form just was, instead of the panel silently

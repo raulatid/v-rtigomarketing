@@ -509,7 +509,16 @@ html {
   .case-panel__handle {
     display: block;
     flex: 0 0 auto;
-    width: 100%;
+    /* FULL BLEED, and the two values are one decision: the negative margins
+       pull the control out through the sheet's 1.5rem of side padding, and the
+       width has to grow by the same 3rem to reach the far edge.
+
+       It was `width: 100%` until 2026-09-05, which resolves against the
+       CONTENT box — so the button started at the sheet's left edge and stopped
+       3rem short of the right one. The grip below centres on the BUTTON, which
+       put it 24px left of the sheet's real centre on every phone: the reported
+       misalignment. It also cost 48px of tap target on the right. */
+    width: calc(100% + 3rem);
     /* 44px because it is the control that raises and lowers the sheet — the
        most-used thing on the panel, and the one a thumb has to find. The same
        size and the same reasoning as Murcia's, which was raised from 26px for

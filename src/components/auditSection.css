@@ -79,8 +79,11 @@
 }
 
 /* The close control: a left-pointing arrowhead with a long trailing line.
-   Anchored to the curtain (z above the panel) so it never scrolls with the
-   form; left edge aligned with the form's own padding. */
+   Absolute INSIDE the scrolling panel, so it is placed against the top of the
+   form's content and travels with it. Pinned to the curtain it had no backdrop
+   of its own, and the description climbed under it the moment a short viewport
+   scrolled; the form's padding-top floor below keeps the two apart at rest.
+   Left edge aligned with the form's own padding. */
 .audit-close {
   position: absolute;
   z-index: 2;
@@ -623,12 +626,11 @@
 }
 
 /* Touch target: a 44x44 area centred on the arrow whatever its rendered size.
-   The case panel's close takes the same expansion in styles.css. */
+   The case panel's close takes the same expansion in styles.css. The button is
+   already absolutely positioned, so it is its own containing block here — it
+   must NOT be switched to `relative`, which would drop it into the panel's flow
+   and push the whole form down by its height. */
 @media (pointer: coarse) {
-  .audit-close {
-    position: relative;
-  }
-
   .audit-close::after {
     content: '';
     position: absolute;
