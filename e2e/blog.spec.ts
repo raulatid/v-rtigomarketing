@@ -305,13 +305,13 @@ test.describe('the blog', () => {
 
     // The positive half: every heavy request is one the mark itself needs.
     const heavy = requested.filter((url) => /three-|\.glb$|\.ktx2$|\/draco\/|basis/.test(url))
-    const allowed = /\/three-[^/]*\.js$|\/models\/model\.glb$|\/textures\/logoBake\.ktx2$|\/draco\/|\/basis/
+    const allowed = /\/three-[^/]*\.js$|\/models\/vertigo-isotipo-3d\.glb$|\/textures\/logoBake\.ktx2$|\/draco\/|\/basis/
     expect(
       heavy.filter((url) => !allowed.test(url)),
       'only the corner logo\'s own dependencies may be fetched on a reading page',
     ).toEqual([])
     expect(
-      heavy.some((url) => url.endsWith('/models/model.glb')),
+      heavy.some((url) => url.endsWith('/models/vertigo-isotipo-3d.glb')),
       'and the mark must actually be the 3D one, or the assertions above pass on an SVG',
     ).toBe(true)
 

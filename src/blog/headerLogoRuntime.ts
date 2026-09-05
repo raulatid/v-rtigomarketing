@@ -80,7 +80,7 @@ interface Attachment {
  * `Index` and `Article` are different component types in `BlogRoute`, so React
  * unmounts one subtree and mounts the other on every article open — and `TopBar`
  * goes with it. A renderer owned by the React component would therefore drop its
- * GL context, re-fetch `model.glb` and re-run `compileAsync` every time a reader
+ * GL context, re-fetch `vertigo-isotipo-3d.glb` and re-run `compileAsync` every time a reader
  * opens or closes an article, flickering back to the flat SVG each time.
  *
  * So the instance lives here and outlives the components. Attaching moves the

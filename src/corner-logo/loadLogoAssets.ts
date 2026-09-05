@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { loadProgress } from '../loading/progress'
 import { acquireDracoLoader, releaseDracoLoader } from '../graphics/decoders'
 
-const MODEL_URL = '/models/model.glb'
+const MODEL_URL = '/models/vertigo-isotipo-3d.glb'
 // The decoder paths used to be declared here, and again in createSatellite.ts,
 // and again in Murcia's appConfig — three copies of the same two strings. They
 // live in `graphics/decoders.ts` now, with the instances they configure.
