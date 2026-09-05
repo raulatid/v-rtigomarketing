@@ -38,3 +38,15 @@ export const orbitAssignments: readonly OrbitAssignment[] = [
   { orbitId: 'orbit-05', caseId: 'satellite-05' },
   { orbitId: 'orbit-06', caseId: 'satellite-06' },
 ]
+
+/**
+ * The satellite whose halo breathes brighter in the overview — the worked
+ * example that says "these are clickable" until the viewer has clicked one.
+ *
+ * Code, not a CMS field, for the reason the table above is: which client is
+ * the example is a composition decision about the scene (the client chose
+ * PcComponentes, 2026-09-05), and it must name a case that is actually on an
+ * orbit — `resolveOrbitCases.test.ts` asserts that. See createSatelliteFocus
+ * for when it is shown and when it retires.
+ */
+export const invitedCaseId = 'satellite-06'

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resolveOrbitCases, OrbitAssignmentError } from './resolveOrbitCases'
-import { orbitAssignments } from './orbitAssignments'
+import { invitedCaseId, orbitAssignments } from './orbitAssignments'
 import { ORBIT_PRESETS } from './orbitConfig'
 import { CASE_STUDIES } from '../../../content/generated/caseStudies'
 import type { CaseStudy } from '../../../content/types'
@@ -48,6 +48,13 @@ describe('the shipped assignment table', () => {
   it('fills every preset the design ships', () => {
     const resolved = resolveOrbitCases(ORBIT_PRESETS, orbitAssignments, CASE_STUDIES)
     expect(resolved).toHaveLength(ORBIT_PRESETS.length)
+  })
+
+  it('invites a case that is actually on an orbit', () => {
+    // A reassignment that drops the invited case would otherwise leave the
+    // overview with no example and nothing to say so.
+    const resolved = resolveOrbitCases(ORBIT_PRESETS, orbitAssignments, CASE_STUDIES)
+    expect(resolved.map((r) => r.satellite.id)).toContain(invitedCaseId)
   })
 })
 

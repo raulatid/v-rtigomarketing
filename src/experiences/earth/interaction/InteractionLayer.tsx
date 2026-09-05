@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { OrbitSystem } from '../orbit/createOrbitSystem'
 import type { SatelliteDef } from '../orbit/orbitConfig'
+import { invitedCaseId } from '../orbit/orbitAssignments'
 import { createFocusCameraRig, FocusCameraRig } from '../camera/createFocusCameraRig'
 import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
@@ -85,6 +86,7 @@ export function InteractionLayer({
       orbitSystem,
       cameraRig: rig,
       cursor,
+      invitedId: invitedCaseId,
       onSelect: (data) => callbacks.current.onSelect(data),
       onDeselect: () => callbacks.current.onDeselect(),
     })

@@ -259,6 +259,15 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     holoPanel?.setExpanded(on)
   }
 
+  /**
+   * Lights the invitation on the brand panel — its halo breathing brighter so
+   * the overview says "clickable". Only one satellite carries it, and the
+   * focus layer decides which and until when; see createSatelliteFocus.
+   */
+  function setInvited(on: boolean) {
+    holoPanel?.setInvited(on)
+  }
+
   /** Collapses the panel with no animation. For scene resets; see the panel. */
   function resetExpansion() {
     holoPanel?.resetExpansion()
@@ -283,7 +292,16 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     for (const target of fadeTargets) target.material.dispose()
   }
 
-  return { group, setOpacity, setHighlight, setExpanded, resetExpansion, update, dispose }
+  return {
+    group,
+    setOpacity,
+    setHighlight,
+    setExpanded,
+    setInvited,
+    resetExpansion,
+    update,
+    dispose,
+  }
 }
 
 export type Satellite = ReturnType<typeof createSatellite>

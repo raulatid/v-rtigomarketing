@@ -239,6 +239,7 @@ export function createOrbitSystem({ renderer }: Options) {
       // Clears the hover bump too — otherwise a replay started while the pointer
       // was over a badge would re-run the entrance on an already-enlarged one.
       orbit.satellite.setHighlight(false)
+      orbit.satellite.setInvited(false)
       // Snaps the brand panel shut, rather than asking it to fold. A reset is a
       // teardown to the pre-intro state: a fold left animating would be visible
       // unfolding backwards underneath the entrance staggering the satellites
@@ -295,6 +296,11 @@ export function createOrbitSystem({ renderer }: Options) {
     findOrbit(id)?.satellite.setExpanded(on)
   }
 
+  /** Lights or clears the invitation on one satellite's panel. See createSatellite. */
+  function setSatelliteInvited(id: string, on: boolean) {
+    findOrbit(id)?.satellite.setInvited(on)
+  }
+
   function dispose() {
     for (const orbit of orbits) {
       orbit.orbitLine.dispose()
@@ -322,6 +328,7 @@ export function createOrbitSystem({ renderer }: Options) {
     resumeSatellite,
     setSatelliteHighlight,
     setSatelliteExpanded,
+    setSatelliteInvited,
     dispose,
   }
 }

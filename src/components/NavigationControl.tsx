@@ -101,6 +101,15 @@ export const NavigationControl = forwardRef<HTMLDivElement>(function NavigationC
         mouse on fine pointers; on coarse ones the direction decides, because
         the two worlds are left by opposite gestures.
 
+        A SENTENCE under the glyph, since 2026-09-05. The glyph alone was read
+        as decoration, not as an instruction (plan 012, phase 4): a mouse with
+        two chevrons does not say what scrolling DOES. Four variants, one per
+        input × direction, chosen by the same CSS that chooses the glyph, so
+        the words and the picture can never disagree. The destination is named
+        the way the button's aria-label names it, and the touch copy says
+        "zoom" rather than "pinch" because the gesture's outcome is what the
+        viewer is being promised, not its choreography.
+
         aria-hidden: the button above already teaches assistive technology, and
         a pinch is not something it could act on anyway. This is sighted-only.
       */}
@@ -155,6 +164,18 @@ export const NavigationControl = forwardRef<HTMLDivElement>(function NavigationC
           <path d="M45 24h-6" />
           <path d="M42 27l-3-3 3-3" />
         </svg>
+        <span className="nav-hint__text" data-input="fine" data-direction="down">
+          Haz scroll para bajar a Murcia
+        </span>
+        <span className="nav-hint__text" data-input="fine" data-direction="up">
+          Haz scroll para volver a la Tierra
+        </span>
+        <span className="nav-hint__text" data-input="coarse" data-direction="down">
+          Haz zoom para bajar a Murcia
+        </span>
+        <span className="nav-hint__text" data-input="coarse" data-direction="up">
+          Haz zoom para volver a la Tierra
+        </span>
       </span>
     </div>
   )

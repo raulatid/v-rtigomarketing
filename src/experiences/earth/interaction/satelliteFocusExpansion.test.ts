@@ -6,11 +6,14 @@ import type { SatelliteDef } from '../orbit/orbitConfig'
 
 // What the brand panel unfolds for.
 //
-// The satellite has TWO affordances and they read different state: the scale
-// bump is on for hover OR selection, the panel unfolds only for selection. They
-// are set from one loop over every satellite, which is also what makes the
-// A-to-B handoff work — switching selection has to fold A and unfold B in the
-// same pass, and a diff against the previous selection would leave A open.
+// The satellite has THREE affordances and they read different state: the scale
+// bump is on for hover OR selection, the panel unfolds only for selection, and
+// the invitation — one satellite's halo breathing brighter so the overview says
+// "these are clickable" — is on for the invited satellite while it is neither
+// hovered nor selected, until any satellite has been selected once. They are
+// set from one loop over every satellite, which is also what makes the A-to-B
+// handoff work — switching selection has to fold A and unfold B in the same
+// pass, and a diff against the previous selection would leave A open.
 //
 // Driven through a real raycast against real meshes rather than by calling an
 // exported helper: `select` is deliberately internal, and the thing worth
@@ -45,6 +48,7 @@ function setup() {
 
   const expanded = vi.fn()
   const highlighted = vi.fn()
+  const invited = vi.fn()
   const orbitSystem = {
     satellites: [
       { id: 'a', data: def('a'), object: meshes.a },
@@ -55,6 +59,7 @@ function setup() {
     resumeSatellite: vi.fn(),
     setSatelliteHighlight: highlighted,
     setSatelliteExpanded: expanded,
+    setSatelliteInvited: invited,
   }
 
   const cameraRig = {
@@ -72,6 +77,7 @@ function setup() {
     orbitSystem: orbitSystem as never,
     cameraRig: cameraRig as never,
     cursor: { request: vi.fn() } as never,
+    invitedId: 'a',
     onSelect: vi.fn(),
     onDeselect: vi.fn(),
   })
@@ -116,8 +122,10 @@ function setup() {
     hoverOver,
     expanded,
     highlighted,
+    invited,
     expansionState: lastPerSatellite(expanded),
     highlightState: lastPerSatellite(highlighted),
+    invitationState: lastPerSatellite(invited),
     cameraRig,
   }
 }
@@ -177,5 +185,42 @@ describe('hovering a satellite', () => {
     expect(harness.highlightState()).toMatchObject({ a: true, b: false })
     // ...and nothing was asked to unfold.
     expect(harness.expansionState()).toEqual({ a: false, b: false })
+  })
+})
+
+describe('the invitation', () => {
+  it('is pushed to the invited satellite the moment the layer is enabled', () => {
+    // The intro holds the layer off; the pulse must not wait for the first
+    // pointer event to reach the scene.
+    expect(harness.invitationState()).toEqual({ a: true, b: false })
+  })
+
+  it('yields to the hover bump and returns when the pointer leaves', () => {
+    harness.hoverOver('a')
+    harness.focus.update()
+    expect(harness.invitationState()).toEqual({ a: false, b: false })
+
+    harness.hoverOver('b')
+    harness.focus.update()
+    expect(harness.invitationState()).toEqual({ a: true, b: false })
+  })
+
+  it('retires for the visit once any satellite is selected', () => {
+    harness.clickOn('b')
+    expect(harness.invitationState()).toEqual({ a: false, b: false })
+
+    harness.invited.mockClear()
+    harness.focus.deselect()
+    // The lesson is over: the viewer has found a satellite.
+    expect(harness.invitationState()).toEqual({ a: false, b: false })
+  })
+
+  it('is off while the layer is disabled and back when it is re-enabled', () => {
+    harness.focus.setEnabled(false)
+    expect(harness.invitationState()).toEqual({ a: false, b: false })
+
+    harness.invited.mockClear()
+    harness.focus.setEnabled(true)
+    expect(harness.invitationState()).toEqual({ a: true, b: false })
   })
 })

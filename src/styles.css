@@ -998,13 +998,16 @@ html {
   bottom: max(48px, calc(env(safe-area-inset-bottom) + 34px));
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   color: rgba(255, 255, 255, 0.66);
   filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.55));
   opacity: 0;
   transition: opacity 0.6s ease;
   pointer-events: none;
+  user-select: none;
 }
 
 .nav-hint[data-visible] {
@@ -1012,10 +1015,43 @@ html {
   animation: nav-hint-breathe 2.6s ease-in-out infinite alternate;
 }
 
+/* In Murcia (`up` is the way home) the bottom-centre already holds the city's
+   controls plate (`#controls-hint`, murcia.css), which the sentence would sit
+   on. Stacked above it — the plate's height plus its 16px bottom offset and a
+   breath of air — and higher again on a phone, where the plate is a three-row
+   list. The plate fades on the first drag; the hint keeps the higher seat, an
+   empty gap being the cheaper failure. */
+.nav[data-direction='up'] .nav-hint {
+  bottom: max(88px, calc(env(safe-area-inset-bottom) + 74px));
+}
+
+@media (max-width: 480px) {
+  .nav[data-direction='up'] .nav-hint {
+    bottom: max(128px, calc(env(safe-area-inset-bottom) + 114px));
+  }
+}
+
 .nav-hint__icon {
   display: none;
   width: 40px;
   height: 40px;
+}
+
+/* The sentence under the glyph. Four variants and exactly one shown, picked by
+   the same two facts that pick the glyph — input and direction — so the words
+   can never describe a gesture the picture is not drawing. */
+.nav-hint__text {
+  display: none;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.nav[data-direction='down'] .nav-hint__text[data-input='fine'][data-direction='down'],
+.nav[data-direction='up'] .nav-hint__text[data-input='fine'][data-direction='up'] {
+  display: block;
 }
 
 /* Input decides the glyph, never viewport — the Murcia controls hint records the
@@ -1037,6 +1073,17 @@ html {
      back out (ADR 006). */
   .nav[data-direction='down'] .nav-hint__icon--spread,
   .nav[data-direction='up'] .nav-hint__icon--close {
+    display: block;
+  }
+
+  /* Same specificity as the fine-pointer show rule above, later in source, so
+     it wins; a shorter selector here would lose the cascade and show both. */
+  .nav[data-direction] .nav-hint__text[data-input='fine'][data-direction] {
+    display: none;
+  }
+
+  .nav[data-direction='down'] .nav-hint__text[data-input='coarse'][data-direction='down'],
+  .nav[data-direction='up'] .nav-hint__text[data-input='coarse'][data-direction='up'] {
     display: block;
   }
 }

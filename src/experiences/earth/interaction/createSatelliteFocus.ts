@@ -19,6 +19,11 @@ interface Options {
   orbitSystem: OrbitSystem
   cameraRig: FocusCameraRig
   cursor: CursorManager
+  /**
+   * The satellite whose halo breathes brighter until the viewer has selected
+   * one — any one. `null` for no invitation. See orbitAssignments.invitedCaseId.
+   */
+  invitedId: string | null
   onSelect: (data: SatelliteDef) => void
   onDeselect: () => void
 }
@@ -29,6 +34,7 @@ export function createSatelliteFocus({
   orbitSystem,
   cameraRig,
   cursor,
+  invitedId,
   onSelect,
   onDeselect,
 }: Options) {
@@ -42,6 +48,9 @@ export function createSatelliteFocus({
   let pointerActive = false
   let hoveredId: string | null = null
   let selectedId: string | null = null
+  // Cleared for good on the first selection: the invitation exists to get the
+  // viewer to click a satellite once, and after that it is only noise.
+  let invited = invitedId
   let enabled = false
   const worldPos = new THREE.Vector3()
 
@@ -66,15 +75,21 @@ export function createSatelliteFocus({
    * A's panel open. Both panels then advance from their own progress, so A
    * reverses from wherever it had got to instead of snapping shut.
    *
-   * The two affordances read DIFFERENT state on purpose: the scale bump is on
+   * The three affordances read DIFFERENT state on purpose: the scale bump is on
    * for hover or selection, the brand panel unfolds only for selection. Six
    * satellites drift past the cursor during the overview — unfolding on hover
-   * would have the panels flapping continuously.
+   * would have the panels flapping continuously. The invitation is on for the
+   * invited satellite only while nothing stronger is saying anything about it:
+   * under the cursor the bump is the answer, and selected it is open.
    */
   function applyHighlights() {
     for (const sat of orbitSystem.satellites) {
       orbitSystem.setSatelliteHighlight(sat.id, sat.id === selectedId || sat.id === hoveredId)
       orbitSystem.setSatelliteExpanded(sat.id, sat.id === selectedId)
+      orbitSystem.setSatelliteInvited(
+        sat.id,
+        enabled && sat.id === invited && sat.id !== hoveredId && sat.id !== selectedId,
+      )
     }
   }
 
@@ -125,6 +140,7 @@ export function createSatelliteFocus({
     if (!sat) return
 
     selectedId = id
+    invited = null
     sat.object.getWorldPosition(worldPos)
 
     orbitSystem.freezeSatellite(id)
@@ -186,6 +202,10 @@ export function createSatelliteFocus({
       hoveredId = null
       applyHighlights()
       cursor.request('satellite', '')
+    } else {
+      // The invitation has no pointer event to wait for; the intro releasing
+      // the scene is the moment it should be on screen.
+      applyHighlights()
     }
   }
 

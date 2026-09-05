@@ -155,6 +155,15 @@ export const ORBIT_CONFIG = {
     // Peak alpha of that halo. Six of these are on screen at rest, so this is
     // the knob that decides whether the overview stays calm.
     haloStrength: 0.30,
+    // The invitation: ONE satellite's field (orbitAssignments.invitedCaseId)
+    // breathes brighter so the overview says "these are clickable". The gain
+    // multiplies haloStrength at the top of the breath, and half of it lifts
+    // the emitter line and wash, on the line's own 1.4 rad/s clock so all of
+    // it pulses together. The duration is the fade in and out of the whole
+    // effect — it yields to the hover bump and retires on the first selection,
+    // and neither should snap.
+    inviteGain: 2.0,
+    inviteDuration: 0.6,
 
     // ── The rails ──
     // The projection's one structural element, present only while it is open.

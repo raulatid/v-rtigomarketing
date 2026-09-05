@@ -98,8 +98,11 @@ const FRAGMENT = /* glsl */ `
   // in quad uv. Constant per panel; both come from the config.
   uniform vec2 uQuadScale;
   uniform vec2 uOrigin;
-  // (halo radius, halo strength).
-  uniform vec2 uField;
+  // (halo radius, halo strength, invitation gain).
+  uniform vec3 uField;
+  // 0..1: how much of the invitation — the brighter breath — this panel is
+  // carrying right now. Eased from the CPU, never set directly.
+  uniform float uInvite;
   // (inner start, outer end, top height, bottom height) — the rails. The first
   // two are fractions of the field's CURRENT half-width, so the run travels
   // outward as the projection opens instead of sitting at a fixed distance.
@@ -251,9 +254,19 @@ const FRAGMENT = /* glsl */ `
     vec2 px = fwidth(p);
     float ax = abs(p.x);
 
+    // The invitation rides the emitter's own breath clock (below), so the halo
+    // and the line swell together; under reduced motion uBreath is 0 and it
+    // holds steady at the mean instead of pulsing.
+    float inviteBreath = 1.0 - uBreath + uBreath * (0.5 + 0.5 * sin(uTime * 1.4));
+    float invite = uInvite * (0.6 + 0.4 * inviteBreath);
+
     // The selected-state energy: a surge as the field activates, easing back
-    // once the logo has resolved. Peak, then settle.
-    float energy = 1.0 + 0.35 * activation - 0.15 * resolve;
+    // once the logo has resolved. Peak, then settle. The invitation lifts it
+    // too — at overview scale the halo alone is a few pixels of brand light
+    // behind the mark and does not read from across the room; the emitter line
+    // and its wash are what actually say "lit".
+    float energy = (1.0 + 0.35 * activation - 0.15 * resolve)
+                 * (1.0 + 0.5 * uField.z * invite);
 
     // The artwork field opens from 1:1 to 2:1 with the deployment. Both
     // artworks are fitted against the CURRENT aspect, so neither distorts at
@@ -293,7 +306,8 @@ const FRAGMENT = /* glsl */ `
     vec2 h = p / vec2(fieldAspect, 1.0);
     float reach = clamp(1.0 - length(h) / haloRadius, 0.0, 1.0);
     float halo = pow(reach, 2.2) * haloStrength * modulation
-               * (1.0 + 0.6 * activation);
+               * (1.0 + 0.6 * activation)
+               * (1.0 + uField.z * invite);
     over(color, alpha, uBrandColor, halo);
 
     // ── Layer 3: the artwork ──
@@ -476,7 +490,8 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
 
     uQuadScale: { value: new THREE.Vector2(footprint.width, footprint.height) },
     uOrigin: { value: new THREE.Vector2(0.5, footprint.originY) },
-    uField: { value: new THREE.Vector2(cfg.haloRadius, cfg.haloStrength) },
+    uField: { value: new THREE.Vector3(cfg.haloRadius, cfg.haloStrength, cfg.inviteGain) },
+    uInvite: { value: 0 },
     uRail: {
       value: new THREE.Vector4(cfg.railInner, cfg.railOuter, cfg.railTopY, cfg.railBottomY),
     },
@@ -558,6 +573,17 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     expansionTarget = on ? 1 : 0
   }
 
+  // The invitation, eased the same way as the expansion and for the same
+  // reason: hover takes it away mid-breath and gives it back a moment later,
+  // and a value-based ease reverses from wherever it is instead of restarting.
+  let invite = 0
+  let inviteTarget = 0
+
+  /** Asks the halo to carry the invitation — the brighter breath — or to let it go. */
+  function setInvited(on: boolean) {
+    inviteTarget = on ? 1 : 0
+  }
+
   /**
    * Collapses immediately, with no animation.
    *
@@ -582,6 +608,10 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
       uniforms.uTime.value += delta
       cone.update(delta)
     }
+    if (invite !== inviteTarget) {
+      invite = advanceExpansion(invite, inviteTarget, delta, cfg.inviteDuration)
+      uniforms.uInvite.value = invite
+    }
     if (PROTO_HOLO.expand !== null) {
       if (expansion !== PROTO_HOLO.expand) {
         expansion = PROTO_HOLO.expand
@@ -603,7 +633,7 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     cone.dispose()
   }
 
-  return { group, setOpacity, setExpanded, resetExpansion, update, dispose }
+  return { group, setOpacity, setExpanded, setInvited, resetExpansion, update, dispose }
 }
 
 export type HoloPanel = ReturnType<typeof createHoloPanel>
