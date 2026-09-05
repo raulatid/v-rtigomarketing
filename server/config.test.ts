@@ -93,6 +93,25 @@ describe('deciding whether the endpoint may send', () => {
     // production guards above could never fire.
     expect(messageOf({ ...sending, VERCEL: '1' })).toMatch(/VERCEL_ENV/)
   })
+
+  it('refuses an environment name it does not recognise', () => {
+    // The half of SEC-9 the check above cannot reach. `Production` is not
+    // `production`, so every guard in this file reads it as a preview: a forced
+    // dry run is permitted and a missing key downgrades quietly. Refused rather
+    // than interpreted.
+    expect(messageOf({ ...sending, VERCEL: '1', VERCEL_ENV: 'Production' })).toMatch(
+      /VERCEL_ENV must be one of/,
+    )
+  })
+
+  it('reads production with a pasted trailing space as production', () => {
+    expect(messageOf({ VERCEL: '1', VERCEL_ENV: 'production ' })).toMatch(/RESEND_API_KEY is missing/)
+  })
+
+  it('sends from a fully configured production deployment', () => {
+    const config = sendingConfigOf({ ...sending, VERCEL: '1', VERCEL_ENV: 'production' })
+    expect(config.from).toBe('Vértigo <no-reply@vertigomkt.com>')
+  })
 })
 
 describe('the sender', () => {

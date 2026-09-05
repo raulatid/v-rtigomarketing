@@ -57,6 +57,9 @@ const DEFAULT_TIMEOUT_MS = 10_000
 const DEFAULT_PER_IP_PER_HOUR = 5
 const DEFAULT_PER_EMAIL_PER_HOUR = 3
 
+/** The only values Vercel ever sets. Anything else is a hand-edit or a typo. */
+const VERCEL_ENVIRONMENTS = ['production', 'preview', 'development']
+
 /**
  * Deliberately loose, and the same shape `src/content/invariants.ts` settled on:
  * the only thing this needs to catch is an override nobody could deliver to.
@@ -132,7 +135,23 @@ export function readMailConfig(env: MailEnv): MailConfigResult {
     )
   }
 
-  const isProduction = clean(env.VERCEL_ENV) === 'production'
+  // Mirrored too: a value outside the three fails rather than reading as "not
+  // production". Every rule below is spelled `isProduction`, so `Production` or
+  // `prod` would leave MAIL_DRY_RUN permitted and a missing key silently
+  // downgraded to a dry run — a deployed form answering "recibido" and sending
+  // nothing, which is the exact failure this file exists to make impossible.
+  const environment = clean(env.VERCEL_ENV)
+  if (environment.length > 0 && !VERCEL_ENVIRONMENTS.includes(environment)) {
+    return fail(
+      'VERCEL_ENV must be one of ' +
+        VERCEL_ENVIRONMENTS.join(', ') +
+        ' — got "' +
+        environment +
+        '". It is a Vercel system variable; do not set it by hand.',
+    )
+  }
+
+  const isProduction = environment === 'production'
 
   const read = readLimits(env)
   if (!read.ok) return fail(read.message)

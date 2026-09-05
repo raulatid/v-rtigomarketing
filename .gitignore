@@ -16,9 +16,9 @@ out/
 # Every .env EXCEPT .env.example, rather than the usual three-line list: that
 # list covered .env, .env.local and .env.*.local but not .env.production or
 # .env.development, so a secret in either would have been committed silently.
-# This project needs no runtime environment variables at all today — the only
-# ones it reads are Vercel's own, at build time — so the safe default is to
-# ignore the lot and let .env.example be the documented exception.
+# The form endpoints made some of them RUNTIME rather than build-time
+# (RESEND_API_KEY above all), so the safe default is to ignore the lot and let
+# .env.example be the documented exception.
 .env
 .env.*
 !.env.example

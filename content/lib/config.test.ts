@@ -131,3 +131,42 @@ describe('fail-closed environment states', () => {
     expect(messageOf({ VERCEL: '1', CONTENT_SOURCE: 'seed' })).toMatch(/VERCEL_ENV/)
   })
 })
+
+describe('each environment end to end', () => {
+  it('carries a production build addressed at Sanity straight through', () => {
+    const config = sanityConfigOf({ ...sanityEnv, VERCEL: '1', VERCEL_ENV: 'production' })
+    expect(config).toMatchObject({ projectId: 'p1abc234', dataset: 'production' })
+  })
+
+  it('leaves preview on fixtures, which is what a client demo runs on', () => {
+    const result = readConfig({ VERCEL: '1', VERCEL_ENV: 'preview' })
+    expect(result.ok && result.config.mode).toBe('fixture')
+  })
+
+  it('accepts fixtures named explicitly outside production', () => {
+    const result = readConfig({ VERCEL: '1', VERCEL_ENV: 'preview', CONTENT_SOURCE: 'fixture' })
+    expect(result.ok && result.config.mode).toBe('fixture')
+  })
+
+  it('treats a Vercel development build like a laptop', () => {
+    const result = readConfig({ VERCEL: '1', VERCEL_ENV: 'development' })
+    expect(result.ok && result.config.mode).toBe('fixture')
+  })
+
+  it('refuses an environment name it does not recognise', () => {
+    // The one that fails OPEN if it is not caught here: every production rule
+    // is `=== 'production'`, so `Production` reads as a preview and ships the
+    // fixtures a production build exists to refuse.
+    expect(messageOf({ VERCEL: '1', VERCEL_ENV: 'Production' })).toMatch(/VERCEL_ENV must be one of/)
+    expect(messageOf({ VERCEL: '1', VERCEL_ENV: 'prod', ...sanityEnv })).toMatch(/VERCEL_ENV/)
+  })
+
+  it('reads production with a pasted trailing space as production, not as preview', () => {
+    // Trimmed rather than refused, and the direction matters: untrimmed, this
+    // string used to compare unequal to 'production' and quietly permit the
+    // fixtures below.
+    expect(messageOf({ VERCEL: '1', VERCEL_ENV: 'production ', CONTENT_SOURCE: 'fixture' })).toMatch(
+      /not allowed in production/,
+    )
+  })
+})

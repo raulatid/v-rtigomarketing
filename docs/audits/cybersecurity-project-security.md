@@ -234,12 +234,13 @@ A build-time pipeline is an execution context of its own: it runs in Node on the
 platform, it may hold a credential, and what it writes is compiled into the bundle. It is often the
 only place external data enters the product, so treat it with the same rigour as a runtime API.
 
-Today (ADR 010, `docs/adr/010-content-is-generated-at-build-time.md`) this is the WordPress content
-build: `scripts/build-content.ts`, `content/lib/{source,html,validate,generate,emit}.ts`,
-`content/collections/*`, inputs `content/fixtures/` and `content/seed/`, outputs
-`src/content/generated/` and `public/logos/` (both gitignored build output), environment variables
-`WP_CONTENT_BASE`, `WP_AUTHORIZATION`, `WP_TIMEOUT_MS`, `CONTENT_SOURCE` (documented in
-`.env.example`), field contract `docs/content/wordpress-field-contract.md`. Confirm these still
+Today (ADR 010, `docs/adr/010-content-is-generated-at-build-time.md`, and ADR 011, which replaced
+WordPress with Sanity) this is the Sanity content build: `scripts/build-content.ts`,
+`content/lib/{config,sanity,source,html,validate,generate,emit}.ts`, `content/collections/*`,
+inputs `content/fixtures/` and `content/seed/`, outputs `src/content/generated/` and
+`public/logos/` (both gitignored build output), environment variables `SANITY_PROJECT_ID`,
+`SANITY_DATASET`, `SANITY_TOKEN`, `SANITY_TIMEOUT_MS`, `CONTENT_SOURCE` (documented in
+`.env.example`), field contract `docs/content/sanity-field-contract.md`. Confirm these still
 exist; if the pipeline has moved or grown, audit where it is now.
 
 ## Treat CMS content as attacker input

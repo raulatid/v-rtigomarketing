@@ -10,6 +10,7 @@ import path from 'node:path'
 // the blog shells ever come out empty, that ordering is the first thing to check.
 import { BLOG_POSTS } from './src/content/generated/blogPosts'
 import { postHead, replaceRegion, shellProblems } from './scripts/blogShell'
+import { findSecretLeaks, publicPrefixedSecrets, scannableSecrets } from './scripts/secretScan'
 
 // The loading animation is worthless if it is itself waiting on a bundle, so
 // the boot entry's standalone-ness is a build-time invariant rather than a
@@ -136,6 +137,59 @@ const HEADER_LOGO_MODULE = 'src/blog/headerLogoRuntime.ts'
 
 function isHeaderLogoChunk(chunk: OutputChunk): boolean {
   return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith(HEADER_LOGO_MODULE) === true
+}
+
+/**
+ * No credential may be written to `dist/`.  See `scripts/secretScan.ts` for what
+ * is checked and why it is two independent rules rather than one.
+ *
+ * Placed in `generateBundle` on purpose: it aborts BEFORE anything reaches disk,
+ * so a build that would have leaked leaves nothing behind to deploy by accident.
+ *
+ * It runs in every environment, not only production. A preview deployment is
+ * just as public, and a developer who VITE_-prefixes a token should hear about
+ * it on the laptop rather than from the build that shipped it.
+ */
+function assertNoSecrets(): Plugin {
+  return {
+    name: 'vertigo-no-secrets',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const prefixed = publicPrefixedSecrets(process.env)
+      if (prefixed.length > 0) {
+        this.error(
+          `${prefixed.join(', ')} is VITE_-prefixed, and Vite compiles every VITE_* value ` +
+            'into the client bundle. A credential must carry no prefix — read it in ' +
+            'scripts/build-content.ts or server/, which run on the build machine.',
+        )
+        return
+      }
+
+      const secrets = scannableSecrets(process.env)
+      if (secrets.length === 0) return
+
+      const files = Object.values(bundle).map((asset) => ({
+        name: asset.fileName,
+        text:
+          asset.type === 'chunk'
+            ? asset.code
+            : typeof asset.source === 'string'
+              ? asset.source
+              : Buffer.from(asset.source).toString('latin1'),
+      }))
+
+      for (const leak of findSecretLeaks(files, secrets)) {
+        // The value is not printed. A build log is not a place to reprint a
+        // credential, and the variable name plus the file is the whole fix.
+        this.error(
+          `the value of ${leak.name} appears in ${leak.file}. It is a credential and this ` +
+            'is a public asset — find what put it there (a define, a generated module, an ' +
+            'error string that serialized the environment) and stop it. Rotate the value: ' +
+            'assume the build that produced this was deployed.',
+        )
+      }
+    },
+  }
 }
 
 function assertChunkBudgets(): Plugin {
@@ -664,7 +718,27 @@ if (process.env.VERCEL && !process.env.VERCEL_ENV) {
       'Environment Variables" in the Vercel project settings.',
   )
 }
-const BUILD_ENV = process.env.VERCEL_ENV ?? process.env.VITE_VERCEL_ENV ?? 'development'
+
+// And an unrecognised value is refused as well, because the comparison below is
+// `=== 'production'` and anything else — `Production`, `prod` — reads as "not
+// production" and ships the debug console with a Disallow robots.txt out of a
+// deployment that believed it was live. There are exactly three values (the same
+// list content/lib/config.ts and server/config.ts enforce); a fourth is a
+// mistake. Surrounding whitespace is trimmed rather than refused, so a value
+// pasted out of a dashboard with a trailing space still reads as production.
+const VERCEL_ENVIRONMENTS = ['production', 'preview', 'development']
+const [ENV_SOURCE, ENV_VALUE] = (process.env.VERCEL_ENV ?? '').trim()
+  ? (['VERCEL_ENV', (process.env.VERCEL_ENV ?? '').trim()] as const)
+  : (process.env.VITE_VERCEL_ENV ?? '').trim()
+    ? (['VITE_VERCEL_ENV', (process.env.VITE_VERCEL_ENV ?? '').trim()] as const)
+    : (['default', 'development'] as const)
+if (!VERCEL_ENVIRONMENTS.includes(ENV_VALUE)) {
+  throw new Error(
+    `[vertigo] ${ENV_SOURCE}="${ENV_VALUE}" is not one of ${VERCEL_ENVIRONMENTS.join(', ')}. ` +
+      'Refusing to build: an unrecognised value silently means "not production".',
+  )
+}
+const BUILD_ENV = ENV_VALUE
 const IS_PRODUCTION = BUILD_ENV === 'production'
 
 // The canonical origin. VERCEL_PROJECT_PRODUCTION_URL is set on every
@@ -895,6 +969,7 @@ export default defineConfig({
     blogRouting(),
     introEntry(),
     seoAssets(),
+    assertNoSecrets(),
     assertChunkBudgets(),
     // Last, and it reads from disk in closeBundle: everything above must have
     // finished writing before a shell can be cloned from the result.

@@ -35,6 +35,9 @@ export type Env = Record<string, string | undefined>
 
 const DEFAULT_TIMEOUT_MS = 15_000
 
+/** The only values Vercel ever sets. Anything else is a hand-edit or a typo. */
+const VERCEL_ENVIRONMENTS = ['production', 'preview', 'development']
+
 function fail(message: string): ConfigResult {
   return { ok: false, message }
 }
@@ -56,6 +59,23 @@ export function readConfig(env: Env): ConfigResult {
     )
   }
 
+  // And a value outside the three Vercel uses is refused for the same reason a
+  // missing one is. Every production rule below is spelled `=== 'production'`,
+  // so `Production`, `prod` or a hand-set override reads as "not production" and
+  // the guards fail OPEN — fixtures ship, quietly, out of a build that believes
+  // it is a preview. There are exactly three values; anything else is a mistake.
+  const environment = clean(env.VERCEL_ENV)
+  if (environment.length > 0 && !VERCEL_ENVIRONMENTS.includes(environment)) {
+    return fail(
+      'VERCEL_ENV must be one of ' +
+        VERCEL_ENVIRONMENTS.join(', ') +
+        ' — got "' +
+        environment +
+        '". It is a Vercel system variable; do not set it by hand.',
+    )
+  }
+  const isProduction = environment === 'production'
+
   const requested = clean(env.CONTENT_SOURCE).toLowerCase()
 
   if (requested.length > 0 && requested !== 'sanity' && requested !== 'fixture' && requested !== 'seed') {
@@ -74,7 +94,7 @@ export function readConfig(env: Env): ConfigResult {
 
   // Fixtures are demo content. Production may ship the committed seed — loudly,
   // with a banner — but never the fixtures, named or not (SEC-7).
-  if (requested === 'fixture' && env.VERCEL_ENV === 'production') {
+  if (requested === 'fixture' && isProduction) {
     return fail(
       'CONTENT_SOURCE=fixture is not allowed in production — set SANITY_PROJECT_ID and ' +
         'SANITY_DATASET, or CONTENT_SOURCE=seed for a code-only hotfix from the committed snapshot.',
@@ -86,7 +106,7 @@ export function readConfig(env: Env): ConfigResult {
 
   // Production has to NAME its source. Preview and local keep the fixture
   // default: previews are the builds a client demo runs on.
-  if (env.VERCEL_ENV === 'production') {
+  if (isProduction) {
     return fail(
       'a production build must name its content source — set SANITY_PROJECT_ID and ' +
         'SANITY_DATASET (Sanity) or CONTENT_SOURCE=seed (committed snapshot) in the ' +
