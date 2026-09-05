@@ -304,15 +304,29 @@ export function pinchGain(
 }
 
 /**
- * Silence after which the gesture hint offers itself, in milliseconds.
+ * Silence after which the gesture hint offers itself again, in milliseconds.
  *
  * Measured from the last NAVIGATION input, not from the last input of any kind:
  * a viewer turning the city has not demonstrated anything about travelling
- * between worlds, and must still be taught. JUDGED — long enough that anyone
- * getting on with it is never interrupted, short enough that someone who has
- * run out of ideas is not left there.
+ * between worlds, and must still be taught. It returns EVERY time this elapses
+ * (2026-09-05, replacing the once-per-world rule): one accepted nudge of the
+ * wheel used to count as having learnt the gesture, and a viewer who had only
+ * brushed it was never reminded again. JUDGED — long enough that anyone getting
+ * on with it is never interrupted, short enough that someone who has run out of
+ * ideas is not left there.
  */
-export const HINT_DELAY_MS = 5000
+export const HINT_DELAY_MS = 15000
+
+/**
+ * The beat between a world settling in front of the viewer and the gesture
+ * hint appearing, in milliseconds.
+ *
+ * Every arrival is offered the hint — the intro handing over, and each warp
+ * settling. Short, because the whole point is that the first thing a viewer is
+ * told on landing is how to leave; but not zero, so the sentence fades up onto
+ * a still frame rather than into the last frames of the camera move.
+ */
+export const HINT_ARRIVAL_MS = 1200
 
 export interface NavigationCooldownLimits {
   /**

@@ -1799,6 +1799,15 @@ some is merely not-yet-moved, and conflating them turns a temporary constraint i
 > journey is now split in two and 600px of it lives in the band, NOT for feel. The prohibition
 > stands exactly as written.
 
+> **AMENDED AGAIN 2026-09-05 — the hint is offered on arrival, and never retired.** The
+> once-per-world rule failed in the field: "any accepted travel" includes one nudge of the wheel
+> into the zoom band, so a viewer who brushed it was never reminded again in that world, and the
+> client reported the hint as "sometimes not appearing". It now carries a sentence under the
+> glyph, appears **a beat (1.2s) after every arrival** — the intro handing over, each warp
+> settling — hides the moment the viewer navigates, and **returns after fifteen seconds** with no
+> navigation input, as many times as that happens. The re-arm on arrival and the rotation
+> exclusion stand. `HINT_DELAY_MS` 5000 → 15000, `HINT_ARRIVAL_MS` added.
+
 The navigation rail (`adr/009`) is the one control between the worlds, and three 2026-08-20
 decisions govern how it reads and feels. All three live in the presentation layer on
 purpose: the accumulator's constants (`commitDistancePx`, `idleGapSeconds`, `decaySeconds`)

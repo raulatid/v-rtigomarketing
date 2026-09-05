@@ -164,7 +164,6 @@ export class MurciaExperience {
   private readonly debug: MurciaDebugTools;
 
   private firstFrameRecorded = false;
-  private hintFaded = false;
 
   private readonly ndc = new THREE.Vector2();
 
@@ -655,13 +654,17 @@ export class MurciaExperience {
       env.navigation,
       this.bounds.initialBounds(env.navigation.bounds),
       {
-        onFirstInteraction: () => this.fadeHint(),
         // The footprint is azimuth-dependent, so free yaw means the navigable
         // area changes continuously. Four ray/plane intersections per changed
         // frame; measurably nothing next to the render.
         onYawChanged: () => this.recomputeBounds(),
-        onDragStateChanged: (dragging) =>
-          this.cursor.request('drag', dragging ? 'grabbing' : ''),
+        onDragStateChanged: (dragging) => {
+          this.cursor.request('drag', dragging ? 'grabbing' : '');
+          // A drag or a rotation past the threshold is the viewer demonstrating
+          // the controls; a press is not, which is why the plate no longer
+          // fades on `onFirstInteraction`.
+          if (dragging) this.controlsHint.demonstrated();
+        },
       },
     );
 
@@ -932,12 +935,6 @@ export class MurciaExperience {
     clientToNdc(rect, event.clientX, event.clientY, this.ndc);
     this.interactionProbe?.probe(this.ndc);
   };
-
-  private fadeHint(): void {
-    if (this.hintFaded) return;
-    this.hintFaded = true;
-    this.controlsHint.fadeOut();
-  }
 
   // --- Frame ----------------------------------------------------------------
 

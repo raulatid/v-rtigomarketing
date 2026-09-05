@@ -50,11 +50,33 @@ export class StatusOverlay {
 }
 
 /**
+ * How long the controls plate is owed on screen after the viewer arrives, in
+ * milliseconds, whatever their hands do in the meantime.
+ *
+ * JUDGED, like `BEACON_DWELL_MS`: three short lines, read by someone who has
+ * just landed in a city and is looking at the city. This plate is the ONLY
+ * place the controls are taught — rotation in particular has no affordance —
+ * so losing it unread is losing the lesson. It used to fade on the first
+ * `pointerdown`, which a click, a tap, or a finger of the arriving pinch all
+ * are; the mobile audit (M22) found it at `opacity: 0` in every run.
+ */
+export const CONTROLS_HINT_MIN_MS = 15000;
+
+/**
  * Non-blocking controls hint (pointer-events: none) so it never intercepts a
- * drag on the canvas. Fades out after the first interaction.
+ * drag on the canvas.
+ *
+ * Fades once the viewer has DEMONSTRATED a drag — the controller's drag
+ * threshold crossed, not a bare press — and never sooner than
+ * `CONTROLS_HINT_MIN_MS` after the arrival it was offered on. Once per page
+ * load: a second visit to the city does not bring it back.
  */
 export class ControlsHint {
   private readonly el: HTMLDivElement;
+  /** When the plate was offered, or null before the first settled arrival. */
+  private shownAt: number | null = null;
+  private fadeTimer = 0;
+  private faded = false;
 
   constructor(parent: HTMLElement) {
     this.el = document.createElement('div');
@@ -94,11 +116,44 @@ export class ControlsHint {
     parent.appendChild(this.el);
   }
 
+  /**
+   * The viewer has arrived and the plate is in front of them. Starts the
+   * reading clock. Idempotent: the first arrival is the one that counts.
+   */
+  offer(now = Date.now()): void {
+    if (this.faded || this.shownAt !== null) return;
+    this.shownAt = now;
+  }
+
+  /**
+   * The viewer has crossed the drag threshold. Fades the plate now if the
+   * reading time is up, otherwise when it is. A drag that somehow lands before
+   * any arrival is owed the full reading time from that moment.
+   */
+  demonstrated(now = Date.now()): void {
+    if (this.faded || this.fadeTimer !== 0) return;
+    if (this.shownAt === null) this.shownAt = now;
+    const remaining = CONTROLS_HINT_MIN_MS - (now - this.shownAt);
+    if (remaining <= 0) {
+      this.fadeOut();
+      return;
+    }
+    this.fadeTimer = setTimeout(() => {
+      this.fadeTimer = 0;
+      this.fadeOut();
+    }, remaining) as unknown as number;
+  }
+
   fadeOut(): void {
+    this.faded = true;
     this.el.classList.add('faded');
   }
 
   dispose(): void {
+    if (this.fadeTimer !== 0) {
+      clearTimeout(this.fadeTimer);
+      this.fadeTimer = 0;
+    }
     this.el.remove();
   }
 }

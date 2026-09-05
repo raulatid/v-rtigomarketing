@@ -11,8 +11,14 @@ import { NAVIGATION_GESTURE, NAVIGATION_ZOOM } from './navigationConfig'
 // The application notifies `contextChanged()` on the semantic edges, and wiring
 // itself derives the initial state.
 
-/** Short enough that a test need not wait five real seconds for the hint. */
+/** The arrival beat: short enough that a test need not wait a real second. */
 const HINT_MS = 30
+/**
+ * The silence clock. Longer than the beat, and longer than the two animation
+ * frames a gesture assertion waits through — jsdom's frames are ~16ms timers,
+ * so a 30ms clock would have re-offered the hint before the assertion ran.
+ */
+const HINT_IDLE_MS = 120
 
 function setup(initial: Partial<NavigationContext> = {}) {
   // The real markup, because the hint is a SIBLING of the control now and the
@@ -30,7 +36,8 @@ function setup(initial: Partial<NavigationContext> = {}) {
   let depth = 0
   const input = createNavigationInput({
     root,
-    hintDelayMs: HINT_MS,
+    hintDelayMs: HINT_IDLE_MS,
+    hintArrivalMs: HINT_MS,
     getContext: () => ({ ...context }),
     onCommit: (intent) => commits.push(intent),
     onZoom: (value) => {
@@ -137,16 +144,33 @@ describe('one event cannot cross the gesture, whichever stage it lands in', () =
   })
 })
 
-describe('the gesture hint offers itself once per world', () => {
-  it('stays away at first, rather than greeting everyone', () => {
+describe('the gesture hint offers itself on arrival, and again after silence', () => {
+  it('is not on screen at first paint', () => {
     const { hint, input } = setup({ canNavigate: true })
     expect(hint.dataset.visible).toBeUndefined()
     input.dispose()
   })
 
-  it('appears after the idle delay', async () => {
+  it('appears a beat after the intro hands the world over', async () => {
+    // The intro reaching 'site' arrives as a reset, not as a context change.
     const { hint, input } = setup({ canNavigate: true })
-    await after(HINT_MS * 3)
+    input.reset()
+    await after(HINT_MS * 2)
+    expect(hint.dataset.visible).toBe('true')
+    input.dispose()
+  })
+
+  it('appears a beat after a warp settles', async () => {
+    const { hint, input } = setup({ canNavigate: true })
+    input.settle()
+    await after(HINT_MS * 2)
+    expect(hint.dataset.visible).toBe('true')
+    input.dispose()
+  })
+
+  it('appears after the idle delay even with no arrival', async () => {
+    const { hint, input } = setup({ canNavigate: true })
+    await after(HINT_IDLE_MS * 1.5)
     expect(hint.dataset.visible).toBe('true')
     input.dispose()
   })
@@ -155,33 +179,60 @@ describe('the gesture hint offers itself once per world', () => {
     // The rail used to get this for free by being the hint's parent and lending
     // it every opacity state. A sibling has to be asked.
     const { hint, input } = setup({ canNavigate: false })
+    input.reset()
     await after(HINT_MS * 3)
     expect(hint.dataset.visible).toBeUndefined()
     input.dispose()
   })
 
+  it('keeps an arrival owed until the context stops refusing', async () => {
+    // The app settles the machine a render before it clears `transitioning`,
+    // so the offer lands on a refusing context. It must be paid on the next
+    // edge at the arrival beat, not folded into the fifteen-second silence.
+    const t = setup({ canNavigate: false })
+    t.input.settle()
+    t.context.canNavigate = true
+    t.input.contextChanged()
+    await after(HINT_MS * 2)
+    expect(t.hint.dataset.visible).toBe('true')
+    t.input.dispose()
+  })
+
+  it('does not treat a panel closing as an arrival', async () => {
+    const t = setup({ canNavigate: false })
+    t.context.canNavigate = true
+    t.input.contextChanged()
+    await after(HINT_MS * 2)
+    expect(t.hint.dataset.visible).toBeUndefined()
+    t.input.dispose()
+  })
+
   it('is postponed by a navigation input, because that viewer is not stuck', async () => {
     const { hint, input } = setup({ canNavigate: true })
-    await after(HINT_MS * 0.6)
+    await after(HINT_IDLE_MS * 0.6)
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 20, cancelable: true }))
-    await after(HINT_MS * 0.7)
+    await after(HINT_IDLE_MS * 0.7)
     // The original clock would have fired by now; the wheel restarted it.
     expect(hint.dataset.visible).toBeUndefined()
     input.dispose()
   })
 
-  it('retires for good in this world once a gesture is in flight', async () => {
+  it('returns after the silence that follows a gesture in flight', async () => {
+    // The old rule retired it for good here: one accepted nudge of the wheel
+    // counted as having learnt the gesture, and a viewer who had only brushed
+    // it was never reminded again in that world.
     const { hint, input } = setup({ canNavigate: true })
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, cancelable: true }))
     await twoFrames()
-    await after(HINT_MS * 4)
     expect(hint.dataset.visible).toBeUndefined()
+    await after(HINT_IDLE_MS * 1.5)
+    expect(hint.dataset.visible).toBe('true')
     input.dispose()
   })
 
   it('hides again the moment it is acted on', async () => {
     const { hint, input } = setup({ canNavigate: true })
-    await after(HINT_MS * 3)
+    await after(HINT_IDLE_MS * 1.5)
     expect(hint.dataset.visible).toBe('true')
 
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, cancelable: true }))
@@ -190,18 +241,18 @@ describe('the gesture hint offers itself once per world', () => {
     input.dispose()
   })
 
-  it('re-arms for the other world, which is left by the opposite gesture', async () => {
+  it('offers itself for the other world when its warp settles', async () => {
     const t = setup({ canNavigate: true })
     window.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, cancelable: true }))
     await twoFrames()
-    await after(HINT_MS * 4)
     expect(t.hint.dataset.visible).toBeUndefined()
 
     // Arriving in Murcia. Leaving it is a CLOSE where entering was a spread, so
     // the viewer has demonstrated nothing about the gesture they now need.
     t.context.current = 'murcia'
     t.input.contextChanged()
-    await after(HINT_MS * 4)
+    t.input.settle()
+    await after(HINT_MS * 2)
     expect(t.hint.dataset.visible).toBe('true')
     t.input.dispose()
   })
