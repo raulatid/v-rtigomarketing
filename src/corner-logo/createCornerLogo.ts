@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { loadProgress } from '../loading/progress'
 import { disposeObject3D } from '../graphics/disposal'
+import { applyBrandWhite } from './brandMaterial'
 import { loadLogoAssets, type LogoAssets } from './loadLogoAssets'
 import { createLogoMotion, type CornerMetrics, type LogoMotion } from './logoMotion'
 import type { CornerLogoConfig } from './cornerLogoConfig'
@@ -89,13 +90,9 @@ export function createCornerLogo({
     1000,
   )
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8))
-  const keyLight = new THREE.DirectionalLight(0xffffff, 2.0)
-  keyLight.position.set(3, 5, 4)
-  scene.add(keyLight)
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.5)
-  fillLight.position.set(-3, 1, -2)
-  scene.add(fillLight)
+  // No lights: the mark is unlit brand white (brandMaterial.ts, plan 019 §3).
+  // The three that stood here fed a MeshStandardMaterial and a bake the
+  // geometry could not sample.
 
   const modelGroup = new THREE.Group()
   scene.add(modelGroup)
@@ -108,33 +105,20 @@ export function createCornerLogo({
   let disposed = false
   let aspect = 1
 
-  const load = loadLogoAssets(renderer)
+  const load = loadLogoAssets()
 
   /**
-   * Bind the texture, centre the model, frame the camera, compile.
+   * Dress the model, centre it, frame the camera, compile.
    *
    * Everything here has to happen before the logo is first drawn, and the
-   * compile is the reason: this scene's MeshStandardMaterial programs derive
-   * from ITS lights and defines, which no amount of Earth warm-up covers
-   * (plan 003 §3). Without it they compile on the logo's first rendered frame —
-   * the swap crossover, the one moment that depends on precise timing to stay
-   * invisible (measured 56.8ms stall).
+   * compile is the reason: this scene's material programs are its own, which
+   * no amount of Earth warm-up covers (plan 003 §3). Without it they compile
+   * on the logo's first rendered frame — the swap crossover, the one moment
+   * that depends on precise timing to stay invisible (measured 56.8ms stall
+   * with the lit material; an unlit one is cheaper to compile, not free).
    */
-  function assemble({ model, texture }: LogoAssets): void {
-    if (texture) {
-      model.traverse((node) => {
-        const mesh = node as THREE.Mesh
-        if (!mesh.isMesh) return
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-        for (const material of materials) {
-          const m = material as THREE.MeshStandardMaterial
-          m.map = texture
-          if ('metalness' in m) m.metalness = 0
-          if ('roughness' in m) m.roughness = 1
-          m.needsUpdate = true
-        }
-      })
-    }
+  function assemble({ model }: LogoAssets): void {
+    applyBrandWhite(model)
 
     // Recenter on the bounding-box centre so all motion math is origin-based.
     const box = new THREE.Box3().setFromObject(model)
@@ -161,8 +145,7 @@ export function createCornerLogo({
     camera.updateProjectionMatrix()
 
     // compile() gathers materials with scene.traverse, so the still-hidden
-    // modelGroup is included; the lights are scene-level and visible.
-    if (texture) renderer.initTexture(texture)
+    // modelGroup is included.
     const finish = () => {
       // compileAsync resolves a frame or more later, by which time teardown may
       // have happened even though assemble was still live on entry.
@@ -184,7 +167,6 @@ export function createCornerLogo({
       // put them somewhere disposeObject3D could find them. Release them here
       // instead — the one window where neither side owns them.
       if (disposed) {
-        assets.texture?.dispose()
         disposeObject3D(assets.model)
         return
       }

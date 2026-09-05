@@ -280,6 +280,17 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   if (!nonEmpty(entry.contactSuccessTitle)) at('contactSuccessTitle', 'must be a non-empty string')
   if (!nonEmpty(entry.contactSuccessBody)) at('contactSuccessBody', 'must be a non-empty string')
 
+  // The building's banner (plan 019). The switch must be a real boolean —
+  // a string 'false' is true in the one place it is read — and the image, when
+  // there is one, must be a path the mirror produced: a CDN url reaching the
+  // emitted module means the browser would fetch a texture cross-origin.
+  if (typeof entry.buildingBanner?.enabled !== 'boolean') {
+    at('buildingBanner.enabled', 'must be a boolean')
+  }
+  if (entry.buildingBanner?.image !== undefined && !LOCAL_MEDIA_PATH.test(entry.buildingBanner.image)) {
+    at('buildingBanner.image', 'must be a local media path')
+  }
+
   // The footer renders this list and the contact section links it. An empty one
   // leaves the site with no way to reach anybody, which is a content mistake
   // worth stopping a deployment for.

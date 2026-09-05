@@ -1,6 +1,7 @@
 import { CogIcon } from '@sanity/icons/Cog'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { bannerImageErrors } from './lib/bannerImage'
 
 /**
  * The lengths this schema refuses, shared with the content build.
@@ -47,6 +48,13 @@ export const siteSettings = defineType({
         'Lo que lee la persona cuando su mensaje se ha enviado de verdad. Aparece dentro del ' +
         'mismo panel, en el lugar del formulario. Un cambio aquí se ve en la web después de ' +
         'volver a publicar el sitio, no al instante.',
+    },
+    {
+      name: 'edificio',
+      title: 'Edificio Vértigo',
+      description:
+        'La pantalla que gira en lo alto del edificio Vértigo, en la ciudad. Un cambio aquí se ' +
+        've en la web después de volver a publicar el sitio.',
     },
   ],
   fields: [
@@ -198,6 +206,32 @@ export const siteSettings = defineType({
           `Demasiado largo: como máximo ${BOUNDS.successBody} caracteres.`,
         ),
       ],
+    }),
+    // ── La pantalla del edificio ──
+    //
+    // Sólo imagen, de momento. El vídeo está previsto y documentado en el
+    // código, pero no se ofrece aquí hasta que exista: un campo sin nada que lo
+    // lea es una promesa que el Studio hace en nombre de la web.
+    defineField({
+      name: 'bannerEnabled',
+      title: 'Mostrar la pantalla',
+      description:
+        'Apagado, la pantalla se ve como el resto del edificio. Encendido sin imagen, la web ' +
+        'enseña su propia imagen provisional.',
+      type: 'boolean',
+      fieldset: 'edificio',
+      initialValue: true,
+    }),
+    defineField({
+      name: 'bannerImage',
+      title: 'Imagen de la pantalla',
+      description:
+        'Apaisada, casi el doble de ancha que de alta: 1600×800 es el tamaño ideal. PNG o ' +
+        'WebP. Se repite en las cuatro caras de la pantalla.',
+      type: 'image',
+      fieldset: 'edificio',
+      options: { accept: 'image/png,image/webp' },
+      validation: (rule) => rule.custom(bannerImageErrors()),
     }),
   ],
   preview: {

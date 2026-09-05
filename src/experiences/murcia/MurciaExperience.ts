@@ -34,6 +34,12 @@ import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
+import { createTowerLogo } from './landmark/createTowerLogo';
+import type { TowerLogo } from './landmark/createTowerLogo';
+import { attachBanner, resolveBannerSource } from './landmark/attachBanner';
+import type { BannerAttachment } from './landmark/attachBanner';
+import { VERTIGO_BUILDING } from './landmark/vertigoBuildingConfig';
+import { BUILDING_BANNER } from '../../content/site';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc } from '../../interaction/screenSpace';
@@ -84,6 +90,13 @@ export class MurciaExperience {
   private readonly environment: EnvironmentConfig;
   /** False on a production build — see the constructor. */
   private readonly debugTools: boolean;
+  /**
+   * `prefers-reduced-motion`, read once at construction. ONE read for the
+   * environment: the districts' flights and the tower sign both answer to it,
+   * and a second `matchMedia` per consumer is how two parts of one city end
+   * up disagreeing about the same setting.
+   */
+  private readonly reducedMotion: boolean;
   /** See the constructor option of the same name. */
   private readonly onAttentionChange?: () => void;
 
@@ -98,6 +111,10 @@ export class MurciaExperience {
    */
   private readonly onOpenBlog?: () => void;
   private blogBuilding: BlogBuilding | null = null;
+  /** The Vertigo tower's turning logo. Built after the city loads. */
+  private towerLogo: TowerLogo | null = null;
+  /** The banner on the tower's screen, when the site settings say there is one. */
+  private banner: BannerAttachment | null = null;
 
   private sceneBundle!: SceneBundle;
   private camera!: THREE.PerspectiveCamera;
@@ -196,6 +213,9 @@ export class MurciaExperience {
     this.debugTools = options.debugTools ?? false;
     this.onAttentionChange = options.onAttentionChange;
     this.onOpenBlog = options.onOpenBlog;
+    this.reducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.appConfig = applyQueryOverrides(
       createAppConfig(),
       window.location.search,
@@ -684,6 +704,21 @@ export class MurciaExperience {
 
     this.setupDistricts(loaded.root);
     this.setupBlogBuilding(loaded.root);
+    this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
+      reducedMotion: this.reducedMotion,
+    });
+    // Awaited here, INSIDE the city's own load, and that is a deliberate
+    // placement rather than a readiness decision: `murcia:model` is not a
+    // required boot step (bootState.ts), so the boot never waits on this — but
+    // `warm()` runs after this method and compiles whatever materials the city
+    // holds, and a banner material that arrived later would compile on the
+    // first frame it is drawn. A texture the size of a favicon is cheaper
+    // awaited than hitched.
+    const bannerSource = resolveBannerSource(BUILDING_BANNER, VERTIGO_BUILDING.placeholderImage);
+    if (bannerSource) {
+      this.banner = attachBanner(loaded.root, VERTIGO_BUILDING, bannerSource);
+      await this.banner.ready;
+    }
 
     this.setupClickInteraction();
     this.statusOverlay.hide();
@@ -748,9 +783,7 @@ export class MurciaExperience {
    */
   private setupDistricts(root: THREE.Object3D): void {
     if (!this.rig || !this.controller) return;
-    const reducedMotion =
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reducedMotion = this.reducedMotion;
 
     for (const binding of cityDistrictBindings) {
       const content = findDistrictContent(DISTRICT_CONTENT, binding.contentId);
@@ -973,6 +1006,10 @@ export class MurciaExperience {
       this.loaded.water.update(this.waterTime);
     }
 
+    // The tower's logo turns on the same delta. A quaternion write per node, no
+    // allocation — see createTowerLogo for why there is no loop of its own.
+    this.towerLogo?.update(delta);
+
     if (!this.firstFrameRecorded && this.loaded) {
       this.loaded.timings.firstRenderedFrameTime = performance.now();
       this.firstFrameRecorded = true;
@@ -1013,6 +1050,12 @@ export class MurciaExperience {
   dispose(): void {
     this.blogBuilding?.dispose();
     this.blogBuilding = null;
+    // Nothing to release: the logo owns no resource, only a reference into the
+    // city that disposeLoadedCity below takes down. The banner's texture goes
+    // the same way once applied; dispose() only covers one still in flight.
+    this.towerLogo = null;
+    this.banner?.dispose();
+    this.banner = null;
     this.active = false;
 
     this.renderer.domElement.removeEventListener('pointerup', this.onPointerUpForClick);

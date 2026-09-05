@@ -95,11 +95,20 @@
   pointer-events: auto;
 }
 
-/* The blog's bar: paper, a hairline, and it takes pointer events as a whole
-   because there is nothing to drag underneath it. Its vertical padding is its
-   own — the 48px line is the scene's composition, and the blog's mark sizes
-   itself from its own cell rather than from that line (it is a bar, not a
-   corner). `.blog-root` pads its top by the same band (blog.css). */
+/* The blog's bar: BLACK since 2026-09-05 (plan 019 §4, client direction), a
+   hairline, and it takes pointer events as a whole because there is nothing to
+   drag underneath it. Its vertical padding is its own — the 48px line is the
+   scene's composition, and the blog's mark sizes itself from its own cell
+   rather than from that line (it is a bar, not a corner). `.blog-root` pads
+   its top by the same band (blog.css).
+
+   THIS SELECTOR IS THE WHOLE "DARK HEADER" CONCEPT. It sets the ground and the
+   ink once; the blog's own controls in the bar (`.blog-back`, the mark, the
+   search — blog.css) take `color: inherit` rather than carrying a colour each,
+   so there is one place that says the bar is dark and nothing to keep in step.
+   The 3D mark is brand white by material (corner-logo/brandMaterial.ts), and
+   the two header triggers read `data-tone` — BlogRoute passes `dark`, which is
+   simply true of this ground now. */
 .site-header[data-layout='blog'] {
   /* UNDER the curtain (60) and the modals (62), which the blog mounts as its
      siblings inside `.blog-root`: an opaque bar above them would cover the
@@ -107,8 +116,9 @@
      transparent and only its controls take pointer events. */
   z-index: 50;
   pointer-events: auto;
-  background: #fbfbfa;
-  border-bottom: 1px solid rgba(11, 11, 13, 0.12);
+  background: #0b0b0d;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   /* On the HEADER, not the row: the phone menu's field is the row's sibling
      and hangs from the same line, so both must read the same value. */
   --header-line-top: 14px;
@@ -262,10 +272,12 @@
    contrast than the ink it replaces, over exactly the surface the client is
    looking at. So the white comes with something to sit on.
 
-   Scoped by data-layout, not by tone. `tone='light'` is shared: App.tsx sets it
-   for Murcia and BlogRoute.tsx sets it for the blog, whose bar is #fbfbfa
-   paper. Written against tone alone, this rule would put white text on white
-   paper — and the blog's own header is not what anybody asked to change.
+   Scoped by data-layout, not by tone. `tone` is shared across layouts: App.tsx
+   sets `light` for Murcia and the blog passed it too while its bar was paper.
+   Written against tone alone, this rule would have put white text on white
+   paper. The blog's bar is black now (plan 019 §4) and passes `dark`, so the
+   scoping no longer changes what renders — it stays because the rule is about
+   the SCENE's sky, and a scrim has no business on an opaque bar.
 
    The scrim is the hint frame's recipe (`.nav-hint`, styles.css): dark glass, blurred,
    fully round. Deliberately lighter than that one (0.42 against 0.72) and with

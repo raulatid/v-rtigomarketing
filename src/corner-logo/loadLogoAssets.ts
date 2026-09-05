@@ -1,15 +1,9 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { loadProgress } from '../loading/progress'
-import {
-  acquireDracoLoader,
-  acquireKtx2Loader,
-  releaseDracoLoader,
-  releaseKtx2Loader,
-} from '../graphics/decoders'
+import { acquireDracoLoader, releaseDracoLoader } from '../graphics/decoders'
 
 const MODEL_URL = '/models/model.glb'
-const TEXTURE_URL = '/textures/logoBake.ktx2'
 // The decoder paths used to be declared here, and again in createSatellite.ts,
 // and again in Murcia's appConfig — three copies of the same two strings. They
 // live in `graphics/decoders.ts` now, with the instances they configure.
@@ -18,9 +12,15 @@ const TEXTURE_URL = '/textures/logoBake.ktx2'
 // glTF-specific decoder. It once pointed at /libs/draco/ — the GENERIC decoder
 // plus an unused encoder and a duplicate gltf/ copy, 3.6MB of deploy for one
 // 750KB decoder.
+//
+// There is ONE file now. `logoBake.ktx2` and the KTX2 transcoder went with plan
+// 019 §3 (2026-09-05): the mark's geometry carries no UV set, so the bake was
+// never sampled, and the white it stood in for is the material's own — see
+// `brandMaterial.ts`. The satellite still transcodes KTX2; this module no
+// longer takes a reference to that pool.
 
 /**
- * The share of `logo:assets` the two downloads are allowed to report.
+ * The share of `logo:assets` the download is allowed to report.
  *
  * The last quarter is held back for the GPU compile the caller runs on arrival:
  * reporting 100% before the model can actually be shown would make the loading
@@ -30,28 +30,20 @@ const DOWNLOAD_SHARE = 0.75
 
 export interface LogoAssets {
   model: THREE.Group
-  /** Null when the KTX2 failed. The model is shown untextured — see below. */
-  texture: THREE.Texture | null
 }
 
 export interface LogoAssetLoad {
-  /**
-   * Resolves once both files have settled and the model arrived.
-   *
-   * Rejects ONLY if the model failed. A missing texture is a degradation, not a
-   * failure, and the two are deliberately not symmetric: an untextured mark is
-   * still the mark, and no mark at all is not.
-   */
+  /** Resolves with the model, or rejects if it failed to load. */
   ready: Promise<LogoAssets>
   /**
-   * Stops reporting progress, releases the decoders, and disposes anything that
+   * Stops reporting progress, releases the decoder, and disposes anything that
    * lands afterwards.
    */
   dispose(): void
 }
 
 /**
- * The logo's two files, loaded in parallel and joined when both settle.
+ * The logo's model, loaded and handed over once.
  *
  * Split out of createCornerLogo because it is the half of that module with a
  * cancellation problem, and the cancellation was the part that leaked into
@@ -65,73 +57,54 @@ export interface LogoAssetLoad {
  * Owning the flag here reduces those seven to two: this module's own guards,
  * and one in the caller around assembly.
  */
-export function loadLogoAssets(renderer: THREE.WebGLRenderer): LogoAssetLoad {
-  // Owned here rather than passed in: it covers exactly these two files, and
-  // keeping it internal means the caller needs no loader import — which is what
-  // lets the whole corner-logo module stay lazily loaded.
+export function loadLogoAssets(): LogoAssetLoad {
+  // Owned here rather than passed in: it covers exactly this file, and keeping
+  // it internal means the caller needs no loader import — which is what lets
+  // the whole corner-logo module stay lazily loaded.
   const loadingManager = new THREE.LoadingManager()
 
   loadingManager.onProgress = (_url, loaded, total) =>
     loadProgress.setStep('logo:assets', total > 0 ? (loaded / total) * DOWNLOAD_SHARE : 0)
 
-  // Both decoders are shared with the satellites and the city — see
+  // The Draco pool is shared with the satellites and the city — see
   // `graphics/decoders.ts`. All three of those loads happen during the intro,
   // so building a pool each meant up to twenty workers and ~1.6MB of duplicated
   // WASM alive simultaneously, at the peak.
-  //
-  // The KTX2 loader therefore no longer takes this module's LoadingManager, so
-  // the texture's bytes no longer feed `onProgress`. That is a real change and
-  // it is the right one: the manager counted two files, and the share it
-  // reports was always dominated by the 20KB model against the 23KB bake — the
-  // step is still driven to completion by `joinIfReady` either way.
-  const ktx2Loader = acquireKtx2Loader(renderer)
   const dracoLoader = acquireDracoLoader()
   const gltfLoader = new GLTFLoader(loadingManager)
   gltfLoader.setDRACOLoader(dracoLoader)
 
   let disposed = false
-  /** True once `ready` has resolved and the caller owns the texture. */
+  /** True once `ready` has resolved and the caller owns the model. */
   let handedOver = false
 
   /**
-   * The decoder pools go back as soon as BOTH loads have settled, not when this
+   * The decoder pool goes back as soon as the load has SETTLED, not when this
    * module is disposed.
    *
    * Disposal is the wrong moment and the measurement says so: the corner logo
    * lives for the whole visit, so releasing there meant the reference count
-   * never reached zero and four Draco workers plus two Basis workers stayed
-   * resident from the intro onwards — six workers and roughly 1.1 MB of WASM
-   * heap, on a page that had finished decoding at second four. Sampled every
-   * second against the production build: 6 from t=4s to t=36s, and to the end
-   * of the session after that.
+   * never reached zero and four Draco workers stayed resident from the intro
+   * onwards — on a page that had finished decoding at second four. Sampled
+   * every second against the production build: resident from t=4s to the end
+   * of the session.
    *
    * Settled, not succeeded: an error path has no more use for a decoder than a
-   * success path, and the two error callbacks below are exactly where a leak
-   * would otherwise hide.
+   * success path, and the error callback below is exactly where a leak would
+   * otherwise hide.
    *
-   * Idempotent, because `dispose()` may run before either load settles and must
+   * Idempotent, because `dispose()` may run before the load settles and must
    * not release a reference this function has already given back — the count is
    * shared, and an extra release would tear the pool out from under whoever
    * else is decoding.
    */
-  let modelSettled = false
-  let textureSettled = false
-  let decodersReleased = false
+  let decoderReleased = false
 
-  function releaseDecoders(): void {
-    if (decodersReleased) return
-    decodersReleased = true
-    releaseKtx2Loader()
+  function releaseDecoder(): void {
+    if (decoderReleased) return
+    decoderReleased = true
     releaseDracoLoader()
   }
-
-  function releaseDecodersIfSettled(): void {
-    if (modelSettled && textureSettled) releaseDecoders()
-  }
-
-  let model: THREE.Group | null = null
-  let texture: THREE.Texture | null = null
-  let texturePending = true
 
   let settle: (assets: LogoAssets) => void
   let fail: (reason: Error) => void
@@ -140,26 +113,17 @@ export function loadLogoAssets(renderer: THREE.WebGLRenderer): LogoAssetLoad {
     fail = reject
   })
 
-  function joinIfReady() {
-    if (disposed || handedOver) return
-    if (!model || texturePending) return
-    handedOver = true
-    settle({ model, texture })
-  }
-
   gltfLoader.load(
     MODEL_URL,
     (gltf) => {
-      modelSettled = true
-      releaseDecodersIfSettled()
-      if (disposed) return
-      model = gltf.scene
-      joinIfReady()
+      releaseDecoder()
+      if (disposed || handedOver) return
+      handedOver = true
+      settle({ model: gltf.scene })
     },
     undefined,
     (err) => {
-      modelSettled = true
-      releaseDecodersIfSettled()
+      releaseDecoder()
       if (disposed) return
       // `logo:assets` is a REQUIRED manifest entry, and this branch used to mark
       // it neither done nor fatal — so readiness could reach neither state and
@@ -169,39 +133,9 @@ export function loadLogoAssets(renderer: THREE.WebGLRenderer): LogoAssetLoad {
       // Done rather than fatal, because degrading is what the caller already
       // does: it holds the 2D isotype on screen instead of playing the
       // crossover. The site is entirely usable without the 3D mark, so it must
-      // not be able to stop the site existing. The KTX2 branch below has always
-      // degraded this way; this only makes the two agree.
+      // not be able to stop the site existing.
       loadProgress.markDone('logo:assets')
       fail(err instanceof Error ? err : new Error(String(err)))
-    },
-  )
-
-  ktx2Loader.load(
-    TEXTURE_URL,
-    (loaded) => {
-      textureSettled = true
-      releaseDecodersIfSettled()
-      // Disposed mid-flight: this texture has no owner left, so release it here
-      // rather than leaking a decoded KTX2 on the GPU.
-      if (disposed) {
-        loaded.dispose()
-        return
-      }
-      loaded.colorSpace = THREE.SRGBColorSpace
-      loaded.flipY = false
-      texture = loaded
-      texturePending = false
-      joinIfReady()
-    },
-    undefined,
-    (err) => {
-      textureSettled = true
-      releaseDecodersIfSettled()
-      if (disposed) return
-      // Degrade gracefully: show the model untextured rather than hanging.
-      console.warn('[corner-logo] KTX2 failed, using untextured model:', err)
-      texturePending = false
-      joinIfReady()
     },
   )
 
@@ -209,19 +143,16 @@ export function loadLogoAssets(renderer: THREE.WebGLRenderer): LogoAssetLoad {
     ready,
     dispose() {
       disposed = true
-      // The manager outlives this call only if a load is still in flight; its
+      // The manager outlives this call only if the load is still in flight; its
       // callback would report progress for a logo nobody is waiting for.
       loadingManager.onProgress = () => {}
-      // Released, not disposed: these are shared instances and another consumer
+      // Released, not disposed: this is a shared instance and another consumer
       // may still be decoding. The pool is torn down when the last reference
       // goes, which is the same moment it used to be torn down here.
       //
-      // A no-op once both loads have settled, which is the normal case — see
-      // releaseDecoders above. This branch is for the logo disposed mid-flight.
-      releaseDecoders()
-      // Only if the caller never took it. After handover the texture is bound
-      // to the model's materials and is disposed with the scene.
-      if (!handedOver) texture?.dispose()
+      // A no-op once the load has settled, which is the normal case — see
+      // releaseDecoder above. This branch is for the logo disposed mid-flight.
+      releaseDecoder()
     },
   }
 }

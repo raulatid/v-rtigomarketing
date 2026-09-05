@@ -2171,6 +2171,55 @@ and `intro` still have no reader.
 
 ---
 
+## 36. The Vertigo building is the client's, and it moves
+
+**Decided** 2026-09-05, plan 019. Four things landed together; each is its own decision.
+
+**The logo on the tower turns, from Murcia's one frame loop.** The isotype standing on the
+tower's cap is two curve meshes — `BézierCurve` and `BézierCurve.001`, the same two the header's
+mark is built from — and `createTowerLogo` turns both about their local +Y at
+`VERTIGO_BUILDING.logo.angularSpeedRadPerSec` (0.35, a turn every ~18 s), angle = speed × delta,
+composed onto the authored orientation so position, scale and any future tilt survive. No
+`requestAnimationFrame` of its own — `MurciaExperience.update` ticks it beside the water — and
+the test reads the module's source to say so. Reduced motion is ONE read for the whole city now
+(`MurciaExperience.reducedMotion`), shared by the districts' flights and the logo. Missing nodes
+warn and the city loads; `check:asset:contract` §5d fails the export, and asserts the identity
+transform too. The two names are Blender's defaults and the contract says so, with the names a
+re-export should give them (`docs/murcia/blender-export-contract.md` §6.8).
+
+**The screen on the tower is editorial, and its image is mirrored.** `siteSettings` gained a
+switch (`bannerEnabled`, absent = on) and an image (`bannerImage`), emitted as
+`buildingBanner: { enabled, image? }`. The image goes through `withMediaMirror` like the brand
+marks — a WebGL texture may not come from a third party — with its own rule (PNG/WebP, ≥1024×512,
+1.6–2.1:1, because the band's faces are ~1.84:1 and the picture is stretched onto them), written
+twice on purpose: `siteSettings.collection.ts` fails the build, `sanity-studio/schemas/lib/bannerImage.ts`
+tells the editor. Image only; the video variant is documented beside the renderer and has no field
+until it has a consumer. Rendering is three separate steps — `resolveBannerSource` (the upload, or
+the city's placeholder `vertigo-banner-placeholder.png` through the same path) → `attachBanner`
+(an unlit, untone-mapped `MeshBasicMaterial`, sRGB, glTF flip, replacing but never disposing the
+city's shared material) — and the band's UVs are generated from its geometry, because the export's
+are a top-down projection that collapses every side face onto one edge of the UV square. That
+turned the contract from "unwrap it like this" into "keep it an axis-aligned box, normals out".
+Awaited inside `loadAndSetup` so `warm()` compiles the material; `murcia:model` is not a required
+boot step, so the boot never waits on it.
+
+**The 3D mark is brand white by material, and the bake is gone.** `vertigo-isotipo-3d.glb` carries
+no UV set, so `logoBake.ktx2` could not be sampled by it — the visual comparison was settled by the
+container. `applyBrandWhite` gives every mesh a `MeshBasicMaterial` at 1.0 with `toneMapped:
+false` (both renderers run ACES, which would ship 0.8 grey); the three lights and the KTX2 acquire
+left `createCornerLogo` / `loadLogoAssets` with them; the file is deleted. KTX2 stays in the
+project for the satellite bake.
+
+**The blog's bar is black, and that is one selector.** `.site-header[data-layout='blog']` sets the
+ground and the ink; the blog's own controls in it inherit rather than carrying a colour each, the
+SVG mark follows `currentColor`, the 3D mark is white by material, and BlogRoute passes
+`tone="dark"` because that is now true of the ground. The scene-only scrim rule keeps its
+`data-layout` scoping for the reason it always had — it is about the sky, not the tone.
+
+Broken when: a second frame loop appears for the logo, the banner texture is fetched from
+`cdn.sanity.io`, a banner field is added to the CMS without a consumer, the mark regains a lit
+material or a bake, or a second colour appears on the blog's bar.
+
 ## Superseded
 
 | Decision | Was | Now |
@@ -2200,7 +2249,7 @@ and `intro` still have no reader.
 | One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** |
 | The Earth prototype keeps its own decisions file | `earth/DECISIONS.md`, 1862 lines, listed above as still authoritative | Retired 2026-08-17; what still binds is **§26**, and this file is the only one — **§26** |
 | The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
-| The cold blog document is 2D by construction, and pays for no 3D at all | **`adr/013`**, 2026-08-31; the ban asserted in `e2e/blog.spec.ts` | It pays for the BRAND MARK and nothing else: three, the two decoders, `model.glb`, `logoBake.ktx2` — deferred until after the article paints, with the SVG as the first paint and the permanent fallback. What it still refuses is the 3D APPLICATION, and the e2e states that as an allow-list in both directions rather than a blanket ban — **`adr/013` amendment**, **§26.16** |
+| The cold blog document is 2D by construction, and pays for no 3D at all | **`adr/013`**, 2026-08-31; the ban asserted in `e2e/blog.spec.ts` | It pays for the BRAND MARK and nothing else: three, the Draco decoder and the mark's GLB (the KTX2 bake and its transcoder went with plan 019 §3, 2026-09-05 — the geometry has no UVs and the mark is unlit brand white) — deferred until after the article paints, with the SVG as the first paint and the permanent fallback. What it still refuses is the 3D APPLICATION, and the e2e states that as an allow-list in both directions rather than a blanket ban — **`adr/013` amendment**, **§26.16** |
 | The application has one WebGL renderer | **`adr/001`**, **`adr/002`**, and `graphics/decoders.ts`'s "which is all there ever is here" | One renderer for the SCENE. A warm document also holds the blog header's 44×44 `low-power` context — **`adr/013` amendment** |
 | A logo should be delivered at ~1024×512 | `sanity-media-contract.md` and the Studio's own field description, since 2026-08-23 | 1600×800, minimum 900 wide. 1024×512 is barely above the 896×400 box the artwork is fitted into, and `drawLogoContained` already warns below it — the CMS was advising editors towards artwork the renderer complains about. `docs/earth/logo-spec.md` had said 1600×800 all along and was the copy nobody reconciled — **§26.23** |
 | The format and size rules for a brand mark are guidance for the editor | the two `description` strings on `caseStudy.isotype` / `.logo` | They are validation. Wrong format or geometry disables Publicar and fails the build; only the ideal-versus-acceptable difference is advice — **§26.23** |

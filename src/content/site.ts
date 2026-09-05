@@ -55,6 +55,13 @@ export const FORM_MESSAGES = {
 export const COPYRIGHT = settings.copyright
 
 /**
+ * The banner on the Vertigo building's sign (plan 019). Read by Murcia, which
+ * resolves it to a texture source — the mirrored image, or the city's own
+ * placeholder when the client has not uploaded one. See `BuildingBanner`.
+ */
+export const BUILDING_BANNER = settings.buildingBanner
+
+/**
  * Which legal documents the site links to — a union in code, on purpose.
  *
  * The footer names these two, `App.tsx` routes on them and `ContactSection`

@@ -24,6 +24,8 @@ import './siteHeader.css'
  * The blog has no scene canvas, so it passes `BlogHeaderLogo` as `brand` — an
  * SVG that upgrades itself into the same 3D mark on a little canvas of its own
  * (adr/013, amended 2026-09-04). Either way this component only owns the cell.
+ * The blog's bar is black (plan 019 §4) and the mark is white on it: the SVG
+ * through `currentColor`, the 3D one by its own material.
  *
  * ── Two documents ──
  *

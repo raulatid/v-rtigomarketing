@@ -153,7 +153,9 @@ function TopBar({
     <>
       <SiteHeader
         layout="blog"
-        tone="light"
+        // The bar is black (siteHeader.css, plan 019 §4): a dark ground, and the
+        // header's two triggers dress for it the way they do over Earth.
+        tone="dark"
         hasActions
         onActionsHost={setActionsHost}
         // Both hosts render the same control; only what it does differs, and on

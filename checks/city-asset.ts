@@ -49,6 +49,7 @@ import {
   PLAZA_NODE_NAME,
   RING_NODE_NAME,
 } from '../src/experiences/murcia/district/districtConfig';
+import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
 
 const MODEL =
   process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/city-prototype.glb';
@@ -504,6 +505,42 @@ for (const [label, configured] of [
       ? `as ${list(matches)}`
       : 'the district still opens, and quietly loses this part — see ' +
         'murcia/district/districtConfig.ts',
+  );
+}
+
+// --- 5d. The Vertigo building -----------------------------------------------
+//
+// The client's own tower: its sign turns (createTowerLogo) and its band carries
+// the banner (attachBanner). Both are found by NAME and both degrade to a still,
+// plain building when the name is gone — which is the quiet failure this
+// section exists to catch. The contract the names stand for (pivot on the
+// tower's axis, identity rotation, an axis-aligned box band) is written out in
+// landmark/vertigoBuildingConfig.ts; a JSON read can assert the names and the
+// identity transform, and does.
+
+section('5d. The Vertigo building (landmark/vertigoBuildingConfig — names ARE the identity)');
+
+for (const configured of new Set([
+  ...VERTIGO_BUILDING.logoNodeNames,
+  VERTIGO_BUILDING.bannerNodeName,
+])) {
+  const matches = nodesNamed(configured);
+  check(
+    `"${configured}" is in the GLB`,
+    matches.length > 0,
+    matches.length > 0
+      ? `as ${list(matches)}`
+      : 'the logo stands still or the screen goes blank — see murcia/landmark/vertigoBuildingConfig.ts',
+  );
+  // The spin composes onto whatever the node carries, so an authored rotation
+  // would not break it — but it would mean the mark no longer turns about the
+  // vertical, which is the thing worth being told about.
+  const authored = nodes.filter((n) => n.name === configured);
+  const identity = authored.every((n) => n.rotation === undefined && n.scale === undefined);
+  check(
+    `"${configured}" carries no authored rotation or scale`,
+    identity,
+    identity ? 'identity, so local +Y is vertical' : 'the mark would turn off the vertical',
   );
 }
 

@@ -17,6 +17,8 @@
     "auditSuccessTitle": "Solicitud recibida",
     "auditSuccessBody": "Gracias por contactarnos. Revisaremos tu web de forma manual y te responderemos en menos de 24 horas.",
     "contactSuccessTitle": "Recibido",
-    "contactSuccessBody": "Gracias por contactarnos, te responderemos en menos de 24 horas."
+    "contactSuccessBody": "Gracias por contactarnos, te responderemos en menos de 24 horas.",
+    "bannerEnabled": true,
+    "bannerImage": "/textures/murcia/vertigo-banner-placeholder.png"
   }
 ]

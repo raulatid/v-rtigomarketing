@@ -138,6 +138,10 @@ One document, at the fixed id `siteSettings`.
 | `phones[].tel` | string | `^\+?[0-9]{6,20}$` — **digits only** | fail |
 | `contactEmail` | string | a real email address | fail |
 | `copyright` | string | non-empty, ≤ 120 | fail |
+| `bannerEnabled` | boolean | **optional**; absent means ON | fail only when present and not a boolean |
+| `bannerImage` | image | **optional**; PNG/WebP, ≥ 1024×512, aspect 1.6–2.1:1; mirrored to a local path (see the media contract) | fail when present and wrong |
+
+**The building banner is a switch and an image (plan 019, 2026-09-05).** The image is the picture on the four faces of the sign on the Vertigo tower in the city; it is MIRRORED into the deployment like a brand mark, because the browser draws it as a WebGL texture and must never fetch one from a third party. Absent means the city shows its own placeholder through the same material — the switch, not the file, is what turns the sign blank. Video is documented beside the renderer (`murcia/landmark/attachBanner.ts`) and deliberately not a field yet. The projection must hand the mirror a url STRING — `"bannerImage": bannerImage.asset->url` — never the image object. It is emitted as `buildingBanner: { enabled, image? }`, the image key omitted when there is none, so a consumer tests `image !== undefined`.
 
 **`display` and `tel` are different values on purpose.** `display` is read by a human; `tel` is dialled. A space in `tel` produces a link that silently does nothing on some handsets rather than failing visibly.
 

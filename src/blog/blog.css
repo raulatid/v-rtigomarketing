@@ -128,6 +128,9 @@
 /* The bar itself is the site header (components/siteHeader.css, `data-layout`
    blog) since 2026-09-03; what remains here are the blog's own controls in it. */
 
+/* The bar's ink is the header's (siteHeader.css, `data-layout='blog'`): the
+   mark, the back control and the search inherit it, so the bar has one colour
+   decision rather than four. */
 .blog-topbar__mark {
   display: flex;
   align-items: center;
@@ -136,7 +139,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #0b0b0d;
+  color: inherit;
 }
 
 .blog-topbar__home {
@@ -231,7 +234,8 @@
   padding: 0;
   border: 0;
   background: none;
-  color: rgba(11, 11, 13, 0.85);
+  color: inherit;
+  opacity: 0.85;
   cursor: pointer;
 }
 
@@ -247,7 +251,8 @@
   padding: 0;
   border: 0;
   background: none;
-  color: rgba(11, 11, 13, 0.85);
+  color: inherit;
+  opacity: 0.85;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 600;
