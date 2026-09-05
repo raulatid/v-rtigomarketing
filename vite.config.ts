@@ -115,8 +115,34 @@ function isBlogDocument(path: string): boolean {
  * script tags rather than preloads) and this IS the initial JS closure of `/`:
  * the whole bundle except the blog document's own entry.
  */
+/**
+ * The FPS meter, which `?stats=1` asks for and nothing else ever does.
+ *
+ * `stats.js` ships as a UMD build whose top level is a side-effectful IIFE, so
+ * Rollup cannot tree-shake it out of a chunk that imports it: while
+ * MurciaDebugTools held a value import, the library shipped to every production
+ * visitor behind a boolean that is false there. It is loaded on demand now, and
+ * a production build therefore emits no chunk for it at all — which the
+ * assertion in assertChunkBudgets turns into an invariant rather than something
+ * verified once by hand.
+ *
+ * Excluded from the preload loop for the same reason the header logo is: a
+ * preview build does emit the chunk, and preloading a debug meter on `/` spends
+ * a request out of a budget that exists to protect the first paint.
+ *
+ * Matched on the module rather than the chunk name for the reason given above
+ * HEADER_LOGO_MODULE — Vite derives names and they are not stable enough to
+ * hardcode. The name happens to be `stats.min` today; that is not the contract.
+ */
+const STATS_MODULE = 'stats.js/build/stats.min.js'
+
+function isStatsChunk(chunk: OutputChunk): boolean {
+  return chunk.moduleIds.some((id) => id.replace(/\\/g, '/').includes(STATS_MODULE))
+}
+
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   if (isHeaderLogoChunk(chunk)) return false
+  if (isStatsChunk(chunk)) return false
   return !chunk.isEntry
 }
 
@@ -294,6 +320,30 @@ function assertChunkBudgets(): Plugin {
       // OPEN — `/` would quietly start preloading the blog's 3D mark and the
       // request budget would absorb it as ordinary growth. Assert the chunk is
       // there and singular instead.
+      // The FPS meter must be ABSENT from a production build and PRESENT
+      // everywhere else, and both halves matter. Absent is the security-adjacent
+      // half: a value import used to put the whole library in the production
+      // chunk. Present is the half that keeps the first honest — if the dynamic
+      // import in MurciaDebugTools were ever inlined back, this assertion is
+      // what notices, rather than a bundle someone remembers to grep.
+      const stats = chunks.filter(isStatsChunk)
+      if (IS_PRODUCTION && stats.length > 0) {
+        this.error(
+          `stats.js is in the production bundle (${stats.map((c) => c.fileName).join(', ')}). ` +
+            'It is a development FPS meter and reaches production only through a static ' +
+            'import — its UMD wrapper is side-effectful, so Rollup cannot shake it out. ' +
+            'MurciaDebugTools must keep importing it dynamically, behind DEBUG_TOOLS_ENABLED.',
+        )
+      }
+      if (!IS_PRODUCTION && stats.length !== 1) {
+        this.error(
+          `expected exactly one stats.js chunk outside production, found ${stats.length}. ` +
+            'If the meter was removed, delete this assertion and isStatsChunk with it; if it ' +
+            'was merged into another chunk, the exclusion in isPreloadedOnIndex is excluding ' +
+            'nothing and / is preloading a debug meter.',
+        )
+      }
+
       const headerLogo = chunks.filter(isHeaderLogoChunk)
       if (headerLogo.length !== 1) {
         this.error(

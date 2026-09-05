@@ -51,6 +51,7 @@
  * retires the one warning in this file, since growing the ground footprint past the
  * terrain skirt is no longer reachable from a URL.
  */
+import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
 import type { EnvironmentConfig, DragFeelConfig } from './environmentConfig';
 
 /**
@@ -68,7 +69,20 @@ export function applyNavigationQueryOverrides(
   // does make the city unnavigable for anyone handed the link, and a tuning
   // tool has no business being reachable on a marketing site. Same seam as
   // applyQueryOverrides — the flag comes from the shell.
-  if (!enabled) return env;
+  /**
+   * A COMPILE-TIME gate in front of the runtime one, and the pair is not
+   * redundant. `enabled` is what the shell decides, so it is a value and cannot
+   * be folded; DEBUG_TOOLS_ENABLED is a literal, so Rollup removes everything
+   * below it from a production build. Measured on the emitted chunk: without it
+   * the whole parser shipped to every visitor, inert, behind a boolean that is
+   * always false there.
+   *
+   * The `checks/` harnesses bundle this module for Node with esbuild, where the
+   * define does not exist — buildFlags.ts reads it behind a `typeof` guard and
+   * resolves to development, so they keep the overrides they rely on. That guard
+   * is the reason this import is safe here at all.
+   */
+  if (!DEBUG_TOOLS_ENABLED || !enabled) return env;
 
   const params = new URLSearchParams(search);
 

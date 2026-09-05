@@ -9,6 +9,8 @@
  * environments inside a single renderer / canvas / THREE.Scene, so a single
  * mutable global config would not survive the migration.
  */
+import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
+
 export interface AppConfig {
   // Renderer settings used to live here (pixel-ratio cap, antialias, shadows).
   // They belong to whoever creates the WebGLRenderer, and that is now the
@@ -70,7 +72,20 @@ export function applyQueryOverrides(
   search: string,
   enabled: boolean,
 ): AppConfig {
-  if (!enabled) return { ...base };
+  /**
+   * A COMPILE-TIME gate in front of the runtime one, and the pair is not
+   * redundant. `enabled` is what the shell decides, so it is a value and cannot
+   * be folded; DEBUG_TOOLS_ENABLED is a literal, so Rollup removes everything
+   * below it from a production build. Measured on the emitted chunk: without it
+   * the whole parser shipped to every visitor, inert, behind a boolean that is
+   * always false there.
+   *
+   * The `checks/` harnesses bundle this module for Node with esbuild, where the
+   * define does not exist — buildFlags.ts reads it behind a `typeof` guard and
+   * resolves to development, so they keep the overrides they rely on. That guard
+   * is the reason this import is safe here at all.
+   */
+  if (!DEBUG_TOOLS_ENABLED || !enabled) return { ...base };
 
   const params = new URLSearchParams(search);
   const next: AppConfig = { ...base };
@@ -122,6 +137,11 @@ function sameOriginModelPath(value: string): string | null {
   }
   if (url.origin !== base) return null;
   if (!url.pathname.startsWith('/models/')) return null;
+  // A percent-encoded separator survives normalisation: `..%2f` is not resolved
+  // away the way `../` is, so `/models/..%2fassets/x.glb` clears the prefix
+  // check above and becomes a traversal on any host that decodes it before
+  // routing. Refuse the encoding rather than guess which host does.
+  if (/%(2f|5c)/i.test(url.pathname)) return null;
   return url.pathname;
 }
 

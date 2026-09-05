@@ -17,15 +17,43 @@ describe('?model= override', () => {
     expect(override('/models/x.glb')).toBe('/models/x.glb')
   })
 
+  // THE BACKSLASH HAS TO BE A REAL ONE, and for a while it was not. Two of
+  // these cases were written as '/\evil.example/x.glb' and
+  // '/%5Cevil.example/x.glb'. Neither carried a backslash: in a single-quoted
+  // string `\e` is simply `e`, and a literal `%5C` is percent-encoded a second
+  // time by the helper above before anything parses it. The regression test for
+  // SEC-1 could not fail for the reason it was written. Spelled `\\` now, with
+  // the two cases below asserting that it is what it claims to be.
   it.each([
-    '/\evil.example/x.glb',
-    '/%5Cevil.example/x.glb',
+    '/\\evil.example/x.glb',
+    '\\\\evil.example/x.glb',
+    '/\\/evil.example/x.glb',
     '//evil.example/x.glb',
     'https://evil.example/x.glb',
+    'HTTPS://evil.example/x.glb',
+    'https:/\\evil.example/x.glb',
     '/models/../assets/x.glb',
+    '/models/..%2fassets/x.glb',
+    '/models/..%5Cassets/x.glb',
     '/textures/x.glb',
+    'javascript:alert(1)',
+    'data:model/gltf+json,{}',
+    '/Models/x.glb',
   ])('ignores %s', (model) => {
     expect(override(model)).toBeNull()
+  })
+
+  it('is testing a backslash and not the letter after it', () => {
+    expect('/\\evil.example/x.glb'.charCodeAt(1)).toBe(0x5c)
+  })
+
+  it('resolves a backslash authority off-origin, which is what makes it dangerous', () => {
+    // The property the guard rests on, stated rather than assumed: the WHATWG
+    // parser reads a backslash as a slash, so a check on the leading character
+    // sees a root-relative path where the loader would see another host.
+    expect(new URL('/\\evil.example/x.glb', 'https://model.invalid').origin).toBe(
+      'https://evil.example',
+    )
   })
 
   it('normalises a relative path that stays under /models/', () => {

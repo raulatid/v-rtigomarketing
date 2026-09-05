@@ -1,5 +1,10 @@
 import * as THREE from 'three';
-import Stats from 'stats.js';
+// TYPE-ONLY, and it has to stay that way. stats.js ships as a UMD build whose
+// top level is a side-effectful IIFE, so Rollup cannot tree-shake it: a value
+// import kept the whole library in the production chunk no matter how the call
+// below was gated. Loaded on demand in mountStats instead.
+import type Stats from 'stats.js';
+import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
 import type { AppConfig } from '../config/appConfig';
 import type { BoundsRect } from '../config/environmentConfig';
 import type { NavigableArea } from '../navigation/navigableArea';
@@ -36,13 +41,28 @@ export class MurciaDebugTools {
     private readonly container: HTMLElement,
   ) {}
 
-  /** The FPS meter, if `?stats=1` asked for one. */
+  /**
+   * The FPS meter, if `?stats=1` asked for one.
+   *
+   * DEBUG_TOOLS_ENABLED first, and it is what removes the library from a
+   * production build rather than merely silencing it: `enabled` is a
+   * constructor argument and cannot be folded, so the import below stayed
+   * reachable and `showPanel` / `addPanel` shipped to every visitor. With a
+   * literal in front of it the whole branch — the dynamic import included — is
+   * gone from the emitted chunk.
+   *
+   * Not awaited, and nothing waits on the meter: the frame loop reads
+   * `this.stats?`, so the panel simply appears a tick after the scene does.
+   */
   mountStats(): void {
-    if (!this.enabled || !this.appConfig.statsEnabled) return;
-    this.stats = new Stats();
-    this.stats.dom.style.top = 'auto';
-    this.stats.dom.style.bottom = '0';
-    this.container.appendChild(this.stats.dom);
+    if (!DEBUG_TOOLS_ENABLED || !this.enabled || !this.appConfig.statsEnabled) return;
+    void import('stats.js').then(({ default: Stats }) => {
+      const stats = new Stats();
+      stats.dom.style.top = 'auto';
+      stats.dom.style.bottom = '0';
+      this.container.appendChild(stats.dom);
+      this.stats = stats;
+    });
   }
 
   frameBegin(): void {
