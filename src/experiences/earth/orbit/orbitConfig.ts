@@ -78,6 +78,11 @@ export const ORBIT_CONFIG = {
     // Hover/selection bump. Applied to an INNER group — the outer group's scale
     // is written every frame by the intro animation and would overwrite it.
     highlightScale: 1.14,
+    // The invitation's size breath (orbitAssignments.invitedCaseId): the inner
+    // group swells to this at the top of each breath. Kept BELOW highlightScale
+    // so hover still reads as "more" — orbitConfig.test.ts asserts the order.
+    // A size change is what reads at overview scale; the halo alone did not.
+    inviteScale: 1.08,
   },
 
   // Holographic brand panel floating above each satellite. All sizes are in the
@@ -162,8 +167,13 @@ export const ORBIT_CONFIG = {
     // it pulses together. The duration is the fade in and out of the whole
     // effect — it yields to the hover bump and retires on the first selection,
     // and neither should snap.
-    inviteGain: 2.0,
+    // 2.5 is where the line's alpha saturates; past it only the wash and
+    // halo grow, so louder has to come from the cone and the size breath.
+    inviteGain: 2.5,
     inviteDuration: 0.6,
+    // The cone's share of the invitation, on its own knob because the cone is
+    // additive and blows out at the panel's gain: density × (1 + this × pulse).
+    coneInviteGain: 1.0,
 
     // ── The rails ──
     // The projection's one structural element, present only while it is open.

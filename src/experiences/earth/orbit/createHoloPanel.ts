@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
 import { advanceExpansion, easeExpansion } from './panelExpansion'
+import { invitationPulse } from './invitation'
 import { deploymentFrom } from './holoDeployment'
 import { createEmitterCone } from './createEmitterCone'
 import { prefersReducedMotion } from '../../../app/warpTransition'
@@ -254,11 +255,10 @@ const FRAGMENT = /* glsl */ `
     vec2 px = fwidth(p);
     float ax = abs(p.x);
 
-    // The invitation rides the emitter's own breath clock (below), so the halo
-    // and the line swell together; under reduced motion uBreath is 0 and it
-    // holds steady at the mean instead of pulsing.
-    float inviteBreath = 1.0 - uBreath + uBreath * (0.5 + 0.5 * sin(uTime * 1.4));
-    float invite = uInvite * (0.6 + 0.4 * inviteBreath);
+    // The invitation arrives already breathing: uInvite is the pulse from
+    // invitation.ts, computed once per frame in update() and shared with the
+    // cone and the satellite's scale, so all three swell together.
+    float invite = uInvite;
 
     // The selected-state energy: a surge as the field activates, easing back
     // once the logo has resolved. Peak, then settle. The invitation lifts it
@@ -578,6 +578,9 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
   // and a value-based ease reverses from wherever it is instead of restarting.
   let invite = 0
   let inviteTarget = 0
+  // The breath applied to it this frame — what the shaders and the satellite's
+  // scale actually receive. See invitation.ts for why it is computed here.
+  let pulse = 0
 
   /** Asks the halo to carry the invitation — the brighter breath — or to let it go. */
   function setInvited(on: boolean) {
@@ -610,7 +613,14 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     }
     if (invite !== inviteTarget) {
       invite = advanceExpansion(invite, inviteTarget, delta, cfg.inviteDuration)
-      uniforms.uInvite.value = invite
+    }
+    // Written every frame the invitation is alive, not only while it eases:
+    // the breath is a function of the clock, so a value written once would
+    // hold the light at whatever phase it was in when the fade finished.
+    if (invite > 0 || pulse > 0) {
+      pulse = invitationPulse(invite, uniforms.uTime.value, !reducedMotion)
+      uniforms.uInvite.value = pulse
+      cone.setInvite(pulse)
     }
     if (PROTO_HOLO.expand !== null) {
       if (expansion !== PROTO_HOLO.expand) {
@@ -633,7 +643,21 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
     cone.dispose()
   }
 
-  return { group, setOpacity, setExpanded, setInvited, resetExpansion, update, dispose }
+  /** The invitation's breath this frame, in [0, 1]. Read by the satellite for its scale. */
+  function invitePulse() {
+    return pulse
+  }
+
+  return {
+    group,
+    setOpacity,
+    setExpanded,
+    setInvited,
+    invitePulse,
+    resetExpansion,
+    update,
+    dispose,
+  }
 }
 
 export type HoloPanel = ReturnType<typeof createHoloPanel>

@@ -158,6 +158,16 @@ describe('the brand panel', () => {
     }
   })
 
+  it('keeps the invitation quieter than the hover bump', () => {
+    // The invited satellite breathes larger so the overview reads "clickable",
+    // but hovering it must still be a step up, not a step sideways.
+    const { panel, satellite } = ORBIT_CONFIG
+    expect(satellite.inviteScale).toBeGreaterThan(1)
+    expect(satellite.inviteScale).toBeLessThan(satellite.highlightScale)
+    expect(panel.inviteGain).toBeGreaterThan(0)
+    expect(panel.coneInviteGain).toBeGreaterThanOrEqual(0)
+  })
+
   it('keeps the panel clear of the satellite model it floats above', () => {
     // offsetY is derived from modelSize: the model's top sits near modelSize/2,
     // and the panel's lower edge at offsetY - height/2. Raising `height` for

@@ -3,6 +3,7 @@ import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
 import { createHoloPanel, HoloPanel } from './createHoloPanel'
+import { invitationScale } from './invitation'
 import { loadProgress } from '../../../loading/progress'
 import {
   acquireDracoLoader,
@@ -242,9 +243,12 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
   }
 
   // Hover/selection affordance: bump the inner group so the model grows
-  // slightly under the cursor.
+  // slightly under the cursor. Remembered because update() rewrites the scale
+  // every frame for the invitation's breath, and the bump has to win over it.
+  let highlighted = false
   function setHighlight(on: boolean) {
-    content.scale.setScalar(on ? ORBIT_CONFIG.satellite.highlightScale : 1)
+    highlighted = on
+    content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, highlighted))
   }
 
   /**
@@ -279,6 +283,10 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     // Advances on delta alone, like the spin — the panel's shimmer must not
     // stall while the case panel freezes the satellite's orbital motion.
     holoPanel?.update(delta)
+    // The invitation's size breath, on the same pulse the panel just computed
+    // for its light. Inner group, as the hover bump is: the outer group's
+    // scale belongs to the intro animation.
+    content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, highlighted))
   }
 
   setOpacity(0)

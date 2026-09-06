@@ -59,6 +59,11 @@ const FRAGMENT = /* glsl */ `
   uniform float uIntensity;
   uniform float uTime;
   uniform float uActivation;
+  // The invitation's breath (see invitation.ts) and how much of it the cone
+  // takes. The field's halo carries the same pulse; a cone that stayed at rest
+  // under a swelling field would look like the light was arriving from nowhere.
+  uniform float uInvite;
+  uniform float uInviteGain;
   // footRadius / mouthRadius. See the taper compensation below.
   uniform float uRadiusRatio;
 
@@ -150,7 +155,7 @@ const FRAGMENT = /* glsl */ `
     float density = axial * radius * grain * depth;
 
     // A small surge as the projection activates, settling back afterwards.
-    density *= uIntensity * (1.0 + 0.5 * uActivation);
+    density *= uIntensity * (1.0 + 0.5 * uActivation) * (1.0 + uInviteGain * uInvite);
 
     // Density goes in ONCE, through alpha. AdditiveBlending is (SrcAlpha, One),
     // so the pipeline already multiplies rgb by alpha on its way to the frame
@@ -225,6 +230,8 @@ export function createEmitterCone({ brandColor, animate }: Options) {
     // one animation driving six objects. Same trick as the panel's uTime.
     uTime: { value: Math.random() * 100 },
     uActivation: { value: 0 },
+    uInvite: { value: 0 },
+    uInviteGain: { value: cfg.coneInviteGain },
     uDeploy: { value: 0 },
     uSpread: { value: cfg.coneSpread },
     uRadiusRatio: { value: cfg.coneFootRadius / cfg.coneMouthRadius },
@@ -271,6 +278,15 @@ export function createEmitterCone({ brandColor, animate }: Options) {
     uniforms.uDeploy.value = deploy
   }
 
+  /**
+   * Written every frame by the panel from the one shared pulse. Lands under
+   * reduced motion too: the pulse is already steady there, and the cone must
+   * still show the invitation, just without breathing.
+   */
+  function setInvite(pulse: number) {
+    uniforms.uInvite.value = pulse
+  }
+
   function update(delta: number) {
     if (!animate) return
     uniforms.uTime.value += delta
@@ -281,7 +297,7 @@ export function createEmitterCone({ brandColor, animate }: Options) {
     material.dispose()
   }
 
-  return { mesh, setOpacity, setDeployment, update, dispose }
+  return { mesh, setOpacity, setDeployment, setInvite, update, dispose }
 }
 
 export type EmitterCone = ReturnType<typeof createEmitterCone>
