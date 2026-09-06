@@ -2309,6 +2309,16 @@ world, and the keyboard focus outline, which is unchanged because accessibility 
 styling question. The CTA lost its 110° gradient and its outer glow for a flat face, an inset
 top highlight and a neutral drop shadow — pressed sits *down* rather than shrinking.
 
+> **Amended 2026-09-06, the same day.** The floating trays wear a blue edge: the hint frame,
+> the beacon plates and the desktop consent plate take `--glass-border-accent` instead of the
+> neutral `--glass-border`. That is a fifth home, and it is deliberate — the client asked for
+> it after seeing the neutral edge in the scene. It costs less than it looks like it costs,
+> because the token is an alias of `--accent-border`, the CTA's own edge: the hint tray and the
+> Auditoría button are then the same blue rather than two that nearly match, and there is still
+> exactly one blue value to change. Density B and C keep the neutral edge, so the trays now read
+> as their own family rather than as small versions of the panels. The phone consent sheet is
+> unaffected: it has no border to colour, being a sheet against the frame's bottom edge.
+
 **The blue emitter hairline is gone from every surface, and with it the reason to duplicate
 it.** It was byte-identical in six sheets, and `styles.css` documented why it could not be
 shared: `murcia.css` rides the scene chunk and Earth shows the hint frame before that chunk has
@@ -2335,7 +2345,7 @@ draws them that way on every artboard. No copy changed — this was `text-transf
 letter-spacing.
 
 Broken when: a colour literal appears in a panel sheet instead of a token, a second sheet
-declares `:root`, blue turns up outside the four homes above, a field grows a `backdrop-filter`,
+declares `:root`, blue turns up outside the homes listed above, a field grows a `backdrop-filter`,
 a panel's material stops being one of the three densities, or `blog.css` starts reading a
 `--glass-*` value.
 

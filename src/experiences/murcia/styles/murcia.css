@@ -243,7 +243,7 @@
      and the shadow does the separating. Denser than the hint tray (0.72
      against 0.68) because these sit over the city floor at its brightest. */
   border-radius: 10px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--glass-border-accent);
   background: var(--glass-film), rgba(10, 15, 22, 0.72);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);

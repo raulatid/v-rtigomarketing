@@ -53,6 +53,11 @@
   --glass-bg-heavy: rgba(7, 10, 15, 0.86);
 
   --glass-border: rgba(220, 230, 245, 0.1);
+  /* The density-A trays wear a blue edge rather than the neutral one: the hint
+     frame, the beacon plates and the consent plate. Aliased to the CTA's own
+     border instead of carrying its own literal, so the two blues that share a
+     frame are one colour and not two that nearly match. */
+  --glass-border-accent: var(--accent-border);
   /* Two stacked light layers, and only two: --glass-film sits in the
      `background` shorthand above the tint, --glass-highlight paints the
      pointer-events-none pseudo-element that reads as reflected light. */
@@ -80,7 +85,8 @@
   --rule-strong: rgba(255, 255, 255, 0.35);
 
   /* Blue is worth more used less: a filled primary CTA, the ring behind a
-     focused field's neutral border, and the beacon dot. Nothing else. */
+     focused field's neutral border, the beacon dot, and the edge of the
+     floating trays through --glass-border-accent above. Nothing else. */
   --accent: #1c67ff;
   --accent-hover: #3a7dff;
   --accent-pressed: #1656d6;

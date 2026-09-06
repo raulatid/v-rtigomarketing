@@ -1044,7 +1044,7 @@ html {
   width: max-content;
   max-width: calc(100vw - 32px);
   padding: 0 1.375rem;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--glass-border-accent);
   border-radius: 14px;
   background: var(--glass-film), var(--glass-bg-light);
   -webkit-backdrop-filter: var(--glass-blur);
