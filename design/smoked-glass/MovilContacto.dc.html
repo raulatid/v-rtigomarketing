@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #06080c; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #fff; } a:hover { color: #1c67ff; }
+    p, h1, h2, h3 { margin: 0; }
+  </style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #06080c;">
+  <img src="tierra-movil.jpg" alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;">
+
+  <div style="position: absolute; inset: 0; background: rgba(5,5,6,0.55);"></div>
+
+  <!-- Contact dialog on a phone: full width minus 16px, opacity nudged up (§17) -->
+  <div style="position: absolute; left: 16px; right: 16px; top: 108px; height: 628px; overflow: hidden; padding: 28px 22px 22px; border-radius: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(7,10,15,0.9); -webkit-backdrop-filter: blur(12px) saturate(115%); backdrop-filter: blur(12px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 28px 80px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.035); box-sizing: border-box;">
+    <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+    <span style="position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 9px; color: rgba(255,255,255,0.62);"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg></span>
+    <span style="position: absolute; top: 12px; right: 3px; bottom: 12px; width: 6px; border-radius: 999px; background: rgba(255,255,255,0.04);"><span style="position: absolute; top: 60px; left: 0; width: 6px; height: 55%; border-radius: 999px; background: rgba(255,255,255,0.22);"></span></span>
+
+    <form style="display: flex; flex-direction: column; gap: 14px;">
+      <p style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.46); padding-left: 10px; border-left: 2px solid rgba(255,255,255,0.35);">Hablemos</p>
+      <h2 style="font-size: 1.3rem; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; color: rgba(255,255,255,0.94); margin: -4px 40px 0 0; text-wrap: pretty;">Escríbenos para lo que necesites</h2>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 0.78rem; font-weight: 500; color: rgba(255,255,255,0.68);">Nombre</label>
+        <span style="display: flex; align-items: center; height: 48px; padding: 0 14px; border-radius: 10px; background: rgba(4,7,11,0.6); border: 1px solid rgba(220,230,245,0.14); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25); font-size: 16px; color: rgba(255,255,255,0.42);">Tu nombre</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 0.78rem; font-weight: 500; color: rgba(255,255,255,0.68);">Email</label>
+        <span style="display: flex; align-items: center; height: 48px; padding: 0 14px; border-radius: 10px; background: rgba(6,10,15,0.7); border: 1px solid rgba(220,230,245,0.32); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25), 0 0 0 3px rgba(28,103,255,0.22); font-size: 16px; color: rgba(255,255,255,0.94);">laura@</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 0.78rem; font-weight: 500; color: rgba(255,255,255,0.68);">Mensaje</label>
+        <span style="display: block; min-height: 110px; padding: 12px 14px; border-radius: 10px; background: rgba(4,7,11,0.6); border: 1px solid rgba(220,230,245,0.14); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25); font-size: 16px; line-height: 1.4; color: rgba(255,255,255,0.42);">Cuéntanos qué necesitas</span>
+      </div>
+      <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 10px; background: #1c67ff; border: 1px solid rgba(120,160,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 18px rgba(0,0,0,0.28); color: #fff; font-size: 0.95rem; font-weight: 600;">Enviar <span style="opacity: 0.85;">→</span></span>
+      <p style="font-size: 0.72rem; line-height: 1.5; color: rgba(255,255,255,0.46);">Al enviar aceptas los <span style="text-decoration: underline; text-underline-offset: 0.15em; color: rgba(255,255,255,0.62);">términos y privacidad</span>.</p>
+      <div style="margin-top: 4px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06);">
+        <span style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(220,230,245,0.14); color: rgba(255,255,255,0.82); font-size: 0.86rem; font-weight: 500;">Reservar una llamada</span>
+      </div>
+    </form>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

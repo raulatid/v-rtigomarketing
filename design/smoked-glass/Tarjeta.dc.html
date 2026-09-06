@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #06080c; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #fff; } a:hover { color: #1c67ff; }
+    p, h1, h2, h3, ul { margin: 0; }
+  </style>
+</helmet>
+<div style="position: relative; width: 1440px; height: 900px; overflow: hidden; background: #06080c;">
+  <img src="tierra.jpg" alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;">
+
+  <div style="position: absolute; top: 25px; right: 48px; display: flex; align-items: center; gap: 14px; height: 46px; padding-left: 20px; background: #000;">
+    <span style="display: inline-flex; align-items: center; height: 38px; color: rgba(255,255,255,0.85); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;">Contacto</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 26px; border-radius: 10px; background: #1c67ff; border: 1px solid rgba(120,160,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 18px rgba(0,0,0,0.28); color: #fff; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;">Auditoría</span>
+  </div>
+
+  <!-- Case panel · density B (plaque) · 420px, right 20vw, centred -->
+  <div style="position: absolute; right: 288px; top: 50%; transform: translateY(-50%); width: 420px; padding: 32px 36px; border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(8,12,18,0.78); -webkit-backdrop-filter: blur(10px) saturate(115%); backdrop-filter: blur(10px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 20px 60px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.035); box-sizing: border-box;">
+    <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;">
+      <span style="font-size: 0.68rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.46); padding-left: 10px; border-left: 2px solid rgba(255,255,255,0.35);">Caso de éxito</span>
+      <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; color: rgba(255,255,255,0.62);"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg></span>
+    </div>
+
+    <h2 style="font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: rgba(255,255,255,0.94); margin-bottom: 6px;">PcComponentes</h2>
+    <p style="font-size: 0.74rem; letter-spacing: 0.02em; color: rgba(255,255,255,0.46); margin-bottom: 22px;">Retail · Murcia · 2025</p>
+
+    <div style="display: flex; gap: 12px; margin-bottom: 22px;">
+      <div style="flex: 1; padding: 14px 16px; border-radius: 10px; background: rgba(4,7,11,0.45); border: 1px solid rgba(220,230,245,0.08); border-top: 2px solid #ff6000; box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);">
+        <p style="font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Orgánico</p>
+        <p style="margin-top: 6px; font-size: 1.25rem; font-weight: 600; color: rgba(255,255,255,0.94);">+38 %</p>
+      </div>
+      <div style="flex: 1; padding: 14px 16px; border-radius: 10px; background: rgba(4,7,11,0.45); border: 1px solid rgba(220,230,245,0.08); border-top: 2px solid #ff6000; box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);">
+        <p style="font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Leads</p>
+        <p style="margin-top: 6px; font-size: 1.25rem; font-weight: 600; color: rgba(255,255,255,0.94);">2,1×</p>
+      </div>
+      <div style="flex: 1; padding: 14px 16px; border-radius: 10px; background: rgba(4,7,11,0.45); border: 1px solid rgba(220,230,245,0.08); border-top: 2px solid #ff6000; box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);">
+        <p style="font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.46);">CAC</p>
+        <p style="margin-top: 6px; font-size: 1.25rem; font-weight: 600; color: rgba(255,255,255,0.94);">−27 %</p>
+      </div>
+    </div>
+
+    <p style="font-size: 0.86rem; line-height: 1.6; color: rgba(255,255,255,0.68); margin-bottom: 16px; text-wrap: pretty;">Reordenamos el catálogo por intención de búsqueda y conectamos la analítica con el margen real de cada categoría.</p>
+
+    <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; margin-bottom: 22px; font-size: 0.78rem; line-height: 1.55; color: rgba(255,255,255,0.55);">
+      <li style="position: relative; padding-left: 14px;"><span style="position: absolute; left: 0; top: 0.55em; width: 4px; height: 4px; border-radius: 50%; background: #ff6000;"></span>Arquitectura de categorías por intención</li>
+      <li style="position: relative; padding-left: 14px;"><span style="position: absolute; left: 0; top: 0.55em; width: 4px; height: 4px; border-radius: 50%; background: #ff6000;"></span>Fichas con datos estructurados de producto</li>
+      <li style="position: relative; padding-left: 14px;"><span style="position: absolute; left: 0; top: 0.55em; width: 4px; height: 4px; border-radius: 50%; background: #ff6000;"></span>Atribución conectada al margen, no al pedido</li>
+      <li style="position: relative; padding-left: 14px;"><span style="position: absolute; left: 0; top: 0.55em; width: 4px; height: 4px; border-radius: 50%; background: #ff6000;"></span>Informe mensual de acciones priorizadas</li>
+    </ul>
+
+    <div style="height: 158px; padding: 14px 16px; border-radius: 10px; background: rgba(4,7,11,0.45); border: 1px solid rgba(220,230,245,0.08); box-shadow: inset 0 1px 1px rgba(0,0,0,0.2); box-sizing: border-box;">
+      <p style="font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.46); margin-bottom: 9px;">Sesiones orgánicas · 12 meses</p>
+      <svg viewBox="0 0 316 96" width="316" height="96" aria-hidden="true" style="display: block;">
+        <g stroke="rgba(255,255,255,0.08)" stroke-width="1"><line x1="0" y1="24" x2="316" y2="24"></line><line x1="0" y1="48" x2="316" y2="48"></line><line x1="0" y1="72" x2="316" y2="72"></line></g>
+        <path d="M0 80 L29 76 L58 78 L87 70 L116 66 L145 60 L174 52 L203 46 L232 40 L261 30 L290 22 L316 14 L316 96 L0 96 Z" fill="rgba(255,96,0,0.22)"></path>
+        <path d="M0 80 L29 76 L58 78 L87 70 L116 66 L145 60 L174 52 L203 46 L232 40 L261 30 L290 22 L316 14" fill="none" stroke="#ff6000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        <circle cx="316" cy="14" r="3" fill="#ff6000"></circle>
+      </svg>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

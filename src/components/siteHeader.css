@@ -31,6 +31,75 @@
   }
 }
 
+/* ---- The smoked-glass material (plan 020) ----------------------------------
+
+   This file owns the site's root tokens because it is the one sheet every
+   document loads — styles.css does not reach the blog. The values below are
+   the ones approved on the design canvas (design/smoked-glass/Main.dc.html):
+   one material in three densities, matte fields inset into it, and an accent
+   that is deliberately scarce.
+
+   The blog document inherits these too, but its surface is paper: nothing in
+   blog.css may consume the dark-material tokens. It reads --header-control
+   and nothing else, and that is the line to hold. */
+:root {
+  /* Density A — the floating tray: hint frame, beacon and consent plates.
+     Separation comes from the shadow, not from opacity. */
+  --glass-bg-light: rgba(10, 15, 22, 0.68);
+  /* Density B — the compact plaque: the case panel. */
+  --glass-bg: rgba(8, 12, 18, 0.78);
+  /* Density C — the heavy panel: contact, legal, the audit curtain. The
+     larger the surface, the less the glass is allowed to announce itself. */
+  --glass-bg-heavy: rgba(7, 10, 15, 0.86);
+
+  --glass-border: rgba(220, 230, 245, 0.1);
+  /* Two stacked light layers, and only two: --glass-film sits in the
+     `background` shorthand above the tint, --glass-highlight paints the
+     pointer-events-none pseudo-element that reads as reflected light. */
+  --glass-film: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 18%);
+  --glass-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0) 22%);
+
+  --glass-shadow: 0 20px 60px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  --glass-shadow-heavy: 0 28px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  --glass-blur: blur(12px) saturate(115%);
+  --glass-blur-card: blur(10px) saturate(115%);
+
+  /* Fields are NOT glass: matte surfaces inset into it, with no
+     backdrop-filter of their own (one blurred layer per panel, §16). */
+  --surface-matte: rgba(4, 7, 11, 0.55);
+  --surface-matte-hover: rgba(6, 10, 15, 0.65);
+  --surface-border: rgba(220, 230, 245, 0.14);
+  --surface-border-focus: rgba(220, 230, 245, 0.32);
+  --surface-inset: inset 0 1px 1px rgba(0, 0, 0, 0.25);
+
+  --text-primary: rgba(255, 255, 255, 0.94);
+  --text-secondary: rgba(255, 255, 255, 0.68);
+  --text-muted: rgba(255, 255, 255, 0.46);
+  /* The neutral tick that replaced the blue eyebrow accent. */
+  --rule-strong: rgba(255, 255, 255, 0.35);
+
+  /* Blue is worth more used less: a filled primary CTA, the ring behind a
+     focused field's neutral border, and the beacon dot. Nothing else. */
+  --accent: #1c67ff;
+  --accent-hover: #3a7dff;
+  --accent-pressed: #1656d6;
+  --accent-border: rgba(120, 160, 255, 0.35);
+  --accent-ring: rgba(28, 103, 255, 0.22);
+  /* The keyboard focus outline, unchanged from before this redesign. */
+  --focus-ring: rgba(120, 170, 255, 0.9);
+}
+
+/* Where the backdrop cannot be filtered the material keeps its hierarchy and
+   loses only the see-through: same three densities, near-opaque. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg-light: rgba(10, 15, 22, 0.92);
+    --glass-bg: rgba(8, 12, 18, 0.94);
+    --glass-bg-heavy: rgba(7, 10, 15, 0.96);
+  }
+}
+
 /* blog.css has no global reset, so the header carries its own box model. */
 .site-header,
 .site-header * {
@@ -130,7 +199,11 @@
 }
 
 /* ---- The two triggers ------------------------------------------------------
-   Palette: white primary, blue (#1c67ff family) strictly for accents/CTA. */
+   Palette: white primary, blue on the Auditoría box and nowhere else in this
+   file (plan 020 §9). Uppercase with tracking is kept for both triggers on
+   purpose: they are nav micro-labels, not sentences, and the canvas draws them
+   that way on every artboard — it is the SUBMIT buttons inside the panels that
+   went to sentence case. */
 
 .audit-trigger {
   height: var(--header-control);
@@ -142,9 +215,13 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #fff;
-  background: linear-gradient(110deg, rgba(18, 49, 145, 0.96), rgba(28, 103, 255, 1));
-  border: 1px solid rgba(96, 145, 255, 0.45);
-  box-shadow: 0 0 18px rgba(28, 103, 255, 0.28);
+  /* Solid, not neon: one flat face, an inset highlight along the top edge for
+     the raise, a neutral drop shadow. The 110deg gradient and the outer blue
+     glow are gone — this is the same button as the two submit CTAs, at
+     trigger size. */
+  background: var(--accent);
+  border: 1px solid var(--accent-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
   cursor: pointer;
   /* Mounts only once the intro lands (App gates on phase 'site'), so this
      plays exactly at that moment — a quiet arrival, not a pop. Fill mode is
@@ -153,10 +230,8 @@
      below — the open-state fade-out would never happen. */
   animation: audit-trigger-in 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   transition:
-    transform 120ms cubic-bezier(0.3, 0, 0.4, 1),
     box-shadow 160ms ease,
-    filter 160ms ease,
-    background 200ms ease,
+    background-color 200ms ease,
     border-color 200ms ease,
     opacity 260ms ease;
 }
@@ -174,18 +249,20 @@
 
 @media (hover: hover) {
   .audit-trigger:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 0 24px rgba(28, 103, 255, 0.4);
+    background: var(--accent-hover);
+    border-color: rgba(150, 185, 255, 0.5);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.3);
   }
 }
 
+/* Pressed sits down rather than shrinking. */
 .audit-trigger:active {
-  transform: scale(0.97);
-  filter: brightness(1.18);
+  background: var(--accent-pressed);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .audit-trigger:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -240,7 +317,7 @@
 }
 
 .contact-trigger:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -258,7 +335,7 @@
 }
 
 .site-header[data-tone='light'] .contact-trigger:hover {
-  color: #1c67ff;
+  color: var(--accent);
 }
 
 /* ---- White over the scene (2026-09-04, plan 012 task 2) -------------------
@@ -324,9 +401,17 @@
 @media (min-width: 768px) {
   .site-header[data-layout='scene'][data-tone='light'] .contact-trigger {
     color: #fff;
-    padding: 0 0.7rem;
-    border-radius: 999px;
-    background: rgba(12, 18, 26, 0.55);
+    padding: 0 0.75rem;
+    /* Squared to the site's corner language since plan 020 — a 999px pill was
+       the one capsule on a surface of architectural rectangles, and next to
+       the 10px Auditoría box it read as a different family. The tint is the
+       material's own (0.6 of the density-B graphite rather than a bespoke
+       blue-grey) and it gains the cool 1px edge every other glass surface
+       has. Blur stays at 6: this is a scrim under a word, not a panel, and
+       the contrast argued for above is unchanged by any of it. */
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(8, 12, 18, 0.6);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     transition:
@@ -337,7 +422,7 @@
 
   .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover {
     color: #fff;
-    background: rgba(12, 18, 26, 0.72);
+    background: rgba(8, 12, 18, 0.75);
   }
 }
 
@@ -425,7 +510,7 @@
 }
 
 .site-header__burger:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -472,8 +557,11 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: rgba(28, 103, 255, 0.45);
-    box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+    /* Neutral since plan 020. It was the audit curtain's blue emitter, and
+       the audit curtain no longer has one; what mattered was that a line
+       IGNITES and the glass wipes down under cover of it, and that is all
+       still here. */
+    background: rgba(255, 255, 255, 0.18);
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
     transform: scaleX(0);
@@ -496,12 +584,12 @@
     inset: 0;
     background: linear-gradient(
       180deg,
-      rgba(12, 15, 22, 0.86),
-      rgba(4, 6, 10, 0.72) 55%,
-      rgba(4, 6, 10, 0) 100%
+      rgba(8, 12, 18, 0.82),
+      rgba(8, 12, 18, 0.72) 50%,
+      rgba(8, 12, 18, 0) 100%
     );
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     /* The gradient thins the TINT; the blur would still run to the floor at
        full strength and read as a sheet with its edge at the screen's edge.
        The mask fades the blur out with the tint, so the page beneath comes
@@ -630,7 +718,7 @@
     height: 52px;
     justify-content: flex-start;
     padding-left: 0.75rem;
-    border-left: 2px solid rgba(28, 103, 255, 0.85);
+    border-left: 2px solid var(--rule-strong);
     border-radius: 0;
     font-size: 0.85rem;
   }

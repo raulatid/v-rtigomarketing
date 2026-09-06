@@ -3,8 +3,10 @@
    the blog document too (2026-09-03), and blog.html never loads styles.css.
    Layer stack recap: 10 canvas (incl. logo) · 20 intro · 35 case panel ·
    40 warp overlay · 60 this curtain · 70 the site header that opens it ·
-   100 debug. Palette: white primary, blue (#1c67ff family) strictly for
-   accents/CTA. The trigger's own rules live in siteHeader.css. */
+   100 debug. Palette: white primary, blue strictly for the primary CTA and
+   the ring behind a focused field — see the token block in siteHeader.css,
+   which owns every value this sheet reads. The trigger's own rules live in
+   siteHeader.css too. */
 
 /* blog.css has no global reset, so the curtain carries its own box model. */
 .audit-overlay,
@@ -54,8 +56,11 @@
   transition: transform 620ms cubic-bezier(0.55, 0, 0.3, 1) 160ms;
 }
 
-/* One-pixel blue separator with a soft luminance, on the curtain (not the
-   scrollable panel) so it never scrolls away. */
+/* The material edge, on the curtain (not the scrollable panel) so it never
+   scrolls away. This was a blue hairline with a 12px glow while the curtain
+   was an opaque sheet that needed something to say where it ended; now the
+   panel is glass with a cool border of its own, and the edge is that border
+   plus the shadow it casts on the scene. */
 .audit-curtain::after {
   content: '';
   position: absolute;
@@ -63,18 +68,22 @@
   bottom: 0;
   right: 0;
   width: 1px;
-  background: rgba(28, 103, 255, 0.45);
-  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+  background: var(--glass-border);
 }
 
-/* Narrow black falloff into the canvas so the boundary is not a hard cut. */
+/* Narrow falloff into the canvas so the boundary is not a hard cut. Kept, and
+   halved: against an opaque sheet it did the whole job of separating panel
+   from scene, and against glass the panel's own shadow does most of it — but
+   removing it entirely left the bright side of Murcia sitting flush against
+   the edge. Neutralised to black at 0.45, so it reads as depth and not as a
+   second dark panel beside the first. */
 .audit-curtain__edge {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 100%;
   width: 110px;
-  background: linear-gradient(90deg, rgba(5, 5, 6, 0.85), rgba(5, 5, 6, 0));
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
   pointer-events: none;
 }
 
@@ -123,7 +132,7 @@
 }
 
 .audit-close:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 4px;
   border-radius: 4px;
   color: #fff;
@@ -142,34 +151,54 @@
   transition: opacity 160ms ease;
 }
 
+/* Density C (plan 020 §5C), as of 2026-09-06. This was `#050506`: a full
+   attention curtain that took the scene away entirely while the form was
+   open. It is now the same heavy glass as the contact and legal panels, so
+   the world stays visible behind the questions as soft context — see the
+   amended entry in docs/DECISIONS.md.
+
+   The film rides in the BACKGROUND stack rather than on a pseudo-element,
+   because this panel is the scroller: an absolutely positioned overlay would
+   scroll away with the form, while a background layer is painted against the
+   padding box and stays. Its white is pre-multiplied by the 0.7 the overlay
+   would have carried. Shorter stops than a dialog's (12%/14% against 18%/22%)
+   because the curtain is full-height and a fifth of it is a lot of sky. */
 .audit-panel {
   position: absolute;
   inset: 0;
-  background: #050506;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 14%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0) 12%),
+    var(--glass-bg-heavy);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: 24px 0 80px rgba(0, 0, 0, 0.42);
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Firefox: thin blue thumb on an invisible track, matching the accent. */
+  /* Firefox: a thin neutral thumb on a barely-there track. */
   scrollbar-width: thin;
-  scrollbar-color: rgba(28, 103, 255, 0.55) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.22) rgba(255, 255, 255, 0.04);
 }
 
-/* WebKit/Blink: a slim, understated bar in the brand blue — the track stays
-   invisible so only the thumb reads, like an indicator rather than a control. */
+/* WebKit/Blink: the same slim bar. It used to be brand blue, which put the
+   loudest colour in the panel down the side of a form whose one blue thing is
+   supposed to be the button at the bottom (§12). */
 .audit-panel::-webkit-scrollbar {
   width: 6px;
 }
 
 .audit-panel::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
 }
 
 .audit-panel::-webkit-scrollbar-thumb {
-  background: rgba(28, 103, 255, 0.55);
+  background: rgba(255, 255, 255, 0.22);
   border-radius: 999px;
 }
 
 .audit-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(28, 103, 255, 0.8);
+  background: rgba(255, 255, 255, 0.34);
 }
 
 .audit-form {
@@ -240,12 +269,13 @@
   align-items: baseline;
   justify-content: space-between;
   font-size: 0.7rem;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.85);
-  /* Same accent-tick idiom as the case panel eyebrow, in the audit blue. */
+  color: var(--text-muted);
+  /* Same accent-tick idiom as the case panel eyebrow, and neutral like it
+     since plan 020: the tick labels a section, it does not offer an action. */
   padding-left: 0.75rem;
-  border-left: 2px solid rgba(28, 103, 255, 0.85);
+  border-left: 2px solid var(--rule-strong);
 }
 
 .audit-title {
@@ -304,34 +334,48 @@
      Suppressing zoom instead would be a WCAG 1.4.4 failure and would treat the
      symptom. The height went 46 -> 48px to keep the text off the border. */
   font-size: 1rem;
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  /* Matte, inset into the glass rather than made of it: the panel is the
+     material and the fields are cut into it. No backdrop-filter here — one
+     blurred layer per surface (§16). */
+  color: var(--text-primary);
+  background: var(--surface-matte);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--surface-inset);
   border-radius: 10px;
   transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
 .audit-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.42);
 }
 
 @media (hover: hover) {
   .audit-input:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    background: var(--surface-matte-hover);
+    border-color: rgba(220, 230, 245, 0.22);
   }
 }
 
+/* The border does the work, the blue only confirms it — same recipe as the
+   contact dialog. A bright blue border on a focused field was competing with
+   the one button that is supposed to be blue. */
 .audit-input:focus,
 .audit-input:focus-visible {
   outline: none;
-  border-color: rgba(28, 103, 255, 0.9);
-  box-shadow: 0 0 0 3px rgba(28, 103, 255, 0.18);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--surface-border-focus);
+  box-shadow: var(--surface-inset), 0 0 0 3px var(--accent-ring);
+  background: var(--surface-matte-hover);
 }
 
 /* Error state is border + message text, never colour alone (§11). */
 .audit-input[aria-invalid='true'] {
   border-color: rgba(255, 122, 122, 0.7);
+}
+
+.audit-input[aria-invalid='true']:focus,
+.audit-input[aria-invalid='true']:focus-visible {
+  border-color: rgba(255, 122, 122, 0.9);
+  box-shadow: var(--surface-inset), 0 0 0 3px rgba(255, 122, 122, 0.18);
 }
 
 .audit-field__error {
@@ -340,8 +384,10 @@
   color: rgba(255, 158, 158, 0.95);
 }
 
-/* Native select restyled in place; the blue chevron is an inline SVG so it
-   needs no asset and no replacement widget (§9). */
+/* Native select restyled in place; the chevron is drawn from two borders so
+   it needs no asset and no replacement widget. It was blue, and it was one of
+   the strongest blue marks in the panel for something that is not an action
+   (plan 020 §11) — neutral now, and a hair thinner. */
 .audit-select-wrap {
   position: relative;
 }
@@ -361,6 +407,8 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+/* The dropdown list is painted by the OS, not by the panel: it gets a flat
+   opaque colour, since there is nothing behind it to show through. */
 .audit-select option {
   background: #0a0c12;
   color: rgba(255, 255, 255, 0.95);
@@ -371,10 +419,10 @@
   position: absolute;
   right: 0.95rem;
   top: 50%;
-  width: 9px;
-  height: 9px;
-  border-right: 2px solid rgba(28, 103, 255, 0.95);
-  border-bottom: 2px solid rgba(28, 103, 255, 0.95);
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.55);
   transform: translateY(-70%) rotate(45deg);
   pointer-events: none;
 }
@@ -388,27 +436,32 @@
   height: 50px;
   border-radius: 10px;
   font-family: inherit;
-  font-size: 0.82rem;
+  /* Sentence case, and solid rather than neon (§10): one flat blue face, an
+     inset highlight along the top edge for the raise, and a neutral drop
+     shadow. Same button as the contact dialog's, a couple of pixels taller. */
+  font-size: 0.95rem;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: #fff;
-  background: linear-gradient(110deg, rgba(18, 49, 145, 0.96), rgba(28, 103, 255, 1));
-  border: 1px solid rgba(96, 145, 255, 0.45);
+  background: var(--accent);
+  border: 1px solid var(--accent-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
   cursor: pointer;
-  transition: transform 120ms cubic-bezier(0.3, 0, 0.4, 1), filter 160ms ease,
-    box-shadow 160ms ease;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 @media (hover: hover) {
   .audit-cta:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 0 20px rgba(28, 103, 255, 0.3);
+    background: var(--accent-hover);
+    border-color: rgba(150, 185, 255, 0.5);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.3);
   }
 }
 
+/* Pressed sits down rather than shrinking. */
 .audit-cta:active {
-  transform: scale(0.97);
+  background: var(--accent-pressed);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 /* In flight: the control says so and refuses a second press. Dimmed rather
@@ -416,9 +469,8 @@
    confirms it. */
 .audit-cta:disabled {
   cursor: default;
-  filter: none;
   opacity: 0.6;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 /* The submission failed. Same red family as the field errors — this is the
@@ -457,8 +509,9 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: rgba(28, 103, 255, 0.45);
-  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
+  /* Neutral since plan 020, like the contact dialog's. The DRAWING is what
+     says something arrived; the colour never was. */
+  background: rgba(255, 255, 255, 0.14);
   /* Feathered at both ends: nothing on this site terminates in a cut. */
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
@@ -502,12 +555,15 @@
 }
 
 .audit-cta:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
+/* The arrow belongs to the label, so it is the label's colour held back a
+   little — it used to be a pale blue of its own on a blue button, which read
+   as a third tone on a two-tone control. */
 .audit-cta__arrow {
-  color: rgba(190, 214, 255, 0.95);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 1rem;
 }
 
@@ -560,7 +616,7 @@
 }
 
 .audit-legal__link:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -588,6 +644,17 @@
   .audit-curtain::after,
   .audit-curtain__edge {
     display: none;
+  }
+
+  /* Full-viewport, with nothing beside it to be separated from — and over the
+     brightest ground the material ever meets. Denser than the desktop panel
+     (§17): a form the width of a phone is read, not admired, and the shadow
+     has no edge left to fall on. */
+  .audit-panel {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 14%),
+      rgba(7, 10, 15, 0.94);
+    box-shadow: none;
   }
 
   .audit-form {

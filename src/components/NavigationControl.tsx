@@ -243,6 +243,17 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
                 <circle className="nav-hint__part nav-hint__part--close-l" cx="16" cy="24" r="5" />
                 <circle className="nav-hint__part nav-hint__part--close-r" cx="32" cy="24" r="5" />
               </svg>
+              {/* The eyebrow names the gesture, the sentence says what it does
+              (plan 020 §8). Only the descent carries one: on the way back the
+              plate already has the city's three controls above it, and a
+              second micro-label there would be the HUD again. The words are
+              the ones the sentence already uses, so nothing new is claimed. */}
+              <span className="nav-hint__eyebrow" data-input="fine">
+                Scroll
+              </span>
+              <span className="nav-hint__eyebrow" data-input="coarse">
+                Zoom
+              </span>
               <span className="nav-hint__text" data-input="fine" data-direction="down">
                 Haz scroll para bajar a Murcia
               </span>

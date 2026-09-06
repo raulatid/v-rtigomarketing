@@ -117,18 +117,21 @@ html {
   width: min(420px, 38vw);
   z-index: 35;
   padding: 2.25rem;
-  background: linear-gradient(160deg, rgba(12, 15, 22, 0.82), rgba(4, 6, 10, 0.86));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
+  /* Density B, the compact plaque: one flat tint under one thin film, where
+     there used to be a 160deg two-stop fog. A gradient that can be SEEN is a
+     second thing competing with the panel's own light. */
+  background: var(--glass-film), var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
   /* Prefixed first throughout this file: Safari accepted `backdrop-filter`
      unprefixed only from 18.0, so iOS 15-17 gets no blur without this. Every
      surface using it also carries an alpha plate, so the unprefixed-only
      version degraded legibly rather than invisibly — which is why this was a
      P2 and not a P1. */
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-  color: #fff;
+  -webkit-backdrop-filter: var(--glass-blur-card);
+  backdrop-filter: var(--glass-blur-card);
+  box-shadow: var(--glass-shadow);
+  color: var(--text-primary);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -155,25 +158,28 @@ html {
 
 .case-panel__eyebrow {
   font-size: 0.68rem;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.16em;
+  color: var(--text-muted);
   text-transform: uppercase;
   /* Small accent tick anchors the label without adding a new element. */
-  padding-left: 0.75rem;
-  border-left: 2px solid rgba(255, 255, 255, 0.55);
+  padding-left: 0.625rem;
+  border-left: 2px solid var(--rule-strong);
 }
 
+/* Part of the material rather than a utility glyph on top of it: no ring of
+   its own, the same corner language as the panel, and a surface that only
+   appears under the pointer. The 44px touch expansion below is untouched. */
 .case-panel__close {
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.7);
-  width: 28px;
-  height: 28px;
+  border: 0;
+  color: rgba(255, 255, 255, 0.62);
+  width: 30px;
+  height: 30px;
   cursor: pointer;
-  border-radius: 50%;
+  border-radius: 9px;
   font-size: 0.8rem;
   line-height: 1;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition: background 150ms ease, color 150ms ease;
 }
 
 /* Every :hover in this file is gated on `(hover: hover)`.
@@ -183,9 +189,8 @@ html {
    arrow permanently displaced. */
 @media (hover: hover) {
   .case-panel__close:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
     color: #fff;
-    border-color: rgba(255, 255, 255, 0.4);
   }
 }
 
@@ -196,7 +201,7 @@ html {
    Safari is nothing at all. That asymmetry is part of what reads as "a blue box
    only on Android": Android focuses a <button> on tap, WebKit does not. */
 .case-panel__close:focus-visible {
-  outline: 2px solid rgba(120, 170, 255, 0.9);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -231,11 +236,26 @@ html {
   --case-brand: #ffffff;
 }
 
+/* The film, over the panel's own scroller and under nothing. */
+.case-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--glass-highlight);
+  opacity: 0.7;
+}
+
 .case-panel__metric {
   flex: 1;
   padding: 0.875rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Matte, not a second pane of glass: the figures are inset INTO the
+     plaque. Lighter than a form field (0.45 against 0.55) because the panel
+     under them is already density B rather than the heavy C. */
+  background: rgba(4, 7, 11, 0.45);
+  border: 1px solid rgba(220, 230, 245, 0.08);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.2);
   /* The case's brand colour on the top edge only — the accent every data
      card carries, without tinting the glass itself. */
   border-top: 2px solid var(--case-brand);
@@ -297,8 +317,9 @@ html {
 .case-panel__graph {
   height: 158px;
   padding: 0.875rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(4, 7, 11, 0.45);
+  border: 1px solid rgba(220, 230, 245, 0.08);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.2);
   border-radius: 10px;
 }
 
@@ -484,6 +505,11 @@ html {
     border-left: none;
     border-right: none;
     border-bottom: none;
+    /* Denser than the desktop plaque (§17). Full-width over the city floor at
+       its brightest is the worst case the material has, and a sheet this size
+       is closer to a panel than to a card — the bigger the surface, the less
+       the glass should assert itself. */
+    background: var(--glass-film), rgba(8, 12, 18, 0.88);
     /* Slides up from below rather than fading in place. The desktop rule
        centres with translateY(-50%), which would put the sheet off-screen. */
     transform: translateY(100%);
@@ -951,7 +977,10 @@ html {
   font-family: inherit;
   font-size: 14px;
   letter-spacing: 0.02em;
-  outline: 2px solid #1c67ff;
+  /* The house ring, like every other focus state on the site. It was #1c67ff
+     here and nowhere else — a darker blue that read as a different control's
+     idea of focus, on the one button standing beside the hint frame. */
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -1014,11 +1043,14 @@ html {
   align-items: stretch;
   width: max-content;
   max-width: calc(100vw - 32px);
-  padding: 0 1.25rem;
-  background: rgba(12, 15, 22, 0.82);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  color: rgba(255, 255, 255, 0.72);
+  padding: 0 1.375rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: var(--glass-film), var(--glass-bg-light);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  color: var(--text-secondary);
   opacity: 0;
   visibility: hidden;
   /* Out: quicker than in, and the visibility flips only once the fade is
@@ -1041,49 +1073,24 @@ html {
     visibility 0s;
 }
 
-/* The emitter line: ignites from the centre, then breathes. The beacon plate's
-   recipe, restated here rather than shared because murcia.css rides the scene
-   chunk and Earth shows this frame before that chunk has loaded. */
+/* The specular film. The top fifth of the plate catches a little light, so the
+   material reads as glass and not as a translucent rectangle — the one thing
+   that has to be perceptible without being noticed.
+
+   This pseudo-element used to be the blue emitter hairline that ignited from
+   the centre and then breathed. Plan 020 §9 spent the blue elsewhere, and with
+   the emitter went the reason this file had to RESTATE the beacon plate's
+   recipe rather than share it (murcia.css rides the scene chunk; Earth shows
+   this frame before that chunk has loaded). Nothing here animates now, so an
+   open frame costs the compositor nothing at all. */
 .nav-hint::before {
   content: '';
   position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: rgba(28, 103, 255, 0.45);
-  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  transform: scaleX(0);
-  transform-origin: center;
-  opacity: 0;
-  transition:
-    transform 200ms cubic-bezier(0.55, 0, 0.3, 1),
-    opacity 200ms ease-in;
-}
-
-.nav-hint[data-visible]::before {
-  transform: scaleX(1);
-  opacity: 1;
-  transition:
-    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 120ms ease-out;
-  /* Delayed past the ignition and unfilled, so the transition owns the first
-     360ms and the breath takes over from there. */
-  animation: nav-hint-breath 4.5s ease-in-out 360ms infinite alternate;
-}
-
-/* The plate ENDS. The old one dissolved into the screen edge through a mask,
-   which is what read as cut off; a faint rule says the edge is meant. */
-.nav-hint::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--glass-highlight);
+  opacity: 0.7;
 }
 
 /* ---- The two blocks ----
@@ -1184,39 +1191,78 @@ html {
 }
 
 .nav-hint__label {
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .nav-hint__caption {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 0.72rem;
   letter-spacing: 0.01em;
 }
 
-/* ---- The gesture row ---- */
+/* ---- The gesture row ----
+
+   Two rows, not one: the eyebrow names the gesture as a micro-label and the
+   sentence says what it does, with the glyph spanning both. A grid rather than
+   nested boxes because the row already holds every variant at once and hides
+   all but one — a `display: none` item claims no track, so the same three
+   grid areas serve whichever pair is showing. Where there is no eyebrow (the
+   climb back out of the city) its row collapses and the glyph re-centres. */
 .nav-hint__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  column-gap: 0.875rem;
   padding: 0.7rem 0 0.75rem;
 }
 
-/* The divider exists only while there is something above it to divide. */
-.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__row {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.nav-hint__row > .nav-hint__icon {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+/* The 3px between the two lines lives HERE and not on the grid's row-gap:
+   the climb out of the city shows no eyebrow, and a row-gap would still be
+   spent between the empty row and the sentence, nudging the glyph off the
+   text it belongs to. */
+.nav-hint__eyebrow {
+  display: none;
+  grid-column: 2;
+  grid-row: 1;
+  margin-bottom: 3px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .nav-hint__text {
   display: none;
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.88);
+  grid-column: 2;
+  grid-row: 2;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.92);
   white-space: nowrap;
+}
+
+/* Under the city's three controls the gesture is the quieter of the two
+   things on the plate, so it steps back rather than being ruled off. */
+.nav[data-direction='up'] .nav-hint__row > .nav-hint__icon {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.nav[data-direction='up'] .nav-hint__text {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--text-secondary);
 }
 
 /* ---- Which glyph, which words ----
@@ -1231,6 +1277,10 @@ html {
   width: 32px;
   height: 32px;
   flex: none;
+  /* The glyphs carry the plate now that the borders and dividers are gone:
+     a shade brighter than the copy around them, with the one part that
+     MOVES brighter still, so the eye finds the motion first. */
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .nav-hint__icon--mouse {
@@ -1250,7 +1300,8 @@ html {
 }
 
 .nav[data-direction='down'] .nav-hint__text[data-input='fine'][data-direction='down'],
-.nav[data-direction='up'] .nav-hint__text[data-input='fine'][data-direction='up'] {
+.nav[data-direction='up'] .nav-hint__text[data-input='fine'][data-direction='up'],
+.nav[data-direction='down'] .nav-hint__eyebrow[data-input='fine'] {
   display: block;
 }
 
@@ -1280,8 +1331,13 @@ html {
     display: none;
   }
 
+  .nav[data-direction] .nav-hint__eyebrow[data-input='fine'] {
+    display: none;
+  }
+
   .nav[data-direction='down'] .nav-hint__text[data-input='coarse'][data-direction='down'],
-  .nav[data-direction='up'] .nav-hint__text[data-input='coarse'][data-direction='up'] {
+  .nav[data-direction='up'] .nav-hint__text[data-input='coarse'][data-direction='up'],
+  .nav[data-direction='down'] .nav-hint__eyebrow[data-input='coarse'] {
     display: block;
   }
 }
@@ -1298,6 +1354,10 @@ html {
     width: min(360px, calc(100vw - 32px));
     max-width: none;
     padding: 0 1rem;
+    /* A shade denser than density A everywhere else: the card is small, it
+       sits over the city floor at its brightest, and readability wins over
+       consistency of the number. */
+    background: var(--glass-film), rgba(10, 15, 22, 0.74);
   }
 
   .nav-hint__cells {
@@ -1322,8 +1382,7 @@ html {
   }
 
   .nav-hint__label {
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
+    font-size: 0.82rem;
   }
 
   .nav-hint__caption {
@@ -1332,11 +1391,12 @@ html {
   }
 
   .nav-hint__row {
-    justify-content: flex-start;
+    justify-content: start;
   }
 
   .nav-hint__text {
     white-space: normal;
+    font-size: 0.8rem;
   }
 }
 
@@ -1346,6 +1406,7 @@ html {
    the motion instead of naming it. Transform and opacity only, and only while
    the frame is open, so a closed hint costs no compositor work. */
 .nav-hint__part {
+  stroke: rgba(255, 255, 255, 0.95);
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -1384,15 +1445,6 @@ html {
 
 .nav-hint[data-visible] .nav-hint__part--ring {
   animation: nav-hint-ring 2.8s ease-out infinite;
-}
-
-@keyframes nav-hint-breath {
-  from {
-    opacity: 0.92;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @keyframes nav-hint-wheel {
@@ -1461,9 +1513,10 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* The loops and the breath are decoration in motion; every fade and the
-     rise may stay. Same split the beacons make in murcia.css. */
-  .nav-hint[data-visible]::before,
+  /* The loops are decoration in motion; every fade and the rise may stay.
+     Same split the beacons make in murcia.css. The plate's own ::before no
+     longer breathes — it is a static film now — so only the glyphs are left
+     to stop. */
   .nav-hint[data-visible] .nav-hint__part {
     animation: none;
   }

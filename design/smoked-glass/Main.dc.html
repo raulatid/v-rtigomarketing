@@ -1,0 +1,183 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #06080c; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #fff; } a:hover { color: #1c67ff; }
+    p, h1, h2, h3 { margin: 0; }
+    code { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 0.72rem; color: rgba(255,255,255,0.68); }
+  </style>
+</helmet>
+<div style="position: relative; width: 1440px; height: 1520px; overflow: hidden; background: #06080c;">
+  <img src="tierra.jpg" alt="" style="position: absolute; top: 0; left: 0; width: 1440px; height: auto;">
+
+  <!-- Sheet title -->
+  <div style="position: absolute; left: 64px; top: 104px; display: flex; flex-direction: column; gap: 10px; max-width: 620px;">
+    <span style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.46); padding-left: 10px; border-left: 2px solid rgba(255,255,255,0.35);">Plan 020 · material</span>
+    <h1 style="font-size: 1.9rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: rgba(255,255,255,0.94); text-wrap: pretty;">Cristal ahumado</h1>
+    <p style="font-size: 0.92rem; line-height: 1.55; color: rgba(255,255,255,0.68); text-wrap: pretty;">Un material, tres densidades. Cuerpo grafito translúcido, desenfoque moderado, borde frío apenas visible, una película de reflejo arriba y una sombra neutra que lo separa de la escena. El azul se retira a la acción principal.</p>
+  </div>
+
+  <!-- Three densities on the real sky -->
+  <div style="position: absolute; left: 64px; top: 296px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; width: 1312px;">
+
+    <div style="position: relative; display: flex; flex-direction: column; gap: 14px; padding: 22px 24px 24px; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(10,15,22,0.68); -webkit-backdrop-filter: blur(12px) saturate(115%); backdrop-filter: blur(12px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 20px 60px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.035);">
+      <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+      <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">A · Flotante</span>
+      <p style="font-size: 1.1rem; font-weight: 600; line-height: 1.25; color: rgba(255,255,255,0.94);">Bandeja de pistas</p>
+      <p style="font-size: 0.85rem; line-height: 1.55; color: rgba(255,255,255,0.68);">Pistas de scroll y controles de Murcia. La más transparente; la separación la hace la sombra, no la opacidad.</p>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.06);">
+        <code>--glass-bg-light: rgba(10,15,22,0.68)</code>
+        <code>blur 12px · saturate 115% · radio 14px</code>
+      </div>
+    </div>
+
+    <div style="position: relative; display: flex; flex-direction: column; gap: 14px; padding: 22px 24px 24px; border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(8,12,18,0.78); -webkit-backdrop-filter: blur(10px) saturate(115%); backdrop-filter: blur(10px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 20px 60px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.035);">
+      <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+      <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">B · Placa</span>
+      <p style="font-size: 1.1rem; font-weight: 600; line-height: 1.25; color: rgba(255,255,255,0.94);">Tarjeta compacta</p>
+      <p style="font-size: 0.85rem; line-height: 1.55; color: rgba(255,255,255,0.68);">El panel de caso y las tarjetas informativas. Opacidad media, algo menos de desenfoque, jerarquía tipográfica más fuerte.</p>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.06);">
+        <code>--glass-bg: rgba(8,12,18,0.78)</code>
+        <code>blur 10px · saturate 115% · radio 12px</code>
+      </div>
+    </div>
+
+    <div style="position: relative; display: flex; flex-direction: column; gap: 14px; padding: 22px 24px 24px; border-radius: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(7,10,15,0.86); -webkit-backdrop-filter: blur(12px) saturate(115%); backdrop-filter: blur(12px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 28px 80px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.035);">
+      <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+      <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">C · Pesado</span>
+      <p style="font-size: 1.1rem; font-weight: 600; line-height: 1.25; color: rgba(255,255,255,0.94);">Panel y formulario</p>
+      <p style="font-size: 0.85rem; line-height: 1.55; color: rgba(255,255,255,0.68);">Contacto y auditoría. La más opaca y estable; cuanto más grande el panel, menos se nota el cristal.</p>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.06);">
+        <code>--glass-bg-heavy: rgba(7,10,15,0.86)</code>
+        <code>blur 12px · sombra 0 28px 80px 0.42 · radio 16px</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tokens + typography + controls, on a heavy sheet so it reads over the stars -->
+  <div style="position: absolute; left: 64px; top: 606px; width: 1312px; display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 40px; padding: 32px 36px 36px; border-radius: 16px; background: rgba(7,10,15,0.9); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 28px 80px rgba(0,0,0,0.42);">
+
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+      <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Tokens · un propietario, no un sistema</span>
+      <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 12px; row-gap: 9px; align-items: center;">
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(10,15,22,0.68); border: 1px solid rgba(255,255,255,0.12);"></span><code>--glass-bg-light &nbsp;rgba(10,15,22,0.68)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(8,12,18,0.78); border: 1px solid rgba(255,255,255,0.12);"></span><code>--glass-bg &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rgba(8,12,18,0.78)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(7,10,15,0.86); border: 1px solid rgba(255,255,255,0.12);"></span><code>--glass-bg-heavy &nbsp;rgba(7,10,15,0.86)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(220,230,245,0.10);"></span><code>--glass-border &nbsp;&nbsp;&nbsp;rgba(220,230,245,0.10)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(230,238,250,0.16);"></span><code>--glass-border-strong &nbsp;rgba(230,238,250,0.16)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0));"></span><code>--glass-highlight rgba(255,255,255,0.10)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: #0a0d12; box-shadow: 0 6px 14px rgba(0,0,0,0.34);"></span><code>--glass-shadow &nbsp;&nbsp;&nbsp;0 20px 60px rgba(0,0,0,0.34)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(4,7,11,0.55); border: 1px solid rgba(220,230,245,0.14); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25);"></span><code>--surface-matte &nbsp;&nbsp;rgba(4,7,11,0.55) · borde 0.14</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(4,7,11,0.55); border: 1px solid rgba(220,230,245,0.32); box-shadow: 0 0 0 3px rgba(28,103,255,0.22);"></span><code>--surface-border-focus rgba(220,230,245,0.32) + anillo</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(255,255,255,0.94);"></span><code>--text-primary &nbsp;&nbsp;&nbsp;rgba(255,255,255,0.94)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(255,255,255,0.68);"></span><code>--text-secondary rgba(255,255,255,0.68)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(255,255,255,0.46);"></span><code>--text-muted &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rgba(255,255,255,0.46)</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: #1c67ff;"></span><code>--accent &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#1c67ff</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: #3a7dff;"></span><code>--accent-hover &nbsp;&nbsp;#3a7dff</code>
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(28,103,255,0.35);"></span><code>--accent-muted &nbsp;&nbsp;rgba(28,103,255,0.35)</code>
+      </div>
+      <p style="font-size: 0.78rem; line-height: 1.5; color: rgba(255,255,255,0.46); text-wrap: pretty;">Valores de partida (§2 del plan). Se afinan sobre la escena real, no en abstracto. Sin backdrop-filter el material cae a la misma jerarquía en opaco.</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 26px;">
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Jerarquía tipográfica</span>
+          <span style="font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.46); padding-left: 10px; border-left: 2px solid rgba(255,255,255,0.35);">Eyebrow · 11px · 0.16em</span>
+          <span style="font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: rgba(255,255,255,0.94);">Título en caja normal, 24px</span>
+          <span style="font-size: 0.92rem; line-height: 1.55; color: rgba(255,255,255,0.68);">Texto de apoyo a 14.7px, contraste bajo, interlineado generoso.</span>
+          <span style="font-size: 0.78rem; font-weight: 500; letter-spacing: 0.01em; color: rgba(255,255,255,0.68);">Etiqueta de campo · 12.5px · sin tracking</span>
+          <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Microetiqueta de control · 10.5px</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Radios por escala</span>
+          <div style="display: flex; align-items: flex-end; gap: 14px;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 84px; height: 64px; border-radius: 16px; border: 1px solid rgba(220,230,245,0.16); background: rgba(7,10,15,0.86);"></span><code>16 · panel</code></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 72px; height: 56px; border-radius: 14px; border: 1px solid rgba(220,230,245,0.16); background: rgba(10,15,22,0.68);"></span><code>14 · bandeja</code></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 64px; height: 48px; border-radius: 12px; border: 1px solid rgba(220,230,245,0.16); background: rgba(8,12,18,0.78);"></span><code>12 · tarjeta</code></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 96px; height: 40px; border-radius: 10px; border: 1px solid rgba(220,230,245,0.14); background: rgba(4,7,11,0.55); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25);"></span><code>10 · campo</code></div>
+          </div>
+          <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46); padding-top: 8px;">Scrollbar</span>
+          <div style="display: flex; gap: 18px; align-items: center;">
+            <div style="position: relative; width: 6px; height: 72px; border-radius: 999px; background: rgba(255,255,255,0.04);"><span style="position: absolute; top: 8px; left: 0; width: 6px; height: 28px; border-radius: 999px; background: rgba(255,255,255,0.22);"></span></div>
+            <div style="position: relative; width: 6px; height: 72px; border-radius: 999px; background: rgba(255,255,255,0.04);"><span style="position: absolute; top: 8px; left: 0; width: 6px; height: 28px; border-radius: 999px; background: rgba(255,255,255,0.34);"></span></div>
+            <code>pista 0.04 · pulgar 0.22 · hover 0.34 · sin azul</code>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">CTA principal · el único azul con relleno</span>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 10px; background: #1c67ff; border: 1px solid rgba(120,160,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 18px rgba(0,0,0,0.28); color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.01em;">Enviar <span style="opacity: 0.85;">→</span></span><code>reposo</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 10px; background: #3a7dff; border: 1px solid rgba(150,185,255,0.5); box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 22px rgba(0,0,0,0.3); color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.01em;">Enviar <span style="opacity: 0.85;">→</span></span><code>hover</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 10px; background: #1656d6; border: 1px solid rgba(120,160,255,0.3); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.28); color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.01em;">Enviar <span style="opacity: 0.85;">→</span></span><code>pulsado</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 10px; background: #1c67ff; border: 1px solid rgba(120,160,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 18px rgba(0,0,0,0.28); outline: 2px solid rgba(120,170,255,0.9); outline-offset: 2px; color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.01em;">Enviar <span style="opacity: 0.85;">→</span></span><code>foco teclado</code></div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; height: 44px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(220,230,245,0.14); color: rgba(255,255,255,0.82); font-size: 0.86rem; font-weight: 500;">Reservar una llamada</span><code>secundario · fantasma</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; height: 44px; border-radius: 10px; background: rgba(255,255,255,0.09); border: 1px solid rgba(220,230,245,0.22); color: #fff; font-size: 0.86rem; font-weight: 500;">Reservar una llamada</span><code>secundario · hover</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; height: 48px; border-radius: 10px; background: linear-gradient(110deg, rgba(18,49,145,0.96), rgba(28,103,255,1)); border: 1px solid rgba(96,145,255,0.45); box-shadow: 0 0 18px rgba(28,103,255,0.28); color: #fff; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;">Enviar →</span><code style="color: rgba(255,158,158,0.8);">antes · neón, degradado, mayúsculas</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: inline-flex; align-items: center; justify-content: center; height: 48px; border-radius: 10px; background: #1c67ff; border: 1px solid rgba(120,160,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 18px rgba(0,0,0,0.28); color: #fff; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;">Enviar →</span><code>alternativa · mayúsculas conservadas</code></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Campos · mate, encastrados en el cristal</span>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: flex; align-items: center; height: 48px; padding: 0 14px; border-radius: 10px; background: rgba(4,7,11,0.55); border: 1px solid rgba(220,230,245,0.14); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25); font-size: 16px; color: rgba(255,255,255,0.42);">nombre@empresa.com</span><code>reposo · placeholder</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: flex; align-items: center; height: 48px; padding: 0 14px; border-radius: 10px; background: rgba(6,10,15,0.65); border: 1px solid rgba(220,230,245,0.22); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25); font-size: 16px; color: rgba(255,255,255,0.42);">nombre@empresa.com</span><code>hover</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: flex; align-items: center; height: 48px; padding: 0 14px; border-radius: 10px; background: rgba(6,10,15,0.65); border: 1px solid rgba(220,230,245,0.32); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25), 0 0 0 3px rgba(28,103,255,0.22); font-size: 16px; color: rgba(255,255,255,0.94);">laura@vertigo.es</span><code>foco · borde claro + anillo azul tenue</code></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><span style="display: flex; align-items: center; height: 48px; padding: 0 14px; border-radius: 10px; background: rgba(4,7,11,0.55); border: 1px solid rgba(255,122,122,0.7); box-shadow: inset 0 1px 1px rgba(0,0,0,0.25); font-size: 16px; color: rgba(255,255,255,0.94);">laura@vertigo</span><code style="color: rgba(255,158,158,0.9);">error · borde + mensaje, nunca solo color</code></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Cerrar y volver</span>
+        <div style="display: flex; align-items: center; gap: 28px;">
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; color: rgba(255,255,255,0.62);"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"></path></svg></span><code>reposo</code></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.08); color: #fff;"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"></path></svg></span><code>hover</code></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; color: #fff; outline: 2px solid rgba(120,170,255,0.9); outline-offset: 2px;"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"></path></svg></span><code>foco</code></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="display: inline-flex; align-items: center; color: rgba(255,255,255,0.65); padding: 12px 8px;"><svg viewBox="0 0 44 16" width="44" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1 L2 8 L9 15"></path><line x1="2" y1="8" x2="43" y2="8"></line></svg></span><code>volver (auditoría) · sin cambios</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Before / after: the hint frame -->
+  <div style="position: absolute; left: 64px; top: 1376px; display: flex; align-items: center; gap: 60px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <code style="color: rgba(255,158,158,0.8);">antes · HUD: línea emisora azul, sin borde, sin radio, mayúsculas</code>
+      <div style="position: relative; display: flex; align-items: center; gap: 12px; padding: 11px 20px 12px; background: rgba(12,15,22,0.82); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: rgba(255,255,255,0.72);">
+        <span style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: rgba(28,103,255,0.45); box-shadow: 0 0 12px rgba(28,103,255,0.35);"></span>
+        <span style="position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.06);"></span>
+        <svg viewBox="0 0 24 48" width="20" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l4-4 4 4"></path><rect x="7" y="14" width="10" height="20" rx="5"></rect><path d="M12 18v4"></path><path d="M8 40l4 4 4-4"></path></svg>
+        <span style="font-size: 0.8rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;">Haz scroll para bajar a Murcia</span>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <code>después · instrumento flotante: película de reflejo, borde frío, sombra</code>
+      <div style="position: relative; display: flex; align-items: center; gap: 14px; padding: 13px 22px 13px 18px; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(10,15,22,0.68); -webkit-backdrop-filter: blur(12px) saturate(115%); backdrop-filter: blur(12px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 20px 60px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.035);">
+        <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+        <svg viewBox="0 0 24 48" width="20" height="40" fill="none" stroke="rgba(255,255,255,0.78)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l4-4 4 4"></path><rect x="7" y="14" width="10" height="20" rx="5"></rect><path d="M12 18v4" stroke="rgba(255,255,255,0.95)"></path><path d="M8 40l4 4 4-4"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <span style="font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.46);">Scroll</span>
+          <span style="font-size: 0.92rem; font-weight: 500; line-height: 1.25; color: rgba(255,255,255,0.92); white-space: nowrap;">Haz scroll para bajar a Murcia</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

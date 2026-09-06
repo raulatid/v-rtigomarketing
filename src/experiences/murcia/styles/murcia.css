@@ -234,56 +234,43 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  padding: 0.6rem 1rem 0.7rem;
+  padding: 0.6rem 0.875rem 0.7rem;
   min-width: 132px;
-  background: linear-gradient(180deg, rgba(12, 15, 22, 0.86), rgba(4, 6, 10, 0) 100%);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  /* The blur has to fade out with the tint or the glass ends in a hard line
-     exactly where the gradient stops being visible. */
-  -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+  /* Density A, and a real plate rather than a fading one. It used to dissolve
+     downward through a mask, which is the phone menu's idiom — a sheet that
+     runs out — and wrong for something this small: a 132px box with no bottom
+     edge reads as clipped, not as vapour. A border says the edge is meant,
+     and the shadow does the separating. Denser than the hint tray (0.72
+     against 0.68) because these sit over the city floor at its brightest. */
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-film), rgba(10, 15, 22, 0.72);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.035);
   white-space: nowrap;
 }
 
-/* The emitter line: ignites from the centre, then breathes. */
+/* The specular film. This pseudo-element was the blue emitter line that
+   ignited from the centre and then breathed, in step with the hologram's own
+   (uBreath, 1.4 rad/s). Plan 020 spends the blue on the dot below instead —
+   the mark that says a place is pressable — and the plate is left as material:
+   a film of reflected light along its top, static, costing nothing. */
 .murcia-ui .district-beacon__plate::before {
   content: '';
   position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: rgba(28, 103, 255, 0.45);
-  box-shadow: 0 0 12px rgba(28, 103, 255, 0.35);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  transform: scaleX(0);
-  transform-origin: center;
-  opacity: 0;
-  transition:
-    transform 200ms cubic-bezier(0.55, 0, 0.3, 1),
-    opacity 200ms ease-in;
-}
-
-.murcia-ui .district-beacons[data-visible] .district-beacon__plate::before {
-  transform: scaleX(1);
-  opacity: 1;
-  transition:
-    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 120ms ease-out;
-  /* Then it breathes, as the hologram's line does (uBreath, 1.4 rad/s — a 4.5s
-     period). Delayed past the ignition and unfilled, so the transition owns the
-     first 360ms and the breath takes over from there. */
-  animation: district-beacon-breath 4.5s ease-in-out 360ms infinite alternate;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--glass-highlight);
+  opacity: 0.7;
 }
 
 .murcia-ui .district-beacon__label {
-  color: #fff;
-  font-size: 0.78rem;
+  color: var(--text-primary);
+  font-size: 0.84rem;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
 .murcia-ui .district-beacon__caption {
@@ -292,8 +279,9 @@
   letter-spacing: 0.01em;
 }
 
-/* Both lines rise behind the line that drew them, on the same stagger the audit
-   panel's delivered state uses. */
+/* Both lines rise on the same stagger the audit panel's delivered state uses.
+   They used to rise behind the line that drew them; the plate's border does
+   that job now, so they simply arrive. */
 .murcia-ui .district-beacon__label,
 .murcia-ui .district-beacon__caption {
   opacity: 0;
@@ -329,7 +317,9 @@
   width: 1px;
   height: 66px;
   margin-left: -0.5px;
-  background: linear-gradient(180deg, rgba(28, 103, 255, 0) 0%, rgba(28, 103, 255, 0.5) 100%);
+  /* Neutral since plan 020. The leader is a line drawn between two things,
+     not one of the things: the DOT is what carries the blue here. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 100%);
   transform: scaleY(0);
   transform-origin: bottom;
   transition: transform 200ms cubic-bezier(0.55, 0, 0.3, 1);
@@ -351,8 +341,12 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  /* The last blue marker on the site that is not a button (plan 020 §9). It
+     earns it: this dot is the only thing saying a place in the world can be
+     pressed. Halved glow — with the plate's emitter gone there is nothing
+     beside it to keep up with. */
   background: rgba(120, 170, 255, 0.95);
-  box-shadow: 0 0 10px rgba(28, 103, 255, 0.75);
+  box-shadow: 0 0 8px rgba(28, 103, 255, 0.5);
   transform: scale(0);
   transition: transform 200ms cubic-bezier(0.55, 0, 0.3, 1);
 }
@@ -361,15 +355,6 @@
   transform: scale(1);
   transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
   animation: district-beacon-pulse 3.4s ease-in-out 320ms infinite alternate;
-}
-
-@keyframes district-beacon-breath {
-  from {
-    opacity: 0.92;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @keyframes district-beacon-pulse {
@@ -384,7 +369,8 @@
 /* The breath and the pulse are decoration in motion; every fade and the pin
    itself may stay. Same split the nav hint makes in styles.css. */
 @media (prefers-reduced-motion: reduce) {
-  .murcia-ui .district-beacons[data-visible] .district-beacon__plate::before,
+  /* The plate's own ::before no longer breathes — it is a static film now —
+     so the dot's pulse is all that is left to stop. */
   .murcia-ui .district-beacons[data-visible] .district-beacon__dot {
     animation: none;
   }

@@ -78,22 +78,13 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
     <section className="consent-banner" role="region" aria-labelledby={titleId} data-state={state}>
       <span className="consent-banner__dot" aria-hidden="true" />
       <span className="consent-banner__leader" aria-hidden="true" />
+      {/* The plate used to carry a stroke-drawn outline here — an SVG rect
+          whose dash offset traced it from the leader's landing point, like
+          the intro's mark. Plan 020 gave the plate a real material edge, and
+          a box cannot have two: a traced hairline ON a bordered plate reads
+          as a mistake, not as a drawing. The arrival keeps its order — dot,
+          leader, glass, copy — and simply lost a beat. */}
       <div className="consent-banner__plate">
-        {/* The outline is stroke-drawn like the intro's mark. The path starts
-            AND closes at the bottom-left corner, where the leader lands, so
-            the stroke continues it whichever end the dash reveals from.
-            `pathLength` normalises the dash maths to 0..1 — nothing is
-            measured — and the SVG sits beside the masked glass, not inside it,
-            so the mask cannot clip it. */}
-        <svg
-          className="consent-banner__frame"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path d="M0 100 V0 H100 V100 Z" pathLength="1" vectorEffect="non-scaling-stroke" />
-        </svg>
         <p className="consent-banner__label" id={titleId}>
           Cookies
         </p>

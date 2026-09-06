@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #06080c; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #fff; } a:hover { color: #1c67ff; }
+    p, h1, h2, h3 { margin: 0; }
+  </style>
+</helmet>
+<div style="position: relative; width: 1440px; height: 900px; overflow: hidden; background: #8a8f94;">
+  <img src="murcia-claro.jpg" alt="" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;">
+
+  <!-- Header over a light ground: contact gets a matte scrim, the audit CTA the new solid recipe -->
+  <div style="position: absolute; top: 25px; right: 48px; display: flex; align-items: center; gap: 14px; height: 46px;">
+    <span style="display: inline-flex; align-items: center; height: 38px; padding: 0 12px; border-radius: 10px; background: rgba(8,12,18,0.6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid rgba(220,230,245,0.10); color: #fff; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;">Contacto</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 26px; border-radius: 10px; background: #1c67ff; border: 1px solid rgba(120,160,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 18px rgba(0,0,0,0.28); color: #fff; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;">Auditoría</span>
+  </div>
+
+  <!-- Beacon · Servicios (tower) -->
+  <div style="position: absolute; left: 727px; top: 340px; width: 0; height: 0;">
+    <span style="position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: rgba(120,170,255,0.95); box-shadow: 0 0 8px rgba(28,103,255,0.5);"></span>
+    <span style="position: absolute; left: -0.5px; bottom: 8px; width: 1px; height: 66px; background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 100%);"></span>
+    <div style="position: absolute; bottom: 74px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 2px; min-width: 132px; padding: 10px 14px 11px; border-radius: 10px; white-space: nowrap; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(10,15,22,0.72); -webkit-backdrop-filter: blur(12px) saturate(115%); backdrop-filter: blur(12px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 14px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.035);">
+      <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+      <span style="font-size: 0.84rem; font-weight: 600; color: rgba(255,255,255,0.94);">Servicios</span>
+      <span style="font-size: 0.72rem; color: rgba(255,255,255,0.62);">Lo que hacemos</span>
+    </div>
+  </div>
+
+  <!-- Beacon · Blog -->
+  <div style="position: absolute; left: 1105px; top: 395px; width: 0; height: 0;">
+    <span style="position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: rgba(120,170,255,0.95); box-shadow: 0 0 8px rgba(28,103,255,0.5);"></span>
+    <span style="position: absolute; left: -0.5px; bottom: 8px; width: 1px; height: 66px; background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 100%);"></span>
+    <div style="position: absolute; bottom: 74px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 2px; min-width: 132px; padding: 10px 14px 11px; border-radius: 10px; white-space: nowrap; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(10,15,22,0.72); -webkit-backdrop-filter: blur(12px) saturate(115%); backdrop-filter: blur(12px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 14px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.035);">
+      <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+      <span style="font-size: 0.84rem; font-weight: 600; color: rgba(255,255,255,0.94);">Blog</span>
+      <span style="font-size: 0.72rem; color: rgba(255,255,255,0.62);">Lo que pensamos</span>
+    </div>
+  </div>
+
+  <!-- Hint frame · Murcia · density A, over the brightest ground the site has -->
+  <div style="position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 16px 24px 15px; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 18%), rgba(10,15,22,0.68); -webkit-backdrop-filter: blur(12px) saturate(115%); backdrop-filter: blur(12px) saturate(115%); border: 1px solid rgba(220,230,245,0.10); box-shadow: 0 20px 60px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.035);">
+    <div style="position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0) 22%); opacity: 0.7;"></div>
+    <div style="display: flex; justify-content: center; align-items: center; gap: 34px;">
+      <div style="display: flex; align-items: center; gap: 12px; white-space: nowrap;">
+        <svg viewBox="0 0 48 48" width="28" height="28" fill="none" stroke="rgba(255,255,255,0.78)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block; flex: none;"><path d="M9 24H3"></path><path d="M6 21l-3 3 3 3"></path><path d="M39 24h6"></path><path d="M42 21l3 3-3 3"></path><g stroke="rgba(255,255,255,0.95)"><circle cx="24" cy="24" r="5"></circle><path d="M24 29v8"></path></g></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 0.86rem; font-weight: 500; color: rgba(255,255,255,0.92);">Arrastra</span><span style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">mover</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; white-space: nowrap;">
+        <svg viewBox="0 0 48 48" width="28" height="28" fill="none" stroke="rgba(255,255,255,0.78)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block; flex: none;"><rect x="17" y="10" width="14" height="26" rx="7"></rect><path d="M24 10v10"></path><path d="M24 10a7 7 0 0 1 7 7v3h-7z" fill="rgba(255,255,255,0.95)" stroke="none"></path><path d="M36 16a12 12 0 0 1 0 16"></path><path d="M33 29l3 3 3-3"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 0.86rem; font-weight: 500; color: rgba(255,255,255,0.92);">Botón derecho</span><span style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">girar</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; white-space: nowrap;">
+        <svg viewBox="0 0 48 48" width="28" height="28" fill="none" stroke="rgba(255,255,255,0.78)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block; flex: none;"><rect x="17" y="12" width="14" height="26" rx="7"></rect><path d="M24 12v10"></path><path d="M24 12a7 7 0 0 0-7 7v3h7z" fill="rgba(255,255,255,0.95)" stroke="none"></path><circle cx="24" cy="25" r="16" stroke="rgba(255,255,255,0.35)"></circle></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 0.86rem; font-weight: 500; color: rgba(255,255,255,0.92);">Clic</span><span style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">un distrito iluminado</span></div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 12px; padding-top: 2px;">
+      <svg viewBox="0 0 24 48" width="17" height="34" fill="none" stroke="rgba(255,255,255,0.62)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block; flex: none;"><path d="M8 8l4-4 4 4"></path><rect x="7" y="14" width="10" height="20" rx="5"></rect><path d="M12 18v4" stroke="rgba(255,255,255,0.9)"></path><path d="M8 40l4 4 4-4"></path></svg>
+      <span style="font-size: 0.82rem; color: rgba(255,255,255,0.68); white-space: nowrap;">Haz scroll para volver a la Tierra</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

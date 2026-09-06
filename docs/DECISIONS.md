@@ -2277,10 +2277,75 @@ Broken when: a second frame loop appears for the logo, the banner texture is fet
 `cdn.sanity.io`, a banner field is added to the CMS without a consumer, the mark regains a lit
 material or a bake, or a second colour appears on the blog's bar.
 
+## 37. The overlay UI is one smoked-glass material in three densities, and blue is spent once
+
+**Decided** 2026-09-06, plan 020, drawn on a design canvas before a line of CSS changed
+(`design/smoked-glass/`, 11 artboards over real captures of the Earth and Murcia scenes). The
+canvas was the specification and was approved as one; what follows is what it settled.
+
+**One material, three densities, and the bigger the surface the quieter the glass.** A dark
+translucent graphite body, moderate blur, a cool border barely there, a thin film of reflected
+light at the top, and a deep neutral shadow that separates the panel from the scene. Density A
+(`--glass-bg-light`, 0.68) is the floating tray: the hint frame, the beacon plates, the consent
+plate — separation by shadow rather than by opacity. Density B (`--glass-bg`, 0.78) is the
+compact plaque, which is the case panel. Density C (`--glass-bg-heavy`, 0.86) is the heavy
+panel: contact, the legal sheets, the audit curtain. It is deliberately NOT frosted glass and
+not a HUD; the material should only become noticeable when compared against a plain dark
+rectangle. Where `backdrop-filter` is unsupported the three densities go near-opaque and keep
+their hierarchy, in one `@supports` block.
+
+**The tokens live in `siteHeader.css`, because that is the only sheet every document loads.**
+`styles.css` never reaches the blog, and this file already owned the app's one `:root` (the
+header geometry). Extending it was the smallest change that reaches Earth, Murcia and the blog
+alike. The blog inherits the dark-material tokens and must never consume them: its surface is
+paper, and it reads `--header-control` and nothing else. This is a token layer, not a design
+system — about two dozen names, each with a consumer.
+
+**Blue is scarce so that it means something.** It had been on accent lines, buttons,
+scrollbars, select arrows, focus states, eyebrow ticks, leaders, dots and six copies of an
+emitter hairline. It now has four homes and no others: the filled primary CTA, the soft ring
+behind a focused field's *neutral* border, the beacon dot that marks a pressable place in the
+world, and the keyboard focus outline, which is unchanged because accessibility is not a
+styling question. The CTA lost its 110° gradient and its outer glow for a flat face, an inset
+top highlight and a neutral drop shadow — pressed sits *down* rather than shrinking.
+
+**The blue emitter hairline is gone from every surface, and with it the reason to duplicate
+it.** It was byte-identical in six sheets, and `styles.css` documented why it could not be
+shared: `murcia.css` rides the scene chunk and Earth shows the hint frame before that chunk has
+loaded. The constraint was real and is now moot. Where the line was doing work it stayed and
+went neutral — the contact and audit delivered states still draw a rule from the centre,
+because the *drawing* is what says something arrived; where it was decoration it went.
+
+> **This amends §26.22 and the 2026-09-04 phone-menu amendment above.** The phone menu's field
+> is still glass wiping down from the header over the live scene, and it still has no edge —
+> but the line it ignites under is a neutral white hairline now, not the audit curtain's blue
+> emitter, because the audit curtain no longer has one.
+
+**Fields are not glass.** The container is the material; the inputs are matte surfaces inset
+into it — darker, thin neutral border, a shallow inner shadow, and no `backdrop-filter` of
+their own. Nested glass reads as two effects arguing and costs a second blurred layer for
+nothing. One blurred surface per panel is the performance rule this redesign holds to: no
+animated `backdrop-filter`, no stacked blurs, no filter chains, no new JavaScript, no
+dependency.
+
+**Uppercase is for eyebrows and micro-labels only.** Instruction sentences and submit buttons
+went to sentence case ("Enviar", "Continuar", "Haz scroll para bajar a Murcia"). The header's
+own triggers stayed uppercase with their tracking: they are nav micro-labels, and the canvas
+draws them that way on every artboard. No copy changed — this was `text-transform` and
+letter-spacing.
+
+Broken when: a colour literal appears in a panel sheet instead of a token, a second sheet
+declares `:root`, blue turns up outside the four homes above, a field grows a `backdrop-filter`,
+a panel's material stops being one of the three densities, or `blog.css` starts reading a
+`--glass-*` value.
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| The audit section is an opaque curtain: the scene goes away while the form is open | `auditSection.css` `.audit-panel { background: #050506 }`, **§26.15** | Density C smoked glass. The world stays behind the questions as soft context, and the panel is the same material as the contact and legal sheets — **§37** |
+| The emitter hairline is the site’s signature, restated in six sheets because they cannot share | `styles.css`, `murcia.css`, `consentBanner.css`, `siteHeader.css`, `auditSection.css`, `contactSection.css` | Removed. Where the line said something it stayed and went neutral; the sharing problem it caused went with it — **§37** |
+| Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37** |
 | The services district is engaged through a building, and a floating card shows that service | `DistrictInteraction.ts`, `districtPanel.ts`, `districtLabel.ts`, **§32** | A projected in-world display owns every control; buildings are one entry target and otherwise scenery — **§34** |
 | A swap between buildings re-aims the flight and keeps the distance | **§32**, `checks/district-flight.ts` §7d | Paging moves no camera at all. The only district flights are in and out — **§34** |
 | The district camera frames around the panel that covers part of the canvas | **§32**, `unobstructedCenterNdc(rect, panel.getObstructionRect())` | The display is in the world and moves with the camera, so the framing target is simply the centre — **§34** |

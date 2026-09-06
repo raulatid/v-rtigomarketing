@@ -1,0 +1,139 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1520,
+      "title": "Material · densidades y tokens"
+    },
+    {
+      "file": "TierraHint.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Pista · Tierra (A)"
+    },
+    {
+      "file": "MurciaHint.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Pista y controles · Murcia (A)"
+    },
+    {
+      "file": "MurciaClaro.dc.html",
+      "x": 1560,
+      "y": 1040,
+      "w": 1440,
+      "h": 900,
+      "title": "Suelo claro · legibilidad (A)"
+    },
+    {
+      "file": "Tarjeta.dc.html",
+      "x": 3120,
+      "y": 1040,
+      "w": 1440,
+      "h": 900,
+      "title": "Panel de caso (B)"
+    },
+    {
+      "file": "Contacto.dc.html",
+      "x": 0,
+      "y": 1640,
+      "w": 1440,
+      "h": 900,
+      "title": "Contacto (C)"
+    },
+    {
+      "file": "AuditoriaOpaca.dc.html",
+      "x": 1560,
+      "y": 2080,
+      "w": 1440,
+      "h": 900,
+      "title": "Auditoría · opaca (elegir)"
+    },
+    {
+      "file": "AuditoriaCristal.dc.html",
+      "x": 3120,
+      "y": 2080,
+      "w": 1440,
+      "h": 900,
+      "title": "Auditoría · cristal pesado (elegir)"
+    },
+    {
+      "file": "Secundarios.dc.html",
+      "x": 0,
+      "y": 2680,
+      "w": 1440,
+      "h": 900,
+      "title": "Cookies · balizas · cabecera"
+    },
+    {
+      "file": "Movil.dc.html",
+      "x": 1560,
+      "y": 3120,
+      "w": 390,
+      "h": 844,
+      "title": "Móvil · menú y controles"
+    },
+    {
+      "file": "MovilContacto.dc.html",
+      "x": 2040,
+      "y": 3120,
+      "w": 390,
+      "h": 844,
+      "title": "Móvil · contacto"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "como-leer",
+      "x": 0,
+      "y": -230,
+      "w": 480,
+      "text": "Plan 020 · Cristal ahumado. Primero el diseño, luego el código: nada en src/ cambia hasta aprobar este lienzo. Los fondos son capturas reales de la escena (Tierra en reposo, Murcia al llegar, Murcia con el suelo a plena luz). Los valores de la hoja de material son de partida y se afinan sobre la escena."
+    },
+    {
+      "id": "azul",
+      "x": 520,
+      "y": -230,
+      "w": 440,
+      "text": "Política del azul: relleno solo en la CTA principal (Enviar / Continuar / Auditoría). El tic del eyebrow pasa a neutro, la línea emisora azul desaparece de pistas, cookies, menú y balizas. Queda un único marcador azul: el punto de las balizas que señala un sitio pulsable. Los scrollbars y la flecha del select ya no son azules."
+    },
+    {
+      "id": "elegir-auditoria",
+      "x": 4640,
+      "y": 2080,
+      "w": 460,
+      "text": "A ELEGIR · La auditoría es hoy una cortina opaca por decisión (DECISIONS: full-attention curtain). Izquierda: se conserva #050506 y solo cambian campos, CTA, select, scrollbar y tipografía. Derecha: cristal pesado (§5C del plan), la escena queda como información suave detrás del formulario. Ambas pierden el separador azul con brillo."
+    },
+    {
+      "id": "tipografia",
+      "x": 1560,
+      "y": -230,
+      "w": 440,
+      "text": "Tipografía: las frases de instrucción pasan a caja normal (Haz scroll para bajar a Murcia); las mayúsculas con tracking quedan para eyebrows y microetiquetas (Scroll, Plan 020). La CTA se muestra en caja normal; en la hoja hay una alternativa en mayúsculas si se prefiere conservar la voz actual de los botones."
+    },
+    {
+      "id": "fuera",
+      "x": 3120,
+      "y": -230,
+      "w": 440,
+      "text": "Fuera de este trabajo: la pantalla de servicios de Murcia se dibuja en WebGL (textura + shader), el CSS no la alcanza; se trata en una tarea aparte. Se conservan: campos a 16px (zoom iOS), objetivos táctiles de 44px, anillo de foco visible, doctrina de movimiento reducido (los bucles paran, los fundidos quedan)."
+    },
+    {
+      "id": "muestra",
+      "x": 4640,
+      "y": 1040,
+      "w": 400,
+      "text": "El caso PcComponentes y sus cifras son de muestra, como los fixtures previos al CMS. El color de marca (naranja) sigue viviendo en los bordes superiores de las métricas y en la gráfica, nunca en el cristal."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
