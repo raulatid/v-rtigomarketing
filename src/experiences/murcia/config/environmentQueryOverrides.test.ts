@@ -84,6 +84,18 @@ describe('a lone parameter is not swallowed', () => {
     ['focusZ=8.25', (c: typeof murciaConfig) => c.initialFocus.z, 8.25],
     ['dist=300', (c: typeof murciaConfig) => c.camera.distance, 300],
     ['elev=22', (c: typeof murciaConfig) => c.camera.elevationDegrees, 22],
+    // Values chosen to differ from what ships, per the note at the top of this
+    // file: asserting a shipped default is how ?azimuth= was silently dropped.
+    [
+      'touchDragGain=0.55',
+      (c: typeof murciaConfig) => c.navigation.touchTranslationGain,
+      0.55,
+    ],
+    [
+      'touchYawDeg=133',
+      (c: typeof murciaConfig) => c.navigation.rotation.touchDegreesPerViewportWidth,
+      133,
+    ],
   ])('?%s survives on its own', (query, read, expected) => {
     expect(read(apply(`?${query}`))).toBe(expected);
   });

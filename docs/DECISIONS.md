@@ -2367,6 +2367,82 @@ declares `:root`, blue turns up outside the homes listed above, a field grows a 
 a panel's material stops being one of the three densities, or `blog.css` starts reading a
 `--glass-*` value.
 
+## 38. Pan and yaw feel are split by pointer type, because a finger runs out of glass
+
+> Amends **§21** (the pan gain) and **§20** (Murcia navigates like a map). Neither is
+> reversed: both described one gesture with one sensitivity, and there are now two of each.
+> Note also that §21's heading says "the pan gain is 0.7" and the shipped mouse value is
+> 0.4 — recorded here rather than edited, since the heading is the decision as taken.
+
+**Decided 2026-09-06,** on a report that Murcia panned and rotated fine on a desktop and cost
+far too much interaction on a phone. `touchTranslationGain: 1` against the mouse's `0.4`, and
+`rotation.touchDegreesPerViewportWidth: 175` against the mouse's `110`.
+
+**The obvious explanation is false, and that is the useful part of this entry.** The
+reflex is that a phone shows less ground, so a pixel of drag buys less world. Ground per CSS
+pixel at this pose works out to `2*tan(fov/2)/h` — **a function of viewport pixel height
+alone**, in both screen axes, because the frustum widening with aspect is exactly cancelled
+by there being more pixels to spread it over. Driven through the real pose maths: 0.2241
+units/px on a 390x844 phone against 0.1751 on a 1920x1080 desktop. The phone pixel is worth
+*more*. Anyone who reaches for the frustum, portrait aspect, or `cameraPortraitOverrides` to
+explain a mobile feel complaint is looking in the wrong place.
+
+**What is actually different is stroke length.** A mouse drag is unbounded by the window —
+pointer capture keeps events coming past the edge — and unbounded by the desk, because OS
+acceleration divorces hand travel from pixel travel. A finger stops at the glass at ~250px,
+and every re-anchor costs a lift and a fresh `touchDragThresholdPx`. At gain 0.4 that is 22.4
+units per stroke against the desktop's 70, so crossing the 352-unit plate cost ~16 strokes on
+a phone and ~5 on a desktop. Rotation is the same shape one level worse: two fingers carry a
+centroid ~140px of a 390px width, so a quarter turn cost 2.4 sweeps where the shipped comment
+priced it at 1.5.
+
+**And rotation's cost was not only slowness.** Every extra sweep re-arms the ADR 015 pinch
+arbitration. The controller does not wait for the classifier, but `claimPinch` can take a
+sweep away mid-gesture with a synthetic `pointercancel`, and the decision latches per finger
+pair — so five short sweeps run that race five times where one long sweep runs it once. Fewer,
+longer sweeps is the fix for both halves of the complaint.
+
+**Pointer type, not viewport aspect,** and the numbers above are the argument: units/px does
+not depend on aspect, so aspect is not the mechanism. The mechanism is whether a stroke can be
+arbitrarily long, which is a property of the input device. Aspect also changes *under* a
+gesture — a device rotates, a window is dragged wider — and `rect` is re-read every move, so
+keying sensitivity to it would retune mid-drag; `dragThresholdFor` already records why pointer
+type cannot do that. A tablet in landscape is touch and gets the boost, which is accepted
+rather than overlooked: at 1180x820 a 400px sweep buys 36.9 units against a desktop's 70, so a
+tablet is short too, just less so.
+
+**Desktop is unchanged, and that was the constraint rather than a side effect.** The last time
+touch made rotation feel expensive the fix went onto the number both inputs shared —
+`260f4d8`, 2026-08-26, ADR 012, 60 -> 110 — and silently retuned the mouse. The pair exists so
+that cannot happen a third time.
+
+**`twoPointerThresholdPx` was deliberately not touched.** It is coupled by hand to
+`NAVIGATION_PINCH.declineRivalPx`, unenforceably, because `experiences/` may not import
+`app/`. The arbitration is decided in pixels; this change alters only what a pixel is worth in
+degrees, so the coupling is undisturbed. If a settling grip nudges the city, the answer is to
+lower `touchDegreesPerViewportWidth`, **not** to raise the dead zone — that would move
+`declineRivalPx` with it and amend ADR 015.
+
+**THE NUMBERS ARE NOT YET JUDGED.** Both are arithmetic, derived from thumb reach, and neither
+has been driven on a device. `?touchDragGain=` and `?touchYawDeg=` exist so the judgement can
+be made on a phone instead of through a rebuild; `?touchDragGain=0.4&touchYawDeg=110` is the
+pre-split A/B. Ladders: 0.85 then 0.7 for the gain, 150 then 130 for the yaw. Gain 1 is a
+ceiling rather than a rung — on touch the finger is on the thing it drags, so ground that
+outruns it reads as broken, and `check:navigation` §13 asserts the bound.
+
+**Ruled out.** One shared number retuned for mobile (retunes desktop, which is the fault being
+corrected). Splitting on portrait aspect (splits on a variable that does not appear in the
+maths, and changes desktop behaviour for a tall window). A nested `touch:` override block
+(invites partial-merge semantics and puts each value far from the one it deviates from;
+`dragThresholdPx`/`touchDragThresholdPx` had already answered the question). Lowering the
+two-finger dead zone (moves `declineRivalPx` and re-opens ADR 015).
+
+**How you would know it broke.** `check:navigation` §13 fails: the touch pan block measures
+the mouse gain, which means the per-pointer selection was dropped — the negative control run
+on 2026-09-06 confirmed that removing it fails exactly the three touch assertions and leaves
+the 60 mouse ones green. Or the distinctness checks fail, which means a retune collapsed the
+pair back into one number.
+
 ## Superseded
 
 | Decision | Was | Now |

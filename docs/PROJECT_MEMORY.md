@@ -605,12 +605,16 @@ the `?model=` override so the two compose. Separate from `appConfig`'s overrides
 are experience-scoped rather than shell-scoped. Two groups:
 
 - **Feel** — `?dragGain=` `?yawDeg=` `?smooth=` `?yawSmooth=` `?release=` `?inertia=`
-  `?focusMin=`
+  `?focusMin=`, plus the touch halves `?touchDragGain=` `?touchYawDeg=` (§38)
 - **Pose** — `?dist=` `?elev=` `?azimuth=` `?lookAt=` `?fov=` `?farPlane=` `?focusX=`
   `?focusZ=`, plus `?zoomFar=` `?zoomFarElev=` `?zoomNear=` and the skirt's `?skirt=` `?fade=`
 
 `?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL — the comparison most
-likely to be wanted while reviewing it.
+likely to be wanted while reviewing it. `?touchDragGain=0.4&touchYawDeg=110` is the same
+thing for the 2026-09-06 pointer-type split, and it is the A/B that matters most right now:
+both touch values shipped as arithmetic and neither has been judged on a device. The two
+touch parameters do nothing from a mouse, so A/Bing them on a desktop measures nothing — use
+a phone, or Chrome's touch emulation.
 
 `?zoomMin=` `?zoomMax=` `?wheelZoom=` `?zoomSmooth=` were **retired with the zoom band**
 (`adr/009`); this section listed them long after they stopped existing. There is no max-side
@@ -664,6 +668,15 @@ the wheel stopped driving distance when the zoom band was retired.) All are live
 parameters, so it is a browser session and not a rebuild cycle. Record the outcome here either
 way, including "tried and went back", which is the entry this section was missing the first
 time.
+
+**First ask which input the complaint came from** (2026-09-06, §38). Pan gain and yaw rate are
+each two numbers now — `translationGain`/`touchTranslationGain` and
+`degreesPerViewportWidth`/`touchDegreesPerViewportWidth` — so the list above names the *mouse*
+knob and `?touchDragGain=`/`?touchYawDeg=` are the touch ones. Do not answer a mobile report by
+moving a shared number: that is exactly what `260f4d8` did to the mouse in August, and it is
+why the pair exists. And do not reach for the frustum to explain a mobile feel report — ground
+per CSS pixel is `2*tan(fov/2)/h`, height alone, so a phone pixel is worth *more* ground than a
+desktop one. What a phone lacks is stroke length, and no feel constant buys that back.
 
 Two exceptions to that order now. `translationGain` is not really a speed knob — lowering it
 does not make panning slower so much as it trades fidelity away, and grab-the-point is the

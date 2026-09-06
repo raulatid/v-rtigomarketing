@@ -1047,7 +1047,11 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
   h.step(3.0);
 
   const deadZone = nav.rotation.twoPointerThresholdPx;
-  const gain = nav.rotation.degreesPerViewportWidth / WIDTH;
+  // The TOUCH rate: this section is driven by touchDown/touchMove. The dead
+  // zone is not split — it is coupled to NAVIGATION_PINCH.declineRivalPx and
+  // measured in pixels, which is the one thing the per-pointer-type rate does
+  // not change.
+  const gain = nav.rotation.touchDegreesPerViewportWidth / WIDTH;
   const expected = (beyond - deadZone) * gain;
   check(
     'and past it, only the travel beyond it counts',
@@ -1247,6 +1251,98 @@ console.log('\n12. Tap tolerance is per pointer type');
     'an event with no pointerType is treated as a mouse',
     movedBy(undefined, between) === true,
     'the pen and synthetic-event path keeps the tight tolerance',
+  );
+}
+
+console.log('\n13. Feel is per pointer type, not just the thresholds');
+{
+  //
+  // Section 9 proves the pan solve and its proportionality, and every event it
+  // fires is a mouse — section 12 above asserts that an event with no
+  // pointerType is treated as one. So until this section existed the touch gain
+  // shipped with no guard at all: reverting the selection in the controller
+  // would have left all 58 checks green.
+  //
+  // The negative control is the point of the first block. Make
+  // `translationGainFor` ignore pointerType and it measures the mouse's gain
+  // against the touch expectation and fails, while section 9 keeps passing.
+  const startPx = { x: CENTRE_X - 200, y: CENTRE_Y + 80 };
+  const path = [
+    { x: startPx.x + 260, y: startPx.y },
+    { x: startPx.x + 260, y: startPx.y - 140 },
+  ];
+  const end = path[path.length - 1];
+
+  /** Section 9's L-shaped drag, driven by a finger. */
+  function runTouchDrag(gain: number) {
+    const h = makeHarness({ ...nav, touchTranslationGain: gain });
+    const startFocus = { x: h.rig.focus.x, z: h.rig.focus.z };
+
+    let t = 1000;
+    touchDown(h, 1, startPx.x, startPx.y, t);
+
+    // 16px, not section 9's 8: a finger needs touchDragThresholdPx (12) to
+    // become a drag at all. At 8 this gesture would never start and every
+    // assertion below would pass vacuously against a focus that never moved.
+    t += 16;
+    touchMove(h, 1, startPx.x + 16, startPx.y, t);
+
+    for (const p of path) {
+      t += 16;
+      touchMove(h, 1, p.x, p.y, t);
+      h.controller.update(1 / 60);
+    }
+    h.step(2.0);
+    touchUp(h, 1, end.x, end.y, t + 16);
+    h.step(2.0);
+
+    const fromGround = groundAt(h.camera, startPx.x + 16, startPx.y);
+    const toGround = groundAt(h.camera, end.x, end.y);
+    return {
+      movedX: h.rig.focus.x - startFocus.x,
+      movedZ: h.rig.focus.z - startFocus.z,
+      exactX: fromGround.x - toGround.x,
+      exactZ: fromGround.z - toGround.z,
+    };
+  }
+
+  const touch = runTouchDrag(nav.touchTranslationGain);
+  check(
+    'a finger pans by the TOUCH gain, not the mouse one, in x',
+    close(touch.movedX, touch.exactX * nav.touchTranslationGain, 0.02),
+    `moved ${touch.movedX.toFixed(2)} against ${(touch.exactX * nav.touchTranslationGain).toFixed(2)} ` +
+      `(touch gain ${nav.touchTranslationGain} of ${touch.exactX.toFixed(2)}; the mouse's ` +
+      `${nav.translationGain} would give ${(touch.exactX * nav.translationGain).toFixed(2)})`,
+  );
+  check(
+    'and in z',
+    close(touch.movedZ, touch.exactZ * nav.touchTranslationGain, 0.02),
+    `moved ${touch.movedZ.toFixed(2)} against ${(touch.exactZ * nav.touchTranslationGain).toFixed(2)}`,
+  );
+
+  // The two must actually differ, or the block above proves nothing: at equal
+  // gains it passes with the selection removed.
+  check(
+    'the two pan gains are distinct, and touch is the stronger one',
+    nav.touchTranslationGain > nav.translationGain,
+    `mouse ${nav.translationGain}, touch ${nav.touchTranslationGain}`,
+  );
+  check(
+    'the two yaw rates are distinct, and touch is the faster one',
+    nav.rotation.touchDegreesPerViewportWidth > nav.rotation.degreesPerViewportWidth,
+    `mouse ${nav.rotation.degreesPerViewportWidth} deg/width, ` +
+      `touch ${nav.rotation.touchDegreesPerViewportWidth} deg/width`,
+  );
+
+  // The one hard bound in the pair, and it belongs here rather than in a comment
+  // that a retune can walk past. Above 1 the ground outruns the finger, and on
+  // an input where the contact sits on the thing it is dragging that is not a
+  // lighter feel, it is a broken one. The mouse has no equivalent ceiling — a
+  // cursor is a proxy, so overshoot there is merely a taste.
+  check(
+    'the touch gain does not exceed grab-the-point',
+    nav.touchTranslationGain <= 1,
+    `${nav.touchTranslationGain} <= 1`,
   );
 }
 

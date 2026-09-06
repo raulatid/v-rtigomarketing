@@ -259,6 +259,40 @@ export const murciaConfig: EnvironmentConfig = {
     // that forced 0.09 → 0.03 fires in proportion to the gain, so 0.03 is
     // conservative here rather than mandatory.
     translationGain: 0.4,
+    // The same thing for touch, at grab-the-point, and the split is what makes
+    // the mouse number above safe to leave alone.
+    //
+    // The complaint was that panning a phone costs too many strokes. The
+    // obvious explanation — a phone shows less ground, so a pixel buys less —
+    // is FALSE, and worth writing down because it is the first thing anyone
+    // will reach for. Ground per CSS pixel at this pose is 2*tan(fov/2)/h: a
+    // function of viewport pixel HEIGHT alone, in both screen axes, because the
+    // frustum widening with aspect is exactly cancelled by there being more
+    // pixels to spread it over. Measured through the real pose maths it is
+    // 0.2241 units/px on a 390x844 phone against 0.1751 on a 1920x1080 desktop.
+    // The phone pixel is worth MORE.
+    //
+    // What the phone does not have is stroke. A mouse drag is unbounded by the
+    // window (pointer capture keeps events coming past the edge) and by the
+    // desk (acceleration); a thumb stops at the glass at ~250px. At gain 0.4
+    // that is 22.4 units per stroke against the desktop's 70 — so crossing the
+    // 352-unit plate costs ~16 strokes on a phone and ~5 on a desktop. That
+    // ratio is the whole report.
+    //
+    // Parity would need 1.25, which is above grab-the-point and therefore not
+    // available at all. 1 recovers 80% of the gap (56 units against 70) and is
+    // the ceiling for a reason that is not taste: on touch the finger is ON the
+    // thing it drags, so ground that outruns it reads as broken rather than as
+    // light. checks/navigation-feel.ts asserts the bound.
+    //
+    // Nothing else moves with it. `smoothingTimeConstant: 0.03` below was
+    // already sized for the gain-1 case — see its own note, which records that
+    // 0.03 is conservative at 0.4 rather than mandatory.
+    //
+    // STARTING POINT, derived by arithmetic and NOT yet driven on a phone.
+    // `?touchDragGain=` is the ladder: 0.85, then 0.7 if 1 reads slippery.
+    // Below 0.7 is back inside the complaint.
+    touchTranslationGain: 1,
     // Panning the focus across the ground, world units per second.
     //
     // SIGNED OFF 2026-08-06, with two amendments recorded in PROJECT_MEMORY §7.
@@ -312,6 +346,39 @@ export const murciaConfig: EnvironmentConfig = {
       //
       // That is the right cost for something you do to re-aim, not to travel.
       degreesPerViewportWidth: 110,
+      // Touch turns faster per pixel, because a touch "sweep" is not a viewport
+      // width and the comment above prices everything in sweeps.
+      //
+      // A mouse can genuinely drag a full viewport width — more, with capture.
+      // Two fingers cannot: on a 390px phone, contacts ~100px apart carry the
+      // centroid about 140px before the outer one leaves the glass, and each
+      // gesture re-pays the 8px dead zone. That is 0.338 of a width per usable
+      // sweep. Holding the cost stated above — a quarter turn at 1.5 sweeps —
+      // gives 90 / (1.5 * 0.338) = 177, rounded to 175.
+      //
+      // At the shared 110 the same arithmetic put a quarter turn at 2.4 sweeps
+      // and a half turn at 4.8, which is the "rotating costs too much" report.
+      // And the cost is worse than slow: DragPanController does not wait for
+      // the pinch classifier, but `claimPinch` can TAKE a sweep away mid-gesture
+      // with a synthetic pointercancel (ADR 015), and the decision latches per
+      // finger-pair. So five short sweeps re-run that race five times where one
+      // long sweep runs it once. Fewer, longer sweeps is the fix for both.
+      //
+      // Note the history this pair exists to stop repeating: 60 -> 110 landed in
+      // 260f4d8 (2026-08-26, ADR 012) for touch's benefit, on the number both
+      // inputs shared, and silently retuned the mouse. Splitting is the
+      // alternative to doing that again.
+      //
+      // `twoPointerThresholdPx` below is deliberately NOT touched. It is
+      // coupled by hand to NAVIGATION_PINCH.declineRivalPx and the arbitration
+      // is decided in pixels; this changes only what a pixel is worth in
+      // degrees, so the coupling is undisturbed. If a settling grip visibly
+      // nudges the city, LOWER THIS rather than raising the dead zone.
+      //
+      // STARTING POINT, derived by arithmetic and NOT yet driven on a phone.
+      // `?touchYawDeg=` is the ladder: 150, then 130, floor at 110 where it
+      // rejoins the mouse.
+      touchDegreesPerViewportWidth: 175,
       // Two thirds of the 12px one finger needs, and lower on purpose. A
       // two-finger sweep is unambiguous once it is moving, so the cost of
       // waiting is latency on a deliberate gesture; the cost of not waiting is

@@ -16,9 +16,27 @@
  *
  *   ?dragGain=0.4  ?yawDeg=100  ?smooth=0.12  ?release=0.1  ?inertia=0.6
  *   ?yawSmooth=0.05  ?focusMin=0.6
+ *   ?touchDragGain=0.85  ?touchYawDeg=150
  *
  * `?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL, which is
  * the comparison most likely to be wanted while reviewing it.
+ *
+ * ── The touch pair, added 2026-09-06 ──
+ *
+ * `?touchDragGain=` and `?touchYawDeg=` are the mobile halves of the first two,
+ * and they matter more than the rest of this file rather than less. Pan and yaw
+ * feel are now split by pointer type, and the touch values shipped as
+ * ARITHMETIC — derived from how far a thumb can travel before it leaves the
+ * glass, never judged by hand on a device. These parameters are how that
+ * judgement gets made, and a phone is the one place where editing a constant
+ * and rebuilding is not merely slow but impractical.
+ *
+ *   ?touchDragGain=0.4&touchYawDeg=110   the pre-split feel, for the A/B
+ *   ?touchDragGain=0.85                  first rung down if gain 1 reads loose
+ *   ?touchYawDeg=150                     first rung down if 175 reads twitchy
+ *
+ * Note that neither has any effect from a mouse, so A/Bing them on a desktop
+ * measures nothing. Use a device, or Chrome's touch emulation.
  *
  * ── The camera pose, added 2026-09-04 ──
  *
@@ -97,6 +115,13 @@ export function applyNavigationQueryOverrides(
 
   const dragGain = readNumber(params, 'dragGain', (v) => v > 0);
   const yawDegrees = readNumber(params, 'yawDeg', (v) => v > 0);
+  // The touch halves of both, and separate parameters for the same reason
+  // `?yawSmooth=` is separate from `?smooth=` (see overrideFeel below): a
+  // parameter that hit both would silently retune the input you are not
+  // holding. These are the ones that matter on a phone, where they are also the
+  // only way to A/B at all — the device cannot be rebuilt against.
+  const touchDragGain = readNumber(params, 'touchDragGain', (v) => v > 0);
+  const touchYawDegrees = readNumber(params, 'touchYawDeg', (v) => v > 0);
   // Time constants: 0 is meaningful (exact tracking, no inertia), negatives are
   // not — a negative would flip the sign of the exponential and diverge.
   const smoothing = readNumber(params, 'smooth', (v) => v >= 0);
@@ -159,6 +184,8 @@ export function applyNavigationQueryOverrides(
   const overrides = [
     dragGain,
     yawDegrees,
+    touchDragGain,
+    touchYawDegrees,
     smoothing,
     release,
     inertia,
@@ -222,11 +249,14 @@ export function applyNavigationQueryOverrides(
     navigation: {
       ...env.navigation,
       translationGain: dragGain ?? env.navigation.translationGain,
+      touchTranslationGain: touchDragGain ?? env.navigation.touchTranslationGain,
       feel: overrideFeel(env.navigation.feel, smoothing),
       rotation: {
         ...env.navigation.rotation,
         degreesPerViewportWidth:
           yawDegrees ?? env.navigation.rotation.degreesPerViewportWidth,
+        touchDegreesPerViewportWidth:
+          touchYawDegrees ?? env.navigation.rotation.touchDegreesPerViewportWidth,
         feel: overrideFeel(env.navigation.rotation.feel, yawSmoothing),
       },
     },
@@ -240,7 +270,10 @@ export function applyNavigationQueryOverrides(
     '[navigation] feel overridden by query parameters',
     {
       translationGain: next.navigation.translationGain,
+      touchTranslationGain: next.navigation.touchTranslationGain,
       degreesPerViewportWidth: next.navigation.rotation.degreesPerViewportWidth,
+      touchDegreesPerViewportWidth:
+        next.navigation.rotation.touchDegreesPerViewportWidth,
       smoothingTimeConstant: next.navigation.feel.smoothingTimeConstant,
       releaseTimeConstant: next.navigation.feel.releaseTimeConstant,
       inertiaTimeConstant: next.navigation.feel.inertiaTimeConstant,

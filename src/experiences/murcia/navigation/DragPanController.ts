@@ -96,11 +96,19 @@ interface TrackedPointer {
  * pixel near the horizon covers far more ground than one near the bottom edge,
  * and a pixel-based mapping would ignore that.
  *
- * `translationGain` scales the result and ships at 1, which is the definition of
- * grab-the-point. Below 1 the grabbed point slides behind the cursor; that was
- * the previous setting and the complaint.
+ * `translationGain` scales the result, and there are two of it — one for mouse
+ * and pen, one for touch — selected per event by `translationGainFor`. 1 is the
+ * definition of grab-the-point; below 1 the grabbed point slides behind the
+ * contact. Touch ships at 1 and the mouse below it, because the gains are not
+ * competing answers to one question: ground per pixel is the same on both, but
+ * a mouse stroke is unbounded (capture, acceleration) while a finger stroke ends
+ * at the edge of the glass, so the same gain buys far less ground per gesture on
+ * touch. murciaConfig.ts carries the measurement.
  *
- * Yaw is a straight pixels-to-degrees mapping, normalized by viewport width. A
+ * Yaw is a straight pixels-to-degrees mapping, normalized by viewport width, and
+ * is likewise split per pointer type by `degreesPerViewportWidthFor` — for the
+ * same reason, one level worse, since two fingers run out of glass sooner than
+ * one. A
  * turntable solve (yaw from the angle the grabbed ground point sweeps about the
  * focus) was considered and rejected: its radius varies by an order of magnitude
  * between the top and bottom of the screen at this elevation, so sensitivity
@@ -564,14 +572,37 @@ export class DragPanController {
   };
 
   /**
-   * Read from the event rather than from state recorded at pointerdown: a
+   * The three per-pointer-type selections, together.
+   *
+   * All read from the event rather than from state recorded at pointerdown: a
    * pointer cannot change type mid-sequence, so the two are equivalent, and
-   * taking it from the event keeps the decision beside the comparison it feeds.
+   * taking it from the event keeps each decision beside the comparison it feeds.
+   *
+   * That property is also why pointer type is the right axis and viewport shape
+   * is not. Aspect changes under a gesture — a device rotates, a window is
+   * dragged wider — and `rect` is re-read on every move, so keying sensitivity
+   * to it would change the mapping mid-drag. It would also be keying on the
+   * wrong thing: ground per CSS pixel works out to 2*tan(fov/2)/h and does not
+   * depend on aspect at all. What actually differs between a mouse and a finger
+   * is whether the stroke can be arbitrarily long, which is a property of the
+   * device — the thing `pointerType` names.
    */
   private dragThresholdFor(event: PointerEvent): number {
     return event.pointerType === 'touch'
       ? this.config.touchDragThresholdPx
       : this.config.dragThresholdPx;
+  }
+
+  private translationGainFor(event: PointerEvent): number {
+    return event.pointerType === 'touch'
+      ? this.config.touchTranslationGain
+      : this.config.translationGain;
+  }
+
+  private degreesPerViewportWidthFor(event: PointerEvent): number {
+    return event.pointerType === 'touch'
+      ? this.config.rotation.touchDegreesPerViewportWidth
+      : this.config.rotation.degreesPerViewportWidth;
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -619,7 +650,8 @@ export class DragPanController {
     const dt = (event.timeStamp - this.lastMoveTime) / 1000;
 
     if (this.mode === 'pan') this.applyPan(event, rect, dt);
-    else if (this.mode === 'rotate') this.applyRotation(event.clientX - this.lastClientX, rect, dt);
+    else if (this.mode === 'rotate')
+      this.applyRotation(event.clientX - this.lastClientX, rect, dt, event);
 
     this.lastClientX = event.clientX;
     this.lastClientY = event.clientY;
@@ -628,10 +660,23 @@ export class DragPanController {
   };
 
   /**
-   * Horizontal movement → yaw. Sensitivity is normalized by viewport width, so
-   * a turn costs the same fraction of the screen on a mouse and on touch.
+   * Horizontal movement → yaw, normalized by viewport width so sensitivity does
+   * not change with resolution or window size.
+   *
+   * The RATE is per pointer type, and the event is a parameter for that alone.
+   * It used to be one number on the stated ground that "a turn costs the same
+   * fraction of the screen on a mouse and on touch" — true of the arithmetic
+   * and false of the gesture, because a mouse can sweep a full viewport width
+   * and two fingers cannot. Both call sites already hold the event, so the
+   * pixels-to-degrees decision stays here rather than being resolved twice
+   * outside and passed in as a number that either caller could get wrong.
    */
-  private applyRotation(dxPixels: number, rect: DOMRect, dt: number): void {
+  private applyRotation(
+    dxPixels: number,
+    rect: DOMRect,
+    dt: number,
+    event: PointerEvent,
+  ): void {
     const rotation = this.config.rotation;
     if (!rotation.enabled) return;
     if (dxPixels === 0) return;
@@ -642,7 +687,7 @@ export class DragPanController {
     // ends up further to the right of frame. Dragging right therefore carries
     // the ground right by *increasing* yaw. Reasoning about the camera's
     // sideways translation instead gives the opposite, incorrect, answer.
-    const deltaYaw = dxPixels * (rotation.degreesPerViewportWidth / rect.width);
+    const deltaYaw = dxPixels * (this.degreesPerViewportWidthFor(event) / rect.width);
     this.targetYaw += deltaYaw;
 
     if (dt > 1e-4) {
@@ -668,7 +713,7 @@ export class DragPanController {
     if (!this.projectToGround(rect, event.clientX, event.clientY, this.toPoint)) return;
 
     // The ground follows the cursor, so the focus moves the opposite way.
-    const gain = this.config.translationGain;
+    const gain = this.translationGainFor(event);
     const proposedX = this.targetX + (this.fromPoint.x - this.toPoint.x) * gain;
     const proposedZ = this.targetZ + (this.fromPoint.z - this.toPoint.z) * gain;
 
@@ -735,7 +780,7 @@ export class DragPanController {
     const engagedPx = Math.sign(offset) * Math.max(0, Math.abs(offset) - deadZone);
 
     // `applyRotation` is incremental, so it is fed only what is not yet applied.
-    this.applyRotation(engagedPx - this.twoPointerAppliedPx, rect, dt);
+    this.applyRotation(engagedPx - this.twoPointerAppliedPx, rect, dt, event);
     this.twoPointerAppliedPx = engagedPx;
 
     if (dt > 1e-4) this.lastMoveTime = event.timeStamp;

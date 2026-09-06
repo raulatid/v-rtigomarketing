@@ -119,14 +119,29 @@ export interface RotationConfig {
   enabled: boolean;
   /**
    * Yaw swept by dragging across the full width of the viewport, degrees.
+   * MOUSE AND PEN ONLY — touch has its own, below.
    *
    * Expressed per viewport width rather than per pixel so sensitivity does not
    * change with resolution or window size. Rotation is free and unbounded —
-   * the value only sets how much drag a full turn costs. The touch path feeds
-   * the two-finger centroid through the same mapping, so a turn costs the same
-   * fraction of the screen on either input.
+   * the value only sets how much drag a full turn costs.
    */
   degreesPerViewportWidth: number;
+  /**
+   * The same mapping for touch, and a second number rather than a retune of the
+   * first — the split `dragThresholdPx`/`touchDragThresholdPx` already makes.
+   *
+   * Both inputs are normalised by viewport width, so the units are identical.
+   * What differs is how much of that width the gesture can actually sweep, and
+   * this interface used to claim they were the same ("a turn costs the same
+   * fraction of the screen on either input"). A mouse can sweep the whole width
+   * and more: pointer capture keeps events coming past the window edge, and OS
+   * acceleration divorces hand travel from pixel travel entirely. Two fingers
+   * cannot — the outer one leaves the glass at roughly a third of the width,
+   * and each fresh sweep re-pays `twoPointerThresholdPx` and re-arms the pinch
+   * arbitration that can claim the gesture outright (ADR 015). One number
+   * describing two gestures that different is what this pair stops.
+   */
+  touchDegreesPerViewportWidth: number;
   /**
    * Centroid travel required before two fingers turn anything, in CSS pixels.
    *
@@ -202,16 +217,35 @@ export interface NavigationConfig {
    */
   touchDragThresholdPx: number;
   /**
-   * Multiplier on the pan solve. 1 makes the ground track the cursor exactly —
-   * the grabbed point stays under the pointer, in both axes.
+   * Multiplier on the pan solve, for MOUSE AND PEN. 1 makes the ground track
+   * the cursor exactly — the grabbed point stays under the pointer, in both
+   * axes.
    *
-   * 1 is the shipped value and it is the *point*: pan is grab-the-point, which
-   * is a definition rather than a taste. Below 1 the grabbed point slides
-   * behind the cursor and the gesture stops being a map, which is the complaint
-   * that prompted the rework. The knob is retained only so `?dragGain=` can put
-   * the old feel back for comparison. See PROJECT_MEMORY, "Murcia's navigation".
+   * Grab-the-point is a definition rather than a taste: below 1 the grabbed
+   * point slides behind the cursor and the gesture stops being a map, which is
+   * the complaint that prompted the rework. The shipped value is nonetheless
+   * below 1 — see murciaConfig.ts, where the judgement and its date live.
+   * `?dragGain=` moves it without a rebuild.
    */
   translationGain: number;
+  /**
+   * The same multiplier for touch, and a second number for the same reason
+   * `touchDragThresholdPx` is one: the two inputs are not the same gesture.
+   *
+   * Ground covered per CSS pixel is identical on both — it works out to
+   * `2*tan(fov/2)/h`, a function of viewport pixel HEIGHT alone, so a phone is
+   * if anything more sensitive per pixel than a desktop. What a finger does not
+   * have is STROKE. A mouse drag is unbounded by the window (pointer capture)
+   * and unbounded by the desk (OS acceleration); a finger stops at the edge of
+   * the glass and every re-anchor costs a lift and a fresh
+   * `touchDragThresholdPx`. So the same gain buys a fraction of the ground per
+   * gesture on touch, and the shortfall is not recoverable by any feel constant.
+   *
+   * Bounded above by 1, and the harness asserts it: on touch the finger is
+   * physically on the thing it is dragging, so ground that outruns the contact
+   * does not read as light, it reads as broken.
+   */
+  touchTranslationGain: number;
   /**
    * Feel for panning the focus across the ground. Speeds are world units per
    * second. Coupled to `translationGain` — see DragFeelConfig.
