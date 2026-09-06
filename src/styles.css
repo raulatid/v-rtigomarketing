@@ -173,11 +173,11 @@ html {
   background: none;
   border: 0;
   color: rgba(255, 255, 255, 0.62);
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   cursor: pointer;
-  border-radius: 9px;
-  font-size: 0.8rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
   line-height: 1;
   transition: background 150ms ease, color 150ms ease;
 }
@@ -584,6 +584,19 @@ html {
     /* Tighter than the desktop's 1.5rem: the handle above it already provides
        the separation, and at the peek stop every pixel is content. */
     margin-bottom: 1rem;
+  }
+
+  /* Half again the 30px this control used to be everywhere. The 44px
+     expansion further down this file made it HITTABLE on touch and left it
+     drawn as a small glyph in the middle of an invisible hole; on a sheet the
+     visitor closes with a thumb, the drawn control should be the target. The
+     header is a flex row, so this is what sets its height — it costs ~11px of
+     the peek stop, which is the trade this asks for. */
+  .case-panel__close {
+    width: 45px;
+    height: 45px;
+    border-radius: 13px;
+    font-size: 1.2rem;
   }
 
   .case-panel__body {
@@ -1536,7 +1549,13 @@ html {
 
    `.district-label` is the exception and grows honestly, in murcia.css: it is
    the ONLY district affordance on a touch device (there is no hover to reveal
-   anything else), so it is a primary control rather than chrome. */
+   anything else), so it is a primary control rather than chrome.
+
+   `.case-panel__close` became a second exception on 2026-09-07, and only
+   below 767px: on the sheet it is drawn at 45px, so the overlay below is
+   exactly its own box and changes nothing there. The overlay still does the
+   work on a tablet, where the control keeps its 34px desktop size under a
+   coarse pointer. */
 @media (pointer: coarse) {
   .case-panel__close {
     position: relative;
