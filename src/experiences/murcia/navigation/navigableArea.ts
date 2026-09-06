@@ -188,17 +188,25 @@ export class NavigableArea {
       );
     }
     console.info(`effective        ${fmt(eff)}`);
-    if (this.plate) {
-      const coverage = this.plateCoverage(eff, this.plate) * 100;
-      const line = `navigable        ${coverage.toFixed(0)}% of the plate`;
+    if (this.configured) {
+      // Measured against what navigation was CONFIGURED to cover, not against
+      // the terrain mesh. Those were the same rectangle until the 2026-09-06
+      // export merged the authored plate into the outer ground: the mesh became
+      // six times the authored city, and this line started reporting a correct
+      // navigable area as "3% of the plate" on every load. What it is actually
+      // watching for is the footprint inset eating the area — which is a
+      // relationship between effective and configured, and never involved the
+      // mesh.
+      const coverage = this.plateCoverage(eff, this.configured) * 100;
+      const line = `navigable        ${coverage.toFixed(0)}% of the configured area`;
       if (coverage < MIN_EXPECTED_PLATE_COVERAGE * 100) console.warn(line + ' — smaller than expected');
       else console.info(line);
     }
     console.groupEnd();
   }
 
-  private plateCoverage(effective: BoundsRect, plate: BoundsRect): number {
-    const plateArea = (plate.maxX - plate.minX) * (plate.maxZ - plate.minZ);
+  private plateCoverage(effective: BoundsRect, reference: BoundsRect): number {
+    const plateArea = (reference.maxX - reference.minX) * (reference.maxZ - reference.minZ);
     if (plateArea <= 0) return 0;
     const navArea = (effective.maxX - effective.minX) * (effective.maxZ - effective.minZ);
     return navArea / plateArea;
@@ -206,7 +214,7 @@ export class NavigableArea {
 }
 
 /**
- * Below this share of the plate, the navigable area is reported as a warning
+ * Below this share of the configured area, the navigable area is a warning
  * rather than as information. Not a hard limit — a legitimately small area is
  * possible — but at this point the likeliest cause is a config/asset mismatch
  * rather than a deliberate choice.

@@ -35,14 +35,29 @@ export function rectContains(rect: DisplayRect, x: number, y: number): boolean {
  * thumb finds them without aiming.
  */
 /**
- * VOLVER, top-left. The panel's header control.
+ * The header control, top-left. ONE rect, TWO glyphs.
  *
- * ONE button in both modes, and it always means "back one level": out of the
- * detail in detail mode, out of the district in summary mode. `CLOSE_RECT` used
- * to sit on top of `DETAIL_RECT` and carry a second word for the same idea; it is
- * gone, and so is "cerrar".
+ * It has always meant "back one level" — out of the detail in detail mode, out
+ * of the district in summary mode — and it used to say VOLVER in both, which
+ * made the two levels indistinguishable at the moment a visitor most needs to
+ * tell them apart. It now draws an X in the summary and a left arrow in the
+ * detail, from two rows of the label atlas pointed at this same rectangle.
+ * `controlAt` and the dispatch in `DistrictInteraction` are unchanged; only the
+ * glyph differs, which is what keeps the split a rendering decision.
+ *
+ * SQUARE, and it had to become square. The row is stretched to fill the rect
+ * with no aspect correction, so the rect IS the glyph's on-screen shape — a
+ * 0.26 x 0.085 band sized for a six-letter word would have handed an X a 3:1 box.
+ *
+ * 0.08 is about 3.2 core units, or roughly 34 screen pixels at the district
+ * camera. THIS IS THE FLOOR while the rect is both the drawing box and the hit
+ * box. Plan 003 §4 is explicit that hit areas may be larger than the visible
+ * graphic and that mobile usability beats microscopic sci-fi controls; one
+ * rectangle serving both purposes is what makes that impossible to honour here.
+ * Going smaller means splitting them — a second rect per control, hit-tested and
+ * never drawn — not editing this number.
  */
-export const BACK_RECT: DisplayRect = { x: 0.03, y: 0.035, width: 0.26, height: 0.085 };
+export const BACK_RECT: DisplayRect = { x: 0.053, y: 0.058, width: 0.08, height: 0.08 };
 
 /**
  * The footer control bar: `‹  SABER MÁS  ›`.
@@ -52,9 +67,33 @@ export const BACK_RECT: DisplayRect = { x: 0.03, y: 0.035, width: 0.26, height: 
  * every forward move together, and the two arrows stay far enough apart that a
  * thumb cannot confuse them.
  */
-export const PREVIOUS_RECT: DisplayRect = { x: 0.05, y: 0.845, width: 0.16, height: 0.095 };
-export const DETAIL_RECT: DisplayRect = { x: 0.32, y: 0.845, width: 0.36, height: 0.095 };
-export const NEXT_RECT: DisplayRect = { x: 0.79, y: 0.845, width: 0.16, height: 0.095 };
+// All three are near-square now, because SABER MÁS became [+] and a word's
+// letterbox is the wrong container for a symbol. The rect IS the glyph's
+// on-screen size — the atlas row is stretched to fill it — so these numbers are
+// the layout AND the type scale at once, which is why they are what gets turned
+// when the controls look wrong rather than anything in `paintLabels`.
+//
+// The band's top moved with each size revision (0.845 -> 0.855 -> 0.861) to hold
+// the gap BELOW the controls constant, so the footer does not drift up the panel
+// as the buttons shrink. Anchoring the top instead and letting the bottom rise is
+// the obvious way to write this and it is wrong: the eye reads the distance to
+// the panel's edge, not the distance to the copy.
+//
+// Centres are preserved across every revision — 0.13, 0.50, 0.87 — so the
+// footer's rhythm survives the retuning and only the targets change size.
+export const PREVIOUS_RECT: DisplayRect = { x: 0.094, y: 0.861, width: 0.072, height: 0.076 };
+export const DETAIL_RECT: DisplayRect = { x: 0.448, y: 0.861, width: 0.104, height: 0.076 };
+export const NEXT_RECT: DisplayRect = { x: 0.834, y: 0.861, width: 0.072, height: 0.076 };
+
+/**
+ * The summary copy's floor, and the ONE owner of it.
+ *
+ * `servicesDisplay` used to carry its own 0.845 literal in the overflow warning,
+ * which is the same number as the footer's top written down twice. Moving the bar
+ * up left the warning describing the old layout, silently, in the one place whose
+ * whole job is to notice that the copy has reached the controls.
+ */
+export const FOOTER_TOP = PREVIOUS_RECT.y;
 
 /**
  * The readable area in detail mode, and the single owner of FOUR things: what the
@@ -79,13 +118,21 @@ export const DETAIL_VIEWPORT_RECT: DisplayRect = { x: 0.06, y: 0.17, width: 0.84
  * order in two files is a mapping that silently rotates the labels the first time
  * one of them is reordered.
  */
-export const CONTROL_RECTS: Readonly<Record<'previous' | 'next' | 'detail' | 'back', DisplayRect>> =
-  {
-    previous: PREVIOUS_RECT,
-    next: NEXT_RECT,
-    detail: DETAIL_RECT,
-    back: BACK_RECT,
-  };
+/**
+ * A row of the label atlas. NOT a control: `exit` and `return` are two glyphs
+ * for the one rect `DisplayControl` calls `back`, which is what lets the header
+ * say which level it leaves without the hit test knowing anything about it.
+ */
+export type LabelRow = 'previous' | 'next' | 'detail' | 'exit' | 'return';
+
+export const CONTROL_RECTS: Readonly<Record<LabelRow, DisplayRect>> = {
+  previous: PREVIOUS_RECT,
+  next: NEXT_RECT,
+  detail: DETAIL_RECT,
+  // Same rectangle, twice. The summary draws the X into it, the detail the arrow.
+  exit: BACK_RECT,
+  return: BACK_RECT,
+};
 
 export type DisplayControl = 'previous' | 'next' | 'detail' | 'close' | 'back' | 'detail-viewport';
 
@@ -116,9 +163,16 @@ export function controlAt(x: number, y: number, detailOpen: boolean): DisplayCon
 }
 
 /**
- * Control labels by language, following the pattern the exit segment proved
- * before it was retired: data, not literals in a shader, so the word can change
- * with the site's language.
+ * Control labels by language.
+ *
+ * NO LONGER PAINTED. The panel's controls became stroked symbols in the
+ * 2026-09-06 port — an X, a shafted arrow, two chevrons and `[+]` — so nothing
+ * on the display renders these words any more.
+ *
+ * Kept because they are the only place the controls have NAMES, which is what a
+ * translator edits and what an accessible label would be built from. Deleting
+ * them would leave the district without a translation surface rather than
+ * removing an unused one.
  */
 export const CONTROL_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   es: { detail: 'saber más', back: 'volver' },

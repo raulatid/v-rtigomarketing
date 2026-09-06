@@ -1,52 +1,25 @@
 /**
- * Binds editorial district content to geometry in the city GLB, and to the
- * camera decision made when the district is entered.
+ * Binds editorial district content to the camera decision made when the
+ * district is entered.
  *
- * Separate from the generated content on purpose: Blender identifiers, accent
- * colours and camera angles are not editorial copy, and mixing them puts a
- * marketing edit one typo away from breaking asset resolution.
- */
-
-/**
- * One service building, and the connection that carries its signal in to the
- * ring.
+ * Separate from the generated content on purpose: camera angles are not
+ * editorial copy, and mixing them puts a marketing edit one typo away from
+ * moving the composition.
  *
- * The buildings are NOT navigation controls — the projected display is the
- * district's only interaction surface (plan 003 §6). A building is what a
- * service looks like in the world and what its connection starts from, and the
- * whole cluster is one entry target.
+ * ## It used to bind geometry too
+ *
+ * Until the 2026-09-06 re-export this table also carried one row per service —
+ * a building node, a connection node and an accent colour — because the export
+ * shipped five buildings and five wedges and something had to say which slug
+ * sat on which. That export replaced all fifteen district nodes with four, none
+ * of which means a service, so there is no mapping left to hold.
+ *
+ * Nothing was lost with it. The buildings stopped being click targets in plan
+ * 003 (§6): a tap on any of them enters the district and after that they are
+ * scenery. The accents only ever fed `districtFlow`'s ring and wedges, which
+ * went with the geometry. The node names the district still needs are in
+ * `district/districtConfig.ts`, because none of them is per-service any more.
  */
-export interface ServiceBuildingBinding {
-  /** References `Service.id` inside `DistrictContent.services`. */
-  serviceId: string;
-  /**
-   * Blender object name. Names ARE the identity for these — a per-building
-   * custom property would add nothing the name does not already say — and they
-   * are dot-free by contract, so GLTFLoader's reserved-character stripping
-   * (`[ ] . : /`) cannot bite. `cityDistrictBindings.test.ts` enforces it.
-   */
-  nodeName: string;
-  /**
-   * Blender object name of the wedge running from that building in toward the
-   * ring, which the fluid shader draws on.
-   *
-   * Paired here rather than derived from `nodeName` by string surgery: the two
-   * agree on their number today, and a mapping that silently depended on that
-   * would break the first time one of them is renumbered. Note the authored
-   * double `c` in "conneccion" — correcting it here would only stop the lookup
-   * resolving.
-   */
-  connectionNodeName: string;
-  /**
-   * The colour this service claims while it is selected, `0xrrggbb`.
-   *
-   * Scene composition, not content: it is what the ring and the connection turn
-   * on selection, and it has to be legible against the city under Murcia's light
-   * rig. An editor changing a service title should not be able to change it, and
-   * a palette retune should not require a CMS deploy.
-   */
-  accent: number;
-}
 
 export interface DistrictSceneBinding {
   /** References `DistrictContent.id`. */
@@ -69,28 +42,8 @@ export interface DistrictSceneBinding {
    * outgrows the terrain skirt, and it does so invisibly on 16:9.
    */
   focusDistanceScale: number | null;
-  /**
-   * The buildings, one per service. Order here is irrelevant: the tour order
-   * (previous/next) is the district content's curated `services[]`.
-   *
-   * Every service in the content needs a row (the unit test fails otherwise);
-   * a row whose node is missing from the GLB is reported at load and skipped.
-   */
-  buildings: readonly ServiceBuildingBinding[];
 }
 
-/**
- * The services district, as re-exported for the projected-display design.
- *
- * The export ships the cluster as `Edificios-servicios-*`: a plaza, one ring
- * band the fluid shader is drawn on, five buildings, five connection wedges and
- * three focos the display's beams leave from. The names the plaza, ring and
- * focos carry live in `district/districtConfig.ts`, because nothing about them
- * is per-service.
- *
- * Which slug sits on which building is an art decision made by position; this
- * table is the only place it lives.
- */
 export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
   {
     contentId: 'servicios',
@@ -104,45 +57,12 @@ export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
     approachYawDegrees: 45,
     // 0.78 -> distance ~152.
     //
-    // Carried over from the per-building framing, and it is the pair that most
-    // needs eyes: the flight frames the plaza on the GROUND, while the display
-    // hangs 28 units above it, so distance and `PANEL_ELEVATION` in
+    // The pair that most needs eyes: the flight frames the plaza on the GROUND,
+    // while the display hangs above it, so distance and `PANEL_ELEVATION` in
     // `district/display/servicesDisplay.ts` are tuned together or not at all.
     // Arithmetic gets close and cannot settle it — at fov 35 the visible height
     // at the focus is ~96 units here against a 48-unit panel — but where the
     // panel sits in the frame is a composition judgement.
     focusDistanceScale: 0.78,
-    buildings: [
-      {
-        serviceId: 'seo',
-        nodeName: 'Edificios-servicios-001',
-        connectionNodeName: 'Edificios-servicios-conneccion-001',
-        accent: 0x06dbbe,
-      },
-      {
-        serviceId: 'web-analysis',
-        nodeName: 'Edificios-servicios-002',
-        connectionNodeName: 'Edificios-servicios-conneccion-002',
-        accent: 0x5fb800,
-      },
-      {
-        serviceId: 'content-strategy',
-        nodeName: 'Edificios-servicios-003',
-        connectionNodeName: 'Edificios-servicios-conneccion-003',
-        accent: 0xeb7500,
-      },
-      {
-        serviceId: 'paid-campaigns',
-        nodeName: 'Edificios-servicios-004',
-        connectionNodeName: 'Edificios-servicios-conneccion-004',
-        accent: 0xf00000,
-      },
-      {
-        serviceId: 'brand-identity',
-        nodeName: 'Edificios-servicios-005',
-        connectionNodeName: 'Edificios-servicios-conneccion-005',
-        accent: 0x4704cd,
-      },
-    ],
   },
 ];

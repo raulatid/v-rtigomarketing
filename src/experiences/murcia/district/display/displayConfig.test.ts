@@ -63,7 +63,12 @@ describe('display control geometry', () => {
   })
 
   it('exposes the same rects through CONTROL_RECTS', () => {
-    expect(CONTROL_RECTS.back).toBe(BACK_RECT)
+    // `exit` and `return` are two atlas ROWS pointed at one rect — the X drawn
+    // in the summary and the arrow drawn in the detail. That they share a
+    // rectangle is what keeps the two-glyph split a rendering decision: the hit
+    // test still sees one control, and `controlAt` never learned about it.
+    expect(CONTROL_RECTS.exit).toBe(BACK_RECT)
+    expect(CONTROL_RECTS.return).toBe(BACK_RECT)
     expect(CONTROL_RECTS.previous).toBe(PREVIOUS_RECT)
     expect(CONTROL_RECTS.next).toBe(NEXT_RECT)
     expect(CONTROL_RECTS.detail).toBe(DETAIL_RECT)

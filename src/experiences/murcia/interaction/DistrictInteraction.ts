@@ -1,9 +1,5 @@
 import * as THREE from 'three';
-import type { Service } from '../../../content/types';
-import type {
-  DistrictSceneBinding,
-  ServiceBuildingBinding,
-} from '../scene/cityDistrictBindings';
+import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
 import type { DistrictLookup } from './resolveDistrict';
 import { DistrictHighlight, INTERACTION_LAYER } from './DistrictHighlight';
 import type { DistrictHighlightConfig } from './DistrictHighlight';
@@ -32,14 +28,13 @@ export type DistrictInteractionState =
   | { type: 'hovering' }
   /** Flying in. The district is already active; the camera has not landed. */
   | { type: 'entering' }
-  | { type: 'open'; serviceId: string };
-
-/** One service building, resolved. Supplied in tour order. */
-export interface ServiceSiteInput {
-  service: Service;
-  binding: ServiceBuildingBinding;
-  lookup: DistrictLookup;
-}
+  /**
+   * Landed, with the display up. Carries the tour position rather than a service
+   * id: the buildings stopped meaning services in plan 003 and stopped BEING
+   * per-service geometry in the 2026-09-06 export, so an id here would have to
+   * be looked up from the store this class already defers to.
+   */
+  | { type: 'open'; serviceIndex: number };
 
 export interface DistrictInteractionDeps {
   canvas: HTMLCanvasElement;
@@ -48,8 +43,14 @@ export interface DistrictInteractionDeps {
   controller: DragPanController;
   /** The district's shared camera decision. */
   binding: DistrictSceneBinding;
-  /** At least one, in tour order. */
-  sites: ServiceSiteInput[];
+  /**
+   * The district's buildings, resolved as ONE cluster.
+   *
+   * Not a list of per-service sites. There are three meshes and none of them
+   * means a service — a tap on any of them enters, and after that they are
+   * scenery (plan 003 §6).
+   */
+  buildings: DistrictLookup;
   /**
    * Arbitrates the cursor across every source on the shared canvas. A direct
    * `canvas.style.cursor` write would be discarded outright while the custom
@@ -93,24 +94,15 @@ export interface DistrictInteractionDeps {
   onEngagedChange?: () => void;
 }
 
-interface Site {
-  /** Position in the tour, 0-based. */
-  index: number;
-  service: Service;
-  binding: ServiceBuildingBinding;
-  lookup: DistrictLookup;
-  highlight: DistrictHighlight;
-}
-
 /**
- * Per-building highlight sizing. These buildings stand 15–40 m apart, so the
- * proxy padding that made a tight cluster's gaps clickable would make
- * neighbouring proxies overlap and turn a tap between two buildings into a coin
- * toss. They are one entry target now, so overlap would no longer pick the wrong
- * service — but it would still put a hover glow on a building the pointer is
- * nowhere near.
+ * The cluster's highlight sizing.
+ *
+ * ONE highlight over all three buildings, so the padding that used to risk
+ * neighbouring proxies overlapping is now just the cluster's own hit slop —
+ * which is worth having on a phone, where the district is a small target and
+ * there is no hover to aim by.
  */
-const SITE_HIGHLIGHT: DistrictHighlightConfig = {
+const CLUSTER_HIGHLIGHT: DistrictHighlightConfig = {
   highlightColor: 0x4fb0ff,
   idleIntensity: 0.12,
   hoverIntensity: 0.55,
@@ -132,24 +124,28 @@ const DRAG_SCROLL_SCALE = 0.0026;
 /**
  * Owns the district's interaction and every transition between states.
  *
- * ONE interaction for the whole district, holding N **sites** — one per service
- * building. Not one instance per building: each would own a `CameraFlight` and a
- * set of canvas listeners, so two of them could write the rig in the same frame,
- * which is exactly the failure the external-control handover exists to prevent.
- * One raycaster, one flight, one display; the sites are what the state names.
+ * ONE interaction for the whole district. Not one instance per building: each
+ * would own a `CameraFlight` and a set of canvas listeners, so two of them could
+ * write the rig in the same frame, which is exactly the failure the
+ * external-control handover exists to prevent. One raycaster, one flight, one
+ * display, one highlight.
  *
  * ## The buildings are not navigation
  *
  * Since plan 003 the projected display is the district's only interaction
  * surface. The buildings are one ENTRY target — a tap on any of them opens the
- * district on its first service — and after that they are scenery that reacts to
- * the active index. There is no per-building flight and no building-to-service
- * click mapping; `districtState` holds the active index and this class reads it
- * back rather than keeping its own.
+ * district on its first service — and after that they are scenery.
+ *
+ * They stopped being per-service GEOMETRY with the 2026-09-06 export, which
+ * replaced five buildings with three that carry no service meaning. That cost
+ * this class nothing, which is the point: it had already given up the
+ * building-to-service mapping, so the only change was N highlights becoming one.
+ * `districtState` holds the active index and this class reads it back rather
+ * than keeping its own.
  *
  * ## Two hit tests, never both at once
  *
- * Closed, the raycast is against the sites' meshes and their picking proxies.
+ * Closed, the raycast is against the cluster's meshes and its picking proxy.
  * Open, it is `intersectObject(panel, false)` and nothing else. The two never
  * overlap, which is what makes the arbitration a mode switch rather than an
  * ordering rule.
@@ -162,10 +158,7 @@ const DRAG_SCROLL_SCALE = 0.0026;
  */
 export class DistrictInteraction {
   private readonly deps: DistrictInteractionDeps;
-  private readonly sites: Site[];
-  private readonly siteById = new Map<string, Site>();
-  /** Every pickable object → its site, so one raycast answers "is this the district". */
-  private readonly siteByObject = new Map<THREE.Object3D, Site>();
+  private readonly highlight: DistrictHighlight;
   private readonly group = new THREE.Group();
   private readonly flight: CameraFlight;
 
@@ -208,8 +201,8 @@ export class DistrictInteraction {
   private readonly framingMissWarned = new Set<string>();
 
   constructor(deps: DistrictInteractionDeps) {
-    if (deps.sites.length === 0) {
-      throw new Error(`[district] "${deps.districtId}" has no sites.`);
+    if (deps.buildings.meshes.length === 0) {
+      throw new Error(`[district] "${deps.districtId}" has no buildings.`);
     }
     this.deps = deps;
     this.cursorKey = `district:${deps.districtId}`;
@@ -218,26 +211,13 @@ export class DistrictInteraction {
     this.hoverSupported =
       typeof window.matchMedia !== 'function' || !window.matchMedia('(hover: none)').matches;
 
-    this.sites = deps.sites.map((input, index) => {
-      const highlight = new DistrictHighlight(
-        input.lookup,
-        deps.groundPlaneHeight,
-        SITE_HIGHLIGHT,
-        deps.reducedMotion,
-      );
-      const site: Site = {
-        index,
-        service: input.service,
-        binding: input.binding,
-        lookup: input.lookup,
-        highlight,
-      };
-      this.siteById.set(input.service.id, site);
-      for (const mesh of input.lookup.meshes) this.siteByObject.set(mesh, site);
-      this.siteByObject.set(highlight.proxy, site);
-      this.group.add(highlight.group);
-      return site;
-    });
+    this.highlight = new DistrictHighlight(
+      deps.buildings,
+      deps.groundPlaneHeight,
+      CLUSTER_HIGHLIGHT,
+      deps.reducedMotion,
+    );
+    this.group.add(this.highlight.group);
 
     this.flight = new CameraFlight(
       deps.rig,
@@ -249,9 +229,9 @@ export class DistrictInteraction {
       deps.reducedMotion,
     );
 
-    // Only the sites' own meshes and proxies are ever raycast — never the
-    // Scene. The proxies live on their own layer, so the raycaster has to opt in.
-    this.pickables = Array.from(this.siteByObject.keys());
+    // Only the cluster's own meshes and its proxy are ever raycast — never the
+    // Scene. The proxy lives on its own layer, so the raycaster has to opt in.
+    this.pickables = [...deps.buildings.meshes, this.highlight.proxy];
     this.raycaster.layers.enable(0);
     this.raycaster.layers.enable(INTERACTION_LAYER);
 
@@ -310,11 +290,6 @@ export class DistrictInteraction {
     return this.state;
   }
 
-  /** Service ids in tour order. Exposed for tests and diagnostics. */
-  get serviceIds(): string[] {
-    return this.sites.map((site) => site.service.id);
-  }
-
   /**
    * True while this district holds the viewer's attention.
    *
@@ -352,7 +327,7 @@ export class DistrictInteraction {
     const point = worldToClient(
       this.canvasRect(),
       this.deps.camera,
-      this.sites[0].lookup.center,
+      this.deps.buildings.center,
       this.screenProbe,
     );
     return point === null ? null : { x: point.x, y: point.y };
@@ -367,7 +342,7 @@ export class DistrictInteraction {
     }
 
     this.flight.update(deltaTime);
-    for (const site of this.sites) site.highlight.update(deltaTime);
+    this.highlight.update(deltaTime);
   }
 
   // --- State ----------------------------------------------------------------
@@ -384,13 +359,11 @@ export class DistrictInteraction {
     const wasActive = this.isEngaged;
 
     if (snapshot.districtActive) {
-      const site = this.sites[snapshot.activeServiceIndex];
-      const serviceId = site?.service.id ?? this.sites[0].service.id;
       if (!wasActive) {
         this.setInteractionState({ type: 'entering' });
         this.beginEntry();
       } else if (this.state.type === 'open') {
-        this.setInteractionState({ type: 'open', serviceId });
+        this.setInteractionState({ type: 'open', serviceIndex: snapshot.activeServiceIndex });
       }
     } else if (wasActive) {
       this.setInteractionState({ type: 'idle' });
@@ -401,15 +374,10 @@ export class DistrictInteraction {
   }
 
   private applyHighlights(snapshot: DistrictSnapshot): void {
-    for (const site of this.sites) {
-      if (!snapshot.districtActive) {
-        site.highlight.setState('idle');
-        continue;
-      }
-      // Visual hierarchy, not a disabled state: the unselected buildings stay
-      // at their idle treatment rather than being dimmed out (plan 003 §6).
-      site.highlight.setState(site.index === snapshot.activeServiceIndex ? 'active' : 'idle');
-    }
+    // The cluster lights as one, and it no longer changes with the active index:
+    // there is nothing per-service left to light. Open is 'active', closed is
+    // 'idle', and hover is resolved separately while closed.
+    this.highlight.setState(snapshot.districtActive ? 'active' : 'idle');
   }
 
   /**
@@ -524,9 +492,10 @@ export class DistrictInteraction {
   private onFlightSettled(): void {
     this.deps.controller.endExternalControl({ adoptRigState: true });
     if (this.state.type === 'entering') {
-      const snapshot = this.deps.state.get();
-      const site = this.sites[snapshot.activeServiceIndex] ?? this.sites[0];
-      this.setInteractionState({ type: 'open', serviceId: site.service.id });
+      this.setInteractionState({
+        type: 'open',
+        serviceIndex: this.deps.state.get().activeServiceIndex,
+      });
     }
   }
 
@@ -560,21 +529,20 @@ export class DistrictInteraction {
       this.deps.cursor.request(this.cursorKey, '');
     }
     // The whole cluster lights as one: it is one entry target, and lighting a
-    // single building would promise a per-building selection that no longer
-    // exists.
-    for (const site of this.sites) site.highlight.setState(hovering ? 'hover' : 'idle');
+    // single building would promise a selection that does not exist.
+    this.highlight.setState(hovering ? 'hover' : 'idle');
   }
 
-  private pickAt(clientX: number, clientY: number): Site | null {
+  /** Whether the cluster is under this point. It is one target, so this is a yes/no. */
+  private pickAt(clientX: number, clientY: number): boolean {
     const rect = this.canvasRect();
-    if (rect.width === 0 || rect.height === 0) return null;
+    if (rect.width === 0 || rect.height === 0) return false;
 
     clientToNdc(rect, clientX, clientY, this.ndc);
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
     this.hits.length = 0;
     this.raycaster.intersectObjects(this.pickables, false, this.hits);
-    const first = this.hits[0];
-    return first ? (this.siteByObject.get(first.object) ?? null) : null;
+    return this.hits.length > 0;
   }
 
   /**
@@ -842,7 +810,7 @@ export class DistrictInteraction {
     this.releaseScrollGesture();
 
     if (this.flight.isPlaying) this.flight.cancel();
-    for (const site of this.sites) site.highlight.dispose();
+    this.highlight.dispose();
     this.group.removeFromParent();
     this.group.clear();
   }

@@ -18,10 +18,10 @@
  *                                    ~5.3 tall per face (each face ~1.84:1).
  *   `edificio-vertigo-leds`          the LED sleeve around the band, same
  *                                    pivot, a hair larger on every side.
- *   `BézierCurve`                    THE LOGO, lower half: the isotype's V,
+ *   `logo-V`                         THE LOGO, lower half: the isotype's V,
  *                                    pivot at its own centre at
  *                                    (-276.01, 50.28, 299.76).
- *   `BézierCurve.001`                the logo's upper half: the isotype's arc,
+ *   `logo-curva`                     the logo's upper half: the isotype's arc,
  *                                    pivot at its own centre at
  *                                    (-276.00, 53.76, 299.78).
  *
@@ -35,14 +35,17 @@
  * arithmetic. That is the one thing an export must not move: a pivot dragged
  * to a corner would make the mark orbit its post instead of turning on it.
  *
- * Their names are Blender's defaults for a curve object, and that is a
- * weakness the contract records rather than hides: an export that renames
- * them must rename them HERE, and `checks/city-asset.ts` §5d fails the build
- * when the two disagree. `BézierCurve.001` carries a dot, so it reaches the
- * runtime as `BézierCurve001` — `findByAnyNameSpelling` tries both, and the
- * harness asserts on both. A future export would do well to name them
- * `edificio-vertigo-logo-v` and `edificio-vertigo-logo-arco`; until it does,
- * these are the names.
+ * They were `BézierCurve` and `BézierCurve.001` — Blender's defaults for a
+ * curve object — until the 2026-09-06 re-export took the contract's own advice
+ * and named them. Both pivots came across to within 0.01 of a unit, so this was
+ * a rename and nothing else; the turn is unchanged.
+ *
+ * Two things got better and are worth keeping. Neither name carries a dot now,
+ * so neither depends on GLTFLoader's reserved-character stripping and
+ * `findByAnyNameSpelling` has nothing to disambiguate. And a name that says
+ * which half it is survives the next export by meaning something, where a
+ * default did not. `checks/city-asset.ts` §5d still fails the build when the
+ * file and this list disagree, which is what caught the rename.
  *
  * ## The banner is the band's four side faces
  *
@@ -86,7 +89,7 @@ export interface VertigoBuildingConfig {
 }
 
 export const VERTIGO_BUILDING: VertigoBuildingConfig = {
-  logoNodeNames: ['BézierCurve', 'BézierCurve.001'],
+  logoNodeNames: ['logo-V', 'logo-curva'],
   bannerNodeName: 'edificio-vertigo-banner-panel',
   placeholderImage: '/textures/murcia/vertigo-banner-placeholder.png',
   logo: { axis: 'y', angularSpeedRadPerSec: 0.35 },

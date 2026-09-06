@@ -24,8 +24,6 @@ import type { TerrainTransition } from './environment/createTerrainTransition';
 import { DebugOverlay } from './debug/DebugOverlay';
 import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
-import { resolveDistrict } from './interaction/resolveDistrict';
-import type { ServiceSiteInput } from './interaction/DistrictInteraction';
 import { createServicesDistrict } from './district/createServicesDistrict';
 import { createBlogBuilding } from './interaction/BlogBuilding';
 import type { BlogBuilding } from './interaction/BlogBuilding';
@@ -64,6 +62,16 @@ const ZOOM_LERP_K = 3;
  * a unit of distance at the far end.
  */
 const ZOOM_SETTLE_EPSILON = 0.0005;
+
+/**
+ * How far past the authored city the wrapped surface must reach before it
+ * counts as ground the camera can see the horizon over, in world units.
+ *
+ * A tolerance for float, not a tuning knob. The two surfaces this tells apart
+ * differ by roughly 900 units on every side, and when they are the same surface
+ * its measured bounds ARE `contentBounds` — that rectangle was measured off it.
+ */
+const GROUND_REACH_EPSILON = 1;
 
 /**
  * Lifecycle coordinator for the Murcia environment.
@@ -624,6 +632,23 @@ export class MurciaExperience {
     // in the model — but which mesh carries that edge changed with the
     // 2026-09-04 city, and wrapping the plate now would fade out the middle.
     const wrapped = loaded.ground ?? loaded.terrain;
+    // Does the surface being wrapped reach past the authored city?
+    //
+    // Two decisions below turn on this, and both used to be spelled
+    // `if (loaded.ground)` — which was the same question asked of the node
+    // table rather than of the geometry. That stopped working on 2026-09-06,
+    // when the export merged the plate and the outer ground into one mesh:
+    // `loaded.ground` is null now, and both answers silently flipped to the
+    // ones for a world that ends at the plate edge. Measured, it survives an
+    // export splitting the two meshes apart again.
+    const reach = wrapped ? new THREE.Box3().setFromObject(wrapped) : null;
+    const groundPastContent =
+      reach !== null &&
+      (reach.min.x < env.contentBounds.minX - GROUND_REACH_EPSILON ||
+        reach.max.x > env.contentBounds.maxX + GROUND_REACH_EPSILON ||
+        reach.min.z < env.contentBounds.minZ - GROUND_REACH_EPSILON ||
+        reach.max.z > env.contentBounds.maxZ + GROUND_REACH_EPSILON);
+
     if (env.terrainTransition.enabled && wrapped) {
       // The river channel is an authored opening that reaches the plate edge on
       // both sides, so the collar has to be told about it or it seals the two
@@ -631,13 +656,12 @@ export class MurciaExperience {
       // moved out to the outer ground the channel no longer reaches the edge
       // being wrapped, and notching for it there would cut two holes in open
       // countryside.
-      const openings =
-        wrapped === loaded.terrain && loaded.riverBounds ? [loaded.riverBounds] : [];
+      const openings = !groundPastContent && loaded.riverBounds ? [loaded.riverBounds] : [];
       const transition = createTerrainTransition(wrapped, env.terrainTransition, { openings });
       this.sceneBundle.scene.add(transition.group);
       this.transition = transition;
       this.bounds.setVisualBounds(transition.visualBounds);
-      if (loaded.ground) {
+      if (groundPastContent) {
         // With ground past the plate the horizon is deliberately in frame, and
         // a frustum that reaches past the horizon has no finite ground
         // footprint — `computeGroundFootprint` returns the `maxGroundDistance`
@@ -845,66 +869,6 @@ export class MurciaExperience {
         continue;
       }
 
-      const sites: ServiceSiteInput[] = [];
-      const known = new Set(content.services.map((s) => s.id));
-      for (const building of binding.buildings) {
-        if (!known.has(building.serviceId)) {
-          console.warn(
-            `[district] ${binding.contentId}: building "${building.nodeName}" is bound to ` +
-              `"${building.serviceId}", which is not one of the district's services.`,
-          );
-        }
-      }
-
-      // Content order is the tour order.
-      for (const service of content.services) {
-        const building = binding.buildings.find((b) => b.serviceId === service.id);
-        if (!building) {
-          console.warn(
-            `[district] ${binding.contentId}: service "${service.id}" has no building ` +
-              'in cityDistrictBindings; it is not in the city.',
-          );
-          continue;
-        }
-
-        // Identified by name by contract, so no tag (which also keeps the
-        // "add a custom property" nag off) and no spatial fallback.
-        const lookup = resolveDistrict(root, {
-          id: `${binding.contentId}/${service.id}`,
-          tag: '',
-          nodeNames: [building.nodeName],
-          allowSpatialFallback: false,
-        });
-        if (this.debugTools) {
-          console.groupCollapsed(`[district] ${binding.contentId}/${service.id}`);
-          console.info(`node     ${building.nodeName}`);
-          console.info(`source   ${lookup.source}`);
-          console.info(`meshes   ${lookup.meshes.length}`);
-          console.groupEnd();
-        }
-        // Outside the gate: a building resolving with warnings is a real problem
-        // with the asset, and the next person to hit it should see it wherever
-        // they are.
-        if (lookup.warnings.length > 0) {
-          console.warn(
-            `[district] ${binding.contentId}/${service.id}:\n- ` + lookup.warnings.join('\n- '),
-          );
-        }
-        if (lookup.source === 'not-found' || lookup.meshes.length === 0) {
-          console.error(
-            `[district] "${service.id}" could not be located (node "${building.nodeName}"). ` +
-              'That service is not in the city.',
-          );
-          continue;
-        }
-        sites.push({ service, binding: building, lookup });
-      }
-
-      if (sites.length === 0) {
-        console.error(`[district] "${binding.contentId}" has no locatable buildings. It is inert.`);
-        continue;
-      }
-
       const district = createServicesDistrict({
         root,
         container: this.container,
@@ -914,7 +878,6 @@ export class MurciaExperience {
         controller: this.controller,
         binding,
         content,
-        sites,
         cursor: this.cursor,
         groundPlaneHeight: this.environment.navigation.groundPlaneHeight,
         // The rig's EFFECTIVE pose, not the configured one. computeFramedFocus
@@ -938,6 +901,11 @@ export class MurciaExperience {
         reducedMotion,
         onEngagedChange: this.onAttentionChange,
       });
+
+      // Null when the cluster is not in this city model. It has already said so
+      // on the console; skipping is the whole response, exactly as skipping a
+      // single unresolvable building used to be.
+      if (!district) continue;
 
       // Seeded, not assumed: districts are built during the Earth intro (ADR
       // 004 prefetches the city), so at this point `active` is normally false

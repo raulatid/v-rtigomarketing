@@ -27,20 +27,27 @@ import { worldToClient } from '../../../interaction/screenSpace';
  * ## The node names
  *
  * `blog_edificios` and `blog_edificios.001`, and the second is the whole reason
- * `findByAnyNameSpelling` is used rather than `getObjectByName`. GLTFLoader
- * strips `[ ] . : /` from node names, so at runtime that mesh is called
- * `blog_edificios001`; the 2026-08-11 audit recorded exactly this biting for
- * real on the same cluster. `checks/city-asset.ts` now asserts both spellings
- * resolve in the shipped GLB, so a re-export that renames one fails the build
- * rather than quietly removing the way into the blog.
+ * `findByAnyNameSpelling` is used rather than `getObjectByName`, and the reason
+ * is recorded even though the name that needed it has gone: GLTFLoader strips
+ * `[ ] . : /` from node names, so a mesh authored as `blog_edificios.001`
+ * reaches the runtime as `blog_edificios001`, and the 2026-08-11 audit recorded
+ * exactly that biting for real on this cluster. `checks/city-asset.ts` asserts
+ * every name below resolves in the shipped GLB, so a re-export that renames one
+ * fails the build rather than quietly removing the way into the blog.
  */
 
 /**
  * Blender names for the cluster. Scene composition is code-owned — the same
  * reason `cityDistrictBindings.ts` exists and holds object names rather than
  * `districts.ts` doing it.
+ *
+ * ONE name since the 2026-09-06 re-export, which merged the cluster: the file
+ * carries `blog_edificios` and no `.001` beside it. The list stays a list
+ * because what it names is "the meshes the blog's entry point is made of", and
+ * that has been more than one before and may be again — every consumer already
+ * iterates it, so a second name costs nothing to add back.
  */
-export const BLOG_BUILDING_NODE_NAMES = ['blog_edificios', 'blog_edificios.001'] as const;
+export const BLOG_BUILDING_NODE_NAMES = ['blog_edificios'] as const;
 
 export interface BlogBuildingDeps {
   root: THREE.Object3D;

@@ -42,6 +42,23 @@ import vertexShader from '../shaders/shell/vertex.glsl';
  * across a new module boundary.
  */
 
+/**
+ * The plate's palette.
+ *
+ * Neutral since the 2026-09-06 port from the lab, and `rim` is the whole of that
+ * change. It used to be `0x2f7fa0` — "between the panel's halo and the beams'
+ * cyan" — which was right for an object that was supposed to look projected. A
+ * machined edge on a real plate catches ROOM light, and room light is not teal.
+ * Nothing else in this shader had to move to turn the object from hologram into
+ * hardware.
+ */
+export const SHELL_COLORS = {
+  /** The housing. Still one notch lighter than the screen, so it frames the copy. */
+  body: 0x15171b,
+  /** The machined edge, and the bevel band it also tints. Neutral silver-grey. */
+  rim: 0x8e959d,
+} as const;
+
 export interface DisplayShellDimensions {
   width: number;
   height: number;
@@ -82,18 +99,22 @@ export function createDisplayShell(dimensions: DisplayShellDimensions): DisplayS
       uHalfSize: { value: new THREE.Vector2(dimensions.width / 2, dimensions.height / 2) },
       uCornerRadius: { value: dimensions.radius },
       uBevelWidth: { value: 0.9 },
-      uBevelLift: { value: 0.18 },
-      uRimBase: { value: 0.14 },
-      uRimPeak: { value: 0.3 },
-      uRimGrazing: { value: 0.22 },
+      // Three scalars came DOWN together, and for one reason: they were tuned to
+      // make a projected object read as lit from within. A satin housing is lit
+      // from without, and its whole character is that it does not compete with
+      // the screen it surrounds.
+      uBevelLift: { value: 0.1 },
+      uRimBase: { value: 0.1 },
+      uRimPeak: { value: 0.16 },
+      // The ONLY one going up, and the exception is the point. Grazing response
+      // on real extruded geometry is the genuine optical cue here — it is what a
+      // machined edge does, it is stable at every camera angle by construction,
+      // and the face deliberately has no view-dependent term at all, so this
+      // carries all of it.
+      uRimGrazing: { value: 0.28 },
       uRimDepthFade: { value: 0.35 },
-      // One notch lighter than the panel's core, so the ring of plate outside
-      // the readable area reads as a frame around the copy rather than as more
-      // of it.
-      uBodyColor: { value: new THREE.Color().setHex(0x0b1524, THREE.SRGBColorSpace) },
-      // Between the panel's halo and the beams' cyan — the same family as both,
-      // identical to neither.
-      uRimColor: { value: new THREE.Color().setHex(0x2f7fa0, THREE.SRGBColorSpace) },
+      uBodyColor: { value: new THREE.Color().setHex(SHELL_COLORS.body, THREE.SRGBColorSpace) },
+      uRimColor: { value: new THREE.Color().setHex(SHELL_COLORS.rim, THREE.SRGBColorSpace) },
     },
   });
 
@@ -118,6 +139,21 @@ export function createDisplayShell(dimensions: DisplayShellDimensions): DisplayS
 
     setActivation(value) {
       material.uniforms['uActivation'].value = value;
+
+      // DEPTH FOLLOWS VISIBILITY, and this is a bug fix rather than tidying.
+      //
+      // `depthWrite` is what makes this plate back the copy and occlude the
+      // beams, and it was left permanently true. Alpha does not gate depth
+      // writes: at `uActivation = 0` the plate is completely invisible and STILL
+      // fills the depth buffer with a 42-unit square hanging over the plaza, so
+      // everything behind it was being discarded — the projector beams for as
+      // long as they have existed. The symptom is the worst kind: no error, no
+      // warning, and geometry that is provably drawing with correct positions
+      // and correct alpha while rendering nothing at all.
+      //
+      // While the plate is FADING it does write depth, which is correct: it is
+      // genuinely there, backing the copy. Only invisible must mean intangible.
+      material.depthWrite = value > 0;
     },
 
     dispose() {
@@ -131,6 +167,18 @@ export function createDisplayShell(dimensions: DisplayShellDimensions): DisplayS
 
 /** How far behind the panel plane the plate's front cap sits, in world units. */
 const FRONT_GAP = 0.06;
+
+/**
+ * Where the plate's FRONT CAP sits in panel space. Independent of thickness.
+ *
+ * The mesh is pushed to `-(thickness + FRONT_GAP)` and `ExtrudeGeometry` spans
+ * z 0..depth from there, so the cap the visitor actually sees lands at
+ * `-FRONT_GAP` and the far side at `-(thickness + FRONT_GAP)`. Exported because
+ * `displayReveal` has to place motes in front of that cap, and deriving it from
+ * the mesh position — the obvious reading — yields the BACK of the plate and
+ * buries them inside it, where the front cap depth-tests them away.
+ */
+export const SHELL_FRONT_Z = -FRONT_GAP;
 
 /**
  * The plate, at fixed dimensions.
@@ -157,6 +205,28 @@ function buildGeometry(dimensions: DisplayShellDimensions): THREE.ExtrudeGeometr
       steps: 1,
     },
   );
+}
+
+/**
+ * Evenly spaced points around the plate's silhouette, in the plate's own x/y.
+ *
+ * Exported from HERE rather than reimplemented by whoever needs it.
+ * `displayReveal` scatters motes onto this outline, and if it built its own
+ * rounded rectangle the two would agree only until one of them was retuned —
+ * then the motes would settle a fraction off the edge they are supposed to be
+ * drawing, which is exactly the "misregistered corner" failure this module
+ * already refuses to allow between the plate and the face. Reading the SAME
+ * `roundedRect` the extrusion is built from makes that impossible.
+ *
+ * `getSpacedPoints` samples by arc length rather than by control point, so the
+ * spacing stays even around the corners instead of bunching in them.
+ */
+export function shellPerimeterPoints(
+  dimensions: DisplayShellDimensions,
+  count: number,
+): THREE.Vector2[] {
+  const shape = roundedRect(dimensions.width, dimensions.height, dimensions.radius);
+  return shape.getSpacedPoints(Math.max(3, Math.floor(count)));
 }
 
 /** A rounded rectangle centred on its own origin. */

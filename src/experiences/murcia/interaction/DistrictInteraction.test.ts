@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as THREE from 'three'
-import { resolveDistrict } from './resolveDistrict'
 import { DistrictHighlight } from './DistrictHighlight'
-import type { ServiceSiteInput } from './DistrictInteraction'
 import { createServicesDistrict } from '../district/createServicesDistrict'
 import type { ServicesDistrict } from '../district/createServicesDistrict'
+import { BUILDING_NODE_NAMES, PLAZA_NODE_NAME } from '../district/districtConfig'
 import {
   BACK_RECT,
   DETAIL_RECT,
@@ -54,33 +53,13 @@ const binding: DistrictSceneBinding = {
   contentId: 'servicios',
   approachYawDegrees: 45,
   focusDistanceScale: 0.78,
-  buildings: [
-    {
-      serviceId: 'a',
-      nodeName: 'Edificios-servicios-001',
-      connectionNodeName: 'Edificios-servicios-conneccion-001',
-      accent: 0x06dbbe,
-    },
-    {
-      serviceId: 'b',
-      nodeName: 'Edificios-servicios-002',
-      connectionNodeName: 'Edificios-servicios-conneccion-002',
-      accent: 0x5fb800,
-    },
-    {
-      serviceId: 'c',
-      nodeName: 'Edificios-servicios-003',
-      connectionNodeName: 'Edificios-servicios-conneccion-003',
-      accent: 0xeb7500,
-    },
-  ],
 }
 
 /**
- * A stand-in for the district's half of the city export: three buildings 30 m
- * apart, the plaza they surround, the ring, their connections and three focos.
- * Named exactly as the export names them, so the lookups under test are the
- * real ones.
+ * A stand-in for the district's half of the city export: the three buildings
+ * and the plaza they stand around, named exactly as the 2026-09-06 export names
+ * them — including the plaza's authored `.001`, which is what the lookup has to
+ * survive. Nothing else is in the cluster any more.
  */
 function buildCity(): THREE.Object3D {
   const root = new THREE.Object3D()
@@ -91,23 +70,18 @@ function buildCity(): THREE.Object3D {
     root.add(mesh)
   }
 
-  binding.buildings.forEach((b, i) => {
-    const x = FOCUS.x + (i - 1) * 30
-    add(b.nodeName, new THREE.BoxGeometry(10, 20, 10), x, 10, FOCUS.z)
-    add(b.connectionNodeName, new THREE.BoxGeometry(4, 1, 20), x, 1, FOCUS.z - 12)
+  BUILDING_NODE_NAMES.forEach((name, i) => {
+    add(name, new THREE.BoxGeometry(10, 20, 10), FOCUS.x + (i - 1) * 30, 10, FOCUS.z)
   })
 
-  add('Edificios-servicios-plaza', new THREE.CylinderGeometry(40, 40, 1, 16), FOCUS.x, 0, FOCUS.z)
+  // GLTFLoader strips the dot, so the runtime name is what a lookup has to find.
   add(
-    'Edificios-servicios-anillo-shader-interior',
-    new THREE.TorusGeometry(30, 1, 8, 24),
+    PLAZA_NODE_NAME.replace('.', ''),
+    new THREE.CylinderGeometry(40, 40, 1, 16),
     FOCUS.x,
-    1,
+    0,
     FOCUS.z,
   )
-  for (let i = 1; i <= 3; i += 1) {
-    add(`Edificios-servicios-foco-00${i}`, new THREE.BoxGeometry(2, 4, 2), FOCUS.x + i * 8, 2, FOCUS.z + 20)
-  }
 
   root.updateWorldMatrix(true, true)
   return root
@@ -124,10 +98,10 @@ interface Fixture {
   panel: THREE.Mesh
   beginExternal: ReturnType<typeof vi.spyOn>
   onEngagedChange: ReturnType<typeof vi.fn>
-  highlightStates: () => string[]
+  highlightState: () => string
   run: (seconds: number) => void
-  /** Client coordinates of a building's centre, through the live camera. */
-  screenOf: (serviceId: string) => { x: number; y: number }
+  /** Client coordinates of the building cluster's centre, through the live camera. */
+  screenOf: () => { x: number; y: number }
   /** Client coordinates of the centre of a control's rect on the display. */
   controlPoint: (rect: DisplayRect) => { x: number; y: number }
   click: (x: number, y: number, options?: PointerOptions) => void
@@ -197,36 +171,21 @@ function makeFixture(): Fixture {
   const beginExternal = vi.spyOn(controller, 'beginExternalControl')
 
   const root = buildCity()
-  const sites: ServiceSiteInput[] = content.services.map((service) => {
-    const building = binding.buildings.find((b) => b.serviceId === service.id)!
-    return {
-      service,
-      binding: building,
-      lookup: resolveDistrict(root, {
-        id: service.id,
-        tag: '',
-        nodeNames: [building.nodeName],
-        allowSpatialFallback: false,
-      }),
-    }
-  })
 
   const cursor = { request: vi.fn(), dispose: vi.fn() } as unknown as CursorManager
   const onEngagedChange = vi.fn()
 
   // Recorded rather than inspected: DistrictHighlight keeps its state private,
-  // and the assertion that matters is which building was told to be active.
-  const highlightCalls: string[] = ['idle', 'idle', 'idle']
-  const highlightInstances: DistrictHighlight[] = []
+  // and the assertion that matters is what the cluster was told to be.
+  //
+  // ONE highlight since the 2026-09-06 export: the buildings light as a unit and
+  // there is no per-service building left to light on its own. This used to key
+  // the recording by instance so three could be told apart.
+  let highlightCall = 'idle'
   const setStateSpy = vi
     .spyOn(DistrictHighlight.prototype, 'setState')
-    .mockImplementation(function (this: DistrictHighlight, state: 'idle' | 'hover' | 'active') {
-      let index = highlightInstances.indexOf(this)
-      if (index === -1) {
-        index = highlightInstances.length
-        highlightInstances.push(this)
-      }
-      highlightCalls[index] = state
+    .mockImplementation((state: 'idle' | 'hover' | 'active') => {
+      highlightCall = state
     })
 
   const district = createServicesDistrict({
@@ -238,7 +197,6 @@ function makeFixture(): Fixture {
     controller,
     binding,
     content,
-    sites,
     cursor,
     groundPlaneHeight: env.navigation.groundPlaneHeight,
     getPose: () => rig.getEffectivePose(),
@@ -252,6 +210,9 @@ function makeFixture(): Fixture {
     reducedMotion: true,
     onEngagedChange,
   })
+  // Null means the fixture's city does not carry the cluster, which would make
+  // every assertion below vacuous rather than failing.
+  if (!district) throw new Error('the fixture city has no district cluster')
 
   const scene = new THREE.Scene()
   scene.add(district.object3D)
@@ -286,10 +247,11 @@ function makeFixture(): Fixture {
     return { x: ((p.x + 1) / 2) * WIDTH, y: ((1 - p.y) / 2) * HEIGHT }
   }
 
-  const screenOf = (serviceId: string): { x: number; y: number } => {
-    const site = sites.find((s) => s.service.id === serviceId)!
+  const screenOf = (): { x: number; y: number } => {
     camera.updateMatrixWorld(true)
-    return toClient(site.lookup.center)
+    const point = district.screenPoint()
+    if (!point) throw new Error('the district is not on screen in this fixture')
+    return point
   }
 
   /**
@@ -372,7 +334,7 @@ function makeFixture(): Fixture {
     panel: foundPanel,
     beginExternal,
     onEngagedChange,
-    highlightStates: () => [...highlightCalls],
+    highlightState: () => highlightCall,
     run,
     screenOf,
     controlPoint,
@@ -388,7 +350,7 @@ function makeFixture(): Fixture {
 
 /** Enters the district and lets the entry flight settle. */
 function enter(f: Fixture): void {
-  f.click(f.screenOf('a').x, f.screenOf('a').y)
+  f.click(f.screenOf().x, f.screenOf().y)
   f.run(2)
 }
 
@@ -419,7 +381,7 @@ describe('the services district', () => {
   })
 
   it('opens on the first service from a tap on any building, and takes the rig', () => {
-    f.click(f.screenOf('c').x, f.screenOf('c').y)
+    f.click(f.screenOf().x, f.screenOf().y)
     expect(f.district.isEngaged).toBe(true)
     expect(f.onEngagedChange).toHaveBeenCalledTimes(1)
     expect(f.beginExternal).toHaveBeenCalledTimes(1)
@@ -431,7 +393,7 @@ describe('the services district', () => {
 
   it('lights the active building and leaves the others at idle', () => {
     enter(f)
-    expect(f.highlightStates()).toEqual(['active', 'idle', 'idle'])
+    expect(f.highlightState()).toBe('active')
   })
 
   it('pages forward and back through the services from the display', () => {
@@ -439,11 +401,13 @@ describe('the services district', () => {
 
     f.click(f.controlPoint(NEXT_RECT).x, f.controlPoint(NEXT_RECT).y)
     expect(activeTitle(f)).toContain('Servicio B')
-    expect(f.highlightStates()).toEqual(['idle', 'active', 'idle'])
+    // The cluster does not follow the active index — paging moves the display,
+    // not the world (plan 003 §6). It stays lit for as long as the district is.
+    expect(f.highlightState()).toBe('active')
 
     f.click(f.controlPoint(PREVIOUS_RECT).x, f.controlPoint(PREVIOUS_RECT).y)
     expect(activeTitle(f)).toContain('Servicio A')
-    expect(f.highlightStates()).toEqual(['active', 'idle', 'idle'])
+    expect(f.highlightState()).toBe('active')
   })
 
   it('wraps in both directions', () => {
@@ -504,7 +468,7 @@ describe('the services district', () => {
     expect(f.district.isEngaged).toBe(false)
     f.run(2)
     expect(f.rig.getDistanceScale()).toBeCloseTo(1, 5)
-    expect(f.highlightStates()).toEqual(['idle', 'idle', 'idle'])
+    expect(f.highlightState()).toBe('idle')
   })
 
   it('re-enters on the first service after leaving on another', () => {
@@ -525,13 +489,13 @@ describe('the services district', () => {
     expect(activeTitle(f)).toContain('Servicio B')
 
     const flightsBefore = f.beginExternal.mock.calls.length
-    f.click(f.screenOf('c').x, f.screenOf('c').y)
+    f.click(f.screenOf().x, f.screenOf().y)
     expect(activeTitle(f)).toContain('Servicio B')
     expect(f.beginExternal.mock.calls.length).toBe(flightsBefore)
   })
 
   it('does not enter on the release of a drag that ends over a building', () => {
-    const at = f.screenOf('b')
+    const at = f.screenOf()
     f.drag({ x: at.x - 120, y: at.y - 40 }, at)
     expect(f.district.isEngaged).toBe(false)
   })
@@ -549,7 +513,7 @@ describe('the services district', () => {
 
   it('stops responding to the canvas once disabled', () => {
     f.district.setEnabled(false)
-    f.click(f.screenOf('a').x, f.screenOf('a').y)
+    f.click(f.screenOf().x, f.screenOf().y)
     expect(f.district.isEngaged).toBe(false)
   })
 
@@ -561,7 +525,7 @@ describe('the services district', () => {
   // never sees while enabled — which is why the reports share no common steps.
 
   it('opens on a touch tap, measured against the touch threshold', () => {
-    f.click(f.screenOf('a').x, f.screenOf('a').y, { pointerType: 'touch' })
+    f.click(f.screenOf().x, f.screenOf().y, { pointerType: 'touch' })
     expect(f.district.isEngaged).toBe(true)
   })
 
@@ -569,7 +533,7 @@ describe('the services district', () => {
     // The scene swap out of Murcia is driven by a PINCH on mobile, so the
     // fingers are still on the glass when MurciaExperience.setActive(false)
     // disables this district. Their release then arrives to a deaf listener.
-    const at = f.screenOf('a')
+    const at = f.screenOf()
     f.press(at.x, at.y, { pointerType: 'touch', pointerId: 5 })
     f.district.setEnabled(false)
     f.release(at.x, at.y, { pointerType: 'touch', pointerId: 5 })
@@ -596,7 +560,7 @@ describe('the services district', () => {
     f.run(2)
     expect(f.district.isEngaged).toBe(false)
 
-    f.click(f.screenOf('a').x, f.screenOf('a').y, { pointerType: 'touch', pointerId: 10 })
+    f.click(f.screenOf().x, f.screenOf().y, { pointerType: 'touch', pointerId: 10 })
     expect(f.district.isEngaged).toBe(true)
   })
 

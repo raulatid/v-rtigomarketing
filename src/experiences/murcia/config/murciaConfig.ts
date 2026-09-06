@@ -404,9 +404,19 @@ export const murciaConfig: EnvironmentConfig = {
     // Plate surface sits just above zero; projecting drags against the mean
     // surface height keeps the grabbed point under the cursor.
     groundPlaneHeight: 1,
-    // Measured from the plate at load. The rectangle below is only the fallback
-    // for when the plate cannot be located at all.
-    deriveBoundsFromTerrain: true,
+    // FALSE since the 2026-09-06 export, and this is a correction rather than a
+    // change of intent. Measuring the plate meant "navigation is bounded to the
+    // authored city", which was true while `suelo-principal` WAS that city.
+    // That export merged the plate and the outer ground into one mesh of
+    // 2170 x 1925, so the same measurement now returns six times the area and
+    // would let the focus wander to the far edge of the filler city — silently,
+    // since nothing about the read looks different.
+    //
+    // `contentBounds` below carries the authored rectangle the plate used to
+    // measure, unchanged, so this asks for it by name instead of by geometry.
+    // Restore the measurement only alongside an export that separates the two
+    // meshes again.
+    deriveBoundsFromTerrain: false,
     boundsInset: NAVIGATION_INSET,
     bounds: {
       minX: PLATE.minX + NAVIGATION_INSET,
@@ -465,7 +475,17 @@ export const murciaConfig: EnvironmentConfig = {
     // records why: that fallback would find this very mesh, so a mistyped plate
     // name would hand both lookups the same object and the skirt would wrap the
     // rectangle navigation is bounded to.
-    groundObjectName: 'SUELO_CIUDAD',
+    //
+    // NULL since the 2026-09-06 export, which merged the two meshes: there is no
+    // `SUELO_CIUDAD` any more, and `suelo-principal` is now both the plate and
+    // the outer ground. So the skirt wraps the plate again — and this time that
+    // is right, because the plate has become the outermost ground rather than an
+    // island in it. Naming the same mesh twice is what `findOuterGround` exists
+    // to reject, and pointing this at `suelo-principal` would trip exactly that
+    // guard. The two facts that used to be read off this field resolving —
+    // whether to notch the river and whether the horizon is in frame — are
+    // measured in `MurciaExperience` now, which is what they always meant.
+    groundObjectName: null,
     // Generous on purpose. The skirt is what keeps the plate edge out of frame,
     // which is what lets the navigable area be the whole model rather than an
     // inset rectangle (docs/plans/002 Appendix A).

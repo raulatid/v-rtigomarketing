@@ -2,40 +2,41 @@ import * as THREE from 'three';
 import type { DistrictContent } from '../../../content/types';
 import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
 import { findByAnyNameSpelling } from '../assets/nodeNames';
-import {
-  DistrictInteraction,
-  type DistrictInteractionDeps,
-  type ServiceSiteInput,
-} from '../interaction/DistrictInteraction';
+import { DistrictInteraction, type DistrictInteractionDeps } from '../interaction/DistrictInteraction';
+import { resolveDistrict } from '../interaction/resolveDistrict';
 import { createDistrictState } from './districtState';
 import {
+  BUILDING_NODE_NAMES,
   FOCO_NODE_NAMES,
   PLAZA_NODE_NAME,
   resolveDisplayContent,
   type DistrictServiceView,
 } from './districtConfig';
-import { createDistrictFlow, type DistrictFlow } from './flow/districtFlow';
 import { createServicesDisplay, type ServicesDisplay } from './display/servicesDisplay';
 import { DEFAULT_LOCALE } from './display/displayConfig';
 import { DistrictA11y } from './ui/districtA11y';
 import { splitServiceCopy } from './serviceCopy';
 
 /**
- * Assembles one services district and wires its four parts to one state.
+ * Assembles one services district and wires its parts to one state.
  *
  * The parts are deliberately unaware of each other:
  *
  *   districtState        the active index, and every legal transition
- *   districtFlow         the ring and connections, which read the index
  *   servicesDisplay      the panel, which reads the copy for that index
- *   DistrictInteraction  pointers, the camera flight, the building highlights
+ *   DistrictInteraction  pointers, the camera flight, the cluster highlight
  *   DistrictA11y         the same transitions, reachable by keyboard
  *
+ * `districtFlow` was a fifth until 2026-09-06. It drew the shader ring and the
+ * five connection wedges, and the re-export that replaced fifteen district nodes
+ * with four left it nothing to find, so it was deleted rather than left warning
+ * once per missing name on every load.
+ *
  * There is exactly ONE subscription to the state, here, and it pushes to all of
- * them in a fixed order. Four independent subscribers would be four listeners
- * racing on a shared frame, and the symptom of that — the display showing one
- * service while the ring holds another's colour — is the kind of bug that looks
- * like a shader problem for a day.
+ * them in a fixed order. Independent subscribers would be listeners racing on a
+ * shared frame, and the symptom of that — the display showing one service while
+ * something else holds another's — is the kind of bug that looks like a shader
+ * problem for a day.
  *
  * ## What this does not own
  *
@@ -43,13 +44,13 @@ import { splitServiceCopy } from './serviceCopy';
  * resolved out of the already-loaded root. Materials are adopted after
  * `applyTrimSheet` has run, which it has: `loadCity` completes before
  * `MurciaExperience.setupDistricts` calls this, so the blanket city material is
- * already on every mesh and `districtFlow` replaces it on the six it takes over.
+ * already on every mesh by the time the highlight clones it.
  */
 
 export interface ServicesDistrictOptions
   extends Omit<
     DistrictInteractionDeps,
-    'state' | 'display' | 'districtCenter' | 'districtId' | 'sites'
+    'state' | 'display' | 'districtCenter' | 'districtId' | 'buildings'
   > {
   /** The loaded city root. Every node lookup happens against this. */
   root: THREE.Object3D;
@@ -57,8 +58,6 @@ export interface ServicesDistrictOptions
   container: HTMLElement;
   content: DistrictContent;
   binding: DistrictSceneBinding;
-  /** At least one, in tour order. */
-  sites: ServiceSiteInput[];
 }
 
 export interface ServicesDistrict {
@@ -84,32 +83,59 @@ export interface ServicesDistrict {
   dispose(): void;
 }
 
-export function createServicesDistrict(options: ServicesDistrictOptions): ServicesDistrict {
-  const { root, container, content, binding, sites, camera } = options;
+/**
+ * Builds the district, or reports why it cannot and returns null.
+ *
+ * Null rather than a throw or a half-built object: a city exported without the
+ * cluster should still run, and the caller's only sensible response is to leave
+ * the district out — which is what the per-service resolution used to do one
+ * building at a time.
+ */
+export function createServicesDistrict(
+  options: ServicesDistrictOptions,
+): ServicesDistrict | null {
+  const { root, container, content, binding, camera } = options;
 
-  const state = createDistrictState({ serviceCount: sites.length });
+  // ONE lookup for the whole cluster. Identified by name by contract, so no tag
+  // (which also keeps the "add a custom property" nag off) and no spatial
+  // fallback — a district found by guessing at a rectangle is a district in the
+  // wrong place.
+  const buildings = resolveDistrict(root, {
+    id: content.id,
+    tag: '',
+    nodeNames: [...BUILDING_NODE_NAMES],
+    allowSpatialFallback: false,
+  });
+  if (buildings.warnings.length > 0) {
+    console.warn(`[district] ${content.id}:\n- ` + buildings.warnings.join('\n- '));
+  }
+  if (buildings.source === 'not-found' || buildings.meshes.length === 0) {
+    console.error(
+      `[district] "${content.id}" has no locatable buildings (${BUILDING_NODE_NAMES.join(', ')}). ` +
+        'It is inert.',
+    );
+    return null;
+  }
+  if (content.services.length === 0) {
+    console.error(`[district] "${content.id}" has no published services. It is inert.`);
+    return null;
+  }
+
+  const state = createDistrictState({ serviceCount: content.services.length });
 
   /**
-   * The services as everything downstream needs them: copy already split, accent
-   * already resolved. Built once — `splitServiceCopy` is pure and the copy is
-   * generated at build time, so re-deriving it per frame or per swap would be
-   * work for nothing.
+   * The services as everything downstream needs them, copy already split. Built
+   * once — `splitServiceCopy` is pure and the copy is generated at build time,
+   * so re-deriving it per frame or per swap would be work for nothing.
+   *
+   * Content order is the tour order, and it is the ONLY order now: nothing binds
+   * a service to a building any more, so there is no table to disagree with it.
    */
-  const services: DistrictServiceView[] = sites.map((site) => ({
-    id: site.service.id,
-    title: site.service.title,
-    accent: site.binding.accent,
-    ...splitServiceCopy(site.service.body),
+  const services: DistrictServiceView[] = content.services.map((service) => ({
+    id: service.id,
+    title: service.title,
+    ...splitServiceCopy(service.body),
   }));
-
-  const flow: DistrictFlow = createDistrictFlow({
-    root,
-    services: sites.map((site) => ({
-      connectionNodeName: site.binding.connectionNodeName,
-      accent: site.binding.accent,
-      label: site.service.title,
-    })),
-  });
 
   const plaza = findByAnyNameSpelling(root, PLAZA_NODE_NAME);
   const plazaBox = new THREE.Box3();
@@ -120,7 +146,7 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
       `[district] no "${PLAZA_NODE_NAME}" — the display is placed on the buildings' own ` +
         'bounds instead, and the camera will settle on their centre.',
     );
-    for (const site of sites) plazaBox.union(site.lookup.bounds);
+    plazaBox.copy(buildings.bounds);
   }
 
   const centre = plazaBox.getCenter(new THREE.Vector3());
@@ -132,8 +158,7 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
   // off. The plaza is a floor, so its own box tops out at the ground and would
   // put the marker inside the buildings; the buildings' own bounds are what
   // "above the district" means from a camera looking down at 19 degrees.
-  let skylineY = groundY;
-  for (const site of sites) skylineY = Math.max(skylineY, site.lookup.bounds.max.y);
+  const skylineY = Math.max(groundY, buildings.bounds.max.y);
 
   const focos = FOCO_NODE_NAMES.map((name) => findByAnyNameSpelling(root, name))
     .filter((match): match is NonNullable<typeof match> => match !== null)
@@ -149,7 +174,6 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
     centre,
     groundY,
     focos,
-    locale: DEFAULT_LOCALE,
     // The panel rests facing the way the visitor arrives from, so it is square
     // to them on landing and its ±42° follow clamp is measured from there.
     baseYawDegrees: binding.approachYawDegrees ?? 0,
@@ -157,7 +181,7 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
 
   const interaction = new DistrictInteraction({
     ...options,
-    sites,
+    buildings,
     state,
     display,
     districtCenter: { x: centre.x, z: centre.z },
@@ -183,8 +207,6 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
   // is what has just been made true.
   const unsubscribe = state.subscribe((snapshot) => {
     interaction.applySnapshot(snapshot);
-    flow.setActive(snapshot.districtActive);
-    flow.setActiveIndex(snapshot.activeServiceIndex);
     display.setContent(resolveDisplayContent(snapshot, services, content.label));
     display.setDetailOpen(snapshot.detailOpen);
     a11y.update(snapshot, viewFor(snapshot.activeServiceIndex));
@@ -207,7 +229,6 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
   // in whatever each part happened to be constructed at.
   const initial = state.get();
   interaction.applySnapshot(initial);
-  flow.setActive(initial.districtActive);
   a11y.update(initial, null);
 
   return {
@@ -235,7 +256,6 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
 
     update(deltaTime) {
       interaction.update(deltaTime);
-      flow.update(deltaTime);
       display.update(deltaTime, camera);
     },
 
@@ -244,7 +264,6 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
       interaction.dispose();
       a11y.dispose();
       display.dispose();
-      flow.dispose();
       group.removeFromParent();
       group.clear();
     },

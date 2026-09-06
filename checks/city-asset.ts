@@ -41,13 +41,12 @@
 import fs from 'node:fs';
 import { PropertyBinding } from 'three';
 import { banner, check, finish, section } from './lib/assert';
-import { cityDistrictBindings } from '../src/experiences/murcia/scene/cityDistrictBindings';
 import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/interaction/BlogBuilding';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 import {
+  BUILDING_NODE_NAMES,
   FOCO_NODE_NAMES,
   PLAZA_NODE_NAME,
-  RING_NODE_NAME,
 } from '../src/experiences/murcia/district/districtConfig';
 import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
 
@@ -341,11 +340,12 @@ check(
 // silent: the building keeps rendering, loses its service, and the only report
 // is a console line at load on a page nobody has open.
 
-section('5. Service buildings (cityDistrictBindings — object names ARE the identity)');
+section("5. The district's buildings (districtConfig — object names ARE the identity)");
 
 console.log(
-  '        district tags (extras.district) retired 2026-08-27 with the\n' +
-    '        one-building-per-service re-export — no longer checked here.',
+  '        district tags (extras.district) retired 2026-08-27, and the\n' +
+    '        per-service building/connection pairs retired 2026-09-06 with the\n' +
+    '        export that replaced them with three meshes carrying no service.',
 );
 
 /**
@@ -410,48 +410,25 @@ function worldXzBounds(
   };
 }
 
-for (const binding of cityDistrictBindings) {
-  const missing: string[] = [];
-  const ambiguous: string[] = [];
-  // BOTH names on each binding. The connection is not decoration — it is the
-  // strip the fluid runs along from the building to the ring, and a binding
-  // whose building resolves and whose connection does not is a service that
-  // lights up joined to nothing. It was unchecked because the buildings were
-  // the only half anyone thought of as "the binding".
-  for (const building of binding.buildings) {
-    for (const [role, configured] of [
-      ['building', building.nodeName],
-      ['connection', building.connectionNodeName],
-    ] as const) {
-      const hits = nodesNamed(configured);
-      if (hits.length === 0) missing.push(`${building.serviceId} ${role} -> ${configured}`);
-      // Reported, not asserted: `getObjectByName` returns the first match, so two
-      // nodes sharing a bound name means the service points at whichever one the
-      // exporter happened to write first.
-      else if (hits.length > 1) ambiguous.push(`${configured} x${hits.length}`);
-    }
-  }
-  const total = binding.buildings.length * 2;
-  check(
-    `"${binding.contentId}" buildings all exist in the GLB`,
-    missing.length === 0,
-    missing.length === 0
-      ? `${total}/${total} node(s) (building + connection)${ambiguous.length ? ` — AMBIGUOUS: ${list(ambiguous)}` : ''}`
-      : `${total - missing.length}/${total} — missing ${list(missing)}`,
-  );
+const missingBuildings: string[] = [];
+const ambiguousBuildings: string[] = [];
+for (const configured of BUILDING_NODE_NAMES) {
+  const hits = nodesNamed(configured);
+  if (hits.length === 0) missingBuildings.push(configured);
+  // Reported, not asserted: `getObjectByName` returns the first match, so two
+  // nodes sharing a configured name means the cluster picks up whichever one
+  // the exporter happened to write first.
+  else if (hits.length > 1) ambiguousBuildings.push(`${configured} x${hits.length}`);
 }
-
-// Informational. Unbound `edificio-servicio-*` objects are plain city by design
-// — three of them are waiting for services that do not exist yet — but the
-// count is worth printing: a re-export that renamed the whole family would show
-// up here as every building unbound, rather than as one missing row.
-const boundNames = new Set(cityDistrictBindings.flatMap((d) => d.buildings.map((b) => b.nodeName)));
-const unbound = nodes
-  .map((n) => n.name ?? '')
-  .filter((name) => /^edificio-servicio-/.test(name) && !boundNames.has(name));
-console.log(
-  `        ${boundNames.size} bound · ${unbound.length} unbound edificio-servicio-* (plain city)` +
-    `${unbound.length ? `: ${list(unbound)}` : ''}`,
+check(
+  'the district building cluster is in the GLB',
+  missingBuildings.length === 0,
+  missingBuildings.length === 0
+    ? `${BUILDING_NODE_NAMES.length}/${BUILDING_NODE_NAMES.length} node(s)` +
+        (ambiguousBuildings.length ? ` — AMBIGUOUS: ${list(ambiguousBuildings)}` : '')
+    : `${BUILDING_NODE_NAMES.length - missingBuildings.length}/${BUILDING_NODE_NAMES.length} — ` +
+        `missing ${list(missingBuildings)}. The district has no entry target and is ` +
+        'skipped whole — see murcia/district/districtConfig.ts',
 );
 
 // --- 5b. The blog's entry point ---------------------------------------------
@@ -494,8 +471,12 @@ section("5c. The district's scene vocabulary (districtConfig — names ARE the i
 
 for (const [label, configured] of [
   ['the plaza', PLAZA_NODE_NAME],
-  ['the fluid ring', RING_NODE_NAME],
-  ...FOCO_NODE_NAMES.map((name, i) => [`foco ${i + 1}`, name] as const),
+  // Deduped against the plaza: FOCO_NODE_NAMES *is* the plaza since the
+  // 2026-09-06 export removed the three projectors, so listing both would
+  // report one node twice and make a one-node vocabulary look like two.
+  ...FOCO_NODE_NAMES.filter((name) => name !== PLAZA_NODE_NAME).map(
+    (name, i) => [`projector ${i + 1}`, name] as const,
+  ),
 ] as ReadonlyArray<readonly [string, string]>) {
   const matches = nodesNamed(configured);
   check(
