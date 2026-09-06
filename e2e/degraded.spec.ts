@@ -68,7 +68,7 @@ test('a blocked required asset is fatal, not a silent wait', async ({ browser })
   // that would be easy to lose without noticing.
   const context = await browser.newContext()
   const page = await context.newPage()
-  await page.route('**/earth/*.jpg', (route) => route.abort())
+  await page.route('**/earth/*.ktx2', (route) => route.abort())
   await page.route('**/earth/*.webp', (route) => route.abort())
   await page.goto('/')
 

@@ -201,8 +201,7 @@ export interface IntroConfig extends DrawConfig {
   // The one post-process the scene has beyond the warp's motion blur. Without
   // it nothing in the frame can look luminous rather than painted — a star is
   // just a bright matte dot. Threshold is the parameter that matters: too low
-  // and the Earth's day side hazes over, and the sun glint on the ocean is
-  // already at the top of the range before bloom sees it.
+  // and the Earth's day side hazes over.
   //
   // strength 0 disables the pass outright rather than merely rendering nothing,
   // so it is also the performance escape hatch.
