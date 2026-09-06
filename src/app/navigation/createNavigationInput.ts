@@ -157,6 +157,14 @@ export interface NavigationInput {
 /** Ancestors walked looking for a scroll container before giving up. */
 const SCROLLABLE_SEARCH_DEPTH = 12
 
+/**
+ * The depth at which the band counts as parked against its far end.
+ *
+ * `zoomBand` clamps to exactly 1, so this only has to survive the division that
+ * produces it. It is a guard against float, not a tolerance anyone may tune.
+ */
+const SATURATED_DEPTH = 1 - 1e-6
+
 export function createNavigationInput(deps: NavigationInputDeps): NavigationInput {
   const gestureLimits = deps.gestureLimits ?? NAVIGATION_GESTURE
   const cooldownLimits = deps.cooldownLimits ?? NAVIGATION_COOLDOWN
@@ -285,7 +293,12 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * committed, clamped, not accumulating) and a return value would be a second
    * statement of rules that already have one home.
    */
-  function pushTravel(rawTravelPx: number, timeStampMs: number, accumulate: boolean): void {
+  function pushTravel(
+    rawTravelPx: number,
+    timeStampMs: number,
+    accumulate: boolean,
+    mayCommit = true,
+  ): void {
     // The per-event cap, applied HERE rather than left to the accumulator.
     //
     // `maxEventTravelPx` exists so one absurd wheel event cannot navigate —
@@ -316,7 +329,12 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     }
 
     if (travelPx >= 0) {
-      gesture.push(band.push(travelPx), timeStampMs, true)
+      const overflowPx = band.push(travelPx)
+      // A gesture that may not commit still fills the band; what it may not do
+      // is spend the remainder. Zero rather than skipping the push, because the
+      // cooldown's quiescence test reads the stream and a gesture that went
+      // quiet is not the same thing as a gesture that was refused.
+      gesture.push(mayCommit ? overflowPx : 0, timeStampMs, true)
     } else {
       const before = gesture.state().travelPx
       gesture.push(travelPx, timeStampMs, true)
@@ -393,6 +411,17 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
         // over: the machine is locked from here and the keep-alive above would
         // otherwise keep feeding an accumulator nobody is reading.
         pinchOwnsProgress = false
+        // And the fingers are spent, not merely unowned. Resetting the
+        // accumulator was never enough, because the BAND is fed from the same
+        // events and it does not reset: the hand that commits is still moving,
+        // its remaining travel arrives after the swap, and `towardOther` signs it
+        // under the NEW world — where the same spread that just entered Murcia
+        // means zoom IN. Measured 2026-09-06: a phone entered the city at depth
+        // -1, parked at the closest the camera goes, which is most of why zooming
+        // there felt broken. Declining latches until the contacts lift, and a
+        // gesture whose world has changed under it is exactly what that is for.
+        classifier.decline()
+        pinchDeliveredPx = 0
         paint(0, 'locked', context.current)
         deps.onCommit(intent)
         ensureRunning()
@@ -663,8 +692,11 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   }
   // --- Two fingers, on the canvas --------------------------------------------
   //
-  // PROTOTYPE, and EARTH ONLY. Off unless `?pinch=1`, so the shipped touch path
-  // is one query parameter away for comparison on the same device.
+  // THE shipped touch path, in both worlds. It was a prototype behind `?pinch=1`
+  // and Earth-only when this comment was first written; the flag was removed with
+  // `adr/012` and Murcia was wired in the same decision, so a reader who came
+  // here looking for the gate it used to describe was being sent somewhere that
+  // no longer exists.
   //
   // `adr/009` chose a rail over a canvas gesture because "the canvas has no free
   // vertical channel — one finger orbits Earth and pans Murcia". That premise was
@@ -673,10 +705,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   // contacts is a channel nothing in this application has ever read. This takes
   // an empty channel rather than borrowing a full one.
   //
-  // Murcia is deliberately not here. Its two fingers already mean centroid
-  // rotation, so it needs an arbitration this prototype is not trying to design
-  // — and its departing warp only changes scale by about 4%, which is a separate
-  // problem with its own decision to make.
+  // Murcia's two fingers already mean centroid rotation, so it is the one world
+  // that needs an arbitration: `pinchRivalTravel` below, against a rule stated in
+  // `pinchClassifier`. `adr/015` is the current version of it — and the reason
+  // the first version was unpassable by an ordinary hand.
   //
   // ── No swallow-while-watching, unlike the one-finger prototype ──
   //
@@ -708,6 +740,28 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   /** True while a claimed pinch is driving progress. Read by the frame loop. */
   let pinchOwnsProgress = false
   /**
+   * Whether THIS two-pointer sequence may reach the commit stage at all.
+   *
+   * Murcia only. Leaving the city and zooming out of it are the same motion —
+   * closing the hand — and they used to be the same gesture: on a 393px phone
+   * 110px of closure filled the zoom band and 55px more flew you back to Earth,
+   * with nothing in between to tell you the world was about to change. A close
+   * is bounded by how wide the fingers started, so an ordinary pinch-to-zoom-out
+   * ran off the end of the band and out of the world. Reported by the client as
+   * "when the zoom out triggers it just jumps out to Earth".
+   *
+   * So a pinch may leave only if it STARTED with the band already at the
+   * exit-facing end. One pinch zooms out and stops there; lift, pinch again, and
+   * the second one — which begins saturated, because the zoom is persistent —
+   * spends everything it has on the commit.
+   *
+   * Decided when the pair arms, not at the claim. The claim happens after
+   * `claimGrowthPx` of travel has already been spent, so a gesture that
+   * saturated the band on its way to being claimed would hand itself the
+   * permission this exists to withhold.
+   */
+  let pinchMayCommit = true
+  /**
    * True only while `claimPinch` is dispatching its own synthetic cancels.
    *
    * Without it this module cancels the claim it has just made: the cancels are
@@ -728,7 +782,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   }
 
   /**
-   * How far the pair has been carried as a whole, in CSS px.
+   * How far the pair has been carried as a whole, in CSS px, ON THE X AXIS.
    *
    * Murcia turns on the centroid, so this is the rival gesture stated in the
    * same units as the spread. Measured from the gesture ORIGIN rather than the
@@ -736,14 +790,18 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * fingers never move in the same event, so a per-sample centroid swings by half
    * the separation change and back, and a rule reading that would see a rival in
    * every symmetric pinch.
+   *
+   * X only, and not a `hypot`. `DragPanController.applyTwoPointer` reads the
+   * centroid's X and nothing else — vertical movement of the pair turns the city
+   * by exactly nothing, deliberately. So a hypot handed a downward drift to a
+   * gesture that would not have used it, and the fingers ended up driving
+   * neither the zoom nor the rotation. Reporting the axis the rival actually
+   * consumes is what makes "hand it back to the turn" mean something.
    */
   function pinchRivalTravel(): number {
     const points = [...contacts.values()]
     if (points.length < 2) return 0
-    return Math.hypot(
-      (points[0].x + points[1].x) / 2 - pinchStartCentroid.x,
-      (points[0].y + points[1].y) / 2 - pinchStartCentroid.y,
-    )
+    return (points[0].x + points[1].x) / 2 - pinchStartCentroid.x
   }
 
   /**
@@ -784,6 +842,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       delivered * gain,
       timeStampMs,
       machine.canAccumulate() && context.canNavigate,
+      pinchMayCommit,
     )
     ensureRunning()
   }
@@ -799,6 +858,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     }
     pinchOwnsProgress = false
     pinchDeliveredPx = 0
+    // Back to the permissive default. The next pair re-decides it from the band
+    // when it arms; leaving a stale `false` here would be a refusal nothing
+    // could account for.
+    pinchMayCommit = true
     classifier.reset()
   }
 
@@ -834,6 +897,8 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     }
 
     pinchDeliveredPx = 0
+    // Decided here, once, for the whole sequence. See the declaration.
+    pinchMayCommit = context.current !== 'murcia' || band.depth >= SATURATED_DEPTH
     const points = [...contacts.values()]
     pinchStartCentroid.x = (points[0].x + points[1].x) / 2
     pinchStartCentroid.y = (points[0].y + points[1].y) / 2

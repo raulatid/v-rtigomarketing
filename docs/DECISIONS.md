@@ -972,6 +972,24 @@ the case assumed a photograph must carry its own stars.*
 >
 > The gesture split below — left/one finger pans, right/two fingers rotate — has now survived
 > all three amendments untouched.
+>
+> **Amended a fourth time 2026-09-06 — `adr/015`.** The split survives this one too, but the
+> arbitration between its two-finger rotate and the pinch did not. The rule that decided ties
+> compared raw centroid travel against an 8px dead zone, and a pinch moves the centroid by
+> half its growth by construction — so reaching the 16px claim put the midpoint at exactly the
+> decline, and **no anchored-thumb pinch could zoom Murcia at all.** Reported from a phone as
+> "sometimes rotate, sometimes nothing happens". The rival is now measured on X only, which is
+> the axis rotation actually consumes, and compared after an allowance of half the growth. The
+> tie still goes to the turn: a pair carried without changing separation has no allowance and
+> still declines at 8.
+>
+> Two other things moved with it. **Leaving the city is now its own gesture** — one close
+> zooms out and parks, a second close leaves — because 110px of closure filled the band and
+> 55px more flew you to Earth, which is one ordinary pinch. And **`zoomNearScale` stopped
+> being `focusFlight.minDistanceScale`**: the reuse made a full pinch-in worth ×1.43, and the
+> two numbers answer different questions. It is 0.45, swept through `check:footprint` (0.35
+> passes, 0.30 fails at 59.8 against a ~60 floor) and deliberately not the lowest value that
+> passed.
 
 **Left button and one finger pan the ground 1:1 under the cursor, in both axes. Rotation
 moves to the right button and to two fingers, at half the sensitivity. A small, bounded zoom

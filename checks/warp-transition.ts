@@ -528,13 +528,25 @@ check(
   `near ${murciaBand.nearDistance.toFixed(1)} — flying in shrinks the footprint, so it has ` +
     'nothing to pay for and nothing to change',
 );
+// The near end WAS asserted to equal the district flight floor exactly, on the
+// grounds that a closer one would need its own footprint measurement. It has one
+// now (`adr/015`): the reuse made a full pinch-in worth x1.43 and the client
+// reported the inward half as not working, so the two were separated and swept.
+//
+// What replaces the equality is the margin, because that is what the equality
+// was really buying. `check:footprint` owns the absolute gate at the compound
+// minimum — zoom fully in, then open a district — and this asserts that the
+// chosen value is not sitting hard against it. The sweep put the cliff between
+// 0.35 and 0.30; anything that leaves less than a quarter of the floor in hand
+// is a value someone tightened without re-measuring.
+const compoundClosest = murciaBand.nearDistance * murciaConfig.focusFlight.minDistanceScale;
 check(
-  'the near end is the district flight floor, not a second opinion about it',
-  Math.abs(
-    murciaBand.nearDistance - murciaRest.distance * murciaConfig.focusFlight.minDistanceScale,
-  ) < 1e-9,
-  `${murciaBand.nearDistance.toFixed(1)} — a closer floor would need its own footprint ` +
-    'measurement, and the two would be free to drift apart',
+  'the near end is measured, and keeps its margin over the inversion floor',
+  murciaBand.nearDistance < murciaRest.distance * murciaConfig.focusFlight.minDistanceScale &&
+    compoundClosest > 60 * 1.25,
+  `${murciaBand.nearDistance.toFixed(1)} near, ${compoundClosest.toFixed(1)} compound against a ` +
+    '~60 floor — inward of the flight floor because the viewer may put themselves closer than a ' +
+    'flight will dolly them, and clear of the cliff by more than a rounding error',
 );
 
 // THE continuity assertion. The departure has to lie BEYOND the far end of the

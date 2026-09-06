@@ -561,13 +561,28 @@ export const murciaConfig: EnvironmentConfig = {
   // Zooming IN keeps the resting pitch and only shortens the distance, because
   // nothing has to be paid for: flying in shrinks the footprint.
   //
-  // Not an independent judgement. It is `focusFlight.minDistanceScale`, and it
-  // has to be: a district flight already dollies to exactly there, so that
-  // distance is already proven safe by checks/footprint.ts and already known to
-  // sit above the ~28 deg pitch collapse. A closer floor would need its own
-  // measurement, and the two would then be free to drift into disagreeing about
-  // what "as close as the city goes" means.
-  zoomNearScale: 0.7,
+  // This WAS `focusFlight.minDistanceScale`, reused rather than measured so the
+  // two could not drift apart about what "as close as the city goes" means. The
+  // reuse cost more than it saved: at 0.7 a full pinch-in bought 285 -> 199.5
+  // units, an apparent x1.43 for an entire opening of the hand, and the client
+  // reported the inward half of the band as not working at all. The two numbers
+  // answer different questions — one is how close a FLIGHT may dolly from
+  // wherever the viewer is, the other is how close the viewer may put themselves
+  // — so they are now measured separately.
+  //
+  // 0.45 is x2.22 (285 -> 128.25), and it is not the lowest value that passes.
+  // Swept through `check:footprint` 2026-09-06: 0.35 passes, 0.30 FAILS at a
+  // compound closest approach of 59.8 units against the ~60-unit footprint
+  // inversion floor, where the fixed `lookAtHeight` tilts the camera up and
+  // flying in stops being the safe direction. The binding case is the compound
+  // one — full zoom-in and THEN a district flight, 285 x this x
+  // focusFlight.minDistanceScale — which at 0.45 lands at 89.8 units, half again
+  // above the floor and two sweep steps clear of the boundary. A value chosen
+  // hard against a cliff is one the next GLB discovers in production.
+  //
+  // Raise it toward 0.35 only through `check:footprint`, and only with a reason
+  // to spend the margin.
+  zoomNearScale: 0.45,
 
   contentBounds: { ...PLATE },
 

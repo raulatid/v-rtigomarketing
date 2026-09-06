@@ -455,6 +455,13 @@ test('two fingers spreading enter Murcia, and closing come back', async ({ page 
   // On touch this is the ONLY way between the two worlds — the rail is gone
   // (`adr/012`), the marker no longer navigates and the return button went with
   // `adr/009`. Everything below is therefore a primary control, not chrome.
+  //
+  // Longer than the file default because the journey got longer, not slower:
+  // `adr/015` made leaving the city a second close, so this drives FOUR in-page
+  // gestures across a boot and a cinematic. Each one is paced at 16ms per step
+  // through a main thread running on a software renderer, where a single pinch
+  // has been measured at 10-35s.
+  test.setTimeout(240_000)
   await bootToReady(page)
   await reachSite(page)
   const growth = commitGrowth(page)
@@ -476,10 +483,39 @@ test('two fingers spreading enter Murcia, and closing come back', async ({ page 
   await pinch(page, { from: 60, to: 60 + growth * 1.05 })
   await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
 
-  // Closing is the way out, because leaving is an ascent (ADR 006).
+  // Closing is the way out, because leaving is an ascent (ADR 006) — but since
+  // `adr/015` it takes TWO closes, and this is where that is proved end to end.
+  //
+  // The wait is not politeness. The navigation machine is `locked` for the
+  // remainder of the cinematic and then in `cooldown`, and a gesture fired
+  // inside that window is refused by design; this test used to fire the return
+  // the instant `.murcia-ui` appeared and raced it, which is the whole of the
+  // nondeterminism recorded in `docs/plans/011-phone-menu-glass-field.md`. With
+  // two closes it is not merely flaky but wrong — a refused first close parks
+  // nothing, so the second one would be the first.
+  await expect
+    .poll(() => page.locator('.nav').getAttribute('data-state'), { timeout: 15_000 })
+    .toBe('idle')
+
   const wide = growth * 1.1 + 40
+  // One. Parks the zoom against the far end of the band and stops there.
   await pinch(page, { from: wide, to: wide - growth * 1.05 })
-  await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(false)
+  await page.waitForTimeout(600)
+  expect(await inMurcia(page)).toBe(true)
+
+  // Two. Begins already parked, because the zoom is persistent, so everything
+  // this one has goes into the push.
+  //
+  // A full close rather than the 0.6 that is arithmetically sufficient, because
+  // what this test is for is the SHAPE — two closes leave, one does not — and a
+  // fixture cut to the minimum would start failing for arithmetic reasons the
+  // moment the 600/300 split moved. It is also what a hand does.
+  //
+  // This is the assertion that caught the entry gesture's tail: with the city
+  // being entered at depth -1 rather than at rest, the first close was spent
+  // crossing the band and the second still had nothing to push with.
+  await pinch(page, { from: wide, to: wide - growth * 1.05 })
+  await expect.poll(() => inMurcia(page), { timeout: 15_000 }).toBe(false)
 })
 
 test('ordinary two-finger use is left alone', async ({ page }) => {

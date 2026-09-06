@@ -237,7 +237,7 @@ export interface PinchLimits {
    */
   minStartDistancePx: number
   /**
-   * Movement of a RIVAL two-finger gesture that hands this one back, in CSS px.
+   * Rival travel THIS GESTURE CANNOT EXPLAIN that hands it back, in CSS px.
    *
    * Earth has no rival — a second contact there does nothing at all — so this is
    * measured only where one exists. In Murcia two fingers already mean centroid
@@ -245,6 +245,19 @@ export interface PinchLimits {
    * `(a + b) / 2`) but a real hand produces both: thumbs are not symmetric, so
    * every pinch drifts the centroid a little and every turn changes the
    * separation a little.
+   *
+   * That last sentence was written here from the start and the rule ignored it,
+   * which is the whole of the 2026-09-06 defect. The drift is not noise to be
+   * out-thresholded: an anchored-thumb close of `g` moves the midpoint by `g/2`
+   * BY CONSTRUCTION, so at the 16px claim the midpoint sat at exactly this 8 and
+   * every ordinary phone pinch in Murcia was handed to the rotation. The
+   * classifier now subtracts an allowance of `growth / 2` first and compares
+   * only the remainder — see `pinchClassifier.ts`, where the allowance is
+   * explained and where the reason it is NOT a projection is written down.
+   *
+   * So this number now measures a stricter thing than it did, and did not have
+   * to move: a pair carried without changing separation still has zero
+   * allowance, and still declines at exactly 8.
    *
    * 8 is not an independent judgement. It is Murcia's own
    * `rotation.twoPointerThresholdPx`, deliberately: that is the travel at which

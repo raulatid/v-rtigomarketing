@@ -132,7 +132,30 @@ export function createPinchClassifier(limits: PinchLimits): PinchClassifier {
     // The threshold is the travel at which that gesture starts moving something,
     // so at the moment this fires the city has not turned yet and handing the
     // fingers back costs nothing.
-    if (Number.isFinite(rivalTravelPx) && Math.abs(rivalTravelPx) >= limits.declineRivalPx) {
+    //
+    // What is compared against it is the rival travel a pinch CANNOT account
+    // for. Read raw, this rule was unpassable by a real hand: a pinch that
+    // closes by `g` with one finger anchored moves the midpoint by `g/2`, so
+    // reaching the 16px claim put the midpoint at exactly the 8px decline — and
+    // the decline is tested first. Every anchored-thumb pinch in Murcia was
+    // handed to the rotation, which is what the client reported as "sometimes it
+    // rotates, sometimes nothing happens". A pinch that drifts vertically was
+    // worse: the city reads only the centroid's X, so the fingers were taken
+    // from the zoom and given to a turn of zero degrees.
+    //
+    // `growth / 2` is an INTENT ALLOWANCE, not a geometric correction, and the
+    // distinction is load-bearing. The exact displacement is `g/2` along the
+    // line between the contacts, while the rival is measured on X alone; the two
+    // coincide only for a horizontal grip. Taking the unprojected half is
+    // deliberately the generous bound — the most X-travel a pinch could possibly
+    // explain — so that whatever is left over is travel no pinch accounts for. A
+    // reader who mistakes this for a derivation will "fix" it into a projection
+    // and re-break the vertical-pinch case.
+    //
+    // A pair carried without changing separation has zero growth, so it still
+    // declines at exactly `declineRivalPx` and the tie still goes to the turn.
+    const unexplainedRivalPx = Math.abs(rivalTravelPx) - Math.abs(eligibleGrowthPx) / 2
+    if (Number.isFinite(rivalTravelPx) && unexplainedRivalPx >= limits.declineRivalPx) {
       return 'declined'
     }
 

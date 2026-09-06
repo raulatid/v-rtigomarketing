@@ -387,10 +387,91 @@ describe('Murcia — the mirror direction, and its rival', () => {
     expect(t.progress()).toBe(0)
   })
 
-  it('commits back to Earth on a full close', async () => {
+  it('will not leave on the same close that zoomed out, however hard it is pushed', async () => {
+    // Leaving the city and zooming out of it are one motion, and a close is
+    // bounded by how wide the fingers started — so before 2026-09-06 an ordinary
+    // pinch-to-zoom-out ran off the end of the band and out of the world. One
+    // pinch now parks at the far end and stays there.
     const t = setup({ current: 'murcia' })
     place(t.host, 'pointerdown', WIDE)
     close(t.host, COMMIT_GROWTH * 1.02, 20)
+    await frames(200)
+    expect(t.depth()).toBeCloseTo(1, 6)
+    expect(t.progress()).toBe(0)
+    expect(t.commits).toEqual([])
+  })
+
+  it('commits back to Earth on a SECOND close, which begins already parked', async () => {
+    const t = setup({ current: 'murcia' })
+    place(t.host, 'pointerdown', WIDE)
+    close(t.host, COMMIT_GROWTH * 1.02, 20)
+    place(t.host, 'pointerup', WIDE - COMMIT_GROWTH * 1.02)
+    await frames(200)
+    expect(t.commits).toEqual([])
+
+    // The zoom is persistent, so this pair arms at the exit-facing end and
+    // everything it has goes to the push.
+    place(t.host, 'pointerdown', WIDE)
+    close(t.host, COMMIT_GROWTH * 0.5, 12)
+    await frames(200)
+    expect(t.commits).toEqual(['exit-murcia'])
+  })
+
+  it('never leaks commit travel out of a gesture that may not commit', async () => {
+    // The whole shape of the refusal, in one gesture: park at the end, push
+    // against it, come back off it, park again, push again. The indicator must
+    // read a literal zero at every one of those, because overflow that reached
+    // the accumulator and then decayed would look identical a frame later and
+    // would bank a commit the viewer never asked for.
+    const t = setup({ current: 'murcia' })
+    place(t.host, 'pointerdown', WIDE)
+
+    const parked = COMMIT_GROWTH * BAND_FRACTION
+    let d = WIDE
+    const closeTo = (growth: number, steps = 10) => {
+      const next = WIDE - growth
+      pinchFromTo(t.host, d, next, steps)
+      d = next
+    }
+
+    closeTo(parked * 0.5)
+    await frames()
+    expect(t.depth()).toBeCloseTo(0.5, 1)
+    expect(t.progress()).toBe(0)
+
+    closeTo(parked)
+    await frames()
+    expect(t.depth()).toBeCloseTo(1, 6)
+    expect(t.progress()).toBe(0)
+
+    // Pushing past the parked end.
+    closeTo(parked + COMMIT_GROWTH * 0.25)
+    await frames()
+    expect(t.depth()).toBeCloseTo(1, 6)
+    expect(t.progress()).toBe(0)
+
+    // Back off it, and the zoom follows the fingers out again.
+    closeTo(parked * 0.6)
+    await frames()
+    expect(t.depth()).toBeLessThan(0.9)
+    expect(t.progress()).toBe(0)
+
+    // Park a second time and push again, still inside the one gesture.
+    closeTo(parked + COMMIT_GROWTH * 0.3)
+    await frames()
+    expect(t.depth()).toBeCloseTo(1, 6)
+    expect(t.progress()).toBe(0)
+    expect(t.commits).toEqual([])
+
+    // Lifting banks nothing either, so the next pinch starts from a clean
+    // accumulator and a full band.
+    place(t.host, 'pointerup', d)
+    await frames(900)
+    expect(t.progress()).toBe(0)
+    expect(t.depth()).toBeCloseTo(1, 6)
+
+    place(t.host, 'pointerdown', WIDE)
+    close(t.host, COMMIT_GROWTH * 0.5, 12)
     await frames(200)
     expect(t.commits).toEqual(['exit-murcia'])
   })
@@ -410,14 +491,20 @@ describe('Murcia — the mirror direction, and its rival', () => {
 
   it('declines a close that is really a turn', async () => {
     // The ambiguous case, and the one the asymmetry exists to settle. The pair
-    // is carried further than the rival threshold while the separation closes;
-    // the turn was already under way, so it keeps the fingers.
+    // is carried far further than the close can account for; the turn was
+    // already under way, so it keeps the fingers.
+    //
+    // The close was half a journey here until 2026-09-06, which under the
+    // allowance is no longer a turn at all — a hand that closes by 161px while
+    // sliding 140px has done more closing than sliding, and calling that a
+    // rotation is what made Murcia impossible to zoom. The gesture is now stated
+    // as what its name says: mostly a carry, with the separation barely moving.
     const t = setup({ current: 'murcia' })
     place(t.host, 'pointerdown', START)
     const half = START / 2
     for (let i = 1; i <= 12; i += 1) {
       const dx = (140 * i) / 12
-      const shrink = (COMMIT_GROWTH * 0.5 * i) / 12
+      const shrink = (COMMIT_GROWTH * 0.15 * i) / 12
       t.host.dispatchEvent(pe('pointermove', 400 - half + dx + shrink / 2, 500, 1))
       t.host.dispatchEvent(pe('pointermove', 400 + half + dx - shrink / 2, 500, 2))
     }
@@ -590,5 +677,162 @@ describe('teardown', () => {
     await frames()
     expect(t.progress()).toBe(0)
     expect(t.commits).toEqual([])
+  })
+})
+
+/**
+ * The gestures a real hand makes.
+ *
+ * Every rival case above moves the two contacts perfectly symmetrically about a
+ * fixed centroid, and so does `checks/navigation-feel.ts` §10. That is not what
+ * a hand does: a thumb tends to stay where it is while the finger travels, a
+ * grip drifts vertically as it closes, and a slow device delivers the whole
+ * thing in two coalesced events instead of sixteen.
+ *
+ * Each of those moves the CENTROID as an unavoidable consequence of the pinch
+ * itself — an anchored-thumb close of `g` moves it by `g/2` — which is the
+ * signal the rival rule reads. The cases below are the ones the client reported
+ * as "sometimes rotate, sometimes nothing happens".
+ *
+ * The last case is the boundary from the other side, and it matters as much as
+ * the rest: whatever allowance the rule makes for a pinch's own centroid travel
+ * must not swallow a real turn.
+ *
+ * Ownership is read here as `cancels()` — two synthetic cancels mean navigation
+ * took the fingers, none means the city kept them. The yaw half of the same
+ * question is asserted where a rig exists, in `checks/navigation-feel.ts` §10.
+ */
+describe('Murcia — asymmetric hands, which is what real ones are', () => {
+  /** One contact anchored, the other doing all the travelling. */
+  function anchoredClose(host: HTMLElement, shrink: number, steps = 8) {
+    const right = 400 + WIDE / 2
+    for (let i = 1; i <= steps; i += 1) {
+      // Only the moving finger reports. An anchored thumb emits no pointermove,
+      // so the centroid this module computes is stale by half the travel for as
+      // long as the gesture lasts — it never gets the correcting event.
+      host.dispatchEvent(pe('pointermove', right - (shrink * i) / steps, 500, 2))
+    }
+  }
+
+  /** A symmetric close that also slides down the screen as it goes. */
+  function driftingClose(host: HTMLElement, shrink: number, drift: number, steps = 16) {
+    for (let i = 1; i <= steps; i += 1) {
+      const half = (WIDE - (shrink * i) / steps) / 2
+      const y = 500 + (drift * i) / steps
+      host.dispatchEvent(pe('pointermove', 400 - half, y, 1))
+      host.dispatchEvent(pe('pointermove', 400 + half, y, 2))
+    }
+  }
+
+  /** Two contacts one above the other, `distance` apart, centred on x=400. */
+  function placeVertical(host: HTMLElement, type: string, distance: number) {
+    const half = distance / 2
+    host.dispatchEvent(pe(type, 400, 500 - half, 1))
+    host.dispatchEvent(pe(type, 400, 500 + half, 2))
+  }
+
+  /** Closes a vertical grip while carrying the whole pair sideways. */
+  function carriedVerticalClose(
+    host: HTMLElement,
+    shrink: number,
+    carryX: number,
+    steps = 16,
+  ) {
+    for (let i = 1; i <= steps; i += 1) {
+      const half = (WIDE - (shrink * i) / steps) / 2
+      const x = 400 + (carryX * i) / steps
+      host.dispatchEvent(pe('pointermove', x, 500 - half, 1))
+      host.dispatchEvent(pe('pointermove', x, 500 + half, 2))
+    }
+  }
+
+  it('zooms on a close made with an anchored thumb', async () => {
+    // The ordinary phone pinch. The separation is ground truth and it is
+    // closing; that the midpoint slid is arithmetic, not intent.
+    const t = setup({ current: 'murcia' })
+    place(t.host, 'pointerdown', WIDE)
+    anchoredClose(t.host, COMMIT_GROWTH * 0.4)
+    await frames()
+    expect(t.cancels()).toBe(2)
+    expect(t.depth()).toBeGreaterThan(0.2)
+    expect(t.commits).toEqual([])
+  })
+
+  it('zooms on a close that drifts down the screen', async () => {
+    // Murcia turns on the centroid's X and reads its Y as nothing at all, so a
+    // vertical drift can only ever decline the zoom in favour of a rotation of
+    // zero degrees. Whatever else happens, this must not be the gesture that
+    // does nothing.
+    const t = setup({ current: 'murcia' })
+    place(t.host, 'pointerdown', WIDE)
+    driftingClose(t.host, COMMIT_GROWTH * 0.4, 80)
+    await frames()
+    expect(t.cancels()).toBe(2)
+    expect(t.depth()).toBeGreaterThan(0.2)
+  })
+
+  it('classifies a coarsely sampled close the same as a fine one', async () => {
+    // A slow build coalesces pointermoves, so one event carries what sixteen
+    // would have. The CLASSIFICATION must not depend on the sampling rate; the
+    // pose may, since the per-event cap and its carry-forward are in play.
+    const fine = setup({ current: 'murcia' })
+    place(fine.host, 'pointerdown', WIDE)
+    close(fine.host, COMMIT_GROWTH * 0.4, 16)
+    await frames()
+    expect(fine.cancels()).toBe(2)
+    expect(fine.depth()).toBeGreaterThan(0)
+    live.pop()!.dispose()
+    document.body.innerHTML = ''
+
+    const coarse = setup({ current: 'murcia' })
+    place(coarse.host, 'pointerdown', WIDE)
+    close(coarse.host, COMMIT_GROWTH * 0.4, 2)
+    await frames()
+    expect(coarse.cancels()).toBe(2)
+    expect(coarse.depth()).toBeGreaterThan(0)
+  })
+
+  it('still hands a carried vertical grip back to the turn', async () => {
+    // The boundary from the other side. The fingers are separated vertically,
+    // so the pinch can account for no sideways centroid travel whatsoever — and
+    // the pair is carried further than any allowance could excuse. This is a
+    // turn, and it must stay one.
+    const t = setup({ current: 'murcia' })
+    placeVertical(t.host, 'pointerdown', WIDE)
+    carriedVerticalClose(t.host, COMMIT_GROWTH * 0.4, 140)
+    await frames()
+    expect(t.cancels()).toBe(0)
+    expect(t.progress()).toBe(0)
+    expect(t.depth()).toBe(0)
+    expect(t.commits).toEqual([])
+  })
+})
+
+describe('the gesture that commits is spent', () => {
+  it('stops reading the fingers at the commit, so the tail cannot zoom the new world', async () => {
+    // The hand that commits is still moving. Its remaining travel arrives AFTER
+    // the worlds have swapped, and `towardOther` signs it under the new one —
+    // where the very spread that just entered Murcia means zoom IN.
+    //
+    // Resetting the accumulator at the commit was never enough, because the band
+    // is fed from the same events and does not reset. Measured on a phone-shaped
+    // build on 2026-09-06: the city was entered at depth -1, parked at the
+    // closest the camera goes, with the whole band to cross before zooming out
+    // did anything. Most of "zoom in Murcia does not work" was this.
+    const t = setup({ current: 'earth' })
+    place(t.host, 'pointerdown', START)
+    spread(t.host, COMMIT_GROWTH * 1.05, 20)
+    await frames(200)
+    expect(t.commits).toEqual(['enter-murcia'])
+
+    // The application swaps the world and resets the zoom at the cut; here the
+    // only question is whether these fingers can still write anything at all.
+    const parked = t.depth()
+    t.context.current = 'murcia'
+    const held = START + COMMIT_GROWTH * 1.05
+    pinchFromTo(t.host, held, held + COMMIT_GROWTH * 0.6, 12)
+    await frames()
+    expect(t.depth()).toBeCloseTo(parked, 6)
+    expect(t.commits).toEqual(['enter-murcia'])
   })
 })

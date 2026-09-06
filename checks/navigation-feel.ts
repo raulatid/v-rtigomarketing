@@ -978,6 +978,39 @@ console.log('\n10. Two fingers — rotate, pinch, and the transitions between');
   );
 }
 {
+  // The ASYMMETRIC pinch, which is the one a hand actually makes and which the
+  // block above does not cover: a thumb stays put and the finger does all the
+  // travelling. That moves the centroid by half the growth by construction, so
+  // this controller sees a real sweep — and the whole arbitration depends on it
+  // seeing one that is still inside its dead zone when the navigation layer
+  // claims the gesture.
+  //
+  // `adr/015` made those two facts line up on purpose: the claim needs 16px of
+  // growth and this dead zone is 8px, so at the moment the pinch is taken away
+  // the city has turned by exactly nothing. If either constant moves without the
+  // other, an anchored-thumb pinch starts by twitching the city before it zooms.
+  // The two live in different files because `app/` may not read `experiences/`;
+  // `navigationConfig.ts` states the coupling from the other side.
+  const CLAIM_GROWTH_PX = 16; // mirrors NAVIGATION_PINCH.claimGrowthPx
+  const h = makeHarness();
+  let t = 1000;
+  touchDown(h, 1, CENTRE_X - 100, CENTRE_Y, t);
+  touchDown(h, 2, CENTRE_X + 100, CENTRE_Y, t);
+  // Only the second contact reports, closing by the claim growth. An anchored
+  // thumb emits no pointermove at all, so this is the harsh version.
+  for (let i = 1; i <= 8; i += 1) {
+    t += 16;
+    touchMove(h, 2, CENTRE_X + 100 - (CLAIM_GROWTH_PX * i) / 8, CENTRE_Y, t);
+    h.controller.update(1 / 60);
+  }
+  h.step(3.0);
+  check(
+    'an anchored-thumb pinch turns nothing before the claim can take it',
+    close(h.rig.getYaw(), 0, 1e-9),
+    `yaw ${h.rig.getYaw().toFixed(9)} deg — ${CLAIM_GROWTH_PX}px of growth moves the centroid ${CLAIM_GROWTH_PX / 2}px, against a ${murciaConfig.navigation.rotation.twoPointerThresholdPx}px dead zone`,
+  );
+}
+{
   // The dead zone itself. Two fingers had no threshold of any kind until
   // 2026-08-25 — the first pixel of centroid drift turned the city — while one
   // finger has needed 12px since it learned the same lesson. A settling grip is

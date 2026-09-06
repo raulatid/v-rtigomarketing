@@ -5,6 +5,17 @@ import { NAVIGATION_GESTURE, NAVIGATION_PINCH, commitTravelPx, pinchGain } from 
 const START = 150
 const CLAIM = NAVIGATION_PINCH.claimGrowthPx
 const RIVAL = NAVIGATION_PINCH.declineRivalPx
+/**
+ * Centroid travel a pinch of `growth` is entitled to before any of it counts
+ * as a rival, mirroring the allowance in the module.
+ *
+ * An anchored-thumb close moves the midpoint by half the growth by
+ * construction, so the fixtures below have to state a rival as "the allowance,
+ * plus the travel that is really a turn". Written as a helper rather than
+ * inlined so that the arithmetic is stated once and a reader can see which part
+ * of each number is the artifact and which part is the gesture.
+ */
+const carrying = (growthPx: number, beyondPx: number) => growthPx / 2 + beyondPx
 const make = () => createPinchClassifier(NAVIGATION_PINCH)
 
 /** A phone-sized shorter side, so the derived numbers below mean something. */
@@ -70,7 +81,27 @@ describe('createPinchClassifier', () => {
       // viewer is turning the city, not leaving it.
       const c = make()
       c.begin(START)
-      expect(c.sample(CLAIM, RIVAL)).toBe('declined')
+      expect(c.sample(CLAIM, carrying(CLAIM, RIVAL))).toBe('declined')
+    })
+
+    it('claims a close made with an anchored thumb', () => {
+      // The case this rule used to make impossible, and the reason it changed.
+      // One finger still, the other doing all the work: the midpoint moves by
+      // exactly half the growth, which under the old raw comparison put an
+      // ordinary phone pinch at precisely the decline threshold at precisely the
+      // moment it reached the claim. Murcia could not be zoomed by a real hand.
+      const c = make()
+      c.begin(START)
+      expect(c.sample(CLAIM, CLAIM / 2)).toBe('claimed')
+    })
+
+    it('scales the allowance with the growth, so a bigger pinch may drift further', () => {
+      // Not a tolerance that could be a constant: the artifact IS half the
+      // growth, so it grows with the gesture. A fixed allowance would fail the
+      // long closes and over-permit the short ones.
+      const c = make()
+      c.begin(START)
+      expect(c.sample(CLAIM * 6, CLAIM * 3)).toBe('claimed')
     })
 
     it('lets a clean pinch through when the rival has barely moved', () => {
@@ -85,7 +116,7 @@ describe('createPinchClassifier', () => {
       // it. The asymmetry decides ties, and it decides them the safe way.
       const c = make()
       c.begin(START)
-      expect(c.sample(CLAIM * 4, RIVAL)).toBe('declined')
+      expect(c.sample(CLAIM * 4, carrying(CLAIM * 4, RIVAL))).toBe('declined')
     })
 
     it('ignores the rival entirely when the caller reports none', () => {
@@ -105,7 +136,7 @@ describe('createPinchClassifier', () => {
     it('reads the rival as a magnitude, whichever way it points', () => {
       const c = make()
       c.begin(START)
-      expect(c.sample(CLAIM, -RIVAL)).toBe('declined')
+      expect(c.sample(CLAIM, -carrying(CLAIM, RIVAL))).toBe('declined')
     })
   })
 
