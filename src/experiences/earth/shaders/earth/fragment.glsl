@@ -1,11 +1,10 @@
 uniform sampler2D uDayTexture;
 uniform sampler2D uNightTexture;
-uniform sampler2D uSpecularCloudsTexture;
+uniform sampler2D uCloudsTexture;
 uniform vec3 uSunDirection;
 uniform vec3 uAtmosphereDayColor;
 uniform vec3 uAtmosphereTwilightColor;
 uniform float uCloudIntensity;
-uniform float uSpecularIntensity;
 uniform float uNightIntensity;
 
 varying vec2 vUv;
@@ -27,11 +26,19 @@ void main()
     vec3 nightColor = texture(uNightTexture, vUv).rgb * uNightIntensity;
     color = mix(nightColor, dayColor, dayMix);
 
-    // Specular cloud color
-    vec2 specularCloudsColor = texture(uSpecularCloudsTexture, vUv).rg;
-
     // Clouds
-    float cloudsMix = smoothstep(0.5, 1.0, specularCloudsColor.g) * uCloudIntensity;
+    //
+    // .r, NOT .g. The map used to pack a water mask in .r and the clouds in .g;
+    // it is now a greyscale clouds-only KTX2, and a greyscale Basis texture can
+    // transcode to a red-only format (BC4/RGTC) on some GPUs, where .g reads 0
+    // and the clouds disappear entirely. .r is correct for every transcode
+    // target.
+    //
+    // The texture is deliberately NOT tagged sRGB — see EarthScene. This
+    // threshold reads the authored value, so an sRGB decode would silently move
+    // it and thin the clouds out.
+    float clouds = texture(uCloudsTexture, vUv).r;
+    float cloudsMix = smoothstep(0.5, 1.0, clouds) * uCloudIntensity;
     cloudsMix *= dayMix;
     color = mix(color, vec3(1.0), clamp(cloudsMix, 0.0, 1.0));
 
@@ -43,16 +50,6 @@ void main()
     float atmosphereDayMix = smoothstep(- 0.5, 1.0, sunOrientation);
     vec3 atmosphereColor = mix(uAtmosphereTwilightColor, uAtmosphereDayColor, atmosphereDayMix);
     color = mix(color, atmosphereColor, fresnel * atmosphereDayMix);
-
-    // Specular
-    vec3 reflection = reflect(- uSunDirection, normal);
-    float specular = - dot(reflection, viewDirection);
-    specular = max(specular, 0.0);
-    specular = pow(specular, 32.0);
-    specular *= specularCloudsColor.r * uSpecularIntensity;
-
-    vec3 specularColor = mix(vec3(1.0), atmosphereColor, fresnel);
-    color += specular * specularColor;
 
     // Final color
     gl_FragColor = vec4(color, 1.0);

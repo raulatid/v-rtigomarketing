@@ -1,6 +1,8 @@
 import { useMemo, useEffect, useRef, type RefObject } from 'react'
 import { useLoader, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import type { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
+import { acquireKtx2Loader, releaseKtx2Loader } from '../../../graphics/decoders'
 import earthVert from '../shaders/earth/vertex.glsl'
 import earthFrag from '../shaders/earth/fragment.glsl'
 import atmosphereVert from '../shaders/atmosphere/vertex.glsl'
@@ -32,10 +34,9 @@ interface Props {
   destinationRef?: RefObject<DestinationResolver | null>
 }
 
-// TextureLoader goes through ImageLoader, which decodes an <img> and reports no
-// byte progress at all — so this step advances per file, in thirds. Coarse, but
-// honest; the alternative is a fake smooth ramp. The manager is module-level
-// because R3F caches one loader instance per Loader class.
+// KTX2Loader reports no byte progress, so this step advances per file, in
+// thirds. Coarse, but honest; the alternative is a fake smooth ramp. The manager
+// is module-level because R3F caches one loader instance per Loader class.
 const earthManager = new THREE.LoadingManager()
 earthManager.onProgress = (_url, loaded, total) =>
   loadProgress.report('earth:textures', loaded, total)
@@ -64,7 +65,35 @@ function earthTextureUrls(): string[] {
     window.innerWidth <= EARTH_TEXTURES.narrowMaxWidth
       ? EARTH_TEXTURES.narrow
       : EARTH_TEXTURES.wide
-  return [set.day, set.night, set.specularClouds]
+  return [set.day, set.night, set.clouds]
+}
+
+/**
+ * The shared Basis transcoder, held for as long as this scene is mounted.
+ *
+ * Module-level rather than a hook: `useLoader` needs the instance during
+ * render, and the first render of this component ALWAYS suspends, so anything
+ * acquired in `useMemo` would be acquired again on the retry and never
+ * balanced. The guard makes the acquire happen exactly once no matter how many
+ * renders are thrown away.
+ *
+ * An INSTANCE is passed to `useLoader` (which accepts one — see `loadingFn`)
+ * rather than the `KTX2Loader` class, deliberately: the class path would have
+ * R3F construct and cache a second transcoder alongside the one
+ * `graphics/decoders.ts` exists to keep single, and stand up its worker pool
+ * during the intro, next to the city's and the satellites'.
+ */
+let earthKtx2: KTX2Loader | null = null
+
+function acquireEarthKtx2(renderer: THREE.WebGLRenderer): KTX2Loader {
+  if (!earthKtx2) earthKtx2 = acquireKtx2Loader(renderer)
+  return earthKtx2
+}
+
+function releaseEarthKtx2(): void {
+  if (!earthKtx2) return
+  earthKtx2 = null
+  releaseKtx2Loader()
 }
 
 // Ported from dolly-earth. The tuning-panel plumbing is dropped — these values
@@ -76,22 +105,28 @@ export function EarthScene({
   active,
   destinationRef,
 }: Props) {
-  const [dayTex, nightTex, specTex] = useLoader(
-    THREE.TextureLoader,
+  const { gl, scene, camera } = useThree()
+
+  const [dayTex, nightTex, cloudsTex] = useLoader(
+    acquireEarthKtx2(gl),
     earthTextureUrls(),
     (loader) => {
       loader.manager = earthManager
     },
   )
 
-  const { gl, scene, camera } = useThree()
+  useEffect(() => releaseEarthKtx2, [])
 
   useEffect(() => {
     dayTex.colorSpace = THREE.SRGBColorSpace
     nightTex.colorSpace = THREE.SRGBColorSpace
+    // cloudsTex is deliberately left alone. It is data, not colour: the shader
+    // thresholds the authored value, and an sRGB decode would move it. KTX2Loader
+    // takes the colour space from the file, so the file is encoded linear and
+    // nothing here overrides it.
     dayTex.anisotropy = 8
     nightTex.anisotropy = 8
-    specTex.anisotropy = 8
+    cloudsTex.anisotropy = 8
 
     // GPU warm-up (plan 003 §3). Decoded-on-CPU is not uploaded-on-GPU: without
     // this, the three 4096×2048 uploads (+mipmaps) and both custom shader
@@ -114,7 +149,7 @@ export function EarthScene({
       try {
         // One upload per frame: each 4096×2048 map costs tens of ms to upload
         // and mip, and the draw animation is live behind this — never stack them.
-        const maps = [dayTex, nightTex, specTex]
+        const maps = [dayTex, nightTex, cloudsTex]
         for (let i = 0; i < maps.length; i++) {
           if (cancelled) return
           gl.initTexture(maps[i])
@@ -148,7 +183,7 @@ export function EarthScene({
     return () => {
       cancelled = true
     }
-  }, [dayTex, nightTex, specTex, gl, scene, camera, state])
+  }, [dayTex, nightTex, cloudsTex, gl, scene, camera, state])
 
   const groupRef = useRef<THREE.Group>(null)
   const spinRef = useRef<THREE.Group>(null)
@@ -202,15 +237,14 @@ export function EarthScene({
     () => ({
       uDayTexture: { value: dayTex },
       uNightTexture: { value: nightTex },
-      uSpecularCloudsTexture: { value: specTex },
+      uCloudsTexture: { value: cloudsTex },
       uSunDirection: { value: sunDirection.clone() },
       uAtmosphereDayColor: { value: new THREE.Color(EARTH_CONFIG.atmosphereDayColor) },
       uAtmosphereTwilightColor: { value: new THREE.Color(EARTH_CONFIG.atmosphereTwilightColor) },
       uCloudIntensity: { value: EARTH_CONFIG.cloudIntensity },
-      uSpecularIntensity: { value: EARTH_CONFIG.specularIntensity },
       uNightIntensity: { value: EARTH_CONFIG.nightIntensity },
     }),
-    [dayTex, nightTex, specTex, sunDirection],
+    [dayTex, nightTex, cloudsTex, sunDirection],
   )
 
   const atmosphereUniforms = useMemo(

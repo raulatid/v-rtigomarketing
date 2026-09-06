@@ -10,7 +10,6 @@ export const EARTH_CONFIG = {
   sunAzimuth: 0.5,
   sunElevation: 0,
   cloudIntensity: 1,
-  specularIntensity: 0,
   nightIntensity: 1,
   rotationSpeed: 0.035, // rad/s
 }
@@ -18,10 +17,12 @@ export const EARTH_CONFIG = {
 /**
  * The surface maps, at two resolutions.
  *
- * 4096x2048 is 44.7 MB of GPU memory each with mipmaps, so the set costs
- * 134 MB — the largest single item in a texture budget the iOS audit measured
- * at ~226 MB, on a platform that terminates tabs rather than paging. The narrow
- * set costs 34 MB (`audits/ios-safari-2026-08-14.md`, I2).
+ * All three are KTX2/Basis (ETC1S, BasisLZ), transcoded on the GPU's own
+ * compressed format. As RGBA8 JPEGs 4096x2048 cost 44.7 MB of GPU memory each
+ * with mipmaps — 134 MB for the set, the largest single item in a texture
+ * budget the iOS audit measured at ~226 MB, on a platform that terminates tabs
+ * rather than paging (`audits/ios-safari-2026-08-14.md`, I2). Compressed, the
+ * same set is roughly a quarter of that.
  *
  * 2048 is not a compromise on a phone, it is the honest resolution. At 390 CSS
  * px and DPR 2 the globe spans roughly 300 device pixels, and an equirect map
@@ -31,18 +32,41 @@ export const EARTH_CONFIG = {
  *
  * `narrowMaxWidth` is deliberately the same 767 the sky panorama and the CSS
  * breakpoints use. One number for "this is a phone" across the project.
- * Regenerate the files with `scripts/prepare-earth-textures.mjs`.
+ *
+ * The flags are not interchangeable. Every file needs mipmaps (a compressed
+ * texture cannot be mipped at runtime, and an unmipped globe aliases badly at
+ * the resting pose) and dimensions that are multiples of four (Basis rejects
+ * the upload otherwise — silently, as a black map). day and night are encoded
+ * sRGB; clouds is linear, because it is data the shader thresholds rather than
+ * colour.
+ *
+ * EVERY FILE MUST BE ENCODED BOTTOM-LEFT — `ktx create
+ * --convert-texcoord-origin bottom-left`, or `toktx --lower_left_maps_to_s0t0`
+ * — and `ktx info` must report `KTXorientation: ru`. This is the one flag that
+ * cannot be fixed afterwards. `TextureLoader` gave the JPEGs `flipY = true` and
+ * three flipped them on upload; `KTX2Loader` returns a `CompressedTexture`,
+ * whose constructor sets `flipY = false`, and for a BasisLZ file the GL upload
+ * ignores `UNPACK_FLIP_Y_WEBGL` regardless. So setting `flipY = true` here does
+ * NOTHING and the globe renders upside down — which is exactly how the first
+ * KTX2 set shipped. (Not the same as `SkyShellCube`, where `flipY = true` does
+ * work: those faces are uncompressed PNG.)
+ *
+ * Sources are the 4k and 2k maps, and they are NOT interchangeable between
+ * sizes: day/night narrow come from the 2k files, clouds narrow from the 4k one
+ * resized. They live outside the repo — deliberately, they are 16 MB of encoder
+ * input nothing serves. `scripts/prepare-earth-textures.mjs` does not yet cover
+ * this step; it still only writes the superseded narrow JPEGs.
  */
 export const EARTH_TEXTURES = {
   narrowMaxWidth: 767,
   wide: {
-    day: '/earth/day.jpg',
-    night: '/earth/night.jpg',
-    specularClouds: '/earth/specularClouds.jpg',
+    day: '/earth/day.ktx2',
+    night: '/earth/night.ktx2',
+    clouds: '/earth/clouds.ktx2',
   },
   narrow: {
-    day: '/earth/day-narrow.jpg',
-    night: '/earth/night-narrow.jpg',
-    specularClouds: '/earth/specularClouds-narrow.jpg',
+    day: '/earth/day-narrow.ktx2',
+    night: '/earth/night-narrow.ktx2',
+    clouds: '/earth/clouds-narrow.ktx2',
   },
 } as const
