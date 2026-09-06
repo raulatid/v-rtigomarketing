@@ -207,7 +207,8 @@ export function disposeSharedConeGeometry(): void {
 }
 
 interface Options {
-  brandColor: string
+  /** The light's colour, shared with the field above. See ORBIT_CONFIG.panel.holoColor. */
+  holoColor: string
   /**
    * False under reduced motion: the volume holds a still frame.
    *
@@ -219,11 +220,11 @@ interface Options {
   animate: boolean
 }
 
-export function createEmitterCone({ brandColor, animate }: Options) {
+export function createEmitterCone({ holoColor, animate }: Options) {
   const cfg = ORBIT_CONFIG.panel
 
   const uniforms = {
-    uColor: { value: new THREE.Color(brandColor) },
+    uColor: { value: new THREE.Color(holoColor) },
     uOpacity: { value: 0 },
     uIntensity: { value: cfg.coneIntensity },
     // Offset per cone so six of them do not drift in lockstep, which reads as

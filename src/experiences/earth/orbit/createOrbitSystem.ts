@@ -120,7 +120,16 @@ export function createOrbitSystem({ renderer }: Options) {
         isotypeAtlas,
         logoAtlas,
         index,
-        brandColor: satelliteDef.brandColor,
+        // WHERE THE TWO COLOURS PART. The plates above still carry the case's
+        // own `brandColor` — that is the brand's artwork and its fallback mark.
+        // The LIGHT the plate hangs in is the site's, one colour for all six,
+        // so the projection reads as one piece of hardware showing six clients
+        // rather than six differently-tinted effects.
+        //
+        // `?? satelliteDef.brandColor` is not a safety net: it is the A/B.
+        // Setting ORBIT_CONFIG.panel.holoColor to null puts every panel back on
+        // its own case's colour, which is exactly what this used to do.
+        holoColor: ORBIT_CONFIG.panel.holoColor ?? satelliteDef.brandColor,
       },
     })
     group.add(satellite.group)

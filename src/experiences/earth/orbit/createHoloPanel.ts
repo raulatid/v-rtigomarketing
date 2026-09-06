@@ -90,7 +90,7 @@ const FRAGMENT = /* glsl */ `
   // open the projection is.
   uniform vec4 uDeploy;
 
-  uniform vec3 uBrandColor;
+  uniform vec3 uHoloColor;
   uniform float uOpacity;
   uniform float uTime;
   uniform float uBreath;
@@ -293,8 +293,8 @@ const FRAGMENT = /* glsl */ `
     float alpha = 0.0;
 
     // ── Layer 1: the rear halo ──
-    // Brand light, very soft, wider than the mark and fading to nothing in
-    // every direction. This is the only thing that says where the field is, and
+    // The projection's own light, very soft, wider than the mark and fading to
+    // nothing in every direction. This is the only thing that says where the field is, and
     // it says it without drawing a boundary.
     //
     // COMPACT SUPPORT, NOT AN EXPONENTIAL. exp() never actually reaches zero,
@@ -308,7 +308,7 @@ const FRAGMENT = /* glsl */ `
     float halo = pow(reach, 2.2) * haloStrength * modulation
                * (1.0 + 0.6 * activation)
                * (1.0 + uField.z * invite);
-    over(color, alpha, uBrandColor, halo);
+    over(color, alpha, uHoloColor, halo);
 
     // ── Layer 3: the artwork ──
     // True colour, untinted. It takes the field's luminance modulation so that
@@ -348,10 +348,10 @@ const FRAGMENT = /* glsl */ `
     // as reaching away from the mark rather than as a detached tick cluster.
     float taper = 1.0 - 0.55 * clamp(t, 0.0, 1.0);
     float rails = max(top, bottom) * run * taper * uRailStyle.x * deploy * energy;
-    over(color, alpha, uBrandColor, rails);
+    over(color, alpha, uHoloColor, rails);
 
     // ── Layer 5: the emitter ──
-    // Where the cone arrives. A brand-colour line along the field's base, at
+    // Where the cone arrives. A holo-colour line along the field's base, at
     // the core's width, fading out at both ends rather than stopping — a line
     // that stops is an edge, and an edge is the whole problem. Above it a short
     // wash climbs into the field, so the light visibly enters rather than
@@ -376,7 +376,7 @@ const FRAGMENT = /* glsl */ `
     // is the cone's territory, and two glows overlapping there just make a
     // brighter smudge.
     float wash = exp(-above / 0.20) * exp(-below / 0.05) * ends * 0.16 * energy * breath;
-    over(color, alpha, uBrandColor, max(emit, wash));
+    over(color, alpha, uHoloColor, max(emit, wash));
 
     gl_FragColor = vec4(color, alpha * uOpacity);
 
@@ -438,10 +438,18 @@ interface Options {
   logoAtlas: BrandAtlas
   /** Which cell of BOTH atlases this panel shows — the grids are parallel. */
   index: number
-  brandColor: string
+  /**
+   * The colour of the LIGHT: halo, rails, emitter line and the cone below.
+   *
+   * Not the brand's — see ORBIT_CONFIG.panel.holoColor, which is where the
+   * value is chosen and where the reasoning for splitting the two lives. The
+   * artwork this field carries is still the brand's own, sampled untinted from
+   * the atlases above, and nothing here recolours it.
+   */
+  holoColor: string
 }
 
-export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: Options) {
+export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: Options) {
   const cfg = ORBIT_CONFIG.panel
   const isoCell = isotypeAtlas.cellUv(index)
   const logoCell = logoAtlas.cellUv(index)
@@ -483,7 +491,7 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
       return new THREE.Vector4(rest.activation, rest.deploy, rest.resolve, rest.fieldAspect)
     })() },
 
-    uBrandColor: { value: new THREE.Color(brandColor) },
+    uHoloColor: { value: new THREE.Color(holoColor) },
     uOpacity: { value: 0 },
     uTime: { value: Math.random() * 100 },
     uBreath: { value: reducedMotion ? 0 : 1 },
@@ -534,7 +542,7 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, brandColor }: 
   // because the two are one object to everything outside: they share the eased
   // expansion, they fade together, and a cone that outlived its field — or vice
   // versa — would be a projection of nothing.
-  const cone = createEmitterCone({ brandColor, animate: !reducedMotion })
+  const cone = createEmitterCone({ holoColor, animate: !reducedMotion })
 
   const group = new THREE.Group()
   group.add(cone.mesh)

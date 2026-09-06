@@ -25,6 +25,25 @@ import type { CaseStudy } from '../../../content/types'
 const PANEL_HEIGHT = 0.14
 // See `panel.wingGap`. Hoisted because `panel.wingLength` is derived from it.
 const WING_GAP = 0.04
+/**
+ * The colour of the PROJECTED LIGHT — the halo behind the mark, the rails, the
+ * emitter line and the cone beneath it. Deliberately NOT the case study's
+ * `brandColor`, which each panel used to be lit in.
+ *
+ * The two were one value until 2026-09-07 and had no reason to be: the artwork
+ * is the brand, and the light it hangs in is the site. Six brand colours meant
+ * six differently-tinted projections of one effect, and the effect stopped
+ * reading as a single piece of hardware showing six clients.
+ *
+ * `brandColor` is untouched by this and still does everything else it did — the
+ * case panel accent, the chart marks, the metric rules, and the placeholder
+ * plate `createBrandAtlas` draws for a brand with no artwork uploaded.
+ *
+ * SET THIS TO `null` to put the light back on each case's own colour. That is
+ * the A/B this exists for, and it is one word.
+ */
+const HOLO_COLOR: string | null = '#38a9d6'
+
 // See `panel.offsetY`. Hoisted because the emitter cone's mouth is derived from
 // it: the cone has to stop exactly where the field's lower edge begins, and two
 // numbers kept in step by hand drift the moment either is tuned.
@@ -119,6 +138,8 @@ export const ORBIT_CONFIG = {
     // Ceiling on the panel's fade, so the entrance can drive it 0→1 while the
     // panel still reads as a projection rather than a solid card.
     maxOpacity: 0.95,
+    /** The light's colour, and what it is not. See HOLO_COLOR above. */
+    holoColor: HOLO_COLOR,
 
     // ── The split plate (plan 007) ──
     // The hologram is a square CORE that holds the isotype, with two lateral

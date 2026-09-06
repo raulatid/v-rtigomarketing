@@ -30,7 +30,7 @@ interface Options {
     isotypeAtlas: BrandAtlas
     logoAtlas: BrandAtlas
     index: number
-    brandColor: string
+    holoColor: string
   }
 }
 
