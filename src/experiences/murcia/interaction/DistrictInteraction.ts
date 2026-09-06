@@ -12,7 +12,7 @@ import type { FlightDestination } from '../camera/CameraFlight';
 import { scalePoseDistance } from '../camera/applyPoseToCamera';
 import type { CameraRig } from '../camera/CameraRig';
 import { computeFramedFocus, unobstructedCenterNdc } from '../camera/cameraFraming';
-import { clientToNdc } from '../../../interaction/screenSpace';
+import { clientToNdc, worldToClient } from '../../../interaction/screenSpace';
 import type { ScreenRect } from '../camera/cameraFraming';
 import type { DragPanController } from '../navigation/DragPanController';
 import type {
@@ -176,6 +176,8 @@ export class DistrictInteraction {
   private readonly pickables: THREE.Object3D[];
   private readonly hits: THREE.Intersection[] = [];
   private readonly ndc = new THREE.Vector2();
+  /** Scratch for `screenPoint`. Never read between calls. */
+  private readonly screenProbe = new THREE.Vector3();
 
   private state: DistrictInteractionState = { type: 'idle' };
 
@@ -268,6 +270,15 @@ export class DistrictInteraction {
     // app's only other one and already stands down while a district is engaged.
     deps.canvas.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', this.onKeyDown);
+    // See onWindowPointerRelease. Passive, because it only reads.
+    window.addEventListener('pointerup', this.onWindowPointerRelease, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener('pointercancel', this.onWindowPointerRelease, {
+      capture: true,
+      passive: true,
+    });
   }
 
   get object3D(): THREE.Object3D {
@@ -287,6 +298,10 @@ export class DistrictInteraction {
     if (!next) {
       this.hoverDirty = false;
       this.suppressedPointerId = null;
+      // The press goes with them. A pointer that is down when this district is
+      // switched off has already been abandoned; leaving it on the books would
+      // outlive the whole visit to the other world.
+      this.press = null;
       this.releaseScrollGesture();
     }
   }
@@ -319,6 +334,28 @@ export class DistrictInteraction {
   /** True while the flight owns the rig — the caller must not tick the controller. */
   get isFlying(): boolean {
     return this.flight.isPlaying;
+  }
+
+  /**
+   * Where the first building is on screen, in client coordinates.
+   *
+   * A test seam, exposed on the debug flag by the caller exactly as the blog
+   * building's is. An e2e round trip has to TAP a building, and where one sits
+   * depends on the camera pose and on the GLB — a hardcoded point would turn a
+   * test of this district's behaviour into a test of the city's layout that
+   * breaks on the next re-export.
+   *
+   * Null when the building is behind the camera or off screen, which the caller
+   * must treat as a failed precondition rather than as a coordinate.
+   */
+  screenPoint(): { x: number; y: number } | null {
+    const point = worldToClient(
+      this.canvasRect(),
+      this.deps.camera,
+      this.sites[0].lookup.center,
+      this.screenProbe,
+    );
+    return point === null ? null : { x: point.x, y: point.y };
   }
 
   // --- Frame ----------------------------------------------------------------
@@ -672,9 +709,23 @@ export class DistrictInteraction {
     this.hoverDirty = true;
   };
 
-  private readonly onPointerUp = (event: PointerEvent): void => {
-    if (!this.enabled) return;
+  /**
+   * Forgets a pointer sequence, whatever ended it.
+   *
+   * Every listener that can learn a sequence is over comes through here, and
+   * none of them may skip it. `press` is the reason: a press is only recorded
+   * while none is on the books (see `onPointerDownCapture`), so one that is
+   * never cleared is not a stale record — it is a permanent refusal, and every
+   * later tap dies at the `!press` guard in `onPointerUp` with nothing to see.
+   */
+  private endPointerSequence(pointerId: number): void {
+    if (this.suppressedPointerId === pointerId) this.suppressedPointerId = null;
+    if (this.press?.id === pointerId) this.press = null;
+    if (this.scrollGesture?.id === pointerId) this.releaseScrollGesture();
+    this.deps.display.setPressed(null);
+  }
 
+  private readonly onPointerUp = (event: PointerEvent): void => {
     const wasScrolling = this.scrollGesture?.id === event.pointerId;
     if (wasScrolling) this.releaseScrollGesture();
 
@@ -685,6 +736,16 @@ export class DistrictInteraction {
     if (press) this.press = null;
 
     this.deps.display.setPressed(null);
+
+    // The gate comes AFTER the bookkeeping above, and the order is the fix for
+    // a defect this class shipped with. A release ends its sequence whether or
+    // not this district is listening to it; returning first left `press` holding
+    // a pointer that had already lifted, and a press is never replaced while one
+    // is on the books. On mobile the scene swap out of Murcia is a PINCH, so
+    // `setEnabled(false)` routinely lands with the fingers still on the glass —
+    // which is why the district went permanently deaf to taps there and never on
+    // a desktop, where the same swap comes from the wheel with no pointer down.
+    if (!this.enabled) return;
 
     // The press that stopped a flight also produces a pointerup, and the tap
     // guard below only tests the drag threshold — so a sub-threshold tap would
@@ -716,10 +777,30 @@ export class DistrictInteraction {
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
-    if (this.suppressedPointerId === event.pointerId) this.suppressedPointerId = null;
-    if (this.press?.id === event.pointerId) this.press = null;
-    if (this.scrollGesture?.id === event.pointerId) this.releaseScrollGesture();
-    this.deps.display.setPressed(null);
+    this.endPointerSequence(event.pointerId);
+  };
+
+  /**
+   * A release this canvas was never going to be told about.
+   *
+   * A touch pointer holds implicit capture on the element it landed on, so its
+   * release normally comes back here whatever it ends up over. That capture is
+   * not guaranteed to last the gesture: `beginExternalControl` releases it, and
+   * the reading claim in `onPointerDownCapture` calls that at pointerdown. From
+   * there the release is hit-tested like any other event and belongs to whatever
+   * sits above the canvas — the header's controls, an overlay, an a11y button —
+   * so the listeners below never fire and the sequence is never closed.
+   *
+   * Capture phase on `window`, which is where and how `createNavigationInput`
+   * already keeps its own contact bookkeeping. BOOKKEEPING ONLY: a release that
+   * did not happen on the canvas must not activate anything, so this deliberately
+   * does not share a path with `onPointerUp`, and a release that DID reach the
+   * canvas is left alone for that handler to answer.
+   */
+  private readonly onWindowPointerRelease = (event: PointerEvent): void => {
+    const target = event.target;
+    if (target instanceof Node && this.deps.canvas.contains(target)) return;
+    this.endPointerSequence(event.pointerId);
   };
 
   private readonly onWheel = (event: WheelEvent): void => {
@@ -755,6 +836,8 @@ export class DistrictInteraction {
     canvas.removeEventListener('pointercancel', this.onPointerCancel);
     canvas.removeEventListener('wheel', this.onWheel);
     window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('pointerup', this.onWindowPointerRelease, { capture: true });
+    window.removeEventListener('pointercancel', this.onWindowPointerRelease, { capture: true });
     this.deps.cursor.request(this.cursorKey, '');
     this.releaseScrollGesture();
 

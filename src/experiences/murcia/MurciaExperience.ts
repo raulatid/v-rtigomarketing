@@ -947,6 +947,15 @@ export class MurciaExperience {
       this.sceneBundle.scene.add(district.object3D);
       this.districts.push(district);
     }
+
+    // The same test seam the blog building has, for the same reason: the mobile
+    // round trip must TAP a building, and where one is on screen depends on the
+    // camera pose and on the GLB rather than on anything a spec could hardcode.
+    const first = this.districts[0];
+    if (this.debugTools && first) {
+      (window as unknown as Record<string, unknown>).__vertigoDistrictPoint = () =>
+        first.screenPoint();
+    }
   }
 
   // --- Viewport and bounds --------------------------------------------------

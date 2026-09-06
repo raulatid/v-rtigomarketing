@@ -76,6 +76,8 @@ export interface ServicesDistrict {
    * about where this district is.
    */
   anchor(out: THREE.Vector3): THREE.Vector3;
+  /** Where the first building is on screen. Test seam — see DistrictInteraction. */
+  screenPoint(): { x: number; y: number } | null;
   setEnabled(next: boolean): void;
   /** Takes the frame delta. Does not render. */
   update(deltaTime: number): void;
@@ -213,6 +215,10 @@ export function createServicesDistrict(options: ServicesDistrictOptions): Servic
 
     anchor(out: THREE.Vector3): THREE.Vector3 {
       return out.set(centre.x, skylineY, centre.z);
+    },
+
+    screenPoint() {
+      return interaction.screenPoint();
     },
 
     get isEngaged() {

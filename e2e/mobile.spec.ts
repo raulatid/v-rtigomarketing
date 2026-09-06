@@ -925,3 +925,160 @@ test.describe('the blog on a phone', () => {
     await assertNoSideways(page)
   })
 })
+
+/**
+ * Where the district's first building is on screen.
+ *
+ * The same seam, and the same reasoning, as `tapBlogBuilding` in blog.spec.ts:
+ * a building's position depends on the camera pose and on the GLB, so a
+ * hardcoded point would turn this into a test of the city's layout that breaks
+ * on the next re-export.
+ */
+/** The seam's answer, or why it has none. Polled by `bringDistrictIntoView`. */
+async function districtProbe(
+  page: Page,
+): Promise<{ reason: 'ok' | 'no-seam' | 'off-screen'; point: { x: number; y: number } | null }> {
+  return page.evaluate(() => {
+    const probe = (window as unknown as Record<string, unknown>).__vertigoDistrictPoint
+    if (typeof probe !== 'function') return { reason: 'no-seam' as const, point: null }
+    const point = (probe as () => { x: number; y: number } | null)()
+    return { reason: point === null ? ('off-screen' as const) : ('ok' as const), point }
+  })
+}
+
+async function bringDistrictIntoView(page: Page): Promise<{ x: number; y: number }> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    // Polled rather than read once: `CameraFlight` integrates clamped frame
+    // deltas, so its 0.8-1.6s takes far longer in wall-clock on a software
+    // renderer at a few frames a second, and a district still arriving would
+    // otherwise read as one that is not there.
+    let reason: 'ok' | 'no-seam' | 'off-screen' = 'off-screen'
+    try {
+      await expect
+        .poll(async () => (reason = (await districtProbe(page)).reason), { timeout: 8_000 })
+        .toBe('ok')
+    } catch {
+      expect(reason, 'the district never resolved against this city model').not.toBe('no-seam')
+      await panBy(page, -320, 0)
+      continue
+    }
+    const settled = await districtProbe(page)
+    if (settled.point) return settled.point
+  }
+  throw new Error('the district never came into view, after five pans')
+}
+
+/**
+ * One finger, dragged across the canvas — the city's pan.
+ *
+ * In-page for the reason `pinch` is: Playwright's touch dispatch is a CDP round
+ * trip, and on a main thread starved by a software renderer those land seconds
+ * apart. Six steps rather than the pinch's twenty, because a pan has no
+ * classifier to convince — it only has to cross `touchDragThresholdPx`.
+ */
+async function panBy(page: Page, dx: number, dy: number) {
+  await page.evaluate(
+    ([ddx, ddy]) =>
+      new Promise<void>((resolve) => {
+        const canvas = document.querySelector('canvas')!
+        const cx = window.innerWidth / 2
+        const cy = window.innerHeight / 2
+        const fire = (type: string, x: number, y: number) =>
+          canvas.dispatchEvent(
+            new PointerEvent(type, {
+              pointerId: 1,
+              pointerType: 'touch',
+              button: 0,
+              buttons: 1,
+              clientX: x,
+              clientY: y,
+              bubbles: true,
+              cancelable: true,
+            }),
+          )
+        fire('pointerdown', cx, cy)
+        let i = 0
+        const n = 6
+        const step = () => {
+          i += 1
+          fire('pointermove', cx + (ddx * i) / n, cy + (ddy * i) / n)
+          if (i < n) {
+            setTimeout(step, 16)
+            return
+          }
+          fire('pointerup', cx + ddx, cy + ddy)
+          setTimeout(resolve, 120)
+        }
+        setTimeout(step, 16)
+      }),
+    [dx, dy] as const,
+  )
+}
+
+/** True while the district holds the viewer. Its live region is the observable. */
+async function districtOpen(page: Page): Promise<boolean> {
+  return page.evaluate(
+    () => (document.querySelector('.district-a11y-live')?.textContent ?? '') !== '',
+  )
+}
+
+test('a finger opens the services district, closes it, and opens it again', async ({ page }) => {
+  // Reported by the client 2026-09-06, from mobile only: the district opened
+  // once and was then deaf to every tap, or was deaf from the first one. The
+  // cause was a press ledger that a release could fail to clear
+  // (DistrictInteraction, `endPointerSequence`), and a latch is only a latch on
+  // the SECOND attempt — so the re-open below is the whole point of this test
+  // and the first open is its setup.
+  //
+  // A full boot, a cinematic and three touch interactions, on a software
+  // renderer where one gesture has been measured at 10-35s.
+  test.setTimeout(240_000)
+  await bootToReady(page)
+  await reachSite(page)
+
+  await pinch(page, { from: 60, to: 60 + commitGrowth(page) * 1.05 })
+  await expect.poll(() => inMurcia(page), { timeout: 15_000 }).toBe(true)
+  // The arrival cinematic owns the camera, and a press fired inside it reads as
+  // "stop the flight" rather than as a choice — by design, and it would make
+  // the first tap below fail for a reason that is not this test's subject.
+  await expect
+    .poll(() => page.locator('.nav').getAttribute('data-state'), { timeout: 20_000 })
+    .toBe('idle')
+
+  // THE DISTRICT IS NOT ON SCREEN WHEN YOU ARRIVE, and the panning inside
+  // `bringDistrictIntoView` is not convenience — it is the measured state of
+  // this viewport, and a SEPARATE defect from the one this test guards.
+  //
+  // Recorded 2026-09-06 on both phone profiles: at the arrival pose the
+  // district's buildings are outside the frustum, the arrival beacons show and
+  // pin to NOTHING (`offScreen: ['servicios', 'blog']`), and the hint frame
+  // says "Toca un distrito iluminado" over a city with no lit district in it.
+  // One leftward pan brings it to x≈284 of 393 and a second to x≈85; a third
+  // carries it off the far edge. Desktop at 1600x900 has it on screen at
+  // arrival — which is what makes this a portrait-aspect defect rather than a
+  // pose that is simply wrong everywhere.
+  //
+  // Deliberately not asserted here. Where the camera should sit is a
+  // composition decision with no single correct answer, and pinning one in a
+  // test would be this file deciding it. What this test does assert is that the
+  // tap round trip works once the district IS reachable.
+  const first = await bringDistrictIntoView(page)
+
+  await page.touchscreen.tap(first.x, first.y)
+  await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
+
+  // Out by the keyboard's route rather than by the display's own VOLVER. Both
+  // reach `exitDistrict`, and the projected control is a sub-44px hit rect on a
+  // phone (measured 2026-09-02) — a real defect, but a different one, and
+  // failing here for it would hide what this test is watching.
+  await page.keyboard.press('Escape')
+  await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(false)
+
+  // Re-found rather than reused, and it takes another pan: the exit dollies the
+  // camera back out to rest and the district leaves the frame again on this
+  // aspect — the same framing defect as above, met a second time. A stale point
+  // would miss and look exactly like the latch this test is watching for.
+  const again = await bringDistrictIntoView(page)
+  await page.touchscreen.tap(again.x, again.y)
+  await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
+})

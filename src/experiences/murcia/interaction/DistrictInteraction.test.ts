@@ -130,8 +130,37 @@ interface Fixture {
   screenOf: (serviceId: string) => { x: number; y: number }
   /** Client coordinates of the centre of a control's rect on the display. */
   controlPoint: (rect: DisplayRect) => { x: number; y: number }
-  click: (x: number, y: number) => void
-  drag: (from: { x: number; y: number }, to: { x: number; y: number }) => void
+  click: (x: number, y: number, options?: PointerOptions) => void
+  drag: (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    options?: PointerOptions,
+  ) => void
+  /**
+   * The halves of a gesture, separately.
+   *
+   * A browser does not promise that the canvas sees both. Pointer capture can
+   * be released mid-gesture, after which the release is hit-tested like any
+   * other event and lands on whatever is under the finger — so these exist to
+   * model the sequences the paired helpers above cannot express.
+   */
+  press: (x: number, y: number, options?: PointerOptions) => void
+  release: (x: number, y: number, options?: PointerOptions) => void
+  /** A release that bubbles PAST the canvas rather than through it. */
+  releaseOffCanvas: (x: number, y: number, options?: PointerOptions) => void
+}
+
+/**
+ * How a gesture is delivered.
+ *
+ * `pointerType` defaults to the empty string these helpers have always sent,
+ * which reads as a mouse everywhere it is tested — so every case written before
+ * this option existed keeps the 6px threshold it was written against, and a
+ * touch case has to ask for touch.
+ */
+interface PointerOptions {
+  pointerType?: 'mouse' | 'touch'
+  pointerId?: number
 }
 
 function makeFixture(): Fixture {
@@ -288,17 +317,48 @@ function makeFixture(): Fixture {
     return toClient(foundPanel.localToWorld(local))
   }
 
-  const click = (x: number, y: number): void => {
-    const init = { clientX: x, clientY: y, button: 0, pointerId: 1, bubbles: true }
-    canvas.dispatchEvent(new PointerEvent('pointerdown', init))
-    canvas.dispatchEvent(new PointerEvent('pointerup', init))
+  const pointerInit = (x: number, y: number, options: PointerOptions = {}): PointerEventInit => ({
+    clientX: x,
+    clientY: y,
+    button: 0,
+    pointerId: options.pointerId ?? 1,
+    pointerType: options.pointerType ?? '',
+    bubbles: true,
+  })
+
+  const press = (x: number, y: number, options?: PointerOptions): void => {
+    canvas.dispatchEvent(new PointerEvent('pointerdown', pointerInit(x, y, options)))
   }
 
-  const drag = (from: { x: number; y: number }, to: { x: number; y: number }): void => {
-    const base = { button: 0, pointerId: 1, bubbles: true }
-    canvas.dispatchEvent(new PointerEvent('pointerdown', { ...base, clientX: from.x, clientY: from.y }))
-    canvas.dispatchEvent(new PointerEvent('pointermove', { ...base, clientX: to.x, clientY: to.y }))
-    canvas.dispatchEvent(new PointerEvent('pointerup', { ...base, clientX: to.x, clientY: to.y }))
+  const release = (x: number, y: number, options?: PointerOptions): void => {
+    canvas.dispatchEvent(new PointerEvent('pointerup', pointerInit(x, y, options)))
+  }
+
+  /**
+   * A release that lands on the page rather than on the canvas.
+   *
+   * `container` is the canvas's PARENT, so this bubbles to `document` and to
+   * `window` without ever passing through the canvas's own listeners — which is
+   * what a finger lifting over the site header does once the drag controller
+   * has released its pointer capture.
+   */
+  const releaseOffCanvas = (x: number, y: number, options?: PointerOptions): void => {
+    container.dispatchEvent(new PointerEvent('pointerup', pointerInit(x, y, options)))
+  }
+
+  const click = (x: number, y: number, options?: PointerOptions): void => {
+    press(x, y, options)
+    release(x, y, options)
+  }
+
+  const drag = (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    options?: PointerOptions,
+  ): void => {
+    press(from.x, from.y, options)
+    canvas.dispatchEvent(new PointerEvent('pointermove', pointerInit(to.x, to.y, options)))
+    release(to.x, to.y, options)
   }
 
   return {
@@ -318,6 +378,9 @@ function makeFixture(): Fixture {
     controlPoint,
     click,
     drag,
+    press,
+    release,
+    releaseOffCanvas,
     // Restored by the suite's afterEach.
     ...({ setStateSpy } as unknown as Record<string, never>),
   }
@@ -488,6 +551,68 @@ describe('the services district', () => {
     f.district.setEnabled(false)
     f.click(f.screenOf('a').x, f.screenOf('a').y)
     expect(f.district.isEngaged).toBe(false)
+  })
+
+  // ── The press ledger, and the ways a browser ends a gesture without saying so ──
+  //
+  // Reported 2026-09-06, mobile only: taps on the district stop working, either
+  // from the first one or after a single successful open. Every case below is a
+  // different route to the same latch — a recorded press whose release the canvas
+  // never sees while enabled — which is why the reports share no common steps.
+
+  it('opens on a touch tap, measured against the touch threshold', () => {
+    f.click(f.screenOf('a').x, f.screenOf('a').y, { pointerType: 'touch' })
+    expect(f.district.isEngaged).toBe(true)
+  })
+
+  it('still opens after a gesture that was disabled between press and release', () => {
+    // The scene swap out of Murcia is driven by a PINCH on mobile, so the
+    // fingers are still on the glass when MurciaExperience.setActive(false)
+    // disables this district. Their release then arrives to a deaf listener.
+    const at = f.screenOf('a')
+    f.press(at.x, at.y, { pointerType: 'touch', pointerId: 5 })
+    f.district.setEnabled(false)
+    f.release(at.x, at.y, { pointerType: 'touch', pointerId: 5 })
+    f.district.setEnabled(true)
+
+    f.click(at.x, at.y, { pointerType: 'touch', pointerId: 6 })
+    expect(f.district.isEngaged).toBe(true)
+  })
+
+  it('still opens after a detail drag whose release lands off the canvas', () => {
+    enter(f)
+    f.click(f.controlPoint(DETAIL_RECT).x, f.controlPoint(DETAIL_RECT).y)
+    f.run(1)
+
+    // Claiming the reading gesture calls beginExternalControl, which releases
+    // the drag controller's pointer capture. From there the release is
+    // hit-tested like any other event, and the site header takes it.
+    const at = f.controlPoint(DETAIL_VIEWPORT_RECT)
+    f.press(at.x, at.y + 60, { pointerType: 'touch', pointerId: 9 })
+    f.releaseOffCanvas(at.x, at.y - 200, { pointerType: 'touch', pointerId: 9 })
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    f.run(2)
+    expect(f.district.isEngaged).toBe(false)
+
+    f.click(f.screenOf('a').x, f.screenOf('a').y, { pointerType: 'touch', pointerId: 10 })
+    expect(f.district.isEngaged).toBe(true)
+  })
+
+  it('hands the rig back when a detail drag ends off the canvas', () => {
+    enter(f)
+    f.click(f.controlPoint(DETAIL_RECT).x, f.controlPoint(DETAIL_RECT).y)
+    f.run(1)
+
+    const at = f.controlPoint(DETAIL_VIEWPORT_RECT)
+    f.press(at.x, at.y + 60, { pointerType: 'touch', pointerId: 11 })
+    expect(f.controller.isExternallyControlled).toBe(true)
+
+    f.releaseOffCanvas(at.x, at.y - 200, { pointerType: 'touch', pointerId: 11 })
+    // Nothing else is going to hand it back: the flight settled long ago, so
+    // the reading gesture is the only owner left holding it.
+    expect(f.controller.isExternallyControlled).toBe(false)
   })
 
   it('reaches every transition from the keyboard alone', () => {
