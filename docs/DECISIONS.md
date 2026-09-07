@@ -1364,6 +1364,12 @@ alone would have pushed it *deeper* into the model; and `INTERACTION_CONFIG.clos
 (0.55R → 1.05R), because a subject that subtends twice the angle overflows a frame tuned for the
 smaller one. That last one had already flip-flopped once for exactly this reason (1.25R for the flat
 badge → 0.55R for the smaller GLB). Change `modelSize` again and all four move together.
+The offset has moved twice since, and neither move was recorded here at the time: plan 008 took it
+to 0.34 when the plate became a projection field (`2f7d082`), and on 2026-09-07 the client asked for
+the mark to sit closer to its satellite, which took it to 0.31. Both are still bounded by the same
+thing this entry exists to name — the panel's lower edge against the model's top — and the current
+reasoning, including the measurement of what the model's top actually is, lives on `panel.offsetY`
+in `orbitConfig.ts`.
 
 **26.12 — A raw `ShaderMaterial` gets no output colour conversion.** It must end with
 `#include <colorspace_fragment>`. Built-in materials append the transform and a hand-written one

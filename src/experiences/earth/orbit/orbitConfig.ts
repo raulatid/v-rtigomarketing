@@ -47,7 +47,7 @@ const HOLO_COLOR: string | null = '#38a9d6'
 // See `panel.offsetY`. Hoisted because the emitter cone's mouth is derived from
 // it: the cone has to stop exactly where the field's lower edge begins, and two
 // numbers kept in step by hand drift the moment either is tuned.
-const PANEL_OFFSET_Y = 0.34
+const PANEL_OFFSET_Y = 0.29
 
 export const ORBIT_CONFIG = {
   orbit: {
@@ -124,12 +124,33 @@ export const ORBIT_CONFIG = {
     // from wherever it is.
     expandDuration: 0.35,
     // Height of the CORE'S CENTRE above the satellite's centre. DERIVED FROM
-    // `modelSize`, not chosen independently: the model's max dimension is
-    // `modelSize` (0.52), so its top sits near 0.26, and the core's lower edge
-    // is `offsetY - height / 2`. At 0.34 that edge lands at 0.27 — just clear
-    // of the model — and the stem (`stemLength` × `height` ≈ 0.05) reaches back
-    // down to 0.22, so the emitter beam visibly enters the model's top rather
-    // than stopping short of it or the core sitting on it.
+    // `modelSize`, not chosen independently: the core's lower edge is
+    // `offsetY - height / 2`, and that edge is what has to stay off the model.
+    //
+    // 0.34 → 0.31 → 0.29 on 2026-09-07, at the client's request and then again
+    // after seeing it: in a close-up the mark read as floating away from the
+    // satellite it belongs to, and on a short viewport it could sit near the top
+    // edge of the frame. The field's lower edge moves 0.27 → 0.22 with it, and so
+    // does the cone's mouth — `coneMouthY` is derived from this constant, so the
+    // light still lands exactly on the artwork with no second edit.
+    //
+    // 0.29 IS ALL BUT THE LAST OF THE TRAVEL. The guard in orbitConfig.test.ts
+    // puts the floor at `modelSize / 2 × 0.8` = 0.208, i.e. offsetY > 0.278, and
+    // 0.05 of the 0.062 available has now been spent. There is ~0.012 left, which
+    // is not enough to be worth another nudge: a further move means revisiting
+    // the guard, and that is its own decision with its own evidence, not a
+    // ride-along on a tuning pass.
+    //
+    // That guard is deliberately conservative, and it is worth recording why,
+    // because the arithmetic looks tighter than the scene is. `modelSize` (0.52)
+    // is the max dimension of a model whose LONGEST AXIS IS THE SOLAR ARRAY: the
+    // GLB normalises to 0.186 × 0.196 × 1.000, and the array is near-horizontal.
+    // It can only pitch by the spinner's per-seed tilt (x ≤ 0.35 rad), so the
+    // highest point any of the six satellites reaches over a full turn is 0.148,
+    // not 0.26. Real clearance from the field's base at 0.29 is ~0.07 — half a
+    // panel height — against the ~0.01 the guard reports. Measured from the
+    // GLB's accessor min/max on 2026-09-07; not asserted, because a test on a
+    // model nobody is changing is a mechanism to maintain for nothing.
     //
     // Note the panel itself did NOT double with the model: doubling `offsetY`
     // alone would have pushed the plate DEEPER into the model, because the
