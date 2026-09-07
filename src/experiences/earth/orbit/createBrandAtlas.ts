@@ -80,23 +80,36 @@ export type AtlasKind = 'isotype' | 'logo'
  * can afford to breathe.
  */
 /**
- * Vertical padding, and it is DERIVED rather than chosen (2026-09-04, plan 012).
+ * Vertical padding, and it is INHERITED rather than derived (2026-09-07).
  *
- * The panel's lower rail sits at 0.41 pane heights below the field centre
- * (`orbitConfig.ts` railBottomY), and the cell's full height maps to
- * p.y ∈ ±0.5 at the deployed field. So the artwork's half-height in pane units
- * is 0.5 * (height - 2*padY) / height, and clearing the rail by 0.05 gives
+ * It WAS derived, on 2026-09-04: a rail ran beneath the mark at 0.41 pane
+ * heights, and clearing it by 0.05 gave padY >= 71.7, hence 72. The rails were
+ * removed at the client's request, so that derivation no longer stands behind
+ * this number and the old note's "move the rail and this number moves with it"
+ * has nothing left to point at.
  *
- *   0.5 * (512 - 2*padY) / 512 <= 0.41 - 0.05   ->   padY >= 71.7
+ * 72 is KEPT rather than recomputed, and the bound it is now held to is the
+ * one thing still drawn at the field's lower edge: the emitter line and its
+ * wash, at p.y = -0.5, which is where `fuv = p + 0.5` puts the bottom of the
+ * cell. Clearing that by 0.10 gives
  *
- * 72, for both kinds, because both cells are 512 tall.
+ *   0.5 * (512 - 2*padY) / 512 <= 0.5 - 0.10   ->   padY >= 51.2
  *
- * This did not matter before the ink normalisation below. Drawing the whole
+ * and 0.10 is not arbitrary: it is half the e-fold of the wash climbing off
+ * that line (`exp(-above / 0.20)` in createHoloPanel), so ink inside it would
+ * sit in the brightest part of the light rather than above it. 72 lands the
+ * mark's half-height at 0.359 — clear by 0.141 against a bound of 0.10.
+ *
+ * The headroom down to 52 is real and deliberately unspent: taking it would
+ * enlarge every shipped mark at once, which is a visual change nobody asked
+ * for. 72 for both kinds, because both cells are 512 tall.
+ *
+ * None of this mattered before the ink normalisation below. Drawing the whole
  * FILE meant the shipped lockup's mark reached only 0.246 and the isotype's
- * 0.335, so the rail was never close — the margins the suppliers baked in were
+ * 0.335, so nothing was ever close — the margins the suppliers baked in were
  * doing the clearing by accident. Fitting to the ink is what made the extent
  * predictable, and a predictable extent is what can be given a real clearance
- * instead of an accidental one. Move the rail and this number moves with it.
+ * instead of an accidental one.
  */
 const PAD_Y = 72
 
@@ -117,8 +130,8 @@ const PAD_Y = 72
  * The isotype is padded tighter HORIZONTALLY. It is the resting state, seen at
  * ~30px across the overview, where every pixel of margin is a pixel the symbol
  * does not get; the lockup is only ever seen at the close-up, where it can
- * afford to breathe. Vertically they share PAD_Y, because they share the rail
- * they have to clear.
+ * afford to breathe. Vertically they share PAD_Y, because they share the
+ * emitter line at the field's base that they both have to clear.
  */
 export const CELL: Record<
   AtlasKind,
@@ -131,10 +144,10 @@ export const CELL: Record<
 /**
  * The artwork's half-height at the deployed field, in pane heights.
  *
- * Exported because `orbitConfig.test.ts` asserts it clears `railBottomY`, and
- * the two numbers live in different modules with nothing else connecting them.
- * Derived here rather than restated there, so the guard cannot pass against a
- * copy of the value it is supposed to be checking.
+ * Exported because `orbitConfig.test.ts` asserts it clears the emitter line at
+ * the field's base, and the two numbers live in different modules with nothing
+ * else connecting them. Derived here rather than restated there, so the guard
+ * cannot pass against a copy of the value it is supposed to be checking.
  *
  * The cell's full height maps to p.y ∈ ±0.5 at the deployed field
  * (`createHoloPanel`'s `fuv`), so this is half the padded fraction.
@@ -400,9 +413,10 @@ export function fitInk(
 // NORMALISED ON THE INK, not on the file (2026-09-04, plan 012 task 3). The
 // artwork is fitted and centred by its measured alpha bounds, so what lands in
 // the cell is a mark of predictable extent whatever margins the supplier baked
-// in. That is what lets the panel's rails be positioned against a constant —
-// see `orbitConfig.ts` railInner — instead of against whatever this particular
-// file happened to contain. No per-logo information leaves this function.
+// in. That is what makes the mark's extent the same for every brand, which is
+// what lets PAD_Y's clearance of the emitter line hold for all of them instead
+// of depending on whatever margin this particular file happened to contain. No
+// per-logo information leaves this function.
 function drawLogoContained(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,

@@ -86,8 +86,12 @@ const FRAGMENT = /* glsl */ `
   // The eased scalar's stages: (activation, deploy, resolve, field aspect).
   // See holoDeployment.ts — the shader never remaps ranges of its own, and it
   // does not recompute the aspect from deploy either: one derived value,
-  // produced once, so the field and the rails cannot disagree about how far
-  // open the projection is.
+  // produced once, so the field and the cone cannot disagree about how far open
+  // the projection is.
+  //
+  // uDeploy.y is written here for the CONE ALONE since the rails went
+  // (2026-09-07): it reaches the cone through setDeployment, and this shader
+  // reads only the aspect that same value produced.
   uniform vec4 uDeploy;
 
   uniform vec3 uHoloColor;
@@ -104,13 +108,6 @@ const FRAGMENT = /* glsl */ `
   // 0..1: how much of the invitation — the brighter breath — this panel is
   // carrying right now. Eased from the CPU, never set directly.
   uniform float uInvite;
-  // (inner start, outer end, top height, bottom height) — the rails. The first
-  // two are fractions of the field's CURRENT half-width, so the run travels
-  // outward as the projection opens instead of sitting at a fixed distance.
-  uniform vec4 uRail;
-  // (alpha, dashes per run, top seed, bottom seed).
-  uniform vec4 uRailStyle;
-
   varying vec2 vUv;
 
   // Straight-alpha "over": lays (sc, sa) on top of the running (c, a).
@@ -133,44 +130,6 @@ const FRAGMENT = /* glsl */ `
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-  }
-
-  // ONE BROKEN RUN OF DASHES along t in 0..1, each a different length, each
-  // starting at a different place inside its slot.
-  //
-  // The point is that it must not read as a rule, a HUD frame or a row of
-  // evenly spaced ticks — all three are the card language this design exists to
-  // leave behind, and a tick row is the most tempting of them because it looks
-  // technical. Every dash takes its length and offset from a hash of its own
-  // index, so the run is irregular but STABLE: it is a function of position,
-  // not of time, so nothing crawls or flickers.
-  //
-  // The seed is what makes the four runs — top and bottom, left and right —
-  // differ from each other. Mirror symmetry would rebuild the frame by
-  // implication even though no line is continuous.
-  float dashes(float t, float freq, float seed, float w) {
-    float s = t * freq;
-    float i = floor(s);
-    float f = fract(s);
-    // 0.26 -> 0.48 on the low end (2026-09-04, plan 012 task 4).
-    //
-    // CLIENT REPORT: the frame reads as "interrupted or clipped" and as having
-    // "several lines on top, fewer below". Both are this function working as
-    // designed — the runs ARE irregular and the bottom one IS sparser — so the
-    // task is to make the asymmetry read as deliberate rather than as damage.
-    //
-    // A dash at 0.26 of its slot, in the bottom run where the slots are widest,
-    // is a stub with a lot of nothing on either side: at a glance it looks like
-    // a line that failed to draw rather than a rule that was broken on purpose.
-    // Raising only the FLOOR keeps the variation (0.48..0.80 is still nearly a
-    // 2:1 spread, still hashed, still stable) while making every dash long
-    // enough to read as a mark. The seeds and the top/bottom frequencies are
-    // untouched: they are what stop the four runs mirroring, which is the part
-    // that is design.
-    float len = mix(0.48, 0.80, hash(vec2(i, seed)));
-    float off = (1.0 - len) * hash(vec2(i, seed + 13.7));
-    float e = max(w * freq, 1e-4);
-    return smoothstep(off - e, off + e, f) * (1.0 - smoothstep(off + len - e, off + len + e, f));
   }
 
   float vnoise(vec2 p) {
@@ -242,7 +201,6 @@ const FRAGMENT = /* glsl */ `
   // reading as a decal laid over a glow.
   void main() {
     float activation = uDeploy.x;
-    float deploy = uDeploy.y;
     float resolve = uDeploy.z;
 
     float haloRadius = uField.x;
@@ -253,7 +211,6 @@ const FRAGMENT = /* glsl */ `
     // the quad never changes shape.
     vec2 p = (vUv - uOrigin) * uQuadScale;
     vec2 px = fwidth(p);
-    float ax = abs(p.x);
 
     // The invitation arrives already breathing: uInvite is the pulse from
     // invitation.ts, computed once per frame in update() and shared with the
@@ -314,41 +271,6 @@ const FRAGMENT = /* glsl */ `
     // True colour, untinted. It takes the field's luminance modulation so that
     // it belongs to the projection, and nothing else.
     over(color, alpha, plate.rgb * modulation, plate.a);
-
-    // ── Layer 4: the rails ──
-    // The one structural element, and it exists to say DEPLOYING — it arrives
-    // with the opening and is absent at rest, so the resting field is light and
-    // artwork and nothing else.
-    //
-    // Fragmented on purpose. The silhouette to reach for is
-    //
-    //      ┌─                          ─┐
-    //   ─  ─┤       BRAND LOGO         ├─  ──
-    //      └                            ─┘
-    //
-    // and emphatically NOT the closed box the split plate drew. So: no end cap,
-    // no root line, no evenly spaced ticks, no filled terminal nodes, and no
-    // mirror symmetry — each of the four runs carries its own seed, and each
-    // dash its own length. The runs fade out at both ends rather than stopping,
-    // because a line that stops is an edge and an edge is the whole problem.
-    float halfW = fieldAspect * 0.5;
-    float inner = halfW * uRail.x;
-    float outer = halfW * uRail.y;
-    float span = max(outer - inner, 1e-4);
-    float t = (ax - inner) / span;
-    // Fade in off the artwork's flank, fade out into nothing at the far end.
-    float run = smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.70, 1.0, t));
-    // Left and right differ, and so do top and bottom: four independent runs.
-    float side = p.x < 0.0 ? 0.0 : 37.0;
-    float top = line(p.y - uRail.z, px.y)
-              * dashes(t, uRailStyle.y, uRailStyle.z + side, px.x / span);
-    float bottom = line(p.y + uRail.w, px.y)
-                 * dashes(t, uRailStyle.y * 0.78, uRailStyle.w + side, px.x / span);
-    // Strongest where they leave the artwork, thinning outward: the run reads
-    // as reaching away from the mark rather than as a detached tick cluster.
-    float taper = 1.0 - 0.55 * clamp(t, 0.0, 1.0);
-    float rails = max(top, bottom) * run * taper * uRailStyle.x * deploy * energy;
-    over(color, alpha, uHoloColor, rails);
 
     // ── Layer 5: the emitter ──
     // Where the cone arrives. A holo-colour line along the field's base, at
@@ -439,7 +361,7 @@ interface Options {
   /** Which cell of BOTH atlases this panel shows — the grids are parallel. */
   index: number
   /**
-   * The colour of the LIGHT: halo, rails, emitter line and the cone below.
+   * The colour of the LIGHT: the halo, the emitter line and the cone below.
    *
    * Not the brand's — see ORBIT_CONFIG.panel.holoColor, which is where the
    * value is chosen and where the reasoning for splitting the two lives. The
@@ -500,17 +422,6 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
     uOrigin: { value: new THREE.Vector2(0.5, footprint.originY) },
     uField: { value: new THREE.Vector3(cfg.haloRadius, cfg.haloStrength, cfg.inviteGain) },
     uInvite: { value: 0 },
-    uRail: {
-      value: new THREE.Vector4(cfg.railInner, cfg.railOuter, cfg.railTopY, cfg.railBottomY),
-    },
-    uRailStyle: {
-      value: new THREE.Vector4(
-        cfg.railAlpha,
-        cfg.railDashes,
-        cfg.railSeedTop,
-        cfg.railSeedBottom,
-      ),
-    },
   }
 
   const material = new THREE.ShaderMaterial({

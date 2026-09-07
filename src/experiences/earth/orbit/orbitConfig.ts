@@ -26,8 +26,8 @@ const PANEL_HEIGHT = 0.14
 // See `panel.wingGap`. Hoisted because `panel.wingLength` is derived from it.
 const WING_GAP = 0.04
 /**
- * The colour of the PROJECTED LIGHT — the halo behind the mark, the rails, the
- * emitter line and the cone beneath it. Deliberately NOT the case study's
+ * The colour of the PROJECTED LIGHT — the halo behind the mark, the emitter
+ * line and the cone beneath it. Deliberately NOT the case study's
  * `brandColor`, which each panel used to be lit in.
  *
  * The two were one value until 2026-09-07 and had no reason to be: the artwork
@@ -195,46 +195,6 @@ export const ORBIT_CONFIG = {
     // The cone's share of the invitation, on its own knob because the cone is
     // additive and blows out at the panel's gain: density × (1 + this × pulse).
     coneInviteGain: 1.0,
-
-    // ── The rails ──
-    // The projection's one structural element, present only while it is open.
-    // Fragmented and asymmetric by construction — see the shader. The first two
-    // are fractions of the field's CURRENT half-width, so the run travels
-    // outward with the opening rather than waiting at a fixed distance.
-
-    // Where the run starts, outboard of the artwork's flank.
-    //
-    // The old note here read "clear of the lockup's ink: the artwork reaches
-    // about 0.87 of the half-width at most" — which is true of the artwork and
-    // false as a justification, because 0.64 is INSIDE 0.87 and the rails are
-    // nonetheless never on top of the mark. They are horizontal hairlines at a
-    // fixed p.y (see `line(p.y - uRail.z, …)` in the shader): what separates
-    // them from the artwork is HEIGHT, not this number. Checked on 2026-09-04
-    // before changing it, and left alone — it was not the defect the client was
-    // describing, and raising it to "clear the ink" would have shortened the
-    // run from 0.38 to 0.10 of the half-width for no reason at all.
-    //
-    // What this number actually controls is how far the run reaches back toward
-    // the mark, and 0.64 is why it reads as reaching away from it.
-    railInner: 0.64,
-    // Where it ends — outside the nominal field, so the rails read as
-    // structure the projection extends INTO rather than a border around it.
-    railOuter: 1.02,
-    // Heights of the two runs. DELIBERATELY UNEQUAL: matched heights read as
-    // one frame seen twice, which is the closed box being rebuilt by
-    // implication even though no single line is continuous.
-    railTopY: 0.46,
-    railBottomY: 0.41,
-    // Peak alpha. The rails are a whisper — they say "deploying", they are not
-    // the composition.
-    railAlpha: 0.34,
-    // Dashes across the top run; the bottom run uses a different count, so the
-    // two never fall into step with each other.
-    railDashes: 3.0,
-    // Hash seeds for the top and bottom runs. Arbitrary, and only ever want to
-    // be different from each other — change them to reshuffle the pattern.
-    railSeedTop: 3.0,
-    railSeedBottom: 19.0,
 
 
     // ── The emitter cone (plan 008) ──

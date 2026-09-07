@@ -15,9 +15,9 @@
 // protects.
 //
 // `wingExtent` used to be returned here too, the split plate's per-wing travel.
-// It went with the wings: the rails that replaced them are positioned relative
-// to the field's own half-width, so they track `fieldAspect` and need no second
-// length of their own. One derived quantity cannot disagree with itself.
+// It went with the wings, and nothing replaced it: what opens is the field's
+// own half-width, which `fieldAspect` already carries. One derived quantity
+// cannot disagree with itself.
 //
 // Pure, like panelExpansion.ts, so it is testable in Node. Because it is a pure
 // function of the eased value, reversal costs nothing: the closing sequence is
@@ -26,7 +26,7 @@
 export interface Deployment {
   /** The field's energy response: the halo brightens, the emitter surges. */
   activation: number
-  /** The field's opening, and the rails' arrival with it. */
+  /** The field's opening, and the cone mouth's spread with it. */
   deploy: number
   /** The isotype→logo crossfade and the settle of the selected-state glow. */
   resolve: number

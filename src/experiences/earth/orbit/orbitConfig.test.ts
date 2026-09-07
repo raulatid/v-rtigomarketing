@@ -132,29 +132,36 @@ describe('the brand panel', () => {
     expect(panel.haloRadius).toBeLessThan(toTop)
   })
 
-  it('keeps the artwork clear of the rail that runs beneath it', () => {
+  it('keeps the artwork clear of the emitter line at the field base', () => {
     // THE FAILURE THIS CATCHES, and it is one this repository actually walked
     // into on 2026-09-04: the atlas used to draw the whole FILE, so the shipped
     // lockup's mark reached 0.246 pane heights and the supplier's own baked-in
     // margin was doing the clearing. Fitting to the measured ink made the mark
     // as large as the cell allows, which is the point — and took it to 0.422,
-    // through a rail sitting at 0.41.
+    // through a rail that sat at 0.41.
     //
     // The two numbers live in different modules (CELL.padY in createBrandAtlas,
-    // railBottomY here) and nothing connected them, so the collision was
-    // invisible until it was on screen. This is that connection.
-    const panel = ORBIT_CONFIG.panel
+    // the field's own geometry here) and nothing else connects them, so that
+    // collision was invisible until it was on screen. This is that connection.
+    //
+    // REPOINTED 2026-09-07: the rails were removed at the client's request.
+    // What is still drawn down there is the emitter line and its wash, at
+    // p.y = -0.5 — where `fuv = p + 0.5` puts the bottom of the cell. That is a
+    // structural constant of the field's own space rather than a tunable, so it
+    // is written here instead of read from config.
+    const FIELD_EDGE = 0.5
     // The cell's full height maps to p.y in +-0.5 at the deployed field, so the
     // artwork's half-height in pane units is half the padded fraction.
-    const nearestRail = Math.min(panel.railTopY, panel.railBottomY)
-    // Both kinds, because both are on screen while the rails are lit: the
-    // isotype is still crossfading out over the last quarter of the deploy.
+    //
+    // Both kinds, because both are on screen through the deploy: the isotype is
+    // still crossfading out over its last quarter.
     for (const kind of ['logo', 'isotype'] as const) {
-      expect(artworkHalfHeight(kind), kind).toBeLessThan(nearestRail)
-      // Not merely 'does not touch': a hairline a thousandth from the mark
-      // reads as a collision. 0.04 is the margin PAD_Y was derived for, with
-      // room to re-tune without silently going tight.
-      expect(nearestRail - artworkHalfHeight(kind), kind).toBeGreaterThan(0.04)
+      expect(artworkHalfHeight(kind), kind).toBeLessThan(FIELD_EDGE)
+      // Not merely 'does not touch'. The wash climbs off that line into the
+      // field with an e-fold of 0.20 pane heights (createHoloPanel's `wash`),
+      // so ink parked within half of that sits in the brightest part of the
+      // light rather than above it.
+      expect(FIELD_EDGE - artworkHalfHeight(kind), kind).toBeGreaterThan(0.10)
     }
   })
 

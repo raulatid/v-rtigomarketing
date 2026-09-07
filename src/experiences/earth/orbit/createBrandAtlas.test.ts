@@ -186,8 +186,9 @@ describe('normalising the artwork on its ink (plan 012 task 3)', () => {
   // file filled 78% — geometrically centred, optically high, and different per
   // case study because the margin is per file.
   //
-  // Fitting the INK makes the extent predictable, which is what lets the rails
-  // be positioned against a constant (orbitConfig.test.ts asserts that half).
+  // Fitting the INK makes the extent predictable, which is what lets one
+  // clearance from the emitter line hold for every brand (orbitConfig.test.ts
+  // asserts that half).
   // These cases are the aspect ratios the client's real assets will bring; the
   // repository has exactly one logo today, so nothing else exercises them.
 
@@ -243,12 +244,16 @@ describe('normalising the artwork on its ink (plan 012 task 3)', () => {
     expect(markHeightByFile / byInk.h).toBeLessThan(0.8)
   })
 
-  it('keeps both cells clear of the lower rail by construction', () => {
-    // The vertical padding is DERIVED from railBottomY (see PAD_Y). This asserts
-    // the derivation survived, from the atlas side; orbitConfig.test.ts asserts
-    // it from the panel side, against the rail itself.
+  it('keeps both cells clear of the emitter line by construction', () => {
+    // PAD_Y is no longer derived from anything — the rail it was derived from
+    // went on 2026-09-07 — so this is the bound it is now held to: the field's
+    // lower edge at 0.5 pane heights, where the emitter line and its wash sit,
+    // less the 0.10 clearance PAD_Y's note derives. orbitConfig.test.ts asserts
+    // the same clearance from the panel's side.
+    const FIELD_EDGE = 0.5
+    const CLEARANCE = 0.1
     for (const kind of ['logo', 'isotype'] as const) {
-      expect(artworkHalfHeight(kind), kind).toBeLessThan(0.41)
+      expect(artworkHalfHeight(kind), kind).toBeLessThan(FIELD_EDGE - CLEARANCE)
     }
   })
 })
