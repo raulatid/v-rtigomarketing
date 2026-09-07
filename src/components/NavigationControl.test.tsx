@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { NavigationControl } from './NavigationControl'
 
 // The hint frame is rendered ONCE and never re-rendered: every variant of every
-// row is in the markup, and the stylesheet picks by `(pointer: coarse)` and the
+// cell is in the markup, and the stylesheet picks by `(pointer: coarse)` and the
 // direction the input layer paints. So the guarantee that a mouse is never
 // taught a pinch, and a thumb never a right button, is a guarantee that both
 // sets are THERE — the CSS can only choose between what was rendered.
@@ -28,6 +28,9 @@ afterEach(() => {
 })
 
 const frame = () => container.querySelector<HTMLElement>('.nav-hint')!
+const cells = () => [...frame().querySelectorAll<HTMLElement>('.nav-hint__cell')]
+const wordsIn = (cell: HTMLElement) =>
+  [...cell.querySelectorAll<HTMLElement>('.nav-hint__label')].map((el) => el.textContent ?? '')
 
 describe('the hint frame', () => {
   it('is sighted-only: the button beside it is what assistive technology reads', () => {
@@ -35,18 +38,40 @@ describe('the hint frame', () => {
     expect(container.querySelector('.nav-control')).not.toBeNull()
   })
 
-  it('carries the return gesture for both inputs and both directions', () => {
-    const sentences = [...frame().querySelectorAll<HTMLElement>('.nav-hint__text')]
-    const keys = sentences.map((el) => `${el.dataset.input}/${el.dataset.direction}`)
-    expect(keys.sort()).toEqual(['coarse/down', 'coarse/up', 'fine/down', 'fine/up'])
+  it('is four cells: the city, then the way out of it', () => {
+    expect(cells().map((el) => el.dataset.gesture)).toEqual([
+      'drag',
+      'rotate',
+      'select',
+      'travel',
+    ])
   })
 
-  it('carries the city controls for both inputs', () => {
-    const cells = [...frame().querySelectorAll<HTMLElement>('.nav-hint__cell')]
-    expect(cells.map((el) => el.dataset.gesture)).toEqual(['drag', 'rotate', 'select'])
-    const text = frame().querySelector('.nav-hint__controls')!.textContent ?? ''
-    for (const word of ['Arrastra', 'Botón derecho', 'Dos dedos', 'Clic', 'Toca']) {
-      expect(text).toContain(word)
+  // The plate speaks in single words now: the sentences it used to carry
+  // ("Haz scroll para bajar a Murcia" and its three siblings) are gone, and the
+  // glyph's motion says what they said. So the contract is that no cell holds
+  // more than the one word its input needs.
+  it('gives every cell one word, and the way out one per input', () => {
+    const byGesture = new Map(cells().map((el) => [el.dataset.gesture, el]))
+    expect(wordsIn(byGesture.get('drag')!)).toEqual(['Mover'])
+    expect(wordsIn(byGesture.get('rotate')!)).toEqual(['Girar'])
+    expect(wordsIn(byGesture.get('select')!)).toEqual(['Abrir'])
+
+    const travel = [...byGesture.get('travel')!.querySelectorAll<HTMLElement>('.nav-hint__label')]
+    expect(travel.map((el) => `${el.dataset.input}:${el.textContent}`)).toEqual([
+      'fine:Scroll',
+      'coarse:Zoom',
+    ])
+  })
+
+  // Direction is drawn, not written: the word is the same climbing out as it is
+  // falling in, so the chevrons are the only thing that says which way. Both
+  // groups have to be rendered for the stylesheet to have a choice to make.
+  it('draws a chevron group for each direction of travel', () => {
+    const groups = [...frame().querySelectorAll<SVGGElement>('.nav-hint__chevrons')]
+    expect(groups.map((el) => el.dataset.direction)).toEqual(['up', 'down'])
+    for (const group of groups) {
+      expect(group.querySelectorAll('.nav-hint__part--chase')).toHaveLength(2)
     }
   })
 

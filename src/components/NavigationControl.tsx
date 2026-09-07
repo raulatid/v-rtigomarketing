@@ -87,24 +87,35 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
         />
         {/*
         The hint frame: one glass plate, bottom-centre, in both worlds. Since
-        2026-09-05 it carries TWO blocks — the city's controls (drag, rotate,
-        select), shown only in Murcia, over the gesture that leaves the world
-        the viewer is in. They used to be two elements owned by two modules
-        (Murcia's `#controls-hint` plate under this hint), and stacked at the
-        bottom of a bright city they read as two unrelated things, the sentence
-        floating unreadable over the roofs. One frame, one owner: everything
-        here is painted by createNavigationInput, and it has one closing rule —
-        three seconds after the viewer first touches the scene (section 29).
+        2026-09-05 it carries the city's controls (drag, rotate, select), shown
+        only in Murcia, beside the gesture that leaves the world the viewer is
+        in. They used to be two elements owned by two modules (Murcia's
+        `#controls-hint` plate under this hint), and stacked at the bottom of a
+        bright city they read as two unrelated things, the sentence floating
+        unreadable over the roofs. One frame, one owner: everything here is
+        painted by createNavigationInput, and it has one closing rule — three
+        seconds after the viewer first touches the scene (section 29).
 
-        The gesture block is the answer to "nothing on screen says a gesture
-        exists" (DECISIONS §15's objection, and §29's once-per-visit rule,
-        amended to an arrival beat and a silence clock). The glyphs are
-        unchanged by `adr/014` because the MOTION is unchanged — the same scroll
-        and the same pinch, which now zoom before they travel — and the sentence
-        under them (plan 012, phase 4) says what the gesture DOES, because a
-        mouse with two chevrons was read as decoration. The touch copy says
-        "zoom" rather than "pinch": the outcome is the promise, not the
-        choreography.
+        ## Every cell is a glyph over ONE word
+
+        This block used to speak in sentences: an eyebrow naming the gesture
+        over "Haz scroll para bajar a Murcia", with the glyph beside them
+        spanning both lines, and each city control carrying a label AND a
+        caption. Two complaints killed that. The words were doing the teaching
+        and there were too many of them to read while a world was still
+        settling; and the spanning glyph was taller than the lines it spanned,
+        so it crowded the plate's edges — worse in Murcia, where there is no
+        eyebrow and it spanned a single short line.
+
+        So the sentences are gone and the shape is one grammar, four times
+        over: a glyph, one word under it, centred. Nothing spans anything, so
+        the alignment cannot come apart again, and the four words share a
+        baseline because every cell ends at the same edge.
+
+        The word names the RESULT where the glyph already shows the input —
+        Mover, Girar, Abrir. The way in and out is the exception the client
+        chose: it names the gesture, because no result word short enough
+        survives ("Murcia"/"Tierra" was rejected as a label).
 
         A SIBLING of the control, not a child: the control is clipped to a
         pixel for assistive technology and a child would be clipped with it.
@@ -118,15 +129,20 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
         teaching none: it says the site was not built for the thing in your
         hand. That is why the rotate and select cells carry a mouse AND a hand.
 
-        The glyphs move. Each has one part the stylesheet loops slowly — the
-        wheel scrolls, the fingers pinch, the hand slides, the pair turns, the
-        ring spreads from the tap — so the picture shows the motion rather than
-        naming it. All of it is `transform`/`opacity`, and reduced motion stops
-        it.
+        The glyphs move, and the motion is now the whole explanation rather
+        than an illustration of a sentence. Each travelling part goes ONE way,
+        fading in where it starts and out where it ends, because a tween that
+        alternates returns to where it began and reads as a wobble with no
+        direction — which is exactly what the old wheel did, identically, for
+        both directions of travel. The mouse carries two chevron groups, above
+        and below; only the travel side shows, and its two chevrons light in
+        sequence so the wheel appears to hand off to them. All of it is
+        transform and opacity, and reduced motion stops it — which is why the
+        resting state has to be the READABLE one (styles.css).
 
         'Acercar' is not among the controls. It taught the wheel and the pinch,
         and neither moves the camera any more (`adr/009`): the wheel and pinch
-        navigate between worlds, which the gesture block teaches, and getting
+        navigate between worlds, which the gesture cell teaches, and getting
         closer is what selecting a district does. Pan leads the three because it
         needs no teaching — people try it first — and the two that are NOT
         discoverable follow it; rotation in particular has no affordance now
@@ -149,8 +165,7 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
                     <path d="M24 29v8" />
                   </g>
                 </svg>
-                <span className="nav-hint__label">Arrastra</span>
-                <span className="nav-hint__caption">mover</span>
+                <span className="nav-hint__label">Mover</span>
               </span>
               <span className="nav-hint__cell" data-gesture="rotate">
                 <svg className="nav-hint__icon nav-hint__icon--rotate-mouse" {...GLYPH}>
@@ -172,13 +187,7 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
                     <circle cx="32" cy="28" r="5" />
                   </g>
                 </svg>
-                <span className="nav-hint__label" data-input="fine">
-                  Botón derecho
-                </span>
-                <span className="nav-hint__label" data-input="coarse">
-                  Dos dedos
-                </span>
-                <span className="nav-hint__caption">girar</span>
+                <span className="nav-hint__label">Girar</span>
               </span>
               <span className="nav-hint__cell" data-gesture="select">
                 <svg className="nav-hint__icon nav-hint__icon--click" {...GLYPH}>
@@ -196,76 +205,67 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
                   <path d="M24 29v9" />
                   <circle className="nav-hint__part nav-hint__part--ring" cx="24" cy="24" r="14" />
                 </svg>
-                <span className="nav-hint__label" data-input="fine">
-                  Clic
-                </span>
-                <span className="nav-hint__label" data-input="coarse">
-                  Toca
-                </span>
-                <span className="nav-hint__caption">un distrito iluminado</span>
+                <span className="nav-hint__label">Abrir</span>
               </span>
             </span>
           </span>
-          <span className="nav-hint__gesture">
-            {/* One child, so the block can collapse as a grid row (styles.css). */}
-            <span className="nav-hint__row">
-              <svg
-                className="nav-hint__icon nav-hint__icon--mouse"
-                viewBox="0 0 24 48"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M8 8l4-4 4 4" />
-                <rect x="7" y="14" width="10" height="20" rx="5" />
-                <path className="nav-hint__part nav-hint__part--wheel" d="M12 18v4" />
-                <path d="M8 40l4 4 4-4" />
-              </svg>
-              {/* Two fingers opening: leaving Earth is an approach, so the world is
-              pulled toward you. */}
-              <svg className="nav-hint__icon nav-hint__icon--spread" {...GLYPH}>
-                <path d="M9 24H3" />
-                <path d="M6 21l-3 3 3 3" />
-                <path d="M39 24h6" />
-                <path d="M42 21l3 3-3 3" />
-                <circle className="nav-hint__part nav-hint__part--spread-l" cx="16" cy="24" r="5" />
-                <circle className="nav-hint__part nav-hint__part--spread-r" cx="32" cy="24" r="5" />
-              </svg>
-              {/* Two fingers closing: leaving Murcia is an ascent (ADR 006), so the
-              world is pushed away. */}
-              <svg className="nav-hint__icon nav-hint__icon--close" {...GLYPH}>
-                <path d="M3 24h6" />
-                <path d="M6 27l3-3-3-3" />
-                <path d="M45 24h-6" />
-                <path d="M42 27l-3-3 3-3" />
-                <circle className="nav-hint__part nav-hint__part--close-l" cx="16" cy="24" r="5" />
-                <circle className="nav-hint__part nav-hint__part--close-r" cx="32" cy="24" r="5" />
-              </svg>
-              {/* The eyebrow names the gesture, the sentence says what it does
-              (plan 020 §8). Only the descent carries one: on the way back the
-              plate already has the city's three controls above it, and a
-              second micro-label there would be the HUD again. The words are
-              the ones the sentence already uses, so nothing new is claimed. */}
-              <span className="nav-hint__eyebrow" data-input="fine">
-                Scroll
-              </span>
-              <span className="nav-hint__eyebrow" data-input="coarse">
-                Zoom
-              </span>
-              <span className="nav-hint__text" data-input="fine" data-direction="down">
-                Haz scroll para bajar a Murcia
-              </span>
-              <span className="nav-hint__text" data-input="fine" data-direction="up">
-                Haz scroll para volver a la Tierra
-              </span>
-              <span className="nav-hint__text" data-input="coarse" data-direction="down">
-                Haz zoom para bajar a Murcia
-              </span>
-              <span className="nav-hint__text" data-input="coarse" data-direction="up">
-                Haz zoom para volver a la Tierra
-              </span>
+          {/* The way out of the world the viewer is in. A cell like the three
+              above, and the only one that is never collapsed — in Murcia a
+              hairline rules it off from the city's own controls. */}
+          <span className="nav-hint__gesture nav-hint__cell" data-gesture="travel">
+            {/* The chevrons are two GROUPS, above and below, and the stylesheet
+                shows only the one the viewer is travelling toward. Two of them
+                per side, not one, so they can chase in sequence: a single
+                chevron can only blink, and a blink has no direction. */}
+            <svg
+              className="nav-hint__icon nav-hint__icon--mouse"
+              viewBox="0 0 24 48"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <g className="nav-hint__chevrons" data-direction="up">
+                <path className="nav-hint__part nav-hint__part--chase" d="M8 12l4-4 4 4" />
+                <path className="nav-hint__part nav-hint__part--chase" d="M8 6l4-4 4 4" />
+              </g>
+              <rect x="7" y="14" width="10" height="20" rx="5" />
+              <path className="nav-hint__part nav-hint__part--wheel" d="M12 18v4" />
+              <g className="nav-hint__chevrons" data-direction="down">
+                <path className="nav-hint__part nav-hint__part--chase" d="M8 36l4 4 4-4" />
+                <path className="nav-hint__part nav-hint__part--chase" d="M8 42l4 4 4-4" />
+              </g>
+            </svg>
+            {/* Two fingers opening: leaving Earth is an approach, so the world is
+                pulled toward you. */}
+            <svg className="nav-hint__icon nav-hint__icon--spread" {...GLYPH}>
+              <path d="M9 24H3" />
+              <path d="M6 21l-3 3 3 3" />
+              <path d="M39 24h6" />
+              <path d="M42 21l3 3-3 3" />
+              <circle className="nav-hint__part nav-hint__part--spread-l" cx="16" cy="24" r="5" />
+              <circle className="nav-hint__part nav-hint__part--spread-r" cx="32" cy="24" r="5" />
+            </svg>
+            {/* Two fingers closing: leaving Murcia is an ascent (ADR 006), so the
+                world is pushed away. */}
+            <svg className="nav-hint__icon nav-hint__icon--close" {...GLYPH}>
+              <path d="M3 24h6" />
+              <path d="M6 27l3-3-3-3" />
+              <path d="M45 24h-6" />
+              <path d="M42 27l-3-3 3-3" />
+              <circle className="nav-hint__part nav-hint__part--close-l" cx="16" cy="24" r="5" />
+              <circle className="nav-hint__part nav-hint__part--close-r" cx="32" cy="24" r="5" />
+            </svg>
+            {/* The one word left on the plate. It names the gesture the visitor
+                has to make, in BOTH directions now: the sentence that used to
+                distinguish "bajar" from "volver" is gone, and the glyph's
+                chevrons say which way. */}
+            <span className="nav-hint__label" data-input="fine">
+              Scroll
+            </span>
+            <span className="nav-hint__label" data-input="coarse">
+              Zoom
             </span>
           </span>
         </span>
