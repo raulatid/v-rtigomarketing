@@ -108,6 +108,10 @@ const FRAGMENT = /* glsl */ `
   // 0..1: how much of the invitation — the brighter breath — this panel is
   // carrying right now. Eased from the CPU, never set directly.
   uniform float uInvite;
+  // Hover strength (0..1, eased by the satellite) and its gain on the halo and
+  // emitter — the same strength that drives the scale bump.
+  uniform float uHover;
+  uniform float uHoverGain;
   varying vec2 vUv;
 
   // Straight-alpha "over": lays (sc, sa) on top of the running (c, a).
