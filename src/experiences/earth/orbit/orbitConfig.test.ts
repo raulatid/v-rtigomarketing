@@ -188,28 +188,39 @@ describe('the brand panel', () => {
     expect(satellite.highlightDuration).toBeLessThan(1)
   })
 
-  it('keeps the hover tutorial to two brief pulses that the cue announces', () => {
-    // Exactly two: one reads as ambient, three starts to nag. The cue has to
-    // land before the hover it announces, and every timing stays inside the
-    // bands the brief set, so a retune cannot quietly turn a hint into a show.
+  it('keeps the hover tutorial to rounds of two pulses that the cue announces', () => {
+    // Two per round: one reads as ambient, three in a row starts to nag. The
+    // cue has to land before the hover it announces, and every timing stays
+    // inside the bands the brief set, so a retune cannot quietly turn a hint
+    // into a show.
     const t = ORBIT_CONFIG.tutorial
     expect(t.pulses).toBe(2)
     expect(t.armDelay).toBeGreaterThanOrEqual(0.8)
     expect(t.armDelay).toBeLessThanOrEqual(1.5)
     expect(t.hold).toBeGreaterThanOrEqual(0.3)
-    expect(t.hold).toBeLessThanOrEqual(0.5)
+    expect(t.hold).toBeLessThanOrEqual(1.5)
     expect(t.gap).toBeGreaterThanOrEqual(0.3)
-    expect(t.gap).toBeLessThanOrEqual(0.5)
+    expect(t.gap).toBeLessThanOrEqual(1.5)
     expect(t.cueLead).toBeGreaterThan(0)
     expect(t.cueLead).toBeLessThan(t.cueDuration)
+    expect(t.cueDuration).toBeLessThanOrEqual(2)
     expect(t.cueCount).toBeGreaterThanOrEqual(10)
-    expect(t.cueCount).toBeLessThanOrEqual(25)
+    expect(t.cueCount).toBeLessThanOrEqual(60)
     expect(t.cueRadius).toBeGreaterThan(ORBIT_CONFIG.satellite.modelSize / 2)
-    expect(t.cueSize).toBeLessThan(ORBIT_CONFIG.headGlow.size)
+    expect(t.cueSize).toBeGreaterThan(0)
+    expect(t.cueSize).toBeLessThanOrEqual(0.1)
     expect(t.visibleMarginNdc).toBeGreaterThan(0)
     expect(t.visibleMarginNdc).toBeLessThan(0.5)
-    expect(t.maxWaitSeconds).toBeGreaterThan(t.armDelay)
     expect(t.reducedMotionHoldScale).toBeGreaterThanOrEqual(1)
+  })
+
+  it('rests longer between rounds than between pulses', () => {
+    // It repeats until the viewer interacts, so this gap is the whole
+    // difference between an offer made again and an animation on a loop.
+    const t = ORBIT_CONFIG.tutorial
+    expect(t.roundGap).toBeGreaterThan(t.gap)
+    expect(t.roundGap).toBeGreaterThanOrEqual(t.pulses * (t.cueLead + t.hold + t.gap) * 0.5)
+    expect(t.roundGap).toBeLessThanOrEqual(12)
   })
 
   it('keeps the panel clear of the satellite model it floats above', () => {

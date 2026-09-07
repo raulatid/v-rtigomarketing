@@ -3,11 +3,11 @@ import { createHoverTutorial } from './hoverTutorial'
 import type { HoverTutorialConfig, TutorialFrame, TutorialInput } from './hoverTutorial'
 import { ORBIT_CONFIG } from './orbitConfig'
 
-// The tutorial's sequence, in isolation from anything visual: exactly two
-// pulses of the real hover state, each announced by the cue, then done for
-// good. Every timing below is the shipped config, so a retune that broke the
-// order — hover before the cue, a third pulse, a cue under reduced motion —
-// fails here before it reaches the scene.
+// The tutorial's sequence, in isolation from anything visual: rounds of two
+// pulses of the real hover state, each announced by the cue, repeating until
+// the viewer interacts. Every timing below is the shipped config, so a retune
+// that broke the order — hover before the cue, a third pulse in a round, a cue
+// under reduced motion — fails here before it reaches the scene.
 
 const cfg = ORBIT_CONFIG.tutorial
 const DT = 1 / 60
@@ -35,6 +35,7 @@ function rises(frames: TutorialFrame[]): number {
   return count
 }
 
+/** One round's worth of frames, plus the arming beat and a margin. */
 const total = (c: HoverTutorialConfig = cfg) =>
   c.armDelay + c.pulses * (c.cueLead + c.hold + c.gap) + 1
 
@@ -49,15 +50,46 @@ describe('the hover tutorial', () => {
     expect(tutorial.phase).toBe('arming')
   })
 
-  it('plays exactly the configured number of pulses, then is done', () => {
+  it('plays the configured number of pulses in a round, then rests', () => {
     const tutorial = createHoverTutorial()
     const frames = run(tutorial, total())
     expect(rises(frames)).toBe(cfg.pulses)
     expect(tutorial.pulsesPlayed).toBe(cfg.pulses)
-    expect(tutorial.phase).toBe('done')
-    // Nothing after: the last frames are at rest.
+    expect(tutorial.roundsPlayed).toBe(1)
+    expect(tutorial.phase).toBe('rest')
+    // The round ended with nothing held.
     expect(frames.at(-1)).toEqual({ hover: false, cue: null })
-    expect(run(tutorial, 5).every((f) => !f.hover && f.cue === null)).toBe(true)
+  })
+
+  it('offers again after the round gap, and keeps offering', () => {
+    // The client's rule: it repeats until the viewer interacts. Nothing here
+    // ends it — no timer, no pulse count.
+    const tutorial = createHoverTutorial()
+    const frames = run(tutorial, total() + cfg.roundGap + total() * 2)
+    expect(tutorial.roundsPlayed).toBeGreaterThanOrEqual(3)
+    expect(rises(frames)).toBe(tutorial.pulsesPlayed)
+    expect(tutorial.pulsesPlayed).toBe(tutorial.roundsPlayed * cfg.pulses)
+    expect(tutorial.phase).not.toBe('done')
+  })
+
+  it('rests longer between rounds than between the pulses of one', () => {
+    const tutorial = createHoverTutorial()
+    const frames = run(tutorial, total() + cfg.roundGap + total())
+    // The quiet stretches between rises, in seconds.
+    const quiet: number[] = []
+    let run_ = 0
+    let seen = false
+    for (const f of frames) {
+      if (f.hover) {
+        if (run_ > 0 && seen) quiet.push(run_ * DT)
+        run_ = 0
+        seen = true
+      } else if (seen) run_ += 1
+    }
+    const longest = Math.max(...quiet)
+    const shortest = Math.min(...quiet)
+    expect(longest).toBeGreaterThan(shortest * 1.5)
+    expect(longest).toBeCloseTo(cfg.gap + cfg.roundGap + cfg.cueLead, 0)
   })
 
   it('holds the beat before the first pulse', () => {
@@ -109,46 +141,81 @@ describe('the hover tutorial', () => {
     expect(tutorial.phase).toBe('done')
   })
 
-  it('gives up quietly if the target never comes on screen after settling', () => {
+  it('never gives up on its own, however long the target stays out of view', () => {
+    // A hint that expired while the viewer was still puzzled would be a hint
+    // that failed. It waits, and offers when it can be seen.
     const tutorial = createHoverTutorial()
-    run(tutorial, cfg.maxWaitSeconds + 1, { settled: true, visible: false })
-    expect(tutorial.phase).toBe('done')
-    expect(tutorial.pulsesPlayed).toBe(0)
-  })
-
-  it('does not count time before the target has settled toward the wait', () => {
-    const tutorial = createHoverTutorial()
-    run(tutorial, cfg.maxWaitSeconds * 2, { settled: false, visible: false })
+    run(tutorial, 60, { settled: true, visible: false })
     expect(tutorial.phase).toBe('waiting')
+    expect(tutorial.pulsesPlayed).toBe(0)
+
+    run(tutorial, total())
+    expect(tutorial.pulsesPlayed).toBe(cfg.pulses)
   })
 
-  it('ends if the target leaves the screen mid-pulse', () => {
+  it('waits, rather than ending, if the target leaves the screen mid-pulse', () => {
     const tutorial = createHoverTutorial()
     run(tutorial, cfg.armDelay + cfg.cueLead * 0.5)
     expect(tutorial.phase).toBe('pulse')
+
     expect(tutorial.tick(DT, { settled: true, visible: false })).toEqual({
       hover: false,
       cue: null,
     })
-    expect(tutorial.phase).toBe('done')
+    expect(tutorial.phase).toBe('waiting')
+
+    // It comes back round, and the offer is made again from the top.
+    run(tutorial, total())
+    expect(tutorial.pulsesPlayed).toBe(cfg.pulses)
   })
 
-  it('under reduced motion plays one longer pulse with no cue', () => {
+  it('suspends and resumes: leaving the scene is not an interaction', () => {
+    const tutorial = createHoverTutorial()
+    run(tutorial, total())
+    const before = tutorial.pulsesPlayed
+    expect(before).toBeGreaterThan(0)
+
+    tutorial.suspend()
+    expect(tutorial.phase).toBe('waiting')
+    // Nothing is held while suspended.
+    expect(tutorial.tick(DT, { settled: false, visible: false })).toEqual({
+      hover: false,
+      cue: null,
+    })
+
+    run(tutorial, total())
+    expect(tutorial.pulsesPlayed).toBe(before + cfg.pulses)
+  })
+
+  it('stays retired through a suspend', () => {
+    const tutorial = createHoverTutorial()
+    tutorial.retire()
+    tutorial.suspend()
+    expect(tutorial.phase).toBe('done')
+    expect(rises(run(tutorial, total() * 2))).toBe(0)
+  })
+
+  it('under reduced motion plays one longer pulse per round, with no cue', () => {
     const tutorial = createHoverTutorial(cfg, { reducedMotion: true })
-    const frames = run(tutorial, total() * cfg.reducedMotionHoldScale)
+    const oneRound = cfg.armDelay + cfg.cueLead + cfg.hold * cfg.reducedMotionHoldScale + cfg.gap
+    const frames = run(tutorial, oneRound + 0.5)
     expect(rises(frames)).toBe(1)
+    expect(tutorial.roundsPlayed).toBe(1)
     expect(frames.every((f) => f.cue === null)).toBe(true)
     const on = frames.filter((f) => f.hover).length * DT
     expect(on).toBeCloseTo(cfg.hold * cfg.reducedMotionHoldScale, 1)
-    expect(tutorial.phase).toBe('done')
+
+    // And it repeats, like the full version.
+    run(tutorial, cfg.roundGap + oneRound)
+    expect(tutorial.roundsPlayed).toBeGreaterThanOrEqual(2)
   })
 
-  it('loops and ignores retirement when asked to, for tuning only', () => {
+  it('ignores retirement when asked to, for tuning only', () => {
     const tutorial = createHoverTutorial(cfg, { loop: true })
-    const frames = run(tutorial, total() * 3)
-    expect(rises(frames)).toBeGreaterThan(cfg.pulses)
+    run(tutorial, total())
     tutorial.retire()
     expect(tutorial.phase).not.toBe('done')
+    expect(rises(run(tutorial, cfg.roundGap + total()))).toBeGreaterThan(0)
   })
 
   it('treats a frame that lies about time as no time at all', () => {

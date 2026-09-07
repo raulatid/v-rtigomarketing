@@ -36,9 +36,9 @@ const QUICK_TUTORIAL = {
   armDelay: 0.1,
   hold: 0.1,
   gap: 0.1,
+  roundGap: 0.3,
   cueDuration: 0.1,
   cueLead: 0.05,
-  maxWaitSeconds: 1,
 }
 
 interface SetupOptions {
@@ -285,23 +285,30 @@ describe('the invitation', () => {
 
 describe('the hover tutorial', () => {
   // The invited satellite auto-plays the REAL hover state — the same
-  // `setSatelliteHighlight` the pointer drives, through the same pass — twice,
-  // each pulse announced by the particle cue, and then never again. It is a
-  // third writer of the hover state, not an animation, which is why it is
-  // asserted through the same spies as the pointer's hover above.
+  // `setSatelliteHighlight` the pointer drives, through the same pass — in
+  // rounds of two, each pulse announced by the particle cue, repeating until
+  // the viewer interacts. It is a third writer of the hover state, not an
+  // animation, which is why it is asserted through the same spies as the
+  // pointer's hover above.
 
-  it('plays the real hover state on the invited satellite, exactly twice, then rests', () => {
+  it('plays the real hover state on the invited satellite, two pulses to a round', () => {
     harness.highlighted.mockClear()
-    harness.run(2)
+    // One round: the arming beat plus two pulses, stopping inside the round gap.
+    harness.run(0.1 + 2 * (0.05 + 0.1 + 0.1) + 0.05)
 
     expect(harness.risesOf('a')).toBe(2)
     expect(harness.risesOf('b')).toBe(0)
-    expect(harness.focus.tutorialPhase).toBe('done')
     expect(harness.focus.tutorialPulses).toBe(2)
-    // At rest afterwards: the bump released, the cue hidden, the invitation back.
+    // At rest between rounds: the bump released, the cue hidden, the invitation back.
     expect(harness.highlightState()).toEqual({ a: false, b: false })
     expect(harness.cuesOf('a').at(-1)).toBeNull()
     expect(harness.invitationState()).toEqual({ a: true, b: false })
+  })
+
+  it('keeps offering, round after round, while the viewer does nothing', () => {
+    harness.run(3)
+    expect(harness.focus.tutorialPulses).toBeGreaterThanOrEqual(6)
+    expect(harness.focus.tutorialPhase).not.toBe('done')
   })
 
   it('announces each pulse with the cue before the satellite responds', () => {
@@ -357,11 +364,24 @@ describe('the hover tutorial', () => {
     expect(harness.cue).not.toHaveBeenCalled()
   })
 
-  it('does not restart when the layer is disabled and re-enabled', () => {
-    harness.run(2)
+  it('resumes after a trip out of the scene, which is not an interaction', () => {
+    harness.run(1)
+    expect(harness.focus.tutorialPulses).toBeGreaterThan(0)
+
+    // The trip to Murcia and back, or the audit panel. Someone who never found
+    // the satellites is owed the offer again.
+    harness.focus.setEnabled(false)
+    harness.focus.setEnabled(true)
+    harness.highlighted.mockClear()
+    harness.run(1)
+    expect(harness.risesOf('a')).toBeGreaterThan(0)
+  })
+
+  it('does not resume after a trip if the viewer had already selected one', () => {
+    harness.clickOn('b')
+    harness.focus.deselect()
     expect(harness.focus.tutorialPhase).toBe('done')
 
-    // The trip to Murcia and back.
     harness.focus.setEnabled(false)
     harness.focus.setEnabled(true)
     harness.highlighted.mockClear()
@@ -371,23 +391,19 @@ describe('the hover tutorial', () => {
     expect(harness.cue).not.toHaveBeenCalled()
   })
 
-  it('leaves every synthetic state at rest when cancelled mid-pulse', () => {
+  it('leaves every synthetic state at rest when suspended mid-pulse', () => {
     harness.runUntil(() => harness.highlightState().a === true)
     expect(harness.cuesOf('a').length).toBeGreaterThan(0)
 
-    // Leaving the scene mid-pulse: the warp, the audit panel.
+    // Leaving the scene mid-pulse: the warp, the audit panel. Nothing may be
+    // left held — not the bump, not the cue, not the withdrawn invitation.
     harness.focus.setEnabled(false)
     expect(harness.highlightState()).toEqual({ a: false, b: false })
     expect(harness.cuesOf('a').at(-1)).toBeNull()
-    expect(harness.focus.tutorialPhase).toBe('done')
+    expect(harness.focus.tutorialPhase).toBe('waiting')
 
-    // And it stays retired on the return — the invitation comes back, the
-    // demo does not.
-    harness.highlighted.mockClear()
     harness.focus.setEnabled(true)
-    harness.run(2)
     expect(harness.invitationState()).toEqual({ a: true, b: false })
-    expect(harness.risesOf('a')).toBe(0)
   })
 
   it('retires if the pointer is already resting on a satellite when the scene settles', () => {
@@ -410,15 +426,15 @@ describe('the hover tutorial', () => {
 
     harness.meshes.a.position.set(-2.6, 0, 0)
     harness.meshes.a.updateMatrixWorld(true)
-    harness.run(2)
-    expect(harness.risesOf('a')).toBe(2)
+    harness.run(0.4)
+    expect(harness.risesOf('a')).toBeGreaterThan(0)
   })
 
-  it('under reduced motion plays one pulse and never asks for particles', () => {
+  it('under reduced motion plays one pulse per round and never asks for particles', () => {
     harness = setup({ reducedMotion: true })
-    harness.run(3)
-    expect(harness.risesOf('a')).toBe(1)
+    harness.run(1)
+    expect(harness.risesOf('a')).toBeGreaterThan(0)
     expect(harness.cuesOf('a').filter((p) => p !== null)).toEqual([])
-    expect(harness.focus.tutorialPhase).toBe('done')
+    expect(harness.focus.tutorialPhase).not.toBe('done')
   })
 })

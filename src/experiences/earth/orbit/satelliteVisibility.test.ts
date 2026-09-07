@@ -81,8 +81,8 @@ describe('the invited satellite, from the rest camera', () => {
   const preset = presetFor(invitedCaseId)
   const t = ORBIT_CONFIG.tutorial
   const margin = t.visibleMarginNdc
-  /** The whole sequence, from settling: the beat, then every pulse with its rest. */
-  const sequenceSeconds = t.armDelay + t.pulses * (t.cueLead + t.hold + t.gap)
+  /** One round, from settling: the arming beat, then every pulse with its rest. */
+  const roundSeconds = t.armDelay + t.pulses * (t.cueLead + t.hold + t.gap)
 
   for (const [label, width, height] of VIEWPORTS) {
     it(`${label}: is on screen the whole way round`, () => {
@@ -91,15 +91,16 @@ describe('the invited satellite, from the rest camera', () => {
       expect(v.fraction, 'fraction of a revolution in frame').toBeGreaterThanOrEqual(0.95)
     })
 
-    it(`${label}: is inside the tutorial's margin when it settles, and stays there long enough`, () => {
+    it(`${label}: is inside the tutorial's margin when it settles, for a whole round`, () => {
       // What the tutorial actually needs: the target well inside the frame at
-      // the moment it can arm, and still there for the whole sequence — with
-      // room to spare, because a phone's first frames are its slowest.
+      // the moment it can arm, and still there for one complete round. It no
+      // longer needs more than that — a round it cannot finish is paused, not
+      // lost, and offered again when the target comes back into the margin.
       const v = orbitVisibility(preset, restCamera(width, height), margin)
       expect(v.visibleAtStart, 'visible where it starts idling').toBe(true)
       expect(v.firstVisibleAfterSeconds).toBe(0)
       expect(v.visibleFromStartSeconds, 'seconds visible from idle start').toBeGreaterThanOrEqual(
-        sequenceSeconds * 2,
+        roundSeconds,
       )
     })
   }

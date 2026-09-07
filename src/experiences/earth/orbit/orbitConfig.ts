@@ -103,7 +103,10 @@ export const ORBIT_CONFIG = {
     // from where the bump is. THIS is the hover tutorial's in/out timing too:
     // the tutorial only flips the same target the pointer flips (§2 of plan
     // rc-spicy-russell), so there is no second number to keep in step.
-    highlightDuration: 0.3,
+    //
+    // 0.3 -> 0.4 on the first review: the demonstration read as a flick. A
+    // hover this size is still immediate to a pointer.
+    highlightDuration: 0.4,
     // The invitation's size breath (orbitAssignments.invitedCaseId): the inner
     // group swells to this at the top of each breath. Kept BELOW highlightScale
     // so hover still reads as "more" — orbitConfig.test.ts asserts the order.
@@ -290,46 +293,53 @@ export const ORBIT_CONFIG = {
   },
 
   // The hover TUTORIAL: the invited satellite auto-plays the real hover state,
-  // twice, each pulse announced by a handful of particles converging on it —
-  // so a viewer with no cursor, or one who has not thought to try, sees that
-  // the satellites respond. No text, no HUD. It drives the same highlight the
-  // pointer drives (`createSatelliteFocus.demoId`), so retuning hover retunes
-  // the tutorial; the only timings owned here are the ones hover does not have.
-  // Seconds, unless stated. See orbit/hoverTutorial.ts for the sequence.
+  // in rounds of two pulses, each pulse announced by particles converging on
+  // it — so a viewer with no cursor, or one who has not thought to try, sees
+  // that the satellites respond. No text, no HUD. It drives the same highlight
+  // the pointer drives (`createSatelliteFocus.demoId`), so retuning hover
+  // retunes the tutorial; the only timings owned here are the ones hover does
+  // not have. Seconds, unless stated. See orbit/hoverTutorial.ts.
+  //
+  // IT REPEATS UNTIL THE VIEWER INTERACTS. Client's call on the first review:
+  // two pulses and silence was missable. The lesson ends on a real hover, tap
+  // or selection of any satellite — never on a timer — so `roundGap` is what
+  // keeps a repeating hint from becoming a nag.
   tutorial: {
     // After the satellite has settled AND is on screen. Same beat as the
     // navigation hint (HINT_ARRIVAL_MS), so the two land together, not in turn.
     armDelay: 1.2,
     // Hover held at full, measured from the moment the target flips on; the
     // rise itself is `satellite.highlightDuration`.
-    hold: 0.4,
-    // Rest between the two pulses, from the moment the target flips off.
-    gap: 0.4,
-    // Exactly two. One reads as ambient; three starts to nag.
+    hold: 1.0,
+    // Rest between the two pulses of a round, from the moment the target flips off.
+    gap: 0.9,
+    // Pulses per round. Two: one reads as ambient, three in a row starts to nag.
     pulses: 2,
+    // Rest between ROUNDS. Long enough that the repeat reads as an offer made
+    // again rather than as an animation running on a loop — the difference
+    // between this and `gap` is the whole reason repeating is tolerable.
+    roundGap: 4.0,
     // The particle cue: how long the convergence takes, and how far into it
     // the hover starts — so the satellite visibly responds AS the particles
     // arrive rather than before or after. cueLead < cueDuration, asserted.
-    cueDuration: 0.55,
-    cueLead: 0.35,
-    // How many, and from how far. Small and several rather than few and large:
-    // fifteen faint points read as "something is happening here" without any
-    // one of them reading as an object. Radius is in the orbit group's units
-    // (Earth radius = 1), like `modelSize`: 0.35 is about two model widths.
-    cueCount: 15,
+    cueDuration: 1.1,
+    cueLead: 0.7,
+    // How many, and from how far. Raised 15 -> 35 and doubled in size on the
+    // first review: the cue was too faint to be read as a cue. Still small
+    // enough individually that no single point reads as an object. Radius is
+    // in the orbit group's units (Earth radius = 1), like `modelSize`.
+    cueCount: 35,
     cueRadius: 0.35,
-    // Point size in the same units, before perspective. A little under the
-    // orbit head glow (`headGlow.size` 0.045): the cue must not out-shine the
-    // thing it is pointing at.
-    cueSize: 0.03,
+    // Point size in the same units, before perspective.
+    cueSize: 0.06,
     // How far inside the frame the target must be before the tutorial arms —
     // a fraction of the half-extent, so 0.15 keeps it clear of the edges. A
-    // demonstration toward something half off screen teaches nothing.
+    // demonstration toward something half off screen teaches nothing. The
+    // target orbits out of this margin and back; the tutorial waits rather
+    // than playing to an edge.
     visibleMarginNdc: 0.15,
-    // Give up quietly if the target never comes on screen after settling.
-    maxWaitSeconds: 20,
-    // Under reduced motion: no particles, ONE pulse, and this many times the
-    // hold. Same state, less motion — not a second visual language.
+    // Under reduced motion: no particles, ONE pulse per round, and this many
+    // times the hold. Same state, less motion — not a second visual language.
     reducedMotionHoldScale: 2,
   },
 }

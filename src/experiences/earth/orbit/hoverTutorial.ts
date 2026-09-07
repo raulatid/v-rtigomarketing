@@ -1,29 +1,37 @@
 // The hover tutorial's sequence, as a pure state machine.
 //
-// One satellite auto-plays the REAL hover state twice, each pulse announced by
-// particles converging on it, and then never again. This module decides only
-// WHEN: the output is a boolean the focus layer turns into the same highlight
-// the pointer sets, plus a 0..1 progress for the particle cue. Nothing visual
+// One satellite auto-plays the REAL hover state in rounds of two pulses, each
+// pulse announced by particles converging on it, and it keeps offering until
+// the viewer interacts with a satellite. This module decides only WHEN: the
+// output is a boolean the focus layer turns into the same highlight the
+// pointer sets, plus a 0..1 progress for the particle cue. Nothing visual
 // lives here — extracted for the reason invitation.ts and panelExpansion.ts
 // are, so the whole lifecycle can be exercised in Node without a WebGL context.
 //
-//   waiting ──(settled ∧ visible)──▶ arming(armDelay) ──▶ pulse × N ──▶ done
+//   waiting ─(settled ∧ visible)─▶ arming(armDelay) ─▶ pulse × N ─▶ rest(roundGap) ─┐
+//      ▲                                                                            │
+//      └──────────────── target off screen, or suspended ───────┘   └───────────────┘
 //
 //   one pulse, local time t:
 //     cue      t ∈ [0, cueDuration)            particles travel, 0..1
 //     hover    t ∈ [cueLead, cueLead + hold)   the target is on
 //     gap      until cueLead + hold + gap       rest
 //
-// `done` is terminal. A retire — the viewer hovered or selected something for
-// themselves — lands there too, and so does losing the target off screen
-// mid-pulse: a demonstration aimed at nothing teaches nothing, and the viewer
-// who dragged the globe away is already exploring.
+// ONLY `retire()` REACHES `done`, and only the viewer causes it — a real
+// hover, a tap, a selection. There is no timer that ends the lesson: a hint
+// that gave up while the viewer was still puzzled would have been a hint that
+// failed. `roundGap` is what keeps repeating from nagging.
+//
+// Losing the target off screen is not an ending either. It orbits out of the
+// margin and back, so the sequence returns to `waiting` and offers again when
+// it can be seen. Leaving the scene entirely — Murcia, the audit panel — is
+// `suspend()`: the same pause, because a trip is not an interaction.
 
 import { ORBIT_CONFIG } from './orbitConfig'
 
 export type HoverTutorialConfig = typeof ORBIT_CONFIG.tutorial
 
-export type TutorialPhase = 'waiting' | 'arming' | 'pulse' | 'done'
+export type TutorialPhase = 'waiting' | 'arming' | 'pulse' | 'rest' | 'done'
 
 export interface TutorialInput {
   /** The target's entrance is over and it is idling (`isSatelliteActive`). */
@@ -41,19 +49,26 @@ export interface TutorialFrame {
 
 export interface HoverTutorial {
   tick(delta: number, input: TutorialInput): TutorialFrame
-  /** Ends the tutorial for good. Idempotent. */
+  /** Ends the tutorial for good — the viewer interacted. Idempotent. */
   retire(): void
+  /**
+   * Pauses it: back to waiting, with nothing held. For leaving the scene,
+   * which is not an interaction and must not end the lesson.
+   */
+  suspend(): void
   readonly phase: TutorialPhase
-  /** Pulses completed so far — for tests and the debug readout. */
+  /** Pulses completed so far, across every round — for tests and the debug readout. */
   readonly pulsesPlayed: number
+  /** Rounds of `pulses` completed so far. */
+  readonly roundsPlayed: number
 }
 
 const AT_REST: TutorialFrame = { hover: false, cue: null }
 
 export interface HoverTutorialOptions {
-  /** No particles, one longer pulse; the hover ease itself is kept. */
+  /** No particles, one pulse per round with a longer hold; the hover ease is kept. */
   reducedMotion?: boolean
-  /** Debug only (`?tutorial=1`): pulse forever and ignore retirement, for tuning. */
+  /** Debug only (`?tutorial=1`): ignore retirement, so it can be watched while tuning. */
   loop?: boolean
 }
 
@@ -61,7 +76,7 @@ export function createHoverTutorial(
   cfg: HoverTutorialConfig = ORBIT_CONFIG.tutorial,
   { reducedMotion = false, loop = false }: HoverTutorialOptions = {},
 ): HoverTutorial {
-  const pulses = loop ? Number.POSITIVE_INFINITY : reducedMotion ? 1 : cfg.pulses
+  const pulsesPerRound = reducedMotion ? 1 : cfg.pulses
   const hold = reducedMotion ? cfg.hold * cfg.reducedMotionHoldScale : cfg.hold
   const hoverOn = cfg.cueLead
   const hoverOff = hoverOn + hold
@@ -69,13 +84,9 @@ export function createHoverTutorial(
 
   let phase: TutorialPhase = 'waiting'
   let t = 0
-  let waited = 0
   let played = 0
-
-  function finish(): TutorialFrame {
-    phase = 'done'
-    return AT_REST
-  }
+  let rounds = 0
+  let inRound = 0
 
   function tick(rawDelta: number, input: TutorialInput): TutorialFrame {
     // A frame that lies about time — NaN from a stalled clock, a negative
@@ -85,39 +96,51 @@ export function createHoverTutorial(
     if (phase === 'done') return AT_REST
 
     if (phase === 'waiting') {
-      if (!input.settled) return AT_REST
-      if (!input.visible) {
-        // Counted only while settled: the wait is for the target to come round
-        // into view, not for the intro.
-        waited += delta
-        if (waited >= cfg.maxWaitSeconds) return finish()
-        return AT_REST
-      }
+      if (!input.settled || !input.visible) return AT_REST
       phase = 'arming'
       t = 0
       return AT_REST
     }
 
+    // From here the target has to stay in view. Losing it returns to waiting
+    // rather than ending anything: it orbits out of the margin and back, and
+    // the offer is made again when it can be seen.
+    if (!input.visible) {
+      phase = 'waiting'
+      t = 0
+      inRound = 0
+      return AT_REST
+    }
+
     if (phase === 'arming') {
-      // The beat must be a still one. Losing the target during it starts the
-      // wait over rather than counting time it was not there.
-      if (!input.visible) {
-        phase = 'waiting'
-        return AT_REST
-      }
       t += delta
       if (t < cfg.armDelay) return AT_REST
       phase = 'pulse'
+      inRound = 0
       t = 0
     }
 
+    if (phase === 'rest') {
+      t += delta
+      if (t < cfg.roundGap) return AT_REST
+      phase = 'pulse'
+      inRound = 0
+      t -= cfg.roundGap
+    }
+
     // phase === 'pulse'
-    if (!input.visible && !loop) return finish()
     t += delta
     if (t >= pulseEnd) {
       played += 1
-      if (played >= pulses) return finish()
+      inRound += 1
       t -= pulseEnd
+      if (inRound >= pulsesPerRound) {
+        rounds += 1
+        phase = 'rest'
+        // The round's rest begins where the last pulse ended, carrying any
+        // overshoot, so a slow frame cannot lengthen the pause.
+        return t < cfg.roundGap ? AT_REST : tick(0, input)
+      }
     }
     return {
       hover: t >= hoverOn && t < hoverOff,
@@ -130,14 +153,25 @@ export function createHoverTutorial(
     phase = 'done'
   }
 
+  function suspend() {
+    if (phase === 'done') return
+    phase = 'waiting'
+    t = 0
+    inRound = 0
+  }
+
   return {
     tick,
     retire,
+    suspend,
     get phase() {
       return phase
     },
     get pulsesPlayed() {
       return played
+    },
+    get roundsPlayed() {
+      return rounds
     },
   }
 }

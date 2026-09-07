@@ -302,12 +302,13 @@ export function createSatelliteFocus({
     if (enabled === next) return
     enabled = next
     if (!next) {
-      // Leaving the scene — the warp to Murcia, the audit panel — ends the
-      // tutorial for the session, mid-pulse or still waiting. It is a
-      // discovery hint, not a task: the viewer who comes back is not owed a
-      // replay, and this is what keeps it from restarting on the return.
-      // Retired FIRST, so no demo highlight survives into the pass below.
-      retireTutorial()
+      // Leaving the scene — the warp to Murcia, the audit panel — PAUSES the
+      // tutorial rather than ending it. The lesson ends when the viewer
+      // interacts with a satellite, and a trip is not that: someone who never
+      // found them is owed the offer again when they come back. Suspended
+      // FIRST, so no demo highlight survives into the pass below.
+      tutorial.suspend()
+      clearDemo()
       deselect()
       hoveredId = null
       applyHighlights()
