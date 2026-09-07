@@ -1,10 +1,11 @@
 // The hover tutorial's sequence, as a pure state machine.
 //
-// One satellite auto-plays the REAL hover state in rounds of two pulses, each
-// pulse announced by particles converging on it, and it keeps offering until
-// the viewer interacts with a satellite. This module decides only WHEN: the
-// output is a boolean the focus layer turns into the same highlight the
-// pointer sets, plus a 0..1 progress for the particle cue. Nothing visual
+// One satellite auto-plays the REAL hover state — carried further, see
+// `satellite.demoScale` — one pulse every three seconds, each announced by
+// particles converging on it, and it keeps offering until the viewer CLICKS a
+// satellite. This module decides only WHEN: the output is a boolean the focus
+// layer turns into the same highlight the pointer sets, plus a 0..1 progress
+// for the particle cue. Nothing visual
 // lives here — extracted for the reason invitation.ts and panelExpansion.ts
 // are, so the whole lifecycle can be exercised in Node without a WebGL context.
 //
@@ -17,10 +18,11 @@
 //     hover    t ∈ [cueLead, cueLead + hold)   the target is on
 //     gap      until cueLead + hold + gap       rest
 //
-// ONLY `retire()` REACHES `done`, and only the viewer causes it — a real
-// hover, a tap, a selection. There is no timer that ends the lesson: a hint
-// that gave up while the viewer was still puzzled would have been a hint that
-// failed. `roundGap` is what keeps repeating from nagging.
+// ONLY `retire()` REACHES `done`, and only a SELECTION causes it. A hover used
+// to as well; it no longer does, because a cursor crosses a satellite by
+// accident and the hint it ended was the only thing saying they open. There is
+// no timer either: a hint that gave up while the viewer was still puzzled would
+// have been a hint that failed.
 //
 // Losing the target off screen is not an ending either. It orbits out of the
 // margin and back, so the sequence returns to `waiting` and offers again when
@@ -49,7 +51,7 @@ export interface TutorialFrame {
 
 export interface HoverTutorial {
   tick(delta: number, input: TutorialInput): TutorialFrame
-  /** Ends the tutorial for good — the viewer interacted. Idempotent. */
+  /** Ends the tutorial for good — the viewer selected a satellite. Idempotent. */
   retire(): void
   /**
    * Pauses it: back to waiting, with nothing held. For leaving the scene,

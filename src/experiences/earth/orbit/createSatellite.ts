@@ -269,14 +269,23 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
   // frame apart from update()'s would show a stale first frame on every rise.
   let highlight = 0
   let highlightTarget = 0
-  function setHighlight(on: boolean) {
+  // Where the bump lands. The tutorial's demonstration goes further than the
+  // pointer's own answer (see orbitConfig.demoScale), and it is latched on the
+  // RISE rather than read per frame: a pointer taking the target over mid-pulse
+  // then walks the scale down to its own size along the ease already running,
+  // instead of the two writers swapping heights on one frame.
+  let bumpScale = ORBIT_CONFIG.satellite.highlightScale
+  function setHighlight(on: boolean, demo = false) {
+    if (on) {
+      bumpScale = demo ? ORBIT_CONFIG.satellite.demoScale : ORBIT_CONFIG.satellite.highlightScale
+    }
     highlightTarget = on ? 1 : 0
   }
 
   /** The eased strength becomes the scale and the panel's light — the one place. */
   function applyHighlight() {
     const strength = easeExpansion(highlight)
-    content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, strength))
+    content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, strength, bumpScale))
     holoPanel?.setHighlight(strength)
   }
 
@@ -288,6 +297,7 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
   function resetHighlight() {
     highlight = 0
     highlightTarget = 0
+    bumpScale = ORBIT_CONFIG.satellite.highlightScale
     applyHighlight()
   }
 

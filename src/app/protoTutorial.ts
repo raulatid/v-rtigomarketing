@@ -2,9 +2,9 @@
  * The hover tutorial's tuning gate. Discovery scaffolding, the sibling of
  * `protoHolo.ts`, built the same way for the same reasons.
  *
- * The tutorial plays twice per session and retires the moment the viewer
- * hovers or selects a satellite — which is right for a visitor and hopeless
- * for tuning it: every look at a changed value costs a reload and a full
+ * The tutorial offers once every three seconds and retires the moment the
+ * viewer selects a satellite — which is right for a visitor and hopeless for
+ * tuning it: every look at a changed value costs a reload and a full
  * intro. `?tutorial=1` makes it loop and ignore retirement so its particles,
  * timing and the hover light can be judged against the live scene.
  *

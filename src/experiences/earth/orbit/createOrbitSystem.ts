@@ -297,8 +297,9 @@ export function createOrbitSystem({ renderer }: Options) {
     orbit.idleStartTime = null
   }
 
-  function setSatelliteHighlight(id: string, on: boolean) {
-    findOrbit(id)?.satellite.setHighlight(on)
+  /** `demo` marks the tutorial as the one asking, which bumps further; see createSatellite. */
+  function setSatelliteHighlight(id: string, on: boolean, demo = false) {
+    findOrbit(id)?.satellite.setHighlight(on, demo)
   }
 
   /**

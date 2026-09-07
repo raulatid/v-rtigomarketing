@@ -118,12 +118,15 @@ export function createSatelliteFocus({
    */
   function applyHighlights() {
     for (const sat of orbitSystem.satellites) {
-      // The tutorial's demo is a hover, so it reads exactly as one here: it
-      // bumps, it does not unfold, and it takes the invitation away for as long
-      // as it holds — the state a real hover produces, which is the only state
-      // worth demonstrating.
-      const hovered = sat.id === hoveredId || sat.id === demoId
-      orbitSystem.setSatelliteHighlight(sat.id, sat.id === selectedId || hovered)
+      // The tutorial's demo is a hover, so it reads as one here: it bumps, it
+      // does not unfold, and it takes the invitation away for as long as it
+      // holds. The ONE difference is how far the bump goes — `demo` sends it to
+      // `satellite.demoScale` — so the demonstration is visible to a viewer who
+      // has no pointer to compare it against.
+      const pointed = sat.id === hoveredId
+      const demoed = sat.id === demoId && !pointed
+      const hovered = pointed || demoed
+      orbitSystem.setSatelliteHighlight(sat.id, sat.id === selectedId || hovered, demoed)
       orbitSystem.setSatelliteExpanded(sat.id, sat.id === selectedId)
       orbitSystem.setSatelliteInvited(
         sat.id,
@@ -144,9 +147,14 @@ export function createSatelliteFocus({
   }
 
   /**
-   * The viewer has shown they understand — a real hover, a tap, a selection —
-   * so the lesson is over for the session. Idempotent, and safe mid-pulse:
-   * whatever the tutorial was holding is let go on the same pass.
+   * The viewer has shown they understand — they SELECTED a satellite — so the
+   * lesson is over for the session. Idempotent, and safe mid-pulse: whatever
+   * the tutorial was holding is let go on the same pass.
+   *
+   * A hover no longer counts, and that is the client's call on the second
+   * review: a cursor crosses a satellite by accident, and the hint it ended was
+   * the only thing telling anyone the satellites open. A click cannot be an
+   * accident.
    */
   function retireTutorial() {
     tutorial.retire()
@@ -218,12 +226,11 @@ export function createSatelliteFocus({
   function updateHover() {
     const newId = pickAt(lastMoveX, lastMoveY)
 
-    // A real hover on ANY satellite is the viewer finding out for themselves.
-    // Retired before the diff so the demo lets go on this same pass, and the
-    // union in applyHighlights means a pointer on B is never un-highlighted by
-    // a tutorial holding A.
-    if (newId !== null) retireTutorial()
-
+    // A real hover does NOT end the lesson — only a selection does (see
+    // retireTutorial). The pointer still wins the frame it shares: the union in
+    // applyHighlights means a pointer on B is never un-highlighted by a
+    // tutorial holding A, and a pointer on A takes A's bump down to its own
+    // size rather than the demonstration's.
     if (newId !== hoveredId) {
       hoveredId = newId
       applyHighlights()

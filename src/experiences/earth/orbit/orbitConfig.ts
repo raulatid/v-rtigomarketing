@@ -112,6 +112,14 @@ export const ORBIT_CONFIG = {
     // so hover still reads as "more" — orbitConfig.test.ts asserts the order.
     // A size change is what reads at overview scale; the halo alone did not.
     inviteScale: 1.08,
+    // The TUTORIAL pulse's bump, used in place of `highlightScale` for as long
+    // as the demonstration holds its target. Client's call on the second
+    // review: the hint has to swell FURTHER than the pointer's own answer, or
+    // a viewer who never moves a cursor has nothing to measure it against. It
+    // is deliberately above highlightScale — the one place the demonstration
+    // and a real hover differ — and it reaches the invited satellite only,
+    // because that is the only one ever demonstrated.
+    demoScale: 1.34,
   },
 
   // Holographic brand panel floating above each satellite. All sizes are in the
@@ -293,17 +301,20 @@ export const ORBIT_CONFIG = {
   },
 
   // The hover TUTORIAL: the invited satellite auto-plays the real hover state,
-  // in rounds of two pulses, each pulse announced by particles converging on
+  // one pulse every three seconds, each announced by particles converging on
   // it — so a viewer with no cursor, or one who has not thought to try, sees
   // that the satellites respond. No text, no HUD. It drives the same highlight
-  // the pointer drives (`createSatelliteFocus.demoId`), so retuning hover
-  // retunes the tutorial; the only timings owned here are the ones hover does
+  // the pointer drives (`createSatelliteFocus.demoId`), scaled up by
+  // `satellite.demoScale`; the only timings owned here are the ones hover does
   // not have. Seconds, unless stated. See orbit/hoverTutorial.ts.
   //
-  // IT REPEATS UNTIL THE VIEWER INTERACTS. Client's call on the first review:
-  // two pulses and silence was missable. The lesson ends on a real hover, tap
-  // or selection of any satellite — never on a timer — so `roundGap` is what
-  // keeps a repeating hint from becoming a nag.
+  // IT REPEATS UNTIL THE VIEWER CLICKS A SATELLITE. Client's call on the
+  // second review: a hover is not proof that anyone understood — a cursor
+  // crosses a satellite by accident — so only a selection ends the lesson, and
+  // the offer is made on a steady beat rather than in rounds until it does.
+  //
+  // THE BEAT: cueLead + hold + gap + roundGap = 3.0 s, one pulse per cycle.
+  // Changing any of the four moves the cadence; orbitConfig.test.ts pins it.
   tutorial: {
     // After the satellite has settled AND is on screen. Same beat as the
     // navigation hint (HINT_ARRIVAL_MS), so the two land together, not in turn.
@@ -311,14 +322,16 @@ export const ORBIT_CONFIG = {
     // Hover held at full, measured from the moment the target flips on; the
     // rise itself is `satellite.highlightDuration`.
     hold: 1.0,
-    // Rest between the two pulses of a round, from the moment the target flips off.
-    gap: 0.9,
-    // Pulses per round. Two: one reads as ambient, three in a row starts to nag.
-    pulses: 2,
-    // Rest between ROUNDS. Long enough that the repeat reads as an offer made
-    // again rather than as an animation running on a loop — the difference
-    // between this and `gap` is the whole reason repeating is tolerable.
-    roundGap: 4.0,
+    // The pulse's own tail, from the moment the target flips off: long enough
+    // to cover the bump easing back down before the round's rest begins.
+    gap: 0.6,
+    // Pulses per round. One: with the cycle down to three seconds, a round of
+    // two read as a burst rather than as a single, repeated offer.
+    pulses: 1,
+    // Rest between rounds — here, between one pulse and the next. It and `gap`
+    // are the whole quiet stretch; they are split so the pulse keeps its own
+    // tail if `pulses` is ever raised again.
+    roundGap: 0.7,
     // The particle cue: how long the convergence takes, and how far into it
     // the hover starts — so the satellite visibly responds AS the particles
     // arrive rather than before or after. cueLead < cueDuration, asserted.

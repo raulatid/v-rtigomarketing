@@ -175,6 +175,15 @@ describe('the brand panel', () => {
     expect(panel.coneInviteGain).toBeGreaterThanOrEqual(0)
   })
 
+  it('swells the tutorial pulse past the hover bump, but not into a lurch', () => {
+    // The demonstration has to out-read the pointer's own answer — a viewer
+    // with no cursor has nothing to compare it against — while staying a bump
+    // rather than a jump. Only the invited satellite ever reaches it.
+    const { satellite } = ORBIT_CONFIG
+    expect(satellite.demoScale).toBeGreaterThan(satellite.highlightScale)
+    expect(satellite.demoScale).toBeLessThanOrEqual(1.5)
+  })
+
   it('keeps the hover light within the invitation, and the bump short', () => {
     // Hover reinforces the panel on the same eased strength as the bump. It
     // must not out-shine the invitation's own gain — the line saturates near
@@ -188,13 +197,13 @@ describe('the brand panel', () => {
     expect(satellite.highlightDuration).toBeLessThan(1)
   })
 
-  it('keeps the hover tutorial to rounds of two pulses that the cue announces', () => {
-    // Two per round: one reads as ambient, three in a row starts to nag. The
-    // cue has to land before the hover it announces, and every timing stays
-    // inside the bands the brief set, so a retune cannot quietly turn a hint
-    // into a show.
+  it('keeps the hover tutorial to one pulse that the cue announces', () => {
+    // One per round: with the cycle down to three seconds, a round of two read
+    // as a burst rather than as a single, repeated offer. The cue has to land
+    // before the hover it announces, and every timing stays inside the bands
+    // the brief set, so a retune cannot quietly turn a hint into a show.
     const t = ORBIT_CONFIG.tutorial
-    expect(t.pulses).toBe(2)
+    expect(t.pulses).toBe(1)
     expect(t.armDelay).toBeGreaterThanOrEqual(0.8)
     expect(t.armDelay).toBeLessThanOrEqual(1.5)
     expect(t.hold).toBeGreaterThanOrEqual(0.3)
@@ -214,13 +223,15 @@ describe('the brand panel', () => {
     expect(t.reducedMotionHoldScale).toBeGreaterThanOrEqual(1)
   })
 
-  it('rests longer between rounds than between pulses', () => {
-    // It repeats until the viewer interacts, so this gap is the whole
-    // difference between an offer made again and an animation on a loop.
+  it('repeats the offer on a three-second beat', () => {
+    // The client's number. The four knobs below are the whole cycle, so any
+    // retune that moved one of them without the others would silently change
+    // how often the hint is made.
     const t = ORBIT_CONFIG.tutorial
-    expect(t.roundGap).toBeGreaterThan(t.gap)
-    expect(t.roundGap).toBeGreaterThanOrEqual(t.pulses * (t.cueLead + t.hold + t.gap) * 0.5)
-    expect(t.roundGap).toBeLessThanOrEqual(12)
+    const cycle = t.pulses * (t.cueLead + t.hold + t.gap) + t.roundGap
+    expect(cycle).toBeCloseTo(3, 6)
+    // Still more quiet than pulse: the offer is made again, it does not run.
+    expect(t.gap + t.roundGap).toBeGreaterThan(t.hold)
   })
 
   it('keeps the panel clear of the satellite model it floats above', () => {

@@ -96,4 +96,18 @@ describe('invitationScale', () => {
     expect(invitationScale(Number.NaN, 0)).toBe(1)
     expect(invitationScale(0, Number.NaN)).toBe(1)
   })
+
+  it('carries the tutorial further than the pointer, on the same curve', () => {
+    // The demonstration is the hover response taken past where a pointer takes
+    // it — the client's ask — and it must be the SAME travel, so the two never
+    // read as different animations.
+    expect(invitationScale(0, 1, cfg.demoScale)).toBe(cfg.demoScale)
+    expect(invitationScale(0, 1, cfg.demoScale)).toBeGreaterThan(invitationScale(0, 1))
+    expect(invitationScale(1, 0.5, cfg.demoScale)).toBeCloseTo(
+      (invitationScale(1, 0) + cfg.demoScale) / 2,
+      10,
+    )
+    // A bump that is not a number falls back to the pointer's own size.
+    expect(invitationScale(0, 1, Number.NaN)).toBe(cfg.highlightScale)
+  })
 })

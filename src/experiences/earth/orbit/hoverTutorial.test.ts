@@ -3,11 +3,12 @@ import { createHoverTutorial } from './hoverTutorial'
 import type { HoverTutorialConfig, TutorialFrame, TutorialInput } from './hoverTutorial'
 import { ORBIT_CONFIG } from './orbitConfig'
 
-// The tutorial's sequence, in isolation from anything visual: rounds of two
-// pulses of the real hover state, each announced by the cue, repeating until
-// the viewer interacts. Every timing below is the shipped config, so a retune
-// that broke the order — hover before the cue, a third pulse in a round, a cue
-// under reduced motion — fails here before it reaches the scene.
+// The tutorial's sequence, in isolation from anything visual: one pulse of the
+// real hover state every three seconds, each announced by the cue, repeating
+// until the viewer selects a satellite. Every timing below is the shipped
+// config, so a retune that broke the order — hover before the cue, an extra
+// pulse in a round, a cue under reduced motion — fails here before it reaches
+// the scene.
 
 const cfg = ORBIT_CONFIG.tutorial
 const DT = 1 / 60
@@ -35,9 +36,16 @@ function rises(frames: TutorialFrame[]): number {
   return count
 }
 
-/** One round's worth of frames, plus the arming beat and a margin. */
-const total = (c: HoverTutorialConfig = cfg) =>
-  c.armDelay + c.pulses * (c.cueLead + c.hold + c.gap) + 1
+/** One round of pulses, from cold. */
+const round = (c: HoverTutorialConfig = cfg) => c.pulses * (c.cueLead + c.hold + c.gap) + c.roundGap
+
+/**
+ * The arming beat plus one round, stopping HALF WAY INTO the round's rest —
+ * far enough past the last pulse to have nothing held, not so far that the next
+ * round has begun. A fixed margin was enough when a round was eight seconds
+ * long; at a three-second cycle it overshoots into the next pulse.
+ */
+const total = (c: HoverTutorialConfig = cfg) => c.armDelay + round(c) - c.roundGap / 2
 
 describe('the hover tutorial', () => {
   it('waits for the target to settle, then to be visible, before arming', () => {
@@ -65,31 +73,31 @@ describe('the hover tutorial', () => {
     // The client's rule: it repeats until the viewer interacts. Nothing here
     // ends it — no timer, no pulse count.
     const tutorial = createHoverTutorial()
-    const frames = run(tutorial, total() + cfg.roundGap + total() * 2)
+    const frames = run(tutorial, total() + round() * 2)
     expect(tutorial.roundsPlayed).toBeGreaterThanOrEqual(3)
     expect(rises(frames)).toBe(tutorial.pulsesPlayed)
     expect(tutorial.pulsesPlayed).toBe(tutorial.roundsPlayed * cfg.pulses)
     expect(tutorial.phase).not.toBe('done')
   })
 
-  it('rests longer between rounds than between the pulses of one', () => {
+  it('offers on a steady three-second beat, every cycle the same', () => {
+    // The client's number, asserted where it is felt rather than only in the
+    // config: from one rise to the next, forever.
     const tutorial = createHoverTutorial()
-    const frames = run(tutorial, total() + cfg.roundGap + total())
-    // The quiet stretches between rises, in seconds.
-    const quiet: number[] = []
-    let run_ = 0
-    let seen = false
-    for (const f of frames) {
-      if (f.hover) {
-        if (run_ > 0 && seen) quiet.push(run_ * DT)
-        run_ = 0
-        seen = true
-      } else if (seen) run_ += 1
+    const frames = run(tutorial, cfg.armDelay + 12)
+    const riseAt: number[] = []
+    let last = false
+    frames.forEach((f, i) => {
+      if (f.hover && !last) riseAt.push(i * DT)
+      last = f.hover
+    })
+    expect(riseAt.length).toBeGreaterThanOrEqual(3)
+    for (let i = 1; i < riseAt.length; i += 1) {
+      expect(riseAt[i]! - riseAt[i - 1]!).toBeCloseTo(3, 1)
     }
-    const longest = Math.max(...quiet)
-    const shortest = Math.min(...quiet)
-    expect(longest).toBeGreaterThan(shortest * 1.5)
-    expect(longest).toBeCloseTo(cfg.gap + cfg.roundGap + cfg.cueLead, 0)
+    // And the quiet between them is longer than the hold: an offer made again,
+    // not an animation running.
+    expect(3 - cfg.hold).toBeGreaterThan(cfg.hold)
   })
 
   it('holds the beat before the first pulse', () => {

@@ -45,14 +45,21 @@ export function invitationPulse(invite: number, time: number, breathing: boolean
  * synthetic hover impossible: the tutorial that auto-plays this state would
  * have popped. Widening it here is what lets the pointer and the tutorial share
  * ONE visual response.
+ *
+ * `bumpScale` is where the bump lands — `satellite.highlightScale` for a real
+ * hover, `satellite.demoScale` while the tutorial is the one holding it. The
+ * two curves are otherwise identical: the demonstration is the same response
+ * carried further, which is what the client asked for, not a second animation.
  */
 export function invitationScale(
   pulse: number,
   highlight: number,
+  bumpScale?: number,
   cfg = ORBIT_CONFIG.satellite,
 ): number {
+  const bump = Number.isFinite(bumpScale) ? (bumpScale as number) : cfg.highlightScale
   const rest = 1 + (cfg.inviteScale - 1) * clamp01(pulse)
-  return rest + (cfg.highlightScale - rest) * clamp01(highlight)
+  return rest + (bump - rest) * clamp01(highlight)
 }
 
 function clamp01(value: number): number {

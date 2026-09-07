@@ -36,6 +36,7 @@ const QUICK_TUTORIAL = {
   armDelay: 0.1,
   hold: 0.1,
   gap: 0.1,
+  pulses: 1,
   roundGap: 0.3,
   cueDuration: 0.1,
   cueLead: 0.05,
@@ -285,29 +286,48 @@ describe('the invitation', () => {
 
 describe('the hover tutorial', () => {
   // The invited satellite auto-plays the REAL hover state — the same
-  // `setSatelliteHighlight` the pointer drives, through the same pass — in
-  // rounds of two, each pulse announced by the particle cue, repeating until
-  // the viewer interacts. It is a third writer of the hover state, not an
+  // `setSatelliteHighlight` the pointer drives, through the same pass — one
+  // pulse per cycle, each announced by the particle cue, repeating until the
+  // viewer SELECTS a satellite. It is a third writer of the hover state, not an
   // animation, which is why it is asserted through the same spies as the
   // pointer's hover above.
 
-  it('plays the real hover state on the invited satellite, two pulses to a round', () => {
+  it('plays the real hover state on the invited satellite, one pulse to a round', () => {
     harness.highlighted.mockClear()
-    // One round: the arming beat plus two pulses, stopping inside the round gap.
-    harness.run(0.1 + 2 * (0.05 + 0.1 + 0.1) + 0.05)
+    // One round: the arming beat plus the pulse, stopping inside the round gap.
+    harness.run(0.1 + (0.05 + 0.1 + 0.1) + 0.05)
 
-    expect(harness.risesOf('a')).toBe(2)
+    expect(harness.risesOf('a')).toBe(1)
     expect(harness.risesOf('b')).toBe(0)
-    expect(harness.focus.tutorialPulses).toBe(2)
+    expect(harness.focus.tutorialPulses).toBe(1)
     // At rest between rounds: the bump released, the cue hidden, the invitation back.
     expect(harness.highlightState()).toEqual({ a: false, b: false })
     expect(harness.cuesOf('a').at(-1)).toBeNull()
     expect(harness.invitationState()).toEqual({ a: true, b: false })
   })
 
+  it('asks for a bigger bump than the pointer does, and only for its own target', () => {
+    // The demonstration is the hover response carried past where a pointer
+    // takes it (satellite.demoScale); a real hover on the same satellite is
+    // still the pointer's own size.
+    harness.runUntil(() => harness.highlightState().a === true)
+    const demo = (harness.highlighted.mock.calls as Array<[string, boolean, boolean]>).filter(
+      ([id, on]) => id === 'a' && on,
+    )
+    expect(demo.at(-1)?.[2]).toBe(true)
+
+    harness.hoverOver('a')
+    harness.focus.update(1 / 60)
+    harness.runUntil(() => harness.highlightState().a === true)
+    const pointer = (harness.highlighted.mock.calls as Array<[string, boolean, boolean]>).filter(
+      ([id, on]) => id === 'a' && on,
+    )
+    expect(pointer.at(-1)?.[2]).toBe(false)
+  })
+
   it('keeps offering, round after round, while the viewer does nothing', () => {
     harness.run(3)
-    expect(harness.focus.tutorialPulses).toBeGreaterThanOrEqual(6)
+    expect(harness.focus.tutorialPulses).toBeGreaterThanOrEqual(4)
     expect(harness.focus.tutorialPhase).not.toBe('done')
   })
 
@@ -336,21 +356,19 @@ describe('the hover tutorial', () => {
     expect(harness.invitationState()).toEqual({ a: true, b: false })
   })
 
-  it('yields to a real hover on another satellite, and never comes back', () => {
+  it('keeps offering after a real hover: only a selection is proof', () => {
+    // A cursor crosses a satellite by accident. Until 2026-09-07 that ended the
+    // lesson, which took away the only thing telling anyone the satellites open.
     harness.runUntil(() => harness.highlightState().a === true)
 
     harness.hoverOver('b')
     harness.focus.update(1 / 60)
-    // B is the pointer's; A's demo let go on the same pass.
-    expect(harness.highlightState()).toEqual({ a: false, b: true })
-    expect(harness.cuesOf('a').at(-1)).toBeNull()
-    expect(harness.focus.tutorialPhase).toBe('done')
+    expect(harness.highlightState().b).toBe(true)
+    expect(harness.focus.tutorialPhase).not.toBe('done')
 
-    harness.highlighted.mockClear()
-    harness.hoverOver('a')
-    harness.run(2)
-    // Only the pointer lights A now — one rise, the pointer's, not the tutorial's.
-    expect(harness.risesOf('a')).toBe(1)
+    const before = harness.focus.tutorialPulses
+    harness.run(1)
+    expect(harness.focus.tutorialPulses).toBeGreaterThan(before)
   })
 
   it('retires the moment any satellite is selected', () => {
@@ -406,13 +424,14 @@ describe('the hover tutorial', () => {
     expect(harness.invitationState()).toEqual({ a: true, b: false })
   })
 
-  it('retires if the pointer is already resting on a satellite when the scene settles', () => {
+  it('still offers if the pointer is resting on a satellite when the scene settles', () => {
     harness.hoverOver('a')
     harness.run(0.5)
-    // The pointer's hover, not the tutorial's: no pulse was ever played.
+    // The pointer holds A the whole time — a rest, not a decision — so the
+    // lesson is still live behind it.
     expect(harness.highlightState()).toEqual({ a: true, b: false })
-    expect(harness.focus.tutorialPhase).toBe('done')
-    expect(harness.focus.tutorialPulses).toBe(0)
+    expect(harness.focus.tutorialPhase).not.toBe('done')
+    expect(harness.focus.tutorialPulses).toBeGreaterThan(0)
   })
 
   it('waits for the target to be on screen rather than playing toward nothing', () => {
