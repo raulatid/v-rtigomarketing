@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useRef } from 'react'
+import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { OrbitSystem } from '../orbit/createOrbitSystem'
@@ -8,6 +8,8 @@ import { createFocusCameraRig, FocusCameraRig } from '../camera/createFocusCamer
 import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { installCameraReadout } from '../debug/CameraReadout'
 import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags'
+import { PROTO_TUTORIAL } from '../../../app/protoTutorial'
+import { prefersReducedMotion } from '../../../app/warpTransition'
 import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
 import { createCursorManager, type CursorManager } from '../../../interaction/cursorManager'
 import { SequenceState } from '../config/sequenceState'
@@ -60,6 +62,11 @@ export function InteractionLayer({
   const callbacks = useRef({ onSelect, onDeselect })
   callbacks.current = { onSelect, onDeselect }
 
+  // Sampled once: matchMedia inside a frame callback would be a media lookup per
+  // frame, and every other reader in the application samples it once too. The
+  // hover tutorial reads it through the focus, which is built once below.
+  const reducedMotion = useMemo(prefersReducedMotion, [])
+
   useEffect(() => {
     const orbitSystem = orbitSystemRef.current
     if (!orbitSystem) return
@@ -91,6 +98,8 @@ export function InteractionLayer({
       invitedId: invitedCaseId,
       onSelect: (data) => callbacks.current.onSelect(data),
       onDeselect: () => callbacks.current.onDeselect(),
+      reducedMotion,
+      tutorialLoop: PROTO_TUTORIAL.loop,
     })
 
     // Dev-gated, and a no-op in a production build. Installed here because this
@@ -119,10 +128,7 @@ export function InteractionLayer({
     // orbitSystemRef is populated by OrbitSystemLayer's effect. Both mount in
     // the same commit and OrbitSystemLayer is ordered first in SceneCanvas, so
     // its effect has already run by the time this one does.
-  }, [camera, gl, orbitSystemRef, handleRef, cursorRef])
-
-  // Sampled once: matchMedia inside a frame callback would be a media lookup per
-  // frame, and every other reader in the application samples it once too.
+  }, [camera, gl, orbitSystemRef, handleRef, cursorRef, reducedMotion])
 
   // Priority 0, and LAST among the priority-0 layers, so the rig is the final
   // camera writer before RenderPipeline draws at priority 1.
@@ -188,8 +194,10 @@ export function InteractionLayer({
 
     if (!interactive || cinematic) return
 
-    focus.update()
-    // Clamped so a backgrounded tab cannot teleport the camera on return.
+    // Clamped so a backgrounded tab cannot teleport the camera on return — nor
+    // skip the tutorial's pulses, which tick on the same delta.
+    const delta = clampFrameDelta(rawDelta)
+    focus.update(delta)
     //
     // The zoom was written above, before the rig rather than after it, and that
     // ordering is the difference between a zoom and the scrub it replaced
@@ -197,7 +205,7 @@ export function InteractionLayer({
     // because the rig would have overwritten anything written first. A zoom is
     // an input to the rig rather than a correction of it, so it goes in at the
     // front and comes out smoothed by the rig's own radius ease.
-    rig.update(clampFrameDelta(rawDelta))
+    rig.update(delta)
   })
 
   return null

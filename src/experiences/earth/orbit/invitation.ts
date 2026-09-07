@@ -34,16 +34,25 @@ export function invitationPulse(invite: number, time: number, breathing: boolean
 /**
  * The scale of the satellite's inner group this frame.
  *
- * The hover/selection bump wins outright: it is the answer while the cursor is
- * on the satellite, and a bump that kept breathing underneath would wobble.
+ * `highlight` is the hover/selection STRENGTH, 0..1 — eased by the satellite
+ * from the boolean the focus layer flips (see createSatellite.setHighlight).
+ * At 1 the bump wins outright: it is the answer while the cursor is on the
+ * satellite, and a bump that kept breathing underneath would wobble. Between,
+ * the scale travels from wherever the breath has it to the bump, so a hover
+ * arriving mid-breath grows from that size rather than snapping.
+ *
+ * It was a boolean until 2026-09-07, and the step it produced is what made a
+ * synthetic hover impossible: the tutorial that auto-plays this state would
+ * have popped. Widening it here is what lets the pointer and the tutorial share
+ * ONE visual response.
  */
 export function invitationScale(
   pulse: number,
-  highlighted: boolean,
+  highlight: number,
   cfg = ORBIT_CONFIG.satellite,
 ): number {
-  if (highlighted) return cfg.highlightScale
-  return 1 + (cfg.inviteScale - 1) * clamp01(pulse)
+  const rest = 1 + (cfg.inviteScale - 1) * clamp01(pulse)
+  return rest + (cfg.highlightScale - rest) * clamp01(highlight)
 }
 
 function clamp01(value: number): number {

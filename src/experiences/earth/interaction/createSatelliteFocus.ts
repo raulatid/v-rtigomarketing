@@ -4,6 +4,10 @@ import type { SatelliteDef } from '../orbit/orbitConfig'
 import { FocusCameraRig } from '../camera/createFocusCameraRig'
 import { CursorManager } from '../../../interaction/cursorManager'
 import { clientToNdc } from '../../../interaction/screenSpace'
+import { ORBIT_CONFIG } from '../orbit/orbitConfig'
+import { createHoverTutorial } from '../orbit/hoverTutorial'
+import type { HoverTutorialConfig } from '../orbit/hoverTutorial'
+import { isPointVisible } from '../orbit/satelliteVisibility'
 
 // Wires hover/click on the satellite badges to the camera rig, the orbit
 // system's freeze/resume API, and the case panel.
@@ -12,6 +16,12 @@ import { clientToNdc } from '../../../interaction/screenSpace'
 // framing it left of centre, and the panel appears on the right. The ✕ button,
 // Escape, or a click on empty space deselects: the camera returns to overview
 // and the satellite resumes its orbit from exactly where it froze.
+//
+// It also runs the hover TUTORIAL: the invited satellite auto-plays the hover
+// state twice after the scene settles, so a viewer with no cursor — or one who
+// has not thought to try — sees that the satellites respond. It is not an
+// animation of its own. It is a third writer of the same `highlight` the
+// pointer writes, so whatever hover looks like, the tutorial looks like that.
 
 interface Options {
   camera: THREE.Camera
@@ -22,10 +32,20 @@ interface Options {
   /**
    * The satellite whose halo breathes brighter until the viewer has selected
    * one — any one. `null` for no invitation. See orbitAssignments.invitedCaseId.
+   * The hover tutorial plays on the same satellite, and retires with it.
    */
   invitedId: string | null
   onSelect: (data: SatelliteDef) => void
   onDeselect: () => void
+  /**
+   * Sampled once by the caller, like every other reader in the application.
+   * The tutorial then plays one longer pulse with no particles; the hover ease
+   * itself is kept, because two snaps are more abrupt than one short rise.
+   */
+  reducedMotion?: boolean
+  /** Debug (`?tutorial=1`): the tutorial loops and ignores retirement, for tuning. */
+  tutorialLoop?: boolean
+  tutorial?: HoverTutorialConfig
 }
 
 export function createSatelliteFocus({
@@ -37,6 +57,9 @@ export function createSatelliteFocus({
   invitedId,
   onSelect,
   onDeselect,
+  reducedMotion = false,
+  tutorialLoop = false,
+  tutorial: tutorialConfig = ORBIT_CONFIG.tutorial,
 }: Options) {
   const raycaster = new THREE.Raycaster()
   const ndc = new THREE.Vector2()
@@ -53,6 +76,17 @@ export function createSatelliteFocus({
   let invited = invitedId
   let enabled = false
   const worldPos = new THREE.Vector3()
+
+  // The tutorial's synthetic hover: the satellite it is currently holding in
+  // the hover state, or null. A THIRD term beside `hoveredId` and `selectedId`,
+  // never written INTO `hoveredId` — `updateHover` recomputes that from the
+  // pointer every frame and would erase it. Same lifetime as `invited`: this
+  // closure is built once per page load and survives the trip to Murcia and
+  // back, so "played once, never again" needs no global.
+  let demoId: string | null = null
+  let lastCue: number | null = null
+  const tutorial = createHoverTutorial(tutorialConfig, { reducedMotion, loop: tutorialLoop })
+  const tutorialPos = new THREE.Vector3()
 
   const satelliteObjects = orbitSystem.satellites.map((s) => s.object)
 
@@ -84,12 +118,73 @@ export function createSatelliteFocus({
    */
   function applyHighlights() {
     for (const sat of orbitSystem.satellites) {
-      orbitSystem.setSatelliteHighlight(sat.id, sat.id === selectedId || sat.id === hoveredId)
+      // The tutorial's demo is a hover, so it reads exactly as one here: it
+      // bumps, it does not unfold, and it takes the invitation away for as long
+      // as it holds — the state a real hover produces, which is the only state
+      // worth demonstrating.
+      const hovered = sat.id === hoveredId || sat.id === demoId
+      orbitSystem.setSatelliteHighlight(sat.id, sat.id === selectedId || hovered)
       orbitSystem.setSatelliteExpanded(sat.id, sat.id === selectedId)
       orbitSystem.setSatelliteInvited(
         sat.id,
-        enabled && sat.id === invited && sat.id !== hoveredId && sat.id !== selectedId,
+        enabled && sat.id === invited && !hovered && sat.id !== selectedId,
       )
+    }
+  }
+
+  /** Drops the synthetic hover and its cue, pushing the change if there was one. */
+  function clearDemo() {
+    if (lastCue !== null && invited !== null) {
+      lastCue = null
+      orbitSystem.setSatelliteCue(invited, null)
+    }
+    if (demoId === null) return
+    demoId = null
+    applyHighlights()
+  }
+
+  /**
+   * The viewer has shown they understand — a real hover, a tap, a selection —
+   * so the lesson is over for the session. Idempotent, and safe mid-pulse:
+   * whatever the tutorial was holding is let go on the same pass.
+   */
+  function retireTutorial() {
+    tutorial.retire()
+    if (tutorial.phase === 'done') clearDemo()
+  }
+
+  /**
+   * One frame of the tutorial. Runs whether or not a pointer exists — it is
+   * for the viewer who has none — and pauses for free while the layer is
+   * disabled, because `update` is not called then.
+   */
+  function tickTutorial(delta: number) {
+    if (tutorial.phase === 'done' || invited === null) {
+      clearDemo()
+      return
+    }
+    const target = orbitSystem.satellites.find((s) => s.id === invited)
+    if (!target) return
+
+    // Settled: the entrance is over and it is idling — the only readiness the
+    // skip path preserves. Visible: on screen with a margin and not behind the
+    // planet, read from the same camera the pointer picks through.
+    const settled = orbitSystem.isSatelliteActive(target.id)
+    let visible = false
+    if (settled) {
+      target.object.getWorldPosition(tutorialPos)
+      visible = isPointVisible(camera, tutorialPos, tutorialConfig.visibleMarginNdc)
+    }
+
+    const frame = tutorial.tick(delta, { settled, visible })
+    const nextDemo = frame.hover ? target.id : null
+    if (nextDemo !== demoId) {
+      demoId = nextDemo
+      applyHighlights()
+    }
+    if (frame.cue !== lastCue) {
+      lastCue = frame.cue
+      orbitSystem.setSatelliteCue(target.id, frame.cue)
     }
   }
 
@@ -123,6 +218,12 @@ export function createSatelliteFocus({
   function updateHover() {
     const newId = pickAt(lastMoveX, lastMoveY)
 
+    // A real hover on ANY satellite is the viewer finding out for themselves.
+    // Retired before the diff so the demo lets go on this same pass, and the
+    // union in applyHighlights means a pointer on B is never un-highlighted by
+    // a tutorial holding A.
+    if (newId !== null) retireTutorial()
+
     if (newId !== hoveredId) {
       hoveredId = newId
       applyHighlights()
@@ -141,6 +242,9 @@ export function createSatelliteFocus({
 
     selectedId = id
     invited = null
+    // Selecting is the surest sign of understanding; the tutorial retires with
+    // the invitation, on the same click.
+    retireTutorial()
     sat.object.getWorldPosition(worldPos)
 
     orbitSystem.freezeSatellite(id)
@@ -198,6 +302,12 @@ export function createSatelliteFocus({
     if (enabled === next) return
     enabled = next
     if (!next) {
+      // Leaving the scene — the warp to Murcia, the audit panel — ends the
+      // tutorial for the session, mid-pulse or still waiting. It is a
+      // discovery hint, not a task: the viewer who comes back is not owed a
+      // replay, and this is what keeps it from restarting on the return.
+      // Retired FIRST, so no demo highlight survives into the pass below.
+      retireTutorial()
       deselect()
       hoveredId = null
       applyHighlights()
@@ -211,8 +321,13 @@ export function createSatelliteFocus({
 
   // Runs per frame rather than on pointer move, because satellites keep moving
   // even when the pointer is still.
-  function update() {
-    if (!enabled || !pointerActive || cameraRig.isDragging()) return
+  //
+  // The tutorial ticks BEFORE the pointer guard: a touch device never sets
+  // `pointerActive`, and the tutorial exists above all for that device.
+  function update(delta = 0) {
+    if (!enabled) return
+    tickTutorial(delta)
+    if (!pointerActive || cameraRig.isDragging()) return
     updateHover()
   }
 
@@ -232,6 +347,13 @@ export function createSatelliteFocus({
     // "is the mouse over something", which on touch is always no.
     pickAt,
     dispose,
+    /** The tutorial's phase and pulse count — for the tests and the debug readout. */
+    get tutorialPhase() {
+      return tutorial.phase
+    },
+    get tutorialPulses() {
+      return tutorial.pulsesPlayed
+    },
   }
 }
 

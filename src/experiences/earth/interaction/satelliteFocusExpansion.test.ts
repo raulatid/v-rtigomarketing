@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
 import { createSatelliteFocus } from './createSatelliteFocus'
+import { ORBIT_CONFIG } from '../orbit/orbitConfig'
 import type { SatelliteDef } from '../orbit/orbitConfig'
 
 // What the brand panel unfolds for.
@@ -25,19 +26,42 @@ function def(id: string): SatelliteDef {
   return { id, name: id, label: id } as unknown as SatelliteDef
 }
 
-function setup() {
+/**
+ * The tutorial's timings, shortened so a sequence fits in a few dozen frames.
+ * Proportions kept — the cue still leads the hover — so what is asserted is
+ * the order and the count, which is what the shipped config's own test pins.
+ */
+const QUICK_TUTORIAL = {
+  ...ORBIT_CONFIG.tutorial,
+  armDelay: 0.1,
+  hold: 0.1,
+  gap: 0.1,
+  cueDuration: 0.1,
+  cueLead: 0.05,
+  maxWaitSeconds: 1,
+}
+
+interface SetupOptions {
+  reducedMotion?: boolean
+}
+
+function setup({ reducedMotion = false }: SetupOptions = {}) {
   const camera = new THREE.PerspectiveCamera(50, VIEWPORT.width / VIEWPORT.height, 0.1, 100)
-  camera.position.set(0, 0, 5)
+  camera.position.set(0, 0, 7)
   camera.lookAt(0, 0, 0)
   camera.updateMatrixWorld(true)
 
+  // Outside the Earth's occluder radius (EARTH_CONFIG.radius × 1.04 ≈ 2.08 at
+  // the origin) and inside the frame with the tutorial's margin — so the
+  // tutorial's visibility test, which runs against these same meshes, sees
+  // them the way it sees a satellite in front of the planet.
   const geometry = new THREE.BoxGeometry(0.6, 0.6, 0.6)
   const meshes = {
     a: new THREE.Mesh(geometry),
     b: new THREE.Mesh(geometry),
   }
-  meshes.a.position.set(-1.2, 0, 0)
-  meshes.b.position.set(1.2, 0, 0)
+  meshes.a.position.set(-2.6, 0, 0)
+  meshes.b.position.set(2.6, 0, 0)
   meshes.a.updateMatrixWorld(true)
   meshes.b.updateMatrixWorld(true)
 
@@ -49,6 +73,7 @@ function setup() {
   const expanded = vi.fn()
   const highlighted = vi.fn()
   const invited = vi.fn()
+  const cue = vi.fn()
   const orbitSystem = {
     satellites: [
       { id: 'a', data: def('a'), object: meshes.a },
@@ -60,6 +85,7 @@ function setup() {
     setSatelliteHighlight: highlighted,
     setSatelliteExpanded: expanded,
     setSatelliteInvited: invited,
+    setSatelliteCue: cue,
   }
 
   const cameraRig = {
@@ -80,6 +106,8 @@ function setup() {
     invitedId: 'a',
     onSelect: vi.fn(),
     onDeselect: vi.fn(),
+    reducedMotion,
+    tutorial: QUICK_TUTORIAL,
   })
 
   // The layer ignores clicks until the scene says it is interactive — the intro
@@ -116,17 +144,47 @@ function setup() {
     return state
   }
 
+  /** Runs `seconds` of frames through the focus, at 60 Hz. */
+  function run(seconds: number) {
+    const dt = 1 / 60
+    for (let t = 0; t < seconds; t += dt) focus.update(dt)
+  }
+
+  /** Runs frames until the predicate holds, or fails after `seconds`. */
+  function runUntil(predicate: () => boolean, seconds = 5) {
+    const dt = 1 / 60
+    for (let t = 0; t < seconds; t += dt) {
+      focus.update(dt)
+      if (predicate()) return
+    }
+    throw new Error('the condition never held')
+  }
+
+  /** How many times a satellite's highlight was switched ON — applyHighlights only pushes changes. */
+  const risesOf = (id: string) =>
+    (highlighted.mock.calls as Array<[string, boolean]>).filter(([i, on]) => i === id && on).length
+
+  /** The cue progress values pushed for a satellite, in order. */
+  const cuesOf = (id: string) =>
+    (cue.mock.calls as Array<[string, number | null]>).filter(([i]) => i === id).map(([, p]) => p)
+
   return {
     focus,
+    meshes,
     clickOn,
     hoverOver,
     expanded,
     highlighted,
     invited,
+    cue,
     expansionState: lastPerSatellite(expanded),
     highlightState: lastPerSatellite(highlighted),
     invitationState: lastPerSatellite(invited),
     cameraRig,
+    run,
+    runUntil,
+    risesOf,
+    cuesOf,
   }
 }
 
@@ -222,5 +280,145 @@ describe('the invitation', () => {
     harness.invited.mockClear()
     harness.focus.setEnabled(true)
     expect(harness.invitationState()).toEqual({ a: true, b: false })
+  })
+})
+
+describe('the hover tutorial', () => {
+  // The invited satellite auto-plays the REAL hover state — the same
+  // `setSatelliteHighlight` the pointer drives, through the same pass — twice,
+  // each pulse announced by the particle cue, and then never again. It is a
+  // third writer of the hover state, not an animation, which is why it is
+  // asserted through the same spies as the pointer's hover above.
+
+  it('plays the real hover state on the invited satellite, exactly twice, then rests', () => {
+    harness.highlighted.mockClear()
+    harness.run(2)
+
+    expect(harness.risesOf('a')).toBe(2)
+    expect(harness.risesOf('b')).toBe(0)
+    expect(harness.focus.tutorialPhase).toBe('done')
+    expect(harness.focus.tutorialPulses).toBe(2)
+    // At rest afterwards: the bump released, the cue hidden, the invitation back.
+    expect(harness.highlightState()).toEqual({ a: false, b: false })
+    expect(harness.cuesOf('a').at(-1)).toBeNull()
+    expect(harness.invitationState()).toEqual({ a: true, b: false })
+  })
+
+  it('announces each pulse with the cue before the satellite responds', () => {
+    harness.highlighted.mockClear()
+    harness.run(2)
+
+    const cues = harness.cuesOf('a')
+    // Real progress values arrived, and they climb within a pulse.
+    const progress = cues.filter((p): p is number => p !== null)
+    expect(progress.length).toBeGreaterThan(2)
+    expect(Math.max(...progress)).toBeLessThanOrEqual(1)
+    // The first cue write precedes the first synthetic hover.
+    const firstCueOrder = harness.cue.mock.invocationCallOrder[0]!
+    const firstRise = (harness.highlighted.mock.calls as Array<[string, boolean]>).findIndex(
+      ([id, on]) => id === 'a' && on,
+    )
+    const firstRiseOrder = harness.highlighted.mock.invocationCallOrder[firstRise]!
+    expect(firstCueOrder).toBeLessThan(firstRiseOrder)
+  })
+
+  it('takes the invitation away while it holds, as a real hover does', () => {
+    harness.runUntil(() => harness.highlightState().a === true)
+    expect(harness.invitationState()).toEqual({ a: false, b: false })
+    harness.runUntil(() => harness.highlightState().a === false)
+    expect(harness.invitationState()).toEqual({ a: true, b: false })
+  })
+
+  it('yields to a real hover on another satellite, and never comes back', () => {
+    harness.runUntil(() => harness.highlightState().a === true)
+
+    harness.hoverOver('b')
+    harness.focus.update(1 / 60)
+    // B is the pointer's; A's demo let go on the same pass.
+    expect(harness.highlightState()).toEqual({ a: false, b: true })
+    expect(harness.cuesOf('a').at(-1)).toBeNull()
+    expect(harness.focus.tutorialPhase).toBe('done')
+
+    harness.highlighted.mockClear()
+    harness.hoverOver('a')
+    harness.run(2)
+    // Only the pointer lights A now — one rise, the pointer's, not the tutorial's.
+    expect(harness.risesOf('a')).toBe(1)
+  })
+
+  it('retires the moment any satellite is selected', () => {
+    harness.clickOn('b')
+    expect(harness.focus.tutorialPhase).toBe('done')
+
+    harness.focus.deselect()
+    harness.highlighted.mockClear()
+    harness.run(2)
+    expect(harness.risesOf('a')).toBe(0)
+    expect(harness.cue).not.toHaveBeenCalled()
+  })
+
+  it('does not restart when the layer is disabled and re-enabled', () => {
+    harness.run(2)
+    expect(harness.focus.tutorialPhase).toBe('done')
+
+    // The trip to Murcia and back.
+    harness.focus.setEnabled(false)
+    harness.focus.setEnabled(true)
+    harness.highlighted.mockClear()
+    harness.cue.mockClear()
+    harness.run(2)
+    expect(harness.risesOf('a')).toBe(0)
+    expect(harness.cue).not.toHaveBeenCalled()
+  })
+
+  it('leaves every synthetic state at rest when cancelled mid-pulse', () => {
+    harness.runUntil(() => harness.highlightState().a === true)
+    expect(harness.cuesOf('a').length).toBeGreaterThan(0)
+
+    // Leaving the scene mid-pulse: the warp, the audit panel.
+    harness.focus.setEnabled(false)
+    expect(harness.highlightState()).toEqual({ a: false, b: false })
+    expect(harness.cuesOf('a').at(-1)).toBeNull()
+    expect(harness.focus.tutorialPhase).toBe('done')
+
+    // And it stays retired on the return — the invitation comes back, the
+    // demo does not.
+    harness.highlighted.mockClear()
+    harness.focus.setEnabled(true)
+    harness.run(2)
+    expect(harness.invitationState()).toEqual({ a: true, b: false })
+    expect(harness.risesOf('a')).toBe(0)
+  })
+
+  it('retires if the pointer is already resting on a satellite when the scene settles', () => {
+    harness.hoverOver('a')
+    harness.run(0.5)
+    // The pointer's hover, not the tutorial's: no pulse was ever played.
+    expect(harness.highlightState()).toEqual({ a: true, b: false })
+    expect(harness.focus.tutorialPhase).toBe('done')
+    expect(harness.focus.tutorialPulses).toBe(0)
+  })
+
+  it('waits for the target to be on screen rather than playing toward nothing', () => {
+    // Off the side of the frame.
+    harness.meshes.a.position.set(-40, 0, 0)
+    harness.meshes.a.updateMatrixWorld(true)
+    harness.run(0.5)
+    expect(harness.risesOf('a')).toBe(0)
+    expect(harness.cue).not.toHaveBeenCalled()
+    expect(harness.focus.tutorialPhase).toBe('waiting')
+
+    harness.meshes.a.position.set(-2.6, 0, 0)
+    harness.meshes.a.updateMatrixWorld(true)
+    harness.run(2)
+    expect(harness.risesOf('a')).toBe(2)
+  })
+
+  it('under reduced motion plays one pulse and never asks for particles', () => {
+    harness = setup({ reducedMotion: true })
+    harness.run(3)
+    expect(harness.risesOf('a')).toBe(1)
+    expect(harness.cuesOf('a').filter((p) => p !== null)).toEqual([])
+    expect(harness.focus.tutorialPhase).toBe('done')
   })
 })

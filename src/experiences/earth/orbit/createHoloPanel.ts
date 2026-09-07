@@ -222,8 +222,13 @@ const FRAGMENT = /* glsl */ `
     // too — at overview scale the halo alone is a few pixels of brand light
     // behind the mark and does not read from across the room; the emitter line
     // and its wash are what actually say "lit".
+    // Hover lifts it the same way, on the same eased strength that drives the
+    // satellite's scale bump — one response, shared by the pointer and the
+    // tutorial that demonstrates it.
+    float hover = uHover * uHoverGain;
     float energy = (1.0 + 0.35 * activation - 0.15 * resolve)
-                 * (1.0 + 0.5 * uField.z * invite);
+                 * (1.0 + 0.5 * uField.z * invite)
+                 * (1.0 + 0.5 * hover);
 
     // The artwork field opens from 1:1 to 2:1 with the deployment. Both
     // artworks are fitted against the CURRENT aspect, so neither distorts at
@@ -264,7 +269,8 @@ const FRAGMENT = /* glsl */ `
     float reach = clamp(1.0 - length(h) / haloRadius, 0.0, 1.0);
     float halo = pow(reach, 2.2) * haloStrength * modulation
                * (1.0 + 0.6 * activation)
-               * (1.0 + uField.z * invite);
+               * (1.0 + uField.z * invite)
+               * (1.0 + hover);
     over(color, alpha, uHoloColor, halo);
 
     // ── Layer 3: the artwork ──
@@ -422,6 +428,10 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
     uOrigin: { value: new THREE.Vector2(0.5, footprint.originY) },
     uField: { value: new THREE.Vector3(cfg.haloRadius, cfg.haloStrength, cfg.inviteGain) },
     uInvite: { value: 0 },
+    // Hover strength, 0..1, eased by the satellite (`setHighlight`); the gain
+    // is a uniform so it can be judged live rather than by recompiling.
+    uHover: { value: 0 },
+    uHoverGain: { value: cfg.hoverGain },
   }
 
   const material = new THREE.ShaderMaterial({
@@ -506,6 +516,28 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
     inviteTarget = on ? 1 : 0
   }
 
+  // The hover light. Already eased by the time it arrives — the satellite
+  // owns the ease so its scale and this light rise on one curve — so it is
+  // written straight through, and the cone takes its share through the
+  // invitation channel it already has: whichever of the two is asking louder.
+  let hover = 0
+  let coneDrive = -1
+  function applyConeDrive() {
+    const drive = Math.max(pulse, cfg.coneHoverGain * hover)
+    if (drive === coneDrive) return
+    coneDrive = drive
+    cone.setInvite(drive)
+  }
+
+  /** The hover strength this frame, 0..1. See createSatellite.setHighlight. */
+  function setHighlight(strength: number) {
+    const next = Number.isFinite(strength) ? (strength < 0 ? 0 : strength > 1 ? 1 : strength) : 0
+    if (next === hover) return
+    hover = next
+    uniforms.uHover.value = next
+    applyConeDrive()
+  }
+
   /**
    * Collapses immediately, with no animation.
    *
@@ -539,7 +571,7 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
     if (invite > 0 || pulse > 0) {
       pulse = invitationPulse(invite, uniforms.uTime.value, !reducedMotion)
       uniforms.uInvite.value = pulse
-      cone.setInvite(pulse)
+      applyConeDrive()
     }
     if (PROTO_HOLO.expand !== null) {
       if (expansion !== PROTO_HOLO.expand) {
@@ -572,6 +604,7 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
     setOpacity,
     setExpanded,
     setInvited,
+    setHighlight,
     invitePulse,
     resetExpansion,
     update,

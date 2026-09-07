@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { ORBIT_CONFIG, ORBIT_PRESETS, SatelliteDef } from './orbitConfig'
 import { CASE_STUDIES } from '../../../content/generated/caseStudies'
-import { orbitAssignments } from './orbitAssignments'
+import { invitedCaseId, orbitAssignments } from './orbitAssignments'
 import { resolveOrbitCases } from './resolveOrbitCases'
 import { createOrbitLine, OrbitLine } from './createOrbitLine'
 import { createSatellite, Satellite } from './createSatellite'
@@ -131,6 +131,10 @@ export function createOrbitSystem({ renderer }: Options) {
         // its own case's colour, which is exactly what this used to do.
         holoColor: ORBIT_CONFIG.panel.holoColor ?? satelliteDef.brandColor,
       },
+      // The hover tutorial's particle cue rides the invited satellite only.
+      // Decided here, at construction, so the cue's shader is warmed up with
+      // everything else; the focus layer decides WHEN it plays.
+      cue: satelliteDef.id === invitedCaseId,
     })
     group.add(satellite.group)
 
@@ -247,8 +251,11 @@ export function createOrbitSystem({ renderer }: Options) {
       orbit.satellite.setOpacity(0)
       // Clears the hover bump too — otherwise a replay started while the pointer
       // was over a badge would re-run the entrance on an already-enlarged one.
-      orbit.satellite.setHighlight(false)
+      // Snapped, not asked to ease off: the bump is eased now, and a fall left
+      // running would be visible under the re-entrance.
+      orbit.satellite.resetHighlight()
       orbit.satellite.setInvited(false)
+      orbit.satellite.setCue(null)
       // Snaps the brand panel shut, rather than asking it to fold. A reset is a
       // teardown to the pre-intro state: a fold left animating would be visible
       // unfolding backwards underneath the entrance staggering the satellites
@@ -310,6 +317,20 @@ export function createOrbitSystem({ renderer }: Options) {
     findOrbit(id)?.satellite.setInvited(on)
   }
 
+  /**
+   * The hover tutorial's particle cue on one satellite: its progress 0..1, or
+   * null to hide it. Only the invited satellite carries a cue; on the others
+   * this is a no-op, so the caller need not know which.
+   */
+  function setSatelliteCue(id: string, progress: number | null) {
+    findOrbit(id)?.satellite.setCue(progress)
+  }
+
+  /** `pixelRatio × CSS viewport height`, for world-sized points. From the layer, on resize. */
+  function setViewportScale(px: number) {
+    for (const orbit of orbits) orbit.satellite.setViewportScale(px)
+  }
+
   function dispose() {
     for (const orbit of orbits) {
       orbit.orbitLine.dispose()
@@ -338,6 +359,8 @@ export function createOrbitSystem({ renderer }: Options) {
     setSatelliteHighlight,
     setSatelliteExpanded,
     setSatelliteInvited,
+    setSatelliteCue,
+    setViewportScale,
     dispose,
   }
 }

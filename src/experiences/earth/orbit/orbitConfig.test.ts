@@ -175,6 +175,43 @@ describe('the brand panel', () => {
     expect(panel.coneInviteGain).toBeGreaterThanOrEqual(0)
   })
 
+  it('keeps the hover light within the invitation, and the bump short', () => {
+    // Hover reinforces the panel on the same eased strength as the bump. It
+    // must not out-shine the invitation's own gain — the line saturates near
+    // it — and the rise must be a beat, not a transition.
+    const { panel, satellite } = ORBIT_CONFIG
+    expect(panel.hoverGain).toBeGreaterThan(0)
+    expect(panel.hoverGain).toBeLessThanOrEqual(panel.inviteGain)
+    expect(panel.coneHoverGain).toBeGreaterThanOrEqual(0)
+    expect(panel.coneHoverGain).toBeLessThanOrEqual(panel.coneInviteGain)
+    expect(satellite.highlightDuration).toBeGreaterThan(0)
+    expect(satellite.highlightDuration).toBeLessThan(1)
+  })
+
+  it('keeps the hover tutorial to two brief pulses that the cue announces', () => {
+    // Exactly two: one reads as ambient, three starts to nag. The cue has to
+    // land before the hover it announces, and every timing stays inside the
+    // bands the brief set, so a retune cannot quietly turn a hint into a show.
+    const t = ORBIT_CONFIG.tutorial
+    expect(t.pulses).toBe(2)
+    expect(t.armDelay).toBeGreaterThanOrEqual(0.8)
+    expect(t.armDelay).toBeLessThanOrEqual(1.5)
+    expect(t.hold).toBeGreaterThanOrEqual(0.3)
+    expect(t.hold).toBeLessThanOrEqual(0.5)
+    expect(t.gap).toBeGreaterThanOrEqual(0.3)
+    expect(t.gap).toBeLessThanOrEqual(0.5)
+    expect(t.cueLead).toBeGreaterThan(0)
+    expect(t.cueLead).toBeLessThan(t.cueDuration)
+    expect(t.cueCount).toBeGreaterThanOrEqual(10)
+    expect(t.cueCount).toBeLessThanOrEqual(25)
+    expect(t.cueRadius).toBeGreaterThan(ORBIT_CONFIG.satellite.modelSize / 2)
+    expect(t.cueSize).toBeLessThan(ORBIT_CONFIG.headGlow.size)
+    expect(t.visibleMarginNdc).toBeGreaterThan(0)
+    expect(t.visibleMarginNdc).toBeLessThan(0.5)
+    expect(t.maxWaitSeconds).toBeGreaterThan(t.armDelay)
+    expect(t.reducedMotionHoldScale).toBeGreaterThanOrEqual(1)
+  })
+
   it('keeps the panel clear of the satellite model it floats above', () => {
     // offsetY is derived from modelSize: the model's top sits near modelSize/2,
     // and the panel's lower edge at offsetY - height/2. Raising `height` for

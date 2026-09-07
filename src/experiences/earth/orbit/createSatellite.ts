@@ -3,7 +3,9 @@ import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
 import { createHoloPanel, HoloPanel } from './createHoloPanel'
+import { createHoverCue, HoverCue } from './createHoverCue'
 import { invitationScale } from './invitation'
+import { advanceExpansion, easeExpansion } from './panelExpansion'
 import { loadProgress } from '../../../loading/progress'
 import {
   acquireDracoLoader,
@@ -32,6 +34,10 @@ interface Options {
     index: number
     holoColor: string
   }
+  // Carries the hover tutorial's particle cue. ONE satellite does — the
+  // invited one — and it is built here, eagerly, so its shader is in the scene
+  // for the warm-up rather than compiling on the frame the tutorial starts.
+  cue?: boolean
 }
 
 // The GLB is loaded ONCE and cloned per satellite — six separate loads of the
@@ -139,7 +145,7 @@ function loadTemplate(renderer?: THREE.WebGLRenderer): Promise<THREE.Group> {
 
 // One orbiting satellite: the shared GLB model with a slow continuous
 // self-rotation, plus an invisible raycast sphere for comfortable hover.
-export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
+export function createSatellite({ seed = 0, renderer, panel, cue = false }: Options = {}) {
   const group = new THREE.Group()
 
   // Everything visible hangs off an inner group. The OUTER group's scale is
@@ -170,6 +176,15 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
   if (panel) {
     holoPanel = createHoloPanel(panel)
     content.add(holoPanel.group)
+  }
+
+  // The tutorial's cue hangs off the OUTER group: it converges on the
+  // satellite from a shell around it, and that shell must not breathe or bump
+  // with the model — the entrance scale is the only one it should inherit.
+  let hoverCue: HoverCue | null = null
+  if (cue && panel) {
+    hoverCue = createHoverCue({ holoColor: panel.holoColor })
+    group.add(hoverCue.object)
   }
 
   // The spinner carries the model's continuous self-rotation. It advances only
@@ -242,13 +257,48 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     }
   }
 
-  // Hover/selection affordance: bump the inner group so the model grows
-  // slightly under the cursor. Remembered because update() rewrites the scale
-  // every frame for the invitation's breath, and the bump has to win over it.
-  let highlighted = false
+  // Hover/selection affordance: the inner group grows under the cursor and the
+  // panel's light comes up with it, on ONE eased strength.
+  //
+  // `setHighlight` only sets the target. The value advances in update(), on
+  // delta, through the same value-based stepper the panel's unfold uses — so a
+  // pointer leaving mid-rise reverses from where the bump is, and so the
+  // hover TUTORIAL, which flips this same target, produces exactly the
+  // pointer's response with no animation of its own. It used to write the scale
+  // here directly, as a step; that write is gone because a second writer a
+  // frame apart from update()'s would show a stale first frame on every rise.
+  let highlight = 0
+  let highlightTarget = 0
   function setHighlight(on: boolean) {
-    highlighted = on
-    content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, highlighted))
+    highlightTarget = on ? 1 : 0
+  }
+
+  /** The eased strength becomes the scale and the panel's light — the one place. */
+  function applyHighlight() {
+    const strength = easeExpansion(highlight)
+    content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, strength))
+    holoPanel?.setHighlight(strength)
+  }
+
+  /**
+   * Drops the bump with no animation. For scene resets, like `resetExpansion`:
+   * a replay started mid-rise would otherwise show the bump easing off under
+   * the re-entrance.
+   */
+  function resetHighlight() {
+    highlight = 0
+    highlightTarget = 0
+    applyHighlight()
+  }
+
+  /** The tutorial cue's progress, 0..1, or null to hide it. No-op on the five without one. */
+  function setCue(progress: number | null) {
+    hoverCue?.setProgress(progress)
+  }
+
+  /** `pixelRatio × CSS height`, for the cue's point size. See createHoverCue. */
+  function setViewportScale(px: number) {
+    hoverCue?.setViewportScale(px)
   }
 
   /**
@@ -283,10 +333,19 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     // Advances on delta alone, like the spin — the panel's shimmer must not
     // stall while the case panel freezes the satellite's orbital motion.
     holoPanel?.update(delta)
-    // The invitation's size breath, on the same pulse the panel just computed
-    // for its light. Inner group, as the hover bump is: the outer group's
-    // scale belongs to the intro animation.
-    content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, highlighted))
+    // The hover bump rises or falls on the same delta, then the invitation's
+    // size breath — on the pulse the panel just computed for its light — and
+    // the bump are folded into one scale. Inner group: the outer group's scale
+    // belongs to the intro animation.
+    if (highlight !== highlightTarget) {
+      highlight = advanceExpansion(
+        highlight,
+        highlightTarget,
+        delta,
+        ORBIT_CONFIG.satellite.highlightDuration,
+      )
+    }
+    applyHighlight()
   }
 
   setOpacity(0)
@@ -296,6 +355,7 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     hitMesh.geometry.dispose()
     hitMaterial.dispose()
     holoPanel?.dispose()
+    hoverCue?.dispose()
     // Geometries are shared with the cached template — never disposed here.
     for (const target of fadeTargets) target.material.dispose()
   }
@@ -304,8 +364,11 @@ export function createSatellite({ seed = 0, renderer, panel }: Options = {}) {
     group,
     setOpacity,
     setHighlight,
+    resetHighlight,
     setExpanded,
     setInvited,
+    setCue,
+    setViewportScale,
     resetExpansion,
     update,
     dispose,

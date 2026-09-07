@@ -32,11 +32,17 @@ export interface OrbitAssignment {
 
 export const orbitAssignments: readonly OrbitAssignment[] = [
   { orbitId: 'orbit-01', caseId: 'satellite-01' },
-  { orbitId: 'orbit-02', caseId: 'satellite-02' },
+  // SWAPPED with orbit-06 on 2026-09-07, so the invited satellite (below)
+  // rides the one orbit that is on screen the whole way round at every
+  // supported viewport. orbit-06 is the widest and steepest of the six, and in
+  // portrait it is OFF SCREEN at the exact frame the satellites settle and
+  // in frame only ~70% of a revolution — measured from config, and asserted
+  // by `satelliteVisibility.test.ts` so this cannot be quietly undone.
+  { orbitId: 'orbit-02', caseId: 'satellite-06' },
   { orbitId: 'orbit-03', caseId: 'satellite-03' },
   { orbitId: 'orbit-04', caseId: 'satellite-04' },
   { orbitId: 'orbit-05', caseId: 'satellite-05' },
-  { orbitId: 'orbit-06', caseId: 'satellite-06' },
+  { orbitId: 'orbit-06', caseId: 'satellite-02' },
 ]
 
 /**
@@ -48,5 +54,9 @@ export const orbitAssignments: readonly OrbitAssignment[] = [
  * PcComponentes, 2026-09-05), and it must name a case that is actually on an
  * orbit — `resolveOrbitCases.test.ts` asserts that. See createSatelliteFocus
  * for when it is shown and when it retires.
+ *
+ * It is also the hover TUTORIAL's target (createSatelliteFocus, hoverTutorial),
+ * which is why its orbit has to be visible the whole way round on a phone —
+ * see the swap in the table above and `satelliteVisibility.test.ts`.
  */
 export const invitedCaseId = 'satellite-06'

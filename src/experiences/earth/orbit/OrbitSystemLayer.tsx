@@ -24,7 +24,7 @@ interface Props {
 // scale = EARTH_CONFIG.radius reconciles the two projects' scale conventions:
 // every orbit preset is expressed in "Earth radius = 1" units.
 export function OrbitSystemLayer({ state, systemRef, active }: Props) {
-  const { gl } = useThree()
+  const { gl, size } = useThree()
   const localSystem = useRef<OrbitSystem | null>(null)
   const groupRef = useRef<THREE.Group>(null)
   const elapsed = useRef(0)
@@ -80,6 +80,14 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
     // rebuild it; `camera`, `scene` and a TextureLoader that createOrbitSystem
     // never used were all in here without being read.
   }, [systemRef, gl])
+
+  // World-sized points need the factor three's PointsMaterial would supply —
+  // pixel ratio × CSS height. R3F's `size.height`, NOT `gl.domElement.height`,
+  // which is already multiplied by the ratio and would square it. Declared
+  // after the build effect so it lands on a system that exists.
+  useEffect(() => {
+    localSystem.current?.setViewportScale(size.height * gl.getPixelRatio())
+  }, [size.height, gl])
 
   useFrame((_, rawDelta) => {
     const system = localSystem.current

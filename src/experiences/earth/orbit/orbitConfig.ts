@@ -97,6 +97,13 @@ export const ORBIT_CONFIG = {
     // Hover/selection bump. Applied to an INNER group — the outer group's scale
     // is written every frame by the intro animation and would overwrite it.
     highlightScale: 1.14,
+    // Seconds for the bump (and the panel's hover light) to arrive or leave.
+    // It was a step until 2026-09-07. Eased through the same value-based
+    // stepper the panel's unfold uses, so a pointer leaving mid-rise reverses
+    // from where the bump is. THIS is the hover tutorial's in/out timing too:
+    // the tutorial only flips the same target the pointer flips (§2 of plan
+    // rc-spicy-russell), so there is no second number to keep in step.
+    highlightDuration: 0.3,
     // The invitation's size breath (orbitAssignments.invitedCaseId): the inner
     // group swells to this at the top of each breath. Kept BELOW highlightScale
     // so hover still reads as "more" — orbitConfig.test.ts asserts the order.
@@ -216,6 +223,19 @@ export const ORBIT_CONFIG = {
     // The cone's share of the invitation, on its own knob because the cone is
     // additive and blows out at the panel's gain: density × (1 + this × pulse).
     coneInviteGain: 1.0,
+    // HOVER on the panel: the halo and the emitter line multiply by
+    // (1 + this × hover), with `hover` the same eased strength that drives the
+    // scale bump. New on 2026-09-07 — hover used to reach the panel only by
+    // WITHDRAWING the invitation, so on the invited satellite hovering read as
+    // "bump up, light down". Set near the invitation's breath floor
+    // (1 + inviteGain × 0.6 = 2.5) so that satellite's light steadies and holds
+    // under the cursor while the other five come up to the same level: one
+    // response on all six. The line's alpha saturates before this matters; it
+    // is the halo and the wash that grow. JUDGED BY EYE, with `?tutorial=1`.
+    hoverGain: 1.5,
+    // The cone's share of hover, fed through its invitation channel as
+    // max(pulse, this × hover) — no second cone uniform.
+    coneHoverGain: 0.6,
 
 
     // ── The emitter cone (plan 008) ──
@@ -267,6 +287,50 @@ export const ORBIT_CONFIG = {
     fadeInDuration: 1.2,
     rotationSpeedY: 0.015,
     rotationSpeedX: 0.004,
+  },
+
+  // The hover TUTORIAL: the invited satellite auto-plays the real hover state,
+  // twice, each pulse announced by a handful of particles converging on it —
+  // so a viewer with no cursor, or one who has not thought to try, sees that
+  // the satellites respond. No text, no HUD. It drives the same highlight the
+  // pointer drives (`createSatelliteFocus.demoId`), so retuning hover retunes
+  // the tutorial; the only timings owned here are the ones hover does not have.
+  // Seconds, unless stated. See orbit/hoverTutorial.ts for the sequence.
+  tutorial: {
+    // After the satellite has settled AND is on screen. Same beat as the
+    // navigation hint (HINT_ARRIVAL_MS), so the two land together, not in turn.
+    armDelay: 1.2,
+    // Hover held at full, measured from the moment the target flips on; the
+    // rise itself is `satellite.highlightDuration`.
+    hold: 0.4,
+    // Rest between the two pulses, from the moment the target flips off.
+    gap: 0.4,
+    // Exactly two. One reads as ambient; three starts to nag.
+    pulses: 2,
+    // The particle cue: how long the convergence takes, and how far into it
+    // the hover starts — so the satellite visibly responds AS the particles
+    // arrive rather than before or after. cueLead < cueDuration, asserted.
+    cueDuration: 0.55,
+    cueLead: 0.35,
+    // How many, and from how far. Small and several rather than few and large:
+    // fifteen faint points read as "something is happening here" without any
+    // one of them reading as an object. Radius is in the orbit group's units
+    // (Earth radius = 1), like `modelSize`: 0.35 is about two model widths.
+    cueCount: 15,
+    cueRadius: 0.35,
+    // Point size in the same units, before perspective. A little under the
+    // orbit head glow (`headGlow.size` 0.045): the cue must not out-shine the
+    // thing it is pointing at.
+    cueSize: 0.03,
+    // How far inside the frame the target must be before the tutorial arms —
+    // a fraction of the half-extent, so 0.15 keeps it clear of the edges. A
+    // demonstration toward something half off screen teaches nothing.
+    visibleMarginNdc: 0.15,
+    // Give up quietly if the target never comes on screen after settling.
+    maxWaitSeconds: 20,
+    // Under reduced motion: no particles, ONE pulse, and this many times the
+    // hold. Same state, less motion — not a second visual language.
+    reducedMotionHoldScale: 2,
   },
 }
 

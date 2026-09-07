@@ -55,24 +55,45 @@ describe('invitationScale', () => {
   const cfg = ORBIT_CONFIG.satellite
 
   it('rests at 1 with no pulse', () => {
-    expect(invitationScale(0, false)).toBe(1)
+    expect(invitationScale(0, 0)).toBe(1)
   })
 
   it('swells to inviteScale at the top of the breath', () => {
-    expect(invitationScale(1, false)).toBeCloseTo(cfg.inviteScale, 10)
-    expect(invitationScale(0.5, false)).toBeCloseTo(1 + (cfg.inviteScale - 1) / 2, 10)
+    expect(invitationScale(1, 0)).toBeCloseTo(cfg.inviteScale, 10)
+    expect(invitationScale(0.5, 0)).toBeCloseTo(1 + (cfg.inviteScale - 1) / 2, 10)
   })
 
-  it('lets the hover bump win outright, whatever the breath is doing', () => {
+  it('lets a full hover bump win outright, whatever the breath is doing', () => {
     // Hover must still read as "more" than the invitation, and it must not
     // wobble while the cursor is on the satellite.
     for (const pulse of [0, 0.3, 1]) {
-      expect(invitationScale(pulse, true)).toBe(cfg.highlightScale)
+      expect(invitationScale(pulse, 1)).toBe(cfg.highlightScale)
+    }
+  })
+
+  it('travels from the breath to the bump as the hover strength rises', () => {
+    // The strength is eased by the satellite; the scale must follow it
+    // monotonically from wherever the breath has it, so a hover arriving
+    // mid-breath grows from that size rather than snapping — and the tutorial
+    // that flips the same target reads as the pointer does.
+    for (const pulse of [0, 0.6, 1]) {
+      let previous = invitationScale(pulse, 0)
+      for (let strength = 0.1; strength <= 1; strength += 0.1) {
+        const scale = invitationScale(pulse, strength)
+        expect(scale).toBeGreaterThanOrEqual(previous)
+        previous = scale
+      }
+      expect(invitationScale(pulse, 0.5)).toBeCloseTo(
+        (invitationScale(pulse, 0) + cfg.highlightScale) / 2,
+        10,
+      )
     }
   })
 
   it('never grows past the hover bump', () => {
-    expect(invitationScale(1, false)).toBeLessThan(cfg.highlightScale)
-    expect(invitationScale(Number.NaN, false)).toBe(1)
+    expect(invitationScale(1, 0)).toBeLessThan(cfg.highlightScale)
+    expect(invitationScale(1, 2)).toBe(cfg.highlightScale)
+    expect(invitationScale(Number.NaN, 0)).toBe(1)
+    expect(invitationScale(0, Number.NaN)).toBe(1)
   })
 })
