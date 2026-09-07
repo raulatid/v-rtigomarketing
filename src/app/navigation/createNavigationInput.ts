@@ -63,6 +63,19 @@ export interface NavigationContext {
    * legally commit into a district the viewer opened half way through it.
    */
   canNavigate: boolean
+  /**
+   * Something is holding the viewer's attention, and a pinch toward the way
+   * out should release it rather than be refused.
+   *
+   * Set only while `canNavigate` is false BECAUSE of that thing — today the
+   * Murcia district's in-world display, whose close is a drawn glyph a finger
+   * can miss. A pinch that would have left the world instead leaves the
+   * display: same direction, one level. Null (or absent) keeps the refusal
+   * every other attention-holder gets, because the DOM panels have real closes.
+   *
+   * Read live like `canNavigate`, for the same reason.
+   */
+  releaseFocus?: (() => void) | null
 }
 
 export interface NavigationInputDeps {
@@ -775,6 +788,16 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    */
   let dispatchingPinchCancel = false
 
+  /**
+   * The release a claimed pinch will make instead of navigating, while an
+   * attention-holder that allows one is up (`NavigationContext.releaseFocus`).
+   *
+   * Decided at the second contact, once per sequence, like `pinchMayCommit`:
+   * a district closing under the fingers must not turn the rest of the same
+   * gesture into a zoom. Cleared by `endPinch`.
+   */
+  let pinchReleasesFocus: (() => void) | null = null
+
   function pinchDistance(): number {
     const points = [...contacts.values()]
     if (points.length < 2) return 0
@@ -862,6 +885,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // when it arms; leaving a stale `false` here would be a refusal nothing
     // could account for.
     pinchMayCommit = true
+    pinchReleasesFocus = null
     classifier.reset()
   }
 
@@ -892,7 +916,21 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // never begun is still 'watching', and it would answer the next move from a
     // gesture it never saw the start of.
     if (!context.canNavigate || overScrollable(event.target)) {
-      classifier.decline()
+      // One refusal is not a refusal: an attention-holder that offers a release
+      // gets the gesture WATCHED rather than declined, so the classifier can
+      // tell a pinch from the turn it competes with (`adr/015`) exactly as it
+      // does for navigation — and then the claim releases the holder instead of
+      // moving the world. See `onPinchMove`.
+      const releaseFocus = context.canNavigate ? null : (context.releaseFocus ?? null)
+      if (releaseFocus === null || overScrollable(event.target)) {
+        classifier.decline()
+        return
+      }
+      pinchReleasesFocus = releaseFocus
+      const points = [...contacts.values()]
+      pinchStartCentroid.x = (points[0].x + points[1].x) / 2
+      pinchStartCentroid.y = (points[0].y + points[1].y) / 2
+      classifier.begin(pinchDistance())
       return
     }
 
@@ -927,6 +965,31 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // direction leaves a world is stated in exactly one place. On Earth that
     // makes spreading positive; in Murcia, closing.
     const grownPx = towardOther(pinchDistance() - classifier.startDistancePx, context.current)
+
+    if (pinchReleasesFocus !== null) {
+      // The gesture that lets go of an attention-holder. Judged by the same
+      // classifier and the same rival rule as a navigating pinch, so a real
+      // hand's anchored-thumb close still claims and a carried pair still goes
+      // to the turn; but a claim here releases the holder and SPENDS the
+      // sequence — declined until the fingers lift — instead of feeding the
+      // band. The tail of the closing hand must not zoom the world it has just
+      // been handed back, which is the trap `adr/014`'s commit already avoids
+      // the same way.
+      if (classifier.verdict !== 'watching') return
+      const rival = context.current === 'murcia' ? pinchRivalTravel() : 0
+      if (classifier.sample(grownPx, rival) !== 'claimed') return
+      const release = pinchReleasesFocus
+      pinchReleasesFocus = null
+      classifier.decline()
+      // Only the way OUT releases. The other direction is a zoom-in the holder
+      // cannot honour, and it is spent silently rather than doing something
+      // surprising.
+      if (grownPx > 0) {
+        cancelContacts(event)
+        release()
+      }
+      return
+    }
 
     if (classifier.verdict === 'watching') {
       // Murcia turns on the centroid and Earth does nothing with two fingers, so
@@ -973,26 +1036,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * written until it is needed.
    */
   function claimPinch(event: PointerEvent): void {
-    const target = event.target
-    if (target instanceof Element) {
-      dispatchingPinchCancel = true
-      try {
-        for (const pointerId of contacts.keys()) {
-          target.dispatchEvent(
-            new PointerEvent('pointercancel', {
-              pointerId,
-              pointerType: 'touch',
-              bubbles: true,
-              cancelable: false,
-            }),
-          )
-        }
-      } finally {
-        // `finally`, because a listener further down the path may throw and this
-        // flag staying set would deafen this module to every real cancel after.
-        dispatchingPinchCancel = false
-      }
-    }
+    cancelContacts(event)
 
     // The spread spent proving intent still counts, or the scrub would open with
     // a dead zone the size of the claim. Fed through the accumulator like any
@@ -1003,6 +1047,37 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // gesture, not when they finish it.
     hintInteracted()
     deliverPinch(classifier.backlogPx, event.timeStamp)
+  }
+
+  /**
+   * One synthetic `pointercancel` per contact, on the event's target.
+   *
+   * Shared by the navigating claim and the focus-releasing one, because both
+   * take the fingers away from whatever was following them — and the experience
+   * being told is the same either way: the drag controller drops its pair and
+   * the district closes its press ledger, which is what lets the next tap after
+   * this gesture be a tap.
+   */
+  function cancelContacts(event: PointerEvent): void {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    dispatchingPinchCancel = true
+    try {
+      for (const pointerId of contacts.keys()) {
+        target.dispatchEvent(
+          new PointerEvent('pointercancel', {
+            pointerId,
+            pointerType: 'touch',
+            bubbles: true,
+            cancelable: false,
+          }),
+        )
+      }
+    } finally {
+      // `finally`, because a listener further down the path may throw and this
+      // flag staying set would deafen this module to every real cancel after.
+      dispatchingPinchCancel = false
+    }
   }
 
   // --- Grabbing the world lets go of the gesture -----------------------------

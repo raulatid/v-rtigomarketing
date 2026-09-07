@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createNavigationInput } from './createNavigationInput'
 import type { NavigationContext } from './createNavigationInput'
 import { NAVIGATION_PINCH, NAVIGATION_ZOOM, commitTravelPx } from './navigationConfig'
@@ -834,5 +834,75 @@ describe('the gesture that commits is spent', () => {
     await frames()
     expect(t.depth()).toBeCloseTo(parked, 6)
     expect(t.commits).toEqual(['enter-murcia'])
+  })
+})
+
+describe('a focused display is let go of by the gesture that would have left', () => {
+  // The district's display holds the viewer and refuses navigation. On a phone
+  // its close is a drawn glyph a finger can miss, so the pinch that means "out"
+  // must still mean out: one level, not one world. Offered through
+  // NavigationContext.releaseFocus; refused as before when nothing offers it.
+
+  it('releases on a close in Murcia — once — and navigates nothing', async () => {
+    const releaseFocus = vi.fn()
+    const t = setup({ current: 'murcia', canNavigate: false, releaseFocus })
+    place(t.host, 'pointerdown', WIDE)
+    close(t.host, CLAIM + 4)
+    expect(releaseFocus).toHaveBeenCalledTimes(1)
+    // The fingers are taken from whatever was following them, as a claim does.
+    expect(t.cancels()).toBe(2)
+
+    // The rest of the same hand is spent: no zoom, no commit, however far.
+    pinchFromTo(t.host, WIDE - CLAIM - 4, WIDE - COMMIT_GROWTH, 20)
+    await frames()
+    expect(releaseFocus).toHaveBeenCalledTimes(1)
+    expect(t.commits).toEqual([])
+    expect(t.depth()).toBe(0)
+    expect(t.progress()).toBe(0)
+  })
+
+  it('does not release on a spread, which is not the way out', async () => {
+    const releaseFocus = vi.fn()
+    const t = setup({ current: 'murcia', canNavigate: false, releaseFocus })
+    place(t.host, 'pointerdown', START)
+    spread(t.host, CLAIM + 4)
+    await frames()
+    expect(releaseFocus).not.toHaveBeenCalled()
+    expect(t.depth()).toBe(0)
+    // And spent all the same: a spread that then reverses is not a fresh close.
+    pinchFromTo(t.host, START + CLAIM + 4, START - CLAIM - 4)
+    await frames()
+    expect(releaseFocus).not.toHaveBeenCalled()
+  })
+
+  it('hands a carried pair to the turn, exactly as a navigating pinch would', async () => {
+    const releaseFocus = vi.fn()
+    const t = setup({ current: 'murcia', canNavigate: false, releaseFocus })
+    place(t.host, 'pointerdown', START)
+    carry(t.host, 30)
+    await frames()
+    expect(releaseFocus).not.toHaveBeenCalled()
+    expect(t.cancels()).toBe(0)
+  })
+
+  it('is a fresh decision per sequence: a second close after lifting releases again', async () => {
+    const releaseFocus = vi.fn()
+    const t = setup({ current: 'murcia', canNavigate: false, releaseFocus })
+    place(t.host, 'pointerdown', WIDE)
+    close(t.host, CLAIM + 4)
+    place(t.host, 'pointerup', WIDE - CLAIM - 4)
+    place(t.host, 'pointerdown', WIDE)
+    close(t.host, CLAIM + 4)
+    expect(releaseFocus).toHaveBeenCalledTimes(2)
+  })
+
+  it('refuses as before when the attention-holder offers no release', async () => {
+    const t = setup({ current: 'murcia', canNavigate: false, releaseFocus: null })
+    place(t.host, 'pointerdown', WIDE)
+    close(t.host, COMMIT_GROWTH, 20)
+    await frames()
+    expect(t.cancels()).toBe(0)
+    expect(t.commits).toEqual([])
+    expect(t.progress()).toBe(0)
   })
 })

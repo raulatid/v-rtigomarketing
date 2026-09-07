@@ -13,6 +13,9 @@ import {
   PREVIOUS_RECT,
 } from '../district/display/displayConfig'
 import type { DisplayRect } from '../district/display/displayConfig'
+import { projectCoreRect } from '../district/display/displayProjection'
+import { MIN_TOUCH_TARGET_CSS_PX, expandToMinimum } from '../../../interaction/touchTarget'
+import type { ScreenBox } from '../../../interaction/touchTarget'
 import { CameraRig } from '../camera/CameraRig'
 import { DragPanController } from '../navigation/DragPanController'
 import { murciaConfig } from '../config/murciaConfig'
@@ -523,6 +526,80 @@ describe('the services district', () => {
   // from the first one or after a single successful open. Every case below is a
   // different route to the same latch — a recorded press whose release the canvas
   // never sees while enabled — which is why the reports share no common steps.
+
+  describe('touch targets — a finger is given more than the drawn glyph', () => {
+    /** Where a control is drawn on this fixture's screen, through the live matrices. */
+    const drawn = (rect: DisplayRect): ScreenBox => {
+      f.scene.updateMatrixWorld(true)
+      const box = projectCoreRect(rect, f.panel, f.camera, {
+        left: 0,
+        top: 0,
+        width: WIDTH,
+        height: HEIGHT,
+      })
+      if (!box) throw new Error('the control is behind the camera in this fixture')
+      return box
+    }
+
+    it('draws the close under the floor, which is why the floor exists', () => {
+      enter(f)
+      const box = drawn(BACK_RECT)
+      expect(box.right - box.left).toBeLessThan(MIN_TOUCH_TARGET_CSS_PX)
+    })
+
+    it('leaves the district from a touch beside the close glyph, inside its grown box', () => {
+      enter(f)
+      const box = drawn(BACK_RECT)
+      const grown = expandToMinimum(box)
+      const x = grown.right - 2
+      const y = (box.top + box.bottom) / 2
+      // Genuinely off the drawn glyph, not on its edge.
+      expect(x).toBeGreaterThan(box.right + 4)
+      f.click(x, y, { pointerType: 'touch' })
+      expect(f.district.isEngaged).toBe(false)
+    })
+
+    it('gives a mouse the drawn glyph and nothing more', () => {
+      enter(f)
+      const box = drawn(BACK_RECT)
+      const grown = expandToMinimum(box)
+      f.click(grown.right - 2, (box.top + box.bottom) / 2, { pointerType: 'mouse' })
+      expect(f.district.isEngaged).toBe(true)
+    })
+
+    it('pages from a touch beside an arrow, to the arrow it is nearest', () => {
+      enter(f)
+      const box = drawn(PREVIOUS_RECT)
+      const grown = expandToMinimum(box)
+      f.click(grown.right - 2, (box.top + box.bottom) / 2, { pointerType: 'touch' })
+      expect(activeTitle(f)).toContain('Servicio C')
+    })
+
+    it('activates the control the finger landed on, though it lifted a few pixels off it', () => {
+      enter(f)
+      const box = drawn(BACK_RECT)
+      const cx = (box.left + box.right) / 2
+      const cy = (box.top + box.bottom) / 2
+      f.press(cx, cy, { pointerType: 'touch' })
+      // Inside the touch tap tolerance, outside the drawn glyph.
+      f.release(cx + 9, cy + 5, { pointerType: 'touch' })
+      expect(f.district.isEngaged).toBe(false)
+    })
+
+    it('does not grow the reading surface, so the close stays reachable while reading', () => {
+      enter(f)
+      f.click(f.controlPoint(DETAIL_RECT).x, f.controlPoint(DETAIL_RECT).y)
+      const box = drawn(BACK_RECT)
+      const grown = expandToMinimum(box)
+      // Below the glyph, where the viewport rect begins: a finger here is
+      // nearer the close than it is on the copy.
+      f.click((box.left + box.right) / 2, grown.bottom - 2, { pointerType: 'touch' })
+      // Closed the detail rather than scrolled it: still in the district, back
+      // on the summary — the same observable the mouse's close test uses.
+      expect(f.district.isEngaged).toBe(true)
+      expect(activeTitle(f)).toContain('Cuerpo A.')
+    })
+  })
 
   it('opens on a touch tap, measured against the touch threshold', () => {
     f.click(f.screenOf().x, f.screenOf().y, { pointerType: 'touch' })

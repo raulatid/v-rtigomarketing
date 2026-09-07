@@ -124,7 +124,20 @@ export function createBlogBuilding(deps: BlogBuildingDeps): BlogBuilding | null 
   let hoverDirty = false;
   let pointerX = 0;
   let pointerY = 0;
-  let press: { id: number; x: number; y: number; touch: boolean } | null = null;
+  /**
+   * Where the current pointer sequence began, and whether something else owned
+   * attention when it did.
+   *
+   * `blocked` is read at the PRESS and kept, not only re-read at the release.
+   * The district's close and this building share a canvas and a `pointerup`;
+   * the district's listener runs first and lets go synchronously, so by the time
+   * this one runs `hasFocusedDistrict` is already false — and a tap that closed
+   * the display fell straight through to the cluster behind it and opened the
+   * blog. A press that began under a focused district was never a request for
+   * this building, whatever the district did with it.
+   */
+  let press: { id: number; x: number; y: number; touch: boolean; blocked: boolean } | null =
+    null;
 
   // Touch has no hover, and a "hover" left behind by the last tap is a cursor
   // hint pinned to wherever a finger happened to lift.
@@ -164,6 +177,7 @@ export function createBlogBuilding(deps: BlogBuildingDeps): BlogBuilding | null 
       x: event.clientX,
       y: event.clientY,
       touch: event.pointerType === 'touch',
+      blocked: deps.blocked(),
     };
   };
 
@@ -172,7 +186,7 @@ export function createBlogBuilding(deps: BlogBuildingDeps): BlogBuilding | null 
     press = null;
     if (!enabled || started === null) return;
     if (event.button !== 0) return;
-    if (deps.blocked()) return;
+    if (started.blocked || deps.blocked()) return;
 
     // Measured against this module's OWN press, exactly as the district measures
     // against its own: the release of a drag across the city is not a tap on

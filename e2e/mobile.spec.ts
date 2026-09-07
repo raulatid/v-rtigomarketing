@@ -1082,3 +1082,77 @@ test('a finger opens the services district, closes it, and opens it again', asyn
   await page.touchscreen.tap(again.x, again.y)
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
 })
+
+/**
+ * Where a display control is drawn on screen, once the entry flight has landed.
+ *
+ * Two seams, both under `debugTools`: the control's point moves with the camera
+ * like the buildings do, and a press fired while the flight is still landing
+ * reads as "stop" rather than "choose" — so the flight is waited out first.
+ */
+async function waitDistrictSettled(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const settled = (window as unknown as Record<string, unknown>).__vertigoDistrictSettled
+          return typeof settled === 'function' ? (settled as () => boolean)() : null
+        }),
+      { timeout: 20_000 },
+    )
+    .toBe(true)
+}
+
+async function settledControlPoint(page: Page, control: string): Promise<{ x: number; y: number }> {
+  await waitDistrictSettled(page)
+  const point = await page.evaluate((name) => {
+    const probe = (window as unknown as Record<string, unknown>).__vertigoDistrictControlPoint
+    if (typeof probe !== 'function') return null
+    return (probe as (c: string) => { x: number; y: number } | null)(name)
+  }, control)
+  expect(point, `the ${control} control is not on screen`).not.toBeNull()
+  return point!
+}
+
+test('a touch user can leave the focused display two ways: its close, and a pinch out', async ({
+  page,
+}) => {
+  // The other half of the mobile report. Once the display was open, the only
+  // way out on a phone was a ~19 CSS px close glyph: the pinch was refused while
+  // a district held the viewer, Escape needs a keyboard and the a11y VOLVER
+  // only unclips for one. Two independent exits now, both touch-native, and
+  // this proves each on its own — the close is tapped where it is DRAWN, so a
+  // near miss is not what is being tested here (DistrictInteraction.test.ts
+  // owns the grown hit box); the pinch is the one that must not need aim.
+  test.setTimeout(240_000)
+  await bootToReady(page)
+  await reachSite(page)
+
+  await pinch(page, { from: 60, to: 60 + commitGrowth(page) * 1.05 })
+  await expect.poll(() => inMurcia(page), { timeout: 15_000 }).toBe(true)
+  await expect
+    .poll(() => page.locator('.nav').getAttribute('data-state'), { timeout: 20_000 })
+    .toBe('idle')
+
+  const first = await bringDistrictIntoView(page)
+  await page.touchscreen.tap(first.x, first.y)
+  await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
+
+  // 1. The close, once the flight has landed.
+  const close = await settledControlPoint(page, 'back')
+  await page.touchscreen.tap(close.x, close.y)
+  await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(false)
+  // The close starts the exit dolly, and a press while a flight plays is
+  // "stop", not "choose" — so the flight is waited out before going back in.
+  await waitDistrictSettled(page)
+
+  // 2. Back in, then a pinch OUT — a close in Murcia — with no aim at all.
+  const again = await bringDistrictIntoView(page)
+  await page.touchscreen.tap(again.x, again.y)
+  await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
+  await settledControlPoint(page, 'back')
+  await pinch(page, { from: 200, to: 120 })
+  await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(false)
+  // One level, not one world.
+  expect(await inMurcia(page)).toBe(true)
+})

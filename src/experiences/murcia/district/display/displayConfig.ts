@@ -27,6 +27,60 @@ export function rectContains(rect: DisplayRect, x: number, y: number): boolean {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 }
 
+// --- Geometry ----------------------------------------------------------------
+//
+// The panel's physical layout, here rather than in `servicesDisplay` so that
+// anything reasoning about where a control lands on screen — the touch hit
+// test, the projection guard test, a `checks/` harness — can build the geometry
+// without importing the shader and canvas module that draws it.
+
+/**
+ * The panel plane, and the readable core as a fraction of it.
+ *
+ * SQUARE, and the ratio is not free: the shader maps the text viewport onto the
+ * core, so `PANEL_WIDTH / PANEL_HEIGHT` must equal the viewport's ratio or every
+ * glyph is stretched by the difference. The two move together.
+ *
+ * The core's physical size is `plane × inset`, so raising the inset without
+ * shrinking the plane makes the display BIGGER. The inset is only 16% margin
+ * because the silhouette is carried by the plate's geometry; it has to hold an
+ * antialiased edge and a narrow bloom, nothing more.
+ */
+export const PANEL_WIDTH = 48;
+export const PANEL_HEIGHT = 48;
+export const CORE_INSET = 0.84;
+
+/**
+ * Height of the panel's centre above the plaza, in world units.
+ *
+ * The lab carried two numbers for this — 24 on a debug slider and 28 as the
+ * runtime default — and 28 is the one that was judged. One number now.
+ */
+export const PANEL_ELEVATION = 28;
+
+/**
+ * The panel's fixed lean, about its own X axis. Yaw follows the camera; this
+ * never does — a full billboard is what plan 002 explicitly refuses.
+ */
+export const PANEL_TILT_RADIANS = -Math.PI / 4;
+
+/**
+ * A core-UV point (top-down, as the rects are authored) to the panel's LOCAL
+ * space, written into `out`. Z is 0: the face.
+ *
+ * The exact inverse of the mapping `DistrictInteraction.controlUnderPointer`
+ * applies to a raycast's `uv`, stated once so the projection that grows a
+ * control's hit box and the raycast that finds its drawn box cannot disagree
+ * about where the control is.
+ */
+export function coreToPanelLocal(
+  x: number,
+  yTopDown: number,
+  out: { set(x: number, y: number, z: number): unknown },
+): void {
+  out.set((x - 0.5) * PANEL_WIDTH * CORE_INSET, (0.5 - yTopDown) * PANEL_HEIGHT * CORE_INSET, 0);
+}
+
 /**
  * Hit rectangles, deliberately larger than the graphics drawn inside them.
  *
@@ -49,13 +103,20 @@ export function rectContains(rect: DisplayRect, x: number, y: number): boolean {
  * with no aspect correction, so the rect IS the glyph's on-screen shape — a
  * 0.26 x 0.085 band sized for a six-letter word would have handed an X a 3:1 box.
  *
- * 0.08 is about 3.2 core units, or roughly 34 screen pixels at the district
- * camera. THIS IS THE FLOOR while the rect is both the drawing box and the hit
- * box. Plan 003 §4 is explicit that hit areas may be larger than the visible
- * graphic and that mobile usability beats microscopic sci-fi controls; one
- * rectangle serving both purposes is what makes that impossible to honour here.
- * Going smaller means splitting them — a second rect per control, hit-tested and
- * never drawn — not editing this number.
+ * 0.08 is about 3.2 core units. What that comes to ON SCREEN is not this
+ * file's business any more, and it used to be: the rect was both the drawing
+ * box and the hit box, so its projected size was the tap target, and a camera
+ * dolly (195 -> 285, 2026-09-04) took it from ~34 to ~19 CSS px without anyone
+ * opening this file. Plan 003 §4 — hit areas may be larger than the visible
+ * graphic; mobile usability beats microscopic sci-fi controls — could not be
+ * honoured by one rectangle serving both purposes.
+ *
+ * The split is done. This rect is the DRAWN size, free to be tuned by eye. The
+ * hit size on a coarse pointer is enforced in CSS pixels after projection by
+ * `src/interaction/touchTarget.ts` (`DistrictInteraction.controlUnderPointer`),
+ * and `displayTouchTargets.test.ts` fails if any control's grown target ever
+ * drops under the floor at a supported viewport — whichever of the camera, the
+ * panel or this number moved.
  */
 export const BACK_RECT: DisplayRect = { x: 0.053, y: 0.058, width: 0.08, height: 0.08 };
 
@@ -160,6 +221,47 @@ export function controlAt(x: number, y: number, detailOpen: boolean): DisplayCon
   if (rectContains(PREVIOUS_RECT, x, y)) return 'previous';
   if (rectContains(NEXT_RECT, x, y)) return 'next';
   return null;
+}
+
+/**
+ * The BUTTONS of each mode, in `controlAt`'s priority order.
+ *
+ * What a finger may be given when it lands near, but not on, a drawn control.
+ * `detail-viewport` is deliberately absent: it is a scroll surface, not a
+ * button, and growing it would only let it swallow more. Kept beside
+ * `controlAt` because the two are one statement of the layout — a control
+ * added to one and not the other is a control a mouse can press and a finger
+ * cannot, or the reverse.
+ */
+export const TOUCH_CONTROLS: Readonly<
+  Record<'summary' | 'detail', ReadonlyArray<readonly [DisplayControl, DisplayRect]>>
+> = {
+  summary: [
+    ['back', BACK_RECT],
+    ['detail', DETAIL_RECT],
+    ['previous', PREVIOUS_RECT],
+    ['next', NEXT_RECT],
+  ],
+  detail: [['close', BACK_RECT]],
+};
+
+/** The drawn rect a control name refers to, for a caller pointing at one by name. */
+export function rectForControl(control: DisplayControl): DisplayRect | null {
+  switch (control) {
+    case 'back':
+    case 'close':
+      return BACK_RECT;
+    case 'detail':
+      return DETAIL_RECT;
+    case 'previous':
+      return PREVIOUS_RECT;
+    case 'next':
+      return NEXT_RECT;
+    case 'detail-viewport':
+      return DETAIL_VIEWPORT_RECT;
+    default:
+      return null;
+  }
 }
 
 /**

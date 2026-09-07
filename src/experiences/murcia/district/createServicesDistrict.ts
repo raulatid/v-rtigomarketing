@@ -13,7 +13,7 @@ import {
   type DistrictServiceView,
 } from './districtConfig';
 import { createServicesDisplay, type ServicesDisplay } from './display/servicesDisplay';
-import { DEFAULT_LOCALE } from './display/displayConfig';
+import { DEFAULT_LOCALE, type DisplayControl } from './display/displayConfig';
 import { DistrictA11y } from './ui/districtA11y';
 import { splitServiceCopy } from './serviceCopy';
 
@@ -77,6 +77,17 @@ export interface ServicesDistrict {
   anchor(out: THREE.Vector3): THREE.Vector3;
   /** Where the first building is on screen. Test seam — see DistrictInteraction. */
   screenPoint(): { x: number; y: number } | null;
+  /** Where a display control's drawn centre is on screen. Test seam — see DistrictInteraction. */
+  controlPoint(control: DisplayControl): { x: number; y: number } | null;
+  /**
+   * Leaves the district if it is holding the viewer. A no-op otherwise.
+   *
+   * The second touch-native way out (the first is the display's own close): the
+   * scene navigation calls this when a pinch toward the way out arrives while
+   * the district is focused. The same transition as Escape, the a11y VOLVER and
+   * the X — one exit, reached four ways.
+   */
+  releaseFocus(): void;
   setEnabled(next: boolean): void;
   /** Takes the frame delta. Does not render. */
   update(deltaTime: number): void;
@@ -240,6 +251,14 @@ export function createServicesDistrict(
 
     screenPoint() {
       return interaction.screenPoint();
+    },
+
+    controlPoint(control) {
+      return interaction.controlPoint(control);
+    },
+
+    releaseFocus() {
+      if (state.get().districtActive) state.exitDistrict();
     },
 
     get isEngaged() {

@@ -2,8 +2,13 @@ import * as THREE from 'three';
 import {
   BACK_RECT,
   CONTROL_RECTS,
+  CORE_INSET,
   DETAIL_VIEWPORT_RECT,
   FOOTER_TOP,
+  PANEL_ELEVATION,
+  PANEL_HEIGHT,
+  PANEL_TILT_RADIANS,
+  PANEL_WIDTH,
   type DisplayControl,
   type DisplayRect,
   type LabelRow,
@@ -59,37 +64,19 @@ const SHELL_BLEED = 0.9;
 /**
  * Plate thickness in world units.
  *
- * About 2.8% of the plate's short side. At the district camera one world unit is
- * roughly 10.6 screen pixels, and the rim is seen at 34 degrees off the face's
- * normal, so this projects to about 4 pixels of visible edge. Below ~0.3 the rim
- * starts to alias at that distance; much above 1 and a thin premium plate turns
- * into masonry.
+ * About 2.8% of the plate's short side. Pixels per world unit at the district
+ * camera is `viewportHeightPx / (2 · d · tan(fov / 2))` with `d` the arrival
+ * distance — about 6.4 at 1600x900 today (285 · 0.78 = 222 units, fov 35), and
+ * about 10.6 when this was tuned at a 195-unit rest — and the rim is seen ~27
+ * degrees off the face's normal, so this projects to roughly 2–4 pixels of
+ * visible edge. Below ~0.3 the rim starts to alias at that distance; much above
+ * 1 and a thin premium plate turns into masonry.
  */
 const SHELL_THICKNESS = 0.6;
 
-/**
- * The panel plane, and the readable core as a fraction of it.
- *
- * SQUARE, and the ratio is not free: the shader maps the text viewport onto the
- * core, so `PANEL_WIDTH / PANEL_HEIGHT` must equal the viewport's ratio or every
- * glyph is stretched by the difference. The two move together.
- *
- * The core's physical size is `plane × inset`, so raising the inset without
- * shrinking the plane makes the display BIGGER. The inset is only 16% margin
- * because the silhouette is carried by the plate's geometry; it has to hold an
- * antialiased edge and a narrow bloom, nothing more.
- */
-const PANEL_WIDTH = 48;
-const PANEL_HEIGHT = 48;
-const CORE_INSET = 0.84;
-
-/**
- * Height of the panel's centre above the plaza, in world units.
- *
- * The lab carried two numbers for this — 24 on a debug slider and 28 as the
- * runtime default — and 28 is the one that was judged. One number now.
- */
-const PANEL_ELEVATION = 28;
+// PANEL_WIDTH / PANEL_HEIGHT / CORE_INSET / PANEL_ELEVATION / PANEL_TILT_RADIANS
+// live in `displayConfig` now, with their reasoning: the touch hit test and its
+// guard test build the panel's geometry without this module.
 
 /**
  * Face and plate share this. In `PANEL_HEIGHT` units, as the SDF works in, which
@@ -523,7 +510,7 @@ export function createServicesDisplay(options: ServicesDisplayOptions): Services
   });
 
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_WIDTH, PANEL_HEIGHT), panelMaterial);
-  panel.rotation.x = -Math.PI / 4;
+  panel.rotation.x = PANEL_TILT_RADIANS;
   panel.renderOrder = 3;
   // Raycastable: the display is the district's interaction surface, and the
   // controls are found by reading `intersection.uv` against the same rects the

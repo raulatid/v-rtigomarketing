@@ -28,6 +28,7 @@ import { createServicesDistrict } from './district/createServicesDistrict';
 import { createBlogBuilding } from './interaction/BlogBuilding';
 import type { BlogBuilding } from './interaction/BlogBuilding';
 import type { ServicesDistrict } from './district/createServicesDistrict';
+import type { DisplayControl } from './district/display/displayConfig';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
@@ -921,9 +922,28 @@ export class MurciaExperience {
     // camera pose and on the GLB rather than on anything a spec could hardcode.
     const first = this.districts[0];
     if (this.debugTools && first) {
-      (window as unknown as Record<string, unknown>).__vertigoDistrictPoint = () =>
-        first.screenPoint();
+      const seams = window as unknown as Record<string, unknown>;
+      seams.__vertigoDistrictPoint = () => first.screenPoint();
+      // Its sibling for the display: the round trip that proves a finger can
+      // LEAVE has to tap the close, which moves with the camera like the buildings do.
+      seams.__vertigoDistrictControlPoint = (control: DisplayControl) =>
+        first.controlPoint(control);
+      // A press during the entry flight is "stop", not "choose" — by design —
+      // so a test that means to press a control has to know the flight is over.
+      seams.__vertigoDistrictSettled = () => !first.isFlying;
     }
+  }
+
+  /**
+   * Releases whichever district is holding the viewer. A no-op when none is.
+   *
+   * Called by the scene navigation when a pinch toward the way out arrives while
+   * `hasFocusedDistrict` is true — the touch-native exit that does not depend on
+   * hitting the display's close. `onAttentionChange` fires through the district's
+   * own engaged edge, as it does for every other exit.
+   */
+  releaseFocusedDistrict(): void {
+    for (const district of this.districts) district.releaseFocus();
   }
 
   // --- Viewport and bounds --------------------------------------------------

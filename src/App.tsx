@@ -238,6 +238,13 @@ export default function App() {
         !legalDoc &&
         !selectedCase &&
         !murciaRef.current?.hasFocusedDistrict,
+      // The one attention-holder a pinch may release: the district's display is
+      // in the world, its close is a small drawn glyph, and on a phone the
+      // gesture that means "out" must still mean out. The DOM panels above keep
+      // their own closes and stay refused.
+      releaseFocus: murciaRef.current?.hasFocusedDistrict
+        ? () => murciaRef.current?.releaseFocusedDistrict()
+        : null,
     }),
     onCommit: (intent) => transitionTo(intent === 'enter-murcia' ? 'murcia' : 'earth'),
     // The zoom IS the scene feedback. Written straight onto the mutable sequence

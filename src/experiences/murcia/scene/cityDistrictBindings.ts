@@ -55,14 +55,20 @@ export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
     // redesign — but it now also sets the display's resting yaw, so a person in
     // front of it is judging two things at once.
     approachYawDegrees: 45,
-    // 0.78 -> distance ~152.
+    // A multiple of the resting `camera.distance`, so the arrival distance is
+    // `0.78 · CAMERA_DISTANCE` — ~222 units at today's 285 (it was ~152 at the
+    // 195 this was tuned against), and the visible height at the focus is
+    // `2 · d · tan(fov / 2)` — ~140 units at fov 35, against a 48-unit panel.
     //
     // The pair that most needs eyes: the flight frames the plaza on the GROUND,
     // while the display hangs above it, so distance and `PANEL_ELEVATION` in
-    // `district/display/servicesDisplay.ts` are tuned together or not at all.
-    // Arithmetic gets close and cannot settle it — at fov 35 the visible height
-    // at the focus is ~96 units here against a 48-unit panel — but where the
-    // panel sits in the frame is a composition judgement.
+    // `district/display/displayConfig.ts` are tuned together or not at all.
+    // Arithmetic gets close and cannot settle where the panel sits in the frame;
+    // that is a composition judgement. What arithmetic DOES own is how big the
+    // controls are to a finger: the touch floor is enforced after projection by
+    // `src/interaction/touchTarget.ts`, and `displayTouchTargets.test.ts` fails
+    // if a change here shrinks a control under it — so this number is free to
+    // move for the composition's sake.
     focusDistanceScale: 0.78,
   },
 ];

@@ -19,8 +19,11 @@ import type {
 import type { CursorManager } from '../../../interaction/cursorManager';
 import type { DistrictSnapshot, DistrictState } from '../district/districtState';
 import type { ServicesDisplay } from '../district/display/servicesDisplay';
-import { controlAt } from '../district/display/displayConfig';
+import { TOUCH_CONTROLS, controlAt, rectForControl } from '../district/display/displayConfig';
 import type { DisplayControl } from '../district/display/displayConfig';
+import { projectCoreRect } from '../district/display/displayProjection';
+import { expandToMinimum, resolveTouchTarget } from '../../../interaction/touchTarget';
+import type { ScreenBox, TouchCandidate } from '../../../interaction/touchTarget';
 
 export type DistrictInteractionState =
   | { type: 'idle' }
@@ -189,6 +192,20 @@ export class DistrictInteraction {
 
   /** Where the current pointer sequence began, to tell a tap from a drag. */
   private press: { id: number; x: number; y: number; touch: boolean } | null = null;
+
+  /**
+   * The touch hit test's candidates, allocated once. Four is the most buttons
+   * any mode has (`TOUCH_CONTROLS`); the boxes are rewritten per press.
+   */
+  private readonly touchCandidates: Array<TouchCandidate<DisplayControl>> = Array.from(
+    { length: 4 },
+    () => ({
+      id: 'back' as DisplayControl,
+      visible: { left: 0, top: 0, right: 0, bottom: 0 },
+      hit: { left: 0, top: 0, right: 0, bottom: 0 },
+    }),
+  );
+  private readonly controlBox: ScreenBox = { left: 0, top: 0, right: 0, bottom: 0 };
 
   /**
    * The detail-scroll gesture, while one is claimed.
@@ -554,10 +571,80 @@ export class DistrictInteraction {
    * here. A recursive test would return those and the controls would fire at
    * wrong positions rather than fail loudly.
    */
-  private controlUnderPointer(clientX: number, clientY: number): DisplayControl | null {
+  private controlUnderPointer(
+    clientX: number,
+    clientY: number,
+    touch = false,
+  ): DisplayControl | null {
     const rect = this.canvasRect();
     if (rect.width === 0 || rect.height === 0) return null;
 
+    const exact = this.controlByRaycast(rect, clientX, clientY);
+    // A mouse gets the drawn control and nothing else: the desktop's behaviour
+    // is unchanged by the touch floor, and a hover can aim.
+    if (!touch) return exact;
+    if (exact !== null && exact !== 'detail-viewport') return exact;
+
+    // A finger that missed the drawn glyph, or landed on the scroll surface. The
+    // buttons are grown to the touch floor in CSS pixels, AFTER projection, so
+    // the floor holds whatever the camera is doing (`touchTarget.ts`). The
+    // viewport is not a candidate: it is a surface, and a press on it that is
+    // also within a grown button belongs to the button — which is what keeps
+    // the close reachable while reading.
+    return this.controlByTouchTarget(rect, clientX, clientY) ?? exact;
+  }
+
+  /**
+   * The button whose GROWN box the point is in, or null. Touch only.
+   *
+   * Projected live, from the same rects the shader draws and the same matrix
+   * the raycast reads, on a press or a release — a handful of corners, not a
+   * per-frame cost.
+   */
+  private controlByTouchTarget(
+    rect: ScreenRect,
+    clientX: number,
+    clientY: number,
+  ): DisplayControl | null {
+    const mode = this.deps.state.get().detailOpen ? 'detail' : 'summary';
+    const controls = TOUCH_CONTROLS[mode];
+    const panel = this.deps.display.panel;
+    let count = 0;
+    for (const [control, controlRect] of controls) {
+      const candidate = this.touchCandidates[count]!;
+      if (projectCoreRect(controlRect, panel, this.deps.camera, rect, candidate.visible) === null) {
+        continue;
+      }
+      candidate.id = control;
+      expandToMinimum(candidate.visible, undefined, candidate.hit);
+      count += 1;
+    }
+    if (count === 0) return null;
+    return resolveTouchTarget(clientX, clientY, this.touchCandidates, count);
+  }
+
+  /**
+   * Where a control's drawn centre is on screen, or null when it is off it.
+   *
+   * A test seam, for the reason `screenPoint` is: the mobile round trip has to
+   * TAP the close, and where the close is depends on the camera pose. Exposed
+   * through `MurciaExperience` under `debugTools`.
+   */
+  controlPoint(control: DisplayControl): { x: number; y: number } | null {
+    const controlRect = rectForControl(control);
+    if (!controlRect) return null;
+    const rect = this.canvasRect();
+    const box = projectCoreRect(controlRect, this.deps.display.panel, this.deps.camera, rect, this.controlBox);
+    if (!box) return null;
+    const x = (box.left + box.right) / 2;
+    const y = (box.top + box.bottom) / 2;
+    if (x < rect.left || x > rect.left + rect.width || y < rect.top || y > rect.top + rect.height) {
+      return null;
+    }
+    return { x, y };
+  }
+
+  private controlByRaycast(rect: ScreenRect, clientX: number, clientY: number): DisplayControl | null {
     clientToNdc(rect, clientX, clientY, this.ndc);
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
     this.hits.length = 0;
@@ -641,7 +728,11 @@ export class DistrictInteraction {
     const snapshot = this.deps.state.get();
     if (!snapshot.districtActive) return;
 
-    const control = this.controlUnderPointer(event.clientX, event.clientY);
+    const control = this.controlUnderPointer(
+      event.clientX,
+      event.clientY,
+      event.pointerType === 'touch',
+    );
     this.deps.display.setPressed(control);
 
     if (snapshot.detailOpen && control === 'detail-viewport' && this.scrollGesture === null) {
@@ -735,7 +826,16 @@ export class DistrictInteraction {
     if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > threshold) return;
 
     if (this.deps.state.get().districtActive) {
-      const control = this.controlUnderPointer(event.clientX, event.clientY);
+      // A finger is resolved where it LANDED first. The guard above has just
+      // proved it did not drag, so the press is the intent and the release is
+      // wherever the fingertip rolled to on its way up — which on a control a
+      // few pixels wide is often off it. A mouse keeps the release: it does not
+      // roll, and a hover has already shown it what it is over.
+      const pressed = press.touch ? this.controlUnderPointer(press.x, press.y, true) : null;
+      const control =
+        pressed !== null && pressed !== 'detail-viewport'
+          ? pressed
+          : this.controlUnderPointer(event.clientX, event.clientY, press.touch);
       if (control) this.activate(control);
       return;
     }
