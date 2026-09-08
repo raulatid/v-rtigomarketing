@@ -355,6 +355,21 @@ export function createSatelliteFocus({
     // "is the mouse over something", which on touch is always no.
     pickAt,
     dispose,
+    /**
+     * Is the mouse resting on a satellite right now?
+     *
+     * A different question from `pickAt`, and the one the old `isHovering()`
+     * asked: "is the pointer over something", which on a touch device is always
+     * no. That made it the wrong answer for a click, which is why it went. It is
+     * the RIGHT answer for the hint, which reads this to stand down while the
+     * viewer's pointer is already on a target — a touch device dismisses that
+     * hint through `touchstart` instead and never needs to ask.
+     *
+     * Recomputed by `update`, so it is only as fresh as the last frame.
+     */
+    get hovering() {
+      return hoveredId !== null
+    },
     /** The tutorial's phase and pulse count — for the tests and the debug readout. */
     get tutorialPhase() {
       return tutorial.phase

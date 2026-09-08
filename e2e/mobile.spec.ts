@@ -590,6 +590,13 @@ test('the burger unfolds the two doors, and Auditoría opens from one of them', 
   const audit = page.locator('.audit-trigger')
   await expect(audit).toBeHidden()
 
+  // On the scene the bars are drawn by the corner logo's overlay pass, so the
+  // flat ones stand down — present, measurable, unpainted. The one assertion
+  // that would catch the swap regressing to two burgers on top of each other.
+  await expect(
+    page.locator(".site-header[data-layout='scene'] .site-header__burger-bar").first(),
+  ).toBeHidden()
+
   await openMenu(page)
   await expect(page.locator('.contact-trigger')).toBeVisible()
   await expect(audit).toBeVisible()

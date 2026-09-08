@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 import { prefersReducedMotion } from '../../../app/warpTransition'
@@ -22,7 +22,7 @@ import { HINT_CONFIG } from './hintConfig'
 // ## It is offered on STILLNESS, not on arrival
 //
 // Client direction. The figure appears once the viewer has done nothing for a
-// couple of seconds and steps aside the moment they move again — so it reads as
+// couple of seconds and steps aside as soon as they act — so it reads as
 // something the scene offers while they are looking, rather than as a card
 // pushed at them every time a world lands.
 //
@@ -37,6 +37,10 @@ import { HINT_CONFIG } from './hintConfig'
 // property of the viewer, not of the sequence, and because the frame loop is
 // already the thing that knows how much time has passed.
 //
+// Stillness means the viewer has not ACTED — pressed, scrolled, typed, or come
+// to rest on a satellite. Moving the mouse across the scene is not acting, and
+// used to be; see the event list below.
+//
 // ## Two constructions, deliberately split
 //
 // The `Points` is built SYNCHRONOUSLY on mount, at full capacity and invisible,
@@ -47,7 +51,20 @@ import { HINT_CONFIG } from './hintConfig'
 // The FIGURE is sampled asynchronously, because it cannot be measured before the
 // font stack has settled. That is raced against a timeout: a font that never
 // resolves must not mean a hint that never appears.
-export function HintLayer({ state, active }: { state: SequenceState; active: boolean }) {
+export function HintLayer({
+  state,
+  active,
+  satelliteHoverRef,
+}: {
+  state: SequenceState
+  active: boolean
+  /**
+   * Written every frame by InteractionLayer, which owns the pick. Read rather
+   * than computed, because the raycast that answers it already happens once a
+   * frame and a second one here would be the same question asked twice.
+   */
+  satelliteHoverRef: RefObject<boolean>
+}) {
   const { gl, size } = useThree()
   const reducedMotion = useMemo(prefersReducedMotion, [])
 
@@ -91,16 +108,24 @@ export function HintLayer({ state, active }: { state: SequenceState; active: boo
 
   // What counts as the viewer doing something.
   //
-  // Deliberately wider than `createNavigationInput`'s idea of an interaction,
-  // which is about gestures that navigate. This is about ATTENTION: a mouse
-  // moving across the scene, a key, a finger — someone doing any of those is
-  // looking at something already and does not need to be told where to go.
+  // A COMMITTED act, not attention. A press, a scroll, a key — someone doing any
+  // of those has already decided where they are going, whether that is a drag
+  // towards a satellite or a button, and the figure steps aside for it.
+  //
+  // A bare `pointermove` is deliberately NOT on this list, and was: it scattered
+  // the figure on the smallest twitch of the mouse, which is the one thing a
+  // viewer does while reading it. A hand resting on a mouse that moves is still
+  // a viewer who has not chosen, so the offer stands until they act.
+  //
+  // Still wider than `createNavigationInput`'s idea of an interaction, which
+  // only counts gestures that navigate: a key or a press anywhere on the page
+  // dismisses this, including one that lands on a panel over the scene.
   //
   // On `window` and in the capture phase, so a panel that stops propagation
   // still counts; passive, because none of this ever prevents a default.
   useEffect(() => {
     const poke = () => idle.poke()
-    const events = ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'] as const
+    const events = ['pointerdown', 'wheel', 'keydown', 'touchstart'] as const
     for (const type of events) {
       window.addEventListener(type, poke, { passive: true, capture: true })
     }
@@ -161,6 +186,18 @@ export function HintLayer({ state, active }: { state: SequenceState; active: boo
     // let you look at it is otherwise the one that dismisses it. DEBUG only.
     const dt = clampFrameDelta(delta)
     elapsed.current += dt
+
+    // A pointer resting on a satellite counts as acting, even though no event
+    // fired. It is the one hover the scene answers back — the badge bumps, the
+    // cursor turns — so the viewer has already found a target and the figure
+    // pointing at one is in the way. Held down rather than poked once, so the
+    // wait only restarts when the pointer leaves.
+    //
+    // The value is the previous frame's pick, which is why it is polled rather
+    // than subscribed to: a frame of lag against a two-second rule is not a lag,
+    // and reading a ref cannot go stale the way a callback that stops firing on
+    // the way out of the scene can.
+    if (satelliteHoverRef.current) idle.poke()
 
     // Idle is asked EVERY frame, including while the hint is up: the answer is a
     // state and not an edge, so the first move after it appears turns this false

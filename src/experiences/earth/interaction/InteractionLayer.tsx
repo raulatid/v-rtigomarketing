@@ -33,6 +33,14 @@ interface Props {
    * exists to prevent.
    */
   cursorRef: RefObject<CursorManager | null>
+  /**
+   * Published for the hint, which scatters while the pointer is on a satellite.
+   * A plain boolean rather than a callback because it is read once a frame by a
+   * layer that is already in the loop, and because a ref cannot be stale in the
+   * way a subscription can — this writes it every frame, including the frames it
+   * returns early on.
+   */
+  satelliteHoverRef: RefObject<boolean>
   onSelect: (data: SatelliteDef) => void
   onDeselect: () => void
   active: boolean
@@ -51,6 +59,7 @@ export function InteractionLayer({
   orbitSystemRef,
   handleRef,
   cursorRef,
+  satelliteHoverRef,
   onSelect,
   onDeselect,
   active,
@@ -135,6 +144,14 @@ export function InteractionLayer({
   useFrame((_, rawDelta) => {
     const rig = rigRef.current
     const focus = focusRef.current
+
+    // Written FIRST, before any of the early returns below, so a hover can never
+    // outlive the state that produced it: `setEnabled(false)` clears the hover
+    // on the way out of the scene, and a frame that returns before reaching
+    // `focus.update` must still publish that. It is therefore last frame's
+    // answer, which is nothing against a rule measured in seconds.
+    satelliteHoverRef.current = focus?.hovering ?? false
+
     if (!rig || !focus) return
 
     // Gating on `active` rather than detaching listeners is deliberate and

@@ -1,7 +1,12 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
-import type { CornerLogo, CornerLogoConfig, CornerMetrics } from '../corner-logo/createCornerLogo'
+import type {
+  CornerLogo,
+  CornerLogoConfig,
+  CornerMetrics,
+  HeaderBurgerMetrics,
+} from '../corner-logo/createCornerLogo'
 import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
 import { loadProgress } from '../loading/progress'
 
@@ -73,6 +78,51 @@ function applyHeaderLine(logo: CornerLogo): void {
   if (metrics) logo.setCornerMetrics(metrics)
 }
 
+/**
+ * The phone burger's bars, as the stylesheet draws them — or null for none.
+ *
+ * MEASURED, not re-declared, for the same reason `measureHeaderLine` is:
+ * `siteHeader.css` owns the burger's geometry and there is to be no second copy
+ * of those numbers here. The bars stay in the layout on the scene
+ * (`visibility: hidden`) precisely so this can read them; a transform is part
+ * of a client rect, so the pitch that comes back is the one on screen.
+ *
+ * A ZERO-WIDTH BOX IS THE ANSWER "no". The stylesheet hides the button outside
+ * its own phone query and SiteHeader does not render it before there are any
+ * actions, and a `display: none` element has no box — so asking the DOM covers
+ * the breakpoint and the phase at once, and 767px stays in the one file that
+ * owns it.
+ */
+function measureHeaderBurger(): HeaderBurgerMetrics | null {
+  const header = document.querySelector<HTMLElement>(".site-header[data-layout='scene']")
+  const button = header?.querySelector<HTMLElement>('.site-header__burger')
+  if (!header || !button) return null
+  const bars = button.querySelectorAll<HTMLElement>('.site-header__burger-bar')
+  if (bars.length < 2) return null
+  const first = bars[0].getBoundingClientRect()
+  const last = bars[bars.length - 1].getBoundingClientRect()
+  if (first.width <= 0 || first.height <= 0) return null
+  const firstY = first.top + first.height / 2
+  const lastY = last.top + last.height / 2
+  return {
+    count: bars.length,
+    // Against the VIEWPORT, which is the render surface: the canvas is fixed to
+    // it and the document does not scroll — the assumption measureHeaderLine
+    // already makes with `rect.left`.
+    centerRightPx: window.innerWidth - (first.left + first.width / 2),
+    centerYPx: (firstY + lastY) / 2,
+    barLengthPx: first.width,
+    barThicknessPx: first.height,
+    pitchPx: (lastY - firstY) / (bars.length - 1),
+    tone: header.dataset.tone === 'light' ? 'light' : 'dark',
+  }
+}
+
+/** Push the burger at the logo's overlay scene — null tells it to draw none. */
+function applyHeaderBurger(logo: CornerLogo): void {
+  logo.setHeaderBurger(measureHeaderBurger())
+}
+
 export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -114,6 +164,7 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
       }
 
       applyHeaderLine(logo)
+      applyHeaderBurger(logo)
       logoRef.current = logo
       handleRef.current = {
         startSequence: logo.startSequence,
@@ -157,7 +208,32 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
     if (!logo) return
     logo.setSize(size.width, size.height)
     applyHeaderLine(logo)
+    applyHeaderBurger(logo)
   }, [size.width, size.height, logoRef])
+
+  // The burger's other two inputs arrive WITHOUT a resize, and the effect above
+  // was the only thing re-reading the header: the button mounts when `hasActions`
+  // flips at phase 'site', and `data-tone` flips at the Earth↔Murcia cut.
+  //
+  // The filter is deliberately narrow. `data-menu-open` is not watched because
+  // the bars no longer morph, and widening `attributeFilter` would pick up
+  // `aria-expanded` on the burger and `data-state` on the portaled audit
+  // trigger — both inside this subtree, both mutating on every toggle.
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>(".site-header[data-layout='scene']")
+    if (!header) return
+    const observer = new MutationObserver(() => {
+      const logo = logoRef.current
+      if (logo) applyHeaderBurger(logo)
+    })
+    observer.observe(header, {
+      attributes: true,
+      attributeFilter: ['data-tone'],
+      childList: true,
+      subtree: true,
+    })
+    return () => observer.disconnect()
+  }, [logoRef])
 
   return null
 }

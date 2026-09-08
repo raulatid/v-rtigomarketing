@@ -84,10 +84,16 @@ export default function App() {
     setContextLost(true)
   }, [])
 
+  // The overlay pass draws the phone burger's bars as well as the mark, so a
+  // failure at either end of the header is one failure: the header puts its own
+  // flat bars back rather than leaving an empty 44x44 button on every phone.
+  const [logoAvailable, setLogoAvailable] = useState(true)
+
   const handleLoadFailed = useCallback(() => {
     // A scale-through-zero crossover hides nothing if the model never arrives.
     // Leave the 2D mark on screen rather than collapsing it into an empty frame.
     console.warn('[app] corner logo unavailable — holding the 2D isotype')
+    setLogoAvailable(false)
   }, [])
 
   // The logo instance is built inside the Canvas by CornerLogoLayer — it needs
@@ -471,6 +477,7 @@ export default function App() {
         layout="scene"
         tone={earthActive ? 'dark' : 'light'}
         hasActions={phase === 'site'}
+        burger3d={logoAvailable}
         onActionsHost={setHeaderActions}
         onMenuOpenChange={setHeaderMenuOpen}
       />

@@ -12,7 +12,10 @@ import { SiteHeader } from './SiteHeader'
 //    the field, choosing an action (a native capture on the portal host),
 //    Escape, a tap outside, losing the phone breakpoint, losing the actions;
 //  - the parent hears about the open state (App keeps Escape from skipping the
-//    intro while the menu owns it).
+//    intro while the menu owns it);
+//  - the bars survive `burger3d`. They are the geometry's source of truth
+//    (corner-logo/headerBurger.ts measures them) and its fallback, so hiding
+//    them is the stylesheet's job and unmounting them would break both.
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -51,17 +54,24 @@ afterEach(() => {
 
 interface MountProps {
   hasActions?: boolean
+  burger3d?: boolean
   onActionsHost?: (el: HTMLElement | null) => void
   onMenuOpenChange?: (open: boolean) => void
 }
 
-function mount({ hasActions = true, onActionsHost = () => {}, onMenuOpenChange }: MountProps = {}) {
+function mount({
+  hasActions = true,
+  burger3d,
+  onActionsHost = () => {},
+  onMenuOpenChange,
+}: MountProps = {}) {
   act(() => {
     root.render(
       <SiteHeader
         layout="scene"
         tone="dark"
         hasActions={hasActions}
+        burger3d={burger3d}
         onActionsHost={onActionsHost}
         onMenuOpenChange={onMenuOpenChange}
       />,
@@ -104,15 +114,34 @@ describe('the phone menu', () => {
     expect(b.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('puts the burger before the actions in the DOM and draws it as three bars', () => {
+  it('puts the burger before the actions in the DOM and draws it as four bars', () => {
     mount()
     const b = burger()!
     const end = container.querySelector<HTMLElement>('.site-header__end')!
     // Tab from the burger must land on the items, which needs DOM order (the
     // visual order is CSS `order`). FOLLOWING = the end comes after the burger.
     expect(b.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(b.querySelectorAll('.site-header__burger-bar')).toHaveLength(3)
+    expect(b.querySelectorAll('.site-header__burger-bar')).toHaveLength(4)
     expect(b.querySelector('svg')).toBeNull()
+  })
+
+  it('keeps the bars in the DOM when something else is drawing them', () => {
+    mount({ burger3d: true })
+    const b = burger()!
+    expect(header().getAttribute('data-burger')).toBe('3d')
+    // The flag only tells the stylesheet to stand the bars down. They stay
+    // because the overlay pass MEASURES them, and they are what comes back if
+    // the 3D mark never loads; the button stays because it is the hit target,
+    // the aria-expanded state and the focus ring.
+    expect(b.querySelectorAll('.site-header__burger-bar')).toHaveLength(4)
+    expect(b.getAttribute('aria-expanded')).toBe('false')
+    act(() => b.click())
+    expect(isOpen()).toBe(true)
+  })
+
+  it('leaves the attribute off when nothing else is drawing them (the blog)', () => {
+    mount()
+    expect(header().hasAttribute('data-burger')).toBe(false)
   })
 
   it('folds when the glass field is tapped, and the field is decorative', () => {

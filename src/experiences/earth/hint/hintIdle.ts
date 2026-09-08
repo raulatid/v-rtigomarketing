@@ -2,10 +2,11 @@
 //
 // The hint is an IDLE affordance, not an arrival one: it is offered when someone
 // has stopped doing anything for a couple of seconds, and it steps aside the
-// moment they move again. That is a different rule from the glass chip Murcia
-// still uses — which is offered once a beat after a world arrives and does not
-// come back until the next arrival — and the two are deliberately no longer
-// wired to each other, because they no longer answer the same question.
+// moment they act — press, scroll, key. That is a different rule from the glass
+// chip Murcia still uses — which is offered once a beat after a world arrives
+// and does not come back until the next arrival — and the two are deliberately
+// no longer wired to each other, because they no longer answer the same
+// question.
 //
 // Kept as a plain counter with no DOM and no clock of its own, so the rule is
 // exercised in Node and the layer only has to decide what counts as activity.

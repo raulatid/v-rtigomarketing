@@ -45,6 +45,17 @@ interface Props {
    * half-built scene (DECISIONS §26.16).
    */
   hasActions: boolean
+  /**
+   * Whether something else is drawing the burger's bars, in which case the flat
+   * ones stand down (`[data-burger='3d']` in the stylesheet).
+   *
+   * On the scene that something is the corner logo's overlay pass, which draws
+   * them as geometry at the header's other corner. It is a flag rather than an
+   * assumption about `layout` because the mark can fail to arrive — a 404 GLB
+   * or a stale chunk — and an empty 44x44 button on every phone is not an
+   * acceptable degradation. The blog passes nothing and keeps the flat bars.
+   */
+  burger3d?: boolean
   /** Receives the element the triggers portal into. State, not a ref: the
    *  portals must re-render once the node exists. */
   onActionsHost: (el: HTMLElement | null) => void
@@ -67,6 +78,7 @@ export function SiteHeader({
   layout,
   tone,
   hasActions,
+  burger3d,
   onActionsHost,
   leading,
   brand,
@@ -147,6 +159,7 @@ export function SiteHeader({
       className="site-header"
       data-layout={layout}
       data-tone={tone}
+      data-burger={burger3d ? '3d' : undefined}
       data-menu-open={menuOpen || undefined}
     >
       <div className="site-header__row">
@@ -154,8 +167,14 @@ export function SiteHeader({
         <div className="site-header__brand">{brand}</div>
         <div className="site-header__tail">
           {/* FIRST in the DOM, last on the line (CSS `order`): Tab from the
-              burger has to land on the items it just revealed. Three bars, not
-              two glyphs — the stylesheet morphs them into the ✕. */}
+              burger has to land on the items it just revealed.
+
+              Four bars rather than a glyph, and they stay in the DOM even where
+              they are not painted: on the scene the corner logo's overlay pass
+              draws them as geometry, and it MEASURES these boxes to do it, so
+              this markup and `siteHeader.css` remain the one place the bars'
+              count, length, thickness and pitch are stated. They are also what
+              comes back if the 3D mark never loads (`burger3d`). */}
           {hasActions && (
             <button
               type="button"
@@ -165,6 +184,7 @@ export function SiteHeader({
               aria-controls={actionsId}
               onClick={() => setMenuOpen((open) => !open)}
             >
+              <span className="site-header__burger-bar" aria-hidden="true" />
               <span className="site-header__burger-bar" aria-hidden="true" />
               <span className="site-header__burger-bar" aria-hidden="true" />
               <span className="site-header__burger-bar" aria-hidden="true" />

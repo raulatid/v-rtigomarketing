@@ -3,7 +3,7 @@ import { createIdleWatch } from './hintIdle'
 import { HINT_CONFIG } from './hintConfig'
 
 // The rule that replaced the arrival trigger: offered after a couple of seconds
-// of stillness, gone the moment the viewer moves. Everything about WHAT counts
+// of stillness, gone as soon as the viewer acts. Everything about WHAT counts
 // as movement is the layer's business; this owns only the counting.
 
 const DT = 1 / 60
@@ -50,7 +50,7 @@ describe('createIdleWatch', () => {
   })
 
   it('can be poked while already moving without going backwards', () => {
-    // A pointermove stream pokes this dozens of times a second.
+    // A wheel stream pokes this dozens of times a second.
     const watch = createIdleWatch({ idleSeconds: 2 })
     for (let i = 0; i < 200; i += 1) {
       watch.poke()

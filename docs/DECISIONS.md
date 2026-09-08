@@ -1484,6 +1484,34 @@ exactly once. Any future chrome gates on the same prop-from-phase pattern, never
 > so on every Escape meant to fold the sheet. Working detail, the collisions found and the
 > capture recipe: `plans/011-phone-menu-glass-field.md`.
 
+> **AMENDED 2026-09-08 — four bars, and on the scene they are geometry.** The header's two ends
+> are now one composition drawn by ONE pass: the brand mark at the left inset and the phone
+> burger's bars at the right, both in `createCornerLogo`'s scene on its camera
+> (`corner-logo/headerBurger.ts`). Not a second overlay pass and not a canvas of its own — the
+> pipeline still has exactly one overlay slot, and `isDrawable()` is still the MARK's visibility,
+> which is correct for the bars too because they are only ever measurable at phase 'site' (this
+> section's own definition of it) and go with the mark on a replay's `reset()`. Colour is
+> deterministic per face — three shades, no lights — because on the light tone the facets have to
+> come out LIGHTER than a near-black front face, and lighting only darkens; the front face
+> carries the contrast `siteHeader.css` already measured and argued for. Static: the ✕ morph is
+> gone from BOTH surfaces rather than reworked, since it does not map onto four bars, and the
+> state is still carried by `aria-expanded` and by the field igniting.
+>
+> **The flat bars stay in the DOM**, hidden with `visibility` and never `display`, because they
+> are the geometry's source of truth — the module measures their count, length, thickness and
+> pitch, so `siteHeader.css` remains the single owner of those numbers exactly as it is of the
+> line the logo is placed on — and because they are the fallback: `burger3d` is off when the GLB
+> or its chunk never arrives, and an empty 44×44 button on every phone is not an acceptable
+> degradation. A zero-width box is also how CornerLogoLayer asks "phone, and are there actions
+> yet", so 767px is not copied into TypeScript.
+>
+> The blog is untouched and `adr/013` needs no widening: it builds the same module on its own
+> little renderer, never measures a burger, and so carries four invisible meshes and flat bars.
+> **The cost accepted** is the layer stack — the bars now draw at z 10 with the canvas while the
+> button stays at 70, so with the audit curtain or a modal open on a phone they read through that
+> surface. Recorded rather than fixed; if it matters, the fix is to drop `burger3d` while a panel
+> above the canvas is open.
+
 **26.17 — The cursor glyphs are inlined path data, and `public/icons/*.svg` is the design source
 that is not read at runtime.** Redrawing those files changes nothing on screen until the `d`
 attributes are re-pasted into the component; both the component and the stylesheet say so at the
@@ -2796,17 +2824,35 @@ letterform, so the amplitude went from under half the dot spacing to 5 px. It is
 the bottom gap — otherwise the down half of the swing re-enters the footer band, which is the
 collision the anchor exists to prevent arriving through the side door.
 
-**And it is an IDLE affordance.** Offered after two seconds of stillness and gone the moment
-the viewer moves, rather than a beat after every arrival. That is not a question
+**And it is an IDLE affordance.** Offered after two seconds of stillness and gone as soon as
+the viewer ACTS, rather than a beat after every arrival. That is not a question
 `createNavigationInput` can answer — it fires once per arrival and never again — so
 `onHintVisible` was removed and that module is what it was. What crosses now is permission
 only (`state.hintAllowed`), with the shared refusals hoisted into one value so the rail's list
 and the hint's cannot drift. Murcia's chip keeps the arrival rule; the two hints no longer
 share a trigger because they no longer share a question.
 
+**Moving the mouse is not acting.** Stillness is counted against `pointerdown`, `wheel`,
+`keydown` and `touchstart` — a press that starts a drag to a satellite or a button, a scroll,
+a key. `pointermove` was on that list as first shipped and made the figure too reactive to be
+read: it scattered on the smallest twitch, which is exactly what a hand does while its owner
+is reading. A hovering pointer is a viewer who has not chosen yet, so the offer stands until
+they commit.
+
+**With one hover that does count: a satellite.** That is the one hover the scene ANSWERS —
+the badge bumps, the cursor turns — so a pointer resting there has found its target and the
+figure pointing at one is in the way. It is not an event, so it is not on the list above:
+`createSatelliteFocus` exposes the pick it already runs every frame as `hovering`,
+InteractionLayer publishes it on `satelliteHoverRef`, and the hint holds the idle count at
+zero for as long as it is true. A ref rather than a callback because the reader is already in
+the frame loop, and because a ref cannot keep reporting a hover the scene has left — the
+write happens ahead of every early return in that loop, and `setEnabled(false)` has cleared
+the hover by then. The lag is one frame against a two-second rule.
+
 Also broken when: `onHintVisible` is reintroduced to couple the two hints again; the idle
-threshold is folded into `createNavigationInput`; or the float's amplitude stops being
-reserved in the bottom gap.
+threshold is folded into `createNavigationInput`; `pointermove` returns to the poke list;
+`satelliteHoverRef` is written after an early return in InteractionLayer's frame; or the
+float's amplitude stops being reserved in the bottom gap.
 
 ## Superseded
 

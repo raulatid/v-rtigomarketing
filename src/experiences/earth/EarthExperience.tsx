@@ -85,6 +85,11 @@ export function EarthExperience({
   // requests when it goes inactive.
   const cursorRef = useRef<CursorManager | null>(null)
 
+  // Is the pointer resting on a satellite? Written by InteractionLayer, which
+  // owns the pick, and read by HintLayer, which stands down while it is true.
+  // Both ends inside Earth, like the two above.
+  const satelliteHoverRef = useRef(false)
+
   return (
     <>
       <CameraController
@@ -130,6 +135,7 @@ export function EarthExperience({
         orbitSystemRef={orbitSystemRef}
         handleRef={interactionRef}
         cursorRef={cursorRef}
+        satelliteHoverRef={satelliteHoverRef}
         onSelect={onSelectCase}
         onDeselect={onDeselectCase}
         active={active}
@@ -138,7 +144,7 @@ export function EarthExperience({
           drawn in it rather than on a plate over it. Mounted unconditionally and
           invisible so its shader is compiled by the scene-level warm-up rather
           than on the frame the hint first appears. */}
-      <HintLayer state={state} active={active} />
+      <HintLayer state={state} active={active} satelliteHoverRef={satelliteHoverRef} />
     </>
   )
 }

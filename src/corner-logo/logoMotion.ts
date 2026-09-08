@@ -73,6 +73,35 @@ export interface LogoMotion {
   setSurfaceHeight(px: number): void
 }
 
+/** The frustum's half-extents at the model plane (z = 0), and the px->world scale. */
+export interface FrustumExtents {
+  halfW: number
+  halfH: number
+  /** World units per CSS pixel at z = 0. */
+  perPx: number
+}
+
+/**
+ * The ONE copy of this module's pixel->world mapping.
+ *
+ * Linear only because `cornerFramePadding` flattens the frustum toward
+ * orthographic (extraction 001 §5) — with a normal frustum a pixel margin would
+ * not be a constant world offset.
+ *
+ * Takes the surface height rather than reading `window` itself: which surface
+ * is being drawn into is the caller's knowledge, and it is exactly the
+ * distinction `setSurfaceHeight` exists to make. Pure, and exported because the
+ * header's other corner needs the same mapping — `headerBurger.ts` places the
+ * phone burger's bars with it, anchored to the right instead of the left.
+ */
+export function frustumExtents(
+  camera: THREE.PerspectiveCamera,
+  surfaceHeightPx: number,
+): FrustumExtents {
+  const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z
+  return { halfH, halfW: halfH * camera.aspect, perPx: (2 * halfH) / surfaceHeightPx }
+}
+
 /**
  * The logo's four-state reveal: hidden -> spinning -> flying -> idling.
  *
@@ -120,8 +149,7 @@ export function createLogoMotion(
    * number for the scene canvas and nothing else — see `setSurfaceHeight`.
    */
   function worldPerPx(): number {
-    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z
-    return (2 * halfH) / (surfaceHeightPx ?? window.innerHeight)
+    return frustumExtents(camera, surfaceHeightPx ?? window.innerHeight).perPx
   }
 
   /**
@@ -151,9 +179,7 @@ export function createLogoMotion(
    * without anything having to notice the resize.
    */
   function computeCornerTarget(target: THREE.Vector3): THREE.Vector3 {
-    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z
-    const halfW = halfH * camera.aspect
-    const perPx = worldPerPx()
+    const { halfW, halfH, perPx } = frustumExtents(camera, surfaceHeightPx ?? window.innerHeight)
     return target.set(
       -halfW + metrics.insetLeftPx * perPx + (cornerScale() * modelSize.x) / 2,
       halfH - metrics.centerYPx * perPx,
