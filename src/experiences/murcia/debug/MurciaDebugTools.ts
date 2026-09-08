@@ -79,8 +79,13 @@ export class MurciaDebugTools {
   }
 
   /**
-   * The bounds wireframe: effective, visual, configured and plate, drawn as
-   * four nested rectangles just above the ground plane.
+   * The bounds wireframe: effective, extended, visual, configured and plate,
+   * drawn as nested rectangles just above the ground plane.
+   *
+   * The gap between `effective` and `extended` IS the resistance band (DECISIONS
+   * §40) — the two innermost rectangles are what a push travels between, so the
+   * band is judged by watching the focus cross from one to the other rather than
+   * by reading a number off the overlay.
    *
    * Rebuilt rather than updated. It changes only on a resize, a yaw or a zoom
    * settle — never per frame — and a rebuild cannot leave a stale vertex behind
@@ -97,6 +102,8 @@ export class MurciaDebugTools {
     const y = groundPlaneHeight + HELPER_LIFT;
     const points: number[] = [];
     pushRect(points, effective, y);
+    const extended = area.extendedNavigableBounds;
+    if (extended) pushRect(points, extended, y);
     pushRect(points, visual, y);
     const configured = area.configuredBounds;
     const plate = area.plateBounds;

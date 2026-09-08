@@ -261,6 +261,21 @@ export interface NavigationConfig {
    */
   bounds: BoundsRect;
   /**
+   * How far past `bounds` the focus may be PUSHED, against rising resistance
+   * (DECISIONS §40).
+   *
+   * `bounds` is where panning is 1:1. Between the two rectangles the gain falls
+   * smoothly to zero, so the viewer feels the edge arriving instead of hitting
+   * it — and this one, not `bounds`, is the hard limit that keeps the eye inside
+   * the city. Both are put through the same footprint and station terms, so
+   * "the camera never leaves the navigable area" (§39) is unchanged; what
+   * changes is which rectangle the navigable area means.
+   *
+   * Must CONTAIN `bounds` on all four sides. Equal to it disables the band and
+   * restores §39's hard wall exactly, which is what `?band=0` does.
+   */
+  extendedBounds: BoundsRect;
+  /**
    * Derive the navigable area from the terrain plate measured at load, inset by
    * `boundsInset`, instead of trusting the configured rectangle.
    *

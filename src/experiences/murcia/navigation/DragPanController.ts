@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { BoundsRect, DragFeelConfig, NavigationConfig } from '../config/environmentConfig';
 import type { CameraRig } from '../camera/CameraRig';
-import { clampToRect } from './navigationBounds';
+import { clampToRect, resistToRect } from './navigationBounds';
 import { clientToNdc } from '../../../interaction/screenSpace';
 import { clampFrameDelta } from '../../../graphics/frameDelta';
 
@@ -169,6 +169,7 @@ export class DragPanController {
   private readonly events: DragPanEvents;
 
   private bounds: BoundsRect;
+  private extendedBounds: BoundsRect;
 
   private readonly plane: THREE.Plane;
   private readonly raycaster = new THREE.Raycaster();
@@ -230,6 +231,7 @@ export class DragPanController {
     rig: CameraRig,
     config: NavigationConfig,
     bounds: BoundsRect,
+    extendedBounds: BoundsRect,
     events: DragPanEvents = {},
   ) {
     this.domElement = domElement;
@@ -237,6 +239,7 @@ export class DragPanController {
     this.rig = rig;
     this.config = config;
     this.bounds = bounds;
+    this.extendedBounds = extendedBounds;
     this.events = events;
     this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -config.groundPlaneHeight);
 
@@ -354,16 +357,23 @@ export class DragPanController {
   }
 
   /**
-   * Replaces the navigable area.
+   * Replaces the navigable area: the rectangle panning is 1:1 within, and the
+   * hard limit it resists toward (DECISIONS §40).
    *
    * Only the *target* is re-clamped; the rendered focus is left alone and the
    * existing smoothing draws it in. Bounds change continuously as the rig yaws —
    * and as a district flight dollies — so snapping the focus here would show up as
    * a jerk on every frame of a rotation or a flight.
+   *
+   * Re-clamped against the EXTENDED rectangle, not the firm one. Clamping to the
+   * firm rectangle here would drag a target that is legitimately out in the band
+   * back to the firm edge on every frame of a rotation, which is the band not
+   * existing at all.
    */
-  setBounds(bounds: BoundsRect): void {
+  setBounds(bounds: BoundsRect, extendedBounds: BoundsRect): void {
     this.bounds = bounds;
-    const target = clampToRect(this.targetX, this.targetZ, bounds);
+    this.extendedBounds = extendedBounds;
+    const target = clampToRect(this.targetX, this.targetZ, extendedBounds);
     this.targetX = target.x;
     this.targetZ = target.z;
   }
@@ -467,7 +477,10 @@ export class DragPanController {
       if (speed > feel.minInertiaSpeed) {
         const proposedX = this.targetX + this.velocityX * dt;
         const proposedZ = this.targetZ + this.velocityZ * dt;
-        const clamped = clampToRect(proposedX, proposedZ, this.bounds);
+        // The hard limit, matching the drag: momentum that stopped at the firm
+        // edge would undo the band the gesture just travelled into. Dormant
+        // while inertiaTimeConstant is 0, but it must not be left disagreeing.
+        const clamped = clampToRect(proposedX, proposedZ, this.extendedBounds);
         // Kill momentum on an axis that hit the wall, so it does not grind.
         if (clamped.x !== proposedX) this.velocityX = 0;
         if (clamped.z !== proposedZ) this.velocityZ = 0;
@@ -717,8 +730,18 @@ export class DragPanController {
     const proposedX = this.targetX + (this.fromPoint.x - this.toPoint.x) * gain;
     const proposedZ = this.targetZ + (this.fromPoint.z - this.toPoint.z) * gain;
 
-    // Clamp the proposal before committing it, never the result afterwards.
-    const clamped = clampToRect(proposedX, proposedZ, this.bounds);
+    // Resist the proposal before committing it, never the result afterwards.
+    // 1:1 inside `bounds`, falling to zero across the gap to `extendedBounds`,
+    // and never past it (DECISIONS §40). The velocity estimate below reads the
+    // COMMITTED delta, so momentum bleeds off through the band for free.
+    const clamped = resistToRect(
+      this.targetX,
+      this.targetZ,
+      proposedX,
+      proposedZ,
+      this.bounds,
+      this.extendedBounds,
+    );
 
     if (dt > 1e-4) {
       const instantX = (clamped.x - this.targetX) / dt;

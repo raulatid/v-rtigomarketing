@@ -170,7 +170,7 @@ function makeFixture(): Fixture {
   rig.setFocus(FOCUS.x, FOCUS.z)
   camera.updateMatrixWorld(true)
 
-  const controller = new DragPanController(canvas, camera, rig, env.navigation, BOUNDS)
+  const controller = new DragPanController(canvas, camera, rig, env.navigation, BOUNDS, BOUNDS)
   const beginExternal = vi.spyOn(controller, 'beginExternalControl')
 
   const root = buildCity()

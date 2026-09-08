@@ -203,6 +203,111 @@ describe('NavigableArea', () => {
       expect(north.maxZ).toBeLessThan(south.maxZ)
       expect(north.minZ).toBeLessThan(south.minZ)
     })
+
+    // DECISIONS §40. The same two terms against the A2 ring instead of the plate,
+    // which is the hard limit the drag resists toward.
+    describe('and the extended area beside it', () => {
+      it('contains the firm area at every pose the station term is tested at', () => {
+        // The property the resistance ramp depends on: a limit inside the area
+        // panning already reaches would resist in the wrong direction.
+        const area = areaWithSkirt()
+        for (const [x, y, z] of [
+          [150, 100, 0],
+          [150, 100, -90],
+          [0, 100, 140],
+          [0, 100, -140],
+          [900, 400, 0],
+        ]) {
+          const e = area.recompute(cameraAt(x!, y!, z!), new THREE.Vector3(0, 0, 0))!
+          const x2 = area.extendedNavigableBounds!
+          expect(x2.minX).toBeLessThanOrEqual(e.minX)
+          expect(x2.maxX).toBeGreaterThanOrEqual(e.maxX)
+          expect(x2.minZ).toBeLessThanOrEqual(e.minZ)
+          expect(x2.maxZ).toBeGreaterThanOrEqual(e.maxZ)
+        }
+      })
+
+      it('keeps the camera inside the ring at the most permissive focus', () => {
+        // The mirror of the station term's own invariant, and the whole of what
+        // §40 relaxes: the eye leaves the plate, it does not leave the city.
+        const area = areaWithSkirt()
+        const ring = nav.extendedBounds
+        const offsetX = 150
+        const offsetZ = -90
+        area.recompute(cameraAt(offsetX, 100, offsetZ), new THREE.Vector3(0, 0, 0))
+        const x2 = area.extendedNavigableBounds!
+
+        for (const [fx, fz] of [
+          [x2.minX, x2.minZ],
+          [x2.maxX, x2.minZ],
+          [x2.minX, x2.maxZ],
+          [x2.maxX, x2.maxZ],
+        ]) {
+          expect(fx! + offsetX).toBeGreaterThanOrEqual(ring.minX)
+          expect(fx! + offsetX).toBeLessThanOrEqual(ring.maxX)
+          expect(fz! + offsetZ).toBeGreaterThanOrEqual(ring.minZ)
+          expect(fz! + offsetZ).toBeLessThanOrEqual(ring.maxZ)
+        }
+      })
+
+      it('is wider than the firm area by exactly the ring margins', () => {
+        const area = areaWithSkirt()
+        const c = area.configuredBounds!
+        const ring = nav.extendedBounds
+        const e = area.recompute(cameraAt(150, 100, -90), new THREE.Vector3(0, 0, 0))!
+        const x2 = area.extendedNavigableBounds!
+
+        // Both terms are re-derived against the ring, so the shifted edge gains
+        // the ring's margin too — which growing `effective` by the margins would
+        // NOT have produced on the station-bound side.
+        expect(x2.maxX - e.maxX).toBeCloseTo(ring.maxX - c.maxX, 6)
+        expect(e.minX - x2.minX).toBeCloseTo(c.minX - ring.minX, 6)
+        expect(x2.maxZ - e.maxZ).toBeCloseTo(ring.maxZ - c.maxZ, 6)
+        expect(e.minZ - x2.minZ).toBeCloseTo(c.minZ - ring.minZ, 6)
+      })
+
+      it('is the firm area itself when the ring is the configured rectangle', () => {
+        // What `?band=0` resolves to, and the reason it restores §39 exactly
+        // rather than approximately.
+        const area = new NavigableArea({ ...nav, extendedBounds: nav.bounds })
+        area.setPlateFromObject(terrainAt(PLATE))
+        area.setVisualBounds({ minX: -5000, maxX: 5000, minZ: -5000, maxZ: 5000 })
+        area.deriveConfigured(nav.bounds)
+        const e = area.recompute(cameraAt(150, 100, -90), new THREE.Vector3(0, 0, 0))!
+        expect(area.extendedNavigableBounds).toEqual(e)
+      })
+
+      it('gives up the band entirely when the offset outruns the rectangle', () => {
+        // Both terms collapse to their midpoint there, and the two midpoints are
+        // the ring margins apart — so the arithmetic alone would hand back a
+        // limit that does not contain the firm area. No focus satisfies the rule
+        // at such a pose, so the honest answer is no band rather than a
+        // rectangle invented between two pinned points.
+        const area = areaWithSkirt()
+        const c = area.configuredBounds!
+        const tooFar = (c.maxX - c.minX) * 2
+        const e = area.recompute(cameraAt(tooFar, 400, 0), new THREE.Vector3(0, 0, 0))!
+        expect(area.extendedNavigableBounds).toEqual(e)
+      })
+
+      it('never lets a mis-authored ring shrink below the firm rectangle', () => {
+        // extendedBounds is REQUIRED to contain bounds. If it does not, the union
+        // keeps the limit outside the firm area rather than inverting the ramp.
+        const area = new NavigableArea({
+          ...nav,
+          extendedBounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 },
+        })
+        area.setPlateFromObject(terrainAt(PLATE))
+        area.setVisualBounds({ minX: -5000, maxX: 5000, minZ: -5000, maxZ: 5000 })
+        area.deriveConfigured(nav.bounds)
+        const e = area.recompute(cameraAt(150, 100, -90), new THREE.Vector3(0, 0, 0))!
+        const x2 = area.extendedNavigableBounds!
+        expect(x2.minX).toBeLessThanOrEqual(e.minX)
+        expect(x2.maxX).toBeGreaterThanOrEqual(e.maxX)
+        expect(x2.minZ).toBeLessThanOrEqual(e.minZ)
+        expect(x2.maxZ).toBeGreaterThanOrEqual(e.maxZ)
+      })
+    })
   })
 
   describe('recompute', () => {

@@ -72,7 +72,11 @@ function makeHarness(
     boundsCalls: 0,
   } as Harness;
 
-  harness.controller = new DragPanController(element, camera, rig, config, limits);
+  // Firm and limit are the same rectangle here on purpose: this file measures
+  // FLIGHTS, which clamp to the firm area and never enter §40's band. Handing it
+  // a band would make a flight's landing depend on a drag behaviour it does not
+  // use, and §5 below would stop being evidence that flights were left alone.
+  harness.controller = new DragPanController(element, camera, rig, config, limits, limits);
   harness.flight = new CameraFlight(rig, {
     resolveBounds: () => {
       harness.boundsCalls += 1;
@@ -646,7 +650,7 @@ console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
     let scaleAtResolve = -1;
     const stub = createStubElement({ left: 0, top: 0, width: WIDTH, height: HEIGHT });
     const { camera, rig } = makeRig(env, ASPECT, env.initialFocus);
-    const controller = new DragPanController(stub.element, camera, rig, nav, bounds);
+    const controller = new DragPanController(stub.element, camera, rig, nav, bounds, bounds);
     const flight = new CameraFlight(rig, {
       resolveBounds: () => {
         scaleAtResolve = rig.getDistanceScale();

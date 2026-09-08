@@ -56,6 +56,9 @@ function makeHarness(
   config: NavigationConfig = nav,
   focusAt = env.initialFocus,
   limits: BoundsRect = bounds,
+  // The shipped A2 ring, so the resistance band is exercised at its real width
+  // rather than at a width invented here (DECISIONS §40).
+  extendedLimits: BoundsRect = nav.extendedBounds,
 ): Harness {
   const stub = createStubElement({ left: 0, top: 0, width: WIDTH, height: HEIGHT });
   const element = stub.element;
@@ -74,7 +77,7 @@ function makeHarness(
     zoomEvents: 0,
   };
 
-  harness.controller = new DragPanController(element, camera, rig, config, limits, {
+  harness.controller = new DragPanController(element, camera, rig, config, limits, extendedLimits, {
     onYawChanged: () => {
       harness.yawEvents += 1;
     },
@@ -675,6 +678,10 @@ console.log('\n6. Release stops the view — no coast');
 // =============================================================================
 console.log('\n7. Bounds still hold');
 {
+  // Measured against the EXTENDED rectangle since 2026-09-08. The firm one
+  // stopped being the limit with §40: pushing past it is the feature, and what
+  // must still be impossible is pushing past the ring beyond it.
+  const limit = nav.extendedBounds;
   const h = makeHarness();
   // Drive hard toward an edge, repeatedly, then let momentum run out.
   for (let i = 0; i < 30; i += 1) {
@@ -685,14 +692,26 @@ console.log('\n7. Bounds still hold');
   }
   h.step(10);
   const inside =
-    h.rig.focus.x >= bounds.minX - 1e-6 &&
-    h.rig.focus.x <= bounds.maxX + 1e-6 &&
-    h.rig.focus.z >= bounds.minZ - 1e-6 &&
-    h.rig.focus.z <= bounds.maxZ + 1e-6;
+    h.rig.focus.x >= limit.minX - 1e-6 &&
+    h.rig.focus.x <= limit.maxX + 1e-6 &&
+    h.rig.focus.z >= limit.minZ - 1e-6 &&
+    h.rig.focus.z <= limit.maxZ + 1e-6;
   check(
     'focus never escapes the navigable rectangle',
     inside,
-    `focus (${h.rig.focus.x.toFixed(1)}, ${h.rig.focus.z.toFixed(1)}) in X [${bounds.minX.toFixed(0)}, ${bounds.maxX.toFixed(0)}] Z [${bounds.minZ.toFixed(0)}, ${bounds.maxZ.toFixed(0)}]`,
+    `focus (${h.rig.focus.x.toFixed(1)}, ${h.rig.focus.z.toFixed(1)}) in X [${limit.minX.toFixed(0)}, ${limit.maxX.toFixed(0)}] Z [${limit.minZ.toFixed(0)}, ${limit.maxZ.toFixed(0)}]`,
+  );
+
+  // The other half of the same evidence. Without it the check above would still
+  // pass if the band silently stopped working, the firm rectangle being inside
+  // the extended one. Asserted on either axis rather than on the one this pose
+  // happens to favour — a 400px drag carries both.
+  const pastX = h.rig.focus.x < bounds.minX || h.rig.focus.x > bounds.maxX;
+  const pastZ = h.rig.focus.z < bounds.minZ || h.rig.focus.z > bounds.maxZ;
+  check(
+    'a sustained push reaches into the resistance band (§40)',
+    pastX || pastZ,
+    `focus (${h.rig.focus.x.toFixed(1)}, ${h.rig.focus.z.toFixed(1)}) against firm X [${bounds.minX.toFixed(1)}, ${bounds.maxX.toFixed(1)}] Z [${bounds.minZ.toFixed(1)}, ${bounds.maxZ.toFixed(1)}]`,
   );
 }
 {

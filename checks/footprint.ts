@@ -90,7 +90,7 @@ import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewp
 import { terrainVisualBounds } from '../src/experiences/murcia/environment/createTerrainTransition';
 import type { BoundsRect } from '../src/experiences/murcia/config/environmentConfig';
 import { resolveCameraPose } from '../src/experiences/murcia/config/environmentConfig';
-import { clampToRect } from '../src/experiences/murcia/navigation/navigationBounds';
+import { clampToRect, containsRect } from '../src/experiences/murcia/navigation/navigationBounds';
 
 import { banner, check, finish, section } from './lib/assert';
 
@@ -537,6 +537,18 @@ let worstUsableWidth = Infinity;
 let worstUsableDepth = Infinity;
 let usableLabel = '';
 
+// §40. The same sweep, against the rectangle a push may REACH rather than the one
+// panning is 1:1 within. Gathered in the loop below and asserted in section 5.
+const ring: BoundsRect = { ...nav.extendedBounds };
+let worstRingMargin = Infinity;
+let ringLabel = '';
+let furthestPastPlate = 0;
+let pastPlateLabel = '';
+let ringContainsStationEverywhere = true;
+let containmentLabel = '';
+let worstRingUsableWidth = Infinity;
+let worstRingUsableDepth = Infinity;
+
 for (const [aspectName, aspect] of ASPECTS) {
   for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
     for (let d = 0; d <= DEPTH_STEPS; d++) {
@@ -569,6 +581,63 @@ for (const [aspectName, aspect] of ASPECTS) {
           usableLabel = label;
         }
         worstUsableDepth = Math.min(worstUsableDepth, station.maxZ - station.minZ);
+
+        // §40's rectangle, derived exactly as the runtime derives it.
+        const ringStation = computeStationLimitedBounds(
+          ring,
+          camera.position.x,
+          camera.position.z,
+          nav.edgeSafetyMargin,
+        );
+        worstRingUsableWidth = Math.min(worstRingUsableWidth, ringStation.maxX - ringStation.minX);
+        worstRingUsableDepth = Math.min(worstRingUsableDepth, ringStation.maxZ - ringStation.minZ);
+
+        // The ramp needs the limit to contain the firm area. It does not in the
+        // degenerate collapse, which `NavigableArea` handles by giving up the
+        // band — this proves that fallback never fires inside the reachable band.
+        if (!containsRect(ringStation, station)) {
+          ringContainsStationEverywhere = false;
+          containmentLabel = label;
+        }
+
+        for (const [cx, cz] of [
+          [ring.minX, ring.minZ],
+          [ring.maxX, ring.minZ],
+          [ring.minX, ring.maxZ],
+          [ring.maxX, ring.maxZ],
+        ]) {
+          const legal = clampToRect(cx!, cz!, ringStation);
+          focus.set(legal.x, 0, legal.z);
+          applyPoseToCamera(camera, pose, focus, yaw);
+
+          const margin = Math.min(
+            camera.position.x - ring.minX,
+            ring.maxX - camera.position.x,
+            camera.position.z - ring.minZ,
+            ring.maxZ - camera.position.z,
+          );
+          if (margin < worstRingMargin) {
+            worstRingMargin = margin;
+            ringLabel = label;
+          }
+
+          // How far §40 actually lets the eye off the authored plate. Negative
+          // margins are the measurement here, not a failure.
+          const past = Math.max(
+            plate.minX - camera.position.x,
+            camera.position.x - plate.maxX,
+            plate.minZ - camera.position.z,
+            camera.position.z - plate.maxZ,
+          );
+          if (past > furthestPastPlate) {
+            furthestPastPlate = past;
+            pastPlateLabel = label;
+          }
+        }
+
+        // Restore the pose the firm sweep below expects to read.
+        focus.set(0, 0, 0);
+        applyPoseToCamera(camera, pose, focus, yaw);
 
         // Every corner the viewer can drive the focus at, clamped into the area
         // the runtime would have given them.
@@ -619,6 +688,58 @@ check(
     `${(plate.maxX - plate.minX).toFixed(0)} x ${(plate.maxZ - plate.minZ).toFixed(0)} at ` +
     `${usableLabel} — the eye offset is distance * cos(pitch), so raising the distance or ` +
     'lowering the pitch spends this, and at zero the city stops panning',
+);
+
+// ---------------------------------------------------------------------------
+section('5. The band the camera may be pushed into (DECISIONS §40)');
+
+/*
+ * §39 made the eye stay on the authored plate and enforced it with a hard clamp,
+ * which reads as an invisible wall: the city pans at full speed and stops dead
+ * under a finger that is still moving. §40 keeps the guarantee and moves the
+ * rectangle it guards to the A2 ring that wraps the plate, resisting across the
+ * gap so the edge is felt arriving.
+ *
+ * SECTION 4 IS STILL THE ONE THAT GUARDS USABILITY, and deliberately so: its
+ * floor is measured on the FIRM rectangle alone. The band must never become
+ * load-bearing for whether the city can be navigated — if a future pitch eats the
+ * full-speed area, §4 must still fail even though the ring would hide it.
+ *
+ * What this section adds is §39's own invariant restated against the ring, plus
+ * the containment the ramp depends on, plus the measurement nobody should have to
+ * guess at: how far off the plate this actually puts the eye.
+ */
+
+check(
+  'the eye stays inside the city ring at every reachable pose',
+  worstRingMargin >= 0,
+  `worst margin ${worstRingMargin >= 0 ? '+' : ''}${worstRingMargin.toFixed(1)} units at ` +
+    `${ringLabel} — this is §39's assertion against §40's rectangle, and negative means a ` +
+    'push can put the eye somewhere there is nothing built to stand on',
+);
+
+check(
+  'the limit contains the full-speed area at every reachable pose',
+  ringContainsStationEverywhere,
+  ringContainsStationEverywhere
+    ? 'so the ramp always has a band to resist across, and NavigableArea never has to give it up'
+    : `no band at ${containmentLabel} — the resistance would resolve to a hard clamp there`,
+);
+
+check(
+  'the ring is a band and not a second navigable area',
+  furthestPastPlate > 0 && furthestPastPlate <= 50,
+  `the eye reaches at most ${furthestPastPlate.toFixed(1)} units past the plate at ` +
+    `${pastPlateLabel}, against ring margins of -X 24.9 +X 30.0 -Z 50.0 +Z 16.5 — above ` +
+    'those the rectangle is no longer the ring that was measured out of the GLB',
+);
+
+check(
+  'the band buys pan range rather than only softness',
+  worstRingUsableWidth > worstUsableWidth && worstRingUsableDepth > worstUsableDepth,
+  `usable area ${worstUsableWidth.toFixed(0)} x ${worstUsableDepth.toFixed(0)} at full speed, ` +
+    `${worstRingUsableWidth.toFixed(0)} x ${worstRingUsableDepth.toFixed(0)} including the band ` +
+    '— equal means extendedBounds has been set back to bounds, which is ?band=0 shipped by accident',
 );
 
 // ---------------------------------------------------------------------------

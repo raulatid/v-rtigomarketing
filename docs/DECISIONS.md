@@ -1000,6 +1000,13 @@ the case assumed a photograph must carry its own stars.*
 > resting pose rises to 35 degrees at distance 220, and `zoomNearScale` moves 0.45 -> 0.58 —
 > not a re-judgement, but because it is a scale and the shorter rest distance multiplied
 > straight into the compound closest approach the fourth amendment had just measured.
+>
+> **Amended a sixth time, the same day — §40. The edge stops being a wall.** 1:1 panning still
+> ends where the fifth amendment put it, but the drag no longer stops there: past that edge it
+> travels the A2 ring against a gain that falls to zero, and cannot pass it. Grab-the-point is
+> given up deliberately in the band — that IS the resistance — and is untouched everywhere else.
+> Worst-case pan range goes back from ~114 x 115 to ~169 x 182 units, as band rather than as
+> free travel.
 
 **Left button and one finger pan the ground 1:1 under the cursor, in both axes. Rotation
 moves to the right button and to two fingers, at half the sensitivity. A small, bounded zoom
@@ -2563,10 +2570,107 @@ lowered to make a distance fit; the pitch is lowered far enough that `check:warp
 `rig.setFocus` without passing its proposal through `clampToRect` against the effective bounds
 first.
 
+**Amended the same day by §40.** The rule and the mechanism survive verbatim; the rectangle they
+guard grows from the authored plate to the plate plus the A2 ring, and the last stretch before it
+is travelled against resistance rather than at full speed. Read the two together: everything above
+about WHY the eye is bounded at all is still the reason, and §40 is only about where and how it
+stops.
+
+## 40. The edge is felt arriving, not hit
+
+> Amends **§39** ("The camera never leaves the navigable area"). The rule is unchanged and the
+> enforcement is unchanged. What changes is which rectangle it guards — the authored plate
+> becomes the plate plus the `CITY_A2_SIMPLIFIED` ring that wraps it — and that the last stretch
+> before that rectangle is travelled against rising resistance rather than at full speed.
+
+**Decided 2026-09-08,** the same day as §39 and on a report about it: *"the boundaries are too
+strict for the camera to not surpass them … it shouldn't feel like an invisible wall."* §39 is
+enforced by `Math.min/Math.max` on the proposed focus, and a hard clamp is exactly what an
+invisible wall is. The city pans at full speed and then stops dead under a finger that is still
+moving, with no warning that the edge was coming.
+
+**THE RULE, restated rather than replaced.** No pose reachable by any means may put
+`camera.position` XZ outside the navigable rectangle. The navigable rectangle is now the plate
+**plus the A2 ring**, and the outer part of it is a band the viewer must push into against a
+gain that falls to zero. The warp remains the one exception, for the same reason.
+
+**Why A2 and not simply "a bit further".** The reason §39 exists is a camera that stood on empty
+filler ground and looked back at the city with the horizon in frame. Neither is reachable here,
+and that is a property of the rectangle rather than of the tuning: `CITY_A2_SIMPLIFIED` is
+*built city*, and the frame already reaches ~78 units past the focus, so A2 has been on screen
+at the plate edge all along. This puts up to ~42 more units of it there. The ring was measured
+out of the shipped GLB — X [-463.1, -56.4] Z [70.5, 489.8], margins **-X 24.9  +X 30.0  -Z 50.0
++Z 16.5** — and `checks/city-asset.ts` §7b asserts the file still covers it, because nothing at
+runtime looks that mesh up by name and a re-export could otherwise leave the number describing
+nothing.
+
+**The mechanism is the same pipeline twice, not a solver.** `NavigableArea.recompute` already
+derives the effective area by intersecting a footprint term and a station term into `configured`.
+It now runs both terms a second time against `nav.extendedBounds`. Both are **re-derived** rather
+than the result being grown by the ring margins: the station shift is a function of the rectangle
+it shifts, so expanding the answer would be a different rectangle, and a wrong one.
+`DragPanController.applyPan` swaps `clampToRect` for `resistToRect` between the two.
+
+**The ramp, and why this shape.** Per axis, with `b` the band width on the edge being pressed and
+`gap` the distance still available to the limit:
+
+```
+gap' = gap * exp(-travel / b)
+```
+
+1. **It cannot overshoot.** The result is written as `limit - gap'`, so the hard bound is
+   arithmetic rather than an epsilon. Past ~35 band widths of *accumulated* travel the
+   exponential underflows and the focus rests exactly on the limit — which is the safe bound, and
+   by then the gain has been zero for a long time.
+2. **It composes exactly.** `d1` then `d2` lands where `d1 + d2` lands, because multiplying the
+   gap is associative. A per-event `delta * gain(overshoot)` does not have this, and where the
+   city ended up would depend on how many `pointermove` events the browser coalesced.
+3. **Gain is 1 at the firm edge**, so the band does not announce itself with a step in speed.
+
+Resistance is **one-way**: leaving a band is 1:1. There is no snap-back — the focus stays where
+it was pushed — so a symmetric ramp would make the first drag back out of a deep overshoot feel
+stuck. Pushing out is heavy, coming back is light, and that is the intended asymmetry.
+
+**What it cost, and what it bought.** Nothing was given up. Worst-case usable area goes from
+**114 x 115 to 169 x 182 units** (`check:footprint` §4 and §5) — §39 gave up 56% of the
+configured rectangle and roughly half of that comes back, as band rather than as free pan. The
+eye reaches at most **42.0 units** past the plate, inside the ring on every side.
+
+**Rejected: elastic overshoot with a snap-back.** The iOS model, and the obvious alternative. It
+puts the eye genuinely outside the allowed area while the finger is down, which is the one thing
+§39 exists to make impossible, and it buys a bounce nobody asked for. The user chose the
+asymptotic stop directly.
+
+**One degenerate case, handled by giving up rather than guessing.** When the eye offset outruns
+the rectangle, `collapseIfInverted` pins BOTH terms to their midpoint — and the two midpoints are
+the ring margins apart, so the limit would not contain the firm area and the ramp would resist in
+the wrong direction. `NavigableArea` falls back to the firm rectangle there: no focus satisfies
+the rule at such a pose, so the honest answer is no band rather than a rectangle invented between
+two pinned points. `check:footprint` §5 proves the fallback never fires inside the reachable band.
+
+**`?band=` is the knob, and it is a SCALE on the ring margins rather than a width.** 1 is the
+ring, 0 restores §39's wall exactly, and no value it accepts can name a rectangle outside the
+built city. `check:navigation` §7 measures the focus against the extended rectangle now, with a
+second assertion that a sustained push actually reaches the band — without it the first would
+still pass if the band silently stopped working.
+
+**`check:footprint` §4 still measures usability on the FIRM rectangle**, deliberately. The band
+must never become load-bearing for whether the city can be navigated: if a future pitch eats the
+full-speed area, §4 has to fail even though the ring would hide it.
+
+Broken when: `resistToRect` is replaced by `clampToRect` in `applyPan`; `setBounds` or the
+inertia step is re-pointed at the firm rectangle (either drags a target that is legitimately in
+the band back to the firm edge on every frame of a rotation, which is the band not existing);
+`extendedBounds` stops containing `bounds`; `checks/city-asset.ts` §7b is removed or the GLB
+stops carrying `CITY_A2_SIMPLIFIED`; `checks/footprint.ts` §4's usable-area floor is moved onto
+the extended rectangle; or a district flight is re-pointed at the extended bounds — flights clamp
+to the firm area on purpose, a composed shot having no business landing in the molasses.
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** |
 | The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
 | Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |
 | The footprint inset is disabled whenever the model carries ground past the plate | `MurciaExperience.ts`, `disableFootprintInsets`, 2026-09-04 | It is asked per pose, and is back ON: at 35 degrees no reachable pose clamps a ray, so the footprint is a measurement again. The flag survives only for the no-skirt case — **§39** |

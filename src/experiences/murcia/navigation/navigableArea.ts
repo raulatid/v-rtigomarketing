@@ -6,7 +6,13 @@ import {
   computeStationLimitedBounds,
 } from './viewportFootprint';
 import type { GroundFootprint } from './viewportFootprint';
-import { expandRect, intersectRect, collapseIfInverted } from './navigationBounds';
+import {
+  expandRect,
+  intersectRect,
+  unionRect,
+  containsRect,
+  collapseIfInverted,
+} from './navigationBounds';
 
 /**
  * The navigable area, and the four rectangles it is derived from.
@@ -37,8 +43,12 @@ import { expandRect, intersectRect, collapseIfInverted } from './navigationBound
  *               shifted by −offset. DECISIONS §39: the camera never leaves the
  *               navigable area, and this term is the whole of the enforcement.
  *   effective   configured, pulled in wherever the footprint would otherwise
- *               show past `visual`, and again by `station`. This is what the
- *               drag controller clamps to.
+ *               show past `visual`, and again by `station`. This is where the
+ *               drag pans at 1:1.
+ *   extended    the same two terms a second time, against `nav.extendedBounds`
+ *               instead of `configured`. The hard limit, and what the drag
+ *               resists toward across the gap between the two (DECISIONS §40).
+ *               Contains `effective` by construction.
  *
  * The one asymmetry worth knowing: with no terrain transition there is no
  * skirt, so the hard plate edge is real. Applying footprint insets against the
@@ -59,6 +69,7 @@ export class NavigableArea {
   private visual: BoundsRect | null = null;
   private station: BoundsRect | null = null;
   private effective: BoundsRect | null = null;
+  private extended: BoundsRect | null = null;
   private footprint: GroundFootprint | null = null;
   private insetsDisabled = false;
 
@@ -122,6 +133,12 @@ export class NavigableArea {
   recompute(camera: THREE.PerspectiveCamera, focus: THREE.Vector3): BoundsRect | null {
     if (!this.visual || !this.configured) return null;
 
+    // Union rather than `extendedBounds` alone. It is REQUIRED to contain
+    // `bounds`, and a config that broke that would otherwise put the hard limit
+    // inside the area the drag already pans to at full speed — the one shape
+    // this pipeline must never produce.
+    const allowedExtended = unionRect(this.configured, this.nav.extendedBounds);
+
     this.footprint = computeGroundFootprint(
       camera,
       focus,
@@ -158,12 +175,55 @@ export class NavigableArea {
 
     this.effective = collapseIfInverted(intersectRect(footprintLimited, this.station));
 
+    // §40. The same two terms again against a wider allowed rectangle, which is
+    // the whole of what "the camera may be pushed into the A2 ring" means. Both
+    // are RE-DERIVED rather than `effective` being grown by the ring margins:
+    // the station shift is a function of the rectangle it shifts, so expanding
+    // the result would be a different rectangle, and a wrong one.
+    const extendedFootprint =
+      this.insetsDisabled || this.footprint.clampedRays
+        ? { ...allowedExtended }
+        : computeEffectiveBounds(
+            allowedExtended,
+            this.visual,
+            this.footprint,
+            this.nav.edgeSafetyMargin,
+          );
+
+    const extendedStation = computeStationLimitedBounds(
+      allowedExtended,
+      camera.position.x - focus.x,
+      camera.position.z - focus.z,
+      this.nav.edgeSafetyMargin,
+    );
+
+    const extended = collapseIfInverted(intersectRect(extendedFootprint, extendedStation));
+
+    // The ramp requires the limit to contain the firm area, and there is one pose
+    // where the arithmetic above does not deliver it: when the eye offset outruns
+    // the rectangle, BOTH terms collapse to their midpoint, and the two midpoints
+    // differ by the ring margins. Neither point is reachable — at such a pose no
+    // focus satisfies the rule at all — so the honest answer is that there is no
+    // band to give, rather than a limit invented between two pinned points.
+    // `checks/footprint.ts` §5 sweeps the reachable band and never sees this.
+    this.extended = containsRect(extended, this.effective) ? extended : this.effective;
+
     return this.effective;
   }
 
   /** What the drag controller clamps to. Null until the first recompute. */
   get effectiveBounds(): BoundsRect | null {
     return this.effective;
+  }
+
+  /**
+   * The hard limit the drag resists toward (DECISIONS §40). Always contains
+   * `effectiveBounds`, and equals it when `extendedBounds` is `bounds` — which
+   * is how `?band=0` restores §39's wall exactly. Null until the first
+   * recompute.
+   */
+  get extendedNavigableBounds(): BoundsRect | null {
+    return this.extended;
   }
 
   /** Plate plus skirt. Used by the debug wireframe. */
@@ -208,6 +268,11 @@ export class NavigableArea {
     return this.effective ?? this.configured ?? fallback;
   }
 
+  /** The same, for the limit the drag resists toward (§40). */
+  initialExtendedBounds(fallback: BoundsRect): BoundsRect {
+    return this.extended ?? unionRect(this.configured ?? fallback, this.nav.extendedBounds);
+  }
+
   /**
    * One-shot report of every rectangle that feeds the navigable area, so a
    * mismatch between config and asset is visible instead of silently shrinking
@@ -237,6 +302,7 @@ export class NavigableArea {
     }
     if (this.station) console.info(`station (§39)    ${fmt(this.station)}`);
     console.info(`effective        ${fmt(eff)}`);
+    if (this.extended) console.info(`extended (§40)   ${fmt(this.extended)}`);
     if (this.station) {
       // Measured against what navigation was CONFIGURED to cover, not against
       // the terrain mesh. Those were the same rectangle until the 2026-09-06

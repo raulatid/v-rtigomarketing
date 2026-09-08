@@ -44,6 +44,13 @@
  *   ?focusX=-262.3  ?focusZ=296.9
  *   ?zoomFar=400  ?zoomFarElev=55  ?zoomNear=0.7
  *   ?skirt=700  ?fade=0.21
+ *   ?band=1
+ *
+ * `?band=` is the resistance band (DECISIONS §40), as a fraction of the A2 ring:
+ * 1 ships, 0 is §39's hard wall. It is the one parameter here whose A/B is the
+ * whole feature, so it is worth saying what to look for — whether the edge
+ * announces itself before it arrives, and whether the ramp reads as heavy ground
+ * rather than as the page dropping frames.
  *
  * `?azimuth=`, `?focusX=` and `?focusZ=` were added 2026-09-05 and they close
  * the loop rather than adding a knob. The overlay has always REPORTED azimuth
@@ -79,7 +86,7 @@
  * terrain skirt is no longer reachable from a URL.
  */
 import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
-import type { EnvironmentConfig, DragFeelConfig } from './environmentConfig';
+import type { EnvironmentConfig, DragFeelConfig, BoundsRect } from './environmentConfig';
 
 /**
  * Returns a new EnvironmentConfig with any recognised overrides applied.
@@ -181,6 +188,15 @@ export function applyNavigationQueryOverrides(
   const skirt = readNumber(params, 'skirt', (v) => v >= 0);
   const fade = readNumber(params, 'fade', (v) => v > 0 && v <= 1);
 
+  // ── The resistance band (DECISIONS §40) ──
+  //
+  // A SCALE on the four ring margins rather than a width, so it cannot invent a
+  // rectangle: 1 is the A2 ring measured out of the GLB, 0 collapses the band and
+  // restores §39's hard wall exactly, which is the A/B this parameter exists for.
+  // Capped at 1 deliberately — above it the limit would leave the built city, and
+  // that is not a thing a URL should be able to do.
+  const band = readNumber(params, 'band', (v) => v >= 0 && v <= 1);
+
   const overrides = [
     dragGain,
     yawDegrees,
@@ -204,6 +220,7 @@ export function applyNavigationQueryOverrides(
     zoomNear,
     skirt,
     fade,
+    band,
   ];
   if (overrides.every((value) => value === null)) return env;
 
@@ -248,6 +265,7 @@ export function applyNavigationQueryOverrides(
     },
     navigation: {
       ...env.navigation,
+      extendedBounds: scaleBand(env.navigation.bounds, env.navigation.extendedBounds, band),
       translationGain: dragGain ?? env.navigation.translationGain,
       touchTranslationGain: touchDragGain ?? env.navigation.touchTranslationGain,
       feel: overrideFeel(env.navigation.feel, smoothing),
@@ -306,6 +324,24 @@ export function applyNavigationQueryOverrides(
   });
 
   return next;
+}
+
+/**
+ * Interpolates the resistance band between no band at all and the authored ring.
+ *
+ * Scaling the four margins rather than reading a width keeps `?band=` unable to
+ * name a rectangle the GLB does not support: every value it can produce lies
+ * between the firm rectangle and the ring `checks/city-asset.ts` §7b measured.
+ */
+function scaleBand(firm: BoundsRect, ring: BoundsRect, scale: number | null): BoundsRect {
+  if (scale === null) return ring;
+  const at = (a: number, b: number): number => a + (b - a) * scale;
+  return {
+    minX: at(firm.minX, ring.minX),
+    maxX: at(firm.maxX, ring.maxX),
+    minZ: at(firm.minZ, ring.minZ),
+    maxZ: at(firm.maxZ, ring.maxZ),
+  };
 }
 
 /** Parses a finite number, ignoring the parameter entirely if it fails `valid`. */

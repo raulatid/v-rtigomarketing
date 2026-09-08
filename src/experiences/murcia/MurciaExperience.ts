@@ -706,6 +706,7 @@ export class MurciaExperience {
       rig,
       env.navigation,
       this.bounds.initialBounds(env.navigation.bounds),
+      this.bounds.initialExtendedBounds(env.navigation.bounds),
       {
         onFirstInteraction: () => this.dismissBeacons(),
         // The footprint is azimuth-dependent, so free yaw means the navigable
@@ -988,7 +989,10 @@ export class MurciaExperience {
   private recomputeBounds(): void {
     if (!this.rig) return;
     const effective = this.bounds.recompute(this.camera, this.rig.focus);
-    if (effective) this.controller?.setBounds(effective);
+    // `recompute` derives both in one pass, so the extended rectangle is never
+    // stale relative to the firm one it must contain (DECISIONS §40).
+    const extended = this.bounds.extendedNavigableBounds;
+    if (effective && extended) this.controller?.setBounds(effective, extended);
   }
 
   // --- Interaction ----------------------------------------------------------

@@ -590,6 +590,62 @@ if (groundName === null || claimed === null) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// The ring the camera may be PUSHED into (DECISIONS §40).
+//
+// `murciaConfig.navigation.extendedBounds` is a rectangle measured out of this
+// mesh and then written down, exactly as `groundBounds` was, because the harness
+// that uses it cannot open a GLB. The rule it encodes is "the eye may leave the
+// authored plate, but only onto built city" — so if a re-export shrinks or moves
+// the ring, the rectangle stops describing anything and the camera can be pushed
+// out over nothing. Nothing at runtime looks this node up by name; this check is
+// the only thing keeping the number honest.
+
+section('7b. The A2 ring (navigation.extendedBounds — the camera may stand on it)');
+
+const RING_NODE = 'CITY_A2_SIMPLIFIED';
+const ringClaimed = murciaConfig.navigation.extendedBounds;
+const ringNodes = nodesNamed(RING_NODE);
+
+check(
+  `"${RING_NODE}" is in the GLB`,
+  ringNodes.length > 0,
+  ringNodes.length > 0
+    ? `as ${list(ringNodes)}`
+    : 'the resistance band would extend the camera out over ground with nothing built on ' +
+      'it — see murciaConfig.navigation.extendedBounds',
+);
+
+const ringMeasured = ringNodes.length > 0 ? worldXzBounds(RING_NODE) : null;
+check(
+  'it covers the rectangle navigation.extendedBounds claims',
+  ringMeasured !== null &&
+    ringMeasured.minX <= ringClaimed.minX + TOLERANCE &&
+    ringMeasured.maxX >= ringClaimed.maxX - TOLERANCE &&
+    ringMeasured.minZ <= ringClaimed.minZ + TOLERANCE &&
+    ringMeasured.maxZ >= ringClaimed.maxZ - TOLERANCE,
+  ringMeasured === null
+    ? 'no POSITION accessor with bounds — cannot measure it'
+    : `GLB X [${ringMeasured.minX.toFixed(1)}, ${ringMeasured.maxX.toFixed(1)}] ` +
+      `Z [${ringMeasured.minZ.toFixed(1)}, ${ringMeasured.maxZ.toFixed(1)}] vs config ` +
+      `X [${ringClaimed.minX.toFixed(1)}, ${ringClaimed.maxX.toFixed(1)}] ` +
+      `Z [${ringClaimed.minZ.toFixed(1)}, ${ringClaimed.maxZ.toFixed(1)}]`,
+);
+
+check(
+  'and it wraps the authored plate rather than sitting beside it',
+  ringClaimed.minX < murciaConfig.contentBounds.minX &&
+    ringClaimed.maxX > murciaConfig.contentBounds.maxX &&
+    ringClaimed.minZ < murciaConfig.contentBounds.minZ &&
+    ringClaimed.maxZ > murciaConfig.contentBounds.maxZ,
+  `margins -X ${(murciaConfig.contentBounds.minX - ringClaimed.minX).toFixed(1)} ` +
+    `+X ${(ringClaimed.maxX - murciaConfig.contentBounds.maxX).toFixed(1)} ` +
+    `-Z ${(murciaConfig.contentBounds.minZ - ringClaimed.minZ).toFixed(1)} ` +
+    `+Z ${(ringClaimed.maxZ - murciaConfig.contentBounds.maxZ).toFixed(1)} — ` +
+    'a ring that does not contain the plate on all four sides would make the band ' +
+    'a hard clamp again on whichever side it fell short',
+);
+
 // --- 6. Samplers ------------------------------------------------------------
 // Reported, never asserted. Blender's Image Texture *Extension* is per-node and
 // cannot express the split the banded atlas needs — repeat along U so trims tile

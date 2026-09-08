@@ -38,6 +38,36 @@ const PLATE = { minX: -438.2, maxX: -86.4, minZ: 120.5, maxZ: 473.3 };
 const GROUND = { minX: -1417.5, maxX: 752.4, minZ: -620.5, maxZ: 1304.8 };
 
 /**
+ * The first simplified city ring, measured from the shipped GLB the same way
+ * the plate and the ground were.
+ *
+ *   node `CITY_A2_SIMPLIFIED`
+ *   world XZ   X [-463.1, -56.4]   Z [70.5, 489.8]   (406.7 x 419.3)
+ *
+ * It wraps the plate, strictly containing it on all four sides:
+ *
+ *   -X 24.9   +X 30.0   -Z 50.0   +Z 16.5
+ *
+ * That ring is the resistance band (DECISIONS §40). It is the rectangle the
+ * camera may be PUSHED into, at a gain that falls to zero across it, and the
+ * reason it is an acceptable place for the eye to stand is that it is CITY —
+ * simplified, but built. §39's failure was the camera out on bare filler
+ * ground with the horizon in frame, and neither is reachable from here: the
+ * frame already reaches ~78 units past the focus, so A2 has always been on
+ * screen at the plate edge. This adds 17-50 units more of it.
+ *
+ * Deliberately NOT symmetric. Rounding the four margins to one number would
+ * either give up the 50 units on -Z or push the +Z edge out of A2 and onto the
+ * next ring, and the asymmetry is not perceptible — the ramp is felt through
+ * its gain at the edge, which is 1 on all four.
+ *
+ * Asserted against the shipped file by `checks/city-asset.ts`, so a re-export
+ * that shrinks or moves the ring fails the build rather than quietly letting
+ * the camera stand somewhere there is nothing to stand on.
+ */
+const CITY_A2 = { minX: -463.1, maxX: -56.4, minZ: 70.5, maxZ: 489.8 };
+
+/**
  * Inset from the plate to the area the focus may reach.
  *
  * Zero: the whole model is navigable, right out to the plate edge. That is only
@@ -465,6 +495,10 @@ export const murciaConfig: EnvironmentConfig = {
       minZ: PLATE.minZ + NAVIGATION_INSET,
       maxZ: PLATE.maxZ - NAVIGATION_INSET,
     },
+    // Where a push may reach, against resistance (§40). `?band=` scales the four
+    // margins so the whole change can be judged on a device without a rebuild:
+    // 1 is the A2 ring, 0 is §39's hard wall.
+    extendedBounds: CITY_A2,
     edgeSafetyMargin: 8,
     // 800, not 500. At distance 165 on an ultrawide the corner rays genuinely
     // reach past 500, so the clamp was firing in a normal case rather than the
