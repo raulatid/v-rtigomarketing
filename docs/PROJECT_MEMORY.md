@@ -1761,6 +1761,21 @@ must restore it to measure coverage.
     invalid `vercel.json`. Combined with §11.63 it produced a fortnight-shaped illusion that a
     committed, pushed asset change had not deployed.
 
+68. **The 3D site does not render in Inter. It renders in `system-ui`, and that is a guard
+    rather than a bug.** `styles.css` asks for `font-family: 'Inter', system-ui, sans-serif`
+    and resolves to the second entry every time, because no face called `Inter` is ever
+    registered on the marketing route. The Inter woff2 files in `public/fonts` are registered
+    by `blog.css` under the PRIVATE family `'Vertigo Blog Inter'`, and its header says why:
+    an `@font-face` named `Inter` in `styles.css` would restyle the entire 3D site the instant
+    a reader came back from an article — a typography change with no diff, triggered by
+    navigation. Found 2026-09-08 while building the particle hint, which had been planned
+    around "Inter is already loaded, so sampling it is free". It is not loaded, and sampling
+    it would have meant a font fetch on the Earth path plus a second failure mode. Two
+    consequences for anything that rasterizes text into the scene: every extent must be
+    `measureText`d rather than assumed, because the resolved face differs per platform (which
+    is §11.57's lesson restated); and an image baseline of rasterized copy is platform-bound,
+    so assert that something rasterized rather than that it matches a picture.
+
 ---
 
 ## 12. State of the work

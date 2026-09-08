@@ -260,6 +260,17 @@ export default function App() {
     onZoom: (depth) => {
       state.zoomDepth = depth
     },
+    // Earth's hint is particles in the scene now, so the edge has to reach a
+    // layer inside the canvas. Written onto the mutable sequence state for the
+    // reason the zoom is: React state here would re-render both canvases and
+    // every overlay for a boolean that already has a zero-cost channel threaded
+    // into each layer.
+    //
+    // The world test is HERE rather than in the Earth scene, so nothing under
+    // `experiences/` has to import an app-level id to answer it.
+    onHintVisible: (visible, current) => {
+      state.hintShown = visible && current === 'earth'
+    },
   })
   settleNavigationRef.current = settleNavigation
   resetZoomRef.current = resetNavigationZoom

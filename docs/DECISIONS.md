@@ -2666,10 +2666,108 @@ stops carrying `CITY_A2_SIMPLIFIED`; `checks/footprint.ts` §4's usable-area flo
 the extended rectangle; or a district flight is re-pointed at the extended bounds — flights clamp
 to the firm area on purpose, a composed shot having no business landing in the molasses.
 
+## 41. The Earth's hint is drawn in the scene, out of particles
+
+> Amends **§39 (2026-09-05, the hint frame)** for the Earth scene only. Murcia's plate, its
+> four cells and every rule about WHEN a hint appears are untouched.
+
+**Decided 2026-09-08,** on client direction: no HTML hint-tutorial on the Earth scene. The
+glass chip read as browser chrome laid over a 3D scene rather than as part of it.
+
+**What replaces it.** Two chevrons over one sentence, drawn as ~600 points that gather out of
+the star field over 2 s, hold while the viewer looks, and scatter outward on the first scroll.
+`experiences/earth/hint/`. The chevrons are the SAME path data the Murcia chip draws
+(`NavigationControl.tsx`), not a redrawn pair — the client dropped the mouse outline precisely
+so one glyph serves a cursor and a thumb, and a second drawing would drift from the first.
+
+**THE NUMBER THAT GOVERNS THE FIGURE, and it is not the intuitive one.** Legibility is decided
+by dot SPACING against dot SIZE, never by dots per letter. A sentence's ink skeleton is about
+`1.7 x fontSize x letters` long, so a budget buys that length divided by it; dots ~3px across
+need ~3px of spacing to read as dots, and closer than that they touch and the sentence renders
+as solid strokes — glowing text, which is not what was asked for. At the shipped caption size:
+
+| budget | spacing | reads as |
+|---|---|---|
+| 1400 points | 1.11 px | merged strokes |
+| 800 points | 2.09 px | tight |
+| **600 points** | **2.96 px** | **dots** |
+
+A bigger budget is not wrong, it is a bigger FIGURE — 1400 points at 3px spacing needs the
+sentence ~1380px wide, a headline across the viewport. That was offered and declined. **The
+client's opening instinct of ~500 was right, and the 1400 figure this project first proposed
+was arrived at through the wrong measure.**
+
+**FILL, not stroke.** Sampling `strokeText` looks like the obvious way to get a skeleton and
+is not: it outlines BOTH sides of every stem, so each stroke becomes two dotted lines a stem
+apart and every counter grows a second ring inside it. Filling and letting the sampler derive
+its cell size from the ink gives the skeleton for free — the cell lands near the stem width,
+so a one-stem cross-section keeps one point and a shoulder keeps two or three.
+
+**The sampler is a grid, not a stride, and the difference is measurable.** Taking every k-th
+pixel of a row-major ink list samples proportionally to AREA, and a letter is not an even
+stroke. Measured on a mask with a 10px stem beside a 1px hairline: the stride gives the
+hairline **0 of 120 points** — it disappears. `sampleInk.ts` buckets ink into cells and takes
+one point per cell in a golden-ratio order, which is a cheap blue-noise approximation with no
+randomness. Nothing calls `Math.random`; screenshot baselines depend on it.
+
+**NORMAL blending, not additive, and this is the load-bearing material call.** Additive is
+right for the hover cue (sparse moving lights on black) and wrong here: ~600 sprites at ~3px
+spacing overlap along the stems — exactly the ink carrying the letterforms — and additively
+that pushes the strokes past the 0.62 bloom knee and hazes the counters shut. Blended
+normally, the brightest pixel the figure can make is `uColor`, which is what makes the bloom
+question answerable with one number instead of a density argument. `rgb(200,200,200)` is
+~0.58 linear, under the knee (§11.58).
+
+**Locked to the camera, entirely in the vertex shader.** `modelViewMatrix` is never read; the
+position is built in view space from the projection alone, so there is no parenting, no
+follower group and no per-frame CPU work. Parenting to the camera would not have worked at
+all — R3F does not add its default camera to the scene, and the renderer builds its draw list
+by traversing the scene, so a child of the camera is silently never drawn.
+`projectionMatrix[1][1]` IS `1/tan(fov/2)`, so the frustum half-height is read off the matrix
+rather than pushed — Earth's fov is not constant, and a pushed value would be a frame stale.
+
+**IT OWNS NO TIMING.** When the hint appears and goes is still `createNavigationInput` —
+1.2 s after an arrival, gone 3 s after the first interaction, closed when navigation is
+refused — and it reaches the scene as one `onHintVisible` edge on `SequenceState`. A callback
+and not a `MutationObserver` on `data-visible`: that attribute is what the module PAINTS, and
+watching it to recover the state would be reading the paint to find the model. `data-visible`
+still toggles, which is why all fourteen existing hint tests stay green unchanged and the
+figure inherits the rules rather than restating them.
+
+**The Earth plate is hidden, not deleted.** `.nav[data-direction='down'] .nav-hint { display:
+none }`. The FRAME, not the travel cell: on Earth `.nav-hint__controls` is held at `0fr`, so
+the cell is the whole plate and hiding only it would leave an empty glass rectangle. Nothing
+leaves the markup — Murcia needs every glyph, and `NavigationControl.test.tsx` asserts the
+plate carries both directions' vocabulary because "the CSS can only choose between what was
+rendered".
+
+**Accessibility is unchanged, and nothing was added.** `.nav-hint` has always been
+`aria-hidden="true"`; the accessible route is `.nav-control`, a real visually-hidden button
+labelled "Ir a Murcia" that unclips on `:focus-visible`, and it is untouched. An sr-only line
+beside a button that already says the same thing would be duplicate announcement.
+
+**Two sentences, one word apart.** `Haz scroll si quieres ir a Murcia` on a fine pointer,
+`Haz zoom …` on a coarse one. Not cosmetic: `createNavigationInput` returns early below two
+contacts, so a one-finger swipe does not navigate at all and telling a phone to scroll would
+teach a gesture that does nothing. "Zoom" is the word the chip already used there.
+
+**Ruled out.** Elastic/iOS-style behaviour was never in question here, but a snap-back exit
+was: the figure scatters outward instead, because gathering slowly from a wide field and
+leaving quickly outward are not each other's reverse, and running the exit backwards through
+the arrival reads as a rewind. Inter as the rasterization face — see the trap below.
+
+Broken when: `resistToRect`-style timing is reimplemented inside the Earth scene instead of
+read from `hintShown`; the material is switched to additive or the colour taken over the
+0.62 knee; `sampleInk` is replaced by a stride; `modelViewMatrix` appears in the vertex
+shader; `HintLayer` is mounted conditionally or behind `Suspense`, which would take its
+shader out of the scene-level warm-up; or the plate's `display: none` is turned into a
+removal from the JSX.
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~600 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
 | The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** |
 | The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
 | Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |

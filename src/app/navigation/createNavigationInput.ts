@@ -118,6 +118,21 @@ export interface NavigationInputDeps {
    * change are an event and a reset.
    */
   onZoom?: (depth: number) => void
+  /**
+   * The hint's show and hide edges, with the world they belong to.
+   *
+   * Earth draws its hint in the scene now (`experiences/earth/hint`) rather than
+   * on the plate, and it needs exactly the two moments this module already
+   * decides. A callback rather than a `MutationObserver` on `data-visible`: that
+   * attribute is what this module PAINTS, and watching it to recover the state
+   * would be reading the paint back to find the model. It is also nullable —
+   * the tests build a root with no hint element at all — so an observer on it
+   * could silently never fire.
+   *
+   * `current` comes along because the two worlds share one hint, and Earth's
+   * figure must not light up on Murcia's arrivals.
+   */
+  onHintVisible?: (visible: boolean, current: ExperienceId) => void
   pinchLimits?: PinchLimits
   /** Overridable so a test need not wait three real seconds. */
   hintLingerMs?: number
@@ -500,6 +515,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     hintArrivalOwed = false
     hintVisible = true
     if (hint) hint.dataset.visible = 'true'
+    // AFTER the refusal above, so the edge reported is the one that happened.
+    // `hintVisible` already debounces, so this fires once per edge and never
+    // once per timer.
+    deps.onHintVisible?.(true, context.current)
   }
 
   /**
@@ -541,6 +560,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     if (!hintVisible) return
     hintVisible = false
     if (hint) delete hint.dataset.visible
+    deps.onHintVisible?.(false, deps.getContext().current)
   }
 
   function scheduleHint(delayMs: number): void {

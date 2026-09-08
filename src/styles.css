@@ -1064,6 +1064,27 @@ html {
    on the children so that it would collapse with them; the collapse is a
    single-axis one since the blocks became neighbours rather than a stack, so
    the plate can own its own inset again and every cell shares it. */
+/* EARTH DRAWS ITS HINT IN THE SCENE, not on this plate.
+
+   Client direction: no HTML hint-tutorial on the Earth scene. It is a particle
+   figure now — two chevrons over one sentence, gathering out of the star field
+   — in `experiences/earth/hint`. Murcia keeps the plate and every cell on it.
+
+   The FRAME goes, not the travel cell. On Earth `.nav-hint__controls` is held at
+   `0fr` (it only opens under `data-direction='up'`), so the travel cell is the
+   entire plate; hiding just the cell would leave a visible empty glass rectangle,
+   which is worse than what it replaced.
+
+   Nothing is removed from the markup, and that is deliberate on two counts:
+   Murcia still needs every glyph here, and `NavigationControl.test.tsx` asserts
+   the plate carries BOTH directions' vocabulary — "the CSS can only choose
+   between what was rendered". `createNavigationInput` also still writes
+   `data-visible` on this element, which is what lets the 3D figure inherit the
+   arrival and linger rules instead of restating them. */
+.nav[data-direction='down'] .nav-hint {
+  display: none;
+}
+
 .nav-hint {
   position: fixed;
   left: 50%;

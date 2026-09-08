@@ -9,6 +9,7 @@ import { SkyShellCube } from './scene/SkyShellCube'
 import { protoSkyActive } from '../../app/protoSky'
 import { OrbitSystemLayer } from './orbit/OrbitSystemLayer'
 import { InteractionLayer, InteractionHandle } from './interaction/InteractionLayer'
+import { HintLayer } from './hint/HintLayer'
 import type { IntroConfig } from './config/introConfig'
 import type { SequenceState } from './config/sequenceState'
 import type { OrbitSystem } from './orbit/createOrbitSystem'
@@ -133,6 +134,11 @@ export function EarthExperience({
         onDeselect={onDeselectCase}
         active={active}
       />
+      {/* Last, and outside the depth buffer entirely: the way out of this world,
+          drawn in it rather than on a plate over it. Mounted unconditionally and
+          invisible so its shader is compiled by the scene-level warm-up rather
+          than on the frame the hint first appears. */}
+      <HintLayer state={state} active={active} />
     </>
   )
 }

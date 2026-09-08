@@ -45,3 +45,12 @@ export function backdropVisible(state: SequenceState, config: IntroConfig): bool
 export function orbitsVisible(state: SequenceState): boolean {
   return state.orbitsStarted && atOrAfter(state.phase, 'orbits')
 }
+
+// The particle hint is offered by the navigation layer, which already knows
+// every rule about when a hint may exist — so this asks it, and adds only the
+// one thing the navigation layer cannot know: that the intro has actually
+// handed the world over. `reset()` fires `offerHint` on the phase edge, so the
+// two agree; the guard is here in case a future caller offers one earlier.
+export function hintVisible(state: SequenceState): boolean {
+  return state.hintShown && atOrAfter(state.phase, 'site')
+}

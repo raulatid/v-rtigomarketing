@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import { createNavigationInput } from './createNavigationInput'
 import type { NavigationContext, NavigationInput } from './createNavigationInput'
 import type { NavigationIntent } from './navigationMachine'
+import type { ExperienceId } from '../experience'
 
 interface Params {
   /** The navigation control root. Nothing is wired until it exists. */
@@ -33,6 +34,14 @@ interface Params {
    * the viewer owns and nothing here ever takes back.
    */
   onZoom?: (depth: number) => void
+  /**
+   * The hint has been offered, or taken away, in the named world.
+   *
+   * Earth's hint is particles in the scene now, so the edge has to leave the DOM
+   * layer. See `createNavigationInput`'s dep for why this is a callback and not
+   * an observer on the plate's attribute.
+   */
+  onHintVisible?: (visible: boolean, current: ExperienceId) => void
 }
 
 /**
@@ -53,6 +62,7 @@ export function useSceneNavigation({
   onCommit,
   onProgress,
   onZoom,
+  onHintVisible,
 }: Params) {
   const inputRef = useRef<NavigationInput | null>(null)
 
@@ -64,6 +74,8 @@ export function useSceneNavigation({
   progressRef.current = onProgress
   const zoomRef = useRef(onZoom)
   zoomRef.current = onZoom
+  const hintRef = useRef(onHintVisible)
+  hintRef.current = onHintVisible
 
   useEffect(() => {
     const root = rootRef.current
@@ -75,6 +87,7 @@ export function useSceneNavigation({
       onCommit: (intent) => commitRef.current(intent),
       onProgress: (progress) => progressRef.current?.(progress),
       onZoom: (depth) => zoomRef.current?.(depth),
+      onHintVisible: (visible, current) => hintRef.current?.(visible, current),
     })
     inputRef.current = input
 
