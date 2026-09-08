@@ -2748,8 +2748,8 @@ rendered".
 labelled "Ir a Murcia" that unclips on `:focus-visible`, and it is untouched. An sr-only line
 beside a button that already says the same thing would be duplicate announcement.
 
-**Two sentences, one word apart.** `Haz scroll si quieres ir a Murcia` on a fine pointer,
-`Haz zoom …` on a coarse one. Not cosmetic: `createNavigationInput` returns early below two
+**Two sentences, one word apart.** `Scroll para viajar a Murcia` on a fine pointer,
+`Zoom para viajar a Murcia` on a coarse one. Not cosmetic: `createNavigationInput` returns early below two
 contacts, so a one-finger swipe does not navigate at all and telling a phone to scroll would
 teach a gesture that does nothing. "Zoom" is the word the chip already used there.
 

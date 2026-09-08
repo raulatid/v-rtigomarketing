@@ -73,8 +73,8 @@
  * with the accessible button, whose `aria-label` is already "Ir a Murcia".
  */
 export const HINT_SENTENCE = {
-  fine: 'Haz scroll si quieres ir a Murcia',
-  coarse: 'Haz zoom si quieres ir a Murcia',
+  fine: 'Scroll para viajar a Murcia',
+  coarse: 'Zoom para viajar a Murcia',
 } as const
 
 /**
