@@ -2674,8 +2674,8 @@ to the firm area on purpose, a composed shot having no business landing in the m
 **Decided 2026-09-08,** on client direction: no HTML hint-tutorial on the Earth scene. The
 glass chip read as browser chrome laid over a 3D scene rather than as part of it.
 
-**What replaces it.** Two chevrons over one sentence, drawn as ~600 points that gather out of
-the star field over 2 s, hold while the viewer looks, and scatter outward on the first scroll.
+**What replaces it.** Two chevrons over one sentence, drawn as ~770 points that gather out of
+the star field over 2 s, float while the viewer looks, and scatter outward the moment they move.
 `experiences/earth/hint/`. The chevrons are the SAME path data the Murcia chip draws
 (`NavigationControl.tsx`), not a redrawn pair — the client dropped the mouse outline precisely
 so one glyph serves a cursor and a thumb, and a second drawing would drift from the first.
@@ -2690,7 +2690,11 @@ as solid strokes — glowing text, which is not what was asked for. At the shipp
 |---|---|---|
 | 1400 points | 1.11 px | merged strokes |
 | 800 points | 2.09 px | tight |
-| **600 points** | **2.96 px** | **dots** |
+| 600 points | 2.96 px | separate dots |
+
+That table is the arithmetic and NOT the answer, which is the correction worth carrying: it
+holds the dot size fixed at ~3 px, and the dot size turned out to be the free variable. See
+the revision below.
 
 A bigger budget is not wrong, it is a bigger FIGURE — 1400 points at 3px spacing needs the
 sentence ~1380px wide, a headline across the viewport. That was offered and declined. **The
@@ -2726,13 +2730,11 @@ by traversing the scene, so a child of the camera is silently never drawn.
 `projectionMatrix[1][1]` IS `1/tan(fov/2)`, so the frustum half-height is read off the matrix
 rather than pushed — Earth's fov is not constant, and a pushed value would be a frame stale.
 
-**IT OWNS NO TIMING.** When the hint appears and goes is still `createNavigationInput` —
-1.2 s after an arrival, gone 3 s after the first interaction, closed when navigation is
-refused — and it reaches the scene as one `onHintVisible` edge on `SequenceState`. A callback
-and not a `MutationObserver` on `data-visible`: that attribute is what the module PAINTS, and
-watching it to recover the state would be reading the paint to find the model. `data-visible`
-still toggles, which is why all fourteen existing hint tests stay green unchanged and the
-figure inherits the rules rather than restating them.
+**It owns no timing** — as first shipped. When the hint appeared and went was
+`createNavigationInput`'s answer, 1.2 s after an arrival and gone 3 s after the first
+interaction, reaching the scene as one `onHintVisible` edge. **Reversed by the revision
+below:** the figure is offered on STILLNESS, which is a question that module cannot answer,
+and the callback is gone.
 
 **The Earth plate is hidden, not deleted.** `.nav[data-direction='down'] .nav-hint { display:
 none }`. The FRAME, not the travel cell: on Earth `.nav-hint__controls` is held at `0fr`, so
@@ -2756,18 +2758,62 @@ was: the figure scatters outward instead, because gathering slowly from a wide f
 leaving quickly outward are not each other's reverse, and running the exit backwards through
 the arrival reads as a rewind. Inter as the rasterization face — see the trap below.
 
-Broken when: `resistToRect`-style timing is reimplemented inside the Earth scene instead of
-read from `hintShown`; the material is switched to additive or the colour taken over the
-0.62 knee; `sampleInk` is replaced by a stride; `modelViewMatrix` appears in the vertex
-shader; `HintLayer` is mounted conditionally or behind `Suspense`, which would take its
-shader out of the scene-level warm-up; or the plate's `display: none` is turned into a
-removal from the JSX.
+Broken when: the material is switched to additive or the colour taken over the 0.62 knee;
+`sampleInk` is replaced by a stride; `modelViewMatrix` appears in the vertex shader;
+`HintLayer` is mounted conditionally or behind `Suspense`, which would take its shader out of
+the scene-level warm-up; or the plate's `display: none` is turned into a removal from the JSX.
+
+### Revised the same day, over five rounds of review
+
+The rule and the mechanism above hold. Five things inside them moved, and each was a broken
+assumption rather than a preference.
+
+**Size and budget are one number, not two.** Type 35 -> 26. The count had to move with it —
+skeleton length scales with type size, so holding the old count at the smaller size closes the
+spacing and fills the letters in.
+
+**The position was anchored to the viewport CENTRE, which is not a position.** The gap to the
+bottom edge was a function of viewport height — 68 px at 1440x900, 301 px on a tall tablet,
+and **-187 px in phone landscape**, off the screen entirely. Anchored to the bottom edge now,
+plus `env(safe-area-inset-bottom)` through a probe element, and against the figure's own ink
+bounding box rather than its canvas, which carries descender headroom the sentence may not
+use. `bottomPx` is a floor set by `.site-footer`, not a preference: below it the sentence runs
+through the copyright mark on a phone, which `styles.css` had already recorded for the chip.
+
+**Readability was the dot SHAPE before it was the count.** The figure borrowed
+`POINT_SPRITE_FALLOFF`, which squares a smoothstep across the whole radius — correct for a
+star, wrong for ink: at half its radius a dot was already at 0.25 alpha. A local falloff,
+solid to `dotCore` then a short shoulder, is worth **3.5x the ink per dot** at the same
+diameter and the same count. The shared file is untouched; a letterform is not a star.
+
+**Dot size is the free variable the table above holds fixed.** 700 points at 1.8 px, not 600
+at 3.1: more points at the SAME dot size is a denser blob, which is the failure the second
+round reported. The two moves pull opposite ways on spacing and only work together.
+
+**The float is rigid.** Per-particle drift was built first; it shimmers rather than floats and
+moves the dots relative to each other, softening the baseline. Rigid motion cannot blur a
+letterform, so the amplitude went from under half the dot spacing to 5 px. It is reserved in
+the bottom gap — otherwise the down half of the swing re-enters the footer band, which is the
+collision the anchor exists to prevent arriving through the side door.
+
+**And it is an IDLE affordance.** Offered after two seconds of stillness and gone the moment
+the viewer moves, rather than a beat after every arrival. That is not a question
+`createNavigationInput` can answer — it fires once per arrival and never again — so
+`onHintVisible` was removed and that module is what it was. What crosses now is permission
+only (`state.hintAllowed`), with the shared refusals hoisted into one value so the rail's list
+and the hint's cannot drift. Murcia's chip keeps the arrival rule; the two hints no longer
+share a trigger because they no longer share a question.
+
+Also broken when: `onHintVisible` is reintroduced to couple the two hints again; the idle
+threshold is folded into `createNavigationInput`; or the float's amplitude stops being
+reserved in the bottom gap.
 
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
-| Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~600 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
+| Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
+| The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** |
 | The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** |
 | The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
 | Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |
