@@ -1,5 +1,4 @@
 import * as THREE from 'three'
-import { POINT_SPRITE_FALLOFF } from '../scene/space/pointSprite'
 import { HINT_CONFIG } from './hintConfig'
 import type { HintFigure } from './buildHintFigure'
 
@@ -72,6 +71,9 @@ export const HINT_VERTEX = /* glsl */ `
   uniform float uOffsetPx;
   uniform float uScatterPx;
   uniform float uDispersePx;
+  uniform float uTime;
+  uniform float uDriftPx;
+  uniform float uDriftRate;
   uniform float uSizePx;
   uniform float uPixelRatio;
   uniform float uMaxSize;
@@ -89,6 +91,21 @@ export const HINT_VERTEX = /* glsl */ `
     float e = 1.0 - pow(1.0 - local, 4.0);
 
     vec2 p = aTarget + aScatter * uScatterPx * (1.0 - e);
+
+    // Idle drift: the WHOLE figure rises and falls together, one phase for every
+    // dot. Chevrons and sentence move as one thing floating in space.
+    //
+    // Deliberately NOT per-particle. Giving each dot its own phase was tried and
+    // it shimmers rather than floats — and worse, it moves the dots RELATIVE to
+    // each other, which softens the baseline and undoes the pass that got the
+    // sentence readable. Rigid motion cannot blur a letterform, which is also why
+    // the amplitude here can be several times the dot spacing where a
+    // per-particle one had to stay under half of it.
+    //
+    // Scaled by e so it does not fight the arrival — a particle still flying in
+    // already has somewhere to be — and by (1 - uExit) so it does not fight the
+    // scatter.
+    p.y += sin(uTime * uDriftRate) * uDriftPx * e * (1.0 - uExit);
 
     // Outward from the figure's centre with a seeded tangent, so leaving is a
     // scatter and not a starburst. Squared, so the first frames of the exit are
@@ -124,12 +141,34 @@ export const HINT_VERTEX = /* glsl */ `
 export const HINT_FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
   uniform float uOpacity;
+  uniform float uCore;
   varying float vAlpha;
-  ${POINT_SPRITE_FALLOFF}
+
+  // A dot of INK, which is not the same shape as a star.
+  //
+  // This deliberately does NOT use the shared POINT_SPRITE_FALLOFF. That one
+  // squares a smoothstep across the whole radius, which is exactly right for a
+  // star — a tight bright core with a small glow, so a field of them does not
+  // turn into haze — and wrong for a letterform. Measured against it: at half
+  // its radius the shared falloff is already down to 0.25 alpha, so a 3px sprite
+  // carries barely 1.5px of readable core, and a sentence built from those reads
+  // soft however many dots it has.
+  //
+  // Solid to uCore, then a short shoulder. It delivers ~3.5x the ink per dot at
+  // the SAME diameter and the SAME count, which is why the answer to "it needs
+  // to be more readable" was not more particles.
+  float inkDot() {
+    float r = length(gl_PointCoord - vec2(0.5)) * 2.0;
+    float a = 1.0 - smoothstep(uCore, 1.0, r);
+    // Discarding rather than leaning on alpha 0: these draw with depthWrite off
+    // and blend, so a transparent corner fragment still costs a blend.
+    if (a <= 0.0) discard;
+    return a;
+  }
 
   void main() {
     // Falloff in ALPHA, not folded into rgb — see departure 3 in the header.
-    gl_FragColor = vec4(uColor, pointSpriteFalloff() * vAlpha * uOpacity);
+    gl_FragColor = vec4(uColor, inkDot() * vAlpha * uOpacity);
     #include <colorspace_fragment>
   }
 `
@@ -149,6 +188,10 @@ export const HINT_UNIFORM_NAMES = [
   'uMaxSize',
   'uColor',
   'uOpacity',
+  'uCore',
+  'uTime',
+  'uDriftPx',
+  'uDriftRate',
 ] as const
 
 /** Every custom attribute, for the same reason. `position` is three's own. */
@@ -193,7 +236,9 @@ export function createHintParticles() {
     uDepth: { value: render.distance },
     uUnitPx: { value: 1 / 900 },
     uFit: { value: 1 },
-    uOffsetPx: { value: render.offsetPx },
+    // Pushed from the layer, which is the only place that knows both the viewport
+    // and how tall the sampled figure turned out to be.
+    uOffsetPx: { value: 0 },
     uScatterPx: { value: render.scatterPx },
     uDispersePx: { value: render.dispersePx },
     uSizePx: { value: render.sizePx },
@@ -205,6 +250,12 @@ export function createHintParticles() {
     // `THREE.Color` linearises the hex on assignment.
     uColor: { value: new THREE.Color(render.color) },
     uOpacity: { value: render.opacity },
+    uCore: { value: render.dotCore },
+    uTime: { value: 0 },
+    // Zeroed by the layer under reduced motion. Left non-zero here so a harness
+    // that builds this directly still gets the shipped behaviour.
+    uDriftPx: { value: render.driftPx as number },
+    uDriftRate: { value: (Math.PI * 2) / render.driftSeconds },
   }
 
   const material = new THREE.ShaderMaterial({
@@ -247,19 +298,48 @@ export function createHintParticles() {
     uniforms.uExit.value = clamp01(exit)
   }
 
+  /**
+   * Seconds, for the idle drift — the ONE thing here that needs a clock.
+   *
+   * Everything else is a pure function of `setPhase`, which is what makes the
+   * figure scrubbable. This is deliberately kept separate rather than folded
+   * into progress: the drift runs while the figure is held, and the hold has no
+   * duration to be a fraction of.
+   */
+  function setTime(seconds: number): void {
+    if (Number.isFinite(seconds)) uniforms.uTime.value = seconds
+  }
+
+  /** Drift amplitude in CSS px. Zero under reduced motion. */
+  function setDrift(px: number): void {
+    if (Number.isFinite(px) && px >= 0) uniforms.uDriftPx.value = px
+  }
+
   function setVisible(visible: boolean): void {
     object.visible = visible
   }
 
   /**
    * Viewport, in the terms the shader needs: CSS height drives the px→view
-   * conversion, the pixel ratio drives the sprite size, and `fit` shrinks the
-   * whole figure when it would not otherwise clear the margins.
+   * conversion, the pixel ratio drives the sprite size, `fit` shrinks the whole
+   * figure when it would not otherwise clear the margins, and `offsetPx` is how
+   * far below centre the figure's own centre sits.
+   *
+   * That last one is resolved by the caller rather than read from config,
+   * because placing the figure a fixed gap above the BOTTOM edge needs both the
+   * viewport height and the figure's height — and the second is not known until
+   * the sample has landed.
    */
-  function setViewport(cssHeight: number, pixelRatio: number, fit: number): void {
+  function setViewport(
+    cssHeight: number,
+    pixelRatio: number,
+    fit: number,
+    offsetPx: number,
+  ): void {
     if (cssHeight > 0) uniforms.uUnitPx.value = 1 / cssHeight
     if (pixelRatio > 0) uniforms.uPixelRatio.value = pixelRatio
     uniforms.uFit.value = fit > 0 ? fit : 1
+    if (Number.isFinite(offsetPx)) uniforms.uOffsetPx.value = offsetPx
   }
 
   /** The driver's own ceiling on `gl_PointSize`, once a context can be asked. */
@@ -273,7 +353,17 @@ export function createHintParticles() {
     material.dispose()
   }
 
-  return { object, setFigure, setPhase, setVisible, setViewport, setMaxPointSize, dispose }
+  return {
+    object,
+    setFigure,
+    setPhase,
+    setTime,
+    setDrift,
+    setVisible,
+    setViewport,
+    setMaxPointSize,
+    dispose,
+  }
 }
 
 function clamp01(value: number): number {

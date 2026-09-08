@@ -53,16 +53,19 @@ export interface SequenceState {
   // Flipped by the timeline when the corner logo departs centre — the moment
   // the orbit reveal is allowed to begin.
   orbitsStarted: boolean
-  // Whether the navigation hint is being offered, AND the viewer is on Earth.
+  // Whether the Earth hint MAY be offered — the viewer is on Earth and nothing
+  // else has their attention. Not whether it is on screen: that is decided in
+  // the scene, by how long they have been still (`hint/hintIdle.ts`).
   //
-  // Written by App from `createNavigationInput`'s `onHintVisible`, read per
-  // frame by `HintLayer`. Here rather than in React state for the reason the
-  // zoom is: a `useState` would re-render both canvases and all the overlay
-  // chrome for an edge that has a zero-cost channel already threaded into every
-  // layer. The rules behind the edge — 1.2s after an arrival, gone 3s after the
-  // first interaction, closed when navigation is refused — stay where they are
-  // and are not restated anywhere in the Earth scene.
-  hintShown: boolean
+  // Written by App, read per frame by `HintLayer`. Here rather than in React
+  // state for the reason the zoom is: a `useState` would re-render both canvases
+  // and all the overlay chrome for a flag that has a zero-cost channel already
+  // threaded into every layer.
+  //
+  // It carries the refusals only. The phase is deliberately NOT folded in — App
+  // would have to read it at render time, where it is stale — so
+  // `sceneVisibility.hintAllowed` asks for that per frame instead.
+  hintAllowed: boolean
 }
 
 // Removed here because nothing ever read them, only wrote them: `swapProgress`,
@@ -86,6 +89,6 @@ export function createSequenceState(): SequenceState {
     zoomDepth: 0,
     motionBlur: 0,
     orbitsStarted: false,
-    hintShown: false,
+    hintAllowed: false,
   }
 }

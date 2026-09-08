@@ -10,19 +10,50 @@
 // Legibility is decided by DOT SPACING AGAINST DOT SIZE, and not by dots per
 // letter — which is the intuitive measure and the wrong one. A sentence's ink
 // skeleton is about `1.7 x fontSize x letters` long, so the spacing that a given
-// budget buys is that length divided by the budget. Dots ~2px across need ~3px
-// of spacing to read AS dots; closer than that they touch and the sentence
-// renders as solid strokes, which is glowing text and not a particle figure.
+// budget buys is that length divided by the budget.
 //
-// Worked, for the 27 letters below at the shipped caption size:
+// That gives two coherent regimes, and they are a real choice rather than a
+// tuning range:
 //
-//   1400 points -> 1.11px spacing   the dots merge; it is no longer particles
-//    800 points -> 2.09px spacing   still tight
-//    600 points -> 2.96px spacing   reads as dots            <- shipped
+//   spacing > dot   separate dots, with sky between them.
+//   spacing < dot   the dots overlap and the strokes close up. Legible, but it
+//                   reads as text with a rough edge rather than as a figure
+//                   made of particles.
 //
-// A bigger budget is not wrong, it is a bigger FIGURE: 1400 points at 3px
-// spacing needs the sentence about 1380px wide, which is a headline across the
+// BOTH were shipped and rejected in turn, which is the useful part of this note.
+// 398 points at a 3.1px dot was the first regime and read ragged — too few
+// samples across an x-height for a letterform to resolve. 600 at the same dot
+// was the second, and closed up too far to read.
+//
+// The resolution was NOT a point count. It was making the DOT smaller while
+// adding points — 700 at 1.8px — so the sentence has more samples AND visible
+// sky between them. The two moves pull opposite ways on spacing and have to be
+// made together; see `sizePx` and `dotCore`, which is what pays for a dot that
+// small still being visible.
+//
+// So the budget is a CONSEQUENCE of the type size, and the two may never be
+// tuned apart. For the 27 letters below, at the shipped ~1.7px spacing:
+//
+//   font 26px -> skeleton 1193px -> 700 points   <- shipped
+//   font 30px -> skeleton 1377px -> 810 points
+//   font 35px -> skeleton 1607px -> 945 points
+//
+// The trap is reading that the other way: shrinking the type WITHOUT dropping
+// the count closes the spacing further and the letters fill in, counters first.
+// Change the two together.
+//
+// A much bigger budget is not a denser figure, it is a BIGGER one — 1400 points
+// at 3px spacing wants the sentence about 1380px wide, a headline across the
 // viewport rather than a hint. That was offered and declined.
+//
+// Judged 2026-09-08 at 1440x900 and 390x844, and at device pixel ratio 1 AND 2,
+// in four passes: too large and too high (type 35, anchored to the viewport
+// centre); right size and place but ragged; legible but closed up; this.
+//
+// Pixel ratio matters more than usual at this dot size, and it is worth
+// capturing both. At ratio 1 a 1.8px dot is barely more than a pixel and the
+// sentence is noticeably fainter; at 2 it is 3.6 device pixels and the dots read
+// as dots. Most viewers are on the second.
 
 /**
  * The sentence, per pointer type. Spanish, per DECISIONS §11.
@@ -88,30 +119,53 @@ export const HINT_CONFIG = {
     formSeconds: 2.0,
     /** Figure to scatter. Shorter than the arrival: leaving is not an event. */
     exitSeconds: 0.9,
+    /**
+     * Stillness before the hint is offered.
+     *
+     * This is an IDLE affordance and not an arrival one — client direction. It
+     * appears when someone has stopped doing anything and steps aside the moment
+     * they move, rather than being pushed at them a beat after every arrival and
+     * then never returning. Murcia's glass chip keeps the arrival rule; the two
+     * are no longer wired together because they no longer answer the same
+     * question.
+     *
+     * Long enough not to compete with someone who is still looking around, short
+     * enough to read as a response to stillness rather than as a timeout.
+     */
+    idleSeconds: 2,
   },
 
   figure: {
     /**
-     * Points on the sentence. 540 x ~3px of spacing covers the ~1620px of ink
-     * skeleton that 27 letters have at the size below. See the header.
+     * Points on the sentence. 700 x ~1.7px of spacing covers the ~1193px of ink
+     * skeleton that 27 letters have at `fontPx` below — CHANGE THE TWO TOGETHER,
+     * or the spacing closes and the letters fill in. See the header's table.
+     *
+     * Raising this ALONE makes the sentence less readable rather than more, which
+     * is the counter-intuitive part: more points at the same dot size is a denser
+     * blob. It only helped here because `sizePx` came down with it.
      */
-    textCount: 540,
+    textCount: 700,
     /**
-     * Points on the chevrons. Small because the glyph IS small — 158px of
-     * skeleton at ~2.6px spacing. Sampled as its own region rather than taken
-     * out of a shared budget, so a longer sentence can never starve it.
+     * Points on the chevrons — ~124px of skeleton at ~1.8px spacing, matched to
+     * the sentence's DENSITY rather than to its count. At 48 the glyph stayed
+     * sparse while the sentence went dense, and the two halves of one figure
+     * visibly disagreed about what they were made of.
+     *
+     * Sampled as its own region rather than taken out of a shared budget, so a
+     * longer sentence can never starve it.
      */
-    glyphCount: 60,
+    glyphCount: 70,
 
     /**
      * Design sizes in CSS px at full fit. The figure is laid out once at this
      * size and scaled by one uniform on narrow viewports, rather than being
      * re-rasterized — a canvas raster on a resize handler is the wrong shape.
      */
-    fontPx: 35,
+    fontPx: 26,
     /** 600, not 400: heavier stems hold a wider dot spacing at the same size. */
     fontWeight: 600,
-    chevronWidthPx: 56,
+    chevronWidthPx: 44,
     gapPx: 16,
 
     /**
@@ -125,21 +179,60 @@ export const HINT_CONFIG = {
   render: {
     /** How far in front of the eye the figure hangs, in world units. */
     distance: 6,
-    /** Below centre, in CSS px at full fit — roughly where the chip sat. */
-    offsetPx: 250,
+    /**
+     * Gap from the BOTTOM of the viewport to the bottom of the figure, in CSS px.
+     *
+     * Anchored to the bottom edge and not to the centre, which is the only way
+     * this reads the same on every device. It was a fixed drop from the centre
+     * until 2026-09-08, and measured that is not a position at all — the gap to
+     * the bottom edge is then a function of viewport HEIGHT:
+     *
+     *   1440x900   68px above the bottom
+     *    390x844   50px
+     *   1920x1080  158px
+     *   1024x1366  301px
+     *    844x390  -187px   entirely off the screen, in phone landscape
+     *
+     * The figure's own height is subtracted on the CPU (it is only known once the
+     * sample has landed), so this is the gap under the SENTENCE, the way
+     * `bottom:` behaves for a DOM element rather than the way a transform does.
+     *
+     * THE VALUE IS A FLOOR, NOT A PREFERENCE, and `.site-footer` sets it.
+     * That mark is fixed at `bottom: max(14px, inset)` and is ~12px tall, so it
+     * owns roughly the bottom 26px of every viewport. `styles.css` records the
+     * same constraint for the glass chip this replaces — "the mark is
+     * right-aligned and this is centred, so they miss on a wide viewport; a
+     * phone closes that gap, which is why the clearance is vertical" — and the
+     * chip answered it with `max(28px, inset + 20px)`.
+     *
+     * Measured 2026-09-08: at 12 the sentence runs straight through "© 2026
+     * Vértigo" on a 390px phone, where a nearly full-width sentence cannot miss
+     * a right-aligned mark horizontally. 24 puts the lowest dot at ~28px, which
+     * is the chip's own clearance. Lower than this needs the footer to move, not
+     * a smaller number here.
+     *
+     * The safe-area term is added in `HintLayer`, so a home indicator does not
+     * sit on top of the sentence either.
+     */
+    bottomPx: 24,
     /** Side margin kept clear when the figure is scaled down to fit. */
     marginPx: 24,
 
     /**
      * Point diameter in CSS px, before the device pixel ratio.
      *
-     * 2.2 was the arithmetic's answer and it was too dim to read: the shared
-     * sprite falloff SQUARES, so at 2.2px only the centre pixel is near full
-     * alpha and each dot lands as one faint pixel. Raised until the sentence
-     * reads against black. Judged on screen, which is the only way this one can
-     * be settled.
+     * THE SEPARATION KNOB, and it moves against `textCount`. Dot centres sit
+     * ~1.7px apart at the shipped budget, so a 3.1px dot overlapped its
+     * neighbours by more than a third of its width and the strokes filled in.
+     * That is what came down from 3.1: at 1.8 the solid cores (1.40px, see
+     * `dotCore`) clear each other and only the shoulders meet, which is what puts
+     * sky back between the dots.
+     *
+     * It cannot go much below this at device pixel ratio 1 — the solid core is
+     * already about one pixel, and past that a dot stops shrinking and simply
+     * dims. On a ratio-2 screen there is room.
      */
-    sizePx: 3.2,
+    sizePx: 1.8,
 
     /**
      * UNDER THE BLOOM KNEE, and that is the whole reason for the value.
@@ -160,6 +253,53 @@ export const HINT_CONFIG = {
      * sampled luminance (§11.58), which is the mistake that note exists to stop.
      */
     opacity: 1,
+    /**
+     * How much of each dot's radius is SOLID before it falls off, 0..1.
+     *
+     * The readability knob, and the one that matters more than the point count.
+     * The shared star falloff this replaces is down to 0.25 alpha at half its
+     * radius, so a 3px sprite carried ~1.5px of readable core and the sentence
+     * read soft no matter how many dots were in it. 0.55 delivers ~3.5x the ink
+     * per dot at the same diameter and the same count.
+     *
+     * Toward 0 is the old soft blob; toward 1 is a hard-edged disc that aliases,
+     * since points get no per-sample coverage through the post chain.
+     *
+     * 0.55 -> 0.78 when the dot shrank to 1.8px. A smaller sprite spends more of
+     * itself on the shoulder, so holding the core fraction constant would have
+     * thrown away most of what the smaller dot had left. Worth 1.3x the ink per
+     * dot, at the cost of a slightly firmer edge.
+     */
+    dotCore: 0.78,
+
+    /**
+     * Idle float, in CSS px: how far the WHOLE figure rises and falls while it
+     * is held. Peak to peak is twice this.
+     *
+     * Rigid, one phase for every dot — chevrons and sentence together, as one
+     * thing suspended in space. A per-particle version was built first and it
+     * shimmers instead of floating; it also moves the dots relative to each
+     * other, which softens the baseline and gives back the readability the
+     * previous pass bought. That constraint is what limited the amplitude to
+     * under half the dot spacing; rigid motion has no such limit, because it
+     * cannot blur a letterform.
+     *
+     * The remaining bound is the composition: the figure sits ~24px above the
+     * bottom and the site footer owns the strip below it, so the DOWN half of
+     * the swing has to stay clear of it.
+     *
+     * Zero under reduced motion. This is exactly the kind of decorative loop the
+     * HTML hint's own media query kills while keeping its fades, and the figure
+     * is fully legible standing still.
+     */
+    driftPx: 5,
+    /**
+     * Seconds for one full rise and fall. Slow enough to read as floating rather
+     * than as a bob — at this amplitude the motion is only a few pixels per
+     * second, which is the point: it should be noticed as life in the figure and
+     * not as an animation playing.
+     */
+    driftSeconds: 6,
 
     /** Where the points come in from and go out to, in CSS px. */
     scatterPx: 900,

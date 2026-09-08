@@ -3,12 +3,13 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 import { prefersReducedMotion } from '../../../app/warpTransition'
 import { maxPointSize } from '../scene/space/warpStarShader'
-import { hintVisible } from '../config/sceneVisibility'
+import { hintAllowed } from '../config/sceneVisibility'
 import { PROTO_HINT } from '../../../app/protoHint'
 import type { SequenceState } from '../config/sequenceState'
 import { buildHintFigure } from './buildHintFigure'
 import { createHintParticles } from './createHintParticles'
 import { createHintPresence } from './hintPresence'
+import { createIdleWatch } from './hintIdle'
 import { HINT_CONFIG } from './hintConfig'
 
 // The Earth's way out, drawn in the scene instead of on a plate over it.
@@ -18,14 +19,23 @@ import { HINT_CONFIG } from './hintConfig'
 // viewer looks at it, and scatters on the first scroll. Murcia keeps its glass
 // chip; `styles.css` hides only the Earth one.
 //
-// ## What this layer owns, and what it does not
+// ## It is offered on STILLNESS, not on arrival
 //
-// It owns the frame loop and the viewport. It owns NOTHING about when the hint
-// appears: that is `createNavigationInput` — a beat after an arrival, gone a
-// linger after the first interaction, closed the moment navigation is refused —
-// and it arrives here as one boolean on `SequenceState`. Restating any of those
-// rules would give the app two answers to one question, and the existing set is
-// already covered fourteen times over in that module's tests.
+// Client direction. The figure appears once the viewer has done nothing for a
+// couple of seconds and steps aside the moment they move again — so it reads as
+// something the scene offers while they are looking, rather than as a card
+// pushed at them every time a world lands.
+//
+// That is a different rule from Murcia's glass chip, which is still offered a
+// beat after each arrival and does not return until the next one. The two were
+// wired together while they shared a rule and are deliberately not any more:
+// `createNavigationInput` is untouched and owns the chip, and this owns the
+// figure. What arrives from the app is only PERMISSION — `state.hintAllowed`,
+// meaning the viewer is on Earth and nothing else has their attention.
+//
+// The stillness itself is counted here rather than in the app because it is a
+// property of the viewer, not of the sequence, and because the frame loop is
+// already the thing that knows how much time has passed.
 //
 // ## Two constructions, deliberately split
 //
@@ -46,17 +56,60 @@ export function HintLayer({ state, active }: { state: SequenceState; active: boo
     () => createHintPresence({ reducedMotion }),
     [reducedMotion],
   )
+  const idle = useMemo(
+    () => createIdleWatch({ idleSeconds: HINT_CONFIG.presence.idleSeconds }),
+    [],
+  )
   const scene = useThree((s) => s.scene)
-  const figureWidth = useRef(0)
+  const figure = useRef({ width: 0, height: 0 })
+  // The drift's own clock. A local accumulator rather than the GSAP timeline or
+  // `state.clock`, which is the convention every ambient motion in this scene
+  // follows — the intro's clock is seeked and scrubbed, and a shimmer that
+  // jumped when someone dragged the debug playhead would be a bug nobody could
+  // place.
+  const elapsed = useRef(0)
+  // Resolved once: it is both pushed to the shader and reserved in the bottom
+  // gap, and the two must agree or the float eats its own footer clearance.
+  const drift = reducedMotion ? 0 : HINT_CONFIG.render.driftPx
+  // Measured on resize and cached, because the frame loop needs it and reading
+  // it forces a layout — see `safeAreaBottom`.
+  const safeBottom = useRef(0)
 
   useEffect(() => {
     scene.add(hint.object)
     hint.setMaxPointSize(maxPointSize(gl))
+    // The idle shimmer is decoration in motion, and it is the one part of this
+    // figure that loops. Same split the HTML hint's own media query makes —
+    // kill the loops, keep the fades — and the sentence is fully legible
+    // standing still, so nothing is lost but the breathing.
+    hint.setDrift(drift)
     return () => {
       scene.remove(hint.object)
       hint.dispose()
     }
-  }, [scene, gl, hint])
+  }, [scene, gl, hint, reducedMotion])
+
+  // What counts as the viewer doing something.
+  //
+  // Deliberately wider than `createNavigationInput`'s idea of an interaction,
+  // which is about gestures that navigate. This is about ATTENTION: a mouse
+  // moving across the scene, a key, a finger — someone doing any of those is
+  // looking at something already and does not need to be told where to go.
+  //
+  // On `window` and in the capture phase, so a panel that stops propagation
+  // still counts; passive, because none of this ever prevents a default.
+  useEffect(() => {
+    const poke = () => idle.poke()
+    const events = ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'] as const
+    for (const type of events) {
+      window.addEventListener(type, poke, { passive: true, capture: true })
+    }
+    return () => {
+      for (const type of events) {
+        window.removeEventListener(type, poke, { capture: true })
+      }
+    }
+  }, [idle])
 
   // The sample. Once, not on resize — a canvas raster on a resize handler is the
   // wrong shape, and a narrow viewport is handled by scaling the figure instead.
@@ -70,10 +123,10 @@ export function HintLayer({ state, active }: { state: SequenceState; active: boo
     const coarse = window.matchMedia('(pointer: coarse)')
 
     const build = () => {
-      const figure = buildHintFigure(coarse.matches)
-      if (cancelled || !figure) return
-      figureWidth.current = figure.width
-      hint.setFigure(figure)
+      const sampled = buildHintFigure(coarse.matches)
+      if (cancelled || !sampled) return
+      figure.current = { width: sampled.width, height: sampled.height }
+      hint.setFigure(sampled)
     }
 
     const settled =
@@ -92,10 +145,13 @@ export function HintLayer({ state, active }: { state: SequenceState; active: boo
   // The viewport, in the terms the shader wants. Pushed on change rather than
   // per frame, and the pixel ratio is included because it can move under the app
   // — dragging a window between displays of different density does it.
+  //
+  // The safe-area inset is re-read here rather than once on mount: it changes on
+  // an orientation flip, which arrives as a resize.
   useEffect(() => {
-    const fit = fitFor(size.width, figureWidth.current)
-    hint.setViewport(size.height, gl.getPixelRatio(), fit)
-  }, [hint, gl, size.width, size.height])
+    safeBottom.current = safeAreaBottom()
+    pushViewport(hint, gl, size, figure.current, safeBottom.current, drift)
+  }, [hint, gl, size, drift])
 
   useFrame((_, delta) => {
     // Frozen, not reset, while Murcia is showing.
@@ -103,21 +159,65 @@ export function HintLayer({ state, active }: { state: SequenceState; active: boo
 
     // `?hint=1` holds it up so the figure can be judged; the gesture that would
     // let you look at it is otherwise the one that dismisses it. DEBUG only.
-    presence.setVisible(PROTO_HINT.hold || hintVisible(state))
-    const frame = presence.tick(clampFrameDelta(delta))
+    const dt = clampFrameDelta(delta)
+    elapsed.current += dt
+
+    // Idle is asked EVERY frame, including while the hint is up: the answer is a
+    // state and not an edge, so the first move after it appears turns this false
+    // and the figure scatters.
+    const still = idle.tick(dt)
+
+    // ?hint=1 holds it up so the figure can be judged; the stillness this waits
+    // for is otherwise broken by the very act of looking. DEBUG only.
+    presence.setVisible(PROTO_HINT.hold || (hintAllowed(state) && still))
+    const frame = presence.tick(dt)
 
     hint.setVisible(frame.visible)
     if (!frame.visible) return
 
-    // The fit is recomputed here rather than only in the effect above because
-    // the figure arrives asynchronously — the first sample can land after the
-    // last resize, and without this the hint would draw at fit 1 until the next
-    // one.
-    hint.setViewport(size.height, gl.getPixelRatio(), fitFor(size.width, figureWidth.current))
+    // Recomputed here rather than only in the effect above because the figure
+    // arrives asynchronously — the first sample can land after the last resize,
+    // and until then its width and height are zero. Cheap: four numbers, and the
+    // safe-area probe is NOT repeated per frame.
+    pushViewport(hint, gl, size, figure.current, safeBottom.current, drift)
     hint.setPhase(frame.progress, frame.exit)
+    hint.setTime(elapsed.current)
   })
 
   return null
+}
+
+/**
+ * Viewport → the four numbers the shader places the figure with.
+ *
+ * The offset is what makes the position device-independent. It is derived from
+ * the BOTTOM edge — viewport half-height, less the gap the config asks for, less
+ * half the figure's own scaled height — so the sentence sits the same distance
+ * above the bottom on every screen. Anchoring at a fixed drop from the centre
+ * instead, which is what shipped first, makes that distance a function of
+ * viewport height: 68px at 1440x900, 301px on a tall tablet, and -187px in phone
+ * landscape, which is off the screen entirely.
+ *
+ * The float's amplitude is part of the gap, so `bottomPx` means the CLOSEST the
+ * figure ever comes to the bottom rather than where it happens to rest. Without
+ * that term the down half of the swing dips into `.site-footer`'s band — the
+ * figure rests 24px up, the float takes it to 19px, and the footer owns 14..26px
+ * — which is the collision the anchor exists to prevent, arriving through the
+ * back door once the figure started moving. The amplitude is scaled by the fit
+ * because the shader applies it inside the figure's own coordinates.
+ */
+function pushViewport(
+  hint: ReturnType<typeof createHintParticles>,
+  gl: { getPixelRatio: () => number },
+  size: { width: number; height: number },
+  figure: { width: number; height: number },
+  safeBottom: number,
+  driftPx: number,
+): void {
+  const fit = fitFor(size.width, figure.width)
+  const gap = HINT_CONFIG.render.bottomPx + safeBottom + driftPx * fit
+  const offsetPx = size.height / 2 - gap - (figure.height * fit) / 2
+  hint.setViewport(size.height, gl.getPixelRatio(), fit, offsetPx)
 }
 
 /**
@@ -131,6 +231,27 @@ function fitFor(cssWidth: number, figurePx: number): number {
   if (figurePx <= 0) return 1
   const available = cssWidth - HINT_CONFIG.render.marginPx * 2
   return Math.min(1, Math.max(0.1, available / figurePx))
+}
+
+/**
+ * `env(safe-area-inset-bottom)`, in CSS px, measured rather than assumed.
+ *
+ * The glass chip this replaces sat at `max(28px, safe-area-inset-bottom + 20px)`
+ * and got the inset from CSS. A figure inside the canvas cannot ask CSS, so it
+ * asks a throwaway element that can — without this, the sentence sits under an
+ * iPhone's home indicator. Returns 0 anywhere the value is unsupported, which is
+ * the correct answer on a device that has no inset.
+ */
+function safeAreaBottom(): number {
+  if (typeof document === 'undefined') return 0
+  const probe = document.createElement('div')
+  probe.style.cssText =
+    'position:fixed;left:0;bottom:0;width:0;visibility:hidden;pointer-events:none;' +
+    'height:env(safe-area-inset-bottom, 0px)'
+  document.body.appendChild(probe)
+  const px = probe.getBoundingClientRect().height
+  probe.remove()
+  return Number.isFinite(px) ? px : 0
 }
 
 function wait(ms: number): Promise<void> {

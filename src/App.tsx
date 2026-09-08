@@ -211,6 +211,32 @@ export default function App() {
   // of them is the input lock: that is the navigation machine's own `locked` phase,
   // entered synchronously on the committing event. `!transitioning` here is a second
   // guard, not the one doing the work.
+  // The refusals the gesture rail and the Earth hint SHARE, hoisted so the two
+  // cannot drift apart. Everything here is React state, which is what lets it be
+  // a render-time value; the two terms that are not — the intro phase and the
+  // focused district — are read where they are current instead.
+  const attentionIsFree =
+    // The blog owns the viewport. A gesture accumulating behind it would warp a
+    // reader who is four paragraphs into an article.
+    !blogOpen &&
+    // Never drop the viewer into a world that has not finished building.
+    murciaReady &&
+    !transitioning &&
+    // Something already has the viewer's attention. Close it first.
+    !auditOpen &&
+    !contactOpen &&
+    !legalDoc &&
+    !selectedCase
+
+  // Earth draws its hint in the scene, and it is an IDLE affordance: this says
+  // only that it MAY be offered. How long the viewer has been still — the thing
+  // that actually puts it on screen — is counted per frame inside the scene,
+  // because it is a property of the viewer and not of the sequence.
+  //
+  // Written onto the mutable sequence state for the reason the zoom is: a
+  // useState here would re-render both canvases and every overlay for a boolean
+  // that already has a zero-cost channel threaded into each layer.
+  state.hintAllowed = attentionIsFree && activeExperience === 'earth'
   const {
     settle: settleNavigation,
     reset: resetNavigation,
@@ -221,22 +247,15 @@ export default function App() {
     getContext: () => ({
       current: activeExperience,
       canNavigate:
-        // The blog owns the viewport. A gesture accumulating behind it would
-        // warp a reader who is four paragraphs into an article.
-        !blogOpen &&
-        // Never drop the viewer into a world that has not finished building.
-        murciaReady &&
-        !transitioning &&
+        attentionIsFree &&
         // The intro owns the camera until `site`; a rail filling over it would
-        // promise something that cannot happen yet.
+        // promise something that cannot happen yet. Read HERE rather than with
+        // the rest: `getContext` runs per event, so the phase is current, where a
+        // render-time read would be stale.
         atOrAfter(state.phase, 'site') &&
-        // Something already has the viewer's attention. Close it first — a focus
-        // flight and a warp must never run at once, and this is what makes that
-        // combination unreachable rather than merely guarded.
-        !auditOpen &&
-        !contactOpen &&
-        !legalDoc &&
-        !selectedCase &&
+        // A focus flight and a warp must never run at once, and this is what
+        // makes that combination unreachable rather than merely guarded. Read
+        // from a ref, so it also cannot take part in a render-time value.
         !murciaRef.current?.hasFocusedDistrict,
       // The one attention-holder a pinch may release: the district's display is
       // in the world, its close is a small drawn glyph, and on a phone the
@@ -259,17 +278,6 @@ export default function App() {
     // for the e2e suite, painted by the input layer itself.
     onZoom: (depth) => {
       state.zoomDepth = depth
-    },
-    // Earth's hint is particles in the scene now, so the edge has to reach a
-    // layer inside the canvas. Written onto the mutable sequence state for the
-    // reason the zoom is: React state here would re-render both canvases and
-    // every overlay for a boolean that already has a zero-cost channel threaded
-    // into each layer.
-    //
-    // The world test is HERE rather than in the Earth scene, so nothing under
-    // `experiences/` has to import an app-level id to answer it.
-    onHintVisible: (visible, current) => {
-      state.hintShown = visible && current === 'earth'
     },
   })
   settleNavigationRef.current = settleNavigation

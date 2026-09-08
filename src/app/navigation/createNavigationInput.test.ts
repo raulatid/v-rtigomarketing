@@ -38,7 +38,6 @@ function setup(initial: Partial<NavigationContext> = {}) {
   document.body.appendChild(root)
   const context: NavigationContext = { current: 'earth', canNavigate: true, ...initial }
   const commits: string[] = []
-  const hintEdges: Array<{ visible: boolean; current: string }> = []
   let depth = 0
   const input = createNavigationInput({
     root,
@@ -49,7 +48,6 @@ function setup(initial: Partial<NavigationContext> = {}) {
     onZoom: (value) => {
       depth = value
     },
-    onHintVisible: (visible, current) => hintEdges.push({ visible, current }),
   })
   return {
     root,
@@ -59,7 +57,6 @@ function setup(initial: Partial<NavigationContext> = {}) {
     depth: () => depth,
     progress: () => Number(root.style.getPropertyValue('--nav-progress')) || 0,
     hint: root.querySelector<HTMLElement>('.nav-hint')!,
-    hintEdges,
     canvas,
     control: root.querySelector<HTMLElement>('.nav-control')!,
   }
@@ -313,62 +310,6 @@ describe('the hint frame is offered on arrival, and closes after the first inter
     t.input.dispose()
   })
 
-  // Earth draws its hint in the scene now, so the two edges have to leave the
-  // DOM layer. Reported rather than observed: `data-visible` is what this module
-  // PAINTS, and the element is nullable — the accumulator can be driven with no
-  // hint markup at all — so an observer on it could silently never fire.
-  describe('and reports its edges, for the scene to draw its own', () => {
-    it('reports the show and the hide once each, with the world they happened in', async () => {
-      const t = setup({ canNavigate: true })
-      t.input.settle()
-      await after(HINT_MS * 2)
-      expect(t.hintEdges).toEqual([{ visible: true, current: 'earth' }])
-
-      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, cancelable: true }))
-      await after(HINT_LINGER_MS * 1.2)
-      expect(t.hintEdges).toEqual([
-        { visible: true, current: 'earth' },
-        { visible: false, current: 'earth' },
-      ])
-      t.input.dispose()
-    })
-
-    it('says nothing at all while navigation is refused', async () => {
-      // The edge has to be the one that HAPPENED. `showHint` returns early here,
-      // so a callback fired before that guard would light a figure up over a
-      // world the viewer cannot leave.
-      const t = setup({ canNavigate: false })
-      t.input.settle()
-      await after(HINT_MS * 3)
-      expect(t.hintEdges).toEqual([])
-      t.input.dispose()
-    })
-
-    it('does not repeat an edge it has already reported', async () => {
-      // Both guards debounce already; this is what keeps that true, because the
-      // consumer treats each edge as a state change and not as a heartbeat.
-      const t = setup({ canNavigate: true })
-      t.input.settle()
-      await after(HINT_MS * 2)
-      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, cancelable: true }))
-      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, cancelable: true }))
-      await after(HINT_LINGER_MS * 1.2)
-      t.input.contextChanged()
-      expect(t.hintEdges.filter((e) => e.visible)).toHaveLength(1)
-      expect(t.hintEdges.filter((e) => !e.visible)).toHaveLength(1)
-      t.input.dispose()
-    })
-
-    it('names Murcia when the hint belongs to Murcia', async () => {
-      // The consumer is Earth-only, so it has to be able to tell the arrivals
-      // apart — otherwise the Earth figure would gather behind the city.
-      const t = setup({ canNavigate: true, current: 'murcia' })
-      t.input.settle()
-      await after(HINT_MS * 2)
-      expect(t.hintEdges).toEqual([{ visible: true, current: 'murcia' }])
-      t.input.dispose()
-    })
-  })
 })
 
 describe('the accessible control is the path a pinch cannot be', () => {

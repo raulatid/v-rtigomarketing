@@ -46,11 +46,13 @@ export function orbitsVisible(state: SequenceState): boolean {
   return state.orbitsStarted && atOrAfter(state.phase, 'orbits')
 }
 
-// The particle hint is offered by the navigation layer, which already knows
-// every rule about when a hint may exist — so this asks it, and adds only the
-// one thing the navigation layer cannot know: that the intro has actually
-// handed the world over. `reset()` fires `offerHint` on the phase edge, so the
-// two agree; the guard is here in case a future caller offers one earlier.
-export function hintVisible(state: SequenceState): boolean {
-  return state.hintShown && atOrAfter(state.phase, 'site')
+// Whether the Earth hint may be offered. NOT whether it is on screen — that is
+// this plus a couple of seconds of stillness, and the stillness is counted in
+// the scene (`hint/hintIdle.ts`) because it is a property of the viewer rather
+// than of the sequence.
+//
+// The phase term lives here rather than in the flag App writes, because App
+// would have to read it at render time and the phase moves between renders.
+export function hintAllowed(state: SequenceState): boolean {
+  return state.hintAllowed && atOrAfter(state.phase, 'site')
 }

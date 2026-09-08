@@ -36,7 +36,16 @@ export interface HintFigure {
   points: Float32Array
   /** 0 for a chevron point, 1 for a sentence point. Drives the arrival stagger. */
   regions: Float32Array
-  /** Design-px extent, so the layer can fit it to a narrow viewport. */
+  /**
+   * Design-px extent of the INK — the sampled points' own bounding box, not the
+   * canvas they were rasterized on.
+   *
+   * The canvas carries whatever headroom `textH` allowed for descenders, and
+   * that headroom is empty on a sentence that happens not to use it. Reporting
+   * it would make "32px above the bottom of the screen" mean 45px under the
+   * lowest dot on a desktop and something else again once the figure is scaled
+   * down — measured, exactly that. The bbox makes the gap mean what it says.
+   */
   width: number
   height: number
 }
@@ -134,7 +143,31 @@ export function buildHintFigure(coarse: boolean): HintFigure | null {
   const after = put(glyph, 0, 0, 0)
   put(text, glyphRows, 1, after)
 
-  return { points, regions, width: width / scale, height: height / scale }
+  // Re-centre on the ink rather than on the canvas, so the caller can place the
+  // figure by its own edges. Everything above worked in canvas coordinates
+  // because that is what the sampler returns; this is the one conversion.
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+  for (let i = 0; i < points.length; i += 2) {
+    const x = points[i]!
+    const y = points[i + 1]!
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+  }
+  if (!Number.isFinite(minX)) return null
+
+  const cx = (minX + maxX) / 2
+  const cy = (minY + maxY) / 2
+  for (let i = 0; i < points.length; i += 2) {
+    points[i] = points[i]! - cx
+    points[i + 1] = points[i + 1]! - cy
+  }
+
+  return { points, regions, width: maxX - minX, height: maxY - minY }
 }
 
 function alphaOf(ctx: CanvasRenderingContext2D, width: number, height: number): Uint8Array {
