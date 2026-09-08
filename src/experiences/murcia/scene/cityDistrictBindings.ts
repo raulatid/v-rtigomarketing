@@ -48,17 +48,43 @@ export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
   {
     contentId: 'servicios',
     // The camera sits at direction (sin yaw, cos yaw) from the focus
-    // (`applyPoseToCamera`, pose azimuth 0). The cluster is against the plate's
-    // +X/+Z corner, so the camera stands OUT on the skirt side and looks back
-    // in: the city fills the frame behind the buildings instead of the empty
-    // skirt. Judged headlessly on 2026-08-27 and unchanged by the display
-    // redesign — but it now also sets the display's resting yaw, so a person in
-    // front of it is judging two things at once.
-    approachYawDegrees: 45,
+    // (`applyPoseToCamera`, pose azimuth 0). It is also the display's resting
+    // yaw, so the panel faces the visitor as they land, and a person in front of
+    // it is judging two things at once.
+    //
+    // ── 45 -> 225, 2026-09-08. Half a turn, and it was forced. ──
+    //
+    // 45 stood the camera on the +X/+Z side and looked back in, so the city
+    // filled the frame behind the buildings instead of the empty skirt. Judged
+    // headlessly on 2026-08-27, and correct for as long as the camera was allowed
+    // to stand off the plate — which is exactly what DECISIONS §39 stopped.
+    //
+    // The cluster is against the plate's +X/+Z CORNER, and at 45 the camera
+    // stands +X/+Z of the focus. So §39 and this heading want the eye in the same
+    // place: measured at 1880x966, the clamp pinned it at (-94.4, 465.3) — the
+    // corner, dead on the 8-unit margin — which put the camera ON the plaza
+    // looking away from it. Three of the display's four controls projected off
+    // the canvas entirely. That is not a framing judgement, it is a heading the
+    // rule cannot satisfy.
+    //
+    // 225 is the same composition read from the other side: the camera stands
+    // -X/-Z of the plaza, inside the city, and looks out at the corner. It works
+    // because the pitch rose with it — at 35 degrees the top of frame reaches
+    // only ~78 units past the focus, so what sits behind the district is more
+    // city rather than the skirt that 45 was avoiding. Measured on the same
+    // capture: eye (-235.8, 312.2), comfortably interior, focus NOT clamped at
+    // all, and all four controls framed between x 854-1163 of 1880.
+    //
+    // If this needs to move again, move it around the plaza — not back onto the
+    // corner. `checks/footprint.ts` §4 is the gate.
+    approachYawDegrees: 225,
     // A multiple of the resting `camera.distance`, so the arrival distance is
-    // `0.78 · CAMERA_DISTANCE` — ~222 units at today's 285 (it was ~152 at the
-    // 195 this was tuned against), and the visible height at the focus is
-    // `2 · d · tan(fov / 2)` — ~140 units at fov 35, against a 48-unit panel.
+    // `0.78 · CAMERA_DISTANCE` — ~172 units at today's 220 (it was ~222 at 285,
+    // and ~152 at the 195 this was tuned against), and the visible height at the
+    // focus is `2 · d · tan(fov / 2)` — ~108 units at fov 35, against a 48-unit
+    // panel. The panel now fills nearly half the frame height where it filled a
+    // third; that is a consequence of the 2026-09-08 distance drop and not a
+    // decision anyone took here.
     //
     // The pair that most needs eyes: the flight frames the plaza on the GROUND,
     // while the display hangs above it, so distance and `PANEL_ELEVATION` in

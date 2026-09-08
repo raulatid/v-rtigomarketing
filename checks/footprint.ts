@@ -84,11 +84,13 @@ import {
 import {
   computeGroundFootprint,
   computeEffectiveBounds,
+  computeStationLimitedBounds,
 } from '../src/experiences/murcia/navigation/viewportFootprint';
 import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { terrainVisualBounds } from '../src/experiences/murcia/environment/createTerrainTransition';
 import type { BoundsRect } from '../src/experiences/murcia/config/environmentConfig';
 import { resolveCameraPose } from '../src/experiences/murcia/config/environmentConfig';
+import { clampToRect } from '../src/experiences/murcia/navigation/navigationBounds';
 
 import { banner, check, finish, section } from './lib/assert';
 
@@ -312,30 +314,34 @@ check(
   `worst slack ${worstSlack >= 0 ? '+' : ''}${worstSlack.toFixed(1)} units at ${worstLabel} ` +
     `(skirt width ${murciaConfig.terrainTransition.width})`,
 );
-// This assertion was `!anyClamped`, and it was right for as long as the horizon
-// was never in frame. At 19 degrees it is, by client direction, and a frustum
-// that reaches past the horizon HAS no finite ground footprint — so clamping is
-// not a symptom now, it is the arithmetic reporting that the question does not
-// terminate.
+// This assertion has been `!anyClamped`, then `anyClamped`, and is now back —
+// which is the whole history of Murcia's pitch, and worth keeping rather than
+// tidying.
 //
-// What made the old assertion load-bearing was that the footprint was subtracted
-// from the navigable area. It no longer is: `MurciaExperience` calls
-// `disableFootprintInsets` whenever the model carries ground beyond the plate,
-// precisely so a clamp cannot pretend to be a measurement and drag the focus off
-// the plate corners. The sweep above is kept anyway, and it is the reason this
-// can be said with a straight face: even taking the clamp at face value, the
-// full plate stays navigable with hundreds of units to spare.
+// A frustum that reaches past the horizon has no finite ground footprint:
+// `computeGroundFootprint` returns the `maxGroundDistance` clamp rather than a
+// measurement, and insetting the navigable area by a clamp drags the focus off
+// the plate corners for a reach nobody measured. At 19 and then 18 degrees the
+// horizon WAS in frame by client direction, so clamping was expected and the
+// inset was switched off at load to stop it lying.
 //
-// So the direction of the report is what is asserted now, not its absence.
+// The 2026-09-08 rise to 35 degrees (DECISIONS §39) put the horizon back out of
+// frame at every reachable pose, so the footprint is a measurement again
+// everywhere and the inset is back on. `NavigableArea.recompute` now asks per
+// pose rather than trusting a load-time flag, so a future pitch that reopens the
+// horizon degrades safely instead of silently — but this check is what says the
+// question is not currently live, and it is the tripwire on lowering the pitch
+// again.
 check(
-  'clamping is expected here, and it under-reports rather than over-reports',
-  anyClamped || murciaConfig.groundBounds === null,
+  'the horizon is out of frame everywhere, so the footprint is a measurement',
+  !anyClamped,
   anyClamped
-    ? `first clamped at ${clampedLabel} — expected: past the horizon there is no ground ` +
-      'intersection to measure. The inset that would have consumed it is disabled ' +
-      '(disableFootprintInsets), and section 3 asserts what replaced it'
-    : 'no ray reached the clamp at any pose — the horizon is not in frame anywhere in the ' +
-      'band, so this city could go back to insetting by the footprint',
+    ? `first clamped at ${clampedLabel} — a pose reaches past the horizon, so its footprint ` +
+      'is the maxGroundDistance clamp and not a measurement. NavigableArea drops the inset ' +
+      'for those poses, so this is not unsafe — but the pitch has been lowered back into ' +
+      'the regime section 3 exists to survive, and §39 should be re-read before shipping it'
+    : `no ray reached the clamp across ${samples} samples — every pose has a real ground ` +
+      'footprint, which is what lets the inset be applied rather than disabled',
 );
 
 // ---------------------------------------------------------------------------
@@ -486,6 +492,134 @@ if (groundRect) {
       'actually see ground at, so section 2 is measuring something real',
   );
 }
+
+// ---------------------------------------------------------------------------
+section('4. The camera never leaves the navigable area (DECISIONS §39)');
+
+/*
+ * The rule this file did NOT have.
+ *
+ * Section 3 bounds the camera against the SKIRT — the outer visual world, some
+ * 2170 x 1925 units of filler city. That is the assertion that stops the ground
+ * becoming an island in the background colour, and it is a low bar: an eye
+ * hundreds of units off the authored plate, standing on empty filler and looking
+ * back in at a district, clears it comfortably. That is exactly what shipped, and
+ * exactly what was reported on 2026-09-08.
+ *
+ * §39 says the eye stays inside the NAVIGABLE rectangle. `NavigableArea` enforces
+ * it by intersecting `computeStationLimitedBounds` into the effective area, which
+ * works because the camera offset depends only on yaw, pitch and distance and
+ * never on the focus — so "eye inside R" is itself a rectangle in focus space.
+ *
+ * BE PRECISE ABOUT WHAT THE FIRST ASSERTION PROVES, because it reads stronger
+ * than it is. It clamps the plate corner into the station bounds and then measures
+ * where `applyPoseToCamera` actually puts the eye — so given a correct station
+ * term it is true by construction, and it passes at the 18 deg / 285 pose that
+ * produced the bug report. It is not a check on whether the CONFIG is well chosen.
+ *
+ * What it does catch is the arithmetic drifting from the placement: a sign or axis
+ * error in `computeStationLimitedBounds`, or a change to `applyPoseToCamera` that
+ * stops the offset being independent of the focus — which is the assumption the
+ * whole rectangle trick rests on. Negative control, 2026-09-08: flipping one sign
+ * in the station term takes the worst margin to -229.8.
+ *
+ * The assertion that has teeth about the config is the SECOND one, and the number
+ * to watch is its usable area: 114 x 115 at 35/220 against 65 x 66 at 18/285.
+ *
+ * Neither says anything about the term actually being wired into
+ * `NavigableArea.recompute` — this file imports it directly, so deleting that call
+ * would not fail here. `navigableArea.test.ts` guards the wiring. Both are needed.
+ */
+
+let worstStationMargin = Infinity;
+let stationLabel = '';
+let worstUsableWidth = Infinity;
+let worstUsableDepth = Infinity;
+let usableLabel = '';
+
+for (const [aspectName, aspect] of ASPECTS) {
+  for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
+    for (let d = 0; d <= DEPTH_STEPS; d++) {
+      const depth = -1 + (2 * d) / DEPTH_STEPS;
+
+      for (let i = 0; i <= SCALE_STEPS; i++) {
+        const scale =
+          flight.minDistanceScale + (1 - flight.minDistanceScale) * (i / SCALE_STEPS);
+
+        const pose = poseFor(depth, scale);
+        const label =
+          `${aspectName} yaw ${yaw} zoom ${depth.toFixed(2)} flight ${scale.toFixed(3)} ` +
+          `(d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)})`;
+
+        // The offset for this pose, read the way NavigableArea reads it — off the
+        // placed camera about a focus at the origin, so a change to
+        // `applyPoseToCamera` is caught here rather than reimplemented.
+        camera.aspect = aspect;
+        focus.set(0, 0, 0);
+        applyPoseToCamera(camera, pose, focus, yaw);
+        const station = computeStationLimitedBounds(
+          plate,
+          camera.position.x,
+          camera.position.z,
+          nav.edgeSafetyMargin,
+        );
+
+        if (station.maxX - station.minX < worstUsableWidth) {
+          worstUsableWidth = station.maxX - station.minX;
+          usableLabel = label;
+        }
+        worstUsableDepth = Math.min(worstUsableDepth, station.maxZ - station.minZ);
+
+        // Every corner the viewer can drive the focus at, clamped into the area
+        // the runtime would have given them.
+        for (const [cx, cz] of [
+          [plate.minX, plate.minZ],
+          [plate.maxX, plate.minZ],
+          [plate.minX, plate.maxZ],
+          [plate.maxX, plate.maxZ],
+        ]) {
+          const legal = clampToRect(cx!, cz!, station);
+          focus.set(legal.x, 0, legal.z);
+          applyPoseToCamera(camera, pose, focus, yaw);
+
+          const margin = Math.min(
+            camera.position.x - plate.minX,
+            plate.maxX - camera.position.x,
+            camera.position.z - plate.minZ,
+            plate.maxZ - camera.position.z,
+          );
+          if (margin < worstStationMargin) {
+            worstStationMargin = margin;
+            stationLabel = label;
+          }
+        }
+      }
+    }
+  }
+}
+
+check(
+  'the eye stays on the authored city at every reachable pose',
+  worstStationMargin >= 0,
+  `worst margin ${worstStationMargin >= 0 ? '+' : ''}${worstStationMargin.toFixed(1)} units at ` +
+    `${stationLabel} — negative means the station arithmetic no longer agrees with where ` +
+    'applyPoseToCamera puts the eye, so the clamp is bounding the wrong rectangle',
+);
+
+// A rule that pins the focus is not a rule anyone can navigate under, and the
+// collapse is SILENT: `collapseIfInverted` degrades an over-constrained rectangle
+// to a point rather than inverting it, so the failure mode of too much distance or
+// too little pitch is a city that simply stops panning. This is what makes that
+// loud. The floor is deliberately generous — it asks whether navigation still
+// exists, not whether it feels right, which is a judgement and not a check.
+check(
+  'the rule leaves a navigable area rather than pinning the focus',
+  worstUsableWidth > 40 && worstUsableDepth > 40,
+  `worst usable area ${worstUsableWidth.toFixed(0)} x ${worstUsableDepth.toFixed(0)} units of ` +
+    `${(plate.maxX - plate.minX).toFixed(0)} x ${(plate.maxZ - plate.minZ).toFixed(0)} at ` +
+    `${usableLabel} — the eye offset is distance * cos(pitch), so raising the distance or ` +
+    'lowering the pitch spends this, and at zero the city stops panning',
+);
 
 // ---------------------------------------------------------------------------
 finish();

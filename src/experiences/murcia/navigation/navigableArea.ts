@@ -1,8 +1,12 @@
 import * as THREE from 'three';
 import type { BoundsRect, NavigationConfig } from '../config/environmentConfig';
-import { computeGroundFootprint, computeEffectiveBounds } from './viewportFootprint';
+import {
+  computeGroundFootprint,
+  computeEffectiveBounds,
+  computeStationLimitedBounds,
+} from './viewportFootprint';
 import type { GroundFootprint } from './viewportFootprint';
-import { expandRect } from './navigationBounds';
+import { expandRect, intersectRect, collapseIfInverted } from './navigationBounds';
 
 /**
  * The navigable area, and the four rectangles it is derived from.
@@ -27,19 +31,33 @@ import { expandRect } from './navigationBounds';
  *   footprint   how far the camera can currently see past its focus. Depends
  *               on aspect, distance and azimuth, so it changes on resize, on
  *               zoom and on yaw — which is why this recomputes on all three.
+ *   station    where the focus may be for the CAMERA to stay inside
+ *               `configured`. The eye sits at `focus + offset` and that offset
+ *               depends only on yaw, pitch and distance, so this is `configured`
+ *               shifted by −offset. DECISIONS §39: the camera never leaves the
+ *               navigable area, and this term is the whole of the enforcement.
  *   effective   configured, pulled in wherever the footprint would otherwise
- *               show past `visual`. This is what the drag controller clamps to.
+ *               show past `visual`, and again by `station`. This is what the
+ *               drag controller clamps to.
  *
  * The one asymmetry worth knowing: with no terrain transition there is no
  * skirt, so the hard plate edge is real. Applying footprint insets against the
  * raw content bounds then collapses the navigable area to a sliver, so the
- * insets are disabled and `effective` falls back to `configured` — an honest
- * usable area with a loud error, rather than a silently unusable one.
+ * insets are disabled and the footprint term falls back to `configured` — an
+ * honest usable area with a loud error, rather than a silently unusable one.
+ *
+ * The station term is NOT part of that fallback and never switches off. What
+ * `disableFootprintInsets` turns off is a MEASUREMENT that has degenerated into
+ * a `maxGroundDistance` clamp — insetting by a number nobody measured. The
+ * station term is an exact position the camera is about to occupy, so there is
+ * no pose at which it stops being true, and DECISIONS §39 names putting it
+ * behind that flag as one of the ways the rule breaks.
  */
 export class NavigableArea {
   private plate: BoundsRect | null = null;
   private configured: BoundsRect | null = null;
   private visual: BoundsRect | null = null;
+  private station: BoundsRect | null = null;
   private effective: BoundsRect | null = null;
   private footprint: GroundFootprint | null = null;
   private insetsDisabled = false;
@@ -63,16 +81,17 @@ export class NavigableArea {
   }
 
   /**
-   * Stop insetting the navigable area by the viewport footprint. Two callers,
-   * for opposite reasons — see the asymmetry note above.
+   * Stop insetting the navigable area by the viewport footprint. ONE caller now:
+   * there is no terrain transition, so the plate edge is the visual edge, and
+   * applying the inset against raw content bounds collapses the area to a sliver.
+   * An honest usable area with a loud error beats a silently unusable one.
    *
-   *   no skirt        the plate edge is the visual edge and applying the inset
-   *                   against raw content bounds collapses the area to a
-   *                   sliver. An honest usable area with a loud error beats a
-   *                   silently unusable one.
-   *   horizon in frame the footprint is a `maxGroundDistance` clamp rather than
-   *                   a measurement, so insetting by it would pull the focus
-   *                   off the plate for a reach that was never measured.
+   * There was a second caller until 2026-09-08 — "the horizon is in frame, so the
+   * footprint is a `maxGroundDistance` clamp rather than a measurement, and
+   * insetting by it would pull the focus off the plate for a reach nobody
+   * measured". That reason is still real; it is just a property of the POSE, so
+   * `recompute` asks it of each pose's own rays rather than having it decided
+   * once at load. See DECISIONS §39.
    *
    * A visual rect already supplied by a skirt is kept: it is still what the
    * debug wireframe draws, and it is still true. Only its use as an inset stops.
@@ -110,14 +129,34 @@ export class NavigableArea {
       this.nav.maxGroundDistance,
     );
 
-    this.effective = this.insetsDisabled
-      ? { ...this.configured }
-      : computeEffectiveBounds(
-          this.configured,
-          this.visual,
-          this.footprint,
-          this.nav.edgeSafetyMargin,
-        );
+    // The inset applies when the footprint is a MEASUREMENT and is dropped when
+    // it has degenerated into the `maxGroundDistance` clamp — which is a per-pose
+    // fact, asked of the rays that were just cast rather than guessed at load
+    // time. Insetting by a clamp would drag the focus off the plate corners for a
+    // reach nobody measured; not insetting by a real measurement lets the plate
+    // edge into frame. Neither is a policy, so neither is a flag.
+    const footprintLimited =
+      this.insetsDisabled || this.footprint.clampedRays
+        ? { ...this.configured }
+        : computeEffectiveBounds(
+            this.configured,
+            this.visual,
+            this.footprint,
+            this.nav.edgeSafetyMargin,
+          );
+
+    // Read off the placed camera rather than recomputed from the pose angles.
+    // `applyPoseToCamera` calls `updateMatrixWorld(true)`, so this is the pose
+    // that was just written — and taking it from the camera is what lets
+    // `checks/footprint.ts` drive this with a bare camera and no rig at all.
+    this.station = computeStationLimitedBounds(
+      this.configured,
+      camera.position.x - focus.x,
+      camera.position.z - focus.z,
+      this.nav.edgeSafetyMargin,
+    );
+
+    this.effective = collapseIfInverted(intersectRect(footprintLimited, this.station));
 
     return this.effective;
   }
@@ -140,6 +179,15 @@ export class NavigableArea {
   /** The allowed area before the footprint's say. Debug wireframe only. */
   get configuredBounds(): BoundsRect | null {
     return this.configured;
+  }
+
+  /**
+   * Where the focus may be for the camera to stay inside the navigable area
+   * (DECISIONS §39). Null until the first recompute. Diagnostics only — the
+   * clamp reads `effectiveBounds`, which already has this intersected in.
+   */
+  get stationBounds(): BoundsRect | null {
+    return this.station;
   }
 
   /**
@@ -187,8 +235,9 @@ export class NavigableArea {
         `footprint reach  -X ${f.reachNegX.toFixed(0)}  +X ${f.reachPosX.toFixed(0)}  -Z ${f.reachNegZ.toFixed(0)}  +Z ${f.reachPosZ.toFixed(0)}  clampedRays=${f.clampedRays}`,
       );
     }
+    if (this.station) console.info(`station (§39)    ${fmt(this.station)}`);
     console.info(`effective        ${fmt(eff)}`);
-    if (this.configured) {
+    if (this.station) {
       // Measured against what navigation was CONFIGURED to cover, not against
       // the terrain mesh. Those were the same rectangle until the 2026-09-06
       // export merged the authored plate into the outer ground: the mesh became
@@ -197,8 +246,18 @@ export class NavigableArea {
       // watching for is the footprint inset eating the area — which is a
       // relationship between effective and configured, and never involved the
       // mesh.
-      const coverage = this.plateCoverage(eff, this.configured) * 100;
-      const line = `navigable        ${coverage.toFixed(0)}% of the configured area`;
+      //
+      // Measured against STATION rather than configured since 2026-09-08, and
+      // for exactly the same reason the reference moved the first time. §39 gives
+      // up area deliberately and permanently — 44% of the configured rectangle at
+      // the resting pose — so against `configured` this warned on every single
+      // load about a cost that is documented, gated and intended. That is how a
+      // warning stops being read. Against `station` it goes back to watching the
+      // one thing it was ever for: the footprint inset eating what §39 left.
+      const stationCost = this.plateCoverage(this.station, this.configured) * 100;
+      console.info(`station cost     ${stationCost.toFixed(0)}% of the configured area remains (§39)`);
+      const coverage = this.plateCoverage(eff, this.station) * 100;
+      const line = `navigable        ${coverage.toFixed(0)}% of the station area`;
       if (coverage < MIN_EXPECTED_PLATE_COVERAGE * 100) console.warn(line + ' — smaller than expected');
       else console.info(line);
     }

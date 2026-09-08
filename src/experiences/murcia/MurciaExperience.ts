@@ -662,18 +662,15 @@ export class MurciaExperience {
       this.sceneBundle.scene.add(transition.group);
       this.transition = transition;
       this.bounds.setVisualBounds(transition.visualBounds);
-      if (groundPastContent) {
-        // With ground past the plate the horizon is deliberately in frame, and
-        // a frustum that reaches past the horizon has no finite ground
-        // footprint — `computeGroundFootprint` returns the `maxGroundDistance`
-        // clamp rather than a measurement. Insetting the navigable area by a
-        // clamp would drag the focus off the plate corners for a reason that is
-        // not real, so the inset is dropped and the skirt's fade carries the
-        // guarantee instead: it completes well inside the outer boundary, and
-        // the camera never leaves that boundary. `checks/footprint.ts` §2
-        // asserts both.
-        this.bounds.disableFootprintInsets(env.contentBounds);
-      }
+      // Ground past the plate used to disable the footprint inset outright here,
+      // because at 18 degrees the horizon was deliberately in frame and a frustum
+      // reaching past it has no finite ground footprint to inset by. The 2026-09-08
+      // rise to 35 degrees (DECISIONS §39) took the horizon out of frame at every
+      // reachable pose, so the footprint is a real measurement again and the inset
+      // is back — asked per pose in `NavigableArea.recompute` rather than decided
+      // once here, since whether it degenerates is a property of the pose and not
+      // of the model. It costs nothing today: `checks/footprint.ts` §2 sweeps the
+      // whole reachable band and finds the full plate still navigable.
       if (transition.warnings.length > 0) {
         console.warn('[terrain transition]\n- ' + transition.warnings.join('\n- '));
       }

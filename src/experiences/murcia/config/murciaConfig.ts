@@ -132,9 +132,50 @@ const REPRESENTATIVE_BUILDING_HEIGHT = 13;
  *
  * JUDGED for the look, MEASURED for whether it is allowed. `check:footprint` is
  * the gate; a failure there is never a tuning question.
+ *
+ * ── 18 deg / 285 -> 35 deg / 220, 2026-09-08. DECISIONS §39 ──
+ *
+ * CLIENT DIRECTION, and it reverses the 2026-09-04 one above. Everything that
+ * comment says about WHY the low pitch was reachable is still true; what it did
+ * not price is where the low pitch puts the CAMERA.
+ *
+ * The eye sits `distance * cos(pitch)` behind the focus on the ground. At 18/285
+ * that is 271 units on a plate 352 units across, so the camera stands off the
+ * authored city almost everywhere — and on the services arrival it stands out on
+ * the filler ground and looks back in at the display from there. The reported
+ * symptom was the other half of the same number: at 18 degrees the top of frame
+ * is 0.5 deg below horizontal, the view reaches thousands of units, and the
+ * emptiness past the city is plainly in shot at the moment the visitor lands.
+ *
+ *  - **35 degrees** is a fixed constant now, not a tuning target. The pitch
+ *    changes on the pinch out toward Earth (`zoomFarElevationDegrees`) and in
+ *    the warp, and nowhere else. Top of frame comes to 17.5 deg below horizontal,
+ *    so ground reach falls from "horizon" to ~218 units and the emptiness is
+ *    gone by construction rather than by skirt width.
+ *
+ *  - **220**, down from 285, is what buys the panning back. The eye offset falls
+ *    to 180 units, and because the camera is on ONE side of the focus the
+ *    surviving pan range is `352 - 180` rather than `352 - 360`: ~172 units,
+ *    about half the plate. At 285 it would have been ~119. See
+ *    `computeStationLimitedBounds` for why the arithmetic is one-sided.
+ *
+ *    Note this is no longer "the distance that reads the whole plate". At 35 deg
+ *    the frame covers ~139 units of ground depth and the whole plate cannot be
+ *    read at ANY distance, so that constraint retired with the shallow pitch and
+ *    the number was free to be chosen against navigation instead.
+ *
+ *  - **azimuth 267, fov 35, lookAtHeight** are all unchanged, and lookAtHeight is
+ *    still the knob for the horizon. It matters less now: at 35 deg the horizon
+ *    is not close to the frame.
+ *
+ * The pitch rise is the SAFE direction for everything the file worries about —
+ * a steeper camera has a smaller footprint, and `check:navigation` §13's
+ * grab-the-point cliff is at LOW pitch (16 failed, 18 was exact). The distance
+ * drop is not: it multiplies straight into the compound closest approach, and
+ * `zoomNearScale` below was re-measured because of it.
  */
-const ELEVATION_DEGREES = 18;
-const CAMERA_DISTANCE = 285;
+const ELEVATION_DEGREES = 35;
+const CAMERA_DISTANCE = 220;
 
 export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
@@ -669,7 +710,27 @@ export const murciaConfig: EnvironmentConfig = {
   //
   // Raise it toward 0.35 only through `check:footprint`, and only with a reason
   // to spend the margin.
-  zoomNearScale: 0.45,
+  //
+  // ── 0.45 -> 0.58, 2026-09-08 ──
+  //
+  // FORCED by `CAMERA_DISTANCE` 285 -> 220, and it is the one number that change
+  // could not leave alone. This is a SCALE, so a shorter rest distance multiplies
+  // straight into the compound closest approach: 285 x 0.45 x 0.7 = 89.8 became
+  // 220 x 0.45 x 0.7 = 69.3, and `check:warp` §7 refuses anything with less than a
+  // quarter of the 60-unit floor in hand. 0.58 restores 89.3 — the same margin the
+  // number was chosen with, not a new judgement about it.
+  //
+  // Read it in ABSOLUTE terms and nothing about the product changed: the closest
+  // the viewer may put themselves is 127.6 units, against 128.25 before. What
+  // changed is the RATIO, x2.22 -> x1.72, because rest came 65 units closer and
+  // the pinch has less left to buy. The client's 2026-09-06 complaint was about
+  // x1.43 feeling like nothing; the total against the OLD rest is still x2.22, so
+  // the hand is not being asked to do less work than it was after `adr/015`.
+  //
+  // If the pinch reads short on a device, the honest fix is this number through
+  // `check:footprint` and `check:warp` — not `focusFlight.minDistanceScale`, which
+  // is the other half of the compound and answers a different question.
+  zoomNearScale: 0.58,
 
   contentBounds: { ...PLATE },
 
@@ -681,10 +742,23 @@ export const murciaConfig: EnvironmentConfig = {
   // its own copy of the number it is checking.
   groundBounds: { ...GROUND },
 
-  // Plate centre. Verified as a starting composition; the plan asks for an
-  // explicit value rather than an implicit centre-of-model.
+  // Plate centre in Z, and as far toward it in X as §39 allows. Verified as a
+  // starting composition; the plan asks for an explicit value rather than an
+  // implicit centre-of-model.
+  //
+  // X is NOT the plate centre any more, and the 12 units are worth spelling out
+  // rather than leaving to the clamp. At rest the camera stands
+  // `220 * cos 35 = 180.2` units from the focus along pose azimuth 267, which is
+  // very nearly straight down -X: offset (-180.0, -9.4). For the eye to stay on
+  // the plate the focus needs `x >= -438.2 + 180.0 + 8 = -250.2`, and the plate
+  // centre is -262.3. Left as the centre it would simply have been corrected on
+  // the first recompute — a config value the runtime silently disagrees with,
+  // which is the kind of thing that is discovered years later.
+  //
+  // This is yaw 0 only. Turning moves the legal region and the clamp follows it
+  // live; this number only has to be legal at the pose the city opens on.
   initialFocus: {
-    x: (PLATE.minX + PLATE.maxX) / 2,
+    x: -250,
     z: (PLATE.minZ + PLATE.maxZ) / 2,
   },
 };

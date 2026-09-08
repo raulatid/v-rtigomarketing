@@ -91,22 +91,117 @@ describe('NavigableArea', () => {
       expect(area.visualBounds).toEqual(murciaConfig.contentBounds)
     })
 
-    it('leaves the effective area equal to the configured one', () => {
-      // The whole point of disabling the insets: applying them against a raw
-      // plate edge collapses navigation to a sliver. An honest usable area
+    it('drops the footprint inset but keeps the station term', () => {
+      // The whole point of disabling the footprint inset: applying it against a
+      // raw plate edge collapses navigation to a sliver. An honest usable area
       // beats a silently unusable one.
+      //
+      // The station term is NOT part of that bargain (DECISIONS §39). Being
+      // unable to hide the plate edge is a reason to accept seeing it; it is not
+      // a reason to let the camera stand off the plate entirely. This assertion
+      // is what stops the flag being widened back into "no insets at all".
       const area = new NavigableArea({ ...nav, deriveBoundsFromTerrain: false })
       area.setPlateFromObject(terrainAt(PLATE))
       area.disableFootprintInsets(murciaConfig.contentBounds)
       area.deriveConfigured(nav.bounds)
 
+      // 120 units north of the focus and well above it: the camera would sit
+      // past the plate's +Z edge for any focus in the top 120 units of it.
       const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 5000)
       camera.position.set(0, 120, 120)
       camera.lookAt(0, 0, 0)
       camera.updateMatrixWorld(true)
 
-      const effective = area.recompute(camera, new THREE.Vector3(0, 0, 0))
-      expect(effective).toEqual(area.configuredBounds)
+      const c = area.configuredBounds!
+      const effective = area.recompute(camera, new THREE.Vector3(0, 0, 0))!
+
+      // X is untouched: the camera has no X offset here, so nothing constrains it.
+      expect(effective.minX).toBeCloseTo(c.minX + nav.edgeSafetyMargin, 6)
+      expect(effective.maxX).toBeCloseTo(c.maxX - nav.edgeSafetyMargin, 6)
+      // +Z is pulled in by the whole offset: focus.z + 120 must stay on the plate.
+      expect(effective.maxZ).toBeCloseTo(c.maxZ - 120 - nav.edgeSafetyMargin, 6)
+      expect(effective.minZ).toBeCloseTo(c.minZ, 6)
+    })
+  })
+
+  // DECISIONS §39. The camera offset depends only on yaw, pitch and distance and
+  // never on the focus, so "the eye is inside R" is itself a rectangle in focus
+  // space — which is why this is one more intersection and not a solver.
+  describe('the station term', () => {
+    function areaWithSkirt(): NavigableArea {
+      const area = new NavigableArea({ ...nav, deriveBoundsFromTerrain: false })
+      area.setPlateFromObject(terrainAt(PLATE))
+      // Generous, so the footprint term cannot bind and the station term is the
+      // only thing under test.
+      area.setVisualBounds({ minX: -5000, maxX: 5000, minZ: -5000, maxZ: 5000 })
+      area.deriveConfigured(nav.bounds)
+      return area
+    }
+
+    function cameraAt(x: number, y: number, z: number): THREE.PerspectiveCamera {
+      const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 5000)
+      camera.position.set(x, y, z)
+      camera.lookAt(0, 0, 0)
+      camera.updateMatrixWorld(true)
+      return camera
+    }
+
+    it('shifts the area one-sidedly, in the direction the camera stands', () => {
+      // The load-bearing property. A symmetric shrink would cost 2x the offset
+      // and collapse Murcia's 352-unit plate outright; the camera is on ONE side,
+      // so the surviving width is `width - offset`.
+      const area = areaWithSkirt()
+      const c = area.configuredBounds!
+      const e = area.recompute(cameraAt(150, 100, 0), new THREE.Vector3(0, 0, 0))!
+
+      expect(e.maxX).toBeCloseTo(c.maxX - 150 - nav.edgeSafetyMargin, 6)
+      expect(e.minX).toBeCloseTo(c.minX, 6)
+      expect(e.maxX - e.minX).toBeCloseTo(c.maxX - c.minX - 150 - nav.edgeSafetyMargin, 6)
+    })
+
+    it('keeps the camera on the plate at the most permissive focus', () => {
+      const area = areaWithSkirt()
+      const c = area.configuredBounds!
+      const offsetX = 150
+      const offsetZ = -90
+      const e = area.recompute(cameraAt(offsetX, 100, offsetZ), new THREE.Vector3(0, 0, 0))!
+
+      // Drive the focus to every corner it is now allowed to reach and place the
+      // camera there. This is the invariant the whole term exists for.
+      for (const [fx, fz] of [
+        [e.minX, e.minZ],
+        [e.maxX, e.minZ],
+        [e.minX, e.maxZ],
+        [e.maxX, e.maxZ],
+      ]) {
+        expect(fx! + offsetX).toBeGreaterThanOrEqual(c.minX)
+        expect(fx! + offsetX).toBeLessThanOrEqual(c.maxX)
+        expect(fz! + offsetZ).toBeGreaterThanOrEqual(c.minZ)
+        expect(fz! + offsetZ).toBeLessThanOrEqual(c.maxZ)
+      }
+    })
+
+    it('collapses rather than inverts when the offset outruns the plate', () => {
+      // An inverted rectangle makes every clamp comparison meaningless and so
+      // removes the limits entirely — the one outcome worse than a pinned focus.
+      const area = areaWithSkirt()
+      const c = area.configuredBounds!
+      const tooFar = (c.maxX - c.minX) * 2
+      const e = area.recompute(cameraAt(tooFar, 400, 0), new THREE.Vector3(0, 0, 0))!
+
+      expect(e.minX).toBeLessThanOrEqual(e.maxX)
+      expect(e.minZ).toBeLessThanOrEqual(e.maxZ)
+    })
+
+    it('follows the camera when only the yaw changes', () => {
+      // The area is a function of the POSE, not of the plate alone. This is why
+      // `onYawChanged` recomputes: a turn moves the eye without moving the focus.
+      const area = areaWithSkirt()
+      const north = { ...area.recompute(cameraAt(0, 100, 140), new THREE.Vector3())! }
+      const south = { ...area.recompute(cameraAt(0, 100, -140), new THREE.Vector3())! }
+
+      expect(north.maxZ).toBeLessThan(south.maxZ)
+      expect(north.minZ).toBeLessThan(south.minZ)
     })
   })
 

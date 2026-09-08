@@ -478,13 +478,21 @@ check(
     'corner — the departure is the furthest the camera ever gets, so this is where a far ' +
     'plane that clips the skirt would show first',
 );
+// Inverted on 2026-09-08, for the same reason as `checks/footprint.ts` §2 and by
+// the same change. At 18 degrees rest passed the horizon, so a clamp was expected
+// and harmless — Murcia had switched the footprint inset off precisely because a
+// clamp is not a measurement. The rise to 35 degrees (DECISIONS §39) put the
+// horizon out of frame across the whole warp, the inset is back on, and a clamp
+// would now be read by something. `NavigableArea.recompute` drops the inset per
+// pose when the rays clamp, so this is not a safety hole — it is the tripwire on
+// a pitch that goes back down without §39 being re-read.
 check(
-  'clamping is expected at the low poses, and nothing consumes it',
-  anyClamped || murciaConfig.groundBounds === null,
+  'no warp pose reaches past the horizon, so every footprint is a measurement',
+  !anyClamped,
   anyClamped
-    ? `first clamped at ${clampedLabel} — expected past the horizon. Murcia does not inset its ` +
-      'navigable area by the footprint (disableFootprintInsets), so a clamp is reported and ' +
-      'then read by nobody'
+    ? `first clamped at ${clampedLabel} — a warp pose passes the horizon, so its footprint is ` +
+      'the maxGroundDistance clamp rather than a reach. Safe, because the inset is dropped for ' +
+      'those poses, but the pitch is back in the regime section 6 exists to survive'
     : 'no warp pose reaches past the horizon — the footprint is a measurement everywhere',
 );
 

@@ -2,7 +2,8 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-08-23 · §31 added (the CMS is Sanity, and the editable surface grew to services,
+Last updated: 2026-09-08 · §39 added (the camera never leaves the navigable area; Murcia's pose
+rises to 35 degrees at distance 220) and §20 amended. Earlier: 2026-08-23 · §31 added (the CMS is Sanity, and the editable surface grew to services,
 site settings, legal and the blog); §27 and §30 amended. Earlier: 2026-08-20 · §29–30 added (the
 rail's presentation and the gesture hint; contact,
 legal and the brand's own mark); 2026-08-17 · §26 added and `earth/DECISIONS.md` retired
@@ -990,6 +991,15 @@ the case assumed a photograph must carry its own stars.*
 > two numbers answer different questions. It is 0.45, swept through `check:footprint` (0.35
 > passes, 0.30 fails at 59.8 against a ~60 floor) and deliberately not the lowest value that
 > passed.
+>
+> **Amended a fifth time 2026-09-08 — §39. The navigable area now bounds the CAMERA**, not
+> only the focus, and it is a function of the pose rather than of the plate: the eye sits
+> `distance * cos(pitch)` behind the focus, so a legal focus never made the eye legal. The
+> gesture split survives a fifth amendment untouched; what changes is where the gestures are
+> allowed to arrive. **Pan range falls from 352 units to ~172 in the worst direction**, the
+> resting pose rises to 35 degrees at distance 220, and `zoomNearScale` moves 0.45 -> 0.58 —
+> not a re-judgement, but because it is a scale and the shorter rest distance multiplied
+> straight into the compound closest approach the fourth amendment had just measured.
 
 **Left button and one finger pan the ground 1:1 under the cursor, in both axes. Rotation
 moves to the right button and to two fingers, at half the sensitivity. A small, bounded zoom
@@ -2449,10 +2459,117 @@ on 2026-09-06 confirmed that removing it fails exactly the three touch assertion
 the 60 mouse ones green. Or the distinctness checks fail, which means a retune collapsed the
 pair back into one number.
 
+## 39. The camera never leaves the navigable area
+
+> Amends **§20** ("Murcia navigates like a map"). The navigable area is no longer a property
+> of the plate alone — it is a function of the pose, and it bounds the CAMERA and not only
+> the focus. Also reverses the 2026-09-04 client direction recorded in `murciaConfig.ts`'s
+> pose docblock, whose 18 degrees is replaced here by 35.
+
+**Decided 2026-09-08,** on a report that opening the services district flew the camera
+somewhere it should not be: it landed out on the empty filler ground and looked back in at
+the display from there, with the horizon and the emptiness past the city plainly in frame.
+
+**THE RULE, and it is the point of this entry rather than the fix that prompted it.** No pose
+reachable by any means may put `camera.position` XZ outside the navigable rectangle. It binds
+the drag, the yaw, the zoom band and every district flight, present and future. It is not a
+tuning preference and it is not negotiable against a composition: a heading that frames a
+district beautifully from off the plate is a heading that loses.
+
+**One exception, and only one.** The **warp**. It departs to distance 470 at 66 degrees and
+deliberately leaves the world behind; the rig stands down and Earth takes the camera (§9). The
+rule holds for as long as Murcia owns the camera, which is every moment the viewer is
+navigating.
+
+**Why it is a rule and not a bug fix.** The eye sits `distance * cos(pitch)` behind the focus
+on the ground — 271 units at the shipped 18 degrees and 285, on a plate 352 units across. The
+camera was therefore off the authored city almost *everywhere*, not merely at the district,
+and had been since the pose was lowered. Nothing would have caught it: `checks/footprint.ts`
+§3 bounds the eye against the SKIRT, some 2170 x 1925 units of filler city, which an eye
+standing on empty filler clears by a thousand units. Every future change to pitch, distance or
+plate size moves this number, so what was needed was a gate and not an edit.
+
+**The mechanism is one more intersection, not a solver.** The camera offset depends on yaw,
+pitch and distance and never on the focus, so "the eye is inside R" is itself a rectangle in
+focus space: R shifted by −offset. `computeStationLimitedBounds`
+(`navigation/viewportFootprint.ts`) builds it and `NavigableArea.recompute` intersects it into
+the effective area, alongside the footprint term it already had. The shift is **one-sided** —
+the camera is on one side of the focus, not on all four — so the surviving width is
+`width − offset` and not `width − 2·offset`. That is the whole reason the rule is affordable
+on a 352-unit plate.
+
+**Pitch is 35 degrees and it is a constant.** Client direction, and it fixes the other half of
+the report: at 18 degrees the top of frame is 0.5 degrees below horizontal and the view reaches
+past the horizon, so the visitor lands looking at emptiness. At 35 it is 17.5 degrees below and
+reaches ~218 units. Pitch changes on the pinch out toward Earth (`zoomFarElevationDegrees`) and
+in the warp, and NOWHERE else. The value may be re-judged later; that it is a single constant
+may not.
+
+**Distance 285 -> 220, and it was not a free choice.** 285 existed because 18 degrees was
+shallow enough to read the whole plate. At 35 the frame covers ~139 units of ground depth and
+the whole plate cannot be read at any distance, so that constraint retired with the pitch and
+the number was re-chosen against navigation instead: eye offset 180, leaving ~172 units of pan.
+At 285 it would have been ~119.
+
+**The price, accepted knowingly.** Pan range falls from 352 units to ~172 in the worst
+direction — the viewer can no longer bring the far corners of the city to the centre of the
+frame. Anyone who wants it back buys it with pitch, with distance, or with a larger authored
+plate — **never by weakening the clamp**.
+
+**And it cost the services approach half a turn, which is the most instructive part.** The
+intent was to keep `approachYawDegrees` at 45 and let the focus clamp, accepting a display that
+sat higher in the frame. Measured, that is not what happens. The cluster is against the plate's
++X/+Z corner and 45 stands the camera +X/+Z of the focus, so the rule and the heading want the
+eye in the same place: the clamp pinned it at (-94.4, 465.3), the corner itself, putting the
+camera ON the plaza looking away from it, with three of the display's four controls projecting
+off the canvas. 225 is the same composition read from the other side — the camera inside the
+city looking out at the corner — and it lands with the focus not clamped at all and every
+control framed. **A heading that only worked because the camera could leave the city is a
+heading that stops working**, and no amount of tuning `PANEL_ELEVATION` would have found that.
+
+**It forced `zoomNearScale` 0.45 -> 0.58, which is worth reading as a warning.** That number
+is a SCALE, so a shorter rest distance multiplies straight into the compound closest approach:
+`285 x 0.45 x 0.7 = 89.8` became `220 x 0.45 x 0.7 = 69.3`, against a 60-unit footprint
+inversion floor and a `check:warp` §7 that demands a quarter of it in hand. 0.58 restores 89.3.
+In absolute terms nothing about the product changed — closest approach 127.6 units against
+128.25 — but the ratio fell from x2.22 to x1.72, and `adr/015` exists because a ratio that is
+too small reads as a broken gesture. Judge it on a device.
+
+**It also gave a safeguard back.** `disableFootprintInsets` was called at load whenever the
+model carried ground past the plate, because at 18 degrees the horizon was in frame and a
+frustum past the horizon has no finite footprint to inset by — insetting by a
+`maxGroundDistance` clamp would drag the focus off the plate corners for a reach nobody
+measured. At 35 no ray clamps at any reachable pose, so the footprint is a real measurement
+again and the inset is back on, costing nothing: `check:footprint` §2 sweeps 508032 samples and
+still finds the full plate navigable, with 818 units of skirt to spare. It is now asked **per
+pose**, in `NavigableArea.recompute`, rather than guessed once at load — whether the footprint
+has degenerated is a property of the pose, not of the model, so a future pitch that reopens the
+horizon degrades safely instead of silently.
+
+Superseded with it: "the services camera stands out on the skirt side and looks back in"
+(`cityDistrictBindings.ts`, 2026-08-27) — it now stands inside the city and looks out.
+
+**Ruled out.** Bounding the eye to the skirt and calling it done (that is the assertion that
+already passed while the bug shipped). Clamping the eye after the fact rather than the focus
+before it (the rig has one writer per frame and does not clamp — §9 — and a corrected eye is a
+camera that no longer matches its own focus). Symmetrically shrinking the navigable rect by the
+offset (collapses a 352-unit plate outright, and is simply the wrong geometry). Moving the
+plaza off the plate corner in Blender, which is the real root cause and is a separate task.
+
+Broken when: `computeStationLimitedBounds` is dropped from `NavigableArea.recompute`; it is put
+behind `insetsDisabled`; `checks/footprint.ts` §4 is removed or its usable-area floor is
+lowered to make a distance fit; the pitch is lowered far enough that `check:warp` §6 or
+`check:footprint` §2 start reporting clamped rays again; or a new camera mover writes
+`rig.setFocus` without passing its proposal through `clampToRect` against the effective bounds
+first.
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
+| Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |
+| The footprint inset is disabled whenever the model carries ground past the plate | `MurciaExperience.ts`, `disableFootprintInsets`, 2026-09-04 | It is asked per pose, and is back ON: at 35 degrees no reachable pose clamps a ray, so the footprint is a measurement again. The flag survives only for the no-skirt case — **§39** |
 | The audit section is an opaque curtain: the scene goes away while the form is open | `auditSection.css` `.audit-panel { background: #050506 }`, **§26.15** | Density C smoked glass. The world stays behind the questions as soft context, and the panel is the same material as the contact and legal sheets — **§37** |
 | The emitter hairline is the site’s signature, restated in six sheets because they cannot share | `styles.css`, `murcia.css`, `consentBanner.css`, `siteHeader.css`, `auditSection.css`, `contactSection.css` | Removed. Where the line said something it stayed and went neutral; the sharing problem it caused went with it — **§37** |
 | Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37** |
