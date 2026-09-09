@@ -4,7 +4,7 @@ import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 import { loadProgress } from '../loading/progress'
 import type { SequenceState } from '../experiences/earth/config/sequenceState'
 import { dollyAmount, prefersReducedMotion } from '../app/warpTransition'
-import { DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
+import { BUILT_ASSETS_AVAILABLE, DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
 import { clampFrameDelta } from '../graphics/frameDelta'
 // Imported here rather than from main.tsx so it rides the scene chunk with the
 // code that uses it, instead of the entry chunk's stylesheet.
@@ -17,8 +17,15 @@ interface Props {
   onReady?: () => void
   /** Forwarded to MurciaExperience: a district was engaged or released. */
   onAttentionChange?: () => void
-  /** A tap landed on the blog building in the city. */
-  onOpenBlog?: () => void
+  /**
+   * The blog display's approach has arrived: push the route.
+   *
+   * Returns whether it was accepted — see `MurciaExperience`'s option of the
+   * same name for why a refusal has to be visible to the scene.
+   */
+  onOpenBlog?: () => boolean
+  /** That approach has just STARTED, three seconds before it needs the blog. */
+  onBlogApproachStart?: () => void
 }
 
 // Drives the Murcia environment from R3F's frame loop.
@@ -42,6 +49,7 @@ export function MurciaLayer({
   onReady,
   onAttentionChange,
   onOpenBlog,
+  onBlogApproachStart,
 }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -57,6 +65,8 @@ export function MurciaLayer({
   onAttentionChangeRef.current = onAttentionChange
   const onOpenBlogRef = useRef(onOpenBlog)
   onOpenBlogRef.current = onOpenBlog
+  const onBlogApproachStartRef = useRef(onBlogApproachStart)
+  onBlogApproachStartRef.current = onBlogApproachStart
   // build() is async, so the `active` effect below can run — and finish — long
   // before the experience exists. This is what the build applies on arrival so
   // a transition that happens mid-load is not silently dropped.
@@ -131,7 +141,16 @@ export function MurciaLayer({
       experience = new Ctor(host, gl, {
         debugTools: DEBUG_TOOLS_ENABLED,
         onAttentionChange: () => onAttentionChangeRef.current?.(),
-        onOpenBlog: () => onOpenBlogRef.current?.(),
+        // `?? false` rather than a bare call: an absent handler means nothing
+        // will change the route, and the approach has to hear that as a refusal
+        // rather than as consent it can park behind.
+        onOpenBlog: () => onOpenBlogRef.current?.() ?? false,
+        onBlogApproachStart: () => onBlogApproachStartRef.current?.(),
+        // NOT `DEBUG_TOOLS_ENABLED`, which is true under `vite preview` too —
+        // and preview serves a real `dist/` with a real blog capture in it. This
+        // asks the narrower question the page image actually needs: does this
+        // build serve built assets at all?
+        buildAssetsAvailable: BUILT_ASSETS_AVAILABLE,
       })
       // Before load(), so the camera is constructed with the real aspect and
       // the first bounds computation uses the real footprint.

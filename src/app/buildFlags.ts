@@ -45,3 +45,30 @@ declare const __VERTIGO_ENV__: string | undefined
  */
 export const DEBUG_TOOLS_ENABLED =
   (typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__) !== 'production'
+
+/**
+ * Whether the browser is talking to a BUILT `dist/` rather than the dev server.
+ *
+ * True for a production deploy, a Vercel preview and a local `vite preview`;
+ * false only under `npm run dev`. It is NOT `DEBUG_TOOLS_ENABLED`, and the
+ * difference is the whole reason it exists: that flag is true under `vite
+ * preview` too, and preview serves real built assets.
+ *
+ * The one consumer today is the blog display's page image. Its screenshot of the
+ * real `/blog` is written into `dist/generated/` by `scripts/blog-preview.mjs`,
+ * which the dev server does not serve — so under `npm run dev` the manifest
+ * cannot exist, and requesting it anyway would 404 on every load. A failed
+ * request is logged as an error by the browser itself, which no amount of care
+ * on our side can suppress; this is what keeps the dev console readable enough
+ * that a real error in it means something.
+ *
+ * Declared with the same `typeof` guard as `__VERTIGO_ENV__`, for the same
+ * reason: the `checks/` harnesses bundle app modules for Node with esbuild,
+ * where the define does not exist. Absent, it reads as "no built assets", which
+ * is the answer that costs nothing — the page image falls back to its neutral
+ * plate.
+ */
+declare const __VERTIGO_BUILT__: boolean | undefined
+
+export const BUILT_ASSETS_AVAILABLE =
+  typeof __VERTIGO_BUILT__ === 'undefined' ? false : __VERTIGO_BUILT__

@@ -936,7 +936,7 @@ test.describe('the blog on a phone', () => {
 /**
  * Where the district's first building is on screen.
  *
- * The same seam, and the same reasoning, as `tapBlogBuilding` in blog.spec.ts:
+ * The same seam, and the same reasoning, as `clickBlogDisplay` in blog.spec.ts:
  * a building's position depends on the camera pose and on the GLB, so a
  * hardcoded point would turn this into a test of the city's layout that breaks
  * on the next re-export.

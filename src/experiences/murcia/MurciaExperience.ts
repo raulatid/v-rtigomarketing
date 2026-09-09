@@ -25,8 +25,8 @@ import { DebugOverlay } from './debug/DebugOverlay';
 import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
 import { createServicesDistrict } from './district/createServicesDistrict';
-import { createBlogBuilding } from './interaction/BlogBuilding';
-import type { BlogBuilding } from './interaction/BlogBuilding';
+import { createBlogDisplayEntry } from './blogDisplay/createBlogDisplayEntry';
+import type { BlogDisplayEntry } from './blogDisplay/createBlogDisplayEntry';
 import type { ServicesDistrict } from './district/createServicesDistrict';
 import type { DisplayControl } from './district/display/displayConfig';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
@@ -119,8 +119,10 @@ export class MurciaExperience {
    * importing `src/blog/` or the routing, and a callback with no payload is what
    * keeps that true rather than merely unenforced.
    */
-  private readonly onOpenBlog?: () => void;
-  private blogBuilding: BlogBuilding | null = null;
+  private readonly onOpenBlog?: () => boolean;
+  private readonly onBlogApproachStart?: () => void;
+  private readonly buildAssetsAvailable: boolean;
+  private blogDisplay: BlogDisplayEntry | null = null;
 
   private sceneBundle!: SceneBundle;
   private camera!: THREE.PerspectiveCamera;
@@ -226,8 +228,33 @@ export class MurciaExperience {
        * `hasFocusedDistrict`, the same aggregate they already poll.
        */
       onAttentionChange?: () => void;
-      /** A tap landed on the blog building. */
-      onOpenBlog?: () => void;
+      /**
+       * The blog's approach has reached its end: push the route.
+       *
+       * RETURNS whether it was accepted. `App` refuses while the warp is
+       * running or before the city is ready, and a refusal the scene could not
+       * see would leave the camera parked against the display under an opaque
+       * cover with no blog behind it — see `blogApproach`'s `openBlog`.
+       */
+      onOpenBlog?: () => boolean;
+      /**
+       * The approach has started, three seconds before it needs the blog.
+       *
+       * `App` warms the lazy blog chunk on it, so the route change at the end
+       * has nothing left to wait for. No payload, deliberately: nothing under
+       * `src/experiences/` may learn what a blog is
+       * (`checks/architecture.ts`).
+       */
+      onBlogApproachStart?: () => void;
+      /**
+       * Whether this build serves `dist/`, and so whether the blog display can
+       * have a screenshot of the built `/blog` rather than its neutral plate.
+       *
+       * Passed in for the same reason `debugTools` is, and it is NOT that flag:
+       * `DEBUG_TOOLS_ENABLED` is true under `vite preview`, which serves a real
+       * `dist/` with a real capture in it.
+       */
+      buildAssetsAvailable?: boolean;
     } = {},
   ) {
     this.container = container;
@@ -235,6 +262,8 @@ export class MurciaExperience {
     this.debugTools = options.debugTools ?? false;
     this.onAttentionChange = options.onAttentionChange;
     this.onOpenBlog = options.onOpenBlog;
+    this.onBlogApproachStart = options.onBlogApproachStart;
+    this.buildAssetsAvailable = options.buildAssetsAvailable ?? false;
     this.reducedMotion =
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -558,7 +587,7 @@ export class MurciaExperience {
     // Murcia's camera, so you warped into a city that had moved behind your
     // back. Frozen has to mean deaf as well as still.
     for (const district of this.districts) district.setEnabled(next);
-    this.blogBuilding?.setEnabled(next);
+    this.blogDisplay?.setEnabled(next);
 
     // The drag controller listens on the SHARED canvas, so while Earth is
     // showing, every Earth drag also reaches it — its target focus and yaw
@@ -740,7 +769,7 @@ export class MurciaExperience {
     }
 
     this.setupDistricts(loaded.root);
-    this.setupBlogBuilding(loaded.root);
+    this.setupBlogDisplay(loaded.root);
     this.setupBeacons();
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
       reducedMotion: this.reducedMotion,
@@ -763,49 +792,108 @@ export class MurciaExperience {
   }
 
   /**
-   * The blog CTA: the `blog_edificios` cluster, and nothing else.
+   * The blog's entry point: a display floating above the `blog_edificios`
+   * cluster, and the flight that clicking it starts (plan 022).
    *
-   * Deliberately NOT a district and not part of `DistrictInteraction`. A tap
-   * emits one signal and the module is finished — no flight, no panel, no state.
-   * Folding it into the district interaction would teach the services district
-   * that a blog exists, and that class is 766 lines because entering a district
-   * is genuinely complicated; entering the blog is not.
+   * Deliberately NOT a district and not part of `DistrictInteraction`. There is
+   * no `DistrictState`, no service meaning, no panel of controls and no
+   * accordion; folding it in would teach the services district that a blog
+   * exists, and that class is 766 lines because entering a district is genuinely
+   * complicated. What this does have, and the cluster tap it replaced did not,
+   * is a camera flight — which is why it takes `beginExternalControl` and why
+   * `update()` branches on `ownsCamera`.
    *
-   * Absent from the city is survivable and loud: the cluster is inert scenery
-   * that has been in the GLB since it was the district stand-in, and
+   * Absent from the city is survivable and loud: the cluster is scenery that has
+   * been in the GLB since it was the district stand-in, and
    * `check:asset:contract` fails the build if a re-export removes it.
    */
-  private setupBlogBuilding(root: THREE.Object3D): void {
+  private setupBlogDisplay(root: THREE.Object3D): void {
     if (this.onOpenBlog === undefined) return;
     const onOpenBlog = this.onOpenBlog;
-    this.blogBuilding = createBlogBuilding({
+    const onApproachStart = this.onBlogApproachStart;
+    const rig = this.rig;
+    if (!rig) return;
+
+    this.blogDisplay = createBlogDisplayEntry({
       root,
       camera: this.camera,
       canvas: this.renderer.domElement,
       cursor: this.cursor,
+      viewport: { width: this.viewport.width, height: this.viewport.height },
+      // The live pose, never a copy of `murciaConfig`'s literal: that azimuth
+      // has moved twice already, and a restatement here would silently turn the
+      // panel away from the visitor the third time.
+      restingYawDegrees: rig.getPose().azimuthDegrees,
+      buildAssetsAvailable: this.buildAssetsAvailable,
       tapThresholdPx: {
         mouse: this.environment.navigation.dragThresholdPx,
         touch: this.environment.navigation.touchDragThresholdPx,
       },
-      // A district panel or a flight owns attention; a tap that reaches a
-      // building behind one of those is not a request to leave for the blog.
+      // A district panel or a flight owns attention; a press that reaches the
+      // panel behind one of those is not a request to leave for the blog.
       blocked: () => this.hasFocusedDistrict,
-      onActivate: onOpenBlog,
+      beginExternalControl: () => {
+        this.controller?.beginExternalControl();
+        // AND the districts go deaf, which is not belt-and-braces. Their input
+        // is not gated on this flight, so a tap on a service building during
+        // the three-second approach would start a `CameraFlight` beside it —
+        // two owners writing the camera in one frame, which §9 forbids and
+        // which no ordering here could fix. "Frozen has to mean deaf as well as
+        // still" is the same rule `setActive` already applies for Earth.
+        for (const district of this.districts) district.setEnabled(false);
+      },
+      endExternalControl: () => {
+        // `adoptRigState` for the same reason the district's flight passes it:
+        // the controller has to pick up the rig as it stands rather than as it
+        // was when it stood down.
+        this.controller?.endExternalControl({ adoptRigState: true });
+        // Back to whatever the scene's own activity says, never a bare `true`:
+        // the return can settle while Earth is showing.
+        for (const district of this.districts) district.setEnabled(this.active);
+      },
+      openBlog: onOpenBlog,
+      onApproachStart: () => onApproachStart?.(),
     });
+
+    if (this.blogDisplay) this.sceneBundle.scene.add(this.blogDisplay.object3D);
     // Seeded for the same reason the districts are: the city is built during
     // the Earth intro, so `active` is normally still false here and setActive()
     // will not fire again to correct it.
-    this.blogBuilding?.setEnabled(this.active);
+    this.blogDisplay?.setEnabled(this.active);
 
     // Test seam, on the same flag as every other debug tool. The e2e round trip
-    // must tap this building, and where it is on screen depends on the camera
+    // must click this panel, and where it is on screen depends on the camera
     // pose and the GLB — not on anything a spec could hardcode without becoming
     // a test of the city's layout instead of the blog's behaviour.
-    if (this.debugTools && this.blogBuilding) {
-      const building = this.blogBuilding;
-      (window as unknown as Record<string, unknown>).__vertigoBlogBuildingPoint = () =>
-        building.screenPoint();
+    if (this.debugTools && this.blogDisplay) {
+      const entry = this.blogDisplay;
+      (window as unknown as Record<string, unknown>).__vertigoBlogDisplayPoint = () =>
+        entry.screenPoint();
     }
+  }
+
+  /**
+   * Flies back out of the display to where the visitor was standing when they
+   * clicked it. A no-op for anyone who reached the blog another way.
+   *
+   * Called by `App` for EVERY warm route back to the scene, not only the blog's
+   * own control: the browser's Back button and a step back through an article
+   * are the same event as far as the city is concerned.
+   */
+  releaseFromBlog(): void {
+    this.blogDisplay?.beginReturn();
+  }
+
+  /**
+   * Lowers the cover the approach raised, now that the blog has painted under
+   * it.
+   *
+   * `App` owns this call because `App` is what knows the blog is on screen —
+   * and because by then `frameloop` is `never`, so nothing inside this class
+   * will be asked for another frame in which to notice.
+   */
+  dismissBlogCover(): void {
+    this.blogDisplay?.dismissCover();
   }
 
   /**
@@ -832,10 +920,13 @@ export class MurciaExperience {
       });
     }
 
-    const blog = this.blogBuilding;
+    const blog = this.blogDisplay;
     if (blog) {
       specs.push({
         id: 'blog',
+        // The PANEL's centre, not the cluster's: since plan 022 the display is
+        // what a visitor is being pointed at, and a beacon over the roof would
+        // mark the one part of this place that does nothing when tapped.
         anchor: (out: THREE.Vector3) => blog.anchor(out),
         label: 'Blog',
         caption: 'Lo que pensamos',
@@ -965,6 +1056,16 @@ export class MurciaExperience {
     this.camera.aspect = size.aspect;
     this.camera.updateProjectionMatrix();
 
+    // The panel takes the VIEWPORT's shape, because its readable core has to be
+    // able to become the viewport exactly. Handed the CSS size rather than the
+    // aspect, because the page image behind it is laid out in CSS pixels.
+    //
+    // It may queue this rather than apply it: while the blog is open the frame
+    // loop is stopped, and rebuilding a geometry and uploading a texture into a
+    // window nothing renders would move counts `e2e/blog.spec.ts` pins. See
+    // `blogApproach.setViewport`.
+    this.blogDisplay?.setViewport(size.width, size.height);
+
     if (this.rig) {
       // Re-resolving the pose covers the portrait-override case; it is a few
       // trig calls and a projection-matrix update, so it is not worth guarding.
@@ -1046,7 +1147,6 @@ export class MurciaExperience {
    * version derived it from its own performance.now() bookkeeping.
    */
   update(delta: number): void {
-    this.blogBuilding?.update();
     if (!this.active || !this.sceneBundle) return;
 
     const now = performance.now();
@@ -1070,15 +1170,29 @@ export class MurciaExperience {
       this.beacons.update(this.canvasRect, this.camera);
     }
 
-    // Advances drag smoothing and release momentum. Cheap arithmetic only —
-    // no raycasting happens here, only on pointer events.
-    this.controller?.update(delta);
+    // The blog's flight is a camera owner in its own right, so it is asked
+    // before the two that would otherwise write: it takes the camera DIRECTLY
+    // rather than through the rig, because its end pose has to equal the panel's
+    // own quaternion at a solved distance and the rig fixes elevation.
+    this.blogDisplay?.update(delta);
 
-    // After the controller, because both end up writing the rig: the controller
-    // owns focus and yaw, this owns distance and elevation, and `setPose`
-    // re-applies whatever focus is current. A no-op on any frame the viewer is
-    // not zooming, which is nearly all of them.
-    this.updateZoom(delta);
+    // ONE OWNER PER FRAME (§9), and the `if/else` is the enforcement.
+    //
+    // Not "write last and win": the controller's damping and the zoom's ease
+    // both integrate state, so letting them run and then overwriting the result
+    // would leave them chasing a camera they do not control and hand back a
+    // wrong pose the moment the flight ends. They do not run at all.
+    if (!this.blogDisplay?.ownsCamera) {
+      // Advances drag smoothing and release momentum. Cheap arithmetic only —
+      // no raycasting happens here, only on pointer events.
+      this.controller?.update(delta);
+
+      // After the controller, because both end up writing the rig: the
+      // controller owns focus and yaw, this owns distance and elevation, and
+      // `setPose` re-applies whatever focus is current. A no-op on any frame the
+      // viewer is not zooming, which is nearly all of them.
+      this.updateZoom(delta);
+    }
 
     // One uniform write. `water.update` wants elapsed seconds, not the delta —
     // passing `delta` straight through pins uTime at about 1/60 and the river
@@ -1132,8 +1246,8 @@ export class MurciaExperience {
   }
 
   dispose(): void {
-    this.blogBuilding?.dispose();
-    this.blogBuilding = null;
+    this.blogDisplay?.dispose();
+    this.blogDisplay = null;
     // Nothing to release: the logo owns no resource, only a reference into the
     // city that disposeLoadedCity below takes down. The banner's texture goes
     // the same way once applied; dispose() only covers one still in flight.

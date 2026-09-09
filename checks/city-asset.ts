@@ -41,7 +41,7 @@
 import fs from 'node:fs';
 import { PropertyBinding } from 'three';
 import { banner, check, finish, section } from './lib/assert';
-import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/interaction/BlogBuilding';
+import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/blogDisplay/blogDisplayConfig';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 import {
   BUILDING_NODE_NAMES,
@@ -442,7 +442,7 @@ check(
 // `blog_edificios.001` is renamed by GLTFLoader to `blog_edificios001`, and the
 // 2026-08-11 audit recorded exactly that biting on this same cluster.
 
-section("5b. The blog's entry point (BlogBuilding.ts — names ARE the identity)");
+section("5b. The blog's entry point (blogDisplayConfig.ts — names ARE the identity)");
 
 for (const configured of BLOG_BUILDING_NODE_NAMES) {
   const matches = nodesNamed(configured);
@@ -451,7 +451,7 @@ for (const configured of BLOG_BUILDING_NODE_NAMES) {
     matches.length > 0,
     matches.length > 0
       ? `as ${list(matches)}`
-      : 'the blog has no way in from the city — see murcia/interaction/BlogBuilding.ts',
+      : 'the blog has no way in from the city — see murcia/blogDisplay/blogDisplayConfig.ts',
   );
 }
 

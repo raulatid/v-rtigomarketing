@@ -25,7 +25,32 @@ import type { Route } from '../app/route'
  * behind is still painted at this point — it is hidden by the wrapper only once
  * the route has actually changed.
  */
-const BlogRoute = lazy(() => import('../blog/BlogRoute'))
+const loadBlogRoute = () => import('../blog/BlogRoute')
+
+const BlogRoute = lazy(loadBlogRoute)
+
+/**
+ * Starts the blog's chunk fetching without rendering anything.
+ *
+ * Called when the blog display's approach COMMITS, three seconds before the
+ * route actually changes. The chunk is `modulepreload`ed at low priority
+ * already, so this is usually a no-op that resolves from cache — but on a slow
+ * connection those three seconds are the difference between the transition
+ * landing on the blog and landing on nothing while the cover holds.
+ *
+ * Deliberately the SAME specifier as the `lazy` above, byte for byte, so the
+ * two share one chunk and one module instance. It is also what keeps the second
+ * half of `checks/architecture.ts`'s pair of blog rules honest: the dynamic
+ * edge it looks for is still here.
+ *
+ * Failures are swallowed. Nothing is waiting on this — the `lazy` boundary
+ * fetches again on render and reports properly there — and an unhandled
+ * rejection from a speculative prefetch would be noise on a path that has
+ * already recovered.
+ */
+export function prefetchBlog(): void {
+  void loadBlogRoute().catch(() => {})
+}
 
 interface Props {
   route: Route

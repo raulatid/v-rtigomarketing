@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { defaultIntroConfig, IntroConfig, Phase, PHASE_ORDER } from './experiences/earth/config/introConfig'
 import { createSequenceState } from './experiences/earth/config/sequenceState'
 import { LazyScene } from './components/LazyScene'
@@ -28,7 +28,7 @@ import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
 import { loadProgress } from './loading/progress'
 import { useRoute } from './app/useRoute'
-import { LazyBlog } from './components/LazyBlog'
+import { LazyBlog, prefetchBlog } from './components/LazyBlog'
 
 // The debug panel lives on its own path (/debug) so the main site can be
 // reviewed clean; open http://localhost:5173/debug during development to tune.
@@ -374,17 +374,35 @@ export default function App() {
   const handleDeselectCase = useCallback(() => setSelectedCase(null), [])
 
   /**
-   * Opening the blog from the city.
+   * Opening the blog from the city, at the END of the display's approach.
    *
-   * Guarded here rather than upstream. The CTA is a BUILDING in the scene, not a
-   * control inside a panel, so nothing refuses a tap that lands mid-warp the way
-   * `canNavigate` does for the panels — and `murciaReady` is checked because a
-   * handler should not assume the city exists just because a mesh in it was hit.
+   * Guarded here rather than upstream. The CTA is an object in the scene, not a
+   * control inside a panel, so nothing refuses a gesture that lands mid-warp the
+   * way `canNavigate` does for the panels — and `murciaReady` is checked because
+   * a handler should not assume the city exists just because something in it was
+   * hit.
+   *
+   * RETURNS whether it acted, and that is not decoration. By the time this runs
+   * the camera is against the panel behind an opaque cover, and a refusal the
+   * scene could not see would leave a visitor sealed in front of a blog that was
+   * never opened. `blogApproach` reads the false and flies them back out.
    */
   const handleOpenBlog = useCallback(() => {
-    if (transitioning || !murciaReady) return
+    if (transitioning || !murciaReady) return false
     nav.openBlogIndex()
+    return true
   }, [transitioning, murciaReady, nav])
+
+  /**
+   * The approach has started; the blog is wanted in about three seconds.
+   *
+   * `<LazyBlog>` has no Suspense fallback on purpose, so the gap between the
+   * route changing and the blog painting is a gap with nothing in it but the
+   * approach's cover. Warming the chunk now is what usually makes that gap zero.
+   */
+  const handleBlogApproachStart = useCallback(() => {
+    prefetchBlog()
+  }, [])
 
   /**
    * Leaving the blog, warm.
@@ -401,6 +419,44 @@ export default function App() {
   const handleExitBlog = useCallback(() => {
     if (!nav.exitToSceneByHistory()) window.location.assign('/')
   }, [nav])
+
+  /**
+   * The blog has mounted, so the approach's cover has nothing left to hide.
+   *
+   * Passed down the host rather than triggered from a `blogOpen` effect here,
+   * because `<LazyBlog>` is lazy with no fallback: an effect keyed on the route
+   * would fire while the chunk was still in flight and drop the cover onto a
+   * blank frame. The blog saying "I exist" is the only signal that means it.
+   */
+  const handleBlogMounted = useCallback(() => {
+    murciaRef.current?.dismissBlogCover()
+  }, [])
+
+  /**
+   * Flying back out, on EVERY warm route back to the scene.
+   *
+   * Keyed on `blogOpen` falling rather than hung off `handleExitBlog`, and that
+   * is the difference between one way out and all of them: the blog's control,
+   * the browser's Back button and a step back through an article all arrive here
+   * as the same state change, and only the first goes through that callback.
+   *
+   * `useLayoutEffect` because the ordering is load-bearing. React has already
+   * mutated the DOM by the time this runs — `.app__scene` is visible again and
+   * `frameloop` is back to `always` — but the browser has not painted, and what
+   * the canvas is still holding is the last frame it drew: the panel filling the
+   * screen. Raising the cover here puts it up in that same commit. In a passive
+   * effect it would go up one paint too late, which is exactly one frame of the
+   * jump this whole mechanism exists to remove.
+   *
+   * A no-op for anyone who did not arrive through the display, and unreachable
+   * on the cold blog document, which has no scene behind it at all.
+   */
+  const wasBlogOpen = useRef(blogOpen)
+  useLayoutEffect(() => {
+    const leaving = wasBlogOpen.current && !blogOpen
+    wasBlogOpen.current = blogOpen
+    if (leaving) murciaRef.current?.releaseFromBlog()
+  }, [blogOpen])
 
   // The ✕ goes through the interaction controller rather than just clearing
   // state, so the camera returns to overview and the satellite resumes its
@@ -498,6 +554,7 @@ export default function App() {
         onMurciaReady={handleMurciaReady}
         onMurciaAttentionChange={navigationContextChanged}
         onOpenBlog={handleOpenBlog}
+        onBlogApproachStart={handleBlogApproachStart}
         onContextLost={handleContextLost}
       />
 
@@ -610,6 +667,7 @@ export default function App() {
           replaceTopic: nav.replaceTopic,
           rememberScroll: nav.rememberScroll,
           storedScrollTop: nav.storedScrollTop,
+          onMounted: handleBlogMounted,
         }}
       />
 

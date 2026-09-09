@@ -33,8 +33,10 @@ interface Props {
   onMurciaReady: () => void
   /** A Murcia district was engaged or released — attention changed. */
   onMurciaAttentionChange: () => void
-  /** The blog building in the city was tapped. */
-  onOpenBlog: () => void
+  /** The blog display's approach arrived. Returns whether the route changed. */
+  onOpenBlog: () => boolean
+  /** That approach just started, three seconds before it needs the blog. */
+  onBlogApproachStart: () => void
   /** The WebGL context was lost. Nothing will draw again without a reload. */
   onContextLost: (reason: string) => void
   /**
@@ -72,6 +74,7 @@ export function SceneCanvas({
   onMurciaReady,
   onMurciaAttentionChange,
   onOpenBlog,
+  onBlogApproachStart,
   onContextLost,
   suspended,
 }: Props) {
@@ -223,6 +226,7 @@ export function SceneCanvas({
         onReady={onMurciaReady}
         onAttentionChange={onMurciaAttentionChange}
         onOpenBlog={onOpenBlog}
+        onBlogApproachStart={onBlogApproachStart}
       />
       {/* Every decision the pipeline used to make for itself is made here:
           which experience is showing, whether a transition is playing, and

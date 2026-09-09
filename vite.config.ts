@@ -55,7 +55,36 @@ const INTRO_BUDGET_BYTES = 16_000
 // fires, read the itemised list in the message before raising it: a NEW chunk
 // in the list is a loading decision, an existing one growing is app growth, and
 // they do not have the same fix.
-const INITIAL_JS_BUDGET_BYTES = 1_600_000
+//
+// ── 1,600,000 -> 1,610,000, 2026-09-09, plan 022 ──
+//
+// APP GROWTH, not a loading decision: no new name appeared in the list, and the
+// existing `MurciaExperience` chunk grew. Measured rather than estimated —
+// `createBlogDisplayEntry` was stubbed to return null and the bundle rebuilt, so
+// the whole feature's graph fell out and the difference is attributable:
+//
+//   128,439 B  MurciaExperience without the blog display
+//   148,548 B  with it
+//    20,109 B  the blog's display, its two camera flights and its page image
+//
+// against 15,142 B of headroom, so it was over by 4,967 B. What the 20 KB buys is
+// documented in DECISIONS §42: a second shader-drawn display over the blog
+// cluster, the approach and return flights, the page-image pipeline and the
+// full-screen cover the handoff runs behind.
+//
+// Three alternatives were measured and rejected. Dropping the extruded plate
+// behind the panel saves 3,596 B of the 20,109 — not enough on its own, and it
+// costs the thing that makes the display read as an object. Making the display a
+// dynamic import does not help, for the reason recorded above: `introEntry`'s
+// modulepreload loop injects a link for every non-entry chunk, so a new chunk
+// rejoins this closure automatically and brings a request with it. Cutting the
+// feature was declined by the client.
+//
+// The headroom this leaves is 5,033 B, which is much less than the 4.9% above
+// describes. The next thing that lands here will fire this again, and the honest
+// answer at that point is probably to make the modulepreload loop selective
+// rather than to raise this a second time.
+const INITIAL_JS_BUDGET_BYTES = 1_610_000
 // Raised 10 -> 12 on 2026-09-04, and here is the itemised reason the message
 // below asks for. The blog's header became a SECOND dynamic consumer of the
 // corner logo, and Rollup re-signatures every module those two dynamic entries
@@ -1069,7 +1098,20 @@ function replaceExactlyOnceOrThrow(
   return haystack.replace(needle, replacement)
 }
 
-export default defineConfig({
+/**
+ * The function form, for ONE value: `command`.
+ *
+ * `__VERTIGO_BUILT__` has to answer 'are built assets being served?', and none of
+ * the environment variables above can. `BUILD_ENV` defaults to 'development'
+ * locally for `vite build` exactly as it does for `vite dev`, so it says nothing
+ * about which of the two produced what the browser is talking to — and the blog
+ * display's page image depends on that difference: `dist/generated/` exists only
+ * in a build, and asking for it under the dev server is a guaranteed 404 the
+ * browser logs as an error nothing on our side can suppress.
+ *
+ * `command` is the one input that knows. Everything below is unchanged.
+ */
+export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     glsl(),
@@ -1089,6 +1131,11 @@ export default defineConfig({
     // Compile-time literal, so `DEBUG_TOOLS_ENABLED` folds to a constant and
     // the whole /debug panel becomes unreachable code the minifier removes.
     __VERTIGO_ENV__: JSON.stringify(BUILD_ENV),
+    // True whenever the browser is talking to a BUILT `dist/` — a production
+    // deploy, a Vercel preview, or a local `vite preview` — and false only under
+    // the dev server. See the docblock on the export below, and `buildFlags.ts`
+    // for why this is a define rather than `import.meta.env`.
+    __VERTIGO_BUILT__: JSON.stringify(command === 'build'),
   },
   build: {
     rollupOptions: {
@@ -1122,4 +1169,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

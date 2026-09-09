@@ -53,6 +53,21 @@ export interface BlogHost {
   rememberScroll: (scrollTop: number) => void
   /** The offset stored on the entry we are on, if any. */
   storedScrollTop: number | null
+  /**
+   * The blog is mounted and about to paint.
+   *
+   * For the warm host only, and it has exactly one caller's worth of meaning:
+   * the display's approach ends with a full-screen cover over the canvas, and
+   * this is the moment that cover has nothing left to hide. The cold entry
+   * leaves it undefined — there is no scene behind that document and nothing
+   * covering anything.
+   *
+   * A HOST callback rather than something the blog reaches for, because the
+   * boundary runs the other way: `checks/architecture.ts` forbids `src/blog/`
+   * from importing an experience, and this component has no idea a 3D scene is
+   * involved. It reports that it exists; `App` decides what that is worth.
+   */
+  onMounted?: () => void
 }
 
 interface Props {
@@ -524,6 +539,14 @@ export default function BlogRoute({ route, host }: Props) {
    * location, and a reader who used the back button to arrive at this same entry
    * should land on the heading like everyone else.
    */
+  // Fires once per mount of this component, before paint. `useLayoutEffect`
+  // rather than `useEffect` so the cover is released in the same commit the
+  // blog's own pixels are written in, rather than a frame after them.
+  const onMounted = host.onMounted
+  useLayoutEffect(() => {
+    onMounted?.()
+  }, [onMounted])
+
   const searchIntent = useRef(false)
   const openSearch = () => {
     searchIntent.current = true

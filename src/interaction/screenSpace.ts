@@ -49,10 +49,10 @@ export function clientToNdc(
  *
  * The other direction, and it lives here for the reason `clientToNdc` does: the
  * Y axis flips and the X axis does not. It was written three times before this
- * — `BlogBuilding.screenPoint()` and a copy in each of two test files — and the
- * first of those carries a comment calling itself test-only, which stopped
- * being true the moment something on screen had to be pinned to a place in the
- * city.
+ * — `createBlogDisplayEntry`'s `screenPoint()` and a copy in each of two test
+ * files — and the first of those carries a comment calling itself test-only,
+ * which stopped being true the moment something on screen had to be pinned to a
+ * place in the city.
  *
  * `null` rather than a position when the point cannot be pinned to, which is a
  * meaningful answer and not a failure: the caller should draw nothing.

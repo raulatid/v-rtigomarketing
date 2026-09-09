@@ -2,7 +2,8 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-09-08 · §39 added (the camera never leaves the navigable area; Murcia's pose
+Last updated: 2026-09-09 · §42 added (the blog is entered through a display, and the approach is
+the transition; the cluster tap is removed). Earlier: 2026-09-08 · §39 added (the camera never leaves the navigable area; Murcia's pose
 rises to 35 degrees at distance 220) and §20 amended. Earlier: 2026-08-23 · §31 added (the CMS is Sanity, and the editable surface grew to services,
 site settings, legal and the blog); §27 and §30 amended. Earlier: 2026-08-20 · §29–30 added (the
 rail's presentation and the gesture hint; contact,
@@ -2854,10 +2855,89 @@ threshold is folded into `createNavigationInput`; `pointermove` returns to the p
 `satelliteHoverRef` is written after an early return in InteractionLayer's frame; or the
 float's amplitude stops being reserved in the bottom gap.
 
+## 42. The blog is entered through a display, and the approach is the transition
+
+**Decided 2026-09-09, plan 022,** porting `vertigo-lab`'s `blog-transition` experiment
+(`src/experiments/blog-transition/`, six commits on `feat/blog-transition`). Roughly 1,900 of its
+4,765 lines crossed; the lab harness, its sandbox stage and its own copy of the blog page did not.
+
+**A shader-drawn display floats above the `blog_edificios` cluster, and clicking it is the way into
+the blog.** Over three seconds the camera comes off the rig and moves onto the panel's own normal
+until the readable core fills the frame, at which point the route changes behind a full-screen
+cover wearing the same image the panel is wearing. Leaving runs it backwards.
+
+**This replaces the cluster tap outright, and the tap is deleted rather than kept beside it.**
+`interaction/BlogBuilding.ts` and its test are gone. Two ways into the blog over one part of the
+scene — one instant, one with a three-second flight — is not two affordances; it is a coin toss
+decided by which mesh a ray reaches first, and the nearer mesh is the cluster. That file's docblock
+said "it is not a district, and it must not become one", and this is still not one: no
+`DistrictState`, no service meaning, no panel of controls, and the buildings underneath carry no
+interaction at all. What it has that the tap did not is a camera flight.
+
+**The lab's document swap is not this app's mechanism, and about a third of the experiment went
+with it.** Over there the approach ended in `location.assign('/blog')`, and a `sessionStorage`
+token with a TTL, an inline classic script in `index.html`, a `pageshow`/`persisted` bfcache reload
+and a deliberately leaked cover all existed to survive it. Here `App` changes a route in the same
+document (`adr/013`): the scene is hidden and frozen but never unmounted, so the rig still holds the
+departure pose and the return is a flight from where the camera was parked. None of that machinery
+was ported, and none of its failure modes came with it.
+
+**What the same-document path introduced instead is that THE FRAME LOOP STOPS.** `frameloop="never"`
+means `MurciaExperience.update()` is not called at all while the blog is open, so anything that must
+still happen in that window cannot be driven from a frame. Three consequences, each handled where it
+arises: the cover's last-resort dismissal is a DOM timer inside `handoffImage` (a dismissal in
+`update()` would be unreachable in exactly the situation it was written for); a resize is QUEUED
+rather than applied, because rebuilding the panel there would allocate a geometry and a texture
+inside the window `e2e/blog.spec.ts` pins counts across; and the return is started from a
+`useLayoutEffect` in `App`, before paint, so the cover is up in the same commit that unhides a canvas
+still holding the last frame it drew.
+
+**The return fires on every warm route back to the scene, not on the blog's control.** It is keyed on
+`blogOpen` falling, because the browser's Back button and a step back through an article arrive as
+the same state change and never touch `handleExitBlog`. Hooking the control alone would leave Back
+landing the visitor nose-against the display it flew them into. Cold documents never reach it.
+
+**The panel wears a screenshot of the real built `/blog`, or a neutral plate — never a stale copy.**
+`scripts/blog-preview.mjs` photographs the built page at three viewport shapes after `vite build`,
+into a `dist/` that was emptied first, so a capture cannot outlive the pages it photographed. Every
+failure path exits 0: a broken capture degrades the panel, it never fails a deploy. What it degrades
+to is DELIBERATELY not a picture of the blog — paper, a header bar, nothing else — because a
+fallback that imitated the blog would be a second copy going stale silently, and one that carries no
+content cannot be out of date. The lab's third route, an exact SVG raster built from the same
+strings its `/blog` injected, is not available here and must not be recreated: this blog is
+`src/blog/BlogRoute.tsx`, and `checks/architecture.ts` forbids `src/experiences/` from importing it.
+
+**It is the second exception to §39,** on the same footing as the warp and for the same reason. The
+approach ends outside the navigable rectangle because it must: the seam requires the camera to land
+exactly square-on at the solved fill distance, and a clamp would land it somewhere the panel does not
+fill the frame. It is bounded — pointer input is off for the whole run, the flight ends by leaving
+the scene, and the return ends inside the rectangle at a pose the rig already held.
+`computeStationLimitedBounds` and `NavigableArea.recompute` are untouched, and weakening either to
+accommodate this would be the wrong fix.
+
+**One camera owner per frame (§9) is an `if/else`, not a last write.** While the approach owns the
+camera the drag controller and the zoom do not run at all, and the districts go deaf for the
+duration — their input is not otherwise gated on this flight, so a tap on a service building
+mid-approach would start a `CameraFlight` beside it.
+
+**The budget was raised, knowingly.** `INITIAL_JS_BUDGET_BYTES` 1,600,000 -> 1,610,000. Measured by
+stubbing the feature out and rebuilding: 20,109 B, against 15,142 B of headroom. `vite.config.ts`
+carries the itemisation and the three alternatives that were measured and rejected.
+
+**Left open, and one of them blocks.** The panel's **elevation** and its **resting yaw** are the pair
+arithmetic cannot settle, exactly as §34 records for the services display — and at the shipped
+elevation of 38 the display's centre does not project into the frame at Murcia's arrival pose, which
+was measured in a preview build and not yet corrected. With the cluster tap gone and
+`nav.openBlogIndex()` called from exactly one place, that means the blog has no way in until the
+number comes down. The e2e was rewritten and NOT run.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| The blog is entered by a tap on the `blog_edificios` cluster, which owns no camera and is "not a district, and must not become one" | `interaction/BlogBuilding.ts`, deleted 2026-09-09 | A display floating above that cluster, and a three-second approach into the page. The tap is gone rather than kept beside it — **§42** |
 | Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
 | The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** |
 | The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** |

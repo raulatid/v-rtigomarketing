@@ -108,26 +108,41 @@ async function gl(page: Page) {
 }
 
 /**
- * Taps the blog building where it actually is.
+ * Clicks the blog's display where it actually is.
  *
- * The position comes from the scene rather than from a constant in this file:
- * it depends on the camera pose and the GLB, and hardcoding it would turn a test
- * of the blog's behaviour into a test of the city's layout that breaks on the
- * next re-export.
+ * The position comes from the scene rather than from a constant in this file: it
+ * depends on the camera pose and the GLB, and hardcoding it would turn a test of
+ * the blog's behaviour into a test of the city's layout that breaks on the next
+ * re-export.
+ *
+ * Since plan 022 this is the ONLY way into the blog from the city. The tap on the
+ * `blog_edificios` cluster that used to sit under this panel was removed with
+ * `BlogBuilding.ts`, rather than left beside it — two ways in over one part of
+ * the scene, one instant and one with a three-second flight, is a coin toss
+ * decided by which mesh a ray reaches first.
  */
-async function tapBlogBuilding(page: Page, drag = 0): Promise<void> {
+async function clickBlogDisplay(page: Page, drag = 0): Promise<void> {
   const point = await page.evaluate(() => {
-    const probe = (window as unknown as Record<string, unknown>).__vertigoBlogBuildingPoint
+    const probe = (window as unknown as Record<string, unknown>).__vertigoBlogDisplayPoint
     return typeof probe === 'function'
       ? (probe as () => { x: number; y: number } | null)()
       : null
   })
-  expect(point, 'the blog building must be on screen for the CTA to be tappable').not.toBeNull()
+  expect(point, 'the blog display must be on screen for the blog to be reachable').not.toBeNull()
   await page.mouse.move(point!.x, point!.y)
   await page.mouse.down()
   if (drag > 0) await page.mouse.move(point!.x + drag, point!.y, { steps: 8 })
   await page.mouse.up()
 }
+
+/**
+ * How long to allow for the approach.
+ *
+ * `BLOG_TRANSITION.duration` is three seconds of camera move before the route
+ * changes at all, and this runs on a software renderer where the frame loop that
+ * advances the clock is the slowest thing in the process.
+ */
+const APPROACH_TIMEOUT_MS = 20_000
 
 test.describe('the blog', () => {
   // The longest journey in the suite: a full boot, a gesture into Murcia, a tap
@@ -160,17 +175,41 @@ test.describe('the blog', () => {
     // A real scene, so the equalities below are not comparing zero to zero.
     expect(before!.geometries).toBeGreaterThan(0)
 
-    // ── A drag across the building is not a tap ──
-    // Same press-measured guard the district uses: the release of a drag across
-    // the city must not be read as a choice about whatever it ends over.
-    await tapBlogBuilding(page, 120)
-    await page.waitForTimeout(400)
+    // ── The old cluster tap is gone, not merely quiet ──
+    // Its debug seam went with its listener. If this ever comes back, so has a
+    // second way into the blog that skips the transition entirely.
+    expect(
+      await page.evaluate(
+        () => typeof (window as unknown as Record<string, unknown>).__vertigoBlogBuildingPoint,
+      ),
+      'the cluster tap was removed with plan 022; its seam must go with it',
+    ).toBe('undefined')
+
+    // ── A drag across the display is not a click ──
+    // Murcia is a free pan, so a drag that begins and ends over the panel is the
+    // COMMON case. Waited out past the whole approach rather than for a moment:
+    // the route only changes at the END, so a short wait would pass even if the
+    // flight had started.
+    await clickBlogDisplay(page, 120)
+    await page.waitForTimeout(4500)
     expect(await page.evaluate(() => location.pathname)).toBe('/')
 
-    // ── Into the blog, through the building in the city ──
-    await tapBlogBuilding(page)
-    await expect.poll(() => page.evaluate(() => location.pathname), { timeout: 10_000 }).toBe('/blog')
+    // ── Into the blog, through the display above the city ──
+    await clickBlogDisplay(page)
+    await expect
+      .poll(() => page.evaluate(() => location.pathname), { timeout: APPROACH_TIMEOUT_MS })
+      .toBe('/blog')
     await page.waitForSelector('.blog-root')
+
+    // The cover the approach raised is gone once the blog has painted. It sits
+    // BELOW `.blog-root`, so a survivor would not hide the page — but it would be
+    // a full-screen element nothing owns, and its DOM failsafe firing later is
+    // reported rather than silent.
+    await expect(page.locator('img[data-blog-overlay="handoff"]')).toHaveCSS(
+      'visibility',
+      'hidden',
+      { timeout: 10_000 },
+    )
 
     // ── The scene is frozen, not merely hidden ──
     // The only assertion in the suite that watches the render loop, and the
@@ -266,6 +305,73 @@ test.describe('the blog', () => {
     const resumedA = await gl(page)
     await page.waitForTimeout(500)
     expect((await gl(page))!.frame).toBeGreaterThan(resumedA!.frame)
+
+    expect(errors).toEqual([])
+  })
+
+  /**
+   * The way back out, through the gesture the blog's own control does not own.
+   *
+   * `handleExitBlog` is one of several ways the route falls back to the scene, and
+   * the return flight is hung off the ROUTE rather than off that callback for
+   * exactly this case: the browser's Back button goes through `popstate`, never
+   * through the control, so hooking the control alone would leave Back landing the
+   * visitor nose-against the display it flew them into.
+   */
+  test('the browser Back button flies back out, not just the blog control', async ({ page }) => {
+    const errors = collect(page)
+    await interceptImages(page)
+    await page.goto('/')
+    await reachSite(page)
+
+    await wheelStream(page, 120, 14)
+    await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
+
+    await clickBlogDisplay(page)
+    await expect
+      .poll(() => page.evaluate(() => location.pathname), { timeout: APPROACH_TIMEOUT_MS })
+      .toBe('/blog')
+    await page.waitForSelector('.blog-root')
+
+    // ── A resize while the reader is on the page ──
+    // The panel's shape and the page laid out for it are both stale now, and the
+    // scene is frozen — so neither may be rebuilt here. What this asserts is the
+    // outcome of the queue: whatever the return does with it, nothing is allocated
+    // while `frameloop` is `never`.
+    const suspendedA = await gl(page)
+    await page.setViewportSize({ width: 1100, height: 900 })
+    await page.waitForTimeout(600)
+    const suspendedB = await gl(page)
+    expect(suspendedB!.frame, 'a resize must not restart the frame loop').toBe(suspendedA!.frame)
+    expect(
+      suspendedB!.geometries,
+      'a queued resize must not rebuild the panel while the scene is suspended',
+    ).toBe(suspendedA!.geometries)
+    expect(suspendedB!.textures).toBe(suspendedA!.textures)
+
+    // ── Back, by the browser rather than by the page ──
+    await page.goBack()
+    await expect.poll(() => sceneHidden(page), { timeout: 15_000 }).toBe(false)
+    await expect(page.locator('.blog-root')).toHaveCount(0)
+    expect(await inMurcia(page)).toBe(true)
+
+    // The return is covered while it runs and uncovered when it lands. Polled to
+    // the END STATE rather than sampled mid-flight: how far along the flight is at
+    // any given wall-clock moment is a property of the software renderer's frame
+    // rate, not of this feature.
+    await expect(page.locator('img[data-blog-overlay="handoff"]')).toHaveCSS(
+      'visibility',
+      'hidden',
+      { timeout: 20_000 },
+    )
+
+    // Nothing reloaded, and the city was never rebuilt.
+    const after = await page.evaluate(() => ({
+      navigations: performance.getEntriesByType('navigation').length,
+      builds: (window as unknown as Record<string, number>).__vertigoMurciaBuilds ?? 0,
+    }))
+    expect(after.navigations).toBe(1)
+    expect(after.builds).toBe(1)
 
     expect(errors).toEqual([])
   })
