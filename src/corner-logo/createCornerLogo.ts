@@ -4,17 +4,10 @@ import { disposeObject3D } from '../graphics/disposal'
 import { applyBrandWhite } from './brandMaterial'
 import { loadLogoAssets, type LogoAssets } from './loadLogoAssets'
 import { createLogoMotion, type CornerMetrics, type LogoMotion } from './logoMotion'
-import { createHeaderBurger, type HeaderBurgerMetrics } from './headerBurger'
 import type { CornerLogoConfig } from './cornerLogoConfig'
 
 export type { CornerLogoConfig } from './cornerLogoConfig'
 export type { CornerMetrics } from './logoMotion'
-// Re-exported so CornerLogoLayer can name the type without importing
-// headerBurger directly: a type import counts as a static edge unless the
-// specifier matches a dynamic one in the same file, and that file reaches this
-// module through `await import()` precisely to keep three out of the entry
-// chunk (CornerLogoLayer.tsx, and vite.config.ts on what it costs).
-export type { HeaderBurgerMetrics } from './headerBurger'
 
 // 3D brand logo revealed at screen centre by the P3 crossover, which then spins
 // 360°, flies to the top-left corner and idles there.
@@ -65,12 +58,6 @@ export interface CornerLogo {
   setSize(width: number, height: number): void
   /** Where the header's line is, measured off the DOM by CornerLogoLayer. */
   setCornerMetrics(metrics: CornerMetrics): void
-  /**
-   * The phone burger's bars at the header's other corner, or null for "draw
-   * none" — the desktop line, the intro before there are any actions, and the
-   * blog, which never measures one.
-   */
-  setHeaderBurger(metrics: HeaderBurgerMetrics | null): void
   isDrawable(): boolean
   startSequence(): void
   snapToCorner(): void
@@ -109,14 +96,6 @@ export function createCornerLogo({
 
   const modelGroup = new THREE.Group()
   scene.add(modelGroup)
-
-  // The header's other end, in the same scene on the same camera (§26.16). Built
-  // EAGERLY and hidden: compile() below gathers materials with scene.traverse,
-  // so this way the bars' program is warmed with the mark's rather than on the
-  // first frame that draws them. It stays hidden until someone measures a
-  // burger, which the blog's instance of this module never does.
-  const burger = createHeaderBurger(camera)
-  scene.add(burger.group)
 
   // Hides the group as part of entering its HIDDEN state — this file no longer
   // has to remember to.
@@ -207,10 +186,7 @@ export function createCornerLogo({
     scene,
     camera,
 
-    update: (delta) => {
-      motion.update(delta)
-      burger.update()
-    },
+    update: (delta) => motion.update(delta),
 
     // Driven by RenderPipeline from R3F's size, not a window listener: the
     // renderer's own resize is R3F's business now, and only the projection is
@@ -224,22 +200,13 @@ export function createCornerLogo({
       // call already knows. It used to read `window.innerHeight` itself, correct
       // only while the one surface was the scene canvas.
       motion.setSurfaceHeight(height)
-      burger.setSurfaceHeight(height)
     },
 
     setCornerMetrics: (metrics) => motion.setCornerMetrics(metrics),
 
-    setHeaderBurger: (metrics) => burger.set(metrics),
-
     // Nothing to draw while hidden — the pipeline skips both the update and the
     // pass, which is what the old dedicated rAF's early return did. Advancing
     // the state clock while hidden would make the reveal start mid-spin.
-    //
-    // Still the MARK's visibility, and that is correct for the burger too: the
-    // bars are only ever measurable at phase 'site', which §26.16 defines as
-    // "logo parked", and on reset() this goes false in the same frame — before
-    // React unmounts the button. Widening it would leave bars on screen through
-    // a replay with nothing else drawn.
     isDrawable: () => motion.isVisible(),
 
     startSequence() {

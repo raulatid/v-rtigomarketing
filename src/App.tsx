@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { defaultIntroConfig, IntroConfig, Phase, PHASE_ORDER } from './experiences/earth/config/introConfig'
 import { createSequenceState } from './experiences/earth/config/sequenceState'
 import { LazyScene } from './components/LazyScene'
@@ -21,6 +29,8 @@ import { orbitAssignments } from './experiences/earth/orbit/orbitAssignments'
 import { useMasterTimeline, CornerLogoHandle } from './experiences/earth/timeline/useMasterTimeline'
 import { useIntroDraw } from './experiences/earth/timeline/useIntroDraw'
 import type { CornerLogo } from './corner-logo/createCornerLogo'
+import { MENU_MOTION_MS, type HeaderMenuState } from './corner-logo/headerMenuTiming'
+import { PROTO_MENU3D } from './app/protoMenu3d'
 import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 import { useExperienceTransition } from './app/useExperienceTransition'
@@ -85,16 +95,10 @@ export default function App() {
     setContextLost(true)
   }, [])
 
-  // The overlay pass draws the phone burger's bars as well as the mark, so a
-  // failure at either end of the header is one failure: the header puts its own
-  // flat bars back rather than leaving an empty 44x44 button on every phone.
-  const [logoAvailable, setLogoAvailable] = useState(true)
-
   const handleLoadFailed = useCallback(() => {
     // A scale-through-zero crossover hides nothing if the model never arrives.
     // Leave the 2D mark on screen rather than collapsing it into an empty frame.
     console.warn('[app] corner logo unavailable — holding the 2D isotype')
-    setLogoAvailable(false)
   }, [])
 
   // The logo instance is built inside the Canvas by CornerLogoLayer — it needs
@@ -174,14 +178,21 @@ export default function App() {
   // them owns the key, and the navigation predicate below refuses a warp
   // while something has the viewer's attention.
   const [contactOpen, setContactOpen] = useState(false)
-  // The phone menu in the header. Escape folds it, and must do only that.
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  // The phone menu in the header, as the phase the header reports. "Open" to
+  // everything below is "not closed": it stays true through the card's way
+  // back, so nothing slips in while the scene is still tilted. Escape folds
+  // it, and must do only that.
+  const [headerMenuState, setHeaderMenuState] = useState<HeaderMenuState>('closed')
+  const headerMenuOpen = headerMenuState !== 'closed'
   const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null)
 
   // The site header's actions cell, once it exists. The two sections portal
   // their triggers into it (SiteHeader.tsx); state rather than a ref so the
   // portals render the moment the node mounts.
   const [headerActions, setHeaderActions] = useState<HTMLElement | null>(null)
+  // The layer behind the canvas that the phone menu uncovers. The header
+  // portals its menu box into it; state for the same reason as the cell.
+  const [menuHost, setMenuHost] = useState<HTMLElement | null>(null)
 
   // Belt and braces: `canNavigate` below already refuses a warp while a legal
   // panel is open, so this never fires in practice. The header's chrome lives
@@ -233,6 +244,12 @@ export default function App() {
     !auditOpen &&
     !contactOpen &&
     !legalDoc &&
+    // The phone menu, and it stays true for the WHOLE of its close — the header
+    // reports the phase, not the panel. While the menu is up the viewport is a
+    // tilted card with `pointer-events: none`, so no gesture reaches the
+    // canvas anyway; this is what refuses one that was already accumulating,
+    // and covers the tail while the card is on its way back.
+    !headerMenuOpen &&
     !selectedCase
 
   // Earth draws its hint in the scene, and it is an IDLE affordance: this says
@@ -309,6 +326,7 @@ export default function App() {
     auditOpen,
     contactOpen,
     legalDoc,
+    headerMenuOpen,
     selectedCase,
     murciaReady,
     transitioning,
@@ -523,7 +541,19 @@ export default function App() {
           `inert` is the accessibility half: without it the browser blurs
           whatever was focused in here to <body> and the reader loses their
           place, and a screen reader can still walk a scene nobody can see. */}
-      <div className="app__scene" data-hidden={String(blogOpen)} inert={blogOpen}>
+      {/* `data-menu-open` / `data-menu-state` are the phone menu, mirrored from
+          the header for the stylesheet: the card's pose is keyed on the state,
+          and the rest of the scene's chrome stands down on the boolean — the
+          footer, the rail and the consent plate are siblings of the stage and
+          would otherwise stay flat over a tilting scene. Hidden rather than
+          unmounted, or they replay their entries. */}
+      <div
+        className="app__scene"
+        data-hidden={String(blogOpen)}
+        data-menu-open={headerMenuOpen || undefined}
+        data-menu-state={headerMenuState}
+        inert={blogOpen}
+      >
       {/* The header shell is ALWAYS mounted, even while the intro still owns the
           screen: the 3D logo's flight to the corner measures `.site-header__row`
           to know where the corner is (CornerLogoLayer). It is empty until the
@@ -534,30 +564,61 @@ export default function App() {
         layout="scene"
         tone={earthActive ? 'dark' : 'light'}
         hasActions={phase === 'site'}
-        burger3d={logoAvailable}
+        panelOpen={auditOpen || contactOpen || legalDoc !== null}
+        menuHost={menuHost}
         onActionsHost={setHeaderActions}
-        onMenuOpenChange={setHeaderMenuOpen}
+        onMenuStateChange={setHeaderMenuState}
       />
-      <LazyScene
-        suspended={blogOpen}
-        config={config}
-        state={state}
-        overlayEl={overlayRef}
-        orbitSystemRef={orbitSystemRef}
-        interactionRef={interactionRef}
-        logoRef={logoRef}
-        cornerLogoHandleRef={cornerLogo}
-        activeExperience={activeExperience}
-        murciaRef={murciaRef}
-        onSelectCase={setSelectedCase}
-        onDeselectCase={handleDeselectCase}
-        onLogoLoadFailed={handleLoadFailed}
-        onMurciaReady={handleMurciaReady}
-        onMurciaAttentionChange={navigationContextChanged}
-        onOpenBlog={handleOpenBlog}
-        onBlogApproachStart={handleBlogApproachStart}
-        onContextLost={handleContextLost}
-      />
+      {/* THE PHONE MENU'S LAYER, behind the canvas (z 5 under the stage's 10).
+          Empty here: the header portals its menu box into it on a phone, and
+          the sections portal their triggers into that. Everything visual about
+          it is in styles.css under "the viewport hinges away". */}
+      <div className="app__menu" ref={setMenuHost} />
+      {/* THE STAGE AND THE CARD. Two wrappers around the canvas and NOTHING
+          else, both permanent, both invisible boxes the canvas fills until the
+          phone menu opens — then the stage lends its perspective and the card
+          slides down, recedes and hinges away, uncovering the layer above.
+
+          The canvas is never remounted by this: the wrappers are unconditional,
+          the card is a CSS transform, and R3F measures the canvas by offset
+          size (SceneCanvas.tsx), which a transform does not change.
+
+          The stage carries `perspective`, which makes it the containing block
+          for every `position: fixed` descendant — the trap `styles.css`
+          documents on `.nav`. That is why it wraps only the canvas: the header,
+          the rail, the modals and the rest below stay on the viewport.
+
+          `--menu-3d-ms` is written here, from the one constant the header's
+          phase timer runs on, so the transition and the phase end together.
+          The rest of the composition is the stylesheet's custom properties;
+          `?menu3d=1&y=…` overrides them for tuning on a phone. */}
+      <div
+        className="app__stage"
+        style={{ '--menu-3d-ms': `${MENU_MOTION_MS}ms`, ...PROTO_MENU3D.vars } as CSSProperties}
+      >
+        <div className="app__viewport">
+          <LazyScene
+            suspended={blogOpen}
+            config={config}
+            state={state}
+            overlayEl={overlayRef}
+            orbitSystemRef={orbitSystemRef}
+            interactionRef={interactionRef}
+            logoRef={logoRef}
+            cornerLogoHandleRef={cornerLogo}
+            activeExperience={activeExperience}
+            murciaRef={murciaRef}
+            onSelectCase={setSelectedCase}
+            onDeselectCase={handleDeselectCase}
+            onLogoLoadFailed={handleLoadFailed}
+            onMurciaReady={handleMurciaReady}
+            onMurciaAttentionChange={navigationContextChanged}
+            onOpenBlog={handleOpenBlog}
+            onBlogApproachStart={handleBlogApproachStart}
+            onContextLost={handleContextLost}
+          />
+        </div>
+      </div>
 
       {/* The intro drawing is NOT rendered by React — intro-draw owns its own
           DOM and has usually been animating since before this component

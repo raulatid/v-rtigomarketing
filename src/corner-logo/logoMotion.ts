@@ -90,9 +90,9 @@ export interface FrustumExtents {
  *
  * Takes the surface height rather than reading `window` itself: which surface
  * is being drawn into is the caller's knowledge, and it is exactly the
- * distinction `setSurfaceHeight` exists to make. Pure, and exported because the
- * header's other corner needs the same mapping — `headerBurger.ts` places the
- * phone burger's bars with it, anchored to the right instead of the left.
+ * distinction `setSurfaceHeight` exists to make. Pure, and exported so that
+ * anything else placed on this camera in CSS pixels shares the one mapping
+ * rather than deriving a second.
  */
 export function frustumExtents(
   camera: THREE.PerspectiveCamera,

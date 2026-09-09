@@ -133,6 +133,17 @@ export function SceneCanvas({
       // element.
       data-suspended={String(suspended)}
       frameloop={suspended ? 'never' : 'always'}
+      // OFFSET size, not the client rect. R3F's default measures its container
+      // with `getBoundingClientRect()`, and a client rect includes every
+      // ancestor transform. The phone menu turns the wrapper around this canvas
+      // into a card that recedes and tilts (styles.css, `.app__viewport`); with
+      // the default, the first window resize or scroll while the menu is open
+      // would re-measure the tilted, shrunken rect and push it into
+      // gl.setSize → composer.setSize → MurciaExperience.setViewport — the
+      // exact cascade App.tsx's wrapper comment exists to prevent. Offset size
+      // is layout size and a transform does not touch it, so the drawing
+      // buffer stays the viewport's whatever the card is doing.
+      resize={{ offsetSize: true }}
       camera={{ fov: config.normalFov, near: 0.1, far: 5000, position: [0, 0, 200] }}
       // Explicit, and that is the point. Until 2026-08-14 this was the only
       // renderer configuration in the codebase, so `dpr`, `alpha` and

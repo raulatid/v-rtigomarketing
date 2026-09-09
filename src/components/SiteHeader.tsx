@@ -1,4 +1,10 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  MENU_MOTION_MS,
+  MENU_REDUCED_MS,
+  type HeaderMenuState,
+} from '../corner-logo/headerMenuTiming'
 import './siteHeader.css'
 
 /**
@@ -46,16 +52,22 @@ interface Props {
    */
   hasActions: boolean
   /**
-   * Whether something else is drawing the burger's bars, in which case the flat
-   * ones stand down (`[data-burger='3d']` in the stylesheet).
+   * Whether one of the panels this menu opens is already open.
    *
-   * On the scene that something is the corner logo's overlay pass, which draws
-   * them as geometry at the header's other corner. It is a flag rather than an
-   * assumption about `layout` because the mark can fail to arrive — a 404 GLB
-   * or a stale chunk — and an empty 44x44 button on every phone is not an
-   * acceptable degradation. The blog passes nothing and keeps the flat bars.
+   * The burger goes away entirely while it is true. On a phone this menu is the
+   * only way into Auditoría or Contacto, so no route is lost — and the header
+   * sits above the audit curtain, so a burger left showing would float over
+   * the panel it opened.
    */
-  burger3d?: boolean
+  panelOpen?: boolean
+  /**
+   * Where the scene's phone menu goes: the layer App keeps BEHIND the canvas,
+   * which the viewport reveals by hinging away from it (styles.css,
+   * `.app__menu`). On a phone over the scene the menu box is portaled into it;
+   * everywhere else — the desktop line, the blog — the box stays inline in the
+   * tail. Null (or absent) means "there is no such layer", which is the blog.
+   */
+  menuHost?: HTMLElement | null
   /** Receives the element the triggers portal into. State, not a ref: the
    *  portals must re-render once the node exists. */
   onActionsHost: (el: HTMLElement | null) => void
@@ -64,11 +76,27 @@ interface Props {
   /** A third control beside the actions — the blog's phone search button. */
   extra?: ReactNode
   /**
-   * Hears the phone menu open and close. App uses it to keep its global Escape
-   * (skip to the end of the intro) out of the menu's way: both listen on
-   * `window`, and a re-seek to 'site' snaps the parked logo.
+   * Hears the phone menu's phase. App mirrors it onto `.app__scene` for the
+   * stylesheet (the card's transform is keyed on it) and reads "not closed" as
+   * the menu being up — to keep its global Escape out of the menu's way, and
+   * to refuse navigation gestures until the card is flat again.
    */
-  onMenuOpenChange?: (open: boolean) => void
+  onMenuStateChange?: (state: HeaderMenuState) => void
+}
+
+/**
+ * The phone menu's shape, and the one place the two layouts genuinely differ.
+ *
+ * On the SCENE the menu is the viewport hinging away and sliding down, revealing
+ * the layer behind it. The close has a tail — the card's way back — and the
+ * header stays "open" for it, so the close is a phase with a clock.
+ *
+ * On the BLOG it is the 2026-09-04 glass field, unchanged — the blog has no
+ * scene canvas to move. It has no tail, so it has no phases: it toggles, and
+ * `data-menu-open` is the only thing its stylesheet has ever read.
+ */
+function usesCard(layout: 'scene' | 'blog'): boolean {
+  return layout === 'scene'
 }
 
 /** The burger exists only below this width; `siteHeader.css` says the same. */
@@ -78,16 +106,82 @@ export function SiteHeader({
   layout,
   tone,
   hasActions,
-  burger3d,
+  panelOpen,
+  menuHost,
   onActionsHost,
   leading,
   brand,
   extra,
-  onMenuOpenChange,
+  onMenuStateChange,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [phase, setPhase] = useState<HeaderMenuState>('closed')
   const rootRef = useRef<HTMLElement>(null)
+  const burgerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const [actionsEl, setActionsEl] = useState<HTMLElement | null>(null)
+  // Whether the box is portaled is decided by the same query that decides
+  // whether the burger is drawn; held as state because the portal target is
+  // part of the render.
+  const [phone, setPhone] = useState(() => window.matchMedia(PHONE_QUERY).matches)
+
+  // One timer for the whole machine, cleared before it is ever re-armed — the
+  // AuditSection arrangement. `phaseRef` is what the capture listener reads,
+  // because that listener is registered once and must not close over a stale
+  // phase.
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const phaseRef = useRef<HeaderMenuState>('closed')
+  phaseRef.current = phase
+
+  const menuOpen = phase !== 'closed'
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) clearTimeout(timerRef.current)
+    timerRef.current = null
+  }, [])
+
+  useEffect(() => clearTimer, [clearTimer])
+
+  /**
+   * Fold. On the scene the card travels back for `MENU_MOTION_MS`, and the
+   * header stays open for that tail; the blog is closed in the same tick.
+   *
+   * Reduced motion is read HERE, at the moment it matters — a media query
+   * cannot reach a setTimeout, and the stylesheet collapses its own transition
+   * under the same query, so the phase is the only thing that has to agree.
+   */
+  const closeMenu = useCallback(() => {
+    clearTimer()
+    if (!usesCard(layout) || phaseRef.current === 'closed') {
+      setPhase('closed')
+      return
+    }
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    setPhase('closing')
+    timerRef.current = setTimeout(
+      () => setPhase('closed'),
+      reduced ? MENU_REDUCED_MS : MENU_MOTION_MS,
+    )
+  }, [clearTimer, layout])
+
+  /** Open — at once. The stylesheet transitions from wherever the card is. */
+  const openMenu = useCallback(() => {
+    clearTimer()
+    setPhase('open')
+  }, [clearTimer])
+
+  /** No tail — for a breakpoint change or a lost host. */
+  const hardClose = useCallback(() => {
+    clearTimer()
+    setPhase('closed')
+  }, [clearTimer])
+
+  // A tap on the burger mid-close REOPENS rather than closing again: the card
+  // reverses from where it is, which is what a transition does for free, and
+  // the close's timer must not fire into the reopened menu.
+  const toggleMenu = useCallback(() => {
+    if (phaseRef.current === 'open') closeMenu()
+    else openMenu()
+  }, [openMenu, closeMenu])
 
   // One ref callback feeds both the parent (which portals into the node) and
   // this component (which listens on it). Stable while `onActionsHost` is, so
@@ -100,27 +194,49 @@ export function SiteHeader({
     [onActionsHost],
   )
 
-  // Choosing an action is what the sheet was for, so it folds on any click
-  // inside the actions cell — before the trigger's own handler runs. A NATIVE
-  // capture listener, not a React one: the triggers arrive through portals,
-  // whose events bubble along the React tree (to their sections) and never
-  // reach an onClick on this DOM ancestor.
+  // Choosing a door folds the menu, and the door opens in the same tick: on the
+  // scene the card returns to fullscreen underneath the arriving panel.
+  //
+  // A NATIVE capture listener, not a React one: the triggers arrive through
+  // portals, whose events bubble along the React tree (to their sections) and
+  // never reach an onClick on this DOM ancestor. Nothing is stopped — the
+  // trigger's own handler, focus return and `data-state` choreography run
+  // exactly as they do from the desktop line.
   useEffect(() => {
     if (!actionsEl) return
-    const fold = () => setMenuOpen(false)
-    actionsEl.addEventListener('click', fold, true)
-    return () => actionsEl.removeEventListener('click', fold, true)
-  }, [actionsEl])
+    const onClick = () => {
+      if (phaseRef.current === 'closed') return
+      closeMenu()
+    }
+    actionsEl.addEventListener('click', onClick, true)
+    return () => actionsEl.removeEventListener('click', onClick, true)
+  }, [actionsEl, closeMenu])
 
-  // Escape and a tap anywhere outside close the sheet. Both are registered only
-  // while it is open, so they cannot race the panels' own Escape handlers.
+  // Escape and a press anywhere outside close the menu, opening nothing. Live
+  // only while it is open — registering during the tail would race the panels'
+  // own Escape handlers.
+  //
+  // "Outside" is outside the header AND outside the menu box: on the scene the
+  // box lives in the layer behind the card, and a tap on the card itself falls
+  // through to that layer's ground (the viewport is pointer-events: none while
+  // the menu is up), so the ground counts as outside and the doors do not.
+  //
+  // The close hands focus back to the burger — the rAF idiom the panels use,
+  // because the button's own visibility changes in the same commit.
   useEffect(() => {
-    if (!menuOpen) return
+    if (phase !== 'open') return
+    const dismiss = () => {
+      closeMenu()
+      requestAnimationFrame(() => burgerRef.current?.focus())
+    }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
+      if (e.key === 'Escape') dismiss()
     }
     const onPointer = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setMenuOpen(false)
+      const target = e.target as Node
+      if (rootRef.current?.contains(target)) return
+      if (menuRef.current?.contains(target)) return
+      dismiss()
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('pointerdown', onPointer)
@@ -128,30 +244,53 @@ export function SiteHeader({
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('pointerdown', onPointer)
     }
-  }, [menuOpen])
+  }, [phase, closeMenu])
 
   useEffect(() => {
-    if (!hasActions) setMenuOpen(false)
-  }, [hasActions])
+    if (!hasActions) hardClose()
+  }, [hasActions, hardClose])
 
   // A rotation to a desktop width puts the actions back on the line; the
   // stylesheet stops drawing the menu, so the state must not linger either —
-  // an `aria-expanded` burger nobody can see, and a field ready to swallow
-  // the next tap.
+  // an `aria-expanded` burger nobody can see. A HARD close, with no tail: the
+  // layout the card was drawn for does not exist any more.
   useEffect(() => {
-    const phone = window.matchMedia(PHONE_QUERY)
+    const query = window.matchMedia(PHONE_QUERY)
     const onChange = (e: MediaQueryListEvent) => {
-      if (!e.matches) setMenuOpen(false)
+      setPhone(e.matches)
+      if (!e.matches) hardClose()
     }
-    phone.addEventListener('change', onChange)
-    return () => phone.removeEventListener('change', onChange)
-  }, [])
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [hardClose])
+
+  // A panel taking over folds the menu SOFTLY: the burger goes away under the
+  // panel, and the card returns to fullscreen beneath it rather than snapping.
+  // Only from 'open' — a close already under way is left to finish.
+  useEffect(() => {
+    if (panelOpen && phaseRef.current === 'open') closeMenu()
+  }, [panelOpen, closeMenu])
 
   useEffect(() => {
-    onMenuOpenChange?.(menuOpen)
-  }, [menuOpen, onMenuOpenChange])
+    onMenuStateChange?.(phase)
+  }, [phase, onMenuStateChange])
 
   const actionsId = `site-header-actions-${layout}`
+
+  /* The box around the portal host.
+
+     ALWAYS MOUNTED, in one place or the other, and `display: contents`
+     wherever it is not a surface: the actions cell inside it is the portal
+     host, and losing that makes ContactSection render its trigger inline into
+     the page. On a phone over the scene it is portaled into App's layer behind
+     the card; moving it there and back remounts the cell once, which only
+     re-portals the two triggers. */
+  const menuBox = (
+    <div className="site-header__menu" ref={menuRef}>
+      <div className="site-header__end" id={actionsId} ref={actionsRef} />
+    </div>
+  )
+  const portalTarget = usesCard(layout) && phone && menuHost ? menuHost : null
 
   return (
     <header
@@ -159,22 +298,21 @@ export function SiteHeader({
       className="site-header"
       data-layout={layout}
       data-tone={tone}
-      data-burger={burger3d ? '3d' : undefined}
+      data-panel-open={panelOpen || undefined}
+      // The blog's stylesheet has always read this one, and still does.
       data-menu-open={menuOpen || undefined}
+      // The scene's phases. App mirrors this onto `.app__scene`, which is what
+      // the card's stylesheet reads; here it is for the burger and for tests.
+      data-menu-state={phase}
     >
       <div className="site-header__row">
         <div className="site-header__start">{leading}</div>
         <div className="site-header__brand">{brand}</div>
         <div className="site-header__tail">
           {/* FIRST in the DOM, last on the line (CSS `order`): Tab from the
-              burger has to land on the items it just revealed.
-
-              Four bars rather than a glyph, and they stay in the DOM even where
-              they are not painted: on the scene the corner logo's overlay pass
-              draws them as geometry, and it MEASURES these boxes to do it, so
-              this markup and `siteHeader.css` remain the one place the bars'
-              count, length, thickness and pitch are stated. They are also what
-              comes back if the 3D mark never loads (`burger3d`). */}
+              burger has to land on the items it just revealed. Three bars that
+              fold into a ✕ while the menu is open (siteHeader.css, keyed on
+              `data-menu-state`); the state is announced by `aria-expanded`. */}
           {hasActions && (
             <button
               type="button"
@@ -182,15 +320,15 @@ export function SiteHeader({
               aria-label={menuOpen ? 'Cerrar el menú' : 'Menú'}
               aria-expanded={menuOpen}
               aria-controls={actionsId}
-              onClick={() => setMenuOpen((open) => !open)}
+              ref={burgerRef}
+              onClick={toggleMenu}
             >
-              <span className="site-header__burger-bar" aria-hidden="true" />
               <span className="site-header__burger-bar" aria-hidden="true" />
               <span className="site-header__burger-bar" aria-hidden="true" />
               <span className="site-header__burger-bar" aria-hidden="true" />
             </button>
           )}
-          <div className="site-header__end" id={actionsId} ref={actionsRef} />
+          {portalTarget ? createPortal(menuBox, portalTarget) : menuBox}
           {extra !== undefined && <div className="site-header__extra">{extra}</div>}
         </div>
       </div>
@@ -198,9 +336,13 @@ export function SiteHeader({
           in one. Decorative to assistive tech; a tap on it is "leave". Closed
           on click rather than pointerdown so the press that lands here also
           lifts here — otherwise the field would lose its pointer-events
-          mid-gesture and the click would land on the page beneath. Outside the
-          phone query the stylesheet does not draw it. */}
-      <div className="site-header__field" aria-hidden="true" onClick={() => setMenuOpen(false)} />
+          mid-gesture and the click would land on the page beneath.
+
+          THE BLOG'S, and only the blog's. The scene's menu is the layer the
+          viewport reveals by moving away, and needs no field. */}
+      {layout === 'blog' && (
+        <div className="site-header__field" aria-hidden="true" onClick={closeMenu} />
+      )}
     </header>
   )
 }

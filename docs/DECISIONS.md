@@ -1513,6 +1513,118 @@ exactly once. Any future chrome gates on the same prop-from-phase pattern, never
 > surface. Recorded rather than fixed; if it matters, the fix is to drop `burger3d` while a panel
 > above the canvas is open.
 
+> **AMENDED 2026-09-08 (later the same day) — the bars fly, and the menu is the frame they make.**
+> Tapping the burger sends its four bars to the centre of the screen, where they stretch into the
+> four sides of a rectangle; an HTML panel holding the two doors and a ✕ arrives inside it. Closing
+> plays that backwards — the panel fades, THEN the frame unforms and the bars fly home — and a door
+> chosen from the panel opens only once they are home. Closing without choosing opens nothing.
+> Scene surfaces only, phones only. Working file: `plans/021-phone-menu-3d-frame.md`.
+>
+> **"No clock in JavaScript" (the 2026-09-04 amendment) is retired for the scene**, and what replaces
+> it is a split rather than a surrender. React owns the PHASES —
+> `closed · opening · open · closing · retracting` — in the `setTimeout` shape AuditSection and
+> ConsentBanner already use. The frame loop owns the INTERPOLATION: it is handed one boolean and
+> eases from wherever it currently is, so a reversal mid-flight resumes instead of replaying. Neither
+> reports back to the other, so there is no clock to keep in step — only the constants, and
+> `corner-logo/headerMenuTiming.ts` is the one copy of them. That module imports NOTHING, which is
+> what lets the header read it without opening a static edge into three. `utils/easing` gained
+> `cubicBezierEase` for the same reason: the panel fades on a CSS curve and the bars fly on the same
+> one, rather than on a hand-picked approximation that drifts the first time either is retuned.
+>
+> **The dim is a quad in the same overlay pass, not a scrim in the DOM**, and that is forced: the
+> bars are drawn on the canvas at z 10 and every HTML overlay in this app paints above it, so a
+> scrim would hide the very frame it was meant to sit behind. It is ordered by DEPTH and not by
+> `renderOrder` — three draws the opaque list before the transparent one whatever the render order
+> says — so it passes everywhere the overlay's opaque geometry did not draw, and the frame and the
+> brand mark stay lit inside it. For the same reason the footer, the rail, the consent plate,
+> `.case-panel` and `.murcia-ui` stand down while the menu is open (`data-menu-open` on
+> `.app__scene`): they live between the frame and the panel and would otherwise paint over the dim.
+>
+> **The blog is untouched** and keeps the glass field verbatim — it has no scene canvas, so it has
+> nothing to draw a frame with. The field's CSS is SCOPED to `[data-layout='blog']` rather than
+> replaced, the element is rendered for that layout alone, and the blog runs no phases at all: it
+> toggles, and a chosen door opens in the same tick it always did.
+>
+> **A door's click is swallowed and re-issued**, not re-implemented. The interception is a capture
+> listener on the HEADER, and the placement is the mechanism: two capture listeners on the same node
+> fire in registration order, so nothing could get in front of the fold from the actions cell — and
+> on an ancestor it also runs before React, which dispatches `onClick` from a bubble-phase root
+> listener, so `stopPropagation()` means the trigger's own handler does not run at all. It is
+> re-issued with `el.click()` once the bars are home, which keeps every trigger's handler, focus
+> return and `data-state` choreography exactly where they were. ONE pending slot, latest wins —
+> which is also what stops ContactSection, which has no re-entry guard of its own, being opened
+> twice by a double tap.
+>
+> **The header reports itself open for the WHOLE close**, and App's `attentionIsFree` now reads it.
+> Until today the menu blocked gestures by covering the viewport with a `touch-action: none` field;
+> a small centred panel over a live scene does not, and the deferred door would otherwise leave a
+> 600 ms window in which nothing was open and a pinch could commit a warp.
+>
+> **The 2026-09-08 cost is paid off.** That amendment accepted that with a panel open the bars would
+> read through it. They cannot now: `data-panel-open` takes the burger away entirely while
+> Auditoría, Contacto or a legal doc is open, and on a phone the menu is the only way into any of
+> them, so no route is lost. It is `display: none` and not a fade, because a zero-size box is also
+> how CornerLogoLayer is told there is no burger to draw.
+
+> **AMENDED 2026-09-09 — the viewport hinges away, and the menu is what it uncovers.** The two
+> 2026-09-08 amendments above are REVERSED before anyone watched them: there are no geometry bars,
+> no flight, no frame and no dim. The burger is three flat bars again, and on the scene, tapping
+> it moves the SCENE. The viewport — the canvas and everything drawn on it, the brand mark
+> included — becomes a rigid card that slides down, moves away from the viewer and hinges back on
+> its bottom edge, all in one motion, and the menu is the layer it uncovers behind itself: two
+> doors set as type in the band the card leaves free. Closing is the exact inverse. Scene surfaces
+> only, phones only. Working file: `plans/023-phone-menu-scene-card.md`.
+>
+> **The card is CSS on a wrapper, not a change to any camera.** `.app__stage` (fixed, full
+> viewport, z 10) carries `perspective`; `.app__viewport` inside it carries the transform —
+> `translate3d(0, y, z) rotateX(tilt) scale(s)`, in that order, so each knob is the thing it is
+> named — with its origin on the card's bottom edge, which is what "hinges away" means. The stage
+> wraps the canvas and NOTHING else, because a perspective, like a transform, makes an element the
+> containing block for its `position: fixed` descendants (the `.nav` trap `styles.css` records),
+> and the header, the rail and the modals must keep the viewport as their frame. The menu layer,
+> `.app__menu`, is App's element at z 5 — behind the canvas, which is what "revealed" requires — and
+> SiteHeader portals its menu box into it on a phone (`menuHost`), so the triggers keep portaling
+> into `.site-header__end` exactly as before and the two sections learn nothing.
+>
+> **The canvas is neither remounted nor resized by any of this**, and the second half needed a
+> change: R3F measures its container with `getBoundingClientRect()`, which includes ancestor
+> transforms, and the first resize or scroll event while the menu was up would have pushed the
+> tilted rect into `gl.setSize` → `composer.setSize` → `setViewport` — the cascade the scene wrapper
+> exists to prevent. `SceneCanvas` now asks for `resize={{ offsetSize: true }}`, which measures
+> layout size, and the e2e provokes a resize with the menu open and checks the drawing buffer and
+> the renderer's resource counts did not move. The card is also `pointer-events: none` for the
+> whole of open and closing, because every pick, drag and raycast maps the pointer through the
+> canvas's client rect, and a tilted card's rect is not the surface it was rendered on. A tap on the
+> card therefore falls through to the layer's ground, which is "outside" to the header, and closes
+> the menu — which is what a tap on the scene should do. Two traps in that sentence: the stage is a
+> full-viewport box ABOVE the layer and takes every tap unless it is `pointer-events: none` itself
+> (the card turns them back on), and R3F writes `pointer-events: auto` inline on its container, so
+> only an `!important` on `.scene-canvas` actually takes the canvas out from under a tilted card.
+>
+> **The composition is knobs, not numbers.** How far the card drops, recedes and hinges, its
+> radius, the perspective, the hinge and the eye are custom properties on `.app__stage`, tuned by
+> eye and not settled here; `?menu3d=1&y=42&z=-140&tilt=10` (`app/protoMenu3d.ts`, debug builds
+> only) writes them inline so they can be tuned on the phone they are for. The one number React
+> needs — how long the card takes — is `MENU_MOTION_MS` in `corner-logo/headerMenuTiming.ts`,
+> written onto the stage as `--menu-3d-ms`, so the phase timer and the transition are one value.
+>
+> **The phases shrink to three** — `closed · open · closing` — and the deferred door is gone. There
+> is no `opening`: the reveal needs no gate, and a tap on the burger mid-close reopens from
+> wherever the card is, which a transition does for free. A chosen door opens in the tick it was
+> chosen and the card returns to fullscreen under the arriving panel; a panel taking over folds the
+> menu SOFTLY for the same reason. What survives from 2026-09-08 is the rule that the header
+> reports itself open for the whole close — `attentionIsFree` still reads it — and that the chrome
+> between the canvas and the header stands down on `data-menu-open`, now because it would stay flat
+> over a tilting scene. `cubicBezierEase` leaves with its only consumer.
+>
+> **Two things are deliberately left to the eye, and one to a device.** The brand mark rides the
+> card because it is painted on the canvas — that reads as the whole scene plane moving, and if it
+> reads wrong the fix is to hide it while the menu is up. The doors' type — sentence case,
+> `clamp(32px, 9vw, 40px)`, bare, the rules and numerals removed the same day — is the first proposal, not a canvas-approved one. And
+> the rounded corners rely on `overflow: hidden` clipping a composited WebGL layer under a 3D
+> transform, which iOS Safari has been known to ignore; the fallback is `isolation: isolate` on the
+> card, and it is untested here because both mobile projects are Chromium.
+
 **26.17 — The cursor glyphs are inlined path data, and `public/icons/*.svg` is the design source
 that is not read at runtime.** Redrawing those files changes nothing on screen until the `d`
 attributes are re-pasted into the component; both the component and the stylesheet say so at the
@@ -3037,6 +3149,7 @@ clearing `data-visible` when `active` goes false.
 
 | Decision | Was | Now |
 |---|---|---|
+| The phone burger is four bars drawn as geometry on the canvas, and they fly to the centre to become the frame of the menu | `corner-logo/headerBurger.ts`, deleted 2026-09-09; **§26.16** amendments of 2026-09-08 | Three flat bars, and the SCENE moves: the viewport hinges away and slides down as a card, uncovering the menu behind it — **§26.16** amendment 2026-09-09, `plans/023` |
 | The blog is entered by a tap on the `blog_edificios` cluster, which owns no camera and is "not a district, and must not become one" | `interaction/BlogBuilding.ts`, deleted 2026-09-09 | A display floating above that cluster, and a three-second approach into the page. The tap is gone rather than kept beside it — **§42** |
 | Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
 | The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** |

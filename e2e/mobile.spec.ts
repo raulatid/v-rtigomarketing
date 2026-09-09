@@ -558,19 +558,27 @@ test('the accessible control is reachable and names its destination', async ({ p
 })
 
 /**
- * The phone menu (plan 011). The two doors fold behind the burger and open onto
- * a glass field under the header's line. The choreography is CSS and is judged
- * by eye; what these prove is the contract — what opens it, what closes it,
- * and where it hangs.
+ * The phone menu. On the SCENE the viewport itself hinges away and slides down,
+ * and the menu is the layer it uncovers behind itself (plan 023); on the BLOG
+ * it is still the plan-011 glass field, because there is no scene canvas there
+ * to move.
+ *
+ * The motion is CSS and is judged by eye. What these prove is the contract —
+ * what opens it, what closes it, that the canvas underneath is neither
+ * remounted nor resized by it, and that the doors sit in the band the card
+ * leaves free.
  */
 
 async function openMenu(page: Page): Promise<void> {
   await page.locator('.site-header__burger').click()
   // React writes the boolean as the string "true".
   await expect(page.locator('.site-header')).toHaveAttribute('data-menu-open', 'true')
+  await expect(page.locator('.site-header')).toHaveAttribute('data-menu-state', 'open')
 }
 
 async function expectFolded(page: Page): Promise<void> {
+  // "Not open" is only true once the card is back: the header stays open for
+  // the whole of its way home.
   await expect(page.locator('.site-header')).not.toHaveAttribute('data-menu-open', 'true')
 }
 
@@ -579,64 +587,123 @@ function expectNear(actual: number, expected: number, what: string) {
   expect(Math.abs(actual - expected), `${what}: ${actual} vs ${expected}`).toBeLessThan(1)
 }
 
-test('the burger unfolds the two doors, and Auditoría opens from one of them', async ({
+/**
+ * The drawing buffer's size and the canvas element's identity — what a resize
+ * or a remount would change, and the menu must change neither.
+ *
+ * Identity by a probe attribute, the blog.spec.ts idiom: the first call stamps
+ * the element, later calls read the stamp back, and a remounted canvas is a
+ * new node with no stamp. Not the renderer's resource counts — Murcia keeps
+ * loading after the handover, so those drift with time whatever the menu does.
+ */
+async function canvasState(page: Page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('.scene-canvas canvas')!
+    if (!canvas.hasAttribute('data-e2e-probe')) canvas.setAttribute('data-e2e-probe', 'canvas')
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      probe: canvas.getAttribute('data-e2e-probe'),
+    }
+  })
+}
+
+test('the burger hinges the scene away, and Auditoría opens from the layer behind it', async ({
   page,
 }) => {
   const errors = collect(page)
   await bootToReady(page)
   await reachSite(page)
 
-  // Folded: mounted (reachSite waited on that) but not shown.
+  // Folded: mounted (reachSite waited on that) but not shown, and the scene is
+  // perfectly fullscreen and flat — no transform at all, not an identity one.
   const audit = page.locator('.audit-trigger')
   await expect(audit).toBeHidden()
-
-  // On the scene the bars are drawn by the corner logo's overlay pass, so the
-  // flat ones stand down — present, measurable, unpainted. The one assertion
-  // that would catch the swap regressing to two burgers on top of each other.
-  await expect(
-    page.locator(".site-header[data-layout='scene'] .site-header__burger-bar").first(),
-  ).toBeHidden()
+  const viewport = page.locator('.app__viewport')
+  await expect(viewport).toHaveCSS('transform', 'none')
+  const closed = await page.evaluate(() => {
+    const canvas = document.querySelector('.scene-canvas')!.getBoundingClientRect()
+    return {
+      canvas,
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
+    }
+  })
+  expectNear(closed.canvas.left, 0, 'canvas left')
+  expectNear(closed.canvas.top, 0, 'canvas top')
+  expectNear(closed.canvas.width, closed.width, 'canvas width')
+  expectNear(closed.canvas.height, closed.height, 'canvas height')
+  const before = await canvasState(page)
 
   await openMenu(page)
+  // The card is a 3D transform, and the layer behind it is live.
+  await expect(viewport).toHaveCSS('transform', /^matrix3d\(/)
   await expect(page.locator('.contact-trigger')).toBeVisible()
   await expect(audit).toBeVisible()
-  await expect(page.locator('.site-header__field')).toHaveCSS('pointer-events', 'auto')
 
-  // A full-bleed fixed field is exactly the kind of box that widens a document
-  // by a pixel and gets clipped without anyone noticing.
+  // A card that overflows the viewport must not widen the document: a
+  // transform is not layout, and this is the assertion that says so.
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
   }))
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
 
-  // Choosing a door folds the menu before the door's own handler runs — and
-  // the door still opens: the fold is a capture on the host, not a cancel.
+  // NOTHING RESIZED, NOTHING REBUILT. R3F measures the canvas container; a
+  // client rect includes the card's transform, and a resize event while the
+  // menu is up is exactly when the default measurement would re-read it
+  // (SceneCanvas.tsx on `offsetSize`). So provoke one, and check the drawing
+  // buffer and the renderer's resource counts are what they were.
+  await page.evaluate(() => window.dispatchEvent(new Event('resize')))
+  await page.waitForTimeout(300)
+  const during = await canvasState(page)
+  expect(during).toEqual(before)
+
+  // Choosing a door folds the menu and opens the door in the same tick: the
+  // card returns to fullscreen under the arriving curtain.
   await page.getByRole('button', { name: 'Auditoría' }).click()
-  await expectFolded(page)
   await expect(page.locator('.audit-overlay')).toHaveAttribute('data-state', /entering|open/)
+  await expectFolded(page)
+  await expect(viewport).toHaveCSS('transform', 'none')
+
+  // And once it is open the burger is gone: on a phone the menu is the only way
+  // in, so nothing is unreachable, and the header sits above the curtain.
+  await expect(page.locator('.site-header__burger')).toBeHidden()
 
   expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
 })
 
-test('the glass field closes the menu, and so does the burger', async ({ page }) => {
+test('a tap on the card, Escape and the burger all close the menu, and open nothing', async ({
+  page,
+}) => {
   await bootToReady(page)
   await reachSite(page)
+  const before = await canvasState(page)
 
+  // The card is pointer-events: none while the menu is up, so a tap on the
+  // tilted scene lands on the layer's own ground — and that is "outside".
   await openMenu(page)
-  // Well below the two doors; the field is the scrim.
-  await page.locator('.site-header__field').click({ position: { x: 20, y: 500 } })
+  await page.mouse.click(196, 720)
   await expectFolded(page)
   // Hidden once the close has run its course (a delayed visibility flip).
   await expect(page.locator('.audit-trigger')).toBeHidden()
 
   await openMenu(page)
+  await page.keyboard.press('Escape')
+  await expectFolded(page)
+
+  await openMenu(page)
   await page.locator('.site-header__burger').click()
   await expectFolded(page)
   await expect(page.locator('.site-header__burger')).toHaveAttribute('aria-expanded', 'false')
+
+  // None of the three opened anything, and three round trips rebuilt nothing.
+  await expect(page.locator('.audit-overlay')).toHaveAttribute('data-state', 'closed')
+  await expect(page.locator('.modal-panel')).toHaveCount(0)
+  expect(await canvasState(page)).toEqual(before)
 })
 
-test('the menu hangs from the line, and its doors span the column', async ({ page }) => {
+test('the doors sit in the band the card leaves free', async ({ page }) => {
   await asLayoutTest(page)
   await bootToReady(page)
   await reachSite(page)
@@ -645,21 +712,32 @@ test('the menu hangs from the line, and its doors span the column', async ({ pag
   const g = await page.evaluate(() => {
     const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect()
     return {
-      rowBottom: rect('.site-header__row').bottom,
-      fieldTop: rect('.site-header__field').top,
-      endTop: rect('.site-header__end').top,
+      // A client rect INCLUDES the transform, which here is the point: this is
+      // where the card actually is on screen.
+      card: rect('.app__viewport'),
       audit: rect('.audit-trigger'),
       contact: rect('.contact-trigger'),
-      viewport: document.documentElement.clientWidth,
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
     }
   })
-  // The field and the items both hang from the line the header lays the
-  // controls on — the same box the 3D logo measures.
-  expectNear(g.fieldTop, g.rowBottom, 'field top')
-  expectNear(g.endTop, g.rowBottom, 'items top')
-  expectNear(g.audit.width, g.viewport - 40, 'Auditoría width')
-  expectNear(g.audit.height, 44, 'Auditoría height')
-  expectNear(g.contact.height, 52, 'Contacto height')
+  // The card has dropped and receded: its top edge is well below the header
+  // and it is narrower than the viewport, because it is further away.
+  expect(g.card.top).toBeGreaterThan(g.height * 0.25)
+  expect(g.card.width).toBeLessThan(g.width)
+  // Both doors sit entirely in the band above the card, inside the viewport,
+  // and keep a touch target's height.
+  for (const [name, door] of [
+    ['Auditoría', g.audit],
+    ['Contacto', g.contact],
+  ] as const) {
+    expect(door.bottom, `${name} above the card`).toBeLessThanOrEqual(g.card.top)
+    expect(door.left, `${name} inside the viewport`).toBeGreaterThanOrEqual(0)
+    expect(door.right, `${name} inside the viewport`).toBeLessThanOrEqual(g.width)
+    expect(door.height, `${name} touch target`).toBeGreaterThanOrEqual(44)
+  }
+  // Numbered in order, top to bottom.
+  expect(g.audit.bottom).toBeLessThanOrEqual(g.contact.top)
 })
 
 /**
