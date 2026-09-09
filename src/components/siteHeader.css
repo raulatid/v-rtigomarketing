@@ -13,11 +13,10 @@
    the logo. Change the tokens below and both move together; there is no second
    copy of these numbers in JavaScript.
 
-   Since 2026-09-08 the same is true of the burger at the other end: on the
-   scene its bars are drawn by that canvas too, and the module drawing them
-   measures `.site-header__burger-bar` for their count, length, thickness and
-   pitch. The boxes therefore stay in the layout wherever they are not painted
-   — `visibility: hidden`, never `display: none`. */
+   The burger at the other end is plain DOM and always has been drawn here.
+   Between 2026-09-08 and 2026-09-09 it was briefly geometry on that same canvas,
+   which is why an earlier version of this note said the bars were measured
+   rather than painted; nothing measures them now. */
 
 /* `--header-inset` is the horizontal inset AND, on desktop, where the line's
    CENTRE sits: 25px down plus half a 46px control is 48. A phone anchors the
@@ -91,10 +90,9 @@
   --rule-strong: rgba(255, 255, 255, 0.35);
 
   /* Blue is worth more used less: a filled primary CTA, the ring behind a
-     focused field's neutral border, the beacon dot, the edge of the floating
-     trays through --glass-border-accent above, and — since 2026-09-09 — the
-     phone burger on the scene, which is the only way to that primary CTA and
-     so wears its colour. Nothing else. */
+     focused field's neutral border, the beacon dot, and the edge of the
+     floating trays through --glass-border-accent above. Nothing else — the
+     phone burger wore it for an hour on 2026-09-09 and went back to white. */
   --accent: #1c67ff;
   --accent-hover: #3a7dff;
   --accent-pressed: #1656d6;
@@ -213,9 +211,8 @@
 }
 
 /* ---- The two triggers ------------------------------------------------------
-   Palette: white primary, blue on the Auditoría box and — since 2026-09-09 —
-   on the phone burger, which is the only route to that box (plan 020 §9 as
-   amended). Nowhere else in this file. Uppercase with tracking is kept for both triggers on
+   Palette: white primary, blue on the Auditoría box and nowhere else in this
+   file (plan 020 §9). Uppercase with tracking is kept for both triggers on
    purpose: they are nav micro-labels, not sentences, and the canvas draws them
    that way on every artboard — it is the SUBMIT buttons inside the panels that
    went to sentence case. */
@@ -481,14 +478,21 @@
    onto the diagonals about their shared centre and the middle one fades. Keyed
    on the STATE, not on `data-menu-open` — on the scene the header stays open
    through the card's way back, and the burger should already read "menu" by
-   then. On the blog the two attributes agree. */
+   then. On the blog the two attributes agree.
+
+   DOUBLED 2026-09-09, on client direction: every number below is twice what it
+   was, so the mark keeps its 11:1 bar ratio and simply reads bigger. At 44px it
+   now spans the button edge to edge, which is why `left` is 0 — the button is
+   the 44px touch target and the line's height, and it must not grow past
+   `--header-control` or the glyph leaves the header's line. The ✕ still fits:
+   a 44px bar turned 45° needs only 44/√2 ≈ 31px each way. */
 .site-header__burger-bar {
   position: absolute;
-  left: 11px;
-  top: calc(50% - 1px);
-  width: 22px;
-  height: 2px;
-  border-radius: 1px;
+  left: 0;
+  top: calc(50% - 2px);
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
   background: currentColor;
   transform-origin: center;
   transition:
@@ -497,11 +501,11 @@
 }
 
 .site-header__burger-bar:nth-child(1) {
-  transform: translateY(-6px);
+  transform: translateY(-12px);
 }
 
 .site-header__burger-bar:nth-child(3) {
-  transform: translateY(6px);
+  transform: translateY(12px);
 }
 
 .site-header[data-menu-state='open'] .site-header__burger-bar:nth-child(1) {
@@ -526,25 +530,27 @@
   color: #0b0b0d;
 }
 
-/* ON THE SCENE THE BURGER IS THE ACCENT, on Earth and on Murcia alike.
+/* ON THE SCENE THE BURGER IS WHITE, on Earth and on Murcia alike.
 
-   It is the Auditoría box's own blue, and the same token, because on a phone
-   the burger is the only way to that box: the control and the thing it opens
-   should be recognisably one colour. Tone-independent on purpose — the burger
-   is the one control that must not restate the sky, or the site's single
-   interactive colour would mean one thing over Earth and another over Murcia.
+   Tone-independent on purpose, and this is the part that is a decision rather
+   than a default: the burger is the one control that does not restate the sky.
+   It was `--accent` for an hour on 2026-09-09 and is white again on client
+   direction; what survived from that hour is the tone-independence, which the
+   blue was the first thing to need.
 
    Same specificity as the tone rule above and later in the source, which is
    how this file already resolves that kind of pair; nothing here may be
    reordered without checking Murcia.
 
-   `--accent` on the daylight sky is the weakest of the grounds it has to hold
-   (4.7:1 against white, against 4.3:1 on Earth's near-black and 3.8:1 on the
-   open menu's grey), which clears the 3:1 a 2px control needs but is not
-   generous. It is the same blue the Auditoría box already fills with on the
-   same sky, so the pair stands or falls together. */
+   THE COST IS ON MURCIA AND IT IS REAL. White over Earth is 21:1; over
+   Murcia's daylight it is whatever the roof under it happens to be, and pale
+   roofs are most of that city — under 2:1 in places, below the 3:1 a control
+   needs. Doubling the bars is what makes it hold up at all: 4px of mass reads
+   where 2px would vanish. If it ever reads too faint, the fix is a shadow on
+   the bars rather than a colour that changes with the sky, because the sky is
+   what this rule exists not to follow. */
 .site-header[data-layout='scene'] .site-header__burger {
-  color: var(--accent);
+  color: #fff;
 }
 
 .site-header__burger:focus-visible {
