@@ -22,7 +22,7 @@ import type { CaseStudy } from '../../../content/types'
  * toward the satellite model, so re-check `panel.offsetY` against the
  * `satellite.modelSize` reasoning documented there.
  */
-const PANEL_HEIGHT = 0.14
+const PANEL_HEIGHT = 0.24
 // See `panel.wingGap`. Hoisted because `panel.wingLength` is derived from it.
 const WING_GAP = 0.04
 /**
@@ -47,7 +47,7 @@ const HOLO_COLOR: string | null = '#38a9d6'
 // See `panel.offsetY`. Hoisted because the emitter cone's mouth is derived from
 // it: the cone has to stop exactly where the field's lower edge begins, and two
 // numbers kept in step by hand drift the moment either is tuned.
-const PANEL_OFFSET_Y = 0.29
+const PANEL_OFFSET_Y = 0.49
 
 export const ORBIT_CONFIG = {
   orbit: {
@@ -81,14 +81,24 @@ export const ORBIT_CONFIG = {
     // leaving it there while the model doubled would have buried the hit target
     // inside the model, giving the outer half of every satellite a dead zone the
     // cursor passes straight through.
-    baseSize: 0.20,
+    baseSize: 0.34,
     // World size (max dimension) of the satellite GLB, in Earth-radius=1 units.
     // The model template is normalised to unit size, so this is the only knob.
     //
     // DOUBLED from 0.26 on 2026-08-20 — the model read too small in the
     // overview. `baseSize`, `panel.offsetY` and `interactionConfig`'s
     // `closeUp.distance` are all derived from this number; see DECISIONS 26.11.
-    modelSize: 0.52,
+    //
+    // RAISED AGAIN on 2026-09-09, 0.52 -> 0.88, at the client's request and for
+    // the same reason: ×1.69, judged by eye after ×2 (1.04) overshot. It is the
+    // SCALE FACTOR that matters here, not the number — everything derived from
+    // it was multiplied by the same 0.88/0.52 and rounded to the file's usual
+    // two places: `baseSize`, `PANEL_HEIGHT` (so the isotype grows with the
+    // satellite it rides), `PANEL_OFFSET_Y`, `coneFootRadius`, the tutorial's
+    // `cueRadius`, and `closeUp.distance`/`closeUp.lift`. Every ratio the guards
+    // in orbitConfig.test.ts pin therefore lands within ~1.5% of where it was,
+    // and the rounding is what that 1.5% is — see the arithmetic on `offsetY`.
+    modelSize: 0.88,
     // Continuous self-rotation in radians/second (varied ±15% per satellite).
     // Runs through the case-panel freeze so enter/exit never interrupts it.
     modelSpinSpeed: 0.25,
@@ -145,34 +155,46 @@ export const ORBIT_CONFIG = {
     // `modelSize`, not chosen independently: the core's lower edge is
     // `offsetY - height / 2`, and that edge is what has to stay off the model.
     //
-    // 0.34 → 0.31 → 0.29 on 2026-09-07, at the client's request and then again
-    // after seeing it: in a close-up the mark read as floating away from the
-    // satellite it belongs to, and on a short viewport it could sit near the top
-    // edge of the frame. The field's lower edge moves 0.27 → 0.22 with it, and so
-    // does the cone's mouth — `coneMouthY` is derived from this constant, so the
+    // THE TUNING HAPPENED IN THE OLD UNITS, and it is easier to read that way
+    // than restated: on 2026-09-07 this went 0.34 → 0.31 → 0.29, at the client's
+    // request and then again after seeing it, because in a close-up the mark
+    // read as floating away from the satellite it belongs to and on a short
+    // viewport it could sit near the top edge of the frame. On 2026-09-09 the
+    // whole assembly was scaled by 0.88/0.52 with `modelSize`, which is what
+    // puts this at 0.49. The field's lower edge (`offsetY - height / 2`) and the
+    // cone's mouth follow — `coneMouthY` is derived from this constant, so the
     // light still lands exactly on the artwork with no second edit.
     //
-    // 0.29 IS ALL BUT THE LAST OF THE TRAVEL. The guard in orbitConfig.test.ts
-    // puts the floor at `modelSize / 2 × 0.8` = 0.208, i.e. offsetY > 0.278, and
-    // 0.05 of the 0.062 available has now been spent. There is ~0.012 left, which
-    // is not enough to be worth another nudge: a further move means revisiting
-    // the guard, and that is its own decision with its own evidence, not a
-    // ride-along on a tuning pass.
+    // Everything below is in CURRENT units.
+    //
+    // 0.49 IS ALL BUT THE LAST OF THE TRAVEL. The guard in orbitConfig.test.ts
+    // puts the floor at `modelSize / 2 × 0.8` = 0.352, i.e. offsetY > 0.472, so
+    // there is ~0.018 left. That is not enough to be worth another nudge: a
+    // further move means revisiting the guard, and that is its own decision with
+    // its own evidence, not a ride-along on a tuning pass.
+    //
+    // The scale-up spent none of that margin — it is the ROUNDING that moved it.
+    // `panelBottom / modelTop` was 0.846 at 0.52 and is 0.841 at 0.88, because
+    // both numbers were rounded to two places rather than carried exactly. Every
+    // derived value in this file is within ~1.5% of its old ratio for the same
+    // reason, which is well inside what any of these knobs express.
     //
     // That guard is deliberately conservative, and it is worth recording why,
-    // because the arithmetic looks tighter than the scene is. `modelSize` (0.52)
+    // because the arithmetic looks tighter than the scene is. `modelSize` (0.88)
     // is the max dimension of a model whose LONGEST AXIS IS THE SOLAR ARRAY: the
     // GLB normalises to 0.186 × 0.196 × 1.000, and the array is near-horizontal.
     // It can only pitch by the spinner's per-seed tilt (x ≤ 0.35 rad), so the
-    // highest point any of the six satellites reaches over a full turn is 0.148,
-    // not 0.26. Real clearance from the field's base at 0.29 is ~0.07 — half a
-    // panel height — against the ~0.01 the guard reports. Measured from the
+    // highest point any of the six satellites reaches over a full turn is 0.25,
+    // not 0.44. Real clearance from the field's base at 0.49 is ~0.12 — half a
+    // panel height — against the ~0.02 the guard reports. Measured from the
     // GLB's accessor min/max on 2026-09-07; not asserted, because a test on a
     // model nobody is changing is a mechanism to maintain for nothing.
     //
-    // Note the panel itself did NOT double with the model: doubling `offsetY`
-    // alone would have pushed the plate DEEPER into the model, because the
-    // half-height being subtracted stayed put.
+    // The panel did NOT move on 2026-08-20, when the model first doubled:
+    // raising `offsetY` alone would have pushed the plate DEEPER into the model,
+    // because the half-height being subtracted stayed put. On 2026-09-09 both
+    // scaled together, which is the case that IS safe — `offsetY - height / 2`
+    // scales exactly like `modelSize / 2`, so the clearance ratio holds.
     offsetY: PANEL_OFFSET_Y,
     // Ceiling on the panel's fade, so the entrance can drive it 0→1 while the
     // panel still reads as a projection rather than a solid card.
@@ -272,7 +294,7 @@ export const ORBIT_CONFIG = {
     coneMouthRadius: PANEL_HEIGHT * 0.34,
     // Foot radius. Narrow, but never zero: a true point makes the taper
     // converge to a bright singularity that reads as a hotspot.
-    coneFootRadius: 0.012,
+    coneFootRadius: 0.020,
     // How much further the mouth opens at full deployment, as a fraction of
     // `coneMouthRadius`. The field goes 1:1 → 2:1, so its half-width doubles;
     // the cone follows most of the way rather than all of it, because a mouth
@@ -342,7 +364,7 @@ export const ORBIT_CONFIG = {
     // enough individually that no single point reads as an object. Radius is
     // in the orbit group's units (Earth radius = 1), like `modelSize`.
     cueCount: 35,
-    cueRadius: 0.35,
+    cueRadius: 0.59,
     // Point size in the same units, before perspective.
     cueSize: 0.06,
     // How far inside the frame the target must be before the tutorial arms —

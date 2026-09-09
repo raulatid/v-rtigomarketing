@@ -107,9 +107,20 @@ export const INTERACTION_CONFIG = {
     // subtends twice the angle and 0.55R overflows the frame — the distance
     // roughly doubles with it to hold the composition. A future size change has
     // to move this too, or the close-up silently reframes.
-    distance: 1.05 * R,
-    // Small vertical camera lift.
-    lift: 0.15 * R,
+    //
+    // 2026-09-09: `modelSize` went 0.52 -> 0.88 at the client's request, so this
+    // took the same ×1.69 and rounds to 1.78R. The close-up subtends the same
+    // angle as before on purpose — the overview is where the satellite had to
+    // read larger — and holding this framing is also what keeps the brand
+    // atlas's cell resolution sufficient (see createBrandAtlas's CELL note,
+    // which sizes both cells for this view).
+    distance: 1.78 * R,
+    // Small vertical camera lift. Scaled with `distance` on 2026-09-09: it is a
+    // world offset added at the camera, so leaving it while the back-off grew
+    // would have shrunk the angle it tilts the subject by, and the close-up
+    // would have flattened out rather than simply holding. Measured on screen —
+    // doubling `distance` alone put the subject off-centre and face-on.
+    lift: 0.25 * R,
     // The look-at offset that pushes the satellite LEFT on screen, clearing the
     // right of the viewport for the case panel, is NOT here any more.
     //
