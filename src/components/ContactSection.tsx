@@ -274,7 +274,6 @@ export function ContactSection({
                     }}
                   />
                 </div>
-                <p className="contact-eyebrow">Hablemos</p>
                 <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
                   Escríbenos para lo que necesites
                 </h2>

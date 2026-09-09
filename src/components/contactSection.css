@@ -9,18 +9,6 @@
   gap: 1rem;
 }
 
-/* The tick is neutral since plan 020: an eyebrow is a label, not an action,
-   and blue now means "this is the thing to press". */
-.contact-eyebrow {
-  margin: 0;
-  padding-left: 10px;
-  border-left: 2px solid var(--rule-strong);
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 .contact-field {
   display: flex;
   flex-direction: column;

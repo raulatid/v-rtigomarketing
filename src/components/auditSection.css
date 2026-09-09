@@ -210,8 +210,10 @@
   padding: clamp(3rem, 8vh, 5rem) clamp(2rem, 5vw, 4.5rem);
   /* Three floors, the largest wins: the composition's own top padding, the back
      arrow's band plus air, and the notch. The form is vertically centred and at
-     ~900px tall its eyebrow used to sit 6px under the arrow; now a short
-     viewport scrolls the panel instead of climbing under the control. */
+     ~900px tall its first line used to sit 6px under the arrow; now a short
+     viewport scrolls the panel instead of climbing under the control. (That
+     line was the eyebrow until 2026-09-09; it is the title now, and the floors
+     are measured from the box, not from whatever is first inside it.) */
   padding-top: max(
     clamp(3rem, 8vh, 5rem),
     calc(var(--audit-close-top) + var(--audit-close-h) + 1.75rem),
@@ -251,31 +253,12 @@
   transition-delay: 560ms;
 }
 
-.audit-overlay[data-state='entering'] .audit-group--4,
-.audit-overlay[data-state='open'] .audit-group--4 {
-  transition-delay: 760ms;
-}
-
 .audit-overlay[data-state='leaving'] .audit-group {
   opacity: 0;
   transform: translate(0, 8px);
   transition:
     opacity 200ms ease-in,
     transform 200ms ease-in;
-}
-
-.audit-eyebrow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  /* Same accent-tick idiom as the case panel eyebrow, and neutral like it
-     since plan 020: the tick labels a section, it does not offer an action. */
-  padding-left: 0.75rem;
-  border-left: 2px solid var(--rule-strong);
 }
 
 .audit-title {

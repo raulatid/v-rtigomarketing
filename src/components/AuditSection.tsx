@@ -737,9 +737,6 @@ export function AuditSection({
                  reaches assistive tech that missed the focus move. */
               <div className="audit-form audit-success" role="status">
                 <div className="audit-group">
-                  <p className="audit-eyebrow">Auditoría SEO</p>
-                </div>
-                <div className="audit-group">
                   <h2
                     className="audit-title"
                     id={`${idPrefix}-title`}
@@ -787,10 +784,6 @@ export function AuditSection({
                   />
                 </div>
                 <div className="audit-group audit-group--1">
-                  <p className="audit-eyebrow">Auditoría SEO</p>
-                </div>
-
-                <div className="audit-group audit-group--2">
                   <h2 className="audit-title" id={`${idPrefix}-title`} tabIndex={-1} ref={headingRef}>
                     Solicita la auditoría de tu presencia digital
                   </h2>
@@ -800,7 +793,7 @@ export function AuditSection({
                   </p>
                 </div>
 
-                <div className="audit-group audit-group--3">
+                <div className="audit-group audit-group--2">
                   {FIELD_ORDER.map((field) => (
                     <AuditField
                       key={field}
@@ -814,7 +807,7 @@ export function AuditSection({
                   ))}
                 </div>
 
-                <div className="audit-group audit-group--4">
+                <div className="audit-group audit-group--3">
                   {/* Failure is direction, not mood: what happened, what to do.
                       Everything typed is still in the fields above. */}
                   {submission === 'error' && (
@@ -872,7 +865,7 @@ export function AuditSection({
                   {/* The legal links, moved off the Earth floor line on
                       2026-08-24 (DECISIONS §30). Form branch only: on the
                       success screen the ask is already made and the panel is a
-                      receipt. They ride audit-group--4's staggered entrance. */}
+                      receipt. They ride audit-group--3's staggered entrance. */}
                   <p className="audit-legal">
                     <button
                       type="button"

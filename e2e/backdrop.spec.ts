@@ -113,9 +113,9 @@ test('the site shows no third-party attribution', async ({ page }) => {
   await trigger.click()
 
   // Wait for the panel's reveal to finish before concluding anything is absent.
-  // `.audit-group--4` transitions opacity over 380ms on a 760ms delay, so an
-  // assertion fired immediately would pass against a panel that had not
-  // rendered yet — proving nothing.
+  // The last group (`.audit-group--3`) transitions opacity over 380ms on a
+  // 560ms delay, so an assertion fired immediately would pass against a panel
+  // that had not rendered yet — proving nothing.
   await expect(page.locator('.audit-overlay')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByRole('button', { name: 'Continuar' })).toBeVisible({ timeout: 15_000 })
 

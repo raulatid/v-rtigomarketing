@@ -777,9 +777,11 @@
     pointer-events: none;
   }
 
-  /* Contacto as a row: the eyebrow's tick (auditSection.css) carries the
-     accent, the text stays the bare text it is on the line. The blog's field
-     reads these; on the scene the layer's own rules (styles.css) outrank them. */
+  /* Contacto as a row, with the same neutral tick the case-panel eyebrow wears
+     (`.case-panel__eyebrow`, styles.css); the text stays the bare text it is on
+     the line. The forms' own eyebrows carried this tick too until 2026-09-09,
+     when they were removed. The blog's field reads these rules; on the scene the
+     layer's own (styles.css) outrank them. */
   .site-header__end > .contact-trigger {
     height: 52px;
     justify-content: flex-start;
