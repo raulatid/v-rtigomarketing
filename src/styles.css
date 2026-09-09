@@ -83,7 +83,7 @@ html {
 
    THE KNOBS are the custom properties on `.app__stage`. They ARE the
    composition and are tuned by eye — in DevTools, or on a phone through
-   `?menu3d=1&y=42&z=-140&tilt=10` (app/protoMenu3d.ts writes them inline).
+   `?menu3d=1&y=42&z=-140&tilt=12` (app/protoMenu3d.ts writes them inline).
 
    The transform is one expression in a fixed order — translate, then rotate,
    then scale — so each knob reads as the thing it is named: `--menu-3d-y` is
@@ -99,7 +99,12 @@ html {
   position: fixed;
   inset: 0;
   z-index: 5;
-  background: #050507;
+  /* A dark GREY, deliberately not the site's near-black. The card in front of
+     it is `#050507` and so is the scene it carries, so a layer of the same ink
+     would put a black card on a black ground and leave the depth to be carried
+     by the shadow alone. A few steps up reads as a surface BEHIND another
+     surface, which is the whole illusion. */
+  background: #16181c;
   /* Hidden, not merely covered: the doors inside must be neither tabbable nor
      read out while the card is flat over them. */
   visibility: hidden;
@@ -125,7 +130,7 @@ html {
   --menu-3d-hinge: 100%;
   --menu-3d-y: 42vh;
   --menu-3d-z: -140px;
-  --menu-3d-tilt: 10deg;
+  --menu-3d-tilt: 12deg;
   --menu-3d-scale: 1;
   --menu-3d-radius: 18px;
   --menu-3d-ease-in: cubic-bezier(0.22, 1, 0.36, 1);

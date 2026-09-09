@@ -10,7 +10,7 @@
  * is. This reads them from the URL and App writes them inline on the stage,
  * where they outrank the stylesheet's defaults.
  *
- *   ?menu3d=1&y=42&z=-140&tilt=10&scale=1&radius=18&persp=1200&hinge=100&eye=50
+ *   ?menu3d=1&y=42&z=-140&tilt=12&scale=1&radius=18&persp=1200&hinge=100&eye=50
  *
  * Numbers only; the units are fixed here so a URL cannot smuggle in an
  * expression. Anything absent keeps the stylesheet's value, so a URL that sets

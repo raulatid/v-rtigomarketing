@@ -1603,7 +1603,7 @@ exactly once. Any future chrome gates on the same prop-from-phase pattern, never
 >
 > **The composition is knobs, not numbers.** How far the card drops, recedes and hinges, its
 > radius, the perspective, the hinge and the eye are custom properties on `.app__stage`, tuned by
-> eye and not settled here; `?menu3d=1&y=42&z=-140&tilt=10` (`app/protoMenu3d.ts`, debug builds
+> eye and not settled here; `?menu3d=1&y=42&z=-140&tilt=12` (`app/protoMenu3d.ts`, debug builds
 > only) writes them inline so they can be tuned on the phone they are for. The one number React
 > needs — how long the card takes — is `MENU_MOTION_MS` in `corner-logo/headerMenuTiming.ts`,
 > written onto the stage as `--menu-3d-ms`, so the phase timer and the transition are one value.
