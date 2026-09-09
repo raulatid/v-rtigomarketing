@@ -91,8 +91,10 @@
   --rule-strong: rgba(255, 255, 255, 0.35);
 
   /* Blue is worth more used less: a filled primary CTA, the ring behind a
-     focused field's neutral border, the beacon dot, and the edge of the
-     floating trays through --glass-border-accent above. Nothing else. */
+     focused field's neutral border, the beacon dot, the edge of the floating
+     trays through --glass-border-accent above, and — since 2026-09-09 — the
+     phone burger on the scene, which is the only way to that primary CTA and
+     so wears its colour. Nothing else. */
   --accent: #1c67ff;
   --accent-hover: #3a7dff;
   --accent-pressed: #1656d6;
@@ -211,8 +213,9 @@
 }
 
 /* ---- The two triggers ------------------------------------------------------
-   Palette: white primary, blue on the Auditoría box and nowhere else in this
-   file (plan 020 §9). Uppercase with tracking is kept for both triggers on
+   Palette: white primary, blue on the Auditoría box and — since 2026-09-09 —
+   on the phone burger, which is the only route to that box (plan 020 §9 as
+   amended). Nowhere else in this file. Uppercase with tracking is kept for both triggers on
    purpose: they are nav micro-labels, not sentences, and the canvas draws them
    that way on every artboard — it is the SUBMIT buttons inside the panels that
    went to sentence case. */
@@ -517,9 +520,31 @@
 /* The burger is the phone-visible sibling of the bare Contacto text and carries
    the same ink for the same reason (measured above): or the phone header goes
    half-and-half, a white Auditoría box beside a black burger on the same pale
-   sky. */
+   sky. The scene overrides it immediately below; this stays general so any
+   future light surface still gets ink rather than nothing. */
 .site-header[data-tone='light'] .site-header__burger {
   color: #0b0b0d;
+}
+
+/* ON THE SCENE THE BURGER IS THE ACCENT, on Earth and on Murcia alike.
+
+   It is the Auditoría box's own blue, and the same token, because on a phone
+   the burger is the only way to that box: the control and the thing it opens
+   should be recognisably one colour. Tone-independent on purpose — the burger
+   is the one control that must not restate the sky, or the site's single
+   interactive colour would mean one thing over Earth and another over Murcia.
+
+   Same specificity as the tone rule above and later in the source, which is
+   how this file already resolves that kind of pair; nothing here may be
+   reordered without checking Murcia.
+
+   `--accent` on the daylight sky is the weakest of the grounds it has to hold
+   (4.7:1 against white, against 4.3:1 on Earth's near-black and 3.8:1 on the
+   open menu's grey), which clears the 3:1 a 2px control needs but is not
+   generous. It is the same blue the Auditoría box already fills with on the
+   same sky, so the pair stands or falls together. */
+.site-header[data-layout='scene'] .site-header__burger {
+  color: var(--accent);
 }
 
 .site-header__burger:focus-visible {

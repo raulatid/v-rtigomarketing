@@ -1568,12 +1568,23 @@ exactly once. Any future chrome gates on the same prop-from-phase pattern, never
 
 > **AMENDED 2026-09-09 — the viewport hinges away, and the menu is what it uncovers.** The two
 > 2026-09-08 amendments above are REVERSED before anyone watched them: there are no geometry bars,
-> no flight, no frame and no dim. The burger is three flat bars again, and on the scene, tapping
-> it moves the SCENE. The viewport — the canvas and everything drawn on it, the brand mark
+> no flight, no frame and no dim. The burger is three flat bars again — folding into a ✕ while the
+> menu is open, which three bars can do and four could not — and on the scene, tapping it moves the
+> SCENE. The viewport — the canvas and everything drawn on it, the brand mark
 > included — becomes a rigid card that slides down, moves away from the viewer and hinges back on
 > its bottom edge, all in one motion, and the menu is the layer it uncovers behind itself: two
 > doors set as type in the band the card leaves free. Closing is the exact inverse. Scene surfaces
 > only, phones only. Working file: `plans/023-phone-menu-scene-card.md`.
+>
+> **The scene's burger wears `--accent`, on Earth and on Murcia alike**, which makes the phone a
+> fifth home for the site's one blue (§37 listed four). It is the Auditoría box's own token, and
+> the argument is that on a phone the burger is the ONLY route to that box: the control and the
+> thing it opens should be recognisably one colour. It therefore stops following `data-tone` and
+> does not go ink over Murcia's daylight — deliberate, because a single interactive colour that
+> meant one thing on one world and another on the next would not be a single interactive colour.
+> The cost is contrast: 4.7:1 against white, the weakest of its three grounds, which clears the
+> 3:1 a 2px control needs without much room. It is the same blue the Auditoría box already fills
+> with on the same sky, so the pair stands or falls together.
 >
 > **The card is CSS on a wrapper, not a change to any camera.** `.app__stage` (fixed, full
 > viewport, z 10) carries `perspective`; `.app__viewport` inside it carries the transform —
@@ -3160,7 +3171,7 @@ clearing `data-visible` when `active` goes false.
 | The footprint inset is disabled whenever the model carries ground past the plate | `MurciaExperience.ts`, `disableFootprintInsets`, 2026-09-04 | It is asked per pose, and is back ON: at 35 degrees no reachable pose clamps a ray, so the footprint is a measurement again. The flag survives only for the no-skirt case — **§39** |
 | The audit section is an opaque curtain: the scene goes away while the form is open | `auditSection.css` `.audit-panel { background: #050506 }`, **§26.15** | Density C smoked glass. The world stays behind the questions as soft context, and the panel is the same material as the contact and legal sheets — **§37** |
 | The emitter hairline is the site’s signature, restated in six sheets because they cannot share | `styles.css`, `murcia.css`, `consentBanner.css`, `siteHeader.css`, `auditSection.css`, `contactSection.css` | Removed. Where the line said something it stayed and went neutral; the sharing problem it caused went with it — **§37** |
-| Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37** |
+| Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37**; a fifth from 2026-09-09, the scene’s phone burger, which is the only route to the CTA — **§26.16** |
 | The services district is engaged through a building, and a floating card shows that service | `DistrictInteraction.ts`, `districtPanel.ts`, `districtLabel.ts`, **§32** | A projected in-world display owns every control; buildings are one entry target and otherwise scenery — **§34** |
 | A swap between buildings re-aims the flight and keeps the distance | **§32**, `checks/district-flight.ts` §7d | Paging moves no camera at all. The only district flights are in and out — **§34** |
 | The district camera frames around the panel that covers part of the canvas | **§32**, `unobstructedCenterNdc(rect, panel.getObstructionRect())` | The display is in the world and moves with the camera, so the framing target is simply the centre — **§34** |
