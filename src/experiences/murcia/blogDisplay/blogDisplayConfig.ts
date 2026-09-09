@@ -43,6 +43,12 @@ export const BLOG_BUILDING_NODE_NAMES = ['blog_edificios'] as const;
  * against a 35-degree lens 170 units out and a tower of a particular height. It is
  * a starting point here and nothing more.
  *
+ * 19 since 2026-09-09, halved with the panel. `blogDisplay`'s `PANEL_HEIGHT` went
+ * 48 -> 24 because the panel read as oversized against the city, and the clearance
+ * that reads as floating is derived against the panel's own vertical half-extent —
+ * so holding 38 over a half-height panel would have left it hanging in the sky
+ * rather than floating over the cluster.
+ *
  * What IS transferable is the reasoning, and it is worth having because the obvious
  * derivation is wrong. The panel's vertical half-extent is not the clearance it
  * needs: the tilt swings its bottom edge TOWARD the camera, so at a downward viewing
@@ -56,7 +62,7 @@ export const BLOG_BUILDING_NODE_NAMES = ['blog_edificios'] as const;
  * services display, where `PANEL_ELEVATION` and `focusDistanceScale` are "a tuning
  * pair that arithmetic cannot settle and no automated check can see".
  */
-export const PANEL_ELEVATION = 38;
+export const PANEL_ELEVATION = 19;
 
 /**
  * The panel's fixed lean, in degrees.

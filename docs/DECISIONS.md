@@ -3,7 +3,8 @@
 The decisions that shape this project, and what is true **now** as a result.
 
 Last updated: 2026-09-09 · §42 added (the blog is entered through a display, and the approach is
-the transition; the cluster tap is removed). Earlier: 2026-09-08 · §39 added (the camera never leaves the navigable area; Murcia's pose
+the transition; the cluster tap is removed) and amended the same day (the panel is halved to 24
+units at elevation 19, and the plate's world-unit terms with it). Earlier: 2026-09-08 · §39 added (the camera never leaves the navigable area; Murcia's pose
 rises to 35 degrees at distance 220) and §20 amended. Earlier: 2026-08-23 · §31 added (the CMS is Sanity, and the editable surface grew to services,
 site settings, legal and the blog); §27 and §30 amended. Earlier: 2026-08-20 · §29–30 added (the
 rail's presentation and the gesture hint; contact,
@@ -3063,6 +3064,24 @@ elevation of 38 the display's centre does not project into the frame at Murcia's
 was measured in a preview build and not yet corrected. With the cluster tap gone and
 `nav.openBlogIndex()` called from exactly one place, that means the blog has no way in until the
 number comes down. The e2e was rewritten and NOT run.
+
+**Amended 2026-09-09: the panel is half the size it shipped at.** `PANEL_HEIGHT` 48 → 24 and
+`PANEL_ELEVATION` 38 → 19, on the client's reading that the display was massive next to Murcia's
+buildings. Equal heights with the services display were never equal size — that panel is square,
+this one wears a browser viewport, so at 48 and a 16:9 window it spanned 85 world units. The two
+still match in tilt, follow and material; they no longer match in height, because matching there
+is what made them look like different objects. The elevation came down with it because the
+clearance that reads as floating is derived against the panel's own half-extent, and it is the
+same pair §34 warns about — so the number above is superseded, not corrected, and the resting yaw
+it is coupled to has not been re-judged.
+
+Nothing else in the feature moved: the approach solves its fill distance from `coreHeight()`
+every frame, so the camera simply flies half as far and the arrival pose is still exact, and the
+pointer remaps by the core inset. What did NOT follow on its own were the plate's world-unit
+terms — `SHELL_BLEED` 0.9 → 0.45 and `SHELL_THICKNESS` 0.6 → 0.3 — because a world-unit margin
+and rim on a half-size plate read as twice as thick. The rim now sits ON its documented aliasing
+floor rather than inside it, seen from a camera further out again: it is the one term here that
+is a judgement by eye, with 0.4 as the deliberate non-proportional fallback.
 
 ---
 

@@ -55,11 +55,15 @@ import displayVertexShader from './shaders/display/vertex.glsl';
  * over `uEdgeFalloff` measured OUTWARD from the core's edge, so if the plate
  * stopped at the core the face's soft fringe would hang outside the plate's hard
  * silhouette and the object would read with two edges a fraction apart. This must
- * stay greater than `uEdgeFalloff * panelHeight` — 0.5 world units at the current
+ * stay greater than `uEdgeFalloff * panelHeight` — 0.25 world units at the current
  * defaults — so the fringe dies on top of the plate, dark on dark, and the only
  * edge anyone can see is the geometric one.
+ *
+ * Halved with `PANEL_HEIGHT` on 2026-09-09. It is in world units, so holding it while
+ * the panel shrank would have doubled the plate's margin relative to the face it
+ * carries — what has to stay proportional is the margin, not the number.
  */
-const SHELL_BLEED = 0.9;
+const SHELL_BLEED = 0.45;
 
 /**
  * Plate thickness in world units.
@@ -74,8 +78,15 @@ const SHELL_BLEED = 0.9;
  * of the two that number was tuned at, so the rim's APPARENT size here is a thing
  * to look at rather than a thing inherited. During the approach it grows and then
  * leaves the frame entirely, which is the one moment its thickness stops mattering.
+ *
+ * Halved with `PANEL_HEIGHT` on 2026-09-09, for `SHELL_BLEED`'s reason: a world-unit
+ * rim on a half-size plate reads as twice as chunky. That lands it ON the aliasing
+ * floor above rather than inside it, and from a camera further out again — so this is
+ * the one number in that change that is a judgement by eye. If the rim shimmers or
+ * disappears at rest, raise it toward 0.4 and accept that it is then deliberately not
+ * proportional.
  */
-const SHELL_THICKNESS = 0.6;
+const SHELL_THICKNESS = 0.3;
 
 /**
  * The panel's HEIGHT in world units. The width follows the viewport.
@@ -87,10 +98,19 @@ const SHELL_THICKNESS = 0.6;
  * driving the height from it would move the panel's clearance every time someone
  * resized a window.
  *
- * 48 is `servicesDisplay`'s `PANEL_HEIGHT` as well, and the match is deliberate:
- * two displays of visibly different size in one city read as a mistake.
+ * 24, halved from 48 on 2026-09-09, and now deliberately HALF `servicesDisplay`'s
+ * `PANEL_HEIGHT` rather than equal to it. Equal heights did not mean equal size: the
+ * services panel is square, while this one wears a browser viewport and is
+ * `24 * aspect` wide — at 48 and a 16:9 window it spanned 85 world units, which read
+ * as a billboard over the city rather than as a screen standing in it. The two
+ * displays still match in tilt, in follow and in material; they do not match in
+ * height, because matching there is what made them look like different objects.
+ *
+ * `SHELL_BLEED` and `SHELL_THICKNESS` were halved with it — they are world units and
+ * do not follow on their own. `coreInset` and `cornerRadius` are ratios and did not
+ * move.
  */
-const PANEL_HEIGHT = 48;
+const PANEL_HEIGHT = 24;
 
 /** Seconds for the display to fade in on load. */
 const ACTIVATION_DURATION = 0.9;
@@ -316,8 +336,9 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
       // An antialiasing width, not a dissolve. The plate behind carries the
       // silhouette, so the face's job at its edge is to stop cleanly.
       //
-      // In `panelHeight` units: 0.0104 x 48 = 0.50 world units, comfortably inside
-      // `SHELL_BLEED` (0.9). Exceed that and the fringe escapes the plate.
+      // In `panelHeight` units, so it followed the panel down: 0.0104 x 24 = 0.25
+      // world units, comfortably inside `SHELL_BLEED` (0.45). Exceed that and the
+      // fringe escapes the plate.
       uEdgeFalloff: { value: 0.0104 },
       uCoreOpacity: { value: 1 },
       // A narrow bloom hugging a real edge. Both this and `uEdgeFalloff` must fit

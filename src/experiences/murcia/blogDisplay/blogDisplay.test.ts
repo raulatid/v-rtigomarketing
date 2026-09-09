@@ -30,7 +30,7 @@ function makeDisplay(aspect: number): BlogDisplay {
   return createBlogDisplay({
     centre: new THREE.Vector3(120, 0, -40),
     groundY: 30,
-    elevation: 38,
+    elevation: 19,
     aspect,
     tiltDegrees: 45,
     baseYawDegrees: 267,
@@ -148,8 +148,9 @@ describe('the plate still covers the face it carries', () => {
     try {
       const falloff = display.panelMaterial.uniforms['uEdgeFalloff']?.value as number
       // `SHELL_BLEED`, in world units, against a falloff expressed in panel heights.
-      const bleed = 0.9
-      const panelHeight = 48
+      // Both halved on 2026-09-09; the inequality is what survives that, not the values.
+      const bleed = 0.45
+      const panelHeight = 24
       expect(falloff * panelHeight).toBeLessThan(bleed)
     } finally {
       display.dispose()
@@ -175,7 +176,7 @@ describe('the panel hangs above what it floats over', () => {
   it('measures its elevation from the given ground, not from the world origin', () => {
     const display = makeDisplay(1)
     try {
-      expect(display.anchor().y).toBe(30 + 38)
+      expect(display.anchor().y).toBe(30 + 19)
       expect(display.anchor().x).toBe(120)
       expect(display.anchor().z).toBe(-40)
     } finally {
