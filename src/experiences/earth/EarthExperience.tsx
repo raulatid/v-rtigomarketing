@@ -140,10 +140,11 @@ export function EarthExperience({
         onDeselect={onDeselectCase}
         active={active}
       />
-      {/* Last, and outside the depth buffer entirely: the way out of this world,
-          drawn in it rather than on a plate over it. Mounted unconditionally and
-          invisible so its shader is compiled by the scene-level warm-up rather
-          than on the frame the hint first appears. */}
+      {/* WHEN the way out is offered. It draws nothing — the sentence is
+          `.earth-hint`, a DOM node App renders, and this paints one attribute on
+          it once the viewer has been still. Mounted unconditionally: the rule it
+          counts is about the viewer, so it must keep counting while nothing is
+          on screen. */}
       <HintLayer state={state} active={active} satelliteHoverRef={satelliteHoverRef} />
     </>
   )

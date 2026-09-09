@@ -1,17 +1,17 @@
 /**
- * The particle hint's tuning gate. The sibling of `protoTutorial.ts` and
+ * The Earth hint's tuning gate. The sibling of `protoTutorial.ts` and
  * `protoSky.ts`, built the same way for the same reason.
  *
- * The hint is offered 1.2s after an arrival and gone three seconds after the
- * first scroll — which is right for a visitor and hopeless for judging it: the
- * arrival is minutes into the intro, and the gesture that would let you look at
- * the figure is the one that dismisses it. `?hint=1` holds it on screen and
- * ignores the linger, so the dot spacing, the sentence size, the colour against
- * a bright limb and the gathering can be looked at against the live scene.
+ * The hint appears after two seconds of stillness and steps aside the moment the
+ * viewer acts — which is right for a visitor and hopeless for judging it, since
+ * the act of looking at it on a laptop is usually the act that dismisses it.
+ * `?hint=1` holds it on screen, so the type size, the bottom gap against the
+ * footer and the sentence's legibility over a bright limb can be looked at
+ * against the live scene.
  *
- * That looking is not optional here. The values in `hintConfig.ts` were derived
- * by arithmetic — skeleton length over budget against sprite diameter — and
- * arithmetic can say a figure is legible without saying it is good.
+ * That looking is not optional. The sizes in `.earth-hint` were carried over
+ * from a figure tuned at a different medium, and a stylesheet can say the
+ * sentence fits without saying it reads.
  *
  * Gated on `DEBUG_TOOLS_ENABLED`, so a production build never consults the
  * parser. Read ONCE at module load, like the other gates.

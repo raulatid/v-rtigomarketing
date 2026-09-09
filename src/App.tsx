@@ -14,6 +14,7 @@ import { InteractionHandle } from './experiences/earth/interaction/InteractionLa
 import { DebugOverlay } from './components/DebugOverlay'
 import { CustomCursor } from './components/CustomCursor'
 import { NavigationControl } from './components/NavigationControl'
+import { EarthHint } from './components/EarthHint'
 import { OrbitSystem } from './experiences/earth/orbit/createOrbitSystem'
 import type { SatelliteDef } from './experiences/earth/orbit/orbitConfig'
 import { orbitAssignments } from './experiences/earth/orbit/orbitAssignments'
@@ -632,6 +633,17 @@ export default function App() {
           tear down the wheel listener with it, and that listener is the only thing
           stopping the page scrolling behind the canvas. */}
       <NavigationControl ref={navigationRef} />
+
+      {/* Earth's hint, beside the control it teaches. A sibling of `.nav` and
+          never a child of it: that box is `position: fixed` and `styles.css`
+          records what happened the last time it gained a property that captured
+          a fixed child's frame of reference.
+
+          Mounted for both worlds and never gated on one. `HintLayer` decides
+          when it shows by painting `data-visible`, and putting a DOM node's
+          lifetime on a per-frame decision would be a different and worse thing
+          than toggling one attribute on it. */}
+      <EarthHint />
 
       {/* The context is gone and nothing will draw again. Spanish, like every
           other visitor-facing string (DECISIONS §11), and it offers the only

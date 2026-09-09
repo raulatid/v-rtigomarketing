@@ -29,12 +29,12 @@ export function createIdleWatch({ idleSeconds }: IdleWatchOptions) {
    *
    * Returns true on every frame the threshold is met rather than only on the
    * edge, so the caller can treat it as a state — which is what it is. The
-   * caller is then free to be told the same thing repeatedly, and `hintPresence`
-   * already ignores a `setVisible` that does not change anything.
+   * caller is then free to be told the same thing repeatedly, and `HintLayer`
+   * already skips an attribute write that would not change anything.
    */
   function tick(delta: number): boolean {
-    // Guarded rather than trusted, like the presence machine next door: this is
-    // driven from harnesses as well as from a clamped frame delta.
+    // Guarded rather than trusted: this is driven from harnesses as well as from
+    // a clamped frame delta.
     if (Number.isFinite(delta) && delta > 0) quiet += delta
     return quiet >= idleSeconds
   }

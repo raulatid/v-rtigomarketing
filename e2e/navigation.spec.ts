@@ -389,4 +389,60 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
       )
       .toBe(true)
   })
+
+  test('the Earth hint answers stillness, and clears the footer while it floats', async ({
+    page,
+  }) => {
+    // NEW COVERAGE, and it is new because it only just became possible. Until
+    // 2026-09-09 this hint was ~770 points inside the canvas: `hintConfig.ts`
+    // and PROJECT_MEMORY §11.68 both promised an e2e that could assert only
+    // "something rasterized", because canvas pixels are not addressable and an
+    // image baseline of system-ui copy is platform-bound. It is DOM now (§43),
+    // so the two things that were actually worth proving can be.
+    //
+    // Neither is provable in a unit test. `hintIdle.test.ts` proves the rule
+    // against numbers; it cannot prove that a real wheel event reaches it, that
+    // the scene paints the attribute the stylesheet is waiting on, or that the
+    // sentence and the copyright mark do not collide once both are laid out.
+    await page.goto('/')
+    await reachSite(page)
+
+    const hint = page.locator('.earth-hint')
+
+    // It is offered on stillness. Nothing here acts, so it arrives on its own —
+    // which is the whole difference from Murcia's plate, offered on arrival.
+    await expect(hint).toHaveAttribute('data-visible', '', { timeout: 15_000 })
+
+    // THE COLLISION THE BOTTOM EXPRESSION EXISTS TO PREVENT. `.site-footer` owns
+    // the bottom ~26px and the sentence is nearly full width, so it cannot miss
+    // "© 2026 Vértigo" horizontally — vertical clearance is the only lever.
+    //
+    // Measured at the BOTTOM of the float, not at rest: the figure rests one
+    // amplitude above its floor precisely so the down half of the swing lands on
+    // it, and a version that reserved nothing passed at rest and collided in
+    // motion. Sampling the live rect a few times over one 6s period catches that.
+    const footerTop = await page
+      .locator('.site-footer')
+      .evaluate((el) => el.getBoundingClientRect().top)
+
+    let lowest = -Infinity
+    for (let i = 0; i < 12; i += 1) {
+      lowest = Math.max(
+        lowest,
+        await hint.evaluate((el) => el.getBoundingClientRect().bottom),
+      )
+      await page.waitForTimeout(550)
+    }
+    expect(lowest).toBeLessThanOrEqual(footerTop)
+
+    // And it steps aside the moment the viewer acts. One event, far below the
+    // 600px the gesture needs, so this dismisses the hint without navigating.
+    await wheelStream(page, 40, 1)
+    await expect(hint).not.toHaveAttribute('data-visible', '', { timeout: 5_000 })
+
+    // Then it comes back, because it answers a state and not an edge. This is
+    // the half the arrival rule could not express: `onHintVisible` fired once
+    // per arrival and then never again.
+    await expect(hint).toHaveAttribute('data-visible', '', { timeout: 15_000 })
+  })
 })

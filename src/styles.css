@@ -1066,11 +1066,12 @@ html {
    on the children so that it would collapse with them; the collapse is a
    single-axis one since the blocks became neighbours rather than a stack, so
    the plate can own its own inset again and every cell shares it. */
-/* EARTH DRAWS ITS HINT IN THE SCENE, not on this plate.
+/* EARTH DOES NOT USE THIS PLATE. Its hint is `.earth-hint`, below.
 
-   Client direction: no HTML hint-tutorial on the Earth scene. It is a particle
-   figure now — two chevrons over one sentence, gathering out of the star field
-   — in `experiences/earth/hint`. Murcia keeps the plate and every cell on it.
+   Client direction: no HTML hint-tutorial on the Earth scene. That was answered
+   with a particle figure, and the particles were rejected in turn (§43) — so
+   Earth's hint is plain text with no plate under it, which is what the objection
+   was actually about. Murcia keeps this plate and every cell on it.
 
    The FRAME goes, not the travel cell. On Earth `.nav-hint__controls` is held at
    `0fr` (it only opens under `data-direction='up'`), so the travel cell is the
@@ -1080,11 +1081,219 @@ html {
    Nothing is removed from the markup, and that is deliberate on two counts:
    Murcia still needs every glyph here, and `NavigationControl.test.tsx` asserts
    the plate carries BOTH directions' vocabulary — "the CSS can only choose
-   between what was rendered". `createNavigationInput` also still writes
-   `data-visible` on this element, which is what lets the 3D figure inherit the
-   arrival and linger rules instead of restating them. */
+   between what was rendered". `createNavigationInput` still writes `data-visible`
+   on this element for Murcia; Earth's hint has its own timing and does not read
+   it. */
 .nav[data-direction='down'] .nav-hint {
   display: none;
+}
+
+/* ---- z 44 — Earth's hint, in text (§43) ---------------------------------
+
+   The particle figure was rejected 2026-09-09; this is the same icon and the
+   same sentence as DOM. Everything the CPU used to compute for it — the fit to
+   the viewport, the safe-area probe, the bottom anchor, the float — is here,
+   because a DOM box can simply ask CSS the questions a figure inside a canvas
+   could not.
+
+   ## THE BOTTOM EXPRESSION IS THREE TERMS AND ALL THREE ARE LOAD-BEARING
+
+   `.site-footer` is fixed at `bottom: max(14px, inset)` and ~12px tall, so it
+   owns roughly the bottom 26px of every viewport. Measured 2026-09-08: at a 12px
+   gap the sentence runs straight through "© 2026 Vértigo" on a 390px phone,
+   where a nearly full-width centred sentence cannot miss a right-aligned mark
+   horizontally. 24px is a FLOOR, not a preference — going under it needs the
+   footer to move, not a smaller number here.
+
+   THE FLOAT IS RESERVED IN THE GAP, and that is the term that arrives through
+   the side door. The float is a transform about the resting position, so the
+   rest has to sit one amplitude ABOVE the floor; the down half of the swing then
+   bottoms out at exactly the floor. Drop the `--hint-float` term from `bottom`
+   and the sentence rests at 24 and dips to 19 — the collision the anchor exists
+   to prevent, walking back in the moment anything animates.
+
+   The safe-area term is ADDITIVE rather than the plate's `max(28px, inset +
+   20px)`. That form is a minimum that happens to mention an inset; this needs a
+   floor measured above the footer, and the footer itself already sits at
+   `max(14px, inset)`. Additive is the only form that still clears it by 24px on
+   a device with a home indicator.
+
+   ## ONE `font-size` IS THE OLD `fitFor`, AND IT IS THE ONLY SIZE HERE
+
+   The figure was scaled by a single uniform to keep a 24px side margin. Every
+   size below is a ratio of the type size instead — chevron 44/26em wide, its ink
+   box 8x10 so 55/26em tall, gap 16/26em — so one number scales the whole
+   composition the way one uniform did, and the proportions the client approved
+   survive a resize. Change the type size, not the parts.
+
+   ## SMALL, LIGHT AND TRACKED — client direction, 2026-09-09
+
+   The type came down from 26px to 16 on the brief that the concept is premium
+   and elegant. The other two moves are what stop that reading as merely cramped,
+   and they are not independent of it:
+
+   - WEIGHT 600 -> 500. The 600 was bought for a reason that died with the
+     particles — heavier stems held a wider dot spacing at 26px, where the ink
+     had to survive being sampled. Solid glyphs do not, and 600 at 16px is dense
+     rather than confident.
+   - LETTER-SPACING 0.055em, which small white type on a dark ground wants and
+     large type does not: the counters close up as the size falls, and tracking
+     is what keeps a quiet sentence legible instead of tight. `.nav-hint__label`
+     reaches for the same tool harder (0.14em) because it is uppercase.
+
+   At this size the sentence is ~265px wide and fits every viewport with the 24px
+   margins clear, so the clamp is a guard rather than a working range — 14px below
+   ~445px wide, 16 everywhere else.
+
+   A wrap is still safe here in a way it was not in the scene, which is worth
+   knowing before someone adds a `white-space: nowrap`. The figure was placed by
+   its CENTRE, so a taller one ate the bottom gap; a `bottom:`-anchored box grows
+   UPWARD, so a second line moves away from the footer rather than into it.
+
+   No `font-family`. The sheet asks for `'Inter', system-ui, sans-serif` and
+   resolves to `system-ui` on this route (PROJECT_MEMORY §11.68); the particle
+   hint restated that stack only because a canvas has to be told what to measure.
+   Inheriting is the same face and cannot drift from it.
+
+   WHITE, not the figure's rgb(200,200,200). That value existed solely to sit
+   under UnrealBloom's 0.62 linear knee, and bloom samples the WebGL frame — this
+   composites over it afterwards and is never sampled, so the constraint is void.
+   Client direction: white. */
+.earth-hint {
+  /* Named so the reservation in `bottom` and the swing in the keyframes cannot
+     drift apart. They are the same 5px. */
+  --hint-float: 5px;
+  /* The measured floor over `.site-footer`.
+     36 AND NOT THE FIGURE'S 24, and the difference is a text box rather than a
+     change of mind. `.site-footer` sits at `max(14px, inset)` and its line box
+     measures ~15px, so it really owns the bottom 29px — not the 26 §41
+     estimated. The particle figure could sit at 24 because it was placed by its
+     sampled INK bbox, which is what that decision had to add `buildHintFigure`'s
+     bounding box to get. A DOM line box carries half-leading and descender depth
+     under the glyphs, so a box bottom at 24 puts the ink at ~26 and the swing
+     takes it under the mark. Measured in the e2e that now guards it: the lowest
+     edge was 876 against a footer top of 871. */
+  --hint-floor: 36px;
+
+  position: fixed;
+  z-index: 44; /* over the footer (42), under the nav control (45) */
+  left: 0;
+  right: 0;
+  bottom: calc(
+    var(--hint-floor) + var(--hint-float) + env(safe-area-inset-bottom, 0px)
+  );
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.615em; /* was gapPx 16 / fontPx 26 */
+  /* The side margin the old fit uniform kept clear. */
+  padding: 0 24px;
+
+  font-size: clamp(14px, 3.6vw, 16px);
+  font-weight: 500;
+  letter-spacing: 0.055em;
+  line-height: 1.15;
+  text-align: center;
+  color: #fff;
+
+  /* Out: quicker than in. Leaving is not an event. */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 900ms ease-in,
+    visibility 0s linear 900ms;
+
+  /* Rigid: one phase for the whole thing, chevrons and sentence together as one
+     object suspended in space. A per-particle version of this shimmered instead
+     of floating, and the reason it could not be fixed by amplitude is gone with
+     the particles — rigid motion cannot blur a letterform.
+
+     Always running rather than gated on `[data-visible]`, so a hint dismissed
+     mid-swing fades from where it is instead of snapping 5px on the way out. */
+  animation: earth-hint-float 6s ease-in-out infinite;
+
+  pointer-events: none;
+  user-select: none;
+}
+
+/* In: long enough to read as arriving rather than as a flash. Painted by
+   `HintLayer`, which polls the permission and counts the stillness. An
+   interrupted transition reverses from wherever it got to, which is the case the
+   presence machine this replaced needed a branch for. */
+.earth-hint[data-visible] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 2000ms ease-out,
+    visibility 0s;
+}
+
+/* Sized in em like everything else, so the mark tracks the type rather than
+   needing its own breakpoint. 1.375em is 22px against a 16px sentence — down
+   from the figure's 44/26em, because that ratio was set when the sentence was
+   26px and a mark two-thirds the cap height of its text overpowers it once the
+   text is small. The height follows the viewBox's 9.2:11.2. */
+.earth-hint__chevrons {
+  display: block;
+  width: 1.375em;
+  height: 1.674em;
+}
+
+.earth-hint__sentence {
+  /* The sentence is one line by design and wraps only on a very narrow
+     viewport; `balance` is what keeps that wrap from leaving one word alone. */
+  text-wrap: balance;
+}
+
+/* INPUT decides the sentence, never viewport width — the same rule and the same
+   mechanism as `.nav-hint__label[data-input]` above. Fine is the default and the
+   coarse block flips it. */
+.earth-hint__sentence[data-input='coarse'] {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .earth-hint__sentence[data-input='fine'] {
+    display: none;
+  }
+
+  .earth-hint__sentence[data-input='coarse'] {
+    display: block;
+  }
+}
+
+@keyframes earth-hint-float {
+  0%,
+  100% {
+    transform: translateY(calc(var(--hint-float) * -1));
+  }
+
+  50% {
+    transform: translateY(var(--hint-float));
+  }
+}
+
+/* The phone menu takes the screen and everything between the canvas and the
+   panel stands down — the sibling of the list at the top of this file, stated
+   here rather than joined to it because this needs no `visibility` flip: the
+   node is already `aria-hidden` and `pointer-events: none`, so opacity is all of
+   it. `attentionIsFree` already drops the permission when the menu opens, so
+   this only covers the 900ms fade that starts as it does. */
+@media (max-width: 767px) {
+  .app__scene[data-menu-open] .earth-hint {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+}
+
+/* Fade only. The float is exactly the decorative loop this query kills, and the
+   sentence is fully legible standing still — the same split the plate's own
+   reduced-motion rule makes. */
+@media (prefers-reduced-motion: reduce) {
+  .earth-hint {
+    animation: none;
+  }
 }
 
 .nav-hint {

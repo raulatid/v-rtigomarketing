@@ -1776,6 +1776,14 @@ must restore it to measure coverage.
     is §11.57's lesson restated); and an image baseline of rasterized copy is platform-bound,
     so assert that something rasterized rather than that it matches a picture.
 
+    The hint stopped being one of those things on 2026-09-09 (DECISIONS §43): it is DOM text
+    now and simply inherits the cascade, which is the same resolved face and cannot drift from
+    it. The fact above is unchanged and the guard still matters — registering a real `Inter`
+    in `styles.css` would still restyle the site on a return from the blog — but the two
+    consequences now apply only to things that genuinely rasterize, which is the brand atlas.
+    Note also that the promised "assert that something rasterized" e2e was never written; the
+    hint's replacement is assertable as DOM and `navigation.spec.ts` covers it.
+
 ---
 
 ## 12. State of the work

@@ -2697,6 +2697,11 @@ to the firm area on purpose, a composed shot having no business landing in the m
 
 ## 41. The Earth's hint is drawn in the scene, out of particles
 
+> **REVERSED 2026-09-09 by §43.** The particle figure is gone and the hint is DOM text. Kept
+> because it is the record of how the figure was tuned and why it was rejected — and because
+> everything below about WHEN the hint appears, and the placement arithmetic that answers to
+> `.site-footer`, is still in force and still describes shipped code.
+
 > Amends **§39 (2026-09-05, the hint frame)** for the Earth scene only. Murcia's plate, its
 > four cells and every rule about WHEN a hint appears are untouched.
 
@@ -2933,6 +2938,101 @@ number comes down. The e2e was rewritten and NOT run.
 
 ---
 
+## 43. Earth's hint is text again
+
+> Reverses **§41 (2026-09-08, the particle figure)**. Murcia's plate is untouched and stays
+> hidden on Earth by the same one-line rule.
+
+**Decided 2026-09-09,** on client direction: the particles go. The hint is the same two chevrons
+over the same sentence, drawn as plain white DOM text.
+
+**The objection was never the text.** §41 read the September direction — "no HTML hint-tutorial
+on the Earth scene" — as a ruling against HTML, and answered it by rebuilding the sentence out of
+~770 points inside the canvas. What the client had actually rejected was the glass chip: a plate,
+a border and a backdrop laid over a 3D scene. A bare sentence with none of those is not that
+thing. Reading a material objection as an architectural one bought a shader, a sampler, a canvas
+rasterizer and five rounds of tuning, and the second direction is what disambiguated it.
+
+**What is identical, deliberately.** The icon is the same two chevron paths `NavigationControl`
+draws — the same drawing, not a redraw that can drift. The sentence and both its pointer variants
+are unchanged, and both are still rendered with the stylesheet picking between them. The 2 s
+stillness rule, `state.hintAllowed` as the only thing that crosses from the app, and a satellite
+hover counting as acting are all untouched.
+
+**Revised the same day: smaller, on the brief that the concept is premium and elegant.** Type 26px
+→ 16, and the two moves that came with it are not decoration — at 16px the original settings read
+cramped rather than quiet.
+
+- **Weight 600 → 500.** The 600 was bought for a reason that died with the particles: heavier
+  stems held a wider dot spacing at 26px, where the ink had to survive being *sampled*. Solid
+  glyphs do not need it.
+- **Letter-spacing 0.055em.** Counters close as size falls, so small white type on a dark ground
+  wants tracking that large type does not. `.nav-hint__label` reaches for the same tool harder
+  (0.14em) because it is uppercase.
+- **The mark had to come down with the text, and by more than proportionally.** Every size in
+  `.earth-hint` is an em ratio, so the chevrons shrank from 44px to 27px on the type change alone
+  — and that is exactly what exposed them. The figure's stroke was 1.6 units across an 8-unit box,
+  a fifth of the mark's width, which reads as deliberate weight at 44px and as a 5.4px slab at 27
+  over letter stems half that thick. **Weight is a ratio to what it sits beside, not a constant.**
+  So the stroke is 1.0 and the mark 22px (1.375em), and the `viewBox` grew by the half-stroke
+  spill on each side: it was the ink crop because the canvas bitmap was exactly that size and
+  clipped the caps flat, which was right while the sentence was made of dots, but a thin round cap
+  sliced square is just a blunt tip.
+
+Measured on the shipped path at 1440×900: one line, 221px wide, clearing the footer by 7.1px at
+the BOTTOM of the float. 390×844 gives 14px and 193px, phone landscape 16px and 220px, both on
+screen and unwrapped — the viewport that was 187px off the bottom before the anchor was fixed.
+
+**What changed, and why each one had to.**
+
+- **Gather and scatter became a plain opacity fade,** 2.0 s in and 0.9 s out. Gathering was a
+  particle idea; a fade is what the sentence can do. `hintPresence.ts` went with it — its
+  `progress`/`exit` floats existed only to drive shader uniforms, and every behaviour its ten
+  tests asserted is native to a CSS transition, including the interrupt case it carried a branch
+  for. The one deliberate difference: under reduced motion it used to snap in already formed, and
+  now it fades. That is the policy the plate already follows — kill the loops, keep the fades.
+- **The colour is white,** not the figure's `rgb(200,200,200)`. That grey was never a design
+  choice; it was the largest value that stays under `UnrealBloomPass`'s 0.62 linear knee, because
+  text that blooms cannot be read. Bloom samples the WebGL frame, and DOM composites over it
+  afterwards and is never sampled — so the constraint is simply void, and the white the client
+  asked for became available for the first time.
+- **The float is CSS and always running,** rather than gated on the visible flag, so a hint
+  dismissed mid-swing fades from where it is instead of snapping 5 px on its way out.
+- **`!active` now HIDES rather than freezes.** The figure could be left mid-flight because it
+  lived in a scene that went away with it. A DOM node does not, and leaving the flag painted
+  would strand the sentence over Murcia.
+
+**Three workarounds died with it, and they are the tell.** The safe-area probe — a throwaway
+`div` appended to the body to ask CSS a question the canvas could not — the `measureText` layout
+that had to name `system-ui` explicitly because a canvas must be told what to measure, and the
+single fit uniform that stood in for a re-layout. All three existed to give a figure inside a
+canvas access to things a DOM box has for free. 1,090 lines across seven files went with them.
+
+**The bottom expression is the part that was PAID FOR and is kept verbatim.** `.site-footer` owns
+roughly the bottom 26 px; at a 12 px gap the sentence runs through "© 2026 Vértigo" on a 390 px
+phone, and a nearly full-width centred sentence cannot miss a right-aligned mark horizontally. So
+24 px is a floor, and the float's amplitude is reserved above it so the DOWN half of the swing
+bottoms out at the floor rather than 5 px inside the footer. The safe-area term is additive
+rather than the plate's `max(28px, inset + 20px)`, because the footer itself already sits at
+`max(14px, inset)` and only an additive form still clears it on a device with a home indicator.
+
+**One thing got better rather than smaller.** §41 promised an e2e and it was never written,
+because canvas pixels are not addressable and an image baseline of `system-ui` copy is
+platform-bound — `hintConfig.ts` and PROJECT_MEMORY §11.68 both recorded the claim as though it
+had been. The hint is DOM now, so `navigation.spec.ts` asserts the round trip on the real idle
+path AND measures the sentence against the footer at the bottom of its float, which is the
+collision the whole placement exists to prevent and the one no unit test can see.
+
+**Also broken when:** the `--hint-float` term is dropped from `bottom` (the sentence then rests
+at 24 and dips to 19, into the footer); `.nav[data-direction='down'] .nav-hint { display: none }`
+is removed in the belief that it un-hides "the" hint (it un-hides Murcia's plate on Earth, which
+is the chrome this exists instead of); a `visible` prop is added to `EarthHint` (that boolean
+flips on every `pointerdown`, and App's own note says a `useState` for it re-renders both
+canvases and every overlay); `pointermove` returns to the poke list; or `HintLayer` stops
+clearing `data-visible` when `active` goes false.
+
+---
+
 ## Superseded
 
 | Decision | Was | Now |
@@ -2940,6 +3040,7 @@ number comes down. The e2e was rewritten and NOT run.
 | The blog is entered by a tap on the `blog_edificios` cluster, which owns no camera and is "not a district, and must not become one" | `interaction/BlogBuilding.ts`, deleted 2026-09-09 | A display floating above that cluster, and a three-second approach into the page. The tap is gone rather than kept beside it — **§42** |
 | Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
 | The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** |
+| Earth's way out is drawn in the scene, as ~770 points that gather out of the star field | `experiences/earth/hint/{createHintParticles,sampleInk,buildHintFigure,hintPresence}.ts`, deleted 2026-09-09, **§41** | Plain white DOM text carrying the same chevrons and the same sentence, faded in over 2 s and floating ±5 px. The client's objection was the glass plate, never the text — **§43** |
 | The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** |
 | The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
 | Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |
