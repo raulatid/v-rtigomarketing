@@ -3274,7 +3274,10 @@ motion applied to the viewer.
 
 **Earth gained a zone to dive at.** Past `earthGuideStart` (0.6) the same scroll
 that zooms also swings the camera onto the destination, so a viewer who pushes all
-the way arrives aimed at Spain. The drag is NOT gated — the free orbit keeps every
+the way arrives aimed at Spain. The swing is EASED at the rate the radius eases, never
+read straight off the band depth: the band lands in whole wheel notches, and read raw
+the weight took each notch in one frame, so the globe snapped toward Spain while the
+zoom glided (fixed 2026-09-10, `destinationSteer.test.ts`). The drag is NOT gated — the free orbit keeps every
 input, and only its weight in the blend shrinks; a gate would make the globe go
 dead under the hand at the moment the viewer is most engaged with it. The radius
 is untouched, so the zoom stays theirs the whole way through. `CameraController`

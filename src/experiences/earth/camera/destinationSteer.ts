@@ -46,6 +46,47 @@ export function steerWeightFor(bandDepth: number, limits: WarpLimits): number {
   return smootherstep(limits.earthGuideStart, 1, bandDepth)
 }
 
+/**
+ * Below this gap the eased weight lands on its target. 1e-4 of the swing is
+ * under a fiftieth of a degree even from the far side of the planet.
+ */
+const STEER_SETTLE_EPSILON = 1e-4
+
+/**
+ * Advances the steer the viewer actually sees one frame toward the band.
+ *
+ * THIS, NOT `steerWeightFor`, IS WHAT DRIVES THE CAMERA, and the difference is
+ * the defect it exists to fix. The band lands in whole wheel notches — a tenth
+ * of the depth each — and the rig eases the RADIUS across every one. Read raw,
+ * the weight took each notch in a single frame instead: 0.10, 0.40, 0.40, 0.10
+ * of the swing, so from the far side of the planet the notch from 0.7 to 0.8
+ * turned the camera ~60 degrees while the zoom glided, and it read as the globe
+ * snapping to Spain. The sandbox this was ported from kept the two values apart
+ * for exactly that reason; the port had collapsed them.
+ *
+ * Chased at the rig's own rate, so the swing and the zoom are one motion that
+ * settles together. Smoothing rather than animation: it settles where the band
+ * left it and moves nowhere on its own.
+ *
+ * Lands exactly on the target inside `STEER_SETTLE_EPSILON`, because an
+ * exponential never arrives — and a residual weight would keep overriding the
+ * rig's aim every frame for nothing, and keep a return to rest from being rest.
+ */
+export function easeSteerWeight(
+  current: number,
+  bandDepth: number,
+  limits: WarpLimits,
+  rate: number,
+  dt: number,
+): number {
+  if (!Number.isFinite(dt) || dt <= 0) return current
+  const target = steerWeightFor(bandDepth, limits)
+  if (!Number.isFinite(current)) return target
+  const alpha = 1 - Math.exp(-Math.max(0, rate) * dt)
+  const next = current + (target - current) * alpha
+  return Math.abs(target - next) < STEER_SETTLE_EPSILON ? target : next
+}
+
 const steerRotation = new THREE.Quaternion()
 const partialRotation = new THREE.Quaternion()
 const alignedDirection = new THREE.Vector3()

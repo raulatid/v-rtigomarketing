@@ -90,6 +90,12 @@ export function EarthExperience({
   // Both ends inside Earth, like the two above.
   const satelliteHoverRef = useRef(false)
 
+  // The destination steer actually in effect, 0..1. Eased by InteractionLayer,
+  // which applies it, and read by CameraController at a commit, so the dive
+  // continues from the swing on screen rather than from one recomputed off the
+  // band depth — the two differ by however far the ease still had to go.
+  const steerWeightRef = useRef(0)
+
   return (
     <>
       <CameraController
@@ -98,6 +104,7 @@ export function EarthExperience({
         overlayEl={overlayEl}
         active={active}
         destinationRef={destinationRef}
+        steerWeightRef={steerWeightRef}
       />
       {/* Projection-window shift for the audit panel. It writes camera.view,
           not the pose, so it cannot fight CameraController or the focus rig. */}
@@ -137,6 +144,7 @@ export function EarthExperience({
         cursorRef={cursorRef}
         satelliteHoverRef={satelliteHoverRef}
         destinationRef={destinationRef}
+        steerWeightRef={steerWeightRef}
         onSelect={onSelectCase}
         onDeselect={onDeselectCase}
         active={active}

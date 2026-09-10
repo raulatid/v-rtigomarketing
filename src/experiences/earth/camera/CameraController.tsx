@@ -23,7 +23,6 @@ import {
   prefersReducedMotion,
   speed,
 } from '../../../utils/warpTransition'
-import { steerWeightFor } from './destinationSteer'
 
 // Leg 1: the camera pushes forward through the star volume.
 // Leg 2: it arrives from far out and settles at the Earth's rest distance.
@@ -75,6 +74,8 @@ interface Props {
    * group's transform.
    */
   destinationRef: RefObject<DestinationResolver | null>
+  /** The destination steer in effect, as InteractionLayer last applied it. */
+  steerWeightRef: RefObject<number>
 }
 
 export function CameraController({
@@ -83,6 +84,7 @@ export function CameraController({
   overlayEl,
   active,
   destinationRef,
+  steerWeightRef,
 }: Props) {
   const { camera } = useThree()
 
@@ -221,10 +223,10 @@ export function CameraController({
       fovCatchUp.current = 0
       // How far the viewer had already swung onto the destination when they
       // committed. Captured beside the anchor and the lens for the same reason:
-      // all three are parts of the pose the cinematic is taking over from.
-      guideWeightAtCommit.current = departing
-        ? steerWeightFor(state.zoomDepth, WARP_LIMITS)
-        : 0
+      // all three are parts of the pose the cinematic is taking over from. The
+      // EASED weight, as last applied — recomputing it from the band depth would
+      // differ from what is on screen by however far the ease still had to go.
+      guideWeightAtCommit.current = departing ? steerWeightRef.current : 0
       dollyCaptured.current = true
     }
 

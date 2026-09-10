@@ -134,6 +134,7 @@ export default defineConfig({
         'src/content/site.ts',
         'src/corner-logo/logoMotion.ts',
         'src/experiences/earth/camera/closeUpFraming.ts',
+        'src/experiences/earth/camera/destinationSteer.ts',
         'src/experiences/earth/camera/zoomPose.ts',
         'src/experiences/earth/config/sceneVisibility.ts',
         'src/experiences/earth/config/sequenceState.ts',

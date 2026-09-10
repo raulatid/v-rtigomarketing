@@ -523,10 +523,10 @@ export function createFocusCameraRig({
     /**
      * The point the camera is currently aimed at. Live, not a copy.
      *
-     * Published for the scrub modifier, which runs immediately after update()
-     * and moves the camera along its own view axis — it has to re-aim at the
-     * SAME point the rig just used, or the two disagree by a fraction of a
-     * degree every frame and the globe drifts out of centre.
+     * Published for the destination steer, which runs immediately after
+     * update() and swings the camera toward the destination — it has to start
+     * from the SAME point the rig just aimed at, or a zero steer would not be a
+     * zero change to the rig's pose.
      */
     getLookAt: () => current.lookAt,
     getDragDistance: () => dragDistance,

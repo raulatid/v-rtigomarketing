@@ -10,7 +10,8 @@ import { installCameraReadout } from '../debug/CameraReadout'
 import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags'
 import { PROTO_TUTORIAL } from '../../../app/protoTutorial'
 import { WARP_LIMITS, prefersReducedMotion } from '../../../utils/warpTransition'
-import { applyDestinationSteer, steerWeightFor } from '../camera/destinationSteer'
+import { applyDestinationSteer, easeSteerWeight, steerWeightFor } from '../camera/destinationSteer'
+import { INTERACTION_CONFIG } from './interactionConfig'
 import type { DestinationResolver } from '../navigation/destination'
 import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
 import { createCursorManager, type CursorManager } from '../../../interaction/cursorManager'
@@ -23,16 +24,6 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 export interface InteractionHandle {
   deselect: () => void
 }
-
-/**
- * What the camera looks at with no steer engaged: the Earth's centre.
- *
- * A module constant rather than an import from `CameraController`, which does
- * not export it — and duplicating one zero vector is cheaper than widening that
- * module's surface for it. Both are the origin because the Earth is at the
- * origin; if that ever stops being true, both move together or neither is right.
- */
-const EARTH_STEER_LOOK_AT = new THREE.Vector3(0, 0, 0)
 
 interface Props {
   state: SequenceState
@@ -60,6 +51,11 @@ interface Props {
    * the Earth's surface. Optional: the steer simply does not engage without one.
    */
   destinationRef?: RefObject<DestinationResolver | null>
+  /**
+   * The destination steer in effect, 0..1. Written here, where it is eased and
+   * applied; read by CameraController at a commit.
+   */
+  steerWeightRef: RefObject<number>
   onSelect: (data: SatelliteDef) => void
   onDeselect: () => void
   active: boolean
@@ -80,6 +76,7 @@ export function InteractionLayer({
   cursorRef,
   satelliteHoverRef,
   destinationRef,
+  steerWeightRef,
   onSelect,
   onDeselect,
   active,
@@ -202,8 +199,16 @@ export function InteractionLayer({
     rig.setZoomDepth(state.zoomDepth)
 
     const interactive = active && atOrAfter(state.phase, 'site')
+    const wasActive = rig.isActive()
     if (interactive) rig.activate()
     else if (rig.isActive()) rig.deactivate()
+    // The steer re-seeds WITH the rig, for the reason the rig re-seeds at all:
+    // `activate()` rebuilds the orbit from the overview pose, and a swing
+    // carried over from the last visit — the depth is reset at the cut, the
+    // eased weight is not — would ease back out in plain view on arrival.
+    if (interactive && !wasActive) {
+      steerWeightRef.current = steerWeightFor(state.zoomDepth, WARP_LIMITS)
+    }
 
     // A COMMITTED warp is playing: CameraController owns the camera for its
     // duration, so the rig stands down. Note this does NOT deactivate it —
@@ -255,17 +260,32 @@ export function InteractionLayer({
     // in front of the rig it would simply be overwritten, and put INSIDE it the
     // rig would stop being one thing.
     //
-    // Skipped entirely while a committed cinematic owns the camera —
-    // `CameraController.applyWarp` continues the swing from where this left it,
-    // which is what `guideWeightAtCommit` is for.
+    // EASED, not read off the depth. The band lands in whole wheel notches and
+    // the rig glides the radius across each one; a weight read straight off the
+    // depth took every notch in one frame, and the globe snapped toward Spain
+    // while the zoom glided. See `easeSteerWeight`.
+    //
+    // Composed with the rig's OWN aim, not with the Earth's centre, so a zero
+    // weight hands the rig's pose back exactly, whatever it is looking at.
+    //
+    // Skipped entirely while a committed cinematic owns the camera, and the
+    // weight stays where the last free frame left it: `CameraController` reads
+    // it at the commit and continues the swing from there.
     if (!state.transitionCommitted) {
-      const weight = steerWeightFor(state.zoomDepth, WARP_LIMITS)
+      const weight = easeSteerWeight(
+        steerWeightRef.current,
+        state.zoomDepth,
+        WARP_LIMITS,
+        INTERACTION_CONFIG.camera.lerpK,
+        delta,
+      )
+      steerWeightRef.current = weight
       if (weight > 0) {
         const destination = destinationRef?.current?.(steerDestination.current)
         if (destination) {
           applyDestinationSteer(
             camera.position,
-            EARTH_STEER_LOOK_AT,
+            rig.getLookAt(),
             destination,
             weight,
             steerLookAt.current,
