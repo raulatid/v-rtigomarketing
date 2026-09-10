@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createAppConfig, applyQueryOverrides } from './config/appConfig';
 import type { AppConfig } from './config/appConfig';
 import { murciaConfig } from './config/murciaConfig';
-import type { EnvironmentConfig } from './config/environmentConfig';
+import type { BoundsRect, EnvironmentConfig } from './config/environmentConfig';
 import { resolveCameraPose } from './config/environmentConfig';
 import { applyNavigationQueryOverrides } from './config/environmentQueryOverrides';
 import { createScene } from './core/createScene';
@@ -14,10 +14,13 @@ import type { AssetLoader } from './assets/createAssetLoader';
 import { loadCity, disposeLoadedCity } from './assets/loadCity';
 import type { LoadedCity } from './assets/loadCity';
 import { CameraRig } from './camera/CameraRig';
+import type { CameraOwnership } from './camera/CameraRig';
 import { murciaWarpPose } from './camera/warpPose';
 import { murciaZoomPose, murciaZoomTargets } from './camera/zoomPose';
-import { DragPanController } from './navigation/DragPanController';
-import { NavigableArea } from './navigation/navigableArea';
+import { createCameraInput } from './navigation/createCameraInput';
+import type { CameraInput } from './navigation/createCameraInput';
+import { createDefaultCameraTuning } from './camera/cameraTuning';
+import type { CameraTuning } from './camera/cameraTuning';
 import { containsPoint, expandRect } from './navigation/navigationBounds';
 import { createTerrainTransition } from './environment/createTerrainTransition';
 import type { TerrainTransition } from './environment/createTerrainTransition';
@@ -34,6 +37,7 @@ import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
 import { DistrictBeacons, type BeaconSpec } from './ui/districtBeacons';
+import { CompassBar, type CompassPoi } from './ui/compassBar';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachBanner, resolveBannerSource } from './landmark/attachBanner';
@@ -45,24 +49,13 @@ import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc, type ElementRect } from '../../interaction/screenSpace';
 
 /**
- * Rate the applied zoom chases the requested one, per second.
+ * The zoom's ease used to live here, as ZOOM_LERP_K and ZOOM_SETTLE_EPSILON.
  *
- * 3, which is `INTERACTION_CONFIG.camera.lerpK` on Earth. Not a coincidence and
- * not shared code either: the two rigs are independent by design (ADR 001), so
- * the number is restated here with the reason rather than imported across an
- * experience boundary the architecture check forbids. Both worlds have to answer
- * the same wheel at the same rate or the zoom reads as two different controls.
+ * It moved into `CameraRig`, where distance is now spring state rather than a
+ * pose rewritten every frame. That is not tidying: the rig runs the pitch on the
+ * ZOOM's own spring coefficients, so tilt and distance settle as one motion, and
+ * a single scalar lerp out here could not express that coupling at all.
  */
-const ZOOM_LERP_K = 3;
-
-/**
- * Where the ease gives up and lands on the target.
- *
- * An exponential never arrives, and every step of this one recomputes the ground
- * footprint. 0.0005 of the band is well below what the pose can draw: a fifth of
- * a unit of distance at the far end.
- */
-const ZOOM_SETTLE_EPSILON = 0.0005;
 
 /**
  * How far past the authored city the wrapped surface must reach before it
@@ -130,7 +123,8 @@ export class MurciaExperience {
   private assetLoader: AssetLoader | null = null;
 
   private rig: CameraRig | null = null;
-  private controller: DragPanController | null = null;
+  private cameraInput: CameraInput | null = null;
+  private cameraTuning: CameraTuning | null = null;
   private transition: TerrainTransition | null = null;
   private debugOverlay: DebugOverlay | null = null;
   private interactionProbe: InteractionProbe | null = null;
@@ -142,6 +136,14 @@ export class MurciaExperience {
   private districts: ServicesDistrict[] = [];
   /** Built after the city loads: the beacons need the places they point at. */
   private beacons: DistrictBeacons | null = null;
+  /**
+   * The same places, pointed at from any heading.
+   *
+   * Built from the same specs as the beacons and for the same reason: a compass
+   * pointing at a place the export does not contain would be the second failure
+   * after the missing building.
+   */
+  private compass: CompassBar | null = null;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
   /** The banner on the tower's screen, when the site settings say there is one. */
@@ -168,24 +170,25 @@ export class MurciaExperience {
    */
   private waterTime = 0;
   private active = false;
-  private suspendedController = false;
+  /** True while THIS class suspended the rig, so it only resumes what it paused. */
+  private suspendedRig = false;
   private onLoadProgress: ((fraction: number) => void) | undefined;
   private loadFailed = true;
   /** 0 at the resting pose, 1 at the warp's extreme — which end depends on the role. */
   private warpAmount = 0;
   /** True while this city is the one being LEFT, which is the rising leg. */
   private warpDeparting = false;
+  /** True while the cinematic owns the camera. Set by `setWarpPose`. */
+  private warpEngaged = false;
   /**
    * Where the viewer has asked the zoom to be, -1 .. +1 (`adr/014`).
    *
-   * Two numbers rather than one because a wheel notch is a fifth of the band and
-   * lands whole: written straight through, the city would jump on every notch.
-   * `zoomDepth` is the request and `easedZoomDepth` is where the camera actually
-   * is, which is the same target/current split `CameraRig` and Earth's focus rig
-   * both use, at the same rate.
+   * ONE number here now. A wheel notch is a fifth of the band and lands whole,
+   * so it still must not be written straight through to the camera — but the
+   * smoothing moved into `CameraRig`, which holds distance and elevation as
+   * spring state. This class publishes the request; the rig eases to it.
    */
   private zoomDepth = 0;
-  private easedZoomDepth = 0;
 
   private readonly statusOverlay: StatusOverlay;
 
@@ -198,8 +201,19 @@ export class MurciaExperience {
   private readonly cursor: CursorManager;
 
   private viewport: ViewportSize = { width: 1, height: 1, aspect: 1 };
-  /** The navigable-area pipeline: plate -> visual -> configured -> effective. */
-  private readonly bounds: NavigableArea;
+  /**
+   * Where the viewer's navigation target may go.
+   *
+   * ONE RECTANGLE, and that is the whole of it since the camera-navigation port.
+   * It used to be a six-stage pipeline — plate, visual, configured, footprint,
+   * station, effective — that derived the navigable area from the camera's own
+   * ground footprint every time the pose moved, so that the EYE could be kept
+   * inside the authored city (DECISIONS §39) and pushed against a resistance
+   * band on the way out (§40). Both are retired: the target is clamped to a
+   * rectangle GROWN past the plate, the eye is free, and `checks/footprint.ts`
+   * section 3 is what now guarantees the world still surrounds the camera.
+   */
+  private readonly bounds: BoundsRect;
   /** FPS meter, bounds wireframe and diagnostics. Inert unless debugTools. */
   private readonly debug: MurciaDebugTools;
 
@@ -286,7 +300,13 @@ export class MurciaExperience {
     this.statusOverlay = new StatusOverlay(container);
     this.cursor = createCursorManager(renderer.domElement);
     // After the query overrides, so a `?bounds=` override reaches the pipeline.
-    this.bounds = new NavigableArea(this.environment.navigation);
+    // The authored rectangle, inset if the config asks for it. `navigation.bounds`
+    // is already the grown one — the A2 ring — so this is a no-op at the shipped
+    // inset of 0 and exists only so a caller can pull the viewer in further.
+    this.bounds = expandRect(
+      this.environment.navigation.bounds,
+      -this.environment.navigation.boundsInset,
+    );
     this.debug = new MurciaDebugTools(this.debugTools, this.appConfig, container);
   }
 
@@ -447,18 +467,24 @@ export class MurciaExperience {
    * footprint invariant against the real placement maths; this method does not
    * re-check it.
    *
-   * No external control is taken. This owns distance and elevation;
-   * `DragPanController` owns focus and yaw, and `setFocus`/`setYaw` re-apply
-   * whatever pose is current, so the two compose. Taking
-   * `beginExternalControl()` would collide with `setActive(true)` firing at the
-   * cut, which releases it — and the flag is shared with every district flight
+   * No external control is taken, and the reason is now structural rather than
+   * a courtesy: while `state.transitionCommitted` holds, `update()` routes to
+   * `rig.applyWarpPose` and the springs are not stepped at all. Taking
+   * `setExternallyControlled` would collide with `setActive(true)` firing at the
+   * cut, which releases it, and the flag is shared with every district flight
    * besides.
+   *
+   * The warp does NOT touch the targets, so when it hands back the rig resumes
+   * from exactly where the viewer parked it.
    */
   setWarpPose(amount: number, departing: boolean): void {
-    if (!this.rig) return;
     this.warpAmount = amount;
     this.warpDeparting = departing;
-    this.applyRigPose();
+    // The cinematic owns the camera for as long as it is anywhere but rest.
+    // `MurciaLayer` pins back with exactly (0, false) when it disengages, and
+    // the envelope is 0 at both ends — so amount alone cannot tell the first
+    // departing frame from the pin-back, and the direction has to be read too.
+    this.warpEngaged = amount > 0 || departing;
   }
 
   /**
@@ -479,57 +505,47 @@ export class MurciaExperience {
   setZoomDepth(depth: number, immediate = false): void {
     if (!Number.isFinite(depth)) return;
     this.zoomDepth = depth;
-    if (immediate && this.easedZoomDepth !== depth) {
-      this.easedZoomDepth = depth;
-      this.applyRigPose();
-      this.recomputeBounds();
-    }
+    this.publishZoomTargets(immediate);
   }
 
   /**
-   * Advances the zoom toward what the viewer asked for.
+   * Hands the band's depth to the rig as a radius and an elevation.
    *
-   * `lerpK` is Earth's, deliberately: both worlds answer a zoom at the same rate
-   * or the site reads as two different controls. Frame-rate independent, for the
-   * reason every other ease in this project is.
+   * The band resolves a POSE rather than a scale (`adr/014`), which is what lets
+   * a district flight's dolly compose with the viewer's zoom by multiplication
+   * instead of the two fighting over one number.
    */
-  private updateZoom(delta: number): void {
-    if (this.easedZoomDepth === this.zoomDepth) return;
-    const alpha = 1 - Math.exp(-ZOOM_LERP_K * delta);
-    const next = this.easedZoomDepth + (this.zoomDepth - this.easedZoomDepth) * alpha;
-    // Snapped below a threshold the pose cannot draw, so the ease terminates
-    // instead of recomputing the ground footprint forever on an asymptote.
-    this.easedZoomDepth =
-      Math.abs(this.zoomDepth - next) < ZOOM_SETTLE_EPSILON ? this.zoomDepth : next;
-    this.applyRigPose();
-    // The footprint is distance- and elevation-dependent and the zoom moves
-    // both, so the navigable area has to be re-derived exactly as it is for a
-    // yaw change. Four ray/plane intersections; measurably nothing.
-    this.recomputeBounds();
+  private publishZoomTargets(immediate = false): void {
+    if (!this.rig) return;
+    const rest = resolveCameraPose(this.environment, this.viewport.aspect);
+    const zoomed = murciaZoomPose(
+      murciaZoomTargets(this.environment, rest),
+      this.zoomDepth,
+    );
+    this.rig.setTargetZoom(Math.log(zoomed.distance), immediate);
+    this.rig.setTargetPitch(zoomed.elevationDegrees, immediate);
   }
 
   /**
-   * The single writer of the rig's pose: the viewer's zoom, then the warp.
+   * Writes the cinematic's pose straight to the camera, springs frozen.
    *
-   * In that order, and the order is the design. A zoom is a POSITION the viewer
-   * parked at and a warp is a JOURNEY away from wherever they are, so the warp
-   * has to be measured from the zoomed pose rather than from the configured
-   * resting one — otherwise the first frame of a cinematic committed from full
-   * zoom-out would move the camera back IN toward the city it is leaving.
-   * `murciaConfig.warpDepart*` sits beyond `zoomFar*` along the same arc so that
-   * the continuation always goes the same way the zoom was going.
+   * Only called on a frame where `state.transitionCommitted` holds. The warp is
+   * measured FROM the zoomed pose rather than from the configured rest, because
+   * a zoom is a position the viewer parked at and a warp is a journey away from
+   * wherever they are — otherwise the first frame of a cinematic committed from
+   * full zoom-out would move the camera back IN toward the city it is leaving.
+   * `murciaConfig.warpDepart*` sits beyond `zoomFar*` along the same arc so the
+   * continuation always goes the way the zoom was going.
    *
    * Arriving is unaffected: the depth is reset at the cut, so the pose the city
    * pulls back out to is the configured rest it has always been.
    */
-  private applyRigPose(): void {
+  private applyWarpPose(): void {
     if (!this.rig) return;
-    // Rest comes from the viewport-resolved pose so portrait overrides survive
-    // both the zoom and the warp; the far ends are environment data.
     const rest = resolveCameraPose(this.environment, this.viewport.aspect);
     const zoomed = murciaZoomPose(
       murciaZoomTargets(this.environment, rest),
-      this.easedZoomDepth,
+      this.zoomDepth,
     );
     const pose = murciaWarpPose(
       {
@@ -542,10 +558,7 @@ export class MurciaExperience {
       this.warpAmount,
       this.warpDeparting,
     );
-    // A FRESH object every time. `rig.getPose()` hands back `murciaConfig.camera`
-    // by identity, so mutating it would corrupt the environment config for the
-    // rest of the session.
-    this.rig.setPose({ ...rest, ...pose });
+    this.rig.applyWarpPose(pose.distance, pose.elevationDegrees);
   }
 
   /**
@@ -589,15 +602,13 @@ export class MurciaExperience {
     for (const district of this.districts) district.setEnabled(next);
     this.blogDisplay?.setEnabled(next);
 
-    // The drag controller listens on the SHARED canvas, so while Earth is
-    // showing, every Earth drag also reaches it — its target focus and yaw
-    // would drift and the city would jump on return.
+    // The camera input listens on the SHARED canvas, so while Earth is
+    // showing, every Earth drag also reaches it — its targets would drift and
+    // the city would jump on return.
     //
-    // beginExternalControl is the existing answer to "another system owns the
-    // rig": it stops update() touching the rig and clears velocities, and the
-    // matching endExternalControl({adoptRigState}) re-seeds current AND target
-    // state from the rig, discarding whatever the stray events accumulated.
-    // checks/district-flight.ts §2 asserts that pairing produces no snap-back.
+    // External control is the answer to "another system owns the rig": the
+    // input refuses presses and drops moves while it holds, and the springs are
+    // not stepped, so there is nothing stray to discard on the way back.
     //
     // Guarded on who already holds control: a district flight in progress owns
     // it, and releasing on its behalf would strand it mid-flight.
@@ -609,13 +620,16 @@ export class MurciaExperience {
       // pointer actually is by then.
       this.cursor.clear();
 
-      if (this.controller && !this.controller.isExternallyControlled) {
-        this.controller.beginExternalControl();
-        this.suspendedController = true;
+      if (this.rig && !this.rig.isExternallyControlled) {
+        this.rig.setExternallyControlled(true);
+        this.suspendedRig = true;
       }
-    } else if (this.suspendedController) {
-      this.suspendedController = false;
-      this.controller?.endExternalControl({ adoptRigState: true });
+    } else if (this.suspendedRig) {
+      this.suspendedRig = false;
+      // Nothing to adopt: whatever moved the camera while this was suspended
+      // wrote rig STATE through `setFocus`/`setYaw`, which re-seed the damped
+      // value, the target and the velocity together.
+      this.rig?.setExternallyControlled(false);
     }
   }
 
@@ -648,14 +662,15 @@ export class MurciaExperience {
     }
     this.debug.logModelBounds(box);
 
-    // --- Terrain plate ------------------------------------------------------
-    if (loaded.terrain) {
-      this.bounds.setPlateFromObject(loaded.terrain);
-    }
+    // The measured plate used to seed the navigable-area pipeline here. The
+    // rectangle is authored now — `navigation.bounds`, grown by `boundsInset` —
+    // so the mesh's own extent is no longer an input to where the viewer may go.
+    // `checks/city-asset.ts` still asserts the GLB carries the plate it was
+    // measured from.
 
     // --- Terrain transition (Phase 6) --------------------------------------
-    // Built before the bounds, because the skirt is what defines the visual
-    // extent that the bounds are inset from.
+    // Purely visual now. The skirt used to define the extent the navigable
+    // bounds were inset from; nothing is inset from it since DECISIONS §44.
     //
     // The skirt wraps the OUTER ground when the model has one, and the plate
     // only when it does not. Both are the same job — dissolve the one hard edge
@@ -690,63 +705,55 @@ export class MurciaExperience {
       const transition = createTerrainTransition(wrapped, env.terrainTransition, { openings });
       this.sceneBundle.scene.add(transition.group);
       this.transition = transition;
-      this.bounds.setVisualBounds(transition.visualBounds);
-      // Ground past the plate used to disable the footprint inset outright here,
-      // because at 18 degrees the horizon was deliberately in frame and a frustum
-      // reaching past it has no finite ground footprint to inset by. The 2026-09-08
-      // rise to 35 degrees (DECISIONS §39) took the horizon out of frame at every
-      // reachable pose, so the footprint is a real measurement again and the inset
-      // is back — asked per pose in `NavigableArea.recompute` rather than decided
-      // once here, since whether it degenerates is a property of the pose and not
-      // of the model. It costs nothing today: `checks/footprint.ts` §2 sweeps the
-      // whole reachable band and finds the full plate still navigable.
+      // Nothing about where the viewer may go is decided here any more. This is
+      // where the footprint inset used to be switched on or off; the inset went
+      // with `NavigableArea` (DECISIONS §44), and the target is now clamped to an
+      // authored rectangle. `checks/footprint.ts` is what asserts that the skirt
+      // still covers every pose the viewer can reach.
       if (transition.warnings.length > 0) {
         console.warn('[terrain transition]\n- ' + transition.warnings.join('\n- '));
       }
     } else {
-      // No skirt means the hard edge is real, so the footprint inset is the
-      // only thing keeping it out of frame — but applying it against the raw
-      // content bounds collapses the navigable area to a sliver. Prefer an
-      // honest, usable area plus a loud error over a silently unusable one.
-      this.bounds.disableFootprintInsets(env.contentBounds);
+      // No skirt means the hard edge is real, and nothing else keeps it out of
+      // frame: the target clamp is authored, not derived from the footprint. Say
+      // so loudly rather than ship it silently.
       console.error(
-        '[murcia] no terrain transition: the plate edge WILL be visible. ' +
-          'Footprint insets disabled so navigation stays usable.',
+        '[murcia] no terrain transition: the plate edge WILL be visible.',
       );
     }
 
-    // --- Navigable area -----------------------------------------------------
-    this.bounds.deriveConfigured(env.navigation.bounds);
 
     // --- Camera rig (Phase 5) ----------------------------------------------
     const pose = resolveCameraPose(env, this.viewport.aspect);
-    const rig = new CameraRig(this.camera, pose);
+    // Created once and held BY REFERENCE by both the rig and the input, so a
+    // query-string override applied at construction reaches both.
+    this.cameraTuning = createDefaultCameraTuning(
+      env,
+      pose.distance,
+      pose.elevationDegrees,
+      this.bounds,
+    );
+    const rig = new CameraRig(this.camera, pose, this.cameraTuning);
     rig.setAspect(this.viewport.aspect);
     rig.setFocus(env.initialFocus.x, env.initialFocus.z);
     this.rig = rig;
 
-    // --- Bounds (Phase 4) ---------------------------------------------------
+    // --- Bounds -------------------------------------------------------------
     this.recomputeBounds();
 
-    // --- Navigation (Phase 3) ----------------------------------------------
-    this.controller = new DragPanController(
-      this.renderer.domElement,
-      this.camera,
+    // --- Navigation ---------------------------------------------------------
+    this.cameraInput = createCameraInput({
+      element: this.renderer.domElement,
       rig,
-      env.navigation,
-      this.bounds.initialBounds(env.navigation.bounds),
-      this.bounds.initialExtendedBounds(env.navigation.bounds),
-      {
+      width: this.viewport.width,
+      height: this.viewport.height,
+      events: {
         onFirstInteraction: () => this.dismissBeacons(),
-        // The footprint is azimuth-dependent, so free yaw means the navigable
-        // area changes continuously. Four ray/plane intersections per changed
-        // frame; measurably nothing next to the render.
-        onYawChanged: () => this.recomputeBounds(),
         onDragStateChanged: (dragging) => {
           this.cursor.request('drag', dragging ? 'grabbing' : '');
         },
       },
-    );
+    });
 
     this.debug.logNavigation(this.bounds, this.loaded?.terrainSource ?? 'n/a');
 
@@ -833,7 +840,7 @@ export class MurciaExperience {
       // panel behind one of those is not a request to leave for the blog.
       blocked: () => this.hasFocusedDistrict,
       beginExternalControl: () => {
-        this.controller?.beginExternalControl();
+        this.rig?.setExternallyControlled(true);
         // AND the districts go deaf, which is not belt-and-braces. Their input
         // is not gated on this flight, so a tap on a service building during
         // the three-second approach would start a `CameraFlight` beside it —
@@ -843,10 +850,12 @@ export class MurciaExperience {
         for (const district of this.districts) district.setEnabled(false);
       },
       endExternalControl: () => {
-        // `adoptRigState` for the same reason the district's flight passes it:
-        // the controller has to pick up the rig as it stands rather than as it
-        // was when it stood down.
-        this.controller?.endExternalControl({ adoptRigState: true });
+        // The approach flew the camera OFF the rig entirely, writing
+        // `camera.position` and `camera.quaternion` directly, so the rig has no
+        // idea where it is. Solve the pose back out before letting the springs
+        // run again, or the first frame of navigation snaps.
+        this.rig?.adoptFromCamera();
+        this.rig?.setExternallyControlled(false);
         // Back to whatever the scene's own activity says, never a bare `true`:
         // the return can settle while Earth is showing.
         for (const district of this.districts) district.setEnabled(this.active);
@@ -935,6 +944,16 @@ export class MurciaExperience {
 
     if (specs.length === 0) return;
     this.beacons = new DistrictBeacons(this.container, specs);
+
+    // The compass wants the same anchors and the same names — a viewer should
+    // not have to learn that the thing the bar points at and the thing the label
+    // names are the same place.
+    const pois: CompassPoi[] = specs.map((spec) => ({
+      id: spec.id,
+      anchor: spec.anchor,
+      label: spec.label,
+    }));
+    this.compass = new CompassBar(this.container, pois);
   }
 
   /**
@@ -949,7 +968,7 @@ export class MurciaExperience {
    * is skipped whole.
    */
   private setupDistricts(root: THREE.Object3D): void {
-    if (!this.rig || !this.controller) return;
+    if (!this.rig || !this.cameraInput) return;
     const reducedMotion = this.reducedMotion;
 
     for (const binding of cityDistrictBindings) {
@@ -965,7 +984,7 @@ export class MurciaExperience {
         canvas: this.renderer.domElement,
         camera: this.camera,
         rig: this.rig,
-        controller: this.controller,
+        cameraOwnership: this.cameraOwnership(),
         binding,
         content,
         cursor: this.cursor,
@@ -979,10 +998,11 @@ export class MurciaExperience {
         getPose: () => this.rig?.getEffectivePose() ??
           resolveCameraPose(this.environment, this.viewport.aspect),
         getAspect: () => this.viewport.aspect,
-        resolveBounds: () => {
-          this.recomputeBounds();
-          return this.bounds.effectiveBounds;
-        },
+        // A constant now. It was a live re-derivation because the rectangle
+        // depended on the camera's own footprint; it does not any more, and a
+        // flight asking every frame for a value that cannot change would be
+        // reading intent into a number that has none.
+        resolveBounds: () => this.bounds,
         focusFlight: this.environment.focusFlight,
         tapThresholdPx: {
           mouse: this.environment.navigation.dragThresholdPx,
@@ -1041,9 +1061,8 @@ export class MurciaExperience {
    * Called by the R3F layer whenever the canvas size changes.
    *
    * Replaces the standalone ResizeObserver: R3F already measures the canvas and
-   * owns renderer.setSize, so only the projection and the pose/bounds work that
-   * depended on aspect remain here. The footprint is aspect- and pose-dependent,
-   * which is why the bounds must be recomputed on every resize.
+   * owns renderer.setSize, so only the projection and the pose work that
+   * depends on aspect remain here.
    */
   setViewport(size: ViewportSize): void {
     this.viewport = size;
@@ -1070,13 +1089,14 @@ export class MurciaExperience {
       // Re-resolving the pose covers the portrait-override case; it is a few
       // trig calls and a projection-matrix update, so it is not worth guarding.
       this.rig.setAspect(size.aspect);
-      // Through applyRigPose, not setPose directly: a resize mid-warp or
-      // mid-zoom would otherwise snap the pose back to rest and fight it.
-      this.applyRigPose();
-      // The footprint depends on aspect and pose, so it must be recomputed here
-      // — and only here, plus on pose change. It is independent of the focus
-      // position, because the camera sits at a fixed offset from it.
-      this.recomputeBounds();
+      // Safe to write directly now. `setPose` carries fov, near, far, azimuth
+      // and lookAtHeight only — distance and elevation are spring state — so a
+      // resize mid-zoom or mid-warp can no longer snap the pose back to rest.
+      // The targets are re-derived because a portrait override moves the REST
+      // the band is measured from.
+      this.rig.setPose(resolveCameraPose(this.environment, size.aspect));
+      this.publishZoomTargets();
+      this.cameraInput?.setViewport(size.width, size.height);
       if (this.debug.hasBoundsHelper) {
         this.debug.rebuildBoundsHelper(
           this.sceneBundle.scene,
@@ -1087,13 +1107,39 @@ export class MurciaExperience {
     }
   }
 
+  /**
+   * Hands the rig its rectangle.
+   *
+   * A single assignment now. It used to re-derive the navigable area from the
+   * camera's ground footprint on every yaw, zoom and resize, because the
+   * rectangle depended on the pose; it does not any more, so this is called once
+   * at load and left alone. Kept as a method rather than inlined because the
+   * rectangle is still allowed to move — a query override can scale it.
+   */
   private recomputeBounds(): void {
-    if (!this.rig) return;
-    const effective = this.bounds.recompute(this.camera, this.rig.focus);
-    // `recompute` derives both in one pass, so the extended rectangle is never
-    // stale relative to the firm one it must contain (DECISIONS §40).
-    const extended = this.bounds.extendedNavigableBounds;
-    if (effective && extended) this.controller?.setBounds(effective, extended);
+    this.rig?.setBounds(this.bounds);
+  }
+
+  /**
+   * The camera-ownership handle the districts and the blog approach hold.
+   *
+   * Two objects behind one facade: the rig answers "is something else flying
+   * the camera", the input answers "is a finger on the world". Handing out the
+   * pair directly would let a caller step the springs, which is the one thing
+   * the frame's single-owner rule forbids.
+   */
+  private cameraOwnership(): CameraOwnership {
+    const owner = this;
+    return {
+      get isDragging() {
+        return owner.cameraInput?.isDragging ?? false;
+      },
+      get isExternallyControlled() {
+        return owner.rig?.isExternallyControlled ?? false;
+      },
+      beginExternalControl: () => owner.rig?.setExternallyControlled(true),
+      endExternalControl: () => owner.rig?.setExternallyControlled(false),
+    };
   }
 
   // --- Interaction ----------------------------------------------------------
@@ -1111,7 +1157,7 @@ export class MurciaExperience {
     // raycasts the city standing behind it.
     if (!this.active) return;
     if (event.button !== 0) return;
-    if (this.controller?.isDragging) return;
+    if (this.cameraInput?.isDragging) return;
 
     const canvas = this.renderer.domElement;
     const rect = canvas.getBoundingClientRect();
@@ -1152,10 +1198,9 @@ export class MurciaExperience {
     const now = performance.now();
     this.debug.frameBegin();
 
-    // Exactly one system writes to the rig per frame. `DragPanController.update`
-    // returns early while a district flight holds external control, so the order
-    // here is composition rather than a race — but the districts still tick
-    // first, because their flight is what decides who owns the rig this frame.
+    // Exactly one system writes to the rig per frame — the owner switch below
+    // enforces it. The districts still tick first, because their flight is what
+    // decides who owns the rig this frame.
     //
     // Each district resolves at most one hover raycast per frame, against its
     // own meshes and proxy only. Never the Scene.
@@ -1176,22 +1221,50 @@ export class MurciaExperience {
     // own quaternion at a solved distance and the rig fixes elevation.
     this.blogDisplay?.update(delta);
 
-    // ONE OWNER PER FRAME (§9), and the `if/else` is the enforcement.
+    // ONE OWNER PER FRAME (§9), and this switch is the enforcement.
     //
-    // Not "write last and win": the controller's damping and the zoom's ease
-    // both integrate state, so letting them run and then overwriting the result
-    // would leave them chasing a camera they do not control and hand back a
-    // wrong pose the moment the flight ends. They do not run at all.
-    if (!this.blogDisplay?.ownsCamera) {
-      // Advances drag smoothing and release momentum. Cheap arithmetic only —
-      // no raycasting happens here, only on pointer events.
-      this.controller?.update(delta);
+    // Four things can move this camera and exactly one of them writes per frame.
+    // Not "write last and win": the springs INTEGRATE state, so letting them run
+    // and then overwriting the result would leave them chasing a camera they do
+    // not control and hand back a wrong pose the moment the other owner ends.
+    // They do not run at all.
+    //
+    // The order is a precedence, and each rung earns its place:
+    //
+    //   1. the blog approach, which flew the camera off the rig entirely
+    //   2. the cinematic, which writes the pose directly with springs frozen
+    //   3. a district flight, which has already written rig STATE this frame
+    //   4. nobody — the springs run and write the pose
+    //
+    // A spring that is not stepped keeps its velocity, and that is the point:
+    // it is what makes handing control away and taking it back seamless rather
+    // than a snap. The flight re-seeds value, target AND velocity through
+    // `setFocus`/`setYaw`, which is why there is nothing left to "adopt".
+    if (this.blogDisplay?.ownsCamera) {
+      // Nothing. It wrote camera.position and camera.quaternion itself.
+    } else if (this.warpEngaged) {
+      this.applyWarpPose();
+    } else if (this.rig?.isExternallyControlled) {
+      // A district flight already wrote the rig this frame, in its own update.
+    } else {
+      this.rig?.update(delta);
+    }
 
-      // After the controller, because both end up writing the rig: the
-      // controller owns focus and yaw, this owns distance and elevation, and
-      // `setPose` re-applies whatever focus is current. A no-op on any frame the
-      // viewer is not zooming, which is nearly all of them.
-      this.updateZoom(delta);
+    // THE COMPASS RUNS LAST, after whichever owner wrote the pose.
+    //
+    // It measures a bearing from the camera's own forward vector, so a frame
+    // stale by one pose lags the city it is pointing into — visible as the marks
+    // trailing the world during a turn, which is the one artefact an instrument
+    // like this cannot have. The beacons above are pinned to world points and
+    // re-project rather than measure, so they tolerate the older ordering.
+    //
+    // Hidden while a cinematic or the blog approach owns the camera: the
+    // bearings stay true and stop meaning anything, because the viewer is not
+    // navigating. It sits below the flash in z-order, so the cut covers it.
+    if (this.compass) {
+      const owned = this.warpEngaged || (this.blogDisplay?.ownsCamera ?? false);
+      this.compass.setVisible(!owned && !this.hasFocusedDistrict);
+      this.compass.update(this.camera);
     }
 
     // One uniform write. `water.update` wants elapsed seconds, not the delta —
@@ -1211,8 +1284,8 @@ export class MurciaExperience {
       this.firstFrameRecorded = true;
     }
 
-    const overlayBounds = this.bounds.effectiveBounds;
-    if (this.debugOverlay && this.rig && this.loaded && overlayBounds) {
+    const overlayBounds = this.bounds;
+    if (this.debugOverlay && this.rig && this.loaded) {
       this.debugOverlay.update(delta, now, {
         renderer: this.renderer,
         focus: this.rig.focus,
@@ -1237,7 +1310,6 @@ export class MurciaExperience {
           expandRect(overlayBounds, 1e-3),
         ),
         bounds: overlayBounds,
-        footprintClamped: this.bounds.footprintClamped,
         timings: this.loaded.timings,
       });
     }
@@ -1261,8 +1333,11 @@ export class MurciaExperience {
     for (const district of this.districts) district.dispose();
     this.districts = [];
 
-    this.controller?.dispose();
-    this.controller = null;
+    this.compass?.dispose();
+    this.compass = null;
+    this.cameraInput?.dispose();
+    this.cameraInput = null;
+    this.cameraTuning = null;
 
     this.cursor.dispose();
 

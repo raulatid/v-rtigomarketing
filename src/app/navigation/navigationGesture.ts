@@ -98,7 +98,7 @@ export interface NavigationGesture {
   /** True while latched. Diagnostics. */
   readonly isLatched: boolean
   /** Diagnostics only. */
-  state(): { travelPx: number; latched: boolean; lastInputMs: number }
+  state(): { travelPx: number; latched: boolean; released: boolean; lastInputMs: number }
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
@@ -232,7 +232,7 @@ export function createNavigationGesture(
     get isLatched() {
       return latched
     },
-    state: () => ({ travelPx: travel, latched, lastInputMs }),
+    state: () => ({ travelPx: travel, latched, released, lastInputMs }),
   }
 }
 

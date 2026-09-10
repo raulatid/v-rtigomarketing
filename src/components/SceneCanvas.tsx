@@ -1,5 +1,6 @@
-import { RefObject, useCallback } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { RefObject, useCallback, useRef } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { clampFrameDelta } from '../graphics/frameDelta'
 import { EarthExperience } from '../experiences/earth/EarthExperience'
 import type { InteractionHandle } from '../experiences/earth/EarthExperience'
 import { CornerLogoLayer } from './CornerLogoLayer'
@@ -7,7 +8,14 @@ import { MurciaLayer } from './MurciaLayer'
 import { RenderPipeline } from '../graphics/RenderPipeline'
 import { DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
 import type { FrameSettings, RenderRoute } from '../graphics/renderableExperience'
-import { motionBlur as warpMotionBlur } from '../app/warpTransition'
+import {
+  WARP_LIMITS,
+  motionBlur as warpMotionBlur,
+  prefersReducedMotion,
+  transitionLeg,
+  vacuumCommitted,
+  vacuumScrub,
+} from '../utils/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { SequenceState } from '../experiences/earth/config/sequenceState'
 import { OrbitSystem } from '../experiences/earth/orbit/createOrbitSystem'
@@ -17,9 +25,35 @@ import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimelin
 import type { ExperienceId } from '../app/experience'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 
+/**
+ * One `useFrame` whose only job is to advance the transition clock.
+ *
+ * A component rather than a call inside `SceneCanvas`, because `SceneCanvas`
+ * renders the `<Canvas>` — it is OUTSIDE the R3F tree and cannot call
+ * `useFrame` at all. Anything that needs the frame loop has to be a child.
+ */
+function TransitionClockDriver({ step }: { step: (dt: number) => void }) {
+  useFrame((_, delta) => {
+    // Clamped for the same reason every other consumer clamps: a tab returning
+    // from the background hands over a delta measured in seconds, and a
+    // cinematic that swallowed it whole would skip its own cut.
+    step(clampFrameDelta(delta))
+  })
+  return null
+}
+
 interface Props {
   config: IntroConfig
   state: SequenceState
+  /**
+   * Advances the Earth <-> Murcia cinematic by one frame.
+   *
+   * Driven from inside the Canvas rather than from a loop of its own, because
+   * `RenderPipeline` reads `state.transitionProgress` in its own `useFrame`: a
+   * separate rAF that happened to tick after R3F's would render every warp frame
+   * one behind the progress that produced it.
+   */
+  stepTransition: (dt: number) => void
   overlayEl: RefObject<HTMLDivElement | null>
   orbitSystemRef: RefObject<OrbitSystem | null>
   interactionRef: RefObject<InteractionHandle | null>
@@ -61,6 +95,7 @@ interface Props {
 export function SceneCanvas({
   config,
   state,
+  stepTransition,
   overlayEl,
   orbitSystemRef,
   interactionRef,
@@ -91,9 +126,28 @@ export function SceneCanvas({
   // Earth<->Murcia warp both feed the same afterimage pass, and the transition
   // wins because only one can be playing at a time and it is the one whose
   // progress is non-zero outside the intro.
+  // Read once, like every other consumer of the preference in this project —
+  // a second matchMedia per component is how two parts of one page end up
+  // disagreeing about the same setting.
+  const reducedMotion = useRef(prefersReducedMotion())
+
+  /**
+   * How far the scrub had got when the viewer committed.
+   *
+   * LOAD-BEARING, not an optimisation. Once committed the vacuum rides the
+   * speed bell, and `speed(0)` is exactly 0 — so reading the bell alone would
+   * snap the effect back to nothing on the first committed frame, which is a
+   * visible flinch at the precise moment the viewer has succeeded. The latch
+   * carries it from wherever it had reached up to full instead.
+   */
+  const vacuumAtCommit = useRef(0)
+
+  /** Which world the last frame drew, so the substitution can be seen happening. */
+  const lastWorldWasEarth = useRef(earthActive)
+
   const readSettings = useCallback((): FrameSettings => {
     const warping = state.transitionProgress > 0
-    const motionBlur = warping ? warpMotionBlur(state.transitionProgress) : state.motionBlur
+    const motionBlur = warping ? warpMotionBlur(state.transitionProgress, WARP_LIMITS) : state.motionBlur
     // Gated on the BLUR, not on the warp being non-zero, and that distinction
     // only started to matter when the gesture began driving the warp.
     //
@@ -103,9 +157,47 @@ export function SceneCanvas({
     // `cut ± speedPeakWidth`, and the band ends at `cut - flashWidth`), so the
     // cheap route covers the part of the gesture that has nothing to composite
     // anyway.
+    // ── The vacuum ──
+    //
+    // Murcia only, and only on the way OUT. Earth's departure is a dive toward
+    // a planet and already has the FOV surge to sell it; the city's is an
+    // ascent away from something, which is what the radial stretch is for.
+    //
+    // Suppressed under reduced motion by HOLDING AT ZERO rather than by
+    // resetting: this is a full-frame distortion applied TO the viewer, which is
+    // exactly the class of effect the preference is about. The flash and the cut
+    // still play, because concealing a jump is not a motion effect.
+    // The substitution, detected rather than signalled: the cut is the frame the
+    // world changes, and this is the only place that sees both sides of it.
+    const resetAccumulation = lastWorldWasEarth.current !== earthActive
+    lastWorldWasEarth.current = earthActive
+
+    let vacuum = 0
+    if (!earthActive && !reducedMotion.current) {
+      if (state.transitionCommitted) {
+        // Only on the DEPARTING leg. Murcia is also the visible world for the
+        // second half of an arrival, and an ascent effect playing on a descent
+        // flattens the one difference between the two legs — the sandbox gates it
+        // the same way. Zero there rather than the bell: `vacuumAtCommit` is 0 on
+        // arrival, so the bell alone would run the vacuum at full as the flash lifts.
+        vacuum = transitionLeg(state.transitionProgress, WARP_LIMITS).departing
+          ? vacuumCommitted(vacuumAtCommit.current, state.transitionProgress, WARP_LIMITS)
+          : 0
+      } else {
+        vacuum = vacuumScrub(state.approach, WARP_LIMITS)
+        vacuumAtCommit.current = vacuum
+      }
+    } else {
+      vacuumAtCommit.current = 0
+    }
+
+    // Gated on the vacuum as well as the blur. The pass is a composer pass, so a
+    // scrub that distorts the frame has to be on the borrowed route even before
+    // the cinematic's smear starts — otherwise the effect would appear only at
+    // the commit, which is the half of the gesture it exists to precede.
     const route: RenderRoute = earthActive
       ? 'composer'
-      : motionBlur > 0
+      : motionBlur > 0 || vacuum > 0
         ? 'direct-composited'
         : 'direct'
     return {
@@ -122,6 +214,8 @@ export function SceneCanvas({
       bloomStrength: route === 'direct-composited' ? 0 : config.bloomStrength,
       bloomRadius: config.bloomRadius,
       bloomThreshold: config.bloomThreshold,
+      vacuum,
+      resetAccumulation,
     }
   }, [state, config, earthActive])
 
@@ -210,6 +304,10 @@ export function SceneCanvas({
       {/* Earth, as one thing. This file used to mount all eight of its layers
           itself — in the right order, with the right props — which meant the
           application knew the experience's internal composition (§26, §33). */}
+      {/* FIRST inside the Canvas, so the progress every other layer reads this
+          frame is this frame's. R3F runs same-priority frame callbacks in mount
+          order, and every consumer below is priority 0. */}
+      <TransitionClockDriver step={stepTransition} />
       <EarthExperience
         active={earthActive}
         config={config}

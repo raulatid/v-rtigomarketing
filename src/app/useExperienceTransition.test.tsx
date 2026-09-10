@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import gsap from 'gsap/gsap-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useExperienceTransition } from './useExperienceTransition'
-import { WARP_TRANSITION } from './warpTransition'
+import { WARP_TRANSITION } from '../utils/warpTransition'
 import { createSequenceState, type SequenceState } from '../experiences/earth/config/sequenceState'
 import type { ExperienceId } from './experience'
 
@@ -27,6 +26,7 @@ import type { ExperienceId } from './experience'
 
 interface Harness {
   transitionTo: (to: ExperienceId) => void
+  stepTransition: (dt: number) => void
 }
 
 let container: HTMLDivElement
@@ -38,7 +38,7 @@ let events: string[]
 let settled: number
 
 function Probe({ onReady }: { onReady: (h: Harness) => void }) {
-  const { transitionTo } = useExperienceTransition({
+  const { transitionTo, stepTransition } = useExperienceTransition({
     state,
     onSwap: (to) => events.push(`swap:${to}`),
     onCut: () => events.push('cut'),
@@ -46,21 +46,38 @@ function Probe({ onReady }: { onReady: (h: Harness) => void }) {
       settled += 1
     },
   })
-  onReady({ transitionTo })
+  onReady({ transitionTo, stepTransition })
   return null
 }
 
-/** The live timeline, straight off GSAP's global — the hook never returns it. */
-function liveTimeline(): gsap.core.Timeline | undefined {
-  return gsap.globalTimeline
-    .getChildren(false, false, true)
-    .find((child): child is gsap.core.Timeline => child instanceof gsap.core.Timeline)
-}
+/**
+ * Advances the cinematic to `seconds`, one 60 Hz frame at a time.
+ *
+ * The clock is a `dt` integrator, so this drives it exactly as the frame loop
+ * does — no seeking, no library, and no global to reach into. That makes these
+ * assertions deterministic in a way the timeline's could not be: a seek jumped
+ * straight to a time, while this passes through every intermediate frame, which
+ * is where a cut that fires twice or a pin that lands a frame late would show.
+ *
+ * Absolute rather than relative, so a test can say "the cut" and mean it.
+ *
+ * Steps in WHOLE frames and lands at or just past `seconds` rather than exactly
+ * on it. That is not laziness: a real frame loop cannot land exactly on a
+ * duration either, and an earlier version of this helper that clamped its last
+ * step to hit the mark exactly made every completion assertion fail — the
+ * clock's own float sum came out a few ulps short of the duration, so progress
+ * peaked at 0.9999999999 and `onComplete` never ran. A clock that only settles
+ * on an exact float sum is a clock that never settles in production.
+ */
+const FRAME = 1 / 60
+let elapsed = 0
 
-/** Runs the timeline forward WITHOUT suppressing its callbacks. */
 function seekTo(seconds: number) {
   act(() => {
-    liveTimeline()?.seek(seconds, false)
+    while (elapsed < seconds) {
+      elapsed += FRAME
+      api.stepTransition(FRAME)
+    }
   })
 }
 
@@ -68,6 +85,7 @@ beforeEach(() => {
   state = createSequenceState()
   events = []
   settled = 0
+  elapsed = 0
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
@@ -79,7 +97,6 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount())
   container.remove()
-  gsap.globalTimeline.getChildren(false, false, true).forEach((child) => child.kill())
   vi.restoreAllMocks()
 })
 
@@ -88,8 +105,15 @@ describe('the commit', () => {
     // The scrub made this length variable — it started wherever the gesture had
     // pushed the warp to. A commit is now always the same transition, whether it
     // came from a wheel held against the zoom limit or from the keyboard.
+    //
+    // Asserted by RUNNING it rather than by reading a duration off a timeline
+    // object: one frame short of the duration it is still going, and at the
+    // duration it has settled.
     act(() => api.transitionTo('murcia'))
-    expect(liveTimeline()?.duration()).toBeCloseTo(WARP_TRANSITION.duration, 6)
+    seekTo(WARP_TRANSITION.duration - FRAME * 2)
+    expect(state.transitionCommitted).toBe(true)
+    seekTo(WARP_TRANSITION.duration)
+    expect(state.transitionCommitted).toBe(false)
   })
 
   it('starts at rest, with nothing already spent', () => {
@@ -99,10 +123,14 @@ describe('the commit', () => {
   })
 
   it('refuses a second transition while one is running', () => {
+    // The re-entrancy guard. Without it a double click starts a second run whose
+    // reveal races the first one's cover, and the overlay settles anywhere.
     act(() => api.transitionTo('murcia'))
-    const first = liveTimeline()
     act(() => api.transitionTo('earth'))
-    expect(liveTimeline()).toBe(first)
+    seekTo(WARP_TRANSITION.duration)
+    // One journey, and it went where the first caller asked.
+    expect(events).toEqual(['cut', 'swap:murcia'])
+    expect(settled).toBe(1)
   })
 })
 

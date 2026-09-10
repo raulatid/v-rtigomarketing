@@ -1,20 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import gsap from 'gsap/gsap-core'
-// gsap-core's own declarations stop short of the `gsap.core` namespace that the
+import { createTransitionClock } from '../utils/transitionClock'
 // timeline refs here, in useMasterTimeline and in DebugOverlay are typed
 // against. This type-only import registers the full ambient declarations once
 // for the whole program and is erased at build time, so CSSPlugin — the reason
 // for importing the core build rather than the convenience bundle — still never
 // reaches the entry chunk.
-import type {} from 'gsap'
 import type { SequenceState } from '../experiences/earth/config/sequenceState'
 import type { ExperienceId } from './experience'
-import { WARP_TRANSITION, flash } from './warpTransition'
+import { WARP_LIMITS, WARP_TRANSITION, flash } from '../utils/warpTransition'
 
-// Shaping lives entirely in warpTransition's curves, so the tween is linear.
-// A GSAP ease here would compound with them and destroy the width relationship
-// between position, speed and flash (DECISIONS.md 26.6).
-const TWEEN_EASE = 'none'
 
 interface Params {
   state: SequenceState
@@ -75,7 +69,7 @@ interface Params {
  */
 export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Params) {
   const [transitioning, setTransitioning] = useState(false)
-  const timelineRef = useRef<gsap.core.Timeline | null>(null)
+  const clockRef = useRef<ReturnType<typeof createTransitionClock> | null>(null)
   const onSwapRef = useRef(onSwap)
   onSwapRef.current = onSwap
   // Through a ref for the same reason `onSwap` is: `transitionTo` is memoised on
@@ -88,8 +82,10 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Par
 
   useEffect(() => {
     return () => {
-      timelineRef.current?.kill()
-      timelineRef.current = null
+      // Cancel rather than complete: a run stopped by unmount must not fire
+      // `onCut` into a tree that is going away.
+      clockRef.current?.cancel()
+      clockRef.current = null
       // Leaving either part-way up would black out the page for good, or strand
       // a camera mid-dolly.
       state.transitionOverlay = 0
@@ -98,41 +94,39 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Par
     }
   }, [state])
 
-  // Pause while the tab is hidden, for the same reason `useMasterTimeline` does
-  // — and this timeline had been missing the guard its comment describes.
+  // ── THE visibilitychange GUARD IS GONE, and this is where it was ──
   //
-  // The hazard is identical in shape: `tl.call(onSwap)` at the midpoint is a
-  // substitution callback, and it is THE substitution — the hard cut where the
-  // active scene, the active camera and input ownership all change on one
-  // frame under full cover (DECISIONS §6). GSAP fast-forwards on return from a
-  // hidden tab, so backgrounding mid-warp could carry the timeline past that
-  // frame and land the viewer in a state the cut was supposed to hide.
+  // It paused a GSAP timeline while the tab was hidden. The hazard was real and
+  // specific: `tl.call(onSwap)` at the midpoint IS the substitution — the hard
+  // cut where the active scene, the active camera and input ownership all change
+  // on one frame under full cover (DECISIONS §6) — and GSAP fast-forwards on
+  // return from a hidden tab, so backgrounding mid-warp could carry the timeline
+  // PAST that frame and land the viewer in a state the cut was supposed to hide.
+  // iOS made it ordinary rather than exotic: switching apps mid-gesture is normal
+  // phone behaviour, and the window is only 1.6 s wide but it is the 1.6 s in
+  // which everything discontinuous happens.
   //
-  // iOS makes this ordinary rather than exotic: switching apps mid-gesture is
-  // normal phone behaviour, and the window is only 1.6s wide but it is the 1.6s
-  // in which everything discontinuous happens.
-  useEffect(() => {
-    const onVisibility = () => {
-      const tl = timelineRef.current
-      if (!tl) return
-      if (document.hidden) tl.pause()
-      else if (tl.progress() < 1) tl.play()
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [])
+  // The clock cannot reproduce it. It advances only when `step(dt)` is called,
+  // `step` is called from a `useFrame`, `requestAnimationFrame` does not run in a
+  // hidden tab, and `clampFrameDelta` bounds the delta on the frame it resumes.
+  // A tab hidden across the whole cinematic comes back on the frame it left.
+  //
+  // Deleted rather than kept as insurance: a guard against something structurally
+  // impossible reads as a guard against something possible, and the next person
+  // to touch this would have to work out which.
 
   const transitionTo = useCallback(
     (to: ExperienceId) => {
       // Re-entrancy guard. Without it a double click starts a second timeline
       // whose reveal races the first one's cover, and the overlay can settle
       // anywhere between 0 and 1.
-      if (timelineRef.current) return
+      if (clockRef.current) return
 
       setTransitioning(true)
-      // The cinematic takes the camera from here. Set BEFORE the first tween so
+      // The cinematic takes the camera from here. Set BEFORE the first step so
       // no frame can see non-zero progress that nobody has claimed.
       state.transitionCommitted = true
+
       // From zero, and the whole cinematic plays.
       //
       // It used to start part-way in, at wherever a scrubbed gesture had already
@@ -146,14 +140,21 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Par
       // Both worlds re-base the warp on the zoomed pose: Earth's dolly is
       // relative to `camera.position` and Murcia's departure lerps from the
       // zoom-resolved pose, so amount 0 IS the pose the viewer was looking at.
-      const proxy = { progress: 0 }
-
-      const apply = () => {
-        state.transitionProgress = proxy.progress
-        state.transitionOverlay = flash(proxy.progress)
-      }
-
-      const tl = gsap.timeline({
+      const clock = createTransitionClock({
+        duration: () => WARP_TRANSITION.duration,
+        cut: () => WARP_TRANSITION.cut,
+        onCut: () => {
+          // The cut, at full cover and at the closest point of the dolly.
+          // Everything discontinuous happens on this one frame: the active
+          // scene, the active camera, which experience owns input, and the
+          // viewer's zoom all change together and none of it is visible.
+          //
+          // The zoom goes back to rest BEFORE the swap, so the world arriving is
+          // already composing its pull-out against a resting pose rather than
+          // against the departed world's zoom for one frame.
+          onCutRef.current?.()
+          onSwapRef.current(to)
+        },
         onComplete: () => {
           // Pinned rather than left wherever the last frame landed: a rounding
           // shortfall would leave a residual dolly and a faint overlay for the
@@ -161,7 +162,7 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Par
           state.transitionProgress = 0
           state.transitionOverlay = 0
           state.transitionCommitted = false
-          timelineRef.current = null
+          clockRef.current = null
           setTransitioning(false)
           // AFTER the pins and after the ref is cleared, so anything this wakes
           // sees a settled world: no residual dolly, no overlay, and a
@@ -170,39 +171,30 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Par
         },
       })
 
-      // Half one, to the cut.
-      tl.to(proxy, {
-        progress: WARP_TRANSITION.cut,
-        duration: WARP_TRANSITION.duration * WARP_TRANSITION.cut,
-        ease: TWEEN_EASE,
-        onUpdate: apply,
-      })
-
-      // The cut, at full cover and at the closest point of the dolly.
-      // Everything discontinuous happens on this one frame: the active scene,
-      // the active camera, which experience owns input, and the viewer's zoom
-      // all change together and none of it is visible.
-      //
-      // The zoom goes back to rest BEFORE the swap, so the world arriving is
-      // already composing its pull-out against a resting pose rather than
-      // against the departed world's zoom for one frame.
-      tl.call(() => {
-        onCutRef.current?.()
-        onSwapRef.current(to)
-      })
-
-      // Half two, out.
-      tl.to(proxy, {
-        progress: 1,
-        duration: WARP_TRANSITION.duration * (1 - WARP_TRANSITION.cut),
-        ease: TWEEN_EASE,
-        onUpdate: apply,
-      })
-
-      timelineRef.current = tl
+      if (!clock.start()) return
+      clockRef.current = clock
     },
     [state],
   )
 
-  return { transitionTo, transitioning }
+  /**
+   * Advances the cinematic by one frame.
+   *
+   * Called from a `useFrame` inside the Canvas rather than from an rAF of its
+   * own, and the difference is one frame of staleness: `RenderPipeline` reads
+   * `state.transitionProgress` in its own `useFrame`, so a separate loop that
+   * happened to tick after R3F's would render every warp frame one behind the
+   * progress that produced it.
+   *
+   * A no-op when nothing is running, which is nearly every frame.
+   */
+  const stepTransition = useCallback((dt: number) => {
+    clockRef.current?.step(dt)
+    const clock = clockRef.current
+    if (!clock) return
+    state.transitionProgress = clock.progress
+    state.transitionOverlay = flash(clock.progress, WARP_LIMITS)
+  }, [state])
+
+  return { transitionTo, transitioning, stepTransition }
 }

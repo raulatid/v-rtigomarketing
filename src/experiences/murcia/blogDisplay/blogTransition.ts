@@ -2,7 +2,7 @@
  * The approach: its shape, its timings, and the curves that read them.
  *
  * Ported from `vertigo-lab`'s `blog-transition` (plan 022), where it had been
- * trimmed out of that lab's warp. This repo's own warp — `src/app/warpTransition.ts`
+ * trimmed out of that lab's warp. This repo's own warp — `src/utils/warpTransition.ts`
  * — is its cousin rather than its parent, and the two are deliberately not shared.
  *
  * ## One leg, not two, which is why sharing the warp's module would not work

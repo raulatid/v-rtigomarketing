@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { earthZoomRadius, earthZoomScale } from './zoomPose'
 import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
-import { earthRadiusScale } from '../../../app/warpTransition'
+import { WARP_LIMITS, earthRadiusScale } from '../../../utils/warpTransition'
 import { EARTH_CONFIG } from '../config/earthConfig'
 
 // Replaces `scrubPose.test.ts`, which tested a camera modifier that no longer
@@ -74,7 +74,7 @@ describe('the ends are where they are for reasons outside this module', () => {
     // — so the closest point of a transition committed from full zoom-in is this
     // product, and it has to clear the Earth's surface or the camera ends up
     // inside the planet before the flash has closed over it.
-    const closest = earthZoomRadius(1) * earthRadiusScale(1)
+    const closest = earthZoomRadius(1) * earthRadiusScale(1, WARP_LIMITS)
     expect(closest).toBeGreaterThan(EARTH_CONFIG.radius)
     // 2.2 -> 2.84 when overviewRadius went 7R -> 9R on 2026-09-05. The margin
     // over the surface GREW, which is the direction that costs nothing: the

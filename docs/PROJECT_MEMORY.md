@@ -93,9 +93,9 @@ npm test               # Vitest, 1443 assertions over the pure logic, the conten
 npm run test:watch     # the same, watching
 npm run test:coverage  # scoped coverage, thresholds enforced
 npm run check:architecture # 49 assertions — the dependency directions, enforced
-npm run check:navigation   # 57 assertions — drag feel, signs, bounds, grab-the-point
+npm run check:navigation   # 33 assertions — drag signs, the spring, bounds
 npm run check:footprint    # 13 assertions — every reachable distance against the skirt
-npm run check:district     # 71 assertions — flights, the focus dolly, framing, materials
+npm run check:district     # 73 assertions — flights, the focus dolly, framing, materials
 npm run check:warp         # 50 assertions — the camera envelope and the footprint sweep
 npm run check:space        # 36 assertions — the star shell bound, clumping, the band
 npm run check:asset        # the Blender export contract; the UV section still FAILS
@@ -357,6 +357,15 @@ units throughout — 147 today against the original 152.
 ---
 
 ## 7. Murcia's navigation
+
+> **SUPERSEDED, 2026-09-10 — `DECISIONS.md` §44.** What this section says about the POINTER is
+> the map-pan controller, and it is gone: `DragPanController`, the grab-the-point ground solve,
+> right-button and two-finger rotation, the per-pointer-type gains and time constants, and the
+> `NavigableArea` pipeline. One pointer now carries yaw and travel at once over a second-order
+> spring (`camera/CameraRig.ts`, `navigation/createCameraInput.ts`, feel in
+> `camera/cameraTuning.ts`); two fingers mean only a pinch; and the viewer's target is clamped
+> to one authored rectangle, the A2 ring. The wheel and pinch rows of the table below still
+> hold.
 
 ### One gesture per thing
 
@@ -652,10 +661,10 @@ POSE earth radius=18.00 fov=45.0
   on arrival, so they are not defaults anyone can bake.
 
 Baking a pose is never only the constant: Murcia's `dist`/`elev` are mirrored in
-`app/warpTransition.ts` under a hard-equality check (`checks/warp-transition.ts`), and the
+`utils/warpTransition.ts` under a hard-equality check (`checks/warp-transition.ts`), and the
 gates are `check:footprint`, `check:warp`, `check:district`, `check:navigation`.
-**Murcia elevation has a floor at 18°** — at 16° grab-the-point slips 19px against the 1px
-`check:navigation` guarantees, and the cliff is sharp (7.5px at 17°, exact at 18°).
+(The 18° elevation floor that stood here was grab-the-point's, and went with the map pan in
+`DECISIONS.md` §44; nothing in `check:navigation` measures it now.)
 
 They exist because feel is a judgement no harness can make and an edit-rebuild cycle is too
 slow to converge on one. **A tuning tool, not configuration** — a settled value belongs in
@@ -723,16 +732,14 @@ tests the resolver.
 
 ### Exclusive camera ownership
 
-The first design suspended *pointer input* during a flight. That is not enough:
-`DragPanController.update()` writes the rig unconditionally, so a flight would move the rig
-and the controller would ease it back toward its stale drag targets on the same frame, every
-frame.
+The first design suspended *pointer input* during a flight. That is not enough: the rig's
+springs chase their targets whenever `CameraRig.update()` runs, so a flight would move the rig
+and the springs would pull it back toward stale targets on the same frame, every frame.
 
-The fix is a lifecycle, not a filter. `beginExternalControl()` makes `update()` return
-**before** touching the rig; `endExternalControl({ adoptRigState: true })` reads focus and
-yaw back off the rig into the controller's current *and* target state. §2 of
-`checks/district-flight.ts` asserts both, and also asserts that *without* adoption the view
-snaps back 37.8 units — so the guard is demonstrably load-bearing rather than decorative.
+The fix is a lifecycle, not a filter (rewritten for `DECISIONS.md` §44). Taking external
+control, through the `CameraOwnership` facade, makes `MurciaExperience.update` stop stepping
+the springs at all; the flight writes rig STATE — value, target and velocity together —
+through `setFocus`/`setYaw`, so there is nothing to adopt when it hands back.
 
 Cancellation uses a **capture-phase** `pointerdown` listener on the canvas. It runs before
 the controller's own constructor-registered handler, so the press that stops the flight is
@@ -878,14 +885,15 @@ yaws freely and `CameraRig` keeps that yaw outside the pose.
 Originally FOV 60, distance 551, elevation 44.2°, derived from the bounding sphere — the
 "isometric strategy game" look the navigation work set out to replace.
 
-**Earth ⇄ Murcia navigation — the accumulator:** `commitDistancePx: 900` ·
+**Earth ⇄ Murcia navigation — the accumulator:** `commitDistancePx: 600`, after a 1200px zoom band each way (`DECISIONS.md` §44) ·
 `idleGapSeconds: 0.5` (MEASURED — wheel events land 415 ms apart on a starved main thread) ·
 `decaySeconds: 0.08` · `snapFraction: 0.01` · `maxEventTravelPx: 120` · `catchUp: 3`. Spring
 ω 16, ζ 0.7 (1.0 under reduced motion). Cooldown 0.35–1.2 s, quiet gap 0.12 s. **None of these
 may be retuned for feel** — they are §15's accidental-warp safety case (`DECISIONS` §29).
 
 **The pinch — ALL JUDGED, none settled by a hand except where noted:**
-`claimGrowthPx: 16` · `commitFraction: 0.42` · `minStartDistancePx: 24` · `declineRivalPx: 8`.
+`releaseGrowthPx: 16` (the only threshold left — it dismisses a focused display, and nothing
+else waits for it; `DECISIONS.md` §44) · `commitFraction: 0.42` · `minStartDistancePx: 24`.
 `HINT_DELAY_MS: 5000`.
 
 The signal is **growth in separation, in CSS px, normalised against the viewport's shorter
@@ -896,16 +904,11 @@ the fingers close, so real use landed at the easy end and committed after about 
 thumb. **`commitFraction` is the one number to move** if the gesture reads too easy or too
 demanding; the rest of the block should not need touching for that.
 
-`declineRivalPx: 8` is **not an independent judgement** — it is Murcia's own
-`rotation.twoPointerThresholdPx`, so whichever gesture proves itself first wins and the loser has
-not moved anything yet. The two constants live in different config files because `app/` may not
-read `experiences/`. **If one moves, move the other.**
-
 Derived, never written down: `pinchGain = commitDistancePx / (viewportShorterSide ×
 commitFraction)`. On a 393px-wide phone that is 165px of growth for a full commit.
 
-**Murcia navigation:** `deriveBoundsFromTerrain: true` · `boundsInset: 0` ·
-`dragThresholdPx: 6` · `touchDragThresholdPx: 12` · `rotation.twoPointerThresholdPx: 8` ·
+**Murcia navigation:** `bounds` = the A2 ring (`DECISIONS.md` §44) · `boundsInset: 0` ·
+`dragThresholdPx: 6` · `touchDragThresholdPx: 12` ·
 `groundPlaneHeight: 1` · `edgeSafetyMargin: 8` · `maxGroundDistance: 800`. `maxGroundDistance` was 500; at distance 165 on an ultrawide the
 corner rays genuinely reach ~550, so the clamp fired in a *normal* case rather than the
 near-horizon one it exists for — and it under-reported the footprint, which is the unsafe
@@ -1343,12 +1346,12 @@ must restore it to measure coverage.
    the district highlight is emissive rather than a dynamic light.
 8. **`rig.getPose()` returns `murciaConfig.camera` by identity.** Mutating it corrupts the
    config for the rest of the session. Always build a fresh pose object.
-9. **`DragPanController.update()` is an unconditional rig writer.** It calls
-   `rig.setFocus`/`rig.setYaw` whenever its stored targets differ from the rig, so anything
-   else that moves the rig will be fought frame by frame. Gating pointer input does not stop
-   it. Use `beginExternalControl()` / `endExternalControl({ adoptRigState: true })` — and
-   note `externalControl` is a plain boolean shared with `setActive` and every district
-   flight, so sequencing matters.
+9. **`CameraRig.update()` steps springs that chase their targets.** Anything else that moves
+   Murcia's camera while they run is pulled back frame by frame; gating pointer input does
+   not stop it. Take external control (the `CameraOwnership` facade) and write rig STATE
+   through `setFocus`/`setYaw` rather than targets — and note the flag is a plain boolean
+   shared with `setActive`, every district flight and the blog approach, so sequencing
+   matters (`DECISIONS.md` §44).
 10. **The focus rig's `activate()` is destructive.** It reseeds from the overview pose. To
     suspend it without losing the viewer's position, stop calling `update()`; never toggle
     activation.
@@ -1358,10 +1361,10 @@ must restore it to measure coverage.
 12. **Bounds must clamp the drag target, never the rendered focus.** Snapping the focus was
     harmless when bounds only changed on resize; with free yaw it would jerk on every frame
     of a turn.
-13. **Murcia's ground footprint is azimuth-dependent.** With free yaw the navigable bounds
-    change every frame of a rotation, so any analysis at a fixed azimuth is invalid —
-    including any *analysis*, not just any test. `DragPanController` fires `onYawChanged` for
-    this.
+13. **Murcia's ground footprint is azimuth-dependent.** The navigable bounds no longer depend
+    on it — since `DECISIONS.md` §44 the target is clamped to one authored rectangle — but any
+    footprint analysis at a fixed azimuth is still invalid, which is why the harnesses sweep
+    yaw.
 14. **Ultrawide is the binding aspect** for skirt coverage, not desktop. Lowering the camera,
     pulling it back, or raising `lookAtHeight` widens the footprint and spends skirt margin;
     re-run `check:warp` and re-check `terrainTransition.width` after *any* camera change. See
@@ -2128,7 +2131,7 @@ the user unseen. Whether it looks *right* is still the user's call.
 
 **Not verified.** The warp **at frame rate**. Software WebGL runs the city at ~2 fps and
 `lagSmoothing` then distorts every mid-transition frame, so how the motion actually *feels*
-is unjudged. The timings in `app/warpTransition.ts` are reasoned and endpoint-asserted but
+is unjudged. The timings in `utils/warpTransition.ts` are reasoned and endpoint-asserted but
 tuned blind — they need a person on real hardware.
 
 **Mobile and iOS were audited, and P0+P1 remediated (2026-08-14).**
@@ -2231,9 +2234,9 @@ Still open:
 ```
 src/
 ├── main.tsx, App.tsx          application shell and orchestration
-├── app/                       experience identity, transition, warp curves
+├── app/                       experience identity, transition (warp curves: utils/)
 │   └── navigation/            the ONLY wheel authority + the pinch. Four pure modules
-│                              (gesture, machine, spring, pinchClassifier) and one impure
+│                              (gesture, machine, spring, zoomBand) and one impure
 │                              one (createNavigationInput: DOM, frame loop, arbitration)
 ├── graphics/RenderPipeline    the single render authority
 ├── intro-draw/                the loading drawing — STANDALONE, imports nothing
@@ -2255,8 +2258,8 @@ e2e/                           Playwright smoke specs + committed screenshot bas
 `scripts/simulate-intro.mjs` was retired on 2026-08-13; its eight scenarios are
 `src/intro-draw/playhead.test.ts`.
 
-Inside `experiences/murcia/`: `config/` (pose, feel, skirt, query overrides) · `camera/`
-(rig, flight, framing, warp pose) · `navigation/` (drag controller, bounds, viewport
+Inside `experiences/murcia/`: `config/` (pose, skirt, query overrides) · `camera/`
+(rig, feel tuning, flight, framing, warp pose) · `navigation/` (pointer input, bounds, viewport
 footprint) · `environment/` (collar, skirt, boundary extraction) · `interaction/` (district
 resolve, highlight, state machine) · `assets/` (loader, city load, node names) · `scene/`
 (district bindings) · `ui/` · `styles/`. **Its `content/` folder is gone** — district copy moved
@@ -2279,10 +2282,10 @@ out of that path. **`bandDensity` has a deliberate twin in `shaders/nebula/bake.
 kept to one line so the duplication cannot hide a discrepancy, with the axis and width passed
 in as uniforms so only the gaussian is duplicated. Change one, change the other.
 
-`app/warpTransition.ts` is deliberately free of three, React and the DOM, so `checks/` can
+`utils/warpTransition.ts` is deliberately free of three, React and the DOM, so `checks/` can
 drive the real curves rather than a reimplementation. Keep it that way. It holds the
 envelope and the Earth leg only — Murcia's pose mapping lives in
-`experiences/murcia/camera/warpPose.ts`, because nothing under `experiences/` may import
-upward from `app/`, and because how a city may be approached or left is a property of its
+`experiences/murcia/camera/warpPose.ts`, because how a city may be approached or left is a
+property of its
 terrain skirt (ADR 006). `check:warp` imports from both, plus the real `applyPoseToCamera`
 and `computeGroundFootprint`.

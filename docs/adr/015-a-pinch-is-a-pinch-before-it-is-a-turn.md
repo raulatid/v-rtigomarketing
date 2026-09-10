@@ -7,6 +7,8 @@ track, retraced backwards"* — for Murcia's transition-facing direction only; `
 near end, which was `focusFlight.minDistanceScale` reused and is now measured
 Amends: `DECISIONS.md` §20 (the zoom band, for the fourth time)
 
+> **SUPERSEDED IN PART, 2026-09-10 — `DECISIONS.md` §44.** The arbitration this ADR exists for is gone, because the conflict is gone: two-finger rotation was deleted with the camera-navigation port, so a pair of contacts now means a pinch and nothing else. `pinchClassifier.ts`, the rival-travel rule and the anchored-thumb allowance were deleted with it. What SURVIVES is the second half — leaving Murcia is still its own gesture: a pinch may commit only if it STARTED with the band already at the exit-facing end, so one close zooms out and parks and a second leaves. That rule is unchanged and still load-bearing, and the reasoning below is why.
+
 ## Context
 
 The client drove the build on a phone and reported that zoom in Murcia frequently did not

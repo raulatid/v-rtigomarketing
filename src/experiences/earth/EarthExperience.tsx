@@ -136,6 +136,7 @@ export function EarthExperience({
         handleRef={interactionRef}
         cursorRef={cursorRef}
         satelliteHoverRef={satelliteHoverRef}
+        destinationRef={destinationRef}
         onSelect={onSelectCase}
         onDeselect={onDeselectCase}
         active={active}

@@ -1,8 +1,40 @@
 /**
- * The approach, as a scalar that walks 0 -> 1 once.
+ * A cinematic, as a scalar that walks 0 -> 1 once.
  *
  * Ported unchanged from `vertigo-lab`'s `blog-transition` (plan 022). Eighty lines
  * with no dependencies, and every hazard its docblocks record applies here too.
+ *
+ * ## Two callers, one clock
+ *
+ * It lived in `experiences/murcia/blogDisplay/` while the blog approach was its
+ * only caller. The camera-navigation port gave it a second — the Earth <-> Murcia
+ * transition, which used to be counted by a GSAP timeline — so it moved here
+ * rather than being copied. `utils/` is the floor both an application concern
+ * and an experience may reach; the module imports nothing, so nothing follows it.
+ *
+ * ## Why the scene transition stopped using GSAP
+ *
+ * Read what that timeline actually was: two `to` tweens on a proxy object with
+ * `ease: 'none'`, separated by a `call`. A LINEAR ramp with a callback in the
+ * middle. Every curve already lives in `utils/warpTransition`, and a GSAP ease
+ * there would compound with those curves and destroy the width relationship the
+ * three bells depend on — so the library was contributing a clock, and `step(dt)`
+ * is already a clock.
+ *
+ * GSAP is NOT removed from the project: `useMasterTimeline` still owns the intro,
+ * where a real timeline with real easing earns its keep (DECISIONS 26.3).
+ *
+ * ## What that GAINED, rather than merely preserved
+ *
+ * The GSAP timeline needed a `visibilitychange` guard, because it advanced on its
+ * own wall clock and a hidden tab returned having fast-forwarded — possibly PAST
+ * the substitution frame, which would swap the scene with nothing covering it.
+ *
+ * That hazard cannot be reintroduced here. This advances only when `step(dt)` is
+ * called, `requestAnimationFrame` does not run in a hidden tab, and
+ * `graphics/frameDelta.ts` clamps every delta to `MAX_FRAME_DELTA` regardless. A
+ * tab hidden across a whole cinematic resumes on the frame it left, so the guard
+ * was deleted with the timeline rather than ported.
  *
  * ## What it buys, beyond advancing a number
  *

@@ -86,16 +86,12 @@ describe('a lone parameter is not swallowed', () => {
     ['elev=22', (c: typeof murciaConfig) => c.camera.elevationDegrees, 22],
     // Values chosen to differ from what ships, per the note at the top of this
     // file: asserting a shipped default is how ?azimuth= was silently dropped.
-    [
-      'touchDragGain=0.55',
-      (c: typeof murciaConfig) => c.navigation.touchTranslationGain,
-      0.55,
-    ],
-    [
-      'touchYawDeg=133',
-      (c: typeof murciaConfig) => c.navigation.rotation.touchDegreesPerViewportWidth,
-      133,
-    ],
+    ['zoomNear=0.5', (c: typeof murciaConfig) => c.zoomNearScale, 0.5],
+    ['zoomFar=380', (c: typeof murciaConfig) => c.zoomFarDistance, 380],
+    // `?touchDragGain=` and `?touchYawDeg=` were the two rows here. They moved
+    // the map-pan controller's per-pointer-type gains, and both the gains and
+    // the controller are gone (DECISIONS §44) — the rig has one gain for both
+    // pointer types, in `camera/cameraTuning.ts`, with no query surface yet.
   ])('?%s survives on its own', (query, read, expected) => {
     expect(read(apply(`?${query}`))).toBe(expected);
   });

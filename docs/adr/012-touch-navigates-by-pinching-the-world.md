@@ -5,6 +5,8 @@ Reverses: `adr/009` §4 (*"Touch navigates on a right-edge rail, not by a canvas
 consequence *"Two-finger centroid rotation survives; pinch does not"*
 Amends: `DECISIONS.md` §20 / §21 (the zoom band on pinch), §29 (the hint's once-per-visit rule)
 
+> **SUPERSEDED IN PART, 2026-09-10 — `DECISIONS.md` §44.** §4 ("Murcia's rotate wins ties") no longer has a subject: two-finger centroid rotation was deleted with the camera-navigation port, so there is no rival to lose a tie to and no tie to break. The decision this ADR actually made — that touch travels between the worlds by pinching, on a channel nothing else reads — is unchanged and is now simply unopposed.
+
 ## Context
 
 `adr/009` gave touch a right-edge rail because *"the canvas has no free vertical channel — one

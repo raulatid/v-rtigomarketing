@@ -1,4 +1,4 @@
-import { cinematicSpeed, cinematicTravel, lerp, narrowPeak } from '../utils/easing'
+import { cinematicSpeed, cinematicTravel, lerp, narrowPeak, smootherstep } from './easing'
 
 // The Earth <-> Murcia warp, as pure functions of one progress value.
 //
@@ -49,10 +49,18 @@ export const WARP_TRANSITION = {
    */
   earthCloseFactor: 0.25,
 
+  /**
+   * Where the third stage of Earth's band begins. Past this depth the same
+   * scroll that zooms also swings the camera onto the destination, so the
+   * viewer arrives aimed at Spain rather than at whatever they happened to be
+   * looking at. Below it the orbit is entirely free.
+   */
+  earthGuideStart: 0.6,
+
   // ─── Murcia leg ───
 
   /** The configured resting distance. Must equal murciaConfig.camera.distance. */
-  murciaRestDistance: 220,
+  murciaRestDistance: 285,
   /** The configured resting elevation. Must equal murciaConfig.camera.elevationDegrees. */
   murciaRestElevation: 35,
   /** Closest approach, arriving. See the envelope below before changing this. */
@@ -102,10 +110,90 @@ export const WARP_TRANSITION = {
    * divergence itself is not about the skirt: it is lookAtHeight being a
    * constant, and 60 is still where it starts to bite.
    */
-  murciaMaxDistance: 220,
+  murciaMaxDistance: 285,
   murciaDepartMaxDistance: 470,
   murciaMinDistance: 60,
+
+  // ─── The vacuum ───
+  //
+  // A screen-space pass on the way OUT of Murcia only: radial UV magnification,
+  // a radial streak blur, and a grey vignette. It is scrubbed from the viewer's
+  // own scroll before the commit and carried to full on the speed bell after,
+  // so the effect belongs to the gesture rather than to the cinematic.
+  //
+  // Deliberately NOT a FOV widening. FOV would grow the ground footprint at no
+  // distance cost, which is exactly what the safety envelope above exists to
+  // prevent — the edge of the world would appear for ultrawide viewers with
+  // every distance bound still satisfied.
+
+  /** Where the scrub starts, as a position in the whole-journey approach 0..1. */
+  murciaVacuumStart: 0.7,
+
+  /** Peak radial magnification at the edges. */
+  vacuumDistortAmount: 0.18,
+  /** Above 1 the centre holds still and only the edges tear. */
+  vacuumDistortPower: 2.5,
+  /** Peak radial streak blur. */
+  vacuumBlurAmount: 0.35,
+  /** Peak vignette coverage. */
+  vacuumVignetteAmount: 0.76,
+  /** Radius at which the vignette begins; above 1 it starts outside the corners. */
+  vacuumVignetteStart: 1.1,
 } as const
+
+/**
+ * The vignette tint. A cool grey rather than black, so the darkening reads as
+ * atmosphere thickening rather than as the flash arriving early.
+ */
+export const VACUUM_VIGNETTE_COLOR = 0x2a2e33
+
+/**
+ * The movable subset of WARP_TRANSITION.
+ *
+ * Every curve below takes this as a REQUIRED parameter rather than defaulting
+ * to WARP_TRANSITION. That is deliberate: a default turns "which numbers is
+ * this frame using?" into a question the reader cannot answer at the call site,
+ * and the two answers differ precisely when someone is mid-experiment. Passing
+ * it costs one argument and removes the class of bug entirely.
+ *
+ * earthRestFov is NOT here — it must match introConfig.normalFov, so it is
+ * not a number anyone may move independently.
+ */
+export interface WarpLimits {
+  cut: number
+  accelerationPower: number
+  speedPeakWidth: number
+  flashWidth: number
+  motionBlurStrength: number
+  earthCloseFactor: number
+  earthGuideStart: number
+  earthWarpFov: number
+  murciaVacuumStart: number
+  vacuumDistortAmount: number
+  vacuumDistortPower: number
+  vacuumBlurAmount: number
+  vacuumVignetteAmount: number
+  vacuumVignetteStart: number
+}
+
+export function createDefaultWarpLimits(): WarpLimits {
+  return {
+    cut: WARP_TRANSITION.cut,
+    accelerationPower: WARP_TRANSITION.accelerationPower,
+    speedPeakWidth: WARP_TRANSITION.speedPeakWidth,
+    flashWidth: WARP_TRANSITION.flashWidth,
+    motionBlurStrength: WARP_TRANSITION.motionBlurStrength,
+    earthCloseFactor: WARP_TRANSITION.earthCloseFactor,
+    earthGuideStart: WARP_TRANSITION.earthGuideStart,
+    earthWarpFov: WARP_TRANSITION.earthWarpFov,
+    murciaVacuumStart: WARP_TRANSITION.murciaVacuumStart,
+    vacuumDistortAmount: WARP_TRANSITION.vacuumDistortAmount,
+    vacuumDistortPower: WARP_TRANSITION.vacuumDistortPower,
+    vacuumBlurAmount: WARP_TRANSITION.vacuumBlurAmount,
+    vacuumVignetteAmount: WARP_TRANSITION.vacuumVignetteAmount,
+    vacuumVignetteStart: WARP_TRANSITION.vacuumVignetteStart,
+  }
+}
 
 // ─── There is no scrub band any more ───
 //
@@ -131,8 +219,11 @@ export const WARP_TRANSITION = {
  * agree only because cinematicTravel is symmetric about 0.5. That is inherited
  * from the intro deliberately rather than diverged from.
  */
-export function transitionLeg(p: number): { departing: boolean; localT: number } {
-  const travelT = cinematicTravel(p, WARP_TRANSITION.accelerationPower)
+export function transitionLeg(
+  p: number,
+  limits: WarpLimits,
+): { departing: boolean; localT: number } {
+  const travelT = cinematicTravel(p, limits.accelerationPower)
   const departing = travelT < 0.5
   return {
     departing,
@@ -154,14 +245,17 @@ export function transitionLeg(p: number): { departing: boolean; localT: number }
  * world being left always rushed IN. That is right descending into Murcia and
  * wrong leaving it, because Murcia is inside the Earth (ADR 006).
  */
-export function dollyAmount(p: number): { departing: boolean; amount: number } {
-  const { departing, localT } = transitionLeg(p)
+export function dollyAmount(
+  p: number,
+  limits: WarpLimits,
+): { departing: boolean; amount: number } {
+  const { departing, localT } = transitionLeg(p, limits)
   return { departing, amount: departing ? localT : 1 - localT }
 }
 
 /** The wide bell. Drives the FOV surge and the motion blur. */
-export function speed(p: number): number {
-  return cinematicSpeed(p, WARP_TRANSITION.cut, WARP_TRANSITION.speedPeakWidth)
+export function speed(p: number, limits: WarpLimits): number {
+  return cinematicSpeed(p, limits.cut, limits.speedPeakWidth)
 }
 
 /**
@@ -172,18 +266,18 @@ export function speed(p: number): number {
  * unrelated worlds. Shaped by narrowPeak rather than a linear ramp so it still
  * spikes and recovers like the intro's, instead of reading as a dissolve.
  */
-export function flash(p: number): number {
-  return narrowPeak(p, WARP_TRANSITION.cut, WARP_TRANSITION.flashWidth)
+export function flash(p: number, limits: WarpLimits): number {
+  return narrowPeak(p, limits.cut, limits.flashWidth)
 }
 
 /** Earth's FOV surge. Returns to the resting FOV at both ends on its own. */
-export function earthFov(p: number): number {
-  return lerp(WARP_TRANSITION.earthRestFov, WARP_TRANSITION.earthWarpFov, speed(p))
+export function earthFov(p: number, limits: WarpLimits): number {
+  return lerp(WARP_TRANSITION.earthRestFov, limits.earthWarpFov, speed(p, limits))
 }
 
 /** Scale applied to Earth's camera radius: 1 at rest, earthCloseFactor at the cut. */
-export function earthRadiusScale(amount: number): number {
-  return lerp(1, WARP_TRANSITION.earthCloseFactor, amount)
+export function earthRadiusScale(amount: number, limits: WarpLimits): number {
+  return lerp(1, limits.earthCloseFactor, amount)
 }
 
 // Murcia's pose mapping deliberately does NOT live here. The transition hands
@@ -193,8 +287,8 @@ export function earthRadiusScale(amount: number): number {
 // are mirrors of murciaConfig, asserted equal by checks/warp-transition.ts.
 
 /** The blur amount fed to the AfterimagePass, matching state.motionBlur's scale. */
-export function motionBlur(p: number): number {
-  return speed(p) * WARP_TRANSITION.motionBlurStrength
+export function motionBlur(p: number, limits: WarpLimits): number {
+  return speed(p, limits) * limits.motionBlurStrength
 }
 
 /**
@@ -209,3 +303,38 @@ export function prefersReducedMotion(): boolean {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   )
 }
+
+/**
+ * The vacuum, scrubbed from the viewer's own scroll. Reversible, and 0 until
+ * the approach passes murciaVacuumStart.
+ *
+ * Takes the RAW approach, never a spring-painted one. An indicator that lags
+ * reads as receiving your input; a screen-space effect that lags reads as the
+ * renderer struggling.
+ */
+export function vacuumScrub(approach: number, limits: WarpLimits): number {
+  return smootherstep(limits.murciaVacuumStart, 1, approach)
+}
+
+/**
+ * The vacuum once the cinematic owns the camera: carried from wherever the
+ * scrub had reached at the commit up to full on the speed bell.
+ *
+ * The latch is load-bearing. speed(0) is 0, so reading the bell alone would
+ * snap the effect back to nothing on the first committed frame — visible as a
+ * flinch exactly when the viewer has just succeeded.
+ */
+export function vacuumCommitted(atCommit: number, p: number, limits: WarpLimits): number {
+  return atCommit + (1 - atCommit) * speed(p, limits)
+}
+
+/**
+ * The one live instance of the movable numbers.
+ *
+ * Exported rather than defaulted inside each curve, so a call site still says
+ * which numbers it is using and a reader can follow the reference. There is
+ * exactly one of these because the app has no live-tuning panel; it stays a
+ * mutable object so a query-string override can move a number at construction
+ * without every holder needing to be told.
+ */
+export const WARP_LIMITS: WarpLimits = createDefaultWarpLimits()

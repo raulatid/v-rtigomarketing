@@ -10,7 +10,7 @@ import type { CameraRig } from '../camera/CameraRig';
 import { computeFramedFocus, unobstructedCenterNdc } from '../camera/cameraFraming';
 import { clientToNdc, worldToClient } from '../../../interaction/screenSpace';
 import type { ScreenRect } from '../camera/cameraFraming';
-import type { DragPanController } from '../navigation/DragPanController';
+import type { CameraOwnership } from '../camera/CameraRig';
 import type {
   BoundsRect,
   CameraPoseConfig,
@@ -43,7 +43,8 @@ export interface DistrictInteractionDeps {
   canvas: HTMLCanvasElement;
   camera: THREE.PerspectiveCamera;
   rig: CameraRig;
-  controller: DragPanController;
+  /** How this flight takes and gives back the camera. See `CameraOwnership`. */
+  cameraOwnership: CameraOwnership;
   /** The district's shared camera decision. */
   binding: DistrictSceneBinding;
   /**
@@ -253,7 +254,7 @@ export class DistrictInteraction {
     this.raycaster.layers.enable(INTERACTION_LAYER);
 
     // Capture phase so a press that cancels a flight is seen before anything
-    // else acts on it. It does NOT run before `DragPanController`, which listens
+    // else acts on it. It does NOT run before `createCameraInput`, which listens
     // on the same canvas and registered first — at the target node, listeners
     // fire in registration order whatever their capture flag. That is why the
     // detail-scroll gesture takes external control rather than trying to stop
@@ -415,7 +416,7 @@ export class DistrictInteraction {
     // that got here would never be retracted and the pointing hand would stay up
     // for as long as the district is open.
     this.deps.cursor.request(this.cursorKey, '');
-    this.deps.controller.beginExternalControl();
+    this.deps.cameraOwnership.beginExternalControl();
     this.flight.playTo(this.computeDestination());
   }
 
@@ -432,7 +433,7 @@ export class DistrictInteraction {
     // undo it by hand. Leaving them dollied in with no way out is the one
     // outcome worse than moving the camera on a close.
     if (this.deps.rig.getDistanceScale() !== 1) {
-      this.deps.controller.beginExternalControl();
+      this.deps.cameraOwnership.beginExternalControl();
       this.flight.playTo({
         x: this.deps.rig.focus.x,
         z: this.deps.rig.focus.z,
@@ -507,7 +508,7 @@ export class DistrictInteraction {
   }
 
   private onFlightSettled(): void {
-    this.deps.controller.endExternalControl({ adoptRigState: true });
+    this.deps.cameraOwnership.endExternalControl();
     if (this.state.type === 'entering') {
       this.setInteractionState({
         type: 'open',
@@ -522,7 +523,7 @@ export class DistrictInteraction {
     if (!this.hoverSupported) return;
     // Hover during a drag would fight the gesture, and during a flight the
     // camera is moving under a stationary pointer.
-    if (this.deps.controller.isDragging || this.flight.isPlaying) return;
+    if (this.deps.cameraOwnership.isDragging || this.flight.isPlaying) return;
 
     if (this.deps.state.get().districtActive) {
       // Open: the display owns hover entirely, and nothing else is pickable.
@@ -703,7 +704,7 @@ export class DistrictInteraction {
     // Only if a flight has not taken the rig in the meantime — handing it back
     // on the flight's behalf would drop it mid-air.
     if (this.flight.isPlaying) return;
-    this.deps.controller.endExternalControl({ adoptRigState: true });
+    this.deps.cameraOwnership.endExternalControl();
   }
 
   private readonly onPointerDownCapture = (event: PointerEvent): void => {
@@ -736,14 +737,15 @@ export class DistrictInteraction {
     this.deps.display.setPressed(control);
 
     if (snapshot.detailOpen && control === 'detail-viewport' && this.scrollGesture === null) {
-      // Claim the gesture before it moves. `DragPanController` listens on this
+      // Claim the gesture before it moves. `createCameraInput` listens on this
       // same canvas and registered first, so its pointerdown has already run —
-      // `beginExternalControl` releases the pointers it captured and stops it
-      // writing the rig, which is the only mechanism that works on a shared
-      // target. Reading and panning cannot both happen, and reading wins
+      // `beginExternalControl` makes it drop every move while control is held
+      // (it returns before `rig.drag` on an externally controlled rig), which is
+      // the only mechanism that works on a shared target. Reading and panning
+      // cannot both happen, and reading wins
       // (plan 003 §13).
-      const tookControl = !this.deps.controller.isExternallyControlled;
-      if (tookControl) this.deps.controller.beginExternalControl();
+      const tookControl = !this.deps.cameraOwnership.isExternallyControlled;
+      if (tookControl) this.deps.cameraOwnership.beginExternalControl();
       this.scrollGesture = { id: event.pointerId, lastY: event.clientY, tookControl };
     }
   };
@@ -816,7 +818,7 @@ export class DistrictInteraction {
     this.pointerClientY = event.clientY;
     this.hoverDirty = true;
 
-    if (this.deps.controller.isDragging) return;
+    if (this.deps.cameraOwnership.isDragging) return;
     // Measured against the press, independently of the controller: the release
     // of a drag is not a tap on whatever it happens to end over. And a release
     // with no press on record — the browser cancelled the pointer mid-gesture —

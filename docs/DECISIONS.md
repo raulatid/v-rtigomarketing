@@ -3180,6 +3180,141 @@ clearing `data-visible` when `active` goes false.
 
 ---
 
+## 44. Murcia is navigated by one pointer carrying both axes, over a spring
+
+**2026-09-10.** Ported from `prototypes/vertigo-lab`, experiment
+`camera-navigation`. Replaces **§20** and its amendments **§21** and **§38**,
+and retires **§39** and **§40** outright.
+
+**The model.** One pointer drives yaw and travel SIMULTANEOUSLY: horizontal
+movement turns the rig, vertical movement advances or retreats along the
+resulting heading, and a diagonal does both. There is no gesture classification —
+no `if (|dx| > |dy|)`, no forward vector captured at pointerdown. Yaw is applied
+first and the heading is re-derived from the value that line just wrote, which is
+what turns a diagonal drag into a curve rather than a straight line at an angle.
+
+**The signs are a decision, and were reported wrong once.** Both gains are
+positive: the world follows the finger. Drag down and the camera ADVANCES,
+because the ground is being pulled toward the viewer; drag right and the camera
+yaws LEFT, because the world slides right. The opposite reading — the camera
+moves the way the finger moves — is self-consistent, shipped first in the
+sandbox, and was called backwards on first use.
+
+One honest caveat, on yaw only, asserted in `checks/navigation-feel.ts` §2 so
+nobody re-derives it as a bug: this is an ORBIT about the navigation target, so a
+point BEYOND the target follows the finger, a point AT it is stationary, and a
+point NEARER sweeps the other way. "The point under the cursor stays under the
+cursor" is true at the target distance and nowhere else.
+
+**Damping became a spring.** The first-order `1 - exp(-k·dt)` lag is gone. Every
+axis runs the closed-form solution of a damped harmonic oscillator, evaluated once
+per damping group per frame: exactly frame-rate independent rather than
+approximately, unconditionally stable at any dt and any ratio, allocation-free.
+`dampingRatio` is 0.85 on rotation and travel, so the camera LANDS — it passes a
+stopped target once by about 1.4 units and returns. The overshoot is the point;
+`checks/navigation-feel.ts` §3 bounds it rather than forbidding it.
+
+Zoom is hard-wired critically damped whatever the ratio says, because the clamp is
+on the target and a spring that lands is a spring that passes its target — an
+overshooting zoom would dip below `minRadius` and put the near plane through the
+ground.
+
+**The pitch rides the zoom's own coefficients**, so distance and elevation settle
+as ONE motion. That coupling is why the zoom's ease had to move out of
+`MurciaExperience` and into the rig: a single scalar lerp outside the rig could
+not express it.
+
+**The camera leans toward a hovering cursor** after two seconds of stillness, up
+to 2.5° of yaw and 1° of pitch. An ornament, not a navigation: it is added at pose
+time and never enters the targets, so the bounds clamp, a flight handover and a
+snapshot all stay clean. First-order rather than a spring, deliberately — a spring
+would bounce when the mouse stops, which is exactly when the viewer is looking at
+it. The idle clock lives in the rig because the input layer has no frame tick, and
+a mouse that stops moving would never reopen the gate.
+
+**Two fingers mean one thing.** Two-finger rotation is gone, and with it every
+mechanism that existed to tell a pinch from it: `pinchClassifier.ts`, its two test
+files, `NAVIGATION_PINCH.declineRivalPx`, the anchored-thumb allowance of
+`adr/015`, and the synthetic-`pointercancel` claim that used to pry the gesture
+out of the drag controller. A pair now arms on the second contact and drives the
+band from the first sample, with no dead zone to pay back. The fingers are still
+taken from whatever was following them, once, at arm time — that is not an
+arbitration, it is telling the experiences that the finger they were tracking is
+now half of something else.
+
+One threshold survives, and only one: `releaseGrowthPx`, the outward growth that
+dismisses a focused display. Feeding the band needs no floor, because a pixel of
+growth moves it by a pixel and the viewer can take it straight back; dismissing
+what someone is reading cannot be undone.
+
+**The travel doubled.** The band is 1200 px each way and the commit 600 px — the
+whole journey 1800 px, about 15 wheel notches, with the 2:1 ratio preserved. The
+band has to be long enough that the vacuum has somewhere to build before the
+commit is even reachable.
+
+**The vacuum.** Leaving Murcia now runs a screen-space pass: radial UV
+magnification, a radial streak blur and a grey vignette, all hanging off one
+radial term. Scrubbed from the viewer's OWN scroll before the commit — reversible,
+and 0 until the approach passes 0.7 — then carried to full on the speed bell once
+committed. The latch at the commit is load-bearing: `speed(0)` is exactly 0, so
+reading the bell alone would snap the effect back to nothing on the first
+committed frame, a visible flinch at the moment the viewer has succeeded.
+
+Deliberately NOT a FOV widening, which would have been less code. FOV grows the
+camera's ground footprint at no distance cost, which is precisely what
+`checks/warp-transition.ts` and `checks/footprint.ts` exist to bound — the edge of
+the world would arrive for ultrawide viewers with every distance limit still
+satisfied. A screen-space pass cannot move the camera and so cannot show anything
+the camera was not already seeing. Grey rather than black, because black is what
+the flash uses and a black vignette would read as the cut arriving early.
+
+Suppressed under `prefers-reduced-motion` by HOLDING AT ZERO rather than
+resetting. The cursor lean is suppressed for the same reason: both are involuntary
+motion applied to the viewer.
+
+**Earth gained a zone to dive at.** Past `earthGuideStart` (0.6) the same scroll
+that zooms also swings the camera onto the destination, so a viewer who pushes all
+the way arrives aimed at Spain. The drag is NOT gated — the free orbit keeps every
+input, and only its weight in the blend shrinks; a gate would make the globe go
+dead under the hand at the moment the viewer is most engaged with it. The radius
+is untouched, so the zoom stays theirs the whole way through. `CameraController`
+captures the swing at the commit and closes the remainder on the bell, because
+`speed(0) = 0` would otherwise throw the aim back to the sphere's centre and undo
+the swing the viewer had just scrolled through.
+
+**A compass.** A hairline across the bottom of the frame with a pin per place
+worth clicking. Complementary to the beacons rather than a replacement: a beacon
+names a thing you can see, the compass points at a thing you cannot — and turning
+away from things became easy and continuous under the new model. Bearings are
+computed on the GROUND PLANE, not in camera space, because a camera-space bearing
+moves when only the pitch moves and Murcia's pitch sweeps 35° to 55° across the
+band. A pin warms only when it is BOTH near the centre of the bar and near in the
+world; being pointed at something is not the same as having arrived at it.
+
+**What it cost, and what it bought.** `DragPanController` (958 lines), the
+`NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
+1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle
+and §40's resistance band are retired: the viewer's TARGET is clamped to one
+rectangle, and that rectangle is the A2 ring — the ground the GLB actually
+carries. The sandbox grew its plate by a flat 50 units; measured, Murcia's built
+ground extends past the plate by −X 24.9, +X 30.0, −Z 50.0, +Z 16.5, so a flat 50
+would have put the viewer over nothing on three sides of four.
+
+Rest returned to distance 285 with `zoomNearScale` 0.45. §39 is explicit that 220
+was "re-chosen against navigation" to preserve pan range UNDER the eye clamp; with
+the clamp retired the argument for it went with it, and 285 is the pose the
+sandbox's feel was judged at. Closest approach is unchanged in absolute terms
+(128.25 against 127.6), and the pinch ratio returns to ×2.22 — which is what
+`adr/015` wanted.
+
+**What now guarantees the world still surrounds the camera.** `checks/footprint.ts`
+§3, which was always the outer guarantee and is now the only one. It passes with
+1207 units of margin at the shipped pose. §2's clamp assertion was restated rather
+than deleted: 576 of 508,032 sampled poses out-reach the horizon, all on ultrawide,
+and the clamp they fall back on is 800 units against 888 units of real ground — so
+what those poses draw is ground.
+
+
 ## Superseded
 
 | Decision | Was | Now |
@@ -3189,6 +3324,10 @@ clearing `data-visible` when `active` goes false.
 | Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
 | The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** |
 | Earth's way out is drawn in the scene, as ~770 points that gather out of the star field | `experiences/earth/hint/{createHintParticles,sampleInk,buildHintFigure,hintPresence}.ts`, deleted 2026-09-09, **§41** | Plain white DOM text carrying the same chevrons and the same sentence, faded in over 2 s and floating ±5 px. The client's objection was the glass plate, never the text — **§43** |
+| Murcia navigates like a map: one finger pans the ground 1:1 under the cursor, a second finger or the right button rotates | `navigation/DragPanController.ts`, deleted 2026-09-10; **§20**, **§21**, **§38** | One pointer carries BOTH axes at once over a second-order spring, and two fingers mean only a pinch. The ground-raycast grab-the-point solve is gone rather than kept beside it — **§44** |
+| The navigable area bounds the CAMERA, and the outer part of it is a band travelled against a falling gain | `navigation/navigableArea.ts` and `resistToRect`, deleted 2026-09-10; **§39**, **§40** | The viewer's TARGET is clamped to one rectangle, and the rectangle is the A2 ring the GLB carries. The band bought pan range; the wider rectangle gives it outright — **§44** |
+| A pinch has to prove it is not a two-finger turn before it may drive anything | `app/navigation/pinchClassifier.ts`, deleted 2026-09-10; **`adr/015`** | Two fingers mean a pinch, because nothing else uses two fingers. It arms on the second contact and drives the band from the first sample — **§44** |
+| The Earth ⇄ Murcia cinematic is counted by a GSAP timeline | `app/useExperienceTransition.ts`, rewritten 2026-09-10 | A `dt` clock, `utils/transitionClock.ts`. The timeline was two linear tweens and a callback; the `visibilitychange` guard it needed is structurally impossible now — **§44** |
 | The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** |
 | The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
 | Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |

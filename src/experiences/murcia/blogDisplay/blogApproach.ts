@@ -8,7 +8,7 @@ import {
 } from './blogTransition';
 import { createHandoffImage, type HandoffImage } from './handoffImage';
 import type { PageImageSource } from './pageImage';
-import { createTransitionClock, type TransitionClock } from './transitionClock';
+import { createTransitionClock, type TransitionClock } from '../../../utils/transitionClock';
 
 /**
  * The two flights, and everything that has to be true while one is running.
@@ -96,12 +96,12 @@ export interface BlogApproachDeps {
   display: BlogDisplay;
   pageImages: PageImageSource;
   /**
-   * Stands the drag controller down for the length of a flight, and picks it back
-   * up afterwards.
+   * Stands the camera rig down for the length of a flight, and picks it back up
+   * afterwards.
    *
-   * Two callbacks rather than the controller itself, so this module never learns
-   * that a `DragPanController` exists — `MurciaExperience` owns that relationship
-   * and already brackets the district's flights the same way.
+   * Two callbacks rather than the rig itself, so this module never learns how
+   * Murcia's camera is navigated — `MurciaExperience` owns that relationship and
+   * already brackets the district's flights the same way.
    */
   beginExternalControl: () => void;
   endExternalControl: () => void;

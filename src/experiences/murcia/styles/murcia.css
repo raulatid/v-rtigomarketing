@@ -11,7 +11,7 @@
  * bare canvas rule would have applied to the shared R3F canvas.
  *
  * The touch-action the removed canvas rule provided is not lost:
- * DragPanController sets domElement.style.touchAction = 'none' itself, and
+ * createCameraInput sets element.style.touchAction = 'none' itself, and
  * .scene-canvas in styles.css declares it too.
  *
  * The host is full-viewport but pointer-events: none, so drag gestures reach
@@ -373,5 +373,119 @@
      so the dot's pulse is all that is left to stop. */
   .murcia-ui .district-beacons[data-visible] .district-beacon__dot {
     animation: none;
+  }
+}
+
+/* ── The compass ──────────────────────────────────────────────────────────────
+   A hairline across the bottom of the frame saying which way the two places
+   worth clicking are. See `ui/compassBar.ts`; the bearings are `utils/compass`.
+
+   Decorative throughout: `pointer-events: none` here and `aria-hidden` on the
+   element, both load-bearing. Navigation is a gesture (`adr/009`) and the
+   district itself stays the only way in.
+
+   Positions arrive as `--offset`, a percentage of half the bar, so nothing here
+   has to know the bar's width and the JS never measures it. */
+.murcia-ui .murcia-compass {
+  position: absolute;
+  /* Above the safe-area inset, and clear of the district's own controls. */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  left: 50%;
+  width: min(420px, 66vw);
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 320ms ease;
+  /* BELOW the warp flash, which sits above every scene overlay. The cut has to
+     be able to cover this disappearing. */
+  z-index: 34;
+}
+
+.murcia-ui .murcia-compass[data-visible='true'] {
+  opacity: 1;
+}
+
+.murcia-ui .murcia-compass__line {
+  height: 1px;
+  width: 100%;
+  /* Tapered rather than a flat rule: the ends of the bar mean "90 degrees away",
+     which is barely information, and a hairline that fades there stops the eye
+     being drawn to its own extremities. */
+  background: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0) 0%,
+    rgb(255 255 255 / 0.34) 22%,
+    rgb(255 255 255 / 0.34) 78%,
+    rgb(255 255 255 / 0) 100%
+  );
+}
+
+/* Where the camera is actually pointing. Furniture — it never moves, and it is
+   what the moving pins are read against. */
+.murcia-ui .murcia-compass__forward {
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 1px;
+  height: 7px;
+  margin-left: -0.5px;
+  background: rgb(255 255 255 / 0.5);
+}
+
+.murcia-ui .murcia-compass__mark {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  /* `--offset` is already signed and already a percentage of half the bar. */
+  transform: translateX(calc(-50% + var(--offset, 0%)));
+  opacity: var(--fade, 1);
+  /* No transition on the transform: this is driven every frame from the camera,
+     and a CSS ease on top of a per-frame write would lag the world. The colour
+     and scale below DO ease, because those answer proximity rather than heading. */
+  transition:
+    color 220ms ease,
+    opacity 220ms ease;
+  /* Interpolated from `--warmth`, 0 at rest and 1 when both claims agree. */
+  color: color-mix(
+    in srgb,
+    rgb(255 255 255 / 0.62),
+    var(--murcia-compass-warm, #ffd166) calc(var(--warmth, 0) * 100%)
+  );
+}
+
+.murcia-ui .murcia-compass__pin {
+  width: 5px;
+  height: 5px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg) scale(calc(1 + var(--warmth, 0) * 0.5));
+  background: currentcolor;
+  transition: transform 220ms ease;
+}
+
+.murcia-ui .murcia-compass__label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: currentcolor;
+  /* Legible over a bright plate as well as a dark one. */
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+  transform: scale(calc(1 + var(--warmth, 0) * 0.18));
+  transition: transform 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The bar still appears and still points; only the easing goes. The warmth is
+     information, not decoration, so it is not suppressed. */
+  .murcia-ui .murcia-compass,
+  .murcia-ui .murcia-compass__mark,
+  .murcia-ui .murcia-compass__pin,
+  .murcia-ui .murcia-compass__label {
+    transition: none;
   }
 }

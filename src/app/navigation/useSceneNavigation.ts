@@ -33,6 +33,8 @@ interface Params {
    * the viewer owns and nothing here ever takes back.
    */
   onZoom?: (depth: number) => void
+  /** The whole journey, raw. See `createNavigationInput`'s own `onApproach`. */
+  onApproach?: (approach: number) => void
 }
 
 /**
@@ -53,6 +55,7 @@ export function useSceneNavigation({
   onCommit,
   onProgress,
   onZoom,
+  onApproach,
 }: Params) {
   const inputRef = useRef<NavigationInput | null>(null)
 
@@ -64,6 +67,8 @@ export function useSceneNavigation({
   progressRef.current = onProgress
   const zoomRef = useRef(onZoom)
   zoomRef.current = onZoom
+  const approachRef = useRef(onApproach)
+  approachRef.current = onApproach
 
   useEffect(() => {
     const root = rootRef.current
@@ -75,6 +80,7 @@ export function useSceneNavigation({
       onCommit: (intent) => commitRef.current(intent),
       onProgress: (progress) => progressRef.current?.(progress),
       onZoom: (depth) => zoomRef.current?.(depth),
+      onApproach: (approach) => approachRef.current?.(approach),
     })
     inputRef.current = input
 

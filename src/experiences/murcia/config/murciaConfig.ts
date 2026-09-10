@@ -65,15 +65,15 @@ const GROUND = { minX: -1417.5, maxX: 752.4, minZ: -620.5, maxZ: 1304.8 };
  * that shrinks or moves the ring fails the build rather than quietly letting
  * the camera stand somewhere there is nothing to stand on.
  */
-const CITY_A2 = { minX: -463.1, maxX: -56.4, minZ: 70.5, maxZ: 489.8 };
+export const CITY_A2 = { minX: -463.1, maxX: -56.4, minZ: 70.5, maxZ: 489.8 };
 
 /**
- * Inset from the plate to the area the focus may reach.
+ * Inset from the plate to the area the navigation target may reach.
  *
- * Zero: the whole model is navigable, right out to the plate edge. That is only
- * safe because the transition skirt is sized to stay outside the viewport
- * footprint even at the extreme corners — the skirt, not the clamp, is what
- * keeps the hard edge out of frame.
+ * ZERO, because the rectangle is no longer derived from the plate at all — see
+ * `navigation.bounds` below, which is the A2 ring. Kept as a field because the
+ * shape of the config still says "a rectangle, and how it relates to the plate",
+ * and a caller that wanted to inset further has somewhere to say so.
  */
 const NAVIGATION_INSET = 0;
 
@@ -203,9 +203,18 @@ const REPRESENTATIVE_BUILDING_HEIGHT = 13;
  * grab-the-point cliff is at LOW pitch (16 failed, 18 was exact). The distance
  * drop is not: it multiplies straight into the compound closest approach, and
  * `zoomNearScale` below was re-measured because of it.
+ *
+ * ── 35 deg / 220 -> 35 deg / 285, 2026-09-10. DECISIONS §44 ──
+ *
+ * 220 was chosen AGAINST NAVIGATION: it bought pan range back under §39's eye
+ * clamp, and the one-sided arithmetic above is that clamp's. The camera-navigation
+ * port retired the clamp — the viewer's TARGET is clamped to the A2 ring and the
+ * eye is free — so the argument for 220 went with it, and 285 is the pose the
+ * sandbox's feel was judged at. The pitch is unchanged. `zoomNearScale` returned
+ * to 0.45 with it; see there.
  */
 const ELEVATION_DEGREES = 35;
-const CAMERA_DISTANCE = 220;
+const CAMERA_DISTANCE = 285;
 
 export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
@@ -288,6 +297,18 @@ export const murciaConfig: EnvironmentConfig = {
   cameraPortraitOverrides: null,
   portraitAspectThreshold: 0.85,
 
+  // ── The drag's own feel no longer lives here ──
+  //
+  // `translationGain`, `touchTranslationGain`, `feel` and `rotation` were the
+  // map-pan controller's: a gain per pointer type, two first-order time
+  // constants each for pan and yaw, and a two-pointer rotation threshold. All of
+  // it went with `DragPanController` (DECISIONS §44). The replacement is
+  // `camera/cameraTuning.ts`, which the rig and its pointer input share by
+  // reference — one gain for both pointer types, and spring frequencies rather
+  // than time constants.
+  //
+  // What is left below is what is NOT feel: where the viewer may go, how far the
+  // frustum may reach, and the tap tolerances the districts read.
   navigation: {
     enabled: true,
     dragThresholdPx: 6,
@@ -308,197 +329,32 @@ export const murciaConfig: EnvironmentConfig = {
     // from. Collapsing these back into one number re-breaks touch even with
     // every raycast correct.
     touchDragThresholdPx: 12,
-    // How much of the cursor's ground travel the focus actually covers.
-    //
-    // 1 is the *definition* of grab-the-point: the grabbed ground point stays
-    // exactly under the cursor, in both axes. This is 0.7, so it deliberately
-    // does not — the ground covers 70% of the sweep and the grabbed point
-    // slides ~30% of the drag distance behind the cursor, by construction and
-    // not as lag.
-    //
-    // JUDGED 2026-08-13, and judgement is the only currency that buys this.
-    // The 0.5 signed off on 2026-08-06 was reversed to 1 on user reports that
-    // the ground did not follow the mouse; 0.7 is the same person splitting the
-    // difference by hand — enough fidelity to read as dragging the map, enough
-    // shortfall to keep some weight. `?dragGain=1` gives exact grab-the-point
-    // for comparison, `?dragGain=0.5` the original.
-    //
-    // Two consequences to know before touching it. The solve itself is still
-    // exact — §9 of checks/navigation-feel.ts asserts grab-the-point at gain 1
-    // and proportionality here, so a broken solve still fails. And the coupling
-    // with `smoothingTimeConstant` below is now partial: the latency objection
-    // that forced 0.09 → 0.03 fires in proportion to the gain, so 0.03 is
-    // conservative here rather than mandatory.
-    translationGain: 0.4,
-    // The same thing for touch, at grab-the-point, and the split is what makes
-    // the mouse number above safe to leave alone.
-    //
-    // The complaint was that panning a phone costs too many strokes. The
-    // obvious explanation — a phone shows less ground, so a pixel buys less —
-    // is FALSE, and worth writing down because it is the first thing anyone
-    // will reach for. Ground per CSS pixel at this pose is 2*tan(fov/2)/h: a
-    // function of viewport pixel HEIGHT alone, in both screen axes, because the
-    // frustum widening with aspect is exactly cancelled by there being more
-    // pixels to spread it over. Measured through the real pose maths it is
-    // 0.2241 units/px on a 390x844 phone against 0.1751 on a 1920x1080 desktop.
-    // The phone pixel is worth MORE.
-    //
-    // What the phone does not have is stroke. A mouse drag is unbounded by the
-    // window (pointer capture keeps events coming past the edge) and by the
-    // desk (acceleration); a thumb stops at the glass at ~250px. At gain 0.4
-    // that is 22.4 units per stroke against the desktop's 70 — so crossing the
-    // 352-unit plate costs ~16 strokes on a phone and ~5 on a desktop. That
-    // ratio is the whole report.
-    //
-    // Parity would need 1.25, which is above grab-the-point and therefore not
-    // available at all. 1 recovers 80% of the gap (56 units against 70) and is
-    // the ceiling for a reason that is not taste: on touch the finger is ON the
-    // thing it drags, so ground that outruns it reads as broken rather than as
-    // light. checks/navigation-feel.ts asserts the bound.
-    //
-    // Nothing else moves with it. `smoothingTimeConstant: 0.03` below was
-    // already sized for the gain-1 case — see its own note, which records that
-    // 0.03 is conservative at 0.4 rather than mandatory.
-    //
-    // STARTING POINT, derived by arithmetic and NOT yet driven on a phone.
-    // `?touchDragGain=` is the ladder: 0.85, then 0.7 if 1 reads slippery.
-    // Below 0.7 is back inside the complaint.
-    touchTranslationGain: 1,
-    // Panning the focus across the ground, world units per second.
-    //
-    // SIGNED OFF 2026-08-06, with two amendments recorded in PROJECT_MEMORY §7.
-    // These were judged by a person driving the build and accepted first pass —
-    // the only values in this file set by judgement rather than by measurement,
-    // so they cannot be checked by the harness and cannot be re-derived if
-    // lost. Do not adjust them from reasoning alone.
-    //
-    // Weight lives in the drag, not in a coast. An earlier design put it in the
-    // coast instead (inertia 1.1s, release 0.3s) on the theory that lag during
-    // a drag reads as latency rather than mass. Tested by hand, the result was
-    // a view that kept moving after the pointer stopped — which reads as a loss
-    // of control. Inertia stays off.
-    feel: {
-      // 0.09 -> 0.03, and this one is a CONSEQUENCE, not an independent choice.
-      // The 0.09 was affordable only because the latency objection is
-      // conditional: it applies while the ground is expected to track the
-      // cursor exactly, and a gain of 0.5 had given that up. At gain 1 the
-      // condition fires. The lag is visible as dragSpeed x tau of slide — ~25
-      // world units at 0.09 on a fast pan, which is exactly the "it doesn't
-      // follow my mouse" complaint — so it is now the thing to minimise rather
-      // than the thing to spend. Restoring 0.5 without restoring 0.09, or the
-      // reverse, gets the worst of both.
-      smoothingTimeConstant: 0.03,
-      // Short, and unchanged. The target stops with the pointer, so this is
-      // only how long the render takes to catch up — ~0.25s to settle. At the
-      // earlier 0.3 the view drifted for nearly a second after release and read
-      // as inertia even with momentum disabled.
-      releaseTimeConstant: 0.08,
-      // No coast. Motion ends with the gesture.
-      inertiaTimeConstant: 0,
-      // Both unused while inertia is 0. Kept so ?inertia= can be used to
-      // re-enable momentum for comparison without restoring anything else.
-      minInertiaSpeed: 1.5,
-      maxInertiaSpeed: 260,
-      velocityBlend: 0.25,
-    },
 
-    rotation: {
-      enabled: true,
-      // A drag across the full viewport turns a sixth of a circle; a quarter
-      // turn costs 1.5 sweeps. Halved from 120 for two reasons that compound.
-      //
-      // Rotation is now a deliberate, separate gesture (right button, or two
-      // fingers) rather than one axis of the only gesture, so it is entered on
-      // purpose and can afford to cost more travel — and it can no longer be
-      // triggered by accident mid-pan, which is what made 120 read as twitchy
-      // in the first place. And the gestures that carry it have less usable
-      // travel than a primary drag: nobody right-drags across a whole screen,
-      // and two fingers run out of room sooner than one.
-      //
-      // That is the right cost for something you do to re-aim, not to travel.
-      degreesPerViewportWidth: 110,
-      // Touch turns faster per pixel, because a touch "sweep" is not a viewport
-      // width and the comment above prices everything in sweeps.
-      //
-      // A mouse can genuinely drag a full viewport width — more, with capture.
-      // Two fingers cannot: on a 390px phone, contacts ~100px apart carry the
-      // centroid about 140px before the outer one leaves the glass, and each
-      // gesture re-pays the 8px dead zone. That is 0.338 of a width per usable
-      // sweep. Holding the cost stated above — a quarter turn at 1.5 sweeps —
-      // gives 90 / (1.5 * 0.338) = 177, rounded to 175.
-      //
-      // At the shared 110 the same arithmetic put a quarter turn at 2.4 sweeps
-      // and a half turn at 4.8, which is the "rotating costs too much" report.
-      // And the cost is worse than slow: DragPanController does not wait for
-      // the pinch classifier, but `claimPinch` can TAKE a sweep away mid-gesture
-      // with a synthetic pointercancel (ADR 015), and the decision latches per
-      // finger-pair. So five short sweeps re-run that race five times where one
-      // long sweep runs it once. Fewer, longer sweeps is the fix for both.
-      //
-      // Note the history this pair exists to stop repeating: 60 -> 110 landed in
-      // 260f4d8 (2026-08-26, ADR 012) for touch's benefit, on the number both
-      // inputs shared, and silently retuned the mouse. Splitting is the
-      // alternative to doing that again.
-      //
-      // `twoPointerThresholdPx` below is deliberately NOT touched. It is
-      // coupled by hand to NAVIGATION_PINCH.declineRivalPx and the arbitration
-      // is decided in pixels; this changes only what a pixel is worth in
-      // degrees, so the coupling is undisturbed. If a settling grip visibly
-      // nudges the city, LOWER THIS rather than raising the dead zone.
-      //
-      // STARTING POINT, derived by arithmetic and NOT yet driven on a phone.
-      // `?touchYawDeg=` is the ladder: 150, then 130, floor at 110 where it
-      // rejoins the mouse.
-      touchDegreesPerViewportWidth: 175,
-      // Two thirds of the 12px one finger needs, and lower on purpose. A
-      // two-finger sweep is unambiguous once it is moving, so the cost of
-      // waiting is latency on a deliberate gesture; the cost of not waiting is
-      // the city turning under a gesture that never meant to. 8 is above the
-      // few pixels of asymmetric drift a pinch or a settling grip produces and
-      // below anything a person would call a sweep. JUDGED 2026-08-25, and not
-      // yet driven on a real phone.
-      twoPointerThresholdPx: 8,
-      // Left at the signed-off weights. Rotation did not become grab-the-point,
-      // so nothing about it argues for the shorter constant translation took.
-      // The two are no longer deliberately matched — they are no longer one
-      // gesture, and matching was only ever a property of that.
-      feel: {
-        smoothingTimeConstant: 0.09,
-        releaseTimeConstant: 0.08,
-        inertiaTimeConstant: 0,
-        minInertiaSpeed: 1.5,
-        maxInertiaSpeed: 90,
-        velocityBlend: 0.25,
-      },
-    },
 
-    // Plate surface sits just above zero; projecting drags against the mean
-    // surface height keeps the grabbed point under the cursor.
+    // Plate surface sits just above zero. Pointer rays — district picking and
+    // the framing solve — are projected against this mean surface height.
     groundPlaneHeight: 1,
-    // FALSE since the 2026-09-06 export, and this is a correction rather than a
-    // change of intent. Measuring the plate meant "navigation is bounded to the
-    // authored city", which was true while `suelo-principal` WAS that city.
-    // That export merged the plate and the outer ground into one mesh of
-    // 2170 x 1925, so the same measurement now returns six times the area and
-    // would let the focus wander to the far edge of the filler city — silently,
-    // since nothing about the read looks different.
-    //
-    // `contentBounds` below carries the authored rectangle the plate used to
-    // measure, unchanged, so this asks for it by name instead of by geometry.
-    // Restore the measurement only alongside an export that separates the two
-    // meshes again.
-    deriveBoundsFromTerrain: false,
     boundsInset: NAVIGATION_INSET,
-    bounds: {
-      minX: PLATE.minX + NAVIGATION_INSET,
-      maxX: PLATE.maxX - NAVIGATION_INSET,
-      minZ: PLATE.minZ + NAVIGATION_INSET,
-      maxZ: PLATE.maxZ - NAVIGATION_INSET,
-    },
-    // Where a push may reach, against resistance (§40). `?band=` scales the four
-    // margins so the whole change can be judged on a device without a rebuild:
-    // 1 is the A2 ring, 0 is §39's hard wall.
-    extendedBounds: CITY_A2,
+    /**
+     * Where the navigation target may go: THE A2 RING, not the plate.
+     *
+     * The camera-navigation port clamps the viewer's target to one rectangle
+     * grown past the authored city, so the plate's own edges can be brought to
+     * the middle of the frame. The sandbox grew its plate by a flat 50 units;
+     * that number is a property of the sandbox's fixture and not of this city.
+     *
+     * Measured, Murcia's built ground extends past the plate by -X 24.9,
+     * +X 30.0, -Z 50.0, +Z 16.5 — so a flat 50 would put the viewer over
+     * nothing on three sides of four. The honest equivalent of "grow the plate"
+     * here is the ring that was already measured out of the GLB for exactly this
+     * purpose, and `checks/city-asset.ts` section 7b asserts the shipped file
+     * still carries it.
+     *
+     * This rectangle used to be `extendedBounds`, the outer edge of §40's
+     * resistance band. The band is gone; the rectangle it bounded is now simply
+     * where the viewer may go.
+     */
+    bounds: { ...CITY_A2 },
     edgeSafetyMargin: 8,
     // 800, not 500. At distance 165 on an ultrawide the corner rays genuinely
     // reach past 500, so the clamp was firing in a normal case rather than the
@@ -764,7 +620,14 @@ export const murciaConfig: EnvironmentConfig = {
   // If the pinch reads short on a device, the honest fix is this number through
   // `check:footprint` and `check:warp` — not `focusFlight.minDistanceScale`, which
   // is the other half of the compound and answers a different question.
-  zoomNearScale: 0.58,
+  //
+  // ── 0.58 -> 0.45, 2026-09-10. DECISIONS §44 ──
+  //
+  // 0.58 existed only to undo 220's cut to the compound closest approach. With
+  // rest back at 285, 0.45 restores the numbers this block was first measured at:
+  // 128.25 at full zoom-in (127.6 under 220 x 0.58), 89.8 with a district flight on
+  // top, and a pinch ratio of x2.22.
+  zoomNearScale: 0.45,
 
   contentBounds: { ...PLATE },
 

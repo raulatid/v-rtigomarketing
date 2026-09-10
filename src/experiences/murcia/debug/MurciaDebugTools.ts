@@ -7,7 +7,6 @@ import type Stats from 'stats.js';
 import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
 import type { AppConfig } from '../config/appConfig';
 import type { BoundsRect } from '../config/environmentConfig';
-import type { NavigableArea } from '../navigation/navigableArea';
 import type { SceneReport } from '../assets/loadCity';
 
 /**
@@ -91,24 +90,17 @@ export class MurciaDebugTools {
    * settle — never per frame — and a rebuild cannot leave a stale vertex behind
    * the way an in-place buffer update can.
    */
-  rebuildBoundsHelper(scene: THREE.Scene, area: NavigableArea, groundPlaneHeight: number): void {
+  rebuildBoundsHelper(scene: THREE.Scene, area: BoundsRect, groundPlaneHeight: number): void {
     if (!this.enabled) return;
     this.disposeBoundsHelper(scene);
 
-    const effective = area.effectiveBounds;
-    const visual = area.visualBounds;
-    if (!effective || !visual) return;
-
+    // ONE rectangle. This used to draw five nested ones — plate, visual,
+    // configured, effective and the §40 ring — because the navigable area was
+    // derived through that many stages and seeing which one was binding was the
+    // only way to debug it. There is one now, and it is authored.
     const y = groundPlaneHeight + HELPER_LIFT;
     const points: number[] = [];
-    pushRect(points, effective, y);
-    const extended = area.extendedNavigableBounds;
-    if (extended) pushRect(points, extended, y);
-    pushRect(points, visual, y);
-    const configured = area.configuredBounds;
-    const plate = area.plateBounds;
-    if (configured) pushRect(points, configured, y);
-    if (plate) pushRect(points, plate, y);
+    pushRect(points, area, y);
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
@@ -152,10 +144,13 @@ export class MurciaDebugTools {
     );
   }
 
-  /** The navigable-area pipeline's own report. Owned by NavigableArea. */
-  logNavigation(area: NavigableArea, terrainSource: string): void {
+  /** Where the viewer may go, and what the ground under it came from. */
+  logNavigation(area: BoundsRect, terrainSource: string): void {
     if (!this.enabled) return;
-    area.logDiagnostics(terrainSource);
+    console.info(
+      `[murcia] navigable target area: X [${area.minX.toFixed(1)}, ${area.maxX.toFixed(1)}] ` +
+        `Z [${area.minZ.toFixed(1)}, ${area.maxZ.toFixed(1)}] — terrain ${terrainSource}`,
+    );
   }
 
   dispose(scene: THREE.Scene | null): void {

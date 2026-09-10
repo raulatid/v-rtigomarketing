@@ -28,6 +28,7 @@
 import * as THREE from 'three';
 
 import {
+  WARP_LIMITS,
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
@@ -36,7 +37,7 @@ import {
   motionBlur,
   speed,
   transitionLeg,
-} from '../src/app/warpTransition';
+} from '../src/utils/warpTransition';
 import {
   murciaArrivalPose,
   murciaDeparturePose,
@@ -88,7 +89,7 @@ let maxDeparture = -Infinity;
 let minDeparture = Infinity;
 let maxDepartureAt = 0;
 for (const p of samples) {
-  const { amount } = dollyAmount(p);
+  const { amount } = dollyAmount(p, WARP_LIMITS);
   const arrival = murciaArrivalPose(targets, amount).distance;
   const departure = murciaDeparturePose(targets, amount).distance;
   if (arrival > maxArrival) maxArrival = arrival;
@@ -155,8 +156,8 @@ check(
 section('2. Both worlds return exactly to rest');
 
 for (const [name, pose] of [
-  ['arriving', murciaArrivalPose(targets, dollyAmount(0).amount)],
-  ['departing', murciaDeparturePose(targets, dollyAmount(0).amount)],
+  ['arriving', murciaArrivalPose(targets, dollyAmount(0, WARP_LIMITS).amount)],
+  ['departing', murciaDeparturePose(targets, dollyAmount(0, WARP_LIMITS).amount)],
 ] as const) {
   check(
     `Murcia is at the resting pose at p=0 (${name})`,
@@ -166,8 +167,8 @@ for (const [name, pose] of [
   );
 }
 for (const [name, pose] of [
-  ['arriving', murciaArrivalPose(targets, dollyAmount(1).amount)],
-  ['departing', murciaDeparturePose(targets, dollyAmount(1).amount)],
+  ['arriving', murciaArrivalPose(targets, dollyAmount(1, WARP_LIMITS).amount)],
+  ['departing', murciaDeparturePose(targets, dollyAmount(1, WARP_LIMITS).amount)],
 ] as const) {
   check(
     `Murcia is at the resting pose at p=1 (${name})`,
@@ -179,29 +180,29 @@ for (const [name, pose] of [
 
 check(
   'Earth radius scale is 1 at p=0',
-  Math.abs(earthRadiusScale(dollyAmount(0).amount) - 1) < 1e-9,
-  `${earthRadiusScale(dollyAmount(0).amount).toFixed(6)}`,
+  Math.abs(earthRadiusScale(dollyAmount(0, WARP_LIMITS).amount, WARP_LIMITS) - 1) < 1e-9,
+  `${earthRadiusScale(dollyAmount(0, WARP_LIMITS).amount, WARP_LIMITS).toFixed(6)}`,
 );
 check(
   'Earth radius scale is 1 at p=1',
-  Math.abs(earthRadiusScale(dollyAmount(1).amount) - 1) < 1e-9,
+  Math.abs(earthRadiusScale(dollyAmount(1, WARP_LIMITS).amount, WARP_LIMITS) - 1) < 1e-9,
   'otherwise the rig hands back to a camera that moved',
 );
 
 check(
   'Earth FOV returns to rest at p=0',
-  Math.abs(earthFov(0) - WARP_TRANSITION.earthRestFov) < 1e-9,
-  `${earthFov(0).toFixed(4)}`,
+  Math.abs(earthFov(0, WARP_LIMITS) - WARP_TRANSITION.earthRestFov) < 1e-9,
+  `${earthFov(0, WARP_LIMITS).toFixed(4)}`,
 );
 check(
   'Earth FOV returns to rest at p=1',
-  Math.abs(earthFov(1) - WARP_TRANSITION.earthRestFov) < 1e-9,
-  `${earthFov(1).toFixed(4)} — a residual surge would leave the site permanently wide`,
+  Math.abs(earthFov(1, WARP_LIMITS) - WARP_TRANSITION.earthRestFov) < 1e-9,
+  `${earthFov(1, WARP_LIMITS).toFixed(4)} — a residual surge would leave the site permanently wide`,
 );
 check(
   'the FOV surge actually peaks at the cut',
-  Math.abs(earthFov(WARP_TRANSITION.cut) - WARP_TRANSITION.earthWarpFov) < 1e-6,
-  `${earthFov(WARP_TRANSITION.cut).toFixed(2)} deg`,
+  Math.abs(earthFov(WARP_TRANSITION.cut, WARP_LIMITS) - WARP_TRANSITION.earthWarpFov) < 1e-6,
+  `${earthFov(WARP_TRANSITION.cut, WARP_LIMITS).toFixed(2)} deg`,
 );
 
 // ---------------------------------------------------------------------------
@@ -209,15 +210,15 @@ section('3. The flash covers the cut and clears both ends');
 
 check(
   'reaches full cover at the cut',
-  Math.abs(flash(WARP_TRANSITION.cut) - 1) < 1e-9,
-  `${flash(WARP_TRANSITION.cut).toFixed(6)} — anything less shows the jump`,
+  Math.abs(flash(WARP_TRANSITION.cut, WARP_LIMITS) - 1) < 1e-9,
+  `${flash(WARP_TRANSITION.cut, WARP_LIMITS).toFixed(6)} — anything less shows the jump`,
 );
-check('clear at p=0', flash(0) === 0, `${flash(0)}`);
-check('clear at p=1', flash(1) === 0, `${flash(1)} — a stuck overlay blacks out the page`);
+check('clear at p=0', flash(0, WARP_LIMITS) === 0, `${flash(0, WARP_LIMITS)}`);
+check('clear at p=1', flash(1, WARP_LIMITS) === 0, `${flash(1, WARP_LIMITS)} — a stuck overlay blacks out the page`);
 
 // The cover has to be total for long enough to hide the swap frame, not just
 // touch 1.0 at a single instant.
-const covered = samples.filter((p) => flash(p) > 0.995).length / samples.length;
+const covered = samples.filter((p) => flash(p, WARP_LIMITS) > 0.995).length / samples.length;
 check(
   'full cover spans a real window, not one instant',
   covered > 0.02,
@@ -227,23 +228,23 @@ check(
 // ---------------------------------------------------------------------------
 section('4. Motion blur ramps and self-returns');
 
-check('no blur at p=0', motionBlur(0) === 0, `${motionBlur(0)}`);
+check('no blur at p=0', motionBlur(0, WARP_LIMITS) === 0, `${motionBlur(0, WARP_LIMITS)}`);
 check(
   'no blur at p=1',
-  motionBlur(1) === 0,
-  `${motionBlur(1)} — a nonzero damp holds a ghost frame indefinitely`,
+  motionBlur(1, WARP_LIMITS) === 0,
+  `${motionBlur(1, WARP_LIMITS)} — a nonzero damp holds a ghost frame indefinitely`,
 );
 check(
   'peaks at the cut',
-  Math.abs(motionBlur(WARP_TRANSITION.cut) - WARP_TRANSITION.motionBlurStrength) < 1e-6,
-  `${motionBlur(WARP_TRANSITION.cut).toFixed(4)}`,
+  Math.abs(motionBlur(WARP_TRANSITION.cut, WARP_LIMITS) - WARP_TRANSITION.motionBlurStrength) < 1e-6,
+  `${motionBlur(WARP_TRANSITION.cut, WARP_LIMITS).toFixed(4)}`,
 );
 
 // The nested-width relationship is the design (DECISIONS.md 26.6): the blur
 // ramps over a wide window so acceleration feels gradual, the flash spikes over
 // a narrow one so it reads as a flicker. Invert them and the warp stops reading.
-const blurWindow = samples.filter((p) => speed(p) > 0.01).length;
-const flashWindow = samples.filter((p) => flash(p) > 0.01).length;
+const blurWindow = samples.filter((p) => speed(p, WARP_LIMITS) > 0.01).length;
+const flashWindow = samples.filter((p) => flash(p, WARP_LIMITS) > 0.01).length;
 check(
   'the blur window is wider than the flash window',
   blurWindow > flashWindow,
@@ -253,8 +254,8 @@ check(
 // ---------------------------------------------------------------------------
 section('5. The two legs partition the transition, and go the right way');
 
-const { departing: depAtStart } = transitionLeg(0);
-const { departing: depAtEnd } = transitionLeg(1);
+const { departing: depAtStart } = transitionLeg(0, WARP_LIMITS);
+const { departing: depAtEnd } = transitionLeg(1, WARP_LIMITS);
 check('departing at p=0', depAtStart === true);
 check('arriving at p=1', depAtEnd === false);
 
@@ -263,7 +264,7 @@ let monotonicOut = true;
 let prevIn = -Infinity;
 let prevOut = Infinity;
 for (const p of samples) {
-  const { departing, amount } = dollyAmount(p);
+  const { departing, amount } = dollyAmount(p, WARP_LIMITS);
   if (departing) {
     if (amount < prevIn - 1e-9) monotonicIn = false;
     prevIn = amount;
@@ -275,7 +276,7 @@ for (const p of samples) {
 check('the envelope rises without reversing', monotonicIn, 'a reversal reads as a stumble');
 check('and falls without reversing', monotonicOut);
 
-const peak = dollyAmount(WARP_TRANSITION.cut).amount;
+const peak = dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount;
 check(
   'the envelope is at its extreme at the cut',
   peak > 0.99,
@@ -357,6 +358,23 @@ let worstCameraMargin = Infinity;
 let worstLabel = '';
 let furthestSkirtCorner = 0;
 let anyClamped = false;
+/** How many sampled poses reach the clamp. Reported, so a change is visible. */
+let clampedSamples = 0;
+/**
+ * How far past the authored plate there is real ground: the filler city plus the
+ * skirt's fade. What a clamped footprint has to land inside.
+ */
+const realGroundReach = (() => {
+  const g = murciaConfig.groundBounds;
+  const p = murciaConfig.contentBounds;
+  const past = g
+    ? Math.min(p.minX - g.minX, g.maxX - p.maxX, p.minZ - g.minZ, g.maxZ - p.maxZ)
+    : 0;
+  return (
+    past +
+    murciaConfig.terrainTransition.width * murciaConfig.terrainTransition.fadeEndFraction
+  );
+})();
 let clampedLabel = '';
 let poses = 0;
 
@@ -400,7 +418,7 @@ for (const scale of FLIGHT_SCALES) {
 
         for (let i = 0; i <= FOOTPRINT_STEPS; i++) {
           const p = i / FOOTPRINT_STEPS;
-          const { amount, departing } = dollyAmount(p);
+          const { amount, departing } = dollyAmount(p, WARP_LIMITS);
           // Only the departing leg is re-based. Arriving lands in a world whose
           // zoom was reset at the cut, so it always starts from the configured
           // rest — modelling it otherwise would assert something that cannot
@@ -415,6 +433,7 @@ for (const scale of FLIGHT_SCALES) {
             `${aspectName} yaw ${yaw} flight ${scale} zoom ${depth} p=${p.toFixed(3)} ` +
             `d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)}`;
 
+          if (f.clampedRays) clampedSamples += 1;
           if (f.clampedRays && !anyClamped) {
             anyClamped = true;
             clampedLabel = label;
@@ -478,21 +497,27 @@ check(
     'corner — the departure is the furthest the camera ever gets, so this is where a far ' +
     'plane that clips the skirt would show first',
 );
-// Inverted on 2026-09-08, for the same reason as `checks/footprint.ts` §2 and by
-// the same change. At 18 degrees rest passed the horizon, so a clamp was expected
-// and harmless — Murcia had switched the footprint inset off precisely because a
-// clamp is not a measurement. The rise to 35 degrees (DECISIONS §39) put the
-// horizon out of frame across the whole warp, the inset is back on, and a clamp
-// would now be read by something. `NavigableArea.recompute` drops the inset per
-// pose when the rays clamp, so this is not a safety hole — it is the tripwire on
-// a pitch that goes back down without §39 being re-read.
+// RESTATED with the camera-navigation port, and the history is the point.
+//
+// This was `!anyClamped`, then `anyClamped`, then `!anyClamped` again — once per
+// change to Murcia's pitch. It asked whether a warp pose out-reaches the horizon,
+// because a frustum that does has no finite ground footprint and `NavigableArea`
+// INSET the navigable rectangle by that footprint. Insetting by a clamp is
+// insetting by a number nobody measured, so the pipeline dropped the inset for
+// those poses and this check was the tripwire saying the question was live.
+//
+// The pipeline is gone. §39 and §40 retired with it, nothing is derived from the
+// ground footprint any more, and "measurement or clamp?" decides nothing. What
+// is still worth asserting is the property underneath — that a clamped pose is
+// still drawing real ground rather than the edge of the model — so that is what
+// is asserted, with the count reported so a change in it is visible.
 check(
-  'no warp pose reaches past the horizon, so every footprint is a measurement',
-  !anyClamped,
+  'where a warp pose out-reaches the horizon, the clamp still lands on real ground',
+  !anyClamped || murciaConfig.navigation.maxGroundDistance < realGroundReach,
   anyClamped
-    ? `first clamped at ${clampedLabel} — a warp pose passes the horizon, so its footprint is ` +
-      'the maxGroundDistance clamp rather than a reach. Safe, because the inset is dropped for ' +
-      'those poses, but the pitch is back in the regime section 6 exists to survive'
+    ? `${clampedSamples} samples reach the clamp (first at ${clampedLabel}); the clamp is ` +
+      `${murciaConfig.navigation.maxGroundDistance} units against ${realGroundReach.toFixed(1)} ` +
+      'of real ground, so what those poses draw is ground'
     : 'no warp pose reaches past the horizon — the footprint is a measurement everywhere',
 );
 
@@ -581,7 +606,7 @@ for (const depth of zoomDepths) {
   };
   let previous = zoomed.distance;
   for (let i = 1; i <= 100; i++) {
-    const { amount } = dollyAmount((WARP_TRANSITION.cut * i) / 100);
+    const { amount } = dollyAmount((WARP_TRANSITION.cut * i) / 100, WARP_LIMITS);
     const step = murciaDeparturePose(departTargets, amount).distance - previous;
     if (step < -1e-9 && murciaReversedAt === null) murciaReversedAt = depth;
     if (step < murciaWorstStep) murciaWorstStep = step;
@@ -600,7 +625,7 @@ check(
 
 check(
   'a commit from rest still departs, so the keyboard route is not a special case',
-  murciaDeparturePose(targets, dollyAmount(WARP_TRANSITION.cut).amount).distance >
+  murciaDeparturePose(targets, dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount).distance >
     targets.restDistance,
   'the accessible control commits outright from wherever the viewer is, including depth 0',
 );
@@ -624,7 +649,7 @@ check(
 // Earth's continuity is structural rather than tuned: `applyWarp` captures
 // `cam.position` and multiplies it, so the cinematic is relative to the zoom by
 // construction. What has to be checked is where that composition ENDS.
-const earthClosest = earthZoomRadius(1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut).amount);
+const earthClosest = earthZoomRadius(1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount, WARP_LIMITS);
 check(
   'a commit from full zoom-in still stops outside the planet',
   earthClosest > EARTH_CONFIG.radius,
@@ -633,8 +658,8 @@ check(
 );
 check(
   'and a commit from full zoom-out is still a real approach',
-  earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut).amount) < earthRest,
-  `${(earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut).amount)).toFixed(1)} ` +
+  earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount, WARP_LIMITS) < earthRest,
+  `${(earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount, WARP_LIMITS)).toFixed(1)} ` +
     `from ${earthZoomRadius(-1).toFixed(1)} — the furthest a viewer can park is still inside the cut`,
 );
 
@@ -644,9 +669,9 @@ check(
 // is still load-bearing — if this stops being true it is dead weight.
 check(
   'the commit inherits a lens the cinematic immediately disagrees with',
-  earthFov(WARP_TRANSITION.cut) - WARP_TRANSITION.earthRestFov > 10,
+  earthFov(WARP_TRANSITION.cut, WARP_LIMITS) - WARP_TRANSITION.earthRestFov > 10,
   `the zoom holds the lens at ${WARP_TRANSITION.earthRestFov} deg and the cinematic peaks at ` +
-    `${earthFov(WARP_TRANSITION.cut).toFixed(1)} deg — blended over FOV_CATCHUP_SECONDS rather than cut`,
+    `${earthFov(WARP_TRANSITION.cut, WARP_LIMITS).toFixed(1)} deg — blended over FOV_CATCHUP_SECONDS rather than cut`,
 );
 
 // What the gesture actually looks like, which is not the same as how far the

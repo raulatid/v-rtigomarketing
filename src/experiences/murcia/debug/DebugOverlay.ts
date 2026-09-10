@@ -24,13 +24,6 @@ export interface OverlayInputs {
   azimuthDegrees: number;
   insideBounds: boolean;
   bounds: BoundsRect;
-  /**
-   * Whether any corner ray hit the `maxGroundDistance` clamp instead of the
-   * ground. Since 2026-09-04 this is how the overlay knows the frustum passes
-   * the horizon, which is the intended resting state rather than a fault — see
-   * the line it renders.
-   */
-  footprintClamped: boolean;
   timings: LoadTimings;
 }
 
@@ -122,12 +115,12 @@ export class DebugOverlay {
       `Bounds X       ${b.minX.toFixed(0)} … ${b.maxX.toFixed(0)}\n` +
       `Bounds Z       ${b.minZ.toFixed(0)} … ${b.maxZ.toFixed(0)}\n` +
       `Nav area       ${(b.maxX - b.minX).toFixed(0)} x ${(b.maxZ - b.minZ).toFixed(0)}\n` +
-      // Was `boolLine('Footprint ok', !clamped)`, i.e. red whenever a ray hit
-      // the clamp. That was right while the footprint inset the navigable area;
-      // Murcia now aims below the horizon on purpose and the clamp is the
-      // expected state, so a permanent red light would train the reader to
-      // ignore the overlay. It reports what the clamp MEANS instead.
-      `Horizon        ${i.footprintClamped ? 'in frame' : 'out of frame'}\n` +
+      // A "Horizon in frame / out of frame" line sat here, fed by whether any
+      // footprint ray hit the maxGroundDistance clamp. It went with the footprint
+      // pipeline: nothing is derived from the ground footprint any more, so the
+      // overlay had no way to compute it and no decision resting on it.
+      // checks/footprint.ts section 2 still measures it, and reports how many
+      // of the sampled poses clamp.
       // ── The line that exists to be copied ──
       //
       // Every field above is here to be WATCHED while something moves. This one

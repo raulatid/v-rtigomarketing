@@ -57,8 +57,13 @@ export interface ZoomBandLimits {
 }
 
 export const NAVIGATION_ZOOM: ZoomBandLimits = {
-  towardTravelPx: 600,
-  awayTravelPx: 600,
+  // 1200 each way, doubled from 600 with the ascent (camera-navigation, sandbox
+  // commit eb1ba9f). The whole journey is 1200 + 600 = 1800px, about 15 wheel
+  // notches, and the 2:1 ratio between the band and the commit is what the
+  // doubling preserves — the band has to be long enough that the vacuum has
+  // somewhere to build before the commit is even reachable.
+  towardTravelPx: 1200,
+  awayTravelPx: 1200,
   maxEventTravelPx: MAX_WHEEL_DELTA_PX,
 }
 
@@ -202,14 +207,22 @@ export interface NavigationGestureLimits {
  */
 export interface PinchLimits {
   /**
-   * Growth in separation that claims the gesture, in CSS pixels.
+   * Outward growth that means "let go", in CSS pixels.
    *
-   * Absolute, so it means the same thing at every grip. Above the few pixels two
-   * settling fingers drift — both worlds treat 12px as a tap's worth of wander —
-   * and well below the commit, so the world answers early rather than only after
-   * the viewer has already committed to the gesture.
+   * NOT AN ARBITRATION, and the distinction is the whole of this number's
+   * history. It used to be `claimGrowthPx`: the growth at which a pinch proved
+   * it was a pinch and not the two-finger turn it competed with. There is no
+   * turn any more — two fingers mean one thing — so nothing has to be proved and
+   * navigation is driven from the very first sample.
+   *
+   * What is left is a noise floor on one DISCRETE, IRREVERSIBLE action: closing
+   * a focused display. Feeding the zoom band needs no floor, because a pixel of
+   * growth moves the band by a pixel and the viewer can take it straight back;
+   * dismissing what someone is reading cannot be taken back, so two settling
+   * fingertips must not do it. Above the few px of drift both worlds already
+   * treat as a tap's worth of wander, and far below a commit.
    */
-  claimGrowthPx: number
+  releaseGrowthPx: number
   /**
    * Growth that equals a full commit, as a fraction of the viewport's SHORTER
    * side.
@@ -236,48 +249,12 @@ export interface PinchLimits {
    * says: a floor that rejects two contacts too close together to be two fingers.
    */
   minStartDistancePx: number
-  /**
-   * Rival travel THIS GESTURE CANNOT EXPLAIN that hands it back, in CSS px.
-   *
-   * Earth has no rival — a second contact there does nothing at all — so this is
-   * measured only where one exists. In Murcia two fingers already mean centroid
-   * rotation, and the two signals are algebraically orthogonal (`|a - b|` against
-   * `(a + b) / 2`) but a real hand produces both: thumbs are not symmetric, so
-   * every pinch drifts the centroid a little and every turn changes the
-   * separation a little.
-   *
-   * That last sentence was written here from the start and the rule ignored it,
-   * which is the whole of the 2026-09-06 defect. The drift is not noise to be
-   * out-thresholded: an anchored-thumb close of `g` moves the midpoint by `g/2`
-   * BY CONSTRUCTION, so at the 16px claim the midpoint sat at exactly this 8 and
-   * every ordinary phone pinch in Murcia was handed to the rotation. The
-   * classifier now subtracts an allowance of `growth / 2` first and compares
-   * only the remainder — see `pinchClassifier.ts`, where the allowance is
-   * explained and where the reason it is NOT a projection is written down.
-   *
-   * So this number now measures a stricter thing than it did, and did not have
-   * to move: a pair carried without changing separation still has zero
-   * allowance, and still declines at exactly 8.
-   *
-   * 8 is not an independent judgement. It is Murcia's own
-   * `rotation.twoPointerThresholdPx`, deliberately: that is the travel at which
-   * the city starts to turn, so declining at exactly that point means whichever
-   * gesture proves itself first wins, and the loser has not moved anything yet.
-   * A larger value here would let the city turn before this had made up its
-   * mind; a smaller one would hand back gestures that were never rivals.
-   *
-   * The coupling is real and undeclared in code — the two constants live in
-   * different config files because `app/` may not read `experiences/`. If one
-   * moves, move the other.
-   */
-  declineRivalPx: number
 }
 
 export const NAVIGATION_PINCH: PinchLimits = {
-  claimGrowthPx: 16,
+  releaseGrowthPx: 16,
   commitFraction: 0.42,
   minStartDistancePx: 24,
-  declineRivalPx: 8,
 }
 
 /**
@@ -370,7 +347,7 @@ export interface NavigationCooldownLimits {
 }
 
 export const NAVIGATION_GESTURE: NavigationGestureLimits = {
-  commitDistancePx: 300,
+  commitDistancePx: 600,
   idleGapSeconds: 0.5,
   decaySeconds: 0.08,
   snapFraction: 0.01,

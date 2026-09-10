@@ -84,13 +84,11 @@ import {
 import {
   computeGroundFootprint,
   computeEffectiveBounds,
-  computeStationLimitedBounds,
 } from '../src/experiences/murcia/navigation/viewportFootprint';
 import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { terrainVisualBounds } from '../src/experiences/murcia/environment/createTerrainTransition';
 import type { BoundsRect } from '../src/experiences/murcia/config/environmentConfig';
 import { resolveCameraPose } from '../src/experiences/murcia/config/environmentConfig';
-import { clampToRect, containsRect } from '../src/experiences/murcia/navigation/navigationBounds';
 
 import { banner, check, finish, section } from './lib/assert';
 
@@ -247,6 +245,8 @@ let shrunk = false;
 let shrunkLabel = '';
 let anyClamped = false;
 let clampedLabel = '';
+/** How many samples reach the clamp. Reported so a change in it is visible. */
+let clampedSamples = 0;
 let samples = 0;
 
 for (const [aspectName, aspect] of ASPECTS) {
@@ -279,9 +279,12 @@ for (const [aspectName, aspect] of ASPECTS) {
             `${aspectName} yaw ${yaw} zoom ${depth.toFixed(2)} flight ${scale.toFixed(3)} ` +
             `(d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)})`;
 
-          if (f.clampedRays && !anyClamped) {
-            anyClamped = true;
-            clampedLabel = label;
+          if (f.clampedRays) {
+            clampedSamples += 1;
+            if (!anyClamped) {
+              anyClamped = true;
+              clampedLabel = label;
+            }
           }
 
           const s = slack(f);
@@ -314,34 +317,62 @@ check(
   `worst slack ${worstSlack >= 0 ? '+' : ''}${worstSlack.toFixed(1)} units at ${worstLabel} ` +
     `(skirt width ${murciaConfig.terrainTransition.width})`,
 );
-// This assertion has been `!anyClamped`, then `anyClamped`, and is now back —
-// which is the whole history of Murcia's pitch, and worth keeping rather than
-// tidying.
+/**
+ * How far past the authored plate there is real ground, on the thinnest side.
+ *
+ * The filler city plus the skirt's fade. Section 3 states the same quantity for
+ * its own assertions; it is recomputed here rather than shared, so neither
+ * section depends on the other having run first.
+ */
+const ground = murciaConfig.groundBounds;
+const groundPastPlate = ground
+  ? Math.min(
+      plate.minX - ground.minX,
+      ground.maxX - plate.maxX,
+      plate.minZ - ground.minZ,
+      ground.maxZ - plate.maxZ,
+    )
+  : 0;
+const realGroundReach =
+  groundPastPlate +
+  murciaConfig.terrainTransition.width * murciaConfig.terrainTransition.fadeEndFraction;
+const clampReachesRealGround = murciaConfig.navigation.maxGroundDistance < realGroundReach;
+
+// THIS ASSERTION HAS BEEN `!anyClamped`, THEN `anyClamped`, AND IS NOW NEITHER,
+// which is the whole history of Murcia's pitch and distance and is worth keeping
+// rather than tidying.
 //
 // A frustum that reaches past the horizon has no finite ground footprint:
 // `computeGroundFootprint` returns the `maxGroundDistance` clamp rather than a
-// measurement, and insetting the navigable area by a clamp drags the focus off
-// the plate corners for a reach nobody measured. At 19 and then 18 degrees the
-// horizon WAS in frame by client direction, so clamping was expected and the
-// inset was switched off at load to stop it lying.
+// measurement. That used to matter because `NavigableArea` INSET the navigable
+// rectangle by the footprint, and insetting by a clamp drags the focus off the
+// plate corners for a reach nobody measured. At 19 and then 18 degrees the
+// horizon was in frame by client direction, so the inset was switched off at
+// load to stop it lying; the 2026-09-08 rise to 35 degrees put the horizon back
+// out of frame and the inset came back on.
 //
-// The 2026-09-08 rise to 35 degrees (DECISIONS §39) put the horizon back out of
-// frame at every reachable pose, so the footprint is a measurement again
-// everywhere and the inset is back on. `NavigableArea.recompute` now asks per
-// pose rather than trusting a load-time flag, so a future pitch that reopens the
-// horizon degrades safely instead of silently — but this check is what says the
-// question is not currently live, and it is the tripwire on lowering the pitch
-// again.
+// The inset is gone. The camera-navigation port retired §39 and §40 along with
+// `NavigableArea` itself: the viewer's target is clamped to one GROWN rectangle
+// and nothing is derived from the footprint any more. So "is this pose's
+// footprint a measurement or a clamp?" no longer decides anything, and asserting
+// it would be asserting a property with no consumer — the exact shape of check
+// that survives a refactor while quietly meaning nothing.
+//
+// What DOES still matter is the safety property underneath it, and it is
+// asserted directly instead: wherever a pose does reach the clamp, the clamp has
+// to land on real ground rather than past the edge of the model. Section 3 states
+// that globally against `maxGroundDistance`; this states it for the poses that
+// actually reach it, and reports how many do so a change in that number is
+// visible rather than silent.
 check(
-  'the horizon is out of frame everywhere, so the footprint is a measurement',
-  !anyClamped,
+  'where a pose out-reaches the horizon, the clamp still lands on real ground',
+  !anyClamped || clampReachesRealGround,
   anyClamped
-    ? `first clamped at ${clampedLabel} — a pose reaches past the horizon, so its footprint ` +
-      'is the maxGroundDistance clamp and not a measurement. NavigableArea drops the inset ' +
-      'for those poses, so this is not unsafe — but the pitch has been lowered back into ' +
-      'the regime section 3 exists to survive, and §39 should be re-read before shipping it'
+    ? `${clampedSamples} of ${samples} samples reach the clamp (first at ${clampedLabel}); ` +
+      `the clamp is ${murciaConfig.navigation.maxGroundDistance} units against ` +
+      `${realGroundReach.toFixed(1)} of real ground, so what those poses draw is ground`
     : `no ray reached the clamp across ${samples} samples — every pose has a real ground ` +
-      'footprint, which is what lets the inset be applied rather than disabled',
+      'footprint',
 );
 
 // ---------------------------------------------------------------------------
@@ -494,253 +525,25 @@ if (groundRect) {
 }
 
 // ---------------------------------------------------------------------------
-section('4. The camera never leaves the navigable area (DECISIONS §39)');
+// SECTIONS 4 AND 5 LIVED HERE, and they are gone with the decisions they held.
+//
+// §4 asserted DECISIONS §39 — that no reachable pose puts the camera's EYE
+// outside the navigable rectangle — and §5 asserted §40, the resistance band the
+// eye could be pushed into. Both were retired by the camera-navigation port:
+// the viewer's TARGET is now clamped to one rectangle grown past the authored
+// plate, the eye is not bounded at all, and `NavigableArea`,
+// `computeStationLimitedBounds` and `resistToRect` were deleted with them.
+//
+// What replaced them is section 3, which was always the outer guarantee and is
+// now the only one: the world has to surround the camera wherever it can get to.
+// It passes with 1207 units of margin at the shipped pose, and section 2's clamp
+// assertion says that even the 0.1% of ultrawide poses that out-reach the
+// horizon are drawing real ground rather than the edge of the model.
+//
+// Anyone reinstating an eye-bounded rectangle should read §39 in
+// docs/DECISIONS.md first — it is in the Superseded table, with the pan range it
+// cost — rather than rebuilding it from this file's silence.
 
-/*
- * The rule this file did NOT have.
- *
- * Section 3 bounds the camera against the SKIRT — the outer visual world, some
- * 2170 x 1925 units of filler city. That is the assertion that stops the ground
- * becoming an island in the background colour, and it is a low bar: an eye
- * hundreds of units off the authored plate, standing on empty filler and looking
- * back in at a district, clears it comfortably. That is exactly what shipped, and
- * exactly what was reported on 2026-09-08.
- *
- * §39 says the eye stays inside the NAVIGABLE rectangle. `NavigableArea` enforces
- * it by intersecting `computeStationLimitedBounds` into the effective area, which
- * works because the camera offset depends only on yaw, pitch and distance and
- * never on the focus — so "eye inside R" is itself a rectangle in focus space.
- *
- * BE PRECISE ABOUT WHAT THE FIRST ASSERTION PROVES, because it reads stronger
- * than it is. It clamps the plate corner into the station bounds and then measures
- * where `applyPoseToCamera` actually puts the eye — so given a correct station
- * term it is true by construction, and it passes at the 18 deg / 285 pose that
- * produced the bug report. It is not a check on whether the CONFIG is well chosen.
- *
- * What it does catch is the arithmetic drifting from the placement: a sign or axis
- * error in `computeStationLimitedBounds`, or a change to `applyPoseToCamera` that
- * stops the offset being independent of the focus — which is the assumption the
- * whole rectangle trick rests on. Negative control, 2026-09-08: flipping one sign
- * in the station term takes the worst margin to -229.8.
- *
- * The assertion that has teeth about the config is the SECOND one, and the number
- * to watch is its usable area: 114 x 115 at 35/220 against 65 x 66 at 18/285.
- *
- * Neither says anything about the term actually being wired into
- * `NavigableArea.recompute` — this file imports it directly, so deleting that call
- * would not fail here. `navigableArea.test.ts` guards the wiring. Both are needed.
- */
-
-let worstStationMargin = Infinity;
-let stationLabel = '';
-let worstUsableWidth = Infinity;
-let worstUsableDepth = Infinity;
-let usableLabel = '';
-
-// §40. The same sweep, against the rectangle a push may REACH rather than the one
-// panning is 1:1 within. Gathered in the loop below and asserted in section 5.
-const ring: BoundsRect = { ...nav.extendedBounds };
-let worstRingMargin = Infinity;
-let ringLabel = '';
-let furthestPastPlate = 0;
-let pastPlateLabel = '';
-let ringContainsStationEverywhere = true;
-let containmentLabel = '';
-let worstRingUsableWidth = Infinity;
-let worstRingUsableDepth = Infinity;
-
-for (const [aspectName, aspect] of ASPECTS) {
-  for (let yaw = 0; yaw < 360; yaw += YAW_STEP) {
-    for (let d = 0; d <= DEPTH_STEPS; d++) {
-      const depth = -1 + (2 * d) / DEPTH_STEPS;
-
-      for (let i = 0; i <= SCALE_STEPS; i++) {
-        const scale =
-          flight.minDistanceScale + (1 - flight.minDistanceScale) * (i / SCALE_STEPS);
-
-        const pose = poseFor(depth, scale);
-        const label =
-          `${aspectName} yaw ${yaw} zoom ${depth.toFixed(2)} flight ${scale.toFixed(3)} ` +
-          `(d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)})`;
-
-        // The offset for this pose, read the way NavigableArea reads it — off the
-        // placed camera about a focus at the origin, so a change to
-        // `applyPoseToCamera` is caught here rather than reimplemented.
-        camera.aspect = aspect;
-        focus.set(0, 0, 0);
-        applyPoseToCamera(camera, pose, focus, yaw);
-        const station = computeStationLimitedBounds(
-          plate,
-          camera.position.x,
-          camera.position.z,
-          nav.edgeSafetyMargin,
-        );
-
-        if (station.maxX - station.minX < worstUsableWidth) {
-          worstUsableWidth = station.maxX - station.minX;
-          usableLabel = label;
-        }
-        worstUsableDepth = Math.min(worstUsableDepth, station.maxZ - station.minZ);
-
-        // §40's rectangle, derived exactly as the runtime derives it.
-        const ringStation = computeStationLimitedBounds(
-          ring,
-          camera.position.x,
-          camera.position.z,
-          nav.edgeSafetyMargin,
-        );
-        worstRingUsableWidth = Math.min(worstRingUsableWidth, ringStation.maxX - ringStation.minX);
-        worstRingUsableDepth = Math.min(worstRingUsableDepth, ringStation.maxZ - ringStation.minZ);
-
-        // The ramp needs the limit to contain the firm area. It does not in the
-        // degenerate collapse, which `NavigableArea` handles by giving up the
-        // band — this proves that fallback never fires inside the reachable band.
-        if (!containsRect(ringStation, station)) {
-          ringContainsStationEverywhere = false;
-          containmentLabel = label;
-        }
-
-        for (const [cx, cz] of [
-          [ring.minX, ring.minZ],
-          [ring.maxX, ring.minZ],
-          [ring.minX, ring.maxZ],
-          [ring.maxX, ring.maxZ],
-        ]) {
-          const legal = clampToRect(cx!, cz!, ringStation);
-          focus.set(legal.x, 0, legal.z);
-          applyPoseToCamera(camera, pose, focus, yaw);
-
-          const margin = Math.min(
-            camera.position.x - ring.minX,
-            ring.maxX - camera.position.x,
-            camera.position.z - ring.minZ,
-            ring.maxZ - camera.position.z,
-          );
-          if (margin < worstRingMargin) {
-            worstRingMargin = margin;
-            ringLabel = label;
-          }
-
-          // How far §40 actually lets the eye off the authored plate. Negative
-          // margins are the measurement here, not a failure.
-          const past = Math.max(
-            plate.minX - camera.position.x,
-            camera.position.x - plate.maxX,
-            plate.minZ - camera.position.z,
-            camera.position.z - plate.maxZ,
-          );
-          if (past > furthestPastPlate) {
-            furthestPastPlate = past;
-            pastPlateLabel = label;
-          }
-        }
-
-        // Restore the pose the firm sweep below expects to read.
-        focus.set(0, 0, 0);
-        applyPoseToCamera(camera, pose, focus, yaw);
-
-        // Every corner the viewer can drive the focus at, clamped into the area
-        // the runtime would have given them.
-        for (const [cx, cz] of [
-          [plate.minX, plate.minZ],
-          [plate.maxX, plate.minZ],
-          [plate.minX, plate.maxZ],
-          [plate.maxX, plate.maxZ],
-        ]) {
-          const legal = clampToRect(cx!, cz!, station);
-          focus.set(legal.x, 0, legal.z);
-          applyPoseToCamera(camera, pose, focus, yaw);
-
-          const margin = Math.min(
-            camera.position.x - plate.minX,
-            plate.maxX - camera.position.x,
-            camera.position.z - plate.minZ,
-            plate.maxZ - camera.position.z,
-          );
-          if (margin < worstStationMargin) {
-            worstStationMargin = margin;
-            stationLabel = label;
-          }
-        }
-      }
-    }
-  }
-}
-
-check(
-  'the eye stays on the authored city at every reachable pose',
-  worstStationMargin >= 0,
-  `worst margin ${worstStationMargin >= 0 ? '+' : ''}${worstStationMargin.toFixed(1)} units at ` +
-    `${stationLabel} — negative means the station arithmetic no longer agrees with where ` +
-    'applyPoseToCamera puts the eye, so the clamp is bounding the wrong rectangle',
-);
-
-// A rule that pins the focus is not a rule anyone can navigate under, and the
-// collapse is SILENT: `collapseIfInverted` degrades an over-constrained rectangle
-// to a point rather than inverting it, so the failure mode of too much distance or
-// too little pitch is a city that simply stops panning. This is what makes that
-// loud. The floor is deliberately generous — it asks whether navigation still
-// exists, not whether it feels right, which is a judgement and not a check.
-check(
-  'the rule leaves a navigable area rather than pinning the focus',
-  worstUsableWidth > 40 && worstUsableDepth > 40,
-  `worst usable area ${worstUsableWidth.toFixed(0)} x ${worstUsableDepth.toFixed(0)} units of ` +
-    `${(plate.maxX - plate.minX).toFixed(0)} x ${(plate.maxZ - plate.minZ).toFixed(0)} at ` +
-    `${usableLabel} — the eye offset is distance * cos(pitch), so raising the distance or ` +
-    'lowering the pitch spends this, and at zero the city stops panning',
-);
-
-// ---------------------------------------------------------------------------
-section('5. The band the camera may be pushed into (DECISIONS §40)');
-
-/*
- * §39 made the eye stay on the authored plate and enforced it with a hard clamp,
- * which reads as an invisible wall: the city pans at full speed and stops dead
- * under a finger that is still moving. §40 keeps the guarantee and moves the
- * rectangle it guards to the A2 ring that wraps the plate, resisting across the
- * gap so the edge is felt arriving.
- *
- * SECTION 4 IS STILL THE ONE THAT GUARDS USABILITY, and deliberately so: its
- * floor is measured on the FIRM rectangle alone. The band must never become
- * load-bearing for whether the city can be navigated — if a future pitch eats the
- * full-speed area, §4 must still fail even though the ring would hide it.
- *
- * What this section adds is §39's own invariant restated against the ring, plus
- * the containment the ramp depends on, plus the measurement nobody should have to
- * guess at: how far off the plate this actually puts the eye.
- */
-
-check(
-  'the eye stays inside the city ring at every reachable pose',
-  worstRingMargin >= 0,
-  `worst margin ${worstRingMargin >= 0 ? '+' : ''}${worstRingMargin.toFixed(1)} units at ` +
-    `${ringLabel} — this is §39's assertion against §40's rectangle, and negative means a ` +
-    'push can put the eye somewhere there is nothing built to stand on',
-);
-
-check(
-  'the limit contains the full-speed area at every reachable pose',
-  ringContainsStationEverywhere,
-  ringContainsStationEverywhere
-    ? 'so the ramp always has a band to resist across, and NavigableArea never has to give it up'
-    : `no band at ${containmentLabel} — the resistance would resolve to a hard clamp there`,
-);
-
-check(
-  'the ring is a band and not a second navigable area',
-  furthestPastPlate > 0 && furthestPastPlate <= 50,
-  `the eye reaches at most ${furthestPastPlate.toFixed(1)} units past the plate at ` +
-    `${pastPlateLabel}, against ring margins of -X 24.9 +X 30.0 -Z 50.0 +Z 16.5 — above ` +
-    'those the rectangle is no longer the ring that was measured out of the GLB',
-);
-
-check(
-  'the band buys pan range rather than only softness',
-  worstRingUsableWidth > worstUsableWidth && worstRingUsableDepth > worstUsableDepth,
-  `usable area ${worstUsableWidth.toFixed(0)} x ${worstUsableDepth.toFixed(0)} at full speed, ` +
-    `${worstRingUsableWidth.toFixed(0)} x ${worstRingUsableDepth.toFixed(0)} including the band ` +
-    '— equal means extendedBounds has been set back to bounds, which is ?band=0 shipped by accident',
-);
 
 // ---------------------------------------------------------------------------
 finish();

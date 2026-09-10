@@ -438,15 +438,23 @@ forbid(
 //
 // NARROWER THAN IT SHOULD BE, and the reason is worth recording rather than
 // quietly leaving the gap. The rule that belongs here is "no experience imports
-// the application layer at all", which is ARCHITECTURE 17's stated direction. It
-// cannot be asserted today: `earth/camera/CameraController.tsx` and
-// `earth/scene/SpaceBackdrop.tsx` both import `app/warpTransition`, deliberately
-// and correctly — it is a pure curve module with no DOM, no React and no state,
-// and DECISIONS 8 has each experience read the warp's progress and move its own
-// camera. What is wrong is only where that module LIVES: a shared vocabulary in
-// `app/` reads as orchestration. Moving it to `utils/` would let the broad rule be
-// stated, and that is a refactor with no bearing on this feature, so it is named
-// here instead of smuggled in.
+// the application layer at all", which is ARCHITECTURE 17's stated direction.
+//
+// THIS COMMENT USED TO NAME `app/warpTransition` as the single thing in the way,
+// and to claim that moving it to `utils/` would let the broad rule be stated.
+// The move happened — the navigation port needed `src/graphics/` to read the
+// vacuum's shape constants, and section 1 forbids `graphics/ -> app/`, so the
+// module had to land somewhere both layers may reach. It is now
+// `src/utils/warpTransition.ts`.
+//
+// It did NOT unlock the broad rule, and that is the part the old comment got
+// wrong. Thirteen `experiences/ -> app/` edges remain, all of them one of two
+// things: `app/buildFlags` (the debug gate) and the `app/proto*` modules
+// (prototype-era feature flags). Both sit in `app/` for exactly the reason
+// `warpTransition` did — nothing had forced the question — and both are read by
+// experiences that have no business knowing the shell exists. The broad rule
+// becomes assertable when those move, and not before. Anyone tempted to state it
+// early should run the grep first; it is one line.
 
 section('3. The boot entry depends on nothing');
 

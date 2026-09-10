@@ -15,13 +15,15 @@ import { SequenceState } from '../config/sequenceState'
 import { atOrAfter } from '../config/sceneVisibility'
 import type { DestinationResolver } from '../navigation/destination'
 import {
+  WARP_LIMITS,
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
   earthRadiusScale,
   prefersReducedMotion,
   speed,
-} from '../../../app/warpTransition'
+} from '../../../utils/warpTransition'
+import { steerWeightFor } from './destinationSteer'
 
 // Leg 1: the camera pushes forward through the star volume.
 // Leg 2: it arrives from far out and settles at the Earth's rest distance.
@@ -92,6 +94,8 @@ export function CameraController({
   const fovAtCommit = useRef<number>(WARP_TRANSITION.earthRestFov)
   const fovCatchUp = useRef(0)
   const destinationWorld = useRef(new THREE.Vector3())
+  /** The band's swing at the commit. See `applyWarp`. */
+  const guideWeightAtCommit = useRef(0)
   const warpLookAt = useRef(new THREE.Vector3())
   const reducedMotion = useMemo(prefersReducedMotion, [])
 
@@ -206,7 +210,7 @@ export function CameraController({
    * the destination turns with the Earth's surface.
    */
   function applyWarp(cam: THREE.PerspectiveCamera, p: number, dt: number) {
-    const { departing, amount } = dollyAmount(p)
+    const { departing, amount } = dollyAmount(p, WARP_LIMITS)
 
     if (!dollyCaptured.current) {
       if (departing) dollyAnchor.current.copy(cam.position)
@@ -215,6 +219,12 @@ export function CameraController({
       // cinematic is taking OVER from, and the lens is part of a pose.
       fovAtCommit.current = cam.fov
       fovCatchUp.current = 0
+      // How far the viewer had already swung onto the destination when they
+      // committed. Captured beside the anchor and the lens for the same reason:
+      // all three are parts of the pose the cinematic is taking over from.
+      guideWeightAtCommit.current = departing
+        ? steerWeightFor(state.zoomDepth, WARP_LIMITS)
+        : 0
       dollyCaptured.current = true
     }
 
@@ -223,11 +233,27 @@ export function CameraController({
     if (reducedMotion) return
 
     const radius = dollyAnchor.current.length()
-    cam.position.copy(dollyAnchor.current).setLength(radius * earthRadiusScale(amount))
+    cam.position.copy(dollyAnchor.current).setLength(radius * earthRadiusScale(amount, WARP_LIMITS))
+
+    // THE AIM, and the departing case cannot be the bell alone.
+    //
+    // `speed(0)` is exactly 0, so on the first committed frame the bell would
+    // throw the aim back to the sphere's centre and undo the swing the viewer
+    // had just scrolled through — a visible snap at the moment they succeeded.
+    // Departing therefore starts from where the guide had reached and closes the
+    // remainder on the bell; a viewer who committed from a fully swung band
+    // (weight 1) simply holds the zone centred the whole way down, so the dive
+    // continues the move rather than restating it.
+    //
+    // ARRIVING is unchanged and must stay the bell alone: it falls 1 -> 0, so
+    // the camera emerges looking at the zone and opens out to the whole globe.
+    const bell = speed(p, WARP_LIMITS)
+    const gw = guideWeightAtCommit.current
+    const aim = departing ? gw + (1 - gw) * bell : bell
 
     const lookAt = warpLookAt.current.copy(EARTH_LOOK_AT)
     const destination = destinationRef.current?.(destinationWorld.current)
-    if (destination) lookAt.lerpVectors(EARTH_LOOK_AT, destination, speed(p))
+    if (destination) lookAt.lerpVectors(EARTH_LOOK_AT, destination, aim)
     cam.lookAt(lookAt)
 
     // Blended rather than written, so the cinematic can adopt a lens the scrub
@@ -235,7 +261,7 @@ export function CameraController({
     // of the warp — including both ends, which return to exactly 45 — is exact
     // rather than forever approaching.
     fovCatchUp.current = Math.min(1, fovCatchUp.current + dt / FOV_CATCHUP_SECONDS)
-    cam.fov = lerp(fovAtCommit.current, earthFov(p), smootherstep(0, 1, fovCatchUp.current))
+    cam.fov = lerp(fovAtCommit.current, earthFov(p, WARP_LIMITS), smootherstep(0, 1, fovCatchUp.current))
     cam.updateProjectionMatrix()
   }
 

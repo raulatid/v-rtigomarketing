@@ -42,7 +42,8 @@ import fs from 'node:fs';
 import { PropertyBinding } from 'three';
 import { banner, check, finish, section } from './lib/assert';
 import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/blogDisplay/blogDisplayConfig';
-import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
+import { CITY_A2, murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
+import { expandRect } from '../src/experiences/murcia/navigation/navigationBounds';
 import {
   BUILDING_NODE_NAMES,
   FOCO_NODE_NAMES,
@@ -601,10 +602,10 @@ if (groundName === null || claimed === null) {
 // out over nothing. Nothing at runtime looks this node up by name; this check is
 // the only thing keeping the number honest.
 
-section('7b. The A2 ring (navigation.extendedBounds — the camera may stand on it)');
+section('7b. The A2 ring (the ground the navigable rectangle stands on)');
 
 const RING_NODE = 'CITY_A2_SIMPLIFIED';
-const ringClaimed = murciaConfig.navigation.extendedBounds;
+const ringClaimed = CITY_A2;
 const ringNodes = nodesNamed(RING_NODE);
 
 check(
@@ -612,13 +613,13 @@ check(
   ringNodes.length > 0,
   ringNodes.length > 0
     ? `as ${list(ringNodes)}`
-    : 'the resistance band would extend the camera out over ground with nothing built on ' +
-      'it — see murciaConfig.navigation.extendedBounds',
+    : 'the navigable rectangle would extend the camera out over ground with nothing ' +
+      'built on it — see CITY_A2 in murciaConfig',
 );
 
 const ringMeasured = ringNodes.length > 0 ? worldXzBounds(RING_NODE) : null;
 check(
-  'it covers the rectangle navigation.extendedBounds claims',
+  'it covers the rectangle CITY_A2 claims',
   ringMeasured !== null &&
     ringMeasured.minX <= ringClaimed.minX + TOLERANCE &&
     ringMeasured.maxX >= ringClaimed.maxX - TOLERANCE &&
@@ -642,9 +643,34 @@ check(
     `+X ${(ringClaimed.maxX - murciaConfig.contentBounds.maxX).toFixed(1)} ` +
     `-Z ${(murciaConfig.contentBounds.minZ - ringClaimed.minZ).toFixed(1)} ` +
     `+Z ${(ringClaimed.maxZ - murciaConfig.contentBounds.maxZ).toFixed(1)} — ` +
-    'a ring that does not contain the plate on all four sides would make the band ' +
-    'a hard clamp again on whichever side it fell short',
+    'the ring is what the grown navigable rectangle stands on, so a ring that does ' +
+    'not contain the plate would put the viewer over nothing on whichever side it fell short',
 );
+
+{
+  // THE ASSERTION THAT REPLACED §40's.
+  //
+  // The band the ring used to bound is gone; what remains is the grown
+  // rectangle the viewer's navigation target is clamped to, and it has to stand
+  // on ground that exists in the shipped file. Derived the same way
+  // MurciaExperience derives it, so a change to `boundsInset` is caught here
+  // rather than by eye.
+  const navigable = expandRect(
+    murciaConfig.navigation.bounds,
+    -murciaConfig.navigation.boundsInset,
+  );
+  check(
+    'the grown navigable rectangle stands on the ring',
+    navigable.minX >= ringClaimed.minX - TOLERANCE &&
+      navigable.maxX <= ringClaimed.maxX + TOLERANCE &&
+      navigable.minZ >= ringClaimed.minZ - TOLERANCE &&
+      navigable.maxZ <= ringClaimed.maxZ + TOLERANCE,
+    `navigable X [${navigable.minX.toFixed(1)}, ${navigable.maxX.toFixed(1)}] ` +
+      `Z [${navigable.minZ.toFixed(1)}, ${navigable.maxZ.toFixed(1)}] inside ring ` +
+      `X [${ringClaimed.minX.toFixed(1)}, ${ringClaimed.maxX.toFixed(1)}] ` +
+      `Z [${ringClaimed.minZ.toFixed(1)}, ${ringClaimed.maxZ.toFixed(1)}]`,
+  );
+}
 
 // --- 6. Samplers ------------------------------------------------------------
 // Reported, never asserted. Blender's Image Texture *Extension* is per-node and

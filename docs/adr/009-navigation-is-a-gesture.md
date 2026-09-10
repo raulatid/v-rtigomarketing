@@ -31,6 +31,8 @@ Amends: `DECISIONS.md` §20 / §21 (the zoom band on wheel and pinch)
 > spent that margin again. The consequences about focus flights are NOT reversed: a flight still
 > dollies inward only, and it now multiplies the zoomed distance rather than the configured one.
 
+> **SUPERSEDED IN PART, 2026-09-10 — `DECISIONS.md` §44.** The direction here — navigation is a gesture, and parallel controls get deleted rather than kept beside it — is not merely intact but is what justified deleting the two-finger rotate and the pinch arbitration built around it. What changed under it is Murcia's WORLD navigation: one pointer now carries yaw and travel together over a spring, replacing the map-style pan of `DECISIONS.md` §20.
+
 ## Context
 
 `DECISIONS.md` §15 is the only decision in this repository that this ADR exists to overturn,

@@ -17,7 +17,8 @@ import { projectCoreRect } from '../district/display/displayProjection'
 import { MIN_TOUCH_TARGET_CSS_PX, expandToMinimum } from '../../../interaction/touchTarget'
 import type { ScreenBox } from '../../../interaction/touchTarget'
 import { CameraRig } from '../camera/CameraRig'
-import { DragPanController } from '../navigation/DragPanController'
+import { measurementCameraTuning } from '../camera/cameraTuning'
+import type { CameraOwnership } from '../camera/CameraRig'
 import { murciaConfig } from '../config/murciaConfig'
 import { resolveCameraPose } from '../config/environmentConfig'
 import type { BoundsRect } from '../config/environmentConfig'
@@ -94,7 +95,7 @@ interface Fixture {
   district: ServicesDistrict
   rig: CameraRig
   camera: THREE.PerspectiveCamera
-  controller: DragPanController
+  ownership: CameraOwnership
   canvas: HTMLCanvasElement
   container: HTMLElement
   scene: THREE.Scene
@@ -165,13 +166,23 @@ function makeFixture(): Fixture {
   const env = murciaConfig
   const pose = resolveCameraPose(env, ASPECT)
   const camera = new THREE.PerspectiveCamera(pose.fov, ASPECT, pose.near, pose.far)
-  const rig = new CameraRig(camera, pose)
+  const rig = new CameraRig(camera, pose, measurementCameraTuning(pose.elevationDegrees))
   rig.setAspect(ASPECT)
   rig.setFocus(FOCUS.x, FOCUS.z)
   camera.updateMatrixWorld(true)
 
-  const controller = new DragPanController(canvas, camera, rig, env.navigation, BOUNDS, BOUNDS)
-  const beginExternal = vi.spyOn(controller, 'beginExternalControl')
+  // The real ownership facade the experience builds, over the real rig. No
+  // pointer input in this fixture — the district's own listeners are what is
+  // under test, and `isDragging` is only ever read to refuse a tap mid-drag.
+  const ownership: CameraOwnership = {
+    isDragging: false,
+    get isExternallyControlled() {
+      return rig.isExternallyControlled
+    },
+    beginExternalControl: () => rig.setExternallyControlled(true),
+    endExternalControl: () => rig.setExternallyControlled(false),
+  }
+  const beginExternal = vi.spyOn(ownership, 'beginExternalControl')
 
   const root = buildCity()
 
@@ -197,7 +208,7 @@ function makeFixture(): Fixture {
     canvas,
     camera,
     rig,
-    controller,
+    cameraOwnership: ownership,
     binding,
     content,
     cursor,
@@ -239,7 +250,10 @@ function makeFixture(): Fixture {
     const frames = Math.max(1, Math.round(seconds / dt))
     for (let i = 0; i < frames; i += 1) {
       district.update(dt)
-      controller.update(dt)
+      // The frame's arbiter, in miniature: the springs run only when nothing
+      // else owns the camera. Stepping them under a flight is exactly the bug
+      // `checks/district-flight.ts` section 2 exists to catch.
+      if (!rig.isExternallyControlled) rig.update(dt)
       camera.updateMatrixWorld(true)
       scene.updateMatrixWorld(true)
     }
@@ -330,7 +344,7 @@ function makeFixture(): Fixture {
     district,
     rig,
     camera,
-    controller,
+    ownership,
     canvas,
     container,
     scene,
@@ -648,12 +662,12 @@ describe('the services district', () => {
 
     const at = f.controlPoint(DETAIL_VIEWPORT_RECT)
     f.press(at.x, at.y + 60, { pointerType: 'touch', pointerId: 11 })
-    expect(f.controller.isExternallyControlled).toBe(true)
+    expect(f.ownership.isExternallyControlled).toBe(true)
 
     f.releaseOffCanvas(at.x, at.y - 200, { pointerType: 'touch', pointerId: 11 })
     // Nothing else is going to hand it back: the flight settled long ago, so
     // the reading gesture is the only owner left holding it.
-    expect(f.controller.isExternallyControlled).toBe(false)
+    expect(f.ownership.isExternallyControlled).toBe(false)
   })
 
   it('reaches every transition from the keyboard alone', () => {
@@ -697,13 +711,17 @@ describe('the services district', () => {
     f.click(f.controlPoint(DETAIL_RECT).x, f.controlPoint(DETAIL_RECT).y)
     f.run(1)
 
-    const endExternal = vi.spyOn(f.controller, 'endExternalControl')
+    const endExternal = vi.spyOn(f.ownership, 'endExternalControl')
     const before = f.beginExternal.mock.calls.length
     const at = f.controlPoint(DETAIL_VIEWPORT_RECT)
     f.drag({ x: at.x, y: at.y + 60 }, { x: at.x, y: at.y - 60 })
 
     expect(f.beginExternal.mock.calls.length).toBe(before + 1)
-    expect(endExternal).toHaveBeenCalledWith({ adoptRigState: true })
+    // No argument any more. `adoptRigState` existed because the old controller
+    // could hand back WITHOUT taking on the rig's current state, which snapped.
+    // The spring rig removed the choice: whatever moved the rig wrote its value,
+    // target and velocity together, so there is nothing left to adopt.
+    expect(endExternal).toHaveBeenCalledWith()
     // The reading gesture is not also a tap on whatever it ended over.
     expect(f.district.isEngaged).toBe(true)
   })

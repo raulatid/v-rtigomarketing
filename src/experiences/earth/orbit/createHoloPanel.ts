@@ -5,7 +5,7 @@ import { advanceExpansion, easeExpansion } from './panelExpansion'
 import { invitationPulse } from './invitation'
 import { deploymentFrom } from './holoDeployment'
 import { createEmitterCone } from './createEmitterCone'
-import { prefersReducedMotion } from '../../../app/warpTransition'
+import { prefersReducedMotion } from '../../../utils/warpTransition'
 import { PROTO_HOLO } from '../../../app/protoHolo'
 
 // The SATELLITE PROJECTION FIELD: the brand artwork suspended in light above a

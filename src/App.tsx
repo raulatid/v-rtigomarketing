@@ -136,7 +136,7 @@ export default function App() {
   const settleNavigationRef = useRef<() => void>(() => {})
   const resetZoomRef = useRef<() => void>(() => {})
 
-  const { transitionTo, transitioning } = useExperienceTransition({
+  const { transitionTo, transitioning, stepTransition } = useExperienceTransition({
     state,
     onSwap: setActiveExperience,
     // The REAL end of the warp, not the `transitioning` flag, which lands a
@@ -302,6 +302,9 @@ export default function App() {
     // for the e2e suite, painted by the input layer itself.
     onZoom: (depth) => {
       state.zoomDepth = depth
+    },
+    onApproach: (approach) => {
+      state.approach = approach
     },
   })
   settleNavigationRef.current = settleNavigation
@@ -598,6 +601,7 @@ export default function App() {
       >
         <div className="app__viewport">
           <LazyScene
+            stepTransition={stepTransition}
             suspended={blogOpen}
             config={config}
             state={state}

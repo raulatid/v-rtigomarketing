@@ -93,6 +93,18 @@ export function isIntentLegal(intent: NavigationIntent, current: ExperienceId): 
   return intent === 'enter-murcia' ? current === 'earth' : current === 'murcia'
 }
 
+/**
+ * The experience an intent lands in.
+ *
+ * The inverse of `intentFor`, and kept beside it so the pair cannot drift. The
+ * transition clock needs this at the cut: it knows which intent committed, and
+ * has to name the world to swap TO without asking the app what is showing —
+ * by then the answer is mid-change.
+ */
+export function destinationFor(intent: NavigationIntent): ExperienceId {
+  return intent === 'enter-murcia' ? 'murcia' : 'earth'
+}
+
 export function createNavigationMachine(
   limits: NavigationCooldownLimits,
 ): NavigationMachine {

@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 import { loadProgress } from '../loading/progress'
 import type { SequenceState } from '../experiences/earth/config/sequenceState'
-import { dollyAmount, prefersReducedMotion } from '../app/warpTransition'
+import { WARP_LIMITS, dollyAmount, prefersReducedMotion } from '../utils/warpTransition'
 import { BUILT_ASSETS_AVAILABLE, DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
 import { clampFrameDelta } from '../graphics/frameDelta'
 // Imported here rather than from main.tsx so it rides the scene chunk with the
@@ -284,7 +284,7 @@ export function MurciaLayer({
     const suppressed = reducedMotion && state.transitionCommitted
     if (p > 0) {
       if (active && !suppressed) {
-        const { amount, departing } = dollyAmount(p)
+        const { amount, departing } = dollyAmount(p, WARP_LIMITS)
         experience.setWarpPose(amount, departing)
       }
     } else if (dollyEngaged.current) {

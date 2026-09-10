@@ -9,7 +9,9 @@ import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { installCameraReadout } from '../debug/CameraReadout'
 import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags'
 import { PROTO_TUTORIAL } from '../../../app/protoTutorial'
-import { prefersReducedMotion } from '../../../app/warpTransition'
+import { WARP_LIMITS, prefersReducedMotion } from '../../../utils/warpTransition'
+import { applyDestinationSteer, steerWeightFor } from '../camera/destinationSteer'
+import type { DestinationResolver } from '../navigation/destination'
 import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
 import { createCursorManager, type CursorManager } from '../../../interaction/cursorManager'
 import { SequenceState } from '../config/sequenceState'
@@ -21,6 +23,16 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 export interface InteractionHandle {
   deselect: () => void
 }
+
+/**
+ * What the camera looks at with no steer engaged: the Earth's centre.
+ *
+ * A module constant rather than an import from `CameraController`, which does
+ * not export it — and duplicating one zero vector is cheaper than widening that
+ * module's surface for it. Both are the origin because the Earth is at the
+ * origin; if that ever stops being true, both move together or neither is right.
+ */
+const EARTH_STEER_LOOK_AT = new THREE.Vector3(0, 0, 0)
 
 interface Props {
   state: SequenceState
@@ -41,6 +53,13 @@ interface Props {
    * returns early on.
    */
   satelliteHoverRef: RefObject<boolean>
+  /**
+   * Where on the globe the viewer is travelling to, in world space.
+   *
+   * Read every frame rather than captured, because the destination turns with
+   * the Earth's surface. Optional: the steer simply does not engage without one.
+   */
+  destinationRef?: RefObject<DestinationResolver | null>
   onSelect: (data: SatelliteDef) => void
   onDeselect: () => void
   active: boolean
@@ -60,11 +79,15 @@ export function InteractionLayer({
   handleRef,
   cursorRef,
   satelliteHoverRef,
+  destinationRef,
   onSelect,
   onDeselect,
   active,
 }: Props) {
   const { camera, gl } = useThree()
+  /** Scratch for the steer, so a per-frame swing allocates nothing. */
+  const steerDestination = useRef(new THREE.Vector3())
+  const steerLookAt = useRef(new THREE.Vector3())
   const rigRef = useRef<FocusCameraRig | null>(null)
   const focusRef = useRef<SatelliteFocus | null>(null)
 
@@ -223,6 +246,34 @@ export function InteractionLayer({
     // an input to the rig rather than a correction of it, so it goes in at the
     // front and comes out smoothed by the rig's own radius ease.
     rig.update(delta)
+
+    // ── The zone to dive at (stage 3 of the band) ──
+    //
+    // AFTER `rig.update()`, and that ordering is the whole reason this is here
+    // rather than inside the rig. The rig owns the free orbit and writes the
+    // camera from it; this rotates the result partway onto the destination. Put
+    // in front of the rig it would simply be overwritten, and put INSIDE it the
+    // rig would stop being one thing.
+    //
+    // Skipped entirely while a committed cinematic owns the camera —
+    // `CameraController.applyWarp` continues the swing from where this left it,
+    // which is what `guideWeightAtCommit` is for.
+    if (!state.transitionCommitted) {
+      const weight = steerWeightFor(state.zoomDepth, WARP_LIMITS)
+      if (weight > 0) {
+        const destination = destinationRef?.current?.(steerDestination.current)
+        if (destination) {
+          applyDestinationSteer(
+            camera.position,
+            EARTH_STEER_LOOK_AT,
+            destination,
+            weight,
+            steerLookAt.current,
+          )
+          camera.lookAt(steerLookAt.current)
+        }
+      }
+    }
   })
 
   return null

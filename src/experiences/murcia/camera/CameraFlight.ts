@@ -67,11 +67,12 @@ export interface CameraFlightEvents {
  *
  * ## Sole ownership of the rig
  *
- * While a flight plays, `DragPanController` must be in external control. It
- * writes the rig unconditionally in `update()`, so leaving it running would have
- * it easing the rig back toward its stale drag targets between this class's
- * writes. The controller is not driven from here — the caller owns the handover,
- * because it also owns the pointer listener that cancels the flight.
+ * While a flight plays, the rig must be in external control. Its springs chase
+ * their targets whenever `CameraRig.update` runs, so leaving them running would
+ * ease the rig back toward stale targets between this class's writes; under
+ * external control `MurciaExperience` does not step them at all. The handover is
+ * not driven from here — the caller owns it, because it also owns the pointer
+ * listener that cancels the flight.
  *
  * ## Why elapsed/duration rather than exponential easing
  *
@@ -115,7 +116,7 @@ export class CameraFlight {
   /**
    * Starts a flight from wherever the rig is now.
    *
-   * The caller must have put `DragPanController` into external control first.
+   * The caller must have put the rig into external control first.
    */
   playTo(destination: FlightDestination): void {
     this.startX = this.rig.focus.x;

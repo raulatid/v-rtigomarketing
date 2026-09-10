@@ -6,6 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { createVacuumPass } from './vacuumPass'
 // This file imports nothing from either experience and nothing from the
 // application layer. §17 allows `graphics -> shared` only, and that is now all
 // there is: three.js, its addons, and two local modules.
@@ -107,7 +108,7 @@ export function RenderPipeline({ readSettings, directRef, overlayRef, onContextL
     })
   }, [gl, onContextLost])
 
-  const { composer, renderPass, bloomPass, afterimagePass, outputPass } = useMemo(() => {
+  const { composer, vacuumPass, renderPass, bloomPass, afterimagePass, outputPass } = useMemo(() => {
     const c = new EffectComposer(gl)
     const rPass = new RenderPass(scene, camera)
     c.addPass(rPass)
@@ -126,12 +127,23 @@ export function RenderPipeline({ readSettings, directRef, overlayRef, onContextL
 
     const aPass = new AfterimagePass(0)
     c.addPass(aPass)
+
+    // AFTER the afterimage, before the output. The order is the same argument
+    // the bloom's makes, run the other way: the vacuum is a lens, not a light,
+    // so it must act on the finished image including its smear. In front of the
+    // afterimage it would be distorting the frame BEFORE it was accumulated,
+    // and the accumulation buffer would hold a stretch that then stretched
+    // again — a smear of a smear, which reads as the renderer failing rather
+    // than as speed.
+    const vPass = createVacuumPass()
+    c.addPass(vPass.pass)
     // Retained rather than constructed inline: EffectComposer.dispose() does not
     // walk its passes, so an unreferenced pass is unreachable for disposal.
     const oPass = new OutputPass()
     c.addPass(oPass)
     return {
       composer: c,
+      vacuumPass: vPass,
       renderPass: rPass,
       bloomPass: bPass,
       afterimagePass: aPass,
@@ -160,11 +172,12 @@ export function RenderPipeline({ readSettings, directRef, overlayRef, onContextL
       // identity change.
       bloomPass.dispose()
       afterimagePass.dispose()
+      vacuumPass.dispose()
       outputPass.dispose()
       renderPass.dispose()
       composer.dispose()
     }
-  }, [composer, bloomPass, afterimagePass, outputPass, renderPass])
+  }, [composer, bloomPass, afterimagePass, vacuumPass, outputPass, renderPass])
 
   useFrame((_, delta) => {
     const direct = directRef.current
@@ -176,6 +189,24 @@ export function RenderPipeline({ readSettings, directRef, overlayRef, onContextL
     const damp = amount === 0 ? 0 : settings.afterimageDampMax * amount
     const uniform = afterimagePass.uniforms?.['damp']
     if (uniform) uniform.value = damp
+
+    vacuumPass.setIntensity(settings.vacuum)
+
+    // BOTH ping-pong targets, on the frame the world was substituted.
+    //
+    // Clearing one would work about half the time — which is the worst possible
+    // outcome, because it would ship looking fine and fail for half the viewers.
+    // `AfterimagePass` swaps `textureComp` and `textureOld` every frame, so which
+    // one holds the outgoing world depends on the frame parity at the cut.
+    if (settings.resetAccumulation) {
+      const targets = [afterimagePass.textureComp, afterimagePass.textureOld]
+      for (const target of targets) {
+        if (!target) continue
+        gl.setRenderTarget(target)
+        gl.clear()
+      }
+      gl.setRenderTarget(null)
+    }
 
     // Disabled at zero, for exactly the reason the bloom line below gives — and
     // it took until 2026-08-14 to apply that reasoning to the pass it was

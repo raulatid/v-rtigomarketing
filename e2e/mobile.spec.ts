@@ -523,16 +523,20 @@ test('ordinary two-finger use is left alone', async ({ page }) => {
   await reachSite(page)
   const growth = commitGrowth(page)
 
-  // Two fingers carried sideways together is Murcia's rotate, and on Earth it is
-  // nothing at all. Either way it must not travel between worlds.
+  // Two fingers carried sideways together used to be Murcia's rotate, and this
+  // test existed because the two gestures competed for the same fingers. They no
+  // longer do — two-finger rotation is gone (DECISIONS §44) and a pair means only
+  // a pinch — so what is left to prove is simpler and still worth proving: a
+  // carried pair changes no SEPARATION, so it feeds the band nothing and cannot
+  // travel between worlds however far it is dragged.
   await pinch(page, { from: 200, to: 200, shiftX: growth, steps: 16 })
   await page.waitForTimeout(600)
   expect(await inMurcia(page)).toBe(false)
 
-  // Closing on Earth is the wrong way out. It is no longer nothing — `adr/014`
-  // made it the other half of the zoom, and the classifier claims it so the
-  // globe recedes under the fingers — but that end of the band is a dead stop
-  // that returns no overflow, so it cannot navigate however far it goes.
+  // Closing on Earth is the wrong way out. It is not nothing — `adr/014` made it
+  // the other half of the zoom, and the pair drives the band from its first
+  // sample so the globe recedes under the fingers — but that end of the band is a
+  // dead stop that returns no overflow, so it cannot navigate however far it goes.
   await pinch(page, { from: 40 + growth, to: 40, steps: 22 })
   await page.waitForTimeout(600)
   expect(await inMurcia(page)).toBe(false)

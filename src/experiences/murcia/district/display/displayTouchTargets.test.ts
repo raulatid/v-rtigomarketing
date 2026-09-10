@@ -4,6 +4,7 @@ import { murciaConfig } from '../../config/murciaConfig'
 import { resolveCameraPose } from '../../config/environmentConfig'
 import type { CameraPoseConfig } from '../../config/environmentConfig'
 import { CameraRig } from '../../camera/CameraRig'
+import { measurementCameraTuning } from '../../camera/cameraTuning'
 import { scalePoseDistance } from '../../camera/applyPoseToCamera'
 import { cityDistrictBindings } from '../../scene/cityDistrictBindings'
 import {
@@ -90,7 +91,8 @@ function poseFor(kind: Pose, aspect: number): CameraPoseConfig {
 function buildScene(viewport: Viewport, pose: Pose) {
   const aspect = viewport.width / viewport.height
   const camera = new THREE.PerspectiveCamera()
-  const rig = new CameraRig(camera, poseFor(pose, aspect))
+  const framePose = poseFor(pose, aspect)
+  const rig = new CameraRig(camera, framePose, measurementCameraTuning(framePose.elevationDegrees))
   rig.setAspect(aspect)
   rig.setYaw(binding.approachYawDegrees ?? 0)
   rig.setFocus(FOCUS.x, FOCUS.z)

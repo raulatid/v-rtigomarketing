@@ -1,9 +1,10 @@
 /**
  * The fake canvas element the pointer-driven harnesses drive.
  *
- * `DragPanController` and `DistrictInteraction` take an `HTMLElement` and read
- * exactly four things off it: the listener registry, pointer capture, an inline
- * style (for the cursor) and a bounding rect. Node has none of them, and
+ * `createCameraInput` and `DistrictInteraction` take an `HTMLElement` and read
+ * a handful of things off it: the listener registry, pointer capture, an inline
+ * style (the cursor, and the saved/restored `touch-action`) and a bounding
+ * rect. Node has none of them, and
  * bringing in jsdom to supply four methods would put a DOM implementation
  * inside a bundle whose whole point is that it contains real Three.js and
  * nothing else.
@@ -37,7 +38,27 @@ export interface StubElement {
 
 export function createStubElement(rect: StubRect = { left: 0, top: 0, width: 1920, height: 1080 }): StubElement {
   const listeners = new Map<string, Array<(e: unknown) => void>>();
+  // `setProperty`/`getPropertyValue`/`removeProperty` are non-enumerable, so
+  // `style` still reads as a plain bag of what the code under test wrote — which
+  // is what the harnesses assert against.
   const style = {} as Record<string, string>;
+  Object.defineProperties(style, {
+    setProperty: {
+      value: (name: string, value: string) => {
+        style[name] = value;
+      },
+    },
+    getPropertyValue: {
+      value: (name: string) => style[name] ?? '',
+    },
+    removeProperty: {
+      value: (name: string) => {
+        const previous = style[name] ?? '';
+        delete style[name];
+        return previous;
+      },
+    },
+  });
 
   const element = {
     style,

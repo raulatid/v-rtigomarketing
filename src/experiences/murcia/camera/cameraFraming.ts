@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CameraRig } from './CameraRig';
+import { measurementCameraTuning } from './cameraTuning';
 import type { CameraPoseConfig } from '../config/environmentConfig';
 
 /**
@@ -136,7 +137,7 @@ export function computeFramedFocus(request: FramedFocusRequest): { x: number; z:
   const camera = new THREE.PerspectiveCamera();
   // A detached rig, so the real pose maths is exercised rather than a second
   // copy of it that could drift from CameraRig.
-  const rig = new CameraRig(camera, request.pose);
+  const rig = new CameraRig(camera, request.pose, measurementCameraTuning(request.pose.elevationDegrees));
   rig.setAspect(request.aspect);
   rig.setYaw(request.yawDegrees);
   rig.setFocus(request.target.x, request.target.z);

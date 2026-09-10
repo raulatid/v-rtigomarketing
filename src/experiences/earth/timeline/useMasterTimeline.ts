@@ -1,5 +1,15 @@
 import { RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap/gsap-core'
+// gsap-core's own declarations stop short of the `gsap.core` namespace that this
+// file and `components/DebugOverlay` both name in type positions. A type-only
+// side-effect import of the full package supplies it without pulling any of the
+// package's code into the bundle.
+//
+// It used to live in `app/useExperienceTransition`, which was the other GSAP
+// caller. That module now counts with `utils/transitionClock` instead, so the
+// augmentation moved to the timeline that still genuinely owns a GSAP object —
+// the intro's (DECISIONS 26.3).
+import type {} from 'gsap'
 import { IntroConfig, Phase } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { cinematicSpeed } from '../../../utils/easing'

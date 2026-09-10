@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CameraRig } from '../../src/experiences/murcia/camera/CameraRig';
+import { createDefaultCameraTuning } from '../../src/experiences/murcia/camera/cameraTuning';
 import { resolveCameraPose } from '../../src/experiences/murcia/config/environmentConfig';
 import type { EnvironmentConfig } from '../../src/experiences/murcia/config/environmentConfig';
 
@@ -25,7 +26,14 @@ export function makeRig(
 ): { camera: THREE.PerspectiveCamera; rig: CameraRig } {
   const pose = resolveCameraPose(env, aspect);
   const camera = new THREE.PerspectiveCamera(pose.fov, aspect, pose.near, pose.far);
-  const rig = new CameraRig(camera, pose);
+  // The SHIPPED tuning, not the measurement one: both pointer harnesses drive
+  // real gestures through this rig, and a tuning with zero gains would let a
+  // drag test pass by moving nothing at all.
+  const rig = new CameraRig(
+    camera,
+    pose,
+    createDefaultCameraTuning(env, pose.distance, pose.elevationDegrees, env.navigation.bounds),
+  );
   rig.setAspect(aspect);
   rig.setFocus(focus.x, focus.z);
   return { camera, rig };

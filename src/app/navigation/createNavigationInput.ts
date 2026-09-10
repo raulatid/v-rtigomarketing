@@ -4,7 +4,6 @@ import { createNavigationGesture } from './navigationGesture'
 import { createNavigationMachine, intentFor } from './navigationMachine'
 import type { NavigationIntent } from './navigationMachine'
 import { createProgressSpring } from './progressSpring'
-import { createPinchClassifier } from './pinchClassifier'
 import { createZoomBand } from './zoomBand'
 import {
   NAVIGATION_COOLDOWN,
@@ -118,6 +117,16 @@ export interface NavigationInputDeps {
    * change are an event and a reset.
    */
   onZoom?: (depth: number) => void
+  /**
+   * How far through the WHOLE journey the viewer has pushed, 0..1, RAW.
+   *
+   * The zoom band first, then the commit accumulator against its limit — the two
+   * stages of `adr/014` read as one number. Distinct from `onProgress`, which is
+   * the same gesture spring-painted for an indicator: this one drives a
+   * screen-space effect, and lag in a screen-space effect reads as the renderer
+   * struggling rather than as weight.
+   */
+  onApproach?: (approach: number) => void
   pinchLimits?: PinchLimits
   /** Overridable so a test need not wait three real seconds. */
   hintLingerMs?: number
@@ -375,6 +384,29 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     deps.onZoom?.(reportedZoom)
   }
 
+  /** Last reported approach, so an unchanged frame costs no callback. */
+  let reportedApproach = 0
+
+  /**
+   * Publishes the whole journey as one number.
+   *
+   * Measured in the two stages' own pixels rather than by averaging their two
+   * normalised progresses, because they are not the same length: the band is
+   * `towardTravelPx` and the push is `commitDistancePx`, and the ratio between
+   * them is explicitly tunable. Only the half of the band that FACES the other
+   * world counts — zooming away from it is not progress toward it.
+   */
+  function reportApproach(rawProgress: number): void {
+    const toward = Math.max(0, band.depth)
+    const total = commitTravelPx(zoomLimits, gestureLimits)
+    const travelled =
+      toward * zoomLimits.towardTravelPx + rawProgress * gestureLimits.commitDistancePx
+    const next = total > 0 ? Math.min(1, Math.max(0, travelled / total)) : 0
+    if (next === reportedApproach) return
+    reportedApproach = next
+    deps.onApproach?.(next)
+  }
+
   // --- The loop --------------------------------------------------------------
 
   function ensureRunning(): void {
@@ -433,8 +465,9 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
         // -1, parked at the closest the camera goes, which is most of why zooming
         // there felt broken. Declining latches until the contacts lift, and a
         // gesture whose world has changed under it is exactly what that is for.
-        classifier.decline()
+        pinchSpent = true
         pinchDeliveredPx = 0
+        reportApproach(0)
         paint(0, 'locked', context.current)
         deps.onCommit(intent)
         ensureRunning()
@@ -469,6 +502,8 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       ? Math.min(1, Math.max(0, f.progress))
       : Math.min(1, Math.max(0, spring.step(f.progress, dt)))
     paint(displayed, phaseClass(context), context.current)
+    // From the RAW gesture, not from `displayed`. See `onApproach`.
+    reportApproach(f.progress)
     // Deliberately NOT reached on the commit frame above, which returns early:
     // the accumulator is reset there, so reporting from here would hand the
     // caller a 0 on the very frame it started a transition from a non-zero
@@ -718,22 +753,39 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   // contacts is a channel nothing in this application has ever read. This takes
   // an empty channel rather than borrowing a full one.
   //
-  // Murcia's two fingers already mean centroid rotation, so it is the one world
-  // that needs an arbitration: `pinchRivalTravel` below, against a rule stated in
-  // `pinchClassifier`. `adr/015` is the current version of it — and the reason
-  // the first version was unpassable by an ordinary hand.
+  // ── There is nothing left to arbitrate ──
   //
-  // ── No swallow-while-watching, unlike the one-finger prototype ──
+  // Murcia's two fingers used to ALSO mean centroid rotation, and this module
+  // carried a classifier whose whole job was deciding which of the two a given
+  // pair meant. `adr/015` was the second attempt at that rule; the first was
+  // unpassable by an ordinary hand, because an anchored-thumb close moves the
+  // midpoint by half its own growth BY CONSTRUCTION and so looked like a turn.
   //
-  // That design held pointermove back from both worlds until the verdict landed,
-  // so that a DECLINE cost nothing. Here it would cost something: the first
-  // finger may already be orbiting Earth, and freezing it while a second finger
-  // is merely resting would make the globe stick for no reason the viewer can
-  // see. A decline is already free — two fingers on Earth do nothing — so there
-  // is nothing to buy. The orbit is stopped at the CLAIM instead, and only then.
+  // Two-finger rotation is gone. A pair of contacts now means exactly one thing,
+  // in both worlds, so there is no verdict to reach and no rival to measure: the
+  // pinch takes the gesture the moment the second finger lands and drives the
+  // band from the first sample. `pinchClassifier.ts`, `declineRivalPx` and the
+  // undeclared coupling to Murcia's `twoPointerThresholdPx` all went with it.
+  //
+  // The fingers ARE still taken from whatever was following them, once, when the
+  // pair arms — see `cancelContacts`. That is not an arbitration; it is telling
+  // the experiences that the one finger they were tracking is now half of
+  // something else.
 
   const pinchLimits = deps.pinchLimits ?? NAVIGATION_PINCH
-  const classifier = createPinchClassifier(pinchLimits)
+  /** Separation when the pair armed. All growth is measured against this. */
+  let pinchStartDistancePx = 0
+  /**
+   * The pair is SPENT: no further growth from these two contacts drives
+   * anything until they lift.
+   *
+   * Three things spend a pair — a commit (the world changed underneath it), a
+   * focus release (the display it dismissed must not then zoom), and a refusal
+   * at arm time (a scrolling panel, or attention held with no release offered).
+   */
+  let pinchSpent = false
+  /** True once a pair has armed a NAVIGATING pinch. */
+  let pinchArmed = false
   /**
    * Separation-growth px -> accumulator px. Sampled per gesture, not per module.
    *
@@ -748,8 +800,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   const contacts = new Map<number, { x: number; y: number }>()
   /** Growth px already handed over, so each sample pushes only the difference. */
   let pinchDeliveredPx = 0
-  /** Where the pair sat when the second contact landed. See pinchRivalTravel. */
-  const pinchStartCentroid = { x: 0, y: 0 }
   /** True while a claimed pinch is driving progress. Read by the frame loop. */
   let pinchOwnsProgress = false
   /**
@@ -768,14 +818,15 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * the second one — which begins saturated, because the zoom is persistent —
    * spends everything it has on the commit.
    *
-   * Decided when the pair arms, not at the claim. The claim happens after
-   * `claimGrowthPx` of travel has already been spent, so a gesture that
-   * saturated the band on its way to being claimed would hand itself the
-   * permission this exists to withhold.
+   * Decided when the pair arms, which is now the only moment there is. It used
+   * to be worth saying "not at the claim", because a claim happened after some
+   * travel had already been spent and a gesture that saturated the band on its
+   * way to being claimed would have handed itself the permission this exists to
+   * withhold. With the claim gone the hazard cannot arise.
    */
   let pinchMayCommit = true
   /**
-   * True only while `claimPinch` is dispatching its own synthetic cancels.
+   * True only while `cancelContacts` is dispatching its synthetic cancels.
    *
    * Without it this module cancels the claim it has just made: the cancels are
    * addressed to the experiences, but they are dispatched on the canvas and
@@ -795,6 +846,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * Decided at the second contact, once per sequence, like `pinchMayCommit`:
    * a district closing under the fingers must not turn the rest of the same
    * gesture into a zoom. Cleared by `endPinch`.
+   *
+   * This is the ONE place a pinch still waits for a threshold before acting, and
+   * `releaseGrowthPx` says why: dismissing what someone is reading cannot be
+   * undone, so it may not happen on fingertip drift.
    */
   let pinchReleasesFocus: (() => void) | null = null
 
@@ -802,29 +857,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     const points = [...contacts.values()]
     if (points.length < 2) return 0
     return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)
-  }
-
-  /**
-   * How far the pair has been carried as a whole, in CSS px, ON THE X AXIS.
-   *
-   * Murcia turns on the centroid, so this is the rival gesture stated in the
-   * same units as the spread. Measured from the gesture ORIGIN rather than the
-   * previous sample, for the reason the city itself learned on 2026-08-25: two
-   * fingers never move in the same event, so a per-sample centroid swings by half
-   * the separation change and back, and a rule reading that would see a rival in
-   * every symmetric pinch.
-   *
-   * X only, and not a `hypot`. `DragPanController.applyTwoPointer` reads the
-   * centroid's X and nothing else — vertical movement of the pair turns the city
-   * by exactly nothing, deliberately. So a hypot handed a downward drift to a
-   * gesture that would not have used it, and the fingers ended up driving
-   * neither the zoom nor the rotation. Reporting the axis the rival actually
-   * consumes is what makes "hand it back to the turn" mean something.
-   */
-  function pinchRivalTravel(): number {
-    const points = [...contacts.values()]
-    if (points.length < 2) return 0
-    return (points[0].x + points[1].x) / 2 - pinchStartCentroid.x
   }
 
   /**
@@ -841,13 +873,11 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * Hands over as much of `targetLog` as one event may carry, and remembers
    * exactly how much that was.
    *
-   * The bookkeeping has to record what LANDED, not what was intended. Setting it
-   * to the intended figure was a real defect: the claim backlog overshoots its
-   * own threshold (fingers move in steps, so the first sample past `claimScale`
-   * is usually well past it), and a backlog of x1.075 is 138px against a 120px
-   * clamp. The 18px difference was silently dropped and never carried — which
-   * reopened, at a smaller size, precisely the dead zone the backlog exists to
-   * close.
+   * The bookkeeping has to record what LANDED, not what was intended, and the
+   * difference is not theoretical: fingers move in steps, so a fast spread
+   * routinely asks for more than one event may carry. Recording the intended
+   * figure would silently drop the remainder and open a dead zone in the middle
+   * of the gesture. It is carried instead.
    */
   function deliverPinch(targetGrowthPx: number, timeStampMs: number): void {
     const wanted = targetGrowthPx - pinchDeliveredPx
@@ -872,7 +902,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
 
   /** Drops the gesture. `retreat` starts the elastic return for a claimed one. */
   function endPinch(retreat: boolean): void {
-    if (retreat && classifier.verdict === 'claimed') {
+    if (retreat && pinchArmed) {
       // An explicit end, so the return starts now instead of waiting out an idle
       // gap that only exists because the wheel has no release event. It is also
       // what stops two disconnected pinches adding up into one.
@@ -886,7 +916,9 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // could account for.
     pinchMayCommit = true
     pinchReleasesFocus = null
-    classifier.reset()
+    pinchStartDistancePx = 0
+    pinchSpent = false
+    pinchArmed = false
   }
 
   const onPinchDown = (event: PointerEvent): void => {
@@ -912,34 +944,26 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // scrolling panel belong to the panel (same helper the wheel uses, so a new
     // scroll region never has to register itself twice).
     //
-    // Refused EXPLICITLY rather than by declining to begin. A classifier that was
-    // never begun is still 'watching', and it would answer the next move from a
-    // gesture it never saw the start of.
+    // Refused EXPLICITLY rather than by declining to arm. A pair that was never
+    // armed still has a start distance of 0, and would answer the next move as
+    // though the fingers had opened from nothing.
     if (!context.canNavigate || overScrollable(event.target)) {
       // One refusal is not a refusal: an attention-holder that offers a release
-      // gets the gesture WATCHED rather than declined, so the classifier can
-      // tell a pinch from the turn it competes with (`adr/015`) exactly as it
-      // does for navigation — and then the claim releases the holder instead of
-      // moving the world. See `onPinchMove`.
+      // gets the pair armed for THAT instead, and a deliberate opening of the
+      // hand dismisses it rather than moving the world. See `onPinchMove`.
       const releaseFocus = context.canNavigate ? null : (context.releaseFocus ?? null)
       if (releaseFocus === null || overScrollable(event.target)) {
-        classifier.decline()
+        pinchSpent = true
         return
       }
       pinchReleasesFocus = releaseFocus
-      const points = [...contacts.values()]
-      pinchStartCentroid.x = (points[0].x + points[1].x) / 2
-      pinchStartCentroid.y = (points[0].y + points[1].y) / 2
-      classifier.begin(pinchDistance())
+      pinchStartDistancePx = pinchDistance()
       return
     }
 
     pinchDeliveredPx = 0
     // Decided here, once, for the whole sequence. See the declaration.
     pinchMayCommit = context.current !== 'murcia' || band.depth >= SATURATED_DEPTH
-    const points = [...contacts.values()]
-    pinchStartCentroid.x = (points[0].x + points[1].x) / 2
-    pinchStartCentroid.y = (points[0].y + points[1].y) / 2
     // The viewport is read here, once, for the gesture about to happen. Scaled
     // against the WHOLE journey — the zoom band plus the push against it — so
     // `commitFraction` of the viewport is still one complete navigation.
@@ -948,7 +972,17 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       Math.min(window.innerWidth || 0, window.innerHeight || 0),
       pinchLimits,
     )
-    classifier.begin(pinchDistance())
+    pinchStartDistancePx = pinchDistance()
+    pinchArmed = true
+    // Taken from whatever was following the first finger, NOW rather than after
+    // a threshold. The experiences hear one cancel per contact and drop the
+    // gesture; the district also closes its press ledger on it, which is what
+    // lets the next tap after this pinch still be a tap.
+    cancelContacts(event)
+    // The pinch owns the painted progress for the rest of the sequence, and the
+    // hint steps aside on intent rather than on completion.
+    pinchOwnsProgress = true
+    hintInteracted()
   }
 
   const onPinchMove = (event: PointerEvent): void => {
@@ -958,49 +992,34 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     contact.y = event.clientY
 
     if (contacts.size !== 2) return
-    if (classifier.verdict === 'declined') return
+    if (pinchSpent) return
 
     const context = deps.getContext()
     // Signed by the SAME authority the wheel uses, so which
     // direction leaves a world is stated in exactly one place. On Earth that
     // makes spreading positive; in Murcia, closing.
-    const grownPx = towardOther(pinchDistance() - classifier.startDistancePx, context.current)
+    const grownPx = towardOther(pinchDistance() - pinchStartDistancePx, context.current)
 
     if (pinchReleasesFocus !== null) {
-      // The gesture that lets go of an attention-holder. Judged by the same
-      // classifier and the same rival rule as a navigating pinch, so a real
-      // hand's anchored-thumb close still claims and a carried pair still goes
-      // to the turn; but a claim here releases the holder and SPENDS the
-      // sequence — declined until the fingers lift — instead of feeding the
-      // band. The tail of the closing hand must not zoom the world it has just
-      // been handed back, which is the trap `adr/014`'s commit already avoids
-      // the same way.
-      if (classifier.verdict !== 'watching') return
-      const rival = context.current === 'murcia' ? pinchRivalTravel() : 0
-      if (classifier.sample(grownPx, rival) !== 'claimed') return
+      // The gesture that lets go of an attention-holder.
+      //
+      // `grownPx` is already signed toward the other world, so requiring it to
+      // reach `releaseGrowthPx` is the same as requiring an opening of the hand:
+      // the way IN is a zoom the holder cannot honour, and it simply never
+      // reaches the threshold. Releasing SPENDS the pair, because the tail of
+      // the closing hand must not then zoom the world it has just been handed
+      // back — the trap `adr/014`'s commit avoids the same way.
+      if (grownPx < pinchLimits.releaseGrowthPx) return
       const release = pinchReleasesFocus
       pinchReleasesFocus = null
-      classifier.decline()
-      // Only the way OUT releases. The other direction is a zoom-in the holder
-      // cannot honour, and it is spent silently rather than doing something
-      // surprising.
-      if (grownPx > 0) {
-        cancelContacts(event)
-        release()
-      }
+      pinchSpent = true
+      cancelContacts(event)
+      release()
       return
     }
 
-    if (classifier.verdict === 'watching') {
-      // Murcia turns on the centroid and Earth does nothing with two fingers, so
-      // the rival is only real in one of them. Reporting one on Earth would hand
-      // back good pinches to a gesture that does not exist there.
-      const rival = context.current === 'murcia' ? pinchRivalTravel() : 0
-      if (classifier.sample(grownPx, rival) === 'claimed') claimPinch(event)
-      return
-    }
-
-    // Owned. Everything from here belongs to navigation.
+    // Owned from the moment the pair armed. Everything here belongs to
+    // navigation.
     //
     // Measured against the gesture's START rather than the previous sample, and
     // differenced here. Two fingers never move in the same event — each
@@ -1022,41 +1041,18 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   }
 
   /**
-   * Take the gesture from Earth's orbit rig.
-   *
-   * One synthetic `pointercancel` per contact unwinds its bookkeeping — the
-   * active pointer id and its capture — and the rig already handles a cancel as
-   * an end-of-gesture, so nothing new is asked of it. Sent for BOTH contacts
-   * because either one of them may be the pointer that claimed the orbit.
-   *
-   * Nothing is being taken away visually: the rig only ever followed one of
-   * these two fingers, and after the cancel it follows neither, which is exactly
-   * what a pinch should mean. If this proves unreliable on a real device the
-   * fallback is an explicit `cancelGesture()` on the rig — deliberately not
-   * written until it is needed.
-   */
-  function claimPinch(event: PointerEvent): void {
-    cancelContacts(event)
-
-    // The spread spent proving intent still counts, or the scrub would open with
-    // a dead zone the size of the claim. Fed through the accumulator like any
-    // other travel, so the spring ramps it in rather than snapping — and through
-    // the same carry, so an overshooting claim loses nothing to the clamp.
-    pinchOwnsProgress = true
-    // Intent is enough — the hint steps aside the moment the viewer makes the
-    // gesture, not when they finish it.
-    hintInteracted()
-    deliverPinch(classifier.backlogPx, event.timeStamp)
-  }
-
-  /**
    * One synthetic `pointercancel` per contact, on the event's target.
    *
-   * Shared by the navigating claim and the focus-releasing one, because both
-   * take the fingers away from whatever was following them — and the experience
-   * being told is the same either way: the drag controller drops its pair and
-   * the district closes its press ledger, which is what lets the next tap after
-   * this gesture be a tap.
+   * Sent when a pair ARMS, and again when a pair releases a focused display,
+   * because both take the fingers away from whatever was following them. The
+   * experience being told is the same either way: a camera controller drops the
+   * finger it was tracking and the district closes its press ledger, which is
+   * what lets the next tap after this gesture still be a tap.
+   *
+   * Sent for BOTH contacts because either one may be the pointer an experience
+   * had claimed. Nothing is taken away visually — an experience only ever
+   * followed one of these two fingers, and after the cancel it follows neither,
+   * which is exactly what a pinch should mean.
    */
   function cancelContacts(event: PointerEvent): void {
     const target = event.target

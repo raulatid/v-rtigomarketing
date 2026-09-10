@@ -1,7 +1,7 @@
 /**
  * Behavioural harness for the district interaction.  `npm run check:district`
  *
- * Drives the REAL `CameraFlight`, `CameraRig`, `DragPanController`,
+ * Drives the REAL `CameraFlight`, `CameraRig`, `createCameraInput`,
  * `resolveDistrict` and framing maths. Per PROJECT_MEMORY, "How this repo
  * verifies things", harnesses here must exercise the real path rather than a
  * convenient stand-in — the
@@ -19,9 +19,11 @@ import * as THREE from 'three';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 import type { BoundsRect, NavigationConfig } from '../src/experiences/murcia/config/environmentConfig';
 import { CameraRig } from '../src/experiences/murcia/camera/CameraRig';
+import { measurementCameraTuning } from '../src/experiences/murcia/camera/cameraTuning';
 import { CameraFlight, shortestYawDelta } from '../src/experiences/murcia/camera/CameraFlight';
 import { unobstructedCenterNdc, computeFramedFocus } from '../src/experiences/murcia/camera/cameraFraming';
-import { DragPanController } from '../src/experiences/murcia/navigation/DragPanController';
+import { createCameraInput } from '../src/experiences/murcia/navigation/createCameraInput';
+import type { CameraInput } from '../src/experiences/murcia/navigation/createCameraInput';
 import { expandRect, containsPoint } from '../src/experiences/murcia/navigation/navigationBounds';
 import { resolveDistrict } from '../src/experiences/murcia/interaction/resolveDistrict';
 import { cityDistrictBindings } from '../src/experiences/murcia/scene/cityDistrictBindings';
@@ -47,10 +49,10 @@ import { makeRig } from './lib/rig';
 interface Harness {
   rig: CameraRig;
   camera: THREE.PerspectiveCamera;
-  controller: DragPanController;
+  input: CameraInput;
   flight: CameraFlight;
   fire: (type: string, event: Record<string, unknown>) => void;
-  /** One frame: districts tick (flight), then the controller — the shipped order. */
+  /** One frame: the flight ticks, then the springs — if nothing else owns the camera. */
   frame: (dt: number) => void;
   run: (seconds: number, dt?: number) => void;
   boundsCalls: number;
@@ -76,7 +78,14 @@ function makeHarness(
   // FLIGHTS, which clamp to the firm area and never enter §40's band. Handing it
   // a band would make a flight's landing depend on a drag behaviour it does not
   // use, and §5 below would stop being evidence that flights were left alone.
-  harness.controller = new DragPanController(element, camera, rig, config, limits, limits);
+  rig.setBounds(limits);
+  harness.input = createCameraInput({
+    element,
+    rig,
+    width: WIDTH,
+    height: HEIGHT,
+  });
+  void config;
   harness.flight = new CameraFlight(rig, {
     resolveBounds: () => {
       harness.boundsCalls += 1;
@@ -86,7 +95,10 @@ function makeHarness(
   harness.fire = stub.fire;
   harness.frame = (dt) => {
     harness.flight.update(dt);
-    harness.controller.update(dt);
+    // THE ARBITER, in the same shape MurciaExperience.update uses. The springs
+    // run only when nothing else owns the camera; a harness that stepped them
+    // under a flight would be measuring a bug rather than the shipped order.
+    if (!rig.isExternallyControlled) rig.update(dt);
   };
   harness.run = (seconds, dt = 1 / 60) => {
     const frames = Math.max(1, Math.round(seconds / dt));
@@ -127,7 +139,7 @@ console.log('\n1. Yaw takes the shortest path and preserves accumulation');
 
   const h = makeHarness();
   h.rig.setYaw(350);
-  h.controller.beginExternalControl();
+  h.rig.setExternallyControlled(true);
   // `yawDegrees` on a flight destination is an ABSOLUTE rig azimuth — pose
   // azimuth plus user yaw — so the user yaw it lands on depends on the pose.
   // This used to assert the literal 370, which held only while the resting
@@ -149,7 +161,7 @@ console.log('\n1. Yaw takes the shortest path and preserves accumulation');
 
   const wound = makeHarness();
   wound.rig.setYaw(730);
-  wound.controller.beginExternalControl();
+  wound.rig.setExternallyControlled(true);
   wound.flight.playTo({ x: env.initialFocus.x, z: env.initialFocus.z, yawDegrees: 20, distanceScale: null });
   wound.run(3);
   check(
@@ -170,14 +182,14 @@ console.log('\n2. Only one system writes the rig');
   h.fire('pointerup', { pointerId: 1, button: 0, clientX: 960, clientY: 320, timeStamp: 60 });
   h.run(0.05);
 
-  h.controller.beginExternalControl();
+  h.rig.setExternallyControlled(true);
   const parkedX = -300;
   const parkedZ = 300;
   h.rig.setFocus(parkedX, parkedZ);
   const parkedYaw = 42;
   h.rig.setYaw(parkedYaw);
 
-  for (let i = 0; i < 30; i += 1) h.controller.update(1 / 60);
+  for (let i = 0; i < 30; i += 1) if (!h.rig.isExternallyControlled) h.rig.update(1 / 60);
 
   check(
     'controller.update() does not move the focus under external control',
@@ -191,11 +203,11 @@ console.log('\n2. Only one system writes the rig');
   );
 
   // The whole point of the lifecycle: without adoption this snaps back.
-  h.controller.endExternalControl({ adoptRigState: true });
+  h.rig.setExternallyControlled(false);
   const beforeX = h.rig.focus.x;
   const beforeZ = h.rig.focus.z;
   const beforeYaw = h.rig.getYaw();
-  for (let i = 0; i < 30; i += 1) h.controller.update(1 / 60);
+  for (let i = 0; i < 30; i += 1) if (!h.rig.isExternallyControlled) h.rig.update(1 / 60);
   const drift = Math.hypot(h.rig.focus.x - beforeX, h.rig.focus.z - beforeZ);
   check(
     'no snap-back after endExternalControl({adoptRigState})',
@@ -203,23 +215,48 @@ console.log('\n2. Only one system writes the rig');
     `drifted ${drift.toFixed(6)} units, yaw moved ${Math.abs(h.rig.getYaw() - beforeYaw).toFixed(6)} deg`,
   );
 
-  // And the same thing without adoption, to show the guard is load-bearing
-  // rather than decorative.
+  // WHY THERE IS NOTHING LEFT TO ADOPT.
+  //
+  // `endExternalControl({ adoptRigState })` used to be a real choice, and this
+  // section used to prove the un-adopted path snapped back. The spring rig
+  // removed the choice: `setFocus` and `setYaw` write the damped value, the
+  // TARGET and the VELOCITY together, so a flight cannot leave the rig in a
+  // state that needs reconciling.
+  //
+  // Asserted rather than asserted-away, because "the target came with it" is
+  // exactly the line a future simplification would delete. Velocity is the one
+  // a first-order lag never had to think about, and the one whose absence shows
+  // up as the camera carrying the flight's motion through the handover.
   const g = makeHarness();
   g.fire('pointerdown', down(960, 540));
   g.fire('pointermove', { pointerId: 1, button: 0, clientX: 960, clientY: 300, timeStamp: 40 });
-  g.fire('pointerup', { pointerId: 1, button: 0, clientX: 960, clientY: 300, timeStamp: 60 });
   g.run(0.02);
-  g.controller.beginExternalControl();
-  g.rig.setFocus(-300, 300);
-  g.controller.endExternalControl({ adoptRigState: false });
-  const naiveBefore = { x: g.rig.focus.x, z: g.rig.focus.z };
-  for (let i = 0; i < 30; i += 1) g.controller.update(1 / 60);
-  const naiveDrift = Math.hypot(g.rig.focus.x - naiveBefore.x, g.rig.focus.z - naiveBefore.z);
+  const moving = g.rig.snapshot();
   check(
-    'without adoption it WOULD snap back — the guard is load-bearing',
-    naiveDrift > 1,
-    `drifted ${naiveDrift.toFixed(1)} units, so adoption is what prevents it`,
+    'a drag really did leave the springs in motion',
+    Math.abs(moving.x - moving.targetX) > 1e-6 || Math.abs(moving.z - moving.targetZ) > 1e-6,
+    `value/target gap ${Math.abs(moving.x - moving.targetX).toFixed(4)} units`,
+  );
+
+  g.fire('pointerup', { pointerId: 1, button: 0, clientX: 960, clientY: 300, timeStamp: 60 });
+  g.rig.setExternallyControlled(true);
+  g.rig.setFocus(-300, 300);
+  const seeded = g.rig.snapshot();
+  check(
+    'setFocus re-seeds the target as well as the value',
+    close(seeded.x, -300, 1e-9) && close(seeded.targetX, -300, 1e-9) &&
+      close(seeded.z, 300, 1e-9) && close(seeded.targetZ, 300, 1e-9),
+    `value (${seeded.x.toFixed(3)}, ${seeded.z.toFixed(3)}), target (${seeded.targetX.toFixed(3)}, ${seeded.targetZ.toFixed(3)})`,
+  );
+
+  g.rig.setExternallyControlled(false);
+  const settledBefore = { x: g.rig.focus.x, z: g.rig.focus.z };
+  for (let i = 0; i < 30; i += 1) if (!g.rig.isExternallyControlled) g.rig.update(1 / 60);
+  const settledDrift = Math.hypot(g.rig.focus.x - settledBefore.x, g.rig.focus.z - settledBefore.z);
+  check(
+    'and the velocity with it, so the handover carries no residual motion',
+    settledDrift < 1e-6,
+    `drifted ${settledDrift.toExponential(2)} units over 30 frames`,
   );
 }
 
@@ -228,7 +265,7 @@ console.log('\n2. Only one system writes the rig');
 console.log('\n3. A press cancels the flight and hands control back');
 {
   const h = makeHarness();
-  h.controller.beginExternalControl();
+  h.rig.setExternallyControlled(true);
   h.flight.playTo({ x: -200, z: 300, yawDegrees: 60, distanceScale: null });
   h.run(0.3);
   const midX = h.rig.focus.x;
@@ -238,13 +275,13 @@ console.log('\n3. A press cancels the flight and hands control back');
   // Shipped order: the capture-phase handler cancels and ends external control,
   // then the controller's own bubble-phase pointerdown starts the drag.
   h.flight.cancel();
-  h.controller.endExternalControl({ adoptRigState: true });
+  h.rig.setExternallyControlled(false);
   h.fire('pointerdown', down(960, 540, 7));
 
   check('the flight stopped', !h.flight.isPlaying, 'isPlaying false');
   check(
     'the same press starts a drag rather than being swallowed',
-    h.controller.isPointerActive,
+    h.input.isPointerActive,
     'controller.isPointerActive true — no dead first gesture',
   );
 
@@ -307,7 +344,7 @@ console.log('\n5. The flight stays inside the navigable area');
 {
   const corner = { x: plate.minX - 400, z: plate.minZ - 400 };
   const h = makeHarness();
-  h.controller.beginExternalControl();
+  h.rig.setExternallyControlled(true);
   h.flight.playTo({ x: corner.x, z: corner.z, yawDegrees: 40, distanceScale: null });
   h.run(3);
   check(
@@ -325,7 +362,7 @@ console.log('\n5. The flight stays inside the navigable area');
   // destination is never rewritten by a frame that happened to be clamped.
   const near = { x: plate.minX + 2, z: plate.minZ + 2 };
   const g = makeHarness(nav, { x: plate.maxX - 2, z: plate.maxZ - 2 });
-  g.controller.beginExternalControl();
+  g.rig.setExternallyControlled(true);
   g.flight.playTo({ x: near.x, z: near.z, yawDegrees: null, distanceScale: null });
   g.run(3);
   check(
@@ -342,7 +379,7 @@ console.log('\n6. Identical outcome at 30, 60 and 120 fps');
   const results: Array<{ fps: number; x: number; z: number; yaw: number }> = [];
   for (const fps of [30, 60, 120]) {
     const h = makeHarness();
-    h.controller.beginExternalControl();
+    h.rig.setExternallyControlled(true);
     h.flight.playTo({ x: -200, z: 300, yawDegrees: 75, distanceScale: null });
     h.run(3, 1 / fps);
     results.push({ fps, x: h.rig.focus.x, z: h.rig.focus.z, yaw: h.rig.getYaw() });
@@ -368,7 +405,7 @@ console.log('\n6. Identical outcome at 30, 60 and 120 fps');
   const mid: number[] = [];
   for (const fps of [30, 60, 120]) {
     const h = makeHarness();
-    h.controller.beginExternalControl();
+    h.rig.setExternallyControlled(true);
     h.flight.playTo({ x: -200, z: 300, yawDegrees: 75, distanceScale: null });
     h.run(0.6, 1 / fps);
     mid.push(h.rig.focus.x);
@@ -427,7 +464,7 @@ console.log('\n7. Framing centres the district');
     // Project independently through a fresh camera, rather than trusting the
     // framing function's own arithmetic.
     const camera = new THREE.PerspectiveCamera();
-    const rig = new CameraRig(camera, pose);
+    const rig = new CameraRig(camera, pose, measurementCameraTuning(pose.elevationDegrees));
     rig.setAspect(w / h);
     rig.setYaw(binding.approachYawDegrees ?? 0);
     rig.setFocus(framed!.x, framed!.z);
@@ -503,7 +540,7 @@ console.log('\n7. Framing centres the district');
     });
 
     const camera = new THREE.PerspectiveCamera();
-    const rig = new CameraRig(camera, env.camera);
+    const rig = new CameraRig(camera, env.camera, measurementCameraTuning(env.camera.elevationDegrees));
     rig.setDistanceScale(scale);
     rig.setAspect(ASPECT);
     rig.setFocus(framed!.x, framed!.z);
@@ -575,11 +612,11 @@ console.log('\n7b. Nothing outside a flight can move the distance');
   );
 
   // And the handover itself, which is where the old adoption lived.
-  h.controller.beginExternalControl();
+  h.rig.setExternallyControlled(true);
   h.rig.setFocus(-300, 200);
   h.rig.setYaw(35);
   h.rig.setDistanceScale(0.7);
-  h.controller.endExternalControl({ adoptRigState: true });
+  h.rig.setExternallyControlled(false);
   h.run(2);
 
   check(
@@ -587,11 +624,19 @@ console.log('\n7b. Nothing outside a flight can move the distance');
     close(h.rig.getDistanceScale(), 0.7, 1e-12),
     `scale ${h.rig.getDistanceScale().toFixed(9)} — the flight's distance is left alone`,
   );
-  check(
-    'and the controller is not still settling toward a stale target',
-    !h.controller.isSettling,
-    'a residual would leave isSettling true for the rest of the session',
-  );
+  {
+    // The spring equivalent of "not still settling": value on target, and no
+    // velocity left to carry it past. Both, because either alone is reachable
+    // by a rig that is momentarily crossing its target at speed.
+    const s = h.rig.snapshot();
+    const gap = Math.hypot(s.x - s.targetX, s.z - s.targetZ);
+    const yawGap = Math.abs(s.yaw - s.targetYaw);
+    check(
+      'and the springs are not still settling toward a stale target',
+      gap < 1e-6 && yawGap < 1e-6,
+      `focus off target by ${gap.toExponential(2)}, yaw by ${yawGap.toExponential(2)}`,
+    );
+  }
 }
 
 // --- 7c. The focus dolly ------------------------------------------------------
@@ -608,7 +653,7 @@ console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
     const h = makeHarness();
     const before = h.boundsCalls;
     const seen: number[] = [];
-    h.controller.beginExternalControl();
+    h.rig.setExternallyControlled(true);
     h.flight.playTo({ ...target, yawDegrees: null, distanceScale: floor });
     for (let i = 0; i < 200 && h.flight.isPlaying; i += 1) {
       h.frame(1 / 60);
@@ -649,15 +694,17 @@ console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
     // resolveBounds would be invisible in a landing test and wrong every frame.
     let scaleAtResolve = -1;
     const stub = createStubElement({ left: 0, top: 0, width: WIDTH, height: HEIGHT });
-    const { camera, rig } = makeRig(env, ASPECT, env.initialFocus);
-    const controller = new DragPanController(stub.element, camera, rig, nav, bounds, bounds);
+    const { rig } = makeRig(env, ASPECT, env.initialFocus);
+    rig.setBounds(bounds);
+    const input = createCameraInput({ element: stub.element, rig, width: WIDTH, height: HEIGHT });
+    void input;
     const flight = new CameraFlight(rig, {
       resolveBounds: () => {
         scaleAtResolve = rig.getDistanceScale();
         return bounds;
       },
     });
-    controller.beginExternalControl();
+    rig.setExternallyControlled(true);
     flight.playTo({ ...target, yawDegrees: 40, distanceScale: floor });
     flight.update(1 / 60);
     check(
@@ -672,7 +719,7 @@ console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
     // zoom control anywhere, a viewer left dollied in is stranded. Focus and yaw
     // still stay where they were, which is the asymmetry `close()` documents.
     const h = makeHarness();
-    h.controller.beginExternalControl();
+    h.rig.setExternallyControlled(true);
     h.flight.playTo({ ...target, yawDegrees: 40, distanceScale: floor });
     h.run(4);
     const focusX = h.rig.focus.x;
@@ -700,7 +747,7 @@ console.log('\n7c. The focus dolly: inward only, bounded, and bounds-correct');
     // Frame-rate independence, extended to the axis that did not exist before.
     const landed = [30, 60, 120].map((fps) => {
       const h = makeHarness();
-      h.controller.beginExternalControl();
+      h.rig.setExternallyControlled(true);
       h.flight.playTo({ ...target, yawDegrees: 40, distanceScale: floor });
       h.run(4, 1 / fps);
       return h.rig.getDistanceScale();
@@ -730,7 +777,7 @@ console.log('\n7d. Leaving the district returns the dolly and nothing else');
   const plaza = { x: -144, z: 425 };
 
   const h = makeHarness();
-  h.controller.beginExternalControl();
+  h.rig.setExternallyControlled(true);
   h.flight.playTo({ ...plaza, yawDegrees: 45, distanceScale: scale });
   h.run(4);
 
@@ -744,7 +791,7 @@ console.log('\n7d. Leaving the district returns the dolly and nothing else');
 
   // The exit, exactly as the display's VOLVER issues it: current focus, null
   // yaw, scale 1.
-  h.controller.beginExternalControl();
+  h.rig.setExternallyControlled(true);
   h.flight.playTo({ x: h.rig.focus.x, z: h.rig.focus.z, yawDegrees: null, distanceScale: 1 });
   let maxScale = -Infinity;
   for (let i = 0; i < 240; i += 1) {

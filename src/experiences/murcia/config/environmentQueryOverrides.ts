@@ -14,29 +14,12 @@
  * They are a tuning tool, not configuration. Once a value is settled it belongs
  * in murciaConfig.ts with the reasoning written down.
  *
- *   ?dragGain=0.4  ?yawDeg=100  ?smooth=0.12  ?release=0.1  ?inertia=0.6
- *   ?yawSmooth=0.05  ?focusMin=0.6
- *   ?touchDragGain=0.85  ?touchYawDeg=150
+ *   ?focusMin=0.6
  *
- * `?dragGain=0.5&smooth=0.09` restores the pre-rework feel in one URL, which is
- * the comparison most likely to be wanted while reviewing it.
- *
- * ── The touch pair, added 2026-09-06 ──
- *
- * `?touchDragGain=` and `?touchYawDeg=` are the mobile halves of the first two,
- * and they matter more than the rest of this file rather than less. Pan and yaw
- * feel are now split by pointer type, and the touch values shipped as
- * ARITHMETIC — derived from how far a thumb can travel before it leaves the
- * glass, never judged by hand on a device. These parameters are how that
- * judgement gets made, and a phone is the one place where editing a constant
- * and rebuilding is not merely slow but impractical.
- *
- *   ?touchDragGain=0.4&touchYawDeg=110   the pre-split feel, for the A/B
- *   ?touchDragGain=0.85                  first rung down if gain 1 reads loose
- *   ?touchYawDeg=150                     first rung down if 175 reads twitchy
- *
- * Note that neither has any effect from a mouse, so A/Bing them on a desktop
- * measures nothing. Use a device, or Chrome's touch emulation.
+ * (`?dragGain=`, `?yawDeg=`, `?smooth=`, `?release=`, `?inertia=`, `?yawSmooth=`,
+ * `?touchDragGain=` and `?touchYawDeg=` tuned the map-pan controller's feel, and
+ * went with it — DECISIONS §44. The rig's feel lives in `camera/cameraTuning.ts`
+ * and has no query surface.)
  *
  * ── The camera pose, added 2026-09-04 ──
  *
@@ -44,13 +27,8 @@
  *   ?focusX=-262.3  ?focusZ=296.9
  *   ?zoomFar=400  ?zoomFarElev=55  ?zoomNear=0.7
  *   ?skirt=700  ?fade=0.21
- *   ?band=1
  *
- * `?band=` is the resistance band (DECISIONS §40), as a fraction of the A2 ring:
- * 1 ships, 0 is §39's hard wall. It is the one parameter here whose A/B is the
- * whole feature, so it is worth saying what to look for — whether the edge
- * announces itself before it arrives, and whether the ramp reads as heavy ground
- * rather than as the page dropping frames.
+ * (`?band=` was the §40 resistance band. It went with the band.)
  *
  * `?azimuth=`, `?focusX=` and `?focusZ=` were added 2026-09-05 and they close
  * the loop rather than adding a knob. The overlay has always REPORTED azimuth
@@ -86,7 +64,7 @@
  * terrain skirt is no longer reachable from a URL.
  */
 import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
-import type { EnvironmentConfig, DragFeelConfig, BoundsRect } from './environmentConfig';
+import type { EnvironmentConfig } from './environmentConfig';
 
 /**
  * Returns a new EnvironmentConfig with any recognised overrides applied.
@@ -120,23 +98,6 @@ export function applyNavigationQueryOverrides(
 
   const params = new URLSearchParams(search);
 
-  const dragGain = readNumber(params, 'dragGain', (v) => v > 0);
-  const yawDegrees = readNumber(params, 'yawDeg', (v) => v > 0);
-  // The touch halves of both, and separate parameters for the same reason
-  // `?yawSmooth=` is separate from `?smooth=` (see overrideFeel below): a
-  // parameter that hit both would silently retune the input you are not
-  // holding. These are the ones that matter on a phone, where they are also the
-  // only way to A/B at all — the device cannot be rebuilt against.
-  const touchDragGain = readNumber(params, 'touchDragGain', (v) => v > 0);
-  const touchYawDegrees = readNumber(params, 'touchYawDeg', (v) => v > 0);
-  // Time constants: 0 is meaningful (exact tracking, no inertia), negatives are
-  // not — a negative would flip the sign of the exponential and diverge.
-  const smoothing = readNumber(params, 'smooth', (v) => v >= 0);
-  const release = readNumber(params, 'release', (v) => v >= 0);
-  const inertia = readNumber(params, 'inertia', (v) => v >= 0);
-  // Separate from ?smooth= on purpose — see overrideFeel below.
-  const yawSmoothing = readNumber(params, 'yawSmooth', (v) => v >= 0);
-
   // Clamped rather than trusted: a floor above 1 would ask a flight to dolly OUT,
   // which is the direction whose footprint grows past the terrain skirt.
   const focusMin = readNumber(params, 'focusMin', (v) => v > 0 && v <= 1);
@@ -169,9 +130,9 @@ export function applyNavigationQueryOverrides(
   // half-measure: the pose fields round-trip and the aim point does not.
   //
   // Unbounded here, and deliberately so. The navigable clamp lives in
-  // `navigableArea`/`contentBounds` and runs every frame; duplicating it as a
-  // predicate would be a second opinion about the plate's edges that could
-  // drift from the first.
+  // `CameraRig`, against `navigation.bounds`, and runs on every target write;
+  // duplicating it as a predicate would be a second opinion about the edges that
+  // could drift from the first.
   const focusX = readNumber(params, 'focusX', () => true);
   const focusZ = readNumber(params, 'focusZ', () => true);
 
@@ -188,24 +149,8 @@ export function applyNavigationQueryOverrides(
   const skirt = readNumber(params, 'skirt', (v) => v >= 0);
   const fade = readNumber(params, 'fade', (v) => v > 0 && v <= 1);
 
-  // ── The resistance band (DECISIONS §40) ──
-  //
-  // A SCALE on the four ring margins rather than a width, so it cannot invent a
-  // rectangle: 1 is the A2 ring measured out of the GLB, 0 collapses the band and
-  // restores §39's hard wall exactly, which is the A/B this parameter exists for.
-  // Capped at 1 deliberately — above it the limit would leave the built city, and
-  // that is not a thing a URL should be able to do.
-  const band = readNumber(params, 'band', (v) => v >= 0 && v <= 1);
 
   const overrides = [
-    dragGain,
-    yawDegrees,
-    touchDragGain,
-    touchYawDegrees,
-    smoothing,
-    release,
-    inertia,
-    yawSmoothing,
     focusMin,
     elevation,
     distance,
@@ -220,23 +165,8 @@ export function applyNavigationQueryOverrides(
     zoomNear,
     skirt,
     fade,
-    band,
   ];
   if (overrides.every((value) => value === null)) return env;
-
-  // `?smooth=` hits TRANSLATION ONLY. It used to apply to both axes, on the
-  // premise that one gesture carried both so a difference in weight between
-  // them would read as a fault. That premise died with the gesture split: pan
-  // and rotation are now separate inputs with separate feels, and translation's
-  // constant is coupled to translationGain in a way rotation's is not. Applying
-  // one value to both would silently retune rotation every time someone A/Bs
-  // the pan. `?yawSmooth=` is the rotation equivalent.
-  const overrideFeel = (feel: DragFeelConfig, smooth: number | null): DragFeelConfig => ({
-    ...feel,
-    smoothingTimeConstant: smooth ?? feel.smoothingTimeConstant,
-    releaseTimeConstant: release ?? feel.releaseTimeConstant,
-    inertiaTimeConstant: inertia ?? feel.inertiaTimeConstant,
-  });
 
   const next: EnvironmentConfig = {
     ...env,
@@ -265,18 +195,6 @@ export function applyNavigationQueryOverrides(
     },
     navigation: {
       ...env.navigation,
-      extendedBounds: scaleBand(env.navigation.bounds, env.navigation.extendedBounds, band),
-      translationGain: dragGain ?? env.navigation.translationGain,
-      touchTranslationGain: touchDragGain ?? env.navigation.touchTranslationGain,
-      feel: overrideFeel(env.navigation.feel, smoothing),
-      rotation: {
-        ...env.navigation.rotation,
-        degreesPerViewportWidth:
-          yawDegrees ?? env.navigation.rotation.degreesPerViewportWidth,
-        touchDegreesPerViewportWidth:
-          touchYawDegrees ?? env.navigation.rotation.touchDegreesPerViewportWidth,
-        feel: overrideFeel(env.navigation.rotation.feel, yawSmoothing),
-      },
     },
     focusFlight: {
       ...env.focusFlight,
@@ -284,21 +202,13 @@ export function applyNavigationQueryOverrides(
     },
   };
 
-  console.info(
-    '[navigation] feel overridden by query parameters',
-    {
-      translationGain: next.navigation.translationGain,
-      touchTranslationGain: next.navigation.touchTranslationGain,
-      degreesPerViewportWidth: next.navigation.rotation.degreesPerViewportWidth,
-      touchDegreesPerViewportWidth:
-        next.navigation.rotation.touchDegreesPerViewportWidth,
-      smoothingTimeConstant: next.navigation.feel.smoothingTimeConstant,
-      releaseTimeConstant: next.navigation.feel.releaseTimeConstant,
-      inertiaTimeConstant: next.navigation.feel.inertiaTimeConstant,
-      yawSmoothingTimeConstant: next.navigation.rotation.feel.smoothingTimeConstant,
-      focusMinDistanceScale: next.focusFlight.minDistanceScale,
-    },
-  );
+  console.info('[navigation] overridden by query parameters', {
+    focusMinDistanceScale: next.focusFlight.minDistanceScale,
+    elevationDegrees: next.camera.elevationDegrees,
+    distance: next.camera.distance,
+    zoomNearScale: next.zoomNearScale,
+    zoomFarDistance: next.zoomFarDistance,
+  });
 
   // Logged separately, and louder, because these are the ones that can put the
   // edge of the world on screen. Effective pitch is included because it, not the
@@ -326,23 +236,6 @@ export function applyNavigationQueryOverrides(
   return next;
 }
 
-/**
- * Interpolates the resistance band between no band at all and the authored ring.
- *
- * Scaling the four margins rather than reading a width keeps `?band=` unable to
- * name a rectangle the GLB does not support: every value it can produce lies
- * between the firm rectangle and the ring `checks/city-asset.ts` §7b measured.
- */
-function scaleBand(firm: BoundsRect, ring: BoundsRect, scale: number | null): BoundsRect {
-  if (scale === null) return ring;
-  const at = (a: number, b: number): number => a + (b - a) * scale;
-  return {
-    minX: at(firm.minX, ring.minX),
-    maxX: at(firm.maxX, ring.maxX),
-    minZ: at(firm.minZ, ring.minZ),
-    maxZ: at(firm.maxZ, ring.maxZ),
-  };
-}
 
 /** Parses a finite number, ignoring the parameter entirely if it fails `valid`. */
 function readNumber(

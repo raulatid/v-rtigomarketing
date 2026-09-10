@@ -77,6 +77,26 @@ export interface FrameSettings {
   route: RenderRoute
   /** 0..1. How strongly this frame accumulates into the previous one. */
   motionBlur: number
+  /**
+   * 0..1. The vacuum: radial magnification, streak blur and vignette, for being
+   * pulled up out of the city.
+   *
+   * A NUMBER, like every other field here, rather than a phase or a flag. The
+   * caller decides what a departure looks like; this layer only knows how hard
+   * to run a pass.
+   */
+  vacuum: number
+  /**
+   * True on the one frame the world underneath was substituted.
+   *
+   * The afterimage accumulates the PREVIOUS frame, so at the cut it is holding
+   * an image of the world that just went away. Everywhere else that is invisible
+   * — the pass is disabled at damp 0, and the cut happens under a full-black
+   * flash — but the vacuum keeps the composer route alive on both sides of the
+   * swap, so the first frames of the new world would blend with the last frames
+   * of the old one as the flash lifts.
+   */
+  resetAccumulation: boolean
   /** Afterimage damp at full blur. */
   afterimageDampMax: number
   /** Zero disables the bloom pass entirely, which is what reclaims its cost. */

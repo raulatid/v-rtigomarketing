@@ -247,11 +247,11 @@ asset is wired in.
 ## 7. Open
 
 - **Not wired in.** Nothing loads `city-backdrop.glb`. When it is added, keep its root out
-  of `NavigableArea.setPlateFromObject` and out of the `Box3.setFromObject(loaded.root)`
-  bounds derivation — `PROJECT_MEMORY` records that model bounds coincide with the plate
-  exactly, and geometry 1,100 m out would silently expand `contentBounds`, the navigation
-  pipeline, and `check:footprint`. Keeping it a separate root preserves every existing
-  navigation invariant with no code change.
+  of the `Box3.setFromObject(loaded.root)` bounds derivation — `PROJECT_MEMORY` records that
+  model bounds coincide with the plate exactly, and geometry 1,100 m out would silently
+  expand `contentBounds` and `check:footprint`. (The navigable rectangle itself is authored
+  since `DECISIONS.md` §44, so the plate measurement no longer feeds navigation.) Keeping it
+  a separate root preserves every existing navigation invariant with no code change.
 - **773 instances (24.6%) sit beyond the terrain skirt's ~876 m ground reach** and will
   appear to float. Options: clip the ring to 876 m (drops to 2,373 instances), or give the
   backdrop its own ground. Untouched because the skirt is an ADR-backed system and putting

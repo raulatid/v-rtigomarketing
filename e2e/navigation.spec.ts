@@ -16,7 +16,7 @@ import { test, expect, type ConsoleMessage, type Page } from '@playwright/test'
  * sign, that the two stages are wired in series in the right order, that the scene
  * actually swaps, or that the direction mapping flips with it. That is what is here.
  *
- * Since `adr/014` the gesture is two stages — 600px of persistent zoom, then 300px
+ * Since `adr/014` the gesture is two stages — 1200px of persistent zoom, then 600px
  * of pushing against its limit — and only the second one decays. That is asserted
  * here rather than in a unit test because PERSISTENCE is a claim about what survives
  * between gestures, and the cheapest honest way to observe it is to spend a gesture,
@@ -131,6 +131,14 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     await expect.poll(async () => (await rail(page))?.state).toBe('idle')
   })
   test('a deliberate gesture makes the round trip, and a flick does not', async ({ page }) => {
+    // Longer than the file's 90 s, because the GESTURE got longer. The journey
+    // doubled to 1800 px with the camera-navigation port (DECISIONS §44), and
+    // this test drives five of them plus an inertial tail — at the 120 px per
+    // event the accumulator clamps to, that is a few hundred dispatched wheel
+    // events with settle polls between them. Raising the budget rather than
+    // shortening the gesture, because the gesture's length is the thing under
+    // test.
+    test.setTimeout(180_000)
     const errors = collect(page)
     await page.goto('/')
     await reachSite(page)
@@ -141,7 +149,7 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     // ── One enormous event must not navigate, and does not even arm one ──
     // The objection DECISIONS §15 raised against scroll, and the reason the
     // accumulator exists. A single event is capped at 120px, and since `adr/014`
-    // that 120px goes to the ZOOM: the first 600px of any gesture is absorbed by
+    // that 120px goes to the ZOOM: the first 1200px of any gesture is absorbed by
     // the band, so a flick moves the camera and leaves the commit accumulator
     // untouched. `--nav-progress` reads the accumulator, so it stays at zero.
     await wheelStream(page, 100_000, 1)
@@ -149,9 +157,9 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     expect((await rail(page))!.progress).toBe(0)
 
     // ── Crossing the band arms a commit, and abandoning it still retreats ──
-    // 720px on top of the flick's 120: the band takes the first 600 and the rest
-    // spills into the accumulator, which is the only stage that decays.
-    await wheelStream(page, 120, 6)
+    // 1440px on top of the flick's 120: the band takes the first 1200 and the
+    // rest spills into the accumulator, which is the only stage that decays.
+    await wheelStream(page, 120, 12)
     expect(await inMurcia(page)).toBe(false)
     const armed = await rail(page)
     expect(armed!.progress).toBeGreaterThan(0)
@@ -161,11 +169,11 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
 
     // ── The zoom did NOT retreat with it ──
     // THE assertion `adr/014` exists for, and it is observable from here without
-    // reading the camera. 480px is comfortably inside the 600px band: from a
-    // rested zoom it could not reach the accumulator at all, let alone the 300px
+    // reading the camera. 960px is comfortably inside the 1200px band: from a
+    // rested zoom it could not reach the accumulator at all, let alone the 600px
     // commit. It navigates only because the camera is still parked at the limit
     // the abandoned gesture left it at.
-    await wheelStream(page, 120, 4)
+    await wheelStream(page, 120, 8)
     await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
 
     // The rail now points the other way, without the accumulator knowing which
@@ -176,7 +184,7 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     // The trackpad hazard `docs/plans/002` §4 calls out: a commit followed by the
     // inertial remainder of the same physical gesture must not navigate again.
     // Faster and longer than the gesture that committed, which is what a tail is.
-    await wheelStream(page, 120, 40, 8)
+    await wheelStream(page, 120, 60, 8)
     await page.waitForTimeout(3000)
     expect(await inMurcia(page)).toBe(true)
 
@@ -207,9 +215,9 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
 
     // And the zoom being persistent must not turn into a debt: coming back the
     // other way has to cross the band it just spent before it can arm anything.
-    // 480px is most of one crossing and not nearly two, so it leaves the camera
+    // 960px is most of one crossing and not nearly two, so it leaves the camera
     // short of the limit with the accumulator still empty.
-    await wheelStream(page, 120, 4)
+    await wheelStream(page, 120, 8)
     await page.waitForTimeout(500)
     expect(await inMurcia(page)).toBe(false)
     expect((await rail(page))!.progress).toBe(0)
@@ -272,7 +280,7 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     }
 
     // And the gesture is refused while the panel owns the viewer's attention.
-    await wheelStream(page, 120, 20)
+    await wheelStream(page, 120, 40)
     await page.waitForTimeout(500)
     expect(await inMurcia(page)).toBe(false)
     expect((await rail(page))!.state).toBe('suppressed')
@@ -337,10 +345,10 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
       }).observe(el, { attributes: true, attributeFilter: ['data-visible'], subtree: false })
     })
 
-    // 2400px: the zoom band absorbs the first 600 (`adr/014`) and the rest
-    // spills into the accumulator, which commits at 300. Comfortably over, so
+    // 4800px: the zoom band absorbs the first 1200 (`adr/014`) and the rest
+    // spills into the accumulator, which commits at 600. Comfortably over, so
     // this stays a test of what happens ON arrival, not of the threshold.
-    await wheelStream(page, 120, 20)
+    await wheelStream(page, 120, 40)
     await expect.poll(() => inMurcia(page), { timeout: 15_000 }).toBe(true)
 
     const record = await page.evaluate(
@@ -436,7 +444,7 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     expect(lowest).toBeLessThanOrEqual(footerTop)
 
     // And it steps aside the moment the viewer acts. One event, far below the
-    // 600px the gesture needs, so this dismisses the hint without navigating.
+    // 1800px the gesture needs, so this dismisses the hint without navigating.
     await wheelStream(page, 40, 1)
     await expect(hint).not.toHaveAttribute('data-visible', '', { timeout: 5_000 })
 
