@@ -150,6 +150,14 @@ export const ORBIT_CONFIG = {
     // and a real hover differ — and it reaches the invited satellite only,
     // because that is the only one ever demonstrated.
     demoScale: 1.34,
+    // The mesh's own light under hover, as the services district's buildings
+    // light under theirs: the holo colour is set as the baked materials'
+    // emissive and this is its intensity at full hover strength. It rides the
+    // same eased strength as the bump and the panel's light, so the tutorial's
+    // pulse lights the model as the particles arrive and a real hover does the
+    // same. Held well below the bloom knee (introConfig.bloomThreshold 0.62 on
+    // the summed pixel) so the model brightens rather than flares.
+    highlightEmissive: 0.45,
   },
 
   // Holographic brand panel floating above each satellite. All sizes are in the

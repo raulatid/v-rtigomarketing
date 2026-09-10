@@ -228,6 +228,14 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
     baseTransparent: boolean
   }[] = []
 
+  // The hover light on the model itself, the way DistrictHighlight lights the
+  // services district's buildings: the bake ships no emissive, so the holo
+  // colour is set as one for the strength to scale — with a black emissive,
+  // intensity alone does nothing. Only materials with an emissive channel take
+  // part; populated alongside fadeTargets when the load lands.
+  const emissiveTargets: THREE.MeshStandardMaterial[] = []
+  const emissiveColor = panel ? new THREE.Color(panel.holoColor) : null
+
   let currentFactor = 0
   let disposed = false
 
@@ -253,13 +261,21 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
             base: source.opacity,
             baseTransparent: source.transparent,
           })
+          const standard = material as THREE.MeshStandardMaterial
+          if (emissiveColor && standard.emissive) {
+            standard.emissive.copy(emissiveColor)
+            standard.emissiveIntensity = 0
+            emissiveTargets.push(standard)
+          }
           return material
         })
         mesh.material = Array.isArray(mesh.material) ? cloned : cloned[0]
       })
       spinner.add(model)
-      // The load can land mid-entrance (or after it); sync to wherever the fade is.
+      // The load can land mid-entrance (or after it); sync to wherever the fade
+      // and the hover are.
       setOpacity(currentFactor)
+      applyHighlight()
     })
 
   group.visible = false
@@ -300,11 +316,13 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
     highlightTarget = on ? 1 : 0
   }
 
-  /** The eased strength becomes the scale and the panel's light — the one place. */
+  /** The eased strength becomes the scale, the panel's light and the model's — the one place. */
   function applyHighlight() {
     const strength = easeExpansion(highlight)
     content.scale.setScalar(invitationScale(holoPanel?.invitePulse() ?? 0, strength, bumpScale))
     holoPanel?.setHighlight(strength)
+    const emissive = ORBIT_CONFIG.satellite.highlightEmissive * strength
+    for (const material of emissiveTargets) material.emissiveIntensity = emissive
   }
 
   /**
