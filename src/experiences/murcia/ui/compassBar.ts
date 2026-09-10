@@ -8,7 +8,18 @@ import {
 } from '../../../utils/compass'
 
 /**
- * A hairline that says which way the places worth clicking are.
+ * An instrument that says which way the places worth clicking are.
+ *
+ * ## The lab's instrument
+ *
+ * The look is `vertigo-lab`'s camera-navigation compass (`demo/compassBar.ts`),
+ * ported 2026-09-10. Blue is furniture — the lens-shaped bar and the forward
+ * mark, always there and meaning nothing alone. White is a reading — the map
+ * pins and their labels, the part that moves. Yellow is an arrival. The shapes
+ * are its quadratic lenses and geo-tag pin, below. What is NOT the lab's is the
+ * sizing: there it was computed in JS from a measured width, which read zero
+ * while the bar was hidden; here the CSS sizes everything (murcia.css) and the
+ * marks travel in percentages of the bar.
  *
  * ## Why it exists
  *
@@ -35,7 +46,7 @@ import {
  *
  * ## Warming, and why it takes two claims
  *
- * A landmark goes from the resting hairline colour to the warm one only when it
+ * A landmark goes from white to yellow only when it
  * is BOTH near the centre of the bar and near in the world. Bearing alone is not
  * enough: a landmark can be dead ahead from across the whole plate, and being
  * pointed at something is not the same as having arrived at it. The two
@@ -64,6 +75,92 @@ const PROXIMITY_FAR = 260
 
 const DEG = Math.PI / 180
 
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+/*
+ * The shapes, in their own viewBox units — the lab's numbers. The CSS sizes
+ * each box, so these fix proportions and nothing else.
+ */
+const BAR_VIEWBOX_W = 420
+const BAR_VIEWBOX_H = 10
+const BAR_CENTRE_THICKNESS = 5
+const BAR_EDGE_THICKNESS = 0.6
+const FORWARD_VIEWBOX_W = 13
+const FORWARD_VIEWBOX_H = 36
+const FORWARD_THICKNESS = 6.5
+const PIN_VIEWBOX_W = 13
+const PIN_VIEWBOX_H = 19
+const PIN_HOLE_RADIUS = 2.7
+
+/** The furniture's blue, faded toward the bar's ends rather than cut off. */
+const BLUE = '28, 103, 255'
+const BAR_ALPHA_CENTRE = 0.95
+const BAR_ALPHA_EDGE = 0.1
+
+/** Unique per instance, so two bars alive at once never share a gradient. */
+let gradientSeq = 0
+
+function svgBox(width: number, height: number, className: string): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`)
+  svg.setAttribute('class', className)
+  return svg
+}
+
+function svgPath(d: string, fill: string, evenOdd = false): SVGPathElement {
+  const path = document.createElementNS(SVG_NS, 'path')
+  path.setAttribute('d', d)
+  path.setAttribute('fill', fill)
+  if (evenOdd) path.setAttribute('fill-rule', 'evenodd')
+  return path
+}
+
+/**
+ * A symmetric lens: `centre` thick in the middle, `edge` thick at both ends.
+ *
+ * A quadratic from P0 to P2 with control P1 passes through (P0 + 2·P1 + P2) / 4,
+ * so a control `centre - edge / 2` out from the midline peaks at exactly
+ * `centre` while the ends stay `edge`. `vertical` swaps the axes rather than
+ * rotating, so the path is already in its own SVG's coordinates.
+ */
+function lensPath(span: number, box: number, centre: number, edge: number, vertical: boolean): string {
+  const mid = box / 2
+  const halfEdge = edge / 2
+  const control = centre - halfEdge
+  const half = span / 2
+  // (along, across) -> (x, y).
+  const p = (a: number, c: number): string => (vertical ? `${c} ${a}` : `${a} ${c}`)
+  return (
+    `M ${p(0, mid - halfEdge)} ` +
+    `Q ${p(half, mid - control)} ${p(span, mid - halfEdge)} ` +
+    `L ${p(span, mid + halfEdge)} ` +
+    `Q ${p(half, mid + control)} ${p(0, mid + halfEdge)} Z`
+  )
+}
+
+/**
+ * A geo tag: a round head of diameter `width`, drawn down to a tip at `height`.
+ *
+ * The hole is a second subpath, and `evenodd` is what punches it through — there
+ * is no background colour to paint one in, because the bar floats over the scene.
+ * The flanks' control at 0.42 of the drop is the lab's: higher and the pin turns
+ * into a lozenge, lower and it reads as a drip.
+ */
+function pinPath(width: number, height: number, holeRadius: number): string {
+  const r = width / 2
+  const controlY = r + (height - r) * 0.42
+  return (
+    // Body: tip, out to the right shoulder, over the top, back down to the tip.
+    `M ${r} ${height} Q ${width} ${controlY} ${width} ${r} ` +
+    `A ${r} ${r} 0 0 0 0 ${r} ` +
+    `Q 0 ${controlY} ${r} ${height} Z ` +
+    // Hole: two half-arcs, so it closes without a full-circle special case.
+    `M ${r} ${r - holeRadius} ` +
+    `A ${holeRadius} ${holeRadius} 0 1 0 ${r} ${r + holeRadius} ` +
+    `A ${holeRadius} ${holeRadius} 0 1 0 ${r} ${r - holeRadius} Z`
+  )
+}
+
 export class CompassBar {
   private readonly root: HTMLDivElement
   private readonly marks: Array<{ poi: CompassPoi; el: HTMLDivElement; label: HTMLSpanElement }> = []
@@ -76,15 +173,47 @@ export class CompassBar {
     this.root.setAttribute('aria-hidden', 'true')
     this.root.dataset.visible = 'false'
 
-    const line = document.createElement('div')
-    line.className = 'murcia-compass__line'
+    // The bar: a lens, thickest in the middle and tapering to a point at both
+    // ends, in a blue that fades toward them. Stretched along its length only
+    // (`preserveAspectRatio="none"`), so it keeps its thickness at every width.
+    const gradientId = `murcia-compass-fade-${++gradientSeq}`
+    const line = svgBox(BAR_VIEWBOX_W, BAR_VIEWBOX_H, 'murcia-compass__line')
+    line.setAttribute('preserveAspectRatio', 'none')
+    const defs = document.createElementNS(SVG_NS, 'defs')
+    const gradient = document.createElementNS(SVG_NS, 'linearGradient')
+    gradient.setAttribute('id', gradientId)
+    gradient.setAttribute('x1', '0')
+    gradient.setAttribute('x2', '1')
+    gradient.setAttribute('y1', '0')
+    gradient.setAttribute('y2', '0')
+    for (const [offset, alpha] of [
+      [0, BAR_ALPHA_EDGE],
+      [0.5, BAR_ALPHA_CENTRE],
+      [1, BAR_ALPHA_EDGE],
+    ] as const) {
+      const stop = document.createElementNS(SVG_NS, 'stop')
+      stop.setAttribute('offset', String(offset))
+      stop.setAttribute('stop-color', `rgba(${BLUE}, ${alpha})`)
+      gradient.append(stop)
+    }
+    defs.append(gradient)
+    line.append(
+      defs,
+      svgPath(
+        lensPath(BAR_VIEWBOX_W, BAR_VIEWBOX_H, BAR_CENTRE_THICKNESS, BAR_EDGE_THICKNESS, false),
+        `url(#${gradientId})`,
+      ),
+    )
     this.root.append(line)
 
-    // The forward mark: where the camera is actually pointing. Furniture rather
-    // than reading — it never moves, and it is what gives the moving pins
-    // something to be measured against.
-    const forward = document.createElement('div')
-    forward.className = 'murcia-compass__forward'
+    // The forward mark: where the camera is actually pointing. The same lens
+    // stood on end and drawn THROUGH the bar, blue with it because it is
+    // furniture — it never moves, and it is what the moving pins are read
+    // against.
+    const forward = svgBox(FORWARD_VIEWBOX_W, FORWARD_VIEWBOX_H, 'murcia-compass__forward')
+    forward.append(
+      svgPath(lensPath(FORWARD_VIEWBOX_H, FORWARD_VIEWBOX_W, FORWARD_THICKNESS, 0, true), `rgb(${BLUE})`),
+    )
     this.root.append(forward)
 
     for (const poi of pois) {
@@ -92,8 +221,11 @@ export class CompassBar {
       el.className = 'murcia-compass__mark'
       el.dataset.poi = poi.id
 
-      const pin = document.createElement('span')
-      pin.className = 'murcia-compass__pin'
+      // A geo tag: the one icon a viewer already reads as "a place, there".
+      // `currentColor`, so warming the mark warms the pin and the label in one
+      // write; `evenodd` is what makes the hole a hole.
+      const pin = svgBox(PIN_VIEWBOX_W, PIN_VIEWBOX_H, 'murcia-compass__pin')
+      pin.append(svgPath(pinPath(PIN_VIEWBOX_W, PIN_VIEWBOX_H, PIN_HOLE_RADIUS), 'currentColor', true))
 
       const label = document.createElement('span')
       label.className = 'murcia-compass__label'

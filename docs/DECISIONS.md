@@ -3340,6 +3340,23 @@ world; being pointed at something is not the same as having arrived at it.
 > compass stands alone, built from the same two anchors. With the beacon gone, §37's density-A
 > tray is the hint frame and the consent plate, and the beacon dot is no longer one of blue's homes.
 
+> **Amended 2026-09-10 (later) — the compass moves to the top, and Murcia's hint loses the
+> city's cells** (user direction). The bar sits ON the site header's line, centred
+> between its two ends and narrowed to clear them (the right-hand group measured 261 px
+> over Murcia), not above the bottom edge; from 768 to 899 px wide there is no room between
+> them, and it hangs just under the header instead. The hint frame's Mover / Girar / Abrir cells
+> are removed with their glyphs, their motion and the hairline that ruled them off from the way
+> out; in Murcia the plate now carries only the travel gesture.
+
+> **Amended 2026-09-10 (later still) — the compass takes the lab's look** (user direction). The
+> treatment is `vertigo-lab`'s camera-navigation compass: a #1c67ff lens for the bar, fading
+> to 10% at both ends, and a blue forward lens drawn through it; white map pins with monospace
+> labels that turn yellow (rgb 255 209 26) and grow to 1.5× on arrival; every mark shrinking to
+> 62% on a narrow screen. That spends blue on furniture, which §37 had kept scarce — the beacon
+> dot's home went the same day. The port also fixes the marks' travel: `--offset` was a
+> percentage of each mark's OWN width, so a landmark at the edge of the span sat half a label
+> from centre instead of at the end of the bar.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle
