@@ -29,8 +29,6 @@ afterEach(() => {
 
 const frame = () => container.querySelector<HTMLElement>('.nav-hint')!
 const cells = () => [...frame().querySelectorAll<HTMLElement>('.nav-hint__cell')]
-const wordsIn = (cell: HTMLElement) =>
-  [...cell.querySelectorAll<HTMLElement>('.nav-hint__label')].map((el) => el.textContent ?? '')
 
 describe('the hint frame', () => {
   it('is sighted-only: the button beside it is what assistive technology reads', () => {
@@ -38,25 +36,17 @@ describe('the hint frame', () => {
     expect(container.querySelector('.nav-control')).not.toBeNull()
   })
 
-  it('is four cells: the city, then the way out of it', () => {
-    expect(cells().map((el) => el.dataset.gesture)).toEqual([
-      'drag',
-      'rotate',
-      'select',
-      'travel',
-    ])
+  // The city's own controls (Mover, Girar, Abrir) were removed 2026-09-10.
+  it('is one cell: the way out of the city', () => {
+    expect(cells().map((el) => el.dataset.gesture)).toEqual(['travel'])
   })
 
   // The plate speaks in single words now: the sentences it used to carry
   // ("Haz scroll para bajar a Murcia" and its three siblings) are gone, and the
-  // glyph's motion says what they said. So the contract is that no cell holds
-  // more than the one word its input needs.
-  it('gives every cell one word, and the way out one per input', () => {
+  // glyph's motion says what they said. So the contract is that the cell holds
+  // no more than the one word its input needs.
+  it('gives the way out one word per input', () => {
     const byGesture = new Map(cells().map((el) => [el.dataset.gesture, el]))
-    expect(wordsIn(byGesture.get('drag')!)).toEqual(['Mover'])
-    expect(wordsIn(byGesture.get('rotate')!)).toEqual(['Girar'])
-    expect(wordsIn(byGesture.get('select')!)).toEqual(['Abrir'])
-
     const travel = [...byGesture.get('travel')!.querySelectorAll<HTMLElement>('.nav-hint__label')]
     expect(travel.map((el) => `${el.dataset.input}:${el.textContent}`)).toEqual([
       'fine:Scroll',
@@ -76,16 +66,7 @@ describe('the hint frame', () => {
   })
 
   it('draws a glyph for every gesture it names', () => {
-    for (const glyph of [
-      'mouse',
-      'spread',
-      'close',
-      'drag',
-      'rotate-mouse',
-      'rotate-touch',
-      'click',
-      'tap',
-    ]) {
+    for (const glyph of ['mouse', 'spread', 'close']) {
       expect(frame().querySelector(`svg.nav-hint__icon--${glyph}`), glyph).not.toBeNull()
     }
   })

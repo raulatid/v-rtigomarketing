@@ -86,36 +86,17 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
           aria-label="Ir a Murcia"
         />
         {/*
-        The hint frame: one glass plate, bottom-centre, in both worlds. Since
-        2026-09-05 it carries the city's controls (drag, rotate, select), shown
-        only in Murcia, beside the gesture that leaves the world the viewer is
-        in. They used to be two elements owned by two modules (Murcia's
-        `#controls-hint` plate under this hint), and stacked at the bottom of a
-        bright city they read as two unrelated things, the sentence floating
-        unreadable over the roofs. One frame, one owner: everything here is
-        painted by createNavigationInput, and it has one closing rule — three
-        seconds after the viewer first touches the scene (section 29).
+        The hint frame: one glass plate, bottom-centre, shown only in Murcia
+        (Earth's hint is `.earth-hint`). It teaches the one gesture that leaves
+        the city. It used to carry the city's controls as well — Mover, Girar,
+        Abrir — and those were removed on 2026-09-10.
+        Everything here is painted by createNavigationInput, and it has one
+        closing rule — three seconds after the viewer first touches the scene
+        (section 29).
 
-        ## Every cell is a glyph over ONE word
-
-        This block used to speak in sentences: an eyebrow naming the gesture
-        over "Haz scroll para bajar a Murcia", with the glyph beside them
-        spanning both lines, and each city control carrying a label AND a
-        caption. Two complaints killed that. The words were doing the teaching
-        and there were too many of them to read while a world was still
-        settling; and the spanning glyph was taller than the lines it spanned,
-        so it crowded the plate's edges — worse in Murcia, where there is no
-        eyebrow and it spanned a single short line.
-
-        So the sentences are gone and the shape is one grammar, four times
-        over: a glyph, one word under it, centred. Nothing spans anything, so
-        the alignment cannot come apart again, and the four words share a
-        baseline because every cell ends at the same edge.
-
-        The word names the RESULT where the glyph already shows the input —
-        Mover, Girar, Abrir. The way in and out is the exception the client
-        chose: it names the gesture, because no result word short enough
-        survives ("Murcia"/"Tierra" was rejected as a label).
+        A glyph over ONE word, and the word names the gesture rather than its
+        result: no result word short enough survives ("Murcia"/"Tierra" was
+        rejected as a label).
 
         A SIBLING of the control, not a child: the control is clipped to a
         pixel for assistive technology and a child would be clipped with it.
@@ -124,94 +105,24 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
         `(pointer: coarse)`, direction by the `data-direction` the input layer
         paints on `.nav`. This element renders once and never re-renders, so
         there is no later moment for a `matchMedia` read to matter — and it
-        means the words and the picture can never disagree, since the same two
+        means the word and the picture can never disagree, since the same two
         facts choose both. Teaching the wrong device's input is worse than
         teaching none: it says the site was not built for the thing in your
-        hand. That is why the rotate and select cells carry a mouse AND a hand.
+        hand.
 
-        The glyphs move, and the motion is now the whole explanation rather
-        than an illustration of a sentence. Each travelling part goes ONE way,
-        fading in where it starts and out where it ends, because a tween that
-        alternates returns to where it began and reads as a wobble with no
-        direction — which is exactly what the old wheel did, identically, for
-        both directions of travel. The mouse carries two chevron groups, above
-        and below; only the travel side shows, and its two chevrons light in
-        sequence so the wheel appears to hand off to them. All of it is
-        transform and opacity, and reduced motion stops it — which is why the
-        resting state has to be the READABLE one (styles.css).
-
-        'Acercar' is not among the controls. It taught the wheel and the pinch,
-        and neither moves the camera any more (`adr/009`): the wheel and pinch
-        navigate between worlds, which the gesture cell teaches, and getting
-        closer is what selecting a district does. Pan leads the three because it
-        needs no teaching — people try it first — and the two that are NOT
-        discoverable follow it; rotation in particular has no affordance now
-        that it lives on the right button.
+        The glyph moves, and the motion is the whole explanation. Each
+        travelling part goes ONE way, fading in where it starts and out where
+        it ends, because a tween that alternates returns to where it began and
+        reads as a wobble with no direction. The mouse carries two chevron
+        groups, above and below; only the travel side shows, and its two
+        chevrons light in sequence so the wheel appears to hand off to them.
+        All of it is transform and opacity, and reduced motion stops it — which
+        is why the resting state has to be the READABLE one (styles.css).
 
         aria-hidden: the button above already teaches assistive technology, and
         a pinch is not something it could act on anyway. This is sighted-only.
       */}
         <span className="nav-hint" aria-hidden="true">
-          <span className="nav-hint__controls">
-            <span className="nav-hint__cells">
-              <span className="nav-hint__cell" data-gesture="drag">
-                <svg className="nav-hint__icon nav-hint__icon--drag" {...GLYPH}>
-                  <path d="M9 24H3" />
-                  <path d="M6 21l-3 3 3 3" />
-                  <path d="M39 24h6" />
-                  <path d="M42 21l3 3-3 3" />
-                  <g className="nav-hint__part nav-hint__part--slide">
-                    <circle cx="24" cy="24" r="5" />
-                    <path d="M24 29v8" />
-                  </g>
-                </svg>
-                <span className="nav-hint__label">Mover</span>
-              </span>
-              <span className="nav-hint__cell" data-gesture="rotate">
-                <svg className="nav-hint__icon nav-hint__icon--rotate-mouse" {...GLYPH}>
-                  <rect x="17" y="10" width="14" height="26" rx="7" />
-                  <path d="M24 10v10" />
-                  <path
-                    className="nav-hint__part nav-hint__part--blink"
-                    d="M24 10a7 7 0 0 1 7 7v3h-7z"
-                    fill="currentColor"
-                  />
-                  <path d="M36 16a12 12 0 0 1 0 16" />
-                  <path d="M33 29l3 3 3-3" />
-                </svg>
-                <svg className="nav-hint__icon nav-hint__icon--rotate-touch" {...GLYPH}>
-                  <path d="M10 15a16 16 0 0 1 28 0" />
-                  <path d="M35 10l3 5-5 3" />
-                  <g className="nav-hint__part nav-hint__part--turn">
-                    <circle cx="16" cy="28" r="5" />
-                    <circle cx="32" cy="28" r="5" />
-                  </g>
-                </svg>
-                <span className="nav-hint__label">Girar</span>
-              </span>
-              <span className="nav-hint__cell" data-gesture="select">
-                <svg className="nav-hint__icon nav-hint__icon--click" {...GLYPH}>
-                  <rect x="17" y="12" width="14" height="26" rx="7" />
-                  <path d="M24 12v10" />
-                  <path
-                    className="nav-hint__part nav-hint__part--blink"
-                    d="M24 12a7 7 0 0 0-7 7v3h7z"
-                    fill="currentColor"
-                  />
-                  <circle className="nav-hint__part nav-hint__part--ring" cx="24" cy="25" r="16" />
-                </svg>
-                <svg className="nav-hint__icon nav-hint__icon--tap" {...GLYPH}>
-                  <circle cx="24" cy="24" r="5" />
-                  <path d="M24 29v9" />
-                  <circle className="nav-hint__part nav-hint__part--ring" cx="24" cy="24" r="14" />
-                </svg>
-                <span className="nav-hint__label">Abrir</span>
-              </span>
-            </span>
-          </span>
-          {/* The way out of the world the viewer is in. A cell like the three
-              above, and the only one that is never collapsed — in Murcia a
-              hairline rules it off from the city's own controls. */}
           <span className="nav-hint__gesture nav-hint__cell" data-gesture="travel">
             {/* The chevrons are two GROUPS, above and below, and the stylesheet
                 shows only the one the viewer is travelling toward. Two of them

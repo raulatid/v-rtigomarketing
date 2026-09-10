@@ -84,9 +84,8 @@ export interface BlogDisplayEntry {
   /**
    * The panel's centre in world space, copied into `out`.
    *
-   * For the arrival beacon, which pins a label at this point and does its own
-   * projection against a cached canvas rect. It follows the PANEL rather than the
-   * cluster, because the panel is now what a visitor is being pointed at.
+   * For the compass, which bears on this point. It follows the PANEL rather than
+   * the cluster, because the panel is now what a visitor is being pointed at.
    */
   anchor(out: THREE.Vector3): THREE.Vector3;
   /**

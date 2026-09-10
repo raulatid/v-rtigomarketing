@@ -61,8 +61,7 @@ export const FOCO_NODE_NAMES: readonly string[] = [PLAZA_NODE_NAME];
  * the district's only interaction surface once it is open (plan 003 §6).
  *
  * Listed rather than derived from a prefix: a prefix match would also collect
- * the plaza, which is a floor and would put the hover glow and the arrival
- * beacon on the ground.
+ * the plaza, which is a floor and would put the hover glow on the ground.
  */
 export const BUILDING_NODE_NAMES: readonly string[] = [
   'Edificios-servicios-laterales',

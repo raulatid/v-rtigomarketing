@@ -66,13 +66,11 @@ export interface ServicesDistrict {
   readonly isEngaged: boolean;
   readonly isFlying: boolean;
   /**
-   * The point the arrival beacon pins itself to, copied into `out`.
+   * The point the compass bears on, copied into `out`.
    *
    * The district's own skyline: the plaza centre, at the height of its tallest
-   * building. NOT the display's elevation — that is 28 units of empty air above
-   * the plaza, and a marker floating there reads as pointing at the sky rather
-   * than at the place. Read from the GLB at construction, like everything else
-   * about where this district is.
+   * building. Read from the GLB at construction, like everything else about
+   * where this district is.
    */
   anchor(out: THREE.Vector3): THREE.Vector3;
   /** Where the first building is on screen. Test seam — see DistrictInteraction. */
@@ -165,10 +163,9 @@ export function createServicesDistrict(
   // against. It only shifts the whole assembly vertically.
   const groundY = plazaBox.min.y;
 
-  // The tallest thing in the district, which is what the arrival beacon hangs
-  // off. The plaza is a floor, so its own box tops out at the ground and would
-  // put the marker inside the buildings; the buildings' own bounds are what
-  // "above the district" means from a camera looking down at 19 degrees.
+  // The tallest thing in the district, which is where `anchor()` sits. The
+  // plaza is a floor, so its own box tops out at the ground; the buildings' own
+  // bounds are what "above the district" means.
   const skylineY = Math.max(groundY, buildings.bounds.max.y);
 
   const focos = FOCO_NODE_NAMES.map((name) => findByAnyNameSpelling(root, name))

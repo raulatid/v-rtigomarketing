@@ -38,8 +38,6 @@ import type { CameraRig } from '../camera/CameraRig'
  */
 
 export interface CameraInputEvents {
-  /** Fired once per pointer sequence, on pointerdown. */
-  onFirstInteraction?: () => void
   /** Fired when a drag begins and when it ends, including ends that are a handover. */
   onDragStateChanged?: (dragging: boolean) => void
 }
@@ -126,7 +124,6 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
     sendCursor(0, 0)
     if (pointers.size === 1) {
       setDragging(true)
-      events?.onFirstInteraction?.()
     } else {
       // A second contact is a pinch, and the pinch belongs to the app layer.
       // Stop dragging rather than trying to arbitrate; there is nothing to

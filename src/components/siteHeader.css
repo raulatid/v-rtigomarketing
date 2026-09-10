@@ -48,7 +48,7 @@
    blog.css may consume the dark-material tokens. It reads --header-control
    and nothing else, and that is the line to hold. */
 :root {
-  /* Density A — the floating tray: hint frame, beacon and consent plates.
+  /* Density A — the floating tray: hint frame and consent plate.
      Separation comes from the shadow, not from opacity. */
   --glass-bg-light: rgba(10, 15, 22, 0.68);
   /* Density B — the compact plaque: the case panel. */
@@ -59,7 +59,7 @@
 
   --glass-border: rgba(220, 230, 245, 0.1);
   /* The density-A trays wear a blue edge rather than the neutral one: the hint
-     frame, the beacon plates and the consent plate. Aliased to the CTA's own
+     frame and the consent plate. Aliased to the CTA's own
      border instead of carrying its own literal, so the two blues that share a
      frame are one colour and not two that nearly match. */
   --glass-border-accent: var(--accent-border);
@@ -90,7 +90,7 @@
   --rule-strong: rgba(255, 255, 255, 0.35);
 
   /* Blue is worth more used less: a filled primary CTA, the ring behind a
-     focused field's neutral border, the beacon dot, and the edge of the
+     focused field's neutral border, and the edge of the
      floating trays through --glass-border-accent above. Nothing else — the
      phone burger wore it for an hour on 2026-09-09 and went back to white. */
   --accent: #1c67ff;

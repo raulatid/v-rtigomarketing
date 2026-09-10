@@ -3334,6 +3334,12 @@ moves when only the pitch moves and Murcia's pitch sweeps 35° to 55° across th
 band. A pin warms only when it is BOTH near the centre of the bar and near in the
 world; being pointed at something is not the same as having arrived at it.
 
+> **Amended 2026-09-10 — the arrival beacons are removed** (user direction). The two glass
+> plates pinned over the services district and the blog display on arrival (`districtBeacons.ts`,
+> with their leader and blue dot) are deleted, with their styles, unit tests and e2e spec. The
+> compass stands alone, built from the same two anchors. With the beacon gone, §37's density-A
+> tray is the hint frame and the consent plate, and the beacon dot is no longer one of blue's homes.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle

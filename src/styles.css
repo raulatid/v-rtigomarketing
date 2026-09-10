@@ -1281,9 +1281,9 @@ html {
 
 /* ---- The hint frame ----
 
-   One glass plate, bottom centre, in both worlds. It carries the gesture that
-   leaves the world the viewer is in and — in Murcia only — the city's three
-   controls beside it. Until 2026-09-05 those were two elements owned by two
+   One glass plate, bottom centre. It carries the gesture that leaves the world
+   the viewer is in, and until 2026-09-10 it carried the city's three controls
+   beside it. Until 2026-09-05 those were two elements owned by two
    modules: this hint, bare text with a drop shadow, floating 40px above
    Murcia's own `#controls-hint` plate. Over the black sky the text read; over
    a bright city it did not, and the two stacked at the bottom edge looked like
@@ -1332,15 +1332,14 @@ html {
    Client direction: no HTML hint-tutorial on the Earth scene. That was answered
    with a particle figure, and the particles were rejected in turn (§43) — so
    Earth's hint is plain text with no plate under it, which is what the objection
-   was actually about. Murcia keeps this plate and every cell on it.
+   was actually about. Murcia keeps this plate.
 
-   The FRAME goes, not the travel cell. On Earth `.nav-hint__controls` is held at
-   `0fr` (it only opens under `data-direction='up'`), so the travel cell is the
-   entire plate; hiding just the cell would leave a visible empty glass rectangle,
-   which is worse than what it replaced.
+   The FRAME goes, not the travel cell: the travel cell is the entire plate, and
+   hiding just the cell would leave a visible empty glass rectangle, which is
+   worse than what it replaced.
 
    Nothing is removed from the markup, and that is deliberate on two counts:
-   Murcia still needs every glyph here, and `NavigationControl.test.tsx` asserts
+   Murcia still needs the glyph here, and `NavigationControl.test.tsx` asserts
    the plate carries BOTH directions' vocabulary — "the CSS can only choose
    between what was rendered". `createNavigationInput` still writes `data-visible`
    on this element for Murcia; Earth's hint has its own timing and does not read
@@ -1630,72 +1629,9 @@ html {
   opacity: 0.7;
 }
 
-/* ---- The city's block collapses; the way out never does ----
-
-   Outside Murcia the three city cells fold away through a grid track at 0fr.
-   One axis is enough now that the blocks sit side by side: a column track at
-   0fr takes the width to nothing, and the plate — `max-content` — shrinks to
-   the single cell that is left. (When they were STACKED this had to collapse
-   both axes, because a row at no height still measured its full width and the
-   Earth plate came out as wide as the three cells it was not showing.)
-
-   The track is transitioned so the frame shrinks rather than jumps. */
-.nav-hint__controls {
-  display: grid;
-  grid-template-columns: 0fr;
-  transition: grid-template-columns 280ms ease;
-}
-
-.nav-hint__cells {
-  display: flex;
-  align-items: stretch;
-  gap: 1.25rem;
-  /* NO padding, margin or border on this box, in any state. It is the item in
-     the collapsing track, and a track at 0fr still floors at the item's minimum
-     contribution — which `min-width: 0` takes to zero for the CONTENT box only.
-     16.8px of padding-right here was 16.8px of the city's cells still on the
-     Earth plate, leaking through the clip. The gap to the hairline is drawn
-     inside the gesture cell instead. */
-  min-width: 0;
-  /* Clipped on the SIDES only. `overflow: hidden` is the usual partner for a
-     0fr track, but it would also clip the 8px rise the cells make on the way
-     in — the vertical padding that used to absorb that now lives on the plate.
-     An inset clip-path with negative top and bottom keeps the sides tight to
-     the collapsing track and leaves the rise its room. */
-  clip-path: inset(-40px 0 -40px 0);
-}
-
-.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__controls {
-  grid-template-columns: 1fr;
-}
-
-/* In the city the two groups are ruled apart: these three are what you do
-   here, that one is how you leave. On Earth there is nothing to divide.
-
-   The rule is a pseudo-element in the middle of this cell's own left padding,
-   not a `border-left` on it and not a `padding-right` on the block opposite.
-   A border sits at the very edge of the padding box, which would put the whole
-   gap on one side of the line; and anything on the collapsing block — padding
-   included — becomes a floor under its 0fr track and shows up on Earth. */
-.nav[data-direction='up'] .nav-hint__gesture {
-  position: relative;
-  padding-left: 2.1rem;
-}
-
-.nav[data-direction='up'] .nav-hint__gesture::before {
-  content: '';
-  position: absolute;
-  left: 1.05rem;
-  top: 0;
-  bottom: 0;
-  border-left: 1px solid var(--glass-border);
-}
-
 /* ---- A cell ----
 
-   Glyph over word, and the cell ends at the word: `flex-end` is what puts the
-   four words on one line while their glyphs differ in height (the mouse is
-   twice as tall as the rest). */
+   Glyph over word, and the cell ends at the word. */
 .nav-hint__cell {
   display: flex;
   flex-direction: column;
@@ -1720,25 +1656,8 @@ html {
     transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.nav-hint[data-visible] .nav-hint__cells > .nav-hint__cell:nth-child(1) {
-  transition-delay: 60ms;
-}
-
-.nav-hint[data-visible] .nav-hint__cells > .nav-hint__cell:nth-child(2) {
-  transition-delay: 120ms;
-}
-
-.nav-hint[data-visible] .nav-hint__cells > .nav-hint__cell:nth-child(3) {
-  transition-delay: 180ms;
-}
-
 .nav-hint[data-visible] .nav-hint__gesture {
   transition-delay: 60ms;
-}
-
-/* Beside the city's three the way out is the last to land. */
-.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__gesture {
-  transition-delay: 240ms;
 }
 
 /* ---- The one word ----
@@ -1752,16 +1671,6 @@ html {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-primary);
-}
-
-/* Beside the city's three controls the way out is the quieter of the two
-   things on the plate, so it steps back rather than being ruled off twice. */
-.nav[data-direction='up'] .nav-hint__gesture .nav-hint__label {
-  color: var(--text-secondary);
-}
-
-.nav[data-direction='up'] .nav-hint__gesture .nav-hint__icon {
-  color: rgba(255, 255, 255, 0.62);
 }
 
 /* ---- Which glyph, which word ----
@@ -1812,26 +1721,16 @@ html {
   display: block;
 }
 
-.nav-hint__icon--drag,
-.nav-hint__icon--rotate-mouse,
-.nav-hint__icon--click {
-  display: block;
-}
-
 .nav-hint__label[data-input='coarse'] {
   display: none;
 }
 
 @media (pointer: coarse) {
   .nav-hint__icon--mouse,
-  .nav-hint__icon--rotate-mouse,
-  .nav-hint__icon--click,
   .nav-hint__label[data-input='fine'] {
     display: none;
   }
 
-  .nav-hint__icon--rotate-touch,
-  .nav-hint__icon--tap,
   .nav-hint__label[data-input='coarse'] {
     display: block;
   }
@@ -1858,18 +1757,6 @@ html {
        sits over the city floor at its brightest, and readability wins over
        consistency of the number. */
     background: var(--glass-film), rgba(10, 15, 22, 0.74);
-  }
-
-  .nav-hint__cells {
-    gap: 0.85rem;
-  }
-
-  .nav[data-direction='up'] .nav-hint__gesture {
-    padding-left: 1.6rem;
-  }
-
-  .nav[data-direction='up'] .nav-hint__gesture::before {
-    left: 0.8rem;
   }
 
   .nav-hint__icon {
@@ -1966,25 +1853,6 @@ html {
 
 .nav-hint[data-visible] .nav-hint__part--close-r {
   animation: nav-hint-pinch-in-r 1.8s ease-out infinite;
-}
-
-/* The city's three keep `alternate`, and keep it on purpose: a pan and a turn
-   ARE two-way gestures, so a tween that comes back says something true about
-   them. Only the amplitude was raised. */
-.nav-hint[data-visible] .nav-hint__part--slide {
-  animation: nav-hint-slide 3s ease-in-out infinite alternate;
-}
-
-.nav-hint[data-visible] .nav-hint__part--turn {
-  animation: nav-hint-turn 3.2s ease-in-out infinite alternate;
-}
-
-.nav-hint[data-visible] .nav-hint__part--blink {
-  animation: nav-hint-blink 2.6s ease-in-out infinite alternate;
-}
-
-.nav-hint[data-visible] .nav-hint__part--ring {
-  animation: nav-hint-ring 2.8s ease-out infinite;
 }
 
 /* The notch stays inside the mouse body (y 14–34) at both ends of its travel:
@@ -2132,47 +2000,8 @@ html {
   }
 }
 
-@keyframes nav-hint-slide {
-  from {
-    transform: translateX(-6px);
-  }
-  to {
-    transform: translateX(6px);
-  }
-}
-
-@keyframes nav-hint-turn {
-  from {
-    transform: rotate(-18deg);
-  }
-  to {
-    transform: rotate(18deg);
-  }
-}
-
-@keyframes nav-hint-blink {
-  from {
-    opacity: 0.3;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes nav-hint-ring {
-  from {
-    transform: scale(0.5);
-    opacity: 0.85;
-  }
-  to {
-    transform: scale(1.05);
-    opacity: 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   /* The loops are decoration in motion; every fade and the rise may stay.
-     Same split the beacons make in murcia.css.
 
      This matters more than it did: the sentences are gone, so what a
      reduced-motion visitor is left with is the glyph at rest plus one word.

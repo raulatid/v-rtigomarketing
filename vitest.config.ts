@@ -162,7 +162,6 @@ export default defineConfig({
         'src/experiences/murcia/interaction/DistrictInteraction.ts',
         'src/experiences/murcia/navigation/navigationBounds.ts',
         'src/experiences/murcia/scene/cityDistrictBindings.ts',
-        'src/experiences/murcia/ui/districtBeacons.ts',
         'src/experiences/murcia/water/createRioWater.ts',
         'src/experiences/murcia/water/riverFrame.ts',
         'src/interaction/screenSpace.ts',

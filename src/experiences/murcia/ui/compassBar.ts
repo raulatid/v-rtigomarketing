@@ -10,21 +10,16 @@ import {
 /**
  * A hairline that says which way the places worth clicking are.
  *
- * ## What it adds over the beacons
+ * ## Why it exists
  *
- * `districtBeacons.ts` pins a label ONTO a place, which works while the place is
- * on screen and says nothing at all once the viewer has turned away from it. The
- * new navigation makes turning away easy and continuous — one finger yaws the
- * whole city — so "where was the district?" became a question a viewer can
+ * The new navigation makes turning away easy and continuous — one finger yaws
+ * the whole city — so "where was the district?" became a question a viewer can
  * actually get stuck on. This answers it from any heading.
- *
- * The two are complementary and both are kept: the beacon names a thing you can
- * see, the compass points at a thing you cannot.
  *
  * ## Not a control
  *
- * `pointer-events: none` and `aria-hidden`, both load-bearing, for the same
- * reason the beacons carry them: `adr/009`'s direction is that navigation is a
+ * `pointer-events: none` and `aria-hidden`, both load-bearing: `adr/009`'s
+ * direction is that navigation is a
  * gesture and parallel controls get deleted. `DistrictA11y` is the real
  * focusable route, and a decorative echo here would be read out twice and
  * navigate nowhere.

@@ -36,7 +36,6 @@ import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
-import { DistrictBeacons, type BeaconSpec } from './ui/districtBeacons';
 import { CompassBar, type CompassPoi } from './ui/compassBar';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import type { TowerLogo } from './landmark/createTowerLogo';
@@ -46,7 +45,7 @@ import { VERTIGO_BUILDING } from './landmark/vertigoBuildingConfig';
 import { BUILDING_BANNER } from '../../content/site';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
-import { clientToNdc, type ElementRect } from '../../interaction/screenSpace';
+import { clientToNdc } from '../../interaction/screenSpace';
 
 /**
  * The zoom's ease used to live here, as ZOOM_LERP_K and ZOOM_SETTLE_EPSILON.
@@ -134,31 +133,15 @@ export class MurciaExperience {
    * a refactor.
    */
   private districts: ServicesDistrict[] = [];
-  /** Built after the city loads: the beacons need the places they point at. */
-  private beacons: DistrictBeacons | null = null;
   /**
-   * The same places, pointed at from any heading.
-   *
-   * Built from the same specs as the beacons and for the same reason: a compass
-   * pointing at a place the export does not contain would be the second failure
-   * after the missing building.
+   * The two places worth clicking, pointed at from any heading. Built after the
+   * city loads, from whichever of them actually loaded.
    */
   private compass: CompassBar | null = null;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
   /** The banner on the tower's screen, when the site settings say there is one. */
   private banner: BannerAttachment | null = null;
-  /**
-   * The canvas's client rect, cached.
-   *
-   * The beacons re-project two world points every frame, and
-   * `getBoundingClientRect()` is a layout read — paying two of those per frame
-   * for a value that changes only when the window does would be a self-inflicted
-   * reflow. Refreshed in `setViewport`, which is exactly when it can change:
-   * the canvas is fixed and full-viewport, and the page does not scroll.
-   */
-  private canvasRect: ElementRect | null = null;
-
   private loaded: LoadedCity | null = null;
   /**
    * Elapsed seconds handed to the water shader.
@@ -748,7 +731,6 @@ export class MurciaExperience {
       width: this.viewport.width,
       height: this.viewport.height,
       events: {
-        onFirstInteraction: () => this.dismissBeacons(),
         onDragStateChanged: (dragging) => {
           this.cursor.request('drag', dragging ? 'grabbing' : '');
         },
@@ -777,7 +759,7 @@ export class MurciaExperience {
 
     this.setupDistricts(loaded.root);
     this.setupBlogDisplay(loaded.root);
-    this.setupBeacons();
+    this.setupCompass();
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
       reducedMotion: this.reducedMotion,
     });
@@ -906,53 +888,36 @@ export class MurciaExperience {
   }
 
   /**
-   * The arrival beacons, over whichever of the two places actually loaded.
+   * The compass, over whichever of the two places actually loaded.
    *
    * Built from what is in the scene rather than from a list: a city exported
    * without the blog cluster already logs an error and returns no building, and
-   * a beacon pointing at a place that is not there would be the second failure.
+   * a compass pointing at a place that is not there would be the second failure.
    */
-  private setupBeacons(): void {
-    const specs: BeaconSpec[] = [];
+  private setupCompass(): void {
+    const pois: CompassPoi[] = [];
 
     const district = this.districts[0];
     if (district) {
       const content = findDistrictContent(DISTRICT_CONTENT, cityDistrictBindings[0].contentId);
-      specs.push({
+      pois.push({
         id: 'servicios',
         anchor: (out: THREE.Vector3) => district.anchor(out),
-        // The name comes from the CMS, like every other district string. The
-        // line under it does not: it is chrome about the city rather than copy
-        // about the district, and the collection has no field for it.
+        // The name comes from the CMS, like every other district string.
         label: content?.label ?? 'Servicios',
-        caption: 'Lo que hacemos',
       });
     }
 
     const blog = this.blogDisplay;
     if (blog) {
-      specs.push({
+      pois.push({
         id: 'blog',
-        // The PANEL's centre, not the cluster's: since plan 022 the display is
-        // what a visitor is being pointed at, and a beacon over the roof would
-        // mark the one part of this place that does nothing when tapped.
         anchor: (out: THREE.Vector3) => blog.anchor(out),
         label: 'Blog',
-        caption: 'Lo que pensamos',
       });
     }
 
-    if (specs.length === 0) return;
-    this.beacons = new DistrictBeacons(this.container, specs);
-
-    // The compass wants the same anchors and the same names — a viewer should
-    // not have to learn that the thing the bar points at and the thing the label
-    // names are the same place.
-    const pois: CompassPoi[] = specs.map((spec) => ({
-      id: spec.id,
-      anchor: spec.anchor,
-      label: spec.label,
-    }));
+    if (pois.length === 0) return;
     this.compass = new CompassBar(this.container, pois);
   }
 
@@ -1066,10 +1031,6 @@ export class MurciaExperience {
    */
   setViewport(size: ViewportSize): void {
     this.viewport = size;
-    // Before the camera guard: the beacons need this whether or not the camera
-    // exists yet, and a resize that happens during loading must not leave them
-    // projecting against a stale rect once it does.
-    this.canvasRect = this.renderer.domElement.getBoundingClientRect();
     if (!this.camera) return;
 
     this.camera.aspect = size.aspect;
@@ -1165,24 +1126,6 @@ export class MurciaExperience {
     this.interactionProbe?.probe(this.ndc);
   };
 
-  private dismissBeacons(): void {
-    // The beacons retire on any press: they name two places to click, and a
-    // viewer who has pressed anything is exploring. The controls are not taught
-    // here any more: they are rows in the application's hint frame
-    // (NavigationControl.tsx), which closes on its own rule.
-    this.beacons?.dismiss();
-  }
-
-  /**
-   * Offer the arrival beacons.
-   *
-   * Called by the app when the warp has genuinely settled, NOT from
-   * `setActive` — see `DistrictBeacons.arm` for why the difference matters.
-   */
-  armBeacons(): void {
-    this.beacons?.arm();
-  }
-
   // --- Frame ----------------------------------------------------------------
 
   /**
@@ -1205,15 +1148,6 @@ export class MurciaExperience {
     // Each district resolves at most one hover raycast per frame, against its
     // own meshes and proxy only. Never the Scene.
     for (const district of this.districts) district.update(delta);
-
-    // After the districts, whose flight may have moved the camera this frame:
-    // a beacon pinned from a pose one frame stale lags the city it sits on.
-    if (this.beacons && this.canvasRect) {
-      // A district entered, or the blog open over the top. Faded rather than
-      // retired — the viewer has not said they are done, the world has.
-      this.beacons.setSuppressed(this.hasFocusedDistrict);
-      this.beacons.update(this.canvasRect, this.camera);
-    }
 
     // The blog's flight is a camera owner in its own right, so it is asked
     // before the two that would otherwise write: it takes the camera DIRECTLY
@@ -1255,8 +1189,7 @@ export class MurciaExperience {
     // It measures a bearing from the camera's own forward vector, so a frame
     // stale by one pose lags the city it is pointing into — visible as the marks
     // trailing the world during a turn, which is the one artefact an instrument
-    // like this cannot have. The beacons above are pinned to world points and
-    // re-project rather than measure, so they tolerate the older ordering.
+    // like this cannot have.
     //
     // Hidden while a cinematic or the blog approach owns the camera: the
     // bearings stay true and stop meaning anything, because the viewer is not
@@ -1361,7 +1294,6 @@ export class MurciaExperience {
     this.releaseDecoders();
 
     this.statusOverlay.dispose();
-    this.beacons?.dispose();
     this.debug.dispose(this.sceneBundle?.scene ?? null);
 
     // The renderer and its canvas belong to the application, not to this
