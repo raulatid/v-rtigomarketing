@@ -3138,11 +3138,19 @@ screen and unwrapped — the viewport that was 187px off the bottom before the a
   tests asserted is native to a CSS transition, including the interrupt case it carried a branch
   for. The one deliberate difference: under reduced motion it used to snap in already formed, and
   now it fades. That is the policy the plate already follows — kill the loops, keep the fades.
-- **The colour is white,** not the figure's `rgb(200,200,200)`. That grey was never a design
-  choice; it was the largest value that stays under `UnrealBloomPass`'s 0.62 linear knee, because
-  text that blooms cannot be read. Bloom samples the WebGL frame, and DOM composites over it
-  afterwards and is never sampled — so the constraint is simply void, and the white the client
-  asked for became available for the first time.
+- **The colour is white at 85%,** not the figure's `rgb(200,200,200)`. That grey was never a
+  design choice; it was the largest value that stays under `UnrealBloomPass`'s 0.62 linear knee,
+  because text that blooms cannot be read. Bloom samples the WebGL frame, and DOM composites over
+  it afterwards and is never sampled — so the constraint is simply void, and the white the client
+  asked for became available for the first time. Taken to 85% on client direction the same day.
+
+  **The alpha lives in `color`, and moving it to `opacity` breaks the hint.** That property is
+  already the fade channel — 0 → 1 on `data-visible`, over 2.0 s in and 0.9 s out — so an
+  `opacity: 0.85` on the element is simply overwritten the moment the hint is offered, and moving
+  it into the keyframes instead would fight the float. Alpha in `color` composites *with* the
+  fade: 0.85 once shown, still 0 when dismissed. It dims the chevrons too, because they are drawn
+  with `currentColor` — deliberately, since a mark left at full white over an 85% sentence would
+  read brighter than it did before the change.
 - **The float is CSS and always running,** rather than gated on the visible flag, so a hint
   dismissed mid-swing fades from where it is instead of snapping 5 px on its way out.
 - **`!active` now HIDES rather than freezes.** The figure could be left mid-flight because it

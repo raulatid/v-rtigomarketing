@@ -1419,7 +1419,21 @@ html {
    WHITE, not the figure's rgb(200,200,200). That value existed solely to sit
    under UnrealBloom's 0.62 linear knee, and bloom samples the WebGL frame — this
    composites over it afterwards and is never sampled, so the constraint is void.
-   Client direction: white. */
+   Client direction: white, at 85% (2026-09-09).
+
+   THE 85% IS IN THE COLOUR AND MUST STAY THERE. `opacity` is already this
+   element's fade channel — it runs 0 -> 1 on `data-visible`, over two different
+   durations each way — so an `opacity: 0.85` here would be overwritten by the
+   transition the moment the hint is offered, and setting it on the keyframes
+   instead would fight the float. Alpha in `color` composites with the fade
+   rather than against it: the sentence lands at 0.85 once shown, and still
+   reaches 0 when dismissed.
+
+   It carries the chevrons too, which is deliberate. They are drawn with
+   `currentColor`, so the mark and the sentence dim together and the balance
+   struck when the type came down to 16px is preserved. A mark left at full white
+   over an 85% sentence would read brighter than it did before the change, which
+   is the opposite of what dimming the hint is for. */
 .earth-hint {
   /* Named so the reservation in `bottom` and the swing in the keyframes cannot
      drift apart. They are the same 5px. */
@@ -1456,7 +1470,7 @@ html {
   letter-spacing: 0.055em;
   line-height: 1.15;
   text-align: center;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.85);
 
   /* Out: quicker than in. Leaving is not an event. */
   opacity: 0;
