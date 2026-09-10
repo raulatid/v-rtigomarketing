@@ -4,6 +4,7 @@ import {
   CASE_PANEL_DOCK_MIN_WIDTH,
   CLOSE_UP_OFFSET_FRACTION,
   closeUpScreenOffset,
+  isPhoneViewport,
 } from './closeUpFraming'
 
 // The close-up distance and FOV the shipped composition was judged at.
@@ -156,5 +157,48 @@ describe('closeUpScreenOffset', () => {
         viewportHeightPx: 900,
       }),
     ).toBe(0)
+  })
+})
+
+describe('isPhoneViewport', () => {
+  // Extracted from this module's own two guards on 2026-09-09, because the
+  // satellites' size now asks the same question (orbit/satelliteScale.ts). What
+  // is asserted here is therefore load-bearing twice: it decides whether the
+  // case panel is a dock or a sheet, AND how large a satellite is.
+
+  it('calls a phone a phone in either orientation', () => {
+    // THE FAILURE THIS CATCHES, and `styles.css` shipped it once: a breakpoint
+    // written only in width does not describe a phone. Landscape is 852x393 —
+    // wider than any width test, and still a phone in someone's hand.
+    expect(isPhoneViewport(393, 852), 'portrait').toBe(true)
+    expect(isPhoneViewport(852, 393), 'landscape').toBe(true)
+    expect(isPhoneViewport(412, 915), 'larger portrait').toBe(true)
+  })
+
+  it('does not call a tablet or a desktop a phone', () => {
+    expect(isPhoneViewport(768, 1024), 'tablet portrait').toBe(false)
+    expect(isPhoneViewport(1024, 768), 'tablet landscape').toBe(false)
+    expect(isPhoneViewport(1600, 900), 'desktop').toBe(false)
+  })
+
+  it('sits exactly on the constants it is named for', () => {
+    // Both bounds, because an off-by-one here moves the site's phone breakpoint
+    // away from the stylesheet's and that divergence is invisible until it is
+    // on a device.
+    expect(isPhoneViewport(CASE_PANEL_DOCK_MIN_WIDTH, 900)).toBe(false)
+    expect(isPhoneViewport(CASE_PANEL_DOCK_MIN_WIDTH - 1, 900)).toBe(true)
+    expect(isPhoneViewport(1600, CASE_PANEL_DOCK_MIN_HEIGHT)).toBe(false)
+    expect(isPhoneViewport(1600, CASE_PANEL_DOCK_MIN_HEIGHT - 1)).toBe(true)
+  })
+
+  it('answers "phone" for a viewport that has not been measured yet', () => {
+    // R3F reports 0x0 for a frame or two before the container is measured, so
+    // this case is reached on every boot. Of the two wrong answers it is the
+    // harmless one — it is what `closeUpScreenOffset` already did by falling
+    // through to zero, and a satellite that is briefly phone-sized before the
+    // first real measurement is corrected on the next read. Pinned so nobody
+    // "fixes" it into a desktop default, which would pop the satellites down a
+    // size on the first frame of every phone boot.
+    expect(isPhoneViewport(0, 0)).toBe(true)
   })
 })

@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
 import { CursorManager } from '../../../interaction/cursorManager'
 import { closeUpScreenOffset } from './closeUpFraming'
+import { satelliteAssemblyScale } from '../orbit/satelliteScale'
 import { earthZoomRadius } from './zoomPose'
 
 // Camera rig for the interactive phase, ported from earth-connections
@@ -333,14 +334,28 @@ export function createFocusCameraRig({
   function focusOn(satWorldPos: THREE.Vector3) {
     const cu = INTERACTION_CONFIG.closeUp
 
+    // The satellite is not the same size on every viewport — a wide frame gets
+    // a smaller one (orbitConfig's `wideModelSize`), applied as a scale on the
+    // assembly. The back-off and the lift are what frame that subject, so they
+    // take the SAME factor: otherwise a desktop close-up would fly to a distance
+    // tuned for a satellite 22% larger and the composition would silently open
+    // up. The viewport is read live, here, because that is where the size is
+    // decided too.
+    const assemblyScale = satelliteAssemblyScale(
+      domElement.clientWidth,
+      domElement.clientHeight,
+    )
+    const distance = cu.distance * assemblyScale
+    const lift = cu.lift * assemblyScale
+
     // Earth is at the origin, so normalize(satPos) is the outward radial
     // direction. Backing off along it puts the camera outside the satellite
     // looking back toward the planet, keeping the Earth as the backdrop.
     const viewDir = satWorldPos.clone().normalize()
     const camPos = satWorldPos
       .clone()
-      .add(viewDir.multiplyScalar(cu.distance))
-      .add(new THREE.Vector3(0, cu.lift, 0))
+      .add(viewDir.multiplyScalar(distance))
+      .add(new THREE.Vector3(0, lift, 0))
 
     // Shift the LOOK-AT to the camera's right, not the camera itself: the
     // satellite lands left of centre, clearing the right side for the panel,
@@ -352,15 +367,17 @@ export function createFocusCameraRig({
     // entirely on a phone in portrait. `closeUpFraming.ts` carries the numbers
     // and the arithmetic.
     //
-    // `cu.distance` is the nominal subject distance: the true one also picks up
-    // `cu.lift`, by an amount that varies with the satellite's latitude. The
-    // shipped composition was judged against the nominal figure and the
-    // difference is well inside what a framing fraction expresses, so this
-    // deliberately does not re-derive it per satellite.
+    // `distance` is the nominal subject distance — the viewport-scaled one, so
+    // the framing fraction is solved against the frame the subject actually
+    // fills. The true distance also picks up `lift`, by an amount that varies
+    // with the satellite's latitude. The shipped composition was judged against
+    // the nominal figure and the difference is well inside what a framing
+    // fraction expresses, so this deliberately does not re-derive it per
+    // satellite.
     _forward.subVectors(satWorldPos, camPos).normalize()
     _right.crossVectors(_forward, _worldUp).normalize()
     const offset = closeUpScreenOffset({
-      subjectDistance: cu.distance,
+      subjectDistance: distance,
       verticalFovDegrees: camera.fov,
       aspect: camera.aspect,
       viewportWidthPx: domElement.clientWidth,

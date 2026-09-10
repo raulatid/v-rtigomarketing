@@ -234,7 +234,7 @@ describe('the brand panel', () => {
     expect(t.gap + t.roundGap).toBeGreaterThan(t.hold)
   })
 
-  it('keeps the panel clear of the satellite model it floats above', () => {
+  it('keeps the panel clear of the satellite model at BOTH authored sizes', () => {
     // offsetY is derived from modelSize: the model's top sits near modelSize/2,
     // and the panel's lower edge at offsetY - height/2. Raising `height` for
     // legibility pushes that edge down into the model, which is the one thing
@@ -243,5 +243,26 @@ describe('the brand panel', () => {
     const panelBottom = panel.offsetY - panel.height / 2
     const modelTop = satellite.modelSize / 2
     expect(panelBottom).toBeGreaterThan(modelTop * 0.8)
+
+    // And on a wide viewport, where the satellite is smaller. This holds by
+    // construction — `wideModelSize` is reached by scaling the whole assembly,
+    // so both sides of the comparison take the same factor — and asserting it
+    // is how that construction stays true. The failure it catches is someone
+    // "simplifying" the second size into an independently authored `modelSize`
+    // while the panel constants stay put, which would leave the plate floating
+    // clear of a smaller model on desktop and pass every other test here.
+    const wideFactor = satellite.wideModelSize / satellite.modelSize
+    expect(panelBottom * wideFactor).toBeGreaterThan(modelTop * wideFactor * 0.8)
+  })
+
+  it('makes the wide viewport smaller, and by a factor rather than a rewrite', () => {
+    // The brief: 0.72 on a desktop frame, 0.88 on a phone. Ordered, positive,
+    // and close enough that one is recognisably the other — a factor far from 1
+    // would mean the two viewports were showing different compositions rather
+    // than the same one at two sizes.
+    const { satellite } = ORBIT_CONFIG
+    expect(satellite.wideModelSize).toBeGreaterThan(0)
+    expect(satellite.wideModelSize).toBeLessThan(satellite.modelSize)
+    expect(satellite.wideModelSize / satellite.modelSize).toBeGreaterThan(0.5)
   })
 })

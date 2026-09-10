@@ -148,13 +148,27 @@ function loadTemplate(renderer?: THREE.WebGLRenderer): Promise<THREE.Group> {
 export function createSatellite({ seed = 0, renderer, panel, cue = false }: Options = {}) {
   const group = new THREE.Group()
 
-  // Everything visible hangs off an inner group. The OUTER group's scale is
-  // rewritten every frame by the entrance animation in createOrbitSystem, so the
-  // hover bump has to live one level down or it is silently overwritten on the
-  // next frame. The outer group also stays the raycast target, so this is
-  // invisible to every consumer.
+  // THREE nested scale nodes, one writer each, and the nesting is the whole
+  // reason any of them works:
+  //
+  //   group     the entrance animation, rewritten EVERY FRAME by
+  //             createOrbitSystem — and it keeps writing 1.0 forever once the
+  //             intro clamps, so nothing else may touch it.
+  //   assembly  how big a satellite is on this viewport. Written only when the
+  //             viewport changes, which is why the device size is expressed as
+  //             a scale and not as a second set of constants: everything it
+  //             governs is baked into geometry at construction and the orbit
+  //             system is never rebuilt on a resize.
+  //   content   the hover bump and the invitation's breath, also every frame.
+  //
+  // A value written one level too high is silently overwritten on the next
+  // frame by the writer that owns that node; that is the failure this shape
+  // exists to make impossible.
+  const assembly = new THREE.Group()
+  group.add(assembly)
+
   const content = new THREE.Group()
-  group.add(content)
+  assembly.add(content)
 
   // Invisible raycast target. The model is thin and spiky, so hovering its
   // actual meshes would flicker; a sphere the size of the old badge keeps the
@@ -178,13 +192,17 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
     content.add(holoPanel.group)
   }
 
-  // The tutorial's cue hangs off the OUTER group: it converges on the
-  // satellite from a shell around it, and that shell must not breathe or bump
-  // with the model — the entrance scale is the only one it should inherit.
+  // The tutorial's cue hangs off `assembly`, NOT off `content`: it converges on
+  // the satellite from a shell around it, and that shell must not breathe or
+  // bump with the model. It DOES take the viewport size and the entrance scale,
+  // which are the two above it — a cue converging on a smaller satellite has to
+  // be a smaller shell, and its particles a matching size, which they are for
+  // free: the shader reads the accumulated model scale off the matrix
+  // (`length(modelViewMatrix[0].xyz)`) rather than assuming it.
   let hoverCue: HoverCue | null = null
   if (cue && panel) {
     hoverCue = createHoverCue({ holoColor: panel.holoColor })
-    group.add(hoverCue.object)
+    assembly.add(hoverCue.object)
   }
 
   // The spinner carries the model's continuous self-rotation. It advances only
@@ -306,6 +324,23 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
     hoverCue?.setProgress(progress)
   }
 
+  /**
+   * How large this satellite is on the current viewport, as a factor of the
+   * authored size. 1 on a phone; `wideModelSize / modelSize` on anything wider.
+   *
+   * The one writer of `assembly.scale`, and it is called from the layer's
+   * viewport effect rather than per frame — the value changes on a resize or a
+   * rotation and at no other time. See orbit/satelliteScale.ts for what decides
+   * it and orbitConfig's `wideModelSize` for why size is a scale here at all.
+   */
+  function setAssemblyScale(factor: number) {
+    // A non-finite or zero factor would collapse every satellite to a point,
+    // and R3F reports a 0x0 viewport for a frame or two before the container is
+    // measured. Cheaper to refuse it than to explain the flicker later.
+    if (!Number.isFinite(factor) || factor <= 0) return
+    assembly.scale.setScalar(factor)
+  }
+
   /** `pixelRatio × CSS height`, for the cue's point size. See createHoverCue. */
   function setViewportScale(px: number) {
     hoverCue?.setViewportScale(px)
@@ -379,6 +414,7 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
     setInvited,
     setCue,
     setViewportScale,
+    setAssemblyScale,
     resetExpansion,
     update,
     dispose,

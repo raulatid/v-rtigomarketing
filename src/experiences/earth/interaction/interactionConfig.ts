@@ -114,6 +114,12 @@ export const INTERACTION_CONFIG = {
     // read larger — and holding this framing is also what keeps the brand
     // atlas's cell resolution sufficient (see createBrandAtlas's CELL note,
     // which sizes both cells for this view).
+    // BOTH NUMBERS BELOW ARE THE PHONE'S, and they are scaled at the point of
+    // use. Since 2026-09-09 the satellite is not one size: a wide viewport gets
+    // `orbitConfig`'s `wideModelSize` through a scale on the assembly, and
+    // `createFocusCameraRig.focusOn` multiplies `distance` and `lift` by that
+    // same factor so the close-up frames the same subject either way. Retune
+    // them against a phone; the wide frame follows.
     distance: 1.78 * R,
     // Small vertical camera lift. Scaled with `distance` on 2026-09-09: it is a
     // world offset added at the camera, so leaving it while the back-off grew

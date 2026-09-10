@@ -2,6 +2,7 @@ import { RefObject, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { createOrbitSystem, OrbitSystem } from './createOrbitSystem'
+import { satelliteAssemblyScale } from './satelliteScale'
 import { EARTH_CONFIG } from '../config/earthConfig'
 
 import { SequenceState } from '../config/sequenceState'
@@ -81,13 +82,23 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
     // never used were all in here without being read.
   }, [systemRef, gl])
 
-  // World-sized points need the factor three's PointsMaterial would supply —
-  // pixel ratio × CSS height. R3F's `size.height`, NOT `gl.domElement.height`,
-  // which is already multiplied by the ratio and would square it. Declared
-  // after the build effect so it lands on a system that exists.
+  // THE ONE PLACE a viewport value reaches the orbit system, and it stays one
+  // place deliberately — the build effect above tears the whole system down and
+  // rebuilds it, so anything viewport-shaped has to be pushed into the live
+  // system instead of becoming a dependency of that.
+  //
+  // Two numbers now. The cue's point size wants `pixel ratio × CSS height`:
+  // R3F's `size.height`, NOT `gl.domElement.height`, which is already
+  // multiplied by the ratio and would square it. The assembly scale wants the
+  // CSS size in both axes, because what counts as a phone is a width OR a
+  // height (a phone in landscape is 852x393). Declared after the build effect
+  // so it lands on a system that exists.
   useEffect(() => {
-    localSystem.current?.setViewportScale(size.height * gl.getPixelRatio())
-  }, [size.height, gl])
+    const system = localSystem.current
+    if (!system) return
+    system.setViewportScale(size.height * gl.getPixelRatio())
+    system.setAssemblyScale(satelliteAssemblyScale(size.width, size.height))
+  }, [size.width, size.height, gl])
 
   useFrame((_, rawDelta) => {
     const system = localSystem.current

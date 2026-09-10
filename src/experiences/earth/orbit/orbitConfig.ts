@@ -99,6 +99,26 @@ export const ORBIT_CONFIG = {
     // in orbitConfig.test.ts pin therefore lands within ~1.5% of where it was,
     // and the rounding is what that 1.5% is — see the arithmetic on `offsetY`.
     modelSize: 0.88,
+    // The WIDE-viewport size, from 2026-09-09: the same satellite reads too
+    // large on a desktop frame and right on a phone, so there are two.
+    //
+    // This is NOT a second set of constants, and that is the whole design. The
+    // ratio `wideModelSize / modelSize` is applied as ONE group scale to the
+    // whole satellite assembly — model, isotype panel, the panel's offset, the
+    // emitter cone, the hover sphere and the tutorial cue all ride it — so every
+    // number above and below stays tuned against `modelSize` alone and every
+    // guard in orbitConfig.test.ts holds at both sizes by construction.
+    //
+    // It has to work that way rather than as two authored sets: all of those
+    // values are baked into geometry at construction, and OrbitSystemLayer's
+    // build effect deliberately never re-runs on resize. A scale node can be
+    // rewritten at any moment; a constant cannot.
+    //
+    // `closeUp.distance` and `closeUp.lift` take the same factor at the point of
+    // use — see interactionConfig.ts. Which viewports count as phones is
+    // `isPhoneViewport` in camera/closeUpFraming.ts, the same question the
+    // close-up's own framing asks.
+    wideModelSize: 0.72,
     // Continuous self-rotation in radians/second (varied ±15% per satellite).
     // Runs through the case-panel freeze so enter/exit never interrupts it.
     modelSpinSpeed: 0.25,

@@ -332,6 +332,16 @@ export function createOrbitSystem({ renderer }: Options) {
     for (const orbit of orbits) orbit.satellite.setViewportScale(px)
   }
 
+  /**
+   * How large the satellites are on this viewport, as a factor. See
+   * satelliteScale.ts; the layer computes it and pushes it through here on the
+   * same effect that carries `setViewportScale`, so there is still exactly one
+   * channel from the viewport into this system.
+   */
+  function setAssemblyScale(factor: number) {
+    for (const orbit of orbits) orbit.satellite.setAssemblyScale(factor)
+  }
+
   function dispose() {
     for (const orbit of orbits) {
       orbit.orbitLine.dispose()
@@ -362,6 +372,7 @@ export function createOrbitSystem({ renderer }: Options) {
     setSatelliteInvited,
     setSatelliteCue,
     setViewportScale,
+    setAssemblyScale,
     dispose,
   }
 }

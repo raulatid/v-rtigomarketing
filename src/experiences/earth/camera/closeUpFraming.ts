@@ -63,6 +63,30 @@ export const CASE_PANEL_DOCK_MIN_WIDTH = 768
  */
 export const CASE_PANEL_DOCK_MIN_HEIGHT = 501
 
+/**
+ * Is this viewport a PHONE?
+ *
+ * The two constants above are a width AND a height because a breakpoint written
+ * only in width does not describe a phone — `styles.css` learned that the hard
+ * way with `(max-width: 767px), (max-height: 500px)`, and PROJECT_MEMORY records
+ * it. A phone in landscape is 852x393: wide enough to pass any width test, and
+ * still a phone.
+ *
+ * Extracted on 2026-09-09 so the satellites' size can ask the same question the
+ * close-up's framing already asked, rather than spelling the breakpoint a fifth
+ * time. The repo has four spellings already (SiteHeader's PHONE_QUERY,
+ * AuditSection's MOBILE_MAX, earthConfig's and spaceConfig's narrowMaxWidth) and
+ * DECISIONS.md records a shipped black sky caused by exactly that kind of drift.
+ *
+ * A 0x0 viewport answers TRUE. R3F reports 0x0 for a frame or two before the
+ * container is measured, and of the two possible wrong answers this is the
+ * harmless one: it is what the guards below already do by falling through to
+ * `return 0`, and any consumer that acts on it is corrected on the next read.
+ */
+export function isPhoneViewport(viewportWidthPx: number, viewportHeightPx: number): boolean {
+  return viewportWidthPx < CASE_PANEL_DOCK_MIN_WIDTH || viewportHeightPx < CASE_PANEL_DOCK_MIN_HEIGHT
+}
+
 export interface CloseUpOffsetParams {
   /** Camera-to-subject distance, in world units. */
   subjectDistance: number
@@ -88,8 +112,7 @@ export function closeUpScreenOffset({
   viewportWidthPx,
   viewportHeightPx,
 }: CloseUpOffsetParams): number {
-  if (viewportWidthPx < CASE_PANEL_DOCK_MIN_WIDTH) return 0
-  if (viewportHeightPx < CASE_PANEL_DOCK_MIN_HEIGHT) return 0
+  if (isPhoneViewport(viewportWidthPx, viewportHeightPx)) return 0
 
   // Degenerate inputs are possible in practice: R3F reports a 0×0 size for a
   // frame or two before the container is measured, and an aspect of 0 would
