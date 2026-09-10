@@ -15,6 +15,12 @@ export const CITY_MATERIAL_NAME = 'MAT_CITY_BUILDINGS';
 /** The terrain plate's. See `applyTrimSheet` for why it is a second material. */
 export const GROUND_MATERIAL_NAME = 'MAT_CITY_GROUND';
 
+/**
+ * The buildings material with vertex colours on, for geometry carrying COLOR_0.
+ * See `applyTrimSheet` for why it cannot be the same instance.
+ */
+export const CITY_VERTEX_COLOR_MATERIAL_NAME = 'MAT_CITY_BUILDINGS_VERTEX_COLOR';
+
 export interface ApplyTrimSheetOptions {
   root: THREE.Object3D;
   sheet: TrimSheet;
@@ -150,14 +156,54 @@ export function applyTrimSheet(options: ApplyTrimSheetOptions): AppliedTrimSheet
         })
       : null;
 
+  const meshes: THREE.Mesh[] = [];
   root.traverse((obj) => {
-    const mesh = obj as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.material =
-      (mesh === terrain || mesh === ground) && groundMaterial ? groundMaterial : buildings;
+    if ((obj as THREE.Mesh).isMesh) meshes.push(obj as THREE.Mesh);
   });
 
-  return { textured: [buildings], ground: groundMaterial };
+  // A building that carries COLOR_0 needs `vertexColors`, and a building that
+  // does not must NOT have it: three reads a missing attribute as WebGL's
+  // default (0,0,0,1), so one shared material with vertex colours switched on
+  // would render every uncoloured building black. Only `ShaderMaterial` can
+  // supply its own default. Hence exactly two building materials — one per
+  // shader variant, never one per coloured mesh — and the second only exists
+  // when the file actually has colour. `GLTFLoader` made the same split, but
+  // its clones were of the fabricated default this function discards.
+  const isBuilding = (mesh: THREE.Mesh) => mesh !== terrain && mesh !== ground;
+  const vertexColoured = meshes.some((mesh) => isBuilding(mesh) && hasVertexColours(mesh))
+    ? createVertexColoured(buildings)
+    : null;
+
+  for (const mesh of meshes) {
+    if (!isBuilding(mesh) && groundMaterial) {
+      mesh.material = groundMaterial;
+    } else {
+      mesh.material = vertexColoured && hasVertexColours(mesh) ? vertexColoured : buildings;
+    }
+  }
+
+  return {
+    textured: vertexColoured ? [buildings, vertexColoured] : [buildings],
+    ground: groundMaterial,
+  };
+}
+
+function hasVertexColours(mesh: THREE.Mesh): boolean {
+  return mesh.geometry.getAttribute('color') !== undefined;
+}
+
+/**
+ * The buildings material with vertex colours on, and nothing else different.
+ *
+ * `clone()` carries the maps by reference and every PBR value, so the two
+ * materials sample one trim sheet and light identically; the vertex colour is
+ * then a pure multiplier on the sheet's base colour, and white is no change.
+ */
+function createVertexColoured(buildings: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+  const material = buildings.clone();
+  material.name = CITY_VERTEX_COLOR_MATERIAL_NAME;
+  material.vertexColors = true;
+  return material;
 }
 
 function materialsOf(mesh: THREE.Mesh): THREE.Material[] {

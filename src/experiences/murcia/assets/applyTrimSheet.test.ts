@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
-import { applyTrimSheet, CITY_MATERIAL_NAME, GROUND_MATERIAL_NAME } from './applyTrimSheet'
+import {
+  applyTrimSheet,
+  CITY_MATERIAL_NAME,
+  CITY_VERTEX_COLOR_MATERIAL_NAME,
+  GROUND_MATERIAL_NAME,
+} from './applyTrimSheet'
 import { isCompressedTexturePath } from './loadTrimSheet'
 import type { TrimSheet } from './loadTrimSheet'
 import { collectTextures } from '../../../graphics/disposal'
@@ -19,6 +24,12 @@ function named(name: string): THREE.Texture {
   const tex = new THREE.Texture()
   tex.name = name
   return tex
+}
+
+/** Gives a mesh a white COLOR_0, as GLTFLoader names it: `color`, RGBA. */
+function coloured(mesh: THREE.Mesh): void {
+  const count = mesh.geometry.getAttribute('position').count
+  mesh.geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(count * 4).fill(1), 4))
 }
 
 /**
@@ -176,6 +187,73 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     // Not a black or white stand-in: a wrong ORM is worse than none.
     expect(material.aoMap).toBeNull()
     expect(material.roughnessMap).toBeNull()
+  })
+
+  it('gives every coloured building ONE shared vertex-colour material, and the rest the plain one', () => {
+    // COLOR_0 is the per-building tint layer. The split is per shader variant,
+    // not per mesh: a material per coloured mesh would be hundreds of them.
+    const { root, meshes, terrain } = city(4)
+    coloured(meshes[0])
+    coloured(meshes[1])
+
+    const applied = applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+    const plain = meshes[2].material as THREE.MeshStandardMaterial
+    const tinted = meshes[0].material as THREE.MeshStandardMaterial
+
+    expect(meshes[1].material).toBe(tinted)
+    expect(meshes[3].material).toBe(plain)
+    expect(tinted).not.toBe(plain)
+    expect(tinted.vertexColors).toBe(true)
+    expect(tinted.name).toBe(CITY_VERTEX_COLOR_MATERIAL_NAME)
+    // Without it a building with no COLOR_0 reads (0,0,0,1) and renders black.
+    expect(plain.vertexColors).toBe(false)
+    expect(plain.name).toBe(CITY_MATERIAL_NAME)
+    expect(applied.textured).toEqual([plain, tinted])
+  })
+
+  it('lets the vertex-colour material differ from the plain one ONLY in vertexColors', () => {
+    // Same trim sheet instances, same lighting: white COLOR_0 must reproduce the
+    // plain material exactly, or the comparison the experiment rests on is void.
+    const base = named('base')
+    const normal = named('normal')
+    const orm = named('orm')
+    const { root, meshes, terrain } = city(2)
+    coloured(meshes[0])
+
+    applyTrimSheet({ root, sheet: sheet({ baseColor: base, normal, orm }), terrain, authored: false })
+    const tinted = meshes[0].material as THREE.MeshStandardMaterial
+    const plain = meshes[1].material as THREE.MeshStandardMaterial
+
+    expect(tinted.map).toBe(base)
+    expect(tinted.normalMap).toBe(normal)
+    expect(tinted.aoMap).toBe(orm)
+    expect(tinted.roughnessMap).toBe(orm)
+    expect(tinted.metalnessMap).toBe(orm)
+    expect(tinted.metalness).toBe(plain.metalness)
+    expect(tinted.roughness).toBe(plain.roughness)
+    expect(tinted.color.getHex()).toBe(plain.color.getHex())
+  })
+
+  it('creates no vertex-colour material when no building is coloured', () => {
+    // The shipped city has no COLOR_0: its material set must be exactly today's.
+    const { root, terrain } = city(3)
+
+    const applied = applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+
+    expect(applied.textured).toHaveLength(1)
+    expect((applied.textured[0] as THREE.MeshStandardMaterial).vertexColors).toBe(false)
+  })
+
+  it('keeps the ground on its own material even when the plate carries COLOR_0', () => {
+    // A coloured plate must not become a building: it would pick up the sheet
+    // that the collar and skirt then smear across the horizon.
+    const { root, terrain } = city(1)
+    coloured(terrain)
+
+    const applied = applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+
+    expect(terrain.material).toBe(applied.ground)
+    expect(applied.textured).toHaveLength(1)
   })
 
   it('shares one ORM texture across the three slots it packs, and disposal sees it once', () => {
