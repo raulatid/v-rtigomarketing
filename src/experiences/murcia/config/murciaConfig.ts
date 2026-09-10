@@ -220,7 +220,7 @@ export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
   // Root-absolute: a document-relative path resolves against the current
   // route and 404s anywhere but the root.
-  modelPath: '/models/city-prototype.glb',
+  modelPath: '/models/murcia-v5.glb',
 
   // The sheet in the tree is a CALIBRATION CHART, not art: eight saturated
   // 256px bands, there so the mechanism can be seen working before anyone has

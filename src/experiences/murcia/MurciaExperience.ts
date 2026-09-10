@@ -39,10 +39,9 @@ import { StatusOverlay } from './ui/overlays';
 import { CompassBar, type CompassPoi } from './ui/compassBar';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import type { TowerLogo } from './landmark/createTowerLogo';
-import { attachBanner, resolveBannerSource } from './landmark/attachBanner';
-import type { BannerAttachment } from './landmark/attachBanner';
+import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
+import type { TowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import { VERTIGO_BUILDING } from './landmark/vertigoBuildingConfig';
-import { BUILDING_BANNER } from '../../content/site';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc } from '../../interaction/screenSpace';
@@ -140,8 +139,8 @@ export class MurciaExperience {
   private compass: CompassBar | null = null;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
-  /** The banner on the tower's screen, when the site settings say there is one. */
-  private banner: BannerAttachment | null = null;
+  /** The tower's LED screen: its compositions, taking turns on the carousel. */
+  private towerScreen: TowerScreen | null = null;
   private loaded: LoadedCity | null = null;
   /**
    * Elapsed seconds handed to the water shader.
@@ -763,25 +762,27 @@ export class MurciaExperience {
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
       reducedMotion: this.reducedMotion,
     });
-    // Awaited here, INSIDE the city's own load, and that is a deliberate
-    // placement rather than a readiness decision: `murcia:model` is not a
-    // required boot step (bootState.ts), so the boot never waits on this — but
-    // `warm()` runs after this method and compiles whatever materials the city
-    // holds, and a banner material that arrived later would compile on the
-    // first frame it is drawn. A texture the size of a favicon is cheaper
-    // awaited than hitched.
-    const bannerSource = resolveBannerSource(BUILDING_BANNER, VERTIGO_BUILDING.placeholderImage);
-    if (bannerSource) {
-      this.banner = attachBanner(loaded.root, VERTIGO_BUILDING, bannerSource);
-      await this.banner.ready;
-    }
+    // Placed here for two orderings. AFTER the city's material pass, which
+    // dressed the tower in the trim sheet like every other building — the
+    // palette replaces that on the tower's parts. And BEFORE `warm()`, which
+    // runs after this method: the screen's shader and the palette's materials
+    // exist synchronously, so they compile with the rest of the city instead of
+    // on the first frame they are drawn. Not awaited: the slides' pictures are
+    // tens of KB, and the screen draws a complete frame without them.
+    this.towerScreen = attachTowerScreen(loaded.root, {
+      // The trim sheet's 4 (`loadCity.ts`, `TRIM_ANISOTROPY`): the screen is
+      // seen at a grazing angle from the resting pose, like the sign before it.
+      anisotropy: 4,
+      reducedMotion: this.reducedMotion,
+      screenNodeName: VERTIGO_BUILDING.screenNodeName,
+    });
 
     this.setupClickInteraction();
     this.statusOverlay.hide();
   }
 
   /**
-   * The blog's entry point: a display floating above the `blog_edificios`
+   * The blog's entry point: a display floating above the `edificio-blog`
    * cluster, and the flight that clicking it starts (plan 022).
    *
    * Deliberately NOT a district and not part of `DistrictInteraction`. There is
@@ -1211,6 +1212,10 @@ export class MurciaExperience {
     // The tower's logo turns on the same delta. A quaternion write per node, no
     // allocation — see createTowerLogo for why there is no loop of its own.
     this.towerLogo?.update(delta);
+    // And its screen: the carousel's clock and the facade's crossfade, shimmer
+    // and dust. A repaint happens only when a slide changes or its entrance
+    // moves, so a settled slide costs one draw call.
+    this.towerScreen?.update(delta);
 
     if (!this.firstFrameRecorded && this.loaded) {
       this.loaded.timings.firstRenderedFrameTime = performance.now();
@@ -1253,12 +1258,14 @@ export class MurciaExperience {
   dispose(): void {
     this.blogDisplay?.dispose();
     this.blogDisplay = null;
-    // Nothing to release: the logo owns no resource, only a reference into the
-    // city that disposeLoadedCity below takes down. The banner's texture goes
-    // the same way once applied; dispose() only covers one still in flight.
+    // The logo owns no resource, only a reference into the city that
+    // disposeLoadedCity below takes down. The screen does: its canvases and
+    // canvas textures are unreachable from the scene graph, so they are
+    // released here. Its palette materials hang on the tower's meshes and go
+    // with the city.
     this.towerLogo = null;
-    this.banner?.dispose();
-    this.banner = null;
+    this.towerScreen?.dispose();
+    this.towerScreen = null;
     this.active = false;
 
     this.renderer.domElement.removeEventListener('pointerup', this.onPointerUpForClick);

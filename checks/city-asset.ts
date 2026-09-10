@@ -52,7 +52,7 @@ import {
 import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
 
 const MODEL =
-  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/city-prototype.glb';
+  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/murcia-v5.glb';
 
 /**
  * `--contract-only` runs the NAME sections and skips the pending UV assertion.
@@ -492,20 +492,18 @@ for (const [label, configured] of [
 
 // --- 5d. The Vertigo building -----------------------------------------------
 //
-// The client's own tower: its sign turns (createTowerLogo) and its band carries
-// the banner (attachBanner). Both are found by NAME and both degrade to a still,
-// plain building when the name is gone — which is the quiet failure this
-// section exists to catch. The contract the names stand for (pivot on the
-// tower's axis, identity rotation, an axis-aligned box band) is written out in
+// The client's own tower: its sign turns (createTowerLogo) and its LED screen
+// runs the tower's compositions (towerScreen/attachTowerScreen). Both are found
+// by NAME and both degrade to a still, dark building when the name is gone —
+// which is the quiet failure this section exists to catch. The contract the
+// names stand for (logo pivots at their own centres with identity rotation, a
+// screen with physical-aspect UVs) is written out in
 // landmark/vertigoBuildingConfig.ts; a JSON read can assert the names and the
-// identity transform, and does.
+// logo's identity transform, and does.
 
 section('5d. The Vertigo building (landmark/vertigoBuildingConfig — names ARE the identity)');
 
-for (const configured of new Set([
-  ...VERTIGO_BUILDING.logoNodeNames,
-  VERTIGO_BUILDING.bannerNodeName,
-])) {
+for (const configured of new Set(VERTIGO_BUILDING.logoNodeNames)) {
   const matches = nodesNamed(configured);
   check(
     `"${configured}" is in the GLB`,
@@ -523,6 +521,20 @@ for (const configured of new Set([
     `"${configured}" carries no authored rotation or scale`,
     identity,
     identity ? 'identity, so local +Y is vertical' : 'the mark would turn off the vertical',
+  );
+}
+
+// The screen, by name only. It is a part of the tower and is exported with the
+// tower's own turn, and nothing reads its orientation — the compositions ride
+// its UVs — so the logo's identity rule would be a false failure here.
+{
+  const screens = nodesNamed(VERTIGO_BUILDING.screenNodeName);
+  check(
+    `"${VERTIGO_BUILDING.screenNodeName}" is in the GLB`,
+    screens.length > 0,
+    screens.length > 0
+      ? `as ${list(screens)}`
+      : "the tower's screen stays dark — see murcia/landmark/vertigoBuildingConfig.ts",
   );
 }
 

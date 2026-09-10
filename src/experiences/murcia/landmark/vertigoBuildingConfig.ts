@@ -2,64 +2,49 @@
  * The Vertigo building — the client's own tower in the city, and the one
  * landmark whose parts the runtime touches by name.
  *
- * ## The contract the GLB keeps (plan 019 §1, §2)
+ * ## The contract the GLB keeps (since murcia-v4)
  *
- * Five nodes, all direct children of the scene root, all exported with NO
- * rotation and NO scale — identity, so the turn below composes onto nothing
- * and a re-export that ever tilts the logo keeps its tilt through
- * `createTowerLogo` rather than losing it. Positions are world units.
+ * The tower arrives as `VERTIGO_ROOT` and its parts, exported with its scale
+ * APPLIED — every vertex moved, no node scale — at about 0.307 of the modelled
+ * 208 m building, and with NO materials:
  *
- *   `edificio-vertigo-estructura`    the tower, pivot at its BASE at
- *                                    (-275.72, 1.47, 299.08), 45 units tall,
- *                                    square in plan. Never touched.
- *   `edificio-vertigo-banner-panel`  the screen: a four-sided box band with no
- *                                    top or bottom, pivot at its centre on the
- *                                    tower's axis at y 37.09, ~9.8 wide and
- *                                    ~5.3 tall per face (each face ~1.84:1).
- *   `edificio-vertigo-leds`          the LED sleeve around the band, same
- *                                    pivot, a hair larger on every side.
- *   `logo-V`                         THE LOGO, lower half: the isotype's V,
- *                                    pivot at its own centre at
- *                                    (-276.01, 50.28, 299.76).
- *   `logo-curva`                     the logo's upper half: the isotype's arc,
- *                                    pivot at its own centre at
- *                                    (-276.00, 53.76, 299.78).
+ *   `ARCH_*`, `BRAND_VERTIGO`   the building. Coloured at runtime by these
+ *                                names (`towerScreen/towerPalette.ts`), since
+ *                                the city's material pass would otherwise dress
+ *                                it like every other building.
+ *   `LED_Main`                  THE SCREEN: one curved strip whose authored UVs
+ *                                are at its physical aspect (a 1024 × 3686
+ *                                artwork), v running top to bottom.
+ *   `logo-V`                    THE LOGO, lower half: the isotype's V, a direct
+ *                                child of the scene root with its pivot at its
+ *                                own centre, on the tower's crown.
+ *   `logo-curva`                the logo's upper half: the isotype's arc, same.
  *
  * ## The logo turns
  *
  * The two curve meshes are the same two the header's mark is built from
  * (`vertigo-isotipo-3d.glb`), standing on the tower's cap. They turn about
- * their own local +Y, and because their pivots share (x, z) to within 0.02 of
- * a unit they turn as one piece — the pivot being at each mesh's OWN CENTRE is
- * what makes "rotate about local Y" mean "spin in place" with no offset
- * arithmetic. That is the one thing an export must not move: a pivot dragged
- * to a corner would make the mark orbit its post instead of turning on it.
+ * their own local +Y, and because their pivots share (x, z) to within a hair
+ * they turn as one piece — the pivot being at each mesh's OWN CENTRE is what
+ * makes "rotate about local Y" mean "spin in place" with no offset arithmetic.
+ * That is the one thing an export must not move: a pivot dragged to a corner
+ * would make the mark orbit its post instead of turning on it. Both are
+ * exported with NO rotation and NO scale, so the turn composes onto nothing.
  *
- * They were `BézierCurve` and `BézierCurve.001` — Blender's defaults for a
- * curve object — until the 2026-09-06 re-export took the contract's own advice
- * and named them. Both pivots came across to within 0.01 of a unit, so this was
- * a rename and nothing else; the turn is unchanged.
+ * ## The screen runs the tower's compositions
  *
- * Two things got better and are worth keeping. Neither name carries a dot now,
- * so neither depends on GLTFLoader's reserved-character stripping and
- * `findByAnyNameSpelling` has nothing to disambiguate. And a name that says
- * which half it is survives the next export by meaning something, where a
- * default did not. `checks/city-asset.ts` §5d still fails the build when the
- * file and this list disagree, which is what caught the rename.
- *
- * ## The banner is the band's four side faces
- *
- * Its authored UVs are a top-down projection (every side face collapses onto
- * one edge of the UV square), so the runtime maps the image onto each face
- * from the geometry itself — see `attachBanner` — and the contract asks only
- * that the band stay an axis-aligned box in its own local frame, with normals
- * facing OUT. Nothing here depends on how the .blend unwraps it. The band and
- * its sleeve do not move.
+ * `towerScreen/` draws them onto `LED_Main` through its UVs, so nothing here
+ * depends on the screen's orientation — it carries the tower's own turn, and
+ * the asset check holds it to its name only. Its layouts are in the metres of
+ * the modelled building; the applied scale is undone by the screen's design
+ * width (`towerScreen/content/towerContent.ts`), so a re-export at another
+ * scale needs no layout edit.
  *
  * Every node is optional at runtime — a missing one warns and the city loads
  * without it — and every one is asserted on the file by
  * `npm run check:asset:contract`, exactly as for the river and the blog
- * cluster.
+ * cluster. This module stays a leaf: the check bundles it for Node, which has
+ * no loader for the screen's shaders.
  */
 
 export interface TowerLogoConfig {
@@ -76,21 +61,13 @@ export interface TowerLogoConfig {
 export interface VertigoBuildingConfig {
   /** Every node of the logo, turned together in one rigid motion. */
   logoNodeNames: readonly string[];
-  /** The face set the banner image is applied to. */
-  bannerNodeName: string;
-  /**
-   * What the band shows until the client uploads a banner in the Studio.
-   * Root-absolute like `modelPath`, and drawn through exactly the path the
-   * real upload will take — see `attachBanner`. 1600×800, the 2:1 the media
-   * rule in `siteSettings.collection.ts` calls ideal.
-   */
-  placeholderImage: string;
+  /** The mesh the tower's compositions are drawn on. */
+  screenNodeName: string;
   logo: TowerLogoConfig;
 }
 
 export const VERTIGO_BUILDING: VertigoBuildingConfig = {
   logoNodeNames: ['logo-V', 'logo-curva'],
-  bannerNodeName: 'edificio-vertigo-banner-panel',
-  placeholderImage: '/textures/murcia/vertigo-banner-placeholder.png',
+  screenNodeName: 'LED_Main',
   logo: { axis: 'y', angularSpeedRadPerSec: 0.35 },
 };

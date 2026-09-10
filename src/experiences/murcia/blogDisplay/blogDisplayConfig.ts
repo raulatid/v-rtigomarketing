@@ -21,7 +21,9 @@
  * asserted by `checks/city-asset.ts` — so a re-export that renames one fails the
  * build rather than quietly removing the way into the blog.
  *
- * ONE name since the 2026-09-06 re-export, which merged the cluster. It stays a
+ * ONE name since the 2026-09-06 re-export, which merged the cluster, and
+ * `edificio-blog` since `murcia-v5` (2026-09-10), whose export had dropped the old
+ * `blog_edificios` name for a Blender default. It stays a
  * list because what it names is "the meshes the blog's entry point is made of",
  * and that has been more than one before and may be again — every consumer already
  * iterates it, so a second name costs nothing to add back.
@@ -32,7 +34,7 @@
  * `blog_edificios001`, and the 2026-08-11 audit recorded exactly that biting for
  * real on this cluster.
  */
-export const BLOG_BUILDING_NODE_NAMES = ['blog_edificios'] as const;
+export const BLOG_BUILDING_NODE_NAMES = ['edificio-blog'] as const;
 
 /**
  * How high above the cluster's TOP the panel's centre floats, in world units.

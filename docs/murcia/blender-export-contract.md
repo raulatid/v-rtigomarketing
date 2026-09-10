@@ -375,39 +375,36 @@ and the shell supplies its own hemisphere + directional rig rather than the
 region it was assigned** — checked by band identity and ordering, with clearly
 distinct test colours — not that the two screenshots match.
 
-### 6.8 The Vertigo building keeps five nodes, and their pivots
+### 6.8 The Vertigo building: its parts, its screen, and the logo's pivots
 
 The client's own tower is the one landmark the runtime moves and dresses by
-name (plan 019, 2026-09-05). Five nodes, all direct children of the scene root,
-all exported with **no rotation and no scale** — identity, which is what lets
-the runtime say "turn about local +Y" and mean "spin in place":
+name. Since `murcia-v4` it is the detailed tower from `edificio-vertigo.glb`,
+exported as `VERTIGO_ROOT` and its parts with the scale **applied** (about 0.307
+of the modelled 208 m building) and **no materials**:
 
-| Node | What it is | Pivot |
+| Node | What it is | Rule |
 |---|---|---|
-| `edificio-vertigo-estructura` | the tower | at its base — never touched |
-| `edificio-vertigo-banner-panel` | the screen: a four-sided box band, no top or bottom | at its centre, on the tower's axis |
-| `edificio-vertigo-leds` | the LED sleeve around the band | at its centre, on the tower's axis |
-| `BézierCurve` | the logo's V, standing on the cap | at its own centre |
-| `BézierCurve.001` | the logo's arc, above the V | at its own centre |
+| `ARCH_Glass_*`, `ARCH_Metal_*`, `ARCH_Roof_Zinc`, `ARCH_Stone_Limestone`, `BRAND_VERTIGO` | the building | coloured at runtime BY THESE NAMES (`towerScreen/towerPalette.ts`) — a rename loses the colour |
+| `LED_Main` | the LED screen the tower's compositions run on | keeps its authored UVs: physical aspect, the 1024 × 3686 artwork, v top to bottom |
+| `logo-V` | the logo's V, standing on the crown | direct child of the scene root, pivot at its own centre, **no rotation, no scale** |
+| `logo-curva` | the logo's arc, above the V | same as `logo-V` |
 
-**The logo turns.** `createTowerLogo` turns both curve meshes about their local
-+Y from Murcia's own frame loop, composing the turn onto whatever orientation
-the export carries. Their pivots share `(x, z)` to within 0.02 of a unit, so the
-two halves turn as one piece. Keep the pivots at each mesh's centre: a pivot
-dragged to a corner makes the mark orbit its post instead of turning on it, and
-no code can tell the two apart. Their names are Blender's defaults for a curve
-object; `landmark/vertigoBuildingConfig.ts` records them and `check:asset:contract`
-§5d fails when the file and the config disagree — rename them together, and
-prefer `edificio-vertigo-logo-v` / `edificio-vertigo-logo-arco` when you do.
+`ARCH_Light_Warm` (the tower's warm light strips) is **not** exported: it was
+never meant to be in the city, and a part the palette has no colour for is
+warned about at load.
 
-**The banner is the band's four side faces, and the band does not move.** The
-runtime maps the image onto each face from the geometry — the band's authored
-UVs are a top-down projection that collapses every side face onto one edge of
-the UV square, and the code does not rely on them. What it relies on: the band
-stays an **axis-aligned box in its own local frame, normals facing out**, and
-each face keeps roughly the 1.84:1 shape the media rule in
-`siteSettings.collection.ts` is written for.
+**The logo turns.** `createTowerLogo` turns both meshes about their local +Y
+from Murcia's own frame loop, composing the turn onto whatever orientation the
+export carries. Their pivots share `(x, z)` to within a hair, so the two halves
+turn as one piece. Keep the pivots at each mesh's centre: a pivot dragged to a
+corner makes the mark orbit its post instead of turning on it, and no code can
+tell the two apart.
 
-All five are optional at runtime — a missing node warns and the city loads —
-and all five are asserted on the file by `check:asset:contract` §5d, which
-also checks the identity transform.
+**The screen can be any size.** Its layouts are in the metres of the modelled
+building and the runtime scales whatever it measures back to that width, so a
+re-export at another applied scale needs no code change — but the screen's UVs
+must survive the export untouched, since every composition rides them.
+
+All of these are optional at runtime — a missing node warns and the city
+loads — and the logo's two names and `LED_Main` are asserted on the file by
+`check:asset:contract` §5d, which also checks the logo's identity transform.

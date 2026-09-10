@@ -14,7 +14,7 @@ import { createPanelPointer, type PanelPointer } from './panelPointer';
 
 /**
  * The blog's entry point in the city: a display floating above the
- * `blog_edificios` cluster, and the flight that clicking it starts.
+ * `edificio-blog` building, and the flight that clicking it starts.
  *
  * ## What this replaced
  *
