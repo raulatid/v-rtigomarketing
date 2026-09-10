@@ -3357,6 +3357,12 @@ world; being pointed at something is not the same as having arrived at it.
 > percentage of each mark's OWN width, so a landmark at the edge of the span sat half a label
 > from centre instead of at the end of the bar.
 
+> **Amended 2026-09-10 (evening) — the compass is on the glass** (user direction). The whole
+> instrument sits on a density-A tray: the hint frame's own recipe from §37 — `--glass-bg-light`,
+> the film, the blur, the shadow and the accent-blue edge — so it joins the hint frame and the
+> consent plate as the third floating tray. Its top edge is the header controls' top edge, and it
+> hangs below the header from there. The lab's blue bar and forward mark stay on the glass.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle

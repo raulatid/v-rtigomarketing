@@ -164,36 +164,63 @@
 }
 
 /* ── The compass ──────────────────────────────────────────────────────────────
-   The lab's lens-and-pins instrument on the site header's line, between its
-   two ends, saying which way the two places worth clicking are. See `ui/compassBar.ts`; the bearings
-   are `utils/compass`.
+   The lab's lens-and-pins instrument on a smoked-glass plate on the site
+   header's line, between its two ends, saying which way the two places worth
+   clicking are. See `ui/compassBar.ts`; the bearings are `utils/compass`.
 
    Decorative throughout: `pointer-events: none` here and `aria-hidden` on the
    element, both load-bearing. Navigation is a gesture (`adr/009`) and the
    district itself stays the only way in.
+
+   THE PLATE IS THE HINT FRAME'S: density A, the floating tray (styles.css
+   .nav-hint, DECISIONS §37) — the same tint, film, blur, shadow and accent
+   edge, read from siteHeader.css's tokens. Bare over the city the hairline and
+   the labels were lost against the plate at its brightest. One blurred layer:
+   the plate carries the backdrop-filter and nothing inside it does.
+
+   The box has a HEIGHT, unlike the bare version whose top was the bar's own
+   centre line: every child is absolutely positioned, so the plate has to be
+   told how tall its contents are. `--cy` is the bar's centre within it — the
+   forward mark's upper half above, the pins and the label at its full warm
+   size below. The children are inset by `--pad-x`, because an absolutely
+   positioned child measures against the padding box and the bar must not run
+   under the plate's edge.
 
    Positions arrive as `--offset`, a signed percentage of the bar's width
    (±50% at the ends of the span), applied to a track as wide as the bar, so
    nothing here has to know the width and the JS never measures it. */
 .murcia-ui .murcia-compass {
   position: absolute;
-  /* ON the site header's line, the one the logo, the triggers and the burger
-     share. This box has no height of its own: its top IS the bar's centre line,
-     the forward mark crosses it, and the pins hang below it into the scene.
-     `--header-line-top` already carries the notch on a phone (siteHeader.css),
-     so the safe area needs no term here. */
-  top: calc(var(--header-line-top) + var(--header-control) / 2);
+  /* Its TOP edge on the header controls' top edge — the line the logo box and
+     the Auditoría button start on — and it hangs below the header from there,
+     the way the hint frame is a plate taller than a control. `--header-line-top`
+     already carries the notch on a phone (siteHeader.css), so the safe area
+     needs no term here. */
+  top: var(--header-line-top);
   left: 50%;
+  --pad-x: 14px;
+  --pad-y: 6px;
+  /* The bar's centre: room above it for the forward mark's upper half. */
+  --cy: calc(var(--pad-y) + 18 * var(--u));
   /* Between the header's two ends at every width. The clearance is MEASURED
      rather than derived, because the header's right-hand group is text: over
      Murcia, Contacto + Auditoría measured 261px wide ending 48px in (Chromium,
      Windows, 2026-09-10; 235px over Earth), so 330px leaves 21px of air; on a
-     phone it is the 44px burger at a 12px inset. The bar is centred, so the
+     phone it is the 44px burger at a 12px inset. The plate is centred, so the
      wider side decides both halves — the corner logo on the left is the
      narrower. */
   --murcia-compass-clear: 330px;
-  width: min(420px, 66vw, 100vw - 2 * var(--murcia-compass-clear));
+  width: min(420px + 2 * var(--pad-x), 66vw, 100vw - 2 * var(--murcia-compass-clear));
+  /* Bar centre, the pin under the bar (5u + 19u), the gap, the label at the
+     1.5× it grows to on arrival, and the bottom padding. */
+  height: calc(var(--cy) + 30 * var(--u) + 1.5 * var(--fs) + var(--pad-y));
   transform: translateX(-50%);
+  border: 1px solid var(--glass-border-accent);
+  border-radius: 14px;
+  background: var(--glass-film), var(--glass-bg-light);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
   pointer-events: none;
   opacity: 0;
   transition: opacity 320ms ease;
@@ -202,20 +229,41 @@
   z-index: 34;
 }
 
-/* A desktop layout too narrow to give the bar 240px between the header's ends
-   (under 900px, with the 330px clearance above) hangs it just under the
+/* The specular film: the top of the plate catches a little light, so the
+   material reads as glass and not as a translucent rectangle. Painted before
+   the marks, which carry their own z-index, so it never covers a label. */
+.murcia-ui .murcia-compass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--glass-highlight);
+  opacity: 0.7;
+}
+
+/* A desktop layout too narrow to give the plate 240px between the header's
+   ends (under 900px, with the 330px clearance above) hangs it just under the
    header's line instead. */
 @media (min-width: 768px) and (max-width: 899px) {
   .murcia-ui .murcia-compass {
-    /* 24px down, so the forward mark's upper half still clears the header. */
-    top: calc(var(--header-line-top) + var(--header-control) + 24px);
-    width: min(420px, 66vw);
+    top: calc(var(--header-line-top) + var(--header-control) + 12px);
+    width: min(420px + 2 * var(--pad-x), 66vw);
   }
 }
 
 @media (max-width: 767px) {
   .murcia-ui .murcia-compass {
     --murcia-compass-clear: 72px;
+  }
+}
+
+/* A shade denser than density A everywhere else, as the hint frame is at this
+   width: the plate is small, it sits over the city at its brightest, and
+   readability wins over consistency of the number. */
+@media (max-width: 480px) {
+  .murcia-ui .murcia-compass {
+    background: var(--glass-film), rgba(10, 15, 22, 0.74);
   }
 }
 
@@ -231,26 +279,27 @@
    easing down to 0.62px by about 470px, so on a narrow screen the marks shrink
    with the bar instead of crowding it. Every mark dimension is a multiple of
    it. The label is not — type at 62% is type nobody reads — and has its own,
-   gentler curve with a 9px floor. */
+   gentler curve with a 9px floor (`--fs`, which the plate's height also reads). */
 .murcia-ui .murcia-compass {
   --u: clamp(0.62px, 100vw / 760, 1px);
-  font: clamp(9px, 2.3vw, 12px) / 1 ui-monospace, monospace;
+  --fs: clamp(9px, 2.3vw, 12px);
+  font: var(--fs) / 1 ui-monospace, monospace;
   letter-spacing: 0.08em;
   color: rgb(255 255 255);
 }
 
 .murcia-ui .murcia-compass__line {
   position: absolute;
-  top: calc(-5 * var(--u));
-  left: 0;
+  top: calc(var(--cy) - 5 * var(--u));
+  left: var(--pad-x);
   display: block;
-  width: 100%;
+  width: calc(100% - 2 * var(--pad-x));
   height: calc(10 * var(--u));
 }
 
 .murcia-ui .murcia-compass__forward {
   position: absolute;
-  top: calc(-18 * var(--u));
+  top: calc(var(--cy) - 18 * var(--u));
   left: 50%;
   display: block;
   width: calc(13 * var(--u));
@@ -268,9 +317,9 @@
   position: absolute;
   /* Under the bar's box, so a pin starts where the lens ends; only the forward
      mark crosses the bar. */
-  top: calc(5 * var(--u));
-  left: 0;
-  width: 100%;
+  top: calc(var(--cy) + 5 * var(--u));
+  left: var(--pad-x);
+  width: calc(100% - 2 * var(--pad-x));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -298,8 +347,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Only the bar's fade in and out eases; the marks are written per frame and
-     carry no transition of their own. */
+  /* Only the plate's fade in and out eases; the marks are written per frame
+     and carry no transition of their own. */
   .murcia-ui .murcia-compass {
     transition: none;
   }
