@@ -32,6 +32,23 @@ interface Options {
   isOverSatellite: (clientX: number, clientY: number) => boolean
 }
 
+/**
+ * `target` expressed as the value nearest `from`, rather than its principal
+ * value.
+ *
+ * The DRAG must never use this — preserving winding is the whole point of it
+ * being unbounded. The RETURN from a close-up must always use it, or a viewer
+ * who wound the globe round one and a half turns would watch it unwind every
+ * degree on the way back. Two opposite requirements, which is why the rig has
+ * two paths; Murcia keeps the same split between `CameraRig.yawDegrees` and
+ * `CameraFlight.shortestYawDelta`. Exported for the destination steer, which
+ * turns the orbit the short way for the same reason the return does.
+ */
+export function nearestEquivalentAngle(from: number, target: number): number {
+  const TAU = Math.PI * 2
+  return from + ((((target - from + Math.PI) % TAU) + TAU) % TAU) - Math.PI
+}
+
 export function createFocusCameraRig({
   camera,
   domElement,
@@ -52,6 +69,8 @@ export function createFocusCameraRig({
   let mode: Mode = 'overview'
   let focused = false // is a close-up target active (decides who owns the target)
   let orbitEnabled = true
+  /** Past the steer threshold the zoom is the only control (DECISIONS §44). See setApproachLock. */
+  let approachLocked = false
 
   // ─── Manual spherical orbit (drag) ───
   //
@@ -100,21 +119,6 @@ export function createFocusCameraRig({
     orbit.radius = s.radius
   }
 
-  /**
-   * `target` expressed as the value nearest `from`, rather than its principal
-   * value.
-   *
-   * The DRAG must never use this — preserving winding is the whole point of it
-   * being unbounded. The RETURN from a close-up must always use it, or a viewer
-   * who wound the globe round one and a half turns would watch it unwind every
-   * degree on the way back. Two opposite requirements, which is why the rig has
-   * two paths; Murcia keeps the same split between `CameraRig.yawDegrees` and
-   * `CameraFlight.shortestYawDelta`.
-   */
-  function nearestEquivalentAngle(from: number, target: number): number {
-    const TAU = Math.PI * 2
-    return from + ((((target - from + Math.PI) % TAU) + TAU) % TAU) - Math.PI
-  }
 
   // Takes over the camera from whatever was driving it.
   //
@@ -225,6 +229,9 @@ export function createFocusCameraRig({
     // right tolerance.
     dragPointerType = e.pointerType
     if (!orbitEnabled) return // no orbit while a satellite is focused
+    // Nor on the approach to the destination: past the steer threshold the zoom
+    // is the only control, so nothing can take the view off its path to Spain.
+    if (approachLocked) return
     // A second finger must not take the gesture over. `onPointerMove` reacted to
     // `orbit.isDragging` alone and this reseeded the anchor for any pointer, so
     // two contact points both fed the orbit and the globe jittered between them.
@@ -519,6 +526,21 @@ export function createFocusCameraRig({
     if (!enabled && orbit.isDragging) endDrag()
   }
 
+  /**
+   * Past the steer threshold the orbit takes no drag at all: on the approach to
+   * the destination the zoom is the only control (DECISIONS §44).
+   *
+   * A flag of its own rather than `setOrbitEnabled`, which the satellite focus
+   * owns — it turns the drag off on select and back ON on deselect, so sharing
+   * one boolean would hand the drag back mid-approach the moment a close-up
+   * ended. A drag in progress when the lock engages is ended, not frozen.
+   */
+  function setApproachLock(locked: boolean) {
+    if (locked === approachLocked) return
+    approachLocked = locked
+    if (locked && orbit.isDragging) endDrag()
+  }
+
   function dispose() {
     domElement.removeEventListener('pointerdown', onPointerDown)
     domElement.removeEventListener('pointermove', onPointerMove)
@@ -535,15 +557,36 @@ export function createFocusCameraRig({
     returnToOverview,
     setZoomDepth,
     setOrbitEnabled,
+    setApproachLock,
     isActive: () => active,
     isDragging: () => orbit.isDragging,
+    /** True while a satellite close-up owns the target, flying in or holding. */
+    isFocused: () => focused,
+    /**
+     * The drag orbit's TARGET angles — where the orbit has been asked to be, not
+     * where the eased camera is. Written into `out`, so a per-frame reader
+     * allocates nothing.
+     */
+    getOrbitAngles(out: { theta: number; phi: number }) {
+      out.theta = orbit.theta
+      out.phi = orbit.phi
+      return out
+    },
+    /**
+     * Writes the same orbit target the drag writes, for the destination steer
+     * (`destinationSteer.ts`). `update()` eases it exactly as it eases a drag,
+     * and phi is held inside the same limits.
+     */
+    setOrbitAngles(theta: number, phi: number) {
+      if (Number.isFinite(theta)) orbit.theta = theta
+      if (Number.isFinite(phi)) orbit.phi = THREE.MathUtils.clamp(phi, cfg.phiMin, cfg.phiMax)
+    },
     /**
      * The point the camera is currently aimed at. Live, not a copy.
      *
-     * Published for the destination steer, which runs immediately after
-     * update() and swings the camera toward the destination — it has to start
-     * from the SAME point the rig just aimed at, or a zero steer would not be a
-     * zero change to the rig's pose.
+     * Anything that re-aims the camera after update() has to start from this
+     * point rather than from the Earth's centre, or it would not compose with the
+     * rig's own aim.
      */
     getLookAt: () => current.lookAt,
     getDragDistance: () => dragDistance,

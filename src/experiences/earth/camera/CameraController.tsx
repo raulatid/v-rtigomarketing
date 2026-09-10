@@ -74,8 +74,6 @@ interface Props {
    * group's transform.
    */
   destinationRef: RefObject<DestinationResolver | null>
-  /** The destination steer in effect, as InteractionLayer last applied it. */
-  steerWeightRef: RefObject<number>
 }
 
 export function CameraController({
@@ -84,7 +82,6 @@ export function CameraController({
   overlayEl,
   active,
   destinationRef,
-  steerWeightRef,
 }: Props) {
   const { camera } = useThree()
 
@@ -96,8 +93,6 @@ export function CameraController({
   const fovAtCommit = useRef<number>(WARP_TRANSITION.earthRestFov)
   const fovCatchUp = useRef(0)
   const destinationWorld = useRef(new THREE.Vector3())
-  /** The band's swing at the commit. See `applyWarp`. */
-  const guideWeightAtCommit = useRef(0)
   const warpLookAt = useRef(new THREE.Vector3())
   const reducedMotion = useMemo(prefersReducedMotion, [])
 
@@ -221,12 +216,6 @@ export function CameraController({
       // cinematic is taking OVER from, and the lens is part of a pose.
       fovAtCommit.current = cam.fov
       fovCatchUp.current = 0
-      // How far the viewer had already swung onto the destination when they
-      // committed. Captured beside the anchor and the lens for the same reason:
-      // all three are parts of the pose the cinematic is taking over from. The
-      // EASED weight, as last applied — recomputing it from the band depth would
-      // differ from what is on screen by however far the ease still had to go.
-      guideWeightAtCommit.current = departing ? steerWeightRef.current : 0
       dollyCaptured.current = true
     }
 
@@ -237,21 +226,16 @@ export function CameraController({
     const radius = dollyAnchor.current.length()
     cam.position.copy(dollyAnchor.current).setLength(radius * earthRadiusScale(amount, WARP_LIMITS))
 
-    // THE AIM, and the departing case cannot be the bell alone.
+    // THE AIM: the bell alone, both ways.
     //
-    // `speed(0)` is exactly 0, so on the first committed frame the bell would
-    // throw the aim back to the sphere's centre and undo the swing the viewer
-    // had just scrolled through — a visible snap at the moment they succeeded.
-    // Departing therefore starts from where the guide had reached and closes the
-    // remainder on the bell; a viewer who committed from a fully swung band
-    // (weight 1) simply holds the zone centred the whole way down, so the dive
-    // continues the move rather than restating it.
-    //
-    // ARRIVING is unchanged and must stay the bell alone: it falls 1 -> 0, so
-    // the camera emerges looking at the zone and opens out to the whole globe.
-    const bell = speed(p, WARP_LIMITS)
-    const gw = guideWeightAtCommit.current
-    const aim = departing ? gw + (1 - gw) * bell : bell
+    // Departing, `speed(0)` is exactly 0, so the first committed frame looks at
+    // the sphere's centre — which is exactly where the rig was looking, because
+    // the Spain steer turns the rig's ORBIT rather than overriding its aim. A
+    // viewer who zoomed all the way in is already facing the zone along that
+    // same line, and the dive swings onto the destination as the bell rises.
+    // Arriving, the bell falls 1 -> 0, so the camera emerges looking at the zone
+    // and opens out to the whole globe.
+    const aim = speed(p, WARP_LIMITS)
 
     const lookAt = warpLookAt.current.copy(EARTH_LOOK_AT)
     const destination = destinationRef.current?.(destinationWorld.current)

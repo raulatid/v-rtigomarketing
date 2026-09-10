@@ -398,3 +398,55 @@ describe('a focused display is let go of by opening the hand', () => {
     expect(releaseFocus).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('a world may hold the commit until it is ready to leave (pinch)', () => {
+  // The pinch half. One spread must always suffice, even when Earth's camera is
+  // still turning onto Spain as it ends (DECISIONS §44) — a refusal here made a
+  // phone's single pinch stop short.
+  it('holds a full spread while the world is not ready, then goes by itself', async () => {
+    const t = setup({ current: 'earth', mayCommit: false })
+    place(t.host, 'pointerdown', START)
+    spread(t.host, COMMIT_GROWTH * 1.05, 20)
+    await frames(200)
+    expect(t.commits).toEqual([])
+    t.context.mayCommit = true
+    await frames(150)
+    expect(t.commits).toEqual(['enter-murcia'])
+  })
+
+  it('still goes after the fingers have lifted', async () => {
+    const t = setup({ current: 'earth', mayCommit: false })
+    place(t.host, 'pointerdown', START)
+    spread(t.host, COMMIT_GROWTH * 1.05, 20)
+    await frames(200)
+    place(t.host, 'pointerup', START + COMMIT_GROWTH * 1.05)
+    await frames(700)
+    expect(t.commits).toEqual([])
+    t.context.mayCommit = true
+    await frames(150)
+    expect(t.commits).toEqual(['enter-murcia'])
+  })
+})
+
+describe('a world may leave at the end of the zoom band (pinch)', () => {
+  // The pinch half: on Earth one spread that carries the band to its limit is the
+  // whole gesture (DECISIONS §44). The band is two thirds of the journey the
+  // commit growth is scaled against, so 0.75 of it reaches the limit and 0.6
+  // stops short.
+  it('commits when the spread carries the band to its limit', async () => {
+    const t = setup({ current: 'earth', commitAtBandEnd: true })
+    place(t.host, 'pointerdown', START)
+    spread(t.host, COMMIT_GROWTH * 0.75, 16)
+    await frames(200)
+    expect(t.commits).toEqual(['enter-murcia'])
+  })
+
+  it('does not commit short of the limit', async () => {
+    const t = setup({ current: 'earth', commitAtBandEnd: true })
+    place(t.host, 'pointerdown', START)
+    spread(t.host, COMMIT_GROWTH * 0.6, 12)
+    await frames(200)
+    expect(t.commits).toEqual([])
+    expect(t.depth()).toBeLessThan(1)
+  })
+})

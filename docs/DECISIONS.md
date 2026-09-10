@@ -3281,17 +3281,49 @@ resetting. The cursor lean is suppressed for the same reason: both are involunta
 motion applied to the viewer.
 
 **Earth gained a zone to dive at.** Past `earthGuideStart` (0.6) the same scroll
-that zooms also swings the camera onto the destination, so a viewer who pushes all
-the way arrives aimed at Spain. The swing is EASED at the rate the radius eases, never
-read straight off the band depth: the band lands in whole wheel notches, and read raw
-the weight took each notch in one frame, so the globe snapped toward Spain while the
-zoom glided (fixed 2026-09-10, `destinationSteer.test.ts`). The drag is NOT gated — the free orbit keeps every
-input, and only its weight in the blend shrinks; a gate would make the globe go
-dead under the hand at the moment the viewer is most engaged with it. The radius
-is untouched, so the zoom stays theirs the whole way through. `CameraController`
-captures the swing at the commit and closes the remainder on the bell, because
-`speed(0) = 0` would otherwise throw the aim back to the sphere's centre and undo
-the swing the viewer had just scrolled through.
+that zooms also turns the globe toward the destination, so a viewer who pushes all
+the way arrives facing Spain.
+
+The turn is written into the rig's ORBIT TARGET, before the rig runs, and the rig
+eases it like a drag (amended 2026-09-10). As first ported it was applied to the
+finished camera AFTER the rig, and that override knew nothing about the rig: it
+re-aimed satellite close-ups at Spain, left the drag dead at full zoom (the free
+orbit had no weight left in the blend), and swung the camera back on every zoom-out.
+Now zooming IN turns the orbit a fraction of the way that is left, so any notches
+from the threshold to the end of the band land exactly on the destination; zooming
+out only zooms; a drag is never dead and never undone; a close-up owns the camera,
+and closing it returns facing Spain as far as the zoom says. While engaged the orbit
+follows the destination as the globe spins, in proportion to the turn applied, so a
+viewer parked at full zoom stays on it. The radius is untouched, so the zoom stays
+theirs the whole way through. The dive starts from the rig's own aim and swings onto
+the destination on the bell (`destinationSteer.ts` and its test).
+
+**The approach, and leaving only from above Spain** (2026-09-10, client direction). Past
+the threshold the zoom is the only control: the orbit takes no drag (`setApproachLock`, a
+flag of its own because the satellite focus owns `setOrbitEnabled`) and the satellites are
+switched off, so the steer brings the view onto Spain with nothing able to take it off
+that path. Zooming back below the threshold gives both back. And the transition waits for
+the camera to actually be there: `NavigationContext.mayCommit` is false on Earth until the
+eased camera is within `EARTH_DEPARTURE_ALIGN_DEGREES` (2°) of the destination, measured
+at the Earth's centre. It HOLDS rather than refuses: a push that reaches the commit first
+stays armed — the accumulator full, not decaying — and the transition starts by itself the
+moment the camera arrives, so one pinch or one scroll always suffices. A refusal was built
+first and made a phone's single pinch stop short (four e2e specs caught it). Zooming back
+out lets go of a held commit. The lock
+alone made departing from over Spain likely, and the gate makes it certain: the rig eases
+each turn over about a second, and a fast trackpad fling could otherwise fill the band and
+the push before the turn landed. The accessible control is not held — someone navigating
+by keyboard has no zoom with which to line anything up.
+
+**Earth leaves at the end of the zoom, with no push stage** (2026-09-10, client report: the
+approach "froze in front of Spain until another input"). `adr/014`'s second stage — park at
+the band's limit, then push against it — is kept for Murcia and dropped for Earth
+(`NavigationContext.commitAtBandEnd`). Past the steer threshold the zoom is already an
+approach, so arriving at its end is the whole request: every notch or pinch keeps moving
+the camera, and the frame the zoom reaches its end, the transition fires. The
+accidental-warp guarantee is the band itself — 1200 px, at least ten capped events. If the
+camera is still gliding onto Spain when the band ends, the commit is held and goes by
+itself as the glide lands.
 
 **A compass.** A hairline across the bottom of the frame with a pin per place
 worth clicking. Complementary to the beacons rather than a replacement: a beacon

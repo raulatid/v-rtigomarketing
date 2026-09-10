@@ -1,131 +1,186 @@
-import * as THREE from 'three'
 import { smootherstep } from '../../../utils/easing'
 import type { WarpLimits } from '../../../utils/warpTransition'
+import { nearestEquivalentAngle } from './createFocusCameraRig'
 
 /**
  * The zone to dive at: the third stage of Earth's zoom band.
  *
- * Past `earthGuideStart` the same scroll that zooms also swings the camera onto
- * the destination, so a viewer who pushes all the way arrives aimed at Spain
- * rather than at whatever part of the planet happened to be facing them.
+ * Past `earthGuideStart` the same scroll that zooms also turns the globe toward
+ * the destination, so a viewer who pushes all the way arrives facing Spain rather
+ * than whatever part of the planet happened to be facing them.
  *
- * ## The drag is NOT gated
+ * ## It turns the ORBIT, the way a drag does
  *
- * This is the part worth being explicit about. The free orbit keeps every input
- * the whole way through — nothing is taken away, and a viewer who wants to look
- * elsewhere still can. What shrinks is the free orbit's WEIGHT in the blend. A
- * gate would make the globe go dead under the hand at exactly the moment the
- * viewer is most engaged with it; a blend makes the planet feel like it is
- * helping.
+ * The steer writes the rig's orbit TARGET, before `rig.update()`, and the rig
+ * eases it exactly as it eases a drag. It used to be applied AFTER the rig, as a
+ * rotation of the finished camera, and that override knew nothing about what the
+ * rig was doing. A satellite close-up opened past the threshold was re-aimed at
+ * Spain on every frame; the drag went dead at full zoom, because the free orbit
+ * had no weight left in the blend; and zooming out swung the camera back toward a
+ * direction the viewer had long stopped looking at. As an input to the orbit, all
+ * three are simply absent:
+ *
+ *   - a close-up owns the rig's target and ignores the orbit, so a satellite wins;
+ *   - a drag writes the same orbit, so it is never dead and never undone;
+ *   - zooming out rotates nothing — only zooming IN adds focus.
+ *
+ * ## Zooming in owes a fraction of the REMAINING turn
+ *
+ * `applied` is how much of the steer the orbit already carries. When the band's
+ * weight rises from `applied` to `w`, the orbit turns `(w - applied) / (1 -
+ * applied)` of the way that is left toward the destination. The fractions
+ * compose, so any sequence of notches from the threshold to the end of the band
+ * lands exactly on the destination — and a drag in between is respected, because
+ * every later notch turns from wherever the viewer now is. A notch moves the
+ * TARGET in one step; the rig's own ease turns it into a glide, the same ease the
+ * radius gets.
+ *
+ * ## Following the destination while engaged
+ *
+ * The globe spins at ~2 degrees a second, so a view steered onto Spain would lose
+ * it within seconds of the scroll stopping. While the steer is engaged the orbit
+ * turns with the destination's own azimuth, in proportion to `applied`: locked on
+ * at the end of the band, free again once the viewer zooms back out. Read from the
+ * destination's position rather than from the spin constant, so a frozen globe
+ * (`?freezeEarth`) follows nothing and there is no second copy of the spin rate.
  *
  * ## The radius is not touched
  *
- * The steering changes where ON the sphere the viewer is looking from, never how
- * far away they are. The zoom stays theirs the whole way through, which is what
- * keeps this feeling like the same scroll doing more rather than like the zoom
- * being handed over to something else.
- *
- * ## Why this is not inside the focus rig
- *
- * It is a pure function of (free direction, destination, weight) with no state
- * of its own, and it is applied AFTER the rig has written its pose. Keeping it
- * out of `createFocusCameraRig` means the rig stays the one thing that owns the
- * orbit, and this stays something a reader can evaluate without holding the
- * rig's lifecycle in their head.
+ * The steering changes where ON the sphere the viewer looks from, never how far
+ * away they are. The zoom stays theirs the whole way through.
  */
 
 /**
- * How much of the swing is engaged at a given band depth, 0..1.
+ * How much of the turn is owed at a given band depth, 0..1.
  *
- * `smootherstep`, so the swing has zero slope where it begins: the planet must
- * not start turning the instant the viewer crosses a threshold, or the guide
- * announces itself as a mechanism instead of reading as the world helping.
+ * `smootherstep`, so the turn has zero slope where it begins: the planet must not
+ * start turning the instant the viewer crosses a threshold, or the guide announces
+ * itself as a mechanism instead of reading as the world helping.
  */
 export function steerWeightFor(bandDepth: number, limits: WarpLimits): number {
   if (!Number.isFinite(bandDepth)) return 0
   return smootherstep(limits.earthGuideStart, 1, bandDepth)
 }
 
-/**
- * Below this gap the eased weight lands on its target. 1e-4 of the swing is
- * under a fiftieth of a degree even from the far side of the planet.
- */
-const STEER_SETTLE_EPSILON = 1e-4
-
-/**
- * Advances the steer the viewer actually sees one frame toward the band.
- *
- * THIS, NOT `steerWeightFor`, IS WHAT DRIVES THE CAMERA, and the difference is
- * the defect it exists to fix. The band lands in whole wheel notches — a tenth
- * of the depth each — and the rig eases the RADIUS across every one. Read raw,
- * the weight took each notch in a single frame instead: 0.10, 0.40, 0.40, 0.10
- * of the swing, so from the far side of the planet the notch from 0.7 to 0.8
- * turned the camera ~60 degrees while the zoom glided, and it read as the globe
- * snapping to Spain. The sandbox this was ported from kept the two values apart
- * for exactly that reason; the port had collapsed them.
- *
- * Chased at the rig's own rate, so the swing and the zoom are one motion that
- * settles together. Smoothing rather than animation: it settles where the band
- * left it and moves nowhere on its own.
- *
- * Lands exactly on the target inside `STEER_SETTLE_EPSILON`, because an
- * exponential never arrives — and a residual weight would keep overriding the
- * rig's aim every frame for nothing, and keep a return to rest from being rest.
- */
-export function easeSteerWeight(
-  current: number,
-  bandDepth: number,
-  limits: WarpLimits,
-  rate: number,
-  dt: number,
-): number {
-  if (!Number.isFinite(dt) || dt <= 0) return current
-  const target = steerWeightFor(bandDepth, limits)
-  if (!Number.isFinite(current)) return target
-  const alpha = 1 - Math.exp(-Math.max(0, rate) * dt)
-  const next = current + (target - current) * alpha
-  return Math.abs(target - next) < STEER_SETTLE_EPSILON ? target : next
+/** What the steer remembers between frames. Mutated in place. */
+export interface OrbitSteerState {
+  /** How much of the steer the orbit already carries, 0..1. */
+  applied: number
+  /**
+   * The destination's azimuth on the last free frame, or null when there is
+   * nothing to follow from — after a reset, a close-up, or a frame with no
+   * destination to read.
+   */
+  previousDestinationTheta: number | null
 }
 
-const steerRotation = new THREE.Quaternion()
-const partialRotation = new THREE.Quaternion()
-const alignedDirection = new THREE.Vector3()
-const steeredDirection = new THREE.Vector3()
+export function createOrbitSteerState(): OrbitSteerState {
+  return { applied: 0, previousDestinationTheta: null }
+}
 
 /**
- * Rotates a camera position partway onto the destination, and returns the point
- * it should now look at.
- *
- * `position` is read and written in place. `lookAt` is written in place and
- * returned. Both are the caller's; nothing is allocated per frame.
- *
- * The rotation is built with `setFromUnitVectors` and then slerped FROM
- * IDENTITY, rather than lerping the two directions and re-normalising. A lerp
- * between two points on a sphere cuts the chord and speeds up through the
- * middle; a slerp of the rotation travels the arc at a constant rate, which is
- * what makes a partial swing look like the same motion stopped early.
+ * Forgets everything, for a rig that has just re-seeded its orbit (`activate()`).
+ * The next free frame owes the whole steer the band asks for, from wherever the
+ * orbit now is.
  */
-export function applyDestinationSteer(
-  position: THREE.Vector3,
-  restLookAt: THREE.Vector3,
-  destination: THREE.Vector3,
-  weight: number,
-  lookAt: THREE.Vector3,
-): THREE.Vector3 {
-  lookAt.copy(restLookAt)
-  if (!(weight > 0)) return lookAt
+export function resetOrbitSteer(state: OrbitSteerState): void {
+  state.applied = 0
+  state.previousDestinationTheta = null
+}
 
-  const radius = position.length()
-  if (radius < 1e-6) return lookAt
+/** One frame's inputs. The caller may keep one object and rewrite its fields. */
+export interface OrbitSteerFrame {
+  bandDepth: number
+  limits: WarpLimits
+  /** The destination's direction from the Earth's centre, in the rig's spherical angles. */
+  destinationTheta: number
+  destinationPhi: number
+  /** True while a satellite close-up owns the rig's target, flying in or holding. */
+  focused: boolean
+  /** The rig's own pitch limits, so the steer can never ask for a pole. */
+  phiMin: number
+  phiMax: number
+}
 
-  steeredDirection.copy(position).divideScalar(radius)
-  alignedDirection.copy(destination).normalize()
-  if (alignedDirection.lengthSq() < 1e-12) return lookAt
+/** The orbit target, as the rig's angles. Read and written in place. */
+export interface OrbitAngles {
+  theta: number
+  phi: number
+}
 
-  steerRotation.setFromUnitVectors(steeredDirection, alignedDirection)
-  partialRotation.identity().slerp(steerRotation, Math.min(1, weight))
+/**
+ * Advances the steer by one frame: turns `orbit` in place and updates `state`.
+ *
+ * Allocation-free, because it runs every frame for the life of the scene.
+ */
+export function advanceOrbitSteer(
+  state: OrbitSteerState,
+  frame: OrbitSteerFrame,
+  orbit: OrbitAngles,
+): void {
+  // A close-up owns the camera, and the orbit is left exactly as it is. The owed
+  // weight is dropped rather than kept, so that the frame the close-up ends
+  // re-applies the whole of it: the return flight lands where the zoom says the
+  // viewer should be, not at the rest direction `returnToOverview` re-seeds.
+  if (frame.focused) {
+    resetOrbitSteer(state)
+    return
+  }
 
-  position.copy(steeredDirection).applyQuaternion(partialRotation).multiplyScalar(radius)
-  lookAt.lerpVectors(restLookAt, destination, Math.min(1, weight))
-  return lookAt
+  const applied = Number.isFinite(state.applied) ? Math.min(1, Math.max(0, state.applied)) : 0
+
+  // Follow the destination as the globe spins, in proportion to the engagement.
+  // The shortest signed change, so the frame the azimuth wraps is not a turn.
+  if (state.previousDestinationTheta !== null && applied > 0) {
+    const turned =
+      nearestEquivalentAngle(state.previousDestinationTheta, frame.destinationTheta) -
+      state.previousDestinationTheta
+    orbit.theta += applied * turned
+  }
+
+  // Zooming in owes a fraction of what is left; zooming out owes nothing.
+  const weight = steerWeightFor(frame.bandDepth, frame.limits)
+  if (weight > applied) {
+    const fraction = applied >= 1 ? 1 : (weight - applied) / (1 - applied)
+    const phi = Math.min(frame.phiMax, Math.max(frame.phiMin, frame.destinationPhi))
+    orbit.theta += fraction * (nearestEquivalentAngle(orbit.theta, frame.destinationTheta) - orbit.theta)
+    orbit.phi += fraction * (phi - orbit.phi)
+  }
+
+  state.applied = weight
+  state.previousDestinationTheta = frame.destinationTheta
+}
+
+/**
+ * How close the camera must be to the destination, in degrees round the globe,
+ * before Earth may leave for Murcia.
+ *
+ * Measured at the Earth's centre, so it says how far round the planet the view
+ * is rather than how far off-centre Spain looks: at the end of the band the
+ * camera is ~6 R out, and 2 degrees round the globe puts Spain well under half a
+ * degree off the middle of the frame. Loose enough that the rig's steady lag
+ * behind the spinning destination (spin rate / lerpK, ~0.7 degrees) can never
+ * hold back a commit from a camera that is already over Spain.
+ */
+export const EARTH_DEPARTURE_ALIGN_DEGREES = 2
+
+/**
+ * Is the camera above the destination: within `toleranceDegrees` of it, measured
+ * at the Earth's centre?
+ *
+ * Give it the EASED camera position, not the orbit target, so it answers "has
+ * the camera arrived" rather than "has it been asked to". A zero-length vector
+ * has no direction to compare and answers false; what a missing destination
+ * means is the caller's decision.
+ */
+export function isAboveDestination(
+  camera: { x: number; y: number; z: number },
+  destination: { x: number; y: number; z: number },
+  toleranceDegrees: number,
+): boolean {
+  const a = Math.hypot(camera.x, camera.y, camera.z)
+  const b = Math.hypot(destination.x, destination.y, destination.z)
+  if (a < 1e-9 || b < 1e-9) return false
+  const cos = (camera.x * destination.x + camera.y * destination.y + camera.z * destination.z) / (a * b)
+  return Math.acos(Math.min(1, Math.max(-1, cos))) <= (toleranceDegrees * Math.PI) / 180
 }
