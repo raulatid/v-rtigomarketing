@@ -1197,10 +1197,11 @@ async function waitDistrictSettled(page: Page): Promise<void> {
  *
  * Real DOM rather than a seam: the close is a button in `.campus-overlay`, and
  * the copy — with it — appears only once the flight has landed and the
- * particles have risen and settled. That is 10.4 s of scene time, and scene
- * time advances by at most 0.1 s a frame (`clampFrameDelta`), so on a software
- * renderer at one or two frames a second it is well over a minute of wall
- * clock. Until then the layer is `visibility: hidden` and takes no press.
+ * particles have risen and settled. That is 2 s of scene time (the 1.4 s
+ * flight runs inside it), and scene time advances by at most 0.1 s a frame
+ * (`clampFrameDelta`), so on a software renderer at one or two frames a second
+ * it is tens of seconds of wall clock. Until then the layer is
+ * `visibility: hidden` and takes no press.
  */
 async function settledCloseButton(page: Page): Promise<{ x: number; y: number }> {
   await waitDistrictSettled(page)

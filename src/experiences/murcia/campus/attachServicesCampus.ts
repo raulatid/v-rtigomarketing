@@ -205,8 +205,12 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
   const particles: ParticleFieldConfig = {
     count: 4000,
     emergenceHeight: r * 0.3,
-    emergenceSeconds: 4,
-    convergenceSeconds: 5,
+    // 2 s from the first particle to the disc, where the lab took 9: on the
+    // site the intro copy waits for the last settle, and nine seconds read as
+    // the section stalling. Close to the lab's 4:5 split, so the rise keeps
+    // its shape.
+    emergenceSeconds: 0.9,
+    convergenceSeconds: 1.1,
     size: r * 0.04,
     swellAmplitude: r * 0.03,
     swellLength: r * 1.2,
