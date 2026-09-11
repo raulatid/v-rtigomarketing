@@ -1,9 +1,10 @@
 import { PinIcon } from '@sanity/icons/Pin'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { charCount } from '../components/CharCountInput'
+import { colorHexInput } from '../components/ColorHexInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
-import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { DEFAULT_PARTICLE_COLOR, EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
  * The lengths this schema refuses, shared with the content build.
@@ -20,6 +21,12 @@ import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
  */
 const BOUNDS = EDITORIAL_BOUNDS.district
 
+const PARTICLE_COLOR_INPUT = colorHexInput({
+  shown: 'Así se verá junto al blanco de las partículas.',
+  empty: 'Sin color: la web usará su azul.',
+  fallback: DEFAULT_PARTICLE_COLOR,
+})
+
 /**
  * A district — the copy behind the services campus in the city.
  *
@@ -30,8 +37,10 @@ const BOUNDS = EDITORIAL_BOUNDS.district
  * ── What each field is for since the campus (DECISIONS §45) ──
  * `label` is the big title when the section opens and the pin in the compass
  * bar; the "SERVICIOS" on the LED ring is hardcoded and does NOT follow it.
- * `summary` is the line under that title, on every device. `services` is the
- * set of stops around the lake, in order. `intro` has no reader — see below.
+ * `summary` is the line under that title, on every device. `particleColor` is
+ * mixed with white in the campus particles on entering, and stands in for any
+ * service without its own. `services` is the set of stops around the lake, in
+ * order. `intro` has no reader — see below.
  *
  * ── What is NOT here ──
  * No Blender node names, no camera yaw, no world rectangles. Those live in
@@ -102,6 +111,24 @@ export const district = defineType({
           `Demasiado largo: como máximo ${BOUNDS.summary} caracteres.`,
         ),
       ],
+    }),
+    defineField({
+      name: 'particleColor',
+      title: 'Color de las partículas',
+      description:
+        'Opcional. Al entrar en la sección, las partículas suben del lago y forman un disco en ' +
+        'blanco y en este color. Es también el color de cualquier servicio que no tenga el suyo. ' +
+        'Vacío, se usa el azul de la web.',
+      type: 'string',
+      fieldset: 'distrito',
+      placeholder: DEFAULT_PARTICLE_COLOR,
+      components: { input: PARTICLE_COLOR_INPUT },
+      // Optional: empty means the site's blue. A value that IS given must still
+      // be a real #rrggbb, so a typo cannot ship.
+      validation: (rule) =>
+        rule
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .error('Escribe el color en formato #rrggbb, por ejemplo #1c67ff — o déjalo vacío'),
     }),
     // HIDDEN, and not required here. Nothing has read `intro` since the campus
     // replaced the panel (§45), so asking for it had the editor writing a

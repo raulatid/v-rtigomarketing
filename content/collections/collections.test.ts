@@ -268,6 +268,38 @@ describe('district mapping rejects', () => {
     services[1].id = services[0].id
     expect(problemsFor(districtsCollection, record).length).toBeGreaterThan(0)
   })
+
+  it('a particle colour that is not #rrggbb, on the district or a service', () => {
+    const record = validDistrict()
+    record.particleColor = 'blue'
+    expect(problemsFor(districtsCollection, record)).toContain('servicios.particleColor')
+    const other = validDistrict()
+    ;(other.services as Array<Record<string, unknown>>)[0].particleColor = '#12345'
+    expect(problemsFor(districtsCollection, other)).toContain('servicios.services[0].particleColor')
+  })
+})
+
+describe('district particle colours', () => {
+  it('resolve an empty district colour to the site blue, and an empty service colour to the district\'s', () => {
+    const record = validDistrict()
+    delete record.particleColor
+    const services = record.services as Array<Record<string, unknown>>
+    services[0].particleColor = ''
+    services[1].particleColor = null
+    const result = districtsCollection.map(record, 0)
+    if (!result.ok) throw new Error(JSON.stringify(result.problems))
+    expect(result.value.particleColor).toBe('#1c67ff')
+    expect(result.value.services[0]!.particleColor).toBe('#1c67ff')
+    expect(result.value.services[1]!.particleColor).toBe('#1c67ff')
+  })
+
+  it('keep a set colour, lowercased', () => {
+    const record = validDistrict()
+    ;(record.services as Array<Record<string, unknown>>)[0].particleColor = '#FFB020'
+    const result = districtsCollection.map(record, 0)
+    if (!result.ok) throw new Error(JSON.stringify(result.problems))
+    expect(result.value.services[0]!.particleColor).toBe('#ffb020')
+  })
 })
 
 describe('collection audits', () => {

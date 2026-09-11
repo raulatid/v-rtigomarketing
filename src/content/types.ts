@@ -484,13 +484,19 @@ export interface Service {
 }
 
 /**
- * A service as it appears inside a district panel.
+ * A service as it appears inside a district.
  *
- * The same shape by design: the district's GROQ projection dereferences the
- * service documents into exactly this, so promoting services to their own
- * documents changed nothing the UI can observe.
+ * The district's GROQ projection dereferences the service documents into this:
+ * the service's own fields, plus the colour its particles take in the campus.
  */
-export type DistrictService = Service
+export type DistrictService = Service & {
+  /**
+   * The colour mixed with white in this service's particles, `#rrggbb`. The
+   * Studio field is optional; empty resolves, in the content build, to the
+   * district's `particleColor`, so this is always a hex string.
+   */
+  particleColor: string
+}
 
 export interface DistrictContent {
   /** Stable identifier, referenced by a scene binding's `contentId`. */
@@ -506,6 +512,11 @@ export interface DistrictContent {
   summary: string
   /** Currently unread, for the same reason as `summary`. */
   intro: string
+  /**
+   * The colour mixed with white in the campus particles on entering, `#rrggbb`.
+   * Empty in the Studio resolves to DEFAULT_PARTICLE_COLOR in the content build.
+   */
+  particleColor: string
   /** The tour order: prev/next and tab order follow this array. */
   services: DistrictService[]
 }

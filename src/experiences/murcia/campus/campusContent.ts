@@ -56,6 +56,7 @@ export function buildServicesContent(
       detail: rest === '' ? copy.detail : rest,
       icon: symbol?.icon,
       figure: symbol?.figure,
+      color: service.particleColor,
     };
   });
 
@@ -64,6 +65,7 @@ export function buildServicesContent(
       title: content.label,
       subtitle: content.summary,
       hint: campusLabel(locale, 'hint'),
+      color: content.particleColor,
     },
     services,
   });

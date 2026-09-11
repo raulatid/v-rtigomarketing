@@ -18,7 +18,8 @@ function district(bodies: string[]): DistrictContent {
     label: 'Servicios',
     summary: 'Lo que hacemos.',
     intro: 'Unread.',
-    services: bodies.map((body, i) => ({ id: `s${i}`, title: `S${i}`, body })),
+    particleColor: '#1c67ff',
+    services: bodies.map((body, i) => ({ id: `s${i}`, title: `S${i}`, body, particleColor: '#ffb020' })),
   }
 }
 
@@ -57,6 +58,17 @@ describe('the campus content', () => {
   it('keeps a one-sentence body whole rather than losing the section to it', () => {
     const content = buildServicesContent(district(['Una sola frase.']), symbols(1))
     expect(content?.services[0]?.detail).toBe('Una sola frase.')
+  })
+
+  it('carries the entry\'s colour and each service\'s own into the particles', () => {
+    const content = buildServicesContent(district(['Uno. Dos.']), symbols(1))!
+    expect(content.intro.color).toBe('#1c67ff')
+    expect(content.services[0]!.color).toBe('#ffb020')
+  })
+
+  it('rejects the set when a colour is not #rrggbb', () => {
+    const bad = { ...district(['Uno. Dos.']), particleColor: 'blue' }
+    expect(buildServicesContent(bad, symbols(1))).toBeNull()
   })
 
   it('rejects the set when a service has no symbol row', () => {

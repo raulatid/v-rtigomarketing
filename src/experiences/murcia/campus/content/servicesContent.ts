@@ -12,11 +12,12 @@
  *
  * ## The contract, for a Sanity mapping
  *
- *   intro      { title, subtitle, hint }                       a singleton
- *   services[] { id, title, subtitle, icon, figure, detail }   in display order
+ *   intro      { title, subtitle, hint, color }                       a singleton
+ *   services[] { id, title, subtitle, icon, figure, detail, color }   in display order
  *
  * `icon` names an entry of the host's icon library (`iconLibrary.ts`);
- * `figure` is one of `FIGURE_KINDS`. `detail` is the read-more paragraph.
+ * `figure` is one of `FIGURE_KINDS`. `detail` is the rest of the copy, under
+ * the subtitle. `color` is `#rrggbb`, mixed with white in the particles.
  */
 
 export const FIGURE_KINDS = ['bars', 'ring', 'pins', 'line'] as const;
@@ -26,6 +27,8 @@ export interface IntroContent {
   readonly title: string;
   readonly subtitle: string;
   readonly hint: string;
+  /** Mixed with white in the disc, `#rrggbb`. */
+  readonly color: string;
 }
 
 export interface ServiceContent {
@@ -34,10 +37,12 @@ export interface ServiceContent {
   readonly subtitle: string;
   /** A key of the icon library. Checked when the campus is attached. */
   readonly icon: string;
-  /** What the symbol becomes when the detail opens. */
+  /** What the symbol turns into and back from. */
   readonly figure: FigureKind;
-  /** The read-more paragraph. */
+  /** The rest of the copy, under the subtitle. */
   readonly detail: string;
+  /** Mixed with white in the symbol and the figure, `#rrggbb`. */
+  readonly color: string;
 }
 
 export interface ServicesContent {
@@ -54,13 +59,18 @@ const isFilledString = (value: unknown): value is string =>
 const isFigureKind = (value: unknown): value is FigureKind =>
   typeof value === 'string' && (FIGURE_KINDS as readonly string[]).includes(value);
 
+const isHexColor = (value: unknown): value is string =>
+  typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+
 function parseIntro(value: unknown): IntroContent | null {
   if (!isRecord(value)) return null;
   const title = value['title'];
   const subtitle = value['subtitle'];
   const hint = value['hint'];
+  const color = value['color'];
   if (!isFilledString(title) || !isFilledString(subtitle) || !isFilledString(hint)) return null;
-  return { title, subtitle, hint };
+  if (!isHexColor(color)) return null;
+  return { title, subtitle, hint, color };
 }
 
 function parseService(value: unknown): ServiceContent | null {
@@ -71,9 +81,11 @@ function parseService(value: unknown): ServiceContent | null {
   const icon = value['icon'];
   const figure = value['figure'];
   const detail = value['detail'];
+  const color = value['color'];
   if (!isFilledString(id) || !isFilledString(title) || !isFilledString(subtitle)) return null;
   if (!isFilledString(icon) || !isFigureKind(figure) || !isFilledString(detail)) return null;
-  return { id, title, subtitle, icon, figure, detail };
+  if (!isHexColor(color)) return null;
+  return { id, title, subtitle, icon, figure, detail, color };
 }
 
 /** A whole document or nothing: a duplicate id or one bad service rejects the file. */

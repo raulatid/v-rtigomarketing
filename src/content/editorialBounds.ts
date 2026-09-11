@@ -57,6 +57,16 @@
  */
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
 
+/**
+ * What a district's `particleColor` resolves to when the Studio field is left
+ * empty: the site's accent blue (`--accent`, siteHeader.css). An empty service
+ * colour resolves to its district's, so an untouched dataset is blue and white.
+ *
+ * Here for the same reason as ID_PATTERN: the content build resolves to it and
+ * the Studio's colour picker starts from it, and the two must be one value.
+ */
+export const DEFAULT_PARTICLE_COLOR = '#1c67ff'
+
 /** The 64 the pattern spells as a leading character plus `{0,63}`. */
 export const ID_MAX_LENGTH = 64
 export const EDITORIAL_BOUNDS = {

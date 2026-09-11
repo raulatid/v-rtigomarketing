@@ -1,12 +1,14 @@
 import type { DistrictContent, DistrictService } from '../../src/content/types'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
+  DEFAULT_PARTICLE_COLOR,
   DISTRICT_SUMMARY_MAX,
+  HEX_COLOR_PATTERN,
   ID_PATTERN,
   collectionProblems,
   districtProblems,
 } from '../../src/content/invariants'
-import { Report, boundedArray, slug, text } from '../lib/validate'
+import { Report, boundedArray, hexColor, slug, text } from '../lib/validate'
 import { collection } from './types'
 import { SERVICE_BODY_MAX, SERVICE_TITLE_MAX } from './serviceBounds'
 
@@ -31,7 +33,24 @@ import { SERVICE_BODY_MAX, SERVICE_TITLE_MAX } from './serviceBounds'
 // reads from the same table.
 const { label: LABEL_MAX, intro: INTRO_MAX, services: SERVICES_MAX } = EDITORIAL_BOUNDS.district
 
-function service(report: Report, path: string, raw: unknown): DistrictService | undefined {
+/**
+ * An optional Studio colour: absent or blank is an editorial choice ("use the
+ * default"), resolved here so the shipped type is always a hex string. A value
+ * that IS present must still parse; a typo fails the build. The case study's
+ * `brandColor` is resolved the same way.
+ */
+function particleColor(report: Report, path: string, value: unknown, fallback: string | undefined) {
+  const empty = value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+  if (empty) return fallback
+  return hexColor(report, path, value, HEX_COLOR_PATTERN)
+}
+
+function service(
+  report: Report,
+  path: string,
+  raw: unknown,
+  districtColor: string | undefined,
+): DistrictService | undefined {
   // A reference GROQ could not dereference comes back as null, and it comes back
   // as null for exactly two reasons: the service document was deleted, or it was
   // never published. "expected an object" sends an editor looking at the district
@@ -53,8 +72,10 @@ function service(report: Report, path: string, raw: unknown): DistrictService | 
   const id = slug(report, path + '.id', source.id, ID_PATTERN)
   const title = text(report, path + '.title', source.title, { max: SERVICE_TITLE_MAX })
   const body = text(report, path + '.body', source.body, { max: SERVICE_BODY_MAX })
-  if (id === undefined || title === undefined || body === undefined) return undefined
-  return { id, title, body }
+  // Empty takes the district's: a service nobody coloured reads as the entry.
+  const color = particleColor(report, path + '.particleColor', source.particleColor, districtColor)
+  if (id === undefined || title === undefined || body === undefined || color === undefined) return undefined
+  return { id, title, body, particleColor: color }
 }
 
 export const districtsCollection = collection<DistrictContent>({
@@ -75,7 +96,8 @@ export const districtsCollection = collection<DistrictContent>({
       label,
       summary,
       intro,
-      services[]->{ "id": slug.current, title, body }
+      particleColor,
+      services[]->{ "id": slug.current, title, body, particleColor }
     }`,
   },
 
@@ -94,8 +116,9 @@ export const districtsCollection = collection<DistrictContent>({
     const label = text(scoped, 'label', source.label, { max: LABEL_MAX })
     const summary = text(scoped, 'summary', source.summary, { max: DISTRICT_SUMMARY_MAX })
     const intro = text(scoped, 'intro', source.intro, { max: INTRO_MAX })
+    const color = particleColor(scoped, 'particleColor', source.particleColor, DEFAULT_PARTICLE_COLOR)
     const services = boundedArray(scoped, 'services', source.services, SERVICES_MAX, (r, p, v) =>
-      service(r, p, v),
+      service(r, p, v, color),
     )
 
     // All-collapsed reads as a menu rather than as content: buildSections() opens
@@ -112,12 +135,13 @@ export const districtsCollection = collection<DistrictContent>({
       label === undefined ||
       summary === undefined ||
       intro === undefined ||
+      color === undefined ||
       services === undefined
     ) {
       return { ok: false, problems }
     }
 
-    const value: DistrictContent = { id, label, summary, intro, services }
+    const value: DistrictContent = { id, label, summary, intro, particleColor: color, services }
 
     const residual = districtProblems(value)
     if (residual.length > 0) return { ok: false, problems: residual }

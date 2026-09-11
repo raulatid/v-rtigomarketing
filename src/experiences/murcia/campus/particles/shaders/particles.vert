@@ -18,6 +18,7 @@ attribute vec3 aFrom;
 attribute vec3 aTarget;
 attribute float aSeed;
 attribute float aDelay;
+attribute float aTone;          // 0 wears uColor, 1 wears uAccent
 
 uniform float uElapsed;         // seconds since play; the global progress
 uniform float uTime;            // wall clock, for the swell
@@ -34,6 +35,7 @@ uniform float uSize;
 uniform float uScale;           // half the drawing-buffer height, for size attenuation
 
 varying float vAlpha;
+varying float vTone;
 
 // How much of the morph is spent staggering the starts. At 0 every particle
 // moves together; at 1 the last starts as the first arrives.
@@ -70,6 +72,7 @@ void main() {
   float underwater = smoothstep(-uWaterFade, 0.0, depth);
   float alpha = smoothstep(0.0, 0.5, rise) * mix(0.18, 1.0, underwater);
   vAlpha = alpha;
+  vTone = aTone;
 
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   float variation = 0.7 + 0.6 * fract(aSeed * 7.31);

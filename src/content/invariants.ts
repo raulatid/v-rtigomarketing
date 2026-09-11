@@ -12,7 +12,7 @@
  * bundles this for Node with esbuild, and the browser bundle must be able to
  * tree-shake it away entirely.
  */
-import { EDITORIAL_BOUNDS, ID_PATTERN } from './editorialBounds'
+import { DEFAULT_PARTICLE_COLOR, EDITORIAL_BOUNDS, ID_PATTERN } from './editorialBounds'
 import type {
   BlogPost,
   CaseChartType,
@@ -67,6 +67,8 @@ export const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i
  * build, so every consumer can keep reading a guaranteed hex string.
  */
 export const DEFAULT_BRAND_COLOR = '#ffffff'
+/** Declared in `editorialBounds.ts`, which the Studio can import. */
+export { DEFAULT_PARTICLE_COLOR }
 
 /**
  * Logos are always local paths: `content/lib/mirror.ts` brings CMS uploads into
@@ -207,6 +209,9 @@ export function districtProblems(entry: DistrictContent): Problem[] {
   if (entry.summary.length > DISTRICT_SUMMARY_MAX) {
     at('summary', 'at most ' + DISTRICT_SUMMARY_MAX + ' chars, to survive the mobile peek stop')
   }
+  if (!HEX_COLOR_PATTERN.test(entry.particleColor)) {
+    at('particleColor', 'must match ' + HEX_COLOR_PATTERN)
+  }
   // All-collapsed reads as a menu rather than as content; buildSections() opens
   // section 0, and a district with no services would open nothing.
   if (entry.services.length === 0) at('services', 'at least one required')
@@ -215,6 +220,9 @@ export function districtProblems(entry: DistrictContent): Problem[] {
     if (!ID_PATTERN.test(service.id)) at('services[' + i + '].id', 'must match ' + ID_PATTERN)
     if (!nonEmpty(service.title)) at('services[' + i + '].title', 'must be a non-empty string')
     if (!nonEmpty(service.body)) at('services[' + i + '].body', 'must be a non-empty string')
+    if (!HEX_COLOR_PATTERN.test(service.particleColor)) {
+      at('services[' + i + '].particleColor', 'must match ' + HEX_COLOR_PATTERN)
+    }
   })
 
   for (const dupe of duplicates(entry.services, (s) => s.id)) {

@@ -2,26 +2,31 @@
   {
     "id": "brand-identity",
     "title": "Identidad de marca",
-    "body": "Una marca es lo que la gente sabe describir de ti cuando no estás delante. Definimos qué debería ser eso y construimos el sistema que lo sostiene — nombre, tono, tipografía, color y las reglas para usarlos — para que el décimo contacto siga pareciéndose al primero."
+    "body": "Una marca es lo que la gente sabe describir de ti cuando no estás delante. Definimos qué debería ser eso y construimos el sistema que lo sostiene — nombre, tono, tipografía, color y las reglas para usarlos — para que el décimo contacto siga pareciéndose al primero.",
+    "particleColor": "#ffd84d"
   },
   {
     "id": "content-strategy",
     "title": "Estrategia de contenidos",
-    "body": "Publicar más no es una estrategia. Trazamos lo que tus clientes necesitan saber antes de comprar, encontramos los huecos que tu competencia ha dejado abiertos y construimos un plan que puedas sostener de verdad. Menos piezas, cada una ganándose su sitio y llevando a alguna parte."
+    "body": "Publicar más no es una estrategia. Trazamos lo que tus clientes necesitan saber antes de comprar, encontramos los huecos que tu competencia ha dejado abiertos y construimos un plan que puedas sostener de verdad. Menos piezas, cada una ganándose su sitio y llevando a alguna parte.",
+    "particleColor": "#ff5d73"
   },
   {
     "id": "paid-campaigns",
     "title": "Campañas de pago",
-    "body": "El tráfico de pago revela lo que ya era cierto sobre tu oferta: compra atención, no compra persuasión. Empezamos por la experiencia de aterrizaje, después construimos campañas en torno a los segmentos que convierten y cortamos rápido los que no, en lugar de defenderlos."
+    "body": "El tráfico de pago revela lo que ya era cierto sobre tu oferta: compra atención, no compra persuasión. Empezamos por la experiencia de aterrizaje, después construimos campañas en torno a los segmentos que convierten y cortamos rápido los que no, en lugar de defenderlos.",
+    "particleColor": "#a66bff"
   },
   {
     "id": "seo",
     "title": "SEO",
-    "body": "La búsqueda es el único canal que sigue devolviéndote el trabajo que hiciste hace meses. Auditamos lo que frena técnicamente a un sitio, reconstruimos la estructura que los buscadores leen de verdad y apuntamos a las búsquedas que hacen tus clientes, no a las que tienen el número más grande al lado. Los resultados se miden en ingresos, no en posiciones."
+    "body": "La búsqueda es el único canal que sigue devolviéndote el trabajo que hiciste hace meses. Auditamos lo que frena técnicamente a un sitio, reconstruimos la estructura que los buscadores leen de verdad y apuntamos a las búsquedas que hacen tus clientes, no a las que tienen el número más grande al lado. Los resultados se miden en ingresos, no en posiciones.",
+    "particleColor": "#ffb020"
   },
   {
     "id": "web-analysis",
     "title": "Analítica web",
-    "body": "La mayoría de sitios recogen muchos más datos de los que alguien lee. Montamos una medición que responde preguntas concretas — dónde abandona la gente, qué venían a buscar y no encontraron, qué páginas sostienen el trabajo — y después te decimos qué cambiar. Una analítica sobre la que nadie actúa es un coste, no un activo."
+    "body": "La mayoría de sitios recogen muchos más datos de los que alguien lee. Montamos una medición que responde preguntas concretas — dónde abandona la gente, qué venían a buscar y no encontraron, qué páginas sostienen el trabajo — y después te decimos qué cambiar. Una analítica sobre la que nadie actúa es un coste, no un activo.",
+    "particleColor": "#22c7a9"
   }
 ]

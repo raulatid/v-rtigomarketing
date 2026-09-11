@@ -55,7 +55,10 @@ export interface ParticleFieldConfig {
   swellLength: number;
   /** How fast the crests travel. */
   swellSpeed: number;
+  /** The white half of the two tones. The other half is `setAccent`'s. */
   color: number;
+  /** Of the particles, the share drawn in the accent, 0..1. Needs a rebuild. */
+  accentShare: number;
   opacity: number;
 }
 
@@ -79,6 +82,11 @@ export interface ParticleField {
    * carries on toward the moving targets.
    */
   setLiveLayout(live: ((time: number) => TargetLayout) | null): void;
+  /**
+   * The second tone, `#rrggbb`, crossfaded from the current one over
+   * `seconds` (0 is a cut). Which particles wear it is fixed per particle.
+   */
+  setAccent(color: string, seconds: number): void;
   /** 0 at the previous layout, 1 at the current one. */
   readonly morph: number;
   /** Applies everything that does not need a rebuild. */
@@ -107,8 +115,15 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
     uSize: { value: 1 },
     uScale: { value: 1 },
     uColor: { value: new THREE.Color() },
+    uAccent: { value: new THREE.Color(0xffffff) },
     uOpacity: { value: 1 },
   };
+
+  // The accent's crossfade, in the linear space the uniform holds.
+  const accentFrom = new THREE.Color(0xffffff);
+  const accentTo = new THREE.Color(0xffffff);
+  let accentMix = 1;
+  let accentSeconds = 1;
 
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -151,6 +166,11 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
     const target = new Float32Array(count * 3);
     const seed = new Float32Array(count);
     const delay = new Float32Array(count);
+    // Which tone each particle wears. Its own stream, so adding it did not
+    // move a single particle of the rise the main stream lays out.
+    const tone = new Float32Array(count);
+    const toneRandom = seededRandom(FIELD_SEED + 2);
+    for (let i = 0; i < count; i += 1) tone[i] = toneRandom() < config.accentShare ? 1 : 0;
 
     for (let i = 0; i < count; i += 1) {
       const o = i * 3;
@@ -195,6 +215,7 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
     geometry.setAttribute('aTarget', new THREE.BufferAttribute(target, 3));
     geometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     geometry.setAttribute('aDelay', new THREE.BufferAttribute(delay, 1));
+    geometry.setAttribute('aTone', new THREE.BufferAttribute(tone, 1));
     return geometry;
   };
 
@@ -261,8 +282,20 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
       live = next;
     },
 
+    setAccent(color, seconds) {
+      accentFrom.copy(uniforms.uAccent.value);
+      accentTo.set(color);
+      accentSeconds = seconds;
+      accentMix = seconds > 0 ? 0 : 1;
+      if (accentMix >= 1) uniforms.uAccent.value.copy(accentTo);
+    },
+
     tick(dt, playing) {
       uniforms.uTime.value += dt;
+      if (accentMix < 1) {
+        accentMix = Math.min(1, accentMix + dt / accentSeconds);
+        uniforms.uAccent.value.lerpColors(accentFrom, accentTo, easeInOut(accentMix));
+      }
       if (live) {
         const target = points.geometry.getAttribute('aTarget') as THREE.BufferAttribute;
         fillTargets(target.array as Float32Array, target.count, live(uniforms.uTime.value));

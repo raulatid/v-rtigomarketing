@@ -219,6 +219,8 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     swellLength: r * 1.2,
     swellSpeed: 0.5,
     color: 0xdfeef7,
+    // Half white, half the stop's colour (the content's `color`), mixed.
+    accentShare: 0.5,
     opacity: 0.85,
   };
   const shapes: SectionShapes = { discRadius: r * 0.85, lift: r * 0.8, iconWidth: r * 1.4 };
@@ -277,6 +279,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     field.rebuild(particles, disc());
   };
   rebuildParticles();
+  field.setAccent(content.intro.color, 0);
 
   // ---- the section -----------------------------------------------------------
 
@@ -350,13 +353,16 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     if (snapshot.stage === 'intro') {
       if (previous.stage === 'overview') {
         campusCamera.enter(timing.flight);
-        // The rise. The copy waits for the last particle to settle.
+        // The rise, in the entry's colours. The copy waits for the last
+        // particle to settle.
+        field.setAccent(content.intro.color, 0);
         field.setElapsed(0);
         playing = true;
         showLater(content.intro, field.duration);
       } else {
         campusCamera.flyTo(snapshot.position, timing.flight);
         field.setLayout(disc(), timing.morph);
+        field.setAccent(content.intro.color, timing.morph);
         stepMorphUntil = clock + timing.morph;
         showLater(content.intro, timing.morph);
       }
@@ -371,6 +377,8 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     campusCamera.flyTo(snapshot.position, timing.flight);
     cycle = { service, stop: snapshot.position, form: 'icon', swapAt: Infinity };
     showForm('icon', timing.morph);
+    // The colour changes with the shape, over the same morph.
+    field.setAccent(service.color, timing.morph);
     stepMorphUntil = clock + timing.morph;
     showLater(copy, Math.max(timing.morph, timing.flight));
   });

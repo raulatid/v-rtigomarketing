@@ -1,9 +1,10 @@
 import { WrenchIcon } from '@sanity/icons/Wrench'
 import { defineField, defineType } from 'sanity'
 import { charCount } from '../components/CharCountInput'
+import { colorHexInput } from '../components/ColorHexInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
-import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { DEFAULT_PARTICLE_COLOR, EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
  * The lengths this schema refuses, shared with the content build.
@@ -28,6 +29,16 @@ const BOUNDS = EDITORIAL_BOUNDS.service
 const SHORT_TITLE_MAX = 24
 
 /**
+ * An empty service colour resolves to its section's, which the Studio cannot
+ * know from here; the picker starts at the section's default instead.
+ */
+const PARTICLE_COLOR_INPUT = colorHexInput({
+  shown: 'Así se verá junto al blanco de las partículas.',
+  empty: 'Sin color: usará el de la entrada de la sección.',
+  fallback: DEFAULT_PARTICLE_COLOR,
+})
+
+/**
  * One thing the agency does.
  *
  * A document rather than a row inside a district, so it is edited once and
@@ -43,9 +54,9 @@ const SHORT_TITLE_MAX = 24
  * reads.
  *
  * `body` is split by `district/serviceCopy.ts`: the first paragraph (or, with
- * one paragraph, the opening sentence) is the always-visible line under the
- * title, and "+" opens the whole text. The description says so without the
- * character count, which lives in that file and would go stale here.
+ * one paragraph, the opening sentence) is the larger line under the title, and
+ * the rest follows it. The description says so without the character count,
+ * which lives in that file and would go stale here.
  */
 export const service = defineType({
   name: 'service',
@@ -85,10 +96,9 @@ export const service = defineType({
       name: 'body',
       title: 'Descripción',
       description:
-        'Uno o dos párrafos. Debajo del nombre se ve siempre el principio: el primer párrafo si ' +
-        'escribes dos, o la primera frase si escribes uno. El texto completo se abre al pulsar ' +
-        '«+». Lo más claro: un primer párrafo de una frase que resuma el servicio, y un segundo ' +
-        'con el detalle.',
+        'Uno o dos párrafos, y se lee entero. Debajo del nombre va el principio, un poco más ' +
+        'grande: el primer párrafo si escribes dos, o la primera frase si escribes uno. Lo más ' +
+        'claro: un primer párrafo de una frase que resuma el servicio, y un segundo con el detalle.',
       type: 'text',
       rows: 6,
       components: { input: charCount(BOUNDS.body) },
@@ -98,6 +108,22 @@ export const service = defineType({
           `Demasiado largo: como máximo ${BOUNDS.body} caracteres (uno o dos párrafos).`,
         ),
       ],
+    }),
+    defineField({
+      name: 'particleColor',
+      title: 'Color de las partículas',
+      description:
+        'Opcional. Al llegar a este servicio en la ciudad, las partículas sobre el lago forman su ' +
+        'símbolo en blanco y en este color. Vacío, usa el color de la entrada de la sección.',
+      type: 'string',
+      placeholder: '#ffb020',
+      components: { input: PARTICLE_COLOR_INPUT },
+      // Optional: empty means "the section's colour". A value that IS given
+      // must still be a real #rrggbb, so a typo cannot ship.
+      validation: (rule) =>
+        rule
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .error('Escribe el color en formato #rrggbb, por ejemplo #ffb020 — o déjalo vacío'),
     }),
     defineField({
       name: 'slug',

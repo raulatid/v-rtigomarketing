@@ -135,6 +135,7 @@ for (const record of read('service')) {
     slug: { _type: 'slug', current: record.id },
     title: record.title,
     body: record.body,
+    particleColor: record.particleColor,
   })
 }
 
@@ -146,6 +147,7 @@ for (const record of read('district')) {
     label: record.label,
     summary: record.summary,
     intro: record.intro,
+    particleColor: record.particleColor,
     // References, not inline copy. The fixture carries the dereferenced shape
     // because `fileSource` cannot dereference; the dataset carries the real
     // reference, and a broken one fails the build naming this district.
