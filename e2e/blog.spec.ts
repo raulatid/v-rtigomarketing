@@ -409,7 +409,7 @@ test.describe('the blog', () => {
     ).toBe(1)
 
     const scene = requested.filter((url) =>
-      /SceneCanvas|MurciaExperience|city-prototype|\/earth\/|sky-panorama/.test(url),
+      /SceneCanvas|MurciaExperience|city-prototype|\/earth\/|sky-panorama|\/audio\/|\.mp3/.test(url),
     )
     expect(scene, 'a cold blog must request nothing belonging to the 3D application').toEqual([])
 

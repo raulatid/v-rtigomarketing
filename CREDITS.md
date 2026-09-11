@@ -154,6 +154,28 @@ Provenance not recorded when these were added. **Outstanding:** confirm the sour
 of the Earth maps and record them here. They are almost certainly NASA Visible Earth / Blue
 Marble, which is public domain, but "almost certainly" is not a licence record.
 
+## `public/audio/{earth,murcia}-<sha8>.mp3` — the background music
+
+**PROVISIONAL, both tracks.** Picked on 2026-09-11 so the player could be built; the final pair
+is still the client's choice. Working files are kept outside the repo in `04_Assets/musica/`.
+
+- `earth-b0d93122.mp3` ← `mfcc-space-space-landscape-earth-music-335135.mp3`
+- `murcia-95bad010.mp3` ← `swiat_rafika-sunlit-streets-mediterranean-travel-cinematic-489898.mp3`
+
+**Outstanding:** record the source URL and licence of each track. The names follow Pixabay's
+`artist-title-<id>` download pattern, but that is a guess from the filenames, not a record, and
+the licence must cover streaming on a commercial website.
+
+**Encode recipe** (ffmpeg 9.0.1): 128 kbps, 44.1 kHz stereo, metadata stripped, and a 1.5 s
+fade-in with a 3 s fade-out so the `<audio loop>` restart is a soft dip rather than a cut. The
+name carries the first 8 hex of the output's SHA-256, because `/audio/` is served `immutable`.
+
+    ffmpeg -i in.mp3 -af "afade=t=in:d=1.5,areverse,afade=t=in:d=3,areverse" \
+      -c:a libmp3lame -b:a 128k -ar 44100 -ac 2 -map_metadata -1 -id3v2_version 0 out.mp3
+
+Swapping a track: re-run the recipe, rename by hash, update `MUSIC_TRACKS` in
+`src/app/audio/backgroundMusic.ts`, and update this entry.
+
 ## Typefaces
 
 The site self-hosts three families, all served from `public/fonts/` as woff2.

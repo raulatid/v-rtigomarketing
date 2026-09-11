@@ -34,6 +34,8 @@ import { PROTO_MENU3D } from './app/protoMenu3d'
 import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 import { useExperienceTransition } from './app/useExperienceTransition'
+import { crossfadeMusic, setMusicSuppressed, startMusic } from './app/audio/backgroundMusic'
+import { SoundToggle } from './components/SoundToggle'
 import { useSceneNavigation } from './app/navigation/useSceneNavigation'
 import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
@@ -147,6 +149,8 @@ export default function App() {
     // The viewer's zoom belongs to the world they were in. Cleared on the cut's
     // frame, under full cover, alongside every other discontinuity (`adr/014`).
     onCut: () => resetZoomRef.current(),
+    // The music crosses over from the commit, ahead of the picture's cut.
+    onStart: crossfadeMusic,
   })
 
   // Mirrors the audit section's open state so the global Escape handler can
@@ -208,6 +212,16 @@ export default function App() {
     // entry chunk every case study's prose.
     satelliteCount: orbitAssignments.length,
   })
+
+  // The music waits for Earth to be whole — 'site', where the header's controls
+  // arrive — and is quiet while the blog is open (DECISIONS §48). `startMusic`
+  // is idempotent, so the debug seek replaying the phases is harmless.
+  useEffect(() => {
+    if (phase === 'site') startMusic(activeExperience)
+  }, [phase, activeExperience])
+  useEffect(() => {
+    setMusicSuppressed('blog', blogOpen)
+  }, [blogOpen])
 
   // Gesture navigation. The gesture is the way in AND the way out now: the Spain
   // marker no longer navigates and the return button is gone (`adr/009`).
@@ -573,6 +587,7 @@ export default function App() {
         menuHost={menuHost}
         onActionsHost={setHeaderActions}
         onMenuStateChange={setHeaderMenuState}
+        extra={phase === 'site' ? <SoundToggle /> : undefined}
       />
       {/* THE PHONE MENU'S LAYER, behind the canvas (z 5 under the stage's 10).
           Empty here: the header portals its menu box into it on a phone, and

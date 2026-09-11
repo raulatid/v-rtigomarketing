@@ -41,6 +41,12 @@ interface Params {
    * out to a pose the previous world had chosen.
    */
   onCut?: () => void
+  /**
+   * The warp has been accepted and is on its way to `to` — after the
+   * re-entrancy guard, so a refused call never reaches it. The music's
+   * crossfade starts here, a beat ahead of the picture's cut.
+   */
+  onStart?: (to: ExperienceId) => void
 }
 
 /**
@@ -67,7 +73,7 @@ interface Params {
  * Neither experience is created or destroyed here — both stay mounted and the
  * render pipeline simply changes which scene it draws (ADR 003).
  */
-export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Params) {
+export function useExperienceTransition({ state, onSwap, onSettled, onCut, onStart }: Params) {
   const [transitioning, setTransitioning] = useState(false)
   const clockRef = useRef<ReturnType<typeof createTransitionClock> | null>(null)
   const onSwapRef = useRef(onSwap)
@@ -79,6 +85,8 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Par
   onSettledRef.current = onSettled
   const onCutRef = useRef(onCut)
   onCutRef.current = onCut
+  const onStartRef = useRef(onStart)
+  onStartRef.current = onStart
 
   useEffect(() => {
     return () => {
@@ -173,6 +181,7 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut }: Par
 
       if (!clock.start()) return
       clockRef.current = clock
+      onStartRef.current?.(to)
     },
     [state],
   )

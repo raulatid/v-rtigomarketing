@@ -399,6 +399,41 @@
   color: var(--accent);
 }
 
+/* The music toggle (SoundToggle.tsx): an icon beside the actions, on the line on
+   a phone too — the `extra` cell is never portaled into the menu. It takes the
+   bare Contacto text's ink, and turns with it over a light ground. */
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--header-control);
+  height: var(--header-control);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: color 0.2s ease;
+  animation: audit-trigger-in 480ms ease 60ms backwards;
+}
+
+.sound-toggle:hover {
+  color: #fff;
+}
+
+.sound-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.site-header[data-tone='light'] .sound-toggle {
+  color: rgba(11, 11, 13, 0.85);
+}
+
+.site-header[data-tone='light'] .sound-toggle:hover {
+  color: var(--accent);
+}
+
 /* ---- White over the scene (2026-09-04, plan 012 task 2) -------------------
 
    CLIENT DIRECTION: Contact reads black over Murcia and should be white.
@@ -865,7 +900,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .audit-trigger,
-  .contact-trigger {
+  .contact-trigger,
+  .sound-toggle {
     transition: none;
     animation: none;
   }

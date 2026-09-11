@@ -25,7 +25,8 @@ const LABEL: Record<Props['kind'], string> = {
  *
  * ── What that buys, concretely ──
  *
- * `frame-src` stays absent from the CSP and `media-src` stays `'none'`. No
+ * `frame-src` stays absent from the CSP and `media-src` stays `'self'` (the
+ * site's own background music, DECISIONS §48, and nothing third-party). No
  * third-party script, no YouTube cookie set on a reader who only scrolled past,
  * no 1 MB player, and no layout shift. Widening a Content-Security-Policy is a
  * decision that should be made when something needs it, and today nothing does:

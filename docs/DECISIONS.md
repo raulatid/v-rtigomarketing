@@ -3564,6 +3564,43 @@ in `public/fonts/` without the first 8 hex of its SHA-256 in its name (the path 
 a preload loses `crossorigin`; or a facade text block type is added without choosing a role in
 `facadeRenderer.ts`.
 
+## 48. The music crossfades; the picture still cuts
+
+**Decided 2026-09-11,** on client direction. There is background music: one loop for Earth and
+one for Murcia. It starts when Earth is whole, and the warp crossfades from one track to the
+other. The player is `src/app/audio/backgroundMusic.ts`.
+
+**§6 is not broken.** "Nothing ever cross-fades" is a *visual* principle, and every
+substitution it names is a picture. The Earth ⇄ Murcia swap is still a hard cut under full
+black. The music is the one thing that is allowed to overlap the cut, and it starts crossing at
+the commit (`useExperienceTransition`'s `onStart`), not at the cut. The crossfade lasts
+**2.4 s** against the warp's 1.6 s, so the new world's track settles after the picture does. It
+runs on the AudioContext clock, not on `transitionProgress`: a committed warp cannot reverse, so
+there is nothing to follow per frame.
+
+**It cannot truly autoplay.** Browsers refuse audible playback until the visitor has made a
+gesture, and the intro has nothing to click. At phase `'site'` the player tries to start. If
+that is refused, the music begins on the first press, tap or key instead. Wheel and scroll never
+count, so a trackpad visitor who only scrolls hears nothing until they click. The header carries
+a toggle (`SoundToggle.tsx`, WCAG 1.4.2), and a blocked start reads as off there, so pressing it
+is the gesture that starts the music. The preference is on by default and is stored as
+`vertigo:sound` in `localStorage`.
+
+**Streamed, not decoded.** Each track is an `<audio>` element feeding a GainNode. A decoded
+3-minute track costs about 63 MB of PCM, and the phone budget has no room for two. Web Audio is
+there for the fades, because iOS ignores `element.volume`. The Murcia track fetches nothing
+until the first warp. A track that fades to silence is paused and keeps its position, so a
+return resumes where it left off. This is also why the CSP's `media-src` went from `'none'` to
+`'self'`.
+
+**Quiet elsewhere.** The warm blog fades the music out and back in on close. A hidden tab fades
+it out too. A cold `/blog` has no music and no toggle, and `e2e/blog.spec.ts` asserts it
+requests no `/audio/` file.
+
+**Also broken when:** a `play()` promise goes uncaught (the e2e collectors fail on unhandled
+rejections); the unlock listener is moved to `pointerdown` or `wheel`, which grant no user
+activation on touch; or a track lands in `public/audio/` without its hash in the name.
+
 ## Superseded
 
 | Decision | Was | Now |

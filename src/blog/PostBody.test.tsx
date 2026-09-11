@@ -82,7 +82,7 @@ describe('the security posture is asserted, not assumed', () => {
     expect(html(everything)).not.toContain('<iframe')
   })
 
-  it('emits no video element, so media-src stays none', () => {
+  it("emits no video element, so media-src stays 'self'", () => {
     expect(html(everything)).not.toContain('<video')
   })
 

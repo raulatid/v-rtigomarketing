@@ -82,9 +82,10 @@ describe('the content security policy', () => {
 
   it('closes the sinks that have no legitimate use here', () => {
     expect(directive('object-src')).toEqual(["'none'"])
-    // MediaCard renders a LINK rather than a <video> or an iframe, deliberately
-    // (see its header). If that ever changes, this is the line that says so.
-    expect(directive('media-src')).toEqual(["'none'"])
+    // The background music streams two same-origin <audio> elements
+    // (src/app/audio/backgroundMusic.ts, DECISIONS §48). Still 'self' only:
+    // MediaCard renders a LINK rather than a <video> or an iframe, deliberately.
+    expect(directive('media-src')).toEqual(["'self'"])
     expect(directive('frame-ancestors')).toEqual(["'none'"])
     expect(directive('base-uri')).toEqual(["'self'"])
     expect(directive('form-action')).toEqual(["'self'"])
