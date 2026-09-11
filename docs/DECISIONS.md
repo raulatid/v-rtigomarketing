@@ -3526,6 +3526,44 @@ pinch's fingers are drawn as one path with a morph (nothing else on the plate mo
 reduced motion could not freeze it readable); or the glyph swap is moved out of the
 `(pointer: coarse)` block that swaps the sentence.
 
+## 47. Two typefaces in two roles
+
+**Decided 2026-09-11,** on client direction. The site sets type in two roles. **Switzer is the
+display role**: headings, titles, the compass, the LED panels, the CTAs. **Inter is the text
+role**: everything else. The blog keeps Source Serif 4 for reading runs of prose.
+
+**One declaration, for every document.** `siteHeader.css` declares `'Vertigo Display'` (Switzer)
+and `'Vertigo Text'` (Inter), with the tokens `--font-display` and `--font-text`. It is the one
+sheet the scene, the warm blog and the cold blog all load — the same reason it owns §37's glass
+tokens. The facade's canvas text asks `document.fonts` for these same names instead of
+registering faces of its own, so the private `'Vertigo Facade Inter'` and `'Vertigo Campus Inter'`
+are gone. The blog names `'Vertigo Display'` directly, because `blog.css` reads no site token but
+`--header-control`; its own `'Vertigo Blog Inter'` points at the same files, so the browser
+fetches each once.
+
+**What changed on the scene.** It had rendered in `system-ui` — `styles.css` asked for an
+`'Inter'` nobody declared (PROJECT_MEMORY §11.68). It now renders in Inter, which is a visible
+change to every string on it. The names stay private for adr 013's reason: `@font-face` is
+global to a document, and a plain `Inter` is something other sheets could ask for by accident.
+
+**Measured, not assumed.** Switzer is one variable woff2 for every weight, 43,220 B with 386
+glyphs, every Spanish character present; its cap height is 0.750 em against Inter's 0.727, and
+the facade sizes each face by its own so a block's cap-height spec means the same metres in
+either. The Earth holo atlas still draws in `system-ui` — it rasterizes during the intro, before
+any web font could be counted on — and is the one surface left out.
+
+**Söhne was rejected.** The files offered were Klim's `TestSohne` trial copies, licensed for
+personal use only, with 69 glyphs: no á é í ó ú ñ ¿ ¡, no curly quotes, no dashes. Every Spanish
+word would have fallen back mid-word. Shipping Söhne needs a Klim web licence and its full files.
+
+**Cost.** About 91 KB more on `/`, preloaded at low priority (Inter latin and Switzer), onto a
+boot the 2026-09-02 audit already measured over its 2.8 MB target.
+
+**Also broken when:** a sheet declares a face named plain `Inter` or `Switzer`; a new font lands
+in `public/fonts/` without the first 8 hex of its SHA-256 in its name (the path is `immutable`);
+a preload loses `crossorigin`; or a facade text block type is added without choosing a role in
+`facadeRenderer.ts`.
+
 ## Superseded
 
 | Decision | Was | Now |

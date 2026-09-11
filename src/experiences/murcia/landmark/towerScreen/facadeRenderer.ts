@@ -42,8 +42,17 @@ const BASE = '#05070a';
 const AXIS = '#25333f';
 const HAIRLINE = '#1d2a35';
 
-/** One family, three weights. Registered by `mediaFacade` before the first paint. */
-export const FACADE_FONT_STACK = "'Vertigo Facade Inter', ui-sans-serif, system-ui, sans-serif";
+/**
+ * The site's two faces, by role: headlines and metrics are display (Switzer),
+ * everything else on the wall is text (Inter). Declared once in siteHeader.css;
+ * `mediaFacade` asks `document.fonts` for both and repaints when they land.
+ */
+type FontRole = 'display' | 'text';
+
+const FONT_STACK: Record<FontRole, string> = {
+  display: "'Vertigo Display', 'Vertigo Text', ui-sans-serif, system-ui, sans-serif",
+  text: "'Vertigo Text', ui-sans-serif, system-ui, sans-serif",
+};
 
 const TONES = { ink: INK, accent: ACCENT, muted: MUTED } as const;
 
@@ -58,12 +67,19 @@ const colorOf = (
  * `size` is CAP HEIGHT, not em size, because a designer measures the letter and
  * not the invisible box around it. Inter's cap height is 0.727 em, so the em
  * size is the cap divided by that — which is why `1.6 m` of heading is 2.2 m of
- * font. Getting this wrong makes every metre in every spec a lie.
+ * font. Getting this wrong makes every metre in every spec a lie. Switzer's is
+ * 0.750 (its OS/2 table), so the same spec sets its letters to the same height.
  */
-const CAP_TO_EM = 1 / 0.727;
+const CAP_TO_EM: Record<FontRole, number> = { display: 1 / 0.75, text: 1 / 0.727 };
 
-function font(ctx: CanvasRenderingContext2D, capMetres: number, weight: number, m: number): void {
-  ctx.font = `${weight} ${Math.round(capMetres * CAP_TO_EM * m)}px ${FACADE_FONT_STACK}`;
+function font(
+  ctx: CanvasRenderingContext2D,
+  capMetres: number,
+  weight: number,
+  m: number,
+  role: FontRole,
+): void {
+  ctx.font = `${weight} ${Math.round(capMetres * CAP_TO_EM[role] * m)}px ${FONT_STACK[role]}`;
 }
 
 /** Letter-spaced draw. Returns the x it ended at. */
@@ -106,7 +122,7 @@ function drawText(
 
   ctx.globalAlpha = t;
   ctx.fillStyle = colorOf(block);
-  font(ctx, block.size, weight, m);
+  font(ctx, block.size, weight, m, block.type === 'headline' ? 'display' : 'text');
   // Rises as it arrives, so type lands rather than blinks.
   const y = (block.at[1] - (1 - t) * rise) * m;
   drawTracked(ctx, block.text, block.at[0] * m, y, (block.tracking ?? 0) * m);
@@ -125,7 +141,7 @@ function drawMetric(frame: FacadeFrame, block: MetricBlock): void {
   // read while it is still counting rather than fading and counting at once.
   ctx.globalAlpha = Math.min(1, t * 1.6);
   ctx.fillStyle = colorOf(block, 'accent');
-  font(ctx, block.size, 700, m);
+  font(ctx, block.size, 700, m, 'display');
   ctx.fillText(
     `${block.prefix ?? ''}${shown}${block.suffix ?? ''}`,
     block.at[0] * m,
@@ -145,7 +161,7 @@ function drawList(frame: FacadeFrame, block: ListBlock): void {
     if (t <= 0) return;
     // The first item carries the emphasis; the rest are the vocabulary around it.
     ctx.fillStyle = i === 0 ? INK : MUTED;
-    font(ctx, block.size, 500, m);
+    font(ctx, block.size, 500, m, 'text');
     const x = block.at[0] * m;
     const y = (block.at[1] + i * block.leading) * m;
 

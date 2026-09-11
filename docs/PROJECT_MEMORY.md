@@ -1671,6 +1671,12 @@ must restore it to measure coverage.
     Note also that the promised "assert that something rasterized" e2e was never written; the
     hint's replacement is assertable as DOM and `navigation.spec.ts` covers it.
 
+    **Superseded 2026-09-11 (DECISIONS §47).** The 3D site now DOES render in Inter, on
+    purpose: `siteHeader.css` declares `'Vertigo Text'` (Inter) and `'Vertigo Display'`
+    (Switzer) for every document, and `styles.css` asks for `var(--font-text)`. The guard's
+    principle survives as the private names — no sheet declares a plain `Inter`. The brand
+    atlas still draws in `system-ui`, so the `measureText` consequence still holds for it.
+
 ---
 
 ## 12. State of the work

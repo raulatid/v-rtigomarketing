@@ -43,34 +43,35 @@ import vertexShader from './shaders/facade.vert';
  * At rest the facade costs one draw call and nothing else.
  */
 
-/** Renamed, exactly as `blog-transition` renames its faces, and for the same
- * reason: `document.fonts` is global, so registering a real "Inter" would
- * restyle every other page that asks for it. */
-const FACADE_FONT_FAMILY = 'Vertigo Facade Inter';
-const FACADE_FONT_URL = '/fonts/inter-latin-3100e775.woff2';
+/**
+ * The site's two faces, which siteHeader.css declares for every document
+ * (`'Vertigo Display'` and `'Vertigo Text'`). A canvas does not make the browser
+ * fetch a declared face the way a styled element does, so the facade asks for
+ * both by name; `load` downloads whichever is not in yet.
+ */
+const FACADE_FACES = ['700 16px "Vertigo Display"', '500 16px "Vertigo Text"'] as const;
 
 /**
  * One load per page, shared by every facade instance.
  *
  * A promise rather than a value so two facades built in the same frame await one
- * fetch, and module-level so switching experiments does not re-register the face.
- * Never removed on dispose: it is one font, and tearing it out from under
- * another live instance would be worse than keeping it.
+ * fetch, and module-level so switching experiments does not ask twice.
  */
 let fontPromise: Promise<boolean> | null = null;
 
 function loadFacadeFont(): Promise<boolean> {
   fontPromise ??= (async () => {
     try {
-      const face = new FontFace(FACADE_FONT_FAMILY, `url('${FACADE_FONT_URL}') format('woff2')`, {
-        weight: '400 700',
-      });
-      await face.load();
-      document.fonts.add(face);
+      const loaded = await Promise.all(FACADE_FACES.map((face) => document.fonts.load(face)));
+      // `load` resolves with an empty list, rather than rejecting, when no
+      // declaration matches — a stylesheet that did not arrive, or a renamed
+      // family. That is a failure here, not a success with nothing to show.
+      const missing = FACADE_FACES.filter((_, i) => loaded[i]!.length === 0);
+      if (missing.length > 0) throw new Error(`no face declared for ${missing.join(', ')}`);
       return true;
     } catch (error) {
       console.warn(
-        `[vertigo] ${FACADE_FONT_URL} did not load; the facade will draw in the` +
+        '[vertigo] the facade faces did not load; the facade will draw in the' +
           ' system stack and its metrics will not match the design',
         error,
       );

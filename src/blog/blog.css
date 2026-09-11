@@ -307,6 +307,19 @@
   gap: 48px;
 }
 
+/* The titles take the site's DISPLAY face (Switzer), the one role the blog
+   shares with the scene. It is declared once, in siteHeader.css, which every
+   document loads — named here rather than read through `--font-display`,
+   because this sheet reads no site token but `--header-control`. The
+   article body keeps the serif and the UI keeps the blog's Inter. */
+.blog-hero__title,
+.blog-article__title,
+.blog-card__title,
+.blog-prevnext__title,
+.blog-latest__label {
+  font-family: 'Vertigo Display', 'Vertigo Blog Inter', system-ui, sans-serif;
+}
+
 .blog-hero__title,
 .blog-article__title {
   margin: 0;
@@ -699,13 +712,14 @@
   color: #1c67ff;
 }
 
-/* Headings return to the UI face: the serif is for reading runs of prose, and a
-   heading is a landmark rather than something you read through. */
+/* Headings return to a sans: the serif is for reading runs of prose, and a
+   heading is a landmark rather than something you read through. Since
+   2026-09-11 that sans is the site's display face — see the titles rule. */
 .blog-body__h2,
 .blog-body__h3 {
   margin: 0;
   padding-top: 12px;
-  font-family: 'Vertigo Blog Inter', system-ui, sans-serif;
+  font-family: 'Vertigo Display', 'Vertigo Blog Inter', system-ui, sans-serif;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #0b0b0d;

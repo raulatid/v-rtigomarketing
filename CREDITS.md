@@ -154,18 +154,27 @@ Provenance not recorded when these were added. **Outstanding:** confirm the sour
 of the Earth maps and record them here. They are almost certainly NASA Visible Earth / Blue
 Marble, which is public domain, but "almost certainly" is not a licence record.
 
-## Typefaces (blog)
+## Typefaces
 
-The blog self-hosts two families. They are served from `public/fonts/` as
-latin and latin-ext woff2 subsets, and declared in `src/blog/blog.css` under the
-family names `Vertigo Blog Inter` and `Vertigo Blog Serif` — renamed so that
-loading the blog's stylesheet in a warm session cannot restyle the 3D site, which
-asks for `Inter` and deliberately resolves to `system-ui`.
+The site self-hosts three families, all served from `public/fonts/` as woff2.
+Since 2026-09-11 the whole site sets type in two roles: Switzer for display
+(headings, titles, the compass, the LED panels, the CTAs) and Inter for text,
+declared once for every document in `src/components/siteHeader.css` as
+`Vertigo Display` and `Vertigo Text`. The blog additionally declares Inter and
+Source Serif 4 in `src/blog/blog.css` as `Vertigo Blog Inter` and
+`Vertigo Blog Serif`, and keeps the serif for reading. Every family is declared
+under a private name, because `@font-face` is global to a document.
 
+- **Switzer**, by Jérémie Hornus, © Indian Type Foundry, distributed free by
+  Fontshare. https://www.fontshare.com/fonts/switzer — the unmodified variable
+  woff2 from the Fontshare kit, one file for every weight.
+  **Outstanding:** the kit shipped no licence text. Save Fontshare's licence as
+  downloaded and record its name and terms here.
 - **Inter**, by Rasmus Andersson. SIL Open Font License 1.1.
   https://github.com/rsms/inter
 - **Source Serif 4**, by Frank Grießhammer for Adobe. SIL Open Font License 1.1.
   https://github.com/adobe-fonts/source-serif
 
-Both are unmodified apart from subsetting; the OFL permits renaming the declared
-CSS family, which is not a Reserved Font Name change to the fonts themselves.
+Inter and Source Serif 4 are unmodified apart from subsetting; the OFL permits
+renaming the declared CSS family, which is not a Reserved Font Name change to
+the fonts themselves.

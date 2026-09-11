@@ -147,11 +147,10 @@ export async function createServicesCampus(
           close: campusLabel(locale, 'close'),
           leave: campusLabel(locale, 'leave'),
         },
-        // The site's `/` declares no Inter face of its own (the blog's
-        // stylesheet does), so the overlay registers it from the same woff2
-        // the LED facade already loads.
-        fontFamily: 'Vertigo Campus Inter',
-        fontUrl: '/fonts/inter-latin-3100e775.woff2',
+        // The site's text face, declared once for every document in
+        // siteHeader.css — so no `fontUrl`, and the overlay registers nothing.
+        // Its title takes the display face from murcia.css.
+        fontFamily: 'Vertigo Text',
         container: options.container,
         closeButton: true,
       },

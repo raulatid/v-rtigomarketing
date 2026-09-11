@@ -52,6 +52,30 @@
       }
     </style>
 
+    <!-- The two faces the scene's text sets in (siteHeader.css, "Type"): Inter
+         latin for the text role, Switzer for the display role. Discovered now,
+         at LOW priority for the reason the block below gives: nothing is set in
+         them until the header arrives with phase 'site', seconds after the app
+         chunk they would otherwise compete with. latin-ext is left to
+         `unicode-range`. `crossorigin` is required even same-origin — a font
+         request is CORS-mode, and without it the preload is fetched twice. -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      fetchpriority="low"
+      href="/fonts/inter-latin-3100e775.woff2"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      fetchpriority="low"
+      href="/fonts/switzer-variable-d1bf801f.woff2"
+    />
+
     <!-- Discovery early, PRIORITY LOW (plan 007 Phase 8).
          These were plain `rel=preload`, i.e. "fetch now, high priority" — so
          2.43 MB of Earth texture competed with the 101 KB app chunk for the same

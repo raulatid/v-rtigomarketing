@@ -27,7 +27,10 @@ body {
 body {
   background: #050507;
   color: #fff;
-  font-family: 'Inter', system-ui, sans-serif;
+  /* The text role. Real Inter since 2026-09-11 — before that no face by the
+     name this asked for existed on `/`, and the site rendered in system-ui.
+     The faces and the two role tokens are declared in siteHeader.css. */
+  font-family: var(--font-text);
   overflow: hidden;
 }
 
@@ -469,6 +472,7 @@ html {
 }
 
 .case-panel__title {
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -2258,6 +2262,7 @@ html {
 }
 
 .context-lost__title {
+  font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 500;
   letter-spacing: 0.02em;

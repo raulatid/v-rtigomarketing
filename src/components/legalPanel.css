@@ -27,6 +27,11 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* A document heading takes the display face; its h4 sub-points stay text. */
+.legal-panel__body h3 {
+  font-family: var(--font-display);
+}
+
 .legal-panel__body h4 {
   font-size: 0.92rem;
   color: rgba(255, 255, 255, 0.8);

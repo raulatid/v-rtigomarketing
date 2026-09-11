@@ -36,6 +36,54 @@
   }
 }
 
+/* ---- Type: two faces in two roles (2026-09-11) ------------------------------
+
+   Switzer is the DISPLAY role — headings, titles, the compass, the LED panels,
+   the CTAs. Inter is the TEXT role — everything else. The blog's article body
+   keeps its serif (blog.css).
+
+   Declared here because this is the one sheet every document loads, so one
+   declaration serves the scene, the warm blog and the cold blog alike, and
+   the facade's canvas text asks `document.fonts` for these same names
+   (mediaFacade.ts). The families are PRIVATE names for adr 013's reason:
+   @font-face is global to the document, and a face called plain "Inter" is
+   something other sheets might ask for without meaning it.
+
+   Both files are variable fonts, so one file covers every weight. Switzer is
+   one file for all of latin and latin-ext (386 glyphs, 43 KB); Inter keeps the
+   blog's two subsets, and the unicode-ranges are the blog's, so a browser that
+   has one declaration's file already has the other's. */
+@font-face {
+  font-family: 'Vertigo Display';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/switzer-variable-d1bf801f.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Vertigo Text';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-ext-34b9c504.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Vertigo Text';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-3100e775.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --font-display: 'Vertigo Display', 'Vertigo Text', system-ui, sans-serif;
+  --font-text: 'Vertigo Text', system-ui, sans-serif;
+}
+
 /* ---- The smoked-glass material (plan 020) ----------------------------------
 
    This file owns the site's root tokens because it is the one sheet every
@@ -221,7 +269,8 @@
   height: var(--header-control);
   padding: 0 26px;
   border-radius: 10px;
-  font-family: inherit;
+  /* A CTA: the display face (see "Type" above). */
+  font-family: var(--font-display);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -310,7 +359,7 @@
   border: 0;
   background: none;
   color: rgba(255, 255, 255, 0.85);
-  font-family: inherit;
+  font-family: var(--font-display);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.16em;

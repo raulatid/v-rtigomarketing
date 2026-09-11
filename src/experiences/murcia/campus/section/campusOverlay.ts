@@ -99,6 +99,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     `opacity:0;visibility:hidden;transition:opacity ${FADE_MS}ms ease,visibility 0s linear ${FADE_MS}ms;`;
 
   const title = document.createElement('div');
+  // A hook for the host's heading face, as the layer's class is for its plate.
+  title.className = 'campus-overlay__title';
   title.style.cssText = 'font-size:clamp(28px,4vw,44px);font-weight:600;letter-spacing:-0.01em;line-height:1.1;';
   const subtitle = document.createElement('div');
   subtitle.style.cssText = 'margin-top:12px;font-size:clamp(15px,1.5vw,19px);font-weight:400;line-height:1.45;opacity:0.82;';
