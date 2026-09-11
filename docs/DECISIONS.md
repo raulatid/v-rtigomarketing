@@ -3570,6 +3570,9 @@ a preload loses `crossorigin`; or a facade text block type is added without choo
 one for Murcia. It starts when Earth is whole, and the warp crossfades from one track to the
 other. The player is `src/app/audio/backgroundMusic.ts`.
 
+As of 2026-09-11, only Earth has a track. Murcia's entry is commented out, and a world without a
+track is simply silent: the warp fades Earth out, and fades nothing in.
+
 **§6 is not broken.** "Nothing ever cross-fades" is a *visual* principle, and every
 substitution it names is a picture. The Earth ⇄ Murcia swap is still a hard cut under full
 black. The music is the one thing that is allowed to overlap the cut, and it starts crossing at

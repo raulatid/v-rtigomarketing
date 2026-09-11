@@ -40,14 +40,18 @@ import type { ExperienceId } from '../experience'
  * Hand-hashed like the fonts (DECISIONS §47): the name carries the first 8 hex
  * of the file's SHA-256, because `/audio/` is served `immutable`. Encode recipe
  * and sources in CREDITS.md.
+ *
+ * A world without an entry is silent: the warp fades the other track out and
+ * nothing in.
  */
-export const MUSIC_TRACKS: Readonly<Record<ExperienceId, string>> = {
-  earth: '/audio/earth-b0d93122.mp3',
-  murcia: '/audio/murcia-95bad010.mp3',
+export const MUSIC_TRACKS: Readonly<Partial<Record<ExperienceId, string>>> = {
+  earth: '/audio/earth-0cae7852.mp3',
+  // Murcia's track is still to be chosen (CREDITS.md). Until then Murcia is quiet.
+  // murcia: '/audio/murcia-<sha8>.mp3',
 }
 
 /** The master level at full presence. Background, not foreground. */
-export const MUSIC_VOLUME = 0.35
+export const MUSIC_VOLUME = 0.1
 /** A little longer than the 1.6 s warp, so the new world's track settles after
  *  the picture does. */
 export const CROSSFADE_SECONDS = 2.4
@@ -191,15 +195,17 @@ function ensureGraph(): Graph | null {
   return graph
 }
 
-function ensureTrack(g: Graph, id: ExperienceId): Track {
+function ensureTrack(g: Graph, id: ExperienceId): Track | null {
   const existing = g.tracks[id]
   if (existing) return existing
+  const src = MUSIC_TRACKS[id]
+  if (src === undefined) return null
   const el = new Audio()
   el.loop = true
   // Nothing is fetched until `play()`: the Murcia track costs no bytes to a
   // visitor who never leaves Earth.
   el.preload = 'none'
-  el.src = MUSIC_TRACKS[id]
+  el.src = src
   const gain = g.ctx.createGain()
   gain.gain.value = 0
   g.ctx.createMediaElementSource(el).connect(gain)
@@ -278,6 +284,7 @@ function apply(trackFade: number, masterFade: number) {
     const target = targets[id]
     if (target === 0 && !g.tracks[id]) continue
     const track = ensureTrack(g, id)
+    if (!track) continue
     if (track.target !== target) {
       track.target = target
       ramp(g.ctx, track.gain.gain, target, trackFade)
