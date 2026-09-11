@@ -137,9 +137,12 @@ export function createSatelliteFocus({
 
   /** Drops the synthetic hover and its cue, pushing the change if there was one. */
   function clearDemo() {
-    if (lastCue !== null && invited !== null) {
+    // Keyed on `invitedId`, the only satellite a cue is ever played on, not on
+    // `invited`: select() clears that before retiring the tutorial, and a cue
+    // in flight at the click would then stay pinned at its last progress.
+    if (lastCue !== null && invitedId !== null) {
       lastCue = null
-      orbitSystem.setSatelliteCue(invited, null)
+      orbitSystem.setSatelliteCue(invitedId, null)
     }
     if (demoId === null) return
     demoId = null

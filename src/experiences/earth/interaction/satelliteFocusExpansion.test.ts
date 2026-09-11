@@ -382,6 +382,19 @@ describe('the hover tutorial', () => {
     expect(harness.cue).not.toHaveBeenCalled()
   })
 
+  it('hides the cue when the selection lands mid-cue', () => {
+    // The click that retires the tutorial can arrive while the particles are
+    // in flight. Whatever progress they had must not stay pinned on screen.
+    harness.runUntil(() => typeof harness.cuesOf('a').at(-1) === 'number')
+
+    harness.clickOn('a')
+    expect(harness.cuesOf('a').at(-1)).toBeNull()
+
+    harness.focus.deselect()
+    harness.run(1)
+    expect(harness.cuesOf('a').at(-1)).toBeNull()
+  })
+
   it('resumes after a trip out of the scene, which is not an interaction', () => {
     harness.run(1)
     expect(harness.focus.tutorialPulses).toBeGreaterThan(0)
