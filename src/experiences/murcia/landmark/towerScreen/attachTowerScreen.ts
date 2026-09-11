@@ -28,8 +28,14 @@ import { applyTowerPalette } from './towerPalette';
 
 export const SCREEN_NODE_NAME = 'LED_Main';
 
-/** How long the first slide's entrance runs. Every later slide crossfades in settled. */
-const ENTRANCE_SECONDS = 3.4;
+/**
+ * No entrance (2026-09-11, user direction). It ran 3.4 s: a bright band swept
+ * the facade while the first slide's blocks revealed behind it. Now the
+ * progress jumps to settled on the first frame, as the campus ring's does, so
+ * the wake in the shader never shows and the slide is simply on. Later slides
+ * still crossfade.
+ */
+const ENTRANCE_SECONDS = 0;
 
 /**
  * Long-axis texture size. At 2048 the portrait screen is a 569×2048 canvas —
