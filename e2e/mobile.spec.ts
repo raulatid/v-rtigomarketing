@@ -1016,12 +1016,13 @@ test.describe('the blog on a phone', () => {
 })
 
 /**
- * Where the district's first building is on screen.
+ * Where the services campus's lake is on screen — the one place a tap enters.
  *
  * The same seam, and the same reasoning, as `clickBlogDisplay` in blog.spec.ts:
- * a building's position depends on the camera pose and on the GLB, so a
+ * the lake's position depends on the camera pose and on the GLB, so a
  * hardcoded point would turn this into a test of the city's layout that breaks
- * on the next re-export.
+ * on the next re-export. The seam kept its name through the campus port
+ * (plan 024); it answers with the lake now.
  */
 /** The seam's answer, or why it has none. Polled by `bringDistrictIntoView`. */
 async function districtProbe(
@@ -1037,10 +1038,10 @@ async function districtProbe(
 
 async function bringDistrictIntoView(page: Page): Promise<{ x: number; y: number }> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    // Polled rather than read once: `CameraFlight` integrates clamped frame
-    // deltas, so its 0.8-1.6s takes far longer in wall-clock on a software
-    // renderer at a few frames a second, and a district still arriving would
-    // otherwise read as one that is not there.
+    // Polled rather than read once: the campus's flights integrate clamped
+    // frame deltas, so their 1.4s take far longer in wall-clock on a software
+    // renderer at a few frames a second, and a camera still arriving would
+    // otherwise read as a lake that is not there.
     let reason: 'ok' | 'no-seam' | 'off-screen' = 'off-screen'
     try {
       await expect
@@ -1054,7 +1055,7 @@ async function bringDistrictIntoView(page: Page): Promise<{ x: number; y: number
     const settled = await districtProbe(page)
     if (settled.point) return settled.point
   }
-  throw new Error('the district never came into view, after five pans')
+  throw new Error('the lake never came into view, after five pans')
 }
 
 /**
@@ -1104,20 +1105,21 @@ async function panBy(page: Page, dx: number, dy: number) {
   )
 }
 
-/** True while the district holds the viewer. Its live region is the observable. */
+/** True while the services section holds the viewer. Its live region is the observable. */
 async function districtOpen(page: Page): Promise<boolean> {
   return page.evaluate(
     () => (document.querySelector('.district-a11y-live')?.textContent ?? '') !== '',
   )
 }
 
-test('a finger opens the services district, closes it, and opens it again', async ({ page }) => {
+test('a finger opens the services section, closes it, and opens it again', async ({ page }) => {
   // Reported by the client 2026-09-06, from mobile only: the district opened
   // once and was then deaf to every tap, or was deaf from the first one. The
-  // cause was a press ledger that a release could fail to clear
-  // (DistrictInteraction, `endPointerSequence`), and a latch is only a latch on
-  // the SECOND attempt — so the re-open below is the whole point of this test
-  // and the first open is its setup.
+  // cause was a press ledger that a release could fail to clear, and a latch is
+  // only a latch on the SECOND attempt — so the re-open below is the whole point
+  // of this test and the first open is its setup. The campus's interaction
+  // (`campus/campusInteraction.ts`) keeps the same ledger, so the same test
+  // still guards it.
   //
   // A full boot, a cinematic and three touch interactions, on a software
   // renderer where one gesture has been measured at 10-35s.
@@ -1134,8 +1136,8 @@ test('a finger opens the services district, closes it, and opens it again', asyn
     .poll(() => page.locator('.nav').getAttribute('data-state'), { timeout: 20_000 })
     .toBe('idle')
 
-  // THE DISTRICT IS NOT ON SCREEN WHEN YOU ARRIVE, and the panning inside
-  // `bringDistrictIntoView` is not convenience — it is the measured state of
+  // THE CAMPUS MAY NOT BE ON SCREEN WHEN YOU ARRIVE, and the panning inside
+  // `bringDistrictIntoView` is not convenience — it was the measured state of
   // this viewport, and a SEPARATE defect from the one this test guards.
   //
   // Recorded 2026-09-06 on both phone profiles: at the arrival pose the
@@ -1150,34 +1152,32 @@ test('a finger opens the services district, closes it, and opens it again', asyn
   // Deliberately not asserted here. Where the camera should sit is a
   // composition decision with no single correct answer, and pinning one in a
   // test would be this file deciding it. What this test does assert is that the
-  // tap round trip works once the district IS reachable.
+  // tap round trip works once the lake IS reachable.
   const first = await bringDistrictIntoView(page)
 
   await page.touchscreen.tap(first.x, first.y)
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
 
-  // Out by the keyboard's route rather than by the display's own VOLVER. Both
-  // reach `exitDistrict`, and the projected control is a sub-44px hit rect on a
-  // phone (measured 2026-09-02) — a real defect, but a different one, and
-  // failing here for it would hide what this test is watching.
+  // Out by the keyboard's route: Escape goes back one level, and on the intro
+  // there is only one. The overlay's close is the next test's subject.
   await page.keyboard.press('Escape')
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(false)
 
   // Re-found rather than reused, and it takes another pan: the exit dollies the
-  // camera back out to rest and the district leaves the frame again on this
-  // aspect — the same framing defect as above, met a second time. A stale point
-  // would miss and look exactly like the latch this test is watching for.
+  // camera back to where the visitor tapped from. A stale point would miss and
+  // look exactly like the latch this test is watching for — and the exit flight
+  // has to land first, because the campus ignores presses while it flies.
+  await waitDistrictSettled(page)
   const again = await bringDistrictIntoView(page)
   await page.touchscreen.tap(again.x, again.y)
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
 })
 
 /**
- * Where a display control is drawn on screen, once the entry flight has landed.
- *
- * Two seams, both under `debugTools`: the control's point moves with the camera
- * like the buildings do, and a press fired while the flight is still landing
- * reads as "stop" rather than "choose" — so the flight is waited out first.
+ * Waits for the campus's flight to land. It ignores presses while it flies, so
+ * a tap fired mid-flight would be lost rather than read. A flight is 1.4 s of
+ * scene time — at least 14 frames at the 0.1 s delta clamp — and the phone
+ * profiles render at under a frame a second here, so the wait is generous.
  */
 async function waitDistrictSettled(page: Page): Promise<void> {
   await expect
@@ -1187,33 +1187,56 @@ async function waitDistrictSettled(page: Page): Promise<void> {
           const settled = (window as unknown as Record<string, unknown>).__vertigoDistrictSettled
           return typeof settled === 'function' ? (settled as () => boolean)() : null
         }),
-      { timeout: 20_000 },
+      { timeout: 60_000 },
     )
     .toBe(true)
 }
 
-async function settledControlPoint(page: Page, control: string): Promise<{ x: number; y: number }> {
+/**
+ * The overlay's close button, once the section's copy is showing.
+ *
+ * Real DOM rather than a seam: the close is a button in `.campus-overlay`, and
+ * the copy — with it — appears only once the flight has landed and the
+ * particles have risen and settled. That is 10.4 s of scene time, and scene
+ * time advances by at most 0.1 s a frame (`clampFrameDelta`), so on a software
+ * renderer at one or two frames a second it is well over a minute of wall
+ * clock. Until then the layer is `visibility: hidden` and takes no press.
+ */
+async function settledCloseButton(page: Page): Promise<{ x: number; y: number }> {
   await waitDistrictSettled(page)
-  const point = await page.evaluate((name) => {
-    const probe = (window as unknown as Record<string, unknown>).__vertigoDistrictControlPoint
-    if (typeof probe !== 'function') return null
-    return (probe as (c: string) => { x: number; y: number } | null)(name)
-  }, control)
-  expect(point, `the ${control} control is not on screen`).not.toBeNull()
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const layer = document.querySelector('.campus-overlay')
+          return layer ? getComputedStyle(layer).visibility : null
+        }),
+      { timeout: 150_000 },
+    )
+    .toBe('visible')
+  const point = await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('.campus-overlay button')]
+    const close = buttons.find((b) => b.textContent === '×')
+    if (!close) return null
+    const r = close.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  })
+  expect(point, 'the overlay has no close button').not.toBeNull()
   return point!
 }
 
-test('a touch user can leave the focused display two ways: its close, and a pinch out', async ({
+test('a touch user can leave the services section two ways: its close, and a pinch out', async ({
   page,
 }) => {
-  // The other half of the mobile report. Once the display was open, the only
-  // way out on a phone was a ~19 CSS px close glyph: the pinch was refused while
-  // a district held the viewer, Escape needs a keyboard and the a11y VOLVER
-  // only unclips for one. Two independent exits now, both touch-native, and
-  // this proves each on its own — the close is tapped where it is DRAWN, so a
-  // near miss is not what is being tested here (DistrictInteraction.test.ts
-  // owns the grown hit box); the pinch is the one that must not need aim.
-  test.setTimeout(240_000)
+  // The other half of the mobile report. Once the old display was open, the
+  // only way out on a phone was a ~19 CSS px close glyph: the pinch was refused
+  // while a district held the viewer, Escape needs a keyboard and the a11y
+  // VOLVER only unclips for one. The campus keeps both touch-native exits: a
+  // 40 px close in its overlay, and the pinch, which must not need aim.
+  //
+  // Two visits, each waiting out the particles' rise before its copy — and
+  // its close — appear: see `settledCloseButton` for why that is minutes here.
+  test.setTimeout(480_000)
   await bootToReady(page)
   await reachSite(page)
 
@@ -1227,19 +1250,21 @@ test('a touch user can leave the focused display two ways: its close, and a pinc
   await page.touchscreen.tap(first.x, first.y)
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
 
-  // 1. The close, once the flight has landed.
-  const close = await settledControlPoint(page, 'back')
+  // 1. The close, once the copy is showing.
+  const close = await settledCloseButton(page)
   await page.touchscreen.tap(close.x, close.y)
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(false)
-  // The close starts the exit dolly, and a press while a flight plays is
-  // "stop", not "choose" — so the flight is waited out before going back in.
+  // The close starts the exit flight, and the campus ignores presses while a
+  // flight plays — so it is waited out before going back in.
   await waitDistrictSettled(page)
 
   // 2. Back in, then a pinch OUT — a close in Murcia — with no aim at all.
   const again = await bringDistrictIntoView(page)
   await page.touchscreen.tap(again.x, again.y)
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(true)
-  await settledControlPoint(page, 'back')
+  // Only the flight is waited out, not the copy: the pinch leaves whether or not
+  // the section has finished forming, and the rise is minutes on this renderer.
+  await waitDistrictSettled(page)
   await pinch(page, { from: 200, to: 120 })
   await expect.poll(() => districtOpen(page), { timeout: 20_000 }).toBe(false)
   // One level, not one world.

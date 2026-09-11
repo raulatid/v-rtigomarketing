@@ -116,3 +116,85 @@ describe('the lean never becomes navigation', () => {
     expect(Math.abs(rig.snapshot().cursorYawOffsetDegrees)).toBeLessThan(1e-6)
   })
 })
+
+
+// The hand-over another system uses when it flies the camera itself: the blog
+// approach and the services campus both take the rig, write `camera.position`
+// and `quaternion` directly, and give it back through `adoptFromCamera`. The
+// campus holds it for a whole visit, so what the rig solves on the way back is
+// what the city's continuity rests on. `checks/campus-section.ts` drives the
+// full loop, owner switch included; these pin the rig's half.
+describe('handing the camera to another system and taking it back', () => {
+  function makeHeld(): { rig: CameraRig; camera: THREE.PerspectiveCamera } {
+    const pose = resolveCameraPose(murciaConfig, ASPECT)
+    const camera = new THREE.PerspectiveCamera(pose.fov, ASPECT, pose.near, pose.far)
+    const tuning = createDefaultCameraTuning(
+      murciaConfig,
+      pose.distance,
+      pose.elevationDegrees,
+      murciaConfig.navigation.bounds,
+    )
+    const rig = new CameraRig(camera, pose, tuning)
+    rig.setAspect(ASPECT)
+    rig.setFocus(murciaConfig.initialFocus.x, murciaConfig.initialFocus.z)
+    return { rig, camera }
+  }
+  const settle = (rig: CameraRig, seconds = 3) => {
+    for (let i = 0; i < seconds * 60; i += 1) rig.update(1 / 60)
+  }
+
+  it('says when it is held, and counts the hand-over as navigation', () => {
+    const { rig } = makeHeld()
+    settle(rig)
+    expect(rig.snapshot().secondsSinceNavigation).toBeGreaterThan(2)
+    rig.setExternallyControlled(true)
+    expect(rig.isExternallyControlled).toBe(true)
+    // So the cursor lean waits out its idle delay again after the visit,
+    // rather than leaning the moment the camera comes back.
+    expect(rig.snapshot().secondsSinceNavigation).toBe(0)
+    rig.setExternallyControlled(false)
+    expect(rig.isExternallyControlled).toBe(false)
+  })
+
+  it('solves its own pose back out of a camera it left, exactly', () => {
+    const { rig, camera } = makeHeld()
+    rig.setYaw(40)
+    settle(rig)
+    const position = camera.position.clone()
+    const focus = rig.focus.clone()
+    const azimuth = rig.getAzimuthDegrees()
+
+    // Another system flies away and back, writing the camera directly — and
+    // the rig's own state is scrambled meanwhile, so only a real solve from
+    // the camera can put it back.
+    rig.setExternallyControlled(true)
+    rig.setFocus(-300, 200)
+    rig.setYaw(-100)
+    camera.position.copy(position)
+    camera.lookAt(focus.x, rig.getEffectivePose().lookAtHeight, focus.z)
+    rig.adoptFromCamera()
+    rig.setExternallyControlled(false)
+    settle(rig, 1)
+
+    expect(camera.position.distanceTo(position)).toBeLessThan(1e-6)
+    expect(rig.focus.distanceTo(focus)).toBeLessThan(1e-6)
+    // Round the circle: atan2 hands back the principal angle.
+    const turn = ((((rig.getAzimuthDegrees() - azimuth) % 360) + 540) % 360) - 180
+    expect(Math.abs(turn)).toBeLessThan(1e-6)
+    expect(rig.getYaw()).toBeCloseTo(rig.getAzimuthDegrees() - rig.getPose().azimuthDegrees, 9)
+  })
+
+  it('re-places the camera from its own state on setPose — why a held rig must not get one', () => {
+    const { rig, camera } = makeHeld()
+    settle(rig)
+    rig.setExternallyControlled(true)
+    camera.position.set(-150, 60, 450)
+    const parked = camera.position.clone()
+    rig.setAspect(0.5)
+    // The projection only; the camera stays where its owner put it.
+    expect(camera.aspect).toBe(0.5)
+    expect(camera.position.distanceTo(parked)).toBe(0)
+    rig.setPose(resolveCameraPose(murciaConfig, 0.5))
+    expect(camera.position.distanceTo(parked)).toBeGreaterThan(1)
+  })
+})

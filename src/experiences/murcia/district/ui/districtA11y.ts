@@ -114,11 +114,20 @@ export class DistrictA11y {
     }
 
     // The summary is announced in both modes and the detail copy is not.
-    // Reading long copy is what the display is for; duplicating it into a live
-    // region would make every page change read the whole service aloud.
-    const message = snapshot.detailOpen
-      ? `${view.eyebrow}. ${view.title}. ${campusLabel(this.locale, 'readMore')}.`
-      : `${view.eyebrow}. ${view.title}. ${view.summary}`;
+    // Reading long copy is what the section's copy is for; duplicating it into
+    // a live region would make every page change read the whole service aloud.
+    //
+    // Joined from the parts that exist, each ending in one full stop: a stop
+    // with no title — the intro has none beyond the eyebrow — reads as a
+    // stumble, and copy that already ends in a period would otherwise get two.
+    const parts = snapshot.detailOpen
+      ? [view.eyebrow, view.title, campusLabel(this.locale, 'readMore')]
+      : [view.eyebrow, view.title, view.summary];
+    const message = parts
+      .map((part) => part.trim().replace(/[.\s]+$/, ''))
+      .filter((part) => part !== '')
+      .map((part) => `${part}.`)
+      .join(' ');
 
     if (message === this.announced) return;
     this.announced = message;

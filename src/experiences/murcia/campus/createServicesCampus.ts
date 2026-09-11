@@ -231,7 +231,8 @@ export async function createServicesCampus(
   const viewFor = (snapshot: CampusSnapshot): DistrictA11yView | null => {
     if (snapshot.stage === 'overview') return null;
     if (snapshot.stage === 'intro') {
-      return { eyebrow: options.content.label, title: content.intro.title, summary: content.intro.subtitle };
+      // The intro's title IS the district's label, so it is not said twice.
+      return { eyebrow: options.content.label, title: '', summary: content.intro.subtitle };
     }
     const service = content.services[snapshot.index];
     if (!service) return null;

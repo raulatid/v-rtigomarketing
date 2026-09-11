@@ -95,7 +95,7 @@ npm run test:coverage  # scoped coverage, thresholds enforced
 npm run check:architecture # 49 assertions — the dependency directions, enforced
 npm run check:navigation   # 33 assertions — drag signs, the spring, bounds
 npm run check:footprint    # 13 assertions — every reachable distance against the skirt
-npm run check:district     # 73 assertions — flights, the focus dolly, framing, materials
+npm run check:campus       # 17 assertions — the campus hand-over: one writer, no snap, fps, ring
 npm run check:warp         # 50 assertions — the camera envelope and the footprint sweep
 npm run check:space        # 36 assertions — the star shell bound, clumping, the band
 npm run check:asset        # the Blender export contract; the UV section still FAILS
@@ -662,7 +662,7 @@ POSE earth radius=18.00 fov=45.0
 
 Baking a pose is never only the constant: Murcia's `dist`/`elev` are mirrored in
 `utils/warpTransition.ts` under a hard-equality check (`checks/warp-transition.ts`), and the
-gates are `check:footprint`, `check:warp`, `check:district`, `check:navigation`.
+gates are `check:footprint`, `check:warp`, `check:navigation`.
 (The 18° elevation floor that stood here was grab-the-point's, and went with the map pan in
 `DECISIONS.md` §44; nothing in `check:navigation` measures it now.)
 
@@ -699,181 +699,65 @@ JS-rendered so no values could be read from it.
 
 ---
 
-## 8. Murcia's district interaction
+## 8. The services campus
 
-A district highlights on hover, flies the camera to itself on click, and opens a services
-panel. It is the first *content* in Murcia; everything before it was navigation.
+The services section since 2026-09-11 (`DECISIONS.md` §45, `plans/024`). It
+replaced the projected display district (§34); that design, its flight and its
+framing maths are in git history and `plans/010-services-district/`.
 
-### The asset does not contain the district
+### Where the code came from
 
-The Blender collection is called `edificios_servicios`. **It does not exist in the GLB.**
-All 294 node names were dumped to confirm it: the glTF exporter flattens collections and
-only object names survive.
+`experiences/murcia/campus/` is the lab's `service-campus/core/`, copied.
+Verbatim: the lake, the particle field and its layouts, the content schema and
+icon library, the state store. Edited, and only these: `attachServicesCampus`
+(no canvas listeners), `campusCamera` (the overview pose is taken on entering,
+not at build time) and `campusOverlay` (a mount container and a close button).
+The LED strip runs on the tower's engine (`landmark/towerScreen/`). Everything
+else in the folder is the site's: the palette, the gather, the content mapping,
+the camera adapter, the interaction and the assembly
+(`createServicesCampus.ts`), which is what `MurciaExperience` holds.
 
-`resolveDistrict` (`experiences/murcia/interaction/resolveDistrict.ts`) therefore resolves in
-layers, reporting which one fired — the same discipline `findTerrainPlate` uses, for the same
-reason:
+### Who writes the camera
 
-```
-userData.district === tag   ->  'tag'    the production mechanism
-configured node names       ->  'name'   all three spellings
-world XZ rectangle          ->  'rect'   development only, gated + loud
-                            ->  'not-found'  feature left entirely inert
-```
+From the entry flight's first frame to the exit's landing the rig is
+externally controlled, so its springs do not step and the pan refuses every
+press. The campus writes `camera.position` and `quaternion` directly, like the
+blog approach, and hands back through `adoptFromCamera`. Two things keep that
+seamless, and both are measured by `check:campus`:
 
-**Stand-in today:** `blog_edificios` + `blog_edificios.001`, a real non-instanced cluster at
-X [−381, −299] Z [156, 212]. When the objects carry `district = "servicios"` the tag path
-wins automatically and no code changes. The Blender side is `murcia/blender-export-contract.md`.
+- the look target is SEEDED at the rig's real aim point — the focus at the
+  pose's `lookAtHeight`, not the focus on the ground — before every entry, or
+  the fly-in swings on its first frame;
+- a resize during the visit keeps its pose (`deferredPose`) until the rig has
+  adopted, because `setPose` re-places the camera from the rig's stale state —
+  296 units from the parked camera, measured.
 
-`allowSpatialFallback` is a field on the binding, **not** `import.meta.env.DEV`. Nothing in
-`src/` reads `import.meta.env`, and `checks/` bundles these modules for Node with esbuild
-where it does not exist — reading it inside the resolver would have broken the harness that
-tests the resolver.
+The adapter never releases a rig it did not take: the campus camera reports
+"control back" when it is disposed, flown or not.
 
-### Exclusive camera ownership
+### Input
 
-The first design suspended *pointer input* during a flight. That is not enough: the rig's
-springs chase their targets whenever `CameraRig.update()` runs, so a flight would move the rig
-and the springs would pull it back toward stale targets on the same frame, every frame.
+`campusInteraction.ts` owns every pointer the section reads, with the same
+ledger the display district learned to keep (an enabled gate, a press per
+pointer id, a threshold per pointer type, a release closed wherever it lands).
+Overview: a tap on the lake, within 1.1 of its radius of its centre — the water
+node holds the entrance pools too. Inside: one step per horizontal swipe, the
+arrow keys, Escape one level at a time. A press during a flight is ignored.
 
-The fix is a lifecycle, not a filter (rewritten for `DECISIONS.md` §44). Taking external
-control, through the `CameraOwnership` facade, makes `MurciaExperience.update` stop stepping
-the springs at all; the flight writes rig STATE — value, target and velocity together —
-through `setFocus`/`setYaw`, so there is nothing to adopt when it hands back.
+### Content
 
-Cancellation uses a **capture-phase** `pointerdown` listener on the canvas. It runs before
-the controller's own constructor-registered handler, so the press that stops the flight is
-also the press that starts the drag — no synthetic re-dispatch, no dead first gesture. Its
-`pointerup` is suppressed.
+No Sanity change. `campusContent.ts` maps `DistrictContent`: the intro is the
+district's label and summary, a service's subtitle is its opening sentence and
+its detail the rest of its body, and its symbol and figure come from
+`scene/cityDistrictBindings.ts`. A service with no row rejects the whole set,
+and the campus stays scenery — the bindings test fails first.
 
-### The flight moves focus and yaw only
+### Look
 
-Distance, elevation and FOV are untouched, so the ground footprint is unchanged and
-everything in §5 and §6 holds with no re-measurement. A deliberate scoping decision, not an
-oversight — §5 makes a pose change a much larger job.
-
-Yaw uses the shortest signed delta added to the rig's unbounded yaw, so 350° → 10° travels
-+20° and a wound-up 730° stays wound up. The flight integrates `elapsed / duration` through
-an ease-in-out curve rather than the project's usual `1 − exp(−dt/τ)`: it needs a defined
-endpoint, and frame-rate independence then holds by construction (verified identical at
-30/60/120 fps, spread 0.0).
-
-*Desired* and *feasible* focus are kept separate. The destination is never rewritten by a
-frame that happened to be clamped, so a trajectory grazing the navigable edge still arrives
-exactly where it was aimed.
-
-### Framing around the panel
-
-The district must not land behind the UI. The offset is computed as: centre of the
-unobstructed region → NDC → raycast to the navigation plane → point P →
-`focus = target + (target − P)`.
-
-That is **exact, not approximate**. Moving the focus by d moves the camera by d, so the
-point under a given NDC moves by exactly d; the round trip verifies to 1e-4 on every
-viewport including 5120×1440 and an offset canvas.
-
-Two things that are easy to get wrong and are now asserted:
-
-- **Measure from real DOM rects**, not the breakpoint, and relative to the *canvas* rect
-  rather than the viewport.
-- **Never mutate the live rig to take the measurement.** `computeFramedFocus` builds a
-  detached `CameraRig` on a throwaway camera. Pointing the real rig at the destination would
-  jump the camera for a frame and fire `onYawChanged` → `recomputeBounds()` as a side effect.
-
-The panel is measured with `offsetLeft/Top/Width/Height`, not `getBoundingClientRect()`.
-
-### Look: emissive, not lights, and no halo
-
-Murcia has no post-processing outside a warp, so emissive makes a surface read as
-self-illuminated; it does **not** bloom into the air. The ground marker supplies the spread.
-Dynamic lights are ruled out separately by the light-count recompile.
-
-Materials are cloned **by original identity** (`Map<original, clone>`), not one clone for
-all — that would work only while the GLB ships zero materials, and the texturing work will
-end that. Originals are recorded and restored before the clones are disposed. Authored
-emissive is scaled, never overwritten, so future `districtPart = "emission"` strips keep
-their modelled look.
-
-Idle intensity is deliberately **non-zero**, because there is no hover on touch.
-
-### Mobile is not a smaller desktop
-
-At 30° elevation the screen's vertical axis maps to *distance*: the bottom of frame is near
-foreground, the top is the far city. A bottom sheet therefore covers the cheapest part of the
-image, where a side panel on a narrow screen would cover the city. Two stops (~40% / ~85%);
-the camera frames for the peek stop and **does not** re-frame when the sheet expands — at 85%
-the user has chosen content over scene, and chasing the remaining strip reads as instability.
-
-**Buildings are not small touch targets**, contrary to the assumption that usually drives a
-picking proxy. Measured at the shipped pose, scale at the focus plane is ~8.7 px/unit at
-1440×900 and ~8.1 px/unit at 390×844, so a 13-unit building is ~105 px wide. The proxy exists
-for two other reasons: the marker is the affordance and must itself be clickable, and the
-gaps between buildings should not be dead space.
-
-Accessibility is carried by the projected label, which is a real `<button>`: a raycast cannot
-be tabbed to or activated by Enter.
-
-### The panel
-
-A `summary` (one sentence, sized to survive the 40% mobile peek stop), a longer `intro`, and
-five services as **single-open accordion sections**, the first open on arrival. All-collapsed
-reads as a menu rather than as content, and several open at once loses the reader's place in
-a 380 px column.
-
-**Earth's case panel is now the same sheet** (DECISIONS 26.19, 2026-08-18). The 2026-08-14 mobile
-audit left it open whether these stops suited the case panel too; the answer is yes, and the
-single-stop sheet that shipped in the meantime did not. Measured on the build, with the longest
-case:
-
-| viewport | one 60dvh stop | content | hidden |
-|---|---|---|---|
-| 393×852 | 511 px | 706 px | 196 px, **28%** |
-| 360×740 | 444 px | 719 px | 276 px, **38%** |
-| 852×393 | **desktop dock, 820 px tall, unscrollable** | 818 px | unreachable |
-
-Two failures in one: the sheet's top edge at 40% of the screen covered a satellite centred at
-50%, and a third of the case sat behind a scroll nothing advertised. At the peek stop the panel
-now clears the satellite by ~85 px on a 393×852 phone, and expanded holds the whole case with
-nothing left to scroll.
-
-The landscape row is the one worth remembering: **a breakpoint written only in width does not
-describe a phone.** 852×393 passed `max-width: 767px` and got the desktop layout.
-
-`src/content/types.ts` holds `DistrictService { id, title, body }`. The
-`id` wires `aria-controls` to the region, so duplicates would point two headers at one panel
-— invisible unless you use a screen reader, hence asserted.
-
-**Height animates with `grid-template-rows: 0fr → 1fr`, not `max-height`.** `max-height`
-needs a number bigger than any real body; whatever it is, the visible motion finishes early
-and the transition spends the remainder doing nothing, because the easing applies to the
-guess rather than to the content. The `fr` track animates to genuine `auto`. It needs an
-inner wrapper with `min-height: 0` — grid items default to `min-height: auto` and refuse to
-shrink below their content, which would hold the section open at `0fr`.
-
-Two ordering traps, both hit during implementation:
-
-- `.reveal` and `.district-service-region` are both single-class selectors, so whichever is
-  declared last wins the `transition` shorthand outright. With `.reveal` last the accordion
-  silently stopped animating its height. The utility now precedes the components.
-
-  **This used to claim `checks/` verified that order in the built CSS. It does not, and never
-  did** — no such assertion exists in any harness, and the claim survived because a sentence
-  describing a guard reads exactly like a guard. Corrected 2026-08-13 rather than
-  implemented: the honest position is that this ordering is currently held by nothing but
-  the source order and this paragraph. If it breaks again, the place to assert it is a
-  Playwright spec that opens a district and measures the section's animated height, because
-  the failure is behavioural rather than textual.
-- `buildSections()` opens section 0, which routed through the same path as a tap — including
-  the mobile auto-expand. On a phone the sheet jumped to 85% the instant the panel opened and
-  the peek stop was never seen. `setOpenSection` now takes `fromUser`, and only a gesture
-  raises the sheet or scrolls.
-
-**Opening a section does not re-frame the camera**, deliberately: the desktop dock is
-fixed-width and full-height and the mobile sheet's height is set by its stop, so section
-height changes only inside the scrolling body. `getObstructionRect()` returns the same
-rectangle.
-
----
+Colours by node name (`campusPalette.ts`, applied in `loadCity` after the
+river), with the lab's authored metalness. The lake is the lab's water shader.
+The strip is 8192 wide, not 16384. Everything is scaled from the lake's
+measured radius, which is why the v6 export's applied 0.7417 needed no code.
 
 ## 9. Numbers worth knowing
 
@@ -2259,10 +2143,11 @@ e2e/                           Playwright smoke specs + committed screenshot bas
 `src/intro-draw/playhead.test.ts`.
 
 Inside `experiences/murcia/`: `config/` (pose, skirt, query overrides) · `camera/`
-(rig, feel tuning, flight, framing, warp pose) · `navigation/` (pointer input, bounds, viewport
-footprint) · `environment/` (collar, skirt, boundary extraction) · `interaction/` (district
-resolve, highlight, state machine) · `assets/` (loader, city load, node names) · `scene/`
-(district bindings) · `ui/` · `styles/`. **Its `content/` folder is gone** — district copy moved
+(rig, feel tuning, warp pose) · `navigation/` (pointer input, bounds, viewport
+footprint) · `environment/` (collar, skirt, boundary extraction) · `interaction/` (the click
+probe) · `campus/` (the services section: the lab's core and the site's assembly, §8) ·
+`district/` (the copy splitter and the keyboard surface the campus reuses) · `assets/`
+(loader, city load, node names) · `scene/` (service symbol bindings) · `ui/` · `styles/`. **Its `content/` folder is gone** — district copy moved
 to `src/content/` on 2026-08-20, because `checks/architecture.ts` forbids either experience
 importing the other and Earth needs the same vocabulary (`adr/010`).
 

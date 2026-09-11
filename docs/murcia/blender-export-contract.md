@@ -6,7 +6,7 @@ either broke or could not be built without it.
 
 ---
 
-## 1. Collection names are not exported. Use custom properties.
+## 1. Collection names are not exported. Name the objects.
 
 **The important one.** Blender's glTF exporter flattens collections: a collection
 called `edificios_servicios` produces **no node of that name**, and no trace of
@@ -18,67 +18,17 @@ the first export, 1079 in the 2026-08-27 one). The names present are
 `blog_edificios`, `Estadio futbol` and similar. No collection name appears.
 
 **So a collection can never be a runtime contract.** Organise in collections
-however you like; tag with custom properties.
+however you like; what the runtime finds, it finds by object name.
 
-### Tagging a district
+### Nothing reads a district tag any more
 
-On **every object** that belongs to the district — Object Properties → Custom
-Properties → New:
-
-```
-district = "servicios"
-```
-
-On the emission strips or light-line geometry, additionally:
-
-```
-districtPart = "emission"
-```
-
-### Export settings
-
-**Include → Custom Properties must be checked.** Without it the properties are
-silently dropped and the district falls back to name matching, which the console
-will tell you about.
-
-Custom properties land in glTF `extras`, which `GLTFLoader` puts on
-`object.userData`. `resolveDistrict` reads `userData.district`.
-
-### The services district is identified by object name
-
-Since the 2026-08-31 re-export the district is a whole assembly, not just a set
-of buildings, and every part of it is found by **object name** — not by tag. A
-per-object custom property would add nothing the name does not already say, and
-the names are dot-free so sanitisation cannot bite.
-
-| Object | What reads it |
-|---|---|
-| `Edificios-servicios-plaza` | the display's anchor and the camera's destination |
-| `Edificios-servicios-anillo-shader-interior` | the ring the fluid shader is drawn on |
-| `Edificios-servicios-001` … `-005` | one building per service; the entry target |
-| `Edificios-servicios-conneccion-001` … `-005` | the wedge running from that building in to the ring |
-| `Edificios-servicios-foco-001` … `-003` | where the display's projector beams start |
-
-**`conneccion` carries the authored double `c`.** It is what the artist named,
-and correcting it here would only stop the lookup resolving.
-
-**The ring and the connections must keep their own primitives and real
-geometry.** `districtFlow` measures each one's radial, angular and vertical
-extent off its position attribute, and takes the district's axis from the ring's
-world bounding box. A ring merged into another mesh, or flattened, changes the
-pattern silently rather than failing.
-
-**The ring band and the connection wedges have thickness.** The shader unrolls
-the flow over the band's lip using the measured height range; a zero-height mesh
-falls back to a unit span and the unrolling term multiplies out, which is right
-for a flat mesh and wrong-looking on one that should have had depth.
-
-Which building shows which service, and what colour it claims, lives in one
-place: `src/experiences/murcia/scene/cityDistrictBindings.ts` (`buildings[]`).
-Every service slug in Sanity needs a row there — the unit test fails otherwise —
-and a row whose node is missing from the GLB is reported at load and skipped.
-The district is skipped whole if none of its buildings resolve, which is what
-makes a missing or half-renamed export a console error rather than a crash.
+A district was located by a `district = "servicios"` custom property until
+2026-08-27, and by object name after that. Since the services campus replaced
+the display district (2026-09-11, `plans/024`) no feature reads a custom
+property. Every object the city looks for, it looks for by NAME: the campus in
+§6.9, the tower in §6.8, the blog building in `blogDisplayConfig.ts`. The one
+reader left is the debug click probe (`userData.interactive`), which only logs.
+Custom properties are harmless to export.
 
 ---
 
@@ -104,16 +54,19 @@ anything new.
 
 ---
 
-## 3. A tagged `InstancedMesh` must belong to exactly one district
+## 3. Instanced geometry shares one material
 
-The asset ships 957 GPU-instanced buildings via `EXT_mesh_gpu_instancing`. All
-instances in one `InstancedMesh` share a single material, so highlighting a
-district by swapping that material lights **every** instance in the mesh.
+The asset ships thousands of GPU-instanced buildings via
+`EXT_mesh_gpu_instancing`, and all instances in one `InstancedMesh` share a
+single material — so recolouring one by swapping that material recolours
+**every** instance in the mesh.
 
-If a district's geometry is instanced, the instances in that mesh must all belong
-to that district. `resolveDistrict` warns when it sees a tagged `InstancedMesh`,
-because the alternative — per-instance attributes and instance IDs — is a
-different implementation and should be a decision, not a surprise.
+This section used to require a district's instanced geometry to belong to that
+district alone, because the district lit its buildings by material swap
+(`resolveDistrict`, `DistrictHighlight`). Both went with the display district
+on 2026-09-11. The fact stays true for anything that dresses geometry by node:
+the tower's and the campus's palettes (§6.8, §6.9) replace materials on plain
+meshes, and a part that arrived instanced would take its whole mesh with it.
 
 ---
 
@@ -123,11 +76,11 @@ The current GLB contains **zero materials and zero textures**, so every mesh
 falls back to a *single shared* `MeshStandardMaterial` instance. Anything that
 modifies a material must clone first, or it recolours the entire city.
 
-For emission strips: author the emissive colour and any emissive map in Blender.
-`DistrictHighlight` detects an authored emissive and **scales** it rather than
-overwriting it, so the modelled look survives. Materials with a black emissive
-get the interaction tint instead — three multiplies `emissive` by
-`emissiveIntensity`, so intensity alone on a black emissive is invisible.
+The named landmarks carry their look as runtime palettes keyed by node name —
+the tower (§6.8) and the campus (§6.9) — because the city exports no materials.
+An emissive part is a palette entry with an emissive colour and an intensity;
+three multiplies `emissive` by `emissiveIntensity`, so an intensity on a
+black emissive is invisible.
 
 Do not export lights. The shell owns the light rig, and changing the Scene's
 light count invalidates every material's shader program (§2.3, §10.4).
@@ -408,3 +361,34 @@ must survive the export untouched, since every composition rides them.
 All of these are optional at runtime — a missing node warns and the city
 loads — and the logo's two names and `LED_Main` are asserted on the file by
 `check:asset:contract` §5d, which also checks the logo's identity transform.
+
+### 6.9 The services campus
+
+Since `murcia-v6` (2026-09-11) the services campus is modelled in the city: the
+lab's `campus_vertigo.glb`, exported as fifteen objects that are **root-level
+siblings sharing one transform**, the scale applied at 0.7417 of the standalone
+export, and **no materials**. The runtime gathers them into one group
+(`campus/gatherCampus.ts`) and hands that to the lab's code, which was written
+for a root that is the campus.
+
+| Node | What it is | Rule |
+|---|---|---|
+| `ARCH_Porcelain_White` (and `.001`, the roof cap), `ARCH_Glazing_Opaque_Blue`, `ARCH_Blue_Light`, `ARCH_Window_Frames`, `ARCH_Vertigo_Blue`, `ARCH_Roof_Joints`, `ARCH_Solar_Blue`, `SITE_Light_Limestone`, `PARK_Grass`, `PARK_Trunks`, `PARK_Leaves_Olive`, `PARK_Leaves_Sage` | the building and its park | coloured at runtime BY THESE NAMES (`campus/campusPalette.ts`) with the lab's authored values — a rename loses the colour |
+| `PARK_Water` | ONE mesh: the lake and the two entrance pools | the lake is found by clustering its vertices round the campus's centre, so a pool must never touch the lake in the ground plane. The lake is the section's only entry target |
+| `CAMPUS_SCREEN_Continuous` | the LED strip round the ring | keeps its authored UVs: U runs round the wall from the right entrance jamb. V was MEASURED top to bottom, like the tower's, so the upload is not flipped; the word stood on its head with the flip on |
+
+Three rules follow:
+
+1. **Keep the campus's parts out of `VERTIGO_ROOT`.** They share the tower's
+   `ARCH_` prefix, and the tower's palette warns about an uncoloured `ARCH_`
+   node only when it stands beside a tower part. Parented into the tower they
+   would be warned about on every load.
+2. **Scale is free, proportions are not.** Every size in the section — the
+   particles, the disc, the symbols, the camera's ring — is derived from the
+   lake's measured radius, and the strip normalises to its 343.9 m design width,
+   so a re-export at another applied scale needs no code change. A lake that
+   changes SHAPE moves every stop.
+3. **Every name is optional at runtime and required by the build.** A missing
+   part keeps the city's material and warns once; a missing lake leaves the
+   campus as scenery. `check:asset:contract` §5 asserts all fifteen names, the
+   strip's `TEXCOORD_0`, and that the campus stands on the plate.

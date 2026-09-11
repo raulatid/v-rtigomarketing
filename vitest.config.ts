@@ -159,6 +159,7 @@ export default defineConfig({
         'src/experiences/murcia/config/appConfig.ts',
         'src/experiences/murcia/config/environmentConfig.ts',
         'src/experiences/murcia/district/serviceCopy.ts',
+        'src/experiences/murcia/district/ui/districtA11y.ts',
         'src/experiences/murcia/environment/createTerrainTransition.ts',
         'src/experiences/murcia/navigation/navigationBounds.ts',
         'src/experiences/murcia/scene/cityDistrictBindings.ts',

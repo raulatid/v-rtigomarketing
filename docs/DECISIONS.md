@@ -3387,10 +3387,69 @@ and the clamp they fall back on is 800 units against 888 units of real ground �
 what those poses draw is ground.
 
 
+## 45. The services district is the campus
+
+**2026-09-11.** Ported from `prototypes/vertigo-lab`, experiment
+`service-campus`, whose `core/` was split out to be copied the way the tower's
+screen was. Replaces **§34** — the projected display — whole. The working
+record is `plans/024-services-campus.md`.
+
+**The model.** The campus stands at the plate's +X/+Z corner, modelled in the
+city since `murcia-v6`. A tap on its lake flies the camera to a ring of stops
+round the water, and a particle field rises out of the lake into a disc: the
+intro. A horizontal swipe, or the arrow keys, walk the ring — each service forms
+its symbol out of the same particles, and the ring is endless in both
+directions. [+] turns the symbol into that service's animated figure and leans
+the camera in. Escape, or the overlay's close, goes back one level; a pinch out
+leaves. The copy is real DOM, and the LED strip round the building runs
+SERVICIOS.
+
+**What was decided on the way, with the client:**
+
+1. **Replace, not add.** The display, its beams, reveal and shaders,
+   `DistrictInteraction`, `DistrictHighlight`, `resolveDistrict`,
+   `CameraFlight` and `cameraFraming` are deleted, not kept switchable.
+2. **No Sanity change.** A service's subtitle is the opening of its `body`
+   (`splitServiceCopy`) and its detail is the rest. Its symbol and figure are
+   scene composition, in `scene/cityDistrictBindings.ts` — placeholders until
+   the artwork arrives. `DistrictContent.intro` stays unread, as it was under
+   §34: the overlay has no slot for a paragraph.
+3. **One LED engine.** The campus's strip runs on the tower's
+   `landmark/towerScreen/`, which gained the lab's `flipY` and `setScroll`.
+   The scroll only wraps u while scrolling, so the tower is pixel-identical.
+4. **A visible close.** The lab left by Escape only, and a phone has none. The
+   overlay grew a 40 px close beside [+].
+
+**What the port decided without asking, and why:**
+
+- **The campus flies its own camera.** Its stops sit at an elevation and a
+  look-at height the rig cannot express, so for the whole visit the rig is
+  externally controlled and adopts the camera on the way out — the blog
+  approach's hand-over (`campusCameraAdapter.ts`). `check:campus` measures the
+  exit landing on the pose entered from at 2.8e-14 units.
+- **A press during a flight is ignored, not "stop".** §34's display cancelled a
+  flight on any press; the campus's flights cannot be cancelled mid-air, and
+  they are 1.4 s. Reversed deliberately.
+- **Authored metalness is kept.** The tower's palette zeroed its metals (§6.8
+  of the export contract); the campus's numbers were judged in the lab under
+  the same kind of rig, so they stand, and the glazing and frames are the
+  visual-pass knobs.
+- **The strip is 8192, not the lab's 16384.** Two canvas slots of ~5 MB each
+  instead of ~21 MB, against a phone budget measured at ~70 MB.
+- **The approach yaw is gone.** 225 was forced by the old plaza; the campus
+  takes its heading from wherever the visitor was looking.
+
+**Open, and not decided here.** The lake is the only entry target, as in the
+lab. From the resting pose it is small, and on a phone smaller; §34's display
+grew its controls to a touch floor after projection, and nothing does that for
+the lake. With a detail open at 1600x900 the expanded copy climbs into the
+figure. Both are judgements for the visual pass on real hardware.
+
 ## Superseded
 
 | Decision | Was | Now |
 |---|---|---|
+| The services district is a projected in-world display that owns every control, entered from any of its buildings, and a flight that frames the plaza | `district/display/**`, `interaction/DistrictInteraction.ts`, `camera/CameraFlight.ts`, `checks/district-flight.ts`, deleted 2026-09-11; **§34** | The lab's campus: a tap on the lake, a ring of stops walked by swipe, arrows and Escape, symbols and figures made of particles, copy in a DOM overlay, and the campus's own camera — **§45**, `plans/024` |
 | The phone burger is four bars drawn as geometry on the canvas, and they fly to the centre to become the frame of the menu | `corner-logo/headerBurger.ts`, deleted 2026-09-09; **§26.16** amendments of 2026-09-08 | Three flat bars, and the SCENE moves: the viewport hinges away and slides down as a card, uncovering the menu behind it — **§26.16** amendment 2026-09-09, `plans/023` |
 | The blog is entered by a tap on the `blog_edificios` cluster, which owns no camera and is "not a district, and must not become one" | `interaction/BlogBuilding.ts`, deleted 2026-09-09 | A display floating above that cluster, and a three-second approach into the page. The tap is gone rather than kept beside it — **§42** |
 | Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |

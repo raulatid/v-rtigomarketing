@@ -40,16 +40,11 @@ falling outward. Density falls off with distance so the outer band is sparse.
 
 ## 2. Non-navigability requires no mechanism
 
-`DistrictInteraction` raycasts an explicit allowlist, non-recursively:
-
-```ts
-// every bound service building's meshes, plus each one's pick proxy
-this.pickables = Array.from(this.siteByObject.keys());
-```
-
-and `resolveDistrict` only ever matches `userData.district` tags or the node names listed in
-`cityDistrictBindings.ts` (`buildings[].nodeName`). **Untagged, unlisted geometry is unreachable
-by construction.**
+Nothing in the city raycasts the scene. The services campus raycasts ONE mesh,
+its lake (`campus/campusInteraction.ts`), and the blog raycasts its own display
+panel. **Unlisted geometry is unreachable by construction.** This was true of
+the display district before it (2026-08-31 to 2026-09-11), which raycast an
+allowlist of its buildings.
 
 The backdrop therefore carries no `district` custom property and appears in no binding.
 Do not invent an opt-out flag for it — it would be dead code.
