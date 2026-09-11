@@ -1,5 +1,6 @@
 import { DocumentTextIcon } from '@sanity/icons/DocumentText'
 import { defineField, defineType } from 'sanity'
+import { charCount } from '../components/CharCountInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
@@ -25,8 +26,9 @@ const BOUNDS = EDITORIAL_BOUNDS.legalDoc
  * Three of these exist, at the fixed ids `legal-terms`, `legal-notice` and
  * `legal-cookies` (no dots — a dotted _id is invisible to unauthenticated
  * reads), and `legalDocs.collection.ts` fails the build if any is missing — the
- * site links to each by name (the audit panel to two, the consent banner to
- * the third). Which documents exist is app composition; the TEXT is
+ * site links to each by name (the audit panel to terms and notice, the Contacto
+ * dialog to terms, the consent banner to cookies), and opens it in a modal
+ * (`LegalPanel.tsx`), never a page. Which documents exist is app composition; the TEXT is
  * entirely editorial. `sanity.config.ts` removes create/duplicate/delete.
  *
  * The body is `legalBody`: paragraphs, two heading levels, lists, bold, italic
@@ -44,8 +46,10 @@ export const legalDoc = defineType({
     defineField({
       name: 'title',
       title: 'Título',
-      description: 'Tal y como se muestra al abrir el documento. Ejemplo: Aviso legal.',
+      description: 'El título de la ventana en la que se abre el documento.',
       type: 'string',
+      placeholder: 'Aviso legal',
+      components: { input: charCount(BOUNDS.title) },
       validation: (rule) => [
         rule.required().error('Escribe el título.'),
         rule.max(BOUNDS.title).error(`Demasiado largo: como máximo ${BOUNDS.title} caracteres.`),
@@ -55,7 +59,8 @@ export const legalDoc = defineType({
       name: 'body',
       title: 'Texto',
       description:
-        'El documento completo. Puedes usar títulos, listas, negrita y enlaces; no admite imágenes ni vídeos.',
+        'El documento completo. Se abre en una ventana sobre la web cuando alguien pulsa su ' +
+        'enlace. Puedes usar títulos, listas, negrita y enlaces; no admite imágenes ni vídeos.',
       type: 'legalBody',
     }),
     defineField({

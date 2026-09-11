@@ -72,7 +72,14 @@ export const legalBody = defineType({
   ],
 })
 
-/** As above, plus pull quotes, images, video and embeds. */
+/**
+ * As above, plus pull quotes, images and YouTube/Vimeo links.
+ *
+ * `videoMedia` is deliberately NOT offered. It rendered as the same link card an
+ * embed does, under a title promising a player "en preparación", and its poster
+ * field failed the build. The published dataset held none when it was taken out
+ * (checked 2026-09-11), so no existing post loses a block.
+ */
 export const blogBody = defineType({
   name: 'blogBody',
   title: 'Texto',
@@ -93,7 +100,6 @@ export const blogBody = defineType({
       marks: { decorators, annotations: [link] },
     }),
     defineArrayMember({ type: 'imageMedia' }),
-    defineArrayMember({ type: 'videoMedia' }),
     defineArrayMember({ type: 'embedMedia' }),
   ],
   validation: (rule) => [

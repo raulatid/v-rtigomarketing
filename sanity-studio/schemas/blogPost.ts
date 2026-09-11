@@ -1,6 +1,7 @@
 import { ComposeIcon } from '@sanity/icons/Compose'
 import { defineArrayMember, defineField, defineType } from 'sanity'
-import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
+import { charCount } from '../components/CharCountInput'
+import { lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
@@ -20,6 +21,13 @@ import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 const BOUNDS = EDITORIAL_BOUNDS.blogPost
 
 /**
+ * Where Google usually truncates. Advisory (`.warning`) and Studio-only — see
+ * below — and named so each rule and its counter share one number.
+ */
+const SEO_TITLE_MAX = 60
+const META_DESCRIPTION_MAX = 160
+
+/**
  * A blog post.
  *
  * RENDERED since `adr/013` — at `/blog` and `/blog/<identificador>`, from a
@@ -37,6 +45,16 @@ const BOUNDS = EDITORIAL_BOUNDS.blogPost
  * `category` is REQUIRED here and nullable in the build. Posts that predate the
  * field exist, and failing every deployment until someone opens each one is not
  * a migration plan. See `content/collections/blogPosts.collection.ts`.
+ *
+ * ── What the descriptions promise, checked against `src/blog/` ──
+ * `publishedAt` does not schedule: the query excludes drafts only, so a future
+ * date goes live on the next build and sorts to the top. `tags` are chips on
+ * the article and search terms — nothing groups or filters by them. YouTube and
+ * Vimeo render as a link card (`MediaCard.tsx`), not an iframe. The og:image is
+ * cropped from the centre, because no URL builder reads the hotspot. And the
+ * slug is the post's public address, so it sits in "Publicación" with a
+ * description that says so, rather than in the collapsed "Técnico" box with the
+ * "internal name" text the code-welded identifiers share.
  */
 export const blogPost = defineType({
   name: 'blogPost',
@@ -54,14 +72,17 @@ export const blogPost = defineType({
         'Si lo dejas vacío se usa el título y la entradilla de arriba.',
       options: { collapsible: true, collapsed: true },
     },
-    TECH_FIELDSET,
   ],
   fields: [
     defineField({
       name: 'title',
       title: 'Título',
+      description:
+        'El titular de la entrada, en el listado y en la propia entrada. También es el título ' +
+        'en Google si no rellenas «Título para buscadores».',
       type: 'string',
       fieldset: 'contenido',
+      components: { input: charCount(BOUNDS.title) },
       validation: (rule) => [
         rule.required().error('Escribe el título de la entrada.'),
         rule.max(BOUNDS.title).error(`Demasiado largo: como máximo ${BOUNDS.title} caracteres.`),
@@ -71,10 +92,12 @@ export const blogPost = defineType({
       name: 'excerpt',
       title: 'Entradilla',
       description:
-        'Dos o tres frases que resumen la entrada. Es lo que se ve en el listado, antes de abrirla.',
+        'Dos o tres frases que resumen la entrada. Se lee en la tarjeta del listado y, dentro ' +
+        'de la entrada, justo debajo del título.',
       type: 'text',
       rows: 3,
       fieldset: 'contenido',
+      components: { input: charCount(BOUNDS.excerpt) },
       validation: (rule) => [
         rule.required().error('Escribe una entradilla.'),
         rule.max(BOUNDS.excerpt).error(`Demasiado largo: como máximo ${BOUNDS.excerpt} caracteres.`),
@@ -83,7 +106,9 @@ export const blogPost = defineType({
     defineField({
       name: 'cover',
       title: 'Imagen de portada',
-      description: 'Opcional. La imagen grande que encabeza la entrada.',
+      description:
+        'Opcional. La imagen grande que encabeza la entrada y la de su tarjeta en el listado ' +
+        '(sin ella, la tarjeta queda con el hueco vacío).',
       type: 'imageMedia',
       fieldset: 'contenido',
     }),
@@ -91,14 +116,19 @@ export const blogPost = defineType({
       name: 'body',
       title: 'Texto',
       description:
-        'El cuerpo de la entrada. Puedes añadir títulos, listas, citas, enlaces, imágenes y vídeos de YouTube o Vimeo.',
+        'El cuerpo de la entrada. Puedes añadir títulos, listas, citas, enlaces e imágenes. Un ' +
+        'vídeo de YouTube o Vimeo se muestra como una tarjeta que abre el vídeo en otra ' +
+        'pestaña, no como un reproductor dentro de la página.',
       type: 'blogBody',
       fieldset: 'contenido',
     }),
     defineField({
       name: 'publishedAt',
       title: 'Fecha de publicación',
-      description: 'Las entradas se ordenan por esta fecha, de la más reciente a la más antigua.',
+      description:
+        'La fecha que se muestra en la entrada. El blog ordena por ella, de la más reciente a ' +
+        'la más antigua. Una fecha futura NO programa la entrada: al publicarla sale igual, ' +
+        'con esa fecha y la primera del listado.',
       type: 'datetime',
       fieldset: 'publicacion',
       initialValue: () => new Date().toISOString(),
@@ -117,9 +147,11 @@ export const blogPost = defineType({
     }),
     defineField({
       name: 'tags',
-      title: 'Temas',
+      title: 'Etiquetas',
       description:
-        'Palabras clave para agrupar entradas. En minúsculas y sin espacios: usa guiones. Ejemplo: seo, redes-sociales',
+        'Opcional. Palabras clave que se muestran en la entrada y ayudan a encontrarla con el ' +
+        'buscador del blog; no crean secciones ni filtros. En minúsculas y sin espacios: usa ' +
+        'guiones. Ejemplo: seo, redes-sociales',
       type: 'array',
       fieldset: 'publicacion',
       of: [
@@ -133,51 +165,62 @@ export const blogPost = defineType({
       ],
       options: { layout: 'tags' },
       validation: (rule) => [
-        rule.max(BOUNDS.tags).error(`Como máximo ${BOUNDS.tags} temas.`),
-        rule.unique().error('Ese tema ya está en la lista.'),
+        rule.max(BOUNDS.tags).error(`Como máximo ${BOUNDS.tags} etiquetas.`),
+        rule.unique().error('Esa etiqueta ya está en la lista.'),
       ],
+    }),
+    defineField({
+      name: 'slug',
+      title: 'Dirección de la entrada',
+      description:
+        'La parte final de la dirección web de la entrada: /blog/<esto>. Pulsa «Generar» para ' +
+        'crearla a partir del título. Una vez guardada no cambia, para que los enlaces que se ' +
+        'hayan compartido sigan funcionando; si hiciera falta, pídeselo al equipo técnico.',
+      type: 'slug',
+      // In "Publicación", not the collapsed "Técnico" box the code-welded ids
+      // live in: this one is public, and every new post needs "Generar" pressed.
+      fieldset: 'publicacion',
+      options: slugOptions('title'),
+      readOnly: lockedOnceSet,
+      validation: (rule) => slugValidation(rule, 'Pulsa «Generar» para crear la dirección.'),
     }),
     defineField({
       name: 'seoTitle',
       title: 'Título para buscadores',
       description:
-        'Opcional. Si lo dejas vacío se usa el título de la entrada. Google suele cortar a ' +
-        'partir de unos 60 caracteres.',
+        'Opcional. El título que se ve en Google y al compartir la entrada. Vacío, se usa el ' +
+        `título de la entrada. Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`,
       type: 'string',
       fieldset: 'seo',
+      components: { input: charCount(SEO_TITLE_MAX) },
       validation: (rule) =>
-        rule.max(60).warning('Google suele cortar a partir de unos 60 caracteres.'),
+        rule
+          .max(SEO_TITLE_MAX)
+          .warning(`Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`),
     }),
     defineField({
       name: 'metaDescription',
       title: 'Descripción para buscadores',
       description:
-        'Opcional. Si la dejas vacía se usa la entradilla. Google suele cortar a partir de ' +
-        'unos 160 caracteres.',
+        'Opcional. El texto bajo el título en Google y al compartir la entrada. Vacía, se usa ' +
+        `la entradilla. Google suele cortar a partir de unos ${META_DESCRIPTION_MAX} caracteres.`,
       type: 'text',
       rows: 2,
       fieldset: 'seo',
+      components: { input: charCount(META_DESCRIPTION_MAX) },
       validation: (rule) =>
-        rule.max(160).warning('Google suele cortar a partir de unos 160 caracteres.'),
+        rule
+          .max(META_DESCRIPTION_MAX)
+          .warning(`Google suele cortar a partir de unos ${META_DESCRIPTION_MAX} caracteres.`),
     }),
     defineField({
       name: 'ogImage',
       title: 'Imagen para redes sociales',
       description:
-        'Opcional. La imagen que se ve al compartir la entrada. Si la dejas vacía se usa la ' +
-        'de portada. Se recorta a 1200 × 630.',
+        'Opcional. La imagen que se ve al compartir la entrada. Vacía, se usa la de portada. ' +
+        'Se recorta a 1200 × 630 desde el centro: deja lo importante en el medio.',
       type: 'imageMedia',
       fieldset: 'seo',
-    }),
-    defineField({
-      name: 'slug',
-      title: 'Identificador',
-      description: LOCKED_ID_DESCRIPTION,
-      type: 'slug',
-      fieldset: 'tecnico',
-      options: slugOptions('title'),
-      readOnly: lockedOnceSet,
-      validation: (rule) => slugValidation(rule, 'Pulsa "Generar" para crear el identificador.'),
     }),
   ],
   orderings: [

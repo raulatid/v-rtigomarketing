@@ -1,5 +1,6 @@
 import { PinIcon } from '@sanity/icons/Pin'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { charCount } from '../components/CharCountInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
@@ -20,7 +21,17 @@ import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 const BOUNDS = EDITORIAL_BOUNDS.district
 
 /**
- * A district — the copy behind one interactive area of the city.
+ * A district — the copy behind the services campus in the city.
+ *
+ * Presented to the editor as "Sección de servicios": "distrito" is the scene's
+ * word, and there is exactly one. The type NAME stays `district`, because that
+ * is what the GROQ projection and the stored documents say.
+ *
+ * ── What each field is for since the campus (DECISIONS §45) ──
+ * `label` is the big title when the section opens and the pin in the compass
+ * bar; the "SERVICIOS" on the LED ring is hardcoded and does NOT follow it.
+ * `summary` is the line under that title, on every device. `services` is the
+ * set of stops around the lake, in order. `intro` has no reader — see below.
  *
  * ── What is NOT here ──
  * No Blender node names, no camera yaw, no world rectangles. Those live in
@@ -32,67 +43,90 @@ const BOUNDS = EDITORIAL_BOUNDS.district
  * nothing binds is unreachable in the scene. So there is exactly one, it is
  * welded to the 3D city, and `sanity.config.ts` removes "create", "duplicate"
  * and "delete" for this type. The editor edits its text and nothing else.
+ *
+ * ── Why the services list says "ask first" ──
+ * Reordering is free. Adding or removing a service is not: every service in the
+ * list needs a symbol row in `cityDistrictBindings.ts`, and
+ * `cityDistrictBindings.test.ts` fails the build when the two lists differ. The
+ * description tells the editor to ask, because nothing here can check the code.
  */
 export const district = defineType({
   name: 'district',
-  title: 'Distrito',
+  title: 'Sección de servicios',
   icon: PinIcon,
   type: 'document',
   fieldsets: [
     {
       name: 'distrito',
-      title: 'Distrito',
-      description: 'La zona de la ciudad y el texto que se abre al hacer clic en ella.',
+      title: 'Al entrar en la sección',
+      description:
+        'Lo primero que se lee cuando alguien pulsa el lago de la ciudad y se abre la sección ' +
+        'de servicios.',
     },
     {
       name: 'servicios',
       title: 'Servicios',
-      description: 'Los servicios que se despliegan dentro del panel, en este orden.',
+      description:
+        'Alrededor del lago hay una parada por servicio, y el visitante las recorre en este ' +
+        'orden. El texto de cada servicio se edita en «Todos los servicios».',
     },
     TECH_FIELDSET,
   ],
   fields: [
     defineField({
       name: 'label',
-      title: 'Nombre',
-      description: 'El nombre de la zona, tal y como aparece sobre la ciudad. Ejemplo: Servicios.',
+      title: 'Título de la sección',
+      description:
+        'El título grande al entrar en la sección, y el nombre de la sección en la brújula de ' +
+        'arriba de la pantalla. El letrero luminoso del edificio no cambia con este campo.',
       type: 'string',
       fieldset: 'distrito',
+      placeholder: 'Servicios',
+      components: { input: charCount(BOUNDS.label) },
       validation: (rule) => [
-        rule.required().error('Escribe el nombre del distrito.'),
+        rule.required().error('Escribe el título de la sección.'),
         rule.max(BOUNDS.label).error(`Demasiado largo: como máximo ${BOUNDS.label} caracteres.`),
       ],
     }),
     defineField({
       name: 'summary',
-      title: 'Resumen',
-      description: 'Una sola frase, hasta 140 caracteres. Es lo primero que se lee en el móvil.',
+      title: 'Subtítulo',
+      description: 'Una sola frase, justo debajo del título.',
       type: 'text',
       rows: 2,
       fieldset: 'distrito',
+      components: { input: charCount(BOUNDS.summary) },
       validation: (rule) => [
-        rule.required().error('Escribe una frase de resumen.'),
+        rule.required().error('Escribe una frase de subtítulo.'),
         rule.max(BOUNDS.summary).error(
-          `Demasiado largo: en el móvil solo caben ${BOUNDS.summary} caracteres.`,
+          `Demasiado largo: como máximo ${BOUNDS.summary} caracteres.`,
         ),
       ],
     }),
+    // HIDDEN, and not required here. Nothing has read `intro` since the campus
+    // replaced the panel (§45), so asking for it had the editor writing a
+    // paragraph nobody sees. The Studio's `required()` goes with the field:
+    // Sanity validates hidden fields too, and a required error on a field the
+    // editor cannot see is an unpublishable document with no way to fix it.
+    // `districtProblems` in the build still requires a value, and the one
+    // district already has it — removing it end-to-end is a separate task.
     defineField({
       name: 'intro',
       title: 'Introducción',
-      description: 'El párrafo con el que se abre el panel, antes de la lista de servicios.',
       type: 'text',
       rows: 5,
       fieldset: 'distrito',
-      validation: (rule) => [
-        rule.required().error('Escribe la introducción.'),
+      hidden: true,
+      validation: (rule) =>
         rule.max(BOUNDS.intro).error(`Demasiado largo: como máximo ${BOUNDS.intro} caracteres.`),
-      ],
     }),
     defineField({
       name: 'services',
-      title: 'Servicios',
-      description: 'Elige los servicios de la lista. Puedes arrastrarlos para cambiar el orden.',
+      title: 'Servicios y su orden',
+      description:
+        'Arrástralos para cambiar el orden en que se visitan. Para añadir o quitar un servicio, ' +
+        'avisa antes al equipo técnico: cada uno necesita su propio símbolo en la ciudad, y sin ' +
+        'él la web no se actualiza.',
       type: 'array',
       fieldset: 'servicios',
       of: [defineArrayMember({ type: 'reference', to: [{ type: 'service' }] })],

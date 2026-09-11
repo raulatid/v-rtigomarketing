@@ -52,7 +52,7 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 |---|---|---|---|
 | `slug.current` | slug | `^[a-z0-9][a-z0-9-]{0,63}$`, unique | fail |
 | `name` | string | non-empty, ≤ 60 | fail |
-| `label` | string | ≤ 60; falls back to `name` | fail if over |
+| `label` | string | ≤ 60; falls back to `name`. **Not rendered anywhere, and `hidden` in the Studio** (2026-09-11) | fail if over |
 | `isotype` | image | PNG/WebP, ≥ 432×432, aspect 0.75–1.33:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `logo` | image | PNG/WebP, ≥ 900×400, aspect 1.5–5:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `isotype` + `logo` | — | both present or both absent — they are one decision | fail |
@@ -82,15 +82,18 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 
 ## `service`
 
-What the agency does. First-class documents, referenced by districts. Ordered by slug.
+What the agency does. First-class documents, referenced by the district (the stops around the services campus) and by every blog post's `category`. Ordered by slug.
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
 | `slug.current` | slug | `^[a-z0-9][a-z0-9-]{0,63}$`, unique | fail |
 | `title` | string | non-empty, ≤ 60 | fail |
+| `shortTitle` | string | optional; only the blog projection reads it (`coalesce(shortTitle, title)`). The Studio warns above 24; the build does not bound it | — |
 | `body` | text | non-empty, ≤ 900 | fail |
 
-**The slug becomes an `aria-controls` value.** A space or a capital breaks the district accordion for screen-reader users and for nobody else, which is why it is asserted rather than reviewed.
+**`body` is shown in two parts on the campus.** `district/serviceCopy.ts` takes the first paragraph (or, in a one-paragraph body, the opening sentences up to ~150 characters) as the always-visible line under the title; "+" opens the whole text. A one-sentence body makes "+" repeat what is already on screen. The Studio description tells the editor this, without the number.
+
+**The slug is welded to code.** It keys the service to its particle symbol in `cityDistrictBindings.ts` and is the blog's `?tema=` value, so it is locked once set, like the case-study and district slugs.
 
 **`SERVICES` is emitted but nothing imports it yet.** The collection exists so a services page has data the day it is built.
 
@@ -98,19 +101,21 @@ What the agency does. First-class documents, referenced by districts. Ordered by
 
 ## `district`
 
-The copy behind each interactive area of the city. Ordered by slug.
+The copy behind the services campus in the city — presented in the Studio as "Sección de servicios", because there is exactly one. Ordered by slug.
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
 | `slug.current` | slug | must match a `contentId` in `cityDistrictBindings.ts` | fail |
-| `label` | string | non-empty, ≤ 40 | fail |
-| `summary` | text | non-empty, **≤ 140** | fail |
-| `intro` | text | non-empty, ≤ 600 | fail |
-| `services[]` | reference[] | 1–12 published `service` documents, no duplicates | fail |
+| `label` | string | non-empty, ≤ 40 — the campus intro title and the compass pin | fail |
+| `summary` | text | non-empty, **≤ 140** — the line under that title | fail |
+| `intro` | text | non-empty, ≤ 600. **Read by nothing since the campus (DECISIONS §45); `hidden` in the Studio and not `required()` there** (2026-09-11). The existing document has a value, which is what keeps the build's rule satisfied | fail |
+| `services[]` | reference[] | 1–12 published `service` documents, no duplicates, **exactly the services `cityDistrictBindings.ts` has symbol rows for** | fail |
 
-**The 140-character summary is a layout fact, not a style preference.** It is what shows at the mobile peek stop, where the sheet is 40% of the viewport tall.
+**`summary` is bounded at 140, but no longer by a mobile peek stop** — there is none since the campus. It is the subtitle under the section title on every device, and 140 is what that line was designed to hold.
 
-**A district needs at least one service.** The panel opens its first section on show; with none it opens nothing and looks broken rather than empty.
+**The services list is order-editable, not membership-editable.** Reordering changes the order a visitor walks the stops and needs nothing else. Adding or removing a service fails `cityDistrictBindings.test.ts` (and so the build) until a developer adds or removes the matching symbol row; the Studio description tells the editor to ask first, because nothing in the Studio can see the code.
+
+**A district needs at least one service.** With none, the campus has no stops and reads as broken rather than empty.
 
 **An unresolved reference fails the build, naming the district and the position:**
 
@@ -120,7 +125,7 @@ districts — 1 problem(s):
                          document is missing, unpublished, or still a draft
 ```
 
-That happens when a referenced service was deleted or was never published. Publishing the service fixes it. A missing accordion section would read as an editorial choice, which is why this is loud.
+That happens when a referenced service was deleted or was never published. Publishing the service fixes it. A missing stop would read as an editorial choice, which is why this is loud.
 
 **No scene data here.** No Blender node names, no camera yaw, no world rectangles — those live in `cityDistrictBindings.ts` and change when the GLB is re-exported, not when marketing writes.
 
@@ -142,6 +147,8 @@ One document, at the fixed id `siteSettings`.
 | `copyright` | string | non-empty, ≤ 120 | fail |
 | `bannerEnabled` | boolean | **optional**; absent means ON | fail only when present and not a boolean |
 | `bannerImage` | image | **optional**; PNG/WebP, ≥ 1024×512, aspect 1.6–2.1:1; mirrored to a local path (see the media contract) | fail when present and wrong |
+
+**Superseded, and hidden in the Studio (2026-09-11):** since `dbb2de8` (2026-09-10) the tower runs its own LED screen with content bundled in code, and nothing reads `buildingBanner`. Both fields are `hidden` so an editor is not offered a switch that does nothing; the build still validates and mirrors `bannerImage`, and removing the pair from the projection, types and fixtures is a separate task. The paragraph below describes the design as it was.
 
 **The building banner is a switch and an image (plan 019, 2026-09-05).** The image is the picture on the four faces of the sign on the Vertigo tower in the city; it is MIRRORED into the deployment like a brand mark, because the browser draws it as a WebGL texture and must never fetch one from a third party. Absent means the city shows its own placeholder through the same material — the switch, not the file, is what turns the sign blank. Video is documented beside the renderer (`murcia/landmark/attachBanner.ts`) and deliberately not a field yet. The projection must hand the mirror a url STRING — `"bannerImage": bannerImage.asset->url` — never the image object. It is emitted as `buildingBanner: { enabled, image? }`, the image key omitted when there is none, so a consumer tests `image !== undefined`.
 
@@ -187,7 +194,7 @@ At the fixed ids `legal-terms`, `legal-notice` and `legal-cookies`, with slugs `
 
 ## `blogPost`
 
-**Modelled, not rendered.** No blog page exists, and `checks/architecture.ts` asserts that nothing in the application imports the generated module. Publishing a post is safe; it simply will not appear anywhere yet. Ordered newest first.
+**Rendered since ADR 013 (2026-08-31)**, at `/blog` and `/blog/<slug>`, from a document of its own so a reader never pays for the 3D scene. The slug is therefore the post's **public URL**; the Studio locks it once set and says so in those words. Ordered newest first. `publishedAt` does not schedule: the query excludes drafts only, so a future-dated post goes live on the next build.
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
@@ -199,11 +206,11 @@ At the fixed ids `legal-terms`, `legal-notice` and `legal-cookies`, with slugs `
 | `tags[]` | string[] | ≤ 8, each `^[a-z0-9][a-z0-9-]{0,63}$` | fail |
 | `body` | `blogBody` | 1–400 blocks | fail |
 
-`blogBody` is `legalBody` plus quotes, images, video and embeds.
+`blogBody` is `legalBody` plus quotes, images and embeds. The build still accepts `videoMedia` blocks, but the Studio no longer offers them (2026-09-11; the published dataset held none).
 
-**Embeds are stored as provider plus URL, never as pasted markup.** The provider is `youtube` or `vimeo`, and the URL's host is checked against that provider's allowlist by parsing it. A renderer will build its own iframe from those parts; there is no field that carries an editor's clipboard.
+**Embeds are stored as provider plus URL, never as pasted markup.** The provider is `youtube` or `vimeo`, and the URL's host is checked against that provider's allowlist by parsing it. The renderer (`MediaCard.tsx`) draws a link card that opens the video in a new tab — no iframe; a future player must build its own from those parts. There is no field that carries an editor's clipboard.
 
-**Video is a schema boundary, not a feature.** No player, no transcoding. It exists so an editor who needs video later does not force a content migration to get it.
+**Video was a schema boundary, not a feature.** It rendered as the same link card, and its `poster` failed the build because the projection never resolves the poster's asset URL. So it left the insert menu and `poster` is hidden; removing it from the build's contract goes with the other hidden fields.
 
 ---
 
@@ -240,7 +247,7 @@ The Sanity **API version is not an environment variable**. It decides response s
 
 1. Create a Deploy Hook in Vercel (Settings → Git → Deploy Hooks), pointed at the production branch.
 2. In Sanity: API → Webhooks → Create, with that URL, on create/update/delete.
-3. Filter it to the types that affect the public site: `_type in ["caseStudy","district","service","siteSettings","legalDoc"]`. Blog posts render nowhere yet, so they need not trigger a build.
+3. Filter it to the types that affect the public site: `_type in ["caseStudy","district","service","siteSettings","legalDoc","blogPost"]`. `blogPost` belongs in the list since the blog went live (ADR 013); leaving it out would mean a published post never reaches the site.
 4. Publish something and watch a deployment start.
 
 Webhook delivery may be retried, so a publish can trigger more than one build. At roughly two publications a week that is a non-problem, and queues, debouncers and coalescing services are not worth building against it. Revisit if editorial volume makes it one.

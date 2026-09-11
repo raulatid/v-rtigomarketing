@@ -6,7 +6,11 @@ The editorial interface for the marketing site. Its own package on purpose: noth
 
 ## Written for an editor, on purpose
 
-The Studio UI is fully in Spanish (`@sanity/locale-es-es`), and every field description says *what to type* with an example — never which source file cares or what the build does. Identifiers that the website's code depends on (case-study, district and legal-document slugs) are generated once and then read-only for editors; only administrators can change them, because only they can change the code on the other side. Districts and the singletons cannot be created, duplicated or deleted from the Studio at all. The developer rationale for every rule lives in the JSDoc of the schema files, where an editor never sees it.
+The Studio UI is fully in Spanish (`@sanity/locale-es-es`), and every field description says *where it shows on the site*, in visitor terms, and *what to type* — never which source file cares or what the build does. Optional fields start with "Opcional."; format examples live in `placeholder`. Identifiers that the website's code depends on (case-study, district, service and legal-document slugs) are generated once and then read-only for editors; only administrators can change them, because only they can change the code on the other side. A blog post's slug is locked the same way because it is the post's public URL. Districts and the singletons cannot be created, duplicated or deleted from the Studio at all. The developer rationale for every rule lives in the JSDoc of the schema files, where an editor never sees it.
+
+Fields the site no longer reads (the district's `intro`, a case study's `label`, the building banner, the `videoMedia` poster) are `hidden` rather than deleted, so stored values survive until they are removed from the projections, types and fixtures as well. A hidden field must not be `required()` in the Studio: Sanity validates hidden fields, and an error the editor cannot see is a document they cannot publish.
+
+`components/` holds the three custom inputs — a character counter (`charCount(max)`, fed the same bound as the field's `rule.max`), the brand-colour picker, and nothing else that needs JSX. They use plain elements and Sanity's CSS variables, not `@sanity/ui`, which is `sanity`'s dependency rather than this package's. The phone cross-check is a validation rule, in `schemas/lib/phone.ts`.
 
 ## What the schemas are for
 

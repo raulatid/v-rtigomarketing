@@ -1,7 +1,9 @@
 import { CogIcon } from '@sanity/icons/Cog'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { charCount } from '../components/CharCountInput'
 import { bannerImageErrors } from './lib/bannerImage'
+import { phoneSpellingsAgree } from './lib/phone'
 
 /**
  * The lengths this schema refuses, shared with the content build.
@@ -19,6 +21,12 @@ import { bannerImageErrors } from './lib/bannerImage'
 const BOUNDS = EDITORIAL_BOUNDS.siteSettings
 
 /**
+ * The booking button's words. Bounded here and in `siteSettings.collection.ts`,
+ * not yet in the shared table; named so the rule and the counter share it.
+ */
+const BOOKING_LABEL_MAX = 24
+
+/**
  * The handful of global values an editor owns.
  *
  * A SINGLETON, presented as one document by `sanity.config.ts` — which is a
@@ -28,6 +36,12 @@ const BOUNDS = EDITORIAL_BOUNDS.siteSettings
  *
  * Deliberately not a key/value bag. A global value earns a field here when it is
  * genuinely editorial; anything else is configuration and belongs in code.
+ *
+ * ── Where these show, because the descriptions say it in visitor terms ──
+ * Phones and the booking button: the Contacto dialog (`ContactSection.tsx`).
+ * `contactEmail`: nowhere — it is where both forms' messages are delivered.
+ * `copyright`: the Earth scene's footer only; the blog hardcodes its own.
+ * The four success strings: in place of each form after a real send.
  */
 export const siteSettings = defineType({
   name: 'siteSettings',
@@ -38,32 +52,31 @@ export const siteSettings = defineType({
     {
       name: 'contacto',
       title: 'Contacto',
-      description: 'Cómo puede la gente ponerse en contacto. Aparece en el pie de página.',
+      description:
+        'Lo que se ve en la ventana «Contacto», la que se abre con el botón Contacto de la ' +
+        'cabecera de la web.',
     },
-    { name: 'pie', title: 'Pie de página' },
     {
       name: 'formularios',
-      title: 'Mensajes de los formularios',
+      title: 'Mensajes de «enviado»',
       description:
-        'Lo que lee la persona cuando su mensaje se ha enviado de verdad. Aparece dentro del ' +
-        'mismo panel, en el lugar del formulario. Un cambio aquí se ve en la web después de ' +
-        'volver a publicar el sitio, no al instante.',
+        'La web tiene dos formularios. «Auditoría» es el panel lateral que se abre con el botón ' +
+        'Auditoría de la cabecera; «Contacto» es la ventana del botón Contacto. Cuando alguien ' +
+        'envía uno, el formulario desaparece y en su lugar se lee este titular y este texto.',
     },
-    {
-      name: 'edificio',
-      title: 'Edificio Vértigo',
-      description:
-        'La pantalla que gira en lo alto del edificio Vértigo, en la ciudad. Un cambio aquí se ' +
-        've en la web después de volver a publicar el sitio.',
-    },
+    { name: 'pie', title: 'Pie de página' },
+    // Every field in here is hidden (see bannerEnabled), and Sanity does not draw
+    // a fieldset with nothing visible in it. Kept so the stored values keep
+    // their home until the fields are removed end-to-end.
+    { name: 'edificio', title: 'Edificio Vértigo' },
   ],
   fields: [
     defineField({
       name: 'phones',
       title: 'Teléfonos',
       description:
-        'Uno o varios. Cada uno lleva el número escrito de dos maneras — cómo se lee y cómo ' +
-        'se marca — y, si quieres, una etiqueta delante.',
+        'Aparecen al final de la ventana «Contacto»; en el móvil, al pulsarlos se llama. Cada ' +
+        'número se escribe dos veces: tal como se lee y tal como se marca.',
       type: 'array',
       fieldset: 'contacto',
       of: [
@@ -73,12 +86,13 @@ export const siteSettings = defineType({
           fields: [
             defineField({
               name: 'label',
-              title: 'Etiqueta',
+              title: 'Ciudad o etiqueta',
               description:
-                'Opcional. Una palabra a la izquierda del número, normalmente la ciudad. ' +
-                'Ejemplo: Madrid. Escríbela SIN los dos puntos: los pone la web, para que ' +
-                'estén siempre igual en todos.',
+                'Opcional. La palabra delante del número, normalmente la ciudad. Escríbela sin ' +
+                'los dos puntos: los pone la web, para que salgan todos iguales.',
               type: 'string',
+              placeholder: 'Madrid',
+              components: { input: charCount(BOUNDS.label) },
               validation: (rule) =>
                 rule.max(BOUNDS.label).error(
                   `Demasiado largo: como máximo ${BOUNDS.label} caracteres.`,
@@ -86,19 +100,26 @@ export const siteSettings = defineType({
             }),
             defineField({
               name: 'display',
-              title: 'Cómo se lee',
-              description: 'Con espacios, como lo escribirías en una tarjeta. Ejemplo: +34 968 12 34 56',
+              title: 'Número tal como se ve',
+              description: 'Con espacios, como lo escribirías en una tarjeta de visita.',
               type: 'string',
+              placeholder: '+34 968 12 34 56',
+              components: { input: charCount(BOUNDS.display) },
               validation: (rule) => [
-                rule.required().error('Escribe el número como debe leerse.'),
-                rule.max(BOUNDS.display).error('Demasiado largo.'),
+                rule.required().error('Escribe el número tal como debe leerse.'),
+                rule.max(BOUNDS.display).error(
+                  `Demasiado largo: como máximo ${BOUNDS.display} caracteres.`,
+                ),
               ],
             }),
             defineField({
               name: 'tel',
-              title: 'Cómo se marca',
-              description: 'Solo dígitos, sin espacios ni guiones. Ejemplo: +34968123456',
+              title: 'Número para llamar',
+              description:
+                'El mismo número, solo con dígitos y el prefijo del país delante: sin espacios ' +
+                'ni guiones. Es el que marca el móvil al pulsarlo.',
               type: 'string',
+              placeholder: '+34968123456',
               validation: (rule) =>
                 rule
                   .required()
@@ -106,6 +127,7 @@ export const siteSettings = defineType({
                   .error('Solo dígitos, sin espacios ni guiones. Ejemplo: +34968123456'),
             }),
           ],
+          validation: (rule) => rule.custom(phoneSpellingsAgree).warning(),
           // Shown the way the site shows it, colon included, so the list in the
           // Studio reads like the finished block rather than like a form.
           preview: {
@@ -124,10 +146,13 @@ export const siteSettings = defineType({
     }),
     defineField({
       name: 'contactEmail',
-      title: 'Correo de contacto',
-      description: 'La dirección a la que llegan los mensajes. Ejemplo: hola@vertigomarketing.es',
+      title: 'Correo que recibe los mensajes',
+      description:
+        'Aquí llegan los mensajes de los dos formularios de la web, Auditoría y Contacto. No se ' +
+        'muestra a los visitantes.',
       type: 'string',
       fieldset: 'contacto',
+      placeholder: 'hola@vertigomarketing.es',
       validation: (rule) =>
         rule.required().email().error('Escribe una dirección de correo completa, con @ y dominio.'),
     }),
@@ -146,12 +171,12 @@ export const siteSettings = defineType({
       name: 'bookingUrl',
       title: 'Enlace para reservar cita',
       description:
-        'Opcional. La dirección pública de tu página de reservas, copiada tal cual de la barra ' +
-        'del navegador. Sirve cualquier plataforma. Ejemplo: ' +
-        'https://tuplataforma.com/vertigo/30min — Mientras esté vacío, el botón no aparece en ' +
-        'el formulario de contacto.',
+        'Opcional. La dirección de tu página de reservas, copiada tal cual de la barra del ' +
+        'navegador; sirve cualquier plataforma. Con un enlace aquí, la ventana «Contacto» ' +
+        'muestra un botón para reservar. Vacío, el botón no aparece.',
       type: 'url',
       fieldset: 'contacto',
+      placeholder: 'https://tuplataforma.com/vertigo/30min',
       validation: (rule) => [
         rule.uri({ scheme: ['https'] }).error('Tiene que empezar por https://'),
         rule
@@ -186,23 +211,16 @@ export const siteSettings = defineType({
       name: 'bookingLabel',
       title: 'Texto del botón de reservar',
       description:
-        'Opcional. Lo que dice el botón. Si lo dejas vacío pone "Agenda una cita". La web lo ' +
-        'escribe en mayúsculas sola, así que escríbelo normal. Como máximo 24 caracteres: más ' +
-        'largo y no cabe en una línea en el móvil.',
+        'Opcional. Lo que dice el botón, tal cual lo escribas. Vacío, pone «Agenda una cita». ' +
+        'Más largo del máximo no cabe en una línea en el móvil.',
       type: 'string',
       fieldset: 'contacto',
-      validation: (rule) => rule.max(24).error('Demasiado largo: como máximo 24 caracteres.'),
-    }),
-    defineField({
-      name: 'copyright',
-      title: 'Línea de copyright',
-      description: 'El texto que cierra la página. Ejemplo: © 2026 Vertigo',
-      type: 'string',
-      fieldset: 'pie',
-      validation: (rule) => [
-        rule.required().error('Escribe la línea de copyright.'),
-        rule.max(BOUNDS.copyright).error(`Demasiado largo: como máximo ${BOUNDS.copyright} caracteres.`),
-      ],
+      placeholder: 'Agenda una cita',
+      components: { input: charCount(BOOKING_LABEL_MAX) },
+      validation: (rule) =>
+        rule
+          .max(BOOKING_LABEL_MAX)
+          .error(`Demasiado largo: como máximo ${BOOKING_LABEL_MAX} caracteres.`),
     }),
 
     // ── Los mensajes de "enviado" ──
@@ -215,10 +233,12 @@ export const siteSettings = defineType({
     // validador que los comprueba son planos, y anidarlos no aporta nada.
     defineField({
       name: 'auditSuccessTitle',
-      title: 'Auditoría — título',
-      description: 'El titular del panel cuando la solicitud ya se ha enviado. Ejemplo: Solicitud recibida',
+      title: 'Auditoría — titular',
+      description: 'El titular grande, en el sitio donde estaba el formulario.',
       type: 'string',
       fieldset: 'formularios',
+      placeholder: 'Solicitud recibida',
+      components: { input: charCount(BOUNDS.successTitle) },
       validation: (rule) => [
         rule.required().error('Escribe el titular que verá quien envíe el formulario.'),
         rule.max(BOUNDS.successTitle).error(
@@ -229,11 +249,12 @@ export const siteSettings = defineType({
     defineField({
       name: 'auditSuccessBody',
       title: 'Auditoría — texto',
-      description:
-        'Las dos líneas debajo del titular. Ejemplo: Gracias por contactarnos. Revisaremos tu ' +
-        'web de forma manual y te responderemos en menos de 24 horas.',
+      description: 'Una o dos frases debajo del titular.',
       type: 'string',
       fieldset: 'formularios',
+      placeholder:
+        'Gracias por contactarnos. Revisaremos tu web de forma manual y te responderemos en menos de 24 horas.',
+      components: { input: charCount(BOUNDS.successBody) },
       validation: (rule) => [
         rule.required().error('Escribe el texto que verá quien envíe el formulario.'),
         rule.max(BOUNDS.successBody).error(
@@ -243,10 +264,12 @@ export const siteSettings = defineType({
     }),
     defineField({
       name: 'contactSuccessTitle',
-      title: 'Contacto — título',
-      description: 'El titular del panel cuando el mensaje ya se ha enviado. Ejemplo: Recibido',
+      title: 'Contacto — titular',
+      description: 'El titular grande, en el sitio donde estaba el formulario.',
       type: 'string',
       fieldset: 'formularios',
+      placeholder: 'Recibido',
+      components: { input: charCount(BOUNDS.successTitle) },
       validation: (rule) => [
         rule.required().error('Escribe el titular que verá quien te escriba.'),
         rule.max(BOUNDS.successTitle).error(
@@ -257,11 +280,11 @@ export const siteSettings = defineType({
     defineField({
       name: 'contactSuccessBody',
       title: 'Contacto — texto',
-      description:
-        'Las dos líneas debajo del titular. Ejemplo: Gracias por contactarnos, te responderemos ' +
-        'en menos de 24 horas.',
+      description: 'Una o dos frases debajo del titular.',
       type: 'string',
       fieldset: 'formularios',
+      placeholder: 'Gracias por contactarnos, te responderemos en menos de 24 horas.',
+      components: { input: charCount(BOUNDS.successBody) },
       validation: (rule) => [
         rule.required().error('Escribe el texto que verá quien te escriba.'),
         rule.max(BOUNDS.successBody).error(
@@ -269,29 +292,41 @@ export const siteSettings = defineType({
         ),
       ],
     }),
-    // ── La pantalla del edificio ──
+    defineField({
+      name: 'copyright',
+      title: 'Línea de copyright',
+      description: 'El texto pequeño al pie de la pantalla del planeta, la portada de la web.',
+      type: 'string',
+      fieldset: 'pie',
+      placeholder: '© 2026 Vertigo',
+      components: { input: charCount(BOUNDS.copyright) },
+      validation: (rule) => [
+        rule.required().error('Escribe la línea de copyright.'),
+        rule.max(BOUNDS.copyright).error(`Demasiado largo: como máximo ${BOUNDS.copyright} caracteres.`),
+      ],
+    }),
+    // ── La pantalla del edificio: OCULTA ──
     //
-    // Sólo imagen, de momento. El vídeo está previsto y documentado en el
-    // código, pero no se ofrece aquí hasta que exista: un campo sin nada que lo
-    // lea es una promesa que el Studio hace en nombre de la web.
+    // Nada de la web lee estos dos campos desde que la torre tiene su propia
+    // pantalla LED con contenido en el código (dbb2de8, 2026-09-10). Ocultos y
+    // no borrados: los valores guardados siguen donde estaban, y quitarlos de la
+    // proyección, los tipos y los fixtures es una tarea aparte. Mientras tanto
+    // `bannerImageErrors` sigue aquí porque `siteSettings.collection.ts` aún
+    // valida y descarga la imagen; oculta, nadie puede cambiarla por una mala.
     defineField({
       name: 'bannerEnabled',
       title: 'Mostrar la pantalla',
-      description:
-        'Apagado, la pantalla se ve como el resto del edificio. Encendido sin imagen, la web ' +
-        'enseña su propia imagen provisional.',
       type: 'boolean',
       fieldset: 'edificio',
+      hidden: true,
       initialValue: true,
     }),
     defineField({
       name: 'bannerImage',
       title: 'Imagen de la pantalla',
-      description:
-        'Apaisada, casi el doble de ancha que de alta: 1600×800 es el tamaño ideal. PNG o ' +
-        'WebP. Se repite en las cuatro caras de la pantalla.',
       type: 'image',
       fieldset: 'edificio',
+      hidden: true,
       options: { accept: 'image/png,image/webp' },
       validation: (rule) => rule.custom(bannerImageErrors()),
     }),

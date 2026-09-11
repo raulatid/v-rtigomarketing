@@ -2,6 +2,7 @@ import { ImageIcon } from '@sanity/icons/Image'
 import { PlayIcon } from '@sanity/icons/Play'
 import { LinkIcon } from '@sanity/icons/Link'
 import { defineField, defineType } from 'sanity'
+import { charCount } from '../../components/CharCountInput'
 
 /**
  * Editorial media.
@@ -10,6 +11,9 @@ import { defineField, defineType } from 'sanity'
  * again by `content/collections/media.ts` at build time. Two places, on purpose:
  * this one tells the editor while they are working, that one is the guarantee.
  */
+
+/** Both of an image's texts, `alt` and `caption`; shared by rule and counter. */
+const IMAGE_TEXT_MAX = 200
 
 export const imageMedia = defineType({
   name: 'imageMedia',
@@ -25,9 +29,12 @@ export const imageMedia = defineType({
       description:
         'Qué se ve en la imagen, en una frase, para quien no puede verla. Ejemplo: Equipo revisando un informe en la oficina',
       type: 'string',
+      components: { input: charCount(IMAGE_TEXT_MAX) },
       validation: (rule) => [
         rule.required().error('Describe la imagen en una frase.'),
-        rule.max(200).error('Demasiado largo: como máximo 200 caracteres.'),
+        rule
+          .max(IMAGE_TEXT_MAX)
+          .error(`Demasiado largo: como máximo ${IMAGE_TEXT_MAX} caracteres.`),
       ],
     }),
     defineField({
@@ -38,7 +45,9 @@ export const imageMedia = defineType({
         'No repitas aquí la descripción de arriba: esa la lee quien no ve la imagen, y ' +
         'escribir lo mismo en las dos hace que se anuncie dos veces.',
       type: 'string',
-      validation: (rule) => rule.max(200).error('Demasiado largo: como máximo 200 caracteres.'),
+      components: { input: charCount(IMAGE_TEXT_MAX) },
+      validation: (rule) =>
+        rule.max(IMAGE_TEXT_MAX).error(`Demasiado largo: como máximo ${IMAGE_TEXT_MAX} caracteres.`),
     }),
   ],
   // NOT `required()`, and not `assetRequired()` either.
@@ -61,12 +70,21 @@ export const imageMedia = defineType({
     ),
 })
 
+/**
+ * A self-hosted video file. NO LONGER OFFERED in `blogBody` — see richText.ts.
+ *
+ * Still defined and registered, unused, because the build's contract
+ * (`content/collections/media.ts`) still accepts the shape; the two go together
+ * when the hidden fields are removed end-to-end. It rendered as a link card, not
+ * a player, and filling `poster` failed the build (the projection never resolves
+ * the poster's asset URL), so `poster` is hidden as well.
+ */
 export const videoMedia = defineType({
   name: 'videoMedia',
-  title: 'Vídeo (en preparación)',
+  title: 'Enlace a un archivo de vídeo',
   icon: PlayIcon,
   type: 'object',
-  description: 'Se guarda con la entrada, pero la web todavía no lo reproduce.',
+  description: 'Se muestra como una tarjeta con enlace, no como un reproductor.',
   fields: [
     defineField({
       name: 'src',
@@ -79,7 +97,12 @@ export const videoMedia = defineType({
           .uri({ scheme: ['https'] })
           .error('Pega la dirección completa del vídeo, empezando por https://'),
     }),
-    defineField({ name: 'poster', type: 'imageMedia', title: 'Imagen de portada del vídeo' }),
+    defineField({
+      name: 'poster',
+      type: 'imageMedia',
+      title: 'Imagen de portada del vídeo',
+      hidden: true,
+    }),
   ],
 })
 
@@ -91,7 +114,9 @@ export const embedMedia = defineType({
   // Provider plus url, never pasted markup: the renderer builds its own iframe
   // from parts the build has validated, and the url's host is checked against
   // the provider's allowlist.
-  description: 'Pega la dirección del vídeo tal cual aparece en el navegador; no el código de incrustar.',
+  description:
+    'En la entrada se ve como una tarjeta que abre el vídeo en otra pestaña. Pega la ' +
+    'dirección del vídeo tal cual aparece en el navegador, no el código de incrustar.',
   fields: [
     defineField({
       name: 'provider',

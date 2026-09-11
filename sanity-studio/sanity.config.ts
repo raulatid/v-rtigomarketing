@@ -6,6 +6,7 @@ import { EarthGlobeIcon } from '@sanity/icons/EarthGlobe'
 import { PinIcon } from '@sanity/icons/Pin'
 import { WrenchIcon } from '@sanity/icons/Wrench'
 import { esESLocale } from '@sanity/locale-es-es'
+import type { ComponentType } from 'react'
 import { defineConfig } from 'sanity'
 import { structureTool, type StructureBuilder } from 'sanity/structure'
 import { schemaTypes } from './schemas'
@@ -22,12 +23,36 @@ import { schemaTypes } from './schemas'
  * restored backup, a re-run import or the HTTP API can all produce a second
  * document that this structure never showed anybody.
  */
-const SINGLETONS = [
-  { id: 'siteSettings', type: 'siteSettings', title: 'Ajustes del sitio', icon: CogIcon },
+interface Singleton {
+  id: string
+  type: string
+  title: string
+  icon: ComponentType
+}
+
+const SETTINGS: Singleton = {
+  id: 'siteSettings',
+  type: 'siteSettings',
+  title: 'Ajustes del sitio',
+  icon: CogIcon,
+}
+
+const LEGAL: Singleton[] = [
   { id: 'legal-terms', type: 'legalDoc', title: 'Términos y privacidad', icon: DocumentTextIcon },
   { id: 'legal-notice', type: 'legalDoc', title: 'Aviso legal', icon: DocumentsIcon },
   { id: 'legal-cookies', type: 'legalDoc', title: 'Política de cookies', icon: DocumentTextIcon },
 ]
+
+const SINGLETONS = [SETTINGS, ...LEGAL]
+
+/** One singleton as a menu row that opens its one document directly. */
+function singletonItem(S: StructureBuilder, entry: Singleton) {
+  return S.listItem()
+    .title(entry.title)
+    .id(entry.id)
+    .icon(entry.icon)
+    .child(S.document().schemaType(entry.type).documentId(entry.id).title(entry.title))
+}
 
 /**
  * Types an editor may edit but never create, duplicate or delete.
@@ -93,21 +118,40 @@ export default defineConfig({
 
   plugins: [
     structureTool({
-      // Ordered the way an editor meets the site, not alphabetically. Districts
-      // above services because a service is only ever reached through a
-      // district. The blog sits apart and says in its title that it is not yet
-      // on the website — a section that accepts posts and shows them nowhere
-      // would otherwise cost someone an afternoon.
+      // Ordered the way an editor meets the site, not alphabetically, and named
+      // in the site's words rather than the scene's: nobody outside the code
+      // calls the services campus a "distrito".
+      //
+      // The district and the services share one folder because they are one
+      // thing on the site — the section, and its stops. The district is shown
+      // as a list (of one) rather than opened by id: an id typed here that did
+      // not match the stored document would open a blank one, and publishing it
+      // would create the second district the build refuses.
+      //
+      // The legal documents share a folder because three near-identical rows at
+      // the root read as noise; "Ajustes del sitio" stays at the root because it
+      // is the singleton an editor actually opens.
       structure: (S: StructureBuilder) =>
         S.list()
           .title('Contenido de la web')
           .items([
             S.documentTypeListItem('caseStudy').title('Casos de éxito').icon(EarthGlobeIcon),
-            S.documentTypeListItem('district').title('Distritos').icon(PinIcon),
-            S.documentTypeListItem('service').title('Servicios').icon(WrenchIcon),
-            S.divider(),
             S.listItem()
-              .title('Blog · aún no visible en la web')
+              .title('Servicios')
+              .id('servicios')
+              .icon(WrenchIcon)
+              .child(
+                S.list()
+                  .title('Servicios')
+                  .items([
+                    S.documentTypeListItem('district')
+                      .title('La sección en la ciudad')
+                      .icon(PinIcon),
+                    S.documentTypeListItem('service').title('Todos los servicios').icon(WrenchIcon),
+                  ]),
+              ),
+            S.listItem()
+              .title('Blog')
               .id('blog')
               .icon(ComposeIcon)
               .child(
@@ -116,13 +160,16 @@ export default defineConfig({
                   .defaultOrdering([{ field: 'publishedAt', direction: 'desc' }]),
               ),
             S.divider(),
-            ...SINGLETONS.map((entry) =>
-              S.listItem()
-                .title(entry.title)
-                .id(entry.id)
-                .icon(entry.icon)
-                .child(S.document().schemaType(entry.type).documentId(entry.id).title(entry.title)),
-            ),
+            singletonItem(S, SETTINGS),
+            S.listItem()
+              .title('Textos legales')
+              .id('legal')
+              .icon(DocumentsIcon)
+              .child(
+                S.list()
+                  .title('Textos legales')
+                  .items(LEGAL.map((entry) => singletonItem(S, entry))),
+              ),
           ]),
     }),
     // The whole Studio chrome — Publicar, Descartar cambios, Añadir elemento,

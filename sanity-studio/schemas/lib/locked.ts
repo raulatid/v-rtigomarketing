@@ -3,10 +3,13 @@ import type { ConditionalPropertyCallbackContext } from 'sanity'
 /**
  * The rule for every identifier the website's code depends on.
  *
- * Three identifiers are welded to code: a case study's is referenced by
- * `orbitAssignments.ts`, a district's by `cityDistrictBindings.ts`, a legal
- * document's by the site footer. An editor changing one breaks a build they
- * cannot see. So an identifier is editable exactly once — until it has a value —
+ * Four identifiers are welded to code: a case study's is referenced by
+ * `orbitAssignments.ts`, a district's and each service's by
+ * `cityDistrictBindings.ts` (a service's also by the blog's `?tema=` links), a
+ * legal document's by the panels that link it. An editor changing one breaks a
+ * build they cannot see. A blog post's slug is locked by the same function for
+ * a different reason — it is the post's public URL — and says so in its own
+ * description rather than this one. So an identifier is editable exactly once — until it has a value —
  * and read-only afterwards for everyone except an administrator, who is also
  * the only person able to update the code on the other side of the binding.
  *
@@ -30,10 +33,18 @@ export const LOCKED_ID_DESCRIPTION =
   'Nombre interno que usa la web para reconocer este elemento. Una vez guardado no ' +
   'cambia; si hiciera falta cambiarlo, pídeselo al equipo técnico.'
 
-/** The collapsed fieldset every document keeps its identifier in. */
+/**
+ * The collapsed fieldset every code-welded identifier is kept in.
+ *
+ * The description used to say only "nothing to touch here", which was false
+ * for exactly one moment — a new case study or service is unpublishable until
+ * "Generar" is pressed in here — and that moment is the one a new editor meets.
+ */
 export const TECH_FIELDSET = {
   name: 'tecnico',
   title: 'Técnico',
-  description: 'No hace falta tocar nada aquí en el día a día.',
+  description:
+    'Al crear un documento nuevo, abre este apartado y pulsa «Generar» una vez. Después no ' +
+    'hace falta volver a tocarlo.',
   options: { collapsible: true, collapsed: true },
 }

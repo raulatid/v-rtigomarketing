@@ -17,8 +17,8 @@
     // map, which is what puts `sanity/structure` and `sanity/cli` in reach.
     "moduleResolution": "bundler",
     "types": ["node"],
-    // Reserved for a custom input component. Nothing here uses JSX today, and
-    // `preserve` is what the Sanity toolchain expects when something does.
+    // For the custom inputs in `components/`. `preserve` is what the Sanity
+    // toolchain expects: its own bundler compiles the JSX, not tsc.
     "jsx": "preserve",
     "strict": true,
     "noUnusedLocals": true,
@@ -33,7 +33,7 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["sanity.config.ts", "sanity.cli.ts", "schemas/**/*.ts"],
+  "include": ["sanity.config.ts", "sanity.cli.ts", "schemas/**/*.ts", "components/**/*.tsx"],
   // `scripts/` is plain .mjs with no type annotations, and it runs with node
   // before this package has been installed. Nothing to check.
   "exclude": ["node_modules", "dist", "scripts"]
