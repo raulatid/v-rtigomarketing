@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import {
+  arrivalEdge,
   centreCloseness,
   compassMark,
   edgeFadeOpacity,
@@ -91,6 +92,16 @@ const FORWARD_THICKNESS = 6.5
 const PIN_VIEWBOX_W = 13
 const PIN_VIEWBOX_H = 19
 const PIN_HOLE_RADIUS = 2.7
+/** The calibration above the bar: a tick every 15° of the span, in the bar's units. */
+const TICK_STEP_DEGREES = 15
+const TICKS_VIEWBOX_H = 8
+const TICK_LONG = 6
+const TICK_SHORT = 3
+
+/** Warmth a pin rises through to pulse once, and falls below to arm again. */
+const ARRIVAL_ON = 0.85
+const ARRIVAL_OFF = 0.5
+const PULSE_MS = 900
 
 /** The furniture's blue, faded toward the bar's ends rather than cut off. */
 const BLUE = '28, 103, 255'
@@ -163,11 +174,26 @@ function pinPath(width: number, height: number, holeRadius: number): string {
 
 export class CompassBar {
   private readonly root: HTMLDivElement
-  private readonly marks: Array<{ poi: CompassPoi; el: HTMLDivElement; label: HTMLSpanElement }> = []
+  private readonly marks: Array<{
+    poi: CompassPoi
+    el: HTMLDivElement
+    label: HTMLSpanElement
+    pulse: HTMLSpanElement
+    /** Waiting to arrive; see `arrivalEdge`. */
+    armed: boolean
+  }> = []
   private readonly anchor = new THREE.Vector3()
+  /**
+   * Read once: the pulse is a WAAPI animation, which the stylesheet's
+   * reduced-motion block cannot reach.
+   */
+  private readonly reducedMotion: boolean
   private visible = false
 
   constructor(parent: HTMLElement, pois: readonly CompassPoi[]) {
+    this.reducedMotion =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+
     this.root = document.createElement('div')
     this.root.className = 'murcia-compass'
     this.root.setAttribute('aria-hidden', 'true')
@@ -176,14 +202,20 @@ export class CompassBar {
     // The bar: a lens, thickest in the middle and tapering to a point at both
     // ends, in a blue that fades toward them. Stretched along its length only
     // (`preserveAspectRatio="none"`), so it keeps its thickness at every width.
+    //
+    // The gradient is in USER units across the bar's width, not the default
+    // bounding-box units: the ticks below take the same fade, and a
+    // bounding-box gradient does not paint on a vertical line at all — its box
+    // has no width to map the gradient onto. The lens looks the same either way.
     const gradientId = `murcia-compass-fade-${++gradientSeq}`
     const line = svgBox(BAR_VIEWBOX_W, BAR_VIEWBOX_H, 'murcia-compass__line')
     line.setAttribute('preserveAspectRatio', 'none')
     const defs = document.createElementNS(SVG_NS, 'defs')
     const gradient = document.createElementNS(SVG_NS, 'linearGradient')
     gradient.setAttribute('id', gradientId)
+    gradient.setAttribute('gradientUnits', 'userSpaceOnUse')
     gradient.setAttribute('x1', '0')
-    gradient.setAttribute('x2', '1')
+    gradient.setAttribute('x2', String(BAR_VIEWBOX_W))
     gradient.setAttribute('y1', '0')
     gradient.setAttribute('y2', '0')
     for (const [offset, alpha] of [
@@ -205,6 +237,30 @@ export class CompassBar {
       ),
     )
     this.root.append(line)
+
+    // The calibration: a hairline every 15° above the bar, longer at ±45° and
+    // ±90°, in the bar's own fade so the ends go quiet together. None at 0° —
+    // the forward lens is that mark. Above rather than below, because below is
+    // where the pins hang. Strokes with `non-scaling-stroke`, since this box is
+    // stretched like the bar's and a tick has to stay one pixel at every width.
+    const ticks = svgBox(BAR_VIEWBOX_W, TICKS_VIEWBOX_H, 'murcia-compass__ticks')
+    ticks.setAttribute('preserveAspectRatio', 'none')
+    const tickCount = SPAN_DEGREES / TICK_STEP_DEGREES
+    for (let i = 0; i <= tickCount; i++) {
+      if (i * 2 === tickCount) continue
+      const x = String((i / tickCount) * BAR_VIEWBOX_W)
+      const long = i % (tickCount / 4) === 0
+      const tick = document.createElementNS(SVG_NS, 'line')
+      tick.setAttribute('x1', x)
+      tick.setAttribute('x2', x)
+      tick.setAttribute('y1', String(TICKS_VIEWBOX_H))
+      tick.setAttribute('y2', String(TICKS_VIEWBOX_H - (long ? TICK_LONG : TICK_SHORT)))
+      tick.setAttribute('stroke', `url(#${gradientId})`)
+      tick.setAttribute('stroke-width', '1')
+      tick.setAttribute('vector-effect', 'non-scaling-stroke')
+      ticks.append(tick)
+    }
+    this.root.append(ticks)
 
     // The forward mark: where the camera is actually pointing. The same lens
     // stood on end and drawn THROUGH the bar, blue with it because it is
@@ -231,9 +287,15 @@ export class CompassBar {
       label.className = 'murcia-compass__label'
       label.textContent = poi.label
 
-      el.append(pin, label)
+      // The arrival ring: a circle on the pin's head that is invisible until
+      // `update` fires it once. Animated from JS because it is a one-shot on an
+      // event, not a state the CSS could transition to.
+      const pulse = document.createElement('span')
+      pulse.className = 'murcia-compass__pulse'
+
+      el.append(pin, label, pulse)
       this.root.append(el)
-      this.marks.push({ poi, el, label })
+      this.marks.push({ poi, el, label, pulse, armed: true })
     }
 
     parent.append(this.root)
@@ -290,6 +352,20 @@ export class CompassBar {
         '--fade',
         edgeFadeOpacity(offset, EDGE_FADE_START, EDGE_MIN_OPACITY).toFixed(4),
       )
+
+      // One ring per arrival. The edge is tracked even under reduced motion,
+      // so turning the setting off mid-session does not fire a stale arrival.
+      const edge = arrivalEdge(mark.armed, warmth, ARRIVAL_ON, ARRIVAL_OFF)
+      mark.armed = edge.armed
+      if (edge.fire && !this.reducedMotion) {
+        mark.pulse.animate(
+          [
+            { transform: 'scale(1)', opacity: 0.8 },
+            { transform: 'scale(3.2)', opacity: 0 },
+          ],
+          { duration: PULSE_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+        )
+      }
 
       if (warmth > warmest) {
         warmest = warmth

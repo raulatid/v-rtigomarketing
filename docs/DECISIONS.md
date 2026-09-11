@@ -3363,6 +3363,19 @@ world; being pointed at something is not the same as having arrived at it.
 > consent plate as the third floating tray. Its top edge is the header controls' top edge, and it
 > hangs below the header from there. The lab's blue bar and forward mark stay on the glass.
 
+> **Amended 2026-09-11 — the compass gains its instrument details** (user direction: "more
+> premium, subtle details", the logic untouched). Four, all inside the lab's language. A
+> calibration: hairline ticks every 15° standing on the bar's top edge, longer at ±45° and ±90°,
+> in the bar's own fade and at 55% of its weight — none at 0°, because the forward lens is that
+> mark. Light: a blue halo under the forward lens, and a yellow halo on a pin that grows with the
+> same `--warmth` the JS already writes. Lift and lettering: a hairline shadow under the lens, the
+> labels in capitals at 0.14em with a lift shadow. And one arrival ring per arrival — a circle on
+> the pin's head that expands and fades once when warmth rises through 0.85, re-armed only below
+> 0.5 (`utils/compass.ts` `arrivalEdge`, tested), skipped under reduced motion from JS because
+> it is a WAAPI one-shot the stylesheet cannot reach. Blue's spend is unchanged: the halo is on
+> furniture that was already blue. One trap recorded: the bar's fade gradient moved to
+> `userSpaceOnUse`, because a bounding-box gradient does not paint on a vertical line.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle

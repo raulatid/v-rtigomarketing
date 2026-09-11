@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  arrivalEdge,
   centreCloseness,
   compassMark,
   edgeFadeOpacity,
@@ -153,5 +154,40 @@ describe('edgeFadeOpacity', () => {
 
   it('never fades when the fade cannot begin', () => {
     expect(edgeFadeOpacity(0.99, 1, 0.18)).toBe(1)
+  })
+})
+
+describe('arrivalEdge', () => {
+  it('fires once as warmth rises through the on threshold', () => {
+    const first = arrivalEdge(true, 0.9, 0.85, 0.5)
+    expect(first.fire).toBe(true)
+    expect(first.armed).toBe(false)
+  })
+
+  it('does not fire again while the pin hovers at the threshold', () => {
+    // The whole reason for the hysteresis: a pin drifting across 0.85 and back
+    // every frame would otherwise pulse like a fault light.
+    let state = arrivalEdge(true, 0.9, 0.85, 0.5)
+    for (const warmth of [0.84, 0.86, 0.7, 0.9, 0.6]) {
+      state = arrivalEdge(state.armed, warmth, 0.85, 0.5)
+      expect(state.fire).toBe(false)
+      expect(state.armed).toBe(false)
+    }
+  })
+
+  it('re-arms only once warmth has fallen below the off threshold', () => {
+    const cooling = arrivalEdge(false, 0.51, 0.85, 0.5)
+    expect(cooling.armed).toBe(false)
+    const cold = arrivalEdge(false, 0.49, 0.85, 0.5)
+    expect(cold.armed).toBe(true)
+    expect(cold.fire).toBe(false)
+    // And the next approach fires again.
+    expect(arrivalEdge(cold.armed, 0.9, 0.85, 0.5).fire).toBe(true)
+  })
+
+  it('does not fire while armed and still below on', () => {
+    const state = arrivalEdge(true, 0.6, 0.85, 0.5)
+    expect(state.fire).toBe(false)
+    expect(state.armed).toBe(true)
   })
 })

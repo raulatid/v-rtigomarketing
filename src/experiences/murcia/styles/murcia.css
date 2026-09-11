@@ -296,6 +296,24 @@
   display: block;
   width: calc(100% - 2 * var(--pad-x));
   height: calc(10 * var(--u));
+  /* A hairline under the lens, so it sits ON the glass rather than in it. */
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35));
+}
+
+/* The calibration (2026-09-11): ticks every 15° standing on the bar's top
+   edge, in the bar's fade. Quieter than the bar by mass — a one-pixel hairline
+   against a 5u lens — not by alpha: at 0.55 they were lost on the dark glass.
+   The box is 8u tall and ends at the LENS's top edge at its thickest (2.5u
+   above the centre line), not at the top of the lens's 10u box: on the box
+   the ticks floated 2.5px above the blue instead of standing on it. */
+.murcia-ui .murcia-compass__ticks {
+  position: absolute;
+  top: calc(var(--cy) - 10.5 * var(--u));
+  left: var(--pad-x);
+  display: block;
+  width: calc(100% - 2 * var(--pad-x));
+  height: calc(8 * var(--u));
+  opacity: 0.9;
 }
 
 .murcia-ui .murcia-compass__forward {
@@ -306,6 +324,9 @@
   width: calc(13 * var(--u));
   height: calc(36 * var(--u));
   margin-left: calc(-6.5 * var(--u));
+  /* The emitter: blue furniture that gives off a little of its own light, as
+     the header's line does. */
+  filter: drop-shadow(0 0 calc(5 * var(--u)) rgba(28, 103, 255, 0.6));
 }
 
 /* A track exactly as wide as the bar, with the pin and label centred in it.
@@ -337,14 +358,39 @@
   display: block;
   width: calc(13 * var(--u));
   height: calc(19 * var(--u));
+  /* The arrival's halo, grown by the same `--warmth` the JS writes for the
+     colour. At zero warmth the blur is zero and the shadow is the pin's own
+     shape, hidden exactly behind it — the hole included. */
+  filter: drop-shadow(0 0 calc(var(--warmth, 0) * 6 * var(--u)) rgb(255 209 26 / 0.7));
 }
 
 .murcia-ui .murcia-compass__label {
   white-space: nowrap;
+  /* Instrument lettering: capitals, tracked wider than the plate's 0.08em,
+     with a lift shadow so the reading sits on the glass. */
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
   /* Up to half as big again on arrival, grown from its top edge so it pushes
      down into empty space rather than climbing back over its own pin. */
   transform: scale(calc(1 + var(--warmth, 0) * 0.5));
   transform-origin: top center;
+}
+
+/* The arrival ring: a circle the size of the pin's head, centred on it, that
+   `compassBar.ts` fires once per arrival (scale 1 → 3.2 as it fades). Invisible
+   between arrivals; the animation carries all of its opacity. */
+.murcia-ui .murcia-compass__pulse {
+  position: absolute;
+  top: calc(6.5 * var(--u));
+  left: 50%;
+  width: calc(13 * var(--u));
+  height: calc(13 * var(--u));
+  margin: calc(-6.5 * var(--u)) 0 0 calc(-6.5 * var(--u));
+  border: 1px solid rgb(255 209 26);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -176,3 +176,28 @@ export function edgeFadeOpacity(
   if (past <= 0) return 1
   return minOpacity + (1 - minOpacity) * smoothstep(1 - past)
 }
+
+/** Whether a mark is waiting to arrive, and whether it just did. */
+export interface ArrivalEdge {
+  /** True while the mark may fire on its next rise through `on`. */
+  readonly armed: boolean
+  /** True on exactly the frame warmth rose through `on` while armed. */
+  readonly fire: boolean
+}
+
+/**
+ * One event per arrival, from a warmth that is read every frame.
+ *
+ * Fires when `warmth` rises through `on` while armed, and re-arms only once it
+ * has fallen below `off`. The gap between the two is the point: warmth is a
+ * continuous product of two ramps, and a pin drifting across a single threshold
+ * and back every frame would fire like a fault light. Nothing here is drawn —
+ * the caller decides what an arrival looks like.
+ */
+export function arrivalEdge(armed: boolean, warmth: number, on: number, off: number): ArrivalEdge {
+  if (armed) {
+    if (warmth >= on) return { armed: false, fire: true }
+    return { armed: true, fire: false }
+  }
+  return { armed: warmth < off, fire: false }
+}
