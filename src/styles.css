@@ -1428,7 +1428,7 @@ html {
    rather than against it: the sentence lands at 0.85 once shown, and still
    reaches 0 when dismissed.
 
-   It carries the chevrons too, which is deliberate. They are drawn with
+   It carries the glyph too, which is deliberate. It is drawn with
    `currentColor`, so the mark and the sentence dim together and the balance
    struck when the type came down to 16px is preserved. A mark left at full white
    over an 85% sentence would read brighter than it did before the change, which
@@ -1504,14 +1504,23 @@ html {
 }
 
 /* Sized in em like everything else, so the mark tracks the type rather than
-   needing its own breakpoint. 1.375em is 22px against a 16px sentence — down
-   from the figure's 44/26em, because that ratio was set when the sentence was
-   26px and a mark two-thirds the cap height of its text overpowers it once the
-   text is small. The height follows the viewBox's 9.2:11.2. */
-.earth-hint__chevrons {
+   needing its own breakpoint. §43 set the bare chevrons at 1.375em (22px) on
+   the argument that a mark two-thirds the cap height of 16px text overpowers
+   it; the mouse and the phone (§46) are drawings rather than a mark, and read
+   as toys below ~20px wide. 1.25em is 20px; the height follows each viewBox.
+   Judged by eye, not derived — the first numbers a client review may move. */
+.earth-hint__glyph {
   display: block;
-  width: 1.375em;
-  height: 1.674em;
+}
+
+.earth-hint__glyph--mouse {
+  width: 1.25em;
+  height: 3.5417em; /* 12:34 */
+}
+
+.earth-hint__glyph--pinch {
+  width: 2.5em;
+  height: 2.5em;
 }
 
 .earth-hint__sentence {
@@ -1520,20 +1529,125 @@ html {
   text-wrap: balance;
 }
 
-/* INPUT decides the sentence, never viewport width — the same rule and the same
-   mechanism as `.nav-hint__label[data-input]` above. Fine is the default and the
-   coarse block flips it. */
-.earth-hint__sentence[data-input='coarse'] {
+/* INPUT decides the glyph and the sentence, never viewport width — the same rule
+   and the same mechanism as `.nav-hint__label[data-input]` above, and ONE query
+   for both so the picture and the word cannot disagree. Fine is the default and
+   the coarse block flips it. */
+.earth-hint__sentence[data-input='coarse'],
+.earth-hint__glyph--pinch {
   display: none;
 }
 
 @media (pointer: coarse) {
-  .earth-hint__sentence[data-input='fine'] {
+  .earth-hint__sentence[data-input='fine'],
+  .earth-hint__glyph--mouse {
     display: none;
   }
 
-  .earth-hint__sentence[data-input='coarse'] {
+  .earth-hint__sentence[data-input='coarse'],
+  .earth-hint__glyph--pinch {
     display: block;
+  }
+}
+
+/* ---- The glyph's motion ----
+
+   The plate's grammar (see "Motion" under `.nav-hint` below): every travelling
+   part goes ONE way, fading in where it starts and out where it ends, and the
+   resting drawing is the readable one. The wheel and the chase reuse the plate's
+   keyframes outright — same notch travel, same 160ms hand-off between the two
+   chevrons — because it is the same drawing, and Earth only ever scrolls DOWN,
+   so no direction variable is needed here.
+
+   Gated on `[data-visible]` like the plate's, and every rule sits at (0,3,0) so
+   the reduced-motion kill at the end of this block wins by source order alone.
+   That specificity is the trap the plate recorded: a rule one class heavier
+   than the kill keeps the wheel scrolling for a visitor who asked it to stop. */
+.earth-hint__part {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.earth-hint[data-visible] .earth-hint__part--wheel {
+  animation: nav-hint-wheel-down 1.4s linear infinite;
+}
+
+.earth-hint[data-visible] .earth-hint__part--chase {
+  animation: nav-hint-chase 1.4s ease-in-out infinite;
+  animation-delay: -1s;
+}
+
+.earth-hint[data-visible] .earth-hint__chevrons .earth-hint__part--chase:nth-child(2) {
+  animation-delay: -0.84s;
+}
+
+/* The fingers spread by ROTATING about the palm end — the index swings left,
+   the thumb right — so the tips part while the hand stays one piece; a
+   translation would tear each finger off the palm by the amount it travelled.
+   The origin is the fill-box corner the base lands on: the index runs from a
+   top-left tip to a bottom-RIGHT base, the thumb from a top-right tip to a
+   bottom-LEFT one. The plate's pinch shape: land, travel, hold on the 62–86%
+   plateau, fade; the release is behind the fade because a finger snapping back
+   reads as a second gesture. */
+.earth-hint__part--finger-a {
+  transform-origin: 100% 100%;
+}
+
+.earth-hint__part--finger-b {
+  transform-origin: 0 100%;
+}
+
+.earth-hint[data-visible] .earth-hint__part--finger-a {
+  animation: earth-hint-pinch-a 1.8s ease-out infinite;
+}
+
+.earth-hint[data-visible] .earth-hint__part--finger-b {
+  animation: earth-hint-pinch-b 1.8s ease-out infinite;
+}
+
+@keyframes earth-hint-pinch-a {
+  0% {
+    transform: rotate(6deg);
+    opacity: 0;
+  }
+  14% {
+    transform: rotate(6deg);
+    opacity: 1;
+  }
+  62% {
+    transform: rotate(-14deg);
+    opacity: 1;
+  }
+  86% {
+    transform: rotate(-14deg);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-14deg);
+    opacity: 0;
+  }
+}
+
+@keyframes earth-hint-pinch-b {
+  0% {
+    transform: rotate(-6deg);
+    opacity: 0;
+  }
+  14% {
+    transform: rotate(-6deg);
+    opacity: 1;
+  }
+  62% {
+    transform: rotate(14deg);
+    opacity: 1;
+  }
+  86% {
+    transform: rotate(14deg);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(14deg);
+    opacity: 0;
   }
 }
 
@@ -1561,11 +1675,17 @@ html {
   }
 }
 
-/* Fade only. The float is exactly the decorative loop this query kills, and the
-   sentence is fully legible standing still — the same split the plate's own
-   reduced-motion rule makes. */
+/* Fade only. The float and the glyph's loops are exactly the decorative motion
+   this query kills, and the drawing is fully legible standing still — every
+   part at full opacity and no offset, the same split the plate's own
+   reduced-motion rule makes. The second rule is at the animations' own (0,3,0)
+   and AFTER them, which is the whole reason it wins. */
 @media (prefers-reduced-motion: reduce) {
   .earth-hint {
+    animation: none;
+  }
+
+  .earth-hint[data-visible] .earth-hint__part {
     animation: none;
   }
 }

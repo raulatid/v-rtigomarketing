@@ -1,9 +1,9 @@
 /**
  * The Earth's way out, in plain text.
  *
- * Replaces the particle figure (DECISIONS §41, reversed by §43): the same two
- * chevrons over the same sentence, as DOM. Murcia's glass plate is untouched and
- * still hidden on Earth by `.nav[data-direction='down'] .nav-hint`.
+ * Replaces the particle figure (DECISIONS §41, reversed by §43): a glyph over a
+ * sentence, as DOM. Murcia's glass plate is untouched and still hidden on Earth
+ * by `.nav[data-direction='down'] .nav-hint`.
  *
  * ## It renders once and is never re-rendered
  *
@@ -11,53 +11,88 @@
  * Canvas, because the permission it reads is a field on a mutable object and the
  * satellite hover is written per frame — finds this element and paints
  * `data-visible` on it, exactly the way `createNavigationInput` paints Murcia's
- * plate. CSS owns both fades and the float from there.
+ * plate. CSS owns both fades, the float and every loop from there.
  *
  * A `useState` in `App` for a boolean that flips on every `pointerdown` would
  * re-render both canvases and every overlay, which is the reason its neighbour
  * `state.hintAllowed` is not React state either.
  *
- * ## Both sentences are rendered, and the stylesheet picks
+ * ## Both glyphs and both sentences are rendered, and the stylesheet picks
  *
- * The same arrangement `NavigationControl` uses for its one-word labels — the
- * CSS can only choose between what was rendered, and a `matchMedia` read here
- * would have no later moment at which to matter. The particle figure had to
- * re-rasterize itself when the pointer class changed; this does not.
+ * The same arrangement `NavigationControl` uses — the CSS can only choose
+ * between what was rendered, and a `matchMedia` read here would have no later
+ * moment at which to matter. `(pointer: coarse)` picks the glyph AND the word,
+ * from the same fact, so the two can never disagree.
+ *
+ * ## Two glyphs since §46, and the fine one is the plate's mouse
+ *
+ * §43 had cropped the mark to the two chevrons alone. The client asked for the
+ * mouse back on Earth — the same body, notch and chasing chevrons Murcia's plate
+ * draws — and, for touch, something more literal than two dots: a phone with a
+ * hand spreading two fingers on it. Leaving Earth is an approach (ADR 006), so
+ * the fingers open.
+ *
+ * The mouse is a COPY of the plate's path data, not a shared component, and a
+ * test pins the literals so the two cannot drift. A shared component would have
+ * to carry the plate's `.nav[data-direction]` selection of the up-group for a
+ * scene that only ever goes down.
  */
 export function EarthHint() {
   return (
     <div className="earth-hint" aria-hidden="true">
-      {/* The travel glyph's own chevrons, at the same path data
-          `NavigationControl` draws — one drawing, not two that can drift.
+      {/* The plate's mouse, cropped to what Earth draws: the body (y 14–34) and
+          the DOWN chevrons (y 36–46), so the viewBox is that band plus a
+          half-stroke spill on every side — a round cap sliced square is just a
+          blunt tip (§43). No up-group and therefore no recentring transform:
+          nothing is drawn above the body.
 
-          THE STROKE IS 1.0, NOT THE FIGURE'S 1.6, and the viewBox is half a unit
-          looser than `HINT_CHEVRONS.box` on every side. Both follow from the type
-          coming down to 16px (§43).
-
-          The particle figure rendered this 44px wide, where 1.6 units across an
-          8-unit box — a fifth of the mark's width — read as deliberate weight. At
-          27px the same ratio is a 5.4px slab over letter stems half that thick,
-          and the mark stops reading as a companion to the sentence and starts
-          reading as a button. Weight is a ratio to what it sits beside, not a
-          constant.
-
-          The box was the ink crop because a canvas bitmap exactly that size
-          clipped the caps flat, and matching that was right while the sentence
-          was made of sampled dots. A thin round cap that is sliced square is just
-          a blunt tip, so the viewBox now carries the half-stroke spill and the
-          chevrons close properly. */}
+          Stroke 1.4 against the plate's 1.6. Weight is a ratio to what it sits
+          beside (§43): at 16px type the plate's ratio reads as a slab. */}
       <svg
-        className="earth-hint__chevrons"
-        viewBox="7.4 35.4 9.2 11.2"
+        className="earth-hint__glyph earth-hint__glyph--mouse"
+        viewBox="6 13 12 34"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1"
+        strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
         focusable="false"
       >
-        <path d="M8 36l4 4 4-4" />
-        <path d="M8 42l4 4 4-4" />
+        <rect x="7" y="14" width="10" height="20" rx="5" />
+        <path className="earth-hint__part earth-hint__part--wheel" d="M12 18v4" />
+        {/* Two, not one, so they can chase: a single chevron can only blink,
+            and a blink has no direction. */}
+        <g className="earth-hint__chevrons">
+          <path className="earth-hint__part earth-hint__part--chase" d="M8 36l4 4 4-4" />
+          <path className="earth-hint__part earth-hint__part--chase" d="M8 42l4 4 4-4" />
+        </g>
+      </svg>
+      {/* A phone, and a hand with two fingers on its screen. Explicit rather
+          than detailed: the phone is a hairline rounded rectangle with a
+          speaker line, and the hand is three FAT round-capped strokes — a palm
+          pill low on the screen, and index and thumb rising from it in a V,
+          their caps the fingertips. The weight difference is the drawing: the
+          phone is context, the hand is the subject. Two hairline fingers with
+          dots for tips read as a needle, and two fat fingers with no palm read
+          as a pair of slashes; the V from one palm is what reads as a hand.
+
+          Each finger is ONE path and the spread is a ROTATION about its base
+          (styles.css sets the origin at the palm end), so the fingertips part
+          while the hand stays one piece — transform only, no path morphing. */}
+      <svg
+        className="earth-hint__glyph earth-hint__glyph--pinch"
+        viewBox="0 0 48 48"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        <rect x="9" y="2" width="26" height="44" rx="4" strokeWidth="1.6" />
+        <path d="M20 6h8" strokeWidth="1.6" />
+        <path d="M24 41h8" strokeWidth="8" />
+        <path className="earth-hint__part earth-hint__part--finger-a" d="M15 13L27 38" strokeWidth="5" />
+        <path className="earth-hint__part earth-hint__part--finger-b" d="M34 19L30 38" strokeWidth="5" />
       </svg>
       {/* Spanish, and in the source rather than the CMS (DECISIONS §28): a field
           per input variant is several strings for one sentence.

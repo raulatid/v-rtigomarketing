@@ -3089,6 +3089,10 @@ is a judgement by eye, with 0.4 as the deliberate non-proportional fallback.
 
 > Reverses **§41 (2026-09-08, the particle figure)**. Murcia's plate is untouched and stays
 > hidden on Earth by the same one-line rule.
+>
+> **Amended 2026-09-11 by §46:** the mark is no longer the two chevrons alone. Fine pointers
+> get the plate's mouse back, coarse pointers a hand spreading on a phone. Everything else here
+> — the sentence, the timing, the 16px type and its measured floor — stands.
 
 **Decided 2026-09-09,** on client direction: the particles go. The hint is the same two chevrons
 over the same sentence, drawn as plain white DOM text.
@@ -3458,6 +3462,70 @@ grew its controls to a touch floor after projection, and nothing does that for
 the lake. With a detail open at 1600x900 the expanded copy climbs into the
 figure. Both are judgements for the visual pass on real hardware.
 
+---
+
+## 46. Earth's glyph is the wheel again, and a hand on a phone for touch
+
+> Amends **§43**, whose sentence, timing, type size and measured floor all stand. Murcia's plate
+> (`.nav-hint`) is untouched: it keeps its mouse and its two-dot pinch.
+
+**Decided 2026-09-11,** on client direction. §43 had cropped Earth's mark to the two chevrons
+alone. The client wants the icon that Murcia's plate carries — the mouse with its scrolling
+notch and the two chevrons chasing below it — back on the Earth scene, and for touch something
+more explicit than two dots: a phone, and a hand spreading two fingers on its screen.
+
+**Both glyphs are rendered and `(pointer: coarse)` picks,** in the SAME rule that picks the
+sentence, so the picture and the word are chosen by one fact and cannot disagree. This is the
+arrangement `NavigationControl` and `EarthHint` already used for the words; it now covers the
+drawing too.
+
+**The mouse is a copy of the plate's path data, pinned by a test — not a shared component.** The
+plate's mouse carries chevron groups on BOTH sides and lets `.nav[data-direction]` choose; Earth
+only ever goes down. A shared component would have to thread that selection into a scene with
+no direction to select, or grow a prop for it, for one glyph. The §43 convention — copy the
+literals and let `EarthHint.test.tsx` fail the moment either copy is redrawn — is cheaper and
+was already in place. The Earth copy is cropped to the body and the DOWN chevrons
+(`viewBox="6 13 12 34"`), so it needs none of the plate's ±6px recentring, and its stroke is
+1.4 against the plate's 1.6, on §43's rule that weight is a ratio to what it sits beside.
+
+**The keyframes are shared outright.** `nav-hint-wheel-down` and `nav-hint-chase` are global,
+and Earth's rules apply them to `.earth-hint__part--wheel` / `--chase` with the plate's own
+delays (−1s, −0.84s on the second chevron). Same notch travel, same 160ms hand-off. No direction
+variable on Earth, because there is no second direction to vary to.
+
+**The pinch is a spread,** because leaving Earth is an approach (ADR 006) and the world is
+pulled toward you. The hand is three FAT round-capped strokes — a palm pill low on the screen
+and index and thumb rising from it in a V, their caps the fingertips — over a hairline phone:
+the weight difference is the drawing. Two cuts came before it and both were measured off a
+filmstrip: a hairline hand with dots for tips read as a needle, and two fat fingers with no
+palm read as a pair of slashes. The V from one palm is what reads as a hand. Each finger is
+ONE path and the spread is a ROTATION about its palm end (`transform-origin` on the fill-box
+corner each base lands on), on the plate's pinch shape (land, travel, hold on the 62–86%
+plateau, fade). Rotation rather than translation because a translation tears each finger off
+the palm by the amount it travels. No path morphing, so it is transform-and-opacity like
+everything else on the plate and reduced motion can freeze it readable.
+
+**Every animation sits at (0,3,0), and the reduced-motion kill comes after them.** The trap §43's
+predecessor recorded — a rule one class heavier than the kill keeps the wheel scrolling for a
+visitor who asked it to stop — is avoided by construction here rather than through the plate's
+custom-property indirection, which Earth does not need. The resting drawing is the readable one:
+every part at full opacity and zero offset, the keyframes travelling away from it.
+
+**Sizes are judged, not derived.** Mouse 1.25em wide (20px at 16px type, height following
+12:34), phone 2.5em square (40px). §43's 1.375em was set for a bare mark; a drawing of a mouse
+below ~20px wide reads as a toy. These are the first numbers a client review may move.
+
+**Verified** in a filmstrip on the shipped path (fine 1440×900, coarse 390×844 and 844×390),
+frames taken by setting each animation's `currentTime`; reduced motion checked with
+`getAnimations()` on every `.earth-hint__part`, not by eye. The e2e footer measurement in
+`navigation.spec.ts` still passes: the hint is bottom-anchored, so a taller glyph grows upward.
+
+**Also broken when:** an `.earth-hint__part` rule gains a class (it outranks the kill); the
+mouse's literals are edited in one component and not the other (the test says which); the
+pinch's fingers are drawn as one path with a morph (nothing else on the plate morphs, and
+reduced motion could not freeze it readable); or the glyph swap is moved out of the
+`(pointer: coarse)` block that swaps the sentence.
+
 ## Superseded
 
 | Decision | Was | Now |
@@ -3468,6 +3536,7 @@ figure. Both are judgements for the visual pass on real hardware.
 | Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
 | The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** |
 | Earth's way out is drawn in the scene, as ~770 points that gather out of the star field | `experiences/earth/hint/{createHintParticles,sampleInk,buildHintFigure,hintPresence}.ts`, deleted 2026-09-09, **§41** | Plain white DOM text carrying the same chevrons and the same sentence, faded in over 2 s and floating ±5 px. The client's objection was the glass plate, never the text — **§43** |
+| Earth's mark is the two chevrons alone, for both inputs | `EarthHint.tsx`, **§43** | The plate's mouse (body, scrolling notch, chasing chevrons) on fine pointers, and a hand spreading two fingers on a phone for touch, picked by the same `(pointer: coarse)` rule as the sentence — **§46** |
 | Murcia navigates like a map: one finger pans the ground 1:1 under the cursor, a second finger or the right button rotates | `navigation/DragPanController.ts`, deleted 2026-09-10; **§20**, **§21**, **§38** | One pointer carries BOTH axes at once over a second-order spring, and two fingers mean only a pinch. The ground-raycast grab-the-point solve is gone rather than kept beside it — **§44** |
 | The navigable area bounds the CAMERA, and the outer part of it is a band travelled against a falling gain | `navigation/navigableArea.ts` and `resistToRect`, deleted 2026-09-10; **§39**, **§40** | The viewer's TARGET is clamped to one rectangle, and the rectangle is the A2 ring the GLB carries. The band bought pan range; the wider rectangle gives it outright — **§44** |
 | A pinch has to prove it is not a two-finger turn before it may drive anything | `app/navigation/pinchClassifier.ts`, deleted 2026-09-10; **`adr/015`** | Two fingers mean a pinch, because nothing else uses two fingers. It arms on the second contact and drives the band from the first sample — **§44** |

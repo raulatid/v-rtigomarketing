@@ -4,11 +4,11 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { EarthHint } from './EarthHint'
 
-// Earth's hint is rendered ONCE and never re-rendered. Both sentences are in the
-// markup and the stylesheet picks by `(pointer: coarse)`, the same arrangement
-// the plate uses — so the guarantee that a thumb is never told to scroll is a
-// guarantee that both sentences are THERE. The CSS can only choose between what
-// was rendered.
+// Earth's hint is rendered ONCE and never re-rendered. Both glyphs and both
+// sentences are in the markup and the stylesheet picks by `(pointer: coarse)`,
+// the same arrangement the plate uses — so the guarantee that a thumb is never
+// told to scroll, or shown a mouse, is a guarantee that both sets are THERE.
+// The CSS can only choose between what was rendered.
 //
 // Nothing here asserts WHEN the hint shows. That is `HintLayer`, which paints
 // `data-visible` from inside the frame loop, and `hintIdle.test.ts` proves the
@@ -35,6 +35,7 @@ const hint = () => container.querySelector<HTMLElement>('.earth-hint')!
 const sentences = () => [
   ...hint().querySelectorAll<HTMLElement>('.earth-hint__sentence'),
 ]
+const glyph = (name: string) => hint().querySelector<SVGSVGElement>(`svg.earth-hint__glyph--${name}`)!
 
 describe('the Earth hint', () => {
   it('carries both gestures, so the stylesheet has something to pick from', () => {
@@ -43,6 +44,8 @@ describe('the Earth hint', () => {
       'Scroll para viajar a Murcia',
       'Zoom para viajar a Murcia',
     ])
+    expect(glyph('mouse')).not.toBeNull()
+    expect(glyph('pinch')).not.toBeNull()
   })
 
   it('names Murcia, so the sentence and the accessible button agree', () => {
@@ -51,24 +54,48 @@ describe('the Earth hint', () => {
     for (const el of sentences()) expect(el.textContent).toContain('Murcia')
   })
 
-  it('draws the plate’s own chevrons, and only them', () => {
-    const svg = hint().querySelector('.earth-hint__chevrons')!
-    // The literals are deliberate. These paths are copied from
-    // NavigationControl's travel glyph, and if either copy is redrawn this fails
-    // and says so rather than letting the two quietly diverge.
-    expect([...svg.querySelectorAll('path')].map((p) => p.getAttribute('d'))).toEqual([
-      'M8 36l4 4 4-4',
-      'M8 42l4 4 4-4',
+  it('draws the plate’s own mouse, cropped to the way down', () => {
+    // The literals are deliberate. Body, notch and both down-chevrons are copied
+    // from NavigationControl's travel glyph, and if either copy is redrawn this
+    // fails and says so rather than letting the two quietly diverge (§46).
+    const svg = glyph('mouse')
+    const body = svg.querySelector('rect')!
+    expect(['x', 'y', 'width', 'height', 'rx'].map((a) => body.getAttribute(a))).toEqual([
+      '7',
+      '14',
+      '10',
+      '20',
+      '5',
     ])
-    // The ink box plus the half-stroke spill on each side, so a round cap is
-    // drawn round rather than sliced flat by the viewport (§43).
-    expect(svg.getAttribute('viewBox')).toBe('7.4 35.4 9.2 11.2')
+    expect(svg.querySelector('.earth-hint__part--wheel')?.getAttribute('d')).toBe('M12 18v4')
+    // Two chevrons, not one, and inside one group: the chase is a delay on the
+    // group's second child, so a single chevron could only blink.
+    const chase = [...svg.querySelectorAll('.earth-hint__chevrons .earth-hint__part--chase')]
+    expect(chase.map((p) => p.getAttribute('d'))).toEqual(['M8 36l4 4 4-4', 'M8 42l4 4 4-4'])
+    // No up-group: Earth only ever goes down, so the viewBox is the body plus
+    // the down chevrons plus the half-stroke spill (§43's round-cap rule).
+    expect(svg.getAttribute('viewBox')).toBe('6 13 12 34')
   })
 
-  it('has no mouse body — the client asked for the chevrons alone', () => {
-    const svg = hint().querySelector('.earth-hint__chevrons')!
-    expect(svg.querySelectorAll('path')).toHaveLength(2)
-    expect(svg.querySelector('rect')).toBeNull()
+  it('draws a phone with two fingers on it for touch', () => {
+    const svg = glyph('pinch')
+    expect(svg.querySelector('rect')).not.toBeNull()
+    // Each finger is ONE path, rotated about its base by the stylesheet, so the
+    // spread is a transform and never a path morph. Fat and round-capped: the
+    // cap IS the fingertip, and a hairline hand read as a needle.
+    for (const finger of ['a', 'b']) {
+      const path = svg.querySelector<SVGPathElement>(`path.earth-hint__part--finger-${finger}`)!
+      expect(path, finger).not.toBeNull()
+      expect(Number(path.getAttribute('stroke-width')), finger).toBeGreaterThan(3)
+    }
+  })
+
+  it('leaves every loop to the stylesheet', () => {
+    // The animations are gated on `[data-visible]` and killed under reduced
+    // motion in CSS; an inline style here would sit above both.
+    for (const part of hint().querySelectorAll<SVGElement>('.earth-hint__part')) {
+      expect(part.getAttribute('style')).toBeNull()
+    }
   })
 
   it('is sighted-only, because .nav-control is the real route to Murcia', () => {
