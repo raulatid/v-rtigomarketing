@@ -3,6 +3,8 @@ import { cityDistrictBindings } from './cityDistrictBindings'
 import { DISTRICT_CONTENT } from '../../../content/generated/districts'
 import { findDistrictContent } from '../../../content/lookup'
 import { murciaConfig } from '../config/murciaConfig'
+import { CAMPUS_ICONS } from '../campus/content/campusIcons'
+import { FIGURE_KINDS } from '../campus/content/servicesContent'
 
 // Scene-composition invariants. Split out of the district content test: a
 // binding names Blender nodes and camera framing, copy names none of those, and
@@ -46,4 +48,28 @@ describe('city district bindings', () => {
       expect(scale).toBeLessThanOrEqual(1)
     }
   })
+})
+
+// The campus forms every service out of particles, and which shapes it takes
+// is this table's claim. A service the CMS publishes with no row here would
+// reject the whole campus document (`campusContent.ts`), so a new service in
+// Sanity fails this test before it fails the section.
+describe('service symbols', () => {
+  for (const binding of cityDistrictBindings) {
+    const content = findDistrictContent(DISTRICT_CONTENT, binding.contentId)
+
+    it(`gives every published "${binding.contentId}" service exactly one row, and no row to a stranger`, () => {
+      const published = (content?.services ?? []).map((service) => service.id).sort()
+      const rows = binding.services.map((row) => row.serviceId)
+      expect(new Set(rows).size, 'a service has two rows').toBe(rows.length)
+      expect([...rows].sort()).toEqual(published)
+    })
+
+    it(`names only symbols the library has and figures the particles can draw`, () => {
+      for (const row of binding.services) {
+        expect(Object.keys(CAMPUS_ICONS), `${row.serviceId}: no icon "${row.icon}"`).toContain(row.icon)
+        expect(FIGURE_KINDS, `${row.serviceId}: no figure "${row.figure}"`).toContain(row.figure)
+      }
+    })
+  }
 })

@@ -1,0 +1,202 @@
+/**
+ * The section's copy: a DOM layer over the canvas, white on the scene.
+ *
+ * Follows the `camera-navigation/demo/*` idiom: one element appended to the
+ * body, inline styles, no pointer events, removed on dispose. Real text
+ * rather than a canvas texture, because the copy has to stay crisp at any
+ * size and this is what the site would ship.
+ *
+ * `show` fades the current copy out, swaps it, and fades the new copy in.
+ * The swap waits for the fade, so text never changes while readable.
+ *
+ * The things that take the pointer are the [+] button and, when the host asks
+ * for one, a close button beside it. Each only reports a click: what it means
+ * is the caller's to decide.
+ *
+ * On the site the layer mounts into Murcia's own UI host (`container`), which
+ * is full-viewport with `pointer-events: none`, rather than the body. The
+ * styles stay inline, so this file still works back in the lab unchanged.
+ */
+
+const FADE_MS = 450;
+const Z_INDEX = 30;
+
+const fontPromises = new Map<string, Promise<void>>();
+
+/**
+ * Loaded once per url, never removed: fonts are a document resource. Only
+ * when the host asks; a site that already declares the family in CSS passes
+ * the family name alone.
+ */
+function loadFont(family: string, url: string): Promise<void> {
+  let promise = fontPromises.get(url);
+  if (!promise) {
+    promise = (async () => {
+      try {
+        const face = new FontFace(family, `url('${url}') format('woff2')`, { weight: '400 700' });
+        await face.load();
+        document.fonts.add(face);
+      } catch (error) {
+        console.warn(`[service-campus]  did not load; the copy falls back to the system stack`, error);
+      }
+    })();
+    fontPromises.set(url, promise);
+  }
+  return promise;
+}
+
+export interface OverlayCopy {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly hint?: string;
+  /** The read-more paragraph. Its presence is what shows the button. */
+  readonly detail?: string;
+  /** Whether the paragraph is open. */
+  readonly expanded?: boolean;
+}
+
+export interface CampusOverlayOptions {
+  /** The [+] button was clicked. Whether that opens or closes is the caller's. */
+  onToggle: () => void;
+  /**
+   * The close button was clicked. Omit it and there is no close button — the
+   * lab's section is left with Escape. On a phone there is no Escape, which is
+   * why the site asks for one.
+   */
+  onClose?: () => void;
+  /** `leave` names the close button; required when `onClose` is given. */
+  labels: { readonly readMore: string; readonly close: string; readonly leave?: string };
+  /** Where the layer mounts. Defaults to the body. */
+  container?: HTMLElement;
+  /** A family already declared by the host, or the one `fontUrl` registers. */
+  fontFamily?: string;
+  /** Registers `fontFamily` from this woff2. Omit when the host's CSS declares it. */
+  fontUrl?: string;
+}
+
+export interface CampusOverlay {
+  show(copy: OverlayCopy): void;
+  hide(): void;
+  dispose(): void;
+}
+
+export function createCampusOverlay(options: CampusOverlayOptions): CampusOverlay {
+  const { onToggle, labels } = options;
+  const family = options.fontFamily ?? 'ui-sans-serif';
+  if (options.fontFamily && options.fontUrl) void loadFont(options.fontFamily, options.fontUrl);
+
+  const layer = document.createElement('div');
+  // A selector for tests and e2e; nothing styles it.
+  layer.className = 'campus-overlay';
+  layer.style.cssText =
+    `position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);z-index:${Z_INDEX};` +
+    'width:min(720px,88vw);text-align:center;pointer-events:none;color:#fff;' +
+    `font-family:'${family}',ui-sans-serif,system-ui,sans-serif;` +
+    // Hidden as well as transparent: the buttons opt back into the pointer, and
+    // at opacity 0 they would still catch a press meant for the city. The
+    // visibility switch waits for the fade, so nothing pops.
+    `opacity:0;visibility:hidden;transition:opacity ${FADE_MS}ms ease,visibility 0s linear ${FADE_MS}ms;`;
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:clamp(28px,4vw,44px);font-weight:600;letter-spacing:-0.01em;line-height:1.1;';
+  const subtitle = document.createElement('div');
+  subtitle.style.cssText = 'margin-top:12px;font-size:clamp(15px,1.5vw,19px);font-weight:400;line-height:1.45;opacity:0.82;';
+  const detail = document.createElement('div');
+  detail.style.cssText =
+    'margin:18px auto 0;max-width:560px;font-size:clamp(14px,1.2vw,16px);font-weight:400;line-height:1.55;opacity:0.75;';
+  const hint = document.createElement('div');
+  hint.style.cssText =
+    'margin-top:26px;font-size:12px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;opacity:0.55;';
+
+  // The buttons are the only things here that take the pointer. They sit in a
+  // row and carry no `display` of their own: an inline display would override
+  // the `hidden` attribute, and the [+] has to vanish where there is no detail.
+  const controls = document.createElement('div');
+  controls.style.cssText = 'margin-top:22px;display:flex;justify-content:center;gap:14px;';
+  const buttonStyle =
+    'width:40px;height:40px;border-radius:50%;padding:0;' +
+    'border:1px solid rgba(255,255,255,0.7);background:rgba(10,16,22,0.35);color:#fff;' +
+    'font-family:inherit;font-size:24px;font-weight:300;line-height:1;cursor:pointer;pointer-events:auto;';
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.style.cssText = buttonStyle;
+  toggle.addEventListener('click', () => onToggle());
+  controls.append(toggle);
+
+  const { onClose } = options;
+  if (onClose) {
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.style.cssText = buttonStyle;
+    close.textContent = '×';
+    close.setAttribute('aria-label', labels.leave ?? labels.close);
+    close.addEventListener('click', () => onClose());
+    controls.append(close);
+  }
+
+  layer.append(title, subtitle, detail, hint, controls);
+  (options.container ?? document.body).appendChild(layer);
+
+  let disposed = false;
+  let visible = false;
+  let pending: ReturnType<typeof setTimeout> | null = null;
+
+  const write = (copy: OverlayCopy): void => {
+    title.textContent = copy.title;
+    subtitle.textContent = copy.subtitle;
+    hint.textContent = copy.hint ?? '';
+    hint.hidden = !copy.hint;
+    detail.textContent = copy.detail ?? '';
+    detail.hidden = !(copy.detail && copy.expanded);
+    toggle.textContent = copy.expanded ? '–' : '+';
+    toggle.setAttribute('aria-label', copy.expanded ? labels.close : labels.readMore);
+    toggle.hidden = !copy.detail;
+  };
+
+  const cancelPending = (): void => {
+    if (pending !== null) clearTimeout(pending);
+    pending = null;
+  };
+
+  return {
+    show(copy) {
+      if (disposed) return;
+      cancelPending();
+      if (!visible) {
+        write(copy);
+        visible = true;
+        layer.style.visibility = 'visible';
+        layer.style.transitionDelay = '0s, 0s';
+        // Next frame, so the transition sees a change rather than an initial value.
+        requestAnimationFrame(() => {
+          if (!disposed && visible) layer.style.opacity = '1';
+        });
+        return;
+      }
+      layer.style.opacity = '0';
+      pending = setTimeout(() => {
+        pending = null;
+        if (disposed) return;
+        write(copy);
+        layer.style.opacity = '1';
+      }, FADE_MS);
+    },
+
+    hide() {
+      if (disposed) return;
+      cancelPending();
+      visible = false;
+      layer.style.opacity = '0';
+      layer.style.visibility = 'hidden';
+      layer.style.transitionDelay = `0s, ${FADE_MS}ms`;
+    },
+
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      cancelPending();
+      layer.remove();
+    },
+  };
+}

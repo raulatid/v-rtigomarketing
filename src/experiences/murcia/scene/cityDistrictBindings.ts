@@ -19,11 +19,36 @@
  * scenery. The accents only ever fed `districtFlow`'s ring and wedges, which
  * went with the geometry. The node names the district still needs are in
  * `district/districtConfig.ts`, because none of them is per-service any more.
+ *
+ * ## And it binds each service again, to a symbol (2026-09-11)
+ *
+ * The services campus forms each service out of particles: a symbol at rest,
+ * a figure when its detail opens. Which ones is scene composition, not copy —
+ * the CMS carries `{ id, title, body }` and no Sanity change was wanted — so
+ * the per-service rows come back here, with a different payload.
  */
+
+import type { FigureKind } from '../campus/content/servicesContent';
+
+/** One service's shapes in the campus's particle field. */
+export interface ServiceSymbolBinding {
+  /** References `Service.id` within the district's content. */
+  serviceId: string;
+  /** A key of `campus/content/campusIcons.ts`. */
+  icon: string;
+  /** What the symbol becomes when the detail opens. */
+  figure: FigureKind;
+}
 
 export interface DistrictSceneBinding {
   /** References `DistrictContent.id`. */
   contentId: string;
+  /**
+   * One row per published service, in any order — the tour order is the
+   * content's. Placeholders until the real artwork arrives: four symbols for
+   * five services, so one repeats, and never on neighbours.
+   */
+  services: readonly ServiceSymbolBinding[];
   /**
    * Rig azimuth to settle on when flying into this district, degrees.
    *
@@ -47,6 +72,13 @@ export interface DistrictSceneBinding {
 export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
   {
     contentId: 'servicios',
+    services: [
+      { serviceId: 'seo', icon: 'magnifier', figure: 'bars' },
+      { serviceId: 'web-analysis', icon: 'window', figure: 'line' },
+      { serviceId: 'content-strategy', icon: 'magnifier', figure: 'ring' },
+      { serviceId: 'paid-campaigns', icon: 'pin', figure: 'pins' },
+      { serviceId: 'brand-identity', icon: 'mark', figure: 'ring' },
+    ],
     // The camera sits at direction (sin yaw, cos yaw) from the focus
     // (`applyPoseToCamera`, pose azimuth 0). It is also the display's resting
     // yaw, so the panel faces the visitor as they land, and a person in front of

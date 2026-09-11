@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createAppConfig, applyQueryOverrides } from './config/appConfig';
 import type { AppConfig } from './config/appConfig';
 import { murciaConfig } from './config/murciaConfig';
-import type { BoundsRect, EnvironmentConfig } from './config/environmentConfig';
+import type { BoundsRect, CameraPoseConfig, EnvironmentConfig } from './config/environmentConfig';
 import { resolveCameraPose } from './config/environmentConfig';
 import { applyNavigationQueryOverrides } from './config/environmentQueryOverrides';
 import { createScene } from './core/createScene';
@@ -14,7 +14,6 @@ import type { AssetLoader } from './assets/createAssetLoader';
 import { loadCity, disposeLoadedCity } from './assets/loadCity';
 import type { LoadedCity } from './assets/loadCity';
 import { CameraRig } from './camera/CameraRig';
-import type { CameraOwnership } from './camera/CameraRig';
 import { murciaWarpPose } from './camera/warpPose';
 import { murciaZoomPose, murciaZoomTargets } from './camera/zoomPose';
 import { createCameraInput } from './navigation/createCameraInput';
@@ -27,11 +26,10 @@ import type { TerrainTransition } from './environment/createTerrainTransition';
 import { DebugOverlay } from './debug/DebugOverlay';
 import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
-import { createServicesDistrict } from './district/createServicesDistrict';
 import { createBlogDisplayEntry } from './blogDisplay/createBlogDisplayEntry';
 import type { BlogDisplayEntry } from './blogDisplay/createBlogDisplayEntry';
-import type { ServicesDistrict } from './district/createServicesDistrict';
-import type { DisplayControl } from './district/display/displayConfig';
+import { createServicesCampus } from './campus/createServicesCampus';
+import type { ServicesCampusSection } from './campus/createServicesCampus';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
@@ -42,13 +40,6 @@ import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import type { TowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import { VERTIGO_BUILDING } from './landmark/vertigoBuildingConfig';
-import { gatherCampus } from './campus/gatherCampus';
-import { CAMPUS_SCREEN_NODE_NAME, CAMPUS_WATER_NODE_NAME } from './campus/campusConfig';
-import { findLakeBasin } from './campus/lake/lakeBasin';
-import { attachLakeWater } from './campus/lake/lakeWater';
-import type { LakeWater } from './campus/lake/lakeWater';
-import { attachCampusScreen } from './campus/campusScreen/attachCampusScreen';
-import type { CampusScreen } from './campus/campusScreen/attachCampusScreen';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc } from '../../interaction/screenSpace';
@@ -100,7 +91,7 @@ export class MurciaExperience {
   private readonly debugTools: boolean;
   /**
    * `prefers-reduced-motion`, read once at construction. ONE read for the
-   * environment: the districts' flights and the tower sign both answer to it,
+   * environment: the campus's flights and the tower sign both answer to it,
    * and a second `matchMedia` per consumer is how two parts of one city end
    * up disagreeing about the same setting.
    */
@@ -134,11 +125,17 @@ export class MurciaExperience {
   private debugOverlay: DebugOverlay | null = null;
   private interactionProbe: InteractionProbe | null = null;
   /**
-   * One assembly per district; today there is one, entered through any of its
-   * service buildings. Kept as a list so a second district is a table row, not
-   * a refactor.
+   * The services section: the campus, its particles, its camera and its copy.
+   * Null until the city loads, and for good when the campus could not be
+   * assembled — the city then shows it as scenery.
    */
-  private districts: ServicesDistrict[] = [];
+  private campus: ServicesCampusSection | null = null;
+  /**
+   * A pose a resize resolved while the campus held the camera. Applied once the
+   * rig has the camera back: writing it earlier would move a camera the campus
+   * owns, and the next adopt would read a pose nobody chose.
+   */
+  private deferredPose: CameraPoseConfig | null = null;
   /**
    * The two places worth clicking, pointed at from any heading. Built after the
    * city loads, from whichever of them actually loaded.
@@ -148,10 +145,6 @@ export class MurciaExperience {
   private towerLogo: TowerLogo | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
   private towerScreen: TowerScreen | null = null;
-  /** The services campus's lake, on the water shader. Built after the city loads. */
-  private campusWater: LakeWater | null = null;
-  /** The campus ring's LED strip, running SERVICIOS round the building. */
-  private campusScreen: CampusScreen | null = null;
   private loaded: LoadedCity | null = null;
   /**
    * Elapsed seconds handed to the water shader.
@@ -407,6 +400,10 @@ export class MurciaExperience {
   async warm(): Promise<void> {
     if (!this.sceneBundle || !this.camera) return;
 
+    // One zero-length tick first, so the campus's strip paints its canvas and
+    // the upload lands in the warm render below rather than on the first frame
+    // anyone sees it. Nothing else in a zero tick moves.
+    this.campus?.update(0);
     await this.renderer.compileAsync(this.sceneBundle.scene, this.camera);
 
     const target = new THREE.WebGLRenderTarget(1, 1);
@@ -566,7 +563,7 @@ export class MurciaExperience {
    * went inert as the pointer crossed a district would flicker.
    */
   get hasFocusedDistrict(): boolean {
-    return this.districts.some((district) => district.isEngaged);
+    return this.campus?.isEngaged ?? false;
   }
 
   /** The scene RenderPipeline draws when this experience is showing. */
@@ -592,7 +589,7 @@ export class MurciaExperience {
     // every click on the globe raycast the hidden city — and a district hit flew
     // Murcia's camera, so you warped into a city that had moved behind your
     // back. Frozen has to mean deaf as well as still.
-    for (const district of this.districts) district.setEnabled(next);
+    this.campus?.setEnabled(next);
     this.blogDisplay?.setEnabled(next);
 
     // The camera input listens on the SHARED canvas, so while Earth is
@@ -767,7 +764,7 @@ export class MurciaExperience {
       console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);
     }
 
-    this.setupDistricts(loaded.root);
+    await this.setupCampus(loaded.root);
     this.setupBlogDisplay(loaded.root);
     this.setupCompass();
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
@@ -787,70 +784,8 @@ export class MurciaExperience {
       reducedMotion: this.reducedMotion,
       screenNodeName: VERTIGO_BUILDING.screenNodeName,
     });
-    // Before `warm()` for the tower's reason: the water and facade shaders
-    // compile with the rest of the city rather than on first sight.
-    this.setupCampusLook(loaded.root);
-
     this.setupClickInteraction();
     this.statusOverlay.hide();
-  }
-
-  /**
-   * The services campus as scenery: the lake on the lab's water shader and the
-   * ring's strip running SERVICIOS. Its colours were put on in `loadCity`.
-   *
-   * INTERIM (plan 024, phase 2). The section — particles, camera, overlay —
-   * attaches these same two parts through `attachServicesCampus` in the next
-   * phase, and this method folds into that. The values below are the ones the
-   * lab's `attachServicesCampus` sets, kept identical so the fold changes
-   * nothing on screen.
-   *
-   * Every size is scaled from the lake's measured radius, so the campus's
-   * applied export scale (0.7417 of the lab's) needs no correction here; the
-   * strip normalises to its design width in the same way.
-   */
-  private setupCampusLook(root: THREE.Object3D): void {
-    const campus = gatherCampus(root);
-    if (!campus) return;
-
-    const lake = findLakeBasin(campus, CAMPUS_WATER_NODE_NAME);
-    if (lake) {
-      const r = lake.basin.radius;
-      const keyLight = new THREE.Vector3(...this.environment.sceneState.lighting.directional.position);
-      this.campusWater = attachLakeWater(lake.mesh, keyLight, {
-        waveLength: r * 0.12,
-        speed: 0.5,
-        strength: 1.8,
-        gloss: 220,
-        caustics: 0.45,
-        deep: 0x0d3a52,
-        shallow: 0x2a7d9c,
-        sky: 0x8fb8d4,
-        horizon: 0xd6e6ef,
-      });
-    } else {
-      console.warn(`[campus] no "${CAMPUS_WATER_NODE_NAME}" in the campus; the lake stays as exported`);
-    }
-
-    this.campusScreen = attachCampusScreen(campus, {
-      anisotropy: 4,
-      reducedMotion: this.reducedMotion,
-      screenNodeName: CAMPUS_SCREEN_NODE_NAME,
-      // Half the lab's 16384: 24 px per design metre, a 3 m word at 72 px.
-      // The facade keeps two canvas slots for its crossfade, and each is
-      // 8192 x 159 RGBA, about 5 MB before mips instead of 21 MB at 16384 —
-      // against a phone GPU budget measured at ~70 MB. Raised only if the LED
-      // grid is seen to eat the word.
-      resolution: 8192,
-      maxTextureSize: this.renderer.capabilities.maxTextureSize,
-    });
-    const facade = this.campusScreen.facade;
-    if (facade) {
-      facade.setBrightness(1.35);
-      facade.setLed(0.34, 0.09);
-      // Six design metres a second round a 343.9 m strip: one lap a minute.
-      facade.setScroll(6 / (facade.metresWide || 1));
-    }
   }
 
   /**
@@ -896,13 +831,12 @@ export class MurciaExperience {
       blocked: () => this.hasFocusedDistrict,
       beginExternalControl: () => {
         this.rig?.setExternallyControlled(true);
-        // AND the districts go deaf, which is not belt-and-braces. Their input
-        // is not gated on this flight, so a tap on a service building during
-        // the three-second approach would start a `CameraFlight` beside it —
-        // two owners writing the camera in one frame, which §9 forbids and
-        // which no ordering here could fix. "Frozen has to mean deaf as well as
-        // still" is the same rule `setActive` already applies for Earth.
-        for (const district of this.districts) district.setEnabled(false);
+        // AND the campus goes deaf, which is not belt-and-braces. An entry
+        // during the three-second approach would start the campus's flight
+        // beside it — two owners writing the camera in one frame, which §9
+        // forbids and which no ordering here could fix. "Frozen has to mean
+        // deaf as well as still" is the same rule `setActive` applies for Earth.
+        this.campus?.setEnabled(false);
       },
       endExternalControl: () => {
         // The approach flew the camera OFF the rig entirely, writing
@@ -913,14 +847,14 @@ export class MurciaExperience {
         this.rig?.setExternallyControlled(false);
         // Back to whatever the scene's own activity says, never a bare `true`:
         // the return can settle while Earth is showing.
-        for (const district of this.districts) district.setEnabled(this.active);
+        this.campus?.setEnabled(this.active);
       },
       openBlog: onOpenBlog,
       onApproachStart: () => onApproachStart?.(),
     });
 
     if (this.blogDisplay) this.sceneBundle.scene.add(this.blogDisplay.object3D);
-    // Seeded for the same reason the districts are: the city is built during
+    // Seeded for the same reason the campus is: the city is built during
     // the Earth intro, so `active` is normally still false here and setActive()
     // will not fire again to correct it.
     this.blogDisplay?.setEnabled(this.active);
@@ -970,12 +904,12 @@ export class MurciaExperience {
   private setupCompass(): void {
     const pois: CompassPoi[] = [];
 
-    const district = this.districts[0];
-    if (district) {
+    const campus = this.campus;
+    if (campus) {
       const content = findDistrictContent(DISTRICT_CONTENT, cityDistrictBindings[0].contentId);
       pois.push({
         id: 'servicios',
-        anchor: (out: THREE.Vector3) => district.anchor(out),
+        anchor: (out: THREE.Vector3) => campus.anchor(out),
         // The name comes from the CMS, like every other district string.
         label: content?.label ?? 'Servicios',
       });
@@ -995,89 +929,66 @@ export class MurciaExperience {
   }
 
   /**
-   * Resolves each configured district's service buildings and builds ONE
-   * interaction per district.
+   * The services section, assembled on the campus the city carries.
    *
-   * A building that cannot be located is skipped rather than half-initialised:
-   * highlighting, picking, flight and UI against an empty mesh list would give
-   * an affordance that does nothing, which is the silent degradation this
-   * project has been bitten by before (PROJECT_MEMORY, "Things that will bite
-   * you again"). Every skip is reported, and a district with no buildings left
-   * is skipped whole.
+   * Replaces the display district (plan 024). Built during the Earth intro,
+   * like everything in `load`, and awaited because the symbols are rasterised
+   * once, here; it is the only asynchronous step, and it is small. A campus
+   * that cannot be assembled has already said why and stays scenery — its
+   * colours were put on in `loadCity` and do not depend on this.
+   *
+   * Before `warm()` for the tower's reason: the water, strip and particle
+   * shaders compile with the rest of the city rather than on first sight.
    */
-  private setupDistricts(root: THREE.Object3D): void {
-    if (!this.rig || !this.cameraInput) return;
-    const reducedMotion = this.reducedMotion;
-
-    for (const binding of cityDistrictBindings) {
-      const content = findDistrictContent(DISTRICT_CONTENT, binding.contentId);
-      if (!content) {
-        console.error(`[district] no content for binding "${binding.contentId}".`);
-        continue;
-      }
-
-      const district = createServicesDistrict({
-        root,
-        container: this.container,
-        canvas: this.renderer.domElement,
-        camera: this.camera,
-        rig: this.rig,
-        cameraOwnership: this.cameraOwnership(),
-        binding,
-        content,
-        cursor: this.cursor,
-        groundPlaneHeight: this.environment.navigation.groundPlaneHeight,
-        // The rig's EFFECTIVE pose, not the configured one. computeFramedFocus
-        // builds a detached rig from this to work out where the focus must sit
-        // to put the district beside the panel; fed the unzoomed distance it
-        // would frame for a camera the user is not looking through and miss by
-        // the zoom ratio. The rig re-resolves the pose on resize, so this stays
-        // viewport-correct as well.
-        getPose: () => this.rig?.getEffectivePose() ??
-          resolveCameraPose(this.environment, this.viewport.aspect),
-        getAspect: () => this.viewport.aspect,
-        // A constant now. It was a live re-derivation because the rectangle
-        // depended on the camera's own footprint; it does not any more, and a
-        // flight asking every frame for a value that cannot change would be
-        // reading intent into a number that has none.
-        resolveBounds: () => this.bounds,
-        focusFlight: this.environment.focusFlight,
-        tapThresholdPx: {
-          mouse: this.environment.navigation.dragThresholdPx,
-          touch: this.environment.navigation.touchDragThresholdPx,
-        },
-        reducedMotion,
-        onEngagedChange: this.onAttentionChange,
-      });
-
-      // Null when the cluster is not in this city model. It has already said so
-      // on the console; skipping is the whole response, exactly as skipping a
-      // single unresolvable building used to be.
-      if (!district) continue;
-
-      // Seeded, not assumed: districts are built during the Earth intro (ADR
-      // 004 prefetches the city), so at this point `active` is normally false
-      // and setActive() will not fire again to correct it.
-      district.setEnabled(this.active);
-
-      this.sceneBundle.scene.add(district.object3D);
-      this.districts.push(district);
+  private async setupCampus(root: THREE.Object3D): Promise<void> {
+    const rig = this.rig;
+    if (!rig) return;
+    const binding = cityDistrictBindings[0];
+    const content = binding ? findDistrictContent(DISTRICT_CONTENT, binding.contentId) : null;
+    if (!binding || !content) {
+      console.error(`[campus] no content for binding "${binding?.contentId}".`);
+      return;
     }
 
-    // The same test seam the blog building has, for the same reason: the mobile
-    // round trip must TAP a building, and where one is on screen depends on the
-    // camera pose and on the GLB rather than on anything a spec could hardcode.
-    const first = this.districts[0];
-    if (this.debugTools && first) {
+    this.campus = await createServicesCampus({
+      root,
+      camera: this.camera,
+      canvas: this.renderer.domElement,
+      container: this.container,
+      content,
+      binding,
+      rig,
+      keyLightDirection: new THREE.Vector3(...this.environment.sceneState.lighting.directional.position),
+      viewportHeightPx: this.viewport.height * this.renderer.getPixelRatio(),
+      reducedMotion: this.reducedMotion,
+      // The trim sheet's 4, like the tower's screen: the strip is seen at a
+      // grazing angle from the resting pose.
+      anisotropy: 4,
+      maxTextureSize: this.renderer.capabilities.maxTextureSize,
+      onCameraReturned: () => this.applyDeferredPose(),
+      onEngagedChange: this.onAttentionChange,
+    });
+    // Seeded, not assumed: built during the Earth intro, so `active` is normally
+    // false here and setActive() will not fire again to correct it.
+    this.campus?.setEnabled(this.active);
+
+    const campus = this.campus;
+    if (this.debugTools && campus) {
       const seams = window as unknown as Record<string, unknown>;
-      seams.__vertigoDistrictPoint = () => first.screenPoint();
-      // Its sibling for the display: the round trip that proves a finger can
-      // LEAVE has to tap the close, which moves with the camera like the buildings do.
-      seams.__vertigoDistrictControlPoint = (control: DisplayControl) =>
-        first.controlPoint(control);
-      // A press during the entry flight is "stop", not "choose" — by design —
-      // so a test that means to press a control has to know the flight is over.
-      seams.__vertigoDistrictSettled = () => !first.isFlying;
+      // The names the e2e specs already use: the point to tap is the lake now,
+      // and "settled" is the campus's own flight being over.
+      seams.__vertigoDistrictPoint = () => campus.screenPoint();
+      seams.__vertigoDistrictSettled = () => !campus.isFlying;
+      // The section's intents, for driving it from a console or a probe.
+      seams.__vertigoCampus = {
+        enter: () => campus.enter(),
+        next: () => campus.next(),
+        previous: () => campus.previous(),
+        toggleDetail: () => campus.toggleDetail(),
+        back: () => campus.back(),
+        exit: () => campus.releaseFocus(),
+        snapshot: () => campus.snapshot,
+      };
     }
   }
 
@@ -1090,7 +1001,7 @@ export class MurciaExperience {
    * own engaged edge, as it does for every other exit.
    */
   releaseFocusedDistrict(): void {
-    for (const district of this.districts) district.releaseFocus();
+    this.campus?.releaseFocus();
   }
 
   // --- Viewport and bounds --------------------------------------------------
@@ -1118,6 +1029,8 @@ export class MurciaExperience {
     // window nothing renders would move counts `e2e/blog.spec.ts` pins. See
     // `blogApproach.setViewport`.
     this.blogDisplay?.setViewport(size.width, size.height);
+    // The particles attenuate by the drawing buffer's height, not the CSS one.
+    this.campus?.resize(size.height * this.renderer.getPixelRatio());
 
     if (this.rig) {
       // Re-resolving the pose covers the portrait-override case; it is a few
@@ -1128,7 +1041,12 @@ export class MurciaExperience {
       // resize mid-zoom or mid-warp can no longer snap the pose back to rest.
       // The targets are re-derived because a portrait override moves the REST
       // the band is measured from.
-      this.rig.setPose(resolveCameraPose(this.environment, size.aspect));
+      //
+      // Unless the campus holds the camera: `setPose` places the camera, and
+      // the campus is flying it. The pose waits for the hand-back.
+      const pose = resolveCameraPose(this.environment, size.aspect);
+      if (this.campus?.holdsCamera) this.deferredPose = pose;
+      else this.rig.setPose(pose);
       this.publishZoomTargets();
       this.cameraInput?.setViewport(size.width, size.height);
       if (this.debug.hasBoundsHelper) {
@@ -1155,25 +1073,17 @@ export class MurciaExperience {
   }
 
   /**
-   * The camera-ownership handle the districts and the blog approach hold.
+   * Lands a pose a resize resolved while the campus held the camera.
    *
-   * Two objects behind one facade: the rig answers "is something else flying
-   * the camera", the input answers "is a finger on the world". Handing out the
-   * pair directly would let a caller step the springs, which is the one thing
-   * the frame's single-owner rule forbids.
+   * Called by the campus hand-over AFTER the rig has adopted the camera: the
+   * adopt reads the camera the campus left, and `setPose` then moves it to the
+   * pose the viewport now needs — in that order, or the adopt would read a pose
+   * nobody chose.
    */
-  private cameraOwnership(): CameraOwnership {
-    const owner = this;
-    return {
-      get isDragging() {
-        return owner.cameraInput?.isDragging ?? false;
-      },
-      get isExternallyControlled() {
-        return owner.rig?.isExternallyControlled ?? false;
-      },
-      beginExternalControl: () => owner.rig?.setExternallyControlled(true),
-      endExternalControl: () => owner.rig?.setExternallyControlled(false),
-    };
+  private applyDeferredPose(): void {
+    const pose = this.deferredPose;
+    this.deferredPose = null;
+    if (pose) this.rig?.setPose(pose);
   }
 
   // --- Interaction ----------------------------------------------------------
@@ -1215,12 +1125,10 @@ export class MurciaExperience {
     this.debug.frameBegin();
 
     // Exactly one system writes to the rig per frame — the owner switch below
-    // enforces it. The districts still tick first, because their flight is what
-    // decides who owns the rig this frame.
-    //
-    // Each district resolves at most one hover raycast per frame, against its
-    // own meshes and proxy only. Never the Scene.
-    for (const district of this.districts) district.update(delta);
+    // enforces it. The campus ticks first, because its flight is what decides
+    // who owns the camera this frame; it also runs its water, strip and
+    // particles on the same delta.
+    this.campus?.update(delta);
 
     // The blog's flight is a camera owner in its own right, so it is asked
     // before the two that would otherwise write: it takes the camera DIRECTLY
@@ -1240,7 +1148,7 @@ export class MurciaExperience {
     //
     //   1. the blog approach, which flew the camera off the rig entirely
     //   2. the cinematic, which writes the pose directly with springs frozen
-    //   3. a district flight, which has already written rig STATE this frame
+    //   3. the campus, which has already written the camera this frame
     //   4. nobody — the springs run and write the pose
     //
     // A spring that is not stepped keeps its velocity, and that is the point:
@@ -1252,7 +1160,8 @@ export class MurciaExperience {
     } else if (this.warpEngaged) {
       this.applyWarpPose();
     } else if (this.rig?.isExternallyControlled) {
-      // A district flight already wrote the rig this frame, in its own update.
+      // The campus's flight already wrote the camera this frame, in its own
+      // update — directly, like the blog's, and `adoptFromCamera` hands it back.
     } else {
       this.rig?.update(delta);
     }
@@ -1288,9 +1197,6 @@ export class MurciaExperience {
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.
     this.towerScreen?.update(delta);
-    // The campus's lake and strip, on the same delta and the same gating.
-    this.campusWater?.update(delta);
-    this.campusScreen?.update(delta);
 
     if (!this.firstFrameRecorded && this.loaded) {
       this.loaded.timings.firstRenderedFrameTime = performance.now();
@@ -1341,19 +1247,15 @@ export class MurciaExperience {
     this.towerLogo = null;
     this.towerScreen?.dispose();
     this.towerScreen = null;
-    // Both hand the city's own material back to the mesh they borrowed, so
-    // disposeLoadedCity below frees what the city made, and each frees its own
-    // shader and canvases here.
-    this.campusScreen?.dispose();
-    this.campusScreen = null;
-    this.campusWater?.dispose();
-    this.campusWater = null;
     this.active = false;
 
     this.renderer.domElement.removeEventListener('pointerup', this.onPointerUpForClick);
 
-    for (const district of this.districts) district.dispose();
-    this.districts = [];
+    // Hands the water's and the strip's own materials back to the meshes they
+    // borrowed, so disposeLoadedCity below frees what the city made; frees its
+    // particles, shaders, canvases and copy here.
+    this.campus?.dispose();
+    this.campus = null;
 
     this.compass?.dispose();
     this.compass = null;

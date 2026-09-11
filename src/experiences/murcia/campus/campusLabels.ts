@@ -1,0 +1,52 @@
+/**
+ * The campus's interface strings: the one locale seam for the services section.
+ *
+ * The copy — titles, summaries, bodies — is the CMS's (DECISIONS §31). What is
+ * here is the chrome around it: button names, the hint, and what the
+ * accessibility shim announces. It replaces the display district's
+ * `CONTROL_LABELS`, which carried the same kind of string for the same reason,
+ * and keeps its wording where the two overlap.
+ *
+ * Spanish is the site; English is here because the table was always keyed by
+ * locale, and a second column is what keeps a third from being a refactor.
+ */
+
+export const DEFAULT_LOCALE = 'es';
+
+export type CampusLabelKey =
+  | 'readMore'
+  | 'close'
+  | 'leave'
+  | 'hint'
+  | 'previous'
+  | 'next'
+  | 'explore'
+  | 'back';
+
+const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, string>>>> = {
+  es: {
+    readMore: 'saber más',
+    close: 'cerrar',
+    leave: 'salir de los servicios',
+    hint: '← Desliza hacia los lados para descubrir →',
+    previous: 'Servicio anterior',
+    next: 'Servicio siguiente',
+    explore: 'explorar',
+    back: 'volver',
+  },
+  en: {
+    readMore: 'learn more',
+    close: 'close',
+    leave: 'leave the services',
+    hint: '← Swipe sideways to discover →',
+    previous: 'Previous service',
+    next: 'Next service',
+    explore: 'explore',
+    back: 'back',
+  },
+};
+
+export function campusLabel(locale: string, key: CampusLabelKey): string {
+  const table = CAMPUS_LABELS[locale] ?? CAMPUS_LABELS[DEFAULT_LOCALE]!;
+  return table[key];
+}

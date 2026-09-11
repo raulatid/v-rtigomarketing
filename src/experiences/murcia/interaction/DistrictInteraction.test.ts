@@ -55,6 +55,7 @@ const content: DistrictContent = {
 
 const binding: DistrictSceneBinding = {
   contentId: 'servicios',
+  services: [],
   approachYawDegrees: 45,
   focusDistanceScale: 0.78,
 }
