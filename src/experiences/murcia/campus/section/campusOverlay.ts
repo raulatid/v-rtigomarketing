@@ -138,9 +138,11 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     back.className = 'campus-overlay__back';
     // A bare arrow, no button chrome. The padding is the hit area (44 px
     // tall with the mark), and the negative margin takes it back so the mark
-    // sits where the plate's padding puts it.
+    // sits where the plate's padding puts it. The margin is the host's when it
+    // lays the plate out: the site lifts the arrow in the docked plate.
     back.style.cssText =
-      'display:flex;width:fit-content;align-items:center;margin:-10px 0 12px;padding:10px 12px 10px 0;' +
+      `display:flex;width:fit-content;align-items:center;${inlineLayout ? 'margin:-10px 0 12px;' : ''}` +
+      'padding:10px 12px 10px 0;' +
       'border:0;background:none;color:#fff;cursor:pointer;pointer-events:auto;';
     // Drawn, not a glyph, so it is the same arrow in every face. The underline
     // is in the drawing, not a border, so the hit padding does not stretch it.

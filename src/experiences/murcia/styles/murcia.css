@@ -463,6 +463,12 @@
   font-family: var(--font-display);
 }
 
+/* The padding round the arrow is its hit area; the negative top margin takes
+   it back so the mark sits on the plate's padding line. */
+.murcia-ui .campus-overlay__back {
+  margin: -10px 0 12px;
+}
+
 .murcia-ui .campus-overlay__subtitle {
   margin-top: 12px;
 }
@@ -484,18 +490,24 @@
     bottom: auto;
     transform: translateY(-50%);
     width: min(420px, 30vw);
-    padding: 2.75rem 2.5rem 2.75rem;
+    padding: 3rem 2.5rem 3.25rem;
     text-align: left;
   }
 
+  /* Lifted into the top padding, and a wide gap before the title: the
+     arrow is the way out, not the first line of the copy. */
+  .murcia-ui .campus-overlay__back {
+    margin: -30px 0 36px;
+  }
+
   .murcia-ui .campus-overlay__subtitle {
-    margin-top: 18px;
+    margin-top: 24px;
   }
 
   .murcia-ui .campus-overlay__detail {
-    margin: 26px 0 0;
+    margin: 34px 0 0;
     max-width: none;
-    line-height: 1.65;
+    line-height: 1.7;
   }
 }
 
