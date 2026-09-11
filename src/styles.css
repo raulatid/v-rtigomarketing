@@ -291,7 +291,8 @@ html {
   .app__scene[data-menu-open] .case-panel,
   .app__scene[data-menu-open] .site-footer,
   .app__scene[data-menu-open] .nav-hint,
-  .app__scene[data-menu-open] .consent-banner {
+  .app__scene[data-menu-open] .consent-banner,
+  .app__scene[data-menu-open] .consent-info {
     opacity: 0;
     visibility: hidden;
     /* The visibility flip waits out the fade, the way every other delayed
@@ -311,7 +312,8 @@ html {
   .app__scene[data-menu-open] .case-panel,
   .app__scene[data-menu-open] .site-footer,
   .app__scene[data-menu-open] .nav-hint,
-  .app__scene[data-menu-open] .consent-banner {
+  .app__scene[data-menu-open] .consent-banner,
+  .app__scene[data-menu-open] .consent-info {
     transition-duration: 1ms;
     transition-delay: 0ms;
   }

@@ -38,6 +38,13 @@ import './consentBanner.css'
  * The state flips to 'leaving' and a timer unmounts after the CSS exit has
  * played — the AuditSection arrangement. The timer is what the reduced-motion
  * value shortens; the stylesheet shortens the motion to match.
+ *
+ * ── After the choice ──
+ *
+ * The dot stays, as a small ⓘ that opens the policy. The banner's link was the
+ * only way to it: the footer carries the © alone and the panels link only the
+ * terms and the legal notice, so without this the policy was unreachable the
+ * moment a visitor had answered.
  */
 
 interface Props {
@@ -68,9 +75,24 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
   }, [])
 
   // A stored choice — from before this visit, or made just now by the other
-  // copy — means there is nothing to ask. This copy's own choice goes through
-  // 'leaving' first so the exit plays.
-  if (done || (record !== null && state === 'open')) return null
+  // copy — means there is nothing to ask, only the policy to keep in reach.
+  // This copy's own choice goes through 'leaving' first so the exit plays.
+  if (done || (record !== null && state === 'open')) {
+    return (
+      <button
+        type="button"
+        className="consent-info"
+        aria-label="Política de cookies"
+        onClick={() => onOpenLegal('cookies')}
+      >
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.25" strokeWidth="1.2" />
+          <path d="M8 7.2v4" strokeWidth="1.5" />
+          <circle cx="8" cy="4.9" r="0.35" fill="currentColor" strokeWidth="0.9" />
+        </svg>
+      </button>
+    )
+  }
 
   const titleId = `${idPrefix}-title`
 

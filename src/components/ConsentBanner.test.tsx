@@ -59,17 +59,35 @@ async function mount(props: { onOpenLegal?: (doc: string) => void; idPrefix?: st
 }
 
 const banner = () => container.querySelector<HTMLElement>('.consent-banner')
+const info = () => container.querySelector<HTMLButtonElement>('.consent-info')
 const button = (name: string) =>
   Array.from(container.querySelectorAll('button')).find((b) => b.textContent === name)
 
 describe('the consent banner', () => {
-  it('renders nothing when a choice is already stored', async () => {
+  it('renders only the policy icon when a choice is already stored', async () => {
     localStorage.setItem(
       'vertigo:consent',
       JSON.stringify({ v: 1, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
     )
     await mount()
     expect(banner()).toBeNull()
+    expect(info()?.getAttribute('aria-label')).toBe('Política de cookies')
+  })
+
+  it('keeps the policy in reach through the icon', async () => {
+    localStorage.setItem(
+      'vertigo:consent',
+      JSON.stringify({ v: 1, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
+    )
+    const onOpenLegal = vi.fn()
+    const { act } = await mount({ onOpenLegal })
+    act(() => info()?.click())
+    expect(onOpenLegal).toHaveBeenCalledWith('cookies')
+  })
+
+  it('shows no icon while it is still asking', async () => {
+    await mount()
+    expect(info()).toBeNull()
   })
 
   it('renders a labelled region with the two choices and the policy link', async () => {
@@ -105,7 +123,7 @@ describe('the consent banner', () => {
     expect(banner()).not.toBeNull()
   })
 
-  it('records acceptance, plays the exit, then unmounts', async () => {
+  it('records acceptance, plays the exit, then leaves the icon in its place', async () => {
     const { act, readConsent } = await mount()
     act(() => button('Aceptar')?.click())
     expect(readConsent()?.analytics).toBe(true)
@@ -114,10 +132,12 @@ describe('the consent banner', () => {
       vi.advanceTimersByTime(300)
     })
     expect(banner()).not.toBeNull()
+    expect(info()).toBeNull()
     act(() => {
       vi.advanceTimersByTime(100)
     })
     expect(banner()).toBeNull()
+    expect(info()).not.toBeNull()
   })
 
   it('records a refusal the same way', async () => {
