@@ -9,8 +9,8 @@ describe('the campus section state', () => {
   it('starts in the overview and ignores stepping until it is entered', () => {
     const state = createCampusState(5)
     state.next()
-    state.openDetail()
-    expect(state.snapshot).toEqual({ stage: 'overview', index: 0, position: 0, detail: false })
+    state.previous()
+    expect(state.snapshot).toEqual({ stage: 'overview', index: 0, position: 0 })
     state.enter()
     expect(state.snapshot.stage).toBe('intro')
   })
@@ -29,18 +29,6 @@ describe('the campus section state', () => {
     state.enter()
     state.previous()
     expect(state.snapshot).toMatchObject({ stage: 'service', index: 4, position: -1 })
-  })
-
-  it('opens a detail only on a service, and closes it by stepping', () => {
-    const state = createCampusState(5)
-    state.enter()
-    state.openDetail()
-    expect(state.snapshot.detail).toBe(false)
-    state.next()
-    state.openDetail()
-    expect(state.snapshot.detail).toBe(true)
-    state.next()
-    expect(state.snapshot).toMatchObject({ index: 1, detail: false })
   })
 
   it('tells its listeners once per real change, with where it came from', () => {

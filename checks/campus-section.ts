@@ -115,8 +115,6 @@ section('1. From the first flight to the exit landing, the campus is the only wr
   hold(FLIGHT + 0.2);
   c.campus.flyTo(1, FLIGHT);
   hold(FLIGHT + 0.2);
-  c.campus.dollyTo(0.8, FLIGHT);
-  hold(FLIGHT + 0.2);
   c.campus.flyTo(2, FLIGHT);
   hold(FLIGHT + 0.2);
   check(

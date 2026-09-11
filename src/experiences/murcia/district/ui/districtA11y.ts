@@ -25,8 +25,6 @@ export interface DistrictA11yEvents {
   onEnter(): void;
   onPrevious(): void;
   onNext(): void;
-  /** SABER MÁS while reading is closed, and the close while it is open. */
-  onDetailToggle(): void;
   onBack(): void;
 }
 
@@ -34,9 +32,6 @@ export interface DistrictA11yEvents {
 export interface DistrictA11ySnapshot {
   /** Anywhere but the overview. */
   districtActive: boolean;
-  /** Whether the current stop has a detail to open — the intro does not. */
-  hasDetail: boolean;
-  detailOpen: boolean;
 }
 
 /** What the announcement needs, resolved by the caller from the active index. */
@@ -53,9 +48,7 @@ export class DistrictA11y {
   private readonly enterButton: HTMLButtonElement;
   private readonly previousButton: HTMLButtonElement;
   private readonly nextButton: HTMLButtonElement;
-  private readonly detailButton: HTMLButtonElement;
   private readonly backButton: HTMLButtonElement;
-  private readonly locale: string;
   /** Last announcement, so an unchanged snapshot does not re-announce. */
   private announced = '';
 
@@ -65,8 +58,6 @@ export class DistrictA11y {
     locale: string,
     events: DistrictA11yEvents,
   ) {
-    this.locale = locale;
-
     this.root = document.createElement('div');
     this.root.className = 'district-a11y';
 
@@ -92,16 +83,15 @@ export class DistrictA11y {
       return el;
     };
 
-    // Order here IS tab order, and it matches the way the display reads: the way
-    // in, then paging, then depth, then out.
+    // Order here IS tab order, and it matches the way the section reads: the
+    // way in, then paging, then out.
     this.enterButton = button(`${districtLabel}: ${campusLabel(locale, 'explore')}`, events.onEnter);
     this.previousButton = button(campusLabel(locale, 'previous'), events.onPrevious);
     this.nextButton = button(campusLabel(locale, 'next'), events.onNext);
-    this.detailButton = button(campusLabel(locale, 'readMore'), events.onDetailToggle);
     this.backButton = button(campusLabel(locale, 'back'), events.onBack);
 
     parent.appendChild(this.root);
-    this.applyVisibility({ districtActive: false, hasDetail: false, detailOpen: false });
+    this.applyVisibility({ districtActive: false });
   }
 
   update(snapshot: DistrictA11ySnapshot, view: DistrictA11yView | null): void {
@@ -113,17 +103,14 @@ export class DistrictA11y {
       return;
     }
 
-    // The summary is announced in both modes and the detail copy is not.
-    // Reading long copy is what the section's copy is for; duplicating it into
-    // a live region would make every page change read the whole service aloud.
+    // The summary is announced and the detail copy is not. Reading long copy
+    // is what the section's copy is for; duplicating it into a live region
+    // would make every page change read the whole service aloud.
     //
     // Joined from the parts that exist, each ending in one full stop: a stop
     // with no title — the intro has none beyond the eyebrow — reads as a
     // stumble, and copy that already ends in a period would otherwise get two.
-    const parts = snapshot.detailOpen
-      ? [view.eyebrow, view.title, campusLabel(this.locale, 'readMore')]
-      : [view.eyebrow, view.title, view.summary];
-    const message = parts
+    const message = [view.eyebrow, view.title, view.summary]
       .map((part) => part.trim().replace(/[.\s]+$/, ''))
       .filter((part) => part !== '')
       .map((part) => `${part}.`)
@@ -134,20 +121,11 @@ export class DistrictA11y {
     this.live.textContent = message;
   }
 
-  private applyVisibility({ districtActive: active, hasDetail, detailOpen }: DistrictA11ySnapshot): void {
+  private applyVisibility({ districtActive: active }: DistrictA11ySnapshot): void {
     this.enterButton.hidden = active;
-    // Pagination stands down while reading, exactly as it does on the display
-    // (plan 003 §11) — a control that is inert on screen must not still be
-    // tabbable, or the two navigation models have diverged.
-    this.previousButton.hidden = !active || detailOpen;
-    this.nextButton.hidden = !active || detailOpen;
-    this.detailButton.hidden = !active || !hasDetail;
+    this.previousButton.hidden = !active;
+    this.nextButton.hidden = !active;
     this.backButton.hidden = !active;
-
-    this.detailButton.textContent = detailOpen
-      ? `${campusLabel(this.locale, 'readMore')}: ${campusLabel(this.locale, 'close')}`
-      : campusLabel(this.locale, 'readMore');
-    this.detailButton.setAttribute('aria-expanded', detailOpen ? 'true' : 'false');
   }
 
   dispose(): void {

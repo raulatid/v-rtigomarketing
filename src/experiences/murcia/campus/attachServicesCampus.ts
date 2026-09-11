@@ -3,11 +3,11 @@ import type { IconMasks } from './content/iconLibrary';
 import type { ServicesContent } from './content/servicesContent';
 import { findLakeBasin } from './lake/lakeBasin';
 import { attachLakeWater, type LakeWater, type LakeWaterConfig } from './lake/lakeWater';
-import { figureLayout, type FigureMotion } from './particles/figureLayouts';
-import { discLayout, planeLayout, type TargetLayout } from './particles/layouts';
+import { figureLayout, iconMotionLayout, type FigureMotion } from './particles/figureLayouts';
+import { discLayout, type TargetLayout } from './particles/layouts';
 import { sampleMask, seededRandom, type MaskSample } from './particles/maskSampling';
 import { createParticleField, type ParticleFieldConfig } from './particles/particleField';
-import { createCampusCamera, type CampusCameraTuning } from './section/campusCamera';
+import { createCampusCamera, type CampusCameraTuning, type CampusFraming } from './section/campusCamera';
 import { createCampusOverlay, type OverlayCopy } from './section/campusOverlay';
 import { createCampusState, type CampusSnapshot } from './section/campusState';
 import { attachCampusScreen, type CampusScreen } from './campusScreen/attachCampusScreen';
@@ -19,12 +19,13 @@ import type { FacadeContentDocument } from '../landmark/towerScreen/content/faca
  * Copied from the lab's `core/`, which imports `three` and itself and nothing
  * else. Given a loaded campus and a camera, it puts the water on the lake, the
  * particle field over it, and runs the section: enter, step through the
- * services, [+] for a service's detail, back out.
+ * services — each turning between its symbol and its figure on its own —
+ * back out.
  *
  * It owns no scene, no model, no render loop, no controls — and, on the site,
  * no input. The lab's own lake click and swipe listened on the canvas; here
  * the city's interaction already owns every pointer on that canvas, so it
- * calls `enter`, `next`, `previous`, `toggleDetail` and `back` instead, and
+ * calls `enter`, `next`, `previous` and `back` instead, and
  * reads `lake` to know where the click lands. The host ticks `update`,
  * resizes it, and hands the camera over around flights through
  * `onCameraControl`. Content and icons are injected, already parsed.
@@ -49,15 +50,19 @@ export interface ServicesCampusOptions {
   /** The water mesh's node name in the export. */
   waterNode?: string;
   overlay: {
-    /** `leave` names the close button, when there is one. */
-    labels: { readonly readMore: string; readonly close: string; readonly leave?: string };
+    /** `leave` names the back button, when there is one. */
+    labels: { readonly leave: string };
     fontFamily?: string;
     fontUrl?: string;
     /** Where the copy mounts. Defaults to the body. */
     container?: HTMLElement;
-    /** A close button beside [+] that does what `back` does. */
+    /** A back arrow at the copy's top-left that does what `back` does. */
     closeButton?: boolean;
+    /** The host's stylesheet places the copy. See `CampusOverlayOptions.hostLayout`. */
+    hostLayout?: boolean;
   };
+  /** Where the subject sits in the frame. See `CampusCameraOptions.framing`. */
+  framing?: () => CampusFraming;
   /** Drawing-buffer height, for point-size attenuation. */
   viewportHeightPx: number;
   /** The ring's LED screen. Omit it and the strip keeps the export's material. */
@@ -76,8 +81,8 @@ export interface SectionTiming {
   morph: number;
   /** Of the figure morph, how much staggers the starts: the draw-in-order. */
   figureSpread: number;
-  /** The camera's distance while a detail is open, as a fraction of the tuned one. */
-  detailDolly: number;
+  /** How long a service holds its symbol, or its figure, once formed, before turning into the other. */
+  formHold: number;
 }
 
 /** The screen's look. Edited live by a panel; applied through `applyScreen`. */
@@ -106,9 +111,7 @@ export interface ServicesCampus {
   enter(): void;
   next(): void;
   previous(): void;
-  toggleDetail(): void;
-  closeDetail(): void;
-  /** One level out: an open detail closes, otherwise the section is left. What Escape does. */
+  /** Leaves the section. What Escape and the back arrow do. */
   back(): void;
   exit(): void;
   /** True while a camera flight is running. */
@@ -219,7 +222,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     opacity: 0.85,
   };
   const shapes: SectionShapes = { discRadius: r * 0.85, lift: r * 0.8, iconWidth: r * 1.4 };
-  const timing: SectionTiming = { flight: 1.4, morph: 1.8, figureSpread: 0.85, detailDolly: 0.8 };
+  const timing: SectionTiming = { flight: 1.4, morph: 1.8, figureSpread: 0.85, formHold: 3 };
   const cameraTuning: CampusCameraTuning = { distance: r * 4.5, elevationDeg: 24, direction: 1 };
   const figureMotion: FigureMotion = { speed: 1, amplitude: 1 };
 
@@ -250,6 +253,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     focus: focus(),
     stops: content.services.length + 1,
     tuning: cameraTuning,
+    ...(options.framing === undefined ? {} : { framing: options.framing }),
   });
 
   const disc = (): TargetLayout => discLayout(focus(), shapes.discRadius);
@@ -263,7 +267,8 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
       width: shapes.iconWidth,
     };
   };
-  const icon = (name: string, stop: number): TargetLayout => planeLayout(iconSamples(name), facing(stop));
+  const icon = (name: string, stop: number, time: number): TargetLayout =>
+    iconMotionLayout(iconSamples(name), facing(stop), time, figureMotion);
   const figure = (kind: ServicesContent['services'][number]['figure'], stop: number, time: number): TargetLayout =>
     figureLayout(kind, facing(stop), time, figureMotion);
 
@@ -276,41 +281,63 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
   // ---- the section -----------------------------------------------------------
 
   const state = createCampusState(content.services.length);
-  /** Nothing steps while a flight or a morph is still running. */
-  const settled = (): boolean => !campusCamera.flying && field.morph >= 1;
 
-  const toggleDetail = (): void => {
-    if (!settled()) return;
-    if (state.snapshot.detail) state.closeDetail();
-    else state.openDetail();
-  };
+  let playing = false;
+  /** The section's clock, so copy can be shown after a flight or a morph lands. */
+  let clock = 0;
+  /** When the current step's own morph lands. The symbol ⇄ figure turns do not count. */
+  let stepMorphUntil = 0;
+  /**
+   * Nothing steps while a flight or the step's morph is still running. Not
+   * `field.morph`: a service turns between its forms on its own, and a swipe
+   * must not be refused for half of every turn.
+   */
+  const settled = (): boolean => !campusCamera.flying && clock >= stepMorphUntil;
 
-  const back = (): void => {
-    if (state.snapshot.detail) state.closeDetail();
-    else state.exit();
-  };
+  const back = (): void => state.exit();
 
   const overlay = createCampusOverlay({
-    onToggle: toggleDetail,
     labels: options.overlay.labels,
     ...(options.overlay.container === undefined ? {} : { container: options.overlay.container }),
     ...(options.overlay.closeButton ? { onClose: back } : {}),
     ...(options.overlay.fontFamily === undefined ? {} : { fontFamily: options.overlay.fontFamily }),
     ...(options.overlay.fontUrl === undefined ? {} : { fontUrl: options.overlay.fontUrl }),
+    ...(options.overlay.hostLayout ? { hostLayout: true } : {}),
   });
 
-  let playing = false;
-  /** The section's clock, so copy can be shown after a flight or a morph lands. */
-  let clock = 0;
   let pendingCopy: { at: number; copy: OverlayCopy } | null = null;
   const showLater = (copy: OverlayCopy, after: number): void => {
     pendingCopy = { at: clock + after, copy };
+  };
+
+  /**
+   * A service's two forms in turn: its symbol, then its figure, then its
+   * symbol again, each held `formHold` once formed. Null outside a service.
+   */
+  type Form = 'icon' | 'figure';
+  let cycle: { service: ServicesContent['services'][number]; stop: number; form: Form; swapAt: number } | null =
+    null;
+  const showForm = (form: Form, seconds: number): void => {
+    if (!cycle) return;
+    const { service, stop } = cycle;
+    // `setLayout` clears the live layout, so the live one is set after it.
+    if (form === 'icon') {
+      field.setLayout(icon(service.icon, stop, 0), seconds);
+      field.setLiveLayout((time) => icon(service.icon, stop, time));
+    } else {
+      // Drawn in order, as the figure always was.
+      field.setLayout(figure(service.figure, stop, 0), seconds, timing.figureSpread);
+      field.setLiveLayout((time) => figure(service.figure, stop, time));
+    }
+    cycle.form = form;
+    cycle.swapAt = clock + seconds + timing.formHold;
   };
 
   // The one place a state change becomes something on screen.
   const unsubscribe = state.subscribe((snapshot, previous) => {
     overlay.hide();
     pendingCopy = null;
+    cycle = null;
 
     if (snapshot.stage === 'overview') {
       playing = false;
@@ -330,6 +357,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
       } else {
         campusCamera.flyTo(snapshot.position, timing.flight);
         field.setLayout(disc(), timing.morph);
+        stepMorphUntil = clock + timing.morph;
         showLater(content.intro, timing.morph);
       }
       return;
@@ -337,35 +365,15 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
 
     const service = content.services[snapshot.index];
     if (!service) return;
-    const copy: OverlayCopy = {
-      title: service.title,
-      subtitle: service.subtitle,
-      detail: service.detail,
-      expanded: snapshot.detail,
-    };
-    const landed = Math.max(timing.morph, timing.flight);
-
-    if (snapshot.position === previous.position && previous.stage === 'service') {
-      // Same service, the detail toggled: the symbol becomes the figure,
-      // drawn in order, and the camera leans in; or both undo.
-      if (snapshot.detail) {
-        const { position } = snapshot;
-        field.setLayout(figure(service.figure, position, 0), timing.morph, timing.figureSpread);
-        field.setLiveLayout((time) => figure(service.figure, position, time));
-        campusCamera.dollyTo(timing.detailDolly, timing.flight);
-      } else {
-        field.setLayout(icon(service.icon, snapshot.position), timing.morph);
-        campusCamera.dollyTo(1, timing.flight);
-      }
-      showLater(copy, landed);
-      return;
-    }
+    // The whole copy, always: there is no read-more any more.
+    const copy: OverlayCopy = { title: service.title, subtitle: service.subtitle, detail: service.detail };
 
     campusCamera.flyTo(snapshot.position, timing.flight);
-    field.setLayout(icon(service.icon, snapshot.position), timing.morph);
-    showLater(copy, landed);
+    cycle = { service, stop: snapshot.position, form: 'icon', swapAt: Infinity };
+    showForm('icon', timing.morph);
+    stepMorphUntil = clock + timing.morph;
+    showLater(copy, Math.max(timing.morph, timing.flight));
   });
-
 
   let disposed = false;
 
@@ -382,9 +390,14 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
         overlay.show(pendingCopy.copy);
         pendingCopy = null;
       }
+      if (cycle && clock >= cycle.swapAt && !campusCamera.flying) {
+        showForm(cycle.form === 'icon' ? 'figure' : 'icon', timing.morph);
+      }
     },
     resize(viewportHeightPx) {
       field.setViewport(viewportHeightPx);
+      // The framing is a fraction of the frame, so a new aspect moves it.
+      campusCamera.reframe();
     },
     dispose() {
       if (disposed) return;
@@ -406,8 +419,6 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     previous: () => {
       if (settled()) state.previous();
     },
-    toggleDetail,
-    closeDetail: () => state.closeDetail(),
     back,
     exit: () => state.exit(),
     get flying() {

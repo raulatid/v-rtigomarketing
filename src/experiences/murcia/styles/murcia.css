@@ -406,7 +406,7 @@
 }
 
 /* ── The services campus copy ─────────────────────────────────────────────────
-   The section's title, opening, read-more and buttons (`campus/section/
+   The section's back arrow, title and copy (`campus/section/
    campusOverlay.ts`) on the smoked-glass material, read from siteHeader.css's
    tokens as the compass above is.
 
@@ -417,11 +417,24 @@
 
    Here and not inline: the overlay is the lab's file and keeps its own inline
    styles so it still runs there, where these tokens do not exist. None of the
-   properties below are set inline on the layer — its width, position, fade and
-   `pointer-events: none` stay the overlay's, so a press on the plate still
-   reaches the city. One blurred surface: the buttons keep their own
-   translucent fill and blur nothing. */
+   properties below are set inline on the layer: the site asks the overlay to
+   leave its layout off (`hostLayout`, createServicesCampus.ts), while its fade
+   and `pointer-events: none` stay the overlay's, so a press on the plate still
+   reaches the city. One blurred surface: the back arrow is a bare mark.
+
+   Two layouts. Under the subject, centred — the lab's card, and the phone's,
+   the camera lifting the particles above it. And, on a desktop or a tablet in
+   landscape, docked left of it: the satellite close-up's composition
+   mirrored, the camera sliding the particles right to make room (DOCK_QUERY
+   and the framings in createServicesCampus.ts, which must match the media
+   query below). */
 .murcia-ui .campus-overlay {
+  position: fixed;
+  left: 50%;
+  bottom: 9vh;
+  transform: translateX(-50%);
+  width: min(720px, 88vw);
+  text-align: center;
   box-sizing: border-box;
   padding: 1.75rem 2rem 1.5rem;
   border: 1px solid var(--glass-border);
@@ -448,6 +461,51 @@
    takes the text face the host passes the overlay (createServicesCampus.ts). */
 .murcia-ui .campus-overlay__title {
   font-family: var(--font-display);
+}
+
+.murcia-ui .campus-overlay__subtitle {
+  margin-top: 12px;
+}
+
+.murcia-ui .campus-overlay__detail {
+  margin: 18px auto 0;
+  max-width: 560px;
+  line-height: 1.55;
+}
+
+/* The dock: the case panel's (styles.css .case-panel) on the other side. 30vw
+   rather than its 38vw, so from 20vw the plate never crosses the middle of
+   the frame, where the camera has put the lake's disc. Roomier than the
+   card: it has the height of the screen to itself, so the copy breathes. */
+@media (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .campus-overlay {
+    left: 20vw;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    width: min(420px, 30vw);
+    padding: 2.75rem 2.5rem 2.75rem;
+    text-align: left;
+  }
+
+  .murcia-ui .campus-overlay__subtitle {
+    margin-top: 18px;
+  }
+
+  .murcia-ui .campus-overlay__detail {
+    margin: 26px 0 0;
+    max-width: none;
+    line-height: 1.65;
+  }
+}
+
+/* A tablet's width: 30vw of 1024 is a cramped column, so the plate moves out
+   to the edge and widens, its right edge still short of the middle. */
+@media (min-width: 1024px) and (max-width: 1279px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .campus-overlay {
+    left: 5vw;
+    width: min(420px, 42vw);
+  }
 }
 
 /* At 88vw the desktop padding would eat a phone's line length. */

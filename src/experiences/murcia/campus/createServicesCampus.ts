@@ -6,6 +6,7 @@ import { DistrictA11y, type DistrictA11yView } from '../district/ui/districtA11y
 import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
 import { attachServicesCampus, type ServicesCampus } from './attachServicesCampus';
 import { createCampusCameraAdapter, type CampusCameraRig } from './campusCameraAdapter';
+import type { CampusFraming } from './section/campusCamera';
 import { CampusInteraction } from './campusInteraction';
 import { buildServicesContent } from './campusContent';
 import { campusLabel, DEFAULT_LOCALE } from './campusLabels';
@@ -87,8 +88,7 @@ export interface ServicesCampusSection {
   enter(): boolean;
   next(): void;
   previous(): void;
-  toggleDetail(): void;
-  /** One level out: the detail, then the section. */
+  /** Leaves the section: what Escape and the back arrow do. */
   back(): void;
   /** Leaves the section from wherever it is. */
   releaseFocus(): void;
@@ -100,6 +100,45 @@ export interface ServicesCampusSection {
 
 /** Seconds, and the reduced-motion values that replace the lab's cinematic ones. */
 const REDUCED = { flight: 0.12, morph: 0.3, emergence: 0.2, convergence: 0.3 } as const;
+
+/**
+ * Where the copy docks beside the subject instead of lying under it: the
+ * satellite close-up's composition, mirrored — the plate on the left, the
+ * particles on the right. The SAME string as the dock's media query in
+ * murcia.css; they are two halves of one layout.
+ *
+ * Desktop and tablets in landscape, not the case panel's 768: a satellite is
+ * small and the lake's disc is not. Its radius is ~0.34 of the half-width at
+ * 16:9 and ~0.45 at 4:3, and ~0.8 on a portrait tablet — no room beside a
+ * plate there, so a portrait tablet is framed as a phone.
+ */
+const DOCK_QUERY = '(min-width: 1024px) and (min-aspect-ratio: 4/3)';
+
+/**
+ * The disc's radius over the frame's half-height, at the tuned distance and
+ * the city's 35° lens: 0.85 r / (tan 17.5° × 4.5 r). Over the half-WIDTH it is
+ * this divided by the aspect, which is what the docked framing solves with.
+ */
+const DISC_OVER_HALF_HEIGHT = 0.6;
+
+/**
+ * Docked: the plate stays in the left half (murcia.css), so the focus goes
+ * right by the disc's radius plus a margin, and the disc's left edge always
+ * lands ~0.08 right of centre — 0.42 at 16:9, 0.53 at 4:3.
+ */
+const dockedFraming = (aspect: number): CampusFraming => ({
+  x: DISC_OVER_HALF_HEIGHT / aspect + 0.08,
+  y: 0,
+  distanceScale: 1,
+});
+
+/**
+ * A phone, or a portrait tablet: the copy is a card along the bottom, so the
+ * camera stands back — at the tuned distance a symbol is wider than a portrait
+ * screen — and lifts the subject into the upper part of the frame. Starting
+ * values, to be judged by eye.
+ */
+const PHONE_FRAMING: CampusFraming = { x: 0, y: 0.45, distanceScale: 1.6 };
 
 export async function createServicesCampus(
   options: ServicesCampusSectionOptions,
@@ -130,6 +169,8 @@ export async function createServicesCampus(
     ...(options.onCameraReturned ? { onReturn: options.onCameraReturned } : {}),
   });
 
+  const dock = window.matchMedia(DOCK_QUERY);
+
   let campus: ServicesCampus;
   try {
     campus = attachServicesCampus({
@@ -142,18 +183,17 @@ export async function createServicesCampus(
       keyLightDirection: options.keyLightDirection,
       waterNode: CAMPUS_WATER_NODE_NAME,
       overlay: {
-        labels: {
-          readMore: campusLabel(locale, 'readMore'),
-          close: campusLabel(locale, 'close'),
-          leave: campusLabel(locale, 'leave'),
-        },
+        labels: { leave: campusLabel(locale, 'leave') },
         // The site's text face, declared once for every document in
         // siteHeader.css — so no `fontUrl`, and the overlay registers nothing.
         // Its title takes the display face from murcia.css.
         fontFamily: 'Vertigo Text',
         container: options.container,
         closeButton: true,
+        // murcia.css places it: under the subject, or docked at DOCK_QUERY.
+        hostLayout: true,
       },
+      framing: () => (dock.matches ? dockedFraming(options.camera.aspect) : PHONE_FRAMING),
       viewportHeightPx: options.viewportHeightPx,
       screen: {
         anisotropy: options.anisotropy,
@@ -174,11 +214,14 @@ export async function createServicesCampus(
   if (options.reducedMotion) {
     // Cinematic motion goes; what is on screen does not. Flights become cuts,
     // the rise and the morphs are over almost as they start, and the settled
-    // shapes stop swelling and swinging. The copy still follows each step.
+    // shapes stop swelling and swinging. The copy still follows each step. A
+    // service holds its symbol rather than turning into its figure and back
+    // on its own, which would be motion nobody asked for.
     const { timing, particles, figureMotion } = campus.tuning;
     timing.flight = REDUCED.flight;
     timing.morph = REDUCED.morph;
     timing.figureSpread = 0;
+    timing.formHold = Infinity;
     particles.emergenceSeconds = REDUCED.emergence;
     particles.convergenceSeconds = REDUCED.convergence;
     particles.swellAmplitude = 0;
@@ -221,7 +264,6 @@ export async function createServicesCampus(
     },
     onPrevious: () => campus.previous(),
     onNext: () => campus.next(),
-    onDetailToggle: () => campus.toggleDetail(),
     onBack: () => campus.back(),
   });
 
@@ -241,11 +283,7 @@ export async function createServicesCampus(
       summary: service.subtitle,
     };
   };
-  const a11yFor = (snapshot: CampusSnapshot) => ({
-    districtActive: snapshot.stage !== 'overview',
-    hasDetail: snapshot.stage === 'service',
-    detailOpen: snapshot.detail,
-  });
+  const a11yFor = (snapshot: CampusSnapshot) => ({ districtActive: snapshot.stage !== 'overview' });
 
   // The one subscription: the announcement, then the attention edge the
   // application stands its navigation down on.
@@ -288,7 +326,6 @@ export async function createServicesCampus(
     enter,
     next: () => campus.next(),
     previous: () => campus.previous(),
-    toggleDetail: () => campus.toggleDetail(),
     back: () => campus.back(),
     releaseFocus() {
       if (engaged) campus.exit();

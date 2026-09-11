@@ -4,8 +4,7 @@
  *
  *   overview   the campus from above; orbit is live, the lake is clickable
  *   intro      close to the lake, the disc formed, the intro copy shown
- *   service i  its symbol formed, its copy shown
- *   + detail   the symbol has become the service's figure, the copy expanded
+ *   service i  its symbol and its figure in turn, its whole copy shown
  *
  * The section is a RING. `position` counts steps taken and is never wrapped:
  * going forward from the last service reaches the intro again one step
@@ -22,8 +21,6 @@ export interface CampusSnapshot {
   readonly index: number;
   /** Steps taken round the ring since entering. Unbounded, either sign. */
   readonly position: number;
-  /** The read-more state. Only ever true in the `service` stage. */
-  readonly detail: boolean;
 }
 
 export interface CampusState {
@@ -31,13 +28,11 @@ export interface CampusState {
   enter(): void;
   next(): void;
   previous(): void;
-  openDetail(): void;
-  closeDetail(): void;
   exit(): void;
   subscribe(listener: (snapshot: CampusSnapshot, previous: CampusSnapshot) => void): () => void;
 }
 
-const OVERVIEW: CampusSnapshot = { stage: 'overview', index: 0, position: 0, detail: false };
+const OVERVIEW: CampusSnapshot = { stage: 'overview', index: 0, position: 0 };
 
 export function createCampusState(serviceCount: number): CampusState {
   /** Stops round the ring: the intro plus one per service. */
@@ -49,18 +44,12 @@ export function createCampusState(serviceCount: number): CampusState {
   const at = (position: number): CampusSnapshot => {
     const slot = ((position % stops) + stops) % stops;
     return slot === 0
-      ? { stage: 'intro', index: 0, position, detail: false }
-      : { stage: 'service', index: slot - 1, position, detail: false };
+      ? { stage: 'intro', index: 0, position }
+      : { stage: 'service', index: slot - 1, position };
   };
 
   const set = (next: CampusSnapshot): void => {
-    if (
-      next.stage === snapshot.stage &&
-      next.position === snapshot.position &&
-      next.detail === snapshot.detail
-    ) {
-      return;
-    }
+    if (next.stage === snapshot.stage && next.position === snapshot.position) return;
     const previous = snapshot;
     snapshot = next;
     for (const listener of [...listeners]) listener(snapshot, previous);
@@ -78,14 +67,6 @@ export function createCampusState(serviceCount: number): CampusState {
     },
     previous() {
       if (snapshot.stage !== 'overview') set(at(snapshot.position - 1));
-    },
-    // Moving on always closes: `at` builds every step with the detail shut,
-    // which is what makes a swipe on an open detail close it and move in one.
-    openDetail() {
-      if (snapshot.stage === 'service') set({ ...snapshot, detail: true });
-    },
-    closeDetail() {
-      if (snapshot.stage === 'service') set({ ...snapshot, detail: false });
     },
     exit() {
       set(OVERVIEW);

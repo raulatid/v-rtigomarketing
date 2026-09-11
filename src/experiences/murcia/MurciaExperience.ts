@@ -989,7 +989,6 @@ export class MurciaExperience {
         enter: () => campus.enter(),
         next: () => campus.next(),
         previous: () => campus.previous(),
-        toggleDetail: () => campus.toggleDetail(),
         back: () => campus.back(),
         exit: () => campus.releaseFocus(),
         snapshot: () => campus.snapshot,

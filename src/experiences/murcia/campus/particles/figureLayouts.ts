@@ -1,9 +1,10 @@
 import type { FigureKind } from '../content/servicesContent';
 import { placeOnPlane, type PlaneFrame, type TargetLayout } from './layouts';
+import type { MaskSample } from './maskSampling';
 
 /**
- * A service's figure, alive: the graph its symbol becomes when the detail
- * opens, evaluated for a moment in time.
+ * A service's figure, alive: the graph its symbol turns into and back from,
+ * evaluated for a moment in time.
  *
  * Parametric rather than rasterised, so it can move. Each figure places a
  * particle from its `order` (which part of the figure it belongs to, so the
@@ -116,6 +117,34 @@ const FIGURES: Record<
   FigureKind,
   (order: number, a: number, b: number, c: number, t: number, m: FigureMotion) => [number, number]
 > = { bars, ring, pins, line };
+
+/**
+ * A service's symbol, alive: the sampled mask on `frame`, breathing and
+ * floating as a whole while each particle drifts a little round its sample.
+ * Particle `index` takes sample `index`, so `samples` must hold at least
+ * `count` entries; the caller sampled with the field's count.
+ * Small on purpose — it is the same symbol, not a figure. `motion` scales it
+ * like the figures, so an amplitude of 0 is the still mask.
+ */
+export function iconMotionLayout(
+  samples: readonly MaskSample[],
+  frame: PlaneFrame,
+  time: number,
+  motion: FigureMotion,
+): TargetLayout {
+  const t = time * motion.speed;
+  const amp = motion.amplitude;
+  const breathe = 1 + 0.03 * amp * Math.sin(t * 0.6);
+  const float = 0.02 * amp * Math.sin(t * 0.4);
+  return (index, count, _random, out) => {
+    const sample = samples[index];
+    if (!sample || samples.length < count) throw new Error('[service-campus] too few samples for the field');
+    const drift = 0.006 * amp;
+    const u = sample[0] * breathe + drift * Math.sin(t * 1.1 + index * 0.73);
+    const v = sample[1] * breathe + float + drift * Math.cos(t * 0.9 + index * 1.37);
+    placeOnPlane(frame, u, v, out);
+  };
+}
 
 /** The figure `kind` on `frame` at `time` seconds. */
 export function figureLayout(

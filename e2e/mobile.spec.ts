@@ -1216,8 +1216,7 @@ async function settledCloseButton(page: Page): Promise<{ x: number; y: number }>
     )
     .toBe('visible')
   const point = await page.evaluate(() => {
-    const buttons = [...document.querySelectorAll<HTMLButtonElement>('.campus-overlay button')]
-    const close = buttons.find((b) => b.textContent === '×')
+    const close = document.querySelector<HTMLButtonElement>('.campus-overlay__back')
     if (!close) return null
     const r = close.getBoundingClientRect()
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 }

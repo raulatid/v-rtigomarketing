@@ -14,8 +14,6 @@
 export const DEFAULT_LOCALE = 'es';
 
 export type CampusLabelKey =
-  | 'readMore'
-  | 'close'
   | 'leave'
   | 'hint'
   | 'previous'
@@ -25,8 +23,6 @@ export type CampusLabelKey =
 
 const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, string>>>> = {
   es: {
-    readMore: 'saber más',
-    close: 'cerrar',
     leave: 'salir de los servicios',
     hint: '← Desliza hacia los lados para descubrir →',
     previous: 'Servicio anterior',
@@ -35,8 +31,6 @@ const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, str
     back: 'volver',
   },
   en: {
-    readMore: 'learn more',
-    close: 'close',
     leave: 'leave the services',
     hint: '← Swipe sideways to discover →',
     previous: 'Previous service',

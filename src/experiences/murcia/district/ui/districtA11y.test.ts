@@ -14,7 +14,6 @@ function make() {
     onEnter: vi.fn(),
     onPrevious: vi.fn(),
     onNext: vi.fn(),
-    onDetailToggle: vi.fn(),
     onBack: vi.fn(),
   }
   const a11y = new DistrictA11y(parent, 'Servicios', 'es', events)
@@ -31,10 +30,9 @@ afterEach(() => {
   fixture.parent.remove()
 })
 
-const overview = { districtActive: false, hasDetail: false, detailOpen: false }
-const intro = { districtActive: true, hasDetail: false, detailOpen: false }
-const service = { districtActive: true, hasDetail: true, detailOpen: false }
-const reading = { districtActive: true, hasDetail: true, detailOpen: true }
+const overview = { districtActive: false }
+const intro = { districtActive: true }
+const service = { districtActive: true }
 
 describe('the services keyboard surface', () => {
   it('offers only the way in from the overview, and says nothing', () => {
@@ -44,7 +42,7 @@ describe('the services keyboard surface', () => {
     expect(fixture.live()).toBe('')
   })
 
-  it('announces the intro once, without saying the label twice, and offers no [+]', () => {
+  it('announces the intro once, without saying the label twice', () => {
     fixture = make()
     fixture.a11y.update(intro, { eyebrow: 'Servicios', title: '', summary: 'Lo que hacemos.' })
     expect(fixture.live()).toBe('Servicios. Lo que hacemos.')
@@ -61,14 +59,7 @@ describe('the services keyboard surface', () => {
     expect(fixture.live()).toBe(
       'Servicios · 01 / 05. SEO. La búsqueda es el único canal que sigue devolviéndote el trabajo.',
     )
-    expect(fixture.visible()).toContain('saber más')
-  })
-
-  it('withdraws paging from the tab order while reading, and says the detail is open', () => {
-    fixture = make()
-    fixture.a11y.update(reading, { eyebrow: 'Servicios · 01 / 05', title: 'SEO', summary: 'x' })
-    expect(fixture.visible()).toEqual(['saber más: cerrar', 'volver'])
-    expect(fixture.live()).toBe('Servicios · 01 / 05. SEO. saber más.')
+    expect(fixture.visible()).toEqual(['Servicio anterior', 'Servicio siguiente', 'volver'])
   })
 
   it('drives every intent from its buttons', () => {

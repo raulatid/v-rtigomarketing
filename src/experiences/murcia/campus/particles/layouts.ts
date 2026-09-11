@@ -1,5 +1,4 @@
 import type * as THREE from 'three';
-import type { MaskSample } from './maskSampling';
 
 /**
  * Where the particles end up.
@@ -39,20 +38,6 @@ export interface PlaneFrame {
   /** Unit vector along +v. */
   readonly up: THREE.Vector3;
   readonly width: number;
-}
-
-/**
- * Sampled points laid on a plane. Particle `index` takes sample `index`, so
- * `samples` must hold at least `count` entries; the caller sampled with the
- * field's count, and this is where a mismatch would show.
- */
-export function planeLayout(samples: readonly MaskSample[], frame: PlaneFrame): TargetLayout {
-  return (index, count, _random, out) => {
-    const sample = samples[index];
-    if (!sample || samples.length < count) throw new Error('[service-campus] too few samples for the field');
-    const [u, v] = sample;
-    placeOnPlane(frame, u, v, out);
-  };
 }
 
 /** Maps a point of the unit square (u, v in -0.5..0.5) onto `frame`. */
