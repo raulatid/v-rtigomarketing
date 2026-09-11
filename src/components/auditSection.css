@@ -281,6 +281,14 @@
   max-width: 44ch;
 }
 
+/* The five fields. Without a gap of its own each label sat flush on the input
+   above it, nearer that one than its own — the grouping read backwards. */
+.audit-group--2 {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
 .audit-group--3 {
   display: flex;
   flex-direction: column;
