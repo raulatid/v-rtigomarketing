@@ -31,6 +31,14 @@ export const CAMPUS_WATER_NODE_NAME = 'PARK_Water';
 export const CAMPUS_SCREEN_NODE_NAME = 'CAMPUS_SCREEN_Continuous';
 
 /**
+ * Which UV set of the strip is the screen. 1 since murcia-v7: the exporter
+ * writes the material graph's trim-band UV to `TEXCOORD_0` and the authored
+ * strip UV to `TEXCOORD_1`, the same as the tower's screen (export contract
+ * §6.8). Measured on v7 through set 1: 255 m round by 5 m tall.
+ */
+export const CAMPUS_SCREEN_UV_CHANNEL: 0 | 1 = 1;
+
+/**
  * The parts coloured by `campusPalette.ts`, one colour each.
  *
  * `ARCH_Porcelain_White.001` is authored with its dot; GLTFLoader renames it

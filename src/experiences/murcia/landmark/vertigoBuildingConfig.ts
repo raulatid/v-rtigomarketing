@@ -63,11 +63,19 @@ export interface VertigoBuildingConfig {
   logoNodeNames: readonly string[];
   /** The mesh the tower's compositions are drawn on. */
   screenNodeName: string;
+  /**
+   * Which UV set of that mesh is the screen: 0 for `TEXCOORD_0`, 1 for
+   * `TEXCOORD_1`. Since murcia-v7 the exporter writes the material graph's
+   * trim-band UV first and the authored screen UV second (export contract
+   * §6.8); the facade reads whichever set this names and ignores the other.
+   */
+  screenUvChannel: 0 | 1;
   logo: TowerLogoConfig;
 }
 
 export const VERTIGO_BUILDING: VertigoBuildingConfig = {
   logoNodeNames: ['logo-V', 'logo-curva'],
   screenNodeName: 'LED_Main',
+  screenUvChannel: 1,
   logo: { axis: 'y', angularSpeedRadPerSec: 0.35 },
 };

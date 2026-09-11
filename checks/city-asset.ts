@@ -47,6 +47,7 @@ import { expandRect } from '../src/experiences/murcia/navigation/navigationBound
 import {
   CAMPUS_NODE_NAMES,
   CAMPUS_SCREEN_NODE_NAME,
+  CAMPUS_SCREEN_UV_CHANNEL,
   CAMPUS_WATER_NODE_NAME,
 } from '../src/experiences/murcia/campus/campusConfig';
 import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
@@ -445,9 +446,10 @@ check(
     (n) => n.name != null && PropertyBinding.sanitizeNodeName(n.name) === CAMPUS_SCREEN_NODE_NAME,
   );
   const prims = strip?.mesh != null ? (meshes[strip.mesh]?.primitives ?? []) : [];
+  const stripUv = `TEXCOORD_${CAMPUS_SCREEN_UV_CHANNEL}`;
   check(
-    `"${CAMPUS_SCREEN_NODE_NAME}" carries TEXCOORD_0`,
-    prims.length > 0 && prims.every((p) => attributeNames(p).has('TEXCOORD_0')),
+    `"${CAMPUS_SCREEN_NODE_NAME}" carries ${stripUv}, the set campusConfig names as the screen`,
+    prims.length > 0 && prims.every((p) => attributeNames(p).has(stripUv)),
     prims.length === 0
       ? 'no strip mesh to read'
       : `${prims.length} primitive(s); the LED strip's compositions ride its UVs`,
@@ -537,6 +539,19 @@ for (const configured of new Set(VERTIGO_BUILDING.logoNodeNames)) {
     screens.length > 0
       ? `as ${list(screens)}`
       : "the tower's screen stays dark — see murcia/landmark/vertigoBuildingConfig.ts",
+  );
+  // The set the config names has to be there: the facade measures the screen
+  // through it, and the wrong set reads as a 1 m × 800 m screen — a 2 px canvas
+  // that renders black (2026-09-11, the first v7 load).
+  const screenUv = `TEXCOORD_${VERTIGO_BUILDING.screenUvChannel}`;
+  const screenNode = nodes.find(
+    (n) => n.name != null && PropertyBinding.sanitizeNodeName(n.name) === VERTIGO_BUILDING.screenNodeName,
+  );
+  const screenPrims = screenNode?.mesh != null ? (meshes[screenNode.mesh]?.primitives ?? []) : [];
+  check(
+    `"${VERTIGO_BUILDING.screenNodeName}" carries ${screenUv}, the set vertigoBuildingConfig names as the screen`,
+    screenPrims.length > 0 && screenPrims.every((p) => attributeNames(p).has(screenUv)),
+    screenPrims.length === 0 ? 'no screen mesh to read' : `${screenPrims.length} primitive(s)`,
   );
 }
 

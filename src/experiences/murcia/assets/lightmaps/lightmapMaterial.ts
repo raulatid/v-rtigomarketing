@@ -138,9 +138,8 @@ export function prepareLightmapTexture(texture: THREE.Texture, uvChannel: number
  * is simply its vertex colour, which is what the bake preview showed the
  * artist.
  */
-export function createUnlitVertexColourMaterial(source: THREE.Material, name: string): THREE.MeshBasicMaterial {
+export function createUnlitVertexColourMaterial(source: THREE.Material): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
-    name,
     color: 0xffffff,
     vertexColors: true,
     side: source.side,

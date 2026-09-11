@@ -784,6 +784,7 @@ export class MurciaExperience {
       anisotropy: 4,
       reducedMotion: this.reducedMotion,
       screenNodeName: VERTIGO_BUILDING.screenNodeName,
+      screenUvChannel: VERTIGO_BUILDING.screenUvChannel,
     });
     this.setupClickInteraction();
     this.statusOverlay.hide();

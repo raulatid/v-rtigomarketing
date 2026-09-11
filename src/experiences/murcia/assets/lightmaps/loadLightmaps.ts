@@ -103,7 +103,6 @@ export async function loadLightmaps(options: LoadLightmapsOptions): Promise<Ligh
     // spike the resolution split exists to avoid.
     const load = async (key: string, file: string, uvChannel: number) => {
       const texture = await ktx2.loadAsync(base + file);
-      texture.name = `city_lightmap_${key}`;
       prepareLightmapTexture(texture, uvChannel);
       loaded.set(key, texture);
     };
@@ -125,7 +124,7 @@ export async function loadLightmaps(options: LoadLightmapsOptions): Promise<Ligh
     hidePlateUnderGround(terrain, ground.context);
     dropEmbeddedTrim(gltf.scene);
   } catch (error) {
-    console.warn('[lightmaps] not applied; the city stays lit', error);
+    console.warn('[lightmaps] not applied', error);
     restore(assets, ground);
     for (const texture of loaded.values()) texture.dispose();
     return null;

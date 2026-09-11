@@ -345,7 +345,7 @@ of the modelled 208 m building) and **no materials**:
 | Node | What it is | Rule |
 |---|---|---|
 | `ARCH_Glass_*`, `ARCH_Metal_*`, `ARCH_Roof_Zinc`, `ARCH_Stone_Limestone`, `BRAND_VERTIGO` | the building | coloured at runtime BY THESE NAMES (`towerScreen/towerPalette.ts`) — a rename loses the colour |
-| `LED_Main` | the LED screen the tower's compositions run on | keeps its authored UVs: physical aspect, the 1024 × 3686 artwork, v top to bottom |
+| `LED_Main` | the LED screen the tower's compositions run on | keeps its authored UVs: physical aspect, the 1024 × 3686 artwork, v top to bottom. **Since v7 they are `TEXCOORD_1`**: the exporter writes the material graph's trim-band UV first. `vertigoBuildingConfig.screenUvChannel` (and `CAMPUS_SCREEN_UV_CHANNEL` for the ring) names the set; `check:asset` asserts it |
 | `logo-V` | the logo's V, standing on the crown | direct child of the scene root, pivot at its own centre, **no rotation, no scale** |
 | `logo-curva` | the logo's arc, above the V | same as `logo-V` |
 

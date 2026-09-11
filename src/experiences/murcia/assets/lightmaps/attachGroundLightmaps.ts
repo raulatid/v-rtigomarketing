@@ -57,7 +57,7 @@ export function attachGroundLightmaps(
       let material = materials.get(key);
       if (material) return material;
       if (target.chunk === GROUND_CONTEXT_CHUNK) {
-        material = createUnlitVertexColourMaterial(source, 'MAT_CITY_GROUND_CONTEXT');
+        material = createUnlitVertexColourMaterial(source);
       } else {
         const chunk = target.chunk as LightmapChunk;
         const atlas = atlases.get(chunk);
@@ -70,7 +70,6 @@ export function attachGroundLightmaps(
           instanced: false,
           programKey: 'murcia-ground-mip-v1',
         });
-        material.name = `MAT_CITY_GROUND_BAKED_${chunk}`;
       }
       materials.set(key, material);
       return material;

@@ -4,6 +4,7 @@ import type { FacadeContentDocument, FacadeRotation } from '../../landmark/tower
 import type { FacadeComposition } from '../../landmark/towerScreen/facadeComposition';
 import { createComposition } from '../../landmark/towerScreen/facadeRenderer';
 import { createMediaFacade, type MediaFacade } from '../../landmark/towerScreen/mediaFacade';
+import { selectScreenUv, uvAttributeName } from '../../landmark/towerScreen/attachTowerScreen';
 import { CAMPUS_SCREEN_DOCUMENT, DESIGN_METRES_WIDE } from './campusScreenContent';
 
 /**
@@ -57,6 +58,8 @@ export interface CampusScreenOptions {
   readonly reducedMotion: boolean;
   /** The screen mesh's node name. Defaults to `SCREEN_NODE_NAME`. */
   readonly screenNodeName?: string;
+  /** Which UV set is the screen (`CAMPUS_SCREEN_UV_CHANNEL` on the site). Default 0. */
+  readonly screenUvChannel?: 0 | 1;
   readonly document?: FacadeContentDocument;
   /** The width the document's layouts were drawn for. See `campusScreenContent`. */
   readonly designMetresWide?: number;
@@ -76,12 +79,13 @@ export interface CampusScreen {
   dispose(): void;
 }
 
-function findScreen(root: THREE.Object3D, nodeName: string): THREE.Mesh | null {
+function findScreen(root: THREE.Object3D, nodeName: string, uvChannel: number): THREE.Mesh | null {
   const name = THREE.PropertyBinding.sanitizeNodeName(nodeName);
+  const attribute = uvAttributeName(uvChannel);
   let found: THREE.Mesh | null = null;
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
-    if (!found && mesh.isMesh && object.name === name && mesh.geometry.getAttribute('uv')) {
+    if (!found && mesh.isMesh && object.name === name && mesh.geometry.getAttribute(attribute)) {
       found = mesh;
     }
   });
@@ -99,11 +103,13 @@ const INERT: CampusScreen = {
 
 export function attachCampusScreen(root: THREE.Object3D, options: CampusScreenOptions): CampusScreen {
   const screenNodeName = options.screenNodeName ?? SCREEN_NODE_NAME;
-  const mesh = findScreen(root, screenNodeName);
+  const uvChannel = options.screenUvChannel ?? 0;
+  const mesh = findScreen(root, screenNodeName, uvChannel);
   if (!mesh) {
-    console.warn(`[service-campus] no "${screenNodeName}" mesh with UVs in the model; the ring's screen stays dark`);
+    console.warn(`[service-campus] no "${screenNodeName}" mesh with ${uvAttributeName(uvChannel)}; the strip stays dark`);
     return INERT;
   }
+  selectScreenUv(mesh, uvChannel);
 
   const document = options.document ?? CAMPUS_SCREEN_DOCUMENT;
   const compositions: FacadeComposition[] = document.compositions.map((content) =>

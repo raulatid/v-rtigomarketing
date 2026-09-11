@@ -107,7 +107,6 @@ export async function attachAssetLightmaps(
           instanced,
           programKey: `murcia-assets-v1-${instanced ? 'instanced' : 'static'}`,
         });
-        material.name = `MAT_CITY_BAKED_${chunk}_${kind}`;
         materials.set(key, material);
       }
       return material;

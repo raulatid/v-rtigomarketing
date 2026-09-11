@@ -11,6 +11,7 @@ import { createCampusCamera, type CampusCameraTuning, type CampusFraming } from 
 import { createCampusOverlay, type OverlayCopy } from './section/campusOverlay';
 import { createCampusState, type CampusSnapshot } from './section/campusState';
 import { attachCampusScreen, type CampusScreen } from './campusScreen/attachCampusScreen';
+import { CAMPUS_SCREEN_UV_CHANNEL } from './campusConfig';
 import type { FacadeContentDocument } from '../landmark/towerScreen/content/facadeContent';
 
 /**
@@ -189,6 +190,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     ? attachCampusScreen(root, {
         anisotropy: options.screen.anisotropy,
         reducedMotion: options.screen.reducedMotion,
+        screenUvChannel: CAMPUS_SCREEN_UV_CHANNEL,
         ...(options.screen.maxTextureSize === undefined ? {} : { maxTextureSize: options.screen.maxTextureSize }),
         ...(options.screen.document === undefined ? {} : { document: options.screen.document }),
         ...(options.screen.resolution === undefined ? {} : { resolution: options.screen.resolution }),
