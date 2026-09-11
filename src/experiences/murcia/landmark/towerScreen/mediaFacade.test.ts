@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
-import { measureFacade, toDesignMetres } from './mediaFacade'
+import { createMediaFacade, measureFacade, toDesignMetres } from './mediaFacade'
 import { DESIGN_METRES_WIDE } from './content/towerContent'
 
 // The screen's size is read off the mesh, and the city's export has its scale
@@ -52,5 +53,52 @@ describe('the design width', () => {
       metresWide: 13.1,
       metresTall: 47.3,
     })
+  })
+})
+
+// The two things the services campus's ring strip needs from the engine, and
+// the tower must not notice. A facade needs a 2D context to be BUILT, and
+// jsdom has none, so construction gets one that does nothing: nothing below
+// draws, it only reads what the facade put on its material and textures.
+describe('the scroll and the flip', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  function facade(options: { flipY?: boolean } = {}) {
+    const inert: CanvasRenderingContext2D = new Proxy({} as CanvasRenderingContext2D, {
+      get: () => () => {},
+    })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(inert as never)
+    // jsdom has no FontFace, so the facade's font load warns; that is not under test.
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const mesh = new THREE.Mesh(strip(40, 4))
+    const built = createMediaFacade({ mesh, resolution: 256, anisotropy: 1, ...options })
+    const uniforms = (mesh.material as THREE.ShaderMaterial).uniforms
+    return { built, uniforms }
+  }
+
+  it('holds the picture still unless asked, and uploads unflipped, as the tower always has', () => {
+    const { built, uniforms } = facade()
+    built.update(1)
+    expect(uniforms['uScroll']!.value).toBe(0)
+    expect((uniforms['uMapA']!.value as THREE.Texture).flipY).toBe(false)
+    expect((uniforms['uMapB']!.value as THREE.Texture).flipY).toBe(false)
+  })
+
+  it('slides the picture by turns per second, and wraps rather than growing', () => {
+    const { built, uniforms } = facade()
+    built.setScroll(0.25)
+    for (let i = 0; i < 5; i++) built.update(1)
+    // 1.25 turns: a whole lap and a quarter, held in [0, 1) so the shader's
+    // fract() never meets a float that has lost its fraction to magnitude.
+    expect(uniforms['uScroll']!.value).toBeCloseTo(0.25, 6)
+    built.setScroll(0)
+    built.update(1)
+    expect(uniforms['uScroll']!.value).toBeCloseTo(0.25, 6)
+  })
+
+  it('flips the upload when the screen\'s v runs bottom to top', () => {
+    const { uniforms } = facade({ flipY: true })
+    expect((uniforms['uMapA']!.value as THREE.Texture).flipY).toBe(true)
+    expect((uniforms['uMapB']!.value as THREE.Texture).flipY).toBe(true)
   })
 })

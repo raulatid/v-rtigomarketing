@@ -45,10 +45,10 @@ import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/blogDisplay/
 import { CITY_A2, murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 import { expandRect } from '../src/experiences/murcia/navigation/navigationBounds';
 import {
-  BUILDING_NODE_NAMES,
-  FOCO_NODE_NAMES,
-  PLAZA_NODE_NAME,
-} from '../src/experiences/murcia/district/districtConfig';
+  CAMPUS_NODE_NAMES,
+  CAMPUS_SCREEN_NODE_NAME,
+  CAMPUS_WATER_NODE_NAME,
+} from '../src/experiences/murcia/campus/campusConfig';
 import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
 
 const MODEL =
@@ -324,30 +324,18 @@ check(
   used.includes('KHR_lights_punctual') ? 'KHR_lights_punctual present' : 'none',
 );
 
-// --- 5. Service buildings ---------------------------------------------------
-// RETIRED HERE: "nodes carry glTF extras" and "at least one node tagged
-// district=". They asserted the pre-2026-08-27 mechanism, where a district was
-// a cluster located through a Blender custom property exported into glTF
-// `extras`. The city now ships one building per service, and the only
-// production caller of `resolveDistrict` (`MurciaExperience`) passes `tag: ''`,
-// so no code path reads `extras.district` at all. Those two checks could only
-// ever fail, and their failing said nothing about the asset.
+// --- 5. The services campus ------------------------------------------------
+// RETIRED HERE, in order: the district custom properties (extras.district,
+// 2026-08-27), the per-service buildings (2026-09-06), and the display
+// district's plaza and buildings (2026-09-11, murcia-v6). Each asserted a
+// mechanism the export had stopped carrying, and an assertion has to be
+// retired as deliberately as it was added.
 //
-// The resolver still HAS the tag path, and this is not an argument for deleting
-// it. It is the argument for not asserting a mechanism no caller uses.
-//
-// What replaced them is below, and it is a real contract with a real failure
-// mode. Names are the identity of these objects, and a rename in Blender is
-// silent: the building keeps rendering, loses its service, and the only report
-// is a console line at load on a page nobody has open.
+// What replaced them is the campus: fifteen objects found by NAME. A rename in
+// Blender is silent — the part keeps the city's trim material, the lake stays
+// flat, the strip stays dark — and the only report is a console line at load.
 
-section("5. The district's buildings (districtConfig — object names ARE the identity)");
-
-console.log(
-  '        district tags (extras.district) retired 2026-08-27, and the\n' +
-    '        per-service building/connection pairs retired 2026-09-06 with the\n' +
-    '        export that replaced them with three meshes carrying no service.',
-);
+section('5. The services campus (campus/campusConfig — names ARE the identity)');
 
 /**
  * Every GLB node name that `configured` would resolve to at runtime.
@@ -411,26 +399,54 @@ function worldXzBounds(
   };
 }
 
-const missingBuildings: string[] = [];
-const ambiguousBuildings: string[] = [];
-for (const configured of BUILDING_NODE_NAMES) {
+const missingCampus: string[] = [];
+const ambiguousCampus: string[] = [];
+for (const configured of CAMPUS_NODE_NAMES) {
   const hits = nodesNamed(configured);
-  if (hits.length === 0) missingBuildings.push(configured);
-  // Reported, not asserted: `getObjectByName` returns the first match, so two
-  // nodes sharing a configured name means the cluster picks up whichever one
-  // the exporter happened to write first.
-  else if (hits.length > 1) ambiguousBuildings.push(`${configured} x${hits.length}`);
+  if (hits.length === 0) missingCampus.push(configured);
+  // Reported, not asserted: lookups take the first match, so two nodes sharing
+  // a name means the campus picks up whichever the exporter wrote first.
+  else if (hits.length > 1) ambiguousCampus.push(`${configured} x${hits.length}`);
 }
 check(
-  'the district building cluster is in the GLB',
-  missingBuildings.length === 0,
-  missingBuildings.length === 0
-    ? `${BUILDING_NODE_NAMES.length}/${BUILDING_NODE_NAMES.length} node(s)` +
-        (ambiguousBuildings.length ? ` — AMBIGUOUS: ${list(ambiguousBuildings)}` : '')
-    : `${BUILDING_NODE_NAMES.length - missingBuildings.length}/${BUILDING_NODE_NAMES.length} — ` +
-        `missing ${list(missingBuildings)}. The district has no entry target and is ` +
-        'skipped whole — see murcia/district/districtConfig.ts',
+  'every campus node is in the GLB',
+  missingCampus.length === 0,
+  missingCampus.length === 0
+    ? `${CAMPUS_NODE_NAMES.length}/${CAMPUS_NODE_NAMES.length} node(s)` +
+        (ambiguousCampus.length ? ` — AMBIGUOUS: ${list(ambiguousCampus)}` : '')
+    : `${CAMPUS_NODE_NAMES.length - missingCampus.length}/${CAMPUS_NODE_NAMES.length} — ` +
+        `missing ${list(missingCampus)}. See murcia/campus/campusConfig.ts`,
 );
+
+{
+  // The strip's UVs ARE the screen: every composition rides them, so a strip
+  // exported without them is a dark ring rather than an error.
+  const strip = nodes.find(
+    (n) => n.name != null && PropertyBinding.sanitizeNodeName(n.name) === CAMPUS_SCREEN_NODE_NAME,
+  );
+  const prims = strip?.mesh != null ? (meshes[strip.mesh]?.primitives ?? []) : [];
+  check(
+    `"${CAMPUS_SCREEN_NODE_NAME}" carries TEXCOORD_0`,
+    prims.length > 0 && prims.every((p) => attributeNames(p).has('TEXCOORD_0')),
+    prims.length === 0
+      ? 'no strip mesh to read'
+      : `${prims.length} primitive(s); the LED strip's compositions ride its UVs`,
+  );
+
+  // The campus stands on the authored plate. Read from the water node's own
+  // translation — every campus part shares it — because the lake is what the
+  // section is centred on, and a campus exported off the plate would put the
+  // section's camera out over the skirt.
+  const water = nodes.find((n) => n.name === CAMPUS_WATER_NODE_NAME);
+  const [wx, , wz] = water?.translation ?? [Number.NaN, 0, Number.NaN];
+  const plate = murciaConfig.contentBounds;
+  check(
+    'the campus stands on the authored plate',
+    wx >= plate.minX && wx <= plate.maxX && wz >= plate.minZ && wz <= plate.maxZ,
+    `campus origin (${wx.toFixed(1)}, ${wz.toFixed(1)}) in plate ` +
+      `X [${plate.minX.toFixed(1)}, ${plate.maxX.toFixed(1)}] Z [${plate.minZ.toFixed(1)}, ${plate.maxZ.toFixed(1)}]`,
+  );
+}
 
 // --- 5b. The blog's entry point ---------------------------------------------
 //
@@ -453,40 +469,6 @@ for (const configured of BLOG_BUILDING_NODE_NAMES) {
     matches.length > 0
       ? `as ${list(matches)}`
       : 'the blog has no way in from the city — see murcia/blogDisplay/blogDisplayConfig.ts',
-  );
-}
-
-// --- 5c. The district's scene vocabulary ------------------------------------
-//
-// `districtConfig.ts` names four more objects that are not buildings, and every
-// one of them is a silent failure rather than a crash. Without the plaza the
-// display falls back to sitting on the buildings' own centroid; without the ring
-// the fluid has nothing to run around and simply is not drawn; without the focos
-// the display appears to be generated by nothing. `createServicesDistrict` and
-// `districtFlow` both warn to the console and carry on, which is the right
-// runtime behaviour and the wrong place to find out.
-//
-// A NAME section, so it runs under --contract-only and gates the build.
-
-section("5c. The district's scene vocabulary (districtConfig — names ARE the identity)");
-
-for (const [label, configured] of [
-  ['the plaza', PLAZA_NODE_NAME],
-  // Deduped against the plaza: FOCO_NODE_NAMES *is* the plaza since the
-  // 2026-09-06 export removed the three projectors, so listing both would
-  // report one node twice and make a one-node vocabulary look like two.
-  ...FOCO_NODE_NAMES.filter((name) => name !== PLAZA_NODE_NAME).map(
-    (name, i) => [`projector ${i + 1}`, name] as const,
-  ),
-] as ReadonlyArray<readonly [string, string]>) {
-  const matches = nodesNamed(configured);
-  check(
-    `${label} — "${configured}"`,
-    matches.length > 0,
-    matches.length > 0
-      ? `as ${list(matches)}`
-      : 'the district still opens, and quietly loses this part — see ' +
-        'murcia/district/districtConfig.ts',
   );
 }
 

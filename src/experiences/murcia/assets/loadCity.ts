@@ -9,6 +9,7 @@ import { collectTextures, disposeObject3D } from '../../../graphics/disposal';
 import { createRioWater, type RioWater } from '../water/createRioWater';
 import { DEFAULT_RIO_WATER_CONFIG } from '../water/rioWaterConfig';
 import { computeRiverFrame } from '../water/riverFrame';
+import { applyCampusPalette } from '../campus/campusPalette';
 
 /**
  * The river mesh in the GLB.
@@ -219,6 +220,8 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   //   4. the river material has to be assigned AFTER `applyTrimSheet`, which
   //      blanket-assigns the buildings material to every mesh it walks — do it
   //      before and the water is silently overwritten with grey concrete;
+  //      the services campus's colours go on here for the same reason — its
+  //      parts ship with no materials, and the sheet would otherwise be their look;
   //   5. `buildSceneReport` counts a non-zero texture and so tells the truth
   //      about what a missing UV set now costs, instead of calling it harmless,
   //      and it runs last so its material count includes the water.
@@ -240,6 +243,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   }
   configureTrimTextures(root);
   const river = attachRiverWater(root);
+  applyCampusPalette(root);
   const report = buildSceneReport(gltf, found, options.terrainObjectName);
 
   return {

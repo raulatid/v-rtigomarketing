@@ -31,6 +31,9 @@ uniform float uIdleGlow;
 
 uniform float uShimmer;
 uniform float uTime;
+// How far the picture has slid along u, in turns. The LED grid, the wake and
+// the edges stay put: only the picture moves, like a ticker on a fixed wall.
+uniform float uScroll;
 
 /**
  * The dust field, one set per canvas slot.
@@ -140,8 +143,12 @@ float dustField(vec2 uv, vec4 rect, float strength, float lum) {
 void main() {
   // The composed frame. Both maps are sampled unconditionally: branching on
   // uBlend would cost more than the fetch and would pop at the ends.
-  vec3 mapA = texture2D(uMapA, vUv).rgb;
-  vec3 mapB = texture2D(uMapB, vUv).rgb;
+  // Held screens (the tower's) sample vUv untouched: fract() would fold the
+  // right edge's u = 1.0 back onto the left edge's texels. The branch is on a
+  // uniform, so every fragment takes the same side.
+  vec2 mapUv = uScroll == 0.0 ? vUv : vec2(fract(vUv.x - uScroll), vUv.y);
+  vec3 mapA = texture2D(uMapA, mapUv).rgb;
+  vec3 mapB = texture2D(uMapB, mapUv).rgb;
   vec3 content = mix(mapA, mapB, uBlend);
 
   // Each field is weighted by ITS OWN map's luminance, not the blend's, so a

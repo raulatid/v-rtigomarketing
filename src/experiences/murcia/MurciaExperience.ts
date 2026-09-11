@@ -42,6 +42,13 @@ import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import type { TowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import { VERTIGO_BUILDING } from './landmark/vertigoBuildingConfig';
+import { gatherCampus } from './campus/gatherCampus';
+import { CAMPUS_SCREEN_NODE_NAME, CAMPUS_WATER_NODE_NAME } from './campus/campusConfig';
+import { findLakeBasin } from './campus/lake/lakeBasin';
+import { attachLakeWater } from './campus/lake/lakeWater';
+import type { LakeWater } from './campus/lake/lakeWater';
+import { attachCampusScreen } from './campus/campusScreen/attachCampusScreen';
+import type { CampusScreen } from './campus/campusScreen/attachCampusScreen';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc } from '../../interaction/screenSpace';
@@ -141,6 +148,10 @@ export class MurciaExperience {
   private towerLogo: TowerLogo | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
   private towerScreen: TowerScreen | null = null;
+  /** The services campus's lake, on the water shader. Built after the city loads. */
+  private campusWater: LakeWater | null = null;
+  /** The campus ring's LED strip, running SERVICIOS round the building. */
+  private campusScreen: CampusScreen | null = null;
   private loaded: LoadedCity | null = null;
   /**
    * Elapsed seconds handed to the water shader.
@@ -776,9 +787,70 @@ export class MurciaExperience {
       reducedMotion: this.reducedMotion,
       screenNodeName: VERTIGO_BUILDING.screenNodeName,
     });
+    // Before `warm()` for the tower's reason: the water and facade shaders
+    // compile with the rest of the city rather than on first sight.
+    this.setupCampusLook(loaded.root);
 
     this.setupClickInteraction();
     this.statusOverlay.hide();
+  }
+
+  /**
+   * The services campus as scenery: the lake on the lab's water shader and the
+   * ring's strip running SERVICIOS. Its colours were put on in `loadCity`.
+   *
+   * INTERIM (plan 024, phase 2). The section — particles, camera, overlay —
+   * attaches these same two parts through `attachServicesCampus` in the next
+   * phase, and this method folds into that. The values below are the ones the
+   * lab's `attachServicesCampus` sets, kept identical so the fold changes
+   * nothing on screen.
+   *
+   * Every size is scaled from the lake's measured radius, so the campus's
+   * applied export scale (0.7417 of the lab's) needs no correction here; the
+   * strip normalises to its design width in the same way.
+   */
+  private setupCampusLook(root: THREE.Object3D): void {
+    const campus = gatherCampus(root);
+    if (!campus) return;
+
+    const lake = findLakeBasin(campus, CAMPUS_WATER_NODE_NAME);
+    if (lake) {
+      const r = lake.basin.radius;
+      const keyLight = new THREE.Vector3(...this.environment.sceneState.lighting.directional.position);
+      this.campusWater = attachLakeWater(lake.mesh, keyLight, {
+        waveLength: r * 0.12,
+        speed: 0.5,
+        strength: 1.8,
+        gloss: 220,
+        caustics: 0.45,
+        deep: 0x0d3a52,
+        shallow: 0x2a7d9c,
+        sky: 0x8fb8d4,
+        horizon: 0xd6e6ef,
+      });
+    } else {
+      console.warn(`[campus] no "${CAMPUS_WATER_NODE_NAME}" in the campus; the lake stays as exported`);
+    }
+
+    this.campusScreen = attachCampusScreen(campus, {
+      anisotropy: 4,
+      reducedMotion: this.reducedMotion,
+      screenNodeName: CAMPUS_SCREEN_NODE_NAME,
+      // Half the lab's 16384: 24 px per design metre, a 3 m word at 72 px.
+      // The facade keeps two canvas slots for its crossfade, and each is
+      // 8192 x 159 RGBA, about 5 MB before mips instead of 21 MB at 16384 —
+      // against a phone GPU budget measured at ~70 MB. Raised only if the LED
+      // grid is seen to eat the word.
+      resolution: 8192,
+      maxTextureSize: this.renderer.capabilities.maxTextureSize,
+    });
+    const facade = this.campusScreen.facade;
+    if (facade) {
+      facade.setBrightness(1.35);
+      facade.setLed(0.34, 0.09);
+      // Six design metres a second round a 343.9 m strip: one lap a minute.
+      facade.setScroll(6 / (facade.metresWide || 1));
+    }
   }
 
   /**
@@ -1216,6 +1288,9 @@ export class MurciaExperience {
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.
     this.towerScreen?.update(delta);
+    // The campus's lake and strip, on the same delta and the same gating.
+    this.campusWater?.update(delta);
+    this.campusScreen?.update(delta);
 
     if (!this.firstFrameRecorded && this.loaded) {
       this.loaded.timings.firstRenderedFrameTime = performance.now();
@@ -1266,6 +1341,13 @@ export class MurciaExperience {
     this.towerLogo = null;
     this.towerScreen?.dispose();
     this.towerScreen = null;
+    // Both hand the city's own material back to the mesh they borrowed, so
+    // disposeLoadedCity below frees what the city made, and each frees its own
+    // shader and canvases here.
+    this.campusScreen?.dispose();
+    this.campusScreen = null;
+    this.campusWater?.dispose();
+    this.campusWater = null;
     this.active = false;
 
     this.renderer.domElement.removeEventListener('pointerup', this.onPointerUpForClick);

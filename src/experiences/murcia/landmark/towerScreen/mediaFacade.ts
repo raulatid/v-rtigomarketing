@@ -198,6 +198,12 @@ export interface MediaFacadeOptions {
    * one at full size. Omitted, the measured metres are used as they are.
    */
   readonly designMetresWide?: number;
+  /**
+   * Whether the canvas is flipped on upload. Off for a screen whose v runs top
+   * to bottom (the tower's); on for one whose v runs bottom to top (the
+   * campus ring). Either way canvas (0,0) is the screen's top-left.
+   */
+  readonly flipY?: boolean;
 }
 
 export interface MediaFacade {
@@ -213,6 +219,8 @@ export interface MediaFacade {
   setLed(strength: number, pitchMetres: number): void;
   setIdleGlow(value: number): void;
   setShimmer(value: number): void;
+  /** Slides the picture along u at `turnsPerSecond` of the strip; 0 holds it. */
+  setScroll(turnsPerSecond: number): void;
   /** Multiplies every composition's own dust strength. 0 switches the field off. */
   setDust(scale: number): void;
   setFadeSeconds(value: number): void;
@@ -242,6 +250,8 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
   let resolution = Math.max(256, Math.round(options.resolution));
   let disposed = false;
   let elapsed = 0;
+  /** Turns of the strip per second the picture slides by. */
+  let scrollSpeed = 0;
   let progress = 0;
   let fadeSeconds = 0.6;
   /**
@@ -278,7 +288,7 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
     // 180°. With it
     // off, canvas (0,0) is the facade's top-left and 2D coordinates map straight
     // through — which is why no composition needs a transform.
-    texture.flipY = false;
+    texture.flipY = options.flipY ?? false;
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = options.anisotropy;
     texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -329,6 +339,7 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
       uIdleGlow: { value: 0.012 },
       uShimmer: { value: 0.35 },
       uTime: { value: 0 },
+      uScroll: { value: 0 },
       uMetres: { value: new THREE.Vector2(metresWide, metresTall) },
       uEdgeFalloff: { value: EDGE_FALLOFF_METRES / metresTall },
       uDustRectA: { value: new THREE.Vector4(0, 0, 0, 0) },
@@ -365,12 +376,10 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
     }
 
     const [x, y, w, h] = dust.rect;
-    (rectUniform.value as THREE.Vector4).set(
-      x / metresWide,
-      y / metresTall,
-      w / metresWide,
-      h / metresTall,
-    );
+    // Metres from the top-left, like every block; a flipped upload puts the
+    // canvas top at v = 1, so the rectangle is mirrored to match.
+    const top = options.flipY ? 1 - (y + h) / metresTall : y / metresTall;
+    (rectUniform.value as THREE.Vector4).set(x / metresWide, top, w / metresWide, h / metresTall);
     const arrived = staged(at, dust.stage[0], dust.stage[1]);
     material.uniforms[strengthKey]!.value = arrived * dust.strength * dustScale;
     material.uniforms['uDustDensity']!.value = dust.density;
@@ -475,6 +484,9 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
     setIdleGlow(value) {
       material.uniforms['uIdleGlow']!.value = value;
     },
+    setScroll(turnsPerSecond) {
+      scrollSpeed = turnsPerSecond;
+    },
     setShimmer(value) {
       material.uniforms['uShimmer']!.value = value;
     },
@@ -489,6 +501,10 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
     update(dt) {
       elapsed += dt;
       material.uniforms['uTime']!.value = elapsed;
+      if (scrollSpeed !== 0) {
+        const scroll = material.uniforms['uScroll']!;
+        scroll.value = ((scroll.value as number) + dt * scrollSpeed) % 1;
+      }
 
       // The crossfade. `uBlend` is always the mix from slot 0 to slot 1, so the
       // target is simply which slot should end up showing.
