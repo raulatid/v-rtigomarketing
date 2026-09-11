@@ -36,11 +36,23 @@
   }
 }
 
-/* ---- Type: two faces in two roles (2026-09-11) ------------------------------
+/* ---- Type: two faces in two roles ---------------------------------------------
 
-   Switzer is the DISPLAY role — headings, titles, the compass, the LED panels,
-   the CTAs. Inter is the TEXT role — everything else. The blog's article body
-   keeps its serif (blog.css).
+   General Sans is the DISPLAY role — headings, titles, the compass, the LED
+   panels, the CTAs. Gambetta, a serif, is the TEXT role — everything else,
+   the blog's article body included (blog.css). Both ITF, from Fontshare.
+
+   UNDER REVIEW (2026-09-12): these replaced Switzer and Inter, and the blog's
+   Source Serif 4, to be judged by eye. The old faces stay declared under
+   their own names, second in each stack, so going back is a reorder.
+
+   A browser only fetches a face it has to draw a glyph from, and the new
+   faces cover all of Spanish — but NEITHER has arrows (← → ↑ ↓), which the
+   copy uses ("→" on the blog's links, the campus hint). Those are drawn from
+   the second face, so Switzer is still fetched on any page with an arrow in
+   display text. Dropping the old faces means deciding where arrows come from. */
+
+/* ── The new faces ──
 
    Declared here because this is the one sheet every document loads, so one
    declaration serves the scene, the warm blog and the cold blog alike, and
@@ -49,12 +61,37 @@
    @font-face is global to the document, and a face called plain "Inter" is
    something other sheets might ask for without meaning it.
 
-   Both files are variable fonts, so one file covers every weight. Switzer is
-   one file for all of latin and latin-ext (386 glyphs, 43 KB); Inter keeps the
-   blog's two subsets, and the unicode-ranges are the blog's, so a browser that
-   has one declaration's file already has the other's. */
+   Every file is a variable font, so one file covers every weight, for all of
+   latin and latin-ext. General Sans: 384 glyphs, 38 KB, 200-700. Gambetta:
+   354 glyphs, 35 KB, 300-700, plus a 39 KB italic that only the blog's
+   emphasis asks for. */
 @font-face {
   font-family: 'Vertigo Display';
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: swap;
+  src: url('/fonts/general-sans-variable-49d3fbd2.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Vertigo Text';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/gambetta-variable-f705e571.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Vertigo Text';
+  font-style: italic;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/gambetta-variable-italic-635900c5.woff2') format('woff2');
+}
+
+/* The faces under review replaced. Kept declared, second in each stack. */
+@font-face {
+  font-family: 'Vertigo Switzer';
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
@@ -62,7 +99,7 @@
 }
 
 @font-face {
-  font-family: 'Vertigo Text';
+  font-family: 'Vertigo Inter';
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
@@ -71,7 +108,7 @@
 }
 
 @font-face {
-  font-family: 'Vertigo Text';
+  font-family: 'Vertigo Inter';
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
@@ -80,8 +117,8 @@
 }
 
 :root {
-  --font-display: 'Vertigo Display', 'Vertigo Text', system-ui, sans-serif;
-  --font-text: 'Vertigo Text', system-ui, sans-serif;
+  --font-display: 'Vertigo Display', 'Vertigo Switzer', system-ui, sans-serif;
+  --font-text: 'Vertigo Text', 'Vertigo Inter', Georgia, serif;
 }
 
 /* ---- The smoked-glass material (plan 020) ----------------------------------

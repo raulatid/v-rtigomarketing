@@ -64,17 +64,16 @@
          palette, and this is what stops the browser painting a dark chrome
          around a paper-white page before the stylesheet lands. -->
     <meta name="theme-color" content="#fbfbfa" />
-    <!-- The three faces that render above the fold, and only those: Inter for
-         the UI, the serif for the standfirst, Switzer for the title. latin-ext and
-         the italic are left to `unicode-range` and `font-style`: the browser
-         fetches them if a character or a style on the page needs one, and
-         preloading a file that is usually unused spends bytes to save nothing.
+    <!-- The faces that render above the fold, and only those: Gambetta for the
+         UI and the standfirst, General Sans for the title. The italic is left
+         to `font-style`: the browser fetches it if a style on the page needs
+         it, and preloading a file that is usually unused spends bytes to save
+         nothing.
 
          `crossorigin` is required even same-origin — a font request is
          CORS-mode, and without it the preload is fetched twice. -->
-    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin-3100e775.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="/fonts/source-serif-4-latin-f2ea9c12.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="/fonts/switzer-variable-d1bf801f.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/gambetta-variable-f705e571.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/general-sans-variable-49d3fbd2.woff2" crossorigin />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cpath fill='%230b0b0d' d='M33.7 13.6 7.7 39.4l4.7 3.4c92.3 67.2 193 82.8 292.7 45.5 30.2-11.3 63.8-30.1 85-47.4L354.1.2l-3.4 2.3c-37.9 26-78.1 42.2-118.4 47.7-19.1 2.6-39.4 2.9-58.5.7-26.4-3-52.3-10.2-77.5-21.7C79.3 21.5 62.2 11.4 49.9 1.8L47.5 0Z'/%3E%3Cpath fill='%230b0b0d' d='M34.5 99.7 168.6 399.5h62.5L365 99.7l-6 2.9c-20.4 10.2-45.7 20.3-65.4 26l-2.5.9-45.5 101.1-45.4 101.2-45.6-101.1L109.1 129.3l-1.7-.3c-13.6-2.4-43.2-14.2-69.4-27.7Z'/%3E%3C/svg%3E"

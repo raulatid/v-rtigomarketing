@@ -52,12 +52,12 @@
       }
     </style>
 
-    <!-- The two faces the scene's text sets in (siteHeader.css, "Type"): Inter
-         latin for the text role, Switzer for the display role. Discovered now,
+    <!-- The two faces the scene's text sets in (siteHeader.css, "Type"): Gambetta
+         for the text role, General Sans for the display role. Discovered now,
          at LOW priority for the reason the block below gives: nothing is set in
          them until the header arrives with phase 'site', seconds after the app
-         chunk they would otherwise compete with. latin-ext is left to
-         `unicode-range`. `crossorigin` is required even same-origin — a font
+         chunk they would otherwise compete with. Each is one file for latin
+         and latin-ext. `crossorigin` is required even same-origin — a font
          request is CORS-mode, and without it the preload is fetched twice. -->
     <link
       rel="preload"
@@ -65,7 +65,7 @@
       type="font/woff2"
       crossorigin
       fetchpriority="low"
-      href="/fonts/inter-latin-3100e775.woff2"
+      href="/fonts/gambetta-variable-f705e571.woff2"
     />
     <link
       rel="preload"
@@ -73,7 +73,7 @@
       type="font/woff2"
       crossorigin
       fetchpriority="low"
-      href="/fonts/switzer-variable-d1bf801f.woff2"
+      href="/fonts/general-sans-variable-49d3fbd2.woff2"
     />
 
     <!-- Discovery early, PRIORITY LOW (plan 007 Phase 8).

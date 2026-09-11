@@ -43,15 +43,16 @@ const AXIS = '#25333f';
 const HAIRLINE = '#1d2a35';
 
 /**
- * The site's two faces, by role: headlines and metrics are display (Switzer),
- * everything else on the wall is text (Inter). Declared once in siteHeader.css;
- * `mediaFacade` asks `document.fonts` for both and repaints when they land.
+ * The site's two faces, by role: headlines and metrics are display (General
+ * Sans), everything else on the wall is text (Gambetta). Declared once in
+ * siteHeader.css; `mediaFacade` asks `document.fonts` for both and repaints
+ * when they land.
  */
 type FontRole = 'display' | 'text';
 
 const FONT_STACK: Record<FontRole, string> = {
-  display: "'Vertigo Display', 'Vertigo Text', ui-sans-serif, system-ui, sans-serif",
-  text: "'Vertigo Text', ui-sans-serif, system-ui, sans-serif",
+  display: "'Vertigo Display', ui-sans-serif, system-ui, sans-serif",
+  text: "'Vertigo Text', Georgia, serif",
 };
 
 const TONES = { ink: INK, accent: ACCENT, muted: MUTED } as const;
@@ -65,12 +66,14 @@ const colorOf = (
  * Cap size in metres to a canvas font.
  *
  * `size` is CAP HEIGHT, not em size, because a designer measures the letter and
- * not the invisible box around it. Inter's cap height is 0.727 em, so the em
- * size is the cap divided by that — which is why `1.6 m` of heading is 2.2 m of
- * font. Getting this wrong makes every metre in every spec a lie. Switzer's is
- * 0.750 (its OS/2 table), so the same spec sets its letters to the same height.
+ * not the invisible box around it. General Sans's cap height is 0.718 em, so
+ * the em size is the cap divided by that — which is why `1.6 m` of heading is
+ * 2.2 m of font. Getting this wrong makes every metre in every spec a lie.
+ * Gambetta's is 0.680, measured from its H: its OS/2 table says 0.450, which
+ * is its x-height copied into the wrong field, and trusting it would set the
+ * wall's text half again too big.
  */
-const CAP_TO_EM: Record<FontRole, number> = { display: 1 / 0.75, text: 1 / 0.727 };
+const CAP_TO_EM: Record<FontRole, number> = { display: 1 / 0.718, text: 1 / 0.68 };
 
 function font(
   ctx: CanvasRenderingContext2D,

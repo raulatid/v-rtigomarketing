@@ -178,15 +178,25 @@ Swapping a track: re-run the recipe, rename by hash, update `MUSIC_TRACKS` in
 
 ## Typefaces
 
-The site self-hosts three families, all served from `public/fonts/` as woff2.
-Since 2026-09-11 the whole site sets type in two roles: Switzer for display
-(headings, titles, the compass, the LED panels, the CTAs) and Inter for text,
-declared once for every document in `src/components/siteHeader.css` as
-`Vertigo Display` and `Vertigo Text`. The blog additionally declares Inter and
-Source Serif 4 in `src/blog/blog.css` as `Vertigo Blog Inter` and
-`Vertigo Blog Serif`, and keeps the serif for reading. Every family is declared
-under a private name, because `@font-face` is global to a document.
+The site self-hosts its families from `public/fonts/` as woff2, and sets type
+in two roles declared once for every document in `src/components/siteHeader.css`
+as `Vertigo Display` and `Vertigo Text`. Since 2026-09-12, under review, those
+are General Sans for display (headings, titles, the compass, the LED panels,
+the CTAs) and Gambetta for text, the blog's article body included.
 
+The faces they replaced stay declared as fallbacks until the change is
+approved: Switzer as `Vertigo Switzer` and Inter as `Vertigo Inter` in
+siteHeader.css, and Inter and Source Serif 4 as `Vertigo Blog Inter` and
+`Vertigo Blog Serif` in `src/blog/blog.css`. Every family is declared under a
+private name, because `@font-face` is global to a document.
+
+- **General Sans**, by Frode Helland, © Indian Type Foundry, distributed free
+  by Fontshare. https://www.fontshare.com/fonts/general-sans — ITF Free Font
+  License 2.0, which permits self-hosting for our own website (its §01). The
+  unmodified variable woff2 from the Fontshare kit, one file for every weight.
+- **Gambetta**, by Paul Troppmair, © Indian Type Foundry, distributed free by
+  Fontshare. https://www.fontshare.com/fonts/gambetta — ITF Free Font License
+  2.0, as above. The unmodified variable woff2 and its italic from the kit.
 - **Switzer**, by Jérémie Hornus, © Indian Type Foundry, distributed free by
   Fontshare. https://www.fontshare.com/fonts/switzer — the unmodified variable
   woff2 from the Fontshare kit, one file for every weight.
