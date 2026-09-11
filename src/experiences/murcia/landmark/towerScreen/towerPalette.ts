@@ -56,6 +56,11 @@ const isMesh = (object: THREE.Object3D): object is THREE.Mesh =>
  * REPLACES the material, never mutates it: in the city the one it displaces is
  * shared by every building. The new ones hang on the tower's meshes, so whoever
  * disposes the tree disposes them. Returns how many nodes were dressed.
+ *
+ * An uncoloured `ARCH_` node is warned about only when it stands beside a part
+ * this palette dressed, which is what makes it a TOWER part. The city carries
+ * other buildings whose parts share the prefix — the services campus's, since
+ * murcia-v6 — and they are somebody else's to colour.
  */
 export function applyTowerPalette(root: THREE.Object3D): number {
   let dressed = 0;
@@ -65,21 +70,28 @@ export function applyTowerPalette(root: THREE.Object3D): number {
       { name, part },
     ]),
   );
+  const towerParents = new Set<THREE.Object3D>();
+  const uncoloured: THREE.Object3D[] = [];
 
   root.traverse((object) => {
     const entry = byName.get(object.name);
     if (!entry) {
-      if (object.name.startsWith('ARCH_') && !isMesh(object.parent ?? object)) {
-        console.warn(`[vertigo] "${object.name}" has no colour in the tower palette; it keeps its material`);
-      }
+      if (object.name.startsWith('ARCH_') && !isMesh(object.parent ?? object)) uncoloured.push(object);
       return;
     }
     const material = materialFor(entry.name, entry.part);
     object.traverse((child) => {
       if (isMesh(child)) child.material = material;
     });
+    if (object.parent) towerParents.add(object.parent);
     dressed += 1;
   });
+
+  for (const object of uncoloured) {
+    if (object.parent && towerParents.has(object.parent)) {
+      console.warn(`[vertigo] "${object.name}" has no colour in the tower palette; it keeps its material`);
+    }
+  }
 
   return dressed;
 }

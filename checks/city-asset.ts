@@ -52,7 +52,7 @@ import {
 import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
 
 const MODEL =
-  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/murcia-v5.glb';
+  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/murcia-v6.glb';
 
 /**
  * `--contract-only` runs the NAME sections and skips the pending UV assertion.

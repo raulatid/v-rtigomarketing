@@ -74,4 +74,18 @@ describe('the tower palette', () => {
     expect(materialOf(root, 'ARCH_Light_Warm')).toBe(CITY_MATERIAL)
     warn.mockRestore()
   })
+
+  it('leaves another building\'s ARCH_ parts alone, and says nothing about them', () => {
+    // murcia-v6 ships the services campus beside the tower, and its parts share
+    // the prefix. They are not tower parts, so they are neither dressed nor
+    // warned about: a warning per campus part on every load would bury the one
+    // that means a tower part lost its colour.
+    const city = new THREE.Group()
+    city.add(tower(), mesh('ARCH_Porcelain_White'), mesh('ARCH_Vertigo_Blue'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(applyTowerPalette(city)).toBe(Object.keys(TOWER_PALETTE).length)
+    expect(warn).not.toHaveBeenCalled()
+    expect(materialOf(city, 'ARCH_Porcelain_White')).toBe(CITY_MATERIAL)
+    warn.mockRestore()
+  })
 })

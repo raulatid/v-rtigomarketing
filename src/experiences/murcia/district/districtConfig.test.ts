@@ -35,9 +35,8 @@ describe('the district node names', () => {
     }
   })
 
-  it('gives the plaza a name that survives the loader, dot and all', () => {
-    // The plaza DOES carry a dot — the export authored it as `...-plaza.001` —
-    // and that is allowed precisely because `findByAnyNameSpelling` sanitizes
+  it('gives the plaza a name that survives the loader', () => {
+    // A plaza name may carry a dot, because `findByAnyNameSpelling` sanitizes
     // the configured name before matching. What must hold is that sanitizing it
     // still leaves something to look for, and that it does not collide with a
     // building once both have been through the loader.
