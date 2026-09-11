@@ -354,3 +354,49 @@
     transition: none;
   }
 }
+
+/* ── The services campus copy ─────────────────────────────────────────────────
+   The section's title, opening, read-more and buttons (`campus/section/
+   campusOverlay.ts`) on the smoked-glass material, read from siteHeader.css's
+   tokens as the compass above is.
+
+   DENSITY B, the compact plaque — the case panel's recipe (styles.css
+   .case-panel, DECISIONS §37): one service's copy over the scene is the job
+   the case panel does for a satellite. So the neutral edge, not the trays'
+   blue one, and the card blur.
+
+   Here and not inline: the overlay is the lab's file and keeps its own inline
+   styles so it still runs there, where these tokens do not exist. None of the
+   properties below are set inline on the layer — its width, position, fade and
+   `pointer-events: none` stay the overlay's, so a press on the plate still
+   reaches the city. One blurred surface: the buttons keep their own
+   translucent fill and blur nothing. */
+.murcia-ui .campus-overlay {
+  box-sizing: border-box;
+  padding: 1.75rem 2rem 1.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--glass-film), var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur-card);
+  backdrop-filter: var(--glass-blur-card);
+  box-shadow: var(--glass-shadow);
+}
+
+/* The specular film, as on the case panel. The layer is fixed, so it is the
+   containing block, and it never scrolls, so the film can be an overlay. */
+.murcia-ui .campus-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--glass-highlight);
+  opacity: 0.7;
+}
+
+/* At 88vw the desktop padding would eat a phone's line length. */
+@media (max-width: 480px) {
+  .murcia-ui .campus-overlay {
+    padding: 1.25rem 1.1rem 1.1rem;
+  }
+}

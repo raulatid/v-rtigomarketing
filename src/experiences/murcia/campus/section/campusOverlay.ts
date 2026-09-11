@@ -86,7 +86,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   if (options.fontFamily && options.fontUrl) void loadFont(options.fontFamily, options.fontUrl);
 
   const layer = document.createElement('div');
-  // A selector for tests and e2e; nothing styles it.
+  // A selector for tests and e2e, and the site's hook for its glass plate
+  // (murcia.css). The lab styles nothing through it.
   layer.className = 'campus-overlay';
   layer.style.cssText =
     `position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);z-index:${Z_INDEX};` +
