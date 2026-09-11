@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { BlogPost, CaseStudy, SiteSettings } from '../../src/content/types'
+import type { BlogPost, CaseStudy, DistrictContent, SiteSettings } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
@@ -280,25 +280,28 @@ describe('district mapping rejects', () => {
 })
 
 describe('district particle colours', () => {
+  const mapped = (record: unknown): DistrictContent => {
+    const result = districtsCollection.map(record, 0)
+    if (!result.ok) throw new Error(JSON.stringify(result.problems))
+    return result.value as DistrictContent
+  }
+
   it('resolve an empty district colour to the site blue, and an empty service colour to the district\'s', () => {
     const record = validDistrict()
     delete record.particleColor
     const services = record.services as Array<Record<string, unknown>>
     services[0].particleColor = ''
     services[1].particleColor = null
-    const result = districtsCollection.map(record, 0)
-    if (!result.ok) throw new Error(JSON.stringify(result.problems))
-    expect(result.value.particleColor).toBe('#1c67ff')
-    expect(result.value.services[0]!.particleColor).toBe('#1c67ff')
-    expect(result.value.services[1]!.particleColor).toBe('#1c67ff')
+    const district = mapped(record)
+    expect(district.particleColor).toBe('#1c67ff')
+    expect(district.services[0]!.particleColor).toBe('#1c67ff')
+    expect(district.services[1]!.particleColor).toBe('#1c67ff')
   })
 
   it('keep a set colour, lowercased', () => {
     const record = validDistrict()
     ;(record.services as Array<Record<string, unknown>>)[0].particleColor = '#FFB020'
-    const result = districtsCollection.map(record, 0)
-    if (!result.ok) throw new Error(JSON.stringify(result.problems))
-    expect(result.value.services[0]!.particleColor).toBe('#ffb020')
+    expect(mapped(record).services[0]!.particleColor).toBe('#ffb020')
   })
 })
 
