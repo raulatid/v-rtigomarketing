@@ -44,6 +44,10 @@ const GROUND = { minX: -1417.5, maxX: 752.4, minZ: -620.5, maxZ: 1304.8 };
  *   node `CITY_A2_SIMPLIFIED`
  *   world XZ   X [-463.1, -56.4]   Z [70.5, 489.8]   (406.7 x 419.3)
  *
+ * Since murcia-v5 the ring is no longer its own node: the exporter joins it
+ * into `Edificios_Procedurales`, whose own mesh now measures the same rectangle
+ * to within 0.4 units. `checks/city-asset.ts` §7b reads it from there.
+ *
  * It wraps the plate, strictly containing it on all four sides:
  *
  *   -X 24.9   +X 30.0   -Z 50.0   +Z 16.5

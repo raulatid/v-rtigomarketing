@@ -616,7 +616,16 @@ if (groundName === null || claimed === null) {
 
 section('7b. The A2 ring (the ground the navigable rectangle stands on)');
 
-const RING_NODE = 'CITY_A2_SIMPLIFIED';
+// The ring is found by the node that CARRIES it, not by the name it was
+// measured under. `CITY_A2_SIMPLIFIED` was its own node in city-prototype.glb;
+// from murcia-v5 on, the exporter joins it into `Edificios_Procedurales`, whose
+// own mesh grew from the plate's extent (X [-428, -103]) to the ring's
+// (X [-463.5, -56.1] Z [70.2, 490.3] in v5 and v6, within 0.4 of CITY_A2).
+// So the rule this section guards — the eye may leave the plate only onto
+// BUILT city — still has something built to point at, and the check reads the
+// same rectangle it always did. Asserting the ground plate instead would have
+// kept it green on bare filler ground, which is exactly what §40 rules out.
+const RING_NODE = 'Edificios_Procedurales';
 const ringClaimed = CITY_A2;
 const ringNodes = nodesNamed(RING_NODE);
 
