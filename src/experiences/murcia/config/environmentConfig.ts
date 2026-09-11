@@ -68,9 +68,10 @@ export interface CameraPoseConfig {
  */
 export interface FocusFlightConfig {
   /**
-   * Closest approach, as a multiple of the resting distance. A per-district
-   * target may not go below this — `DistrictSceneBinding.focusDistanceScale`
-   * is clamped against it rather than trusted.
+   * Closest approach, as a multiple of the resting distance. The display
+   * district's flight clamped its dolly against this; since the services campus
+   * replaced it (plan 024) no flight reads it, and `check:footprint` and
+   * `check:warp` keep it as the closest pose they prove.
    */
   minDistanceScale: number;
   /**

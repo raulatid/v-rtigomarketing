@@ -1,14 +1,13 @@
-import type { DistrictSnapshot } from '../districtState';
-import { controlLabel } from '../display/displayConfig';
+import { campusLabel } from '../../campus/campusLabels';
 
 /**
  * The district's keyboard and screen-reader surface.
  *
- * The projected display is the only surface a *pointer* uses (plan 003 §4), and
- * it is drawn in a fragment shader. A raycast cannot be tabbed to and a shader
- * cannot be read aloud, so without this the services district is reachable by
- * mouse and touch and by nothing else. The DOM panel and the per-building labels
- * it replaces were carrying that job as a side effect of being DOM.
+ * Written for the projected display (plan 003 §4), and kept for the services
+ * campus that replaced it (plan 024): the section's shapes are particles and
+ * its way in is a tap on a lake, and a raycast cannot be tabbed to. The
+ * campus's copy IS real text, but it has no way in, no paging and no depth
+ * controls a keyboard can reach — this is those.
  *
  * Deliberately NOT a second visible UI. These are the `.nav-control` pattern
  * from `styles.css`: clipped to a pixel, unclipped on `:focus-visible` so a
@@ -29,6 +28,15 @@ export interface DistrictA11yEvents {
   /** SABER MÁS while reading is closed, and the close while it is open. */
   onDetailToggle(): void;
   onBack(): void;
+}
+
+/** Where the section is, in the terms this surface needs. */
+export interface DistrictA11ySnapshot {
+  /** Anywhere but the overview. */
+  districtActive: boolean;
+  /** Whether the current stop has a detail to open — the intro does not. */
+  hasDetail: boolean;
+  detailOpen: boolean;
 }
 
 /** What the announcement needs, resolved by the caller from the active index. */
@@ -86,18 +94,18 @@ export class DistrictA11y {
 
     // Order here IS tab order, and it matches the way the display reads: the way
     // in, then paging, then depth, then out.
-    this.enterButton = button(`${districtLabel}: explorar`, events.onEnter);
-    this.previousButton = button('Servicio anterior', events.onPrevious);
-    this.nextButton = button('Servicio siguiente', events.onNext);
-    this.detailButton = button(controlLabel(locale, 'detail'), events.onDetailToggle);
-    this.backButton = button(controlLabel(locale, 'back'), events.onBack);
+    this.enterButton = button(`${districtLabel}: ${campusLabel(locale, 'explore')}`, events.onEnter);
+    this.previousButton = button(campusLabel(locale, 'previous'), events.onPrevious);
+    this.nextButton = button(campusLabel(locale, 'next'), events.onNext);
+    this.detailButton = button(campusLabel(locale, 'readMore'), events.onDetailToggle);
+    this.backButton = button(campusLabel(locale, 'back'), events.onBack);
 
     parent.appendChild(this.root);
-    this.applyVisibility(false, false);
+    this.applyVisibility({ districtActive: false, hasDetail: false, detailOpen: false });
   }
 
-  update(snapshot: DistrictSnapshot, view: DistrictA11yView | null): void {
-    this.applyVisibility(snapshot.districtActive, snapshot.detailOpen);
+  update(snapshot: DistrictA11ySnapshot, view: DistrictA11yView | null): void {
+    this.applyVisibility(snapshot);
 
     if (!snapshot.districtActive || !view) {
       this.announced = '';
@@ -109,7 +117,7 @@ export class DistrictA11y {
     // Reading long copy is what the display is for; duplicating it into a live
     // region would make every page change read the whole service aloud.
     const message = snapshot.detailOpen
-      ? `${view.eyebrow}. ${view.title}. ${controlLabel(this.locale, 'detail')}.`
+      ? `${view.eyebrow}. ${view.title}. ${campusLabel(this.locale, 'readMore')}.`
       : `${view.eyebrow}. ${view.title}. ${view.summary}`;
 
     if (message === this.announced) return;
@@ -117,19 +125,19 @@ export class DistrictA11y {
     this.live.textContent = message;
   }
 
-  private applyVisibility(active: boolean, detailOpen: boolean): void {
+  private applyVisibility({ districtActive: active, hasDetail, detailOpen }: DistrictA11ySnapshot): void {
     this.enterButton.hidden = active;
     // Pagination stands down while reading, exactly as it does on the display
     // (plan 003 §11) — a control that is inert on screen must not still be
     // tabbable, or the two navigation models have diverged.
     this.previousButton.hidden = !active || detailOpen;
     this.nextButton.hidden = !active || detailOpen;
-    this.detailButton.hidden = !active;
+    this.detailButton.hidden = !active || !hasDetail;
     this.backButton.hidden = !active;
 
     this.detailButton.textContent = detailOpen
-      ? `${controlLabel(this.locale, 'detail')}: cerrar`
-      : controlLabel(this.locale, 'detail');
+      ? `${campusLabel(this.locale, 'readMore')}: ${campusLabel(this.locale, 'close')}`
+      : campusLabel(this.locale, 'readMore');
     this.detailButton.setAttribute('aria-expanded', detailOpen ? 'true' : 'false');
   }
 

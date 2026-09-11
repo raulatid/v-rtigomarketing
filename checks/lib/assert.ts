@@ -14,9 +14,8 @@
  * A summary that cannot be wrong is worth more than a summary that is round.
  *
  * What it deliberately does NOT do is abstract the harnesses' setup. Each one
- * builds real Three.js objects in the way its own subject needs, and
- * `district-flight.ts` reimplements pointer suppression on purpose to keep
- * React and canvas out of a Node bundle. Only the counting is shared.
+ * builds real Three.js objects in the way its own subject needs, and keeps
+ * React and canvas out of its Node bundle. Only the counting is shared.
  */
 
 let failures = 0;

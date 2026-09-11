@@ -101,7 +101,8 @@ let springM22 = 1;
  * frame — divides by zero.
  *
  * Being exact rather than integrated is what makes 240Hz and 60Hz agree to
- * within 1e-9, which `checks/district-flight.ts` section 6 measures.
+ * within float noise, which `checks/navigation-feel.ts` measures ("60Hz and
+ * 240Hz land in the same place").
  */
 function computeSpringStep(frequency: number, ratio: number, dt: number): void {
   const w = Math.max(MIN_ANGULAR_FREQUENCY, frequency);

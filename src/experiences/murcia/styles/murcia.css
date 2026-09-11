@@ -88,10 +88,11 @@
 
 /* --- District keyboard surface ---------------------------------------------
  *
- * The services district's only DOM. Its visible UI is the projected display,
- * drawn in a fragment shader on a mesh — which a pointer can raycast and
- * nothing else can reach. These controls carry the same transitions for
- * keyboard and assistive technology (`district/ui/districtA11y.ts`).
+ * The services campus's way in for a keyboard. Its visible UI is particles
+ * over a lake, entered by a tap on the water — which a pointer can raycast and
+ * nothing else can reach — and its copy, which mounts with its own inline
+ * styles (`campus/section/campusOverlay.ts`). These controls carry the same
+ * intents for keyboard and assistive technology (`district/ui/districtA11y.ts`).
  *
  * The .nav-control pattern from styles.css, for the reason skip links use it:
  * clipped to a pixel so it never covers the world, unclipped on :focus-visible

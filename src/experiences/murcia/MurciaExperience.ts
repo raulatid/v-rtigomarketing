@@ -792,13 +792,11 @@ export class MurciaExperience {
    * The blog's entry point: a display floating above the `edificio-blog`
    * cluster, and the flight that clicking it starts (plan 022).
    *
-   * Deliberately NOT a district and not part of `DistrictInteraction`. There is
-   * no `DistrictState`, no service meaning, no panel of controls and no
-   * accordion; folding it in would teach the services district that a blog
-   * exists, and that class is 766 lines because entering a district is genuinely
-   * complicated. What this does have, and the cluster tap it replaced did not,
-   * is a camera flight — which is why it takes `beginExternalControl` and why
-   * `update()` branches on `ownsCamera`.
+   * Deliberately NOT part of the services section. There is no section state
+   * and no service meaning; folding it in would teach the campus that a blog
+   * exists. What it shares with the campus is a camera flight that writes the
+   * camera directly — which is why it takes the rig and hands it back through
+   * `adoptFromCamera`, and why `update()` branches on `ownsCamera`.
    *
    * Absent from the city is survivable and loud: the cluster is scenery that has
    * been in the GLB since it was the district stand-in, and
@@ -967,6 +965,12 @@ export class MurciaExperience {
       maxTextureSize: this.renderer.capabilities.maxTextureSize,
       onCameraReturned: () => this.applyDeferredPose(),
       onEngagedChange: this.onAttentionChange,
+      cursor: this.cursor,
+      isDragging: () => this.cameraInput?.isDragging ?? false,
+      tapThresholdPx: {
+        mouse: this.environment.navigation.dragThresholdPx,
+        touch: this.environment.navigation.touchDragThresholdPx,
+      },
     });
     // Seeded, not assumed: built during the Earth intro, so `active` is normally
     // false here and setActive() will not fire again to correct it.
@@ -979,7 +983,8 @@ export class MurciaExperience {
       // and "settled" is the campus's own flight being over.
       seams.__vertigoDistrictPoint = () => campus.screenPoint();
       seams.__vertigoDistrictSettled = () => !campus.isFlying;
-      // The section's intents, for driving it from a console or a probe.
+      // The section's intents, for driving it from a console or a probe
+      // without aiming a pointer at the lake.
       seams.__vertigoCampus = {
         enter: () => campus.enter(),
         next: () => campus.next(),
@@ -997,7 +1002,7 @@ export class MurciaExperience {
    *
    * Called by the scene navigation when a pinch toward the way out arrives while
    * `hasFocusedDistrict` is true — the touch-native exit that does not depend on
-   * hitting the display's close. `onAttentionChange` fires through the district's
+   * hitting the overlay's close. `onAttentionChange` fires through the campus's
    * own engaged edge, as it does for every other exit.
    */
   releaseFocusedDistrict(): void {

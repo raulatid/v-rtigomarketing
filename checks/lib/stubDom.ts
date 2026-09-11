@@ -1,7 +1,7 @@
 /**
  * The fake canvas element the pointer-driven harnesses drive.
  *
- * `createCameraInput` and `DistrictInteraction` take an `HTMLElement` and read
+ * `createCameraInput` takes an `HTMLElement` and reads
  * a handful of things off it: the listener registry, pointer capture, an inline
  * style (the cursor, and the saved/restored `touch-action`) and a bounding
  * rect. Node has none of them, and
@@ -9,15 +9,14 @@
  * inside a bundle whose whole point is that it contains real Three.js and
  * nothing else.
  *
- * This was duplicated near-identically in navigation-feel.ts and
- * district-flight.ts, ~50 lines each. Shared because it is genuinely the same
+ * This was duplicated near-identically in navigation-feel.ts and the district
+ * harness, ~50 lines each; `campus-section.ts` uses it now. Shared because it is genuinely the same
  * responsibility — a stand-in for the canvas — and because a divergence between
  * the two copies would show up as a behavioural difference between two harnesses
  * driving the same controller, which is the most confusing failure available.
  *
- * The rect is 1920x1080 at the origin. Harnesses that need a different viewport
- * pass one; `district-flight.ts` needs an OFFSET canvas to prove framing is
- * measured relative to the canvas rather than the viewport.
+ * The rect is 1920x1080 at the origin. Harnesses that need a different
+ * viewport, or an offset canvas, pass one.
  */
 
 export interface StubRect {

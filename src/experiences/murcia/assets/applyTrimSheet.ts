@@ -4,11 +4,10 @@ import type { TrimSheet } from './loadTrimSheet';
 /**
  * The name the city's architecture material carries.
  *
- * Not decoration. `checks/district-flight.ts` already asserts the highlight
- * path against a fixture material of this name, written before the material
- * existed; plan 001 Phase 7 specifies it. Plan 009 proposes
- * `Murcia_ProceduralArchitecture` instead, which would mean editing a passing
- * harness to gain nothing, so the name the repository already encodes wins.
+ * Not decoration: plan 001 Phase 7 specifies it, and this module's tests pin it.
+ * Plan 009 proposes `Murcia_ProceduralArchitecture` instead,
+ * which would rename a material the repository already encodes to gain
+ * nothing, so the existing name wins.
  */
 export const CITY_MATERIAL_NAME = 'MAT_CITY_BUILDINGS';
 

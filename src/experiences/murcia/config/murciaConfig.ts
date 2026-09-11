@@ -126,10 +126,9 @@ const REPRESENTATIVE_BUILDING_HEIGHT = 13;
  *    only a bearing near 270 puts +Z on the right where the reference has it.
  *
  *    It is a POSE azimuth, not a yaw, so it composes with the user's turning
- *    exactly as before. District flights are unaffected: `approachYawDegrees` in
- *    `cityDistrictBindings` is compared against `CameraRig.getAzimuthDegrees()`,
- *    which is pose + yaw, so an absolute heading of 45 is still an absolute
- *    heading of 45 — `check:district` is the gate on that claim.
+ *    exactly as before. (The display district's flights compared an absolute
+ *    heading against pose + yaw; the services campus that replaced them takes
+ *    its heading from the camera itself, so nothing here depends on it.)
  *
  *  - **18 degrees**, down from 19. The reference sits lower than the previous
  *    pose, not higher: the near bank fills the bottom of the frame while the far

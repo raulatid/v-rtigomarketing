@@ -467,10 +467,11 @@ export interface CaseStudy {
  */
 export interface Service {
   /**
-   * Stable identifier. Keys the service to its building in
+   * Stable identifier. Keys the service to its symbol in
    * `scene/cityDistrictBindings.ts` (every service needs a row there — the
-   * binding test fails otherwise), so duplicates would put two services on one
-   * building — `checks/district-flight.ts` asserts uniqueness.
+   * binding test fails otherwise). A duplicate is refused by the campus's
+   * content parser (`campus/content/servicesContent.ts`), which rejects the
+   * whole set rather than show one of two services.
    */
   id: string
   /** On the building's projected label and as the panel heading. */

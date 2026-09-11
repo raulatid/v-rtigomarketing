@@ -1,8 +1,12 @@
 import * as THREE from 'three';
 import type { DistrictContent } from '../../../content/types';
+import type { CursorManager } from '../../../interaction/cursorManager';
+import { worldToClient } from '../../../interaction/screenSpace';
+import { DistrictA11y, type DistrictA11yView } from '../district/ui/districtA11y';
 import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
 import { attachServicesCampus, type ServicesCampus } from './attachServicesCampus';
 import { createCampusCameraAdapter, type CampusCameraRig } from './campusCameraAdapter';
+import { CampusInteraction } from './campusInteraction';
 import { buildServicesContent } from './campusContent';
 import { campusLabel, DEFAULT_LOCALE } from './campusLabels';
 import { CAMPUS_WATER_NODE_NAME } from './campusConfig';
@@ -27,7 +31,10 @@ import { gatherCampus } from './gatherCampus';
  *   - its symbols, rasterised once — the one asynchronous step;
  *   - the lab's `attachServicesCampus`, which brings the water, the strip, the
  *     particles, the section's camera and its copy;
- *   - the rig hand-over (`campusCameraAdapter.ts`).
+ *   - the rig hand-over (`campusCameraAdapter.ts`);
+ *   - the city's pointer and keyboard (`campusInteraction.ts`), and the
+ *     keyboard and screen-reader surface (`district/ui/districtA11y.ts`),
+ *     both driving the same intents.
  *
  * Every failure leaves the campus as scenery and says why once: a city whose
  * services cannot open is a quieter city, not a broken one. The palette was
@@ -38,7 +45,7 @@ export interface ServicesCampusSectionOptions {
   /** The city. The campus is gathered out of it. */
   root: THREE.Object3D;
   camera: THREE.PerspectiveCamera;
-  /** For projecting the lake to the screen. Input arrives with the interaction. */
+  /** The shared canvas: the interaction listens on it. */
   canvas: HTMLCanvasElement;
   /** Murcia's UI host, where the copy mounts. */
   container: HTMLElement;
@@ -56,6 +63,12 @@ export interface ServicesCampusSectionOptions {
   onCameraReturned?: () => void;
   /** When `isEngaged` flips. No payload: read `isEngaged`. */
   onEngagedChange?: () => void;
+  /** Arbitrates the cursor across every source on the shared canvas. */
+  cursor: CursorManager;
+  /** True while a pointer is panning the city. */
+  isDragging: () => boolean;
+  /** Tap tolerance per pointer type, the numbers the pan uses. */
+  tapThresholdPx: { mouse: number; touch: number };
   locale?: string;
 }
 
@@ -176,12 +189,74 @@ export async function createServicesCampus(
 
   let enabled = true;
   let engaged = false;
+
+  const enter = (): boolean => {
+    if (!enabled || engaged || !adapter.canTake) return false;
+    adapter.seed();
+    campus.enter();
+    return true;
+  };
+
+  const interaction = new CampusInteraction({
+    canvas: options.canvas,
+    camera: options.camera,
+    cursor: options.cursor,
+    isDragging: options.isDragging,
+    tapThresholdPx: options.tapThresholdPx,
+    lake: campus.lake,
+    section: {
+      get stage() {
+        return campus.state.snapshot.stage;
+      },
+      enter,
+      next: () => campus.next(),
+      previous: () => campus.previous(),
+      back: () => campus.back(),
+    },
+    id: options.content.id,
+  });
+
+  const a11y = new DistrictA11y(options.container, options.content.label, locale, {
+    onEnter: () => {
+      enter();
+    },
+    onPrevious: () => campus.previous(),
+    onNext: () => campus.next(),
+    onDetailToggle: () => campus.toggleDetail(),
+    onBack: () => campus.back(),
+  });
+
+  const total = content.services.length;
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const viewFor = (snapshot: CampusSnapshot): DistrictA11yView | null => {
+    if (snapshot.stage === 'overview') return null;
+    if (snapshot.stage === 'intro') {
+      return { eyebrow: options.content.label, title: content.intro.title, summary: content.intro.subtitle };
+    }
+    const service = content.services[snapshot.index];
+    if (!service) return null;
+    return {
+      eyebrow: `${options.content.label} · ${pad(snapshot.index + 1)} / ${pad(total)}`,
+      title: service.title,
+      summary: service.subtitle,
+    };
+  };
+  const a11yFor = (snapshot: CampusSnapshot) => ({
+    districtActive: snapshot.stage !== 'overview',
+    hasDetail: snapshot.stage === 'service',
+    detailOpen: snapshot.detail,
+  });
+
+  // The one subscription: the announcement, then the attention edge the
+  // application stands its navigation down on.
   const unsubscribe = campus.state.subscribe((snapshot) => {
+    a11y.update(a11yFor(snapshot), viewFor(snapshot));
     const next = snapshot.stage !== 'overview';
     if (next === engaged) return;
     engaged = next;
     options.onEngagedChange?.();
   });
+  a11y.update(a11yFor(campus.state.snapshot), null);
 
   const projected = new THREE.Vector3();
 
@@ -202,20 +277,15 @@ export async function createServicesCampus(
       return out.copy(campus.lake.center);
     },
     screenPoint() {
-      projected.copy(campus.lake.center).project(options.camera);
-      if (projected.z > 1) return null;
-      const rect = options.canvas.getBoundingClientRect();
-      return {
-        x: rect.left + ((projected.x + 1) / 2) * rect.width,
-        y: rect.top + ((1 - projected.y) / 2) * rect.height,
-      };
+      const point = worldToClient(
+        options.canvas.getBoundingClientRect(),
+        options.camera,
+        campus.lake.center,
+        projected,
+      );
+      return point === null ? null : { x: point.x, y: point.y };
     },
-    enter() {
-      if (!enabled || engaged || !adapter.canTake) return false;
-      adapter.seed();
-      campus.enter();
-      return true;
-    },
+    enter,
     next: () => campus.next(),
     previous: () => campus.previous(),
     toggleDetail: () => campus.toggleDetail(),
@@ -225,15 +295,19 @@ export async function createServicesCampus(
     },
     setEnabled(next) {
       enabled = next;
+      interaction.setEnabled(next);
     },
     resize(viewportHeightPx) {
       campus.resize(viewportHeightPx);
     },
     update(dt) {
+      interaction.update();
       campus.update(dt);
     },
     dispose() {
       unsubscribe();
+      interaction.dispose();
+      a11y.dispose();
       // Hands back the water's and the strip's own materials, removes the
       // particles and the copy, and — if a visit was under way — the camera.
       campus.dispose();

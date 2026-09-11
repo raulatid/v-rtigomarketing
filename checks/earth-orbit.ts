@@ -24,8 +24,9 @@
  * transiently from ~1400 px/s — an ordinary brisk drag.
  *
  * Murcia never had this: `CameraRig.yawDegrees` is an unbounded scalar that is
- * eased AS a scalar, and `district-flight.ts` section 1 asserts the wound-up
- * cases directly. Section 1 below is the Earth equivalent.
+ * eased AS a scalar; the display district's flight harness asserted the
+ * wound-up cases until that flight went with the district (plan 024). Section
+ * 1 below is the Earth equivalent.
  *
  * Section 6 guards the opposite requirement, which is what made the original
  * mistake tempting: a RETURN from a close-up must take the short way round

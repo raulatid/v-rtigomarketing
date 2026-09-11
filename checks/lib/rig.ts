@@ -7,8 +7,9 @@ import type { EnvironmentConfig } from '../../src/experiences/murcia/config/envi
 /**
  * A camera and rig at the shipped pose, the way the application builds them.
  *
- * Five lines, written identically in `navigation-feel.ts` and
- * `district-flight.ts`. Shared for the same reason `stubDom.ts` is: both
+ * Five lines, once written identically in `navigation-feel.ts` and the
+ * district harness, and used now by `navigation-feel.ts` and
+ * `campus-section.ts`. Shared for the same reason `stubDom.ts` is: both
  * harnesses drive the same controller, so a divergence here shows up as a
  * behavioural difference between two harnesses testing one subject — and the
  * order matters (`setAspect` before `setFocus`, both after construction), which
@@ -16,8 +17,8 @@ import type { EnvironmentConfig } from '../../src/experiences/murcia/config/envi
  * other.
  *
  * Deliberately does NOT build the controller. The two harnesses want different
- * ones — different configs, different bounds callbacks, one of them a
- * CameraFlight as well — and that difference is the point of having two.
+ * ones — different configs, different bounds callbacks, one of them the
+ * campus's own camera as well — and that difference is the point of having two.
  */
 export function makeRig(
   env: EnvironmentConfig,

@@ -146,10 +146,9 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     expect(fabricated.metalness).toBe(1)
   })
 
-  it('carries the name the district harness asserts against', () => {
-    // `checks/district-flight.ts` proves the highlight path keeps the trim sheet
-    // using a fixture material of this name. A rename here would leave that
-    // harness green and testing nothing.
+  it('carries the name plan 001 specified', () => {
+    // Nothing downstream reads the name since the display district's harness
+    // went (plan 024); it is pinned so a rename is a decision, not an accident.
     const { root, terrain } = city(1)
 
     const applied = applyTrimSheet({ root, sheet: sheet(), terrain, authored: false })
