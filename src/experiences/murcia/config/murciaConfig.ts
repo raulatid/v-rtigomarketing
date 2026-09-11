@@ -223,21 +223,33 @@ export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
   // Root-absolute: a document-relative path resolves against the current
   // route and 404s anywhere but the root.
-  modelPath: '/models/murcia-v6.glb',
+  modelPath: '/models/murcia-v7.glb',
 
-  // The sheet in the tree is a CALIBRATION CHART, not art: eight saturated
-  // 256px bands, there so the mechanism can be seen working before anyone has
-  // painted anything. Replacing it is a file drop at the same path — that is
-  // the whole reason the textures are served rather than exported into the GLB
-  // (docs/plans/009 Phase 4).
+  // No trim sheet since murcia-v7. The city's colour is vertex colour alone:
+  // the export embeds a neutral white trim so Blender could bake against the
+  // same material graph, and the runtime drops it rather than multiply by
+  // white (`assets/lightmaps/loadLightmaps.ts`). The mechanism stays — a real
+  // sheet is still a file drop into these three strings (docs/plans/009 Phase
+  // 4) — but a path here would be written onto the authored material and over
+  // the colours the light was baked for.
   //
   // Normal and ORM are null until they exist. They are not placeholders waiting
   // to be filled in with something plausible: a wrong normal map is worse than
   // none, and the material simply omits the slot.
   trimSheet: {
-    baseColor: '/textures/murcia/murcia-basecolor.png',
+    baseColor: null,
     normal: null,
     orm: null,
+  },
+
+  // The baked light for the centre of the city: twelve atlases named by two
+  // manifests, applied to the surfaces the export marks as baked and to nothing
+  // else (DECISIONS §49). Same folder as the trim sheet would be, for the same
+  // reason: a re-bake is a file drop, not a re-export of the model.
+  lightmaps: {
+    baseUrl: '/textures/murcia/lightmaps/',
+    assetsManifest: 'assets-lightmaps.json',
+    groundManifest: 'ground-lightmaps.json',
   },
 
   sceneState: {

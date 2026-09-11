@@ -246,10 +246,27 @@ export interface TrimSheetConfig {
   orm: string | null;
 }
 
+/**
+ * Where the city's baked light is served from.
+ *
+ * Files, not slots: the bake pipeline writes two manifests naming every atlas
+ * per chunk and resolution, and the runtime reads those rather than carrying
+ * a second copy of the list (`assets/lightmaps/`). Absent means the model is
+ * not baked and renders lit, which is every city before murcia-v7 and what
+ * the tests' untextured loads still get.
+ */
+export interface LightmapConfig {
+  /** Directory the manifests and every KTX2 they name sit in. Trailing slash. */
+  baseUrl: string;
+  assetsManifest: string;
+  groundManifest: string;
+}
+
 export interface EnvironmentConfig {
   id: string;
   modelPath: string;
   trimSheet: TrimSheetConfig;
+  lightmaps?: LightmapConfig;
   sceneState: SceneStateConfig;
   camera: CameraPoseConfig;
   /**

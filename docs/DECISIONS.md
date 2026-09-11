@@ -3604,6 +3604,47 @@ requests no `/audio/` file.
 rejections); the unlock listener is moved to `pointerdown` or `wheel`, which grant no user
 activation on touch; or a track lands in `public/audio/` without its hash in the name.
 
+## 49. The centre of the city is baked and unlit; the exterior is lit
+
+**Decided 2026-09-11,** with murcia-v7. The city's centre — the four quadrants inside the A2 ring,
+their windows and props, and the streets — ships with its light baked into twelve KTX2 atlases,
+and renders **unlit**: `MeshBasicMaterial` with a lightmap, the scene's rig ignored. The exterior
+blocks, the outer ground and the trees are not baked and keep the authored lit material under the
+same hemisphere-and-sun rig as before. `src/experiences/murcia/assets/lightmaps/` is the runtime;
+the export contract §7 is the artist's side.
+
+**Why unlit.** The bake is diffuse direct + indirect without albedo, so the texel IS the light. A
+lit material would add the rig's 2.7 of irradiance to light already in the texture, and the
+floor-brightness problem (the bloom threshold, §floor) would come back doubled.
+
+**Receivers by extras, never by name.** The site dresses 21 nodes itself — the tower's screen and
+logo, the campus, the blog building, the river, the plate — and finds them by name. The bake
+marks what it covers with `asset_lightmap_kind` / `ground_lightmap_chunk` extras, and the lightmap
+pass visits only those. The named nodes keep their names, pivots and UVs untouched. The tower's
+own glass and metal parts went into the baked chunk, so `applyTowerPalette` dresses nothing there
+now; its screen and its logo are still separate.
+
+**The plate is invisible.** `suelo-principal` and the ground chunks cover the same rectangle at
+the same height. The plate stays for what is measured off it and as the skirt's material template
+— now an unlit material in the outer ground's mean vertex colour, so the horizon continues the
+ground it wraps — and `visible = false` is what stops the two from z-fighting.
+
+**No trim texture.** The export embeds a neutral white trim so Blender and the site share one
+material graph. White multiplied in is nothing, so the runtime drops it and `trimSheet.baseColor`
+is null. Base colour is vertex colour alone.
+
+**Resolution follows the sky's split.** Twelve atlases at 2048 are ~34 MB of GPU memory against
+the ~70 MB iOS budget; a phone-width or touch-first viewport gets the 1024 set (~8 MB). Both ship.
+
+**Cost.** The model is 5.4 MB (v6: 3.5) and the atlases 4.2 MB at 2048 / 1.3 MB at 1024, fetched
+after the GLB inside the same non-required boot step; the intro's bar stalls at 80 % while they
+load. The lit exterior and the baked centre are balanced by eye after the first look.
+
+**Also broken when:** a receiver loses `TEXCOORD_1`; an instanced group's `asset_st_accessor` is
+missing; a named node is also merged into a baked chunk; the plate is deleted from the export;
+`configureTrimTextures` runs after the lightmaps (it would set repeat wrapping on the atlases); or
+a re-bake changes the manifests' `uvChannel`.
+
 ## Superseded
 
 | Decision | Was | Now |

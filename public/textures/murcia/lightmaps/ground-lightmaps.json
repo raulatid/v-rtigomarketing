@@ -1,0 +1,139 @@
+{
+  "phase": "central ground only",
+  "sourceSHA256": "2ad979533abb8c71d9b1a3dd4d09aea7445c2e51dc1affb858ac8dc191b53806",
+  "uvName": "LightmapUV",
+  "uvChannel": 1,
+  "encoding": "KTX2 ETC1S qlevel 128 clevel 1 RGB sRGB",
+  "samples": 128,
+  "bake": "Diffuse Direct + Indirect without Color",
+  "warmBounces": true,
+  "bakeMarginPixels": 6,
+  "atlasChartGapPixels": 12,
+  "chunks": {
+    "NW": {
+      "objects": [
+        "GLM_NW__suelo-principal",
+        "GLM_NW__Green Beds Both Banks",
+        "GLM_NW__Belluga Radial Paving"
+      ],
+      "hdr": "ground-NW-master.exr",
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximumLinearValue": 2.194535970687866,
+      "variants": {
+        "2048": {
+          "ktx2": "ground-NW-2048.ktx2",
+          "png": "ground-NW-2048.png",
+          "decoded": "ground-NW-2048-decoded.png",
+          "bytes": 364254,
+          "mipLevels": 12
+        },
+        "1024": {
+          "ktx2": "ground-NW-1024.ktx2",
+          "png": "ground-NW-1024.png",
+          "decoded": "ground-NW-1024-decoded.png",
+          "bytes": 106566,
+          "mipLevels": 11
+        }
+      },
+      "seconds": 69.1550178527832
+    },
+    "NE": {
+      "objects": [
+        "GLM_NE__suelo-principal",
+        "GLM_NE__P3 Main Streets"
+      ],
+      "hdr": "ground-NE-master.exr",
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximumLinearValue": 2.3793818950653076,
+      "variants": {
+        "2048": {
+          "ktx2": "ground-NE-2048.ktx2",
+          "png": "ground-NE-2048.png",
+          "decoded": "ground-NE-2048-decoded.png",
+          "bytes": 440246,
+          "mipLevels": 12
+        },
+        "1024": {
+          "ktx2": "ground-NE-1024.ktx2",
+          "png": "ground-NE-1024.png",
+          "decoded": "ground-NE-1024-decoded.png",
+          "bytes": 124492,
+          "mipLevels": 11
+        }
+      },
+      "seconds": 78.79440808296204
+    },
+    "SW": {
+      "objects": [
+        "GLM_SW__suelo-principal",
+        "GLM_SW__rio",
+        "GLM_SW__caminata-rio",
+        "GLM_SW__caminata-rio-bordillo-001",
+        "GLM_SW__caminata-rio-bordillo-002",
+        "GLM_SW__Green Beds Both Banks",
+        "GLM_SW__Belluga Radial Paving",
+        "GLM_SW__P3 Main Streets"
+      ],
+      "hdr": "ground-SW-master.exr",
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximumLinearValue": 2.6860790252685547,
+      "variants": {
+        "2048": {
+          "ktx2": "ground-SW-2048.ktx2",
+          "png": "ground-SW-2048.png",
+          "decoded": "ground-SW-2048-decoded.png",
+          "bytes": 364907,
+          "mipLevels": 12
+        },
+        "1024": {
+          "ktx2": "ground-SW-1024.ktx2",
+          "png": "ground-SW-1024.png",
+          "decoded": "ground-SW-1024-decoded.png",
+          "bytes": 122551,
+          "mipLevels": 11
+        }
+      },
+      "seconds": 45.02986001968384
+    },
+    "SE": {
+      "objects": [
+        "GLM_SE__suelo-principal",
+        "GLM_SE__rio",
+        "GLM_SE__caminata-rio",
+        "GLM_SE__caminata-rio-bordillo-001",
+        "GLM_SE__caminata-rio-bordillo-002",
+        "GLM_SE__Green Beds Both Banks",
+        "GLM_SE__P3 Main Streets"
+      ],
+      "hdr": "ground-SE-master.exr",
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximumLinearValue": 2.7942488193511963,
+      "variants": {
+        "2048": {
+          "ktx2": "ground-SE-2048.ktx2",
+          "png": "ground-SE-2048.png",
+          "decoded": "ground-SE-2048-decoded.png",
+          "bytes": 298736,
+          "mipLevels": 12
+        },
+        "1024": {
+          "ktx2": "ground-SE-1024.ktx2",
+          "png": "ground-SE-1024.png",
+          "decoded": "ground-SE-1024-decoded.png",
+          "bytes": 103525,
+          "mipLevels": 11
+        }
+      },
+      "seconds": 39.02313423156738
+    }
+  },
+  "sourceUnchanged": true,
+  "totalBytesByResolution": {
+    "2048": 1468143,
+    "1024": 457134
+  }
+}

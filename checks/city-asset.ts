@@ -52,7 +52,7 @@ import {
 import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
 
 const MODEL =
-  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/murcia-v6.glb';
+  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/murcia-v7.glb';
 
 /**
  * `--contract-only` runs the NAME sections and skips the pending UV assertion.
@@ -101,6 +101,7 @@ interface Gltf {
     rotation?: number[];
     matrix?: number[];
     extensions?: Record<string, unknown>;
+    extras?: Record<string, unknown>;
   }>;
   meshes?: Array<{ name?: string; primitives?: Primitive[] }>;
   materials?: Array<Record<string, unknown>>;
@@ -235,15 +236,34 @@ if (missingUv.length > 0) {
   );
 }
 
-// TEXCOORD_1 is not wanted and its presence is a signal, not an error: it means
-// a second UV map survived the export, which doubles per-vertex cost for
-// nothing unless something is deliberately using it. glTF's occlusion texture
-// defaults to TEXCOORD_0, so ORM packing does not need it.
-const withUv1 = primitives.filter((p) => attributeNames(p.prim).has('TEXCOORD_1'));
+// TEXCOORD_1 is the lightmap UV since murcia-v7 (DECISIONS §49): every baked
+// receiver — a node carrying `asset_lightmap_kind` or one of the four baked
+// `ground_lightmap_chunk`s — has to carry it, or its atlas samples nothing.
+// This used to assert the opposite ("no second UV set"), when a second map was
+// per-vertex cost nobody was spending; the cost is now bought deliberately.
+// Unbaked geometry is still free to omit it, and is not asserted either way.
+const bakedOwners = new Set(
+  nodes
+    .filter((n) => {
+      const extras = n.extras as { asset_lightmap_kind?: string; ground_lightmap_chunk?: string } | undefined;
+      return (
+        extras?.asset_lightmap_kind != null ||
+        (extras?.ground_lightmap_chunk != null && extras.ground_lightmap_chunk !== 'Context')
+      );
+    })
+    .map((n) => n.name),
+);
+const bakedWithoutUv1 = primitives.filter(
+  (p) => bakedOwners.has(p.owner) && !attributeNames(p.prim).has('TEXCOORD_1'),
+);
 check(
-  'no second UV set (ORM packs onto TEXCOORD_0)',
-  withUv1.length === 0,
-  withUv1.length === 0 ? '0 primitives' : `${withUv1.length} carry TEXCOORD_1: ${list(withUv1.map((p) => p.owner))}`,
+  'every baked receiver carries TEXCOORD_1, the lightmap UV',
+  bakedOwners.size > 0 && bakedWithoutUv1.length === 0,
+  bakedOwners.size === 0
+    ? 'no baked receivers in the file'
+    : bakedWithoutUv1.length === 0
+      ? `${bakedOwners.size} receivers`
+      : `${bakedWithoutUv1.length} lack it: ${list(bakedWithoutUv1.map((p) => p.owner))}`,
 );
 
 // --- 2. Materials and textures ---------------------------------------------
@@ -598,29 +618,42 @@ if (groundName === null || claimed === null) {
 
 section('7b. The A2 ring (the ground the navigable rectangle stands on)');
 
-// The ring is found by the node that CARRIES it, not by the name it was
+// The ring is found by the nodes that CARRY it, not by the name it was
 // measured under. `CITY_A2_SIMPLIFIED` was its own node in city-prototype.glb;
-// from murcia-v5 on, the exporter joins it into `Edificios_Procedurales`, whose
-// own mesh grew from the plate's extent (X [-428, -103]) to the ring's
-// (X [-463.5, -56.1] Z [70.2, 490.3] in v5 and v6, within 0.4 of CITY_A2).
-// So the rule this section guards — the eye may leave the plate only onto
-// BUILT city — still has something built to point at, and the check reads the
-// same rectangle it always did. Asserting the ground plate instead would have
-// kept it green on bare filler ground, which is exactly what §40 rules out.
-const RING_NODE = 'Edificios_Procedurales';
+// v5 and v6 joined it into `Edificios_Procedurales` (X [-463.5, -56.1]
+// Z [70.2, 490.3], within 0.4 of CITY_A2); v7 splits that same mesh into the
+// four baked chunks, one per quadrant, and the ring is their union. So the rule
+// this section guards — the eye may leave the plate only onto BUILT city —
+// still has something built to point at, and the check reads the same
+// rectangle it always did. Asserting the ground plate instead would have kept
+// it green on bare filler ground, which is exactly what §40 rules out.
+const RING_NODES = ['Assets_Static_NW', 'Assets_Static_NE', 'Assets_Static_SW', 'Assets_Static_SE'];
 const ringClaimed = CITY_A2;
-const ringNodes = nodesNamed(RING_NODE);
+const ringNodes = RING_NODES.flatMap((name) => nodesNamed(name));
 
 check(
-  `"${RING_NODE}" is in the GLB`,
-  ringNodes.length > 0,
-  ringNodes.length > 0
+  `the four baked chunks ${list(RING_NODES)} are in the GLB`,
+  ringNodes.length === RING_NODES.length,
+  ringNodes.length === RING_NODES.length
     ? `as ${list(ringNodes)}`
-    : 'the navigable rectangle would extend the camera out over ground with nothing ' +
-      'built on it — see CITY_A2 in murciaConfig',
+    : `found ${ringNodes.length}/${RING_NODES.length} — the navigable rectangle would extend the ` +
+      'camera out over ground with nothing built on it — see CITY_A2 in murciaConfig',
 );
 
-const ringMeasured = ringNodes.length > 0 ? worldXzBounds(RING_NODE) : null;
+/** The union of several nodes' rectangles, or null if any cannot be measured. */
+function unionXzBounds(names: string[]): ReturnType<typeof worldXzBounds> {
+  const rects = names.map(worldXzBounds);
+  if (rects.some((r) => r === null)) return null;
+  const all = rects as Array<NonNullable<(typeof rects)[number]>>;
+  return {
+    minX: Math.min(...all.map((r) => r.minX)),
+    maxX: Math.max(...all.map((r) => r.maxX)),
+    minZ: Math.min(...all.map((r) => r.minZ)),
+    maxZ: Math.max(...all.map((r) => r.maxZ)),
+  };
+}
+
+const ringMeasured = ringNodes.length === RING_NODES.length ? unionXzBounds(RING_NODES) : null;
 check(
   'it covers the rectangle CITY_A2 claims',
   ringMeasured !== null &&

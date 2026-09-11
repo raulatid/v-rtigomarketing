@@ -1,0 +1,193 @@
+{
+  "sourceSHA256": "2ad979533abb8c71d9b1a3dd4d09aea7445c2e51dc1affb858ac8dc191b53806",
+  "phase": "central buildings and instances",
+  "encoding": "KTX2 ETC1S qlevel 128 clevel 1 RGB sRGB",
+  "samples": 128,
+  "bake": "Diffuse direct + indirect, without albedo",
+  "warmBounces": true,
+  "uvChannel": 1,
+  "chunks": {
+    "NW": {
+      "static": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 2.404001235961914,
+        "hdr": "assets-NW-static-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-NW-static-2048.ktx2",
+            "decoded": "assets-NW-static-2048-decoded.png",
+            "bytes": 493090,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-NW-static-1024.ktx2",
+            "decoded": "assets-NW-static-1024-decoded.png",
+            "bytes": 160412,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 36.62841773033142
+      },
+      "instances": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 2.1406219005584717,
+        "hdr": "assets-NW-instances-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-NW-instances-2048.ktx2",
+            "decoded": "assets-NW-instances-2048-decoded.png",
+            "bytes": 341753,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-NW-instances-1024.ktx2",
+            "decoded": "assets-NW-instances-1024-decoded.png",
+            "bytes": 101032,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 20.598461627960205
+      }
+    },
+    "NE": {
+      "static": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 2.4526424407958984,
+        "hdr": "assets-NE-static-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-NE-static-2048.ktx2",
+            "decoded": "assets-NE-static-2048-decoded.png",
+            "bytes": 483337,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-NE-static-1024.ktx2",
+            "decoded": "assets-NE-static-1024-decoded.png",
+            "bytes": 161198,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 32.94978928565979
+      },
+      "instances": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 2.355426788330078,
+        "hdr": "assets-NE-instances-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-NE-instances-2048.ktx2",
+            "decoded": "assets-NE-instances-2048-decoded.png",
+            "bytes": 299728,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-NE-instances-1024.ktx2",
+            "decoded": "assets-NE-instances-1024-decoded.png",
+            "bytes": 87536,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 18.276145935058594
+      }
+    },
+    "SW": {
+      "static": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 2.8609752655029297,
+        "hdr": "assets-SW-static-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-SW-static-2048.ktx2",
+            "decoded": "assets-SW-static-2048-decoded.png",
+            "bytes": 448327,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-SW-static-1024.ktx2",
+            "decoded": "assets-SW-static-1024-decoded.png",
+            "bytes": 149291,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 35.4640908241272
+      },
+      "instances": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 2.821075916290283,
+        "hdr": "assets-SW-instances-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-SW-instances-2048.ktx2",
+            "decoded": "assets-SW-instances-2048-decoded.png",
+            "bytes": 302592,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-SW-instances-1024.ktx2",
+            "decoded": "assets-SW-instances-1024-decoded.png",
+            "bytes": 90112,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 18.34730553627014
+      }
+    },
+    "SE": {
+      "static": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 3.0489933490753174,
+        "hdr": "assets-SE-static-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-SE-static-2048.ktx2",
+            "decoded": "assets-SE-static-2048-decoded.png",
+            "bytes": 309572,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-SE-static-1024.ktx2",
+            "decoded": "assets-SE-static-1024-decoded.png",
+            "bytes": 109710,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 26.301720142364502
+      },
+      "instances": {
+        "linearScale": 4.0,
+        "threeLightMapIntensity": 12.566370614359172,
+        "maximumLinearValue": 2.807040214538574,
+        "hdr": "assets-SE-instances-master.exr",
+        "variants": {
+          "2048": {
+            "ktx2": "assets-SE-instances-2048.ktx2",
+            "decoded": "assets-SE-instances-2048-decoded.png",
+            "bytes": 218384,
+            "mipLevels": 12
+          },
+          "1024": {
+            "ktx2": "assets-SE-instances-1024.ktx2",
+            "decoded": "assets-SE-instances-1024-decoded.png",
+            "bytes": 68235,
+            "mipLevels": 11
+          }
+        },
+        "seconds": 14.582256078720093
+      }
+    }
+  },
+  "sourceUnchanged": true,
+  "approvedGroundUnchanged": true,
+  "totalBytesByResolution": {
+    "2048": 2896783,
+    "1024": 927526
+  }
+}

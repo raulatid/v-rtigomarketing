@@ -355,8 +355,8 @@ export class MurciaExperience {
    * apiece, on exactly the device the reference counting was written for.
    *
    * Safe here and nowhere earlier. `loadCity` awaits the GLB and the trim sheet
-   * together (`Promise.all`), the sheet acquires and releases its own
-   * transcoder reference, and nothing in this environment loads an asset after
+   * together (`Promise.all`), the sheet and the lightmaps each acquire and
+   * release their own transcoder reference, and nothing in this environment loads an asset after
    * that — the district, the blog building and the river all work on the graph
    * already in memory. A later feature that does load one acquires its own pair
    * rather than reviving this field.
@@ -635,6 +635,7 @@ export class MurciaExperience {
       // The renderer travels with the sheet because a KTX2 set cannot be
       // decoded without asking this GPU which compressed formats it has.
       trimSheet: env.trimSheet,
+      lightmaps: env.lightmaps,
       renderer: this.renderer,
       // Applied here rather than after the fact because the collar and the
       // skirt clone the plate's material, and they are built below.

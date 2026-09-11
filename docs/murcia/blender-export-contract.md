@@ -72,9 +72,16 @@ meshes, and a part that arrived instanced would take its whole mesh with it.
 
 ## 4. Materials
 
-The current GLB contains **zero materials and zero textures**, so every mesh
-falls back to a *single shared* `MeshStandardMaterial` instance. Anything that
-modifies a material must clone first, or it recolours the entire city.
+Since murcia-v7 the GLB carries **one authored material**
+(`MURCIA_SingleTrim_VertexColor`) with an embedded neutral white trim, and
+`COLOR_0` on every primitive. The runtime keeps that material on the unbaked
+exterior, drops the white trim (multiplying by white is nothing), and builds
+its own unlit materials for the baked centre (§7). Anything that modifies the
+authored material must still clone first, or it recolours every exterior block.
+
+Before v7 the GLB carried zero materials and every mesh shared one fabricated
+`MeshStandardMaterial`; `applyTrimSheet` still handles that file, which is why
+it has two branches.
 
 The named landmarks carry their look as runtime palettes keyed by node name —
 the tower (§6.8) and the campus (§6.9) — because the city exports no materials.
@@ -392,3 +399,46 @@ Three rules follow:
    part keeps the city's material and warns once; a missing lake leaves the
    campus as scenery. `check:asset:contract` §5 asserts all fifteen names, the
    strip's `TEXCOORD_0`, and that the campus stands on the plate.
+
+---
+
+## 7. Lightmaps (murcia-v7)
+
+The centre of the city ships with its light baked. The bake is diffuse direct +
+indirect **without albedo**, so the atlas texel is light and nothing else; base
+colour stays `COLOR_0` (× a white trim the runtime drops). The runtime renders
+every baked surface **unlit** (`MeshBasicMaterial` + `lightMap`) and leaves the
+scene's rig to the unbaked exterior. DECISIONS §49 records why.
+
+What the export has to carry, and what `check:asset` asserts:
+
+1. **Receivers are marked by extras, never by name.** A baked building node
+   carries `asset_lightmap_kind` (`static` or `instances`) and
+   `asset_lightmap_chunk` (`NW`/`NE`/`SW`/`SE`). A baked ground node carries
+   `ground_lightmap_chunk` with the same four values; the unbaked outer ground
+   carries it with the value `Context`. Unbaked exterior blocks carry
+   `unbaked_context: true`.
+2. **`TEXCOORD_1` is the lightmap UV** on every receiver (the manifests say
+   `uvChannel: 1`). This reverses the old "no second UV set" rule; §6.6's
+   reasoning about ORM on `TEXCOORD_0` still stands for that map.
+3. **Instanced receivers carry a per-instance `_LIGHTMAP_ST`** (VEC4: scale.xy,
+   offset.zw into the atlas) as an `EXT_mesh_gpu_instancing` attribute, and the
+   node's `asset_st_accessor` names that group's accessor. Needed because
+   groups instancing the same prototype share one geometry in three, so the
+   attribute cannot live on the prototype.
+4. **The 21 named nodes the site dresses itself** (§6.8, §6.9, the blog
+   building, `rio`, `suelo-principal`) carry `runtime_named_node` and
+   `runtime_lightmap: false`. They are exported as their own root nodes with
+   their pivots and `TEXCOORD_0`, and they must not also exist inside a baked
+   chunk — the two would overlap.
+5. **The plate and the ground chunks cover the same rectangle.** The runtime
+   hides `suelo-principal` under the baked ground and keeps it for measurement
+   and as the skirt's material template. Do not delete it from the export.
+6. **The A2 ring is the union of the four `Assets_Static_*` chunks** now that
+   `Edificios_Procedurales` is gone; §7b of `check:asset` measures it there.
+
+The atlases are served from `public/textures/murcia/lightmaps/` beside the two
+manifests the bake pipeline writes (`assets-lightmaps.json`,
+`ground-lightmaps.json`); the runtime reads file names, intensities and the UV
+channel from those, so a re-bake is a file drop. Both 2048 and 1024 sets ship;
+a phone-width or touch-first viewport gets 1024.

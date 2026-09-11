@@ -10,6 +10,8 @@ import { createRioWater, type RioWater } from '../water/createRioWater';
 import { DEFAULT_RIO_WATER_CONFIG } from '../water/rioWaterConfig';
 import { computeRiverFrame } from '../water/riverFrame';
 import { applyCampusPalette } from '../campus/campusPalette';
+import { loadLightmaps, type LightmapHandle } from './lightmaps/loadLightmaps';
+import type { LightmapConfig } from '../config/environmentConfig';
 
 /**
  * The river mesh in the GLB.
@@ -58,6 +60,11 @@ export interface LoadCityOptions {
    * the tests and any future caller that only wants the geometry get.
    */
   trimSheet?: TrimSheetConfig;
+  /**
+   * The baked light, when the model carries receivers for it. Needs the
+   * renderer for the same reason the sheet does; omitted, the city renders lit.
+   */
+  lightmaps?: LightmapConfig;
   renderer?: THREE.WebGLRenderer;
   /**
    * Base colour for the terrain plate's material. Travels with the sheet
@@ -104,6 +111,8 @@ export interface LoadedCity {
    * business.
    */
   riverBounds: BoundsRect | null;
+  /** The baked light, or null when none was configured or it failed to load. */
+  lightmaps: LightmapHandle | null;
 }
 
 export interface SceneReport {
@@ -222,9 +231,14 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   //      before and the water is silently overwritten with grey concrete;
   //      the services campus's colours go on here for the same reason — its
   //      parts ship with no materials, and the sheet would otherwise be their look;
-  //   5. `buildSceneReport` counts a non-zero texture and so tells the truth
+  //   5. the lightmaps go on AFTER every pass above: `configureTrimTextures`
+  //      would set repeat wrapping on the atlases, and the palettes replace
+  //      materials on named nodes — none of which are receivers, but the order
+  //      is what makes that true by construction rather than by coincidence;
+  //   6. `buildSceneReport` counts a non-zero texture and so tells the truth
   //      about what a missing UV set now costs, instead of calling it harmless,
-  //      and it runs last so its material count includes the water.
+  //      and it runs last so its material count includes the water and the
+  //      baked materials.
   const found = findTerrainPlate(root, options.terrainObjectName);
   const ground = findOuterGround(root, options.groundObjectName ?? null, found.mesh);
   if (sheet) {
@@ -244,6 +258,15 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   configureTrimTextures(root);
   const river = attachRiverWater(root);
   applyCampusPalette(root);
+  const lightmaps =
+    options.lightmaps && options.renderer
+      ? await loadLightmaps({
+          gltf,
+          config: options.lightmaps,
+          renderer: options.renderer,
+          terrain: found.mesh,
+        })
+      : null;
   const report = buildSceneReport(gltf, found, options.terrainObjectName);
 
   return {
@@ -256,6 +279,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     report,
     water: river?.water ?? null,
     riverBounds: river?.bounds ?? null,
+    lightmaps,
   };
 }
 
@@ -491,6 +515,10 @@ function findLargestFlatMesh(root: THREE.Object3D): THREE.Mesh | null {
 
 /** Releases every geometry, material and texture owned by a loaded model. */
 export function disposeLoadedCity(city: LoadedCity): void {
+  // First, so the receivers hold their authored materials again when the
+  // traversal below reaches them: the baked materials, atlases and per-group
+  // geometries are the handle's to free, and the authored ones are the graph's.
+  city.lightmaps?.dispose();
   disposeObject3D(city.root);
   city.root.removeFromParent();
   // The trim sheet needs no line of its own. `disposeObject3D` reaches its
