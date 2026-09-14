@@ -322,6 +322,10 @@ export default function App() {
     onApproach: (approach) => {
       state.approach = approach
     },
+    // A horizontal trackpad swipe turns Murcia's camera. The input only sends it
+    // while Murcia is current; the experience refuses it while anything else
+    // flies the camera.
+    onLook: (dx) => murciaRef.current?.lookBy(dx),
   })
   settleNavigationRef.current = settleNavigation
   resetZoomRef.current = resetNavigationZoom

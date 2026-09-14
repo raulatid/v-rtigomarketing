@@ -3467,6 +3467,18 @@ than deleted: 576 of 508,032 sampled poses out-reach the horizon, all on ultrawi
 and the clamp they fall back on is 800 units against 888 units of real ground — so
 what those poses draw is ground.
 
+**A horizontal trackpad swipe turns the camera** (2026-09-14, user reports: on a
+touchpad "sometimes they can't move horizontally", and it "sometimes feels bad").
+The one wheel listener read only `deltaY`, so a two-finger sideways swipe was
+swallowed and did nothing, and the stray `deltaY` of a swipe that was meant to turn
+zoomed the city instead. In Murcia a wheel event whose `deltaX` dominates now yaws
+exactly as a horizontal drag does (`MurciaExperience.lookBy` → `CameraRig.drag(dx,
+0)`, same gain and spring), and never reaches the zoom band or the commit. Every
+other event keeps its old path, so a mouse wheel and Earth are unchanged. This is
+a classification, and the drag above deliberately has none. The difference is the
+device: a drag is one hand on one surface, while a wheel event is two axes the OS
+reports together, and a trackpad never sends a pure one.
+
 
 ## 45. The services district is the campus
 

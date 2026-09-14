@@ -35,6 +35,8 @@ interface Params {
   onZoom?: (depth: number) => void
   /** The whole journey, raw. See `createNavigationInput`'s own `onApproach`. */
   onApproach?: (approach: number) => void
+  /** A horizontal wheel swipe in Murcia. See `createNavigationInput`'s own `onLook`. */
+  onLook?: (dxPx: number) => void
 }
 
 /**
@@ -56,6 +58,7 @@ export function useSceneNavigation({
   onProgress,
   onZoom,
   onApproach,
+  onLook,
 }: Params) {
   const inputRef = useRef<NavigationInput | null>(null)
 
@@ -69,6 +72,8 @@ export function useSceneNavigation({
   zoomRef.current = onZoom
   const approachRef = useRef(onApproach)
   approachRef.current = onApproach
+  const lookRef = useRef(onLook)
+  lookRef.current = onLook
 
   useEffect(() => {
     const root = rootRef.current
@@ -81,6 +86,7 @@ export function useSceneNavigation({
       onProgress: (progress) => progressRef.current?.(progress),
       onZoom: (depth) => zoomRef.current?.(depth),
       onApproach: (approach) => approachRef.current?.(approach),
+      onLook: (dxPx) => lookRef.current?.(dxPx),
     })
     inputRef.current = input
 

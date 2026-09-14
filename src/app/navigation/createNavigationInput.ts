@@ -147,6 +147,14 @@ export interface NavigationInputDeps {
    */
   onZoom?: (depth: number) => void
   /**
+   * A horizontal wheel swipe in Murcia, in normalised CSS px, capped per event
+   * like travel, and signed like a pointer drag's `dx`: positive slides the
+   * world right. Only for events whose horizontal component dominates, and
+   * only while a gesture could accumulate. Nothing here consumes it; the caller
+   * turns the camera.
+   */
+  onLook?: (dxPx: number) => void
+  /**
    * How far through the WHOLE journey the viewer has pushed, 0..1, RAW.
    *
    * The zoom band first, then the commit accumulator against its limit — the two
@@ -746,6 +754,22 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     event.preventDefault()
 
     const context = deps.getContext()
+
+    // A trackpad swipe is never pure: one meant to turn carries some deltaY, and
+    // fed to the band that deltaY zooms the city while nothing turns. So in
+    // Murcia each event goes to its DOMINANT axis — horizontal turns, vertical
+    // zooms and leaves. The pointer drag deliberately does not classify
+    // (DECISIONS §44); this is the wheel only. A turn never touches the gesture
+    // or the band, so a horizontal stream cannot zoom, commit or hold a latch.
+    if (context.current === 'murcia' && Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      hintInteracted()
+      if (!(machine.canAccumulate() && context.canNavigate)) return
+      // Negated so a natural-scrolling swipe to the right (deltaX < 0) reads as
+      // a drag to the right: the world follows the fingers.
+      deps.onLook?.(-normalizeWheelDelta({ deltaY: event.deltaX, deltaMode: event.deltaMode }))
+      return
+    }
+
     const raw = normalizeWheelDelta(event)
     // Someone driving the wheel is not someone who is stuck. Postponed rather
     // than retired: they have used a navigation input, but on touch that says

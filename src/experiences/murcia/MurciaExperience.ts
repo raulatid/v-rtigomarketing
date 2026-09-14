@@ -566,6 +566,18 @@ export class MurciaExperience {
     return this.campus?.isEngaged ?? false;
   }
 
+  /**
+   * A horizontal wheel or trackpad swipe, in CSS px, signed like a drag's `dx`.
+   *
+   * The same yaw a horizontal drag gives, through the same rig call, so the
+   * gain, the spring and the bounds are shared rather than restated. Arrives via
+   * the application because the wheel is scene navigation's (`adr/009`).
+   */
+  lookBy(dxPx: number): void {
+    if (!this.active || !this.rig || this.rig.isExternallyControlled) return;
+    this.rig.drag(dxPx / Math.max(1, this.viewport.width), 0);
+  }
+
   /** The scene RenderPipeline draws when this experience is showing. */
   get scene(): THREE.Scene {
     return this.sceneBundle.scene;

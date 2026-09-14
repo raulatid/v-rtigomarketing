@@ -39,6 +39,7 @@ function setup(initial: Partial<NavigationContext> = {}) {
   const context: NavigationContext = { current: 'earth', canNavigate: true, ...initial }
   const commits: string[] = []
   let depth = 0
+  const looks: number[] = []
   const input = createNavigationInput({
     root,
     hintLingerMs: HINT_LINGER_MS,
@@ -48,12 +49,14 @@ function setup(initial: Partial<NavigationContext> = {}) {
     onZoom: (value) => {
       depth = value
     },
+    onLook: (dx) => looks.push(dx),
   })
   return {
     root,
     context,
     input,
     commits,
+    looks,
     depth: () => depth,
     progress: () => Number(root.style.getPropertyValue('--nav-progress')) || 0,
     hint: root.querySelector<HTMLElement>('.nav-hint')!,
@@ -63,9 +66,9 @@ function setup(initial: Partial<NavigationContext> = {}) {
 }
 
 /** One wheel event, in CSS pixels. `deltaMode: 0` is what a browser sends. */
-function wheel(deltaY: number) {
+function wheel(deltaY: number, deltaX = 0, deltaMode = 0) {
   window.dispatchEvent(
-    new WheelEvent('wheel', { deltaY, deltaMode: 0, bubbles: true, cancelable: true }),
+    new WheelEvent('wheel', { deltaY, deltaX, deltaMode, bubbles: true, cancelable: true }),
   )
 }
 
@@ -74,6 +77,51 @@ const twoFrames = async () => {
   await new Promise((r) => requestAnimationFrame(r))
   await new Promise((r) => requestAnimationFrame(r))
 }
+
+// A trackpad's two-finger sideways swipe arrives as deltaX, which the wheel used
+// to drop — and the stray deltaY of a swipe meant to turn zoomed the city.
+describe('a horizontal wheel swipe in Murcia turns rather than zooms', () => {
+  it('sends a deltaX-dominant event to onLook, signed like a drag, and leaves the zoom alone', () => {
+    const { input, looks, depth } = setup({ current: 'murcia' })
+    // Natural scrolling: fingers moving right report a negative deltaX.
+    wheel(4, -40)
+    expect(looks).toEqual([40])
+    expect(depth()).toBe(0)
+    input.dispose()
+  })
+
+  it('normalises line units and caps each event like travel', () => {
+    const { input, looks } = setup({ current: 'murcia' })
+    wheel(0, 5, 1)
+    wheel(0, 20, 1)
+    expect(looks).toEqual([-80, -NAVIGATION_GESTURE.maxEventTravelPx])
+    input.dispose()
+  })
+
+  it('sends a vertical-dominant diagonal to the zoom and does not turn', () => {
+    const { input, looks, depth } = setup({ current: 'murcia' })
+    wheel(40, 10)
+    expect(looks).toEqual([])
+    expect(depth()).toBeLessThan(0)
+    input.dispose()
+  })
+
+  it('turns nothing while navigation is refused', () => {
+    const { input, looks, depth } = setup({ current: 'murcia', canNavigate: false })
+    wheel(0, -40)
+    expect(looks).toEqual([])
+    expect(depth()).toBe(0)
+    input.dispose()
+  })
+
+  it('leaves Earth on the old path: no turn, and the deltaY still zooms', () => {
+    const { input, looks, depth } = setup({ current: 'earth' })
+    wheel(10, -40)
+    expect(looks).toEqual([])
+    expect(depth()).toBeGreaterThan(0)
+    input.dispose()
+  })
+})
 
 describe('painted state derives from the navigation context', () => {
   it('paints the context state at wiring time, before any input event', () => {
