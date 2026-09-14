@@ -3062,9 +3062,26 @@ browser on a build machine that holds every secret is CONFINED rather than trust
 - **Bounded and cancellable.** A 120 s capture deadline that closes the browser and the server
   rather than waiting on them; a launch that lands after it is closed; promotion is synchronous
   after a final check, so a cancelled run never publishes; cleanup itself is bounded.
-- **Allowlisted environments and the sandbox on.** Chromium and the installer see a handful of
-  variables, not the build's secrets. `chromiumSandbox: true` — Playwright's default is off — with
-  no fallback: if the sandbox cannot run, the plate stays and a person decides.
+- **Allowlisted environments.** Chromium and the installer see a handful of variables, not the
+  build's secrets.
+- **The sandbox is on everywhere except Vercel.** `chromiumSandbox: true` — Playwright's default is
+  off — was the first shipped choice, with no fallback. Vercel's build container cannot run it (no
+  setuid helper, no user namespaces): the first build with the libraries in place died on
+  "Chromium sandboxing failed!". **Decided 2026-09-14:** the capture runs with
+  `chromiumSandbox: false` when `VERCEL=1`, as an explicit per-environment setting rather than a
+  retry after a failed launch, so the browser is loosened only where a person said so. *Accepted
+  residual risk, stated plainly:* the sandbox is the kernel-level isolation of Chromium's renderer
+  processes, and nothing else in this design replaces it — the request routing, the static server
+  and the environment filtering bound what the browser can reach, not what a compromised renderer
+  could do to the build machine. It is proportionate because the only page this browser ever
+  renders is the blog this build just produced: its CMS content is constrained Portable Text
+  (`strong`/`em`, links through `safeHref`) converted to typed blocks at build time and rendered
+  as text — no `dangerouslySetInnerHTML` in `src/blog/`, embeds are link cards, not iframes — by a
+  trusted editor. The alternatives (a separate capture service, a CI workflow, a hand-made image
+  template) were rejected as maintenance the site does not want. **Maintenance obligation:**
+  Playwright and its matching Chromium are updated during scheduled dependency maintenance; a
+  published Chromium renderer/V8 vulnerability is a reason to update earlier, because this is the
+  one place a Chromium runs without its sandbox.
 
 **Vercel's image has the browser but not its libraries.** The next build got as far as starting
 Chromium and died on `libnspr4.so`. The loader names only the first missing library, so all 21

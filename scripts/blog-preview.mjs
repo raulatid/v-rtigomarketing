@@ -912,8 +912,8 @@ function launchAdvice(error) {
     return "Chromium is not provisioned for channel 'chromium' — run `npx playwright install chromium`";
   }
   // Playwright rewrites a sandbox failure's log into "Chromium sandboxing failed!",
-  // and Chromium's own words for it are "No usable sandbox!". There is no fallback
-  // to `--no-sandbox` here on purpose — see `launchOptions`.
+  // and Chromium's own words for it are "No usable sandbox!". Not retried without
+  // the sandbox: where it is off is decided per environment in `launchOptions`.
   if (/sandboxing failed|No usable sandbox|crbug\.com\/(357670|638180)/.test(text)) {
     return "Chromium's sandbox cannot run on this machine, and the capture does not run without it";
   }
@@ -961,15 +961,26 @@ function printLaunchLog(error) {
  * Chromium disagreed by 153. It does not rasterise DOM text and SVG text alike, so a
  * shot from it is a shot of a renderer no visitor has.
  *
- * `chromiumSandbox: true` because Playwright's default is FALSE — it passes
- * `--no-sandbox` unless told otherwise. There is deliberately no fallback to it: if
- * the sandbox cannot run somewhere, the capture fails there and the plate stays,
- * and loosening the browser is a decision for a person, not for this script. No
- * `args` are added; Playwright talks to the browser over a pipe, not a port.
+ * THE SANDBOX IS OFF ON VERCEL, AND ONLY THERE. Playwright's default is off
+ * everywhere (`--no-sandbox` unless told otherwise); this script turns it on, and
+ * Vercel's build container cannot run it — no setuid helper, no user namespaces —
+ * so the first build with the libraries in place died on "Chromium sandboxing
+ * failed!". Decided 2026-09-14 (DECISIONS §42): the capture runs without it there,
+ * as an EXPLICIT environment choice, not a fallback after a failed launch — a
+ * fallback would loosen the browser wherever it happened to fail, which is the
+ * decision this keeps with a person.
+ *
+ * What is accepted: the sandbox is the kernel-level isolation of the renderer, and
+ * nothing else here replaces it — the routing, the static server and the env
+ * allowlist confine what the browser can REACH, not what a compromised renderer
+ * could do to the build machine. What makes it proportionate: the only page this
+ * browser ever renders is the blog this build just produced, whose CMS content is
+ * constrained Portable Text rendered as text (never as HTML) by a trusted editor.
+ * No `args` are added; Playwright talks to the browser over a pipe, not a port.
  */
 const launchOptions = () => ({
   channel: 'chromium',
-  chromiumSandbox: true,
+  chromiumSandbox: process.env.VERCEL !== '1',
   timeout: LAUNCH_TIMEOUT_MS,
   env: chromiumEnv(),
 });
