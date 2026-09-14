@@ -907,10 +907,52 @@ const isMissingBrowser = (error) => {
 };
 
 function launchAdvice(error) {
+  const text = String(error);
   if (isMissingBrowser(error)) {
     return "Chromium is not provisioned for channel 'chromium' — run `npx playwright install chromium`";
   }
+  // Playwright rewrites a sandbox failure's log into "Chromium sandboxing failed!",
+  // and Chromium's own words for it are "No usable sandbox!". There is no fallback
+  // to `--no-sandbox` here on purpose — see `launchOptions`.
+  if (/sandboxing failed|No usable sandbox|crbug\.com\/(357670|638180)/.test(text)) {
+    return "Chromium's sandbox cannot run on this machine, and the capture does not run without it";
+  }
+  if (/error while loading shared libraries|missing dependencies/i.test(text)) {
+    return 'Chromium is missing system libraries on this machine';
+  }
   return 'Chromium could not be launched';
+}
+
+/**
+ * The browser's own account of a failed launch, which is where the CAUSE is.
+ *
+ * Playwright's launch error is one line of symptom — "Target page, context or
+ * browser has been closed" — followed by the browser's log: the command line, its
+ * stderr, and how it exited. `warn` prints only the first line, which is how the
+ * one Vercel build log that could have said why Chromium died said nothing.
+ *
+ * The TAIL, because the cause sits next to the exit rather than after the long
+ * launch command, and bounded, because the log is the browser's and its length is
+ * not ours to trust. It carries no build secrets: Chromium only ever saw the
+ * allowlisted environment, and the log prints its arguments, not its environment.
+ */
+const LAUNCH_LOG_LINES = 40;
+const LAUNCH_LOG_LINE_CHARS = 300;
+
+function printLaunchLog(error) {
+  const lines = String(error)
+    .split('\n')
+    .slice(1)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== '');
+  if (lines.length === 0) return;
+  console.warn('[blog-preview] the browser said:');
+  if (lines.length > LAUNCH_LOG_LINES) {
+    console.warn(`[blog-preview]   … ${lines.length - LAUNCH_LOG_LINES} earlier line(s)`);
+  }
+  for (const line of lines.slice(-LAUNCH_LOG_LINES)) {
+    console.warn(`[blog-preview]   ${line.slice(0, LAUNCH_LOG_LINE_CHARS)}`);
+  }
 }
 
 /**
@@ -988,6 +1030,7 @@ export async function main({
     } catch (error) {
       if (!isMissingBrowser(error) || process.env.VERCEL !== '1' || capture.signal.aborted) {
         warn(launchAdvice(error), error);
+        printLaunchLog(error);
         return;
       }
       capture.clear();
@@ -1001,6 +1044,7 @@ export async function main({
         browser = await launchBrowser(chromium, launchOptions(), capture.signal);
       } catch (retryError) {
         warn(launchAdvice(retryError), retryError);
+        printLaunchLog(retryError);
         return;
       }
     }
