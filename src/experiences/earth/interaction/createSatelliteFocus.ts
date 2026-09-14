@@ -12,10 +12,12 @@ import { isPointVisible } from '../orbit/satelliteVisibility'
 // Wires hover/click on the satellite badges to the camera rig, the orbit
 // system's freeze/resume API, and the case panel.
 //
-// Click a satellite → it freezes in place, the camera flies to a close-up
-// framing it left of centre, and the panel appears on the right. The ✕ button,
-// Escape, or a click on empty space deselects: the camera returns to overview
-// and the satellite resumes its orbit from exactly where it froze.
+// Click a satellite → every satellite freezes in place, the camera flies to a
+// close-up framing the clicked one left of centre, and the panel appears on the
+// right. All six hold, not just the one being read: the others drifting across
+// the frame distracted anyone reading a panel. The ✕ button, Escape, or a click
+// on empty space deselects: the camera returns to overview and each satellite
+// resumes its orbit from exactly where it froze.
 //
 // It also runs the hover TUTORIAL: the invited satellite auto-plays the hover
 // state twice after the scene settles, so a viewer with no cursor — or one who
@@ -244,8 +246,6 @@ export function createSatelliteFocus({
 
   function select(id: string) {
     if (selectedId === id) return
-    // Switching directly from one satellite to another: let the old one go.
-    if (selectedId) orbitSystem.resumeSatellite(selectedId)
 
     const sat = orbitSystem.satellites.find((s) => s.id === id)
     if (!sat) return
@@ -257,7 +257,9 @@ export function createSatelliteFocus({
     retireTutorial()
     sat.object.getWorldPosition(worldPos)
 
-    orbitSystem.freezeSatellite(id)
+    // All of them, and a switch from A to B resumes nothing: the scene holds
+    // still for as long as any panel is open. Freezing is idempotent.
+    for (const s of orbitSystem.satellites) orbitSystem.freezeSatellite(s.id)
     cameraRig.focusOn(worldPos)
     cameraRig.setOrbitEnabled(false)
     applyHighlights()
@@ -266,9 +268,9 @@ export function createSatelliteFocus({
 
   function deselect() {
     if (!selectedId) return
-    // resumeSatellite carries the frozen progress forward, so the badge picks up
-    // from where it stopped instead of snapping to where the clock ran on to.
-    orbitSystem.resumeSatellite(selectedId)
+    // resumeSatellite carries each one's frozen progress forward, so every badge
+    // picks up from where it stopped instead of snapping to where the clock ran on to.
+    for (const s of orbitSystem.satellites) orbitSystem.resumeSatellite(s.id)
     selectedId = null
     cameraRig.returnToOverview()
     cameraRig.setOrbitEnabled(true)

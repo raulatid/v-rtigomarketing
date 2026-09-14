@@ -75,14 +75,16 @@ function setup({ reducedMotion = false }: SetupOptions = {}) {
   const highlighted = vi.fn()
   const invited = vi.fn()
   const cue = vi.fn()
+  const freeze = vi.fn()
+  const resume = vi.fn()
   const orbitSystem = {
     satellites: [
       { id: 'a', data: def('a'), object: meshes.a },
       { id: 'b', data: def('b'), object: meshes.b },
     ],
     isSatelliteActive: () => true,
-    freezeSatellite: vi.fn(),
-    resumeSatellite: vi.fn(),
+    freezeSatellite: freeze,
+    resumeSatellite: resume,
     setSatelliteHighlight: highlighted,
     setSatelliteExpanded: expanded,
     setSatelliteInvited: invited,
@@ -178,6 +180,8 @@ function setup({ reducedMotion = false }: SetupOptions = {}) {
     highlighted,
     invited,
     cue,
+    freeze,
+    resume,
     expansionState: lastPerSatellite(expanded),
     highlightState: lastPerSatellite(highlighted),
     invitationState: lastPerSatellite(invited),
@@ -227,6 +231,38 @@ describe('selecting a satellite', () => {
     // The audit view and the warp transition both do this mid-flight.
     harness.focus.setEnabled(false)
     expect(harness.expansionState()).toEqual({ a: false, b: false })
+  })
+})
+
+describe('orbital motion while a panel is open', () => {
+  // Every satellite holds, not only the one being read: the others drifting
+  // across the frame distracted anyone reading a panel. The orbit system's
+  // freeze/resume carry each one's progress, so this only pins which and when.
+  const ids = (calls: unknown[][]) => calls.map(([id]) => id as string).sort()
+
+  it('freezes every satellite when one is selected', () => {
+    harness.clickOn('a')
+    expect(ids(harness.freeze.mock.calls)).toEqual(['a', 'b'])
+    expect(harness.resume).not.toHaveBeenCalled()
+  })
+
+  it('keeps them all held when the selection moves to another', () => {
+    harness.clickOn('a')
+    harness.clickOn('b')
+    expect(harness.resume).not.toHaveBeenCalled()
+  })
+
+  it('resumes every satellite on deselect', () => {
+    harness.clickOn('a')
+    harness.focus.deselect()
+    expect(ids(harness.resume.mock.calls)).toEqual(['a', 'b'])
+  })
+
+  it('resumes every satellite when the layer is disabled mid-selection', () => {
+    // The warp to Murcia and the audit panel both do this with a panel open.
+    harness.clickOn('a')
+    harness.focus.setEnabled(false)
+    expect(ids(harness.resume.mock.calls)).toEqual(['a', 'b'])
   })
 })
 
