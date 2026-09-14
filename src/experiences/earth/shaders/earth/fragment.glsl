@@ -40,6 +40,16 @@ void main()
     float clouds = texture(uCloudsTexture, vUv).r;
     float cloudsMix = smoothstep(0.5, 1.0, clouds) * uCloudIntensity;
     cloudsMix *= dayMix;
+
+    // Faded out between 70° and 80° of latitude. The clouds source is smeared
+    // along its top and bottom rows (so was the specularClouds.jpg before it),
+    // and on the sphere that smear pinches into radial streaks and hard white
+    // wedges at the poles — the threshold above sharpens its edges. It is the
+    // data, not the mesh or the sampling: per-fragment UVs render the same.
+    // vUv.y rather than a normal so a tilted axis would not move the band;
+    // SphereGeometry's v is linear in polar angle, so this is exact.
+    float poleDistance = min(vUv.y, 1.0 - vUv.y);
+    cloudsMix *= smoothstep(10.0 / 180.0, 20.0 / 180.0, poleDistance);
     color = mix(color, vec3(1.0), clamp(cloudsMix, 0.0, 1.0));
 
     // Fresnel
