@@ -862,6 +862,51 @@ describe('the case-study projection hands the mirror what it expects', () => {
  * horas" is a promise about their own working week — and the alternative to a
  * field is a deploy for a sentence.
  */
+/**
+ * The audit form's billing ranges (2026-09-14): the options of a dropdown the
+ * client fills in, and at once the values the server accepts.
+ */
+describe('the audit form\'s billing ranges', () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+  const rangesOf = (record: Record<string, unknown>): string[] => {
+    const result = siteSettingsCollection.map(record, 0)
+    if (!result.ok) throw new Error('expected a valid record, got ' + JSON.stringify(result.problems))
+    return (result.value as SiteSettings).revenueRanges
+  }
+
+  it('carries the fixture\'s ranges through, in order', () => {
+    expect(rangesOf(validSettings())).toEqual(settingsFixtures[0].revenueRanges)
+  })
+
+  it('falls back to placeholder ranges when the CMS has none', () => {
+    // A dataset that predates the field must still build, and the dropdown
+    // must never render empty.
+    const fallback = rangesOf({ ...validSettings(), revenueRanges: undefined })
+    expect(fallback.length).toBeGreaterThan(0)
+    for (const blank of [null, []]) {
+      expect(rangesOf({ ...validSettings(), revenueRanges: blank }), JSON.stringify(blank)).toEqual(
+        fallback,
+      )
+    }
+  })
+
+  it('refuses a present list the dropdown could not use', () => {
+    const cases: Array<[unknown, string]> = [
+      [['Menos de 100.000 €', ''], 'site.revenueRanges[1]'],
+      [['a'.repeat(61)], 'site.revenueRanges[0]'],
+      [Array.from({ length: 9 }, (_, i) => 'Rango ' + i), 'site.revenueRanges'],
+      [['Igual', 'Igual'], 'site.revenueRanges[1]'],
+      ['Menos de 100.000 €', 'site.revenueRanges'],
+    ]
+    for (const [revenueRanges, path] of cases) {
+      expect(
+        problemsFor(siteSettingsCollection, { ...validSettings(), revenueRanges }),
+        JSON.stringify(revenueRanges),
+      ).toContain(path)
+    }
+  })
+})
+
 describe('the forms\' confirmation copy', () => {
   const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
 

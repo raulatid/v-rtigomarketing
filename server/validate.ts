@@ -16,6 +16,8 @@
  * the website rules below are the answer to API-2.
  */
 
+import { REVENUE_RANGES } from '../src/content/site'
+
 /**
  * Field length caps, in characters after trimming.
  *
@@ -26,9 +28,11 @@
  */
 export const CAPS = {
   name: 80,
-  // Short business context, not a figure. 60 leaves room for
-  // "20.000 - 100.000 € aprox." and stops well short of anything that would
-  // overrun a row in the email a person actually reads.
+  // The billing range is picked from the client's list, and the Studio bounds
+  // each entry at this same number (`EDITORIAL_BOUNDS.siteSettings.revenueRange`)
+  // so every range offered fits. The budget is short free-text context: 60
+  // leaves room for "2.000 - 5.000 € aprox." and stops well short of
+  // overrunning a row in the email a person actually reads.
   revenue: 60,
   budget: 60,
   email: 254,
@@ -65,17 +69,16 @@ export type Plan = (typeof PLANS)[number]
 export interface AuditSubmission {
   plan: Plan
   /**
-   * Turnover band and monthly budget, as the visitor typed them.
-   *
-   * FREE TEXT by product decision — the client asked for business context, not
-   * for a figure to compute with, so there is no enum and nothing parses these.
-   * They are read by a person in an email.
-   *
-   * Free text is not unvalidated text: both go through `readText` like every
-   * other field (control characters stripped, line breaks folded, length
-   * capped) and are escaped again at render in `renderEmail.ts`.
+   * Turnover band: one of the client's ranges from Sanity (`REVENUE_RANGES`),
+   * verbatim. Nothing parses it; a person reads it in an email.
    */
   revenue: string
+  /**
+   * Monthly budget, as the visitor typed it. FREE TEXT by product decision, so
+   * there is no enum — but not unvalidated text: it goes through `readText`
+   * like every other field (control characters stripped, line breaks folded,
+   * length capped) and is escaped again at render in `renderEmail.ts`.
+   */
   budget: string
   name: string
   email: string
@@ -382,21 +385,33 @@ export function parseAuditBody(raw: unknown): ParseResult<AuditSubmission> {
     fields.plan = 'Selecciona un servicio.'
   }
 
+  // One of the client's ranges and nothing else — the same closed-set rule as
+  // PLANS, with the set coming from Sanity through the generated content
+  // instead of from this file. `readText` runs first so a hostile value is
+  // cleaned and capped before it is compared; the list is cleaned the same way
+  // so a stray double space in the CMS cannot make its own option unsendable,
+  // and what goes on is the list's spelling, not the wire's.
+  const revenueText = readText(
+    {
+      key: 'revenue',
+      raw: body.revenue,
+      cap: CAPS.revenue,
+      missing: 'Selecciona tu rango de facturación.',
+      tooLong: 'Selecciona tu rango de facturación.',
+    },
+    fields,
+  )
+  const revenue =
+    REVENUE_RANGES.find((range) => clean(range, { multiline: false }) === revenueText) ?? ''
+  if (fields.revenue === undefined && revenue === '') {
+    fields.revenue = 'Selecciona tu rango de facturación.'
+  }
+
   // Presence and length, and nothing else. There is deliberately no format
   // rule: every separator, currency, abbreviation and "no lo sé todavía" is a
   // valid answer here, so a pattern would reject real ones for no gain. The
   // safety comes from `readText` and from `escapeHtml` downstream, not from a
   // shape the value was never promised to have.
-  const revenue = readText(
-    {
-      key: 'revenue',
-      raw: body.revenue,
-      cap: CAPS.revenue,
-      missing: 'Indica tu rango de facturación.',
-      tooLong: 'Ese rango de facturación es demasiado largo.',
-    },
-    fields,
-  )
   const budget = readText(
     {
       key: 'budget',

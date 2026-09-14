@@ -46,6 +46,9 @@ const {
   successTitle: SUCCESS_TITLE_MAX,
   /** Two lines under that heading. */
   successBody: SUCCESS_BODY_MAX,
+  /** One option in the audit form's billing dropdown. */
+  revenueRange: REVENUE_RANGE_MAX,
+  revenueRanges: REVENUE_RANGES_MAX,
 } = EDITORIAL_BOUNDS.siteSettings
 
 /**
@@ -166,6 +169,45 @@ function bookingCopy(report: Report, path: string, raw: unknown): string | undef
 }
 
 /**
+ * The audit form's billing ranges before the client has given us any.
+ *
+ * PLACEHOLDERS. The client did not know their brackets when the dropdown was
+ * built (2026-09-14) and will write them in the Studio; these four are seeded
+ * into the dataset as well, so the editor sees them as something to replace.
+ * The fallback is the SUCCESS_FALLBACKS reasoning again — a dataset that
+ * predates the field must still build — with a sharper edge: the select is
+ * required and the server refuses anything outside this list, so an empty one
+ * would be a form nobody can send.
+ */
+const REVENUE_RANGES_FALLBACK = [
+  'Menos de 100.000 €',
+  '100.000 - 500.000 €',
+  '500.000 - 1.000.000 €',
+  'Más de 1.000.000 €',
+] as const
+
+/**
+ * Each range is at once the option's label and the value the form submits,
+ * so a present list is held to what a `<select>` needs: bounded, no blank
+ * entries, and no two alike (one option shown twice, and a duplicate React key).
+ */
+function revenueRanges(report: Report, path: string, raw: unknown): string[] | undefined {
+  if (raw === null || raw === undefined || (Array.isArray(raw) && raw.length === 0)) {
+    return [...REVENUE_RANGES_FALLBACK]
+  }
+  const ranges = boundedArray(report, path, raw, REVENUE_RANGES_MAX, (r, p, v) =>
+    text(r, p, v, { max: REVENUE_RANGE_MAX }),
+  )
+  if (ranges === undefined) return undefined
+  for (const [i, range] of ranges.entries()) {
+    if (ranges.indexOf(range) !== i) {
+      return report.fail(path + '[' + i + ']', JSON.stringify(range) + ' is listed twice')
+    }
+  }
+  return ranges
+}
+
+/**
  * What the banner image must be, beyond being fetchable (plan 019).
  *
  * The image is stretched onto each face of the sign on the Vertigo tower, and
@@ -268,6 +310,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       auditSuccessBody,
       contactSuccessTitle,
       contactSuccessBody,
+      revenueRanges,
       bannerEnabled,
       "bannerImage": bannerImage.asset->url
     }`,
@@ -335,6 +378,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       SUCCESS_BODY_MAX,
     )
     const buildingBanner = banner(scoped, source.bannerEnabled, source.bannerImage)
+    const ranges = revenueRanges(scoped, 'revenueRanges', source.revenueRanges)
 
     const problems = [...report.problems, ...scoped.problems]
     if (
@@ -348,6 +392,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       auditSuccessBody === undefined ||
       contactSuccessTitle === undefined ||
       contactSuccessBody === undefined ||
+      ranges === undefined ||
       buildingBanner === undefined
     ) {
       return { ok: false, problems }
@@ -369,6 +414,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       auditSuccessBody,
       contactSuccessTitle,
       contactSuccessBody,
+      revenueRanges: ranges,
       // Always present (the switch has a default); the image key inside it is
       // spread the way `bookingUrl` is, for the same byte-stability reason.
       buildingBanner,

@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuditSection } from './AuditSection'
 import type { AuditRequest } from '../app/auditSubmission'
+import { REVENUE_RANGES } from '../content/site'
 
 // The submission flow's state model: idle → submitting → success | error.
 // What these pin down, in order of importance:
@@ -22,7 +23,7 @@ const VALID: Record<string, string> = {
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'https://example.com',
-  revenue: '20.000 - 100.000 €',
+  revenue: REVENUE_RANGES[0],
   budget: 'aprox. 3.000 al mes',
 }
 
@@ -81,11 +82,10 @@ function openAndFill() {
   })
   act(() => {
     pick(document.querySelector<HTMLSelectElement>('#audit-plan')!, 'auditoria-seo-completa')
-    // Free text, and typed the way a person actually would — a currency symbol,
-    // a thousands separator and a hyphen. If any of these ever stopped being
-    // accepted, this fill would silently start failing validation and every
-    // test below it would fail for the wrong reason.
-    type(document.querySelector<HTMLInputElement>('#audit-revenue')!, VALID.revenue)
+    pick(document.querySelector<HTMLSelectElement>('#audit-revenue')!, VALID.revenue)
+    // Free text, and typed the way a person actually would. If this ever
+    // stopped being accepted, this fill would silently start failing validation
+    // and every test below it would fail for the wrong reason.
     type(document.querySelector<HTMLInputElement>('#audit-budget')!, VALID.budget)
     type(document.querySelector<HTMLInputElement>('#audit-name')!, VALID.name)
     type(document.querySelector<HTMLInputElement>('#audit-email')!, VALID.email)
@@ -100,6 +100,21 @@ function submitForm() {
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
   })
 }
+
+describe('the billing range', () => {
+  it('is a dropdown of exactly the ranges from Sanity, in order', () => {
+    mount(() => Promise.resolve())
+    const select = document.querySelector<HTMLSelectElement>('#audit-revenue')!
+    expect(select.tagName).toBe('SELECT')
+    // The first option is the disabled placeholder, the empty value the
+    // form's validation rejects.
+    const [placeholder, ...ranges] = Array.from(select.options)
+    expect(placeholder.value).toBe('')
+    expect(placeholder.disabled).toBe(true)
+    expect(ranges.map((o) => o.value)).toEqual([...REVENUE_RANGES])
+    expect(ranges.map((o) => o.textContent)).toEqual([...REVENUE_RANGES])
+  })
+})
 
 describe('audit form submission states', () => {
   it('shows the in-panel success state instead of closing', async () => {

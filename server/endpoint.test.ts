@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { respond, BODY_LIMIT_BYTES, resetLimiterForTests } from './endpoint'
 import type { MailEnv } from './config'
+import { REVENUE_RANGES } from '../src/content/site'
 
 /**
  * The HTTP shell, tested through the Web `Request`/`Response` pair rather than
@@ -206,7 +207,7 @@ describe('the audit endpoint', () => {
       'audit',
       post({
         plan: 'auditoria-seo-completa',
-        revenue: '20k / 100k',
+        revenue: REVENUE_RANGES[0],
         budget: 'aprox. 3.000 al mes',
         name: 'Nombre Prueba',
         email: 'prueba@example.com',

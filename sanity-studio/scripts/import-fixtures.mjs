@@ -166,6 +166,7 @@ for (const record of read('siteSettings')) {
     phones: keyed(record.phones, 'phone'),
     contactEmail: record.contactEmail,
     copyright: record.copyright,
+    revenueRanges: record.revenueRanges,
   })
 }
 

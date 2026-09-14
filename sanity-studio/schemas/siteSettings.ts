@@ -42,6 +42,7 @@ const BOOKING_LABEL_MAX = 24
  * `contactEmail`: nowhere — it is where both forms' messages are delivered.
  * `copyright`: the Earth scene's footer only; the blog hardcodes its own.
  * The four success strings: in place of each form after a real send.
+ * `revenueRanges`: the options of the Auditoría panel's billing dropdown.
  */
 export const siteSettings = defineType({
   name: 'siteSettings',
@@ -63,6 +64,12 @@ export const siteSettings = defineType({
         'La web tiene dos formularios. «Auditoría» es el panel lateral que se abre con el botón ' +
         'Auditoría de la cabecera; «Contacto» es la ventana del botón Contacto. Cuando alguien ' +
         'envía uno, el formulario desaparece y en su lugar se lee este titular y este texto.',
+    },
+    {
+      name: 'auditoria',
+      title: 'Formulario de auditoría',
+      description:
+        'Las opciones del panel «Auditoría», el que se abre con el botón Auditoría de la cabecera.',
     },
     { name: 'pie', title: 'Pie de página' },
     // Every field in here is hidden (see bannerEnabled), and Sanity does not draw
@@ -290,6 +297,41 @@ export const siteSettings = defineType({
         rule.max(BOUNDS.successBody).error(
           `Demasiado largo: como máximo ${BOUNDS.successBody} caracteres.`,
         ),
+      ],
+    }),
+
+    // ── Los rangos de facturación ──
+    //
+    // Cada línea es una opción del desplegable, en este orden. Lo que escribas
+    // es exactamente lo que ve el visitante y lo que llega en el correo: no hay
+    // un "valor interno" aparte. Obligatorio: sin rangos no habría nada que
+    // elegir y el formulario no se podría enviar.
+    defineField({
+      name: 'revenueRanges',
+      title: 'Rangos de facturación',
+      description:
+        'Las opciones del desplegable «Rango de facturación de tu empresa» del panel Auditoría, ' +
+        'en este mismo orden (arrastra para reordenar). Lo que escribas es lo que ve el visitante ' +
+        'y lo que te llega en el correo.',
+      type: 'array',
+      fieldset: 'auditoria',
+      of: [
+        defineArrayMember({
+          type: 'string',
+          title: 'Rango',
+          components: { input: charCount(BOUNDS.revenueRange) },
+          validation: (rule) => [
+            rule.required().error('Escribe el rango o quita la línea.'),
+            rule.max(BOUNDS.revenueRange).error(
+              `Demasiado largo: como máximo ${BOUNDS.revenueRange} caracteres.`,
+            ),
+          ],
+        }),
+      ],
+      validation: (rule) => [
+        rule.required().min(1).error('Añade al menos un rango.'),
+        rule.max(BOUNDS.revenueRanges).error(`Como máximo ${BOUNDS.revenueRanges} rangos.`),
+        rule.unique().error('Hay dos rangos iguales: el visitante no podría distinguirlos.'),
       ],
     }),
     defineField({

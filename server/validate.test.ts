@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseAuditBody, parseContactBody, CAPS, PLANS } from './validate'
+import { REVENUE_RANGES } from '../src/content/site'
 
 /**
  * The server's own reading of a submission. The client validates too, and these
@@ -15,7 +16,7 @@ import { parseAuditBody, parseContactBody, CAPS, PLANS } from './validate'
 
 const audit = {
   plan: 'auditoria-seo-completa',
-  revenue: '20.000 - 100.000 €',
+  revenue: REVENUE_RANGES[0],
   budget: '2.000 - 5.000 €',
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
@@ -270,7 +271,23 @@ describe('the audit form in particular', () => {
     }
   })
 
-  it('takes the revenue and budget as free text, and still bounds them', () => {
+  it('accepts each billing range the dropdown offers and nothing else', () => {
+    // Read from the generated content, like PLANS above: the ranges are the
+    // client's, in Sanity, and the point is the CLOSED set.
+    expect(REVENUE_RANGES.length).toBeGreaterThan(0)
+    for (const range of REVENUE_RANGES) {
+      expect(auditValue({ revenue: range }).revenue, range).toBe(range)
+    }
+    // What the field accepted when it was free text is refused now, and so is
+    // a near-miss of a real range.
+    for (const revenue of ['', '   ', '20k / 100k', REVENUE_RANGES[0] + ' aprox.', 42]) {
+      expect(auditFields({ revenue }), String(revenue)).toHaveProperty('revenue')
+    }
+    expect(auditFields({ revenue: undefined })).toHaveProperty('revenue')
+    expect(auditFields({ revenue: 'a'.repeat(CAPS.revenue + 1) })).toHaveProperty('revenue')
+  })
+
+  it('takes the budget as free text, and still bounds it', () => {
     // Every one of these is a real answer a person would type. None of them
     // survives a schema, which is why there is no schema.
     for (const value of [
@@ -282,22 +299,14 @@ describe('the audit form in particular', () => {
       '2k-4k',
       'No definido todavía',
     ]) {
-      expect(auditValue({ revenue: value, budget: value }).revenue, value).toBe(value)
-      expect(auditValue({ revenue: value, budget: value }).budget, value).toBe(value)
+      expect(auditValue({ budget: value }).budget, value).toBe(value)
     }
 
-    // Required, both of them.
-    expect(auditFields({ revenue: '' })).toHaveProperty('revenue')
-    expect(auditFields({ revenue: '   ' })).toHaveProperty('revenue')
     expect(auditFields({ budget: '' })).toHaveProperty('budget')
     expect(auditFields({ budget: undefined })).toHaveProperty('budget')
-
-    // Bounded, both of them.
-    expect(auditFields({ revenue: 'a'.repeat(CAPS.revenue + 1) })).toHaveProperty('revenue')
     expect(auditFields({ budget: 'a'.repeat(CAPS.budget + 1) })).toHaveProperty('budget')
 
     // Free text is not a hole in the control-character rule.
-    expect(auditValue({ revenue: '20k  / 100k' }).revenue).toBe('20k / 100k')
     expect(auditValue({ budget: '2.000\r\n- 5.000' }).budget).toBe('2.000 - 5.000')
   })
 

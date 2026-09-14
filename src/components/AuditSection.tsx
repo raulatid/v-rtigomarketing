@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom'
 import { auditView, shiftsFor, type AuditPhase } from '../auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
-import { FORM_MESSAGES, type LegalDocId } from '../content/site'
+import { FORM_MESSAGES, REVENUE_RANGES, type LegalDocId } from '../content/site'
 import './auditSection.css'
 
 // Audit section (plan 005): a trigger in the site header and a solid black form
@@ -110,27 +110,22 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
       { value: 'estrategia-marketing', label: 'Estrategias de marketing' },
     ],
   },
-  // FREE TEXT, deliberately, and this is the decision most likely to be
-  // second-guessed later. The client asked for business context, not for a
-  // figure to compute with: "20k / 100k", "aprox. 3.000 al mes" and "No
-  // definido todavía" are all useful answers, and a select would have forced
-  // somebody to invent the brackets. Nothing downstream parses these — they
-  // travel as text into an email a person reads.
-  //
-  // Free text is not unvalidated text. Both go through the same `readText`
-  // rule as every other field on the server (control characters stripped, line
-  // breaks folded, length capped) and the same `escapeHtml` in renderEmail.
+  // Free text until 2026-09-14; a select now, at the client's request. The
+  // brackets are THEIRS, edited in Sanity (Ajustes del sitio), because they did
+  // not know them when this was built — so, unlike the services above, the
+  // options are content rather than code. The label is the value: nothing
+  // downstream parses it, it travels as text into an email a person reads.
+  // `server/validate.ts` checks it against the same generated list.
   revenue: {
-    kind: 'input',
+    kind: 'select',
     label: 'Rango de facturación de tu empresa',
-    type: 'text',
-    // No autocomplete token describes this. `off` rather than a wrong one:
-    // the browser has nothing useful to offer and a mismatched token invites
-    // it to fill in something else.
-    autoComplete: 'off',
-    placeholder: '20.000 - 100.000 €',
-    maxLength: 60,
+    placeholder: 'Selecciona un rango',
+    options: REVENUE_RANGES.map((range) => ({ value: range, label: range })),
   },
+  // FREE TEXT, deliberately: "aprox. 3.000 al mes" and "No definido todavía"
+  // are both useful answers, and a select would force somebody to invent the
+  // brackets. It still goes through `readText` on the server and `escapeHtml`
+  // in renderEmail like every other field.
   budget: {
     kind: 'input',
     label: 'Presupuesto mensual',
@@ -292,12 +287,11 @@ function websiteProblem(raw: string): string | undefined {
 function validate(values: Values): Errors {
   const errors: Errors = {}
   if (!values.plan) errors.plan = 'Selecciona un servicio.'
+  if (!values.revenue) errors.revenue = 'Selecciona tu rango de facturación.'
   // Presence and length only. There is deliberately no format rule: every
   // separator, currency, abbreviation and "no lo sé todavía" is a valid answer,
   // and a pattern here would reject real ones. The cap mirrors FIELD_DEFS,
   // which mirrors the server — see the maxLength comment above.
-  if (!values.revenue.trim()) errors.revenue = 'Indica tu rango de facturación.'
-  else if (values.revenue.trim().length > 60) errors.revenue = 'Máximo 60 caracteres.'
   if (!values.budget.trim()) errors.budget = 'Indica tu presupuesto mensual.'
   else if (values.budget.trim().length > 60) errors.budget = 'Máximo 60 caracteres.'
   if (!values.name.trim()) errors.name = 'Introduce tu nombre.'

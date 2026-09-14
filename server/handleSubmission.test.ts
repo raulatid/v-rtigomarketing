@@ -4,6 +4,7 @@ import { createLimiter } from './rateLimit'
 import type { MailConfig } from './config'
 import type { RenderedEmail } from './renderEmail'
 import type { SendOutcome } from './resend'
+import { REVENUE_RANGES } from '../src/content/site'
 
 /**
  * A typed stand-in for the transport. Typed rather than inferred so that
@@ -57,7 +58,7 @@ const contactBody = {
 
 const auditBody = {
   plan: 'auditoria-seo-completa',
-  revenue: '20.000 - 100.000 EUR',
+  revenue: REVENUE_RANGES[0],
   budget: '2.000 - 5.000 EUR',
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
@@ -115,7 +116,7 @@ describe('a submission that should arrive', () => {
     expect(message.subject).toMatch(/auditor/i)
     // Normalised on the way through, so the recipient sees what was checked.
     expect(message.text).toContain('https://example.com/')
-    // The whole point of the two free-text fields is that a person reads them,
+    // The whole point of the two business-context fields is that a person reads them,
     // so "it validated" is not the assertion that matters — "it arrived" is.
     // This is the end of the path the plan names: UI -> validation -> payload
     // -> server validation -> email.

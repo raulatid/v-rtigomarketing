@@ -104,8 +104,7 @@ export interface SiteSettings {
   phones: SitePhone[]
   /**
    * Where a form submission is emailed. Described to the editor as "la
-   * dirección a la que llegan los mensajes", and read by `server/recipient.ts`
-   * — which is the only thing outside the browser that reads any of this.
+   * dirección a la que llegan los mensajes", and read by `server/recipient.ts`.
    */
   contactEmail: string
   /**
@@ -146,6 +145,13 @@ export interface SiteSettings {
   auditSuccessBody: string
   contactSuccessTitle: string
   contactSuccessBody: string
+  /**
+   * The options of the audit form's "Rango de facturación" dropdown, in order.
+   * Each string is both what the visitor reads and what is submitted — nothing
+   * parses it, and the notification email shows it as picked. Never empty: the
+   * mapper substitutes placeholder ranges when the CMS has none.
+   */
+  revenueRanges: string[]
   /** Always present: the mapper defaults the switch ON when the field is unset. */
   buildingBanner: BuildingBanner
 }

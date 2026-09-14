@@ -3645,6 +3645,33 @@ missing; a named node is also merged into a baked chunk; the plate is deleted fr
 `configureTrimTextures` runs after the lightmaps (it would set repeat wrapping on the atlases); or
 a re-bake changes the manifests' `uvChannel`.
 
+## 50. The billing range is a dropdown, and its options are the client's
+
+**Decided 2026-09-14,** at the client's request. «Rango de facturación de tu empresa» in the audit
+form was free text, on the argument that the client wanted business context and a select would
+force somebody to invent brackets. The client now wants the brackets — they just do not know them
+yet. So it is a `<select>` like «Servicio de interés», but its options are CONTENT:
+`siteSettings.revenueRanges` in Sanity, emitted as `REVENUE_RANGES` by `src/content/site.ts`.
+«Presupuesto mensual» stays free text.
+
+**The label is the value.** Each range is one string, shown as the option and submitted as-is. No
+id: nothing parses it, the notification email shows it as picked, and the editor keeps one list
+rather than two aligned by hand.
+
+**The server checks the closed set, like `PLANS`.** `server/validate.ts` imports the same generated
+list — the second edge from `server/` into `src/`, after `recipient.ts`, and through the same
+adapter — and refuses anything outside it. Browser and server ship in one build, so they agree; a
+tab open across a range change gets a field error, the trade the service select already makes.
+
+**Four placeholders, in two places.** `REVENUE_RANGES_FALLBACK` in `siteSettings.collection.ts`
+applies when the field is absent or empty, so a dataset that predates it still builds and the
+dropdown can never render empty. The same four are written into the dataset so the Studio shows
+them as something to replace. The Studio requires at least one.
+
+**Also broken when:** the Studio's per-entry bound and `CAPS.revenue` drift apart (both 60 today;
+the Studio reads `EDITORIAL_BOUNDS.siteSettings.revenueRange`); or a publish of an old
+`drafts.siteSettings` that predates the field wipes the list back to the fallback.
+
 ## Superseded
 
 | Decision | Was | Now |

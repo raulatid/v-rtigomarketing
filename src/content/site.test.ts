@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { SITE_SETTINGS } from './generated/siteSettings'
 import { siteSettingsProblems } from './invariants'
-import { BOOKING_LABEL, BOOKING_URL, CONTACT_EMAIL, COPYRIGHT, LEGAL_DOCS, SITE_PHONES } from './site'
+import {
+  BOOKING_LABEL,
+  BOOKING_URL,
+  CONTACT_EMAIL,
+  COPYRIGHT,
+  LEGAL_DOCS,
+  REVENUE_RANGES,
+  SITE_PHONES,
+} from './site'
 
 /**
  * A guard on the guard.
@@ -54,6 +62,15 @@ describe('the compatibility adapter', () => {
     // own, and this is what makes that safe.
     expect(BOOKING_LABEL).toBe(SITE_SETTINGS[0].bookingLabel)
     expect(BOOKING_LABEL.length).toBeGreaterThan(0)
+  })
+
+  it('always has billing ranges for the audit dropdown', () => {
+    // The build substitutes placeholders when the CMS has none, so the select
+    // can never render with nothing to pick — which would be a form nobody can
+    // send, since the server refuses anything outside this list.
+    expect(REVENUE_RANGES).toEqual(SITE_SETTINGS[0].revenueRanges)
+    expect(REVENUE_RANGES.length).toBeGreaterThan(0)
+    expect(new Set(REVENUE_RANGES).size).toBe(REVENUE_RANGES.length)
   })
 
   it('offers at least one dialable number', () => {

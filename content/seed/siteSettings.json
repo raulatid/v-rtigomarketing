@@ -14,6 +14,12 @@
     "auditSuccessBody": "Gracias por contactarnos. Revisaremos tu web de forma manual y te responderemos en menos de 24 horas.",
     "contactSuccessTitle": "Recibido",
     "contactSuccessBody": "Gracias por contactarnos, te responderemos en menos de 24 horas.",
+    "revenueRanges": [
+      "Menos de 100.000 €",
+      "100.000 - 500.000 €",
+      "500.000 - 1.000.000 €",
+      "Más de 1.000.000 €"
+    ],
     "bannerEnabled": true
   }
 ]

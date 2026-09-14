@@ -124,5 +124,10 @@ export const EDITORIAL_BOUNDS = {
     copyright: 120,
     successTitle: 60,
     successBody: 240,
+    /** One option in the audit form's billing dropdown. The same number
+        `server/validate.ts` caps the submitted value at. */
+    revenueRange: 60,
+    /** Options in that dropdown. More than this is a list nobody reads. */
+    revenueRanges: 8,
   },
 } as const

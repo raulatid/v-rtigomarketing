@@ -354,6 +354,19 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   if (!nonEmpty(entry.contactSuccessTitle)) at('contactSuccessTitle', 'must be a non-empty string')
   if (!nonEmpty(entry.contactSuccessBody)) at('contactSuccessBody', 'must be a non-empty string')
 
+  // The audit form's billing dropdown. Empty is a required select with nothing
+  // to pick — a form nobody can send, since the server refuses anything not in
+  // this list — and a duplicate is one option shown twice. The mapper supplies
+  // placeholders for an absent list, so either here means it was bypassed.
+  if (!Array.isArray(entry.revenueRanges) || entry.revenueRanges.length === 0) {
+    at('revenueRanges', 'at least one required')
+  } else {
+    entry.revenueRanges.forEach((range, i) => {
+      if (!nonEmpty(range)) at('revenueRanges[' + i + ']', 'must be a non-empty string')
+      else if (entry.revenueRanges.indexOf(range) !== i) at('revenueRanges[' + i + ']', 'is listed twice')
+    })
+  }
+
   // The building's banner (plan 019). The switch must be a real boolean —
   // a string 'false' is true in the one place it is read — and the image, when
   // there is one, must be a path the mirror produced: a CDN url reaching the

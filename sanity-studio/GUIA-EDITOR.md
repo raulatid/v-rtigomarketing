@@ -16,7 +16,7 @@ Esta guía es para quien va a cambiar textos, casos de éxito, servicios, entrad
 | **Servicios** → **La sección en la ciudad** | La sección de servicios de la ciudad, la que se abre al pulsar el lago: su título, su subtítulo y el orden de los servicios. Hay una sola. |
 | **Servicios** → **Todos los servicios** | Cada servicio de la agencia, con su nombre y su descripción. Cada servicio es además un tema del blog. |
 | **Blog** | Las entradas del blog, de la más reciente a la más antigua. |
-| **Ajustes del sitio** | Teléfonos, correo que recibe los mensajes, botón de reservar cita, mensajes de «enviado» de los formularios y línea de copyright. |
+| **Ajustes del sitio** | Teléfonos, correo que recibe los mensajes, botón de reservar cita, mensajes de «enviado» de los formularios, rangos de facturación del formulario de Auditoría y línea de copyright. |
 | **Textos legales** | Los tres documentos legales: «Términos y privacidad», «Aviso legal» y «Política de cookies». |
 
 ## Guardar y publicar
@@ -81,6 +81,8 @@ En los dos casos el aviso te dice qué mide la imagen y qué debería medir, as�
 **La etiqueta del teléfono es opcional.** Es la palabra que aparece a la izquierda del número, normalmente la ciudad: `Madrid`. Escríbela **sin los dos puntos** — los pone la web sola, así todos salen iguales. Si la dejas vacía, ese número se muestra solo, sin nada delante. Puedes ponérsela a unos sí y a otros no.
 
 **Los teléfonos y el botón de reservar** se ven en la ventana «Contacto» de la web. **El correo de «Ajustes del sitio» no se muestra:** es a donde llegan los mensajes de los dos formularios, Auditoría y Contacto.
+
+**Los rangos de facturación** («Ajustes del sitio» → «Formulario de auditoría») son las opciones del desplegable «Rango de facturación de tu empresa» del panel Auditoría, en el mismo orden en que los pongas (arrastra para reordenar). Lo que escribas es exactamente lo que ve el visitante y lo que te llega en el correo. **Los cuatro que hay ahora son de ejemplo:** cámbialos por los tuyos. Tiene que haber al menos uno.
 
 **Los textos legales** se abren en una ventana sobre la web cuando alguien pulsa su enlace. «Términos y privacidad» se enlaza desde los dos formularios; «Aviso legal», desde el panel de Auditoría; y «Política de cookies», desde el aviso de cookies.
 

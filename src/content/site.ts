@@ -71,6 +71,13 @@ export const FORM_MESSAGES = {
   contactBody: settings.contactSuccessBody,
 } as const
 
+/**
+ * The audit form's billing ranges, in the order the client listed them in
+ * Sanity. Read by the dropdown AND by `server/validate.ts`, which refuses any
+ * value not in this list — both ship from the same build, so they agree.
+ */
+export const REVENUE_RANGES: readonly string[] = settings.revenueRanges
+
 /** The brand's own mark — NOT a third-party credit (backdrop.spec.ts guards
  *  those separately; the client rule it enforces is about attribution). */
 export const COPYRIGHT = settings.copyright

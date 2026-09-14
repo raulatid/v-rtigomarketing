@@ -1,5 +1,6 @@
 /**
- * Where a notification goes, and the ONE edge from the server tier into `src/`.
+ * Where a notification goes, and one of the two edges from the server tier into
+ * `src/` — both through `src/content/site.ts`.
  *
  * ── Why the address comes from the CMS ──
  *
@@ -21,8 +22,10 @@
  *     redeployed. That is a real delay, it is documented for the editor in
  *     `sanity-studio/GUIA-EDITOR.md`, and it is the price of having no runtime
  *     CMS request on a site whose whole architecture avoids one;
- *   - this module is the only thing in `server/` that reaches into `src/`, so
- *     the dependency is one import in one file rather than a habit.
+ *   - this module and `validate.ts` (the audit form's billing ranges, since
+ *     2026-09-14) are the only things in `server/` that reach into `src/`, and
+ *     both through the one content adapter, so the dependency stays narrow
+ *     rather than becoming a habit.
  */
 
 import { CONTACT_EMAIL } from '../src/content/site'

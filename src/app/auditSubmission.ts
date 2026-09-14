@@ -34,13 +34,16 @@ export interface AuditRequest {
    */
   plan: string
   /**
-   * Turnover band and monthly budget, as the visitor typed them.
-   *
-   * FREE TEXT and never parsed. "20k / 100k", "aprox. 3.000 al mes" and "No
-   * definido todavía" are all answers a salesperson can use, and none of them
-   * survives a schema. They travel as text into an email a human reads.
+   * Turnover band: one of the client's ranges from Sanity, verbatim — the
+   * dropdown's label is its value. Never parsed; it travels as text into an
+   * email a human reads.
    */
   revenue: string
+  /**
+   * Monthly budget, FREE TEXT as the visitor typed it. "aprox. 3.000 al mes"
+   * and "No definido todavía" are answers a salesperson can use, and neither
+   * survives a schema.
+   */
   budget: string
   name: string
   email: string
