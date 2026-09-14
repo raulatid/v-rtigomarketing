@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "dnf install -y --setopt=install_weak_deps=False alsa-lib atk at-spi2-atk at-spi2-core cairo cups-libs dbus-libs glib2 libdrm libX11 libxcb libXcomposite libXdamage libXext libXfixes libxkbcommon libXrandr mesa-libgbm nspr nss pango || echo '[blog-preview] Chromium system libraries could not be installed; the blog display will wear its neutral plate'; npm install",
   "rewrites": [
     { "source": "/debug", "destination": "/index.html" },
     { "source": "/blog", "destination": "/blog.html" },

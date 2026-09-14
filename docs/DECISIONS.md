@@ -3066,6 +3066,16 @@ browser on a build machine that holds every secret is CONFINED rather than trust
   variables, not the build's secrets. `chromiumSandbox: true` — Playwright's default is off — with
   no fallback: if the sandbox cannot run, the plate stays and a person decides.
 
+**Vercel's image has the browser but not its libraries.** The next build got as far as starting
+Chromium and died on `libnspr4.so`. The loader names only the first missing library, so all 21
+that Playwright lists for Chromium (`nativeDeps.ts`) are installed at once, as their Amazon Linux
+2023 packages, by `installCommand` in `vercel.json`. That REPLACES the "keep the default install"
+setting: the command ends in `npm install`, which is exactly Vercel's default for a
+`package-lock.json`, and the `dnf` step before it is `|| echo`-guarded, so a failed package
+install prints one line and the build carries on to the plate — never a failed deploy. The
+packages come from the image's own, release-locked Amazon Linux repositories, into the build
+container only; the functions and `dist/` never see them.
+
 **What that does and does not guarantee.** Routing is DevTools-protocol interception, not a
 firewall. Measured on 2026-09-14 against a second local server that counted every hit: HTTP(S)
 requests from pages, popups and dedicated workers (blob and same-origin script), a same-origin
