@@ -1134,7 +1134,8 @@ DOM stub — but they cannot live under `src/`, because nothing in the browser b
 
 **Playwright is local, not a gate.** Vercel's build container would download Chromium on
 every deploy and has no server to point at. `npm run e2e`, against `vite preview`. If CI is
-ever added, this is the first thing that moves into it.
+ever added, this is the first thing that moves into it. *Amended 2026-09-14:* the build DOES now
+download Chromium on Vercel — for the blog display's screenshot only (§42), never for tests.
 
 **Coverage is scoped to the pure set**, not repository-wide. A whole-repo percentage would be
 dominated by the WebGL surface that is untestable by design, and would end up either
@@ -3040,6 +3041,41 @@ fallback that imitated the blog would be a second copy going stale silently, and
 content cannot be out of date. The lab's third route, an exact SVG raster built from the same
 strings its `/blog` injected, is not available here and must not be recreated: this blog is
 `src/blog/BlogRoute.tsx`, and `checks/architecture.ts` forbids `src/experiences/` from importing it.
+
+**Production wore the plate until 2026-09-14, because Vercel never had a browser.** The build log
+said `Executable doesn't exist at /vercel/.cache/ms-playwright/chromium-1234/…` and the script,
+per its contract, warned and wrote nothing. It now installs the locked Playwright's Chromium on
+Vercel only (`VERCEL=1`), shell-free, under its own 180 s deadline, and retries the launch once. A
+browser on a build machine that holds every secret is CONFINED rather than trusted:
+
+- **Static files only.** `vite preview` is gone from the capture: it evaluated `vite.config.ts`
+  and mounted `apiRouting`, which answers `/api/*` with the real form handler and `process.env`.
+  An in-process `node:http` server on `127.0.0.1:4320` serves `dist/` — GET and HEAD, no `/api`,
+  real paths inside `dist/`, a fixed MIME map, `/blog` resolved as `blogRouting` resolves it.
+- **Routed before any page exists.** Other origins are aborted; this origin gets GET/HEAD and
+  never `/api`; local assets are fetched with `maxRedirects: 0`, so no redirect is ever followed;
+  page WebSockets are closed unconnected; popups are closed. Service-worker registration is
+  stubbed out by `serviceWorkers: 'block'` — in the locked 1.62.1 an init script replacing
+  `register` with a no-op, so the call RESOLVES and nothing registers — and the server refuses a
+  `Service-Worker: script` request as a second layer. Any of these discards the capture, as does a
+  nonzero refusal count on the server.
+- **Bounded and cancellable.** A 120 s capture deadline that closes the browser and the server
+  rather than waiting on them; a launch that lands after it is closed; promotion is synchronous
+  after a final check, so a cancelled run never publishes; cleanup itself is bounded.
+- **Allowlisted environments and the sandbox on.** Chromium and the installer see a handful of
+  variables, not the build's secrets. `chromiumSandbox: true` — Playwright's default is off — with
+  no fallback: if the sandbox cannot run, the plate stays and a person decides.
+
+**What that does and does not guarantee.** Routing is DevTools-protocol interception, not a
+firewall. Measured on 2026-09-14 against a second local server that counted every hit: HTTP(S)
+requests from pages, popups and dedicated workers (blob and same-origin script), a same-origin
+302 to elsewhere, an EventSource and a page WebSocket were all stopped and recorded, with zero
+hits. **WebSockets opened inside a dedicated worker are the exception:** `routeWebSocket` does not
+see them — with that layer alone one reached the external server — and with the full
+configuration none did, but no layer recorded it, so worker WebSockets are NOT claimed. Nor are
+DNS lookups, speculative preconnects, the browser's own background traffic, or the installer's
+download; Vercel's build image offers no egress control, so zero egress from the browser process
+is not claimed.
 
 **It is the second exception to §39,** on the same footing as the warp and for the same reason. The
 approach ends outside the navigable rectangle because it must: the seam requires the camera to land
