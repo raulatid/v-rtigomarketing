@@ -38,7 +38,7 @@ import type { DetachHeaderLogo } from './headerLogoRuntime'
 /**
  * The isotype's two paths, inlined the way every other glyph in this codebase is
  * (DECISIONS §26.17): nothing to fetch and nothing that can 404 in a header.
- * The same data is the favicon in `blog.html`.
+ * The same data is the site's favicon, in both `index.html` and `blog.html`.
  */
 const MarkPaths = () => (
   <>
