@@ -215,3 +215,115 @@ test('never paints a light frame during boot', async ({ page, context }) => {
     `brightest boot frame had mean luminance ${brightest.toFixed(1)} across ${means.length} frames`,
   ).toBeLessThan(60)
 })
+
+/** Resolves when the loading draw hands over to the tail (plan 025). */
+async function drawDone(page: Page) {
+  await page.waitForFunction(() => window.__vertigoIntro !== undefined, undefined, {
+    timeout: 30_000,
+  })
+  await page.evaluate(
+    () => new Promise<void>((resolve) => void window.__vertigoIntro!.completed.then(() => resolve())),
+  )
+}
+
+/**
+ * Resolves once the master timeline's first tail phase (`shrink`) has
+ * actually committed, closing the tick `drawDone` leaves open: `completed`
+ * resolves a beat before `useMasterTimeline` runs, and until it runs a press
+ * is still refused as `draw` (plan 025).
+ *
+ * The same synchronous effect that flips `phase` to `shrink` also writes
+ * `--intro-scale` inline on the drawing (`useMasterTimeline.ts`, `setScale`
+ * in `intro-draw/introDraw.ts`) — unset before it, `'1'` from the instant it
+ * runs. Polling for that write is polling for the effect itself.
+ */
+async function tailStarted(page: Page) {
+  await page.waitForFunction(
+    () => {
+      const svg = document.querySelector('svg.intro-svg') as SVGElement | null
+      return svg !== null && svg.style.getPropertyValue('--intro-scale') !== ''
+    },
+    undefined,
+    { timeout: 5_000 },
+  )
+}
+
+test('a press during the tail lands on the globe', async ({ page }) => {
+  await page.goto('/')
+  await drawDone(page)
+  // `completed` resolves before the timeline's first tail phase is committed
+  // to React (a layout effect a tick later), so a press in that tick is still
+  // `draw` and is refused by design. Wait for that commit itself.
+  await tailStarted(page)
+  // The tail is ~9.7 s; landing within 3 s of a press can only be the skip.
+  await page.mouse.click(800, 450)
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 3_000 })
+})
+
+test('a press during loading does nothing', async ({ page }) => {
+  // Hold a required resource back so the press lands while the draw is still
+  // the loading cover.
+  await page.route('**/earth/day*.ktx2', async (route) => {
+    await new Promise((r) => setTimeout(r, 4_000))
+    await route.continue()
+  })
+  await page.goto('/')
+  await page.waitForFunction(() => window.__vertigoIntro !== undefined, undefined, {
+    timeout: 30_000,
+  })
+  expect(await readiness(page)).not.toBe('ready')
+  await page.mouse.click(800, 450)
+  // Still loading: the draw stays up and nothing has landed.
+  await expect(page.locator('svg.intro-svg')).toBeVisible()
+  await expect(page.locator('.audit-trigger')).not.toBeAttached()
+  // And the intro still completes on its own afterwards.
+  await drawDone(page)
+})
+
+test('the first landing is remembered, with consent', async ({ page }) => {
+  // The shared storageState seeds a REFUSED consent; the record is written only
+  // on an accepted one (DECISIONS §51), so this visitor has said yes.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'vertigo:consent',
+      JSON.stringify({ v: 1, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
+    )
+  })
+  await page.goto('/')
+  await drawDone(page)
+  // Same tick hazard as above: the Escape skip's handleSeek no-ops while the
+  // timeline ref is not yet set.
+  await tailStarted(page)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 3_000 })
+  const record = await page.evaluate(() => window.localStorage.getItem('vertigo:intro'))
+  expect(record).toBe(JSON.stringify({ v: 1, seen: true }))
+})
+
+test('a refused consent stores nothing', async ({ page }) => {
+  // The shared storageState seeds a refused consent (`analytics: false`): the
+  // landing must leave no `vertigo:intro` behind (DECISIONS §51).
+  await page.goto('/')
+  await drawDone(page)
+  await tailStarted(page)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 3_000 })
+  const record = await page.evaluate(() => window.localStorage.getItem('vertigo:intro'))
+  expect(record).toBeNull()
+})
+
+test('a returning visitor gets the loading draw, then lands without the tail', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('vertigo:intro', JSON.stringify({ v: 1, seen: true }))
+  })
+  await page.goto('/')
+  await drawDone(page)
+  // The draw kept its floor: the returning path does not shorten the cover.
+  const drawing = await page.evaluate(() => {
+    const at = (name: string) => performance.getEntriesByName(name, 'mark')[0]?.startTime ?? NaN
+    return (at('vertigo:intro-complete') - at('vertigo:intro-visible')) / 1000
+  })
+  expect(drawing, `drawing lasted ${drawing.toFixed(2)}s`).toBeGreaterThan(2.9)
+  // No press: it lands on its own, well inside the tail's 9.7 s.
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 3_000 })
+})

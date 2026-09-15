@@ -39,6 +39,9 @@ import { SoundToggle } from './components/SoundToggle'
 import { useSceneNavigation } from './app/navigation/useSceneNavigation'
 import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
+import { canSkipTail } from './app/introSkip'
+import { clearIntroSeen, markIntroSeen, readIntroSeen } from './app/introSeen'
+import { subscribeConsent } from './app/consent'
 import { loadProgress } from './loading/progress'
 import { useRoute } from './app/useRoute'
 import { LazyBlog, prefetchBlog } from './components/LazyBlog'
@@ -169,13 +172,13 @@ export default function App() {
       setSelectedCase(null)
     }
   }, [])
-
-  // The contact dialog and the legal panels, mirrored here for the same two
-  // reasons as auditOpen: the global Escape handler stands down while any of
   // The case panel's doorway into the audit. A counter the section watches,
   // so it keeps owning its own phase; opening it runs the deselect above.
   const [auditRequest, setAuditRequest] = useState(0)
   const handleRequestAudit = useCallback(() => setAuditRequest((n) => n + 1), [])
+
+  // The contact dialog and the legal panels, mirrored here for the same two
+  // reasons as auditOpen: the global Escape handler stands down while any of
   // them owns the key, and the navigation predicate below refuses a warp
   // while something has the viewer's attention.
   const [contactOpen, setContactOpen] = useState(false)
@@ -512,7 +515,8 @@ export default function App() {
     setSelectedCase(null)
   }, [])
 
-  // Escape or a click anywhere skips to the end state.
+  // Escape skips to the end state, as it always has. A press (below) now does
+  // too, but only in the scripted tail — see the pointer skip.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Escape closes an open case panel before it means "skip the intro" —
@@ -542,6 +546,49 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [handleSkip, selectedCase, auditOpen, contactOpen, legalDoc, headerMenuOpen, earthActive, blogOpen])
+
+  // A press skips the intro's scripted tail (plan 025). Only the tail: during
+  // the loading draw the timeline does not exist yet and the draw is the
+  // loading cover, and at `site` a press is the visitor using the page. Nothing
+  // can be open during the tail (every panel and door arrives at `site`), so
+  // the only guards are the ones Escape shares: the blog and Murcia own input.
+  // Primary button, touch or pen; a right-click is not a request to skip.
+  useEffect(() => {
+    const onPointer = (e: PointerEvent) => {
+      if (blogOpen || !earthActive) return
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      if (canSkipTail(phase)) handleSkip()
+    }
+    window.addEventListener('pointerdown', onPointer)
+    return () => window.removeEventListener('pointerdown', onPointer)
+  }, [phase, handleSkip, earthActive, blogOpen])
+
+  // A returning visitor skips the tail (plan 025). Read once per page: the
+  // record is what this browser knew when the page opened. The loading draw
+  // still plays in full; this acts at the first tail phase after it, and only
+  // once, so the /debug replay and seeks still play the tail.
+  const [introSeenAtBoot] = useState(readIntroSeen)
+  const autoSkippedRef = useRef(false)
+  useLayoutEffect(() => {
+    if (!canSkipTail(phase) || !introSeenAtBoot || autoSkippedRef.current) return
+    autoSkippedRef.current = true
+    handleSkip()
+  }, [phase, introSeenAtBoot, handleSkip])
+
+  // The first landing is what makes the next visit a returning one — whether
+  // the tail played out or was skipped — but only with the visitor's consent
+  // (DECISIONS §51): the record is storage on their device, so it waits for
+  // «Aceptar», and «Rechazar», then or later, removes it. The banner's single
+  // choice is stored as `analytics`. Subscribed from `site`, where the banner
+  // asks; `subscribeConsent` calls back at once with a choice already made.
+  useEffect(() => {
+    if (phase !== 'site') return
+    return subscribeConsent((record) => {
+      if (record === null) return
+      if (record.analytics) markIntroSeen()
+      else clearIntroSeen()
+    })
+  }, [phase])
 
   return (
     <div className="app">
@@ -682,6 +729,7 @@ export default function App() {
         ready={phase === 'site'}
         triggerHost={headerActions}
         onOpenLegal={setLegalDoc}
+        openRequest={auditRequest}
       />
 
       {phase === 'site' && earthActive && <SiteFooter />}
@@ -729,7 +777,6 @@ export default function App() {
       <NavigationControl ref={navigationRef} />
 
       {/* Earth's hint, beside the control it teaches. A sibling of `.nav` and
-        openRequest={auditRequest}
           never a child of it: that box is `position: fixed` and `styles.css`
           records what happened the last time it gained a property that captured
           a fixed child's frame of reference.

@@ -3748,6 +3748,41 @@ them as something to replace. The Studio requires at least one.
 the Studio reads `EDITORIAL_BOUNDS.siteSettings.revenueRange`); or a publish of an old
 `drafts.siteSettings` that predates the field wipes the list back to the fallback.
 
+## 51. The intro's tail can be left once loading is done, and a returning visitor leaves it
+
+**Decided 2026-09-15** with the user, on measurements (plan 025). The loading draw is the loading
+cover and is untouched: it waits on every required resource and has a 3 s floor. The tail after
+it — shrink, warp, swap, the corner hold and the orbit reveal, 9.7 s fixed — plays over a scene
+that is already whole, and nothing in it waits on loading: satellites are ready before it starts
+on every measured load, and Murcia's readiness is enforced by the gesture and its hint instead.
+
+**A pointer press skips the tail, and only the tail** (`app/introSkip.ts`). Primary button, touch
+or pen, in `shrink` … `orbits`. During the draw a press does nothing; at `site` a pointer press is
+the visitor using the page. Escape is unchanged from before this plan: it keeps its existing guards
+and its existing behaviour at `site` too. No visible hint: the scene carries no text (the user
+rejected on-scene captions the same day).
+
+**A returning visitor skips it automatically — if they consented** (`app/introSeen.ts`). The first
+landing stores `vertigo:intro` = `{ v: 1, seen: true }`, and a later visit plays the loading draw in
+full and seeks to `site` at the first tail phase. The record holds only that flag and is read by
+nothing but this page, but it is still storage on the visitor's device — the thing ePrivacy
+(Spain's LSSI art. 22.2) governs, whatever identifies whom — and unlike `vertigo:sound` it would be
+written without the visitor doing anything. So, by the user's decision the same day, **it is
+written only with consent**: App subscribes to the consent record from `site`, writes the flag on
+an accepted choice (the banner's single choice, stored as `analytics: true`) and removes it on a
+refused or withdrawn one. A visitor who never consents gets the full intro every visit. The cookie
+policy (Sanity `legalDoc` `cookies`) still describes only the consent record and not
+`vertigo:sound`; that text is the client's and their legal review's.
+
+**Not chosen:** controls arriving during the tail (§26.16 stands) and shorter holds (the timeline's
+one-focal-thing-at-a-time choice stands). **Withdrawn:** pacing the tail by what is still loading —
+measured, it would pace by nothing.
+
+**Broken when:** a press during the draw lands the site; a pointer press at `site` re-seeks (the
+parked logo jolts); a returning visitor's draw is shorter than its floor; `vertigo:intro` is
+written without an accepted consent, or survives a refusal; or the storage read throws instead of
+reading "not seen".
+
 ## Superseded
 
 | Decision | Was | Now |
