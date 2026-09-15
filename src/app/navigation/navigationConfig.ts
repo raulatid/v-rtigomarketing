@@ -293,30 +293,6 @@ export function pinchGain(
   return totalTravelPx / commitGrowthPx
 }
 
-/**
- * How long the hint frame lingers after the viewer's first interaction with the
- * scene, in milliseconds, before it closes.
- *
- * The one closing rule (2026-09-05, the client's): a viewer who has started
- * doing something has read it, three seconds is enough to finish the sentence
- * they were on, and after that it is in the way. It replaced hide-on-input, a
- * fifteen-second idle re-offer and Murcia's own reading clock, all at once.
- * Counted from the FIRST interaction, not the last, so a viewer who keeps
- * going is not followed around by it.
- */
-export const HINT_LINGER_MS = 3000
-
-/**
- * The beat between a world settling in front of the viewer and the gesture
- * hint appearing, in milliseconds.
- *
- * Every arrival is offered the hint — the intro handing over, and each warp
- * settling. Short, because the whole point is that the first thing a viewer is
- * told on landing is how to leave; but not zero, so the sentence fades up onto
- * a still frame rather than into the last frames of the camera move.
- */
-export const HINT_ARRIVAL_MS = 1200
-
 export interface NavigationCooldownLimits {
   /**
    * Floor on how long input stays refused after a transition settles, seconds.

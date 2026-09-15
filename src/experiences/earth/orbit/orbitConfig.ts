@@ -366,8 +366,8 @@ export const ORBIT_CONFIG = {
   // THE BEAT: cueLead + hold + gap + roundGap = 3.0 s, one pulse per cycle.
   // Changing any of the four moves the cadence; orbitConfig.test.ts pins it.
   tutorial: {
-    // After the satellite has settled AND is on screen. Same beat as the
-    // navigation hint (HINT_ARRIVAL_MS), so the two land together, not in turn.
+    // After the satellite has settled AND is on screen: a beat, so the first
+    // pulse lands on a still frame rather than on the end of the camera move.
     armDelay: 1.2,
     // Hover held at full, measured from the moment the target flips on; the
     // rise itself is `satellite.highlightDuration`.

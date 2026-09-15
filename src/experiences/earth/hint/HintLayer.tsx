@@ -36,12 +36,10 @@ import { HINT_CONFIG } from './hintConfig'
 //
 // ## The element is FOUND, not threaded
 //
-// One `data-visible` attribute crosses from the scene to the page, and the same
-// arrangement `createNavigationInput` already uses for Murcia's plate carries
-// it: that module does `root.querySelector('.nav-hint')` and paints
-// `dataset.visible`, and CSS owns every pixel after that. Same node type, same
-// attribute, same reason — so this queries `.earth-hint` rather than inventing a
-// second mechanism beside it.
+// One `data-visible` attribute crosses from the scene to the page: this queries
+// `.earth-hint` and paints `dataset.visible`, and CSS owns every pixel after
+// that. It is the arrangement `createNavigationInput` used for Murcia's hint
+// plate until the plate was removed (2026-09-15).
 //
 // A `RefObject` threaded down instead would put a DOM ref through `SceneCanvas`
 // and `EarthExperience`, neither of which would use it. That file stopped

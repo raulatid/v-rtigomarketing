@@ -2,8 +2,8 @@
  * The Earth's way out, in plain text.
  *
  * Replaces the particle figure (DECISIONS §41, reversed by §43): a glyph over a
- * sentence, as DOM. Murcia's glass plate is untouched and still hidden on Earth
- * by `.nav[data-direction='down'] .nav-hint`.
+ * sentence, as DOM. Murcia's glass hint plate, which this sat beside, was
+ * removed on 2026-09-15.
  *
  * ## It renders once and is never re-rendered
  *
@@ -19,9 +19,8 @@
  *
  * ## Both glyphs and both sentences are rendered, and the stylesheet picks
  *
- * The same arrangement `NavigationControl` uses — the CSS can only choose
- * between what was rendered, and a `matchMedia` read here would have no later
- * moment at which to matter. `(pointer: coarse)` picks the glyph AND the word,
+ * The CSS can only choose between what was rendered, and a `matchMedia` read
+ * here would have no later moment at which to matter. `(pointer: coarse)` picks the glyph AND the word,
  * from the same fact, so the two can never disagree.
  *
  * ## Two glyphs since §46, and the fine one is the plate's mouse

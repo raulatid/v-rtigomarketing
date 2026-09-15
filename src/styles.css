@@ -290,7 +290,6 @@ html {
   .app__scene[data-menu-open] .murcia-ui,
   .app__scene[data-menu-open] .case-panel,
   .app__scene[data-menu-open] .site-footer,
-  .app__scene[data-menu-open] .nav-hint,
   .app__scene[data-menu-open] .consent-banner,
   .app__scene[data-menu-open] .consent-info {
     opacity: 0;
@@ -311,7 +310,6 @@ html {
   .app__scene[data-menu-open] .murcia-ui,
   .app__scene[data-menu-open] .case-panel,
   .app__scene[data-menu-open] .site-footer,
-  .app__scene[data-menu-open] .nav-hint,
   .app__scene[data-menu-open] .consent-banner,
   .app__scene[data-menu-open] .consent-info {
     transition-duration: 1ms;
@@ -1245,7 +1243,8 @@ html {
    the rail's jobs went to the canvas and its 200 lines of chrome went with it.
 
    What is left is the part a pinch cannot do: a control for anyone who cannot
-   make the gesture, and a hint for anyone who does not know it exists. */
+   make the gesture. The hint for anyone who does not know it exists lived here
+   too, until the client removed Murcia's plate on 2026-09-15. */
 
 .nav {
   /* Still carries --nav-progress, data-state and data-direction. Nothing draws
@@ -1253,25 +1252,10 @@ html {
      the only place the literal-zero property of the retreat can be seen from
      outside. Cheap: three attribute writes on frames that already ran.
 
-     NO `transform` HERE, AND THAT IS LOAD-BEARING. This carried
-     `transform: translateY(-50%)` until 2026-08-26, where it did nothing and
-     broke something.
-
-     Nothing, because both children are out of flow — `.nav-control` is
-     absolute, `.nav-hint` is fixed — so this box has no in-flow content and is
-     0x0. Translating a zero-height box by 50% of its height moves it 0px.
-
-     Broke something, because a transformed element becomes the containing block
-     for its `position: fixed` DESCENDANTS. `.nav-hint` is centred on the
-     viewport with `left: 50%`, and against this 0-width box pinned to
-     `right: 0` that resolved to the viewport's RIGHT edge — the hint landed
-     further right than the `right: 20px` it was being moved away from.
-
-     So a declaration with no visual effect silently captured a child's frame of
-     reference. Anything reintroduced here — `transform`, `filter`,
-     `perspective`, `will-change`, `contain` — does the same thing again. If
-     this box ever needs to move, move it with `top`/`right`, or give the hint
-     its own fixed ancestor. */
+     Its only child, `.nav-control`, is absolutely positioned, so this box is
+     0x0. A `transform` here once captured a fixed-position child's frame of
+     reference (the old hint plate, 2026-08-26); with no fixed child left that
+     trap is dormant, but anything fixed put back inside `.nav` would meet it. */
   position: fixed;
   z-index: 45;
   right: 0;
@@ -1317,7 +1301,7 @@ html {
   letter-spacing: 0.02em;
   /* The house ring, like every other focus state on the site. It was #1c67ff
      here and nowhere else — a darker blue that read as a different control's
-     idea of focus, on the one button standing beside the hint frame. */
+     idea of focus. */
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -1327,87 +1311,6 @@ html {
    lands on says where it goes, instead of being an empty rectangle. */
 .nav-control:focus-visible::after {
   content: attr(aria-label);
-}
-
-/* And the hint stands down while the control has focus: it teaches the gesture
-   for people using their hands, and this viewer has already found the other way.
-
-   `animation: none` is not tidiness. An animated property beats a normal
-   declaration in the cascade; the frame no longer breathes, but its hairline
-   does, and this keeps any future keyframe on the frame from writing opacity
-   over the stand-down. */
-.nav-control:focus-visible ~ .nav-hint {
-  opacity: 0;
-  animation: none;
-}
-
-/* ---- The hint frame ----
-
-   One glass plate, bottom centre. It carries the gesture that leaves the world
-   the viewer is in, and until 2026-09-10 it carried the city's three controls
-   beside it. Until 2026-09-05 those were two elements owned by two
-   modules: this hint, bare text with a drop shadow, floating 40px above
-   Murcia's own `#controls-hint` plate. Over the black sky the text read; over
-   a bright city it did not, and the two stacked at the bottom edge looked like
-   two unrelated things. The plate's fade mask into the edge was the other
-   complaint: it cut the last row on a phone and made the whole thing look
-   unfinished. So: one frame, an even tint, no mask.
-
-   ## One grammar: a cell is a glyph over one word
-
-   The frame used to be two stacked blocks with two different insides — a
-   glyph beside an eyebrow and a sentence, over a row of glyph-beside-label
-   cells. That is where the misalignment the client photographed came from: the
-   glyph spanned both text rows of a grid, and it is taller than the two lines
-   it spans, so it crowded the plate's top and bottom edges. In Murcia, where
-   there is deliberately no eyebrow, it spanned a single short line and sat
-   visibly off it.
-
-   Now every cell is the same object — glyph, one word beneath, centred — and
-   the frame is one horizontal row of them. Nothing spans anything, so the two
-   can no longer come apart; the words share a baseline because every cell ends
-   at the same edge (`justify-content: flex-end`), whatever height its glyph is.
-
-   A sibling of the control, not a child: the control is clipped and a child
-   would be clipped with it. Hidden until createNavigationInput says otherwise
-   (`data-visible`: a beat after every arrival, closed three seconds after the
-   viewer's first interaction with the scene — DECISIONS section 29). The
-   city's cells show whenever the frame does in Murcia; the direction the input
-   layer paints on `.nav` is what says which world this is.
-
-   `fixed` rather than `absolute` because this is centred on the VIEWPORT, and
-   `.nav` — its parent — is a 0x0 box pinned to the right edge. `absolute` would
-   measure `left: 50%` against that box and put the hint back on the edge.
-   `fixed` only escapes it because `.nav` carries no `transform`; see the note
-   on `.nav` above. The frame itself MAY transform, and does, for its rise.
-
-   The offset clears `.site-footer` (bottom max(14px, inset), ~12px tall). The
-   mark is right-aligned and this is centred, so they miss on a wide viewport;
-   a phone closes that gap, which is why the clearance is vertical.
-
-   The vertical padding lives HERE now, not on the blocks inside. It used to be
-   on the children so that it would collapse with them; the collapse is a
-   single-axis one since the blocks became neighbours rather than a stack, so
-   the plate can own its own inset again and every cell shares it. */
-/* EARTH DOES NOT USE THIS PLATE. Its hint is `.earth-hint`, below.
-
-   Client direction: no HTML hint-tutorial on the Earth scene. That was answered
-   with a particle figure, and the particles were rejected in turn (§43) — so
-   Earth's hint is plain text with no plate under it, which is what the objection
-   was actually about. Murcia keeps this plate.
-
-   The FRAME goes, not the travel cell: the travel cell is the entire plate, and
-   hiding just the cell would leave a visible empty glass rectangle, which is
-   worse than what it replaced.
-
-   Nothing is removed from the markup, and that is deliberate on two counts:
-   Murcia still needs the glyph here, and `NavigationControl.test.tsx` asserts
-   the plate carries BOTH directions' vocabulary — "the CSS can only choose
-   between what was rendered". `createNavigationInput` still writes `data-visible`
-   on this element for Murcia; Earth's hint has its own timing and does not read
-   it. */
-.nav[data-direction='down'] .nav-hint {
-  display: none;
 }
 
 /* ---- z 44 — Earth's hint, in text (§43) ---------------------------------
@@ -1460,8 +1363,8 @@ html {
      rather than confident.
    - LETTER-SPACING 0.055em, which small white type on a dark ground wants and
      large type does not: the counters close up as the size falls, and tracking
-     is what keeps a quiet sentence legible instead of tight. `.nav-hint__label`
-     reaches for the same tool harder (0.14em) because it is uppercase.
+     is what keeps a quiet sentence legible instead of tight. Uppercase labels
+     reach for the same tool harder (the compass's are 0.14em).
 
    At this size the sentence is ~265px wide and fits every viewport with the 24px
    margins clear, so the clamp is a guard rather than a working range — 14px below
@@ -1591,9 +1494,9 @@ html {
   text-wrap: balance;
 }
 
-/* INPUT decides the glyph and the sentence, never viewport width — the same rule
-   and the same mechanism as `.nav-hint__label[data-input]` above, and ONE query
-   for both so the picture and the word cannot disagree. Fine is the default and
+/* INPUT decides the glyph and the sentence, never viewport width — a small
+   window on a laptop still has a mouse — and ONE query for both so the picture
+   and the word cannot disagree. Fine is the default and
    the coarse block flips it. */
 .earth-hint__sentence[data-input='coarse'],
 .earth-hint__glyph--pinch {
@@ -1614,17 +1517,17 @@ html {
 
 /* ---- The glyph's motion ----
 
-   The plate's grammar (see "Motion" under `.nav-hint` below): every travelling
-   part goes ONE way, fading in where it starts and out where it ends, and the
-   resting drawing is the readable one. The wheel and the chase reuse the plate's
-   keyframes outright — same notch travel, same 160ms hand-off between the two
-   chevrons — because it is the same drawing, and Earth only ever scrolls DOWN,
-   so no direction variable is needed here.
+   The grammar Murcia's hint plate established before it was removed: every
+   travelling part goes ONE way, fading in where it starts and out where it
+   ends, and the resting drawing is the readable one. The wheel and the chase
+   use the plate's keyframes (`nav-hint-wheel-down`, `nav-hint-chase`, kept
+   below) — same notch travel, same 160ms hand-off between the two chevrons —
+   and Earth only ever scrolls DOWN, so no direction variable is needed here.
 
-   Gated on `[data-visible]` like the plate's, and every rule sits at (0,3,0) so
-   the reduced-motion kill at the end of this block wins by source order alone.
-   That specificity is the trap the plate recorded: a rule one class heavier
-   than the kill keeps the wheel scrolling for a visitor who asked it to stop. */
+   Gated on `[data-visible]`, and every rule sits at (0,3,0) so the
+   reduced-motion kill at the end of this block wins by source order alone.
+   That specificity is a trap the plate hit: a rule one class heavier than the
+   kill keeps the wheel scrolling for a visitor who asked it to stop. */
 .earth-hint__part {
   transform-box: fill-box;
   transform-origin: center;
@@ -1665,6 +1568,40 @@ html {
 
 .earth-hint[data-visible] .earth-hint__part--finger-b {
   animation: earth-hint-pinch-b 1.8s ease-out infinite;
+}
+
+/* The wheel and chase keyframes. They were written for Murcia's hint plate,
+   which is gone (2026-09-15, DECISIONS §29); Earth's glyph is their only user
+   now and the names are historical. The notch stays inside the mouse body
+   (y 14–34) at both ends of its travel: it starts just above its drawn
+   position and leaves nine units below it. */
+@keyframes nav-hint-wheel-down {
+  0% {
+    transform: translateY(-2px);
+    opacity: 0;
+  }
+  18% {
+    transform: translateY(-1px);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(7px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(9px);
+    opacity: 0;
+  }
+}
+
+@keyframes nav-hint-chase {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
 }
 
 @keyframes earth-hint-pinch-a {
@@ -1739,9 +1676,9 @@ html {
 
 /* Fade only. The float and the glyph's loops are exactly the decorative motion
    this query kills, and the drawing is fully legible standing still — every
-   part at full opacity and no offset, the same split the plate's own
-   reduced-motion rule makes. The second rule is at the animations' own (0,3,0)
-   and AFTER them, which is the whole reason it wins. */
+   part at full opacity and no offset, because the keyframes dim and travel
+   away from the resting drawing, never toward it. The second rule is at the
+   animations' own (0,3,0) and AFTER them, which is the whole reason it wins. */
 @media (prefers-reduced-motion: reduce) {
   .earth-hint {
     animation: none;
@@ -1752,449 +1689,6 @@ html {
   }
 }
 
-.nav-hint {
-  position: fixed;
-  left: 50%;
-  bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px));
-  transform: translate(-50%, 10px);
-  display: flex;
-  align-items: stretch;
-  width: max-content;
-  max-width: calc(100vw - 32px);
-  padding: 0.7rem 1.125rem 0.75rem;
-  border: 1px solid var(--glass-border-accent);
-  border-radius: 14px;
-  background: var(--glass-film), var(--glass-bg-light);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--glass-shadow);
-  color: var(--text-secondary);
-  opacity: 0;
-  visibility: hidden;
-  /* Out: quicker than in, and the visibility flips only once the fade is
-     done, so the blur is not yanked off the scene mid-fade. */
-  transition:
-    opacity 220ms ease-in,
-    transform 220ms ease-in,
-    visibility 0s linear 220ms;
-  pointer-events: none;
-  user-select: none;
-}
-
-.nav-hint[data-visible] {
-  opacity: 1;
-  transform: translate(-50%, 0);
-  visibility: visible;
-  transition:
-    opacity 380ms ease-out,
-    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 0s;
-}
-
-/* The specular film. The top fifth of the plate catches a little light, so the
-   material reads as glass and not as a translucent rectangle — the one thing
-   that has to be perceptible without being noticed.
-
-   This pseudo-element used to be the blue emitter hairline that ignited from
-   the centre and then breathed. Plan 020 §9 spent the blue elsewhere, and with
-   the emitter went the reason this file had to RESTATE the beacon plate's
-   recipe rather than share it (murcia.css rides the scene chunk; Earth shows
-   this frame before that chunk has loaded). Nothing here animates now, so an
-   open frame costs the compositor nothing but its glyph loops. */
-.nav-hint::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: var(--glass-highlight);
-  opacity: 0.7;
-}
-
-/* ---- A cell ----
-
-   Glyph over word, and the cell ends at the word. */
-.nav-hint__cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.35rem;
-  white-space: nowrap;
-  /* The cells rise behind the plate that drew them, staggered, on the beacon
-     caption's easing. Hidden cells fall the same 8px they rose, faster. */
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 160ms ease-in,
-    transform 160ms ease-in;
-}
-
-.nav-hint[data-visible] .nav-hint__cell {
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 380ms ease-out,
-    transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.nav-hint[data-visible] .nav-hint__gesture {
-  transition-delay: 60ms;
-}
-
-/* ---- The one word ----
-
-   Uppercase and tracked, the micro-label the eyebrow used to be — but it is
-   the only text on the plate now, so it carries the plate's copy weight and
-   is set at the primary colour rather than the muted one. */
-.nav-hint__label {
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-primary);
-}
-
-/* ---- Which glyph, which word ----
-
-   Input decides the glyph, never viewport: a small window on a laptop still
-   has a mouse, and teaching a pinch to a mouse says the site was not built for
-   the thing in your hand. Every variant is in the markup; only one of each
-   shows. The fine-pointer set is the default and the coarse block below flips
-   it, with selectors of equal specificity later in source so they win. */
-.nav-hint__icon {
-  display: none;
-  width: 30px;
-  height: 30px;
-  flex: none;
-  /* The glyphs carry the plate now that there are no sentences on it: a shade
-     brighter than the word beneath, with the parts that MOVE brighter still,
-     so the eye finds the motion first. */
-  color: rgba(255, 255, 255, 0.82);
-}
-
-/* Taller than the rest because its box is: only two thirds of the 24x48 board
-   is ever drawn (the mouse plus ONE side's chevrons), so at the others' 30px
-   the mouse itself would come out two thirds their size. */
-.nav-hint__icon--mouse {
-  display: block;
-  width: 23px;
-  height: 46px;
-}
-
-/* Only the travel side's chevrons are drawn, which leaves the glyph's box
-   lopsided — six user units of empty sky on the side nobody is going. The
-   shift puts the drawn half back on the cell's centre line. Layout is
-   untouched by it, so the word below does not move. */
-.nav[data-direction='down'] .nav-hint__icon--mouse {
-  transform: translateY(-6px);
-}
-
-.nav[data-direction='up'] .nav-hint__icon--mouse {
-  transform: translateY(6px);
-}
-
-.nav-hint__chevrons {
-  display: none;
-}
-
-.nav[data-direction='down'] .nav-hint__chevrons[data-direction='down'],
-.nav[data-direction='up'] .nav-hint__chevrons[data-direction='up'] {
-  display: block;
-}
-
-.nav-hint__label[data-input='coarse'] {
-  display: none;
-}
-
-@media (pointer: coarse) {
-  .nav-hint__icon--mouse,
-  .nav-hint__label[data-input='fine'] {
-    display: none;
-  }
-
-  .nav-hint__label[data-input='coarse'] {
-    display: block;
-  }
-
-  /* And on touch the DIRECTION decides the gesture glyph, because the two
-     worlds are left by opposite gestures: open the hand to fall into the
-     city, close it to climb back out (ADR 006). */
-  .nav[data-direction='down'] .nav-hint__icon--spread,
-  .nav[data-direction='up'] .nav-hint__icon--close {
-    display: block;
-  }
-}
-
-/* ---- The phone card ----
-
-   Nothing structural changes below a phone's width any more: the cells were
-   already a glyph over a word, so they only get smaller. What DID have to go
-   is the fixed `width: min(360px, ...)` this block used to set — with one cell
-   on Earth it would have stretched a 90px chip across the screen. */
-@media (max-width: 480px) {
-  .nav-hint {
-    padding: 0.6rem 0.85rem 0.65rem;
-    /* A shade denser than density A everywhere else: the card is small, it
-       sits over the city floor at its brightest, and readability wins over
-       consistency of the number. */
-    background: var(--glass-film), rgba(10, 15, 22, 0.74);
-  }
-
-  .nav-hint__icon {
-    width: 28px;
-    height: 28px;
-  }
-
-  .nav-hint__icon--mouse {
-    width: 19px;
-    height: 38px;
-  }
-
-  .nav-hint__label {
-    font-size: 0.6rem;
-    letter-spacing: 0.1em;
-  }
-}
-
-/* ---- Motion ----
-
-   The glyphs are the explanation now, not an illustration of a sentence, so
-   the loops have to be legible on their own. Three rules came out of that:
-
-   1. ONE WAY, never `alternate`. A tween that alternates returns to where it
-      began, which reads as a wobble rather than a direction — and the old
-      wheel ran the same wobble whether the viewer should scroll DOWN into the
-      city or UP out of it. Each travelling part now fades in where it starts,
-      travels, and fades out where it ends, so the reset is never seen.
-   2. The direction is DRAWN. The mouse carries two chevrons on the travel
-      side, lit in sequence a beat behind the wheel, so the motion continues
-      past the glyph instead of stopping inside it.
-   3. Amplitudes that survive a 30px glyph. The pinch dots moved 3 user units
-      — about two screen pixels at this size — and now cross eleven.
-
-   Transform and opacity only, and only while the frame is open, so a closed
-   hint costs the compositor nothing. */
-.nav-hint__part {
-  stroke: rgba(255, 255, 255, 0.95);
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
-/* The direction picks the KEYFRAMES through a custom property rather than
-   through the selector, and that is load-bearing rather than a flourish. Writing
-   it as `.nav[data-direction='up'] .nav-hint[data-visible] .nav-hint__part--wheel`
-   put the declaration two class-selectors above the reduced-motion rule below,
-   which is written at `.nav-hint[data-visible] .nav-hint__part` — so the kill
-   lost the cascade and the wheel kept scrolling for a visitor who had asked
-   everything to stop. Measured, not reasoned about: the notch was still at
-   translateY(4.29px) under an emulated `prefers-reduced-motion: reduce`.
-   Through a variable, every animation on this plate is declared at the same
-   specificity as the rule that turns them all off, and source order decides. */
-.nav-hint {
-  --nav-hint-wheel: nav-hint-wheel-down;
-}
-
-.nav[data-direction='up'] .nav-hint {
-  --nav-hint-wheel: nav-hint-wheel-up;
-}
-
-.nav-hint[data-visible] .nav-hint__part--wheel {
-  animation: var(--nav-hint-wheel) 1.4s linear infinite;
-}
-
-/* Same period as the wheel, so the phase between them is fixed; the delays are
-   what make the two chevrons a chase and not a pair of blinking lights — the
-   inner one lights first, 160ms ahead of the outer.
-
-   NEGATIVE delays, which is the same phase one whole period earlier. A positive
-   0.4s would be 0.4s of not having started yet, and an animation that has not
-   started shows its base value — both chevrons parked at full brightness for
-   the first half-second the plate is open, then dropping. Negative starts them
-   already under way, so the first cycle looks like every other one. */
-.nav-hint[data-visible] .nav-hint__part--chase {
-  animation: nav-hint-chase 1.4s ease-in-out infinite;
-  animation-delay: -1s;
-}
-
-.nav-hint[data-visible] .nav-hint__chevrons .nav-hint__part--chase:nth-child(2) {
-  animation-delay: -0.84s;
-}
-
-.nav-hint[data-visible] .nav-hint__part--spread-l {
-  animation: nav-hint-pinch-out-l 1.8s ease-out infinite;
-}
-
-.nav-hint[data-visible] .nav-hint__part--spread-r {
-  animation: nav-hint-pinch-out-r 1.8s ease-out infinite;
-}
-
-.nav-hint[data-visible] .nav-hint__part--close-l {
-  animation: nav-hint-pinch-in-l 1.8s ease-out infinite;
-}
-
-.nav-hint[data-visible] .nav-hint__part--close-r {
-  animation: nav-hint-pinch-in-r 1.8s ease-out infinite;
-}
-
-/* The notch stays inside the mouse body (y 14–34) at both ends of its travel:
-   it starts just above its drawn position and leaves nine units below it. */
-@keyframes nav-hint-wheel-down {
-  0% {
-    transform: translateY(-2px);
-    opacity: 0;
-  }
-  18% {
-    transform: translateY(-1px);
-    opacity: 1;
-  }
-  70% {
-    transform: translateY(7px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(9px);
-    opacity: 0;
-  }
-}
-
-@keyframes nav-hint-wheel-up {
-  0% {
-    transform: translateY(9px);
-    opacity: 0;
-  }
-  18% {
-    transform: translateY(8px);
-    opacity: 1;
-  }
-  70% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-2px);
-    opacity: 0;
-  }
-}
-
-@keyframes nav-hint-chase {
-  0%,
-  100% {
-    opacity: 0.2;
-  }
-  40% {
-    opacity: 1;
-  }
-}
-
-/* A pinch is spread, hold, release. The hold is the 62–86% plateau; the
-   release is hidden behind the fade, because a finger snapping back across the
-   glyph would read as a second gesture. */
-@keyframes nav-hint-pinch-out-l {
-  0% {
-    transform: translateX(3px);
-    opacity: 0;
-  }
-  14% {
-    transform: translateX(3px);
-    opacity: 1;
-  }
-  62% {
-    transform: translateX(-6px);
-    opacity: 1;
-  }
-  86% {
-    transform: translateX(-6px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(-6px);
-    opacity: 0;
-  }
-}
-
-@keyframes nav-hint-pinch-out-r {
-  0% {
-    transform: translateX(-3px);
-    opacity: 0;
-  }
-  14% {
-    transform: translateX(-3px);
-    opacity: 1;
-  }
-  62% {
-    transform: translateX(6px);
-    opacity: 1;
-  }
-  86% {
-    transform: translateX(6px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(6px);
-    opacity: 0;
-  }
-}
-
-@keyframes nav-hint-pinch-in-l {
-  0% {
-    transform: translateX(-6px);
-    opacity: 0;
-  }
-  14% {
-    transform: translateX(-6px);
-    opacity: 1;
-  }
-  62% {
-    transform: translateX(3px);
-    opacity: 1;
-  }
-  86% {
-    transform: translateX(3px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(3px);
-    opacity: 0;
-  }
-}
-
-@keyframes nav-hint-pinch-in-r {
-  0% {
-    transform: translateX(6px);
-    opacity: 0;
-  }
-  14% {
-    transform: translateX(6px);
-    opacity: 1;
-  }
-  62% {
-    transform: translateX(-3px);
-    opacity: 1;
-  }
-  86% {
-    transform: translateX(-3px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(-3px);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* The loops are decoration in motion; every fade and the rise may stay.
-
-     This matters more than it did: the sentences are gone, so what a
-     reduced-motion visitor is left with is the glyph at rest plus one word.
-     The RESTING state is therefore the readable one by construction — every
-     part is drawn at full opacity and no offset, and it is the keyframes that
-     dim and travel away from it, never toward it. Reversing that would leave
-     this visitor staring at a chevron at a fifth of its opacity. */
-  .nav-hint[data-visible] .nav-hint__part {
-    animation: none;
-  }
-}
 /* ---- Touch target sizes ------------------------------------------------
 
    Six controls in this project sit below the 44px minimum, and until

@@ -1,18 +1,7 @@
 import { forwardRef } from 'react'
 
-/** The one stroke every glyph shares, so the eight of them read as one hand. */
-const GLYPH = {
-  viewBox: '0 0 48 48',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.6,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-} as const
-
 /**
- * The keyboard and assistive-technology path between the two worlds, plus the
- * hint that teaches the gesture.
+ * The keyboard and assistive-technology path between the two worlds.
  *
  * ## What replaced the rail, and why the rail went
  *
@@ -86,100 +75,10 @@ export const NavigationControl = forwardRef<HTMLDivElement>(
           aria-label="Ir a Murcia"
         />
         {/*
-        The hint frame: one glass plate, bottom-centre, shown only in Murcia
-        (Earth's hint is `.earth-hint`). It teaches the one gesture that leaves
-        the city. It used to carry the city's controls as well — Mover, Girar,
-        Abrir — and those were removed on 2026-09-10.
-        Everything here is painted by createNavigationInput, and it has one
-        closing rule — three seconds after the viewer first touches the scene
-        (section 29).
-
-        A glyph over ONE word, and the word names the gesture rather than its
-        result: no result word short enough survives ("Murcia"/"Tierra" was
-        rejected as a label).
-
-        A SIBLING of the control, not a child: the control is clipped to a
-        pixel for assistive technology and a child would be clipped with it.
-
-        EVERY VARIANT IS RENDERED and the stylesheet picks: input by
-        `(pointer: coarse)`, direction by the `data-direction` the input layer
-        paints on `.nav`. This element renders once and never re-renders, so
-        there is no later moment for a `matchMedia` read to matter — and it
-        means the word and the picture can never disagree, since the same two
-        facts choose both. Teaching the wrong device's input is worse than
-        teaching none: it says the site was not built for the thing in your
-        hand.
-
-        The glyph moves, and the motion is the whole explanation. Each
-        travelling part goes ONE way, fading in where it starts and out where
-        it ends, because a tween that alternates returns to where it began and
-        reads as a wobble with no direction. The mouse carries two chevron
-        groups, above and below; only the travel side shows, and its two
-        chevrons light in sequence so the wheel appears to hand off to them.
-        All of it is transform and opacity, and reduced motion stops it — which
-        is why the resting state has to be the READABLE one (styles.css).
-
-        aria-hidden: the button above already teaches assistive technology, and
-        a pinch is not something it could act on anyway. This is sighted-only.
+        No hint frame since 2026-09-15: the client removed Murcia's glass
+        "Scroll" / "Zoom" plate, the only place it still showed. Earth's
+        hint is `EarthHint`, and it never read this one.
       */}
-        <span className="nav-hint" aria-hidden="true">
-          <span className="nav-hint__gesture nav-hint__cell" data-gesture="travel">
-            {/* The chevrons are two GROUPS, above and below, and the stylesheet
-                shows only the one the viewer is travelling toward. Two of them
-                per side, not one, so they can chase in sequence: a single
-                chevron can only blink, and a blink has no direction. */}
-            <svg
-              className="nav-hint__icon nav-hint__icon--mouse"
-              viewBox="0 0 24 48"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <g className="nav-hint__chevrons" data-direction="up">
-                <path className="nav-hint__part nav-hint__part--chase" d="M8 12l4-4 4 4" />
-                <path className="nav-hint__part nav-hint__part--chase" d="M8 6l4-4 4 4" />
-              </g>
-              <rect x="7" y="14" width="10" height="20" rx="5" />
-              <path className="nav-hint__part nav-hint__part--wheel" d="M12 18v4" />
-              <g className="nav-hint__chevrons" data-direction="down">
-                <path className="nav-hint__part nav-hint__part--chase" d="M8 36l4 4 4-4" />
-                <path className="nav-hint__part nav-hint__part--chase" d="M8 42l4 4 4-4" />
-              </g>
-            </svg>
-            {/* Two fingers opening: leaving Earth is an approach, so the world is
-                pulled toward you. */}
-            <svg className="nav-hint__icon nav-hint__icon--spread" {...GLYPH}>
-              <path d="M9 24H3" />
-              <path d="M6 21l-3 3 3 3" />
-              <path d="M39 24h6" />
-              <path d="M42 21l3 3-3 3" />
-              <circle className="nav-hint__part nav-hint__part--spread-l" cx="16" cy="24" r="5" />
-              <circle className="nav-hint__part nav-hint__part--spread-r" cx="32" cy="24" r="5" />
-            </svg>
-            {/* Two fingers closing: leaving Murcia is an ascent (ADR 006), so the
-                world is pushed away. */}
-            <svg className="nav-hint__icon nav-hint__icon--close" {...GLYPH}>
-              <path d="M3 24h6" />
-              <path d="M6 27l3-3-3-3" />
-              <path d="M45 24h-6" />
-              <path d="M42 27l-3-3 3-3" />
-              <circle className="nav-hint__part nav-hint__part--close-l" cx="16" cy="24" r="5" />
-              <circle className="nav-hint__part nav-hint__part--close-r" cx="32" cy="24" r="5" />
-            </svg>
-            {/* The one word left on the plate. It names the gesture the visitor
-                has to make, in BOTH directions now: the sentence that used to
-                distinguish "bajar" from "volver" is gone, and the glyph's
-                chevrons say which way. */}
-            <span className="nav-hint__label" data-input="fine">
-              Scroll
-            </span>
-            <span className="nav-hint__label" data-input="coarse">
-              Zoom
-            </span>
-          </span>
-        </span>
       </div>
     )
   },

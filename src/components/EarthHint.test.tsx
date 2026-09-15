@@ -6,7 +6,7 @@ import { EarthHint } from './EarthHint'
 
 // Earth's hint is rendered ONCE and never re-rendered. Both glyphs and both
 // sentences are in the markup and the stylesheet picks by `(pointer: coarse)`,
-// the same arrangement the plate uses — so the guarantee that a thumb is never
+// so the guarantee that a thumb is never
 // told to scroll, or shown a mouse, is a guarantee that both sets are THERE.
 // The CSS can only choose between what was rendered.
 //
@@ -55,9 +55,9 @@ describe('the Earth hint', () => {
   })
 
   it('draws the plate’s own mouse, cropped to the way down', () => {
-    // The literals are deliberate. Body, notch and both down-chevrons are copied
-    // from NavigationControl's travel glyph, and if either copy is redrawn this
-    // fails and says so rather than letting the two quietly diverge (§46).
+    // The literals are deliberate. Body, notch and both down-chevrons were copied
+    // from Murcia's hint plate (§46), which is gone since 2026-09-15; this is the
+    // drawing now, and a redraw should fail here and be judged rather than slip by.
     const svg = glyph('mouse')
     const body = svg.querySelector('rect')!
     expect(['x', 'y', 'width', 'height', 'rx'].map((a) => body.getAttribute(a))).toEqual([

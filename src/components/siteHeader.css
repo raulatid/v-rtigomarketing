@@ -493,7 +493,7 @@
    scoping no longer changes what renders — it stays because the rule is about
    the SCENE's sky, and a scrim has no business on an opaque bar.
 
-   The scrim is the hint frame's recipe (`.nav-hint`, styles.css): dark glass, blurred,
+   The scrim is the old hint frame's recipe (density A, DECISIONS §37): dark glass, blurred,
    fully round. Deliberately lighter than that one (0.42 against 0.72) and with
    no border — the l.201 note above is explicit that contact is the quieter door
    beside the Auditoría CTA, and a pill with the same weight as the button would

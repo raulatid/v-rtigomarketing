@@ -2066,6 +2066,13 @@ Broken when: a feel change edits `NAVIGATION_GESTURE` instead of `NAVIGATION_SPR
 learns which scene is behind it, the hint re-appears within a world after a gesture, or the hint
 is shown while the context is refusing navigation.
 
+> **Amended 2026-09-15 (client review):** the gesture hint this section introduced is gone. Its
+> last form was Murcia's glass "Scroll" / "Zoom" plate (`.nav-hint`), offered on every arrival and
+> closed three seconds after the first scene interaction; the client asked for it to be removed.
+> The markup, its CSS, the clock in `createNavigationInput` and `HINT_LINGER_MS` /
+> `HINT_ARRIVAL_MS` are deleted. Earth's text hint (§43, §46) has its own timing and is unaffected;
+> it keeps the `nav-hint-wheel-down` / `nav-hint-chase` keyframes, whose names are historical.
+
 ## 30. Contact, legal and the brand's own mark
 
 The Earth scene grew its floor and its second CTA on 2026-08-20: phone numbers bottom-left
@@ -3253,6 +3260,10 @@ is the chrome this exists instead of); a `visible` prop is added to `EarthHint` 
 flips on every `pointerdown`, and App's own note says a `useState` for it re-renders both
 canvases and every overlay); `pointermove` returns to the poke list; or `HintLayer` stops
 clearing `data-visible` when `active` goes false.
+
+> **Amended 2026-09-15:** "Murcia keeps this plate" no longer holds — the client removed it, and
+> `.nav-hint` is deleted along with the `display: none` rule above (see §29's amendment). Earth's
+> sentence is now the site's only gesture hint.
 
 ---
 
