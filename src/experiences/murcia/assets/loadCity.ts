@@ -1,4 +1,5 @@
 import { splitTerrainMeasurement } from './splitTerrainMeasurement';
+import { applyCitySurfaceDepth } from './citySurfaceDepth';
 import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -114,6 +115,7 @@ export interface LoadedCity {
   riverBounds: BoundsRect | null;
   /** The baked light, or null when none was configured or it failed to load. */
   lightmaps: LightmapHandle | null;
+  surfaceDepth?: ReturnType<typeof applyCitySurfaceDepth>;
 }
 
 export interface SceneReport {
@@ -268,6 +270,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
           terrain: found.mesh,
         })
       : null;
+  const surfaceDepth = applyCitySurfaceDepth(root);
   const report = buildSceneReport(gltf, found, options.terrainObjectName);
 
   return {
@@ -281,6 +284,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     water: river?.water ?? null,
     riverBounds: river?.bounds ?? null,
     lightmaps,
+    surfaceDepth,
   };
 }
 
@@ -522,6 +526,8 @@ function findLargestFlatMesh(root: THREE.Object3D): THREE.Mesh | null {
 
 /** Releases every geometry, material and texture owned by a loaded model. */
 export function disposeLoadedCity(city: LoadedCity): void {
+  // Restore the shared baked materials before their owner releases them.
+  city.surfaceDepth?.dispose();
   // First, so the receivers hold their authored materials again when the
   // traversal below reaches them: the baked materials, atlases and per-group
   // geometries are the handle's to free, and the authored ones are the graph's.

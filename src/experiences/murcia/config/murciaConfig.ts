@@ -286,8 +286,8 @@ export const murciaConfig: EnvironmentConfig = {
     // to ~27 deg (from the rig's 30) and so widens the ground footprint — the
     // skirt width below accounts for it.
     lookAtHeight: REPRESENTATIVE_BUILDING_HEIGHT * 0.45,
-    // Near is generous because nothing approaches the camera closer than the
-    // near frustum edge.
+    // Keep more depth precision for thin paving and facade details. The closest
+    // cinematic pose is 75 units from its target; 5 still leaves room for it.
     //
     // 1200 -> 3500, and this one is forced rather than chosen. The far plane has
     // to clear the furthest SKIRT vertex that can be in frame, and the skirt now
@@ -302,7 +302,7 @@ export const murciaConfig: EnvironmentConfig = {
     // `width * fadeEndFraction` is already fully transparent, so clipping it
     // changes nothing on screen. 3500 covers the whole skirt anyway rather than
     // relying on that argument staying true if `fadeEndFraction` moves.
-    near: 1,
+    near: 5,
     far: 3500,
   },
 
