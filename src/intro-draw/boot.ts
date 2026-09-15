@@ -9,7 +9,9 @@ import { bootState, BootState, Readiness, REQUIRED_IDS } from './bootState'
 import { DRAW_TIMING } from './drawConfig'
 
 // Inline build constant keeps the boot entry independent of shared chunks.
-declare const __VERTIGO_ENV__: string
+// In dev this entry can run before Vite's client installs the define on window.
+// Keep the same fallback as buildFlags.ts without importing a shared module.
+declare const __VERTIGO_ENV__: string | undefined
 
 export interface VertigoIntro {
   /** Document motion snapshot handed to the application without importing boot. */
@@ -124,7 +126,7 @@ function boot(): VertigoIntro {
     }
   })
 
-  if (__VERTIGO_ENV__ !== 'production') {
+  if ((typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__) !== 'production') {
     window.__vertigoBootDebug = {
       state: () => bootState.readiness(),
       visualProgress: () => handle.playhead(),

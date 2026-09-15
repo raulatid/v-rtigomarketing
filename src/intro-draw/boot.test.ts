@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeAll } from 'vitest'
+import { execFileSync } from 'node:child_process'
+import { runInNewContext } from 'node:vm'
+import type { VertigoIntro } from './boot'
 import { bootState, REQUIRED_IDS, type StepId } from './bootState'
 
 // boot.ts boots on import, so everything it touches has to exist first. jsdom
@@ -42,5 +45,45 @@ describe('vertigo:scene-ready', () => {
     for (const id of OPTIONAL) bootState.markDone(id)
     expect(bootState.readiness()).toBe('ready')
     expect(marks.filter((m) => m === 'vertigo:scene-ready')).toHaveLength(1)
+  })
+})
+
+describe('standalone boot environment', () => {
+  it.each([undefined, 'development', 'production'])('boots with environment %s', (environment) => {
+    // Bundle outside Vitest so its define cannot hide a missing browser global.
+    const options = {
+      entryPoints: ['src/intro-draw/boot.ts'],
+      bundle: true,
+      write: false,
+      format: 'iife',
+      define: environment === undefined ? {} : { __VERTIGO_ENV__: JSON.stringify(environment) },
+    }
+    // esbuild needs Node's typed arrays, which jsdom replaces in this process.
+    const code = execFileSync(process.execPath, [
+      '-e',
+      "process.stdout.write(require('esbuild').buildSync(JSON.parse(process.argv[1])).outputFiles[0].text)",
+      JSON.stringify(options),
+    ], { encoding: 'utf8' })
+    const bootWindow = {
+      matchMedia: window.matchMedia,
+      setTimeout: vi.fn(),
+      clearTimeout: vi.fn(),
+      __vertigoIntro: undefined as VertigoIntro | undefined,
+      __vertigoBootDebug: undefined as unknown,
+    }
+    try {
+      runInNewContext(code, {
+        window: bootWindow,
+        document,
+        performance,
+        requestAnimationFrame: () => 1,
+        cancelAnimationFrame: () => {},
+      })
+      expect(bootWindow.__vertigoIntro).toBeDefined()
+      expect(bootWindow.__vertigoIntro!.handle.root.isConnected).toBe(true)
+      expect(Boolean(bootWindow.__vertigoBootDebug)).toBe(environment !== 'production')
+    } finally {
+      bootWindow.__vertigoIntro?.handle.destroy()
+    }
   })
 })
