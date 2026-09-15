@@ -648,3 +648,125 @@
     padding: 1.25rem 1.1rem 1.1rem;
   }
 }
+
+.campus-overlay__handle { display: none; }
+.campus-overlay__body { display: contents; }
+
+/* Same layout boundary as CAMPUS_DOCK_QUERY. The panel translates between
+   two stops; its text scrolls independently of the canvas gestures. */
+@media not all and (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .campus-overlay {
+    left: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    height: 85dvh;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(calc(85dvh - var(--campus-sheet-compact, 35dvh)));
+    border-radius: 14px 14px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    pointer-events: auto !important;
+    text-align: center;
+    touch-action: pan-y;
+    overflow: hidden;
+  }
+  .murcia-ui .campus-overlay[data-sheet-stop='expanded'] { transform: translateY(0); }
+  .murcia-ui .campus-overlay[data-sheet-dragging] { transition: none !important; }
+  .murcia-ui .campus-overlay__handle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex: 0 0 44px;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font: 500 12px var(--font-display);
+    cursor: ns-resize;
+    touch-action: none;
+    user-select: none;
+  }
+  .murcia-ui .campus-overlay__handle::before {
+    content: '';
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--text-muted);
+  }
+  .murcia-ui .campus-overlay__handle:focus-visible,
+  .murcia-ui .campus-overlay__body:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: -4px;
+  }
+  .murcia-ui .campus-overlay__back {
+    position: absolute;
+    top: 0;
+    left: 16px;
+    z-index: 1;
+    margin: 0;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .murcia-ui .campus-overlay__body {
+    display: block;
+    flex: 1;
+    min-height: 0;
+    padding: 10px 24px max(24px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+  }
+  .murcia-ui .campus-overlay__title { padding: 0; }
+  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
+    flex: none;
+    height: calc(var(--campus-sheet-compact, 35dvh) - 44px);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__detail,
+  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__measures,
+  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__caption {
+    display: none;
+  }
+  @media (max-height: 650px) {
+    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
+      -webkit-line-clamp: 2;
+    }
+  }
+  @media (max-height: 500px) {
+    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
+      padding-top: 4px;
+      padding-bottom: 8px;
+    }
+    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__title {
+      font-size: 22px !important;
+    }
+    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
+      margin-top: 6px;
+      -webkit-line-clamp: 1;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .murcia-ui .campus-overlay,
+  .murcia-ui .campus-overlay__caption {
+    transition-duration: 1ms !important;
+    transition-delay: 0s !important;
+  }
+}

@@ -25,6 +25,8 @@
  * except the layout, which the site asks to place itself (`hostLayout`).
  */
 
+import { attachCampusSheet } from './campusSheet';
+
 const FADE_MS = 450;
 const CAPTION_FADE_MS = 700;
 const Z_INDEX = 30;
@@ -75,7 +77,7 @@ export interface CampusOverlayOptions {
    */
   onClose?: () => void;
   /** `leave` names the back arrow; `measures` labels the list of what gets measured. */
-  labels: { readonly leave: string; readonly measures?: string };
+  labels: { readonly leave: string; readonly measures?: string; readonly expand?: string; readonly collapse?: string };
   /** Where the layer mounts. Defaults to the body. */
   container?: HTMLElement;
   /** A family already declared by the host, or the one `fontUrl` registers. */
@@ -176,7 +178,10 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   hint.style.cssText =
     'margin-top:26px;font-size:12px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;opacity:0.55;';
 
-  layer.append(title, subtitle, detail, measures, caption, hint);
+  const body = document.createElement('div');
+  body.className = 'campus-overlay__body';
+  body.append(title, subtitle, detail, measures, caption, hint);
+  layer.append(body);
 
   // The one thing here that takes the pointer, first in the plate so it sits
   // at its top-left. A block, not inline: in the centred card an inline button
@@ -206,6 +211,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   }
 
   (options.container ?? document.body).appendChild(layer);
+  const sheet = options.hostLayout && labels.expand && labels.collapse
+    ? attachCampusSheet(layer, body, { expand: labels.expand, collapse: labels.collapse }) : null;
 
   let disposed = false;
   let visible = false;
@@ -214,6 +221,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   let captionWanted = false;
 
   const write = (copy: OverlayCopy): void => {
+    body.scrollTop = 0;
     title.textContent = copy.title;
     subtitle.textContent = copy.subtitle;
     hint.textContent = copy.hint ?? '';
@@ -283,12 +291,14 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
       layer.style.opacity = '0';
       layer.style.visibility = 'hidden';
       layer.style.transitionDelay = `0s, ${FADE_MS}ms`;
+      sheet?.reset();
     },
 
     dispose() {
       if (disposed) return;
       disposed = true;
       cancelPending();
+      sheet?.dispose();
       layer.remove();
     },
   };

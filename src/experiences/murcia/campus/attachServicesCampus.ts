@@ -52,7 +52,7 @@ export interface ServicesCampusOptions {
   waterNode?: string;
   overlay: {
     /** `leave` names the back button, when there is one; `measures` labels «Qué medimos». */
-    labels: { readonly leave: string; readonly measures?: string };
+    labels: { readonly leave: string; readonly measures?: string; readonly expand?: string; readonly collapse?: string };
     fontFamily?: string;
     fontUrl?: string;
     /** Where the copy mounts. Defaults to the body. */

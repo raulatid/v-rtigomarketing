@@ -20,6 +20,8 @@ export type CampusLabelKey =
   | 'next'
   | 'explore'
   | 'back'
+  | 'expand'
+  | 'collapse'
   | 'measures';
 
 const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, string>>>> = {
@@ -31,6 +33,8 @@ const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, str
     explore: 'explorar',
     back: 'volver',
     measures: 'Qué medimos',
+    expand: 'Leer más',
+    collapse: 'Ver partículas',
   },
   en: {
     leave: 'leave the services',
@@ -40,6 +44,8 @@ const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, str
     explore: 'explore',
     back: 'back',
     measures: 'What we measure',
+    expand: 'Read more',
+    collapse: 'View particles',
   },
 };
 

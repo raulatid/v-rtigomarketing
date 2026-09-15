@@ -15,6 +15,7 @@ import { CAMPUS_ICONS } from './content/campusIcons';
 import { rasterizeIcons } from './content/iconLibrary';
 import type { CampusSnapshot } from './section/campusState';
 import { gatherCampus } from './gatherCampus';
+import { CAMPUS_DOCK_QUERY, campusMobileFraming } from './campusMobileLayout';
 
 /**
  * The services section, assembled in the city: the one thing `MurciaExperience`
@@ -112,7 +113,7 @@ const REDUCED = { flight: 0.12, morph: 0.3, emergence: 0.2, convergence: 0.3 } a
  * 16:9 and ~0.45 at 4:3, and ~0.8 on a portrait tablet — no room beside a
  * plate there, so a portrait tablet is framed as a phone.
  */
-const DOCK_QUERY = '(min-width: 1024px) and (min-aspect-ratio: 4/3)';
+const DOCK_QUERY = CAMPUS_DOCK_QUERY;
 
 /**
  * The disc's radius over the frame's half-height, at the tuned distance and
@@ -131,14 +132,6 @@ const dockedFraming = (aspect: number): CampusFraming => ({
   y: 0,
   distanceScale: 1,
 });
-
-/**
- * A phone, or a portrait tablet: the copy is a card along the bottom, so the
- * camera stands back — at the tuned distance a symbol is wider than a portrait
- * screen — and lifts the subject into the upper part of the frame. Starting
- * values, to be judged by eye.
- */
-const PHONE_FRAMING: CampusFraming = { x: 0, y: 0.45, distanceScale: 1.6 };
 
 export async function createServicesCampus(
   options: ServicesCampusSectionOptions,
@@ -183,7 +176,8 @@ export async function createServicesCampus(
       keyLightDirection: options.keyLightDirection,
       waterNode: CAMPUS_WATER_NODE_NAME,
       overlay: {
-        labels: { leave: campusLabel(locale, 'leave'), measures: campusLabel(locale, 'measures') },
+        labels: { leave: campusLabel(locale, 'leave'), measures: campusLabel(locale, 'measures'),
+          expand: campusLabel(locale, 'expand'), collapse: campusLabel(locale, 'collapse') },
         // The site's text face, declared once for every document in
         // siteHeader.css — so no `fontUrl`, and the overlay registers nothing.
         // Its title takes the display face from murcia.css.
@@ -193,7 +187,8 @@ export async function createServicesCampus(
         // murcia.css places it: under the subject, or docked at DOCK_QUERY.
         hostLayout: true,
       },
-      framing: () => (dock.matches ? dockedFraming(options.camera.aspect) : PHONE_FRAMING),
+      framing: () => (dock.matches ? dockedFraming(options.camera.aspect)
+        : campusMobileFraming(options.canvas.clientWidth, options.canvas.clientHeight)),
       viewportHeightPx: options.viewportHeightPx,
       screen: {
         anisotropy: options.anisotropy,
