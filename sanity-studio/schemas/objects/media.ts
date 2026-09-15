@@ -2,6 +2,7 @@ import { ImageIcon } from '@sanity/icons/Image'
 import { PlayIcon } from '@sanity/icons/Play'
 import { LinkIcon } from '@sanity/icons/Link'
 import { defineField, defineType } from 'sanity'
+import { imageProblem, videoProblem } from '../lib/editorChecks'
 import { charCount } from '../../components/CharCountInput'
 
 /**
@@ -20,7 +21,7 @@ export const imageMedia = defineType({
   title: 'Imagen',
   icon: ImageIcon,
   type: 'image',
-  options: { hotspot: true },
+  options: { hotspot: false, accept: 'image/png,image/jpeg,image/webp' },
   description: 'PNG, JPG o WebP. No se admiten archivos SVG.',
   fields: [
     defineField({
@@ -62,12 +63,7 @@ export const imageMedia = defineType({
   // `assetRequired()` is `!value || !value.asset || !value.asset._ref`, so it
   // fires on the empty optional field too. Hence the explicit rule: say nothing
   // about an untouched field, reject a half-filled one.
-  validation: (rule) =>
-    rule.custom((value?: { asset?: { _ref?: string } }) =>
-      value === undefined || value === null || typeof value.asset?._ref === 'string'
-        ? true
-        : 'Sube una imagen, o borra el campo entero para dejarlo vacío.',
-    ),
+  validation: (rule) => rule.custom(imageProblem),
 })
 
 /**
@@ -138,11 +134,10 @@ export const embedMedia = defineType({
       title: 'Dirección del vídeo',
       description: 'Ejemplo: https://www.youtube.com/watch?v=abc123 o https://vimeo.com/123456',
       type: 'url',
-      validation: (rule) =>
-        rule
-          .required()
-          .uri({ scheme: ['https'] })
-          .error('Pega la dirección completa, empezando por https://'),
+      validation: (rule) => [
+        rule.required().uri({ scheme: ['https'] }).error('Pega la dirección completa, empezando por https://'),
+        rule.custom((value, context) => videoProblem(value, (context.parent as { provider?: string })?.provider)),
+      ],
     }),
   ],
   preview: {

@@ -1,5 +1,6 @@
 import { PinIcon } from '@sanity/icons/Pin'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { serviceMembership } from './lib/serviceMembership'
 import { charCount } from '../components/CharCountInput'
 import { colorHexInput } from '../components/ColorHexInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
@@ -156,11 +157,13 @@ export const district = defineType({
         'él la web no se actualiza.',
       type: 'array',
       fieldset: 'servicios',
-      of: [defineArrayMember({ type: 'reference', to: [{ type: 'service' }] })],
+      options: { disableActions: ['add', 'addBefore', 'addAfter', 'remove', 'duplicate', 'copy'], sortable: true },
+      of: [defineArrayMember({ type: 'reference', to: [{ type: 'service' }], readOnly: true })],
       validation: (rule) => [
         rule.required().min(1).error('Añade al menos un servicio.'),
         rule.max(BOUNDS.services).error(`Como máximo ${BOUNDS.services} servicios.`),
         rule.unique().error('Ese servicio ya está en la lista.'),
+        rule.custom(serviceMembership),
       ],
     }),
     defineField({

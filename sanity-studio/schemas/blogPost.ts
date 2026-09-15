@@ -132,7 +132,10 @@ export const blogPost = defineType({
       type: 'datetime',
       fieldset: 'publicacion',
       initialValue: () => new Date().toISOString(),
-      validation: (rule) => rule.required().error('Elige una fecha de publicación.'),
+      validation: (rule) => [
+        rule.required().error('Elige una fecha de publicación.'),
+        rule.custom((value) => !value || Date.parse(value) <= Date.now() ? true : 'Esta fecha es futura. Para publicar más adelante usa «Programar publicación»; cambiar esta fecha no programa la entrada.').warning(),
+      ],
     }),
     defineField({
       name: 'category',
@@ -192,7 +195,7 @@ export const blogPost = defineType({
         `título de la entrada. Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`,
       type: 'string',
       fieldset: 'seo',
-      components: { input: charCount(SEO_TITLE_MAX) },
+      components: { input: charCount(SEO_TITLE_MAX, 'warning') },
       validation: (rule) =>
         rule
           .max(SEO_TITLE_MAX)
@@ -207,7 +210,7 @@ export const blogPost = defineType({
       type: 'text',
       rows: 2,
       fieldset: 'seo',
-      components: { input: charCount(META_DESCRIPTION_MAX) },
+      components: { input: charCount(META_DESCRIPTION_MAX, 'warning') },
       validation: (rule) =>
         rule
           .max(META_DESCRIPTION_MAX)

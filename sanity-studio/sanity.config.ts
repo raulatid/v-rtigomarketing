@@ -10,6 +10,12 @@ import type { ComponentType } from 'react'
 import { defineConfig } from 'sanity'
 import { structureTool, type StructureBuilder } from 'sanity/structure'
 import { schemaTypes } from './schemas'
+import { EditorialHome } from './components/EditorialHome'
+import { DocumentPreview } from './components/DocumentPreview'
+
+function documentViews(S: StructureBuilder) {
+  return [S.view.form().title('Editar'), S.view.component(DocumentPreview).title('Vista previa').id('preview')]
+}
 
 /**
  * The singletons.
@@ -51,7 +57,7 @@ function singletonItem(S: StructureBuilder, entry: Singleton) {
     .title(entry.title)
     .id(entry.id)
     .icon(entry.icon)
-    .child(S.document().schemaType(entry.type).documentId(entry.id).title(entry.title))
+    .child(S.document().schemaType(entry.type).documentId(entry.id).title(entry.title).views(documentViews(S)))
 }
 
 /**
@@ -118,6 +124,7 @@ export default defineConfig({
 
   plugins: [
     structureTool({
+      defaultDocumentNode: (S) => S.document().views(documentViews(S)),
       // Ordered the way an editor meets the site, not alphabetically, and named
       // in the site's words rather than the scene's: nobody outside the code
       // calls the services campus a "distrito".
@@ -135,6 +142,7 @@ export default defineConfig({
         S.list()
           .title('Contenido de la web')
           .items([
+            S.listItem().title('Inicio y ayuda').id('inicio').icon(ComposeIcon).child(S.component(EditorialHome).id('inicio').title('Inicio y ayuda')),
             S.documentTypeListItem('caseStudy').title('Casos de éxito').icon(EarthGlobeIcon),
             S.listItem()
               .title('Servicios')
@@ -145,7 +153,7 @@ export default defineConfig({
                   .title('Servicios')
                   .items([
                     S.documentTypeListItem('district')
-                      .title('La sección en la ciudad')
+                      .title('Presentación y orden de los servicios')
                       .icon(PinIcon),
                     S.documentTypeListItem('service').title('Todos los servicios').icon(WrenchIcon),
                   ]),
@@ -177,6 +185,10 @@ export default defineConfig({
     // descriptions were always Spanish; this is the shell around them.
     esESLocale(),
   ],
+
+  // Native features: Sanity checks plan eligibility and permissions. No paid plan is purchased here.
+  tasks: { enabled: true },
+  scheduledDrafts: { enabled: true },
 
   schema: {
     types: schemaTypes,

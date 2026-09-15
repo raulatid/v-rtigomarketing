@@ -1,5 +1,6 @@
 import { WrenchIcon } from '@sanity/icons/Wrench'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { EditorialDocument } from '../components/EditorialDocument'
 import { charCount } from '../components/CharCountInput'
 import { colorHexInput } from '../components/ColorHexInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
@@ -63,6 +64,7 @@ export const service = defineType({
   title: 'Servicio',
   icon: WrenchIcon,
   type: 'document',
+  components: { input: EditorialDocument },
   fieldsets: [TECH_FIELDSET],
   fields: [
     defineField({
@@ -88,7 +90,7 @@ export const service = defineType({
         'de cada entrada. Ejemplo: «Contenidos» para «Estrategia de contenidos». Vacío, se usa ' +
         'el nombre completo.',
       type: 'string',
-      components: { input: charCount(SHORT_TITLE_MAX) },
+      components: { input: charCount(SHORT_TITLE_MAX, 'warning') },
       validation: (rule) =>
         rule.max(SHORT_TITLE_MAX).warning('Cuanto más corto, mejor encaja en un filtro.'),
     }),
@@ -169,9 +171,10 @@ export const service = defineType({
       description: LOCKED_ID_DESCRIPTION,
       type: 'slug',
       fieldset: 'tecnico',
+      hidden: ({value, currentUser}) => !!(value as { current?: string } | undefined)?.current && !currentUser?.roles.some((role) => role.name === 'administrator'),
       options: slugOptions('title'),
       readOnly: lockedOnceSet,
-      validation: (rule) => slugValidation(rule, 'Pulsa "Generar" para crear el identificador.'),
+      validation: (rule) => slugValidation(rule, 'Escribe el nombre y espera a que se genere el identificador. Si no aparece, pulsa «Generar» en «Identificador interno».'),
     }),
   ],
   preview: {

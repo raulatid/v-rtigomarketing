@@ -9,7 +9,8 @@
     "build": "sanity build",
     "deploy": "sanity deploy",
     "typecheck": "tsc --noEmit",
-    "import-fixtures": "node scripts/import-fixtures.mjs"
+    "import-fixtures": "node scripts/import-fixtures.mjs",
+    "test": "node ../node_modules/vitest/vitest.mjs run --config vitest.config.ts"
   },
   "engines": {
     "node": ">=22.12"

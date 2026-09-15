@@ -14,7 +14,7 @@ import type { ConditionalPropertyCallbackContext } from 'sanity'
  * the only person able to update the code on the other side of the binding.
  *
  * A NEW case study therefore still works for an editor: they type the brand
- * name, press "Generar", and the identifier is set and locked in one motion.
+ * name and EditorialDocument generates a stable identifier automatically.
  * Districts and legal documents never reach the unset state because they cannot
  * be created from the Studio at all (see `sanity.config.ts`).
  */
@@ -34,17 +34,13 @@ export const LOCKED_ID_DESCRIPTION =
   'cambia; si hiciera falta cambiarlo, pídeselo al equipo técnico.'
 
 /**
- * The collapsed fieldset every code-welded identifier is kept in.
- *
- * The description used to say only "nothing to touch here", which was false
- * for exactly one moment — a new case study or service is unpublishable until
- * "Generar" is pressed in here — and that moment is the one a new editor meets.
+ * Recovery/admin controls for internal identifiers. Ordinary case/service
+ * creation uses EditorialDocument; existing identifiers remain immutable.
  */
 export const TECH_FIELDSET = {
   name: 'tecnico',
-  title: 'Técnico',
+  title: 'Identificador interno',
   description:
-    'Al crear un documento nuevo, abre este apartado y pulsa «Generar» una vez. Después no ' +
-    'hace falta volver a tocarlo.',
+    'Se genera automáticamente al escribir el nombre de un caso o servicio. No hace falta modificarlo.',
   options: { collapsible: true, collapsed: true },
 }

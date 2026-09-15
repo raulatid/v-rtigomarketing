@@ -33,7 +33,7 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["sanity.config.ts", "sanity.cli.ts", "schemas/**/*.ts", "components/**/*.tsx"],
+  "include": ["sanity.config.ts", "sanity.cli.ts", "schemas/**/*.ts", "components/**/*.tsx", "components/**/*.ts"],
   // `scripts/` is plain .mjs with no type annotations, and it runs with node
   // before this package has been installed. Nothing to check.
   "exclude": ["node_modules", "dist", "scripts"]

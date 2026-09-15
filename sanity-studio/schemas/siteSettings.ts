@@ -48,6 +48,12 @@ export const siteSettings = defineType({
   title: 'Ajustes del sitio',
   icon: CogIcon,
   type: 'document',
+  groups: [
+    { name: 'contacto', title: 'Contacto', default: true },
+    { name: 'formularios', title: 'Mensajes de enviado' },
+    { name: 'auditoria', title: 'Formulario de auditoría' },
+    { name: 'pie', title: 'Pie de página' },
+  ],
   fieldsets: [
     {
       name: 'contacto',
@@ -85,6 +91,7 @@ export const siteSettings = defineType({
         'número se escribe dos veces: tal como se lee y tal como se marca.',
       type: 'array',
       fieldset: 'contacto',
+      group: 'contacto',
       of: [
         defineArrayMember({
           type: 'object',
@@ -158,6 +165,7 @@ export const siteSettings = defineType({
         'muestra a los visitantes.',
       type: 'string',
       fieldset: 'contacto',
+      group: 'contacto',
       placeholder: 'hola@vertigomarketing.es',
       validation: (rule) =>
         rule.required().email().error('Escribe una dirección de correo completa, con @ y dominio.'),
@@ -182,6 +190,7 @@ export const siteSettings = defineType({
         'muestra un botón para reservar. Vacío, el botón no aparece.',
       type: 'url',
       fieldset: 'contacto',
+      group: 'contacto',
       placeholder: 'https://tuplataforma.com/vertigo/30min',
       validation: (rule) => [
         rule.uri({ scheme: ['https'] }).error('Tiene que empezar por https://'),
@@ -221,6 +230,7 @@ export const siteSettings = defineType({
         'Más largo del máximo no cabe en una línea en el móvil.',
       type: 'string',
       fieldset: 'contacto',
+      group: 'contacto',
       placeholder: 'Agenda una cita',
       components: { input: charCount(BOOKING_LABEL_MAX) },
       validation: (rule) =>
@@ -243,6 +253,7 @@ export const siteSettings = defineType({
       description: 'El titular grande, en el sitio donde estaba el formulario.',
       type: 'string',
       fieldset: 'formularios',
+      group: 'formularios',
       placeholder: 'Solicitud recibida',
       components: { input: charCount(BOUNDS.successTitle) },
       validation: (rule) => [
@@ -258,6 +269,7 @@ export const siteSettings = defineType({
       description: 'Una o dos frases debajo del titular.',
       type: 'string',
       fieldset: 'formularios',
+      group: 'formularios',
       placeholder:
         'Gracias por contactarnos. Revisaremos tu web de forma manual y te responderemos en menos de 24 horas.',
       components: { input: charCount(BOUNDS.successBody) },
@@ -274,6 +286,7 @@ export const siteSettings = defineType({
       description: 'El titular grande, en el sitio donde estaba el formulario.',
       type: 'string',
       fieldset: 'formularios',
+      group: 'formularios',
       placeholder: 'Recibido',
       components: { input: charCount(BOUNDS.successTitle) },
       validation: (rule) => [
@@ -289,6 +302,7 @@ export const siteSettings = defineType({
       description: 'Una o dos frases debajo del titular.',
       type: 'string',
       fieldset: 'formularios',
+      group: 'formularios',
       placeholder: 'Gracias por contactarnos, te responderemos en menos de 24 horas.',
       components: { input: charCount(BOUNDS.successBody) },
       validation: (rule) => [
@@ -314,6 +328,7 @@ export const siteSettings = defineType({
         'y lo que te llega en el correo.',
       type: 'array',
       fieldset: 'auditoria',
+      group: 'auditoria',
       of: [
         defineArrayMember({
           type: 'string',
@@ -339,6 +354,7 @@ export const siteSettings = defineType({
       description: 'El texto pequeño al pie de la pantalla del planeta, la portada de la web.',
       type: 'string',
       fieldset: 'pie',
+      group: 'pie',
       placeholder: '© 2026 Vertigo',
       components: { input: charCount(BOUNDS.copyright) },
       validation: (rule) => [

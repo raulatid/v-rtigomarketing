@@ -105,3 +105,15 @@ npm run deploy         # gives the client a stable Studio URL
 ```
 
 The Studio is hosted by Sanity, independent of the public site's deployment. A Studio outage does not affect the published website, because the website never talks to Sanity at runtime.
+
+## Editorial workflow and previews
+
+The existing Sanity → Vercel webhook is managed externally. Studio changes do not create, replace or call deployment hooks.
+
+The structure has an Inicio y ayuda pane with authenticated draft queries, document intent links and in-app guidance. Tasks and Scheduled Drafts are explicitly enabled; Sanity controls availability through the project's plan and permissions (Growth). No subscription is changed by this configuration.
+
+Custom document views render the displayed draft locally inside a sandboxed iframe. They reuse CasePanel, PostBody, BlogFigure and the site's styles/fonts. Service/legal views are reading previews; the 3D scene and website-wide click-to-edit are not embedded. The preview never queries draft content anonymously, stores credentials, publishes documents or submits forms. Referenced blog themes are read from published content.
+
+Internal case/service identifiers are created with setIfMissing after naming a new document, with a stable document-ID suffix. Existing identifiers are preserved. Service city membership is validated against cityDistrictBindings; only reordering is offered in the form. If scene bindings change, redeploy Studio as well as the website to refresh its membership checks and placement messages.
+
+Sources: [document views](https://www.sanity.io/docs/studio/create-custom-document-views-with-structure-builder), [Tasks](https://www.sanity.io/docs/studio/configuring-tasks), [Scheduled Drafts](https://www.sanity.io/docs/studio/scheduled-drafts).

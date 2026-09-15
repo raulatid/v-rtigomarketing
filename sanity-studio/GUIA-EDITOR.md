@@ -12,8 +12,9 @@ Esta guía es para quien va a cambiar textos, casos de éxito, servicios, entrad
 
 | Sección | Qué es |
 |---|---|
+| **Inicio y ayuda** | Accesos a tareas frecuentes, borradores recientes y ayuda para editar, revisar y programar. |
 | **Casos de éxito** | Las marcas que giran alrededor del planeta, cada una sobre un satélite. Cada caso tiene su ficha, sus textos y su gráfico, que se leen al pinchar el satélite. |
-| **Servicios** → **La sección en la ciudad** | La sección de servicios de la ciudad, la que se abre al pulsar el lago: su título, su subtítulo y el orden de los servicios. Hay una sola. |
+| **Servicios** → **Presentación y orden de los servicios** | La sección de servicios de la ciudad, la que se abre al pulsar el lago: su título, su subtítulo y el orden de los servicios. Hay una sola. |
 | **Servicios** → **Todos los servicios** | Cada servicio de la agencia, con su nombre y su descripción. Cada servicio es además un tema del blog. |
 | **Blog** | Las entradas del blog, de la más reciente a la más antigua. |
 | **Ajustes del sitio** | Teléfonos, correo que recibe los mensajes, botón de reservar cita, mensajes de «enviado» de los formularios, rangos de facturación del formulario de Auditoría y línea de copyright. |
@@ -22,17 +23,16 @@ Esta guía es para quien va a cambiar textos, casos de éxito, servicios, entrad
 ## Guardar y publicar
 
 - Todo lo que escribes **se guarda solo**, al momento. No hay botón de guardar.
-- Lo que escribes **no está en la web hasta que pulsas «Publicar»** (abajo a la derecha). Hasta entonces es un borrador que solo ves tú.
+- Lo que escribes **no está en la web hasta que pulsas «Publicar»** (abajo a la derecha). Hasta entonces es un borrador que pueden ver las personas autorizadas del proyecto.
 - Si un campo tiene un error **en rojo**, el botón de publicar no se activa y el campo te dice qué falta. Corrígelo y vuelve a publicar. Un aviso **en amarillo** no bloquea: es un consejo.
-- **Publicar no cambia la web al instante.** La web se actualiza cuando el equipo técnico la vuelve a publicar con el contenido nuevo. Si tienes prisa por ver un cambio, avísales.
-- **En el ordenador de desarrollo la web no se actualiza sola.** Quien tenga la web en local tiene que ejecutar `npm run content:build` después de cada publicación; hasta entonces sigue mostrando el contenido anterior. No es un fallo.
+- **Publicar inicia automáticamente la actualización de la web.** El webhook de Sanity avisa a Vercel. Espera unos minutos para comprobar el resultado. Si no aparece, avisa al equipo técnico con el nombre del documento.
 
 ## Publicar es hacerlo público
 
 Pulsar «Publicar» deja el documento accesible para cualquiera en internet, aunque todavía no se vea en la web. Que no se vea **no** quiere decir que sea privado.
 
 - **Todo lo publicado es información pública.** También los campos que la web no muestra: si está publicado, alguien puede leerlo aunque no aparezca en ninguna pantalla.
-- **Los borradores no.** Lo que escribes y no publicas solo lo ves tú, aquí dentro. La diferencia entre privado y público es exactamente el botón «Publicar».
+- **Los borradores no.** Lo que escribes y no publicas pueden verlo las personas autorizadas con acceso al proyecto. La diferencia entre privado y público es exactamente el botón «Publicar».
 - **Una entrada del blog con fecha futura no se programa.** Si la publicas, sale en cuanto se actualice la web, con esa fecha. Si no quieres que se lea aún, déjala en borrador.
 - **No escribas aquí nada que no pueda leerse fuera:** notas internas, datos personales de nadie, contraseñas, teléfonos particulares o cualquier cosa confidencial. No hay ningún campo de este editor pensado para eso.
 
@@ -41,18 +41,18 @@ Si dudas de si algo puede publicarse, déjalo en borrador y pregunta al equipo t
 ## Ayudas del editor
 
 - **Cada campo te dice dónde se ve en la web** y, si es opcional, empieza por «Opcional.». El texto en gris dentro de un campo vacío es solo un ejemplo: no se publica.
-- **Los campos con límite de longitud llevan un contador** debajo, como `123 / 400`. Se pone en rojo si te pasas.
+- **Los campos con límite de longitud llevan un contador** debajo, como `123 / 400`. Los límites obligatorios se ponen en rojo si te pasas. Las recomendaciones se indican en amarillo y dicen «puedes publicar».
 - **El color de marca** tiene un selector de color al lado. Puedes pegar el código (`#e0b33c`) o elegirlo con el selector; «Quitar color» lo deja vacío.
 
 ## Cosas que conviene saber
 
 **Un caso de éxito nuevo no aparece solo.** Hay seis órbitas alrededor del planeta. Puedes crear un caso y rellenarlo entero, pero solo sale en la web cuando el equipo técnico le asigna una. Avísales cuando esté listo.
 
-**Al crear un caso o un servicio nuevo, pulsa «Generar» una vez** en el apartado «Técnico», plegado al final del documento. Crea el nombre interno con el que la web lo reconoce. Después no hace falta volver a tocarlo, y no se puede cambiar. En una entrada del blog, el equivalente es **«Dirección de la entrada»**, en «Publicación»: es la dirección web de la entrada (`/blog/…`), y tampoco cambia una vez guardada, para que los enlaces compartidos sigan funcionando.
+**Al crear un caso o un servicio nuevo, el identificador se genera automáticamente al escribir el nombre.** Después queda protegido para evitar cambios accidentales. En las entradas del blog, pulsa «Generar» en «Dirección de la entrada», dentro de «Publicación»: es la dirección que compartirás.
 
-**El orden de los servicios se cambia arrastrándolos** en «La sección en la ciudad». Es el orden en que el visitante los recorre alrededor del lago. **Para añadir o quitar un servicio de esa lista, avisa antes al equipo técnico:** cada servicio necesita su propio símbolo en la ciudad, y sin él la web no se actualiza. Crear un servicio nuevo en «Todos los servicios» sí puedes hacerlo; sirve, por ejemplo, como tema del blog.
+**El orden de los servicios se cambia arrastrándolos** en «Presentación y orden de los servicios». Es el orden en que el visitante los recorre alrededor del lago. **Para añadir o quitar un servicio de esa lista, avisa antes al equipo técnico:** cada servicio necesita su propio símbolo en la ciudad, y sin él la web no se actualiza. Crear un servicio nuevo en «Todos los servicios» sí puedes hacerlo; sirve, por ejemplo, como tema del blog.
 
-**La descripción de un servicio se lee en dos tiempos.** El principio se ve siempre, debajo del nombre, y el texto completo se abre al pulsar «+». Lo más claro es escribir dos párrafos: el primero, una sola frase que resuma el servicio; el segundo, el detalle.
+**La descripción de un servicio se lee en dos tiempos.** El principio se ve siempre, debajo del nombre, y el resto desarrolla el detalle. Lo más claro es escribir dos párrafos: el primero, una sola frase que resuma el servicio; el segundo, el detalle.
 
 **El gráfico de un caso** se rellena punto a punto: pulsa el botón de añadir y escribe el valor. Si el gráfico es de barras o donut, cada punto lleva también un nombre (lo que se lee bajo la barra, o en la leyenda del donut). El gráfico dibuja la forma de los datos; los números en sí no se ven, salvo los porcentajes del donut.
 
@@ -88,4 +88,23 @@ En los dos casos el aviso te dice qué mide la imagen y qué debería medir, as�
 
 ## Si algo va mal
 
-Nada de lo que hagas aquí puede romper la web: si un contenido tiene un problema, la web simplemente no se actualiza y sigue mostrando la versión anterior. Avisa al equipo técnico con el nombre del documento que estabas editando.
+Las validaciones comprueban el formato y la estructura. No pueden saber si un teléfono, una cifra o un texto son correctos: revísalos antes de publicar. Si la actualización falla, se conserva la versión anterior de la web. Avisa al equipo técnico con el nombre del documento.
+
+## Vista previa
+
+Abre «Vista previa» junto a «Editar». Muestra los cambios del documento sin publicarlos. Elige móvil o escritorio; para escribir y mirar a la vez, usa la vista dividida del documento.
+
+- **Casos:** ficha y gráfico con los componentes de la web; imágenes de marca sobre fondo oscuro. Comprueba la transparencia: el formato PNG o WebP por sí solo no la garantiza.
+- **Blog:** entrada, tarjeta del listado y simulación de buscadores/redes. Los buscadores pueden cambiar lo que muestran.
+- **Ajustes:** teléfonos, reserva, confirmaciones, rangos de facturación y copyright. El correo destinatario no aparece en la vista pública.
+- **Servicios y legales:** vista de lectura para comprobar el contenido. La composición 3D se comprueba en la web.
+
+Los enlaces de la vista previa no navegan y no se envían formularios. Una vista previa no sustituye los errores de validación. Las imágenes del blog usan el encuadre del archivo; la imagen para redes se recorta desde el centro.
+
+## Revisión y programación
+
+**Pedir revisión:** guarda el borrador, abre «Tareas», vincula el documento y asígnalo a la persona revisora. Puede añadir una fecha límite. Resolver la tarea no publica el contenido. No escribas notas internas en campos públicos.
+
+**Programar:** completa el borrador y usa «Programar publicación» en las acciones del documento. Comprueba fecha, hora y zona horaria. El tema principal de la entrada debe estar publicado. Para editar un borrador programado, cancela primero la programación. El webhook existente actualizará la web después de que Sanity publique el contenido.
+
+Tareas y programación requieren el plan Growth y permisos adecuados. Si no aparecen, consulta al administrador; poner una fecha futura en el campo «Fecha de publicación» no sustituye la programación.

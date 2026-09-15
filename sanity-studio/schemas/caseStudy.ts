@@ -1,5 +1,6 @@
 import { EarthGlobeIcon } from '@sanity/icons/EarthGlobe'
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { EditorialDocument } from '../components/EditorialDocument'
 import { charCount } from '../components/CharCountInput'
 import { ColorHexInput } from '../components/ColorHexInput'
 import { brandMarkAdvice, brandMarkErrors } from './lib/brandMark'
@@ -203,6 +204,7 @@ export const caseStudy = defineType({
   title: 'Caso de éxito',
   icon: EarthGlobeIcon,
   type: 'document',
+  components: { input: EditorialDocument },
   fieldsets: [
     {
       name: 'marca',
@@ -459,9 +461,10 @@ export const caseStudy = defineType({
       description: LOCKED_ID_DESCRIPTION,
       type: 'slug',
       fieldset: 'tecnico',
+      hidden: ({value, currentUser}) => !!(value as { current?: string } | undefined)?.current && !currentUser?.roles.some((role) => role.name === 'administrator'),
       options: slugOptions('name'),
       readOnly: lockedOnceSet,
-      validation: (rule) => slugValidation(rule, 'Pulsa "Generar" para crear el identificador.'),
+      validation: (rule) => slugValidation(rule, 'Escribe el nombre y espera a que se genere el identificador. Si no aparece, pulsa «Generar» en «Identificador interno».'),
     }),
   ],
   preview: {

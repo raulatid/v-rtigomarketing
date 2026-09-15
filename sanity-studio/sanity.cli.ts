@@ -16,6 +16,8 @@ import { defineCliConfig } from 'sanity/cli'
  * a prefix that would put them there.
  */
 export default defineCliConfig({
+  // Preview components reuse the public site's presentational React components.
+  vite: (config) => ({...config, resolve: {...config.resolve, dedupe: ['react', 'react-dom']}}),
   api: {
     projectId: process.env.SANITY_STUDIO_PROJECT_ID,
     dataset: process.env.SANITY_STUDIO_DATASET,
