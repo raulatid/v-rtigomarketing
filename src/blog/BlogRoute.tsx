@@ -329,6 +329,7 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
               <input
                 type="search"
                 className="blog-search__input"
+                maxLength={200}
                 placeholder="Buscar en el blog"
                 aria-label="Buscar en el blog"
                 value={query}
