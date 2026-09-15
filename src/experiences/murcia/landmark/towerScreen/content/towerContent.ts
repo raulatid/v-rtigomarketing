@@ -3,8 +3,8 @@ import type { FacadeContentDocument } from './facadeContent';
 /**
  * What the tower's screen says, bundled.
  *
- * Plain serialisable data in the shape `parseTowerContent` accepts, so a CMS
- * document can replace it one for one — only where it comes from changes.
+ * Plain serialisable data checked against FacadeContentDocument by TypeScript.
+ * External content would need validation at its own ingestion boundary.
  *
  * ## Every metre here is a DESIGN metre
  *

@@ -1,17 +1,16 @@
 import type { FacadeBlock } from '../facadeComposition';
 
 /**
- * The shape of the tower's content — the schema a CMS document type mirrors.
+ * The shared shape of bundled tower and campus content.
  *
- * Plain, serialisable data only: no functions, no DOM types, no `three`, so a
- * query's result can be validated by `parseTowerContent` without caring that a
- * query is where it came from. Adding a field that cannot survive `JSON.parse`
- * breaks that property, which is the only rule this file has.
+ * Plain, serialisable data only: no functions, no DOM types, no `three`.
+ * The current inputs are typed TypeScript documents. A future external source
+ * must validate its data at that boundary before handing it to the renderer.
  *
  * A composition lists its `FacadeBlock`s directly — metres, cap heights and
  * reveal windows included — so a layout can be authored as a document rather
- * than as code. It still cannot name a colour: `parseBlocks` rejects `color`,
- * so the document opens the layout and not the palette.
+ * than as rendering code. Authored content should use semantic tones; the
+ * renderer owns the palette. These types do not validate external data.
  */
 
 export interface FreeformContent {

@@ -34,30 +34,6 @@ export function intersectRect(a: BoundsRect, b: BoundsRect): BoundsRect {
   };
 }
 
-/**
- * The smallest rectangle containing both. Used to guarantee that the limit
- * rectangle contains the firm one whatever the config says, since a limit
- * inside the area the drag already reaches would resist in the wrong direction.
- */
-export function unionRect(a: BoundsRect, b: BoundsRect): BoundsRect {
-  return {
-    minX: Math.min(a.minX, b.minX),
-    maxX: Math.max(a.maxX, b.maxX),
-    minZ: Math.min(a.minZ, b.minZ),
-    maxZ: Math.max(a.maxZ, b.maxZ),
-  };
-}
-
-/** Whether `outer` covers all of `inner`, edge-inclusive. */
-export function containsRect(outer: BoundsRect, inner: BoundsRect): boolean {
-  return (
-    outer.minX <= inner.minX &&
-    outer.maxX >= inner.maxX &&
-    outer.minZ <= inner.minZ &&
-    outer.maxZ >= inner.maxZ
-  );
-}
-
 export function isInverted(rect: BoundsRect): boolean {
   return rect.minX > rect.maxX || rect.minZ > rect.maxZ;
 }
@@ -108,4 +84,3 @@ export function containsPoint(x: number, z: number, rect: BoundsRect): boolean {
  * is grown past the authored plate — the softness bought pan range that the
  * grown rect simply gives. `?band=` and `extendedBounds` went with it.
  */
-
