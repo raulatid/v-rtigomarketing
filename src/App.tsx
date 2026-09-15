@@ -15,7 +15,7 @@ import { LazyScene } from './components/LazyScene'
 import { CasePanel } from './components/CasePanel'
 import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
-import { LegalPanel } from './components/LegalPanel'
+import { LegalPanel } from './components/LazyLegalPanel'
 import { ConsentBanner } from './components/ConsentBanner'
 import { SiteFooter } from './components/SiteFooter'
 import { SiteHeader } from './components/SiteHeader'
@@ -44,7 +44,7 @@ import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './platform/buildFlags'
 import { canSkipTail } from './app/introSkip'
 import { clearIntroSeen, markIntroSeen, readIntroSeen } from './app/introSeen'
-import { subscribeConsent } from './app/consent'
+import { hasConsent, subscribeConsent } from './app/consent'
 import { loadProgress } from './loading/progress'
 import { useRoute } from './app/useRoute'
 import { LazyBlog, prefetchBlog } from './components/LazyBlog'
@@ -571,7 +571,7 @@ export default function App() {
   // record is what this browser knew when the page opened. The loading draw
   // still plays in full; this acts at the first tail phase after it, and only
   // once, so the /debug replay and seeks still play the tail.
-  const [introSeenAtBoot] = useState(readIntroSeen)
+  const [introSeenAtBoot] = useState(() => hasConsent('preferences') && readIntroSeen())
   const autoSkippedRef = useRef(false)
   useLayoutEffect(() => {
     if (!canSkipTail(phase) || !introSeenAtBoot || autoSkippedRef.current) return
@@ -582,14 +582,14 @@ export default function App() {
   // The first landing is what makes the next visit a returning one — whether
   // the tail played out or was skipped — but only with the visitor's consent
   // (DECISIONS §51): the record is storage on their device, so it waits for
-  // «Aceptar», and «Rechazar», then or later, removes it. The banner's single
-  // choice is stored as `analytics`. Subscribed from `site`, where the banner
+  // experience preferences, independently of analytics. Withdrawal removes it.
+  // Subscribed from `site`, where the banner
   // asks; `subscribeConsent` calls back at once with a choice already made.
   useEffect(() => {
     if (phase !== 'site') return
     return subscribeConsent((record) => {
       if (record === null) return
-      if (record.analytics) markIntroSeen()
+      if (record.preferences) markIntroSeen()
       else clearIntroSeen()
     })
   }, [phase])

@@ -25,6 +25,7 @@ export type { SitePhone }
  * same "guard on the guard" arrangement `generated.test.ts` uses.
  */
 const settings = SITE_SETTINGS[0]
+export const COOKIE_COPY = settings.cookieCopy!
 
 export const SITE_PHONES: SitePhone[] = settings.phones
 

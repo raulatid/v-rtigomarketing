@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const studio = fileURLToPath(new URL('../', import.meta.url))
 mkdirSync(new URL('../.out/', import.meta.url), {recursive: true})
 const cli = fileURLToPath(new URL('../node_modules/sanity/bin/sanity', import.meta.url))
-const result = spawnSync(process.execPath, [cli, 'schema', 'extract', '--path', '.out/schema-check.json'], {
+const result = spawnSync(process.execPath, [cli, 'schema', 'extract', '--path', '.out/schema-check.json', '--force'], {
   cwd: studio,
   stdio: 'inherit',
 })

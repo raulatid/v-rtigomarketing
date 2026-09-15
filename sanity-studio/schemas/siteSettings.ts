@@ -3,6 +3,7 @@ import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { charCount } from '../components/CharCountInput'
 import { phoneSpellingsAgree } from './lib/phone'
+import { COOKIE_COPY_FIELDS } from '../../src/content/cookieCopy'
 
 /**
  * The lengths this schema refuses, shared with the content build.
@@ -83,6 +84,17 @@ export const siteSettings = defineType({
     { name: 'edificio', title: 'Edificio Vértigo' },
   ],
   fields: [
+    defineField({
+      name: 'cookieCopy',
+      title: 'Cookies y preferencias',
+      type: 'object',
+      description: 'Textos del aviso y del panel. La política completa se edita en Textos legales. Cambiar estos textos no activa Google Analytics ni cambia las categorías técnicas.',
+      options: { collapsible: true, collapsed: true },
+      fields: COOKIE_COPY_FIELDS.map(([name, title, max, initialValue]) => defineField({
+        name, title, type: max > 200 ? 'text' : 'string', initialValue,
+        validation: Rule => Rule.required().max(max),
+      })),
+    }),
     defineField({
       name: 'phones',
       title: 'Teléfonos',

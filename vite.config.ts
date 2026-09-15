@@ -190,6 +190,8 @@ function isStatsChunk(chunk: OutputChunk): boolean {
 }
 
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
+  // Legal/preferences UI loads only after a visitor opens a legal document.
+  if (chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/LegalPanel.tsx')) return false
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
   // The city starts prefetchBlog() on approach; cold / does not need the route.

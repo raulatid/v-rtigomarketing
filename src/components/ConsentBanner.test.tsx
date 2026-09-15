@@ -67,17 +67,17 @@ describe('the consent banner', () => {
   it('renders only the policy icon when a choice is already stored', async () => {
     localStorage.setItem(
       'vertigo:consent',
-      JSON.stringify({ v: 1, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
+      JSON.stringify({ v: 2, preferences: false, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
     )
     await mount()
     expect(banner()).toBeNull()
-    expect(info()?.getAttribute('aria-label')).toBe('Política de cookies')
+    expect(info()?.getAttribute('aria-label')).toBe('Cookies y preferencias')
   })
 
   it('keeps the policy in reach through the icon', async () => {
     localStorage.setItem(
       'vertigo:consent',
-      JSON.stringify({ v: 1, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
+      JSON.stringify({ v: 2, preferences: true, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
     )
     const onOpenLegal = vi.fn()
     const { act } = await mount({ onOpenLegal })
@@ -99,9 +99,9 @@ describe('the consent banner', () => {
     const title = container.querySelector('#consent-title')
     expect(title).not.toBeNull()
     expect(region?.getAttribute('aria-labelledby')).toBe('consent-title')
-    expect(button('Aceptar')).toBeDefined()
-    expect(button('Rechazar')).toBeDefined()
-    expect(button('Política de cookies')).toBeDefined()
+    expect(button('Aceptar todas')).toBeDefined()
+    expect(button('Rechazar todas')).toBeDefined()
+    expect(button('Configurar cookies')).toBeDefined()
   })
 
   it('does not take focus when it appears', async () => {
@@ -118,14 +118,14 @@ describe('the consent banner', () => {
   it('opens the cookies policy through the caller', async () => {
     const onOpenLegal = vi.fn()
     const { act } = await mount({ onOpenLegal })
-    act(() => button('Política de cookies')?.click())
+    act(() => button('Configurar cookies')?.click())
     expect(onOpenLegal).toHaveBeenCalledWith('cookies')
     expect(banner()).not.toBeNull()
   })
 
   it('records acceptance, plays the exit, then leaves the icon in its place', async () => {
     const { act, readConsent } = await mount()
-    act(() => button('Aceptar')?.click())
+    act(() => button('Aceptar todas')?.click())
     expect(readConsent()?.analytics).toBe(true)
     expect(banner()?.dataset.state).toBe('leaving')
     act(() => {
@@ -142,7 +142,7 @@ describe('the consent banner', () => {
 
   it('records a refusal the same way', async () => {
     const { act, readConsent } = await mount()
-    act(() => button('Rechazar')?.click())
+    act(() => button('Rechazar todas')?.click())
     expect(readConsent()?.analytics).toBe(false)
     expect(banner()?.dataset.state).toBe('leaving')
   })
@@ -150,7 +150,7 @@ describe('the consent banner', () => {
   it('leaves at once under reduced motion', async () => {
     reducedMotion = true
     const { act } = await mount()
-    act(() => button('Aceptar')?.click())
+    act(() => button('Aceptar todas')?.click())
     act(() => {
       vi.advanceTimersByTime(60)
     })
@@ -161,7 +161,7 @@ describe('the consent banner', () => {
     const { act, writeConsent } = await mount()
     expect(banner()).not.toBeNull()
     act(() => {
-      writeConsent({ analytics: true })
+      writeConsent({ analytics: true, preferences: false })
     })
     expect(banner()).toBeNull()
   })

@@ -3,15 +3,11 @@
  *
  * ── What it gates ──
  *
- * Nothing loads today. The site sets no cookies and runs no analytics (the
- * runtime inventory in plan 018), so the only thing this module stores is the
- * choice itself — which is strictly-necessary storage and needs no consent of
- * its own. The client plans Google Analytics after launch; when that lands its
- * loader gates on this module and nowhere else:
- *
- *     subscribeConsent((record) => { if (record?.analytics) loadAnalytics() })
- *
- * `hasConsent('analytics')` is the same question asked once.
+ * Experience preferences gate the intro memory independently of analytics.
+ * Analytics is not installed: when integrated, update the policy and consent
+ * version and gate both loading AND withdrawal on this module. Never load a
+ * vendor from an old prospective choice alone. The sound toggle remembers an
+ * explicitly requested setting separately; it does not enable analytics.
  *
  * ── Why localStorage and not a cookie ──
  *
@@ -40,14 +36,15 @@
  * subscriber is called back at once with what is already known.
  */
 
-export type ConsentCategory = 'analytics'
+export type ConsentCategory = 'preferences' | 'analytics'
 
-export const CONSENT_VERSION = 1
+export const CONSENT_VERSION = 2
 export const CONSENT_STORAGE_KEY = 'vertigo:consent'
 
 export interface ConsentRecord {
   v: number
   analytics: boolean
+  preferences: boolean
   /** ISO timestamp of the choice. */
   at: string
 }
@@ -59,11 +56,12 @@ const listeners = new Set<Listener>()
 
 function parse(raw: unknown): ConsentRecord | null {
   if (raw === null || typeof raw !== 'object') return null
-  const { v, analytics, at } = raw as Record<string, unknown>
+  const { v, analytics, preferences, at } = raw as Record<string, unknown>
   if (v !== CONSENT_VERSION) return null
   if (typeof analytics !== 'boolean') return null
+  if (typeof preferences !== 'boolean') return null
   if (typeof at !== 'string') return null
-  return { v, analytics, at }
+  return { v, analytics, preferences, at }
 }
 
 function load(): ConsentRecord | null {
@@ -89,7 +87,10 @@ function persist(record: ConsentRecord) {
 
 /** The stored choice, or null when there is none worth honouring. */
 export function readConsent(): ConsentRecord | null {
-  if (current === undefined) current = load()
+  if (current === undefined) {
+    current = load()
+    clearWithdrawnPreferences(current)
+  }
   return current
 }
 
@@ -98,12 +99,32 @@ export function writeConsent(choices: Record<ConsentCategory, boolean>): Consent
   const record: ConsentRecord = {
     v: CONSENT_VERSION,
     analytics: choices.analytics,
+    preferences: choices.preferences,
     at: new Date().toISOString(),
   }
   persist(record)
   current = record
+  clearWithdrawnPreferences(record)
   for (const listener of listeners) listener(record)
   return record
+}
+
+/** Remove only storage owned by optional experience preferences, including
+ * when consent is withdrawn from the standalone blog or another tab. */
+function clearWithdrawnPreferences(record: ConsentRecord | null) {
+  if (record?.preferences || typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem('vertigo:intro')
+  } catch { /* Storage may be blocked. */ }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== CONSENT_STORAGE_KEY && event.key !== null) return
+    current = load()
+    clearWithdrawnPreferences(current)
+    for (const listener of listeners) listener(current)
+  })
 }
 
 /** The gate a vendor loader asks. False until the visitor has said yes. */

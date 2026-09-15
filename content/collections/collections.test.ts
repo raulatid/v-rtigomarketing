@@ -27,6 +27,20 @@ import blogFixtures from '../fixtures/blogPost.json'
 const validCase = () => structuredClone(caseFixtures[0]) as Record<string, unknown>
 const validDistrict = () => structuredClone(districtFixtures[0]) as Record<string, unknown>
 
+describe('editable cookie copy', () => {
+  it('preserves edited labels and refuses blank or oversized copy', () => {
+    const source = structuredClone(settingsFixtures[0])
+    source.cookieCopy.preferencesTitle = 'Recordar mi experiencia'
+    const result = siteSettingsCollection.map(source, 0)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect((result.value as SiteSettings).cookieCopy?.preferencesTitle).toBe('Recordar mi experiencia')
+    source.cookieCopy.save = ''
+    expect(siteSettingsCollection.map(source, 0).ok).toBe(false)
+    source.cookieCopy.save = 'x'.repeat(51)
+    expect(siteSettingsCollection.map(source, 0).ok).toBe(false)
+  })
+})
+
 /** Maps one record and returns the problem paths, or [] when it succeeded. */
 function problemsFor(collection: typeof caseStudiesCollection, record: unknown): string[] {
   const result = collection.map(record, 0)

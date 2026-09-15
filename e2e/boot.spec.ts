@@ -286,7 +286,7 @@ test('the first landing is remembered, with consent', async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(
       'vertigo:consent',
-      JSON.stringify({ v: 1, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
+      JSON.stringify({ v: 2, preferences: true, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
     )
   })
   await page.goto('/')

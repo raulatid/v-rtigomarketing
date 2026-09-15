@@ -183,7 +183,7 @@
         "children": [
           {
             "_type": "span",
-            "text": "En su versión actual, este sitio no instala ninguna cookie ni utiliza servicios de analítica, publicidad o seguimiento. Los formularios se envían a un servidor propio de Vertigo y no crean cookies."
+            "text": "Este sitio utiliza almacenamiento local del navegador: vertigo:consent guarda tus decisiones y vertigo:sound recuerda la música que activas o desactivas. Si autorizas las preferencias de experiencia, vertigo:intro recuerda que ya has visto la introducción. Estos datos no se envían a un servidor. Actualmente no utilizamos servicios de analítica, publicidad o seguimiento."
           }
         ]
       },
@@ -203,7 +203,7 @@
         "children": [
           {
             "_type": "span",
-            "text": "Vertigo tiene previsto incorporar un servicio de analítica (Google Analytics) para conocer cómo se usa el sitio. Esas cookies solo se instalarán si las aceptas en el aviso que aparece al entrar. Si las rechazas, el sitio funciona exactamente igual."
+            "text": "Vertigo tiene previsto incorporar un servicio de analítica (Google Analytics) para conocer cómo se usa el sitio. La categoría Analítica permite guardar tu elección por separado. Actualmente no carga ningún servicio ni envía datos. Antes de activar Google Analytics se actualizará esta información con sus cookies, duración y tratamiento de datos, y se solicitará el consentimiento correspondiente."
           }
         ]
       },
@@ -233,7 +233,7 @@
         "children": [
           {
             "_type": "span",
-            "text": "Para cambiar o retirar tu elección, borra los datos de este sitio en la configuración de tu navegador; el aviso volverá a aparecer en la siguiente visita."
+            "text": "Puedes cambiar o retirar tu elección desde el icono Cookies y preferencias. Aceptar todas y Rechazar todas aplican la decisión a las categorías opcionales; Guardar preferencias aplica tu selección. Rechazar las preferencias elimina el recuerdo de la introducción. Los cambios se comparten entre las pestañas abiertas de este sitio."
           }
         ]
       },

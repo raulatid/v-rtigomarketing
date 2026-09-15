@@ -32,6 +32,35 @@ async function stored(page: Page): Promise<unknown> {
 }
 
 test.describe('the cookie consent banner', () => {
+  test('saves categories independently and synchronizes withdrawal across tabs', async ({ page, context }) => {
+    await page.goto('/blog')
+    await page.getByRole('button', { name: 'Configurar cookies' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.locator('details')).not.toHaveAttribute('open', '')
+    await dialog.getByRole('switch', { name: 'Preferencias de experiencia' }).check()
+    await dialog.getByRole('button', { name: 'Guardar preferencias' }).click()
+    expect(await stored(page)).toMatchObject({ v: 2, preferences: true, analytics: false })
+    await dialog.getByRole('button', { name: 'Cerrar', exact: true }).click()
+    await page.reload()
+    await page.getByRole('button', { name: 'Cookies y preferencias' }).click()
+    await expect(dialog.getByRole('switch', { name: 'Preferencias de experiencia' })).toBeChecked()
+    const other = await context.newPage()
+    await other.goto('/blog')
+    await other.getByRole('button', { name: 'Cookies y preferencias' }).click()
+    await page.evaluate(() => localStorage.setItem('vertigo:intro', JSON.stringify({ v: 1, seen: true })))
+    await dialog.getByRole('button', { name: 'Rechazar todas' }).click()
+    await expect(other.getByRole('switch', { name: 'Preferencias de experiencia' })).not.toBeChecked()
+    expect(await page.evaluate(() => localStorage.getItem('vertigo:intro'))).toBeNull()
+    await dialog.getByRole('button', { name: 'Aceptar todas' }).click()
+    await expect(other.getByRole('switch', { name: 'Analítica' })).toBeChecked()
+    await dialog.getByRole('switch', { name: 'Analítica' }).uncheck()
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Cookies y preferencias' }).click()
+    await expect(dialog.getByRole('switch', { name: 'Analítica' })).toBeChecked()
+    await dialog.locator('summary').click()
+    await expect(dialog.locator('details')).toHaveAttribute('open', '')
+    await other.close()
+  })
   test('asks once the intro lands, not before, and Escape does not dismiss it', async ({ page }) => {
     await page.goto('/')
     // Readiness is the drawing's fill; the handover to 'site' takes several
@@ -47,9 +76,9 @@ test.describe('the cookie consent banner', () => {
     const region = page.getByRole('region', { name: /cookies/i })
     await expect(region).toBeVisible()
     await expect(region).toHaveAttribute('data-state', 'open')
-    await expect(region.getByRole('button', { name: 'Aceptar' })).toBeVisible()
-    await expect(region.getByRole('button', { name: 'Rechazar' })).toBeVisible()
-    await expect(region.getByRole('button', { name: 'Política de cookies' })).toBeVisible()
+    await expect(region.getByRole('button', { name: 'Aceptar todas' })).toBeVisible()
+    await expect(region.getByRole('button', { name: 'Rechazar todas' })).toBeVisible()
+    await expect(region.getByRole('button', { name: 'Configurar cookies' })).toBeVisible()
     expect(await stored(page)).toBeNull()
 
     // Non-modal: Escape keeps its meaning for the surfaces that own it and
@@ -62,9 +91,9 @@ test.describe('the cookie consent banner', () => {
   test('accepting stores the choice and it stays gone after a reload', async ({ page }) => {
     await page.goto('/')
     await reachSite(page)
-    await page.getByRole('button', { name: 'Aceptar' }).click()
+    await page.getByRole('button', { name: 'Aceptar todas' }).click()
     await expect(page.locator('.consent-banner')).toHaveCount(0)
-    expect(await stored(page)).toMatchObject({ v: 1, analytics: true })
+    expect(await stored(page)).toMatchObject({ v: 2, preferences: true, analytics: true })
 
     await page.reload()
     await reachSite(page)
@@ -74,9 +103,9 @@ test.describe('the cookie consent banner', () => {
   test('refusing is stored the same way', async ({ page }) => {
     await page.goto('/')
     await reachSite(page)
-    await page.getByRole('button', { name: 'Rechazar' }).click()
+    await page.getByRole('button', { name: 'Rechazar todas' }).click()
     await expect(page.locator('.consent-banner')).toHaveCount(0)
-    expect(await stored(page)).toMatchObject({ v: 1, analytics: false })
+    expect(await stored(page)).toMatchObject({ v: 2, preferences: false, analytics: false })
   })
 
   test('a record of another version asks again', async ({ page }) => {
@@ -92,8 +121,8 @@ test.describe('the cookie consent banner', () => {
     await page.goto('/blog')
     const region = page.locator('.blog-root .consent-banner')
     await expect(region).toBeVisible()
-    await region.getByRole('button', { name: 'Política de cookies' }).click()
-    await expect(page.locator('#blog-legal-title')).toHaveText('Política de cookies')
+    await region.getByRole('button', { name: 'Configurar cookies' }).click()
+    await expect(page.locator('#blog-legal-title')).toHaveText('Cookies y preferencias')
     // The panel opens OVER the banner: both live inside `.blog-root`, and the
     // banner is the lower layer. The close control must be reachable.
     await page.getByRole('button', { name: 'Cerrar' }).click()
@@ -106,7 +135,7 @@ test.describe('the cookie consent banner', () => {
     await page.goto('/blog')
     const region = page.locator('.blog-root .consent-banner')
     await expect(region).toBeVisible()
-    for (const name of ['Aceptar', 'Rechazar', 'Política de cookies']) {
+    for (const name of ['Aceptar todas', 'Rechazar todas', 'Configurar cookies']) {
       const box = await region.getByRole('button', { name }).boundingBox()
       expect(box, name).not.toBeNull()
       expect(box!.height, name).toBeGreaterThanOrEqual(44)

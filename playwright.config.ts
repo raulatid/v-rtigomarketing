@@ -50,7 +50,7 @@ export default defineConfig({
           localStorage: [
             {
               name: 'vertigo:consent',
-              value: JSON.stringify({ v: 1, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
+              value: JSON.stringify({ v: 2, preferences: false, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
             },
           ],
         },

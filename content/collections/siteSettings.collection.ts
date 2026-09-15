@@ -1,4 +1,5 @@
 import type { SitePhone, SiteSettings } from '../../src/content/types'
+import { COOKIE_COPY_FIELDS, DEFAULT_COOKIE_COPY, type CookieCopy } from '../../src/content/cookieCopy'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
   EMAIL_PATTERN,
@@ -252,7 +253,8 @@ export const siteSettingsCollection = collection<SiteSettings>({
       auditSuccessBody,
       contactSuccessTitle,
       contactSuccessBody,
-      revenueRanges
+      revenueRanges,
+      cookieCopy
     }`,
   },
 
@@ -318,6 +320,17 @@ export const siteSettingsCollection = collection<SiteSettings>({
       SUCCESS_BODY_MAX,
     )
     const ranges = revenueRanges(scoped, 'revenueRanges', source.revenueRanges)
+    const cookieCopy = { ...DEFAULT_COOKIE_COPY }
+    if (source.cookieCopy != null) {
+      if (typeof source.cookieCopy !== 'object' || Array.isArray(source.cookieCopy)) {
+        scoped.fail('cookieCopy', 'expected an object')
+      } else {
+        for (const [key, , max] of COOKIE_COPY_FIELDS) {
+          const value = text(scoped, 'cookieCopy.' + key, (source.cookieCopy as CookieCopy)[key], { max })
+          if (value !== undefined) cookieCopy[key] = value
+        }
+      }
+    }
 
     const problems = [...report.problems, ...scoped.problems]
     if (
@@ -353,6 +366,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       contactSuccessTitle,
       contactSuccessBody,
       revenueRanges: ranges,
+      cookieCopy,
     }
 
     const residual = siteSettingsProblems(value)

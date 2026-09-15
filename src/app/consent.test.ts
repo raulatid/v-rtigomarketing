@@ -22,7 +22,7 @@ describe('readConsent', () => {
 
   it('returns what writeConsent stored, across a fresh import', async () => {
     const a = await fresh()
-    const written = a.writeConsent({ analytics: true })
+    const written = a.writeConsent({ analytics: true, preferences: false })
     expect(written.analytics).toBe(true)
     expect(written.v).toBe(a.CONSENT_VERSION)
 
@@ -61,9 +61,9 @@ describe('hasConsent', () => {
   it('is false with no record and true only after analytics was accepted', async () => {
     const { hasConsent, writeConsent } = await fresh()
     expect(hasConsent('analytics')).toBe(false)
-    writeConsent({ analytics: false })
+    writeConsent({ analytics: false, preferences: false })
     expect(hasConsent('analytics')).toBe(false)
-    writeConsent({ analytics: true })
+    writeConsent({ analytics: true, preferences: false })
     expect(hasConsent('analytics')).toBe(true)
   })
 })
@@ -80,10 +80,10 @@ describe('subscribeConsent', () => {
     const { subscribeConsent, writeConsent } = await fresh()
     const seen: unknown[] = []
     const stop = subscribeConsent((r) => seen.push(r?.analytics ?? null))
-    writeConsent({ analytics: true })
+    writeConsent({ analytics: true, preferences: false })
     expect(seen).toEqual([null, true])
     stop()
-    writeConsent({ analytics: false })
+    writeConsent({ analytics: false, preferences: false })
     expect(seen).toEqual([null, true])
   })
 })
@@ -96,7 +96,7 @@ describe('when storage is unavailable', () => {
     const { readConsent, writeConsent, subscribeConsent } = await fresh()
     const seen: unknown[] = []
     subscribeConsent((r) => seen.push(r?.analytics ?? null))
-    const written = writeConsent({ analytics: true })
+    const written = writeConsent({ analytics: true, preferences: false })
     expect(written.analytics).toBe(true)
     expect(readConsent()).toEqual(written)
     expect(seen).toEqual([null, true])
@@ -108,5 +108,41 @@ describe('when storage is unavailable', () => {
     })
     const { readConsent } = await fresh()
     expect(readConsent()).toBeNull()
+  })
+})
+
+describe('granular choices and withdrawal', () => {
+  it('requires a new choice for the old global consent', async () => {
+    localStorage.setItem('vertigo:consent', JSON.stringify({ v: 1, analytics: true, at: '2026-01-01' }))
+    localStorage.setItem('vertigo:intro', JSON.stringify({ v: 1, seen: true }))
+    const { readConsent } = await fresh()
+    expect(readConsent()).toBeNull()
+    expect(localStorage.getItem('vertigo:intro')).toBeNull()
+  })
+
+  it('allows experience preferences independently and removes their storage on withdrawal', async () => {
+    const { writeConsent, hasConsent } = await fresh()
+    writeConsent({ preferences: true, analytics: false })
+    expect(hasConsent('preferences')).toBe(true)
+    expect(hasConsent('analytics')).toBe(false)
+    localStorage.setItem('vertigo:intro', 'seen')
+    writeConsent({ preferences: false, analytics: true })
+    expect(localStorage.getItem('vertigo:intro')).toBeNull()
+    expect(hasConsent('analytics')).toBe(true)
+  })
+
+  it('notifies subscribers when another tab changes or clears consent', async () => {
+    const { subscribeConsent, readConsent } = await fresh()
+    const listener = vi.fn()
+    const stop = subscribeConsent(listener)
+    const record = { v: 2, preferences: true, analytics: false, at: '2026-09-15' }
+    localStorage.setItem('vertigo:consent', JSON.stringify(record))
+    window.dispatchEvent(new StorageEvent('storage', { key: 'vertigo:consent' }))
+    expect(readConsent()).toEqual(record)
+    expect(listener).toHaveBeenLastCalledWith(record)
+    localStorage.clear()
+    window.dispatchEvent(new StorageEvent('storage', { key: null }))
+    expect(listener).toHaveBeenLastCalledWith(null)
+    stop()
   })
 })

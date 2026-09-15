@@ -2,6 +2,7 @@ import { prefersReducedMotion } from '../platform/motionPreference'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { readConsent, subscribeConsent, writeConsent, type ConsentRecord } from '../app/consent'
 import type { LegalDocId } from '../content/site'
+import { COOKIE_COPY as copy } from '../content/site'
 import './consentBanner.css'
 
 /**
@@ -9,10 +10,10 @@ import './consentBanner.css'
  *
  * ── What it asks, and what it does not ──
  *
- * Aceptar / Rechazar for ANALYTICS cookies. Nothing loads either way today: the
- * site sets no cookies and runs no vendor (plan 018 records the inventory), and
- * the client's planned Google Analytics will gate on `src/app/consent.ts` when
- * it lands. Two equal ghost buttons on purpose — the blue family belongs to the
+ * Accept / reject applies to optional experience preferences and analytics.
+ * Configure opens independent category switches and the collapsed legal policy.
+ * Google Analytics is not installed; its future integration must gate loading
+ * and withdrawal on `src/app/consent.ts`. Two equal ghost buttons on purpose — the blue family belongs to the
  * primary CTA alone (DECISIONS §30), and rejecting has to be as easy as
  * accepting. The long text is the third legal document, opened through the
  * caller's LegalPanel like the other two.
@@ -42,7 +43,7 @@ import './consentBanner.css'
  *
  * ── After the choice ──
  *
- * The dot stays, as a small ⓘ that opens the policy. The banner's link was the
+ * The dot stays, as a small ⓘ that reopens preferences and the policy. The banner's link was the
  * only way to it: the footer carries the © alone and the panels link only the
  * terms and the legal notice, so without this the policy was unreachable the
  * moment a visitor had answered.
@@ -69,7 +70,7 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
 
   const choose = useCallback((analytics: boolean) => {
     const reduced = prefersReducedMotion()
-    writeConsent({ analytics })
+    writeConsent({ analytics, preferences: analytics })
     setState('leaving')
     window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => setDone(true), reduced ? REDUCED_MS : LEAVE_MS)
@@ -78,12 +79,12 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
   // A stored choice — from before this visit, or made just now by the other
   // copy — means there is nothing to ask, only the policy to keep in reach.
   // This copy's own choice goes through 'leaving' first so the exit plays.
-  if (done || (record !== null && state === 'open')) {
+  if (record !== null && (done || state === 'open')) {
     return (
       <button
         type="button"
         className="consent-info"
-        aria-label="Política de cookies"
+        aria-label={copy.title}
         onClick={() => onOpenLegal('cookies')}
       >
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" aria-hidden="true">
@@ -109,20 +110,20 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
           leader, glass, copy — and simply lost a beat. */}
       <div className="consent-banner__plate">
         <p className="consent-banner__label" id={titleId}>
-          Cookies
+          {copy.bannerTitle}
         </p>
         <p className="consent-banner__caption">
-          Usaremos cookies de analítica solo si lo aceptas. Hoy este sitio no instala ninguna.
+          {copy.bannerBody}
         </p>
         <div className="consent-banner__actions">
           <button type="button" className="consent-banner__button" onClick={() => choose(false)}>
-            Rechazar
+            {copy.rejectAll}
           </button>
           <button type="button" className="consent-banner__button" onClick={() => choose(true)}>
-            Aceptar
+            {copy.acceptAll}
           </button>
           <button type="button" className="consent-banner__link" onClick={() => onOpenLegal('cookies')}>
-            Política de cookies
+            {copy.configure}
           </button>
         </div>
       </div>

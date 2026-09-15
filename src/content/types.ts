@@ -80,6 +80,7 @@ export interface SitePhone {
  * genuinely editorial; anything else is configuration and belongs in code.
  */
 export interface SiteSettings {
+  cookieCopy?: import('./cookieCopy').CookieCopy
   /** Fixed. There is one of these, and it is called this. */
   id: string
   phones: SitePhone[]

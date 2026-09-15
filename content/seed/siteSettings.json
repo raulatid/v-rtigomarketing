@@ -19,6 +19,27 @@
       "100.000 - 500.000 €",
       "500.000 - 1.000.000 €",
       "Más de 1.000.000 €"
-    ]
+    ],
+    "cookieCopy": {
+      "title": "Cookies y preferencias",
+      "bannerTitle": "Cookies",
+      "bannerBody": "Vertigo utiliza almacenamiento propio para recordar tu experiencia si lo permites. Puedes elegir tus preferencias. Google Analytics todavía no está instalado.",
+      "intro": "Elige qué puede recordar Vertigo en este navegador. Puedes cambiar tu elección en cualquier momento.",
+      "necessaryTitle": "Necesarias",
+      "necessaryBody": "Guardan tu elección de cookies y la música que activas o desactivas.",
+      "alwaysActive": "Siempre activas",
+      "preferencesTitle": "Preferencias de experiencia",
+      "preferencesBody": "Recuerdan que ya has visto la introducción para acortarla en próximas visitas.",
+      "analyticsTitle": "Analítica",
+      "analyticsBody": "Permitiría medir visitas y uso con Google Analytics, un servicio de Google. Todavía no está instalado ni se envían datos de analítica.",
+      "acceptAll": "Aceptar todas",
+      "rejectAll": "Rechazar todas",
+      "save": "Guardar preferencias",
+      "configure": "Configurar cookies",
+      "saved": "Preferencias guardadas",
+      "unsaved": "Cambios sin guardar",
+      "policy": "Leer la política de cookies",
+      "close": "Cerrar"
+    }
   }
 ]

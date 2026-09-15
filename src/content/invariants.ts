@@ -331,6 +331,12 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   const at = (path: string, message: string) =>
     problems.push({ path: entry.id + '.' + path, message })
 
+  if (entry.cookieCopy !== undefined) {
+    for (const [key, value] of Object.entries(entry.cookieCopy)) {
+      if (!nonEmpty(value)) at('cookieCopy.' + key, 'must be a non-empty string')
+    }
+  }
+
   if (!ID_PATTERN.test(entry.id)) {
     problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
   }

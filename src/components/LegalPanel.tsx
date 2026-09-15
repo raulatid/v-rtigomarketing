@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { LEGAL_DOCS } from '../content/site'
+import { COOKIE_COPY, LEGAL_DOCS } from '../content/site'
 import type { LegalDocId } from '../content/site'
 import type { LegalBlock } from '../content/types'
 import { spans } from './textSpans'
+import { CookiePreferences } from './CookiePreferences'
 import './modal.css'
 import './legalPanel.css'
 
@@ -61,7 +62,26 @@ export function LegalPanel({ doc, onClose, idPrefix = 'legal' }: Props) {
   }, [doc, onClose])
 
   useEffect(() => {
-    if (doc) titleRef.current?.focus()
+    if (!doc) return
+    const previous = document.activeElement as HTMLElement | null
+    titleRef.current?.focus()
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const panel = titleRef.current?.closest('section')
+      const nodes = Array.from(panel?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), summary, a[href]') ?? []).filter(el => el.getClientRects().length > 0)
+      const first = nodes[0], last = nodes[nodes.length - 1]
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === titleRef.current)) {
+        event.preventDefault(); last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first?.focus()
+      }
+    }
+    window.addEventListener('keydown', trap)
+    return () => {
+      window.removeEventListener('keydown', trap)
+      if (previous?.isConnected) previous.focus()
+      else Array.from(document.querySelectorAll<HTMLElement>('.consent-info')).find(el => el.getClientRects().length > 0)?.focus()
+    }
   }, [doc])
 
   if (!doc) return null
@@ -76,19 +96,23 @@ export function LegalPanel({ doc, onClose, idPrefix = 'legal' }: Props) {
         aria-labelledby={`${idPrefix}-title`}
         onClick={(e) => e.stopPropagation()}
       >
-        <button type="button" className="modal-close" onClick={onClose} aria-label="Cerrar">
+        <button type="button" className="modal-close" onClick={onClose} aria-label={doc === 'cookies' ? COOKIE_COPY.close : 'Cerrar'}>
           ✕
         </button>
         <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
-          {content.title}
+          {doc === 'cookies' ? COOKIE_COPY.title : content.title}
         </h2>
-        <div className="legal-panel__body">
+        {doc === 'cookies' && <CookiePreferences />}
+        {doc === 'cookies' ? <details className="cookie-policy">
+          <summary>{COOKIE_COPY.policy}</summary>
+          <div className="legal-panel__body">{content.body.map((block, i) => <Block key={i} block={block} />)}</div>
+        </details> : <div className="legal-panel__body">
           {content.body.map((block, i) => (
             // Keyed by index rather than by text: two identical paragraphs are
             // legitimate in a legal document, and the old text key collided.
             <Block key={i} block={block} />
           ))}
-        </div>
+        </div>}
       </section>
     </div>
   )
