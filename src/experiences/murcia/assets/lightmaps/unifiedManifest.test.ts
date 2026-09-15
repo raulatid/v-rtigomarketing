@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
 import { parseUnifiedManifest } from './unifiedManifest';
 
 const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
@@ -8,6 +9,23 @@ const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   } },
 } });
 describe('the selected unified bake contract', () => {
+  it('ships the stadium roof atlas within budget, with accurate texture metadata', () => {
+    const directory = 'public/textures/murcia/lightmaps-v2/';
+    const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + 'lightmaps.json', 'utf8')));
+    expect(shipped.requiredNames).toContain('estadio-techo');
+    expect(shipped.atlases['stadium-roof']).toBeDefined();
+    for (const atlas of Object.values(shipped.atlases)) {
+      for (const resolution of [1024, 2048] as const) {
+        const variant = atlas.variants[resolution];
+        const bytes = fs.readFileSync(directory + variant.file);
+        expect(bytes.length).toBe(variant.bytes);
+        expect(bytes.subarray(0, 12).toString('hex')).toBe('ab4b5458203230bb0d0a1a0a');
+        expect(bytes.readUInt32LE(20)).toBe(resolution);
+        expect(bytes.readUInt32LE(24)).toBe(resolution);
+        expect(bytes.readUInt32LE(40)).toBe(variant.mipLevels);
+      }
+    }
+  });
   it('retains per-atlas safe mip limits and radiance scales', () => {
     const parsed = parseUnifiedManifest(manifest());
     expect(parsed.atlases.ground.variants[2048].mipLevels).toBe(2);

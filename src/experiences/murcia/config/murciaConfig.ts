@@ -242,8 +242,8 @@ export const murciaConfig: EnvironmentConfig = {
     orm: null,
   },
 
-  // Selected 512-sample bake: 13 atlases, 1K mobile / 2K desktop.
-  // Total KTX2 payload: 1,990,653 / 3,991,938 bytes. Keep model and manifest paired.
+  // Selected 512-sample bake: 14 atlases, 1K mobile / 2K desktop.
+  // Total KTX2 payload: 1,998,483 / 3,991,258 bytes. Keep model and manifest paired.
   lightmaps: {
     baseUrl: '/textures/murcia/lightmaps-v2/',
     manifest: 'lightmaps.json',

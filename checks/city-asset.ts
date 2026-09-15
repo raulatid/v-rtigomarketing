@@ -387,19 +387,11 @@ function nodesNamed(configured: string): string[] {
 const TOLERANCE = 1;
 
 /**
- * The XZ extent of a named node's mesh, in world space.
- *
- * Deliberately narrow: it reads the POSITION accessor's `min`/`max` — which the
- * spec requires on every position accessor, Draco or not — and applies the
- * node's own translation and scale. That covers a ground plane sitting at the
- * scene root, which is what this is for, and it does NOT walk a parent chain or
- * apply a rotation matrix. Both would be needed for a general Box3, and the day
- * the ground is parented or turned, this returns the wrong rectangle rather than
- * a smaller one — so it asserts that assumption instead of hiding it.
+ * Conservative world bounds from POSITION min/max, including parent transforms
+ * and descendant meshes. Rotated accessor boxes can overestimate the footprint;
+ * vertical extents stay exact for the stadium's rotation around the vertical axis.
  */
-function worldXzBounds(
-  configured: string,
-): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+function worldBounds(configured: string): Box3 | null {
   const node = nodes.find(
     (n) =>
       n.name != null &&
@@ -430,7 +422,14 @@ function worldXzBounds(
     n.children?.forEach(visit);
   };
   visit(nodes.indexOf(node));
-  return bounds.isEmpty() ? null : {
+  return bounds.isEmpty() ? null : bounds;
+}
+
+function worldXzBounds(
+  configured: string,
+): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+  const bounds = worldBounds(configured);
+  return bounds === null ? null : {
     minX: bounds.min.x, maxX: bounds.max.x, minZ: bounds.min.z, maxZ: bounds.max.z,
   };
 }
@@ -765,5 +764,24 @@ for (const [i, sampler] of (json.samplers ?? []).entries()) {
 }
 
 }
+
+section('Nueva Condomina: roof placement and baked material');
+const roofNodes = nodes.filter(n => n.name === 'estadio-techo');
+const roofBounds = worldBounds('estadio-techo');
+const stadiumBounds = worldBounds('estadio-base');
+const pillarBounds = worldBounds('estadio-pilares');
+check('the export contains exactly one stadium roof', roofNodes.length === 1);
+check('the roof is centered over the stadium', !!roofBounds && !!stadiumBounds &&
+  Math.abs(roofBounds.getCenter(new Vector3()).x - stadiumBounds.getCenter(new Vector3()).x) < 0.05 &&
+  Math.abs(roofBounds.getCenter(new Vector3()).z - stadiumBounds.getCenter(new Vector3()).z) < 0.05);
+check('the underside rests on the pillars', !!roofBounds && !!pillarBounds &&
+  Math.abs(roofBounds.min.y - pillarBounds.max.y) < 0.05);
+check('the roof extends over the stadium footprint', !!roofBounds && !!stadiumBounds &&
+  roofBounds.min.x < stadiumBounds.min.x && roofBounds.max.x > stadiumBounds.max.x &&
+  roofBounds.min.z < stadiumBounds.min.z && roofBounds.max.z > stadiumBounds.max.z);
+const roofPrimitives = roofNodes[0]?.mesh == null ? [] : meshes[roofNodes[0].mesh]?.primitives ?? [];
+check('the roof has vertex color, both UV channels and a baked atlas',
+  roofNodes[0]?.extras?.lightmap_atlas === 'stadium-roof' && roofPrimitives.length > 0 &&
+  roofPrimitives.every(p => ['COLOR_0', 'TEXCOORD_0', 'TEXCOORD_1'].every(a => a in p.attributes)));
 
 finish();

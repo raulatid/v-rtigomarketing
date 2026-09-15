@@ -7,17 +7,18 @@ The selected delivery replaces the active v7 asset paths. Previous public assets
 - Authoring source: `04_Assets/3D-assets/ciudad-de-murcia/murcia-v4-vertex-colors.blend`.
 - Approved delivery: `04_Assets/3D-assets/ciudad-de-murcia/murcia-v4-lightmaps-v2/web/`.
 - Delivery references: `LEEME.md`, `delivery-verification.json`, `compression-verification.json` and `web/attach-lightmaps.mjs` in that delivery.
-- Shipped model: `public/models/murcia-v4-lightmaps-v2.glb` (5,434,000 bytes, Draco).
+- Shipped model: `public/models/murcia-v4-lightmaps-v2.glb` (5,454,976 bytes, original Draco meshes plus the uncompressed roof).
 - Shipped manifest: `public/textures/murcia/lightmaps-v2/lightmaps.json`.
-- Mobile: thirteen 1024px KTX2 atlases, **1,990,653 bytes total** (2 MB budget).
-- Desktop: thirteen 2048px KTX2 atlases, **3,991,938 bytes total** (4 MB budget).
-- Both profiles use the selected 512-sample bake. The model is identical between profiles. File sizes are download sizes; GPU residency depends on the transcoded format. The delivery's BC7 measurements were 13 MiB mobile and 64 MiB desktop.
+- Mobile: fourteen 1024px KTX2 atlases, **1,998,483 bytes total** (2 MB budget).
+- Desktop: fourteen 2048px KTX2 atlases, **3,991,258 bytes total** (4 MB budget).
+- Both profiles use the selected 512-sample bake. The model is identical between profiles. File sizes are download sizes; GPU residency depends on the transcoded format. The roof adds one atlas compared with the original delivery.
+- [Nueva Condomina roof repair](stadium-roof-repair.md) records the added geometry, affected bakes and validation.
 
 ## Runtime contract
 
 `loadUnifiedLightmaps.ts` adapts the delivery helper to the project's existing Three.js revision and shared KTX2 decoder pool. It retains vertex colours and authored albedo, uses unlit lightmapped materials to avoid adding scene lights a second time, and uses the manifest's intensity and safe mip limits. Decoding is sequential. Failure restores original geometry/materials and releases new resources.
 
-`lightmap_atlas` identifies receivers. `instance_st_accessor` supplies one atlas rectangle per GPU instance. `runtime_name` retains exact Blender identifiers; the runtime continues using GLTFLoader's sanitized object names and the shared `findByAnyNameSpelling` resolver. The manifest's 135 required building names are validated before attachment.
+`lightmap_atlas` identifies receivers. `instance_st_accessor` supplies one atlas rectangle per GPU instance. `runtime_name` retains exact Blender identifiers; the runtime continues using GLTFLoader's sanitized object names and the shared `findByAnyNameSpelling` resolver. The manifest's 136 required building names are validated before attachment.
 
 Vértigo, Blog and Campus remain separate named meshes. `logo-V` and `logo-curva` keep their pivots and rotation animation and receive no static lightmap. `LED_Main`, `CAMPUS_SCREEN_Continuous`, `PARK_Water` and `rio` retain their website materials. Both display strips still use UV channel 1. The existing tower and campus palettes leave baked receivers intact.
 
@@ -29,7 +30,7 @@ The river's new attribute seams duplicate position vertices. `computeRiverFrame`
 
 These details supersede the v7-specific names and two-manifest assumptions in the historical export contract. The old loader remains available for legacy configurations. The active paths are defined together in `src/experiences/murcia/config/murciaConfig.ts`.
 
-## Verification
+## Original delivery verification (before the roof repair)
 
 Run `npm run typecheck`, the focused lightmap/terrain/palette tests, and `npm run build`. `checks/city-asset.ts` reads the active model path from configuration, so the build contract checks the file actually used by the site. Browser verification must check both profile requests, baked materials after landmark attachment, the animated V, both display strips, and Campus/Blog interaction. Mobile browser emulation does not replace a physical Safari/Android check.
 

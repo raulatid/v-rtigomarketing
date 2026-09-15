@@ -5,22 +5,22 @@
   "samples": 512,
   "atlases": {
     "ground-NE": {
-      "linearScale": 4.0,
+      "linearScale": 4,
       "threeLightMapIntensity": 12.566370614359172,
-      "maximum": 2.6469926834106445,
+      "maximum": 2.5845301151275635,
       "variants": {
         "2048": {
           "file": "ground-NE-2048.ktx2",
-          "bytes": 272421,
+          "bytes": 246872,
           "codec": "etc1s",
-          "qlevel": 48,
+          "qlevel": 24,
           "mipLevels": 2,
           "endpointRDO": 1.25,
           "selectorRDO": 1.25
         },
         "1024": {
           "file": "ground-NE-1024.ktx2",
-          "bytes": 80114,
+          "bytes": 80171,
           "codec": "etc1s",
           "qlevel": 128,
           "mipLevels": 1,
@@ -28,10 +28,10 @@
           "selectorRDO": 1.25
         }
       },
-      "seconds": 181.3258879184723
+      "seconds": 174.49758124351501
     },
     "ground-SW": {
-      "linearScale": 4.0,
+      "linearScale": 4,
       "threeLightMapIntensity": 12.566370614359172,
       "maximum": 3.242694139480591,
       "variants": {
@@ -57,7 +57,7 @@
       "seconds": 79.31910729408264
     },
     "ground-SE": {
-      "linearScale": 4.0,
+      "linearScale": 4,
       "threeLightMapIntensity": 12.566370614359172,
       "maximum": 2.811204195022583,
       "variants": {
@@ -83,13 +83,13 @@
       "seconds": 105.06054759025574
     },
     "ground-Outer": {
-      "linearScale": 2.0,
+      "linearScale": 2,
       "threeLightMapIntensity": 6.283185307179586,
-      "maximum": 1.6570051908493042,
+      "maximum": 1.6570053100585938,
       "variants": {
         "2048": {
           "file": "ground-Outer-2048.ktx2",
-          "bytes": 236330,
+          "bytes": 236267,
           "codec": "etc1s",
           "qlevel": 128,
           "mipLevels": 2,
@@ -106,10 +106,10 @@
           "selectorRDO": 1.25
         }
       },
-      "seconds": 46.27899694442749
+      "seconds": 42.30229353904724
     },
     "static-NE": {
-      "linearScale": 8.0,
+      "linearScale": 8,
       "threeLightMapIntensity": 25.132741228718345,
       "maximum": 4.118636608123779,
       "variants": {
@@ -135,33 +135,33 @@
       "seconds": 70.74487519264221
     },
     "static-NW": {
-      "linearScale": 8.0,
+      "linearScale": 8,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.66411018371582,
+      "maximum": 4.6641106605529785,
       "variants": {
         "2048": {
           "file": "static-NW-2048.ktx2",
-          "bytes": 388839,
+          "bytes": 354325,
           "codec": "etc1s",
-          "qlevel": 80,
+          "qlevel": 48,
           "mipLevels": 2,
           "endpointRDO": 1.25,
           "selectorRDO": 1.25
         },
         "1024": {
           "file": "static-NW-1024.ktx2",
-          "bytes": 128711,
+          "bytes": 112814,
           "codec": "etc1s",
-          "qlevel": 192,
+          "qlevel": 128,
           "mipLevels": 1,
           "endpointRDO": 1.25,
           "selectorRDO": 1.25
         }
       },
-      "seconds": 64.49690270423889
+      "seconds": 59.83699297904968
     },
     "static-SW": {
-      "linearScale": 8.0,
+      "linearScale": 8,
       "threeLightMapIntensity": 25.132741228718345,
       "maximum": 4.218169689178467,
       "variants": {
@@ -187,7 +187,7 @@
       "seconds": 79.53844571113586
     },
     "static-SE": {
-      "linearScale": 8.0,
+      "linearScale": 8,
       "threeLightMapIntensity": 25.132741228718345,
       "maximum": 4.008973121643066,
       "variants": {
@@ -213,22 +213,22 @@
       "seconds": 104.33579468727112
     },
     "ground-NW": {
-      "linearScale": 4.0,
+      "linearScale": 4,
       "threeLightMapIntensity": 12.566370614359172,
       "maximum": 3.3106322288513184,
       "variants": {
         "2048": {
           "file": "ground-NW-2048.ktx2",
-          "bytes": 252264,
+          "bytes": 222622,
           "codec": "etc1s",
-          "qlevel": 80,
+          "qlevel": 48,
           "mipLevels": 2,
           "endpointRDO": 1.25,
           "selectorRDO": 1.25
         },
         "1024": {
           "file": "ground-NW-1024.ktx2",
-          "bytes": 68776,
+          "bytes": 68769,
           "codec": "etc1s",
           "qlevel": 128,
           "mipLevels": 1,
@@ -236,10 +236,10 @@
           "selectorRDO": 1.25
         }
       },
-      "seconds": 159.40427565574646
+      "seconds": 154.76894283294678
     },
     "outer-buildings": {
-      "linearScale": 4.0,
+      "linearScale": 4,
       "threeLightMapIntensity": 12.566370614359172,
       "maximum": 2.172123432159424,
       "variants": {
@@ -265,7 +265,7 @@
       "seconds": 27.96816372871399
     },
     "landmark-vertigo-blog": {
-      "linearScale": 8.0,
+      "linearScale": 8,
       "threeLightMapIntensity": 25.132741228718345,
       "maximum": 4.812485218048096,
       "variants": {
@@ -291,7 +291,7 @@
       "seconds": 60.78430533409119
     },
     "landmark-campus": {
-      "linearScale": 4.0,
+      "linearScale": 4,
       "threeLightMapIntensity": 12.566370614359172,
       "maximum": 2.29378604888916,
       "variants": {
@@ -317,7 +317,7 @@
       "seconds": 39.89338517189026
     },
     "instances-0": {
-      "linearScale": 4.0,
+      "linearScale": 4,
       "threeLightMapIntensity": 12.566370614359172,
       "maximum": 3.2881200313568115,
       "variants": {
@@ -341,24 +341,50 @@
         }
       },
       "seconds": 38.6274893283844
+    },
+    "stadium-roof": {
+      "linearScale": 4,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.818671226501465,
+      "variants": {
+        "2048": {
+          "file": "stadium-roof-2048.ktx2",
+          "bytes": 89088,
+          "codec": "etc1s",
+          "qlevel": 8,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "stadium-roof-1024.ktx2",
+          "bytes": 23677,
+          "codec": "etc1s",
+          "qlevel": 48,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 94.19024705886841
     }
   },
   "totals": {
-    "1024": 1990653,
-    "2048": 3991938
+    "1024": 1998483,
+    "2048": 3991258
   },
   "sourceUnchanged": true,
   "profiles": {
     "mobile": {
       "resolution": 1024,
-      "totalBytes": 1990653,
-      "atlasCount": 13,
+      "totalBytes": 1998483,
+      "atlasCount": 14,
       "budgetBytes": 2000000
     },
     "desktop": {
       "resolution": 2048,
-      "totalBytes": 3991938,
-      "atlasCount": 13,
+      "totalBytes": 3991258,
+      "atlasCount": 14,
       "budgetBytes": 4000000
     }
   },
@@ -497,6 +523,7 @@
     "SITE_Light_Limestone",
     "PARK_Grass",
     "PARK_Water",
-    "ARCH_Porcelain_White.001"
+    "ARCH_Porcelain_White.001",
+    "estadio-techo"
   ]
 }
