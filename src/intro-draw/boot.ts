@@ -8,6 +8,9 @@ import { createIntroDraw, IntroDrawHandle } from './introDraw'
 import { bootState, BootState, Readiness, REQUIRED_IDS } from './bootState'
 import { DRAW_TIMING } from './drawConfig'
 
+// Inline build constant keeps the boot entry independent of shared chunks.
+declare const __VERTIGO_ENV__: string
+
 export interface VertigoIntro {
   /** Document motion snapshot handed to the application without importing boot. */
   readonly reducedMotion: boolean
@@ -121,19 +124,19 @@ function boot(): VertigoIntro {
     }
   })
 
-  // Small enough to ship in production: when the intro looks stuck, this is
-  // the difference between "which resource is pending" and guesswork.
-  window.__vertigoBootDebug = {
-    state: () => bootState.readiness(),
-    visualProgress: () => handle.playhead(),
-    measuredProgress: () => bootState.progress(),
-    pending: () => bootState.pending(),
-    completed: () => bootState.completed(),
-    elapsed: () => (performance.now() - startedAt) / 1000,
-    holding: () => handle.isHolding(),
-    waitedTooLong: () => waited,
-    fatalReason: () => bootState.fatalReason(),
-    zones: () => handle.zones(),
+  if (__VERTIGO_ENV__ !== 'production') {
+    window.__vertigoBootDebug = {
+      state: () => bootState.readiness(),
+      visualProgress: () => handle.playhead(),
+      measuredProgress: () => bootState.progress(),
+      pending: () => bootState.pending(),
+      completed: () => bootState.completed(),
+      elapsed: () => (performance.now() - startedAt) / 1000,
+      holding: () => handle.isHolding(),
+      waitedTooLong: () => waited,
+      fatalReason: () => bootState.fatalReason(),
+      zones: () => handle.zones(),
+    }
   }
 
   return { reducedMotion, handle, boot: bootState, completed, waitedTooLong: () => waited }

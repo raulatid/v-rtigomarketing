@@ -48,12 +48,12 @@ const cubicOut = (t: number) => 1 - Math.pow(1 - t, 3)
 const cubicInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 
+// Fixed layout box, scaled by transform only; changing width/height each frame
+// causes layout and rasterization work (docs/reports/006).
 const CSS = `
 .intro-root{position:fixed;inset:0;z-index:20;display:flex;align-items:center;
   justify-content:center;pointer-events:none;background:transparent}
 .intro-svg{
-  /* Fixed layout box, scaled by transform only. Animating width/height here
-     cost a layout + re-raster every frame (docs/reports/006). */
   width:min(calc(var(--intro-base,32) * 1vmin),480px);
   height:min(calc(var(--intro-base,32) * 1vmin),480px);
   overflow:visible;will-change:transform,filter;transform-origin:50% 50%;

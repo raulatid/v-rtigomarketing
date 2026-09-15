@@ -1,4 +1,4 @@
-import { defineConfig, HtmlTagDescriptor, Plugin } from 'vite'
+import { defineConfig, loadEnv, HtmlTagDescriptor, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import glsl from 'vite-plugin-glsl'
 import type { OutputChunk } from 'rollup'
@@ -13,6 +13,7 @@ import {
   blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, seoFiles,
 } from './scripts/publicationPolicy'
 import { findSecretLeaks, publicPrefixedSecrets, scannableSecrets } from './scripts/secretScan'
+import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verifyPublication } from './scripts/publicationHygiene'
 
 // The loading animation is worthless if it is itself waiting on a bundle, so
 // the boot entry's standalone-ness is a build-time invariant rather than a
@@ -244,11 +245,15 @@ function isHeaderLogoChunk(chunk: OutputChunk): boolean {
  * it on the laptop rather than from the build that shipped it.
  */
 function assertNoSecrets(): Plugin {
+  let env: Record<string, string | undefined> = process.env
   return {
     name: 'vertigo-no-secrets',
     apply: 'build',
+    configResolved(config) {
+      env = { ...loadEnv(config.mode, config.envDir, ''), ...process.env }
+    },
     generateBundle(_options, bundle) {
-      const prefixed = publicPrefixedSecrets(process.env)
+      const prefixed = publicPrefixedSecrets(env)
       if (prefixed.length > 0) {
         this.error(
           `${prefixed.join(', ')} is VITE_-prefixed, and Vite compiles every VITE_* value ` +
@@ -258,7 +263,7 @@ function assertNoSecrets(): Plugin {
         return
       }
 
-      const secrets = scannableSecrets(process.env)
+      const secrets = scannableSecrets(env)
       if (secrets.length === 0) return
 
       const files = Object.values(bundle).map((asset) => ({
@@ -1011,34 +1016,63 @@ function blogRoutes(): Plugin {
   }
 }
 
-/**
- * The function form, for ONE value: `command`.
- *
- * `__VERTIGO_BUILT__` has to answer 'are built assets being served?', and none of
- * the environment variables above can. `BUILD_ENV` defaults to 'development'
- * locally for `vite build` exactly as it does for `vite dev`, so it says nothing
- * about which of the two produced what the browser is talking to — and the blog
- * display's page image depends on that difference: `dist/generated/` exists only
- * in a build, and asking for it under the dev server is a guaranteed 404 the
- * browser logs as an error nothing on our side can suppress.
- *
- * `command` is the one input that knows. Everything below is unchanged.
- */
+function publicationHygiene(): Plugin {
+  let output = ''
+  let publicDir = ''
+  let env: Record<string, string | undefined> = process.env
+  let written = false
+  return {
+    name: 'vertigo-publication-hygiene',
+    apply: 'build',
+    configResolved(config) {
+      output = path.resolve(config.root, config.build.outDir)
+      publicDir = config.publicDir || ''
+      env = { ...loadEnv(config.mode, config.envDir, ''), ...process.env }
+    },
+    buildStart() { written = false },
+    // Public assets join the bundle BEFORE assertNoSecrets inspects it.
+    // Vite's default copy bypasses generateBundle and ignores .gitignore.
+    generateBundle() {
+      if (!publicDir || !fs.existsSync(publicDir)) return
+      for (const file of listFiles(publicDir)) {
+        const fileName = path.relative(publicDir, file).replace(/\\/g, '/')
+        if (isPublicAsset(fileName)) this.emitFile({ type: 'asset', fileName, source: fs.readFileSync(file) })
+      }
+    },
+    writeBundle() { written = true },
+    closeBundle: {
+      sequential: true,
+      handler() {
+        // Never inspect or rewrite an old dist after an aborted/no-write build.
+        if (!written) return
+        for (const file of listFiles(output).filter((file) => file.endsWith('.html'))) {
+          const html = fs.readFileSync(file, 'utf8')
+          fs.writeFileSync(file, stripHtmlComments(html))
+        }
+        verifyPublication(output, env, IS_PRODUCTION)
+        this.info('publication hygiene ok — HTML, public assets and credentials checked')
+      },
+    },
+  }
+}
+
+// `command` distinguishes built assets from the dev server independently of
+// the deployment environment (local/preview builds also generate dist/).
 export default defineConfig(({ command }) => ({
   plugins: [
     react(),
-    glsl(),
+    glsl({ compress: command === 'build' ? stripShaderComments : false }),
     // Before blogRouting, which rewrites `req.url`: the API paths must be
     // matched against what the client actually asked for.
     apiRouting(),
     blogRouting(),
     introEntry(),
     seoAssets(),
+    // Shells consume HTML markers before the final cleanup removes comments.
+    blogRoutes(),
+    publicationHygiene(),
     assertNoSecrets(),
     assertChunkBudgets(),
-    // Last, and it reads from disk in closeBundle: everything above must have
-    // finished writing before a shell can be cloned from the result.
-    blogRoutes(),
   ],
   define: {
     // Compile-time literal, so `DEBUG_TOOLS_ENABLED` folds to a constant and
@@ -1051,6 +1085,8 @@ export default defineConfig(({ command }) => ({
     __VERTIGO_BUILT__: JSON.stringify(command === 'build'),
   },
   build: {
+    sourcemap: false,
+    copyPublicDir: false,
     rollupOptions: {
       output: {
         // three.js is pinned to its own chunk deliberately.

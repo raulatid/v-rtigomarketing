@@ -314,6 +314,11 @@ test('a refused consent stores nothing', async ({ page }) => {
 
 test('a returning visitor gets the loading draw, then lands without the tail', async ({ page }) => {
   await page.addInitScript(() => {
+    // Remembering the intro requires preferences consent; the shared fixture
+    // refuses it, so a stored record alone must not enable the returning path.
+    window.localStorage.setItem('vertigo:consent', JSON.stringify({
+      v: 2, preferences: true, analytics: false, at: '2026-01-01T00:00:00.000Z',
+    }))
     window.localStorage.setItem('vertigo:intro', JSON.stringify({ v: 1, seen: true }))
   })
   await page.goto('/')
