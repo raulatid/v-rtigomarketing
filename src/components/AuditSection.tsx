@@ -373,6 +373,14 @@ interface Props {
   onOpenLegal: (doc: LegalDocId) => void
   /** Submission transport. Injectable for tests; defaults to the application's. */
   submit?: SubmitAuditRequest
+  /**
+   * Opens the section from outside the trigger — the case panel's «Solicita la
+   * auditoría». A counter rather than a boolean: every CHANGE is one request,
+   * so the same doorway can open the section again after it has closed, and
+   * the section keeps owning its own phase. Ignored while not `ready` and
+   * while the section is anything but closed, exactly like the trigger.
+   */
+  openRequest?: number
 }
 
 /** Where the submission is, as a state and never as inference. */
@@ -386,6 +394,7 @@ export function AuditSection({
   idPrefix = 'audit',
   onOpenLegal,
   submit = submitAuditRequest,
+  openRequest,
 }: Props) {
   const [phase, setPhase] = useState<AuditPhase>('closed')
   const [values, setValues] = useState<Values>(EMPTY_VALUES)
@@ -461,6 +470,18 @@ export function AuditSection({
       requestAnimationFrame(() => triggerRef.current?.focus())
     }, reducedRef.current ? REDUCED_MS : LEAVE_MS)
   }, [phase, onOpenChange])
+
+  // An open request from outside the trigger (see `openRequest`). Acted on only
+  // when the counter CHANGES — the value it mounted with is not a request — and
+  // spent either way, so a request that arrives before `ready` does not open
+  // the section later, at a moment nobody asked for it. `open` refuses anything
+  // but 'closed' on its own.
+  const handledRequestRef = useRef(openRequest)
+  useEffect(() => {
+    if (openRequest === undefined || openRequest === handledRequestRef.current) return
+    handledRequestRef.current = openRequest
+    if (ready) open()
+  }, [openRequest, ready, open])
 
   // THE ONLY WRITER of `auditView.open` (per rendered scene — an instance with
   // `recomposesScene` false never touches it), and it runs for every phase

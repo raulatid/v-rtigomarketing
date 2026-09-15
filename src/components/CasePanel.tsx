@@ -5,6 +5,12 @@ import { CaseChart } from './CaseChart'
 interface Props {
   data: SatelliteDef | null
   onClose: () => void
+  /**
+   * Opens the audit from the foot of the case. Optional so a panel with no
+   * audit behind it renders no dead link. Opening the audit deselects the case
+   * (App's `handleAuditOpenChange`), so this panel closes on its own.
+   */
+  onRequestAudit?: () => void
 }
 
 /** Which of the mobile sheet's two heights is showing. Inert on desktop. */
@@ -36,7 +42,7 @@ type SheetStop = 'peek' | 'expanded'
 // Kept mounted and toggled by class so it can transition in and out. The source
 // project pops it with display:block and its own notes call a transition "an
 // easy upgrade" — this is that upgrade.
-export function CasePanel({ data, onClose }: Props) {
+export function CasePanel({ data, onClose, onRequestAudit }: Props) {
   // `data` goes null the instant a case is deselected, but the panel takes its
   // CSS fade to leave. Rendering from `data` directly emptied every field on
   // the first frame of the exit, so the fade animated a blank shell — which is
@@ -146,6 +152,27 @@ export function CasePanel({ data, onClose }: Props) {
         {/* The graph area keeps a fixed height whether or not a case is selected,
           so the panel's height doesn't jump during the fade. */}
         <div className="case-panel__graph">{shown ? <CaseChart chart={shown.chart} /> : null}</div>
+
+        {/* The case's next step. The proof used to end at its chart, so the one
+            ask on the site was never one step from the evidence for it. Text,
+            not a second button: the blue belongs to the Auditoría box alone
+            (DESIGN.md, the Spent-Once rule), and this is its quiet doorway. */}
+        {onRequestAudit && (
+          <button
+            className="case-panel__next"
+            type="button"
+            onClick={onRequestAudit}
+            tabIndex={data ? 0 : -1}
+          >
+            <span className="case-panel__next-lead">¿Un reto parecido?</span>{' '}
+            <span className="case-panel__next-action">
+              Solicita la auditoría{' '}
+              <span className="case-panel__next-arrow" aria-hidden="true">
+                →
+              </span>
+            </span>
+          </button>
+        )}
       </div>
     </aside>
   )

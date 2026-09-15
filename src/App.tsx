@@ -172,6 +172,10 @@ export default function App() {
 
   // The contact dialog and the legal panels, mirrored here for the same two
   // reasons as auditOpen: the global Escape handler stands down while any of
+  // The case panel's doorway into the audit. A counter the section watches,
+  // so it keeps owning its own phase; opening it runs the deselect above.
+  const [auditRequest, setAuditRequest] = useState(0)
+  const handleRequestAudit = useCallback(() => setAuditRequest((n) => n + 1), [])
   // them owns the key, and the navigation predicate below refuses a warp
   // while something has the viewer's attention.
   const [contactOpen, setContactOpen] = useState(false)
@@ -651,7 +655,11 @@ export default function App() {
 
       <div className="warp-overlay" ref={overlayRef} />
 
-      <CasePanel data={earthActive ? selectedCase : null} onClose={handleClosePanel} />
+      <CasePanel
+        data={earthActive ? selectedCase : null}
+        onClose={handleClosePanel}
+        onRequestAudit={handleRequestAudit}
+      />
 
       {/* The two doors in the header. Both gate on `phase === 'site'` — chrome
           exists only once the intro has fully landed, satellites revealed
@@ -721,6 +729,7 @@ export default function App() {
       <NavigationControl ref={navigationRef} />
 
       {/* Earth's hint, beside the control it teaches. A sibling of `.nav` and
+        openRequest={auditRequest}
           never a child of it: that box is `position: fixed` and `styles.css`
           records what happened the last time it gained a property that captured
           a fixed child's frame of reference.

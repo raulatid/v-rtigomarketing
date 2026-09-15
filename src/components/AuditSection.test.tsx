@@ -60,6 +60,46 @@ function mount(submit: (data: AuditRequest) => Promise<void>) {
   })
 }
 
+// The case panel's doorway: `openRequest` opens the section without its
+// trigger. The counter's first value is not a request, and a request made
+// before the section is ready is spent rather than held for later.
+describe('an open request from outside the trigger', () => {
+  function render(openRequest: number, onOpenChange: (open: boolean) => void, ready = true) {
+    act(() => {
+      root.render(
+        <AuditSection
+          onOpenChange={onOpenChange}
+          onOpenLegal={() => {}}
+          ready={ready}
+          submit={() => Promise.resolve()}
+          openRequest={openRequest}
+        />,
+      )
+    })
+  }
+
+  it('opens on a changed request, and not on the value it mounted with', () => {
+    const onOpenChange = vi.fn()
+    root = createRoot(container)
+    render(0, onOpenChange)
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    render(1, onOpenChange)
+    expect(onOpenChange).toHaveBeenCalledWith(true)
+    expect(document.querySelector('.audit-overlay')?.getAttribute('data-state')).toBe('entering')
+  })
+
+  it('spends a request made before the section is ready', () => {
+    const onOpenChange = vi.fn()
+    root = createRoot(container)
+    render(0, onOpenChange, false)
+    render(1, onOpenChange, false)
+    // Becoming ready later must not act on the old request.
+    render(1, onOpenChange, true)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+})
+
 /** Native-setter write + input event, so React's controlled input sees it. */
 function type(el: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
