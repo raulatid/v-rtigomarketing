@@ -8,13 +8,13 @@ export function applyCitySurfaceDepth(root: THREE.Object3D): { dispose(): void }
   const materials: THREE.Material[] = [];
   const geometries: THREE.BufferGeometry[] = [];
 
-  const offset = (source: THREE.Material, units: number) => {
+  const offset = (source: THREE.Material, units: number, factor = -1) => {
     const material = source.clone();
     // Material.clone does not copy these hooks. Losing them breaks atlas sampling.
     material.onBeforeCompile = source.onBeforeCompile;
     material.customProgramCacheKey = source.customProgramCacheKey;
     material.polygonOffset = true;
-    material.polygonOffsetFactor = -1;
+    material.polygonOffsetFactor = factor;
     material.polygonOffsetUnits = units;
     materials.push(material);
     return material;
@@ -36,11 +36,15 @@ export function applyCitySurfaceDepth(root: THREE.Object3D): { dispose(): void }
       return;
     }
     const paving = /^(P3 Main Streets|P3_Main_Streets|Belluga Radial Paving|Belluga_Radial_Paving)(?:__|$)/.test(name);
-    const detail = name === 'Fachada_Murcia_15k' || name === 'ARCH_Porcelain_White';
-    if (!paving && !detail) return;
+    // Keep a constant bias for coincident porcelain faces. A slope-based bias
+    // pulls the campus walls over the LED, pools and solar panels at oblique views.
+    const campus = name === 'ARCH_Porcelain_White';
+    const detail = name === 'Fachada_Murcia_15k';
+    if (!paving && !detail && !campus) return;
+    const factor = campus ? 0 : -1;
     mesh.material = Array.isArray(source)
-      ? source.map(material => offset(material, -1))
-      : offset(source, -1);
+      ? source.map(material => offset(material, -1, factor))
+      : offset(source, -1, factor);
     restore.push(() => { mesh.material = source; });
   });
 

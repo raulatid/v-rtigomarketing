@@ -62,7 +62,7 @@ describe('city surface depth', () => {
     expect(mesh.material).toBe(source);
   });
 
-  it('targets cathedral, campus base and paving without touching the roof or river', () => {
+  it('uses only a constant bias on the campus and leaves its roof and river untouched', () => {
     const root = new THREE.Group();
     const names = ['Fachada_Murcia_15k', 'ARCH_Porcelain_White', 'Belluga_Radial_Paving__NW',
       'ARCH_Porcelain_White001', 'rio', 'estadio-cesped'];
@@ -75,6 +75,9 @@ describe('city surface depth', () => {
     const handle = applyCitySurfaceDepth(root);
     expect(meshes.map(mesh => (mesh.material as THREE.Material).polygonOffset))
       .toEqual([true, true, true, false, false, false]);
+    expect(meshes.map(mesh => mesh.material.polygonOffsetFactor))
+      .toEqual([-1, 0, -1, 0, 0, 0]);
+    expect(meshes[1]!.material.polygonOffsetUnits).toBe(-1);
     handle.dispose();
   });
 });
