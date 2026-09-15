@@ -223,6 +223,10 @@ export function ContactSection({
       onClick={openDialog}
     >
       Contacto
+      <svg className="site-menu-arrow" viewBox="0 0 40 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+        <path d="M4 12h32m-6-6 6 6-6 6" />
+      </svg>
+      <span className="site-menu-caption">Cuéntanos qué tienes en mente</span>
     </button>
   )
 

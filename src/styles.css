@@ -102,12 +102,15 @@ html {
   position: fixed;
   inset: 0;
   z-index: 5;
-  /* A dark GREY, deliberately not the site's near-black. The card in front of
-     it is `#050507` and so is the scene it carries, so a layer of the same ink
-     would put a black card on a black ground and leave the depth to be carried
-     by the shadow alone. A few steps up reads as a surface BEHIND another
-     surface, which is the whole illusion. */
-  background: #16181c;
+  /* Static reflected light over graphite, using the site's smoked material.
+     The scene is IN FRONT of this layer, so backdrop blur would only sample
+     the page ground. The light stays broad and the lower field falls into
+     shade behind the tilting card. */
+  background:
+    var(--glass-film),
+    var(--glass-menu-light),
+    var(--glass-menu-depth),
+    #16181c;
   /* Hidden, not merely covered: the doors inside must be neither tabbable nor
      read out while the card is flat over them. */
   visibility: hidden;
@@ -157,6 +160,11 @@ html {
 }
 
 @media (max-width: 767px) {
+  .app__stage {
+    /* Keep both menu descriptions above the card on short phones. */
+    --menu-3d-y: max(42vh, 320px);
+  }
+
   .app__viewport {
     transition:
       transform var(--menu-3d-ms, 560ms) var(--menu-3d-ease-out),
@@ -206,9 +214,8 @@ html {
 
      The two doors, as TYPE and nothing else. On the line they are a blue box
      and a bare micro-label; here the material is gone and the size does the
-     work — two words, sentence case, set below the header in the band the card
-     leaves free. No rules and no numerals (tried 2026-09-09, removed the same
-     day): the type carries it alone. The box is the header's own
+     work — two left-aligned actions with supporting copy, set below the header
+     in the band the card leaves free. The box is the header's own
      `.site-header__menu`, portaled in, so these rules are scoped to the layer
      and the line keeps its own. */
   .app__menu .site-header__menu {
@@ -217,13 +224,17 @@ html {
     left: 0;
     right: 0;
     top: calc(var(--header-line-top) + var(--header-control) + 36px);
-    padding: 0 var(--header-inset);
+    /* The card's upper edge sits roughly 10% in at the resting 12deg tilt.
+       Match that optical edge rather than the wider bottom bounding box. */
+    --menu-side-inset: 10vw;
+    padding: 0 max(var(--menu-side-inset), env(safe-area-inset-right)) 0 max(var(--menu-side-inset), env(safe-area-inset-left));
   }
 
   .app__menu .site-header__end {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    gap: 40px;
   }
 
   /* Auditoría first: it is the site's one ask, so it is the first thing read.
@@ -236,16 +247,33 @@ html {
 
   .app__menu .site-header__end > .contact-trigger {
     order: 2;
+    position: relative;
+  }
+
+  /* Halfway through the gap, bounded by the menu's existing side gutters.
+     It follows Contacto's entrance and never intercepts a press. */
+  .app__menu .site-header__end > .contact-trigger::before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--glass-border);
+    pointer-events: none;
   }
 
   .app__menu .site-header__end > .audit-trigger,
   .app__menu .site-header__end > .contact-trigger {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 8px;
     width: 100%;
     height: auto;
-    padding: 14px 0;
+    padding: 8px 0;
     border: 0;
     border-radius: 0;
     background: none;
@@ -256,7 +284,7 @@ html {
     letter-spacing: -0.01em;
     line-height: 1.1;
     text-transform: none;
-    text-align: center;
+    text-align: left;
     animation: none;
     /* The quiet arrival, below. */
     opacity: 0;
@@ -264,6 +292,28 @@ html {
     transition:
       opacity 240ms ease,
       transform 360ms var(--menu-3d-ease-in);
+  }
+
+  .app__menu .site-menu-arrow {
+    display: block;
+    position: absolute;
+    right: 10%;
+    /* Centre on the title's 1.1em line, after its 8px top padding. */
+    top: calc(8px + 0.55em - 10px);
+    width: calc(20px * 40 / 24);
+    height: 20px;
+    color: var(--text-secondary);
+    pointer-events: none;
+  }
+
+  .app__menu .site-menu-caption {
+    display: block;
+    color: var(--text-secondary);
+    font-family: var(--font-text);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
   }
 
   /* A quiet arrival once the card is on its way, second door a beat behind. */

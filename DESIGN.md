@@ -368,6 +368,17 @@ Quiet until needed. There is one button on the site that looks like a button.
   scene its bars are 32 × 3px and the viewport hinges away to reveal the menu layer. The blog
   retains 44 × 4px bars. On the blog, a neutral hairline
   ignites and glass wipes down beneath it.
+  The scene menu's ground is smoked graphite with broad, cool reflected light from the upper
+  left and a gradual darkening toward the bottom. It reuses the glass film; the finish is static
+  CSS gradients, without a scene capture or backdrop blur, behind the moving scene card.
+  Its two actions align left with a 10vw gutter, approximately matching the
+  tilted card's upper side edges, and 40px between blocks. A subtle 1px glass-border
+  rule sits halfway between them, respecting those side gutters. Each title carries a
+  fine right arrow, 20px tall with a doubled shaft, aligned to the title's centre and inset 10%
+  of the action width from the right gutter, in secondary white, and a
+  14px supporting sentence: «Descubre qué puede mejorar tu marca» for Auditoría and «Cuéntanos
+  qué tienes en mente» for Contacto. These descriptions appear only in the scene's phone menu.
+  The card's downward travel has a 320px floor to keep this copy clear on short phones.
 - **Blog bar:** solid Ink with a 0.12 white hairline. Its controls inherit the ink rather than
   carrying a colour each.
 

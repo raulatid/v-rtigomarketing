@@ -157,6 +157,10 @@
      pointer-events-none pseudo-element that reads as reflected light. */
   --glass-film: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 18%);
   --glass-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0) 22%);
+  /* The phone menu sits behind the scene: reflected light gives its opaque
+     ground the same smoked finish without a backdrop to capture or blur. */
+  --glass-menu-light: radial-gradient(ellipse 110% 75% at 0% 0%, rgba(220, 230, 245, 0.14), rgba(220, 230, 245, 0) 72%);
+  --glass-menu-depth: linear-gradient(180deg, rgba(7, 10, 15, 0), var(--glass-bg-heavy));
 
   --glass-shadow: 0 20px 60px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.035);
   --glass-shadow-heavy: 0 28px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.035);
@@ -256,6 +260,12 @@
   align-items: center;
   /* The optical gap between the bare Contacto text and the Auditoría box. */
   gap: 14px;
+}
+
+/* Supporting copy belongs to the scene's expanded phone menu only. */
+.site-menu-caption,
+.site-menu-arrow {
+  display: none;
 }
 
 .site-header__start > *,
