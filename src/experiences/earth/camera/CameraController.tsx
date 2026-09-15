@@ -188,8 +188,9 @@ export function CameraController({
     cam.fov = lerp(config.normalFov, config.maxTravelFov, speedFactor)
     cam.updateProjectionMatrix()
 
+    // Broaden the light dip while keeping its peak locked to the scene cut.
     state.warpOverlay =
-      narrowPeak(p, config.sceneSwapProgress, 0.1) * config.overlayStrength
+      narrowPeak(p, config.sceneSwapProgress, 0.14) * config.overlayStrength
     state.motionBlur = speedFactor * config.motionBlurStrength
     applyOverlay()
   })

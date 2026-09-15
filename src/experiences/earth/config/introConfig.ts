@@ -228,7 +228,7 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   accelerationPower: 1.7,
   speedPeakWidth: 0.34,
   sceneSwapProgress: 0.5,
-  overlayStrength: 0.22,
+  overlayStrength: 0.12,
   motionBlurStrength: 0.22,
   afterimageDampMax: 0.82,
   svgWarpBlur: 6,
@@ -237,8 +237,9 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
 
   swapDuration: 0.7,
   swapCrossover: 0.45,
-  swapFlashStrength: 0.35,
-  swapFlashWidth: 0.08,
+  // A gentle 280ms dip centred on the substitution, rather than a short blink.
+  swapFlashStrength: 0.16,
+  swapFlashWidth: 0.2,
 
   spinPauseBefore: 0.15,
   spinDuration: 2.0,

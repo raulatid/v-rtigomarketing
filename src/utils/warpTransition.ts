@@ -261,10 +261,10 @@ export function speed(p: number, limits: WarpLimits): number {
 /**
  * The flash, 0..1. Reaches full cover at the cut.
  *
- * Full black rather than the intro's 0.22: that flash conceals a substitution
+ * Full black rather than the intro's gentle dip: that conceals a substitution
  * between two similar dark scenes, this one conceals a jump between two
  * unrelated worlds. Shaped by narrowPeak rather than a linear ramp so it still
- * spikes and recovers like the intro's, instead of reading as a dissolve.
+ * peaks at the cut instead of reading as a dissolve.
  */
 export function flash(p: number, limits: WarpLimits): number {
   return narrowPeak(p, limits.cut, limits.flashWidth)

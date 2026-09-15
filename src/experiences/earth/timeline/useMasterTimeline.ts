@@ -13,7 +13,7 @@ import gsap from 'gsap/gsap-core'
 import type {} from 'gsap'
 import { IntroConfig, Phase } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
-import { cinematicSpeed } from '../../../utils/easing'
+import { cinematicSpeed, narrowPeak } from '../../../utils/easing'
 import { orbitRevealDuration } from '../orbit/orbitConfig'
 import { IntroDrawHandle } from '../../../intro-draw/introDraw'
 
@@ -190,11 +190,10 @@ export function useMasterTimeline({
               cornerLogo.current?.startSequence()
             }
 
-            // Narrow flash centred on the crossing — the beat that replaces the
-            // dropped particle burst (plan 002 §6.1).
-            const d = Math.abs(p - x) / config.swapFlashWidth
-            const bell = d >= 1 ? 0 : 1 - d * d * (3 - 2 * d)
-            state.swapOverlay = bell * config.swapFlashStrength
+            // The same smooth envelope as the planet reveal: zero velocity and
+            // acceleration at the edges and peak, with no delay at the crossing.
+            state.swapOverlay =
+              narrowPeak(p, x, config.swapFlashWidth) * config.swapFlashStrength
           },
         })
         .call(() => {
