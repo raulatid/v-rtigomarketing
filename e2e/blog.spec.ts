@@ -188,7 +188,7 @@ test.describe('the blog', () => {
     // Into Murcia, the way a visitor gets there.
     // 28 notches: the whole journey is the 1200px band plus the 600px push
     // (DECISIONS §44) — 14 was sized for the journey before it doubled.
-    await wheelStream(page, 120, 28)
+    await wheelStream(page, -120, 28)
     await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
 
     // Stamps that a page load would destroy. `__e2eLoadId` lives in module
@@ -357,7 +357,7 @@ test.describe('the blog', () => {
 
     // 28 notches: the whole journey is the 1200px band plus the 600px push
     // (DECISIONS §44) — 14 was sized for the journey before it doubled.
-    await wheelStream(page, 120, 28)
+    await wheelStream(page, -120, 28)
     await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
 
     await clickBlogDisplay(page)

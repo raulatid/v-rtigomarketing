@@ -264,10 +264,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   /**
    * Raw signed input -> travel toward the other world.
    *
-   * Positive raw is "downward": a positive `deltaY`, or a finger moving up the
-   * rail (which carries the content down, the way a scroll does). From Earth that
-   * is toward Murcia; from Murcia the same physical gesture means the opposite, so
-   * the sign flips.
+   * Positive raw means approach: a forward wheel rotation (negated deltaY at
+   * the wheel boundary), or fingers spreading on the screen. From Earth that
+   * is toward Murcia; from Murcia the same gesture means the opposite, so the
+   * sign flips. Keep this mapping shared; only wheel input is inverted.
    *
    * This flip is why a momentum tail is harmless a second time over: the scene has
    * already swapped by the time the tail arrives, so the tail maps to NEGATIVE
@@ -652,7 +652,9 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       return
     }
 
-    const raw = normalizeWheelDelta(event)
+    // Forward wheel rotation approaches; backward rotation pulls away. Invert
+    // only vertical wheel input, preserving touch spread and horizontal look.
+    const raw = -normalizeWheelDelta(event)
     pushTravel(
       towardOther(raw, context.current),
       event.timeStamp,

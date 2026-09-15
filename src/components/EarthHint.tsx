@@ -23,33 +23,17 @@
  * here would have no later moment at which to matter. `(pointer: coarse)` picks the glyph AND the word,
  * from the same fact, so the two can never disagree.
  *
- * ## Two glyphs since §46, and the fine one is the plate's mouse
- *
- * §43 had cropped the mark to the two chevrons alone. The client asked for the
- * mouse back on Earth — the same body, notch and chasing chevrons Murcia's plate
- * draws — and, for touch, something more literal than two dots: a phone with a
- * hand spreading two fingers on it. Leaving Earth is an approach (ADR 006), so
- * the fingers open.
- *
- * The mouse is a COPY of the plate's path data, not a shared component, and a
- * test pins the literals so the two cannot drift. A shared component would have
- * to carry the plate's `.nav[data-direction]` selection of the up-group for a
- * scene that only ever goes down.
+ * Desktop shows a forward wheel rotation; touch shows two fingers spreading.
+ * Both gestures approach Earth and continue toward Murcia.
  */
 export function EarthHint() {
   return (
     <div className="earth-hint" aria-hidden="true">
-      {/* The plate's mouse, cropped to what Earth draws: the body (y 14–34) and
-          the DOWN chevrons (y 36–46), so the viewBox is that band plus a
-          half-stroke spill on every side — a round cap sliced square is just a
-          blunt tip (§43). No up-group and therefore no recentring transform:
-          nothing is drawn above the body.
-
-          Stroke 1.4 against the plate's 1.6. Weight is a ratio to what it sits
-          beside (§43): at 16px type the plate's ratio reads as a slab. */}
+      {/* Keep the mouse upright, with upward chevrons above its body. The
+          lower chevron leads the upper one to demonstrate forward rotation. */}
       <svg
         className="earth-hint__glyph earth-hint__glyph--mouse"
-        viewBox="6 13 12 34"
+        viewBox="6 1 12 34"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.4"
@@ -62,8 +46,8 @@ export function EarthHint() {
         {/* Two, not one, so they can chase: a single chevron can only blink,
             and a blink has no direction. */}
         <g className="earth-hint__chevrons">
-          <path className="earth-hint__part earth-hint__part--chase" d="M8 36l4 4 4-4" />
-          <path className="earth-hint__part earth-hint__part--chase" d="M8 42l4 4 4-4" />
+          <path className="earth-hint__part earth-hint__part--chase" d="M8 12l4-4 4 4" />
+          <path className="earth-hint__part earth-hint__part--chase" d="M8 6l4-4 4 4" />
         </g>
       </svg>
       {/* A phone, and a hand with two fingers on its screen. Explicit rather
@@ -93,16 +77,9 @@ export function EarthHint() {
         <path className="earth-hint__part earth-hint__part--finger-a" d="M15 13L27 38" strokeWidth="5" />
         <path className="earth-hint__part earth-hint__part--finger-b" d="M34 19L30 38" strokeWidth="5" />
       </svg>
-      {/* Spanish, and in the source rather than the CMS (DECISIONS §28): a field
-          per input variant is several strings for one sentence.
-
-          The two differ by ONE WORD because the gesture differs. Below two
-          contacts `createNavigationInput` returns early — a one-finger swipe does
-          not navigate at all — so on touch the gesture is a two-finger spread,
-          and telling a phone to scroll would teach it something that does
-          nothing. "Zoom" is the word the plate already uses on coarse pointers. */}
+      {/* Both input variants describe zoom; CSS pairs each with its glyph. */}
       <span className="earth-hint__sentence" data-input="fine">
-        Scroll para viajar a Murcia
+        Zoom para viajar a Murcia
       </span>
       <span className="earth-hint__sentence" data-input="coarse">
         Zoom para viajar a Murcia

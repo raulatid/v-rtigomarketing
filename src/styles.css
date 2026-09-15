@@ -1520,9 +1520,8 @@ html {
    The grammar Murcia's hint plate established before it was removed: every
    travelling part goes ONE way, fading in where it starts and out where it
    ends, and the resting drawing is the readable one. The wheel and the chase
-   use the plate's keyframes (`nav-hint-wheel-down`, `nav-hint-chase`, kept
-   below) — same notch travel, same 160ms hand-off between the two chevrons —
-   and Earth only ever scrolls DOWN, so no direction variable is needed here.
+   use `earth-hint-wheel-forward` and `nav-hint-chase`: the wheel travels
+   upward, then the lower chevron hands off to the upper one after 160ms.
 
    Gated on `[data-visible]`, and every rule sits at (0,3,0) so the
    reduced-motion kill at the end of this block wins by source order alone.
@@ -1534,7 +1533,7 @@ html {
 }
 
 .earth-hint[data-visible] .earth-hint__part--wheel {
-  animation: nav-hint-wheel-down 1.4s linear infinite;
+  animation: earth-hint-wheel-forward 1.4s linear infinite;
 }
 
 .earth-hint[data-visible] .earth-hint__part--chase {
@@ -1570,26 +1569,23 @@ html {
   animation: earth-hint-pinch-b 1.8s ease-out infinite;
 }
 
-/* The wheel and chase keyframes. They were written for Murcia's hint plate,
-   which is gone (2026-09-15, DECISIONS §29); Earth's glyph is their only user
-   now and the names are historical. The notch stays inside the mouse body
-   (y 14–34) at both ends of its travel: it starts just above its drawn
-   position and leaves nine units below it. */
-@keyframes nav-hint-wheel-down {
+/* Forward wheel rotation: the notch moves upward inside the upright mouse
+   (y 14–34). Reset while invisible, so the loop never teaches a reverse gesture. */
+@keyframes earth-hint-wheel-forward {
   0% {
-    transform: translateY(-2px);
+    transform: translateY(9px);
     opacity: 0;
   }
   18% {
-    transform: translateY(-1px);
-    opacity: 1;
-  }
-  70% {
     transform: translateY(7px);
     opacity: 1;
   }
+  70% {
+    transform: translateY(-1px);
+    opacity: 1;
+  }
   100% {
-    transform: translateY(9px);
+    transform: translateY(-2px);
     opacity: 0;
   }
 }

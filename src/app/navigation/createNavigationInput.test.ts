@@ -60,6 +60,22 @@ const twoFrames = async () => {
 
 // A trackpad's two-finger sideways swipe arrives as deltaX, which the wheel used
 // to drop — and the stray deltaY of a swipe meant to turn zoomed the city.
+describe('wheel rotation follows camera zoom in both worlds', () => {
+  it.each([
+    ['earth', -40, 1],
+    ['earth', 40, -1],
+    ['murcia', -40, -1],
+    ['murcia', 40, 1],
+  ] as const)('%s maps deltaY %s to depth sign %s', (current, deltaY, sign) => {
+    const { input, depth } = setup({ current })
+    // Positive depth approaches Murcia from Earth, but pulls away from Murcia.
+    // Negative deltaY must therefore produce opposite depth signs in each world.
+    wheel(deltaY)
+    expect(Math.sign(depth())).toBe(sign)
+    input.dispose()
+  })
+})
+
 describe('a horizontal wheel swipe in Murcia turns rather than zooms', () => {
   it('sends a deltaX-dominant event to onLook, signed like a drag, and leaves the zoom alone', () => {
     const { input, looks, depth } = setup({ current: 'murcia' })
@@ -80,7 +96,7 @@ describe('a horizontal wheel swipe in Murcia turns rather than zooms', () => {
 
   it('sends a vertical-dominant diagonal to the zoom and does not turn', () => {
     const { input, looks, depth } = setup({ current: 'murcia' })
-    wheel(40, 10)
+    wheel(-40, 10)
     expect(looks).toEqual([])
     expect(depth()).toBeLessThan(0)
     input.dispose()
@@ -94,9 +110,9 @@ describe('a horizontal wheel swipe in Murcia turns rather than zooms', () => {
     input.dispose()
   })
 
-  it('leaves Earth on the old path: no turn, and the deltaY still zooms', () => {
+  it('uses vertical wheel input on Earth even in a horizontal-dominant swipe', () => {
     const { input, looks, depth } = setup({ current: 'earth' })
-    wheel(10, -40)
+    wheel(-10, -40)
     expect(looks).toEqual([])
     expect(depth()).toBeGreaterThan(0)
     input.dispose()
@@ -156,7 +172,7 @@ describe('one event cannot cross the gesture, whichever stage it lands in', () =
     // which the accumulator then clamped to a full 120px push. One notch threw
     // the camera to the end of its travel and banked 40% of a warp.
     const t = setup()
-    wheel(100_000)
+    wheel(-100_000)
     await twoFrames()
 
     expect(t.depth()).toBeCloseTo(CAP / NAVIGATION_ZOOM.towardTravelPx, 6)
@@ -170,7 +186,7 @@ describe('one event cannot cross the gesture, whichever stage it lands in', () =
     // everything. The band is travel, not a rate limit: enough events get there.
     const t = setup()
     const events = Math.ceil(NAVIGATION_ZOOM.towardTravelPx / CAP)
-    for (let i = 0; i < events; i += 1) wheel(CAP)
+    for (let i = 0; i < events; i += 1) wheel(-CAP)
     await twoFrames()
 
     expect(t.depth()).toBeCloseTo(1, 6)
@@ -255,7 +271,7 @@ describe('a world may hold the commit until it is ready to leave', () => {
   const band = Math.ceil(NAVIGATION_ZOOM.towardTravelPx / CAP)
   const push = Math.ceil(NAVIGATION_GESTURE.commitDistancePx / CAP) + 1
   const fillAndPush = () => {
-    for (let i = 0; i < band + push; i += 1) wheel(CAP)
+    for (let i = 0; i < band + push; i += 1) wheel(-CAP)
   }
 
   it('arms, and holds, while the world is not ready', async () => {
@@ -285,7 +301,7 @@ describe('a world may hold the commit until it is ready to leave', () => {
     const t = setup({ mayCommit: false })
     fillAndPush()
     await after(100)
-    wheel(-CAP)
+    wheel(CAP)
     await after(100)
     t.context.mayCommit = true
     await after(150)
@@ -323,10 +339,10 @@ describe('a world may leave at the end of the zoom band', () => {
 
   it('commits the moment the band reaches its limit, with no push after it', async () => {
     const t = setup({ commitAtBandEnd: true })
-    for (let i = 0; i < band - 1; i += 1) wheel(CAP)
+    for (let i = 0; i < band - 1; i += 1) wheel(-CAP)
     await after(100)
     expect(t.commits).toEqual([])
-    wheel(CAP)
+    wheel(-CAP)
     await after(100)
     expect(t.commits).toEqual(['enter-murcia'])
     t.input.dispose()
@@ -334,7 +350,7 @@ describe('a world may leave at the end of the zoom band', () => {
 
   it('still needs the whole band: one enormous event does not navigate', async () => {
     const t = setup({ commitAtBandEnd: true })
-    wheel(100_000)
+    wheel(-100_000)
     await after(100)
     expect(t.commits).toEqual([])
     t.input.dispose()
@@ -342,7 +358,7 @@ describe('a world may leave at the end of the zoom band', () => {
 
   it('holds at the limit while the world is not ready, then goes by itself', async () => {
     const t = setup({ commitAtBandEnd: true, mayCommit: false })
-    for (let i = 0; i < band; i += 1) wheel(CAP)
+    for (let i = 0; i < band; i += 1) wheel(-CAP)
     await after(NAVIGATION_GESTURE.idleGapSeconds * 1000 + 250)
     expect(t.commits).toEqual([])
     t.context.mayCommit = true
@@ -353,9 +369,9 @@ describe('a world may leave at the end of the zoom band', () => {
 
   it('lets go of the held commit when the viewer zooms back out', async () => {
     const t = setup({ commitAtBandEnd: true, mayCommit: false })
-    for (let i = 0; i < band; i += 1) wheel(CAP)
+    for (let i = 0; i < band; i += 1) wheel(-CAP)
     await after(100)
-    wheel(-CAP)
+    wheel(CAP)
     await after(100)
     t.context.mayCommit = true
     await after(150)
@@ -365,7 +381,7 @@ describe('a world may leave at the end of the zoom band', () => {
 
   it('leaves a world without it parked at the limit, waiting for the push', async () => {
     const t = setup()
-    for (let i = 0; i < band; i += 1) wheel(CAP)
+    for (let i = 0; i < band; i += 1) wheel(-CAP)
     await after(150)
     expect(t.depth()).toBeCloseTo(1, 6)
     expect(t.commits).toEqual([])

@@ -41,7 +41,7 @@ describe('the Earth hint', () => {
   it('carries both gestures, so the stylesheet has something to pick from', () => {
     expect(sentences().map((el) => el.dataset.input)).toEqual(['fine', 'coarse'])
     expect(sentences().map((el) => el.textContent?.trim())).toEqual([
-      'Scroll para viajar a Murcia',
+      'Zoom para viajar a Murcia',
       'Zoom para viajar a Murcia',
     ])
     expect(glyph('mouse')).not.toBeNull()
@@ -54,10 +54,8 @@ describe('the Earth hint', () => {
     for (const el of sentences()) expect(el.textContent).toContain('Murcia')
   })
 
-  it('draws the plate’s own mouse, cropped to the way down', () => {
-    // The literals are deliberate. Body, notch and both down-chevrons were copied
-    // from Murcia's hint plate (§46), which is gone since 2026-09-15; this is the
-    // drawing now, and a redraw should fail here and be judged rather than slip by.
+  it('draws an upright mouse with forward chevrons above it', () => {
+    // The mouse stays upright; the lower upward chevron leads the upper one.
     const svg = glyph('mouse')
     const body = svg.querySelector('rect')!
     expect(['x', 'y', 'width', 'height', 'rx'].map((a) => body.getAttribute(a))).toEqual([
@@ -71,10 +69,9 @@ describe('the Earth hint', () => {
     // Two chevrons, not one, and inside one group: the chase is a delay on the
     // group's second child, so a single chevron could only blink.
     const chase = [...svg.querySelectorAll('.earth-hint__chevrons .earth-hint__part--chase')]
-    expect(chase.map((p) => p.getAttribute('d'))).toEqual(['M8 36l4 4 4-4', 'M8 42l4 4 4-4'])
-    // No up-group: Earth only ever goes down, so the viewBox is the body plus
-    // the down chevrons plus the half-stroke spill (§43's round-cap rule).
-    expect(svg.getAttribute('viewBox')).toBe('6 13 12 34')
+    expect(chase.map((p) => p.getAttribute('d'))).toEqual(['M8 12l4-4 4 4', 'M8 6l4-4 4 4'])
+    // Include the chevrons above the body and room for their round caps.
+    expect(svg.getAttribute('viewBox')).toBe('6 1 12 34')
   })
 
   it('draws a phone with two fingers on it for touch', () => {

@@ -3582,6 +3582,15 @@ figure. Both are judgements for the visual pass on real hardware.
 
 ## 46. Earth's glyph is the wheel again, and a hand on a phone for touch
 
+> **Amended 2026-09-15 — forward wheel rotation zooms in.** Users reported
+> trying the opposite direction. Desktop vertical wheel input is now inverted
+> at `onWheel`: forward approaches, backward retreats, consistently in Earth and
+> Murcia. Continuing inward on Earth travels to Murcia; continuing outward in
+> Murcia returns to Earth. Touch spread, horizontal trackpad look, zoom limits
+> and transition guards retain their existing behaviour. Earth's desktop hint
+> now reads **"Zoom para viajar a Murcia"**, with an upright mouse, upward wheel
+> motion and upward chevrons above it. Its timing and reduced-motion rules stay.
+
 > Amends **§43**, whose sentence, timing, type size and measured floor all stand. Murcia's plate
 > (`.nav-hint`) is untouched: it keeps its mouse and its two-dot pinch.
 
