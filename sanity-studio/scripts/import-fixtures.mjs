@@ -136,6 +136,8 @@ for (const record of read('service')) {
     title: record.title,
     body: record.body,
     particleColor: record.particleColor,
+    figureCaption: record.figureCaption,
+    measures: record.measures,
   })
 }
 

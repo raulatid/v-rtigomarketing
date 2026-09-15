@@ -18,6 +18,8 @@ import { parseServicesContent, type ServicesContent } from './content/servicesCo
  *   subtitle         the body's opening               `splitServiceCopy`
  *   detail           the rest of the body             what [+] opens
  *   icon, figure     scene/cityDistrictBindings.ts    scene composition
+ *   caption          Service.figureCaption            the figure's legend, or null
+ *   measures         Service.measures                 «Qué medimos», maybe empty
  *
  * `DistrictContent.intro`, a 200-character paragraph, has no slot: the
  * overlay's hint is a single line of chrome. It stays unread, as it was under
@@ -57,6 +59,8 @@ export function buildServicesContent(
       icon: symbol?.icon,
       figure: symbol?.figure,
       color: service.particleColor,
+      caption: service.figureCaption,
+      measures: service.measures,
     };
   });
 

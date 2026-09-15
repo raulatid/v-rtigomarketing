@@ -3805,6 +3805,38 @@ parked logo jolts); a returning visitor's draw is shorter than its floor; `verti
 written without an accepted consent, or survives a refusal; or the storage read throws instead of
 reading "not seen".
 
+## 52. A service's figure draws what its copy argues, and the plate names it
+
+**2026-09-15.** The client said the campus plates beside the particles "only have text" and asked
+for graphs. A graph was already there, and it was decoration: each symbol turned every ~3 s into
+`bars`, `ring`, `pins` or `line`, with constant bar heights and a sum of sines, and two services
+shared `ring`. The user's condition: nothing added for the sake of adding.
+
+**Decided with the user:**
+
+1. **The figures became the argument.** Five figures, one per service, each drawing the mechanism
+   that service's own copy states (`campus/particles/figureLayouts.ts`): `compound` (SEO — paid
+   traffic stops with the spend, organic keeps accruing), `segments` (paid — the segments that do
+   not convert are cut), `funnel` (analytics — one step loses most), `path` (content — few pieces,
+   linked, leading somewhere), `repeat` (brand — the symbol ten times, identical, moving as one).
+   The old four are deleted.
+2. **Schematic, never data.** No figure has a value, scale or axis. No measured result exists
+   (PRODUCT.md), and a chart that looked like one would be a claim the client has to retract.
+3. **The symbol turns into its figure once and holds it.** Reduced motion still makes the turn
+   (short morph, still figure): the figure is content now.
+4. **Two new, optional `service` fields in Sanity.** `figureCaption` is the legend, which fades in
+   under the copy once the figure has formed, with a key in the service's particle colour.
+   `measures[]` is «Qué medimos»: up to three metric names. Draft copy lives in the fixtures as
+   placeholders for the client to replace. Optional, so the already-published documents keep
+   building.
+
+**Not chosen:** a chart inside the plate (it would duplicate the particle figure beside it),
+figures with numbers, and on-scene labels (the 2026-09-15 no-captions decision).
+
+**Broken when:** a figure gains a value or an axis; the legend shows before its figure has
+formed; a service's body is rewritten to argue something its figure does not draw, and nobody
+changes the binding; or a document without the new fields fails the build.
+
 ## Superseded
 
 | Decision | Was | Now |

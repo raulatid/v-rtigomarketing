@@ -278,6 +278,48 @@ describe('district mapping rejects', () => {
     ;(other.services as Array<Record<string, unknown>>)[0].particleColor = '#12345'
     expect(problemsFor(districtsCollection, other)).toContain('servicios.services[0].particleColor')
   })
+
+  it('a figure caption or a list of measures over its bound, or a measure row left blank', () => {
+    const services = (record: Record<string, unknown>) => record.services as Array<Record<string, unknown>>
+    const long = validDistrict()
+    services(long)[0].figureCaption = 'a'.repeat(111)
+    expect(problemsFor(districtsCollection, long)).toContain('servicios.services[0].figureCaption')
+    const many = validDistrict()
+    services(many)[0].measures = ['Uno', 'Dos', 'Tres', 'Cuatro']
+    expect(problemsFor(districtsCollection, many)).toContain('servicios.services[0].measures')
+    const blank = validDistrict()
+    services(blank)[0].measures = ['Coste por conversión', '']
+    expect(problemsFor(districtsCollection, blank)).toContain('servicios.services[0].measures[1]')
+  })
+})
+
+describe('district figure captions and measures', () => {
+  const mapped = (record: unknown): DistrictContent => {
+    const result = districtsCollection.map(record, 0)
+    if (!result.ok) throw new Error(JSON.stringify(result.problems))
+    return result.value as DistrictContent
+  }
+
+  it('read as none when a document predates them or leaves them blank', () => {
+    // Every service published before the fields existed arrives without them.
+    const record = validDistrict()
+    const services = record.services as Array<Record<string, unknown>>
+    delete services[0].figureCaption
+    delete services[0].measures
+    services[1].figureCaption = '  '
+    services[1].measures = null
+    const district = mapped(record)
+    expect(district.services[0]!.figureCaption).toBeNull()
+    expect(district.services[0]!.measures).toEqual([])
+    expect(district.services[1]!.figureCaption).toBeNull()
+    expect(district.services[1]!.measures).toEqual([])
+  })
+
+  it('keep what the editor wrote', () => {
+    const district = mapped(validDistrict())
+    expect(district.services[0]!.figureCaption).toMatch(/orgánico/)
+    expect(district.services[0]!.measures).toHaveLength(3)
+  })
 })
 
 describe('district particle colours', () => {

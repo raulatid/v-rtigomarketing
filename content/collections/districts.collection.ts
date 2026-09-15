@@ -32,6 +32,34 @@ import { SERVICE_BODY_MAX, SERVICE_TITLE_MAX } from './serviceBounds'
 // bound lives with the other district invariants as DISTRICT_SUMMARY_MAX, which
 // reads from the same table.
 const { label: LABEL_MAX, intro: INTRO_MAX, services: SERVICES_MAX } = EDITORIAL_BOUNDS.district
+const {
+  figureCaption: FIGURE_CAPTION_MAX,
+  measure: MEASURE_MAX,
+  measures: MEASURES_MAX,
+} = EDITORIAL_BOUNDS.service
+
+const isBlank = (value: unknown) =>
+  value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+
+/**
+ * The figure's legend. Optional — the documents published before the field
+ * existed have none — so blank is null, and the plate leaves the line out. A
+ * value that IS present is bounded like any other copy.
+ */
+function figureCaption(report: Report, path: string, value: unknown): string | null | undefined {
+  if (isBlank(value)) return null
+  return text(report, path, value, { max: FIGURE_CAPTION_MAX })
+}
+
+/**
+ * «Qué medimos». Absent is an empty list; an entry left blank in the Studio is
+ * a row the editor added and did not fill, which fails rather than drawing an
+ * empty line on the plate.
+ */
+function measures(report: Report, path: string, value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return []
+  return boundedArray(report, path, value, MEASURES_MAX, (r, p, v) => text(r, p, v, { max: MEASURE_MAX }))
+}
 
 /**
  * An optional Studio colour: absent or blank is an editorial choice ("use the
@@ -74,8 +102,19 @@ function service(
   const body = text(report, path + '.body', source.body, { max: SERVICE_BODY_MAX })
   // Empty takes the district's: a service nobody coloured reads as the entry.
   const color = particleColor(report, path + '.particleColor', source.particleColor, districtColor)
-  if (id === undefined || title === undefined || body === undefined || color === undefined) return undefined
-  return { id, title, body, particleColor: color }
+  const caption = figureCaption(report, path + '.figureCaption', source.figureCaption)
+  const measured = measures(report, path + '.measures', source.measures)
+  if (
+    id === undefined ||
+    title === undefined ||
+    body === undefined ||
+    color === undefined ||
+    caption === undefined ||
+    measured === undefined
+  ) {
+    return undefined
+  }
+  return { id, title, body, particleColor: color, figureCaption: caption, measures: measured }
 }
 
 export const districtsCollection = collection<DistrictContent>({
@@ -97,7 +136,7 @@ export const districtsCollection = collection<DistrictContent>({
       summary,
       intro,
       particleColor,
-      services[]->{ "id": slug.current, title, body, particleColor }
+      services[]->{ "id": slug.current, title, body, particleColor, figureCaption, measures }
     }`,
   },
 

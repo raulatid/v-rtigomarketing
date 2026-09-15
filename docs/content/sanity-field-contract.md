@@ -90,6 +90,10 @@ What the agency does. First-class documents, referenced by the district (the sto
 | `title` | string | non-empty, ≤ 60 | fail |
 | `shortTitle` | string | optional; only the blog projection reads it (`coalesce(shortTitle, title)`). The Studio warns above 24; the build does not bound it | — |
 | `body` | text | non-empty, ≤ 900 | fail |
+| `figureCaption` | string | optional, ≤ 110. The legend under the copy on the campus plate, naming what the service's particle figure draws; fades in once the figure has formed. Empty → no legend | fail |
+| `measures[]` | string[] | optional, ≤ 3 entries, each non-empty and ≤ 48. «Qué medimos» on the campus plate: the names of what gets measured, not values. Empty → no block | fail |
+
+**The figure is code; only its wording is editorial.** Each service's figure (`cityDistrictBindings.ts`, drawn in `campus/particles/figureLayouts.ts`) illustrates the mechanism its own `body` argues, and `figureCaption` names it. Rewriting a body so that it argues something else can leave the figure wrong, and that is a developer's change. Both fields are optional so the documents published before they existed (2026-09-15) keep building; the fixtures carry draft copy, flagged to the client as placeholders.
 
 **`body` is shown in two parts on the campus.** `district/serviceCopy.ts` takes the first paragraph (or, in a one-paragraph body, the opening sentences up to ~150 characters) as the always-visible line under the title; "+" opens the whole text. A one-sentence body makes "+" repeat what is already on screen. The Studio description tells the editor this, without the number.
 

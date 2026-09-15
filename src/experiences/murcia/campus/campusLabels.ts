@@ -19,7 +19,8 @@ export type CampusLabelKey =
   | 'previous'
   | 'next'
   | 'explore'
-  | 'back';
+  | 'back'
+  | 'measures';
 
 const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, string>>>> = {
   es: {
@@ -29,6 +30,7 @@ const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, str
     next: 'Servicio siguiente',
     explore: 'explorar',
     back: 'volver',
+    measures: 'Qué medimos',
   },
   en: {
     leave: 'leave the services',
@@ -37,6 +39,7 @@ const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, str
     next: 'Next service',
     explore: 'explore',
     back: 'back',
+    measures: 'What we measure',
   },
 };
 

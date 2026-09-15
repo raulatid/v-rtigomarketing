@@ -1,5 +1,5 @@
 import { WrenchIcon } from '@sanity/icons/Wrench'
-import { defineField, defineType } from 'sanity'
+import { defineArrayMember, defineField, defineType } from 'sanity'
 import { charCount } from '../components/CharCountInput'
 import { colorHexInput } from '../components/ColorHexInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
@@ -108,6 +108,44 @@ export const service = defineType({
           `Demasiado largo: como máximo ${BOUNDS.body} caracteres (uno o dos párrafos).`,
         ),
       ],
+    }),
+    // The figure itself is drawn by code (`cityDistrictBindings.ts`), because
+    // it is geometry; only its wording is editorial. Both fields are optional
+    // so the documents published before they existed keep building.
+    defineField({
+      name: 'figureCaption',
+      title: 'Qué muestra la figura',
+      description:
+        'Opcional. Al llegar a este servicio en la ciudad, su símbolo de partículas se convierte ' +
+        'en una figura. Esta frase aparece bajo el texto cuando la figura termina de formarse, y ' +
+        'explica qué dibuja. Vacío, no se muestra.',
+      type: 'string',
+      components: { input: charCount(BOUNDS.figureCaption) },
+      validation: (rule) =>
+        rule
+          .max(BOUNDS.figureCaption)
+          .error(`Demasiado largo: como máximo ${BOUNDS.figureCaption} caracteres.`),
+    }),
+    defineField({
+      name: 'measures',
+      title: 'Qué medimos',
+      description:
+        `Opcional. Hasta ${BOUNDS.measures} cosas que medimos en este servicio, una por fila: el ` +
+        'nombre de la métrica, no una cifra. Aparecen bajo «Qué medimos» junto al texto del ' +
+        'servicio. Vacío, el bloque no se muestra.',
+      type: 'array',
+      of: [
+        defineArrayMember({
+          type: 'string',
+          components: { input: charCount(BOUNDS.measure) },
+          validation: (rule) => [
+            rule.required().error('Escribe la métrica, o quita la fila.'),
+            rule.max(BOUNDS.measure).error(`Demasiado largo: como máximo ${BOUNDS.measure} caracteres.`),
+          ],
+        }),
+      ],
+      validation: (rule) =>
+        rule.max(BOUNDS.measures).error(`Como máximo ${BOUNDS.measures} filas.`),
     }),
     defineField({
       name: 'particleColor',

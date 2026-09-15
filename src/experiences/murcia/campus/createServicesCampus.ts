@@ -183,7 +183,7 @@ export async function createServicesCampus(
       keyLightDirection: options.keyLightDirection,
       waterNode: CAMPUS_WATER_NODE_NAME,
       overlay: {
-        labels: { leave: campusLabel(locale, 'leave') },
+        labels: { leave: campusLabel(locale, 'leave'), measures: campusLabel(locale, 'measures') },
         // The site's text face, declared once for every document in
         // siteHeader.css — so no `fontUrl`, and the overlay registers nothing.
         // Its title takes the display face from murcia.css.
@@ -215,13 +215,13 @@ export async function createServicesCampus(
     // Cinematic motion goes; what is on screen does not. Flights become cuts,
     // the rise and the morphs are over almost as they start, and the settled
     // shapes stop swelling and swinging. The copy still follows each step. A
-    // service holds its symbol rather than turning into its figure and back
-    // on its own, which would be motion nobody asked for.
+    // service still turns from its symbol into its figure, once: the figure
+    // is content, and the plate's legend names it. The turn is a short morph,
+    // and the figure stands still — nothing travels along it.
     const { timing, particles, figureMotion } = campus.tuning;
     timing.flight = REDUCED.flight;
     timing.morph = REDUCED.morph;
     timing.figureSpread = 0;
-    timing.formHold = Infinity;
     particles.emergenceSeconds = REDUCED.emergence;
     particles.convergenceSeconds = REDUCED.convergence;
     particles.swellAmplitude = 0;

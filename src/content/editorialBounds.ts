@@ -114,6 +114,12 @@ export const EDITORIAL_BOUNDS = {
      * whole rendered post body arriving in a field meant for two paragraphs.
      */
     body: 900,
+    /** One line under the copy on the campus plate, naming what the particle figure draws. */
+    figureCaption: 110,
+    /** One entry of «Qué medimos». A metric's name, not a sentence. */
+    measure: 48,
+    /** Entries of «Qué medimos». More than this pushes the plate into the figure on a phone. */
+    measures: 3,
   },
   siteSettings: {
     /** A link's words, in a footer column. */

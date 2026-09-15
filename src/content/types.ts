@@ -481,6 +481,17 @@ export type DistrictService = Service & {
    * district's `particleColor`, so this is always a hex string.
    */
   particleColor: string
+  /**
+   * What this service's particle figure draws, in one line: the legend the
+   * campus plate shows once the figure has formed. Optional in the Studio;
+   * null when empty, and then the plate shows no legend.
+   */
+  figureCaption: string | null
+  /**
+   * The plate's «Qué medimos»: the names of what gets measured, not values.
+   * Optional in the Studio; empty when none, and then the block is not drawn.
+   */
+  measures: string[]
 }
 
 export interface DistrictContent {

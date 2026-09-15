@@ -19,12 +19,19 @@ function district(bodies: string[]): DistrictContent {
     summary: 'Lo que hacemos.',
     intro: 'Unread.',
     particleColor: '#1c67ff',
-    services: bodies.map((body, i) => ({ id: `s${i}`, title: `S${i}`, body, particleColor: '#ffb020' })),
+    services: bodies.map((body, i) => ({
+      id: `s${i}`,
+      title: `S${i}`,
+      body,
+      particleColor: '#ffb020',
+      figureCaption: null,
+      measures: [],
+    })),
   }
 }
 
 const symbols = (n: number) =>
-  Array.from({ length: n }, (_, i) => ({ serviceId: `s${i}`, icon: 'pin', figure: 'bars' as const }))
+  Array.from({ length: n }, (_, i) => ({ serviceId: `s${i}`, icon: 'pin', figure: 'compound' as const }))
 
 describe('the campus content', () => {
   it('builds a whole document from the shipped copy, in the content\'s order', () => {
@@ -66,6 +73,20 @@ describe('the campus content', () => {
     expect(content.services[0]!.color).toBe('#ffb020')
   })
 
+  it('carries each service\'s legend and «Qué medimos», and none as none', () => {
+    const source = district(['Uno. Dos.', 'Tres. Cuatro.'])
+    source.services[0] = {
+      ...source.services[0]!,
+      figureCaption: 'Lo que dibuja la figura.',
+      measures: ['Coste por conversión'],
+    }
+    const content = buildServicesContent(source, symbols(2))!
+    expect(content.services[0]!.caption).toBe('Lo que dibuja la figura.')
+    expect(content.services[0]!.measures).toEqual(['Coste por conversión'])
+    expect(content.services[1]!.caption).toBeNull()
+    expect(content.services[1]!.measures).toEqual([])
+  })
+
   it('rejects the set when a colour is not #rrggbb', () => {
     const bad = { ...district(['Uno. Dos.']), particleColor: 'blue' }
     expect(buildServicesContent(bad, symbols(1))).toBeNull()
@@ -76,7 +97,7 @@ describe('the campus content', () => {
   })
 
   it('rejects the set when a row names a figure the particles cannot draw', () => {
-    const bad = [{ serviceId: 's0', icon: 'pin', figure: 'spiral' as unknown as 'bars' }]
+    const bad = [{ serviceId: 's0', icon: 'pin', figure: 'spiral' as unknown as 'compound' }]
     expect(buildServicesContent(district(['Uno. Dos.']), bad)).toBeNull()
   })
 })

@@ -36,7 +36,11 @@ export interface ServiceSymbolBinding {
   serviceId: string;
   /** A key of `campus/content/campusIcons.ts`. */
   icon: string;
-  /** What the symbol becomes when the detail opens. */
+  /**
+   * What the symbol turns into and holds: the mechanism the service's copy
+   * states, drawn (`campus/particles/figureLayouts.ts`). Changing a service's
+   * copy can make its figure wrong; the Studio's `figureCaption` names it.
+   */
   figure: FigureKind;
 }
 
@@ -55,11 +59,11 @@ export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
   {
     contentId: 'servicios',
     services: [
-      { serviceId: 'seo', icon: 'magnifier', figure: 'bars' },
-      { serviceId: 'web-analysis', icon: 'window', figure: 'line' },
-      { serviceId: 'content-strategy', icon: 'magnifier', figure: 'ring' },
-      { serviceId: 'paid-campaigns', icon: 'pin', figure: 'pins' },
-      { serviceId: 'brand-identity', icon: 'mark', figure: 'ring' },
+      { serviceId: 'seo', icon: 'magnifier', figure: 'compound' },
+      { serviceId: 'web-analysis', icon: 'window', figure: 'funnel' },
+      { serviceId: 'content-strategy', icon: 'magnifier', figure: 'path' },
+      { serviceId: 'paid-campaigns', icon: 'pin', figure: 'segments' },
+      { serviceId: 'brand-identity', icon: 'mark', figure: 'repeat' },
     ],
   },
 ];

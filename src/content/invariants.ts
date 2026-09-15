@@ -223,6 +223,13 @@ export function districtProblems(entry: DistrictContent): Problem[] {
     if (!HEX_COLOR_PATTERN.test(service.particleColor)) {
       at('services[' + i + '].particleColor', 'must match ' + HEX_COLOR_PATTERN)
     }
+    // Null means "no legend"; an empty string would draw an empty line.
+    if (service.figureCaption !== null && !nonEmpty(service.figureCaption)) {
+      at('services[' + i + '].figureCaption', 'must be null or a non-empty string')
+    }
+    service.measures.forEach((measure, j) => {
+      if (!nonEmpty(measure)) at('services[' + i + '].measures[' + j + ']', 'must be a non-empty string')
+    })
   })
 
   for (const dupe of duplicates(entry.services, (s) => s.id)) {

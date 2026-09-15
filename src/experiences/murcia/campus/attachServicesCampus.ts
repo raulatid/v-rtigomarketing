@@ -20,8 +20,8 @@ import type { FacadeContentDocument } from '../landmark/towerScreen/content/faca
  * Copied from the lab's `core/`, which imports `three` and itself and nothing
  * else. Given a loaded campus and a camera, it puts the water on the lake, the
  * particle field over it, and runs the section: enter, step through the
- * services — each turning between its symbol and its figure on its own —
- * back out.
+ * services — each forming its symbol, then turning into its figure and
+ * holding it — back out.
  *
  * It owns no scene, no model, no render loop, no controls — and, on the site,
  * no input. The lab's own lake click and swipe listened on the canvas; here
@@ -51,8 +51,8 @@ export interface ServicesCampusOptions {
   /** The water mesh's node name in the export. */
   waterNode?: string;
   overlay: {
-    /** `leave` names the back button, when there is one. */
-    labels: { readonly leave: string };
+    /** `leave` names the back button, when there is one; `measures` labels «Qué medimos». */
+    labels: { readonly leave: string; readonly measures?: string };
     fontFamily?: string;
     fontUrl?: string;
     /** Where the copy mounts. Defaults to the body. */
@@ -82,7 +82,7 @@ export interface SectionTiming {
   morph: number;
   /** Of the figure morph, how much staggers the starts: the draw-in-order. */
   figureSpread: number;
-  /** How long a service holds its symbol, or its figure, once formed, before turning into the other. */
+  /** How long a service holds its symbol, once formed, before turning into its figure, which it keeps. */
   formHold: number;
 }
 
@@ -273,8 +273,9 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
   };
   const icon = (name: string, stop: number, time: number): TargetLayout =>
     iconMotionLayout(iconSamples(name), facing(stop), time, figureMotion);
-  const figure = (kind: ServicesContent['services'][number]['figure'], stop: number, time: number): TargetLayout =>
-    figureLayout(kind, facing(stop), time, figureMotion);
+  // The symbol's samples go along because `repeat` is made of them.
+  const figure = (service: ServicesContent['services'][number], stop: number, time: number): TargetLayout =>
+    figureLayout(service.figure, facing(stop), time, figureMotion, iconSamples(service.icon));
 
   const rebuildParticles = (): void => {
     samples.clear();
@@ -316,12 +317,19 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
   };
 
   /**
-   * A service's two forms in turn: its symbol, then its figure, then its
-   * symbol again, each held `formHold` once formed. Null outside a service.
+   * A service's two forms: its symbol, held `formHold` once formed, then its
+   * figure, which it keeps — the figure is what the plate's legend names, so
+   * it stays to be read beside it. `captionAt` is when that legend may show:
+   * once the figure has formed. Null outside a service.
    */
   type Form = 'icon' | 'figure';
-  let cycle: { service: ServicesContent['services'][number]; stop: number; form: Form; swapAt: number } | null =
-    null;
+  let cycle: {
+    service: ServicesContent['services'][number];
+    stop: number;
+    form: Form;
+    swapAt: number;
+    captionAt: number;
+  } | null = null;
   const showForm = (form: Form, seconds: number): void => {
     if (!cycle) return;
     const { service, stop } = cycle;
@@ -329,13 +337,17 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     if (form === 'icon') {
       field.setLayout(icon(service.icon, stop, 0), seconds);
       field.setLiveLayout((time) => icon(service.icon, stop, time));
+      cycle.swapAt = clock + seconds + timing.formHold;
     } else {
-      // Drawn in order, as the figure always was.
-      field.setLayout(figure(service.figure, stop, 0), seconds, timing.figureSpread);
-      field.setLiveLayout((time) => figure(service.figure, stop, time));
+      // Drawn in order, as the figure always was. Its clock starts with it, so
+      // whatever travels along it sets off from where the draw put it.
+      field.setLayout(figure(service, stop, 0), seconds, timing.figureSpread);
+      let start: number | null = null;
+      field.setLiveLayout((time) => figure(service, stop, time - (start ??= time)));
+      cycle.swapAt = Infinity;
+      cycle.captionAt = clock + seconds;
     }
     cycle.form = form;
-    cycle.swapAt = clock + seconds + timing.formHold;
   };
 
   // The one place a state change becomes something on screen.
@@ -374,10 +386,17 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     const service = content.services[snapshot.index];
     if (!service) return;
     // The whole copy, always: there is no read-more any more.
-    const copy: OverlayCopy = { title: service.title, subtitle: service.subtitle, detail: service.detail };
+    const copy: OverlayCopy = {
+      title: service.title,
+      subtitle: service.subtitle,
+      detail: service.detail,
+      caption: service.caption,
+      measures: service.measures,
+      accent: service.color,
+    };
 
     campusCamera.flyTo(snapshot.position, timing.flight);
-    cycle = { service, stop: snapshot.position, form: 'icon', swapAt: Infinity };
+    cycle = { service, stop: snapshot.position, form: 'icon', swapAt: Infinity, captionAt: Infinity };
     showForm('icon', timing.morph);
     // The colour changes with the shape, over the same morph.
     field.setAccent(service.color, timing.morph);
@@ -400,8 +419,13 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
         overlay.show(pendingCopy.copy);
         pendingCopy = null;
       }
-      if (cycle && clock >= cycle.swapAt && !campusCamera.flying) {
-        showForm(cycle.form === 'icon' ? 'figure' : 'icon', timing.morph);
+      if (cycle && cycle.form === 'icon' && clock >= cycle.swapAt && !campusCamera.flying) {
+        showForm('figure', timing.morph);
+      }
+      // The legend waits for the figure it names, and for the copy it sits in.
+      if (cycle && pendingCopy === null && clock >= cycle.captionAt) {
+        overlay.revealCaption();
+        cycle.captionAt = Infinity;
       }
     },
     resize(viewportHeightPx) {

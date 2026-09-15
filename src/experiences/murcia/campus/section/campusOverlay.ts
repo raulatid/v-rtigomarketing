@@ -9,6 +9,12 @@
  * `show` fades the current copy out, swaps it, and fades the new copy in.
  * The swap waits for the fade, so text never changes while readable.
  *
+ * Under the copy, when a service has them: «Qué medimos», a label over the
+ * names of what gets measured, and the figure's legend — a key in the
+ * figure's colour and one line saying what it draws. The legend's space is
+ * kept from the start, but it only fades in on `revealCaption`, which the
+ * section calls once the figure it names has formed.
+ *
  * The one thing that takes the pointer is the back arrow at the top-left, when
  * the host asks for one. It only reports a click: what it means is the
  * caller's to decide.
@@ -20,6 +26,7 @@
  */
 
 const FADE_MS = 450;
+const CAPTION_FADE_MS = 700;
 const Z_INDEX = 30;
 
 const fontPromises = new Map<string, Promise<void>>();
@@ -52,6 +59,12 @@ export interface OverlayCopy {
   readonly hint?: string;
   /** The rest of the service's copy, under the subtitle. */
   readonly detail?: string;
+  /** What the figure draws, in one line. Shown on `revealCaption`. */
+  readonly caption?: string | null;
+  /** The names of what gets measured. Empty or absent draws no block. */
+  readonly measures?: readonly string[];
+  /** `#rrggbb`, the figure's colour: the legend's key, as `--campus-accent`. */
+  readonly accent?: string;
 }
 
 export interface CampusOverlayOptions {
@@ -61,8 +74,8 @@ export interface CampusOverlayOptions {
    * the site asks for one.
    */
   onClose?: () => void;
-  /** `leave` names the back arrow. */
-  labels: { readonly leave: string };
+  /** `leave` names the back arrow; `measures` labels the list of what gets measured. */
+  labels: { readonly leave: string; readonly measures?: string };
   /** Where the layer mounts. Defaults to the body. */
   container?: HTMLElement;
   /** A family already declared by the host, or the one `fontUrl` registers. */
@@ -80,6 +93,8 @@ export interface CampusOverlayOptions {
 
 export interface CampusOverlay {
   show(copy: OverlayCopy): void;
+  /** Fades the current copy's legend in. Survives a swap still in flight. */
+  revealCaption(): void;
   hide(): void;
   dispose(): void;
 }
@@ -122,11 +137,46 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   detail.style.cssText =
     (inlineLayout ? 'margin:18px auto 0;max-width:560px;line-height:1.55;' : '') +
     'font-size:clamp(14px,1.2vw,16px);font-weight:400;opacity:0.75;';
+
+  // «Qué medimos». Every visual choice here is the host's when it lays the
+  // plate out; the lab gets a plain centred list.
+  const measures = document.createElement('div');
+  measures.className = 'campus-overlay__measures';
+  const measuresLabel = document.createElement('div');
+  measuresLabel.className = 'campus-overlay__measures-label';
+  measuresLabel.textContent = labels.measures ?? '';
+  measuresLabel.hidden = !labels.measures;
+  const measuresList = document.createElement('ul');
+  measuresList.className = 'campus-overlay__measures-list';
+  if (inlineLayout) {
+    measures.style.cssText = 'margin-top:20px;font-size:13px;';
+    measuresLabel.style.cssText = 'opacity:0.55;';
+    measuresList.style.cssText = 'list-style:none;margin:6px 0 0;padding:0;opacity:0.85;';
+  }
+  measures.append(measuresLabel, measuresList);
+
+  // The figure's legend. Its opacity is behaviour, so it stays inline; the
+  // rest is the host's, like the list's.
+  const caption = document.createElement('div');
+  caption.className = 'campus-overlay__caption';
+  caption.style.cssText =
+    (inlineLayout ? 'margin-top:18px;font-size:13px;' : '') +
+    `opacity:0;transition:opacity ${CAPTION_FADE_MS}ms ease;`;
+  const key = document.createElement('span');
+  key.className = 'campus-overlay__key';
+  key.setAttribute('aria-hidden', 'true');
+  if (inlineLayout) {
+    key.style.cssText =
+      'display:inline-block;width:7px;height:7px;margin-right:8px;border-radius:50%;background:var(--campus-accent,#fff);';
+  }
+  const captionText = document.createElement('span');
+  caption.append(key, captionText);
+
   const hint = document.createElement('div');
   hint.style.cssText =
     'margin-top:26px;font-size:12px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;opacity:0.55;';
 
-  layer.append(title, subtitle, detail, hint);
+  layer.append(title, subtitle, detail, measures, caption, hint);
 
   // The one thing here that takes the pointer, first in the plate so it sits
   // at its top-left. A block, not inline: in the centred card an inline button
@@ -160,6 +210,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   let disposed = false;
   let visible = false;
   let pending: ReturnType<typeof setTimeout> | null = null;
+  /** The current copy's legend was asked for. Reset by every new copy. */
+  let captionWanted = false;
 
   const write = (copy: OverlayCopy): void => {
     title.textContent = copy.title;
@@ -168,6 +220,22 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     hint.hidden = !copy.hint;
     detail.textContent = copy.detail ?? '';
     detail.hidden = !copy.detail;
+
+    const items = copy.measures ?? [];
+    measuresList.replaceChildren(
+      ...items.map((item) => {
+        const row = document.createElement('li');
+        row.textContent = item;
+        return row;
+      }),
+    );
+    measures.hidden = items.length === 0;
+
+    captionText.textContent = copy.caption ?? '';
+    caption.hidden = !copy.caption;
+    caption.style.opacity = captionWanted ? '1' : '0';
+    if (copy.accent) layer.style.setProperty('--campus-accent', copy.accent);
+    else layer.style.removeProperty('--campus-accent');
   };
 
   const cancelPending = (): void => {
@@ -179,6 +247,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     show(copy) {
       if (disposed) return;
       cancelPending();
+      captionWanted = false;
       if (!visible) {
         write(copy);
         visible = true;
@@ -199,10 +268,18 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
       }, FADE_MS);
     },
 
+    revealCaption() {
+      if (disposed) return;
+      captionWanted = true;
+      // Mid-swap the old copy is still written; `write` applies it to the new one.
+      if (pending === null) caption.style.opacity = '1';
+    },
+
     hide() {
       if (disposed) return;
       cancelPending();
       visible = false;
+      captionWanted = false;
       layer.style.opacity = '0';
       layer.style.visibility = 'hidden';
       layer.style.transitionDelay = `0s, ${FADE_MS}ms`;

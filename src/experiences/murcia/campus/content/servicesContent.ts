@@ -13,14 +13,20 @@
  * ## The contract, for a Sanity mapping
  *
  *   intro      { title, subtitle, hint, color }                       a singleton
- *   services[] { id, title, subtitle, icon, figure, detail, color }   in display order
+ *   services[] { id, title, subtitle, icon, figure, detail, color,
+ *                caption, measures }                                  in display order
  *
  * `icon` names an entry of the host's icon library (`iconLibrary.ts`);
  * `figure` is one of `FIGURE_KINDS`. `detail` is the rest of the copy, under
  * the subtitle. `color` is `#rrggbb`, mixed with white in the particles.
+ * `caption` names what the figure draws, or is null; `measures` may be empty.
  */
 
-export const FIGURE_KINDS = ['bars', 'ring', 'pins', 'line'] as const;
+/**
+ * Each figure draws the one mechanism its service's copy states — see
+ * `figureLayouts.ts` — so a figure belongs to a service, not to a style.
+ */
+export const FIGURE_KINDS = ['compound', 'segments', 'funnel', 'path', 'repeat'] as const;
 export type FigureKind = (typeof FIGURE_KINDS)[number];
 
 export interface IntroContent {
@@ -43,6 +49,10 @@ export interface ServiceContent {
   readonly detail: string;
   /** Mixed with white in the symbol and the figure, `#rrggbb`. */
   readonly color: string;
+  /** What the figure draws, in one line: its legend. Null when there is none. */
+  readonly caption: string | null;
+  /** The names of what gets measured. Empty when there are none. */
+  readonly measures: readonly string[];
 }
 
 export interface ServicesContent {
@@ -82,10 +92,14 @@ function parseService(value: unknown): ServiceContent | null {
   const figure = value['figure'];
   const detail = value['detail'];
   const color = value['color'];
+  const caption = value['caption'];
+  const measures = value['measures'];
   if (!isFilledString(id) || !isFilledString(title) || !isFilledString(subtitle)) return null;
   if (!isFilledString(icon) || !isFigureKind(figure) || !isFilledString(detail)) return null;
   if (!isHexColor(color)) return null;
-  return { id, title, subtitle, icon, figure, detail, color };
+  if (caption !== null && !isFilledString(caption)) return null;
+  if (!Array.isArray(measures) || !measures.every(isFilledString)) return null;
+  return { id, title, subtitle, icon, figure, detail, color, caption, measures: measures as string[] };
 }
 
 /** A whole document or nothing: a duplicate id or one bad service rejects the file. */
