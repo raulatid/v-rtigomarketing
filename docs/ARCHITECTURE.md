@@ -481,6 +481,23 @@ each effect retains its existing reduced-motion behavior.
   primitives remain under `landmark/towerScreen/`; this stage does not relocate
   that engine.
 
+## Publication policy and asset delivery
+
+`scripts/publicationPolicy.ts` derives SEO files, entry canonicals, verified blog
+documents and local route rewrites from explicit inputs. It imports no Vite
+runtime, filesystem or environment. Vite retains hook ordering, HTML tag
+injection, file IO and build-failure reporting. Exact HTML replacement is owned
+by `scripts/blogShell.ts`.
+
+The publication tests compare emitted paths with the browser router and the
+blog rewrites in `vercel.json`. Preview serves a known post's directory index;
+unknown or encoded slugs retain the blog fallback. Raw encoding is preserved,
+and only valid content IDs can become filesystem lookup candidates.
+
+Only current delivery assets belong in `public/`. Retired city prototypes live
+in `design/murcia/archive/`, with byte counts and hashes. They are excluded from
+`dist/`; the current city remains `public/models/murcia-v7.glb`.
+
 ## Graphics infrastructure
 
 Potential shared responsibilities include:

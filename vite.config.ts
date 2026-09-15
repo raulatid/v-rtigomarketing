@@ -9,7 +9,9 @@ import path from 'node:path'
 // because `precheck` runs `content:build` before `vite build`. If the sitemap or
 // the blog shells ever come out empty, that ordering is the first thing to check.
 import { BLOG_POSTS } from './src/content/generated/blogPosts'
-import { postHead, replaceRegion, shellProblems } from './scripts/blogShell'
+import {
+  blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, seoFiles,
+} from './scripts/publicationPolicy'
 import { findSecretLeaks, publicPrefixedSecrets, scannableSecrets } from './scripts/secretScan'
 
 // The loading animation is worthless if it is itself waiting on a bundle, so
@@ -148,11 +150,6 @@ const BLOG_BUDGET_BYTES = 120_000
  * knowing what was added is how a budget stops meaning anything.
  */
 const SCENE_BUDGET_BYTES = 285_000
-
-/** Which document a transformIndexHtml call is for. */
-function isBlogDocument(path: string): boolean {
-  return path.replace(/^\//, '') === 'blog.html'
-}
 
 /**
  * Chunks that `index.html` modulepreloads: every non-entry chunk in the bundle.
@@ -583,30 +580,6 @@ function assertChunkBudgets(): Plugin {
  * is correct: there are no shells to defer to.
  */
 function blogRouting(): Plugin {
-  const DIST = 'dist'
-  const shellFor = (clean: string): string | null => {
-    const slug = /^\/blog\/([^/]+)$/.exec(clean)?.[1]
-    if (slug === undefined) return clean === '/blog' ? `${DIST}/blog/index.html` : null
-    return `${DIST}/blog/${slug}/index.html`
-  }
-
-  const rewrite = (url: string | undefined, deferToFiles: boolean): string | null => {
-    if (url === undefined) return null
-    const [pathname] = url.split('?')
-    const clean = pathname.replace(/\/+$/, '')
-    if (clean !== '/blog' && !/^\/blog\/[^/]+$/.test(clean)) return null
-    // Let the static layer serve a prerendered shell when one exists, exactly as
-    // Vercel would. Only an unknown slug falls through to the SPA document.
-    if (deferToFiles) {
-      const shell = shellFor(clean)
-      // Pointed at explicitly rather than by returning null. Vercel resolves an
-      // extensionless path to a directory index; the static layer under
-      // `vite preview` (sirv) does not, so leaving it alone would 404 into the
-      // SPA fallback and every shell would look dead locally.
-      if (shell !== null && fs.existsSync(shell)) return shell.slice(DIST.length)
-    }
-    return '/blog.html'
-  }
   interface RequestLike {
     url?: string
   }
@@ -619,7 +592,9 @@ function blogRouting(): Plugin {
     (deferToFiles: boolean) =>
     (server: ServerLike): void => {
       server.middlewares.use((req, _res, next) => {
-        const target = rewrite(req.url, deferToFiles)
+        const target = blogRewrite(req.url, (fileName) =>
+          deferToFiles && fs.existsSync(path.join('dist', fileName)),
+        )
         if (target !== null) req.url = target
         next()
       })
@@ -647,10 +622,9 @@ function blogRouting(): Plugin {
  *
  * ── Why it does no path parsing whatsoever ──
  *
- * Its neighbour `blogRouting` matches `/^\/blog\/([^/]+)$/`, and SEC-18 is the
- * finding that the class accepts `..`. There is nothing to parse here, so
- * nothing is: two literal strings, compared with `===`, after the query is
- * dropped. No regex, no slug, no path ever touches the filesystem.
+ * Unlike blogRouting's validated shell candidates, API routes need no slug
+ * parsing: two literal strings, compared with `===`, after the query is
+ * dropped. No request path ever touches the filesystem here.
  *
  * The handler is imported DYNAMICALLY, so loading this config never depends on
  * `src/content/generated/` existing — and a failure inside it surfaces as a
@@ -926,48 +900,8 @@ function seoAssets(): Plugin {
     name: 'vertigo-seo-assets',
     apply: 'build',
     generateBundle() {
-      const robots = IS_PRODUCTION
-        ? [
-            'User-agent: *',
-            'Allow: /',
-            '',
-            // The tuning console is inert in production, but there is still no
-            // reason to spend crawl budget on a route that renders the same app.
-            'Disallow: /debug',
-            '',
-            `Sitemap: ${PRODUCTION_ORIGIN}/sitemap.xml`,
-            '',
-          ].join('\n')
-        : ['User-agent: *', 'Disallow: /', ''].join('\n')
-
-      this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robots })
-
-      // There is more than one URL now (adr/013): the site, the blog index, and
-      // one per post. The comment this replaced said "there genuinely is one
-      // URL", which was true and is not any more.
-      //
-      // `lastmod` is the publication date rather than a build timestamp. A
-      // sitemap that claims every page changed on every deploy trains a crawler
-      // to ignore the field.
-      if (IS_PRODUCTION) {
-        const urls = [
-          `  <url><loc>${PRODUCTION_ORIGIN}/</loc></url>`,
-          `  <url><loc>${PRODUCTION_ORIGIN}/blog</loc></url>`,
-          ...BLOG_POSTS.map(
-            (post) =>
-              `  <url><loc>${PRODUCTION_ORIGIN}/blog/${post.id}</loc>` +
-              `<lastmod>${post.publishedAt.slice(0, 10)}</lastmod></url>`,
-          ),
-        ]
-        this.emitFile({
-          type: 'asset',
-          fileName: 'sitemap.xml',
-          source:
-            '<?xml version="1.0" encoding="UTF-8"?>\n' +
-            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-            urls.join('\n') +
-            '\n</urlset>\n',
-        })
+      for (const file of seoFiles(BLOG_POSTS, { origin: PRODUCTION_ORIGIN, production: IS_PRODUCTION })) {
+        this.emitFile({ type: 'asset', ...file })
       }
     },
     transformIndexHtml: {
@@ -976,9 +910,7 @@ function seoAssets(): Plugin {
         // Each document declares its own canonical. blog.html's is /blog, and
         // the per-post shells rewrite it to /blog/<slug> in blogRoutes below —
         // which is why the exact string emitted here is also an anchor there.
-        const self = isBlogDocument(ctx.path)
-          ? `${PRODUCTION_ORIGIN}/blog`
-          : `${PRODUCTION_ORIGIN}/`
+        const self = documentCanonical(ctx.path, PRODUCTION_ORIGIN)
         const tags: HtmlTagDescriptor[] = [
           { tag: 'link', attrs: { rel: 'canonical', href: self }, injectTo: 'head' },
           { tag: 'meta', attrs: { property: 'og:url', content: self }, injectTo: 'head' },
@@ -1046,74 +978,25 @@ function blogRoutes(): Plugin {
       }
       const shell = fs.readFileSync(shellPath, 'utf8')
 
-      const indexCanonical = `<link rel="canonical" href="${PRODUCTION_ORIGIN}/blog">`
-      const indexOgUrl = `<meta property="og:url" content="${PRODUCTION_ORIGIN}/blog">`
-
-      // /blog itself, as a real directory index alongside the fallback document.
-      fs.mkdirSync(path.join(outDir, 'blog'), { recursive: true })
-      fs.writeFileSync(path.join(outDir, 'blog', 'index.html'), shell)
-
-      for (const post of BLOG_POSTS) {
-        const url = `${PRODUCTION_ORIGIN}/blog/${post.id}`
-        let html: string
-        try {
-          html = replaceRegion(shell, postHead(post, { origin: PRODUCTION_ORIGIN }), post.id)
-          html = replaceExactlyOnceOrThrow(html, indexCanonical, `<link rel="canonical" href="${url}">`, `${post.id} canonical`)
-          html = replaceExactlyOnceOrThrow(html, indexOgUrl, `<meta property="og:url" content="${url}">`, `${post.id} og:url`)
-        } catch (error) {
-          this.error(String(error instanceof Error ? error.message : error))
-          return
+      try {
+        const documents = blogDocuments(shell, BLOG_POSTS, PRODUCTION_ORIGIN)
+        for (const document of documents) {
+          const target = path.join(outDir, document.fileName)
+          fs.mkdirSync(path.dirname(target), { recursive: true })
+          fs.writeFileSync(target, document.source)
         }
-
-        const problems = shellProblems(html, post, { origin: PRODUCTION_ORIGIN })
-        if (problems.length > 0) {
-          this.error(`[blog shells] ${post.id} failed verification:\n  - ${problems.join('\n  - ')}`)
-          return
-        }
-
-        const dir = path.join(outDir, 'blog', post.id)
-        fs.mkdirSync(dir, { recursive: true })
-        fs.writeFileSync(path.join(dir, 'index.html'), html)
-      }
-
-      // One directory per post and nothing else, in both directions. A stale
-      // directory from a deleted post would keep serving a page the site no
-      // longer links to, and a missing one is the dead-file bug above.
-      const expected = new Set(BLOG_POSTS.map((post) => post.id))
-      const actual = fs
-        .readdirSync(path.join(outDir, 'blog'), { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-      const orphans = actual.filter((name) => !expected.has(name))
-      const missing = [...expected].filter((id) => !actual.includes(id))
-      if (orphans.length > 0 || missing.length > 0) {
-        this.error(
-          `[blog shells] emitted tree does not match the posts — ` +
-            `orphans: [${orphans.join(', ')}], missing: [${missing.join(', ')}]`,
-        )
+        const actual = fs.readdirSync(path.join(outDir, 'blog'), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+        const problems = blogTreeProblems(BLOG_POSTS, actual)
+        if (problems.length) throw new Error('[blog shells] ' + problems.join('; '))
+      } catch (error) {
+        this.error(String(error instanceof Error ? error.message : error))
         return
       }
 
       this.info(`blog shells ok — ${BLOG_POSTS.length} post(s) + /blog`)
     },
   }
-}
-
-/** Local mirror of the helper in scripts/blogShell.ts, throwing for the plugin. */
-function replaceExactlyOnceOrThrow(
-  haystack: string,
-  needle: string,
-  replacement: string,
-  what: string,
-): string {
-  const count = haystack.split(needle).length - 1
-  if (count !== 1) {
-    throw new Error(
-      `[blog shells] ${what}: expected exactly one match, found ${count}. ` +
-        `Needle: ${JSON.stringify(needle)}`,
-    )
-  }
-  return haystack.replace(needle, replacement)
 }
 
 /**
