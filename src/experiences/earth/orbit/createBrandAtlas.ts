@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
 
 // One canvas texture holding all six brand plates, so the orbit panels cost a
 // single texture bind instead of six. Each panel samples its own cell through a
@@ -437,13 +438,12 @@ function drawLogoContained(
   const ink = inkBounds(img, sw, sh) ?? { x: 0, y: 0, width: sw, height: sh }
   const { w, h } = fitInk(ink, boxW, boxH)
 
-  // Not gated on a DEV flag: nothing in src/ reads import.meta.env, because
-  // checks/ bundles these modules for Node with esbuild where it does not exist.
-  //
+  // Artwork quality diagnostics belong to development. The shared build flag
+  // also works in the Node harnesses, where import.meta.env does not exist.
   // Measured against the INK now, so an asset is called undersized only when the
   // part that draws is undersized — a 1300px file whose mark is 700px wide was
   // previously reported as comfortable and was not.
-  if (ink.width < boxW) {
+  if (DEBUG_TOOLS_ENABLED && ink.width < boxW) {
     console.warn(
       `[brand-atlas] ${kind} ink is ${ink.width}×${ink.height} (file ${sw}×${sh}); it will be ` +
         `upscaled into a ${boxW}×${boxH} box and soften at the case-panel close-up. ` +
@@ -456,7 +456,7 @@ function drawLogoContained(
   // saying because normalising HIDES the problem — the mark now lands correctly
   // and the only remaining cost is resolution nobody can see was lost.
   const marginFraction = 1 - (ink.width * ink.height) / (sw * sh)
-  if (marginFraction > 0.25) {
+  if (DEBUG_TOOLS_ENABLED && marginFraction > 0.25) {
     console.warn(
       `[brand-atlas] ${kind} carries ${Math.round(marginFraction * 100)}% transparent margin ` +
         '— normalised here, but the file wastes that share of its own resolution. ' +

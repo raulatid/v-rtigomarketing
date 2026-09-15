@@ -83,6 +83,18 @@ describe('publication hygiene', () => {
     }
   })
 
+  it('rejects production diagnostics that expose documentation outside the audit folders', () => {
+    const files = [{
+      name: 'assets/scene.js',
+      text: 'console.warn("[brand-atlas] See docs/earth/logo-spec.md.")',
+    }]
+    expect(publicationProblems(files, {}, true)).toContain('assets/scene.js: internal development notes')
+    expect(publicationProblems(files, {}, false)).toEqual([])
+    expect(publicationProblems([{
+      name: 'assets/scene.js', text: 'console.error("[scene] fatal render error", error)',
+    }], {}, true)).toEqual([])
+  })
+
   it('inspects GLB metadata without treating geometry bytes as paths', () => {
     const metadata = Buffer.from('{"asset":{"version":"2.0"},"extras":{"source":"/home/editor/model.blend"}}')
     const glb = Buffer.alloc(20 + metadata.length + 30)

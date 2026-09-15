@@ -93,7 +93,9 @@ export function publicationProblems(
       problems.push(`${name}: local filesystem path`)
     }
     if (/sourceMappingURL\s*=|["']sourcesContent["']\s*:/.test(text)) problems.push(`${name}: source map exposed`)
-    if (/docs\/(?:reports|plans|adr)\//.test(text)) problems.push(`${name}: internal development notes`)
+    if (/docs\/(?:reports|plans|adr)\//.test(text) || (production && /\bdocs\/[\w./-]+\.md\b/.test(text))) {
+      problems.push(`${name}: internal development notes`)
+    }
     if (production && text.includes('__vertigoBootDebug')) problems.push(`${name}: boot diagnostic exposed`)
   }
   return problems
