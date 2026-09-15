@@ -154,20 +154,20 @@ Provenance not recorded when these were added. **Outstanding:** confirm the sour
 of the Earth maps and record them here. They are almost certainly NASA Visible Earth / Blue
 Marble, which is public domain, but "almost certainly" is not a licence record.
 
-## `public/audio/earth-<sha8>.mp3` — the background music
+## `public/audio/<world>-<sha8>.mp3` — the background music
 
 Working files are kept outside the repo in `04_Assets/musica/`.
 
-- `earth-0cae7852.mp3` ← `earth-music-001.mov` (2026-09-11, the project's own export). It is a
-  3.4 s clip that loops. It was repackaged from its QuickTime container with no re-encode and no
-  added fades, so the audio is exactly as exported:
+- `earth-461bb41b.mp3` ← replacement supplied as `earth-0cae7852.mp3` in
+  `public/audio/` on 2026-09-15. Renamed by SHA-256 without re-encoding; replaces
+  the previous 3.4 s clip. The replacement's original source filename is not recorded.
 
-      ffmpeg -i earth-music-001.mov -map 0:a -c:a copy -map_metadata -1 -id3v2_version 0 out.mp3
+- `murcia-dc24effe.mp3` ← `murcia-music-001.mp3`, supplied in `public/audio/` on
+  2026-09-15. Renamed by SHA-256 without re-encoding. Enabled in `MUSIC_TRACKS`
+  with the existing looping playback and crossfade between worlds.
 
-- **Murcia has no track yet**, and is silent. Its entry in `MUSIC_TRACKS` is commented out.
-
-**Outstanding:** record the source and licence of `earth-music-001`, and of Murcia's track once it
-is chosen. The licence must cover streaming on a commercial website.
+**Outstanding:** record the source and licence of `earth-music-001` and `murcia-music-001`.
+The licence must cover streaming on a commercial website.
 
 **Encode recipe for a full-length stock track** (ffmpeg 9.0.1): 128 kbps, 44.1 kHz stereo,
 metadata stripped, and a 1.5 s fade-in with a 3 s fade-out so the `<audio loop>` restart is a

@@ -45,9 +45,8 @@ import type { ExperienceId } from '../experience'
  * nothing in.
  */
 export const MUSIC_TRACKS: Readonly<Partial<Record<ExperienceId, string>>> = {
-  earth: '/audio/earth-0cae7852.mp3',
-  // Murcia's track is still to be chosen (CREDITS.md). Until then Murcia is quiet.
-  // murcia: '/audio/murcia-<sha8>.mp3',
+  earth: '/audio/earth-461bb41b.mp3',
+  murcia: '/audio/murcia-dc24effe.mp3',
 }
 
 /** The master level at full presence. Background, not foreground. */
