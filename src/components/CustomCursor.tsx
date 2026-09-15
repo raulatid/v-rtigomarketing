@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../platform/motionPreference'
 import { useEffect, useRef } from 'react'
 import { CursorHint, subscribeCursorHint } from '../interaction/cursorSignal'
 import { clampFrameDelta } from '../graphics/frameDelta'
@@ -62,7 +63,7 @@ export function CustomCursor({ enabled = true }: Props) {
 
     // With reduced motion the follower snaps to the pointer instead of
     // trailing — the two-circle look stays, the chase animation goes.
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reducedMotion = prefersReducedMotion()
 
     let targetX = 0
     let targetY = 0

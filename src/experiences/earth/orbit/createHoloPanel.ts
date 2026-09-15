@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../../../platform/motionPreference'
 import * as THREE from 'three'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
@@ -5,7 +6,6 @@ import { advanceExpansion, easeExpansion } from './panelExpansion'
 import { invitationPulse } from './invitation'
 import { deploymentFrom } from './holoDeployment'
 import { createEmitterCone } from './createEmitterCone'
-import { prefersReducedMotion } from '../../../utils/warpTransition'
 import { PROTO_HOLO } from '../config/protoHolo'
 
 // The SATELLITE PROJECTION FIELD: the brand artwork suspended in light above a

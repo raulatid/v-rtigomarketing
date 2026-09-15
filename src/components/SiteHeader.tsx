@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../platform/motionPreference'
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -155,7 +156,7 @@ export function SiteHeader({
       setPhase('closed')
       return
     }
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
     setPhase('closing')
     timerRef.current = setTimeout(
       () => setPhase('closed'),

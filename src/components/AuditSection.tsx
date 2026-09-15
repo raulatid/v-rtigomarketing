@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../platform/motionPreference'
 import {
   FormEvent,
   ReactNode,
@@ -437,7 +438,7 @@ export function AuditSection({
 
   const open = useCallback(() => {
     if (phase !== 'closed') return
-    reducedRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    reducedRef.current = prefersReducedMotion()
     auditView.reducedMotion = reducedRef.current
     // Measured from when the FORM appeared, not from page load: the server's
     // question is how long this person spent filling it in.

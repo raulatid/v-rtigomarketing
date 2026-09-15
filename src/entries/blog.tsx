@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../platform/motionPreference'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import BlogRoute from '../blog/BlogRoute'
@@ -64,6 +65,9 @@ function BlogApp() {
     />
   )
 }
+
+// Capture before rendering; late-mounted surfaces reuse this document decision.
+prefersReducedMotion()
 
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('[blog] #root not found in blog.html')

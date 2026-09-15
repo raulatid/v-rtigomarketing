@@ -9,7 +9,7 @@ import type { AuditComposition } from '../interaction/auditComposition'
 // AuditCameraShift owns the easing toward it.
 export const auditView: AuditComposition = {
   open: false,
-  // Sampled from prefers-reduced-motion when the panel opens, so the camera
+  // Uses the shared document motion snapshot when the panel opens, so the camera
   // shift can snap instead of travel (plan 005 §12).
   reducedMotion: false,
 }

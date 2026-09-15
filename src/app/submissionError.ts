@@ -1,26 +1,4 @@
-/**
- * The vocabulary a form's rejection carries.
- *
- * ── Why this is shared when the two transports are not ──
- *
- * `contactSubmission.ts` records the rule: the two forms are duplicated on
- * purpose, "so the two forms can get real backends independently, and a common
- * factory would couple their payloads through the one seam that exists to keep
- * them apart". That rule is about PAYLOADS and endpoints, and it still holds —
- * each transport names its own URL and its own request type.
- *
- * This is not a payload. It is the alphabet the two panels read a failure in,
- * and duplicating it would give the same sentence two spellings and let them
- * drift apart in a place a visitor can see.
- *
- * ── Why the code rides on a rejection instead of widening the signature ──
- *
- * `SubmitAuditRequest` stays `(data) => Promise<void>`, byte for byte. That is
- * what `AuditSection.tsx` and both presentation test files are written against,
- * and keeping it means those tests pass UNTOUCHED through this change — which
- * is the evidence that the seam the transport was built around actually held.
- */
-
+/** Shared failure vocabulary; each transport retains its own request contract. */
 export type SubmissionErrorCode =
   /** The server refused specific fields. `fields` says which. */
   | 'invalid'

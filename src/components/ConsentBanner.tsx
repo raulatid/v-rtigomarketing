@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../platform/motionPreference'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { readConsent, subscribeConsent, writeConsent, type ConsentRecord } from '../app/consent'
 import type { LegalDocId } from '../content/site'
@@ -67,7 +68,7 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
   useEffect(() => () => window.clearTimeout(timerRef.current), [])
 
   const choose = useCallback((analytics: boolean) => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
     writeConsent({ analytics })
     setState('leaving')
     window.clearTimeout(timerRef.current)

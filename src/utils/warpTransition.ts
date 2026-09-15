@@ -292,19 +292,6 @@ export function motionBlur(p: number, limits: WarpLimits): number {
 }
 
 /**
- * Impure, and deliberately not used by the functions above so the envelope
- * stays testable. Callers read it once and skip the camera work; the flash and
- * the cut still play, because concealing the jump is not a motion effect.
- */
-export function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-}
-
-/**
  * The vacuum, scrubbed from the viewer's own scroll. Reversible, and 0 until
  * the approach passes murciaVacuumStart.
  *

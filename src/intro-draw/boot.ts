@@ -9,6 +9,8 @@ import { bootState, BootState, Readiness, REQUIRED_IDS } from './bootState'
 import { DRAW_TIMING } from './drawConfig'
 
 export interface VertigoIntro {
+  /** Document motion snapshot handed to the application without importing boot. */
+  readonly reducedMotion: boolean
   handle: IntroDrawHandle
   boot: BootState
   /** Resolves the first time the fill completes. Replays use subscribeComplete. */
@@ -134,7 +136,7 @@ function boot(): VertigoIntro {
     zones: () => handle.zones(),
   }
 
-  return { handle, boot: bootState, completed, waitedTooLong: () => waited }
+  return { reducedMotion, handle, boot: bootState, completed, waitedTooLong: () => waited }
 }
 
 // Idempotent: if the app chunk somehow evaluates this first, it still gets the

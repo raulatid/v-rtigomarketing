@@ -3,7 +3,12 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SiteHeader } from './SiteHeader'
+import { prefersReducedMotion } from '../platform/motionPreference'
 import { MENU_MOTION_MS, MENU_REDUCED_MS } from '../corner-logo/headerMenuTiming'
+
+// Each presentation case supplies its document policy. Snapshot lifetime and
+// boot handoff are covered by platform/motionPreference.test.ts.
+vi.mock('../platform/motionPreference', () => ({ prefersReducedMotion: vi.fn() }))
 
 // The phone menu's contract, as behaviour rather than pixels (the motion is
 // CSS, and is reviewed by eye).
@@ -44,10 +49,9 @@ beforeEach(() => {
   vi.useFakeTimers()
   mediaListeners = {}
   reducedMotion = false
-  // jsdom has no matchMedia. The header watches TWO queries: the phone
-  // breakpoint, which decides where the box lives and folds the menu on a
-  // rotation, and reduced motion, which it samples when the menu closes (a
-  // media query cannot reach a setTimeout).
+  vi.mocked(prefersReducedMotion).mockImplementation(() => reducedMotion)
+  // jsdom has no matchMedia. The phone breakpoint decides where the box
+  // lives and folds the menu on rotation. Motion uses the document policy above.
   window.matchMedia = ((query: string) => ({
     get matches() {
       if (query === '(prefers-reduced-motion: reduce)') return reducedMotion

@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../../../platform/motionPreference'
 import * as THREE from 'three'
 import {
   arrivalEdge,
@@ -233,8 +234,7 @@ export class CompassBar {
   private visible = false
 
   constructor(parent: HTMLElement, pois: readonly CompassPoi[]) {
-    this.reducedMotion =
-      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+    this.reducedMotion = prefersReducedMotion()
 
     this.root = document.createElement('div')
     this.root.className = 'murcia-compass'

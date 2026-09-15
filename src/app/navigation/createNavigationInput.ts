@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../../platform/motionPreference'
 import type { ExperienceId } from '../experience'
 import { normalizeWheelDelta } from '../../utils/wheelDelta'
 import { createNavigationGesture } from './navigationGesture'
@@ -242,8 +243,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   // picks its damping here — in the one DOM-facing module — and the spring
   // itself stays pure.
   const springLimits = deps.springLimits ?? NAVIGATION_SPRING
-  const reducedMotion =
-    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reducedMotion = prefersReducedMotion()
   const spring = createProgressSpring({
     omegaRadPerSec: springLimits.omegaRadPerSec,
     damping: reducedMotion ? springLimits.reducedMotionDamping : springLimits.damping,

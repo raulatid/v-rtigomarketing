@@ -1,9 +1,9 @@
+import { prefersReducedMotion } from '../../../platform/motionPreference'
 import * as THREE from 'three';
 import type { BlogDisplay } from './blogDisplay';
 import {
   BLOG_TRANSITION,
   cinematicTravel,
-  prefersReducedMotion,
   smootherstep,
 } from './blogTransition';
 import { createHandoffImage, type HandoffImage } from './handoffImage';

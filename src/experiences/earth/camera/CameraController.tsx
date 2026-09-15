@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../../../platform/motionPreference'
 import type { NavigationView } from '../../../interaction/navigationSignals'
 import { RefObject, useMemo, useRef } from 'react'
 import { overviewRestPosition } from './overviewPose'
@@ -21,7 +22,6 @@ import {
   dollyAmount,
   earthFov,
   earthRadiusScale,
-  prefersReducedMotion,
   speed,
 } from '../../../utils/warpTransition'
 

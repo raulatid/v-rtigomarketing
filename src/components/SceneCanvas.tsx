@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../platform/motionPreference'
 import type { AuditComposition } from '../interaction/auditComposition'
 import type { NavigationView } from '../interaction/navigationSignals'
 import { RefObject, useCallback, useRef } from 'react'
@@ -13,7 +14,6 @@ import type { FrameSettings, RenderRoute } from '../graphics/renderableExperienc
 import {
   WARP_LIMITS,
   motionBlur as warpMotionBlur,
-  prefersReducedMotion,
   transitionLeg,
   vacuumCommitted,
   vacuumScrub,

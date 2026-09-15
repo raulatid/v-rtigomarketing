@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
-import { attachTowerScreen, SCREEN_NODE_NAME, selectScreenUv, uvAttributeName } from './attachTowerScreen'
+import { attachTowerScreen, SCREEN_NODE_NAME } from './attachTowerScreen'
+import { selectScreenUv, uvAttributeName } from '../../screens/screenMesh'
 
 // The screen's failure path, which is the one the city depends on: a tower
 // with no screen must still load, stand in its colours, and say why it is dark.

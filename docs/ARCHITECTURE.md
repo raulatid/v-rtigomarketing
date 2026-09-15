@@ -455,6 +455,34 @@ Global mutable state should be minimized.
 
 Shared infrastructure exists to hide genuine cross-cutting complexity.
 
+## Document motion policy
+
+`src/platform/motionPreference.ts` owns one JavaScript reduced-motion snapshot
+per document. The standalone intro captures the preference and hands it over
+through `window.__vertigoIntro.reducedMotion`; no runtime import crosses the boot
+boundary. The app entry captures that handoff before rendering. A cold blog has
+no intro and captures its own preference in its entry.
+
+Late-mounted panels, scene engines and warm route changes reuse that value.
+Changing the system preference takes effect in JavaScript after a document
+reload; it cannot switch a camera transition's implementation halfway through.
+CSS media queries remain live. This defines when the preference is sampled;
+each effect retains its existing reduced-motion behavior.
+
+## Shared response and screen lifetimes
+
+- `src/app/submissionResponse.ts` owns delivery confirmation, status fallback
+  and field-message parsing for both form endpoints. Each transport still owns
+  its payload, endpoint, timeout and request error handling.
+- `src/experiences/murcia/screens/screenPlayer.ts` owns composition creation,
+  carousel playback, first-slide readiness and disposal. `screenMesh.ts` owns
+  mesh lookup and UV selection. Tower and campus adapters retain their defaults,
+  palette policy, texture limits and material restoration behavior. Rendering
+  primitives remain under `landmark/towerScreen/`; this stage does not relocate
+  that engine.
+
+## Graphics infrastructure
+
 Potential shared responsibilities include:
 
 ```text

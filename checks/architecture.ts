@@ -412,6 +412,19 @@ forbid('platform/ does not import experiences', 'src/platform/', 'src/experience
 forbid('platform/ does not import the application', 'src/platform/', 'src/app/', '');
 forbid('interaction/ does not import the application', 'src/interaction/', 'src/app/', 'signals are contracts, not application owners');
 
+{
+  const owners = new Set(['src/intro-draw/boot.ts', 'src/platform/motionPreference.ts']);
+  const offenders = modules.filter((mod) => mod.file.startsWith('src/') && !owners.has(mod.file) &&
+    /matchMedia\(\s*['"]\(prefers-reduced-motion:/.test(fs.readFileSync(mod.file, 'utf8')));
+  check('motion queries belong only to boot and the document policy', offenders.length === 0,
+    offenders.length ? offenders.map((mod) => mod.file).join('; ') : 'boot hands off its snapshot; CSS media queries stay live');
+}
+
+forbid('campus screens do not import the tower adapter',
+  'src/experiences/murcia/campus/campusScreen/',
+  'src/experiences/murcia/landmark/towerScreen/attachTowerScreen',
+  'both adapters use screens/screenPlayer and screens/screenMesh');
+
 section('2. The two experiences do not know about each other');
 
 forbid(

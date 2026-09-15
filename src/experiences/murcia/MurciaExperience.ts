@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../../platform/motionPreference'
 import * as THREE from 'three';
 
 import { createAppConfig, applyQueryOverrides } from './config/appConfig';
@@ -90,7 +91,7 @@ export class MurciaExperience {
   /** False on a production build — see the constructor. */
   private readonly debugTools: boolean;
   /**
-   * `prefers-reduced-motion`, read once at construction. ONE read for the
+   * The document motion snapshot, obtained at construction. ONE value for the
    * environment: the campus's flights and the tower sign both answer to it,
    * and a second `matchMedia` per consumer is how two parts of one city end
    * up disagreeing about the same setting.
@@ -264,9 +265,7 @@ export class MurciaExperience {
     this.onOpenBlog = options.onOpenBlog;
     this.onBlogApproachStart = options.onBlogApproachStart;
     this.buildAssetsAvailable = options.buildAssetsAvailable ?? false;
-    this.reducedMotion =
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.reducedMotion = prefersReducedMotion();
     this.appConfig = applyQueryOverrides(
       createAppConfig(),
       window.location.search,

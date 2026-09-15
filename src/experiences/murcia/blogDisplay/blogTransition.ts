@@ -170,19 +170,3 @@ export function cinematicTravel(t: number, power: number): number {
   const x = clamp01(t);
   return x < 0.5 ? 0.5 * Math.pow(x * 2, power) : 1 - 0.5 * Math.pow((1 - x) * 2, power);
 }
-
-/**
- * Read ONCE, at construction — never per frame.
- *
- * A preference, not a live signal. Re-reading it mid-transition could change which
- * branch a running approach is in and leave the camera parked wherever the last
- * motion frame put it.
- *
- * Note what reduced motion does NOT switch off: the navigation still happens, and
- * the handoff image still covers it. Concealing a document swap is not a motion
- * effect, and without the cover the page would visibly pop.
- */
-export function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}

@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../platform/motionPreference'
 import * as THREE from 'three'
 import { createCornerLogo, type CornerLogo, type CornerLogoConfig } from '../corner-logo/createCornerLogo'
 import { isWebGLAvailable } from '../graphics/webglSupport'
@@ -178,7 +179,7 @@ function createInstance(): Instance | null {
   // The same cap the scene argues for at SceneCanvas.tsx, for the same reason.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
 
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const reduceMotion = prefersReducedMotion()
 
   let current: Attachment | null = null
   let ready = false
@@ -281,7 +282,7 @@ function createInstance(): Instance | null {
    * settle — but a reading page is the surface where it matters most.)
    */
   function sync(): void {
-    if (ready && current !== null && onScreen && !document.hidden && !reduceMotion.matches) start()
+    if (ready && current !== null && onScreen && !document.hidden && !reduceMotion) start()
     else stop()
   }
 
@@ -303,7 +304,6 @@ function createInstance(): Instance | null {
     intersection.disconnect()
     resize.disconnect()
     document.removeEventListener('visibilitychange', onVisibility)
-    reduceMotion.removeEventListener('change', onMotionPreference)
     canvas.removeEventListener('webglcontextlost', onContextLost)
     window.removeEventListener('pagehide', onPageHide)
     logo.dispose()
@@ -330,16 +330,6 @@ function createInstance(): Instance | null {
 
   const onVisibility = () => sync()
   document.addEventListener('visibilitychange', onVisibility)
-
-  // Turning reduced motion ON mid-session has to stop the spin, and turning it
-  // off has to start it. `change` is the only way to hear about either.
-  const onMotionPreference = () => {
-    sync()
-    // Leave a composed frame behind rather than whatever pose the spin was
-    // halfway through.
-    if (reduceMotion.matches && ready) draw(0)
-  }
-  reduceMotion.addEventListener('change', onMotionPreference)
 
   const onContextLost = (event: Event) => {
     event.preventDefault()

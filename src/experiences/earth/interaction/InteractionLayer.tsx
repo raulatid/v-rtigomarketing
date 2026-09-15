@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../../../platform/motionPreference'
 import type { AuditComposition } from '../../../interaction/auditComposition'
 import type { NavigationView } from '../../../interaction/navigationSignals'
 import { RefObject, useEffect, useMemo, useRef } from 'react'
@@ -11,7 +12,7 @@ import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { installCameraReadout } from '../debug/CameraReadout'
 import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
 import { PROTO_TUTORIAL } from '../config/protoTutorial'
-import { WARP_LIMITS, prefersReducedMotion } from '../../../utils/warpTransition'
+import { WARP_LIMITS } from '../../../utils/warpTransition'
 import {
   EARTH_DEPARTURE_ALIGN_DEGREES,
   advanceOrbitSteer,

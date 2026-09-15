@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '../../../platform/motionPreference'
 import { RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap/gsap-core'
 // gsap-core's own declarations stop short of the `gsap.core` namespace that this
@@ -57,7 +58,7 @@ export function useMasterTimeline({
     const draw = intro.current
     if (!draw || !drawComplete) return
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reducedMotion = prefersReducedMotion()
 
     // Discrete phase changes are the only thing allowed to hit React state.
     const setPhase = (next: Phase) => {

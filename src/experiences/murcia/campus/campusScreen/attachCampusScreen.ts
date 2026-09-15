@@ -1,16 +1,13 @@
 import * as THREE from 'three';
-import { createCarousel, type Carousel, type CarouselFrame } from '../../landmark/towerScreen/carousel';
-import type { FacadeContentDocument, FacadeRotation } from '../../landmark/towerScreen/content/facadeContent';
-import type { FacadeComposition } from '../../landmark/towerScreen/facadeComposition';
-import { createComposition } from '../../landmark/towerScreen/facadeRenderer';
-import { createMediaFacade, type MediaFacade } from '../../landmark/towerScreen/mediaFacade';
-import { selectScreenUv, uvAttributeName } from '../../landmark/towerScreen/attachTowerScreen';
+import type { FacadeContentDocument } from '../../landmark/towerScreen/content/facadeContent';
+import { createScreenPlayer, INERT_SCREEN, type ScreenPlayer } from '../../screens/screenPlayer';
+import { findScreen, selectScreenUv, uvAttributeName } from '../../screens/screenMesh';
 import { CAMPUS_SCREEN_DOCUMENT, DESIGN_METRES_WIDE } from './campusScreenContent';
 
 /**
  * The campus's ring screen: the one entry point of this module.
  *
- * A copy of the tower's `attachTowerScreen`, for a different screen: one
+ * An adapter for the shared screen player, on one
  * continuous LED strip round the outside wall, `CAMPUS_SCREEN_Continuous`.
  * Handed a root that CONTAINS the campus, it finds the strip and runs the
  * compositions on it under the carousel. Nothing here loads a model, owns a
@@ -37,13 +34,6 @@ import { CAMPUS_SCREEN_DOCUMENT, DESIGN_METRES_WIDE } from './campusScreenConten
 export const SCREEN_NODE_NAME = 'CAMPUS_SCREEN_Continuous';
 
 /**
- * No entrance. The tower energises with a sweep along its arc; a ticker on a
- * ring is simply on, so the progress jumps to settled on the first frame and
- * the wake in the shader never shows.
- */
-const ENTRANCE_SECONDS = 0;
-
-/**
  * Long-axis texture size, clamped to the renderer's limit. At 16384 the strip
  * is a 16384×318 canvas, about 48 px per design metre, so a 3 m word is
  * 143 px tall and stays legible through the LED grid; a renderer capped at
@@ -68,38 +58,7 @@ export interface CampusScreenOptions {
   readonly maxTextureSize?: number;
 }
 
-export interface CampusScreen {
-  /** Resolves true once the first slide's assets are in; false with no screen. */
-  readonly ready: Promise<boolean>;
-  /** Null when there is no screen. Exposed for tuning; the site never needs it. */
-  readonly facade: MediaFacade | null;
-  readonly carousel: Carousel | null;
-  readonly compositionIds: readonly string[];
-  update(dt: number): void;
-  dispose(): void;
-}
-
-function findScreen(root: THREE.Object3D, nodeName: string, uvChannel: number): THREE.Mesh | null {
-  const name = THREE.PropertyBinding.sanitizeNodeName(nodeName);
-  const attribute = uvAttributeName(uvChannel);
-  let found: THREE.Mesh | null = null;
-  root.traverse((object) => {
-    const mesh = object as THREE.Mesh;
-    if (!found && mesh.isMesh && object.name === name && mesh.geometry.getAttribute(attribute)) {
-      found = mesh;
-    }
-  });
-  return found;
-}
-
-const INERT: CampusScreen = {
-  ready: Promise.resolve(false),
-  facade: null,
-  carousel: null,
-  compositionIds: [],
-  update() {},
-  dispose() {},
-};
+export type CampusScreen = ScreenPlayer;
 
 export function attachCampusScreen(root: THREE.Object3D, options: CampusScreenOptions): CampusScreen {
   const screenNodeName = options.screenNodeName ?? SCREEN_NODE_NAME;
@@ -107,77 +66,35 @@ export function attachCampusScreen(root: THREE.Object3D, options: CampusScreenOp
   const mesh = findScreen(root, screenNodeName, uvChannel);
   if (!mesh) {
     console.warn(`[service-campus] no "${screenNodeName}" mesh with ${uvAttributeName(uvChannel)}; the strip stays dark`);
-    return INERT;
+    return INERT_SCREEN;
   }
   selectScreenUv(mesh, uvChannel);
 
   const document = options.document ?? CAMPUS_SCREEN_DOCUMENT;
-  const compositions: FacadeComposition[] = document.compositions.map((content) =>
-    createComposition({ id: content.id, label: content.label, blocks: content.blocks }),
-  );
-  const first = compositions[0];
-  if (!first) {
+  if (document.compositions.length === 0) {
     console.warn('[service-campus] the screen document has no compositions; the screen stays dark');
-    return INERT;
+    return INERT_SCREEN;
   }
-
-  // A document without a playlist holds its first composition for good.
-  const rotation: FacadeRotation = document.rotation ?? {
-    compositions: [first.id],
-    seconds: Number.POSITIVE_INFINITY,
-  };
-  const carousel = createCarousel(rotation, {
-    entranceSeconds: ENTRANCE_SECONDS,
-    reducedMotion: options.reducedMotion,
-  });
 
   const original = mesh.material;
-  const facade = createMediaFacade({
-    mesh,
-    resolution: Math.min(options.resolution ?? DEFAULT_RESOLUTION, options.maxTextureSize ?? Infinity),
-    anisotropy: options.anisotropy,
-    designMetresWide: options.designMetresWide ?? DESIGN_METRES_WIDE,
-    flipY: false,
-  });
-  if (options.reducedMotion) {
-    facade.setShimmer(0);
-    facade.setDust(0);
-  }
-
-  let disposed = false;
-  let shownId = '';
-  const show = (frame: CarouselFrame): void => {
-    if (frame.compositionId !== shownId) {
-      shownId = frame.compositionId;
-      facade.setComposition(compositions.find((entry) => entry.id === shownId) ?? null);
-    }
-    facade.setProgress(frame.progress);
-  };
-  show(carousel.frame);
-
-  const shown = compositions.find((entry) => entry.id === shownId);
-  const ready = (shown?.load?.() ?? Promise.resolve()).then(() => !disposed);
-
-  return {
-    ready,
-    facade,
-    carousel,
-    compositionIds: compositions.map((entry) => entry.id),
-
-    update(dt) {
-      if (disposed) return;
-      show(carousel.update(dt));
-      facade.update(dt);
+  const player = createScreenPlayer(document, {
+    reducedMotion: options.reducedMotion,
+    facade: {
+      mesh,
+      resolution: Math.min(options.resolution ?? DEFAULT_RESOLUTION, options.maxTextureSize ?? Infinity),
+      anisotropy: options.anisotropy,
+      designMetresWide: options.designMetresWide ?? DESIGN_METRES_WIDE,
+      flipY: false,
     },
-
+  });
+  let disposed = false;
+  return {
+    ...player,
     dispose() {
       if (disposed) return;
       disposed = true;
-      // The facade's canvases and textures are unreachable from the scene graph;
-      // the compositions' assets are ours, lent to the facade and never owned by
-      // it. The export's material goes back on the mesh for the host to free.
-      facade.dispose();
-      for (const composition of compositions) composition.dispose?.();
+      player.dispose();
+      // Restore the loader's material so the host can release it with the tree.
       mesh.material = original;
     },
   };
