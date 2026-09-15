@@ -271,8 +271,8 @@ dialogs 62, header 70.
 
 - **The header line** is the one composition line: a 46px control whose centre sits 48px in from
   the top and sides. On a phone it is a 44px control anchored 12px from the top, or below the notch.
-  The corner logo is drawn by the 3D canvas and *measures* this line; there is no second copy of
-  the numbers.
+  The corner logo is drawn by the 3D canvas and *measures* this line; its phone height is a
+  separate CSS token at 36px, so the controls retain their 44px touch targets.
 - **The audit curtain** slides in from the left at clamp(480px, 44vw, 720px), clamp(420px, 56vw, 640px) under 1024px,
   and full width on a phone. It leaves a live strip of the scene beside it. Its form holds a
   1.75rem rhythm between groups and 1.25rem between fields.
@@ -281,6 +281,8 @@ dialogs 62, header 70.
 - **Dialogs** centre at min(440px, 100%) with a 16px viewport gutter and a scrim.
 - **Trays** sit bottom-centre (the hint frame) or hang from the header line (the Murcia compass),
   sized to clear the header's own groups.
+  On phones the compass spans 184–240px between the logo and menu; audio moves beside cookies
+  at the bottom left. Audio stays white over both worlds, with a small smoked backing.
 - **The blog** is a document of its own under a black bar, with a reading column.
 
 Width decides layout (767px and 1024px). Input capability decides behaviour: `(hover: hover)` gates
@@ -362,8 +364,9 @@ Quiet until needed. There is one button on the site that looks like a button.
 ### Navigation
 - **Header:** transparent over the scene, and it takes no pointer events except on its controls,
   so the band stays draggable. The 3D mark sits at the left, the triggers at the right.
-- **Phone:** the triggers fold behind a 44px, four-pixel-bar burger that turns into an ✕. Over the
-  scene, the viewport itself hinges away to reveal the menu layer. On the blog, a neutral hairline
+- **Phone:** the triggers fold behind a 44px touch target that turns into an ✕. Over the
+  scene its bars are 32 × 3px and the viewport hinges away to reveal the menu layer. The blog
+  retains 44 × 4px bars. On the blog, a neutral hairline
   ignites and glass wipes down beneath it.
 - **Blog bar:** solid Ink with a 0.12 white hairline. Its controls inherit the ink rather than
   carrying a colour each.

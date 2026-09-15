@@ -450,6 +450,19 @@
   }
 }
 
+/* The scene's phone utilities share a baseline and separate 44px targets.
+   Reserve their row while the consent sheet is asking for a choice too. */
+@media (max-width: 767px) {
+  .app__scene .consent-info {
+    left: calc(max(12px, env(safe-area-inset-left)) + 15px);
+    bottom: calc(23px + env(safe-area-inset-bottom));
+  }
+
+  .app__scene .consent-banner__plate {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
+
 /* ---- Reduced motion: the banner fades in as one and out as one. The dot's
    pulse is decoration in motion; the fades may stay. The exit timer in
    ConsentBanner.tsx is 60ms under this query, so every transition here has to

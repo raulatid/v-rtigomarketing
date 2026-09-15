@@ -66,7 +66,7 @@ function measureHeaderLine(): CornerMetrics | null {
   return {
     insetLeftPx: rect.left + padLeft,
     centerYPx: rect.top + padTop + lineHeight / 2,
-    heightPx: lineHeight,
+    heightPx: parseFloat(style.getPropertyValue('--header-logo-height')) || lineHeight,
   }
 }
 

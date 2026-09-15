@@ -32,6 +32,7 @@
   :root {
     --header-inset: 12px;
     --header-control: 44px;
+    --header-logo-height: 36px;
     --header-line-top: max(12px, env(safe-area-inset-top));
   }
 }
@@ -440,10 +441,10 @@
   color: var(--accent);
 }
 
-/* The music toggle (SoundToggle.tsx): an icon beside the actions, on the line on
-   a phone too — the `extra` cell is never portaled into the menu. It takes the
-   bare Contacto text's ink, and turns with it over a light ground. */
+/* The music toggle stays white over both worlds. A small dark backing keeps
+   it visible over Murcia; on phones its wrapper joins the bottom utilities. */
 .sound-toggle {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -452,7 +453,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff;
   cursor: pointer;
   transition: color 0.2s ease;
   animation: audit-trigger-in 480ms ease 60ms backwards;
@@ -467,12 +468,17 @@
   outline-offset: 2px;
 }
 
-.site-header[data-tone='light'] .sound-toggle {
-  color: rgba(11, 11, 13, 0.85);
+.sound-toggle::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 8px;
+  background: var(--glass-bg-light);
+  pointer-events: none;
 }
 
-.site-header[data-tone='light'] .sound-toggle:hover {
-  color: var(--accent);
+.sound-toggle svg {
+  position: relative;
 }
 
 /* ---- White over the scene (2026-09-04, plan 012 task 2) -------------------
@@ -927,6 +933,32 @@
   .site-header__extra {
     position: relative;
     z-index: 2;
+  }
+}
+
+/* Scene utilities leave the header flow on phones. The fixed wrapper also
+   removes its flex gap from the measured tail used by the compass. */
+@media (max-width: 767px) {
+  .site-header[data-layout='scene'] .site-header__extra:has(.sound-toggle) {
+    position: fixed;
+    left: calc(max(12px, env(safe-area-inset-left)) + 48px);
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .site-header[data-layout='scene'] .site-header__burger-bar {
+    left: 6px;
+    width: 32px;
+    height: 3px;
+    top: calc(50% - 1.5px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+
+  .site-header[data-layout='scene']:not([data-menu-state='open']) .site-header__burger-bar:nth-child(1) {
+    transform: translateY(-9px);
+  }
+
+  .site-header[data-layout='scene']:not([data-menu-state='open']) .site-header__burger-bar:nth-child(3) {
+    transform: translateY(9px);
   }
 }
 

@@ -1664,6 +1664,10 @@ html {
    it. `attentionIsFree` already drops the permission when the menu opens, so
    this only covers the 900ms fade that starts as it does. */
 @media (max-width: 767px) {
+  .earth-hint {
+    --hint-floor: 60px;
+  }
+
   .app__scene[data-menu-open] .earth-hint {
     opacity: 0;
     transition: opacity 120ms ease;

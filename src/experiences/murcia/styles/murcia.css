@@ -285,6 +285,21 @@
   opacity: 1;
 }
 
+/* A compact instrument between the mark and the burger. Keep a full control
+   reserved even while a panel hides the burger and the tail measures zero. */
+@media (max-width: 767px) {
+  .murcia-ui .murcia-compass {
+    --pad-x: 10px;
+    --murcia-compass-min: 184px;
+    --murcia-compass-air: 12px;
+    --murcia-compass-clear: calc(
+      max(44px, var(--site-header-tail, 44px)) + var(--header-inset) + var(--murcia-compass-air)
+    );
+    width: min(240px, max(var(--murcia-compass-room), var(--murcia-compass-short)));
+    border-radius: 12px;
+  }
+}
+
 /* The treatment: white at the site's text strengths and nothing else
    (2026-09-15, DECISIONS §44). The lab's blue furniture, its glows and its
    yellow arrival were a game HUD on the Night Window's glass. The hierarchy is
