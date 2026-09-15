@@ -275,6 +275,27 @@ export function SiteHeader({
     onMenuStateChange?.(phase)
   }, [phase, onMenuStateChange])
 
+  // The right-hand group's width, published on the root as `--site-header-tail`
+  // for whatever has to keep clear of it — the Murcia compass centres itself
+  // between the header's ends (murcia.css). The group is text and a toggle, so
+  // only a measurement knows its width; an observer re-reports on a font swap,
+  // a breakpoint, or a control added to the cell. The scene's header only: in a
+  // warm session the blog's bar is in the same document, with its own line.
+  const tailRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const tail = tailRef.current
+    if (layout !== 'scene' || !tail || typeof ResizeObserver !== 'function') return
+    const root = document.documentElement
+    const observer = new ResizeObserver(([entry]) => {
+      root.style.setProperty('--site-header-tail', `${entry.contentRect.width}px`)
+    })
+    observer.observe(tail)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--site-header-tail')
+    }
+  }, [layout])
+
   const actionsId = `site-header-actions-${layout}`
 
   /* The box around the portal host.
@@ -308,7 +329,7 @@ export function SiteHeader({
       <div className="site-header__row">
         <div className="site-header__start">{leading}</div>
         <div className="site-header__brand">{brand}</div>
-        <div className="site-header__tail">
+        <div className="site-header__tail" ref={tailRef}>
           {/* FIRST in the DOM, last on the line (CSS `order`): Tab from the
               burger has to land on the items it just revealed. Three bars that
               fold into a ✕ while the menu is open (siteHeader.css, keyed on

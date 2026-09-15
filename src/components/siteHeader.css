@@ -136,6 +136,9 @@
   /* Density A — the floating tray: hint frame and consent plate.
      Separation comes from the shadow, not from opacity. */
   --glass-bg-light: rgba(10, 15, 22, 0.68);
+  /* Density A a shade denser, for a small tray over the city at its brightest
+     on a phone: the Murcia compass under 480px. */
+  --glass-bg-light-dense: rgba(10, 15, 22, 0.74);
   /* Density B — the compact plaque: the case panel. */
   --glass-bg: rgba(8, 12, 18, 0.78);
   /* Density C — the heavy panel: contact, legal, the audit curtain. The
@@ -192,6 +195,7 @@
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {
     --glass-bg-light: rgba(10, 15, 22, 0.92);
+    --glass-bg-light-dense: rgba(10, 15, 22, 0.92);
     --glass-bg: rgba(8, 12, 18, 0.94);
     --glass-bg-heavy: rgba(7, 10, 15, 0.96);
   }

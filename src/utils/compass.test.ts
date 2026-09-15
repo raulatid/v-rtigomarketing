@@ -5,6 +5,7 @@ import {
   compassMark,
   edgeFadeOpacity,
   horizontalBearing,
+  placeLabels,
   rangeCloseness,
 } from './compass'
 
@@ -189,5 +190,62 @@ describe('arrivalEdge', () => {
     const state = arrivalEdge(true, 0.6, 0.85, 0.5)
     expect(state.fire).toBe(false)
     expect(state.armed).toBe(true)
+  })
+})
+
+describe('placeLabels', () => {
+  const RULES = { halfSpan: 200, gap: 8, reenterGap: 14, stickiness: 0.05 }
+  const label = (x: number, width: number, priority = 0, shown = true) => ({
+    x,
+    width,
+    priority,
+    shown,
+  })
+
+  it('leaves a label on its mark when it fits', () => {
+    expect(placeLabels([label(40, 60)], RULES)).toEqual([{ shift: 0, shown: true }])
+  })
+
+  it('moves a label near an end inward until it is on the bar, and no further', () => {
+    // Centre held at 160, so the right edge lands exactly on the bar's end.
+    expect(placeLabels([label(200, 80)], RULES)[0].shift).toBe(-40)
+    expect(placeLabels([label(-190, 80)], RULES)[0].shift).toBe(30)
+  })
+
+  it('centres a label wider than the bar', () => {
+    const [wide] = placeLabels([label(50, 500)], RULES)
+    expect(50 + wide.shift).toBe(0)
+  })
+
+  it('draws only the higher-priority of two labels that would overlap', () => {
+    // The arrival pose: two places a few degrees apart, the blog being arrived at.
+    const [servicios, blog] = placeLabels([label(-3, 79, 0.1), label(11, 39, 0.9)], RULES)
+    expect(blog.shown).toBe(true)
+    expect(servicios.shown).toBe(false)
+  })
+
+  it('draws both when they clear each other by the gap', () => {
+    // 100 apart, half-widths 40 + 40: 20px clear.
+    const placed = placeLabels([label(-50, 80), label(50, 80)], RULES)
+    expect(placed.every((p) => p.shown)).toBe(true)
+  })
+
+  it('does not bring a hidden label back until it clears the wider gap', () => {
+    // 10px clear is enough to stay drawn and not enough to return.
+    expect(placeLabels([label(0, 80, 1), label(90, 80, 0, true)], RULES)[1].shown).toBe(true)
+    expect(placeLabels([label(0, 80, 1), label(90, 80, 0, false)], RULES)[1].shown).toBe(false)
+    expect(placeLabels([label(0, 80, 1), label(95, 80, 0, false)], RULES)[1].shown).toBe(true)
+  })
+
+  it('keeps the drawn label through a near-tie rather than swapping every frame', () => {
+    // Two cold labels crossing the centre from either side: the hidden one is
+    // now marginally ahead on priority and still does not take over.
+    const [left, right] = placeLabels([label(-4, 60, 0.0009, false), label(4, 60, 0.0008, true)], RULES)
+    expect(right.shown).toBe(true)
+    expect(left.shown).toBe(false)
+  })
+
+  it('places nothing for no labels', () => {
+    expect(placeLabels([], RULES)).toEqual([])
   })
 })

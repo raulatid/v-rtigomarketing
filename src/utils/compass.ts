@@ -201,3 +201,86 @@ export function arrivalEdge(armed: boolean, warmth: number, on: number, off: num
   }
   return { armed: warmth < off, fire: false }
 }
+
+/** One label as the bar would draw it this frame, before any placing. */
+export interface LabelInput {
+  /** Its mark's centre, in px from the bar's centre: negative is left. */
+  readonly x: number
+  /** Its drawn width in px, arrival growth included. */
+  readonly width: number
+  /** The higher of two colliding labels keeps its place. */
+  readonly priority: number
+  /** Whether it was drawn last frame — what the hysteresis below reads. */
+  readonly shown: boolean
+}
+
+/** Where a label goes relative to its mark, and whether it is drawn at all. */
+export interface LabelPlacement {
+  /** Px to move the label along the bar, off its mark, to keep it on the bar. */
+  readonly shift: number
+  readonly shown: boolean
+}
+
+export interface LabelRules {
+  /** Half the bar's width, in px: no label may reach past it. */
+  readonly halfSpan: number
+  /** The least clear space between two drawn labels, in px. */
+  readonly gap: number
+  /**
+   * The clear space a hidden label needs before it comes back. Wider than `gap`,
+   * for `arrivalEdge`'s reason: two marks drifting across one threshold would
+   * blink a label on and off every frame.
+   */
+  readonly reenterGap: number
+  /**
+   * Priority a drawn label keeps over one that is not. Two cold labels crossing
+   * the centre from either side swap which is nearer it; without this they would
+   * swap which one is drawn at the same moment.
+   */
+  readonly stickiness: number
+}
+
+/**
+ * Keeps labels on the bar and off each other.
+ *
+ * Two places a few degrees apart put their labels on top of each other, and the
+ * arrival pose is exactly such a view — the first thing Murcia shows. So labels
+ * are placed in priority order and a label that would come within `gap` of one
+ * already placed is not drawn: the pin still marks where that place is, the words
+ * belong to the one being arrived at. A label near an end is moved inward until
+ * it fits, so its pin can sit at the very end of the span without the word
+ * running off the glass.
+ *
+ * Everything is in px from the bar's centre, and the caller measures: this only
+ * places.
+ */
+export function placeLabels(labels: readonly LabelInput[], rules: LabelRules): LabelPlacement[] {
+  const shifts = labels.map((label) => keepOnBar(label.x, label.width / 2, rules.halfSpan))
+  const rank = (i: number): number =>
+    labels[i].priority + (labels[i].shown ? rules.stickiness : 0)
+  const order = labels.map((_, i) => i).sort((a, b) => rank(b) - rank(a))
+
+  const shown = labels.map(() => false)
+  const placed: number[] = []
+  for (const i of order) {
+    const need = labels[i].shown ? rules.gap : rules.reenterGap
+    const centre = labels[i].x + shifts[i]
+    const clear = placed.every((j) => {
+      const between = Math.abs(centre - (labels[j].x + shifts[j]))
+      return between - (labels[i].width + labels[j].width) / 2 >= need
+    })
+    if (clear) {
+      shown[i] = true
+      placed.push(i)
+    }
+  }
+  return labels.map((_, i) => ({ shift: shifts[i], shown: shown[i] }))
+}
+
+/** The shift that holds a label of half-width `half`, centred on `x`, inside the bar. */
+function keepOnBar(x: number, half: number, halfSpan: number): number {
+  // Wider than the bar: centred on it, the least-bad place.
+  if (half >= halfSpan) return -x
+  const held = Math.min(halfSpan - half, Math.max(-halfSpan + half, x))
+  return held - x
+}

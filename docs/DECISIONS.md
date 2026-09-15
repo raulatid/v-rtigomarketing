@@ -3444,6 +3444,28 @@ world; being pointed at something is not the same as having arrived at it.
 > furniture that was already blue. One trap recorded: the bar's fade gradient moved to
 > `userSpaceOnUse`, because a bounding-box gradient does not paint on a vertical line.
 
+> **Amended 2026-09-15 — the compass keeps off the header, off itself, and off blue** (user
+> direction, after a design critique scored it 18/40). Three changes; the bearings, the warmth
+> and the arrival edge are untouched. *Clearance:* the plate cleared a measured 330 px
+> right-hand group, and the music toggle arrived after that measurement — from 900 to about
+> 1190 px wide it covered Contacto, and on a phone it ran under the toggle. SiteHeader now
+> publishes the tail cell's width as `--site-header-tail` (a ResizeObserver, scene header only),
+> the compass clears that, and it hangs just under the line whenever less than 240 px is left
+> between the ends. That replaces the 768–899 px rule and now takes in phones, where there was
+> never room once the toggle is counted. *Labels:* from the arrival pose the two places are a few
+> degrees apart and their labels printed over each other ("SERVBLOG"). `utils/compass.ts`
+> `placeLabels` (tested) draws only the higher-priority of two colliding labels, with hysteresis,
+> and moves a label near an end inward so it stays on the bar; the widths come from a
+> ResizeObserver and are never read per frame. *Colour:* the blue lens, the blue forward mark,
+> their glows, the yellow arrival and its halo are gone — DESIGN.md rules out HUD styling and
+> glow. The bar is a white hairline feathered to nothing, the forward mark a white needle at full
+> strength standing on the bar (it dips 2u through it and stops short of the pins, which in one
+> colour merged with its lower half), pins and labels `--text-secondary` rising to
+> `--text-primary` with a 1.2× label on arrival, and the ring white. The plate drops from 78 to
+> about 72 px. Blue on the compass is the
+> tray's edge alone, so §37's accounting holds again, and no colour literal is left in its rules
+> (`--glass-bg-light-dense` is the phone's denser tray, now with a no-blur fallback).
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle

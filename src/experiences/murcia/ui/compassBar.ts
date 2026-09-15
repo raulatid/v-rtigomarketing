@@ -5,22 +5,29 @@ import {
   compassMark,
   edgeFadeOpacity,
   horizontalBearing,
+  placeLabels,
   rangeCloseness,
+  type LabelInput,
 } from '../../../utils/compass'
 
 /**
  * An instrument that says which way the places worth clicking are.
  *
- * ## The lab's instrument
+ * ## The lab's shapes, the Night Window's colour
  *
- * The look is `vertigo-lab`'s camera-navigation compass (`demo/compassBar.ts`),
- * ported 2026-09-10. Blue is furniture — the lens-shaped bar and the forward
- * mark, always there and meaning nothing alone. White is a reading — the map
- * pins and their labels, the part that moves. Yellow is an arrival. The shapes
- * are its quadratic lenses and geo-tag pin, below. What is NOT the lab's is the
- * sizing: there it was computed in JS from a measured width, which read zero
- * while the bar was hidden; here the CSS sizes everything (murcia.css) and the
- * marks travel in percentages of the bar.
+ * The shapes are `vertigo-lab`'s camera-navigation compass (`demo/compassBar.ts`),
+ * ported 2026-09-10: its quadratic lenses and geo-tag pin, below. Its colour is
+ * not, since 2026-09-15 (DECISIONS §44): the lab's blue furniture, its glows and
+ * its yellow arrival read as a game HUD, which DESIGN.md rules out. Everything on
+ * the plate is white at the site's text strengths, and the hierarchy is mass and
+ * strength rather than hue — the bar a feathered hairline, the forward needle at
+ * full strength, a pin at secondary strength until it is arrived at, when it
+ * rises to the needle's. Blue stays on the plate's edge, as on every density-A
+ * tray.
+ *
+ * What is not the lab's either is the sizing: there it was computed in JS from a
+ * measured width, which read zero while the bar was hidden; here the CSS sizes
+ * everything (murcia.css) and the marks travel in percentages of the bar.
  *
  * ## Why it exists
  *
@@ -45,13 +52,22 @@ import {
  * viewer zoomed — without anything having moved — is exactly the artefact this
  * is meant to resolve rather than add.
  *
- * ## Warming, and why it takes two claims
+ * ## Arriving, and why it takes two claims
  *
- * A landmark goes from white to yellow only when it
- * is BOTH near the centre of the bar and near in the world. Bearing alone is not
- * enough: a landmark can be dead ahead from across the whole plate, and being
- * pointed at something is not the same as having arrived at it. The two
- * closeness terms are multiplied, so both have to agree.
+ * A landmark rises to full strength only when it is BOTH near the centre of the
+ * bar and near in the world. Bearing alone is not enough: a landmark can be dead
+ * ahead from across the whole plate, and being pointed at something is not the
+ * same as having arrived at it. The two closeness terms are multiplied, so both
+ * have to agree.
+ *
+ * ## Labels that fit
+ *
+ * The arrival pose puts the two places a few degrees apart, and their labels
+ * printed over each other. `placeLabels` decides which label is drawn and how far
+ * one near an end moves inward; it needs the bar's width and each label's, which
+ * a ResizeObserver reports — layout sizes, true while the plate is hidden (it
+ * hides by opacity), and reported again when a font swaps in. Nothing is read
+ * from the layout per frame.
  */
 
 /** One place the compass can point at. */
@@ -79,16 +95,20 @@ const DEG = Math.PI / 180
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /*
- * The shapes, in their own viewBox units — the lab's numbers. The CSS sizes
- * each box, so these fix proportions and nothing else.
+ * The shapes, in their own viewBox units. The CSS sizes each box, so these fix
+ * proportions and nothing else. The bar's lens is a hairline (2 at its centre)
+ * and the forward lens a needle; the lab's were 5 and 6.5, which in blue read as
+ * furniture and in white would outweigh the readings. The needle is also
+ * shorter than the lab's 36, which ran as far below the bar as above it: in one
+ * colour its lower half merged with an arriving pin.
  */
 const BAR_VIEWBOX_W = 420
 const BAR_VIEWBOX_H = 10
-const BAR_CENTRE_THICKNESS = 5
-const BAR_EDGE_THICKNESS = 0.6
-const FORWARD_VIEWBOX_W = 13
-const FORWARD_VIEWBOX_H = 36
-const FORWARD_THICKNESS = 6.5
+const BAR_CENTRE_THICKNESS = 2
+const BAR_EDGE_THICKNESS = 0.4
+const FORWARD_VIEWBOX_W = 11
+const FORWARD_VIEWBOX_H = 18
+const FORWARD_THICKNESS = 3.5
 const PIN_VIEWBOX_W = 13
 const PIN_VIEWBOX_H = 19
 const PIN_HOLE_RADIUS = 2.7
@@ -103,10 +123,23 @@ const ARRIVAL_ON = 0.85
 const ARRIVAL_OFF = 0.5
 const PULSE_MS = 900
 
-/** The furniture's blue, faded toward the bar's ends rather than cut off. */
-const BLUE = '28, 103, 255'
-const BAR_ALPHA_CENTRE = 0.95
-const BAR_ALPHA_EDGE = 0.1
+/**
+ * The hairline's strength at its centre, feathered to nothing at both ends
+ * (DESIGN.md: nothing terminates in a cut). A stop opacity on `currentColor`,
+ * so the colour itself is the stylesheet's token.
+ */
+const BAR_ALPHA_CENTRE = 0.55
+const BAR_ALPHA_EDGE = 0
+
+/**
+ * How much bigger an arrived label is drawn. murcia.css reserves the plate's
+ * height for the same number; change both.
+ */
+const LABEL_ARRIVAL_SCALE = 1.2
+/** Label placing, in px; see `placeLabels`. */
+const LABEL_GAP = 8
+const LABEL_REENTER_GAP = 14
+const LABEL_STICKINESS = 0.05
 
 /** Unique per instance, so two bars alive at once never share a gradient. */
 let gradientSeq = 0
@@ -174,6 +207,7 @@ function pinPath(width: number, height: number, holeRadius: number): string {
 
 export class CompassBar {
   private readonly root: HTMLDivElement
+  private readonly line: SVGSVGElement
   private readonly marks: Array<{
     poi: CompassPoi
     el: HTMLDivElement
@@ -181,8 +215,16 @@ export class CompassBar {
     pulse: HTMLSpanElement
     /** Waiting to arrive; see `arrivalEdge`. */
     armed: boolean
+    /** Layout width in px, unscaled, from the observer. */
+    labelWidth: number
+    /** Drawn last frame; `placeLabels` reads it for its hysteresis. */
+    labelShown: boolean
   }> = []
   private readonly anchor = new THREE.Vector3()
+  /** The bar's width in px, from the observer; 0 until it first reports. */
+  private barWidth = 0
+  /** Absent where the platform has none (the unit tier's jsdom). */
+  private readonly sizes: ResizeObserver | null
   /**
    * Read once: the pulse is a WAAPI animation, which the stylesheet's
    * reduced-motion block cannot reach.
@@ -199,9 +241,10 @@ export class CompassBar {
     this.root.setAttribute('aria-hidden', 'true')
     this.root.dataset.visible = 'false'
 
-    // The bar: a lens, thickest in the middle and tapering to a point at both
-    // ends, in a blue that fades toward them. Stretched along its length only
-    // (`preserveAspectRatio="none"`), so it keeps its thickness at every width.
+    // The bar: a hairline lens, thickest in the middle and tapering to a point
+    // at both ends, feathered to nothing toward them. Stretched along its
+    // length only (`preserveAspectRatio="none"`), so it keeps its thickness at
+    // every width.
     //
     // The gradient is in USER units across the bar's width, not the default
     // bounding-box units: the ticks below take the same fade, and a
@@ -225,7 +268,8 @@ export class CompassBar {
     ] as const) {
       const stop = document.createElementNS(SVG_NS, 'stop')
       stop.setAttribute('offset', String(offset))
-      stop.setAttribute('stop-color', `rgba(${BLUE}, ${alpha})`)
+      stop.setAttribute('stop-color', 'currentColor')
+      stop.setAttribute('stop-opacity', String(alpha))
       gradient.append(stop)
     }
     defs.append(gradient)
@@ -236,11 +280,12 @@ export class CompassBar {
         `url(#${gradientId})`,
       ),
     )
+    this.line = line
     this.root.append(line)
 
     // The calibration: a hairline every 15° above the bar, longer at ±45° and
     // ±90°, in the bar's own fade so the ends go quiet together. None at 0° —
-    // the forward lens is that mark. Above rather than below, because below is
+    // the forward needle is that mark. Above rather than below, because below is
     // where the pins hang. Strokes with `non-scaling-stroke`, since this box is
     // stretched like the bar's and a tick has to stay one pixel at every width.
     const ticks = svgBox(BAR_VIEWBOX_W, TICKS_VIEWBOX_H, 'murcia-compass__ticks')
@@ -262,13 +307,12 @@ export class CompassBar {
     }
     this.root.append(ticks)
 
-    // The forward mark: where the camera is actually pointing. The same lens
-    // stood on end and drawn THROUGH the bar, blue with it because it is
-    // furniture — it never moves, and it is what the moving pins are read
-    // against.
+    // The forward needle: where the camera is actually pointing. A lens stood
+    // on end on the bar, at full strength — it never moves, and it is what the
+    // moving pins are read against. murcia.css places it.
     const forward = svgBox(FORWARD_VIEWBOX_W, FORWARD_VIEWBOX_H, 'murcia-compass__forward')
     forward.append(
-      svgPath(lensPath(FORWARD_VIEWBOX_H, FORWARD_VIEWBOX_W, FORWARD_THICKNESS, 0, true), `rgb(${BLUE})`),
+      svgPath(lensPath(FORWARD_VIEWBOX_H, FORWARD_VIEWBOX_W, FORWARD_THICKNESS, 0, true), 'currentColor'),
     )
     this.root.append(forward)
 
@@ -278,7 +322,7 @@ export class CompassBar {
       el.dataset.poi = poi.id
 
       // A geo tag: the one icon a viewer already reads as "a place, there".
-      // `currentColor`, so warming the mark warms the pin and the label in one
+      // `currentColor`, so arriving brightens the pin and the label in one
       // write; `evenodd` is what makes the hole a hole.
       const pin = svgBox(PIN_VIEWBOX_W, PIN_VIEWBOX_H, 'murcia-compass__pin')
       pin.append(svgPath(pinPath(PIN_VIEWBOX_W, PIN_VIEWBOX_H, PIN_HOLE_RADIUS), 'currentColor', true))
@@ -295,8 +339,25 @@ export class CompassBar {
 
       el.append(pin, label, pulse)
       this.root.append(el)
-      this.marks.push({ poi, el, label, pulse, armed: true })
+      this.marks.push({ poi, el, label, pulse, armed: true, labelWidth: 0, labelShown: true })
     }
+
+    this.sizes =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver((entries) => {
+            for (const entry of entries) {
+              const width = entry.contentRect.width
+              if (entry.target === this.line) {
+                this.barWidth = width
+                continue
+              }
+              const mark = this.marks.find((m) => m.label === entry.target)
+              if (mark) mark.labelWidth = width
+            }
+          })
+        : null
+    this.sizes?.observe(this.line)
+    for (const mark of this.marks) this.sizes?.observe(mark.label)
 
     parent.append(this.root)
   }
@@ -328,6 +389,7 @@ export class CompassBar {
 
     let warmest = -1
     let warmestEl: HTMLDivElement | null = null
+    const labels: LabelInput[] = []
 
     for (const mark of this.marks) {
       const target = mark.poi.anchor(this.anchor)
@@ -341,6 +403,7 @@ export class CompassBar {
       const warmth =
         centreCloseness(offset, CENTRE_BAND_HALF_WIDTH) *
         rangeCloseness(groundDistance, PROXIMITY_NEAR, PROXIMITY_FAR)
+      const labelScale = 1 + warmth * (LABEL_ARRIVAL_SCALE - 1)
 
       // Percentage rather than pixels, so the bar can be any width the CSS wants
       // it to be at any breakpoint and this never has to measure it. The lab's
@@ -348,10 +411,19 @@ export class CompassBar {
       // built hidden and `getBoundingClientRect` returned zero.
       mark.el.style.setProperty('--offset', `${(offset * 50).toFixed(3)}%`)
       mark.el.style.setProperty('--warmth', warmth.toFixed(4))
+      mark.el.style.setProperty('--label-scale', labelScale.toFixed(4))
       mark.el.style.setProperty(
         '--fade',
         edgeFadeOpacity(offset, EDGE_FADE_START, EDGE_MIN_OPACITY).toFixed(4),
       )
+
+      labels.push({
+        x: (offset * this.barWidth) / 2,
+        width: mark.labelWidth * labelScale,
+        // Arrival first; nearer the centre breaks a tie between two cold labels.
+        priority: warmth + 0.001 * (1 - Math.abs(offset)),
+        shown: mark.labelShown,
+      })
 
       // One ring per arrival. The edge is tracked even under reduced motion,
       // so turning the setting off mid-session does not fire a stale arrival.
@@ -373,6 +445,26 @@ export class CompassBar {
       }
     }
 
+    // Unmeasured (no observer, or before its first report) every label would
+    // sit at x 0 with width 0 and collide with every other; draw them as they
+    // are rather than hide all but one.
+    if (this.barWidth > 0) {
+      const placements = placeLabels(labels, {
+        halfSpan: this.barWidth / 2,
+        gap: LABEL_GAP,
+        reenterGap: LABEL_REENTER_GAP,
+        stickiness: LABEL_STICKINESS,
+      })
+      this.marks.forEach((mark, i) => {
+        const { shift, shown } = placements[i]
+        mark.label.style.setProperty('--label-shift', `${shift.toFixed(1)}px`)
+        if (shown !== mark.labelShown) {
+          mark.labelShown = shown
+          mark.label.toggleAttribute('data-hidden', !shown)
+        }
+      })
+    }
+
     // The warmer of two overlapping marks reads on top. Without this the one
     // that happens to be later in the DOM wins, which is a different landmark
     // depending on which way the viewer turned.
@@ -382,6 +474,7 @@ export class CompassBar {
   }
 
   dispose(): void {
+    this.sizes?.disconnect()
     this.root.remove()
     this.marks.length = 0
   }

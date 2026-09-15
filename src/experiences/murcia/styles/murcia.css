@@ -167,9 +167,9 @@
 }
 
 /* ── The compass ──────────────────────────────────────────────────────────────
-   The lab's lens-and-pins instrument on a smoked-glass plate on the site
-   header's line, between its two ends, saying which way the two places worth
-   clicking are. See `ui/compassBar.ts`; the bearings are `utils/compass`.
+   A lens-and-pins instrument on a smoked-glass plate on the site header's
+   line, between its two ends, saying which way the two places worth clicking
+   are. See `ui/compassBar.ts`; the bearings are `utils/compass`.
 
    Decorative throughout: `pointer-events: none` here and `aria-hidden` on the
    element, both load-bearing. Navigation is a gesture (`adr/009`) and the
@@ -184,39 +184,65 @@
    The box has a HEIGHT, unlike the bare version whose top was the bar's own
    centre line: every child is absolutely positioned, so the plate has to be
    told how tall its contents are. `--cy` is the bar's centre within it — the
-   forward mark's upper half above, the pins and the label at its full warm
-   size below. The children are inset by `--pad-x`, because an absolutely
-   positioned child measures against the padding box and the bar must not run
-   under the plate's edge.
+   forward needle above, the pins and the label at its full arrived size
+   below. The children are inset by `--pad-x`, because an
+   absolutely positioned child measures against the padding box and the bar
+   must not run under the plate's edge.
 
    Positions arrive as `--offset`, a signed percentage of the bar's width
    (±50% at the ends of the span), applied to a track as wide as the bar, so
-   nothing here has to know the width and the JS never measures it. */
+   nothing here has to know the width and the JS never measures it for that. */
 .murcia-ui .murcia-compass {
   position: absolute;
+  left: 50%;
+  --pad-x: 14px;
+  --pad-y: 6px;
+  /* The bar's centre: room above it for the forward needle. */
+  --cy: calc(var(--pad-y) + 16 * var(--u));
+
+  /* ON THE LINE WHEN IT FITS, JUST UNDER IT WHEN IT DOES NOT (2026-09-15).
+
+     The plate is centred, so it clears the header's wider end on both sides:
+     the right-hand group, whose width SiteHeader.tsx publishes as
+     `--site-header-tail` from a ResizeObserver on that cell. It used to be a
+     measured 330px, and the music toggle arrived after the measurement: from
+     900 to about 1190px wide the plate covered Contacto, and on a phone it ran
+     under the toggle. Reading the cell means a control added to it moves the
+     compass with it. The fallback is the desktop group as measured that day,
+     for the frames before the observer first reports.
+
+     `--room` is the space left between the two ends. With less than `--min`
+     of it the plate hangs a control's height plus 12px lower — what the
+     768–899px rule did before the clearance became a measurement no media
+     query can read. The step is a clamp on a steep ramp: `--short` is
+     negative whenever the plate fits, so the clamp holds 0, and a fraction of
+     a pixel short it is already at the drop. The width takes the same ramp
+     through `max()`: fitting, it is the room; hanging, the ramp outgrows every
+     other term and the plate is as wide as it is anywhere under the header. */
+  --murcia-compass-min: 240px;
+  --murcia-compass-air: 21px;
+  --murcia-compass-clear: calc(
+    var(--site-header-tail, 323px) + var(--header-inset) + var(--murcia-compass-air)
+  );
+  --murcia-compass-room: calc(100vw - 2 * var(--murcia-compass-clear));
+  --murcia-compass-short: calc((var(--murcia-compass-min) - var(--murcia-compass-room)) * 1000);
   /* Its TOP edge on the header controls' top edge — the line the logo box and
      the Auditoría button start on — and it hangs below the header from there,
      the way the hint frame is a plate taller than a control. `--header-line-top`
      already carries the notch on a phone (siteHeader.css), so the safe area
      needs no term here. */
-  top: var(--header-line-top);
-  left: 50%;
-  --pad-x: 14px;
-  --pad-y: 6px;
-  /* The bar's centre: room above it for the forward mark's upper half. */
-  --cy: calc(var(--pad-y) + 18 * var(--u));
-  /* Between the header's two ends at every width. The clearance is MEASURED
-     rather than derived, because the header's right-hand group is text: over
-     Murcia, Contacto + Auditoría measured 261px wide ending 48px in (Chromium,
-     Windows, 2026-09-10; 235px over Earth), so 330px leaves 21px of air; on a
-     phone it is the 44px burger at a 12px inset. The plate is centred, so the
-     wider side decides both halves — the corner logo on the left is the
-     narrower. */
-  --murcia-compass-clear: 330px;
-  width: min(420px + 2 * var(--pad-x), 66vw, 100vw - 2 * var(--murcia-compass-clear));
+  top: calc(
+    var(--header-line-top) + clamp(0px, var(--murcia-compass-short), var(--header-control) + 12px)
+  );
+  width: min(
+    420px + 2 * var(--pad-x),
+    66vw,
+    max(var(--murcia-compass-room), var(--murcia-compass-short))
+  );
   /* Bar centre, the pin under the bar (5u + 19u), the gap, the label at the
-     1.5× it grows to on arrival, and the bottom padding. */
-  height: calc(var(--cy) + 30 * var(--u) + 1.5 * var(--fs) + var(--pad-y));
+     size it grows to on arrival (`LABEL_ARRIVAL_SCALE` in compassBar.ts), and
+     the bottom padding. */
+  height: calc(var(--cy) + 30 * var(--u) + 1.2 * var(--fs) + var(--pad-y));
   transform: translateX(-50%);
   border: 1px solid var(--glass-border-accent);
   border-radius: 14px;
@@ -245,28 +271,12 @@
   opacity: 0.7;
 }
 
-/* A desktop layout too narrow to give the plate 240px between the header's
-   ends (under 900px, with the 330px clearance above) hangs it just under the
-   header's line instead. */
-@media (min-width: 768px) and (max-width: 899px) {
-  .murcia-ui .murcia-compass {
-    top: calc(var(--header-line-top) + var(--header-control) + 12px);
-    width: min(420px + 2 * var(--pad-x), 66vw);
-  }
-}
-
-@media (max-width: 767px) {
-  .murcia-ui .murcia-compass {
-    --murcia-compass-clear: 72px;
-  }
-}
-
 /* A shade denser than density A everywhere else, as the hint frame is at this
    width: the plate is small, it sits over the city at its brightest, and
    readability wins over consistency of the number. */
 @media (max-width: 480px) {
   .murcia-ui .murcia-compass {
-    background: var(--glass-film), rgba(10, 15, 22, 0.74);
+    background: var(--glass-film), var(--glass-bg-light-dense);
   }
 }
 
@@ -274,9 +284,12 @@
   opacity: 1;
 }
 
-/* The lab's treatment (vertigo-lab, camera-navigation `demo/compassBar.ts`).
-   Blue is furniture, white is a reading, yellow is an arrival — see the header
-   of ui/compassBar.ts.
+/* The treatment: white at the site's text strengths and nothing else
+   (2026-09-15, DECISIONS §44). The lab's blue furniture, its glows and its
+   yellow arrival were a game HUD on the Night Window's glass. The hierarchy is
+   mass and strength: a feathered hairline for the bar, the needle at full
+   strength, the pins and their labels at secondary strength until one is
+   arrived at and rises to the needle's.
 
    `--u` is the lab's mark scale as a length: 1px from a 760px viewport,
    easing down to 0.62px by about 470px, so on a narrow screen the marks shrink
@@ -290,7 +303,8 @@
      monospace. The labels' capitals and tracking do the instrument work. */
   font: 500 var(--fs) / 1 var(--font-display);
   letter-spacing: 0.08em;
-  color: rgb(255 255 255);
+  /* The bar, the ticks and the needle paint `currentColor`. */
+  color: var(--text-primary);
 }
 
 .murcia-ui .murcia-compass__line {
@@ -300,19 +314,16 @@
   display: block;
   width: calc(100% - 2 * var(--pad-x));
   height: calc(10 * var(--u));
-  /* A hairline under the lens, so it sits ON the glass rather than in it. */
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35));
 }
 
 /* The calibration (2026-09-11): ticks every 15° standing on the bar's top
-   edge, in the bar's fade. Quieter than the bar by mass — a one-pixel hairline
-   against a 5u lens — not by alpha: at 0.55 they were lost on the dark glass.
-   The box is 8u tall and ends at the LENS's top edge at its thickest (2.5u
-   above the centre line), not at the top of the lens's 10u box: on the box
-   the ticks floated 2.5px above the blue instead of standing on it. */
+   edge, in the bar's feather. Quieter than the needle by mass — a one-pixel
+   hairline — not by alpha. The box is 8u tall and ends at the LENS's top edge
+   at its thickest (1u above the centre line), not at the top of the lens's
+   10u box, so the ticks stand on the line rather than float over it. */
 .murcia-ui .murcia-compass__ticks {
   position: absolute;
-  top: calc(var(--cy) - 10.5 * var(--u));
+  top: calc(var(--cy) - 9 * var(--u));
   left: var(--pad-x);
   display: block;
   width: calc(100% - 2 * var(--pad-x));
@@ -320,17 +331,19 @@
   opacity: 0.9;
 }
 
+/* The forward needle: where the camera is actually pointing, and the one mark
+   at full strength. It never moves; the pins are read against it. It stands
+   ON the bar, 16u above the centre line and 2u through it, so its tip stops
+   3u short of the pins (which start 5u below): the same white, an arriving
+   pin and a needle that reached down into the pins' row read as one glyph. */
 .murcia-ui .murcia-compass__forward {
   position: absolute;
-  top: calc(var(--cy) - 18 * var(--u));
+  top: calc(var(--cy) - 16 * var(--u));
   left: 50%;
   display: block;
-  width: calc(13 * var(--u));
-  height: calc(36 * var(--u));
-  margin-left: calc(-6.5 * var(--u));
-  /* The emitter: blue furniture that gives off a little of its own light, as
-     the header's line does. */
-  filter: drop-shadow(0 0 calc(5 * var(--u)) rgba(28, 103, 255, 0.6));
+  width: calc(11 * var(--u));
+  height: calc(18 * var(--u));
+  margin-left: calc(-5.5 * var(--u));
 }
 
 /* A track exactly as wide as the bar, with the pin and label centred in it.
@@ -342,7 +355,7 @@
 .murcia-ui .murcia-compass__mark {
   position: absolute;
   /* Under the bar's box, so a pin starts where the lens ends; only the forward
-     mark crosses the bar. */
+     needle crosses the bar. */
   top: calc(var(--cy) + 5 * var(--u));
   left: var(--pad-x);
   width: calc(100% - 2 * var(--pad-x));
@@ -353,32 +366,39 @@
   transform: translateX(var(--offset, 0%));
   opacity: var(--fade, 1);
   will-change: transform, opacity;
-  /* White at rest, yellow on arrival. Mixed in sRGB like the lab's: the two
-     share full red and green, so it is a ramp down the blue channel alone. */
-  color: color-mix(in srgb, rgb(255 255 255), rgb(255 209 26) calc(var(--warmth, 0) * 100%));
+  /* Secondary strength at rest, the needle's on arrival: a place arrived at
+     reads as lined up with where the camera points. */
+  color: color-mix(
+    in srgb,
+    var(--text-secondary),
+    var(--text-primary) calc(var(--warmth, 0) * 100%)
+  );
 }
 
 .murcia-ui .murcia-compass__pin {
   display: block;
   width: calc(13 * var(--u));
   height: calc(19 * var(--u));
-  /* The arrival's halo, grown by the same `--warmth` the JS writes for the
-     colour. At zero warmth the blur is zero and the shadow is the pin's own
-     shape, hidden exactly behind it — the hole included. */
-  filter: drop-shadow(0 0 calc(var(--warmth, 0) * 6 * var(--u)) rgb(255 209 26 / 0.7));
 }
 
 .murcia-ui .murcia-compass__label {
   white-space: nowrap;
-  /* Instrument lettering: capitals, tracked wider than the plate's 0.08em,
-     with a lift shadow so the reading sits on the glass. */
+  /* Instrument lettering: capitals, tracked wider than the plate's 0.08em. */
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
-  /* Up to half as big again on arrival, grown from its top edge so it pushes
-     down into empty space rather than climbing back over its own pin. */
-  transform: scale(calc(1 + var(--warmth, 0) * 0.5));
+  /* `--label-shift` keeps it on the bar near an end and `--label-scale` grows
+     it on arrival, both written by compassBar.ts (the shift from
+     `placeLabels`). Grown from its top edge, so it pushes down into empty
+     space rather than climbing back over its own pin. */
+  transform: translateX(var(--label-shift, 0px)) scale(var(--label-scale, 1));
   transform-origin: top center;
+  transition: opacity 160ms ease;
+}
+
+/* Two places a few degrees apart: the one being arrived at keeps its words,
+   and the other keeps its pin. */
+.murcia-ui .murcia-compass__label[data-hidden] {
+  opacity: 0;
 }
 
 /* The arrival ring: a circle the size of the pin's head, centred on it, that
@@ -391,16 +411,17 @@
   width: calc(13 * var(--u));
   height: calc(13 * var(--u));
   margin: calc(-6.5 * var(--u)) 0 0 calc(-6.5 * var(--u));
-  border: 1px solid rgb(255 209 26);
+  border: 1px solid var(--text-primary);
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Only the plate's fade in and out eases; the marks are written per frame
-     and carry no transition of their own. */
-  .murcia-ui .murcia-compass {
+  /* Only the plate's fade and a label standing down ease; the marks are
+     written per frame and carry no transition of their own. */
+  .murcia-ui .murcia-compass,
+  .murcia-ui .murcia-compass__label {
     transition: none;
   }
 }
