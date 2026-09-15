@@ -19,11 +19,14 @@ interface Fixture {
   canvas: HTMLCanvasElement
   onActivate: ReturnType<typeof vi.fn>
   cursorRequest: ReturnType<typeof vi.fn>
+  onHoverChange: ReturnType<typeof vi.fn>
   /** Mutable, read live through `blocked()` and `isBusy()`. */
   state: { blocked: boolean; busy: boolean }
   /** Client coordinates of the panel's centre, and of a point in its dead margin. */
   centre: { x: number; y: number }
   margin: { x: number; y: number }
+  /** A building of the cluster, beside the panel rather than behind it. */
+  building: { x: number; y: number }
   press: (x: number, y: number, pointerType?: string) => void
   release: (x: number, y: number, pointerType?: string) => void
   move: (x: number, y: number) => void
@@ -68,11 +71,19 @@ function makeFixture(): Fixture {
   const cursor = { request: cursorRequest, dispose: vi.fn() } as unknown as CursorManager
   const state = { blocked: false, busy: false }
   const onActivate = vi.fn()
+  const onHoverChange = vi.fn()
+
+  // Clear of the margin point at x = 22, so the margin tests still mean the margin.
+  const building = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+  building.position.set(40, 0, 0)
+  building.updateMatrixWorld(true)
 
   const pointer = createPanelPointer({
     canvas,
     camera,
     panel,
+    buildings: [building],
+    onHoverChange,
     cursor,
     tapThresholdPx: { mouse: 6, touch: 12 },
     blocked: () => state.blocked,
@@ -106,7 +117,20 @@ function makeFixture(): Fixture {
   const move = (x: number, y: number) =>
     canvas.dispatchEvent(new PointerEvent('pointermove', init(x, y, 'mouse')))
 
-  return { pointer, canvas, onActivate, cursorRequest, state, centre, margin, press, release, move }
+  return {
+    pointer,
+    canvas,
+    onActivate,
+    cursorRequest,
+    onHoverChange,
+    state,
+    centre,
+    margin,
+    building: project(new THREE.Vector3(40, 0, 5)),
+    press,
+    release,
+    move,
+  }
 }
 
 describe('the blog panel pointer', () => {
@@ -244,5 +268,40 @@ describe('the blog panel pointer', () => {
     f.pointer.update()
     f.pointer.dispose()
     expect(f.cursorRequest).toHaveBeenLastCalledWith('murcia:blog-display', '')
+  })
+
+  it('starts the same approach on a clean tap on the building', () => {
+    f.press(f.building.x, f.building.y)
+    f.release(f.building.x, f.building.y)
+    expect(f.onActivate).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fire on a drag that ends over the building', () => {
+    f.press(f.building.x - 40, f.building.y)
+    f.release(f.building.x, f.building.y)
+    expect(f.onActivate).not.toHaveBeenCalled()
+  })
+
+  it('lights the cluster while the pointer is over the panel or the building', () => {
+    f.move(f.building.x, f.building.y)
+    f.pointer.update()
+    expect(f.onHoverChange).toHaveBeenLastCalledWith(true)
+    expect(f.cursorRequest).toHaveBeenLastCalledWith('murcia:blog-display', 'pointer')
+
+    f.move(f.margin.x, f.margin.y)
+    f.pointer.update()
+    expect(f.onHoverChange).toHaveBeenLastCalledWith(false)
+
+    f.move(f.centre.x, f.centre.y)
+    f.pointer.update()
+    expect(f.onHoverChange).toHaveBeenLastCalledWith(true)
+  })
+
+  it('puts the light out while a flight owns the camera', () => {
+    f.move(f.building.x, f.building.y)
+    f.pointer.update()
+    f.state.busy = true
+    f.pointer.update()
+    expect(f.onHoverChange).toHaveBeenLastCalledWith(false)
   })
 })

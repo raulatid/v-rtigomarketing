@@ -11,6 +11,7 @@ import {
 import { createBlogDisplay, type BlogDisplay } from './blogDisplay';
 import { createPageImageSource } from './pageImage';
 import { createPanelPointer, type PanelPointer } from './panelPointer';
+import { createBuildingHighlight } from '../interaction/buildingHighlight';
 
 /**
  * The blog's entry point in the city: a display floating above the
@@ -22,7 +23,8 @@ import { createPanelPointer, type PanelPointer } from './panelPointer';
  * signal and jumped straight to /blog. Its docblock said, correctly for what it
  * was, "it is not a district, and it must not become one" — and this is still not a
  * district: there is no `DistrictState`, no service meaning, no panel of controls,
- * no accordion, and the buildings underneath carry no interaction at all. What it
+ * no accordion, and the buildings underneath carry no interaction of their own —
+ * they share the panel's one gesture and light on hover. What it
  * does have that the tap did not is a camera flight, and that is the whole point of
  * plan 022.
  *
@@ -37,6 +39,7 @@ import { createPanelPointer, type PanelPointer } from './panelPointer';
  * - `panelPointer` owns the gesture and publishes a cursor hint.
  * - `blogApproach` owns both flights, the camera while one runs, and the cover.
  * - `pageImage` owns what the face wears.
+ * - `buildingHighlight` owns the cluster's hover light.
  *
  * This module owns only the placement — where the panel hangs and which way it
  * faces — and the wiring between the four.
@@ -157,10 +160,14 @@ export function createBlogDisplayEntry(
     onApproachStart: options.onApproachStart,
   });
 
+  const highlight = createBuildingHighlight(meshes);
+
   const pointer: PanelPointer = createPanelPointer({
     canvas: options.canvas,
     camera: options.camera,
     panel: display.panel,
+    buildings: meshes,
+    onHoverChange: (hovering) => highlight.setTarget(hovering),
     cursor: options.cursor,
     tapThresholdPx: options.tapThresholdPx,
     blocked: options.blocked,
@@ -214,6 +221,7 @@ export function createBlogDisplayEntry(
 
     update(deltaTime: number): void {
       pointer.update();
+      highlight.update(deltaTime);
       // Before the display's own update: the approach can freeze the yaw follow on
       // this very frame, and a panel that turned once more after being frozen is a
       // panel the camera is no longer arriving square to.
@@ -223,6 +231,7 @@ export function createBlogDisplayEntry(
 
     dispose(): void {
       pointer.dispose();
+      highlight.dispose();
       approach.dispose();
       display.dispose();
     },

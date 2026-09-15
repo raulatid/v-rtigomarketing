@@ -8,8 +8,10 @@ import type { CursorManager } from '../../../interaction/cursorManager';
  * The raycast, the NDC maths and the drag arbitration are `DistrictInteraction`'s
  * and `BlogBuilding`'s; the core-UV test is the lab's. What is not here is
  * everything downstream of a hit: no control rects, no hover slots, no press state,
- * no scroll gesture, no modes. The whole readable core is one target and the only
- * thing it does is start the approach.
+ * no scroll gesture, no modes. The whole readable core is one target, the
+ * `edificio-blog` cluster beneath it is the other, and the only thing either does is
+ * start the approach — while a hover over either lights the cluster
+ * (`onHoverChange`).
  *
  * ## It is the ONLY listener over this cluster
  *
@@ -18,12 +20,14 @@ import type { CursorManager } from '../../../interaction/cursorManager';
  * suppressed. Two listeners over one part of the scene, arbitrated by whichever mesh
  * a ray reaches first, is a coin toss between two different outcomes — and the one
  * that would usually win, by standing nearer the camera, is the one with no
- * transition.
+ * transition. The cluster is a target again, but of THIS listener and with the same
+ * outcome as the panel, so whichever mesh a ray reaches first no longer matters.
  *
  * ## Four things must all be true before a click counts
  *
  * Nothing else is enabled, no flight is running, both ends of the gesture landed on
- * the READABLE CORE rather than merely on the panel mesh, and the pointer travelled
+ * a target — the READABLE CORE rather than merely the panel mesh, or the cluster —
+ * and the pointer travelled
  * less than a tap's worth. Each has its own reason, recorded where it is enforced.
  */
 
@@ -36,8 +40,12 @@ const CURSOR_KEY = 'murcia:blog-display';
 export interface PanelPointerDeps {
   canvas: HTMLCanvasElement;
   camera: THREE.Camera;
-  /** The panel mesh. The only thing raycast. */
+  /** The panel mesh. */
   panel: THREE.Mesh;
+  /** The cluster's meshes, flattened: the second target, raycast non-recursively. */
+  buildings?: readonly THREE.Object3D[];
+  /** When the pointer lands on or leaves a target. Never on touch. */
+  onHoverChange?: (hovering: boolean) => void;
   cursor: CursorManager;
   /** The same thresholds the district and the city use, so a drag reads alike. */
   tapThresholdPx: { mouse: number; touch: number };
@@ -58,6 +66,7 @@ export interface PanelPointer {
 
 export function createPanelPointer(deps: PanelPointerDeps): PanelPointer {
   const { canvas, camera, panel, cursor } = deps;
+  const buildings = [...(deps.buildings ?? [])];
 
   // Allocated once and mutated in place. A raycaster per event is a per-pointermove
   // allocation on a listener that fires at the pointer's full rate.
@@ -103,14 +112,15 @@ export function createPanelPointer(deps: PanelPointerDeps): PanelPointer {
   };
 
   /**
-   * Whether a client point is over the panel's READABLE CORE, not merely its mesh.
+   * Whether a client point is over the panel's READABLE CORE, not merely its mesh —
+   * or over the cluster beneath it.
    *
    * The distinction is the margin: the plane runs `1 / coreInset` wider than the
    * page it carries, and that ring is transparent. Treating it as part of the target
    * would put the cursor's pointer state — and a click — on empty air beside the
-   * display.
+   * display. A building seen THROUGH the ring is not empty air, so it still counts.
    */
-  function overCore(clientX: number, clientY: number): boolean {
+  function overTarget(clientX: number, clientY: number): boolean {
     const rect = canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return false;
 
@@ -129,18 +139,21 @@ export function createPanelPointer(deps: PanelPointerDeps): PanelPointer {
     const hit = raycaster.intersectObject(panel, false)[0];
     // `uv` is optional on an intersection — present only when the geometry carries a
     // uv attribute — so this chain is required rather than defensive.
-    if (!hit?.uv) return false;
+    if (hit?.uv) {
+      const inset = coreInset();
+      const x = (hit.uv.x - 0.5) / inset + 0.5;
+      const y = (hit.uv.y - 0.5) / inset + 0.5;
+      if (x >= 0 && x <= 1 && y >= 0 && y <= 1) return true;
+    }
 
-    const inset = coreInset();
-    const x = (hit.uv.x - 0.5) / inset + 0.5;
-    const y = (hit.uv.y - 0.5) / inset + 0.5;
-    return x >= 0 && x <= 1 && y >= 0 && y <= 1;
+    return buildings.length > 0 && raycaster.intersectObjects(buildings, false).length > 0;
   }
 
   function setHover(next: boolean): void {
     if (next === hovering) return;
     hovering = next;
     cursor.request(CURSOR_KEY, next ? 'pointer' : '');
+    deps.onHoverChange?.(next);
   }
 
   const onPointerMove = (event: PointerEvent): void => {
@@ -180,8 +193,8 @@ export function createPanelPointer(deps: PanelPointerDeps): PanelPointer {
     if (Math.hypot(event.clientX - started.x, event.clientY - started.y) > threshold) return;
 
     // From the EVENT's own coordinates, never a stored hover (DECISIONS §17).
-    if (!overCore(started.x, started.y)) return;
-    if (!overCore(event.clientX, event.clientY)) return;
+    if (!overTarget(started.x, started.y)) return;
+    if (!overTarget(event.clientX, event.clientY)) return;
 
     deps.onActivate();
   };
@@ -220,7 +233,7 @@ export function createPanelPointer(deps: PanelPointerDeps): PanelPointer {
       }
       if (!hoverDirty) return;
       hoverDirty = false;
-      setHover(overCore(pointerX, pointerY));
+      setHover(overTarget(pointerX, pointerY));
     },
 
     dispose(): void {

@@ -30,9 +30,11 @@ interface Fixture {
     back: ReturnType<typeof vi.fn>
   }
   cursor: { request: ReturnType<typeof vi.fn> }
+  onHoverChange: ReturnType<typeof vi.fn>
   dragging: { value: boolean }
   lakePoint: { x: number; y: number }
   poolPoint: { x: number; y: number }
+  buildingPoint: { x: number; y: number }
   press(x: number, y: number, o?: Pointer): void
   move(x: number, y: number, o?: Pointer): void
   release(x: number, y: number, o?: Pointer): void
@@ -74,6 +76,11 @@ function makeFixture(): Fixture {
   disc(45, 6)
   water.updateMatrixWorld(true)
 
+  // One building, well clear of both bodies of water.
+  const building = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+  building.position.set(-40, 5, 0)
+  building.updateMatrixWorld(true)
+
   const toClient = (world: THREE.Vector3) => {
     const p = world.clone().project(camera)
     return { x: ((p.x + 1) / 2) * WIDTH, y: ((1 - p.y) / 2) * HEIGHT }
@@ -90,6 +97,7 @@ function makeFixture(): Fixture {
     back: vi.fn(),
   }
   const cursor = { request: vi.fn() }
+  const onHoverChange = vi.fn()
   const dragging = { value: false }
 
   const interaction = new CampusInteraction({
@@ -99,6 +107,8 @@ function makeFixture(): Fixture {
     isDragging: () => dragging.value,
     tapThresholdPx: THRESHOLD,
     lake: { mesh: water, center: new THREE.Vector3(0, 0, 0), radius: 10 },
+    buildings: [building],
+    onHoverChange,
     section,
     id: 'servicios',
   })
@@ -126,9 +136,12 @@ function makeFixture(): Fixture {
     container,
     section,
     cursor,
+    onHoverChange,
     dragging,
     lakePoint: toClient(new THREE.Vector3(0, 0, 0)),
     poolPoint: toClient(new THREE.Vector3(45, 0, 0)),
+    // The centre of the face toward the camera.
+    buildingPoint: toClient(new THREE.Vector3(-40, 5, 5)),
     press,
     move,
     release,
@@ -222,6 +235,58 @@ describe('entering from the overview', () => {
     fixture.move(5, 5)
     fixture.interaction.update()
     expect(fixture.cursor.request).toHaveBeenLastCalledWith('campus:servicios', '')
+  })
+})
+
+describe('the buildings', () => {
+  it('enter on a tap, as the lake does', () => {
+    fixture.tap(fixture.buildingPoint.x, fixture.buildingPoint.y)
+    expect(fixture.section.enter).toHaveBeenCalledTimes(1)
+  })
+
+  it('do not enter on the release of a drag that ends over one', () => {
+    const { buildingPoint } = fixture
+    fixture.press(buildingPoint.x + 40, buildingPoint.y)
+    fixture.release(buildingPoint.x, buildingPoint.y)
+    expect(fixture.section.enter).not.toHaveBeenCalled()
+  })
+
+  it('light while the pointer is over a building or the lake, and go out when it leaves', () => {
+    const { buildingPoint, lakePoint } = fixture
+    fixture.move(buildingPoint.x, buildingPoint.y)
+    fixture.interaction.update()
+    expect(fixture.onHoverChange).toHaveBeenLastCalledWith(true)
+    expect(fixture.cursor.request).toHaveBeenLastCalledWith('campus:servicios', 'pointer')
+
+    fixture.move(5, 5)
+    fixture.interaction.update()
+    expect(fixture.onHoverChange).toHaveBeenLastCalledWith(false)
+
+    fixture.move(lakePoint.x, lakePoint.y)
+    fixture.interaction.update()
+    expect(fixture.onHoverChange).toHaveBeenLastCalledWith(true)
+  })
+
+  it('go out when the city is switched off mid-hover', () => {
+    fixture.move(fixture.buildingPoint.x, fixture.buildingPoint.y)
+    fixture.interaction.update()
+    fixture.interaction.setEnabled(false)
+    expect(fixture.onHoverChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('go out once the tap that entered has landed', () => {
+    const { buildingPoint } = fixture
+    fixture.move(buildingPoint.x, buildingPoint.y)
+    fixture.interaction.update()
+    fixture.tap(buildingPoint.x, buildingPoint.y)
+    expect(fixture.onHoverChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('do not light inside the section', () => {
+    fixture.section.stage = 'intro'
+    fixture.move(fixture.buildingPoint.x, fixture.buildingPoint.y)
+    fixture.interaction.update()
+    expect(fixture.onHoverChange).not.toHaveBeenCalledWith(true)
   })
 })
 

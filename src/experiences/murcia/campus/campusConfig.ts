@@ -63,6 +63,14 @@ export const CAMPUS_PART_NODE_NAMES = [
 
 export type CampusPartName = (typeof CAMPUS_PART_NODE_NAMES)[number];
 
+/**
+ * The architecture among the parts: what lights on hover and takes a tap as
+ * the lake does. The site's paving, the park and the water are not buildings.
+ */
+export const CAMPUS_BUILDING_NODE_NAMES: readonly string[] = CAMPUS_PART_NODE_NAMES.filter(
+  (name) => name.startsWith('ARCH_'),
+);
+
 /** Every node that is the campus: the parts, the water and the strip. */
 export const CAMPUS_NODE_NAMES: readonly string[] = [
   ...CAMPUS_PART_NODE_NAMES,

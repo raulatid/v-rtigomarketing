@@ -86,7 +86,17 @@ const INTRO_BUDGET_BYTES = 16_000
 // describes. The next thing that lands here will fire this again, and the honest
 // answer at that point is probably to make the modulepreload loop selective
 // rather than to raise this a second time.
-const INITIAL_JS_BUDGET_BYTES = 1_610_000
+//
+// ── 1,610,000 -> 1,612,000, 2026-09-15, building hover light ──
+//
+// APP GROWTH again, raised on the user's call despite the note above and AR-01's
+// "keep this limit" below (whose 10 requests measured 11 at this HEAD): the list
+// kept its 11 requests and only `MurciaExperience` grew, 175,020 -> 177,101 B.
+// The 2,081 B are `murcia/interaction/buildingHighlight.ts` (the satellites'
+// holo tint on the campus and `edificio-blog`, in hover) and the campus and
+// blog pointers taking the buildings as targets. Headroom before it was ~716 B;
+// after, ~635 B. The selective modulepreload loop is still the honest fix.
+const INITIAL_JS_BUDGET_BYTES = 1_612_000
 // 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
 // existing city approach prefetch, not by the cold / modulepreload loop.
 // Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.

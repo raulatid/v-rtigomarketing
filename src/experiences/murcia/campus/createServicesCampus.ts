@@ -10,7 +10,8 @@ import type { CampusFraming } from './section/campusCamera';
 import { CampusInteraction } from './campusInteraction';
 import { buildServicesContent } from './campusContent';
 import { campusLabel, DEFAULT_LOCALE } from './campusLabels';
-import { CAMPUS_WATER_NODE_NAME } from './campusConfig';
+import { CAMPUS_BUILDING_NODE_NAMES, CAMPUS_WATER_NODE_NAME } from './campusConfig';
+import { createBuildingHighlight } from '../interaction/buildingHighlight';
 import { CAMPUS_ICONS } from './content/campusIcons';
 import { rasterizeIcons } from './content/iconLibrary';
 import type { CampusSnapshot } from './section/campusState';
@@ -34,6 +35,7 @@ import { CAMPUS_DOCK_QUERY, campusMobileFraming } from './campusMobileLayout';
  *   - the lab's `attachServicesCampus`, which brings the water, the strip, the
  *     particles, the section's camera and its copy;
  *   - the rig hand-over (`campusCameraAdapter.ts`);
+ *   - the buildings' hover light (`interaction/buildingHighlight.ts`);
  *   - the city's pointer and keyboard (`campusInteraction.ts`), and the
  *     keyboard and screen-reader surface (`district/ui/districtA11y.ts`),
  *     both driving the same intents.
@@ -234,6 +236,13 @@ export async function createServicesCampus(
     return true;
   };
 
+  // Sanitized, as every lookup is: `ARCH_Porcelain_White.001` arrives without its dot.
+  const buildingNames = new Set(
+    CAMPUS_BUILDING_NODE_NAMES.map((name) => THREE.PropertyBinding.sanitizeNodeName(name)),
+  );
+  const buildings = group.children.filter((node) => buildingNames.has(node.name));
+  const highlight = createBuildingHighlight(buildings);
+
   const interaction = new CampusInteraction({
     canvas: options.canvas,
     camera: options.camera,
@@ -241,6 +250,8 @@ export async function createServicesCampus(
     isDragging: options.isDragging,
     tapThresholdPx: options.tapThresholdPx,
     lake: campus.lake,
+    buildings,
+    onHoverChange: (hovering) => highlight.setTarget(hovering),
     section: {
       get stage() {
         return campus.state.snapshot.stage;
@@ -334,11 +345,13 @@ export async function createServicesCampus(
     },
     update(dt) {
       interaction.update();
+      highlight.update(dt);
       campus.update(dt);
     },
     dispose() {
       unsubscribe();
       interaction.dispose();
+      highlight.dispose();
       a11y.dispose();
       // Hands back the water's and the strip's own materials, removes the
       // particles and the copy, and — if a visit was under way — the camera.

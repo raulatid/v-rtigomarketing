@@ -24,8 +24,10 @@ import type { CampusStage } from './section/campusState';
  *
  * ## Two modes, never both
  *
- * In the OVERVIEW the lake is the only target: a tap on it enters. The water
- * node holds the entrance pools too, so a hit counts only near the lake's
+ * In the OVERVIEW the lake and the campus's buildings are the targets: a tap
+ * on either enters, and a hover over either lights the buildings
+ * (`onHoverChange`) — what lights is what answers a tap. The water node holds
+ * the entrance pools too, so a hit on water counts only near the lake's
  * centre — the lab's own rule.
  *
  * INSIDE, the rig is externally controlled for the whole visit, so the pan
@@ -61,6 +63,10 @@ export interface CampusInteractionDeps {
   /** Tap tolerance per pointer type, the numbers the pan uses. */
   tapThresholdPx: { mouse: number; touch: number };
   lake: { readonly mesh: THREE.Object3D; readonly center: THREE.Vector3; readonly radius: number };
+  /** The architecture: a target like the lake, and what the hover lights. */
+  buildings?: readonly THREE.Object3D[];
+  /** When the pointer lands on or leaves a target. Never on touch. */
+  onHoverChange?: (hovering: boolean) => void;
   section: CampusSectionIntents;
   /** Names the cursor request, so retracting ours cannot clear another's. */
   id: string;
@@ -79,6 +85,9 @@ export class CampusInteraction {
   private readonly hits: THREE.Intersection[] = [];
   private readonly ndc = new THREE.Vector2();
   private readonly hoverSupported: boolean;
+  /** The lake and the buildings, raycast together so the nearest decides. */
+  private readonly targets: THREE.Object3D[];
+  private readonly buildingMeshes = new Set<THREE.Object3D>();
 
   private enabled = true;
   private hovering = false;
@@ -94,6 +103,9 @@ export class CampusInteraction {
   constructor(deps: CampusInteractionDeps) {
     this.deps = deps;
     this.cursorKey = `campus:${deps.id}`;
+    const buildings = deps.buildings ?? [];
+    this.targets = [deps.lake.mesh, ...buildings];
+    for (const building of buildings) building.traverse((object) => this.buildingMeshes.add(object));
     this.hoverSupported =
       typeof window.matchMedia !== 'function' || !window.matchMedia('(hover: none)').matches;
 
@@ -126,16 +138,17 @@ export class CampusInteraction {
     }
   }
 
-  /** Whether a tap at this client point would land on the lake. */
-  lakeAt(clientX: number, clientY: number): boolean {
+  /** Whether a tap at this client point would land on the lake or a building. */
+  targetAt(clientX: number, clientY: number): boolean {
     const rect = this.deps.canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return false;
     clientToNdc(rect, clientX, clientY, this.ndc);
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
     this.hits.length = 0;
-    this.raycaster.intersectObject(this.deps.lake.mesh, true, this.hits);
+    this.raycaster.intersectObjects(this.targets, true, this.hits);
     const hit = this.hits[0];
     if (!hit) return false;
+    if (this.buildingMeshes.has(hit.object)) return true;
     const { center, radius } = this.deps.lake;
     return Math.hypot(hit.point.x - center.x, hit.point.z - center.z) <= radius * LAKE_REACH;
   }
@@ -149,13 +162,14 @@ export class CampusInteraction {
       this.setHovering(false);
       return;
     }
-    this.setHovering(this.lakeAt(this.pointerX, this.pointerY));
+    this.setHovering(this.targetAt(this.pointerX, this.pointerY));
   }
 
   private setHovering(next: boolean): void {
     if (next === this.hovering) return;
     this.hovering = next;
     this.deps.cursor.request(this.cursorKey, next ? 'pointer' : '');
+    this.deps.onHoverChange?.(next);
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
@@ -230,7 +244,7 @@ export class CampusInteraction {
     // drag, and where a fingertip rolls to on its way up is not the intent.
     const x = press.touch ? press.x : event.clientX;
     const y = press.touch ? press.y : event.clientY;
-    if (this.lakeAt(x, y) && this.deps.section.enter()) this.setHovering(false);
+    if (this.targetAt(x, y) && this.deps.section.enter()) this.setHovering(false);
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {

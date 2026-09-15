@@ -1,0 +1,144 @@
+import * as THREE from 'three';
+import { clamp01 } from '../../../utils/easing';
+
+/**
+ * The satellites' hover light, on a set of the city's buildings.
+ *
+ * On Earth a hovered satellite takes its holo colour as an emissive that one
+ * eased strength brings up and down (`orbit/createSatellite.ts`). The city
+ * cannot do it that way, for two reasons:
+ *
+ *   - its baked surfaces are `MeshBasicMaterial` (`lightmaps/lightmapMaterial.ts`),
+ *     which has no emissive channel at all, so the colour is added to the
+ *     shader's `outgoingLight` instead — the same place an emissive term lands;
+ *   - those materials are SHARED, by atlas and source material, across the
+ *     whole city (`loadUnifiedLightmaps`, `citySurfaceDepth`). Every distinct
+ *     material in the set is cloned once and the clone reused, so the rest of
+ *     the city never glows with it.
+ *
+ * There is no bloom in Murcia, so this reads as a lit surface, not a halo.
+ * No light is added either: a new `THREE.Light` changes the scene's light
+ * count and recompiles every program at the worst moment.
+ */
+
+export interface BuildingHighlightOptions {
+  /** sRGB. Earth's `HOLO_COLOR`, restated: murcia may not import earth. */
+  color: string;
+  /** Added light at full strength. Below the satellites' 0.45: no bloom to spend it on, and porcelain near white clips. */
+  intensity: number;
+  /** Seconds for a full rise, and for a full fall. The satellites' `highlightDuration`. */
+  duration: number;
+}
+
+export const BUILDING_HIGHLIGHT: BuildingHighlightOptions = {
+  color: '#38a9d6',
+  intensity: 0.35,
+  duration: 0.4,
+};
+
+export interface BuildingHighlight {
+  /** Only sets where the strength is heading; `update` walks it there. */
+  setTarget(on: boolean): void;
+  update(deltaTime: number): void;
+  /** Hands every mesh its own material back and frees the clones. */
+  dispose(): void;
+}
+
+const INJECT_AT = '#include <opaque_fragment>';
+
+/**
+ * Earth's `advanceExpansion`, restated for the same reason as the colour.
+ * Progress is a value, not a start time, so a pointer leaving mid-rise falls
+ * back from where the light is; `duration` is a full 0→1 traversal.
+ */
+export function stepHighlight(current: number, target: number, delta: number, duration: number): number {
+  const to = clamp01(target);
+  if (!(duration > 0) || !Number.isFinite(duration)) return to;
+  // `clamp01` passes NaN through, and NaN in a uniform is an invisible building.
+  const from = Number.isFinite(current) ? clamp01(current) : 0;
+  const step = delta / duration;
+  const next = to > from ? Math.min(from + step, to) : Math.max(from - step, to);
+  // Exact rest, so `progress === target` stays a valid idle check.
+  return Math.abs(next - to) < 1e-6 ? to : next;
+}
+
+/** Smoothstep: symmetric, so a reversal decelerates the way it accelerated. */
+export function easeHighlight(progress: number): number {
+  const t = clamp01(progress);
+  return t * t * (3 - 2 * t);
+}
+
+export function createBuildingHighlight(
+  roots: readonly THREE.Object3D[],
+  options: BuildingHighlightOptions = BUILDING_HIGHLIGHT,
+): BuildingHighlight {
+  // One uniform pair for every clone: the set lights as one.
+  const uHighlight = { value: 0 };
+  const uHighlightColor = { value: new THREE.Color(options.color) };
+
+  const cloneOf = new Map<THREE.Material, THREE.Material>();
+  const assigned = new Map<THREE.Mesh, { original: THREE.Material | THREE.Material[]; ours: THREE.Material | THREE.Material[] }>();
+
+  const resolve = (source: THREE.Material): THREE.Material => {
+    const existing = cloneOf.get(source);
+    if (existing) return existing;
+    const clone = source.clone();
+    clone.name = `${source.name || 'material'} | highlight`;
+    // Material.clone does not copy these hooks, and the lightmap's is what
+    // samples the atlas. Wrapped, never replaced.
+    const inner = source.onBeforeCompile;
+    clone.onBeforeCompile = (shader, renderer) => {
+      inner.call(clone, shader, renderer);
+      if (!shader.fragmentShader.includes(INJECT_AT)) {
+        throw new Error('[highlight] three moved <opaque_fragment>');
+      }
+      shader.uniforms.uHighlight = uHighlight;
+      shader.uniforms.uHighlightColor = uHighlightColor;
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uHighlight;\nuniform vec3 uHighlightColor;')
+        .replace(INJECT_AT, `outgoingLight += uHighlightColor * uHighlight;\n${INJECT_AT}`);
+    };
+    const innerKey = source.customProgramCacheKey.call(source);
+    clone.customProgramCacheKey = () => `${innerKey}|highlight`;
+    cloneOf.set(source, clone);
+    return clone;
+  };
+
+  const meshes = new Set<THREE.Mesh>();
+  for (const root of roots) {
+    root.traverse((object) => {
+      if ((object as THREE.Mesh).isMesh) meshes.add(object as THREE.Mesh);
+    });
+  }
+  for (const mesh of meshes) {
+    const original = mesh.material;
+    const ours = Array.isArray(original) ? original.map(resolve) : resolve(original);
+    mesh.material = ours;
+    assigned.set(mesh, { original, ours });
+  }
+
+  let progress = 0;
+  let target = 0;
+
+  return {
+    setTarget(on: boolean): void {
+      target = on ? 1 : 0;
+    },
+
+    update(deltaTime: number): void {
+      if (progress === target) return;
+      progress = stepHighlight(progress, target, deltaTime, options.duration);
+      uHighlight.value = easeHighlight(progress) * options.intensity;
+    },
+
+    dispose(): void {
+      for (const [mesh, { original, ours }] of assigned) {
+        // Only if nothing has replaced ours since: a later owner's material is theirs.
+        if (mesh.material === ours) mesh.material = original;
+      }
+      assigned.clear();
+      for (const clone of cloneOf.values()) clone.dispose();
+      cloneOf.clear();
+    },
+  };
+}
