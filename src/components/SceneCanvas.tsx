@@ -1,12 +1,14 @@
+import type { AuditComposition } from '../interaction/auditComposition'
+import type { NavigationView } from '../interaction/navigationSignals'
 import { RefObject, useCallback, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { clampFrameDelta } from '../graphics/frameDelta'
 import { EarthExperience } from '../experiences/earth/EarthExperience'
 import type { InteractionHandle } from '../experiences/earth/EarthExperience'
-import { CornerLogoLayer } from './CornerLogoLayer'
-import { MurciaLayer } from './MurciaLayer'
+import { CornerLogoLayer } from '../corner-logo/CornerLogoLayer'
+import { MurciaLayer } from '../experiences/murcia/MurciaLayer'
 import { RenderPipeline } from '../graphics/RenderPipeline'
-import { DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
+import { DEBUG_TOOLS_ENABLED } from '../platform/buildFlags'
 import type { FrameSettings, RenderRoute } from '../graphics/renderableExperience'
 import {
   WARP_LIMITS,
@@ -21,7 +23,7 @@ import { SequenceState } from '../experiences/earth/config/sequenceState'
 import { OrbitSystem } from '../experiences/earth/orbit/createOrbitSystem'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
-import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
+import type { CornerLogoHandle } from '../corner-logo/cornerLogoConfig'
 import type { ExperienceId } from '../app/experience'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 
@@ -44,12 +46,15 @@ function TransitionClockDriver({ step }: { step: (dt: number) => void }) {
 
 interface Props {
   config: IntroConfig
+  auditView: Readonly<AuditComposition>
+  attention: Readonly<{ hintAllowed: boolean }>
+  navigation: NavigationView
   state: SequenceState
   /**
    * Advances the Earth <-> Murcia cinematic by one frame.
    *
    * Driven from inside the Canvas rather than from a loop of its own, because
-   * `RenderPipeline` reads `state.transitionProgress` in its own `useFrame`: a
+   * `RenderPipeline` reads `navigation.transitionProgress` in its own `useFrame`: a
    * separate rAF that happened to tick after R3F's would render every warp frame
    * one behind the progress that produced it.
    */
@@ -95,6 +100,9 @@ interface Props {
 export function SceneCanvas({
   config,
   state,
+  navigation,
+  attention,
+  auditView,
   stepTransition,
   overlayEl,
   orbitSystemRef,
@@ -118,7 +126,7 @@ export function SceneCanvas({
   const earthActive = activeExperience === 'earth'
 
   // What the pipeline draws this frame. Called once per frame from inside its
-  // useFrame, so it reads the mutable sequence state rather than props — a
+  // useFrame, so it reads the live intro and navigation channels — a
   // per-frame prop would be a per-frame React render.
   //
   // The blur resolution lives here because it is a question about the
@@ -146,8 +154,8 @@ export function SceneCanvas({
   const lastWorldWasEarth = useRef(earthActive)
 
   const readSettings = useCallback((): FrameSettings => {
-    const warping = state.transitionProgress > 0
-    const motionBlur = warping ? warpMotionBlur(state.transitionProgress, WARP_LIMITS) : state.motionBlur
+    const warping = navigation.transitionProgress > 0
+    const motionBlur = warping ? warpMotionBlur(navigation.transitionProgress, WARP_LIMITS) : state.motionBlur
     // Gated on the BLUR, not on the warp being non-zero, and that distinction
     // only started to matter when the gesture began driving the warp.
     //
@@ -174,17 +182,17 @@ export function SceneCanvas({
 
     let vacuum = 0
     if (!earthActive && !reducedMotion.current) {
-      if (state.transitionCommitted) {
+      if (navigation.transitionCommitted) {
         // Only on the DEPARTING leg. Murcia is also the visible world for the
         // second half of an arrival, and an ascent effect playing on a descent
         // flattens the one difference between the two legs — the sandbox gates it
         // the same way. Zero there rather than the bell: `vacuumAtCommit` is 0 on
         // arrival, so the bell alone would run the vacuum at full as the flash lifts.
-        vacuum = transitionLeg(state.transitionProgress, WARP_LIMITS).departing
-          ? vacuumCommitted(vacuumAtCommit.current, state.transitionProgress, WARP_LIMITS)
+        vacuum = transitionLeg(navigation.transitionProgress, WARP_LIMITS).departing
+          ? vacuumCommitted(vacuumAtCommit.current, navigation.transitionProgress, WARP_LIMITS)
           : 0
       } else {
-        vacuum = vacuumScrub(state.approach, WARP_LIMITS)
+        vacuum = vacuumScrub(navigation.approach, WARP_LIMITS)
         vacuumAtCommit.current = vacuum
       }
     } else {
@@ -217,7 +225,7 @@ export function SceneCanvas({
       vacuum,
       resetAccumulation,
     }
-  }, [state, config, earthActive])
+  }, [state, navigation, config, earthActive])
 
   return (
     <Canvas
@@ -309,6 +317,9 @@ export function SceneCanvas({
           order, and every consumer below is priority 0. */}
       <TransitionClockDriver step={stepTransition} />
       <EarthExperience
+        navigation={navigation}
+        attention={attention}
+        auditView={auditView}
         active={earthActive}
         config={config}
         state={state}
@@ -330,7 +341,7 @@ export function SceneCanvas({
           that writes per-frame state it consumes. */}
       <MurciaLayer
         active={!earthActive}
-        state={state}
+        state={navigation}
         experienceRef={murciaRef}
         onReady={onMurciaReady}
         onAttentionChange={onMurciaAttentionChange}

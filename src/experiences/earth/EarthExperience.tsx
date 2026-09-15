@@ -1,3 +1,5 @@
+import type { AuditComposition } from '../../interaction/auditComposition'
+import type { NavigationView } from '../../interaction/navigationSignals'
 import { RefObject, Suspense, useRef } from 'react'
 import { CameraController } from './camera/CameraController'
 import { AuditCameraShift } from './camera/AuditCameraShift'
@@ -6,7 +8,7 @@ import { Starfield } from './scene/Starfield'
 import { SpaceBackdrop } from './scene/SpaceBackdrop'
 import { SkyShell } from './scene/SkyShell'
 import { SkyShellCube } from './scene/SkyShellCube'
-import { protoSkyActive } from '../../app/protoSky'
+import { protoSkyActive } from './config/protoSky'
 import { OrbitSystemLayer } from './orbit/OrbitSystemLayer'
 import { InteractionLayer, InteractionHandle } from './interaction/InteractionLayer'
 import { HintLayer } from './hint/HintLayer'
@@ -55,6 +57,9 @@ interface Props {
    *  must keep writing the transition overlay (ADR 003). */
   active: boolean
   config: IntroConfig
+  auditView: Readonly<AuditComposition>
+  attention: Readonly<{ hintAllowed: boolean }>
+  navigation: NavigationView
   state: SequenceState
   /** The DOM node the intro's flash overlay writes to. Owned by App. */
   overlayEl: RefObject<HTMLDivElement | null>
@@ -69,6 +74,9 @@ export function EarthExperience({
   active,
   config,
   state,
+  navigation,
+  attention,
+  auditView,
   overlayEl,
   orbitSystemRef,
   interactionRef,
@@ -93,6 +101,7 @@ export function EarthExperience({
   return (
     <>
       <CameraController
+        navigation={navigation}
         config={config}
         state={state}
         overlayEl={overlayEl}
@@ -101,7 +110,7 @@ export function EarthExperience({
       />
       {/* Projection-window shift for the audit panel. It writes camera.view,
           not the pose, so it cannot fight CameraController or the focus rig. */}
-      <AuditCameraShift active={active} />
+      <AuditCameraShift auditView={auditView} active={active} />
       <Starfield config={config} state={state} active={active} />
       {/* Two separate fields on purpose: Starfield is the near-field warp tunnel
           and is gated OFF at the cut; SpaceBackdrop is the far shell that is
@@ -131,6 +140,8 @@ export function EarthExperience({
           its effect populates orbitSystemRef first. */}
       <OrbitSystemLayer state={state} systemRef={orbitSystemRef} active={active} />
       <InteractionLayer
+        navigation={navigation}
+        auditView={auditView}
         state={state}
         orbitSystemRef={orbitSystemRef}
         handleRef={interactionRef}
@@ -146,7 +157,7 @@ export function EarthExperience({
           it once the viewer has been still. Mounted unconditionally: the rule it
           counts is about the viewer, so it must keep counting while nothing is
           on screen. */}
-      <HintLayer state={state} active={active} satelliteHoverRef={satelliteHoverRef} />
+      <HintLayer attention={attention} state={state} active={active} satelliteHoverRef={satelliteHoverRef} />
     </>
   )
 }

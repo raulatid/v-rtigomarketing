@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { auditView, shiftsFor, type AuditPhase } from '../auditView'
+import { auditView, shiftsFor, type AuditPhase } from '../app/auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
 import { FORM_MESSAGES, REVENUE_RANGES, type LegalDocId } from '../content/site'

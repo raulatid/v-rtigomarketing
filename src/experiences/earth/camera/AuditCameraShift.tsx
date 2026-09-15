@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { PerspectiveCamera } from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import { auditView } from '../../../auditView'
+import type { AuditComposition } from '../../../interaction/auditComposition'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 // Recomposes the scene while the audit panel is open by sliding the camera's
@@ -25,7 +25,7 @@ function panelWidth(viewport: number): number {
 // identical to it (plan 005 §8).
 const LERP_K = 3.4
 
-export function AuditCameraShift({ active }: { active: boolean }) {
+export function AuditCameraShift({ active, auditView }: { active: boolean; auditView: Readonly<AuditComposition> }) {
   const { camera, size } = useThree()
   const progress = useRef(0)
   const offsetActive = useRef(false)

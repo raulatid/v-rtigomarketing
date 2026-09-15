@@ -4,7 +4,7 @@ import * as THREE from 'three';
 // import kept the whole library in the production chunk no matter how the call
 // below was gated. Loaded on demand in mountStats instead.
 import type Stats from 'stats.js';
-import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags';
 import type { AppConfig } from '../config/appConfig';
 import type { BoundsRect } from '../config/environmentConfig';
 import type { SceneReport } from '../assets/loadCity';

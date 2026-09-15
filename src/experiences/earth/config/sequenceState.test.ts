@@ -10,9 +10,6 @@ describe('createSequenceState', () => {
     expect(state.warpProgress).toBe(0)
     expect(state.warpOverlay).toBe(0)
     expect(state.swapOverlay).toBe(0)
-    expect(state.transitionOverlay).toBe(0)
-    expect(state.transitionProgress).toBe(0)
-    expect(state.transitionCommitted).toBe(false)
     expect(state.motionBlur).toBe(0)
     expect(state.orbitsStarted).toBe(false)
   })
@@ -30,10 +27,10 @@ describe('createSequenceState', () => {
     expect(second.orbitsStarted).toBe(false)
   })
 
-  it('rests with no overlay contribution from any of the three sources', () => {
-    // The applied overlay is max() of the three, so all three resting at 0 is
+  it('rests with no overlay contribution from either intro source', () => {
+    // The applied overlay is max() of the contributors, so both intro contributors resting at 0 is
     // what makes the screen clear at the start.
     const state = createSequenceState()
-    expect(Math.max(state.warpOverlay, state.swapOverlay, state.transitionOverlay)).toBe(0)
+    expect(Math.max(state.warpOverlay, state.swapOverlay)).toBe(0)
   })
 })

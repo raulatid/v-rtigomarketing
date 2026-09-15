@@ -7,7 +7,7 @@
 // it keeps that dependency visible instead of granting every test a window and
 // letting one appear in the boot chunk unnoticed.
 import { describe, it, expect } from 'vitest'
-import { atOrAfter, backdropVisible, earthVisible, orbitsVisible, starsVisible } from './sceneVisibility'
+import { atOrAfter, hintAllowed, backdropVisible, earthVisible, orbitsVisible, starsVisible } from './sceneVisibility'
 import { defaultIntroConfig, PHASE_ORDER, type Phase } from './introConfig'
 import { createSequenceState, type SequenceState } from './sequenceState'
 
@@ -94,5 +94,15 @@ describe('orbitsVisible', () => {
 
   it('stays up after the orbits phase', () => {
     expect(orbitsVisible(stateAt({ phase: 'site', orbitsStarted: true }))).toBe(true)
+  })
+})
+
+describe('hint permission from application orchestration', () => {
+  it('requires both a completed intro and current permission', () => {
+    const state = stateAt({ phase: 'orbits' })
+    expect(hintAllowed(state, true)).toBe(false)
+    state.phase = 'site'
+    expect(hintAllowed(state, true)).toBe(true)
+    expect(hintAllowed(state, false)).toBe(false)
   })
 })

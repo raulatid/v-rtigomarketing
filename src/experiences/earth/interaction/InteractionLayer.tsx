@@ -1,3 +1,5 @@
+import type { AuditComposition } from '../../../interaction/auditComposition'
+import type { NavigationView } from '../../../interaction/navigationSignals'
 import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -7,8 +9,8 @@ import { invitedCaseId } from '../orbit/orbitAssignments'
 import { createFocusCameraRig, FocusCameraRig } from '../camera/createFocusCameraRig'
 import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { installCameraReadout } from '../debug/CameraReadout'
-import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags'
-import { PROTO_TUTORIAL } from '../../../app/protoTutorial'
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
+import { PROTO_TUTORIAL } from '../config/protoTutorial'
 import { WARP_LIMITS, prefersReducedMotion } from '../../../utils/warpTransition'
 import {
   EARTH_DEPARTURE_ALIGN_DEGREES,
@@ -24,7 +26,6 @@ import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
 import { createCursorManager, type CursorManager } from '../../../interaction/cursorManager'
 import { SequenceState } from '../config/sequenceState'
 import { atOrAfter } from '../config/sceneVisibility'
-import { auditView } from '../../../auditView'
 import { EARTH_REST } from '../camera/CameraController'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 
@@ -40,6 +41,8 @@ export interface InteractionHandle {
 }
 
 interface Props {
+  auditView: Readonly<AuditComposition>
+  navigation: Pick<NavigationView, 'zoomDepth' | 'transitionCommitted'>
   state: SequenceState
   orbitSystemRef: RefObject<OrbitSystem | null>
   handleRef: RefObject<InteractionHandle | null>
@@ -80,6 +83,8 @@ interface Props {
 // every phase that can be seeked, which is what its per-frame reassert protects.
 export function InteractionLayer({
   state,
+  navigation,
+  auditView,
   orbitSystemRef,
   handleRef,
   cursorRef,
@@ -220,7 +225,7 @@ export function InteractionLayer({
     // the first frame after the warp would put it on a frame the viewer can see.
     // Writing here is safe while the cinematic owns the camera because nothing
     // reads what this writes until `update()` runs again.
-    rig.setZoomDepth(state.zoomDepth)
+    rig.setZoomDepth(navigation.zoomDepth)
 
     const interactive = active && atOrAfter(state.phase, 'site')
     const wasActive = rig.isActive()
@@ -250,7 +255,7 @@ export function InteractionLayer({
     // `onPointerMove` has no `active` guard, so the orbit angles kept
     // integrating behind a camera nobody was updating and the whole drag then
     // replayed as a slow drift.
-    const cinematic = state.transitionCommitted
+    const cinematic = navigation.transitionCommitted
     // The rig stays active while the audit panel is open — deactivating it
     // would reset to the overview pose and lose the user's drag position, and
     // the ambient drag keeps the visible strip alive. Only satellite selection
@@ -265,7 +270,7 @@ export function InteractionLayer({
     // to be above Spain — is reachable by zooming alone. Zooming back below the
     // threshold gives both back. A close-up cannot be open on the way in:
     // navigation is refused while the case panel holds attention.
-    const approaching = state.zoomDepth > WARP_LIMITS.earthGuideStart
+    const approaching = navigation.zoomDepth > WARP_LIMITS.earthGuideStart
     rig.setApproachLock(approaching)
     focus.setEnabled(interactive && !cinematic && !auditView.open && !approaching)
 
@@ -293,7 +298,7 @@ export function InteractionLayer({
     if (destination) {
       const spherical = steerSpherical.current.setFromVector3(destination)
       const steer = steerFrame.current
-      steer.bandDepth = state.zoomDepth
+      steer.bandDepth = navigation.zoomDepth
       steer.destinationTheta = spherical.theta
       steer.destinationPhi = spherical.phi
       steer.focused = rig.isFocused()

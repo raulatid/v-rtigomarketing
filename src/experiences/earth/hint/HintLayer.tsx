@@ -2,7 +2,7 @@ import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 import { hintAllowed } from '../config/sceneVisibility'
-import { PROTO_HINT } from '../../../app/protoHint'
+import { PROTO_HINT } from '../config/protoHint'
 import type { SequenceState } from '../config/sequenceState'
 import { createIdleWatch } from './hintIdle'
 import { HINT_CONFIG } from './hintConfig'
@@ -27,7 +27,7 @@ import { HINT_CONFIG } from './hintConfig'
 // beat after each arrival and does not return until the next one. The two were
 // wired together while they shared a rule and are deliberately not any more:
 // `createNavigationInput` is untouched and owns the chip, and this owns the
-// sentence. What arrives from the app is only PERMISSION — `state.hintAllowed`,
+// sentence. What arrives from the app is only PERMISSION — `attention.hintAllowed`,
 // meaning the viewer is on Earth and nothing else has their attention.
 //
 // The stillness itself is counted here rather than in the app because it is a
@@ -53,9 +53,11 @@ import { HINT_CONFIG } from './hintConfig'
 // re-render both canvases and every overlay.
 export function HintLayer({
   state,
+  attention,
   active,
   satelliteHoverRef,
 }: {
+  attention: Readonly<{ hintAllowed: boolean }>
   state: SequenceState
   active: boolean
   /**
@@ -146,7 +148,7 @@ export function HintLayer({
 
     // `?hint=1` holds it up so the type can be judged; the stillness this waits
     // for is otherwise broken by the very act of looking. DEBUG only.
-    paint(el.current, painted, PROTO_HINT.hold || (hintAllowed(state) && still))
+    paint(el.current, painted, PROTO_HINT.hold || (hintAllowed(state, attention.hintAllowed) && still))
   })
 
   return null

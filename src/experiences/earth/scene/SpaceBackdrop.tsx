@@ -9,7 +9,7 @@ import { generateStarField } from './space/starDistribution'
 import { createStarMaterial } from './space/starShader'
 import { SPACE_CONFIG } from './space/spaceConfig'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
-import { PROTO_SKY } from '../../../app/protoSky'
+import { PROTO_SKY } from '../config/protoSky'
 
 // The persistent star field the resting scene sits in.
 //

@@ -1,18 +1,18 @@
 import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
-import { loadProgress } from '../loading/progress'
-import type { SequenceState } from '../experiences/earth/config/sequenceState'
-import { WARP_LIMITS, dollyAmount, prefersReducedMotion } from '../utils/warpTransition'
-import { BUILT_ASSETS_AVAILABLE, DEBUG_TOOLS_ENABLED } from '../app/buildFlags'
-import { clampFrameDelta } from '../graphics/frameDelta'
+import type { MurciaExperience } from './MurciaExperience'
+import { loadProgress } from '../../loading/progress'
+import type { NavigationView } from '../../interaction/navigationSignals'
+import { WARP_LIMITS, dollyAmount, prefersReducedMotion } from '../../utils/warpTransition'
+import { BUILT_ASSETS_AVAILABLE, DEBUG_TOOLS_ENABLED } from '../../platform/buildFlags'
+import { clampFrameDelta } from '../../graphics/frameDelta'
 // Imported here rather than from main.tsx so it rides the scene chunk with the
 // code that uses it, instead of the entry chunk's stylesheet.
-import '../experiences/murcia/styles/murcia.css'
+import './styles/murcia.css'
 
 interface Props {
   active: boolean
-  state: SequenceState
+  state: Pick<NavigationView, 'transitionProgress' | 'transitionCommitted' | 'zoomDepth'>
   experienceRef: RefObject<MurciaExperience | null>
   onReady?: () => void
   /** Forwarded to MurciaExperience: a district was engaged or released. */
@@ -122,7 +122,7 @@ export function MurciaLayer({
       if (disposed) return
 
       const { MurciaExperience: Ctor } = await import(
-        '../experiences/murcia/MurciaExperience'
+        './MurciaExperience'
       )
       if (disposed) return
 

@@ -1,16 +1,15 @@
 import { RefObject, useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
-import { IntroConfig } from '../experiences/earth/config/introConfig'
 import type {
   CornerLogo,
   CornerLogoConfig,
   CornerMetrics,
-} from '../corner-logo/createCornerLogo'
-import { CornerLogoHandle } from '../experiences/earth/timeline/useMasterTimeline'
+} from './createCornerLogo'
+import type { CornerLogoHandle } from './cornerLogoConfig'
 import { loadProgress } from '../loading/progress'
 
 interface Props {
-  config: IntroConfig
+  config: CornerLogoConfig
   // No SequenceState here: this layer used it only to mirror a readiness flag
   // nothing read. The timeline asks the logo directly via isReady().
   onLoadFailed: () => void
@@ -91,14 +90,14 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
     let logo: CornerLogo | null = null
 
     const build = async () => {
-      const { createCornerLogo } = await import('../corner-logo/createCornerLogo')
+      const { createCornerLogo } = await import('./createCornerLogo')
       if (disposed) return
 
       logo = createCornerLogo({
         // Read through a ref so live debug edits apply without rebuilding —
         // corner margins and durations are read per frame anyway.
         config: new Proxy({} as CornerLogoConfig, {
-          get: (_t, key: string) => configRef.current[key as keyof IntroConfig],
+          get: (_t, key: string) => configRef.current[key as keyof CornerLogoConfig],
         }),
         renderer: gl,
         // Readiness is not mirrored into SequenceState: the timeline asks the

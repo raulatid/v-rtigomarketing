@@ -1,3 +1,4 @@
+import type { NavigationView } from '../../../interaction/navigationSignals'
 import { RefObject, useMemo, useRef } from 'react'
 import { overviewRestPosition } from './overviewPose'
 import * as THREE from 'three'
@@ -64,6 +65,7 @@ const EARTH_LOOK_AT = new THREE.Vector3(0, 0, 0)
 
 interface Props {
   config: IntroConfig
+  navigation: Pick<NavigationView, 'transitionProgress' | 'transitionOverlay' | 'transitionCommitted'>
   state: SequenceState
   overlayEl: RefObject<HTMLDivElement | null>
   active: boolean
@@ -79,6 +81,7 @@ interface Props {
 export function CameraController({
   config,
   state,
+  navigation,
   overlayEl,
   active,
   destinationRef,
@@ -127,8 +130,8 @@ export function CameraController({
     // also what makes a commit from a zoomed camera seamless: the anchor is the
     // live `cam.position`, so the warp is relative to wherever the zoom left it
     // and there is no absolute target to snap to.
-    if (state.transitionCommitted) {
-      applyWarp(cam, state.transitionProgress, delta)
+    if (navigation.transitionCommitted) {
+      applyWarp(cam, navigation.transitionProgress, delta)
       applyOverlay()
       return
     }
@@ -258,7 +261,7 @@ export function CameraController({
     if (!el) return
     const value = Math.min(
       1,
-      Math.max(state.warpOverlay, state.swapOverlay, state.transitionOverlay),
+      Math.max(state.warpOverlay, state.swapOverlay, navigation.transitionOverlay),
     )
     el.style.opacity = value.toFixed(4)
   }

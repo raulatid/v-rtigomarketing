@@ -16,10 +16,7 @@ import { cinematicSpeed } from '../../../utils/easing'
 import { orbitRevealDuration } from '../orbit/orbitConfig'
 import { IntroDrawHandle } from '../../../intro-draw/introDraw'
 
-export interface CornerLogoHandle {
-  startSequence: () => void
-  isReady: () => boolean
-}
+import type { CornerLogoHandle } from '../../../corner-logo/cornerLogoConfig'
 
 interface Params {
   intro: RefObject<IntroDrawHandle | null>

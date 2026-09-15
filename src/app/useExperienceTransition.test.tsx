@@ -4,7 +4,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useExperienceTransition } from './useExperienceTransition'
 import { WARP_TRANSITION } from '../utils/warpTransition'
-import { createSequenceState, type SequenceState } from '../experiences/earth/config/sequenceState'
+import { createNavigationState } from './navigation/continuousState'
+import type { NavigationSignals } from '../interaction/navigationSignals'
 import type { ExperienceId } from './experience'
 
 // What happens on the one frame nobody can see.
@@ -31,7 +32,7 @@ interface Harness {
 
 let container: HTMLDivElement
 let root: Root
-let state: SequenceState
+let state: NavigationSignals
 let api: Harness
 /** Swaps and cuts in one list, because their ORDER is the thing under test. */
 let events: string[]
@@ -82,7 +83,7 @@ function seekTo(seconds: number) {
 }
 
 beforeEach(() => {
-  state = createSequenceState()
+  state = createNavigationState()
   events = []
   settled = 0
   elapsed = 0
@@ -216,6 +217,24 @@ describe('teardown', () => {
     expect(state.transitionProgress).toBe(0)
     expect(state.transitionOverlay).toBe(0)
     // Re-rendered by afterEach's unmount otherwise; make it idempotent.
+    root = createRoot(document.createElement('div'))
+  })
+})
+
+describe('navigation ownership', () => {
+  it('keeps the injected channel live and preserves zoom on an interrupted transition', () => {
+    const observed = state
+    state.zoomDepth = 0.6
+    state.approach = 0.4
+    act(() => api.transitionTo('murcia'))
+    seekTo(WARP_TRANSITION.duration * 0.25)
+    expect(observed.transitionProgress).toBeGreaterThan(0)
+    act(() => root.unmount())
+    expect(observed.transitionProgress).toBe(0)
+    expect(observed.transitionOverlay).toBe(0)
+    expect(observed.transitionCommitted).toBe(false)
+    expect(observed.zoomDepth).toBe(0.6)
+    expect(observed.approach).toBe(0.4)
     root = createRoot(document.createElement('div'))
   })
 })

@@ -7,7 +7,7 @@ import { backdropVisible } from '../config/sceneVisibility'
 import { loadProgress } from '../../../loading/progress'
 import { skyOrientation } from './space/galaxyBand'
 import { SPACE_CONFIG } from './space/spaceConfig'
-import { PROTO_SKY, protoSkyFaceUrls } from '../../../app/protoSky'
+import { PROTO_SKY, protoSkyFaceUrls } from '../config/protoSky'
 import shellVertexShader from '../shaders/sky/shell.vert.glsl'
 import shellCubeFragmentShader from '../shaders/sky/shellCube.frag.glsl'
 
@@ -21,7 +21,7 @@ import shellCubeFragmentShader from '../shaders/sky/shellCube.frag.glsl'
 // thing the comparison is allowed to be measuring.
 //
 // Rendered ONLY when `?sky=<variant>` names a cubemap, and only in a build
-// where DEBUG_TOOLS_ENABLED is true. See app/protoSky.ts.
+// where DEBUG_TOOLS_ENABLED is true. See config/protoSky.ts.
 
 interface Props {
   config: IntroConfig

@@ -130,7 +130,7 @@ desktop.ini
 # 005 shots above: nine PNGs at capture resolution is 57 MB, a clone pays for
 # it forever, and every one of them is regenerable from the URL gate with
 # scripts/proto/capture-holo.mjs. The inspection parameters are the deliverable
-# — they live in the plan document, and in src/app/protoHolo.ts.
+# — they live in the plan document, and in src/experiences/earth/config/protoHolo.ts.
 /docs/plans/007-split-plate/shots/
 
 # Projection-field captures (docs/plans/008), regenerable the same way.

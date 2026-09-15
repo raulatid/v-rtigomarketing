@@ -248,6 +248,12 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
 
     // And the label follows the destination rather than describing the journey.
     await expect(control).toHaveAttribute('aria-label', 'Volver a la Tierra')
+    // Both adapters must observe the same live transition channel on return.
+    await expect.poll(async () => (await rail(page))?.state).toBe('idle')
+    await control.focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(false)
+    await expect(control).toHaveAttribute('aria-label', 'Ir a Murcia')
   })
   test('the wheel still scrolls a panel that has its own overflow', async ({ page }) => {
     await page.goto('/')

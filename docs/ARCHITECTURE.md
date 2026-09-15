@@ -1,5 +1,28 @@
 # Architecture
 
+## Current ownership map (2026-09-15, audit stage 3)
+
+- Application navigation owns a stable mutable channel created by
+  `app/navigation/continuousState.ts`. Experiences receive read-only views of
+  its transition, zoom and approach signals through props. The shared contract
+  is `interaction/navigationSignals.ts`; it creates no state.
+- Earth owns only its intro phase, intro overlays, motion blur and orbit reveal
+  in `experiences/earth/config/sequenceState.ts`. Hint permission is supplied
+  separately by the application and combined with the live intro phase.
+- The audit panel owns the desired camera composition in `app/auditView.ts`.
+  Earth receives a read-only `AuditComposition` prop; it neither imports the
+  application nor decides the panel's state.
+- Shared build/debug policy lives in `platform/buildFlags.ts`. Earth prototype
+  parameters live in `experiences/earth/config/`.
+- Murcia's R3F adapter lives at `experiences/murcia/MurciaLayer.tsx`; the logo
+  adapter and its minimal timeline handle live in `corner-logo/`.
+- `checks/architecture.ts` forbids all experience imports into `app/`, as well
+  as application/experience dependencies from platform infrastructure.
+
+These boundaries preserve mutable per-frame reads, lazy loading, renderer
+ownership and the existing experience lifecycles. See
+[stage 3](plans/029-architecture-audit-stage-3.md) for validation.
+
 ## 1. Purpose
 
 This document defines the high-level architecture of the VertigoSEO interactive web experience.

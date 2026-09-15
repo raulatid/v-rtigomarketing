@@ -63,7 +63,7 @@
  * retires the one warning in this file, since growing the ground footprint past the
  * terrain skirt is no longer reachable from a URL.
  */
-import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags';
 import type { EnvironmentConfig } from './environmentConfig';
 
 /**

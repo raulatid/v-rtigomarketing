@@ -9,7 +9,7 @@
  * environments inside a single renderer / canvas / THREE.Scene, so a single
  * mutable global config would not survive the migration.
  */
-import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags';
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags';
 
 export interface AppConfig {
   // Renderer settings used to live here (pixel-ratio cap, antialias, shadows).

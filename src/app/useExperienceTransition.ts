@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createTransitionClock } from '../utils/transitionClock'
-// timeline refs here, in useMasterTimeline and in DebugOverlay are typed
-// against. This type-only import registers the full ambient declarations once
-// for the whole program and is erased at build time, so CSSPlugin — the reason
-// for importing the core build rather than the convenience bundle — still never
-// reaches the entry chunk.
-import type { SequenceState } from '../experiences/earth/config/sequenceState'
+import type { NavigationSignals } from '../interaction/navigationSignals'
 import type { ExperienceId } from './experience'
 import { WARP_LIMITS, WARP_TRANSITION, flash } from '../utils/warpTransition'
 
 
 interface Params {
-  state: SequenceState
+  state: NavigationSignals
   onSwap: (to: ExperienceId) => void
   /**
    * The transition has genuinely finished — the timeline is complete, the progress

@@ -15,7 +15,7 @@
  *
  * A `useState` in `App` for a boolean that flips on every `pointerdown` would
  * re-render both canvases and every overlay, which is the reason its neighbour
- * `state.hintAllowed` is not React state either.
+ * the application-owned hint permission is not React state either.
  *
  * ## Both glyphs and both sentences are rendered, and the stylesheet picks
  *

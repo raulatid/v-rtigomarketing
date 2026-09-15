@@ -22,7 +22,7 @@
  * gates: screenshots of a composition that can change mid-run cannot be
  * compared with each other.
  */
-import { DEBUG_TOOLS_ENABLED } from './buildFlags'
+import { DEBUG_TOOLS_ENABLED } from '../platform/buildFlags'
 
 export interface ProtoMenu3dParams {
   /** True only when `?menu3d=1` opened the gate. */

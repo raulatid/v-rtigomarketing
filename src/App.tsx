@@ -1,3 +1,5 @@
+import { createNavigationState } from './app/navigation/continuousState'
+import { auditView } from './app/auditView'
 import {
   useCallback,
   useEffect,
@@ -26,7 +28,8 @@ import { EarthHint } from './components/EarthHint'
 import { OrbitSystem } from './experiences/earth/orbit/createOrbitSystem'
 import type { SatelliteDef } from './experiences/earth/orbit/orbitConfig'
 import { orbitAssignments } from './experiences/earth/orbit/orbitAssignments'
-import { useMasterTimeline, CornerLogoHandle } from './experiences/earth/timeline/useMasterTimeline'
+import { useMasterTimeline } from './experiences/earth/timeline/useMasterTimeline'
+import type { CornerLogoHandle } from './corner-logo/cornerLogoConfig'
 import { useIntroDraw } from './experiences/earth/timeline/useIntroDraw'
 import type { CornerLogo } from './corner-logo/createCornerLogo'
 import { MENU_MOTION_MS, type HeaderMenuState } from './corner-logo/headerMenuTiming'
@@ -38,7 +41,7 @@ import { crossfadeMusic, setMusicSuppressed, startMusic } from './app/audio/back
 import { SoundToggle } from './components/SoundToggle'
 import { useSceneNavigation } from './app/navigation/useSceneNavigation'
 import { atOrAfter } from './experiences/earth/config/sceneVisibility'
-import { DEBUG_TOOLS_ENABLED } from './app/buildFlags'
+import { DEBUG_TOOLS_ENABLED } from './platform/buildFlags'
 import { canSkipTail } from './app/introSkip'
 import { clearIntroSeen, markIntroSeen, readIntroSeen } from './app/introSeen'
 import { subscribeConsent } from './app/consent'
@@ -68,6 +71,8 @@ export default function App() {
   // Mutated in place by the timeline and read by the render loop — never a
   // React render per frame (plan 002 §1.2).
   const state = useMemo(() => createSequenceState(), [])
+  const navigation = useMemo(() => createNavigationState(), [])
+  const earthAttention = useMemo(() => ({ hintAllowed: false }), [])
 
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -142,7 +147,7 @@ export default function App() {
   const resetZoomRef = useRef<() => void>(() => {})
 
   const { transitionTo, transitioning, stepTransition } = useExperienceTransition({
-    state,
+    state: navigation,
     onSwap: setActiveExperience,
     // The REAL end of the warp, not the `transitioning` flag, which lands a
     // render later — long enough for a trackpad momentum tail to be accepted.
@@ -271,10 +276,9 @@ export default function App() {
   // that actually puts it on screen — is counted per frame inside the scene,
   // because it is a property of the viewer and not of the sequence.
   //
-  // Written onto the mutable sequence state for the reason the zoom is: a
-  // useState here would re-render both canvases and every overlay for a boolean
-  // that already has a zero-cost channel threaded into each layer.
-  state.hintAllowed = attentionIsFree && activeExperience === 'earth'
+  // An explicit application-owned permission channel. HintLayer reads it live
+  // alongside the intro phase; no per-frame React state update is needed.
+  earthAttention.hintAllowed = attentionIsFree && activeExperience === 'earth'
   const {
     settle: settleNavigation,
     reset: resetNavigation,
@@ -324,10 +328,10 @@ export default function App() {
     // until it navigates. The `--nav-progress` custom property still carries it
     // for the e2e suite, painted by the input layer itself.
     onZoom: (depth) => {
-      state.zoomDepth = depth
+      navigation.zoomDepth = depth
     },
     onApproach: (approach) => {
-      state.approach = approach
+      navigation.approach = approach
     },
     // A horizontal trackpad swipe turns Murcia's camera. The input only sends it
     // while Murcia is current; the experience refuses it while anything else
@@ -673,6 +677,9 @@ export default function App() {
       >
         <div className="app__viewport">
           <LazyScene
+            navigation={navigation}
+            attention={earthAttention}
+            auditView={auditView}
             stepTransition={stepTransition}
             suspended={blogOpen}
             config={config}

@@ -21,8 +21,8 @@
  * Installed only when DEBUG_TOOLS_ENABLED, so nothing reaches this in a
  * production build.
  */
-import { DEBUG_TOOLS_ENABLED } from '../../../app/buildFlags'
-import { PROTO_SKY } from '../../../app/protoSky'
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
+import { PROTO_SKY } from '../config/protoSky'
 import type { FocusCameraRig } from './createFocusCameraRig'
 
 export interface DebugCameraPose {

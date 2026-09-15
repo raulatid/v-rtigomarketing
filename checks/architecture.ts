@@ -408,6 +408,10 @@ forbidNodeBuiltins(
   'src/ is the browser; fs, path and crypto do not exist there',
 );
 
+forbid('platform/ does not import experiences', 'src/platform/', 'src/experiences/', 'build policy is shared infrastructure');
+forbid('platform/ does not import the application', 'src/platform/', 'src/app/', '');
+forbid('interaction/ does not import the application', 'src/interaction/', 'src/app/', 'signals are contracts, not application owners');
+
 section('2. The two experiences do not know about each other');
 
 forbid(
@@ -424,37 +428,14 @@ forbid(
 );
 
 forbid(
-  'neither experience imports scene navigation',
+  'neither experience imports the application layer',
   'src/experiences/',
-  'src/app/navigation/',
+  'src/app/',
   'navigating between the worlds is the one thing that knows both exist',
 );
 
-// Added with `app/navigation/` (`adr/009`). Scene navigation is an application
-// concern by definition — it is the only thing in the codebase that knows both
-// worlds exist — so an experience reaching for it would be an experience learning
-// about its sibling by the back door, which is what section 2 above forbids
-// directly.
-//
-// NARROWER THAN IT SHOULD BE, and the reason is worth recording rather than
-// quietly leaving the gap. The rule that belongs here is "no experience imports
-// the application layer at all", which is ARCHITECTURE 17's stated direction.
-//
-// THIS COMMENT USED TO NAME `app/warpTransition` as the single thing in the way,
-// and to claim that moving it to `utils/` would let the broad rule be stated.
-// The move happened — the navigation port needed `src/graphics/` to read the
-// vacuum's shape constants, and section 1 forbids `graphics/ -> app/`, so the
-// module had to land somewhere both layers may reach. It is now
-// `src/utils/warpTransition.ts`.
-//
-// It did NOT unlock the broad rule, and that is the part the old comment got
-// wrong. Thirteen `experiences/ -> app/` edges remain, all of them one of two
-// things: `app/buildFlags` (the debug gate) and the `app/proto*` modules
-// (prototype-era feature flags). Both sit in `app/` for exactly the reason
-// `warpTransition` did — nothing had forced the question — and both are read by
-// experiences that have no business knowing the shell exists. The broad rule
-// becomes assertable when those move, and not before. Anyone tempted to state it
-// early should run the grep first; it is one line.
+// Shared build policy lives in platform/. Experience-specific debug parameters
+// stay in their experience. Application state crosses explicit read-only props.
 
 section('3. The boot entry depends on nothing');
 

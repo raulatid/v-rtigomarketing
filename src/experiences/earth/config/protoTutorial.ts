@@ -11,7 +11,7 @@
  * Gated on `DEBUG_TOOLS_ENABLED`, so a production build never consults the
  * parser. Read ONCE at module load, like the other gates.
  */
-import { DEBUG_TOOLS_ENABLED } from './buildFlags'
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
 
 export interface ProtoTutorialParams {
   /** True only when `?tutorial=1` opened the gate: loop forever, never retire. */

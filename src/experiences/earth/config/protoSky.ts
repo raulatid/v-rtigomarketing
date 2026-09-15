@@ -22,7 +22,7 @@
  * Read ONCE, at module load. A prototype whose parameters can change mid-run is
  * a prototype whose screenshots cannot be compared with each other.
  */
-import { DEBUG_TOOLS_ENABLED } from './buildFlags'
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
 
 export interface ProtoSkyParams {
   /**

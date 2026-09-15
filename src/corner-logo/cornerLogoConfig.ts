@@ -23,3 +23,9 @@ export interface CornerLogoConfig {
   swapDuration: number
   toCornerDuration: number
 }
+
+/** Minimal lifecycle exposed to an intro timeline. */
+export interface CornerLogoHandle {
+  startSequence: () => void
+  isReady: () => boolean
+}

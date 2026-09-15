@@ -19,7 +19,7 @@
  * `freezeEarth` and `stars` are NOT duplicated here — they belong to the
  * capture and already live in `protoSky.ts`; the two gates compose in one URL.
  */
-import { DEBUG_TOOLS_ENABLED } from './buildFlags'
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
 
 export interface ProtoHoloParams {
   /** True only when `?holo=1` opened the gate. */

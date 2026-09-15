@@ -53,6 +53,6 @@ export function orbitsVisible(state: SequenceState): boolean {
 //
 // The phase term lives here rather than in the flag App writes, because App
 // would have to read it at render time and the phase moves between renders.
-export function hintAllowed(state: SequenceState): boolean {
-  return state.hintAllowed && atOrAfter(state.phase, 'site')
+export function hintAllowed(state: SequenceState, permitted: boolean): boolean {
+  return permitted && atOrAfter(state.phase, 'site')
 }

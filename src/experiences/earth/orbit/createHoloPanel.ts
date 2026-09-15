@@ -6,7 +6,7 @@ import { invitationPulse } from './invitation'
 import { deploymentFrom } from './holoDeployment'
 import { createEmitterCone } from './createEmitterCone'
 import { prefersReducedMotion } from '../../../utils/warpTransition'
-import { PROTO_HOLO } from '../../../app/protoHolo'
+import { PROTO_HOLO } from '../config/protoHolo'
 
 // The SATELLITE PROJECTION FIELD: the brand artwork suspended in light above a
 // satellite, with `createEmitterCone.ts` supplying the volume it hangs in.
