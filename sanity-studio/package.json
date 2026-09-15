@@ -6,6 +6,9 @@
   "description": "The editorial Studio for vertigo-marketing-web. Deliberately its own package: nothing here may enter the application's dependency graph or its bundle.",
   "scripts": {
     "dev": "sanity dev",
+    "check:schema": "node scripts/check-schema.mjs",
+    "prebuild": "npm run check:schema",
+    "predeploy": "npm run check:schema",
     "build": "sanity build",
     "deploy": "sanity deploy",
     "typecheck": "tsc --noEmit",

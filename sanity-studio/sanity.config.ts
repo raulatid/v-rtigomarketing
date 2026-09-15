@@ -11,10 +11,10 @@ import { defineConfig } from 'sanity'
 import { structureTool, type StructureBuilder } from 'sanity/structure'
 import { schemaTypes } from './schemas'
 import { EditorialHome } from './components/EditorialHome'
-import { DocumentPreview } from './components/DocumentPreview'
+import { LazyDocumentPreview } from './components/LazyDocumentPreview'
 
 function documentViews(S: StructureBuilder) {
-  return [S.view.form().title('Editar'), S.view.component(DocumentPreview).title('Vista previa').id('preview')]
+  return [S.view.form().title('Editar'), S.view.component(LazyDocumentPreview).title('Vista previa').id('preview')]
 }
 
 /**

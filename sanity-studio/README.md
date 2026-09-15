@@ -108,6 +108,8 @@ The Studio is hosted by Sanity, independent of the public site's deployment. A S
 
 ## Editorial workflow and previews
 
+`npm run build` and `npm run deploy` first run `check:schema`, a local schema extraction into the ignored `.out/schema-check.json`. This checks the configuration in Sanity's extraction runtime, not just Vite. The preview view is loaded through `LazyDocumentPreview`: its dynamic import keeps Vite-only `?raw` styles and `?url` fonts out of schema extraction. Keep this boundary when adding preview assets.
+
 The existing Sanity → Vercel webhook is managed externally. Studio changes do not create, replace or call deployment hooks.
 
 The structure has an Inicio y ayuda pane with authenticated draft queries, document intent links and in-app guidance. Tasks and Scheduled Drafts are explicitly enabled; Sanity controls availability through the project's plan and permissions (Growth). No subscription is changed by this configuration.
