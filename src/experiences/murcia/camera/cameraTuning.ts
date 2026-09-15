@@ -133,7 +133,8 @@ export function createDefaultCameraTuning(
   bounds: BoundsRect,
 ): CameraTuning {
   return {
-    rotationGain: 100,
+    // 100 until 2026-09-15, when the client found the turn too fast (DECISIONS §44).
+    rotationGain: 75,
     travelGain: 130,
     scaleTravelWithDistance: true,
     travelReferenceRadius: TRAVEL_REFERENCE_RADIUS,

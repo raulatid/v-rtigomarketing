@@ -196,9 +196,9 @@
   position: absolute;
   left: 50%;
   --pad-x: 14px;
-  --pad-y: 6px;
+  --pad-y: 4px;
   /* The bar's centre: room above it for the forward needle. */
-  --cy: calc(var(--pad-y) + 16 * var(--u));
+  --cy: calc(var(--pad-y) + 11 * var(--u));
 
   /* ON THE LINE WHEN IT FITS, JUST UNDER IT WHEN IT DOES NOT (2026-09-15).
 
@@ -239,10 +239,11 @@
     66vw,
     max(var(--murcia-compass-room), var(--murcia-compass-short))
   );
-  /* Bar centre, the pin under the bar (5u + 19u), the gap, the label at the
-     size it grows to on arrival (`LABEL_ARRIVAL_SCALE` in compassBar.ts), and
-     the bottom padding. */
-  height: calc(var(--cy) + 30 * var(--u) + 1.2 * var(--fs) + var(--pad-y));
+  /* Bar centre, the pin under the bar (5u + 15u), the gap (3u), the label at
+     the size it grows to on arrival (`LABEL_ARRIVAL_SCALE` in compassBar.ts),
+     and the bottom padding. Tightened 2026-09-15 at the client's request —
+     shorter, not narrower — from about 72px to about 56px on a desktop. */
+  height: calc(var(--cy) + 23 * var(--u) + 1.2 * var(--fs) + var(--pad-y));
   transform: translateX(-50%);
   border: 1px solid var(--glass-border-accent);
   border-radius: 14px;
@@ -333,17 +334,18 @@
 
 /* The forward needle: where the camera is actually pointing, and the one mark
    at full strength. It never moves; the pins are read against it. It stands
-   ON the bar, 16u above the centre line and 2u through it, so its tip stops
+   ON the bar, 11u above the centre line and 2u through it, so its tip stops
    3u short of the pins (which start 5u below): the same white, an arriving
-   pin and a needle that reached down into the pins' row read as one glyph. */
+   pin and a needle that reached down into the pins' row read as one glyph.
+   8u x 13u keeps the 11:18 of its viewBox. */
 .murcia-ui .murcia-compass__forward {
   position: absolute;
-  top: calc(var(--cy) - 16 * var(--u));
+  top: calc(var(--cy) - 11 * var(--u));
   left: 50%;
   display: block;
-  width: calc(11 * var(--u));
-  height: calc(18 * var(--u));
-  margin-left: calc(-5.5 * var(--u));
+  width: calc(8 * var(--u));
+  height: calc(13 * var(--u));
+  margin-left: calc(-4 * var(--u));
 }
 
 /* A track exactly as wide as the bar, with the pin and label centred in it.
@@ -362,7 +364,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(6 * var(--u));
+  gap: calc(3 * var(--u));
   transform: translateX(var(--offset, 0%));
   opacity: var(--fade, 1);
   will-change: transform, opacity;
@@ -375,10 +377,11 @@
   );
 }
 
+/* 10.25u x 15u keeps the 13:19 of its viewBox. */
 .murcia-ui .murcia-compass__pin {
   display: block;
-  width: calc(13 * var(--u));
-  height: calc(19 * var(--u));
+  width: calc(10.25 * var(--u));
+  height: calc(15 * var(--u));
 }
 
 .murcia-ui .murcia-compass__label {
@@ -406,11 +409,11 @@
    between arrivals; the animation carries all of its opacity. */
 .murcia-ui .murcia-compass__pulse {
   position: absolute;
-  top: calc(6.5 * var(--u));
+  top: calc(5.125 * var(--u));
   left: 50%;
-  width: calc(13 * var(--u));
-  height: calc(13 * var(--u));
-  margin: calc(-6.5 * var(--u)) 0 0 calc(-6.5 * var(--u));
+  width: calc(10.25 * var(--u));
+  height: calc(10.25 * var(--u));
+  margin: calc(-5.125 * var(--u)) 0 0 calc(-5.125 * var(--u));
   border: 1px solid var(--text-primary);
   border-radius: 50%;
   opacity: 0;

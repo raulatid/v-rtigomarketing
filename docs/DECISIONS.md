@@ -3501,6 +3501,13 @@ a classification, and the drag above deliberately has none. The difference is th
 device: a drag is one hand on one surface, while a wheel event is two axes the OS
 reports together, and a trackpad never sends a pure one.
 
+> **Amended 2026-09-15 (client review):** the turn was "a bit fast". `rotationGain` 100 → 75
+> degrees per viewport width. The spring (`rotationDamping` 4) is unchanged — lowering it would
+> have made the turn lag the finger rather than cover less of the circle. The horizontal trackpad
+> swipe shares the gain, so it is 25% slower too. The compass plate was tightened vertically in
+> the same review (about 72 → 56 px on a desktop, the width untouched): a shorter needle and pin
+> and smaller gaps, the arrived label's 1.2× reservation kept.
+
 
 ## 45. The services district is the campus
 
