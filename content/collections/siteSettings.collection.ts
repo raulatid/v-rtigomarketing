@@ -1,16 +1,15 @@
-import type { BuildingBanner, SitePhone, SiteSettings } from '../../src/content/types'
+import type { SitePhone, SiteSettings } from '../../src/content/types'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
   EMAIL_PATTERN,
   ID_PATTERN,
-  LOCAL_MEDIA_PATH,
   TEL_PATTERN,
   collectionProblems,
   isBookingUrl,
   siteSettingsProblems,
 } from '../../src/content/invariants'
 import { Report, boundedArray, matching, text } from '../lib/validate'
-import { collection, type MediaRule } from './types'
+import { collection } from './types'
 
 /**
  * Site settings: how to reach the agency, and whose name is on the footer.
@@ -207,57 +206,6 @@ function revenueRanges(report: Report, path: string, raw: unknown): string[] | u
   return ranges
 }
 
-/**
- * What the banner image must be, beyond being fetchable (plan 019).
- *
- * The image is stretched onto each face of the sign on the Vertigo tower, and
- * the faces are ~1.84:1 (`murcia/landmark/vertigoBuildingConfig.ts`), so the
- * aspect band is what keeps it from reading squashed. PNG and WebP, like the
- * brand marks: WebP carries a photograph well and a JPEG buys nothing here.
- *
- * Duplicated in the Studio (`sanity-studio/schemas/lib/bannerImage.ts`) so
- * the editor is told at the field; the two packages may not import each other.
- */
-const BANNER_RULES: Record<string, MediaRule> = {
-  bannerImage: {
-    extensions: ['png', 'webp'],
-    minWidth: 1024,
-    minHeight: 512,
-    minAspect: 1.6,
-    maxAspect: 2.1,
-  },
-}
-
-/**
- * The building's banner: a switch and, when the client has uploaded one, a
- * mirrored image.
- *
- * The switch DEFAULTS ON when unset — a dataset that predates the field shows
- * the city's own placeholder, which is the same "an untouched dataset renders
- * what it rendered yesterday" reasoning the confirmation copy follows. Only an
- * editor's explicit `false` turns the sign blank.
- *
- * The image, by the time it reaches here, is a path the mirror wrote (or a
- * fixture's local path). Anything else is refused: a CDN url in the emitted
- * module is a texture the browser would fetch from a third party.
- */
-function banner(report: Report, enabledRaw: unknown, imageRaw: unknown): BuildingBanner | undefined {
-  let enabled = true
-  if (enabledRaw !== null && enabledRaw !== undefined) {
-    if (typeof enabledRaw !== 'boolean') {
-      report.fail('buildingBanner.enabled', 'expected a boolean')
-      return undefined
-    }
-    enabled = enabledRaw
-  }
-  if (imageRaw === null || imageRaw === undefined || imageRaw === '') return { enabled }
-  if (typeof imageRaw !== 'string' || !LOCAL_MEDIA_PATH.test(imageRaw.trim())) {
-    report.fail('buildingBanner.image', 'must be a local media path — was the mirror skipped?')
-    return undefined
-  }
-  return { enabled, image: imageRaw.trim() }
-}
-
 function phone(report: Report, path: string, raw: unknown): SitePhone | undefined {
   if (raw === null || typeof raw !== 'object') {
     return report.fail(path, 'expected an object')
@@ -292,12 +240,6 @@ export const siteSettingsCollection = collection<SiteSettings>({
     // array byte-stable, and "there is only one" is a claim audit() proves
     // rather than one the query may assume.
     orderBy: '_id asc',
-    // The banner is drawn as a WebGL texture, so it is mirrored in-house like
-    // the brand marks rather than hotlinked like editorial imagery. The
-    // projection hands the mirror a URL STRING — `bannerImage.asset->url` —
-    // never the bare image object (see caseStudies.collection.ts for the trap).
-    mirror: ['bannerImage'],
-    mediaRules: BANNER_RULES,
     // A deterministic document id, projected to the name the application uses.
     projection: `{
       "id": "site",
@@ -310,9 +252,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       auditSuccessBody,
       contactSuccessTitle,
       contactSuccessBody,
-      revenueRanges,
-      bannerEnabled,
-      "bannerImage": bannerImage.asset->url
+      revenueRanges
     }`,
   },
 
@@ -377,7 +317,6 @@ export const siteSettingsCollection = collection<SiteSettings>({
       source.contactSuccessBody,
       SUCCESS_BODY_MAX,
     )
-    const buildingBanner = banner(scoped, source.bannerEnabled, source.bannerImage)
     const ranges = revenueRanges(scoped, 'revenueRanges', source.revenueRanges)
 
     const problems = [...report.problems, ...scoped.problems]
@@ -392,8 +331,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       auditSuccessBody === undefined ||
       contactSuccessTitle === undefined ||
       contactSuccessBody === undefined ||
-      ranges === undefined ||
-      buildingBanner === undefined
+      ranges === undefined
     ) {
       return { ok: false, problems }
     }
@@ -415,9 +353,6 @@ export const siteSettingsCollection = collection<SiteSettings>({
       contactSuccessTitle,
       contactSuccessBody,
       revenueRanges: ranges,
-      // Always present (the switch has a default); the image key inside it is
-      // spread the way `bookingUrl` is, for the same byte-stability reason.
-      buildingBanner,
     }
 
     const residual = siteSettingsProblems(value)

@@ -71,7 +71,7 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 Every row above is also checked in the Studio, at the field, by
 `sanity-studio/schemas/lib/brandMark.ts` — see "Two tiers" below.
 
-**The building banner is mirrored the same way** (plan 019, 2026-09-05): `siteSettings.bannerImage` lands in `public/logos/` through the same decorator, with its own rule — PNG or WebP, at least 1024×512, aspect 1.6–2.1:1 — because it is stretched onto the ~1.84:1 faces of the sign on the Vertigo tower and a square image would read squashed. The Studio tier for it is `sanity-studio/schemas/lib/bannerImage.ts`. Unlike the brand marks it has no pairing rule and no drawn fallback: absent, the city shows its own placeholder through the same material.
+**The building banner is retired (2026-09-15, audit AR-12).** Its former image is no longer fetched, mirrored or validated. Stored Sanity values and assets remain intact; the hidden Studio fields are read-only. Brand-mark mirroring and its rules below remain active.
 
 **Accepted formats: PNG and WebP, and nothing else.** Raster, with transparency where the mark needs
 it. JPEG is refused rather than tolerated: it has no alpha channel, so on the dark-glass panel it

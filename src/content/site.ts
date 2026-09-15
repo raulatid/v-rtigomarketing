@@ -83,13 +83,6 @@ export const REVENUE_RANGES: readonly string[] = settings.revenueRanges
 export const COPYRIGHT = settings.copyright
 
 /**
- * The banner on the Vertigo building's sign (plan 019). Read by Murcia, which
- * resolves it to a texture source — the mirrored image, or the city's own
- * placeholder when the client has not uploaded one. See `BuildingBanner`.
- */
-export const BUILDING_BANNER = settings.buildingBanner
-
-/**
  * Which legal documents the site links to — a union in code, on purpose.
  *
  * The audit panel names two, the consent banner the third, `App.tsx` routes on

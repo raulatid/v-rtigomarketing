@@ -2,7 +2,6 @@ import { CogIcon } from '@sanity/icons/Cog'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { charCount } from '../components/CharCountInput'
-import { bannerImageErrors } from './lib/bannerImage'
 import { phoneSpellingsAgree } from './lib/phone'
 
 /**
@@ -347,21 +346,16 @@ export const siteSettings = defineType({
         rule.max(BOUNDS.copyright).error(`Demasiado largo: como máximo ${BOUNDS.copyright} caracteres.`),
       ],
     }),
-    // ── La pantalla del edificio: OCULTA ──
-    //
-    // Nada de la web lee estos dos campos desde que la torre tiene su propia
-    // pantalla LED con contenido en el código (dbb2de8, 2026-09-10). Ocultos y
-    // no borrados: los valores guardados siguen donde estaban, y quitarlos de la
-    // proyección, los tipos y los fixtures es una tarea aparte. Mientras tanto
-    // `bannerImageErrors` sigue aquí porque `siteSettings.collection.ts` aún
-    // valida y descarga la imagen; oculta, nadie puede cambiarla por una mala.
+    // Retired banner fields remain hidden to preserve existing CMS values.
+    // The build no longer projects, mirrors or validates them. No migration
+    // or asset deletion is performed; new documents need no banner defaults.
     defineField({
       name: 'bannerEnabled',
       title: 'Mostrar la pantalla',
       type: 'boolean',
       fieldset: 'edificio',
       hidden: true,
-      initialValue: true,
+      readOnly: true,
     }),
     defineField({
       name: 'bannerImage',
@@ -369,8 +363,7 @@ export const siteSettings = defineType({
       type: 'image',
       fieldset: 'edificio',
       hidden: true,
-      options: { accept: 'image/png,image/webp' },
-      validation: (rule) => rule.custom(bannerImageErrors()),
+      readOnly: true,
     }),
   ],
   preview: {

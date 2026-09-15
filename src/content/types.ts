@@ -79,25 +79,6 @@ export interface SitePhone {
  * Deliberately not a key/value bag. A global value earns a field here when it is
  * genuinely editorial; anything else is configuration and belongs in code.
  */
-/**
- * The banner on the Vertigo building's sign, in the city (plan 019).
- *
- * `image` is a LOCAL path: the content build mirrors the CMS upload into
- * `public/` the way it mirrors the brand marks, so the browser never fetches a
- * texture from a third party. Absent means "the client has not uploaded one",
- * and the city shows its own placeholder through the same material — the
- * switch is what turns the banner off, not the absence of a file.
- *
- * Image only, by decision. A `video` variant is documented next to the
- * renderer (`murcia/landmark/attachBanner.ts`) and deliberately not modelled
- * here until it is built: a field with no consumer is a promise the Studio
- * makes on the code's behalf.
- */
-export interface BuildingBanner {
-  enabled: boolean
-  image?: string
-}
-
 export interface SiteSettings {
   /** Fixed. There is one of these, and it is called this. */
   id: string
@@ -152,8 +133,6 @@ export interface SiteSettings {
    * mapper substitutes placeholder ranges when the CMS has none.
    */
   revenueRanges: string[]
-  /** Always present: the mapper defaults the switch ON when the field is unset. */
-  buildingBanner: BuildingBanner
 }
 
 /**

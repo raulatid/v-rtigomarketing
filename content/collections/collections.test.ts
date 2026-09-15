@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { withMediaMirror } from '../lib/mirror'
 import type { BlogPost, CaseStudy, DistrictContent, SiteSettings } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
@@ -1182,73 +1183,46 @@ describe('the legal documents are the set the site links to', () => {
   })
 })
 
-describe('the Vertigo building banner (plan 019)', () => {
-  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
-  const mapped = (record: unknown) => {
-    const result = siteSettingsCollection.map(record, 0)
-    if (!result.ok) throw new Error(result.problems.map((p) => p.path + ': ' + p.message).join('; '))
-    return (result.value as SiteSettings).buildingBanner
-  }
-
-  it('carries the mirrored image as a local path, and the switch', () => {
-    // By the time a record reaches the mapper the mirror has rewritten the CMS
-    // url to a path under public/. Fixtures carry that path already.
-    const record = validSettings()
-    record.bannerEnabled = true
-    record.bannerImage = '/logos/abc123-1600x870.webp'
-    expect(mapped(record)).toEqual({ enabled: true, image: '/logos/abc123-1600x870.webp' })
-  })
-
-  it('leaves the image key out when the CMS has none, and defaults the switch ON', () => {
-    // A dataset that predates the field: the building shows the placeholder,
-    // the same way an unfilled booking label shows the shipped wording.
-    const record = validSettings()
-    delete record.bannerEnabled
-    delete record.bannerImage
-    expect(mapped(record)).toEqual({ enabled: true })
-  })
-
-  it('treats a blank image like an absent one', () => {
-    const record = validSettings()
-    record.bannerImage = ''
-    expect(mapped(record)).toEqual({ enabled: true })
-  })
-
-  it('keeps the switch OFF when the editor turned it off', () => {
-    const record = validSettings()
-    record.bannerEnabled = false
-    record.bannerImage = '/logos/abc123-1600x870.webp'
-    expect(mapped(record)).toEqual({ enabled: false, image: '/logos/abc123-1600x870.webp' })
-  })
-
-  it('refuses an image that is not a local path', () => {
-    // A cdn.sanity.io url here means the mirror did not run, or a fixture was
-    // written by hand against the CDN. Either way the browser would fetch a
-    // third party for a texture, which is what the mirror exists to prevent.
-    for (const bad of ['https://cdn.sanity.io/images/p/d/abc-1600x870.webp', '//evil.example/x.png', 'logos/x.png']) {
-      const record = validSettings()
-      record.bannerImage = bad
-      expect(problemsFor(siteSettingsCollection, record), bad).toContain('site.buildingBanner.image')
+describe('retired building banner data', () => {
+  it('ignores legacy fields without mutating persisted input or emitting the old contract', () => {
+    for (const legacy of [
+      { bannerEnabled: true, bannerImage: 'https://cdn.sanity.io/images/p/d/old-1600x870.webp' },
+      { bannerEnabled: 'invalid legacy switch', bannerImage: { asset: { _ref: 'old-image' } } },
+      { bannerEnabled: false, bannerImage: null },
+    ]) {
+      const record = { ...structuredClone(settingsFixtures[0]), ...legacy }
+      const before = structuredClone(record)
+      const result = siteSettingsCollection.map(record, 0)
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error('Legacy banner fields must not block site settings')
+      expect(result.value).not.toHaveProperty('buildingBanner')
+      expect(result.value).not.toHaveProperty('bannerImage')
+      expect(result.value).not.toHaveProperty('bannerEnabled')
+      expect(record).toEqual(before)
+      expect(siteSettingsCollection.audit([result.value])).toEqual([])
     }
   })
 
-  it('refuses a switch that is not a boolean', () => {
-    const record = validSettings()
-    record.bannerEnabled = 'yes'
-    expect(problemsFor(siteSettingsCollection, record)).toContain('site.buildingBanner.enabled')
-  })
-
-  it('mirrors the image with a format and geometry rule of its own', () => {
-    // The same guard the brand marks have: every fixture path is local, so a
-    // mirror entry that stopped being applied would break nothing locally and
-    // let a JPEG or a square image onto the tower.
-    expect(siteSettingsCollection.source.mirror).toEqual(['bannerImage'])
-    const rule = siteSettingsCollection.source.mediaRules!.bannerImage
-    expect(rule.extensions).toEqual(['png', 'webp'])
-    // The band's faces are ~1.84:1 (landmark/vertigoBuildingConfig.ts); the
-    // rule is a band around that so the image is never visibly squashed.
-    expect(rule.minAspect).toBeLessThan(1.84)
-    expect(rule.maxAspect).toBeGreaterThan(1.84)
-    expect(rule.minWidth).toBeGreaterThanOrEqual(1024)
+  it('does not request the retired image, even if a source returns legacy data', async () => {
+    const record = {
+      ...structuredClone(settingsFixtures[0]),
+      bannerEnabled: true,
+      bannerImage: 'https://cdn.sanity.io/images/p/d/old-1600x870.webp',
+    }
+    const fetchImage = vi.fn<typeof fetch>().mockRejectedValue(new Error('Retired image was fetched'))
+    const source = withMediaMirror({
+      describe: 'legacy site settings',
+      fetchAll: async () => [record],
+    }, {
+      dir: 'out/retired-banner-must-not-download',
+      publicPath: '/logos',
+      allowedOrigin: 'https://cdn.sanity.io',
+      fetchImpl: fetchImage,
+    })
+    const records = await source.fetchAll(siteSettingsCollection.source)
+    expect(records).toEqual([record])
+    expect(fetchImage).not.toHaveBeenCalled()
+    expect(siteSettingsCollection.map(records[0], 0).ok).toBe(true)
+    expect(siteSettingsCollection.source.projection).not.toMatch(/bannerImage|bannerEnabled/)
   })
 })
