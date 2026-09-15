@@ -151,11 +151,39 @@ test.describe('the blog', () => {
   // software renderer.
   test.setTimeout(240_000)
 
-  test('a warm round trip freezes the scene and never rebuilds it', async ({ page }) => {
+  test('a cold scene defers the blog route until navigation requests it', async ({ page }) => {
     const errors = collect(page)
+    const requests: string[] = []
+    page.on('request', (request) => {
+      if (/\/assets\/BlogRoute-[^/]+\.js/.test(request.url())) requests.push(request.url())
+    })
     await interceptImages(page)
     await page.goto('/')
     await reachSite(page)
+    expect(requests).toHaveLength(0)
+    // Exercise the route subscription without depending on the city's camera pose.
+    await page.evaluate(() => {
+      history.pushState({}, '', '/blog')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    await expect(page.locator('.blog-root')).toBeVisible()
+    expect(requests).toHaveLength(1)
+    await page.goBack()
+    await expect(page.locator('.blog-root')).toHaveCount(0)
+    await expect.poll(() => sceneHidden(page)).toBe(false)
+    expect(errors).toEqual([])
+  })
+
+  test('a warm round trip freezes the scene and never rebuilds it', async ({ page }) => {
+    const errors = collect(page)
+    const blogRequests: string[] = []
+    page.on('request', (request) => {
+      if (/\/assets\/BlogRoute-[^/]+\.js/.test(request.url())) blogRequests.push(request.url())
+    })
+    await interceptImages(page)
+    await page.goto('/')
+    await reachSite(page)
+    expect(blogRequests, 'cold / must leave the blog route for visitor intent').toHaveLength(0)
 
     // Into Murcia, the way a visitor gets there.
     // 28 notches: the whole journey is the 1200px band plus the 600px push
@@ -202,6 +230,7 @@ test.describe('the blog', () => {
       .poll(() => page.evaluate(() => location.pathname), { timeout: APPROACH_TIMEOUT_MS })
       .toBe('/blog')
     await page.waitForSelector('.blog-root')
+    expect(blogRequests, 'the approach must fetch the deferred blog route').toHaveLength(1)
 
     // The cover the approach raised is gone once the blog has painted. It sits
     // BELOW `.blog-root`, so a survivor would not hide the page — but it would be

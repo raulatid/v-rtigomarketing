@@ -85,6 +85,9 @@ const INTRO_BUDGET_BYTES = 16_000
 // answer at that point is probably to make the modulepreload loop selective
 // rather than to raise this a second time.
 const INITIAL_JS_BUDGET_BYTES = 1_610_000
+// 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
+// existing city approach prefetch, not by the cold / modulepreload loop.
+// Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.
 // Raised 10 -> 12 on 2026-09-04, and here is the itemised reason the message
 // below asks for. The blog's header became a SECOND dynamic consumer of the
 // corner logo, and Rollup re-signatures every module those two dynamic entries
@@ -192,7 +195,13 @@ function isStatsChunk(chunk: OutputChunk): boolean {
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
+  // The city starts prefetchBlog() on approach; cold / does not need the route.
+  if (isBlogRouteChunk(chunk)) return false
   return !chunk.isEntry
+}
+
+function isBlogRouteChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/blog/BlogRoute.tsx') === true
 }
 
 /**
@@ -464,10 +473,22 @@ function assertChunkBudgets(): Plugin {
       // entry and the intro entry) and this is the whole initial JS closure.
       //
       // Deliberately shares `isPreloadedOnIndex` with the loop that emits the
-      // links, so the set measured here cannot drift from the set the HTML asks
-      // for. The blog document's own entry is the only chunk left out, which is
-      // adr/013 working: `/blog` pays for none of this.
+      // links. Blog-only and debug exclusions are defined in that predicate;
+      // the static-edge check below prevents an exclusion from hiding a load.
       const initial = chunks.filter((c) => isPreloadedOnIndex(c) || c === entry || c === intro)
+      // Exclusions must remain real lazy seams, not hide a static dependency
+      // from the budget. Check every edge in the initial closure.
+      const initialFiles = new Set(initial.map((c) => c.fileName))
+      for (const chunk of initial) {
+        for (const dependency of chunk.imports) {
+          if (chunks.some((c) => c.fileName === dependency) && !initialFiles.has(dependency)) {
+            this.error(`initial chunk ${chunk.fileName} statically imports excluded ${dependency}`)
+          }
+        }
+      }
+      if (chunks.filter(isBlogRouteChunk).length !== 1) {
+        this.error('expected exactly one lazy BlogRoute chunk; review the initial preload policy')
+      }
       const counted = initial
         .map((c) => ({ name: c.fileName, bytes: Buffer.byteLength(c.code, 'utf8') }))
         .sort((a, b) => b.bytes - a.bytes)
@@ -817,11 +838,8 @@ function introEntry(): Plugin {
             // the ones the first frame after the intro actually needs. Nothing
             // here is needed DURING P0 at all — the point of the split is to
             // fetch without evaluating — but the queue still has an order.
-            // The blog is a route nobody has asked for yet. Preloading it at
-            // High priority would put it in front of the chunks the first frame
-            // after the intro actually needs, so it rides at low priority with
-            // the world the visitor cannot reach until they tap a building.
-            const deferred = /MurciaExperience|disposal|BlogRoute/.test(chunk.fileName)
+            // BlogRoute is excluded entirely: the city prefetches it on approach.
+            const deferred = /MurciaExperience|disposal/.test(chunk.fileName)
             tags.push({
               tag: 'link',
               attrs: {

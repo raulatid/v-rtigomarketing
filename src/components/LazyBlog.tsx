@@ -18,12 +18,9 @@ import type { Route } from '../app/route'
  * does. Without the second, renaming `BlogRoute.tsx` would make the first rule
  * vacuously true and the check would go green on a blog that no longer exists.
  *
- * No `Suspense` FALLBACK on purpose. The chunk is `modulepreload`ed at low
- * priority alongside the scene chunks, so by the time a reader taps the building
- * it is nearly always already fetched; a spinner that flashes for one frame is
- * worse than a frame of the scene the reader was already looking at. The scene
- * behind is still painted at this point — it is hidden by the wrapper only once
- * the route has actually changed.
+ * No `Suspense` fallback: the city prefetches this route when the approach
+ * starts, before navigation. The existing transition cover waits for the blog
+ * to paint on slower connections. Cold `/` does not preload the blog route.
  */
 const loadBlogRoute = () => import('../blog/BlogRoute')
 
@@ -33,10 +30,9 @@ const BlogRoute = lazy(loadBlogRoute)
  * Starts the blog's chunk fetching without rendering anything.
  *
  * Called when the blog display's approach COMMITS, three seconds before the
- * route actually changes. The chunk is `modulepreload`ed at low priority
- * already, so this is usually a no-op that resolves from cache — but on a slow
- * connection those three seconds are the difference between the transition
- * landing on the blog and landing on nothing while the cover holds.
+ * route actually changes. This starts the request on visitor intent rather
+ * than competing with scene resources at boot. On a slow connection the
+ * transition cover holds until the blog paints.
  *
  * Deliberately the SAME specifier as the `lazy` above, byte for byte, so the
  * two share one chunk and one module instance. It is also what keeps the second

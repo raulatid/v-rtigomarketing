@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import glsl from 'vite-plugin-glsl'
+import { fileURLToPath } from 'node:url'
+import { coverageModules } from './scripts/coverageModules'
 
 /**
  * The unit tier. Deliberately a separate config rather than a `test` block bolted
@@ -77,123 +79,12 @@ export default defineConfig({
 
     coverage: {
       provider: 'v8',
-      // SCOPED, deliberately, to the modules the unit tier is responsible for.
-      //
-      // A repository-wide percentage would be dominated by the WebGL surface,
-      // which is untestable by design here — every renderer, R3F layer and
-      // shader wrapper. That number would end up either set so low it means
-      // nothing, or high enough to force tests written to raise it. Both are
-      // worse than no number.
-      //
-      // Anything measured by a harness in checks/ is also absent: those run in
-      // a separate esbuild bundle under plain node, so nothing they execute is
-      // instrumented here. Their coverage is the assertion count, not a
-      // percentage.
-      // EVERY MODULE THAT HAS A UNIT TEST BESIDE IT, and that rule is the whole
-      // change. The list used to be sixteen paths curated by hand, and three of
-      // them had not existed since the Earth prototype was folded into
-      // `src/experiences/` — `src/sceneVisibility.ts`, `src/sequenceState.ts`
-      // and `src/orbit-system/geoUtils.ts`. A coverage `include` that names a
-      // file which is not there does not fail; it contributes nothing, and the
-      // percentage quietly becomes a percentage of something smaller. Thirteen
-      // modules were being measured while forty-seven others carried tests
-      // nobody counted.
-      //
-      // A hand-curated list has that failure mode built in, so the rule replaces
-      // the curation: if a module is worth a `*.test.ts` next to it, its
-      // coverage is worth accounting. Nothing else is added — the WebGL surface
-      // with no test beside it stays out, which is what keeps this number from
-      // being dominated by renderers and shader wrappers that cannot be unit
-      // tested at all. Anything measured by a harness in `checks/` is absent for
-      // the same reason as before: those run in a separate esbuild bundle under
-      // plain node, so nothing they execute is instrumented here.
-      include: [
-        'src/app/auditSubmission.ts',
-        'src/app/blogHistory.ts',
-        'src/app/consent.ts',
-        'src/app/contactSubmission.ts',
-        'src/app/navigation/createNavigationInput.ts',
-        'src/app/navigation/navigationGesture.ts',
-        'src/app/navigation/navigationMachine.ts',
-        'src/app/navigation/progressSpring.ts',
-        'src/app/navigation/zoomBand.ts',
-        'src/app/protoHolo.ts',
-        'src/app/protoSky.ts',
-        'src/app/protoTutorial.ts',
-        'src/app/route.ts',
-        'src/app/useExperienceTransition.ts',
-        'src/auditView.ts',
-        'src/blog/PostBody.tsx',
-        'src/blog/blogFilter.ts',
-        'src/blog/sanityImage.ts',
-        'src/components/AuditSection.tsx',
-        'src/components/ConsentBanner.tsx',
-        'src/components/ContactSection.tsx',
-        'src/components/LegalPanel.tsx',
-        'src/components/SiteHeader.tsx',
-        'src/content/site.ts',
-        'src/corner-logo/logoMotion.ts',
-        'src/experiences/earth/camera/closeUpFraming.ts',
-        'src/experiences/earth/camera/destinationSteer.ts',
-        'src/experiences/earth/camera/zoomPose.ts',
-        'src/experiences/earth/config/sceneVisibility.ts',
-        'src/experiences/earth/config/sequenceState.ts',
-        'src/experiences/earth/navigation/destination.ts',
-        'src/experiences/earth/orbit/createBrandAtlas.ts',
-        'src/experiences/earth/orbit/geoUtils.ts',
-        'src/experiences/earth/orbit/holoDeployment.ts',
-        'src/experiences/earth/orbit/hoverTutorial.ts',
-        'src/experiences/earth/orbit/invitation.ts',
-        'src/experiences/earth/orbit/orbitConfig.ts',
-        'src/experiences/earth/orbit/panelExpansion.ts',
-        'src/experiences/earth/orbit/resolveOrbitCases.ts',
-        'src/experiences/earth/orbit/satelliteVisibility.ts',
-        'src/experiences/murcia/assets/applyTrimSheet.ts',
-        'src/experiences/murcia/assets/loadCity.ts',
-        'src/experiences/murcia/camera/CameraRig.ts',
-        'src/experiences/murcia/campus/campusContent.ts',
-        'src/experiences/murcia/campus/campusInteraction.ts',
-        'src/experiences/murcia/campus/campusPalette.ts',
-        'src/experiences/murcia/campus/gatherCampus.ts',
-        'src/experiences/murcia/campus/section/campusState.ts',
-        'src/experiences/murcia/config/appConfig.ts',
-        'src/experiences/murcia/config/environmentConfig.ts',
-        'src/experiences/murcia/district/serviceCopy.ts',
-        'src/experiences/murcia/district/ui/districtA11y.ts',
-        'src/experiences/murcia/environment/createTerrainTransition.ts',
-        'src/experiences/murcia/navigation/navigationBounds.ts',
-        'src/experiences/murcia/scene/cityDistrictBindings.ts',
-        'src/experiences/murcia/water/createRioWater.ts',
-        'src/experiences/murcia/water/riverFrame.ts',
-        'src/interaction/screenSpace.ts',
-        'src/intro-draw/boot.ts',
-        'src/intro-draw/bootState.ts',
-        'src/intro-draw/playhead.ts',
-        'src/intro-draw/stageLayout.ts',
-        'src/utils/compass.ts',
-        'src/utils/easing.ts',
-        'src/utils/fibonacciSphere.ts',
-        'src/utils/transitionClock.ts',
-        'src/utils/warpTransition.ts',
-        'src/utils/wheelDelta.ts',
-        // The two exceptions to the rule above: no test file sits beside them,
-        // and both are reached through their consumers — `lookup.ts` by every
-        // collection test, `invariants.ts` by content/collections and site.test.ts.
-        // Listed by hand because they are content CONTRACTS, and a contract whose
-        // coverage nobody measures is the one that silently stops being checked.
-        'src/content/lookup.ts',
-        'src/content/invariants.ts',
-      ],
-      // Set at what the suite actually achieves against the list above, rounded
-      // down. The point of a threshold is to notice a REGRESSION — a module
-      // added to the list with no tests, or coverage dropping when someone
-      // deletes a case. It is not a target to climb.
-      //
-      // These moved when the list did, and the direction is not the story: the
-      // old 85/80/85/85 was measured over THIRTEEN modules, these over
-      // sixty-two. Statements at 83 across sixty-two files is a far stronger
-      // gate than 85 across thirteen, and the two numbers are not comparable.
-      // Do not "restore" the old ones.
+      // Measure source modules with a same-name adjacent unit test. The two
+      // content contracts are also exercised through their consumers.
+      // Node-side tests still run, but are outside this browser-source metric.
+      include: coverageModules(fileURLToPath(new URL('./src', import.meta.url))),
+      // Explicit/manual gate: npm run test:coverage. check/build run the tests
+      // without instrumentation. Keep these floors when the selection grows.
       thresholds: {
         statements: 83,
         branches: 85,
