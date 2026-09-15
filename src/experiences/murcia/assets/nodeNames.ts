@@ -59,7 +59,7 @@ export function findByAnyNameSpelling(
   let byOriginal: THREE.Object3D | null = null;
   root.traverse((obj) => {
     if (byOriginal) return;
-    if (obj.userData?.['name'] === configuredName && accept(obj)) byOriginal = obj;
+    if ((obj.userData?.['name'] === configuredName || obj.userData?.runtime_name === configuredName) && accept(obj)) byOriginal = obj;
   });
   if (byOriginal) {
     return { object: byOriginal, source: 'original-name', matchedName: configuredName };

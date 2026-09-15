@@ -255,12 +255,10 @@ export interface TrimSheetConfig {
  * not baked and renders lit, which is every city before murcia-v7 and what
  * the tests' untextured loads still get.
  */
-export interface LightmapConfig {
+export type LightmapConfig = {
   /** Directory the manifests and every KTX2 they name sit in. Trailing slash. */
   baseUrl: string;
-  assetsManifest: string;
-  groundManifest: string;
-}
+} & ({ manifest: string } | { assetsManifest: string; groundManifest: string });
 
 export interface EnvironmentConfig {
   id: string;

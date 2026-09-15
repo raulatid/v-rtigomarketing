@@ -47,7 +47,7 @@ uniform float uFresnelBias;
  * Must be supplied (`setBankSegments`); with count 0 the whole surface reads
  * as mid-channel.
  */
-#define MAX_BANK_SEGMENTS 32
+#define MAX_BANK_SEGMENTS 48
 uniform vec4 uBankSegments[MAX_BANK_SEGMENTS];
 uniform int uBankSegmentCount;
 

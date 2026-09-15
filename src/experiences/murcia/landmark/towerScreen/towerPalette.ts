@@ -79,9 +79,15 @@ export function applyTowerPalette(root: THREE.Object3D): number {
       if (object.name.startsWith('ARCH_') && !isMesh(object.parent ?? object)) uncoloured.push(object);
       return;
     }
+    // The selected export already carries vertex colour and baked illumination.
+    if (object.userData.lightmap_atlas) {
+      if (object.parent) towerParents.add(object.parent);
+      dressed += 1;
+      return;
+    }
     const material = materialFor(entry.name, entry.part);
     object.traverse((child) => {
-      if (isMesh(child)) child.material = material;
+      if (isMesh(child) && !child.userData.lightmap_atlas) child.material = material;
     });
     if (object.parent) towerParents.add(object.parent);
     dressed += 1;

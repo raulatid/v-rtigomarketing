@@ -55,7 +55,8 @@ export interface RioWater {
 }
 
 /** Must match `MAX_BANK_SEGMENTS` in the fragment shader. */
-const MAX_BANK_SEGMENTS = 32;
+// The selected v4 river has 40 connected bank segments after seam welding.
+const MAX_BANK_SEGMENTS = 48;
 
 /**
  * Builds the water material.

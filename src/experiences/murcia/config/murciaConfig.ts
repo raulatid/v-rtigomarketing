@@ -223,7 +223,7 @@ export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
   // Root-absolute: a document-relative path resolves against the current
   // route and 404s anywhere but the root.
-  modelPath: '/models/murcia-v7.glb',
+  modelPath: '/models/murcia-v4-lightmaps-v2.glb',
 
   // No trim sheet since murcia-v7. The city's colour is vertex colour alone:
   // the export embeds a neutral white trim so Blender could bake against the
@@ -242,14 +242,11 @@ export const murciaConfig: EnvironmentConfig = {
     orm: null,
   },
 
-  // The baked light for the centre of the city: twelve atlases named by two
-  // manifests, applied to the surfaces the export marks as baked and to nothing
-  // else (DECISIONS §49). Same folder as the trim sheet would be, for the same
-  // reason: a re-bake is a file drop, not a re-export of the model.
+  // Selected 512-sample bake: 13 atlases, 1K mobile / 2K desktop.
+  // Total KTX2 payload: 1,990,653 / 3,991,938 bytes. Keep model and manifest paired.
   lightmaps: {
-    baseUrl: '/textures/murcia/lightmaps/',
-    assetsManifest: 'assets-lightmaps.json',
-    groundManifest: 'ground-lightmaps.json',
+    baseUrl: '/textures/murcia/lightmaps-v2/',
+    manifest: 'lightmaps.json',
   },
 
   sceneState: {

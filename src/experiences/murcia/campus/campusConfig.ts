@@ -69,3 +69,13 @@ export const CAMPUS_NODE_NAMES: readonly string[] = [
   CAMPUS_WATER_NODE_NAME,
   CAMPUS_SCREEN_NODE_NAME,
 ];
+
+/** These legacy tree meshes are now part of the city's GPU-instanced vegetation.
+ * They are not interactive campus architecture and must not be duplicated.
+ */
+export const CAMPUS_INSTANCED_TREE_NAMES: readonly string[] = [
+  'PARK_Trunks', 'PARK_Leaves_Olive', 'PARK_Leaves_Sage',
+];
+export const CAMPUS_BAKED_NODE_NAMES = CAMPUS_NODE_NAMES.filter(
+  (name) => !CAMPUS_INSTANCED_TREE_NAMES.includes(name),
+);

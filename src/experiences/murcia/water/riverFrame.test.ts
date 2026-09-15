@@ -58,6 +58,19 @@ describe('computeRiverFrame', () => {
   const LENGTH = 1000
   const WIDTH = 20
 
+  it('ignores exported colour and UV seams when finding the physical banks', () => {
+    const indexed = ribbon(LENGTH, WIDTH, SEGMENTS)
+    const split = indexed.toNonIndexed()
+    const before = Array.from(split.getAttribute('position').array)
+    const frame = computeRiverFrame(split)
+    expect(frame.bankEdgeCount).toBe(SEGMENTS * 2)
+    expect(frame.capEdgeCount).toBe(2)
+    expect(frame.warnings).toEqual([])
+    expect(frame.width).toBeCloseTo(computeRiverFrame(indexed).width, 6)
+    expect(Array.from(split.getAttribute('position').array)).toEqual(before)
+    expect(split.index).toBeNull()
+  })
+
   it('tells the two end caps from the banks', () => {
     const frame = computeRiverFrame(ribbon(LENGTH, WIDTH, SEGMENTS))
 

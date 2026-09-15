@@ -1,3 +1,4 @@
+import { splitTerrainMeasurement } from './splitTerrainMeasurement';
 import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -421,6 +422,12 @@ export function findTerrainPlate(
     };
   }
 
+  const group = findByAnyNameSpelling(root, configuredName);
+  if (group) {
+    const measurement = splitTerrainMeasurement(group.object);
+    if (measurement) return { mesh: measurement, source: group.source, matchedName: group.matchedName };
+  }
+
   const largest = findLargestFlatMesh(root);
   if (largest) {
     return {
@@ -579,6 +586,8 @@ function buildSceneReport(
   };
 
   gltf.scene.traverse((obj) => {
+    // The invisible bounds template has no renderable surface or UV contract.
+    if (obj.userData.terrainMeasurement) return;
     report.objectCount += 1;
 
     if ((obj as THREE.Light).isLight) report.lightCount += 1;

@@ -39,13 +39,14 @@
  * before, because a gate that is expected to fail is not a gate.
  */
 import fs from 'node:fs';
-import { PropertyBinding } from 'three';
+import { PropertyBinding, Box3, Matrix4, Vector3, Quaternion } from 'three';
 import { banner, check, finish, section } from './lib/assert';
 import { BLOG_BUILDING_NODE_NAMES } from '../src/experiences/murcia/blogDisplay/blogDisplayConfig';
 import { CITY_A2, murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 import { expandRect } from '../src/experiences/murcia/navigation/navigationBounds';
 import {
   CAMPUS_NODE_NAMES,
+  CAMPUS_BAKED_NODE_NAMES,
   CAMPUS_SCREEN_NODE_NAME,
   CAMPUS_SCREEN_UV_CHANNEL,
   CAMPUS_WATER_NODE_NAME,
@@ -53,7 +54,7 @@ import {
 import { VERTIGO_BUILDING } from '../src/experiences/murcia/landmark/vertigoBuildingConfig';
 
 const MODEL =
-  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'public/models/murcia-v7.glb';
+  process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? `public${murciaConfig.modelPath}`;
 
 /**
  * `--contract-only` runs the NAME sections and skips the pending UV assertion.
@@ -97,6 +98,7 @@ interface Gltf {
   nodes?: Array<{
     name?: string;
     mesh?: number;
+    children?: number[];
     translation?: number[];
     scale?: number[];
     rotation?: number[];
@@ -175,6 +177,8 @@ const nodes = json.nodes ?? [];
 const materials = json.materials ?? [];
 const images = json.images ?? [];
 const textures = json.textures ?? [];
+const unifiedBake = nodes.some(n => typeof n.extras?.lightmap_atlas === 'string');
+const requiredCampus = unifiedBake ? CAMPUS_BAKED_NODE_NAMES : CAMPUS_NODE_NAMES;
 const used = json.extensionsUsed ?? [];
 
 interface PrimRef {
@@ -248,11 +252,11 @@ const bakedOwners = new Set(
     .filter((n) => {
       const extras = n.extras as { asset_lightmap_kind?: string; ground_lightmap_chunk?: string } | undefined;
       return (
-        extras?.asset_lightmap_kind != null ||
+        n.extras?.lightmap_atlas != null || extras?.asset_lightmap_kind != null ||
         (extras?.ground_lightmap_chunk != null && extras.ground_lightmap_chunk !== 'Context')
       );
     })
-    .map((n) => n.name),
+    .map((n) => n.mesh == null ? n.name : meshes[n.mesh]?.name),
 );
 const bakedWithoutUv1 = primitives.filter(
   (p) => bakedOwners.has(p.owner) && !attributeNames(p.prim).has('TEXCOORD_1'),
@@ -401,28 +405,39 @@ function worldXzBounds(
       n.name != null &&
       (n.name === configured || PropertyBinding.sanitizeNodeName(n.name) === configured),
   );
-  if (!node || node.mesh == null) return null;
-  if (node.rotation || node.matrix) {
-    console.log(`        NOTE: "${configured}" is rotated; its bounds are read unrotated`);
-  }
-
-  const prim = meshes[node.mesh]?.primitives?.[0];
-  const accessor = prim ? json.accessors?.[prim.attributes?.POSITION as number] : undefined;
-  if (!accessor?.min || !accessor?.max) return null;
-
-  const [tx, , tz] = node.translation ?? [0, 0, 0];
-  const [sx, , sz] = node.scale ?? [1, 1, 1];
-  return {
-    minX: tx + accessor.min[0] * sx,
-    maxX: tx + accessor.max[0] * sx,
-    minZ: tz + accessor.min[2] * sz,
-    maxZ: tz + accessor.max[2] * sz,
+  if (!node) return null;
+  const parent = new Map<number, number>();
+  nodes.forEach((n, i) => n.children?.forEach(child => parent.set(child, i)));
+  const world = (i: number): Matrix4 => {
+    const n = nodes[i];
+    const local = n.matrix ? new Matrix4().fromArray(n.matrix) : new Matrix4().compose(
+      new Vector3().fromArray(n.translation ?? [0, 0, 0]),
+      new Quaternion().fromArray(n.rotation ?? [0, 0, 0, 1]),
+      new Vector3().fromArray(n.scale ?? [1, 1, 1]),
+    );
+    const p = parent.get(i);
+    return p == null ? local : world(p).multiply(local);
+  };
+  const bounds = new Box3();
+  const visit = (i: number): void => {
+    const n = nodes[i];
+    for (const prim of n.mesh == null ? [] : meshes[n.mesh]?.primitives ?? []) {
+      const a = json.accessors?.[prim.attributes.POSITION];
+      if (a?.min && a.max) bounds.union(new Box3(
+        new Vector3().fromArray(a.min), new Vector3().fromArray(a.max),
+      ).applyMatrix4(world(i)));
+    }
+    n.children?.forEach(visit);
+  };
+  visit(nodes.indexOf(node));
+  return bounds.isEmpty() ? null : {
+    minX: bounds.min.x, maxX: bounds.max.x, minZ: bounds.min.z, maxZ: bounds.max.z,
   };
 }
 
 const missingCampus: string[] = [];
 const ambiguousCampus: string[] = [];
-for (const configured of CAMPUS_NODE_NAMES) {
+for (const configured of requiredCampus) {
   const hits = nodesNamed(configured);
   if (hits.length === 0) missingCampus.push(configured);
   // Reported, not asserted: lookups take the first match, so two nodes sharing
@@ -433,9 +448,9 @@ check(
   'every campus node is in the GLB',
   missingCampus.length === 0,
   missingCampus.length === 0
-    ? `${CAMPUS_NODE_NAMES.length}/${CAMPUS_NODE_NAMES.length} node(s)` +
+    ? `${requiredCampus.length}/${requiredCampus.length} node(s)` +
         (ambiguousCampus.length ? ` — AMBIGUOUS: ${list(ambiguousCampus)}` : '')
-    : `${CAMPUS_NODE_NAMES.length - missingCampus.length}/${CAMPUS_NODE_NAMES.length} — ` +
+    : `${requiredCampus.length - missingCampus.length}/${requiredCampus.length} — ` +
         `missing ${list(missingCampus)}. See murcia/campus/campusConfig.ts`,
 );
 
@@ -642,7 +657,9 @@ section('7b. The A2 ring (the ground the navigable rectangle stands on)');
 // still has something built to point at, and the check reads the same
 // rectangle it always did. Asserting the ground plate instead would have kept
 // it green on bare filler ground, which is exactly what §40 rules out.
-const RING_NODES = ['Assets_Static_NW', 'Assets_Static_NE', 'Assets_Static_SW', 'Assets_Static_SE'];
+const RING_NODES = unifiedBake
+  ? ['NE', 'NW', 'SE', 'SW'].map(q => `Edificios_Procedurales__${q}`)
+  : ['Assets_Static_NW', 'Assets_Static_NE', 'Assets_Static_SW', 'Assets_Static_SE'];
 const ringClaimed = CITY_A2;
 const ringNodes = RING_NODES.flatMap((name) => nodesNamed(name));
 

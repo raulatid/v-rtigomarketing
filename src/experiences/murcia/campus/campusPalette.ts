@@ -1,3 +1,4 @@
+import { CAMPUS_INSTANCED_TREE_NAMES } from './campusConfig';
 import * as THREE from 'three';
 import { CAMPUS_PART_NODE_NAMES, type CampusPartName } from './campusConfig';
 
@@ -86,18 +87,24 @@ export function applyCampusPalette(root: THREE.Object3D): number {
     CAMPUS_PART_NODE_NAMES.map((name) => [THREE.PropertyBinding.sanitizeNodeName(name), name]),
   );
   const dressed = new Set<CampusPartName>();
+  let bakedCampus = false;
 
   root.traverse((object) => {
     const name = byName.get(object.name);
     if (!name || dressed.has(name)) return;
+    if (object.userData.lightmap_atlas) {
+      bakedCampus = true;
+      dressed.add(name);
+      return;
+    }
     const material = materialFor(name, CAMPUS_PALETTE[name]);
     object.traverse((child) => {
-      if (isMesh(child)) child.material = material;
+      if (isMesh(child) && !child.userData.lightmap_atlas) child.material = material;
     });
     dressed.add(name);
   });
 
-  const missing = CAMPUS_PART_NODE_NAMES.filter((name) => !dressed.has(name));
+  const missing = CAMPUS_PART_NODE_NAMES.filter((name) => !dressed.has(name) && !(bakedCampus && CAMPUS_INSTANCED_TREE_NAMES.includes(name)));
   if (missing.length > 0 && dressed.size > 0) {
     console.warn(
       `[campus] ${missing.length} campus part(s) are not in the model: ${missing.join(', ')}`,

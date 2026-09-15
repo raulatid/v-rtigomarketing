@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /**
  * Derives what the water shader needs from the ribbon geometry alone: the bank
@@ -57,6 +58,18 @@ interface Edge {
 }
 
 export function computeRiverFrame(geometry: THREE.BufferGeometry): RiverFrame {
+  if (!geometry.getAttribute('position')) return computeConnectedRiverFrame(geometry);
+  // Colour/UV seams split glTF vertices without splitting the physical river.
+  // Recover positional connectivity for measurement only; leave render data intact.
+  const topology = new THREE.BufferGeometry();
+  topology.setAttribute('position', geometry.getAttribute('position'));
+  topology.setIndex(geometry.index);
+  const connected = mergeVertices(topology, 1e-4);
+  try { return computeConnectedRiverFrame(connected); }
+  finally { connected.dispose(); topology.dispose(); }
+}
+
+function computeConnectedRiverFrame(geometry: THREE.BufferGeometry): RiverFrame {
   const warnings: string[] = [];
   const position = geometry.getAttribute('position');
 

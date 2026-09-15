@@ -1,3 +1,4 @@
+import { loadUnifiedLightmaps } from './loadUnifiedLightmaps';
 import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { acquireKtx2Loader, releaseKtx2Loader } from '../../../../graphics/decoders';
@@ -84,6 +85,7 @@ async function fetchJson(url: string): Promise<unknown> {
 export async function loadLightmaps(options: LoadLightmapsOptions): Promise<LightmapHandle | null> {
   const { gltf, config, renderer, terrain } = options;
   const resolution = deviceResolution();
+  if ('manifest' in config) return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, resolution);
   const base = config.baseUrl;
 
   const loaded = new Map<string, THREE.Texture>();

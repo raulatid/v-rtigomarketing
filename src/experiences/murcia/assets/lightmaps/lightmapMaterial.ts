@@ -39,6 +39,8 @@ export interface LightmapMaterialOptions {
   instanced: boolean;
   /** Distinguishes programs whose GLSL differs. */
   programKey: string;
+  /** Keep the selected export's authored albedo as well as its vertex colours. */
+  preserveAlbedo?: boolean;
 }
 
 /** The per-instance rectangle in the atlas: `uv * xy + zw`. */
@@ -55,7 +57,9 @@ export function createLightmapMaterial(
   options: LightmapMaterialOptions,
 ): THREE.MeshBasicMaterial {
   const material = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+    color: options.preserveAlbedo ? ((source as THREE.MeshStandardMaterial).color ?? new THREE.Color(0xffffff)) : 0xffffff,
+    map: options.preserveAlbedo ? ((source as THREE.MeshStandardMaterial).map ?? null) : null,
+    alphaMap: options.preserveAlbedo ? ((source as THREE.MeshStandardMaterial).alphaMap ?? null) : null,
     vertexColors: true,
     side: source.side,
     transparent: source.transparent,

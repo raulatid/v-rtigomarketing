@@ -124,7 +124,7 @@ export async function attachAssetLightmaps(
  * the position/normal/uv buffers keeps the GPU cost of instancing — one
  * prototype upload — while giving each group the one attribute that differs.
  */
-function ownGeometryWithSt(source: THREE.BufferGeometry, st: THREE.BufferAttribute): THREE.BufferGeometry {
+export function ownGeometryWithSt(source: THREE.BufferGeometry, st: THREE.BufferAttribute): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
   for (const [attribute, value] of Object.entries(source.attributes)) {
     if (attribute !== LIGHTMAP_ST_ATTRIBUTE) geometry.setAttribute(attribute, value);

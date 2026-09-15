@@ -1,0 +1,502 @@
+{
+  "sourceSHA256": "312f0372969525d75fcb97a5a6b0c70043830ce52529dcb3aff49243ecf2683c",
+  "uvChannel": 1,
+  "encoding": "KTX2 sRGB, budget-allocated ETC1S / UASTC quality per atlas; see variants",
+  "samples": 512,
+  "atlases": {
+    "ground-NE": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.6469926834106445,
+      "variants": {
+        "2048": {
+          "file": "ground-NE-2048.ktx2",
+          "bytes": 272421,
+          "codec": "etc1s",
+          "qlevel": 48,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "ground-NE-1024.ktx2",
+          "bytes": 80114,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 181.3258879184723
+    },
+    "ground-SW": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.242694139480591,
+      "variants": {
+        "2048": {
+          "file": "ground-SW-2048.ktx2",
+          "bytes": 206460,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "ground-SW-1024.ktx2",
+          "bytes": 226684,
+          "codec": "uastc",
+          "qlevel": null,
+          "mipLevels": 1,
+          "uastcRDO": 0.5,
+          "zstdLevel": 18
+        }
+      },
+      "seconds": 79.31910729408264
+    },
+    "ground-SE": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.811204195022583,
+      "variants": {
+        "2048": {
+          "file": "ground-SE-2048.ktx2",
+          "bytes": 268079,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "ground-SE-1024.ktx2",
+          "bytes": 70072,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 105.06054759025574
+    },
+    "ground-Outer": {
+      "linearScale": 2.0,
+      "threeLightMapIntensity": 6.283185307179586,
+      "maximum": 1.6570051908493042,
+      "variants": {
+        "2048": {
+          "file": "ground-Outer-2048.ktx2",
+          "bytes": 236330,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "ground-Outer-1024.ktx2",
+          "bytes": 77767,
+          "codec": "etc1s",
+          "qlevel": 192,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 46.27899694442749
+    },
+    "static-NE": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.118636608123779,
+      "variants": {
+        "2048": {
+          "file": "static-NE-2048.ktx2",
+          "bytes": 419296,
+          "codec": "etc1s",
+          "qlevel": 80,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "static-NE-1024.ktx2",
+          "bytes": 134760,
+          "codec": "etc1s",
+          "qlevel": 192,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 70.74487519264221
+    },
+    "static-NW": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.66411018371582,
+      "variants": {
+        "2048": {
+          "file": "static-NW-2048.ktx2",
+          "bytes": 388839,
+          "codec": "etc1s",
+          "qlevel": 80,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "static-NW-1024.ktx2",
+          "bytes": 128711,
+          "codec": "etc1s",
+          "qlevel": 192,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 64.49690270423889
+    },
+    "static-SW": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.218169689178467,
+      "variants": {
+        "2048": {
+          "file": "static-SW-2048.ktx2",
+          "bytes": 371632,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "static-SW-1024.ktx2",
+          "bytes": 103047,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 79.53844571113586
+    },
+    "static-SE": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.008973121643066,
+      "variants": {
+        "2048": {
+          "file": "static-SE-2048.ktx2",
+          "bytes": 338870,
+          "codec": "etc1s",
+          "qlevel": 80,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "static-SE-1024.ktx2",
+          "bytes": 96842,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 104.33579468727112
+    },
+    "ground-NW": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.3106322288513184,
+      "variants": {
+        "2048": {
+          "file": "ground-NW-2048.ktx2",
+          "bytes": 252264,
+          "codec": "etc1s",
+          "qlevel": 80,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "ground-NW-1024.ktx2",
+          "bytes": 68776,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 159.40427565574646
+    },
+    "outer-buildings": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.172123432159424,
+      "variants": {
+        "2048": {
+          "file": "outer-buildings-2048.ktx2",
+          "bytes": 443114,
+          "codec": "etc1s",
+          "qlevel": 48,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "outer-buildings-1024.ktx2",
+          "bytes": 136069,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        }
+      },
+      "seconds": 27.96816372871399
+    },
+    "landmark-vertigo-blog": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.812485218048096,
+      "variants": {
+        "2048": {
+          "file": "landmark-vertigo-blog-2048.ktx2",
+          "bytes": 343577,
+          "codec": "etc1s",
+          "qlevel": 128,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "landmark-vertigo-blog-1024.ktx2",
+          "bytes": 362166,
+          "codec": "uastc",
+          "qlevel": null,
+          "mipLevels": 1,
+          "uastcRDO": 0.5,
+          "zstdLevel": 18
+        }
+      },
+      "seconds": 60.78430533409119
+    },
+    "landmark-campus": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.29378604888916,
+      "variants": {
+        "2048": {
+          "file": "landmark-campus-2048.ktx2",
+          "bytes": 182135,
+          "codec": "etc1s",
+          "qlevel": 192,
+          "mipLevels": 2,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "landmark-campus-1024.ktx2",
+          "bytes": 168534,
+          "codec": "uastc",
+          "qlevel": null,
+          "mipLevels": 1,
+          "uastcRDO": 0.5,
+          "zstdLevel": 18
+        }
+      },
+      "seconds": 39.89338517189026
+    },
+    "instances-0": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.2881200313568115,
+      "variants": {
+        "2048": {
+          "file": "instances-0-2048.ktx2",
+          "bytes": 268921,
+          "codec": "etc1s",
+          "qlevel": 192,
+          "mipLevels": 1,
+          "endpointRDO": 1.25,
+          "selectorRDO": 1.25
+        },
+        "1024": {
+          "file": "instances-0-1024.ktx2",
+          "bytes": 337111,
+          "codec": "uastc",
+          "qlevel": null,
+          "mipLevels": 1,
+          "uastcRDO": 0.5,
+          "zstdLevel": 18
+        }
+      },
+      "seconds": 38.6274893283844
+    }
+  },
+  "totals": {
+    "1024": 1990653,
+    "2048": 3991938
+  },
+  "sourceUnchanged": true,
+  "profiles": {
+    "mobile": {
+      "resolution": 1024,
+      "totalBytes": 1990653,
+      "atlasCount": 13,
+      "budgetBytes": 2000000
+    },
+    "desktop": {
+      "resolution": 2048,
+      "totalBytes": 3991938,
+      "atlasCount": 13,
+      "budgetBytes": 4000000
+    }
+  },
+  "requiredNames": [
+    "Text",
+    "edificio-blog",
+    "P5B Window east 7 0 0",
+    "P5B Window east 7 0 1",
+    "P5B Window east 7 0 2",
+    "P5B Window east 7 1 0",
+    "P5B Window east 7 1 1",
+    "P5B Window east 7 1 2",
+    "P5B Window east 7 2 0",
+    "P5B Window east 7 2 1",
+    "P5B Window east 7 2 2",
+    "P5B Window east 22 0 0",
+    "P5B Window east 22 0 1",
+    "P5B Window east 22 0 2",
+    "P5B Window east 22 1 0",
+    "P5B Window east 22 1 1",
+    "P5B Window east 22 1 2",
+    "P5B Window east 22 2 0",
+    "P5B Window east 22 2 1",
+    "P5B Window east 22 2 2",
+    "P5B Window east 36 0 0",
+    "P5B Window east 36 0 1",
+    "P5B Window east 36 0 2",
+    "P5B Window east 36 1 0",
+    "P5B Window east 36 1 1",
+    "P5B Window east 36 1 2",
+    "P5B Window east 36 2 0",
+    "P5B Window east 36 2 1",
+    "P5B Window east 36 2 2",
+    "P5B Window north 7 0 0",
+    "P5B Window north 7 0 1",
+    "P5B Window north 7 0 2",
+    "P5B Window north 7 1 0",
+    "P5B Window north 7 1 1",
+    "P5B Window north 7 1 2",
+    "P5B Window north 7 2 0",
+    "P5B Window north 7 2 1",
+    "P5B Window north 7 2 2",
+    "P5B Window north 22 0 0",
+    "P5B Window north 22 0 1",
+    "P5B Window north 22 0 2",
+    "P5B Window north 22 1 0",
+    "P5B Window north 22 1 1",
+    "P5B Window north 22 1 2",
+    "P5B Window north 22 2 0",
+    "P5B Window north 22 2 1",
+    "P5B Window north 22 2 2",
+    "P5B Window north 36 0 0",
+    "P5B Window north 36 0 1",
+    "P5B Window north 36 0 2",
+    "P5B Window north 36 1 0",
+    "P5B Window north 36 1 1",
+    "P5B Window north 36 1 2",
+    "P5B Window north 36 2 0",
+    "P5B Window north 36 2 1",
+    "P5B Window north 36 2 2",
+    "P5B Window south 7 0 0",
+    "P5B Window south 7 0 1",
+    "P5B Window south 7 0 2",
+    "P5B Window south 7 1 0",
+    "P5B Window south 7 1 1",
+    "P5B Window south 7 1 2",
+    "P5B Window south 7 2 0",
+    "P5B Window south 7 2 1",
+    "P5B Window south 7 2 2",
+    "P5B Window south 22 0 0",
+    "P5B Window south 22 0 1",
+    "P5B Window south 22 0 2",
+    "P5B Window south 22 1 0",
+    "P5B Window south 22 1 1",
+    "P5B Window south 22 1 2",
+    "P5B Window south 22 2 0",
+    "P5B Window south 22 2 1",
+    "P5B Window south 22 2 2",
+    "P5B Window south 36 0 0",
+    "P5B Window south 36 0 1",
+    "P5B Window south 36 0 2",
+    "P5B Window south 36 1 0",
+    "P5B Window south 36 1 1",
+    "P5B Window south 36 1 2",
+    "P5B Window south 36 2 0",
+    "P5B Window south 36 2 1",
+    "P5B Window south 36 2 2",
+    "P5B Window west 7 0 0",
+    "P5B Window west 7 0 1",
+    "P5B Window west 7 0 2",
+    "P5B Window west 7 1 0",
+    "P5B Window west 7 1 1",
+    "P5B Window west 7 1 2",
+    "P5B Window west 7 2 0",
+    "P5B Window west 7 2 1",
+    "P5B Window west 7 2 2",
+    "P5B Window west 22 0 0",
+    "P5B Window west 22 0 1",
+    "P5B Window west 22 0 2",
+    "P5B Window west 22 1 0",
+    "P5B Window west 22 1 1",
+    "P5B Window west 22 1 2",
+    "P5B Window west 22 2 0",
+    "P5B Window west 22 2 1",
+    "P5B Window west 22 2 2",
+    "P5B Window west 36 0 0",
+    "P5B Window west 36 0 1",
+    "P5B Window west 36 0 2",
+    "P5B Window west 36 1 0",
+    "P5B Window west 36 1 1",
+    "P5B Window west 36 1 2",
+    "P5B Window west 36 2 0",
+    "P5B Window west 36 2 1",
+    "P5B Window west 36 2 2",
+    "LED_Main",
+    "ARCH_Glass_DeepBlue",
+    "ARCH_Glass_SilverBlue",
+    "ARCH_Glass_WarmOffices",
+    "ARCH_Glass_Lobby",
+    "ARCH_Metal_Graphite",
+    "ARCH_Metal_Champagne",
+    "ARCH_Stone_Limestone",
+    "ARCH_Light_Warm",
+    "ARCH_Roof_Zinc",
+    "BRAND_VERTIGO",
+    "logo-V",
+    "logo-curva",
+    "CAMPUS_SCREEN_Continuous",
+    "ARCH_Porcelain_White",
+    "ARCH_Glazing_Opaque_Blue",
+    "ARCH_Blue_Light",
+    "ARCH_Window_Frames",
+    "ARCH_Vertigo_Blue",
+    "ARCH_Roof_Joints",
+    "ARCH_Solar_Blue",
+    "SITE_Light_Limestone",
+    "PARK_Grass",
+    "PARK_Water",
+    "ARCH_Porcelain_White.001"
+  ]
+}

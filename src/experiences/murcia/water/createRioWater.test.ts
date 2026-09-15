@@ -22,6 +22,16 @@ function declaredUniforms(source: string): string[] {
 describe('createRioWater', () => {
   const water = createRioWater(DEFAULT_RIO_WATER_CONFIG)
 
+  it('fits all forty banks of the selected export and matches the shader capacity', () => {
+    const segments = new Float32Array(40 * 6)
+    for (let i = 0; i < segments.length; i++) segments[i] = i / 10
+    water.setBankSegments(segments, new THREE.Matrix4())
+    expect(water.material.uniforms.uBankSegmentCount!.value).toBe(40)
+    const capacity = Number(water.material.fragmentShader.match(/#define MAX_BANK_SEGMENTS (\d+)/)?.[1])
+    expect(water.material.uniforms.uBankSegments!.value).toHaveLength(capacity)
+    expect(capacity).toBeGreaterThanOrEqual(40)
+  })
+
   it('supplies every uniform the shaders declare', () => {
     const declared = [
       ...declaredUniforms(water.material.vertexShader),
