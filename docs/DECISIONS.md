@@ -3534,8 +3534,12 @@ intro. A horizontal swipe, or the arrow keys, walk the ring — each service for
 its symbol out of the same particles, and the ring is endless in both
 directions. [+] turns the symbol into that service's animated figure and leans
 the camera in. Escape, or the overlay's close, goes back one level; a pinch out
-leaves. The copy is real DOM, and the LED strip round the building runs
-SERVICIOS.
+leaves. The copy is real DOM, and the LED strip round the building runs the
+invitation "CLICA AQUI, VE NUESTROS SERVICIOS" (since `230f836`, 2026-09-16; it
+was SERVICIOS) three times — nothing measures the phrase against the pitch, and
+at four copies the ≈ 90 m line overran its 86 m pitch and wrapped onto itself,
+so the count came down rather than the type, and the renderer now warns when a
+line runs past the strip.
 
 **What was decided on the way, with the client:**
 

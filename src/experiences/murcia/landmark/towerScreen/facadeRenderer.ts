@@ -128,10 +128,15 @@ function drawText(
   font(ctx, block.size, weight, m, block.type === 'headline' ? 'display' : 'text');
   // Rises as it arrives, so type lands rather than blinks.
   const y = (block.at[1] - (1 - t) * rise) * m;
-  drawTracked(ctx, block.text, block.at[0] * m, y, (block.tracking ?? 0) * m);
+  const end = drawTracked(ctx, block.text, block.at[0] * m, y, (block.tracking ?? 0) * m);
   ctx.globalAlpha = 1;
 
   warnIfOverflowing(y, frame.metresTall * m, `"${block.text}"`);
+  // Sideways too. On a strip that scrolls, a line past the right edge is not
+  // cut off but wrapped onto the first copy — which is how the campus
+  // invitation came to overlap itself (2026-09-16). Only the settled frame is
+  // judged: while rising the text is still at full width, so once is enough.
+  if (t >= 1) warnIfOverflowing(end, frame.width, `"${block.text}" (sideways)`);
 }
 
 function drawMetric(frame: FacadeFrame, block: MetricBlock): void {

@@ -26,8 +26,15 @@ type FacadeBlock = FreeformContent['blocks'][number];
 export const DESIGN_METRES_WIDE = 343.906;
 export const DESIGN_METRES_TALL = 6.68;
 
-/** Four repetitions leave room for the full invitation at the existing type size. */
-export const REPEATS = 4;
+/**
+ * How many copies sit along the strip. The pitch is the strip divided by this,
+ * and NOTHING MEASURES THE TEXT AGAINST IT: at cap 3 m with 0.24 m tracking the
+ * invitation below advances ≈ 90 m, and at four copies (86 m pitch) each ran
+ * into the next and the last wrapped onto the first. Three leaves ≈ 25 m of
+ * air. A longer phrase means fewer copies, never a tighter pitch; the renderer
+ * warns when a copy runs past the canvas, which is the last copy's symptom.
+ */
+export const REPEATS = 3;
 
 const PITCH = DESIGN_METRES_WIDE / REPEATS;
 
