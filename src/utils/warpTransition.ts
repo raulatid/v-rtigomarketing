@@ -55,7 +55,9 @@ export const WARP_TRANSITION = {
    * viewer arrives aimed at Spain rather than at whatever they happened to be
    * looking at. Below it the orbit is entirely free.
    */
-  earthGuideStart: 0.6,
+  earthGuideStart: 0.35,
+  /** Finish steering before the zoom ends, leaving travel for the camera to settle. */
+  earthGuideEnd: 0.8,
 
   // ─── Murcia leg ───
 
@@ -167,6 +169,7 @@ export interface WarpLimits {
   motionBlurStrength: number
   earthCloseFactor: number
   earthGuideStart: number
+  earthGuideEnd: number
   earthWarpFov: number
   murciaVacuumStart: number
   vacuumDistortAmount: number
@@ -185,6 +188,7 @@ export function createDefaultWarpLimits(): WarpLimits {
     motionBlurStrength: WARP_TRANSITION.motionBlurStrength,
     earthCloseFactor: WARP_TRANSITION.earthCloseFactor,
     earthGuideStart: WARP_TRANSITION.earthGuideStart,
+    earthGuideEnd: WARP_TRANSITION.earthGuideEnd,
     earthWarpFov: WARP_TRANSITION.earthWarpFov,
     murciaVacuumStart: WARP_TRANSITION.murciaVacuumStart,
     vacuumDistortAmount: WARP_TRANSITION.vacuumDistortAmount,

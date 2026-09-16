@@ -12,7 +12,8 @@ import { nearestEquivalentAngle } from './createFocusCameraRig'
  * ## It turns the ORBIT, the way a drag does
  *
  * The steer writes the rig's orbit TARGET, before `rig.update()`, and the rig
- * eases it exactly as it eases a drag. It used to be applied AFTER the rig, as a
+ * eases it with a faster angular response during guided approach, keeping the
+ * radial zoom's original ease. It used to be applied AFTER the rig, as a
  * rotation of the finished camera, and that override knew nothing about what the
  * rig was doing. A satellite close-up opened past the threshold was re-aimed at
  * Spain on every frame; the drag went dead at full zoom, because the free orbit
@@ -32,8 +33,8 @@ import { nearestEquivalentAngle } from './createFocusCameraRig'
  * compose, so any sequence of notches from the threshold to the end of the band
  * lands exactly on the destination — and a drag in between is respected, because
  * every later notch turns from wherever the viewer now is. A notch moves the
- * TARGET in one step; the rig's own ease turns it into a glide, the same ease the
- * radius gets.
+ * TARGET in one step; the rig's own ease turns it into a glide. The target is
+ * fully aligned at `earthGuideEnd`, leaving the final band travel for settling.
  *
  * ## Following the destination while engaged
  *
@@ -59,7 +60,7 @@ import { nearestEquivalentAngle } from './createFocusCameraRig'
  */
 export function steerWeightFor(bandDepth: number, limits: WarpLimits): number {
   if (!Number.isFinite(bandDepth)) return 0
-  return smootherstep(limits.earthGuideStart, 1, bandDepth)
+  return smootherstep(limits.earthGuideStart, limits.earthGuideEnd, bandDepth)
 }
 
 /** What the steer remembers between frames. Mutated in place. */

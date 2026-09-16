@@ -443,8 +443,9 @@ export function createFocusCameraRig({
       // always takes the minor arc, so a drag that outran the ease by more than
       // half a turn was quietly resolved the wrong way round. Interpolating an
       // unbounded angle has no such seam — 540° is simply further than 180°.
-      eased.theta += (orbit.theta - eased.theta) * alpha
-      eased.phi += (orbit.phi - eased.phi) * alpha
+      const angleAlpha = approachLocked ? 1 - Math.exp(-cfg.approachLerpK * delta) : alpha
+      eased.theta += (orbit.theta - eased.theta) * angleAlpha
+      eased.phi += (orbit.phi - eased.phi) * angleAlpha
       eased.radius = THREE.MathUtils.lerp(eased.radius, orbit.radius, alpha)
       current.position.setFromSphericalCoords(eased.radius, eased.phi, eased.theta)
     } else {

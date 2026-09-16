@@ -128,7 +128,8 @@ describe('zooming out only zooms', () => {
     const { state, orbit } = steer([0.6, 0.7, 0.8])
     const turned = { ...orbit }
     for (const depth of [0.75, 0.7, 0.6, 0.3, 0]) advanceOrbitSteer(state, frame(depth), orbit)
-    expect(orbit).toEqual(turned)
+    expect(orbit.theta).toBeCloseTo(turned.theta, 12)
+    expect(orbit.phi).toBeCloseTo(turned.phi, 12)
 
     for (const depth of [0.7, 0.9, 1.0]) advanceOrbitSteer(state, frame(depth), orbit)
     expect(separation(orbit, DESTINATION)).toBeLessThan(1e-6)
@@ -137,16 +138,16 @@ describe('zooming out only zooms', () => {
 
 describe('the drag is never dead and never undone', () => {
   it('keeps a drag made mid-band: the next notch turns from where the viewer now is', () => {
-    const { state, orbit } = steer([0.6, 0.8])
+    const { state, orbit } = steer([0.45, 0.55])
     orbit.theta += 40 * DEG // the viewer drags away
     const dragged = { ...orbit }
 
-    advanceOrbitSteer(state, frame(0.9), orbit)
+    advanceOrbitSteer(state, frame(0.65), orbit)
     // A fraction of the way from the DRAGGED position — not a return to the
     // position before the drag.
     const owed =
-      (steerWeightFor(0.9, WARP_LIMITS) - steerWeightFor(0.8, WARP_LIMITS)) /
-      (1 - steerWeightFor(0.8, WARP_LIMITS))
+      (steerWeightFor(0.65, WARP_LIMITS) - steerWeightFor(0.55, WARP_LIMITS)) /
+      (1 - steerWeightFor(0.55, WARP_LIMITS))
     expect(separation(orbit, DESTINATION)).toBeCloseTo((1 - owed) * separation(dragged, DESTINATION), 0)
     expect(separation(orbit, DESTINATION)).toBeLessThan(separation(dragged, DESTINATION))
   })

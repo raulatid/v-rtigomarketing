@@ -13,6 +13,9 @@ export const INTERACTION_CONFIG = {
   camera: {
     // Exponential lerp constant: ~95% of the distance covered in ~1s.
     lerpK: 3,
+    // Guided turns must catch up while the radial zoom is still moving.
+    // ~95% in 250ms; free orbit and satellite flights keep their existing ease.
+    approachLerpK: 12,
     // Below this distance to its target the camera counts as arrived.
     arrivalEpsilon: 0.005 * R,
     // Manual spherical orbit (this replaces OrbitControls — see extraction §1).
