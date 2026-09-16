@@ -61,6 +61,13 @@ function setup({ reducedMotion = false }: SetupOptions = {}) {
     a: new THREE.Mesh(geometry),
     b: new THREE.Mesh(geometry),
   }
+  const hitGeometry = new THREE.SphereGeometry(0.3, 12, 12)
+  const hitTargets = {
+    a: new THREE.Mesh(hitGeometry),
+    b: new THREE.Mesh(hitGeometry),
+  }
+  meshes.a.add(hitTargets.a)
+  meshes.b.add(hitTargets.b)
   meshes.a.position.set(-2.6, 0, 0)
   meshes.b.position.set(2.6, 0, 0)
   meshes.a.updateMatrixWorld(true)
@@ -79,8 +86,8 @@ function setup({ reducedMotion = false }: SetupOptions = {}) {
   const resume = vi.fn()
   const orbitSystem = {
     satellites: [
-      { id: 'a', data: def('a'), object: meshes.a },
-      { id: 'b', data: def('b'), object: meshes.b },
+      { id: 'a', data: def('a'), object: meshes.a, hitTarget: hitTargets.a },
+      { id: 'b', data: def('b'), object: meshes.b, hitTarget: hitTargets.b },
     ],
     isSatelliteActive: () => true,
     freezeSatellite: freeze,
@@ -174,6 +181,7 @@ function setup({ reducedMotion = false }: SetupOptions = {}) {
   return {
     focus,
     meshes,
+    hitTargets,
     clickOn,
     hoverOver,
     expanded,
@@ -200,6 +208,25 @@ beforeEach(() => {
 })
 
 describe('selecting a satellite', () => {
+  it('uses the interaction spheres for hover and clicks without raycasting the models', () => {
+    const modelRaycasts = Object.values(harness.meshes).map((mesh) => vi.spyOn(mesh, 'raycast'))
+    const targetRaycast = vi.spyOn(harness.hitTargets.a, 'raycast')
+
+    harness.hoverOver('a')
+    harness.focus.update(1 / 60)
+    expect(harness.focus.hovering).toBe(true)
+    harness.clickOn('a')
+    expect(harness.expansionState()).toEqual({ a: true, b: false })
+    expect(targetRaycast).toHaveBeenCalled()
+    for (const raycast of modelRaycasts) expect(raycast).not.toHaveBeenCalled()
+  })
+
+  it('does not select a hidden satellite through its interaction sphere', () => {
+    harness.meshes.a.visible = false
+    harness.clickOn('a')
+    expect(harness.expansionState()).toEqual({ a: false, b: false })
+  })
+
   it('unfolds only the one that was clicked', () => {
     harness.clickOn('a')
     expect(harness.expansionState()).toEqual({ a: true, b: false })

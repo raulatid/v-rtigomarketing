@@ -138,6 +138,7 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
   });
 
   const points = new THREE.Points(new THREE.BufferGeometry(), material);
+  points.visible = false;
   // The attributes the bounds would be computed from are not where the
   // particles are, so let the GPU decide.
   points.frustumCulled = false;
@@ -283,6 +284,8 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
     setElapsed(seconds) {
       elapsed = Math.max(0, seconds);
       uniforms.uElapsed.value = elapsed;
+      // At zero the shader discards every fragment; skip the draw altogether.
+      points.visible = elapsed > 0;
     },
 
     setLiveLayout(next) {

@@ -274,6 +274,7 @@ export function createOrbitSystem({ renderer }: Options) {
     id: orbit.satelliteDef.id,
     data: orbit.satelliteDef,
     object: orbit.satellite.group,
+    hitTarget: orbit.satellite.hitTarget,
   }))
 
   // A satellite is selectable only once its entrance finished and it is idling.

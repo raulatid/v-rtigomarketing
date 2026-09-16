@@ -18,6 +18,26 @@ function setup() {
 }
 
 describe('continuous campus rotation', () => {
+  it('skips drawing the hidden field and restores it on playback or seeking', () => {
+    const { field } = setup();
+    expect(field.points.visible).toBe(false);
+    field.tick(1, false);
+    expect(field.points.visible).toBe(false);
+
+    field.tick(1 / 60, true);
+    expect(field.points.visible).toBe(true);
+    field.tick(1, false);
+    expect(field.points.visible).toBe(true);
+
+    field.setElapsed(0);
+    expect(field.points.visible).toBe(false);
+    field.setElapsed(field.duration);
+    expect(field.points.visible).toBe(true);
+    field.setElapsed(-1);
+    expect(field.points.visible).toBe(false);
+    field.dispose();
+  });
+
   it('advances at the same constant rate at 30, 60 and 120 fps', () => {
     for (const fps of [30, 60, 120]) {
       const { field, angle } = setup();

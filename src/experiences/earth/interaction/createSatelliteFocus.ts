@@ -90,7 +90,8 @@ export function createSatelliteFocus({
   const tutorial = createHoverTutorial(tutorialConfig, { reducedMotion, loop: tutorialLoop })
   const tutorialPos = new THREE.Vector3()
 
-  const satelliteObjects = orbitSystem.satellites.map((s) => s.object)
+  // Pick only the stable interaction spheres, never the detailed model meshes.
+  const satelliteObjects = orbitSystem.satellites.map((s) => s.hitTarget)
 
   function findSatelliteFromObject(object: THREE.Object3D) {
     let node: THREE.Object3D | null = object
@@ -215,7 +216,7 @@ export function createSatelliteFocus({
     clientToNdc(domElement.getBoundingClientRect(), clientX, clientY, ndc)
 
     raycaster.setFromCamera(ndc, camera)
-    const hits = raycaster.intersectObjects(satelliteObjects, true)
+    const hits = raycaster.intersectObjects(satelliteObjects, false)
 
     for (const hit of hits) {
       const sat = findSatelliteFromObject(hit.object)

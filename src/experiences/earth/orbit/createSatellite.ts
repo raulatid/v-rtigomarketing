@@ -425,6 +425,7 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
 
   return {
     group,
+    hitTarget: hitMesh,
     setOpacity,
     setHighlight,
     resetHighlight,
