@@ -3,7 +3,9 @@ import { CAMPUS_COMPACT_FRACTION, CAMPUS_DOCK_QUERY } from '../campusMobileLayou
 let nextSheetId = 0;
 
 /** The existing campus overlay becomes a two-stop sheet on narrow/short layouts.
- * Only its grip captures a drag; the body keeps native vertical scrolling. */
+ * Only its grip captures a drag; the body keeps native vertical scrolling.
+ * The grip is a bare pill (the CSS ::before); `labels` name it for assistive
+ * tech only — the visible text came off on 2026-09-16 at the client's request. */
 export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels: {
   expand: string; collapse: string;
 }) {
@@ -13,8 +15,6 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
   grip.className = 'campus-overlay__handle';
   body.id ||= `campus-sheet-body-${++nextSheetId}`;
   grip.setAttribute('aria-controls', body.id);
-  const label = document.createElement('span');
-  grip.append(label);
   layer.prepend(grip);
   layer.style.transition += ', transform 300ms cubic-bezier(0.32, 0.72, 0, 1)';
   layer.style.setProperty('--campus-sheet-compact', `${CAMPUS_COMPACT_FRACTION * 100}dvh`);
@@ -26,7 +26,6 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
     layer.dataset.sheetStop = expanded ? 'expanded' : 'compact';
     grip.setAttribute('aria-expanded', String(expanded));
     grip.setAttribute('aria-label', expanded ? labels.collapse : labels.expand);
-    label.textContent = expanded ? labels.collapse : labels.expand;
     body.tabIndex = !dock.matches && expanded ? 0 : -1;
     if (!expanded) body.scrollTop = 0;
   };

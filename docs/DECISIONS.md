@@ -3552,6 +3552,11 @@ SERVICIOS.
    The scroll only wraps u while scrolling, so the tower is pixel-identical.
 4. **A visible close.** The lab left by Escape only, and a phone has none. The
    overlay grew a 40 px close beside [+].
+   > *Amended 2026-09-16 (client review on a phone).* In the phone sheet the mark
+   > is 26 px inside the same 44 px target; the sheet's grip is a bare pill with
+   > no caption (its `aria-label` still says "Leer más" / "Ver partículas"), with
+   > 26 px of air under it; and under the centred title the subtitle, the copy,
+   > «Qué medimos» and the legend are a centred column of left-aligned text.
 
 **What the port decided without asking, and why:**
 

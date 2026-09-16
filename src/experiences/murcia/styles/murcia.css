@@ -676,19 +676,16 @@
   }
   .murcia-ui .campus-overlay[data-sheet-stop='expanded'] { transform: translateY(0); }
   .murcia-ui .campus-overlay[data-sheet-dragging] { transition: none !important; }
+  /* A bare pill, no caption: the grip's name is its aria-label. */
   .murcia-ui .campus-overlay__handle {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
     flex: 0 0 44px;
     width: 100%;
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--text-secondary);
-    font: 500 12px var(--font-display);
     cursor: ns-resize;
     touch-action: none;
     user-select: none;
@@ -705,20 +702,29 @@
     outline: 2px solid var(--text-primary);
     outline-offset: -4px;
   }
+  /* The mark is smaller on a phone (26 px, the client's call 2026-09-16); the
+     44 px target stays and the mark is centred inside it. */
   .murcia-ui .campus-overlay__back {
     position: absolute;
     top: 0;
     left: 16px;
     z-index: 1;
     margin: 0;
+    padding: 0;
     min-width: 44px;
     min-height: 44px;
+    justify-content: center;
   }
+  .murcia-ui .campus-overlay__back svg {
+    width: 26px;
+    height: 17px;
+  }
+  /* Clear air between the grip and the title. */
   .murcia-ui .campus-overlay__body {
     display: block;
     flex: 1;
     min-height: 0;
-    padding: 10px 24px max(24px, env(safe-area-inset-bottom));
+    padding: 26px 24px max(24px, env(safe-area-inset-bottom));
     overflow-y: auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
@@ -726,6 +732,18 @@
     scrollbar-color: var(--text-muted) transparent;
   }
   .murcia-ui .campus-overlay__title { padding: 0; }
+  /* The title is centred; everything under it is a centred column of
+     LEFT-aligned text, sized to its longest line so a short block still sits
+     in the middle of the sheet (client, 2026-09-16). */
+  .murcia-ui .campus-overlay__subtitle,
+  .murcia-ui .campus-overlay__detail,
+  .murcia-ui .campus-overlay__measures,
+  .murcia-ui .campus-overlay__caption {
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    text-align: left;
+  }
   .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
     flex: none;
     height: calc(var(--campus-sheet-compact, 35dvh) - 44px);
