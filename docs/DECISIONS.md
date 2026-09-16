@@ -3864,6 +3864,43 @@ figures with numbers, and on-scene labels (the 2026-09-15 no-captions decision).
 formed; a service's body is rewritten to argue something its figure does not draw, and nobody
 changes the binding; or a document without the new fields fails the build.
 
+## 53. The selected hologram lands on a smoked-glass tray, edge and all
+
+**Decided** 2026-09-16, from the client's report that the expanded lockup could not be read
+when the close-up put it over the daylit hemisphere. One of five options analysed before any
+code; built on its own branch beside the rimless variant (option 3, `feat/holo-smoked-glass-field`)
+so the two can be judged by eye against each other.
+
+**What it is.** While a case study is selected, the field's own 2:1 rectangle becomes a tray in
+the site's smoked glass: §37 density A (`rgba(10,15,22,0.68)`) with the trays' neutral hairline
+(`--glass-border`, 0.10) and their film of reflected light along the top, all restated as
+`panel.glass*` in `orbitConfig.ts` because a shader cannot read a custom property. Drawn first,
+so the artwork and the emitter sit ON it; the emitter line is still the light source at its
+base. It scales with `resolve`, the stage the logo arrives on, and is absent at rest.
+
+> **Amended the same day, after the client saw it.** The hairline is one screen pixel, faded
+> over the next half — `line()`'s ~2 px read as a frame on a tray this size. And the rear halo
+> is withdrawn as the plate arrives (scaled by `1 - resolve`): on the glass, blue belongs at the
+> base alone, the emitter line and its wash, and a blue glow behind the lockup was a second light
+> source arguing with it. The resting square keeps its halo. The emitter wash climbs less far
+> and less bright on the glass (0.20 → 0.14 pane heights, gain 0.16 → 0.11, both eased on
+> `resolve`): the plate is the ground now, and the light only has to say where it enters.
+> Chosen over the rimless variant (option 3, `feat/holo-smoked-glass-field`) the same day.
+
+**Why an edge is allowed here and nowhere else in the field.** The rule against edges was
+written for the RESTING state — six marks permanently on screen, where any frame is the loudest
+thing in it — and for the accidental rectangles earlier passes drew. This edge is neither: it is
+the reward state only, and it is the same hairline the hint frame and the case panel wear, so the
+expanded field reads as their in-scene cousin rather than as a HUD card. Blue stays on the light.
+
+**What the CSS material has that this cannot.** `backdrop-filter` — no blur of the scene behind
+a quad without a second pass — and the drop shadow, which below the field would land in the
+cone's territory.
+
+**Broken when:** the plate is visible at rest; its colour, alpha or border stop matching the
+§37 tokens; the border grows past a hairline; blue appears on the plate; or the plate is drawn
+above the artwork.
+
 ## Superseded
 
 | Decision | Was | Now |

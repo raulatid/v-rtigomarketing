@@ -28,6 +28,13 @@ import { PROTO_HOLO } from '../config/protoHolo'
 // feathered at its own boundary rather than cut there. No rectangle, no border,
 // no bracket. See the fragment shader's main().
 //
+// ONE DELIBERATE EXCEPTION, SINCE 2026-09-16: while a case study is selected
+// the lockup lands on a smoked-glass tray — DECISIONS §37 density A with its
+// hairline — because over the daylit hemisphere a white wordmark is white on
+// pale and no light behind it fixes that. It materialises with the logo and is
+// absent at rest; the six resting squares are still pure projection. See the
+// plate layer in main() and `panel.glass*` in orbitConfig.ts.
+//
 // The brand colour lives on the LIGHT and never on the artwork, so a real
 // full-colour trademark shows its own colours with no cast. What the artwork
 // does take from the field is its luminance modulation — the same scan and
@@ -112,6 +119,12 @@ const FRAGMENT = /* glsl */ `
   // emitter — the same strength that drives the scale bump.
   uniform float uHover;
   uniform float uHoverGain;
+  // The smoked-glass plate: its colour and border colour, then (alpha, border
+  // alpha, corner radius) and (film strength, film reach). Pane heights.
+  uniform vec3 uGlassColor;
+  uniform vec3 uGlassBorderColor;
+  uniform vec3 uGlass;
+  uniform vec2 uGlassFilm;
   varying vec2 vUv;
 
   // Straight-alpha "over": lays (sc, sa) on top of the running (c, a).
@@ -191,12 +204,13 @@ const FRAGMENT = /* glsl */ `
   // bounds it is falloff — the halo fades to nothing, and the artwork is
   // feathered at its own boundary rather than cut there.
   //
-  // THERE IS DELIBERATELY NOTHING DARK BEHIND THE MARK. A dilated shadow hugging
-  // the artwork was tried here, to hold it against the daylight Earth. It read
-  // worse, and it brought a rectangle back: the dilation grows outward, the
-  // contain-fit boundary cut it off square, and the result was a dark box with
-  // corners around every logo. Legibility over the lit hemisphere is still an
-  // open problem — solve it in the LIGHT, not with a backing.
+  // THE SELECTED STATE IS THE ONE EXCEPTION TO "NO EDGE". A dilated shadow
+  // hugging the artwork was tried first, to hold it against the daylight
+  // Earth: it read worse, and its accidental rectangle — the dilation cut
+  // square by the contain-fit — was a box with no design behind it. What is
+  // behind the mark now, while selected only, is a DELIBERATE tray: the site's
+  // smoked glass with its own hairline, drawn as the case panel's in-scene
+  // cousin (DECISIONS §53). At rest there is still nothing dark and no edge.
   //
   // The brand colour stays on the LIGHT — the halo and the emitter — and never
   // on the artwork, so a real full-colour trademark shows its own colours with
@@ -258,10 +272,40 @@ const FRAGMENT = /* glsl */ `
     vec3 color = vec3(0.0);
     float alpha = 0.0;
 
+    // ── Layer 0: the smoked-glass plate ──
+    // The ground the lockup lands on, and the ONE thing here with an edge: a
+    // rounded 2:1 tray in the site's smoked glass (§37 density A), with the
+    // floating trays' hairline at the border token's alpha and their film of
+    // light along the top. Scaled by resolve, so it materialises as the logo
+    // arrives and is gone at rest, when the isotype is a pure projection six
+    // times over. Its shape is the field's own rectangle at the CURRENT
+    // aspect; the hairline is screen-constant like every other line here.
+    // The rectangle is inside the quad by panel.margin, so nothing is clipped.
+    vec2 ext = vec2(fieldAspect * 0.5, 0.5) - uGlass.z;
+    vec2 q = abs(p) - ext;
+    float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uGlass.z;
+    float aa = max(px.x, px.y);
+    float plateMask = 1.0 - smoothstep(-aa, aa, sd);
+    over(color, alpha, uGlassColor, plateMask * uGlass.x * resolve);
+    float fromTop = 0.5 - p.y;
+    float film = uGlassFilm.x * (1.0 - clamp(fromTop / uGlassFilm.y, 0.0, 1.0));
+    over(color, alpha, vec3(1.0), film * plateMask * resolve);
+    // The hairline is as thin as the screen allows: one pixel, faded over the
+    // next half-pixel and no more. line() is ~2 px wide, which on a tray
+    // this size read as a frame rather than an edge (client, 2026-09-16).
+    float rim = 1.0 - smoothstep(aa * 0.5, aa, abs(sd));
+    over(color, alpha, uGlassBorderColor, rim * uGlass.y * resolve);
+
     // ── Layer 1: the rear halo ──
     // The projection's own light, very soft, wider than the mark and fading to
     // nothing in every direction. This is the only thing that says where the field is, and
     // it says it without drawing a boundary.
+    //
+    // WITHDRAWN AS THE PLATE ARRIVES. On the smoked glass, blue belongs at the
+    // base alone — the emitter line and its wash — and a blue glow behind the
+    // lockup was a second light source arguing with it (client, 2026-09-16).
+    // Scaled by (1 - resolve), so the resting square keeps its halo and the
+    // handover is on the same curve the plate materialises on.
     //
     // COMPACT SUPPORT, NOT AN EXPONENTIAL. exp() never actually reaches zero,
     // so a halo built from one is still faintly alight at the quad's edge and
@@ -274,7 +318,8 @@ const FRAGMENT = /* glsl */ `
     float halo = pow(reach, 2.2) * haloStrength * modulation
                * (1.0 + 0.6 * activation)
                * (1.0 + uField.z * invite)
-               * (1.0 + hover);
+               * (1.0 + hover)
+               * (1.0 - resolve);
     over(color, alpha, uHoloColor, halo);
 
     // ── Layer 3: the artwork ──
@@ -307,7 +352,12 @@ const FRAGMENT = /* glsl */ `
     // Climbs into the field, and drops away quickly downward — below the line
     // is the cone's territory, and two glows overlapping there just make a
     // brighter smudge.
-    float wash = exp(-above / 0.20) * exp(-below / 0.05) * ends * 0.16 * energy * breath;
+    // On the smoked glass the wash climbs less far and less bright (client,
+    // 2026-09-16): the plate is the ground now, and the light only has to say
+    // where it enters. Both eased on resolve, so the resting square is untouched.
+    float washReach = mix(0.20, 0.14, resolve);
+    float washGain = mix(0.16, 0.11, resolve);
+    float wash = exp(-above / washReach) * exp(-below / 0.05) * ends * washGain * energy * breath;
     over(color, alpha, uHoloColor, max(emit, wash));
 
     gl_FragColor = vec4(color, alpha * uOpacity);
@@ -436,6 +486,12 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
     // is a uniform so it can be judged live rather than by recompiling.
     uHover: { value: 0 },
     uHoverGain: { value: cfg.hoverGain },
+    // The smoked-glass plate (§37 density A, restated in orbitConfig). The hex
+    // values convert to linear on assignment like uHoloColor above.
+    uGlassColor: { value: new THREE.Color(cfg.glassColor) },
+    uGlassBorderColor: { value: new THREE.Color(cfg.glassBorderColor) },
+    uGlass: { value: new THREE.Vector3(cfg.glassAlpha, cfg.glassBorderAlpha, cfg.glassRadius) },
+    uGlassFilm: { value: new THREE.Vector2(cfg.glassFilm, cfg.glassFilmReach) },
   }
 
   const material = new THREE.ShaderMaterial({

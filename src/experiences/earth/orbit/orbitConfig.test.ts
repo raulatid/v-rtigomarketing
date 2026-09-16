@@ -132,6 +132,25 @@ describe('the brand panel', () => {
     expect(panel.haloRadius).toBeLessThan(toTop)
   })
 
+  it('keeps the smoked-glass plate a translucent tray with a barely-there edge', () => {
+    // The plate is §37 density A restated for the shader: translucent graphite
+    // the Earth still reads through, a hairline at the border token's alpha
+    // and no louder, corners that round inside the field, and a film of light
+    // that stays a whisper. It is the field's own rectangle, so it is inside
+    // the quad by construction (panel.margin) and nothing here asserts that.
+    const panel = ORBIT_CONFIG.panel
+    expect(panel.glassAlpha).toBeGreaterThan(0)
+    expect(panel.glassAlpha).toBeLessThan(1)
+    expect(panel.glassBorderAlpha).toBeGreaterThan(0)
+    expect(panel.glassBorderAlpha).toBeLessThan(0.3)
+    expect(panel.glassRadius).toBeGreaterThan(0)
+    expect(panel.glassRadius).toBeLessThan(0.5)
+    expect(panel.glassFilm).toBeGreaterThan(0)
+    expect(panel.glassFilm).toBeLessThan(0.1)
+    expect(panel.glassFilmReach).toBeGreaterThan(0)
+    expect(panel.glassFilmReach).toBeLessThan(0.5)
+  })
+
   it('keeps the artwork clear of the emitter line at the field base', () => {
     // THE FAILURE THIS CATCHES, and it is one this repository actually walked
     // into on 2026-09-04: the atlas used to draw the whole FILE, so the shipped

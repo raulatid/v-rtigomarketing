@@ -270,6 +270,36 @@ export const ORBIT_CONFIG = {
     // Peak alpha of that halo. Six of these are on screen at rest, so this is
     // the knob that decides whether the overview stays calm.
     haloStrength: 0.30,
+
+    // ── The smoked-glass plate (2026-09-16) ──
+    // What the lockup lands on while the case study is selected: the site's
+    // smoked glass (DECISIONS §37, density A) as a tray that materialises in
+    // the light as the logo resolves. It exists because a white wordmark
+    // projected over the daylit hemisphere is white on pale, and no amount of
+    // brand light fixes that. THIS ONE HAS AN EDGE, deliberately and only in
+    // the selected state: the same barely-there hairline the floating trays
+    // wear, so the expanded field is the in-scene cousin of the case panel
+    // beside it. At rest it is absent, and the six resting squares stay pure
+    // projection.
+    //
+    // Colour, alpha and border are `--glass-bg-light` rgba(10,15,22,0.68) and
+    // `--glass-border` rgba(220,230,245,0.10), restated here because a shader
+    // cannot read a CSS custom property. Change the token and change this with
+    // it. What the CSS material has that this cannot is `backdrop-filter`:
+    // there is no blur of the scene behind a quad without a second render
+    // pass, and over the Earth's own softness the difference does not show.
+    glassColor: '#0a0f16',
+    glassAlpha: 0.68,
+    glassBorderColor: '#dce6f5',
+    glassBorderAlpha: 0.10,
+    // Corner radius in pane heights: the case panel's 12px on a ~300px plaque,
+    // scaled to the field.
+    glassRadius: 0.05,
+    // The film of reflected light along the top: `--glass-film` (0.025 over
+    // 18%) and `--glass-highlight` (0.055 over 22%, painted at opacity 0.7)
+    // summed into one linear ramp, at its brightest on the top edge.
+    glassFilm: 0.025 + 0.055 * 0.7,
+    glassFilmReach: 0.2,
     // The invitation: ONE satellite's field (orbitAssignments.invitedCaseId)
     // breathes brighter so the overview says "these are clickable". The gain
     // multiplies haloStrength at the top of the breath, and half of it lifts
