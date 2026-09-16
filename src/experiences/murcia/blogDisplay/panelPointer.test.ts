@@ -27,6 +27,8 @@ interface Fixture {
   margin: { x: number; y: number }
   /** A building of the cluster, beside the panel rather than behind it. */
   building: { x: number; y: number }
+  invitation: { x: number; y: number }
+  invitationGroup: THREE.Group
   press: (x: number, y: number, pointerType?: string) => void
   release: (x: number, y: number, pointerType?: string) => void
   move: (x: number, y: number) => void
@@ -78,11 +80,18 @@ function makeFixture(): Fixture {
   building.position.set(40, 0, 0)
   building.updateMatrixWorld(true)
 
+  const invitationGroup = new THREE.Group()
+  const invitation = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshBasicMaterial())
+  invitation.position.set(-40, 0, 0)
+  invitationGroup.add(invitation)
+  invitationGroup.updateMatrixWorld(true)
+
   const pointer = createPanelPointer({
     canvas,
     camera,
     panel,
     buildings: [building],
+    invitations: [invitation],
     onHoverChange,
     cursor,
     tapThresholdPx: { mouse: 6, touch: 12 },
@@ -127,6 +136,8 @@ function makeFixture(): Fixture {
     centre,
     margin,
     building: project(new THREE.Vector3(40, 0, 5)),
+    invitation: project(new THREE.Vector3(-40, 0, 0)),
+    invitationGroup,
     press,
     release,
     move,
@@ -157,6 +168,22 @@ describe('the blog panel pointer', () => {
     // would put a three-second flight on empty air beside the display.
     f.press(f.margin.x, f.margin.y)
     f.release(f.margin.x, f.margin.y)
+    expect(f.onActivate).not.toHaveBeenCalled()
+  })
+
+  it('opens the blog from the invitation and publishes its hover', () => {
+    f.move(f.invitation.x, f.invitation.y)
+    f.pointer.update()
+    expect(f.onHoverChange).toHaveBeenLastCalledWith(true)
+    f.press(f.invitation.x, f.invitation.y)
+    f.release(f.invitation.x, f.invitation.y)
+    expect(f.onActivate).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores an invitation hidden by its parent during the transition', () => {
+    f.press(f.invitation.x, f.invitation.y)
+    f.invitationGroup.visible = false
+    f.release(f.invitation.x, f.invitation.y)
     expect(f.onActivate).not.toHaveBeenCalled()
   })
 

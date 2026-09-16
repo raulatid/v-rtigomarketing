@@ -166,6 +166,7 @@ export function createBlogDisplayEntry(
     canvas: options.canvas,
     camera: options.camera,
     panel: display.panel,
+    invitations: [display.invitation],
     buildings: meshes,
     onHoverChange: (hovering) => highlight.setTarget(hovering),
     cursor: options.cursor,

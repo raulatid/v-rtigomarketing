@@ -44,6 +44,8 @@ export interface PanelPointerDeps {
   panel: THREE.Mesh;
   /** The cluster's meshes, flattened: the second target, raycast non-recursively. */
   buildings?: readonly THREE.Object3D[];
+  /** Additional physical invitation surfaces, without the panel's core-UV mask. */
+  invitations?: readonly THREE.Object3D[];
   /** When the pointer lands on or leaves a target. Never on touch. */
   onHoverChange?: (hovering: boolean) => void;
   cursor: CursorManager;
@@ -67,6 +69,7 @@ export interface PanelPointer {
 export function createPanelPointer(deps: PanelPointerDeps): PanelPointer {
   const { canvas, camera, panel, cursor } = deps;
   const buildings = [...(deps.buildings ?? [])];
+  const invitations = [...(deps.invitations ?? [])];
 
   // Allocated once and mutated in place. A raycaster per event is a per-pointermove
   // allocation on a listener that fires at the pointer's full rate.
@@ -146,6 +149,13 @@ export function createPanelPointer(deps: PanelPointerDeps): PanelPointer {
       if (x >= 0 && x <= 1 && y >= 0 && y <= 1) return true;
     }
 
+    const visibleInvitations = invitations.filter((object) => {
+      for (let node: THREE.Object3D | null = object; node; node = node.parent) {
+        if (!node.visible) return false;
+      }
+      return true;
+    });
+    if (raycaster.intersectObjects(visibleInvitations, false).length > 0) return true;
     return buildings.length > 0 && raycaster.intersectObjects(buildings, false).length > 0;
   }
 

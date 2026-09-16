@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { prefersReducedMotion } from '../../../platform/motionPreference';
+import { createBlogOrbitRing } from './blogOrbitRing';
 import { createDisplayShell, type DisplayShellDimensions } from './displayShell';
 import displayFragmentShader from './shaders/display/fragment.glsl';
 import displayVertexShader from './shaders/display/vertex.glsl';
@@ -186,8 +188,10 @@ interface FollowSettings {
 }
 
 export interface BlogDisplay {
+  /** The invitation shares the display's navigation action. */
+  readonly invitation: THREE.Mesh;
   readonly object: THREE.Object3D;
-  /** The panel mesh — the pointer's only raycast target. */
+  /** The panel mesh, with a UV mask for its readable core. */
   readonly panel: THREE.Mesh;
   /**
    * Public because `panelPointer` reads `uCoreInset` off it rather than restating
@@ -272,6 +276,8 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
   // Splitting them keeps 45 degrees at 45 degrees while the yaw animates.
   const root = new THREE.Group();
   root.position.set(centre.x, groundY + options.elevation, centre.z);
+  const orbitRing = createBlogOrbitRing(panelWidth, prefersReducedMotion());
+  root.add(orbitRing.object);
 
   /**
    * A 1x1 transparent placeholder, so the material is complete before the page has
@@ -426,9 +432,11 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
     panel.geometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
     panelMaterial.uniforms['uAspect']!.value = panelWidth / panelHeight;
     shell.setDimensions(shellDimensions());
+    orbitRing.resize(panelWidth);
   };
 
   return {
+    invitation: orbitRing.target,
     object: root,
     panel,
     panelMaterial,
@@ -455,6 +463,7 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
     setScreenPresence(presence) {
       screenPresence = THREE.MathUtils.clamp(presence, 0, 1);
       applyScreenPresence();
+      orbitRing.setPresence(activation * screenPresence);
     },
 
     setActivation(value) {
@@ -464,6 +473,7 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
       // has to already be at this value, not one frame behind it.
       panelMaterial.uniforms['uActivation']!.value = activation;
       shell.setActivation(activation);
+      orbitRing.setPresence(activation * screenPresence);
     },
 
     freezeFollow(frozen) {
@@ -486,6 +496,7 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
     },
 
     update(dt, camera) {
+      orbitRing.update(dt);
       // One linear ramp. There is no staged entrance here and no asymmetry between
       // arriving and leaving — the display simply appears, and the only cinematic in
       // this module is the one that takes you out of the scene.
@@ -495,6 +506,7 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
         // The plate fades with the face rather than popping in behind it — the only
         // reason its material is `transparent` at all.
         shell.setActivation(activation);
+        orbitRing.setPresence(activation * screenPresence);
       }
 
       // --- Y-only orientation -------------------------------------------------
@@ -544,6 +556,7 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
     },
 
     dispose() {
+      orbitRing.dispose();
       // Neither texture is released by `material.dispose()`, and neither hangs off
       // the scene graph in a way the disposal walk can reach.
       if (pageTexture !== placeholder) pageTexture.dispose();
