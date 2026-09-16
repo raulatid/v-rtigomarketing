@@ -739,7 +739,6 @@
     overflow: hidden;
   }
   .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__detail,
-  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__measures,
   .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__caption {
     display: none;
   }
@@ -769,4 +768,44 @@
     transition-duration: 1ms !important;
     transition-delay: 0s !important;
   }
+}
+
+/* Compact service copy and delayed editorial highlights. */
+.murcia-ui .campus-overlay__subtitle { white-space: pre-line; text-wrap: pretty; }
+.murcia-ui .campus-overlay__measures-list {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  justify-content: stretch;
+}
+.murcia-ui .campus-overlay__measures-list li {
+  padding: 0 0 0 16px;
+  position: relative;
+  background: none;
+}
+.murcia-ui .campus-overlay__measures-list li::before,
+.murcia-ui .campus-overlay__measures-list li + li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 4px;
+  height: 4px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--campus-accent, currentColor);
+}
+@media (prefers-reduced-motion: reduce) {
+  .murcia-ui .campus-overlay__measures { transition-duration: 1ms !important; }
+}
+
+@media not all and (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
+    overflow-y: auto;
+  }
+  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
+    display: block;
+  }
+  .murcia-ui .campus-overlay__measures { margin-top: 14px; }
+  .murcia-ui .campus-overlay__measures-list { gap: 6px; }
 }

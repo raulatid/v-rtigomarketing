@@ -96,13 +96,12 @@ export const service = defineType({
     }),
     defineField({
       name: 'body',
-      title: 'Descripción',
+      title: 'Descripción del servicio',
       description:
-        'Uno o dos párrafos, y se lee entero. Debajo del nombre va el principio, un poco más ' +
-        'grande: el primer párrafo si escribes dos, o la primera frase si escribes uno. Lo más ' +
-        'claro: un primer párrafo de una frase que resuma el servicio, y un segundo con el detalle.',
+        'Dos líneas breves debajo del título del servicio, separadas por un salto de línea. ' +
+        'Procura no superar los 40 caracteres por línea. Los párrafos adicionales no se muestran en el campus.',
       type: 'text',
-      rows: 6,
+      rows: 2,
       components: { input: charCount(BOUNDS.body) },
       validation: (rule) => [
         rule.required().error('Escribe una descripción.'),
@@ -116,7 +115,8 @@ export const service = defineType({
     // so the documents published before they existed keep building.
     defineField({
       name: 'figureCaption',
-      title: 'Qué muestra la figura',
+      title: 'Leyenda anterior de la figura',
+      hidden: true,
       description:
         'Opcional. Al llegar a este servicio en la ciudad, su símbolo de partículas se convierte ' +
         'en una figura. Esta frase aparece bajo el texto cuando la figura termina de formarse, y ' +
@@ -130,24 +130,23 @@ export const service = defineType({
     }),
     defineField({
       name: 'measures',
-      title: 'Qué medimos',
+      title: 'Puntos destacados del servicio',
       description:
-        `Opcional. Hasta ${BOUNDS.measures} cosas que medimos en este servicio, una por fila: el ` +
-        'nombre de la métrica, no una cifra. Aparecen bajo «Qué medimos» junto al texto del ' +
-        'servicio. Vacío, el bloque no se muestra.',
+        'Tres puntos breves, uno por fila. Aparecen cuando el símbolo de partículas empieza ' +
+        'a transformarse en la figura del servicio. Escribe puntos concisos y concretos.',
       type: 'array',
       of: [
         defineArrayMember({
           type: 'string',
           components: { input: charCount(BOUNDS.measure) },
           validation: (rule) => [
-            rule.required().error('Escribe la métrica, o quita la fila.'),
+            rule.required().error('Escribe el punto destacado.'),
             rule.max(BOUNDS.measure).error(`Demasiado largo: como máximo ${BOUNDS.measure} caracteres.`),
           ],
         }),
       ],
       validation: (rule) =>
-        rule.max(BOUNDS.measures).error(`Como máximo ${BOUNDS.measures} filas.`),
+        rule.required().length(BOUNDS.measures).error(`Escribe exactamente ${BOUNDS.measures} puntos destacados.`),
     }),
     defineField({
       name: 'particleColor',

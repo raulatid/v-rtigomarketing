@@ -222,6 +222,7 @@ export async function createServicesCampus(
     particles.emergenceSeconds = REDUCED.emergence;
     particles.convergenceSeconds = REDUCED.convergence;
     particles.swellAmplitude = 0;
+    particles.rotationSpeed = 0;
     figureMotion.amplitude = 0;
     campus.applyParticles();
   }

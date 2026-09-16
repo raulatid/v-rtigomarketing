@@ -55,6 +55,8 @@ export interface ParticleFieldConfig {
   swellLength: number;
   /** How fast the crests travel. */
   swellSpeed: number;
+  /** Constant angular speed around the lake's vertical axis, in radians per second. */
+  rotationSpeed: number;
   /** The white half of the two tones. The other half is `setAccent`'s. */
   color: number;
   /** Of the particles, the share drawn in the accent, 0..1. Needs a rebuild. */
@@ -102,6 +104,8 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
   const uniforms = {
     uElapsed: { value: 0 },
     uTime: { value: 0 },
+    uRotation: { value: 0 },
+    uRotationCenter: { value: basin.center.clone() },
     uDelaySpread: { value: 1 },
     uRiseSeconds: { value: 1 },
     uConvergeSeconds: { value: 1 },
@@ -139,6 +143,7 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
   points.frustumCulled = false;
 
   let elapsed = 0;
+  let rotationSpeed = initial.rotationSpeed;
   let duration = 1;
   let morph = 1;
   let morphSeconds = 1;
@@ -268,6 +273,8 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
       uniforms.uSwellAmp.value = config.swellAmplitude;
       uniforms.uSwellK.value = (Math.PI * 2) / Math.max(0.01, config.swellLength);
       uniforms.uSwellSpeed.value = config.swellSpeed;
+      rotationSpeed = config.rotationSpeed;
+      if (rotationSpeed === 0) uniforms.uRotation.value = 0;
       uniforms.uColor.value.setHex(config.color);
       uniforms.uOpacity.value = config.opacity;
       duration = config.emergenceSeconds + config.convergenceSeconds;
@@ -292,6 +299,10 @@ export function createParticleField(basin: LakeBasin, initial: ParticleFieldConf
 
     tick(dt, playing) {
       uniforms.uTime.value += dt;
+      // One continuous phase across layouts; hidden particles do not advance it.
+      if (playing || elapsed > 0) {
+        uniforms.uRotation.value = (uniforms.uRotation.value + dt * rotationSpeed) % (Math.PI * 2);
+      }
       if (accentMix < 1) {
         accentMix = Math.min(1, accentMix + dt / accentSeconds);
         uniforms.uAccent.value.lerpColors(accentFrom, accentTo, easeInOut(accentMix));

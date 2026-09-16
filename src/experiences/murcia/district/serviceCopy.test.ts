@@ -63,11 +63,7 @@ describe('splitServiceCopy', () => {
   })
 })
 
-// Asserted against what actually shipped, not only against invented strings.
-// The whole reason this module is a split rather than a second CMS field is a
-// measurement of this copy, and the measurement has to keep holding: the day a
-// service is rewritten as one sentence, "saber más" opens a panel showing what
-// was already on screen, and this is where that shows up.
+// Compact campus explanations no longer need an expanded detail paragraph.
 describe('the shipped services district copy', () => {
   const content = findDistrictContent(DISTRICT_CONTENT, 'servicios')
 
@@ -77,11 +73,11 @@ describe('the shipped services district copy', () => {
   })
 
   for (const service of content?.services ?? []) {
-    it(`gives "${service.id}" a summary shorter than its detail`, () => {
+    it(`gives "${service.id}" a non-empty summary contained in its body`, () => {
       const { summary, detail } = splitServiceCopy(service.body)
       expect(summary.length).toBeGreaterThan(0)
-      expect(summary.length).toBeLessThan(detail.length)
-      expect(detail).toContain(summary)
+      expect(summary.length).toBeLessThanOrEqual(detail.length)
+      expect(detail.replace(/\s+/g, ' ')).toContain(summary.replace(/\s+/g, ' '))
     })
   }
 })

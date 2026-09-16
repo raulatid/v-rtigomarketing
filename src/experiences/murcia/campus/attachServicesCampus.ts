@@ -216,17 +216,18 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     // its shape.
     emergenceSeconds: 0.9,
     convergenceSeconds: 1.1,
-    size: r * 0.04,
+    size: r * 0.029,
     swellAmplitude: r * 0.03,
     swellLength: r * 1.2,
     swellSpeed: 0.5,
+    rotationSpeed: (Math.PI * 2) / 120,
     color: 0xdfeef7,
     // Half white, half the stop's colour (the content's `color`), mixed.
     accentShare: 0.5,
     opacity: 0.85,
   };
   const shapes: SectionShapes = { discRadius: r * 0.85, lift: r * 0.8, iconWidth: r * 1.4 };
-  const timing: SectionTiming = { flight: 1.4, morph: 1.8, figureSpread: 0.85, formHold: 3 };
+  const timing: SectionTiming = { flight: 1.4, morph: 0.8, figureSpread: 0.55, formHold: 2 };
   const cameraTuning: CampusCameraTuning = { distance: r * 4.5, elevationDeg: 24, direction: 1 };
   const figureMotion: FigureMotion = { speed: 1, amplitude: 1 };
 
@@ -320,7 +321,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
    * A service's two forms: its symbol, held `formHold` once formed, then its
    * figure, which it keeps — the figure is what the plate's legend names, so
    * it stays to be read beside it. `captionAt` is when that legend may show:
-   * once the figure has formed. Null outside a service.
+   * when the figure starts forming. Null outside a service.
    */
   type Form = 'icon' | 'figure';
   let cycle: {
@@ -337,7 +338,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     if (form === 'icon') {
       field.setLayout(icon(service.icon, stop, 0), seconds);
       field.setLiveLayout((time) => icon(service.icon, stop, time));
-      cycle.swapAt = clock + seconds + timing.formHold;
+      cycle.swapAt = clock + Math.max(seconds, timing.flight) + timing.formHold;
     } else {
       // Drawn in order, as the figure always was. Its clock starts with it, so
       // whatever travels along it sets off from where the draw put it.
@@ -345,7 +346,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
       let start: number | null = null;
       field.setLiveLayout((time) => figure(service, stop, time - (start ??= time)));
       cycle.swapAt = Infinity;
-      cycle.captionAt = clock + seconds;
+      cycle.captionAt = clock;
     }
     cycle.form = form;
   };
@@ -385,12 +386,10 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
 
     const service = content.services[snapshot.index];
     if (!service) return;
-    // The whole copy, always: there is no read-more any more.
+    // The summary stays visible; CMS highlights arrive with the figure.
     const copy: OverlayCopy = {
       title: service.title,
       subtitle: service.subtitle,
-      detail: service.detail,
-      caption: service.caption,
       measures: service.measures,
       accent: service.color,
     };
@@ -422,7 +421,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
       if (cycle && cycle.form === 'icon' && clock >= cycle.swapAt && !campusCamera.flying) {
         showForm('figure', timing.morph);
       }
-      // The legend waits for the figure it names, and for the copy it sits in.
+      // Highlights arrive with the figure, after the service copy is available.
       if (cycle && pendingCopy === null && clock >= cycle.captionAt) {
         overlay.revealCaption();
         cycle.captionAt = Infinity;

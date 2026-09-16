@@ -45,7 +45,10 @@ describe('the campus content', () => {
   it('never repeats the opening line in the detail', () => {
     const content = buildServicesContent(shipped, binding.services)!
     for (const service of content.services) {
-      expect(service.detail.startsWith(service.subtitle), service.id).toBe(false)
+      // Short explanations have no additional detail; legacy prose does.
+      if (service.detail !== service.subtitle) {
+        expect(service.detail.startsWith(service.subtitle), service.id).toBe(false)
+      }
       expect(service.detail.length, service.id).toBeGreaterThan(0)
     }
   })
@@ -100,4 +103,9 @@ describe('the campus content', () => {
     const bad = [{ serviceId: 's0', icon: 'pin', figure: 'spiral' as unknown as 'compound' }]
     expect(buildServicesContent(district(['Uno. Dos.']), bad)).toBeNull()
   })
+})
+
+it('preserves the two editorial lines without joining or truncating them', () => {
+  const body = 'Make your expertise discoverable.\nBuild a stronger search presence.'
+  expect(buildServicesContent(district([body]), symbols(1))?.services[0]?.subtitle).toBe(body)
 })

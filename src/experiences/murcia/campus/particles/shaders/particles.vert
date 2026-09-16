@@ -22,6 +22,8 @@ attribute float aTone;          // 0 wears uColor, 1 wears uAccent
 
 uniform float uElapsed;         // seconds since play; the global progress
 uniform float uTime;            // wall clock, for the swell
+uniform float uRotation;        // continuous angle, shared by all layouts
+uniform vec3 uRotationCenter;   // lake centre; rotation preserves height
 uniform float uDelaySpread;     // seconds over which starts are spread
 uniform float uRiseSeconds;
 uniform float uConvergeSeconds;
@@ -53,6 +55,15 @@ void main() {
   // current one, on its own schedule within the morph.
   float m = clamp(uMorph * (1.0 + uMorphSpread) - aSeed * uMorphSpread, 0.0, 1.0);
   vec3 rest = mix(aFrom, aTarget, easeInOut(m));
+  // Turn the whole form, including a morph in flight, around its own centre.
+  // Source and emergence stay anchored in the water until convergence.
+  vec2 offset = rest.xz - uRotationCenter.xz;
+  float turnCos = cos(uRotation);
+  float turnSin = sin(uRotation);
+  rest.xz = uRotationCenter.xz + vec2(
+    turnCos * offset.x + turnSin * offset.y,
+    -turnSin * offset.x + turnCos * offset.y
+  );
 
   // Rising through the water. Eased out, so a particle slows as it surfaces
   // rather than shooting through. Then a lazy S-curve to where it rests.

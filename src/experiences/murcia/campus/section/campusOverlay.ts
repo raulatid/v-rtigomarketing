@@ -28,7 +28,7 @@
 import { attachCampusSheet } from './campusSheet';
 
 const FADE_MS = 450;
-const CAPTION_FADE_MS = 700;
+const CAPTION_FADE_MS = 250;
 const Z_INDEX = 30;
 
 const fontPromises = new Map<string, Promise<void>>();
@@ -147,7 +147,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   const measuresLabel = document.createElement('div');
   measuresLabel.className = 'campus-overlay__measures-label';
   measuresLabel.textContent = labels.measures ?? '';
-  measuresLabel.hidden = !labels.measures;
+  measuresLabel.hidden = true;
   const measuresList = document.createElement('ul');
   measuresList.className = 'campus-overlay__measures-list';
   if (inlineLayout) {
@@ -155,6 +155,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     measuresLabel.style.cssText = 'opacity:0.55;';
     measuresList.style.cssText = 'list-style:none;margin:6px 0 0;padding:0;opacity:0.85;';
   }
+  measures.style.transition = `opacity ${CAPTION_FADE_MS}ms ease`;
   measures.append(measuresLabel, measuresList);
 
   // The figure's legend. Its opacity is behaviour, so it stays inline; the
@@ -238,6 +239,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
       }),
     );
     measures.hidden = items.length === 0;
+    measures.style.opacity = captionWanted ? '1' : '0';
+    measures.style.visibility = captionWanted ? 'visible' : 'hidden';
 
     captionText.textContent = copy.caption ?? '';
     caption.hidden = !copy.caption;
@@ -280,7 +283,11 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
       if (disposed) return;
       captionWanted = true;
       // Mid-swap the old copy is still written; `write` applies it to the new one.
-      if (pending === null) caption.style.opacity = '1';
+      if (pending === null) {
+        caption.style.opacity = '1';
+        measures.style.opacity = '1';
+        measures.style.visibility = 'visible';
+      }
     },
 
     hide() {

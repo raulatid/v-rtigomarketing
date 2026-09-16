@@ -51,7 +51,7 @@ export const servicesCollection = collection<Service>({
     const scoped = new Report(at)
 
     const title = text(scoped, 'title', source.title, { max: SERVICE_TITLE_MAX })
-    const body = text(scoped, 'body', source.body, { max: SERVICE_BODY_MAX })
+    const body = text(scoped, 'body', source.body, { max: SERVICE_BODY_MAX, preserveLineBreaks: true })
 
     const problems = [...report.problems, ...scoped.problems]
     if (problems.length > 0 || id === undefined || title === undefined || body === undefined) {

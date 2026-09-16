@@ -2,41 +2,61 @@
   {
     "id": "brand-identity",
     "title": "Identidad de marca",
-    "body": "Una marca es lo que la gente sabe describir de ti cuando no estás delante. Definimos qué debería ser eso y construimos el sistema que lo sostiene — nombre, tono, tipografía, color y las reglas para usarlos — para que el décimo contacto siga pareciéndose al primero.",
+    "body": "Construimos una marca reconocible.\nCoherente en cada punto de contacto.",
     "particleColor": "#ffd84d",
     "figureCaption": "Diez contactos con la marca, y el décimo idéntico al primero.",
-    "measures": ["Búsquedas de la marca", "Coherencia entre puntos de contacto", "Reconocimiento de la marca"]
+    "measures": [
+      "Posicionamiento y tono de voz",
+      "Sistema de identidad visual",
+      "Coherencia en todos los canales"
+    ]
   },
   {
     "id": "content-strategy",
     "title": "Estrategia de contenidos",
-    "body": "Publicar más no es una estrategia. Trazamos lo que tus clientes necesitan saber antes de comprar, encontramos los huecos que tu competencia ha dejado abiertos y construimos un plan que puedas sostener de verdad. Menos piezas, cada una ganándose su sitio y llevando a alguna parte.",
+    "body": "Conectamos ideas con intención.\nCada contenido tiene un propósito.",
     "particleColor": "#ff5d73",
     "figureCaption": "Pocas piezas, cada una enlazada con la siguiente hasta llevar a alguna parte.",
-    "measures": ["Conversiones por pieza", "Temas con demanda sin cubrir", "Recorrido hasta la compra"]
+    "measures": [
+      "Investigación de públicos y temas",
+      "Planificación editorial conectada",
+      "Contenidos que ayudan a decidir"
+    ]
   },
   {
     "id": "paid-campaigns",
     "title": "Campañas de pago",
-    "body": "El tráfico de pago revela lo que ya era cierto sobre tu oferta: compra atención, no compra persuasión. Empezamos por la experiencia de aterrizaje, después construimos campañas en torno a los segmentos que convierten y cortamos rápido los que no, en lugar de defenderlos.",
+    "body": "Llegamos al público adecuado.\nAfinamos dónde invertir tu presupuesto.",
     "particleColor": "#a66bff",
     "figureCaption": "Cada barra es un segmento: los que no convierten se cortan y su presupuesto pasa a los que sí.",
-    "measures": ["Coste por conversión", "Conversión por segmento", "Conversión de la página de aterrizaje"]
+    "measures": [
+      "Segmentación de audiencias",
+      "Optimización de páginas de destino",
+      "Pruebas y mejora de campañas"
+    ]
   },
   {
     "id": "seo",
     "title": "SEO",
-    "body": "La búsqueda es el único canal que sigue devolviéndote el trabajo que hiciste hace meses. Auditamos lo que frena técnicamente a un sitio, reconstruimos la estructura que los buscadores leen de verdad y apuntamos a las búsquedas que hacen tus clientes, no a las que tienen el número más grande al lado. Los resultados se miden en ingresos, no en posiciones.",
+    "body": "Hacemos visible tu experiencia.\nReforzamos tu presencia en buscadores.",
     "particleColor": "#ffb020",
     "figureCaption": "El tráfico de pago cae cuando se deja de invertir; el orgánico sigue acumulándose.",
-    "measures": ["Ingresos desde búsqueda orgánica", "Búsquedas con intención de compra", "Salud técnica del sitio"]
+    "measures": [
+      "Base técnica para buscadores",
+      "Contenidos según intención de búsqueda",
+      "Seguimiento del rendimiento orgánico"
+    ]
   },
   {
     "id": "web-analysis",
     "title": "Analítica web",
-    "body": "La mayoría de sitios recogen muchos más datos de los que alguien lee. Montamos una medición que responde preguntas concretas — dónde abandona la gente, qué venían a buscar y no encontraron, qué páginas sostienen el trabajo — y después te decimos qué cambiar. Una analítica sobre la que nadie actúa es un coste, no un activo.",
+    "body": "Entendemos el recorrido del cliente.\nConvertimos datos en decisiones.",
     "particleColor": "#22c7a9",
     "figureCaption": "Cada paso del recorrido pierde gente; la medición señala en cuál se pierde más.",
-    "measures": ["Abandono en cada paso", "Búsquedas internas sin resultado", "Páginas que sostienen las ventas"]
+    "measures": [
+      "Análisis de recorridos y embudos",
+      "Medición de eventos relevantes",
+      "Prioridades claras de optimización"
+    ]
   }
 ]

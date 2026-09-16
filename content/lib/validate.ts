@@ -51,10 +51,12 @@ export function text(
   report: Report,
   path: string,
   value: unknown,
-  opts: { max?: number; allowEmpty?: boolean } = {},
+  opts: { max?: number; allowEmpty?: boolean; preserveLineBreaks?: boolean } = {},
 ): string | undefined {
   if (typeof value !== 'string') return report.fail(path, 'expected a string, got ' + typeOf(value))
-  const clean = stripHtml(value)
+  const clean = opts.preserveLineBreaks
+    ? value.replace(/\r\n/g, '\n').split('\n').map(stripHtml).join('\n').trim()
+    : stripHtml(value)
   const residue = plainTextProblem(clean)
   if (residue) return report.fail(path, residue)
   if (!opts.allowEmpty && clean.length === 0) return report.fail(path, 'must not be empty')

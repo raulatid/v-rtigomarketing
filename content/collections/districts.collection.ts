@@ -99,7 +99,7 @@ function service(
   // users and for nobody else, which is why it is asserted rather than reviewed.
   const id = slug(report, path + '.id', source.id, ID_PATTERN)
   const title = text(report, path + '.title', source.title, { max: SERVICE_TITLE_MAX })
-  const body = text(report, path + '.body', source.body, { max: SERVICE_BODY_MAX })
+  const body = text(report, path + '.body', source.body, { max: SERVICE_BODY_MAX, preserveLineBreaks: true })
   // Empty takes the district's: a service nobody coloured reads as the entry.
   const color = particleColor(report, path + '.particleColor', source.particleColor, districtColor)
   const caption = figureCaption(report, path + '.figureCaption', source.figureCaption)
