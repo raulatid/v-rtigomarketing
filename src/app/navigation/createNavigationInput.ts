@@ -171,6 +171,8 @@ export interface NavigationInputDeps {
 }
 
 export interface NavigationInput {
+  /** Explicit navigation shares the gesture lock and never toggles at its destination. */
+  navigateTo(destination: NavigationContext['current']): void
   /** The transition finished. Starts the cooldown from this instant. */
   settle(): void
   /**
@@ -1180,6 +1182,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   }
 
   return {
+    navigateTo(destination) {
+      if (deps.getContext().current === destination) return
+      activate(now())
+    },
     settle() {
       machine.settle(now())
       ensureRunning()

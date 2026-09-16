@@ -565,6 +565,11 @@ export class MurciaExperience {
     return this.campus?.isEngaged ?? false;
   }
 
+  /** The logo only returns home from the city, never a building or its flight. */
+  get isCityOverview(): boolean {
+    return this.active && !this.hasFocusedDistrict && !!this.rig && !this.rig.isExternallyControlled;
+  }
+
   /**
    * A horizontal wheel or trackpad swipe, in CSS px, signed like a drag's `dx`.
    *
@@ -848,6 +853,7 @@ export class MurciaExperience {
         // forbids and which no ordering here could fix. "Frozen has to mean
         // deaf as well as still" is the same rule `setActive` applies for Earth.
         this.campus?.setEnabled(false);
+        this.onAttentionChange?.();
       },
       endExternalControl: () => {
         // The approach flew the camera OFF the rig entirely, writing
@@ -859,6 +865,7 @@ export class MurciaExperience {
         // Back to whatever the scene's own activity says, never a bare `true`:
         // the return can settle while Earth is showing.
         this.campus?.setEnabled(this.active);
+        this.onAttentionChange?.();
       },
       openBlog: onOpenBlog,
       onApproachStart: () => onApproachStart?.(),
@@ -976,7 +983,10 @@ export class MurciaExperience {
       // grazing angle from the resting pose.
       anisotropy: 4,
       maxTextureSize: this.renderer.capabilities.maxTextureSize,
-      onCameraReturned: () => this.applyDeferredPose(),
+      onCameraReturned: () => {
+        this.applyDeferredPose();
+        this.onAttentionChange?.();
+      },
       onEngagedChange: this.onAttentionChange,
       cursor: this.cursor,
       isDragging: () => this.cameraInput?.isDragging ?? false,
@@ -1308,4 +1318,3 @@ export class MurciaExperience {
     // environment. Disposing them here would take Earth down with it.
   }
 }
-

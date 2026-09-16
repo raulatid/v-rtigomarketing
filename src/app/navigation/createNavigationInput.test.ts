@@ -58,6 +58,44 @@ const twoFrames = async () => {
   await new Promise((r) => requestAnimationFrame(r))
 }
 
+describe('explicit destination navigation', () => {
+  it('returns from Murcia once and preserves the zoom until the covered cut', () => {
+    const { input, commits, depth, root } = setup({ current: 'murcia' })
+    wheel(40)
+    const departureDepth = depth()
+    input.navigateTo('earth')
+    input.navigateTo('earth')
+    wheel(120)
+    expect(commits).toEqual(['exit-murcia'])
+    expect(root.dataset.state).toBe('locked')
+    expect(depth()).toBe(departureDepth)
+    input.resetZoom()
+    expect(depth()).toBe(0)
+    input.dispose()
+  })
+
+  it('does not toggle back to Murcia when already on Earth', () => {
+    const { input, commits } = setup()
+    input.navigateTo('earth')
+    expect(commits).toEqual([])
+    input.dispose()
+  })
+
+  it('checks live attention and never closes a focused district', () => {
+    let releases = 0
+    const { input, context, commits } = setup({ current: 'murcia' })
+    context.canNavigate = false
+    context.releaseFocus = () => { releases += 1 }
+    input.navigateTo('earth')
+    expect(commits).toEqual([])
+    expect(releases).toBe(0)
+    context.canNavigate = true
+    input.navigateTo('earth')
+    expect(commits).toEqual(['exit-murcia'])
+    input.dispose()
+  })
+})
+
 // A trackpad's two-finger sideways swipe arrives as deltaX, which the wheel used
 // to drop — and the stray deltaY of a swipe meant to turn zoomed the city.
 describe('wheel rotation follows camera zoom in both worlds', () => {

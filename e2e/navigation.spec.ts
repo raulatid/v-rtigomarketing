@@ -100,6 +100,45 @@ async function reachSite(page: Page) {
 }
 
 test.describe('Earth <-> Murcia gesture navigation', () => {
+  for (const width of [1600, 393]) {
+    test(`city logo returns to Earth at viewport width ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/')
+      // On phones the audit trigger lives inside the closed menu.
+      await page.locator('.audit-trigger').waitFor({ state: 'attached', timeout: 75_000 })
+      await expect(page.locator('.nav')).toHaveAttribute('data-state', 'idle')
+      const home = page.locator('.scene-home')
+      await expect(home).toHaveCount(0)
+      const navigation = page.locator('.nav-control')
+      await expect(navigation).toBeEnabled()
+      await navigation.focus()
+      await navigation.press('Enter')
+      await expect.poll(() => inMurcia(page)).toBe(true)
+      await expect(page.locator('.nav')).toHaveAttribute('data-state', 'idle')
+      await expect(home).toBeEnabled()
+      const box = await home.boundingBox()
+      expect(box!.width).toBeGreaterThanOrEqual(44)
+      expect(box!.height).toBeGreaterThanOrEqual(44)
+      // Enter through the same accessible action that opens the 3D services.
+      const enterServices = page.locator('.district-a11y-control').first()
+      await enterServices.focus()
+      await enterServices.press('Enter')
+      await expect(home).toBeDisabled()
+      await expect(home).toBeHidden()
+      expect(await inMurcia(page)).toBe(true)
+      // A flight ignores exit input until it lands; retry the user's Escape
+      // until the overview (and its logo control) is available again.
+      await expect(async () => {
+        await page.keyboard.press('Escape')
+        await expect(home).toBeEnabled({ timeout: 1000 })
+      }).toPass({ timeout: 30_000 })
+      await home.click()
+      await expect.poll(() => inMurcia(page)).toBe(false)
+      await expect(home).toHaveCount(0)
+      await expect(page.locator('.nav')).toHaveAttribute('data-state', 'idle')
+    })
+  }
+
   test('navigation stands down while something else owns attention', async ({ page }) => {
     // The regression this guards: the state was only painted inside the gesture
     // frame loop, so opening a panel never repainted it — it sat 'idle' behind

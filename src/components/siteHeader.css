@@ -246,6 +246,29 @@
   justify-self: start;
 }
 
+/* The canvas draws the mark; this target follows the same header metrics.
+   Suppressed targets must not intercept input over panels or the tilted menu. */
+.scene-home {
+  width: max(44px, var(--header-logo-height, var(--header-control)));
+  height: max(44px, var(--header-logo-height, var(--header-control)));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.scene-home:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+}
+
+.site-header__start > .scene-home:disabled {
+  pointer-events: none;
+  visibility: hidden;
+}
+
 .site-header__brand {
   justify-self: center;
 }

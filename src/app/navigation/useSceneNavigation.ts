@@ -105,6 +105,10 @@ export function useSceneNavigation({
    */
   const settle = useCallback(() => inputRef.current?.settle(), [])
 
+  const navigateTo = useCallback((destination: NavigationContext['current']) => {
+    inputRef.current?.navigateTo(destination)
+  }, [])
+
   /** Drops any gesture in flight. Used when the intro phase moves under us. */
   const reset = useCallback(() => inputRef.current?.reset(), [])
 
@@ -134,5 +138,5 @@ export function useSceneNavigation({
   //
   // They close over a ref rather than over the input, so they stay correct across
   // a rebuild without ever changing identity.
-  return { settle, reset, resetZoom, contextChanged }
+  return { settle, reset, resetZoom, contextChanged, navigateTo }
 }

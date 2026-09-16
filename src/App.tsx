@@ -280,7 +280,9 @@ export default function App() {
   // An explicit application-owned permission channel. HintLayer reads it live
   // alongside the intro phase; no per-frame React state update is needed.
   earthAttention.hintAllowed = attentionIsFree && activeExperience === 'earth'
+  const [murciaOverviewBlocked, setMurciaOverviewBlocked] = useState(false)
   const {
+    navigateTo,
     settle: settleNavigation,
     reset: resetNavigation,
     resetZoom: resetNavigationZoom,
@@ -341,6 +343,15 @@ export default function App() {
   })
   settleNavigationRef.current = settleNavigation
   resetZoomRef.current = resetNavigationZoom
+
+  // Mirror focus for the DOM affordance; navigation still checks the live getter
+  // at activation, so a district opening between renders cannot admit a warp.
+  const handleMurciaAttentionChange = useCallback(() => {
+    setMurciaOverviewBlocked(!(murciaRef.current?.isCityOverview ?? false))
+    navigationContextChanged()
+  }, [navigationContextChanged])
+
+  useEffect(handleMurciaAttentionChange, [handleMurciaAttentionChange, activeExperience, transitioning])
 
   // Seeking moves the intro phase, backwards included, and a gesture accumulated
   // against the old phase would survive into one where navigation is refused.
@@ -643,6 +654,18 @@ export default function App() {
         layout="scene"
         tone={earthActive ? 'dark' : 'light'}
         hasActions={phase === 'site'}
+        leading={phase === 'site' && !earthActive ? (
+          <button
+            type="button"
+            className="scene-home"
+            aria-label="Volver a la Tierra"
+            title="Volver a la Tierra"
+            disabled={!attentionIsFree || murciaOverviewBlocked}
+            onClick={() => {
+              if (murciaRef.current?.isCityOverview) navigateTo('earth')
+            }}
+          />
+        ) : undefined}
         panelOpen={auditOpen || contactOpen || legalDoc !== null}
         menuHost={menuHost}
         onActionsHost={setHeaderActions}
@@ -696,7 +719,7 @@ export default function App() {
             onDeselectCase={handleDeselectCase}
             onLogoLoadFailed={handleLoadFailed}
             onMurciaReady={handleMurciaReady}
-            onMurciaAttentionChange={navigationContextChanged}
+            onMurciaAttentionChange={handleMurciaAttentionChange}
             onOpenBlog={handleOpenBlog}
             onBlogApproachStart={handleBlogApproachStart}
             onContextLost={handleContextLost}
