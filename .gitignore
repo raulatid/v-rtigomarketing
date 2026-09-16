@@ -135,3 +135,16 @@ desktop.ini
 
 # Projection-field captures (docs/plans/008), regenerable the same way.
 /docs/plans/008-projection-field/shots/
+
+# Working notes and AI tooling. These stay on the developer's disk and out of
+# the client's repository (2026-09-16): the decision log, the project memory,
+# the plans and specs, the Claude/agent skill sets and their hooks, and the
+# design-critique sidecar, which records local machine paths.
+/docs/DECISIONS.md
+/docs/PROJECT_MEMORY.md
+/docs/plans/
+/docs/superpowers/
+/.impeccable/
+/.agents/
+/.claude/
+/skills-lock.json
