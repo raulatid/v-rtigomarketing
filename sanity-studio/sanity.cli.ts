@@ -27,6 +27,6 @@ export default defineCliConfig({
   // identifier — it names the app, it does not grant access — so it lives in
   // source rather than in .env.
   deployment: {
-    appId: 'jzjqwjibbxtjbjv0uvrp3ny6',
+    appId: 'd1vr10o35z6mert3aqfpa9dg',
   },
 })
