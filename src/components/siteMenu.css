@@ -1,0 +1,272 @@
+/* Shared tokens also reach the action layer, a sibling of the stage. */
+.site-menu-surface {
+  --menu-3d-perspective: 1200px;
+  --menu-3d-eye: 50%;
+  --menu-3d-hinge: 100%;
+  --menu-3d-y: 42vh;
+  --menu-3d-z: -140px;
+  --menu-3d-tilt: 12deg;
+  --menu-3d-scale: 1;
+  --menu-3d-radius: 18px;
+  --menu-3d-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+  --menu-3d-ease-out: cubic-bezier(0.55, 0, 0.3, 1);
+  /* `--menu-3d-ms` is written inline by App from MENU_MOTION_MS
+     (corner-logo/headerMenuTiming.ts), so the phase timer and this transition
+     are one number. The fallbacks below only matter if that inline style is
+     ever lost. */
+}
+
+/* Shared mobile menu presentation for scene and reading surfaces. */
+.site-menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  /* Static reflected light over graphite, using the site's smoked material.
+     The scene is IN FRONT of this layer, so backdrop blur would only sample
+     the page ground. The light stays broad and the lower field falls into
+     shade behind the tilting card. */
+  background:
+    var(--glass-film),
+    var(--glass-menu-light),
+    var(--glass-menu-depth),
+    #16181c;
+  /* Hidden, not merely covered: the doors inside must be neither tabbable nor
+     read out while the card is flat over them. */
+  visibility: hidden;
+  /* A swipe on the layer is not a scroll of the page and not a zoom of it —
+     the `touch-action: none` the canvas has, carried over to what stands in
+     for it while the menu is up. */
+  touch-action: none;
+}
+
+.site-menu-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  /* The stage is a lens, not a surface: it must never take a tap itself, or
+     the doors on the layer beneath it are unreachable. The card inside turns
+     them back on. */
+  pointer-events: none;
+  perspective: var(--menu-3d-perspective);
+  perspective-origin: 50% var(--menu-3d-eye);
+}
+
+.site-menu-viewport {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  overflow: hidden;
+  border-radius: 0;
+  transform-origin: 50% var(--menu-3d-hinge);
+  transform: none;
+  /* The card's own ground, for the corners the radius rounds off. */
+  background: #050507;
+}
+
+@media (max-width: 767px) {
+  .site-menu-stage {
+    /* Keep both menu descriptions above the card on short phones. */
+    --menu-3d-y: max(42vh, 320px);
+  }
+
+  .site-menu-viewport {
+    transition:
+      transform var(--menu-3d-ms, 560ms) var(--menu-3d-ease-out),
+      border-radius var(--menu-3d-ms, 560ms) var(--menu-3d-ease-out);
+  }
+
+  /* The open pose. Keyed on the STATE and not on `data-menu-open`: through
+     'closing' the menu is still open to the rest of the app, but the card is
+     already on its way back. */
+  .site-menu-surface[data-menu-state='open'] .site-menu-viewport {
+    transform: translate3d(0, var(--menu-3d-y), var(--menu-3d-z)) rotateX(var(--menu-3d-tilt))
+      scale(var(--menu-3d-scale));
+    border-radius: var(--menu-3d-radius);
+    transition-timing-function: var(--menu-3d-ease-in);
+  }
+
+  /* For the WHOLE of open and closing: every pick, drag and raycast in this
+     codebase maps the pointer through the canvas's client rect, and the rect of
+     a tilted card is not the surface it was rendered on. A tap on the card
+     falls through to the layer's ground, and that ground is "outside" to the
+     header, so it closes the menu — which is what a tap on the scene should
+     do. */
+  .site-menu-surface[data-menu-open] .site-menu-viewport {
+    pointer-events: none;
+  }
+
+  /* `pointer-events` inherits, but R3F writes `pointer-events: auto` INLINE on
+     its container, which would win over the card's `none` above and hand the
+     tap to the canvas underneath a tilted card. The `!important` is the only
+     thing that outranks an inline declaration. */
+  .site-menu-surface[data-menu-open] .scene-canvas {
+    pointer-events: none !important;
+  }
+
+  /* Visible the instant the card starts moving; hidden only once it is back.
+     The delayed flip is the case-panel idiom. */
+  .site-menu-layer {
+    transition: visibility 0s linear var(--menu-3d-ms, 560ms);
+  }
+
+  .site-menu-surface[data-menu-open] .site-menu-layer {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  /* ---- What the card uncovers ------------------------------------------
+
+     The two doors, as TYPE and nothing else. On the line they are a blue box
+     and a bare micro-label; here the material is gone and the size does the
+     work — two left-aligned actions with supporting copy, set below the header
+     in the band the card leaves free. The box is the header's own
+     `.site-header__menu`, portaled in, so these rules are scoped to the layer
+     and the line keeps its own. */
+  .site-menu-layer .site-header__menu {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(var(--header-line-top) + var(--header-control) + 36px);
+    /* The card's upper edge sits roughly 10% in at the resting 12deg tilt.
+       Match that optical edge rather than the wider bottom bounding box. */
+    --menu-side-inset: 10vw;
+    padding: 0 max(var(--menu-side-inset), env(safe-area-inset-right)) 0 max(var(--menu-side-inset), env(safe-area-inset-left));
+  }
+
+  .site-menu-layer .site-header__end {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 40px;
+  }
+
+  /* Auditoría first: it is the site's one ask, so it is the first thing read.
+     The sections mount Contacto before Auditoría (App.tsx), so the DOM order
+     is the other way round and `order` puts it right — which is also why
+     nothing here may key off `:nth-child`. */
+  .site-menu-layer .site-header__end > .audit-trigger {
+    order: 1;
+  }
+
+  .site-menu-layer .site-header__end > .contact-trigger {
+    order: 2;
+    position: relative;
+  }
+
+  /* Halfway through the gap, bounded by the menu's existing side gutters.
+     It follows Contacto's entrance and never intercepts a press. */
+  .site-menu-layer .site-header__end > .contact-trigger::before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--glass-border);
+    pointer-events: none;
+  }
+
+  .site-menu-layer .site-header__end > .audit-trigger,
+  .site-menu-layer .site-header__end > .contact-trigger {
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    height: auto;
+    padding: 8px 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--text-primary);
+    font-size: clamp(32px, 9vw, 40px);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    text-transform: none;
+    text-align: left;
+    animation: none;
+    /* The quiet arrival, below. */
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 240ms ease,
+      transform 360ms var(--menu-3d-ease-in);
+  }
+
+  .site-menu-layer .site-menu-arrow {
+    display: block;
+    position: absolute;
+    right: 10%;
+    /* Centre on the title's 1.1em line, after its 8px top padding. */
+    top: calc(8px + 0.55em - 10px);
+    width: calc(20px * 40 / 24);
+    height: 20px;
+    color: var(--text-secondary);
+    pointer-events: none;
+  }
+
+  .site-menu-layer .site-menu-caption {
+    display: block;
+    color: var(--text-secondary);
+    font-family: var(--font-text);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
+  }
+
+  /* A quiet arrival once the card is on its way, second door a beat behind. */
+  .site-menu-surface[data-menu-state='open'] .site-menu-layer .site-header__end > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  .site-menu-surface[data-menu-state='open'] .site-menu-layer .site-header__end > .contact-trigger {
+    transition-delay: 60ms;
+  }
+
+  .site-menu-surface[data-menu-state='open'] .site-menu-layer .site-header__end > :active {
+    transform: scale(0.98);
+    transform-origin: center;
+  }
+
+  /* ---- The chrome stands down --------------------------------------------
+
+     Everything else on the viewport is a sibling of the stage and would stay
+     flat over the tilting card — a footer floating over the menu, a consent
+     plate over the doors. Hidden and not unmounted: the consent banner and the
+     footer both animate on entry and would replay it. */
+  .site-menu-surface[data-menu-open] .murcia-ui,
+  .site-menu-surface[data-menu-open] .case-panel,
+  .site-menu-surface[data-menu-open] .site-footer,
+  .site-menu-surface[data-menu-open] .consent-banner,
+  .site-menu-surface[data-menu-open] .consent-info {
+    opacity: 0;
+    visibility: hidden;
+    /* The visibility flip waits out the fade, the way every other delayed
+       flip in this project does; without the delay these would vanish
+       instantly and reappear on the next open with no transition to run. */
+    transition:
+      opacity 120ms ease,
+      visibility 0s linear 120ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-menu-viewport,
+  .site-menu-layer,
+  .site-menu-layer .site-header__end > *,
+  .site-menu-surface[data-menu-open] .murcia-ui,
+  .site-menu-surface[data-menu-open] .case-panel,
+  .site-menu-surface[data-menu-open] .site-footer,
+  .site-menu-surface[data-menu-open] .consent-banner,
+  .site-menu-surface[data-menu-open] .consent-info {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}

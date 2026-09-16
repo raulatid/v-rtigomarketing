@@ -123,7 +123,7 @@
   cursor: auto;
 }
 
-.blog-root :focus-visible {
+.blog-surface :focus-visible {
   outline: 2px solid #1c67ff;
   outline-offset: 3px;
   border-radius: 4px;
@@ -1163,4 +1163,20 @@
     background: rgba(11, 11, 13, 0.04);
     font-size: 0.72rem;
   }
+}
+
+/* The header retains its layout. Only the reading viewport rides the menu. */
+.blog-surface {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  isolation: isolate;
+  color: #0b0b0d;
+  font-family: 'Vertigo Text', 'Vertigo Blog Inter', Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+}
+.blog-surface .blog-root { position: absolute; }
+.blog-surface .site-menu-viewport { background: #fbfbfa; }
+@media (max-width: 767px) {
+  .blog-surface[data-menu-open] .blog-root { pointer-events: none; }
 }

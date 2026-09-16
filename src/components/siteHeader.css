@@ -579,29 +579,7 @@
   }
 }
 
-/* ---- The phone menu ----------------------------------------------------------
-
-   Below 768px the two triggers fold behind a burger. What "open" looks like
-   depends on the surface, and this file draws only ONE of the two:
-
-   THE BLOG keeps the 2026-09-04 glass field (plan 011): the emitter line
-   ignites under the header, dark glass descends from it over the page and
-   thins to nothing towards the floor, and the two doors rise into it. All of
-   it is CSS keyed on `[data-menu-open]`, with a delayed `visibility` flip (the
-   case-panel idiom) so the close can finish before the box goes away. Two
-   elements, in the header's own stacking context (50 on the blog):
-     0  .site-header__field   the ground: `::before` is the line, `::after`
-                              the glass. Two pseudo-elements because the glass
-                              WIPES with clip-path, and clip-path would clip
-                              the line and its glow with it.
-     1  .site-header__end     the portal host — the two triggers, as they are
-     2  the row's controls    the burger, and the blog's back/brand/search
-
-   THE SCENE draws nothing here since 2026-09-09. Its menu is the viewport
-   itself hinging away and sliding down, and the doors sit on the layer that
-   uncovers — App's `.app__menu`, styled in styles.css. SiteHeader portals its
-   `.site-header__menu` box into that layer; this file keeps the burger, which
-   stays on the line above the moving card. */
+/* The header keeps its controls; siteMenu.css owns the shared phone menu. */
 
 .site-header__burger {
   display: none;
@@ -619,7 +597,7 @@
    onto the diagonals about their shared centre and the middle one fades. Keyed
    on the STATE, not on `data-menu-open` — on the scene the header stays open
    through the card's way back, and the burger should already read "menu" by
-   then. On the blog the two attributes agree.
+   then. Every surface shares this closing phase.
 
    DOUBLED 2026-09-09, on client direction: every number below is twice what it
    was, so the mark keeps its 11:1 bar ratio and simply reads bigger. At 44px it
@@ -700,13 +678,7 @@
   border-radius: 8px;
 }
 
-/* The menu's wrapper is not a box while it sits on the line.
-
-   `display: contents` here: on the line and on the blog it must not sit between
-   `.site-header__tail` and the controls that cell lays out. On a phone over the
-   scene SiteHeader portals it into `.app__menu`, where styles.css makes it a
-   block — that stylesheet never reaches the blog document, so this is the only
-   rule the blog sees. */
+/* Desktop actions remain in the header flow; mobile actions portal into the layer. */
 .site-header__menu {
   display: contents;
 }
@@ -720,230 +692,12 @@
   display: none;
 }
 
-/* Only a phone draws the field; on a wider viewport it is an empty box.
-
-   AND ONLY THE BLOG. The scene's menu is the viewport hinging away (styles.css)
-   and needs no field. Everything below that draws the field is scoped to that
-   layout for exactly that reason; SiteHeader renders the element for the blog
-   alone, so the scoping is belt and braces rather than the only guard. */
-.site-header__field {
-  display: none;
-}
-
+/* Mobile actions live in the shared layer, outside the unchanged header row. */
 @media (max-width: 767px) {
-  /* First in the DOM so Tab reaches the items; last on the line. */
-  .site-header__burger {
-    display: flex;
-    order: 1;
-  }
-
-  /* ---- The field ---------------------------------------------------------- */
-
-  .site-header[data-layout='blog'] .site-header__field {
-    display: block;
-    position: fixed;
-    top: calc(var(--header-line-top) * 2 + var(--header-control));
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 0;
-    pointer-events: none;
-    visibility: hidden;
-    /* The close takes 400ms end to end (glass 80 + 320); the box leaves then. */
-    transition: visibility 0s linear 400ms;
-  }
-
-  /* The emitter line: the audit curtain's, laid along the header's line and
-     feathered at both ends so it never terminates in a cut. Unclipped. */
-  .site-header[data-layout='blog'] .site-header__field::before {
-    content: '';
-    position: absolute;
-    z-index: 1;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    /* Neutral since plan 020. It was the audit curtain's blue emitter, and
-       the audit curtain no longer has one; what mattered was that a line
-       IGNITES and the glass wipes down under cover of it, and that is all
-       still here. */
-    background: rgba(255, 255, 255, 0.18);
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-    transform: scaleX(0);
-    transform-origin: center;
-    opacity: 0;
-    /* Extinguish: the way out. */
-    transition:
-      transform 200ms cubic-bezier(0.55, 0, 0.3, 1),
-      opacity 200ms ease-in;
-  }
-
-  /* The glass: the case panel's material, but a gradient that runs out
-     instead of a border that stops. It wipes down from the line under cover
-     of the line (DECISIONS §6: nothing cross-fades). Prefixed filter first —
-     styles.css explains (Safari < 18). If the wipe ever tears over the blur
-     on iOS, swap the clip-path pair for translateY(-100%) → 0, same timing. */
-  .site-header[data-layout='blog'] .site-header__field::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(8, 12, 18, 0.82),
-      rgba(8, 12, 18, 0.72) 50%,
-      rgba(8, 12, 18, 0) 100%
-    );
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    /* The gradient thins the TINT; the blur would still run to the floor at
-       full strength and read as a sheet with its edge at the screen's edge.
-       The mask fades the blur out with the tint, so the page beneath comes
-       back into focus where the glass has run out. Verified on Chromium;
-       Safari's handling of a mask over -webkit-backdrop-filter is the thing
-       the iOS device matrix has to confirm. */
-    -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent 100%);
-    mask-image: linear-gradient(180deg, #000 40%, transparent 100%);
-    clip-path: inset(0 0 100% 0);
-    /* Wipe back up: after the items have gone (80ms), the exit ease. */
-    transition: clip-path 320ms cubic-bezier(0.55, 0, 0.3, 1) 80ms;
-  }
-
-  /* Over a light ground the glass is paper, and the same line runs on it. */
-  .site-header[data-layout='blog'][data-tone='light'] .site-header__field::after {
-    background: linear-gradient(
-      180deg,
-      rgba(251, 251, 250, 0.88),
-      rgba(251, 251, 250, 0.72) 55%,
-      rgba(251, 251, 250, 0) 100%
-    );
-  }
-
-  .site-header[data-layout='blog'][data-menu-open] .site-header__field {
-    visibility: visible;
-    pointer-events: auto;
-    /* A swipe on the glass is not a scroll of the page beneath (the blog). */
-    touch-action: none;
-    transition: none;
-  }
-
-  .site-header[data-layout='blog'][data-menu-open] .site-header__field::before {
-    transform: scaleX(1);
-    opacity: 1;
-    transition:
-      transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 120ms ease-out;
-    /* Then it breathes, as the hologram's line does (uBreath, 1.4 rad/s —
-       a 4.5s period). Delayed past the ignition and unfilled, so the
-       transition owns the first 360ms and the breath takes over from there. */
-    animation: site-header-breath 4.5s ease-in-out 360ms infinite alternate;
-  }
-
-  .site-header[data-layout='blog'][data-menu-open] .site-header__field::after {
-    clip-path: inset(0);
-    transition: clip-path 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
-  }
-
-  /* ---- The items ---------------------------------------------------------- */
-
-  /* Always fixed and boxed on a phone, hidden by visibility rather than
-     display: transitions need a box, and the e2e gate for phase 'site'
-     waits for `.audit-trigger` to be ATTACHED, not shown. Two rows, ~150px:
-     it never scrolls, so it needs no touch-action of its own. */
-  .site-header[data-layout='blog'] .site-header__end {
-    position: fixed;
-    top: calc(var(--header-line-top) * 2 + var(--header-control));
-    left: 0;
-    right: 0;
-    z-index: 1;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-    padding: 18px 20px 24px;
-    visibility: hidden;
-    transition: visibility 0s linear 400ms;
-  }
-
-  .site-header[data-layout='blog'][data-menu-open] .site-header__end {
-    visibility: visible;
-    transition: none;
-  }
-
-  /* The doors rise into the field, one behind the other — the audit groups'
-     arrangement. One rest value for the way out: 10px down, 160ms, content
-     first as the curtain does. This transition list REPLACES the triggers'
-     own on a phone; the reveal delays below are what stagger them.
-
-     The FIELD's choreography, so the blog's. The scene's doors arrive with the
-     panel that holds them — one animation for one arrival — and a second
-     stagger inside it would be two things happening where there is one. */
-  .site-header[data-layout='blog'] .site-header__end > * {
-    opacity: 0;
-    transform: translateY(10px);
-    transition:
-      opacity 160ms ease-in,
-      transform 160ms ease-in;
-  }
-
-  .site-header[data-layout='blog'][data-menu-open] .site-header__end > * {
-    opacity: 1;
-    transform: translateY(0);
-    transition:
-      opacity 380ms ease-out,
-      transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .site-header[data-layout='blog'][data-menu-open] .site-header__end > :nth-child(1) {
-    transition-delay: 220ms;
-  }
-
-  .site-header[data-layout='blog'][data-menu-open] .site-header__end > :nth-child(2) {
-    transition-delay: 300ms;
-  }
-
-  /* The reveal's transform would otherwise outrank the triggers' press. */
-  .site-header[data-layout='blog'][data-menu-open] .site-header__end > :active {
-    transform: scale(0.97);
-  }
-
-  /* A trigger standing down keeps standing down. The reveal above outranks
-     the triggers' own `[data-state]` / `[data-suppressed]` fades, and it is
-     reachable: over the scene the header (70) sits above the audit curtain
-     (60), so the burger can open the menu onto an audit already open. Same
-     specificity, later in the source, so these win. */
-  .site-header[data-menu-open] .audit-trigger[data-state='open'],
-  .site-header[data-menu-open] .audit-trigger[data-state='entering'],
-  .site-header[data-menu-open] .contact-trigger[data-suppressed] {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  /* Contacto as a row, with the same neutral tick the case-panel eyebrow wears
-     (`.case-panel__eyebrow`, styles.css); the text stays the bare text it is on
-     the line. The forms' own eyebrows carried this tick too until 2026-09-09,
-     when they were removed. The blog's field reads these rules; on the scene the
-     layer's own (styles.css) outrank them. */
-  .site-header__end > .contact-trigger {
-    height: 52px;
-    justify-content: flex-start;
-    padding-left: 0.75rem;
-    border-left: 2px solid var(--rule-strong);
-    border-radius: 0;
-    font-size: 0.85rem;
-  }
-
-  .site-header__end > .audit-trigger {
-    width: 100%;
-    height: var(--header-control);
-  }
-
-  /* The row's own controls stay above the field and the items. */
+  .site-header__burger { display: flex; order: 1; }
   .site-header__start,
   .site-header__brand,
-  .site-header__extra {
-    position: relative;
-    z-index: 2;
-  }
+  .site-header__extra { position: relative; z-index: 2; }
 }
 
 /* Scene utilities leave the header flow on phones. The fixed wrapper also
@@ -993,9 +747,6 @@
      go. The delay too — the visibility flip is a delay, and a duration
      override alone would hold an invisible field over the page for 400ms
      after every close (styles.css says the same of the case panel). */
-  .site-header__field,
-  .site-header__field::before,
-  .site-header__field::after,
   .site-header__end,
   .site-header__end > *,
   .site-header__burger-bar {
@@ -1003,7 +754,4 @@
     transition-delay: 0ms;
   }
 
-  .site-header__field::before {
-    animation: none;
-  }
 }

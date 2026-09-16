@@ -13,16 +13,7 @@ vi.mock('../platform/motionPreference', () => ({ prefersReducedMotion: vi.fn() }
 // The phone menu's contract, as behaviour rather than pixels (the motion is
 // CSS, and is reviewed by eye).
 //
-// It is TWO menus, and the split is the thing to keep straight while reading:
-//
-//   SCENE — the viewport hinges away and slides down, and the menu is the layer
-//   it reveals behind itself. The header does not draw that layer: App owns it
-//   and hands it over as `menuHost`, and the header PORTALS its menu box into
-//   it on a phone. The close has a tail (the card travelling back), so it is a
-//   phase with a clock, and the header reports itself open for all of it.
-//
-//   BLOG — the 2026-09-04 glass field, unchanged, because the blog has no scene
-//   canvas to move. No phases: it toggles.
+// Both layouts share the portal layer and the complete closing phase.
 //
 // What these pin down:
 //  - the burger exists only once there are actions, and describes its state;
@@ -206,10 +197,10 @@ describe('the phone menu', () => {
       expect(header().contains(box())).toBe(true)
     })
 
-    it('stays in the header on the blog, host or no host', () => {
+    it('portals into the same layer on the blog', () => {
       mount({ layout: 'blog' })
-      expect(header().contains(box())).toBe(true)
-      expect(host.contains(box())).toBe(false)
+      expect(header().contains(box())).toBe(false)
+      expect(host.contains(box())).toBe(true)
     })
 
     it('hands the parent the actions cell wherever it went', () => {
@@ -292,32 +283,27 @@ describe('the phone menu', () => {
       expect(state()).toBe('closed')
     })
 
-    it('folds and opens the door in the same tick on the blog, as it always has', () => {
+    it('opens the blog door immediately while the viewport returns', () => {
       let cell: HTMLElement | null = null
       mount({ layout: 'blog', onActionsHost: (el) => (cell = el) })
       const { door, opened } = addDoor(cell!)
       act(() => burger()!.click())
       act(() => door.click())
+      expect(state()).toBe('closing')
+      settle()
       expect(isOpen()).toBe(false)
       expect(opened).toHaveBeenCalledTimes(1)
     })
   })
 
-  describe('the blog keeps the field', () => {
-    it('folds when the glass field is tapped, and the field is decorative', () => {
-      mount({ layout: 'blog' })
-      const f = field()!
-      expect(f.getAttribute('aria-hidden')).toBe('true')
-      act(() => burger()!.click())
-      expect(isOpen()).toBe(true)
-      act(() => f.click())
-      expect(isOpen()).toBe(false)
-    })
-
-    it('has no field over the scene — the layer behind the card is the ground', () => {
-      mount()
-      expect(field()).toBeNull()
-    })
+  it.each(['scene', 'blog'] as const)('uses the shared ground on %s', (layout) => {
+    mount({ layout })
+    expect(field()).toBeNull()
+    open()
+    press(host)
+    expect(state()).toBe('closing')
+    settle()
+    expect(state()).toBe('closed')
   })
 
   describe('the phases', () => {
@@ -345,11 +331,13 @@ describe('the phone menu', () => {
       expect(state()).toBe('closed')
     })
 
-    it('has no phases on the blog', () => {
+    it('uses the same closing phase on the blog', () => {
       mount({ layout: 'blog' })
       act(() => burger()!.click())
       expect(state()).toBe('open')
       act(() => burger()!.click())
+      expect(state()).toBe('closing')
+      settle()
       expect(state()).toBe('closed')
     })
 

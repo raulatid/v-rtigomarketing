@@ -18,6 +18,7 @@ import { ContactSection } from './components/ContactSection'
 import { LegalPanel } from './components/LazyLegalPanel'
 import { ConsentBanner } from './components/ConsentBanner'
 import { SiteFooter } from './components/SiteFooter'
+import { SiteMenuLayer, SiteMenuStage } from './components/SiteMenu'
 import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
 import { InteractionHandle } from './experiences/earth/interaction/InteractionLayer'
@@ -626,7 +627,7 @@ export default function App() {
           would otherwise stay flat over a tilting scene. Hidden rather than
           unmounted, or they replay their entries. */}
       <div
-        className="app__scene"
+        className="app__scene site-menu-surface"
         data-hidden={String(blogOpen)}
         data-menu-open={headerMenuOpen || undefined}
         data-menu-state={headerMenuState}
@@ -651,8 +652,8 @@ export default function App() {
       {/* THE PHONE MENU'S LAYER, behind the canvas (z 5 under the stage's 10).
           Empty here: the header portals its menu box into it on a phone, and
           the sections portal their triggers into that. Everything visual about
-          it is in styles.css under "the viewport hinges away". */}
-      <div className="app__menu" ref={setMenuHost} />
+          it is shared with the blog through siteMenu.css. */}
+      <SiteMenuLayer className="app__menu" hostRef={setMenuHost} />
       {/* THE STAGE AND THE CARD. Two wrappers around the canvas and NOTHING
           else, both permanent, both invisible boxes the canvas fills until the
           phone menu opens — then the stage lends its perspective and the card
@@ -671,11 +672,11 @@ export default function App() {
           phase timer runs on, so the transition and the phase end together.
           The rest of the composition is the stylesheet's custom properties;
           `?menu3d=1&y=…` overrides them for tuning on a phone. */}
-      <div
+      <SiteMenuStage
         className="app__stage"
+        viewportClassName="app__viewport"
         style={{ '--menu-3d-ms': `${MENU_MOTION_MS}ms`, ...PROTO_MENU3D.vars } as CSSProperties}
       >
-        <div className="app__viewport">
           <LazyScene
             navigation={navigation}
             attention={earthAttention}
@@ -700,8 +701,7 @@ export default function App() {
             onBlogApproachStart={handleBlogApproachStart}
             onContextLost={handleContextLost}
           />
-        </div>
-      </div>
+      </SiteMenuStage>
 
       {/* The intro drawing is NOT rendered by React — intro-draw owns its own
           DOM and has usually been animating since before this component

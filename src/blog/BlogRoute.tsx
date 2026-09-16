@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BLOG_POSTS } from '../content/generated/blogPosts'
 import type { BlogPost } from '../content/types'
 import type { Route } from '../app/route'
@@ -6,6 +6,8 @@ import { BlogFigure } from './BlogFigure'
 import { BlogHeaderLogo } from './BlogHeaderLogo'
 import { PostBody } from './PostBody'
 import { filterPosts, topicsOf } from './blogFilter'
+import { SiteMenuLayer, SiteMenuStage } from '../components/SiteMenu'
+import type { HeaderMenuState } from '../corner-logo/headerMenuTiming'
 import { SiteHeader } from '../components/SiteHeader'
 import { AuditSection } from '../components/AuditSection'
 import { ContactSection } from '../components/ContactSection'
@@ -132,8 +134,6 @@ function BackControl({ label, onClick }: { label: string; onClick: () => void })
   )
 }
 
-const noop = () => {}
-
 /**
  * The bar, and how many controls it carries depends on where you are.
  *
@@ -156,13 +156,18 @@ function TopBar({
   onBack,
   onHome,
   onSearch,
+  menuHost,
+  onMenuStateChange,
 }: {
+  menuHost: HTMLElement | null
+  onMenuStateChange: (state: HeaderMenuState) => void
   onBack: () => void
   onHome?: () => void
   onSearch?: () => void
 }) {
   const [actionsHost, setActionsHost] = useState<HTMLElement | null>(null)
   const [auditOpen, setAuditOpen] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
   const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null)
 
   return (
@@ -173,6 +178,9 @@ function TopBar({
         // header's two triggers dress for it the way they do over Earth.
         tone="dark"
         hasActions
+        menuHost={menuHost}
+        onMenuStateChange={onMenuStateChange}
+        panelOpen={auditOpen || contactOpen || legalDoc !== null}
         onActionsHost={setActionsHost}
         // Both hosts render the same control; only what it does differs, and on
         // an article it goes to the index rather than out of the blog.
@@ -211,14 +219,14 @@ function TopBar({
 
       {/* Contacto first: portals append in mount order and it sits to the LEFT
           of the Auditoría box. The blog has no scene to recompose and no global
-          Escape handler to stand down, hence `recomposesScene={false}` and the
-          no-op. */}
+          Escape handler to stand down, hence `recomposesScene={false}`.
+          Both forms report their state to the shared header. */}
       <ContactSection
         ready
         triggerHost={actionsHost}
         idPrefix="blog-contact"
         suppressed={auditOpen}
-        onOpenChange={noop}
+        onOpenChange={setContactOpen}
         onOpenLegal={setLegalDoc}
       />
       <AuditSection
@@ -267,6 +275,24 @@ function Card({ post, onOpen, featured = false }: { post: BlogPost; onOpen: () =
   )
 }
 
+/** Keep the header and panels flat while the reading viewport moves behind them. */
+function BlogSurface({ children, onBack, onHome, onSearch }: {
+  children: ReactNode
+  onBack: () => void
+  onHome?: () => void
+  onSearch?: () => void
+}) {
+  const [menuHost, setMenuHost] = useState<HTMLElement | null>(null)
+  const [menuState, setMenuState] = useState<HeaderMenuState>('closed')
+  return (
+    <div className="blog-surface site-menu-surface" data-menu-state={menuState} data-menu-open={menuState !== 'closed' || undefined}>
+      <TopBar onBack={onBack} onHome={onHome} onSearch={onSearch} menuHost={menuHost} onMenuStateChange={setMenuState} />
+      <SiteMenuLayer hostRef={setMenuHost} />
+      <SiteMenuStage inert={menuState !== 'closed'}>{children}</SiteMenuStage>
+    </div>
+  )
+}
+
 function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState('')
@@ -306,95 +332,96 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
   const rest = showFeatured ? posts.slice(1) : posts
 
   return (
-    <div className="blog-root" ref={rootRef}>
-      <TopBar onBack={host.exitToScene} />
-      <main className="blog-page">
-        <section className="blog-hero">
-          <span className="blog-eyebrow">Blog</span>
-          <div className="blog-hero__row">
-            <h1 className="blog-hero__title" tabIndex={-1}>
-              Ideas que se miden
-            </h1>
-            <p className="blog-hero__standfirst">
-              Lo que aprendemos trabajando con datos reales, escrito para quien firma el presupuesto.
-            </p>
-          </div>
+    <BlogSurface onBack={host.exitToScene}>
+      <div className="blog-root" ref={rootRef}>
+        <main className="blog-page">
+          <section className="blog-hero">
+            <span className="blog-eyebrow">Blog</span>
+            <div className="blog-hero__row">
+              <h1 className="blog-hero__title" tabIndex={-1}>
+                Ideas que se miden
+              </h1>
+              <p className="blog-hero__standfirst">
+                Lo que aprendemos trabajando con datos reales, escrito para quien firma el presupuesto.
+              </p>
+            </div>
 
-          <div className="blog-controls">
-            <label className="blog-search">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
-              </svg>
-              <input
-                type="search"
-                className="blog-search__input"
-                maxLength={200}
-                placeholder="Buscar en el blog"
-                aria-label="Buscar en el blog"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
+            <div className="blog-controls">
+              <label className="blog-search">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="search"
+                  className="blog-search__input"
+                  maxLength={200}
+                  placeholder="Buscar en el blog"
+                  aria-label="Buscar en el blog"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </label>
 
-            <nav className="blog-pills" aria-label="Temas">
-              <button
-                type="button"
-                className="blog-pill"
-                aria-pressed={active === null}
-                onClick={() => host.replaceTopic(null)}
-              >
-                Todos
-              </button>
-              {[...topics].map(([id, label]) => (
+              <nav className="blog-pills" aria-label="Temas">
                 <button
-                  key={id}
                   type="button"
                   className="blog-pill"
-                  aria-pressed={active === id}
-                  onClick={() => host.replaceTopic(id)}
+                  aria-pressed={active === null}
+                  onClick={() => host.replaceTopic(null)}
                 >
-                  {label}
+                  Todos
                 </button>
-              ))}
-            </nav>
-          </div>
-        </section>
-
-        {featured !== null && (
-          <section className="blog-featured">
-            <Card post={featured} onOpen={() => open(featured.id)} featured />
+                {[...topics].map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className="blog-pill"
+                    aria-pressed={active === id}
+                    onClick={() => host.replaceTopic(id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
+            </div>
           </section>
-        )}
 
-        <section className="blog-latest">
-          <div className="blog-latest__head">
-            {/* A heading, not a label that looks like one: the index had an h1
-                and nothing under it, so navigating by headings landed on the
-                page title and stopped. Styled to render exactly as before. */}
-            <h2 className="blog-latest__label">
-              {showFeatured ? 'Últimas entradas' : 'Resultados'}
-            </h2>
-            <span className="blog-latest__count">
-              {posts.length === 1 ? '1 entrada' : `${posts.length} entradas`}
-            </span>
-          </div>
-
-          {rest.length === 0 ? (
-            <p className="blog-empty">No hay entradas que coincidan. Prueba con otro tema o otra búsqueda.</p>
-          ) : (
-            <ul className="blog-grid">
-              {rest.map((post) => (
-                <li key={post.id}>
-                  <Card post={post} onOpen={() => open(post.id)} />
-                </li>
-              ))}
-            </ul>
+          {featured !== null && (
+            <section className="blog-featured">
+              <Card post={featured} onOpen={() => open(featured.id)} featured />
+            </section>
           )}
-        </section>
-      </main>
-      <Footer />
-    </div>
+
+          <section className="blog-latest">
+            <div className="blog-latest__head">
+              {/* A heading, not a label that looks like one: the index had an h1
+                  and nothing under it, so navigating by headings landed on the
+                  page title and stopped. Styled to render exactly as before. */}
+              <h2 className="blog-latest__label">
+                {showFeatured ? 'Últimas entradas' : 'Resultados'}
+              </h2>
+              <span className="blog-latest__count">
+                {posts.length === 1 ? '1 entrada' : `${posts.length} entradas`}
+              </span>
+            </div>
+
+            {rest.length === 0 ? (
+              <p className="blog-empty">No hay entradas que coincidan. Prueba con otro tema o otra búsqueda.</p>
+            ) : (
+              <ul className="blog-grid">
+                {rest.map((post) => (
+                  <li key={post.id}>
+                    <Card post={post} onOpen={() => open(post.id)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </main>
+        <Footer />
+      </div>
+    </BlogSurface>
   )
 }
 
@@ -424,94 +451,94 @@ function Article({
   )
 
   return (
-    <div className="blog-root">
-      {/* "Ir atrás" from an article returns to the INDEX, not out of the blog.
-          They look alike in the artboards and are different operations. */}
-      <TopBar onBack={host.returnToIndex} onHome={host.returnToIndex} onSearch={onSearch} />
-      <article className="blog-article">
-        {post.category !== null && <span className="blog-eyebrow">{post.category.label}</span>}
-        <h1 className="blog-article__title" tabIndex={-1}>
-          {post.title}
-        </h1>
-        <p className="blog-article__standfirst">{post.excerpt}</p>
-        <div className="blog-article__meta">
-          <Meta post={post} />
-          {post.tags.length > 0 && (
-            <span className="blog-tags">
-              {post.tags.map((tag) => (
-                <span key={tag} className="blog-tag">
-                  {tag}
-                </span>
-              ))}
-            </span>
-          )}
-        </div>
-
-        {/* The one image on the page that is probably the LCP element. */}
-        {post.cover !== null && <BlogFigure image={post.cover} slot="cover" priority />}
-
-        <PostBody body={post.body} />
-
-        {(previous !== null || next !== null) && (
-          <nav className="blog-prevnext" aria-label="Entradas anterior y siguiente">
-            {previous !== null ? (
-              <button type="button" className="blog-prevnext__card" onClick={() => host.openPost(previous.id)}>
-                <span className="blog-prevnext__label">Anterior</span>
-                <span className="blog-prevnext__title">{previous.title}</span>
-              </button>
-            ) : (
-              <span />
+    <BlogSurface onBack={host.returnToIndex} onHome={host.returnToIndex} onSearch={onSearch}>
+      <div className="blog-root">
+        <article className="blog-article">
+          {post.category !== null && <span className="blog-eyebrow">{post.category.label}</span>}
+          <h1 className="blog-article__title" tabIndex={-1}>
+            {post.title}
+          </h1>
+          <p className="blog-article__standfirst">{post.excerpt}</p>
+          <div className="blog-article__meta">
+            <Meta post={post} />
+            {post.tags.length > 0 && (
+              <span className="blog-tags">
+                {post.tags.map((tag) => (
+                  <span key={tag} className="blog-tag">
+                    {tag}
+                  </span>
+                ))}
+              </span>
             )}
-            {next !== null && (
-              <button
-                type="button"
-                className="blog-prevnext__card blog-prevnext__card--next"
-                onClick={() => host.openPost(next.id)}
-              >
-                <span className="blog-prevnext__label">Siguiente</span>
-                <span className="blog-prevnext__title">{next.title}</span>
-              </button>
-            )}
-          </nav>
-        )}
-      </article>
-
-      {related.length > 0 && post.category !== null && (
-        <section className="blog-related">
-          <div className="blog-latest__head">
-            <h2 className="blog-eyebrow">Más de {post.category.shortLabel}</h2>
-            <button type="button" className="blog-related__all" onClick={host.returnToIndex}>
-              Ver todo el blog
-            </button>
           </div>
-          <ul className="blog-grid">
-            {related.map((entry) => (
-              <li key={entry.id}>
-                <Card post={entry} onOpen={() => host.openPost(entry.id)} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <Footer />
-    </div>
+
+          {/* The one image on the page that is probably the LCP element. */}
+          {post.cover !== null && <BlogFigure image={post.cover} slot="cover" priority />}
+
+          <PostBody body={post.body} />
+
+          {(previous !== null || next !== null) && (
+            <nav className="blog-prevnext" aria-label="Entradas anterior y siguiente">
+              {previous !== null ? (
+                <button type="button" className="blog-prevnext__card" onClick={() => host.openPost(previous.id)}>
+                  <span className="blog-prevnext__label">Anterior</span>
+                  <span className="blog-prevnext__title">{previous.title}</span>
+                </button>
+              ) : (
+                <span />
+              )}
+              {next !== null && (
+                <button
+                  type="button"
+                  className="blog-prevnext__card blog-prevnext__card--next"
+                  onClick={() => host.openPost(next.id)}
+                >
+                  <span className="blog-prevnext__label">Siguiente</span>
+                  <span className="blog-prevnext__title">{next.title}</span>
+                </button>
+              )}
+            </nav>
+          )}
+        </article>
+
+        {related.length > 0 && post.category !== null && (
+          <section className="blog-related">
+            <div className="blog-latest__head">
+              <h2 className="blog-eyebrow">Más de {post.category.shortLabel}</h2>
+              <button type="button" className="blog-related__all" onClick={host.returnToIndex}>
+                Ver todo el blog
+              </button>
+            </div>
+            <ul className="blog-grid">
+              {related.map((entry) => (
+                <li key={entry.id}>
+                  <Card post={entry} onOpen={() => host.openPost(entry.id)} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <Footer />
+      </div>
+    </BlogSurface>
   )
 }
 
 function NotFound({ host }: { host: BlogHost }) {
   return (
-    <div className="blog-root">
-      <TopBar onBack={host.returnToIndex} />
-      <main className="blog-page">
-        <h1 className="blog-article__title" tabIndex={-1}>
-          Esa entrada no existe
-        </h1>
-        <p className="blog-article__standfirst">
-          Puede que la dirección esté mal escrita o que la entrada ya no esté publicada.
-        </p>
-      </main>
-      <Footer />
-    </div>
+    <BlogSurface onBack={host.returnToIndex}>
+      <div className="blog-root">
+        <main className="blog-page">
+          <h1 className="blog-article__title" tabIndex={-1}>
+            Esa entrada no existe
+          </h1>
+          <p className="blog-article__standfirst">
+            Puede que la dirección esté mal escrita o que la entrada ya no esté publicada.
+          </p>
+        </main>
+        <Footer />
+      </div>
+    </BlogSurface>
   )
 }
 

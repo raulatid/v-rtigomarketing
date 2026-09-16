@@ -7,6 +7,7 @@ import {
   type HeaderMenuState,
 } from '../corner-logo/headerMenuTiming'
 import './siteHeader.css'
+import './siteMenu.css'
 
 /**
  * The site's one header, on every surface: Earth, Murcia and the blog.
@@ -62,11 +63,8 @@ interface Props {
    */
   panelOpen?: boolean
   /**
-   * Where the scene's phone menu goes: the layer App keeps BEHIND the canvas,
-   * which the viewport reveals by hinging away from it (styles.css,
-   * `.app__menu`). On a phone over the scene the menu box is portaled into it;
-   * everywhere else — the desktop line, the blog — the box stays inline in the
-   * tail. Null (or absent) means "there is no such layer", which is the blog.
+   * The shared layer behind the moving viewport. On phones the action box
+   * portals here; desktop actions stay on the header line.
    */
   menuHost?: HTMLElement | null
   /** Receives the element the triggers portal into. State, not a ref: the
@@ -83,21 +81,6 @@ interface Props {
    * to refuse navigation gestures until the card is flat again.
    */
   onMenuStateChange?: (state: HeaderMenuState) => void
-}
-
-/**
- * The phone menu's shape, and the one place the two layouts genuinely differ.
- *
- * On the SCENE the menu is the viewport hinging away and sliding down, revealing
- * the layer behind it. The close has a tail — the card's way back — and the
- * header stays "open" for it, so the close is a phase with a clock.
- *
- * On the BLOG it is the 2026-09-04 glass field, unchanged — the blog has no
- * scene canvas to move. It has no tail, so it has no phases: it toggles, and
- * `data-menu-open` is the only thing its stylesheet has ever read.
- */
-function usesCard(layout: 'scene' | 'blog'): boolean {
-  return layout === 'scene'
 }
 
 /** The burger exists only below this width; `siteHeader.css` says the same. */
@@ -144,7 +127,7 @@ export function SiteHeader({
 
   /**
    * Fold. On the scene the card travels back for `MENU_MOTION_MS`, and the
-   * header stays open for that tail; the blog is closed in the same tick.
+   * header stays open for that tail; all surfaces use the same closing phase.
    *
    * Reduced motion is read HERE, at the moment it matters — a media query
    * cannot reach a setTimeout, and the stylesheet collapses its own transition
@@ -152,7 +135,7 @@ export function SiteHeader({
    */
   const closeMenu = useCallback(() => {
     clearTimer()
-    if (!usesCard(layout) || phaseRef.current === 'closed') {
+    if (phaseRef.current === 'closed') {
       setPhase('closed')
       return
     }
@@ -162,7 +145,7 @@ export function SiteHeader({
       () => setPhase('closed'),
       reduced ? MENU_REDUCED_MS : MENU_MOTION_MS,
     )
-  }, [clearTimer, layout])
+  }, [clearTimer])
 
   /** Open — at once. The stylesheet transitions from wherever the card is. */
   const openMenu = useCallback(() => {
@@ -312,7 +295,7 @@ export function SiteHeader({
       <div className="site-header__end" id={actionsId} ref={actionsRef} />
     </div>
   )
-  const portalTarget = usesCard(layout) && phone && menuHost ? menuHost : null
+  const portalTarget = phone && menuHost ? menuHost : null
 
   return (
     <header
@@ -321,9 +304,9 @@ export function SiteHeader({
       data-layout={layout}
       data-tone={tone}
       data-panel-open={panelOpen || undefined}
-      // The blog's stylesheet has always read this one, and still does.
+      // The layer remains active throughout the viewport's return.
       data-menu-open={menuOpen || undefined}
-      // The scene's phases. App mirrors this onto `.app__scene`, which is what
+      // Each surface mirrors these phases onto its menu shell, which is what
       // the card's stylesheet reads; here it is for the burger and for tests.
       data-menu-state={phase}
     >
@@ -354,17 +337,6 @@ export function SiteHeader({
           {extra !== undefined && <div className="site-header__extra">{extra}</div>}
         </div>
       </div>
-      {/* The glass under the line on a phone: the menu's ground and its scrim
-          in one. Decorative to assistive tech; a tap on it is "leave". Closed
-          on click rather than pointerdown so the press that lands here also
-          lifts here — otherwise the field would lose its pointer-events
-          mid-gesture and the click would land on the page beneath.
-
-          THE BLOG'S, and only the blog's. The scene's menu is the layer the
-          viewport reveals by moving away, and needs no field. */}
-      {layout === 'blog' && (
-        <div className="site-header__field" aria-hidden="true" onClick={closeMenu} />
-      )}
     </header>
   )
 }

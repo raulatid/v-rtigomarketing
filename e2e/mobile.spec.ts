@@ -998,19 +998,17 @@ test.describe('the blog on a phone', () => {
     await openMenu(page)
     await expect(page.locator('.audit-trigger')).toBeVisible()
 
-    const g = await page.evaluate(() => {
-      const field = document.querySelector('.site-header__field')!
-      return {
-        rowBottom: document.querySelector('.site-header__row')!.getBoundingClientRect().bottom,
-        fieldTop: field.getBoundingClientRect().top,
-        glass: getComputedStyle(field, '::after').backgroundImage,
-      }
-    })
-    // Paper glass over paper, and it hangs from the blog bar's own line — the
-    // bar's `--header-line-top` lives on the header so the field, a sibling of
-    // the row, reads the same value.
-    expect(g.glass).toContain('rgba(251, 251, 250')
-    expectNear(g.fieldTop, g.rowBottom, 'field top')
+    const surface = page.locator('.blog-surface')
+    const viewport = surface.locator('.site-menu-viewport')
+    await expect(surface).toHaveAttribute('data-menu-state', 'open')
+    await expect(viewport).not.toHaveCSS('transform', 'none')
+    await expect(surface.locator('.site-menu-caption').first()).toBeVisible()
+    await expect(page.locator('.site-header__field')).toHaveCount(0)
+    const headerBox = await page.locator('.site-header').boundingBox()
+    await page.locator('.site-header__burger').click()
+    await expect(surface).toHaveAttribute('data-menu-state', 'closed')
+    await expect(viewport).toHaveCSS('transform', 'none')
+    expect(await page.locator('.site-header').boundingBox()).toEqual(headerBox)
     await assertNoSideways(page)
   })
 })
