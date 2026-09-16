@@ -227,7 +227,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     opacity: 0.85,
   };
   const shapes: SectionShapes = { discRadius: r * 0.85, lift: r * 0.8, iconWidth: r * 1.4 };
-  const timing: SectionTiming = { flight: 1.4, morph: 0.8, figureSpread: 0.55, formHold: 2 };
+  const timing: SectionTiming = { flight: 1.4, morph: 0.8, figureSpread: 0.55, formHold: 1.5 };
   const cameraTuning: CampusCameraTuning = { distance: r * 4.5, elevationDeg: 24, direction: 1 };
   const figureMotion: FigureMotion = { speed: 1, amplitude: 1 };
 
