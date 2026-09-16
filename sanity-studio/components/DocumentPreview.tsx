@@ -1,6 +1,9 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useClient } from 'sanity'
+import { LegalBlock } from '../../src/components/LegalBlock'
+import { ContactSection } from '../../src/components/ContactSection'
+import { AuditSection } from '../../src/components/AuditSection'
 import { CasePanel } from '../../src/components/CasePanel'
 import { PostBody } from '../../src/blog/PostBody'
 import { BlogFigure } from '../../src/blog/BlogFigure'
@@ -12,6 +15,8 @@ import { previewStyles } from './previewStyles'
 import './editorial.css'
 
 type Mode = 'content' | 'card' | 'social'
+type SettingsView = 'contact' | 'contact-success' | 'audit' | 'audit-success'
+const noop = () => {}
 // Mirrors the production metadata fallback: custom descriptions remain untrimmed.
 function fallbackDescription(excerpt: string) {
   if (excerpt.length <= BLOG_META_DESCRIPTION_FALLBACK_MAX) return excerpt
@@ -22,8 +27,8 @@ function fallbackDescription(excerpt: string) {
 const frameDocument = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${previewStyles}</style></head><body></body></html>`
 
 /** Pure rendering also used by the local visual QA harness. */
-export function PreviewContent({doc, projectId, dataset, mode = 'content', category = ''}: {
-  doc: RecordValue; projectId: string; dataset: string; mode?: Mode; category?: string
+export function PreviewContent({doc, projectId, dataset, mode = 'content', category = '', settingsView = 'contact'}: {
+  doc: RecordValue; projectId: string; dataset: string; mode?: Mode; category?: string; settingsView?: SettingsView
 }) {
   const type = text(doc._type)
   const cover = previewImage(doc.cover, projectId, dataset)
@@ -32,13 +37,13 @@ export function PreviewContent({doc, projectId, dataset, mode = 'content', categ
     const data = previewCase(doc)
     const isotype = previewImage(doc.isotype, projectId, dataset)
     const logo = previewImage(doc.logo, projectId, dataset)
-    return <div className="preview-content">
+    return <div className="preview-content preview-scene">
       <p className="preview-note">Imágenes de marca sobre fondo oscuro. Comprueba que no tengan un rectángulo de fondo.</p>
       <div className="brand-samples">
         {isotype ? <img src={isotype.src} alt="Isotipo" /> : <p>Sin isotipo: la web usa la inicial de la marca.</p>}
         {logo ? <img src={logo.src} alt="Logotipo completo" /> : <p>Sin logotipo completo.</p>}
       </div>
-      <CasePanel data={data} onClose={() => {}} />
+      <CasePanel data={data} onClose={noop} onRequestAudit={noop} />
       {!data.chart.values.length && <p className="preview-note">Añade datos para ver el gráfico.</p>}
       {data.chart.values.length !== rows(object(doc.chart).points).length && <p className="preview-note">Hay puntos sin un número válido que todavía no se muestran. Complétalos antes de publicar.</p>}
     </div>
@@ -56,7 +61,15 @@ export function PreviewContent({doc, projectId, dataset, mode = 'content', categ
       </section>
     </div>
   }
-  if (type === 'blogPost' || type === 'legalDoc') {
+  if (type === 'legalDoc') return <div className="preview-scene preview-settings">
+    <div className="modal-scrim"><section className="modal-panel legal-panel">
+      <button type="button" className="modal-close" aria-label="Cerrar">✕</button>
+      <h2 className="modal-title">{text(doc.title)}</h2>
+      <div className="legal-panel__body">{body.map((block, i) => block.kind === 'paragraph' || block.kind === 'heading' || block.kind === 'list' ? <LegalBlock key={i} block={block} /> : null)}</div>
+      {incomplete && <p className="preview-note">Hay bloques incompletos que todavía no se pueden mostrar.</p>}
+    </section></div>
+  </div>
+  if (type === 'blogPost') {
     const date = text(doc.publishedAt)
     const dateLabel = date && Number.isFinite(Date.parse(date)) ? new Date(date).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'}) : ''
     const meta = <span className="blog-meta"><time dateTime={date}>{dateLabel}</time><span className="blog-meta__dot" aria-hidden="true" />{readingMinutes(body)} min de lectura</span>
@@ -77,20 +90,24 @@ export function PreviewContent({doc, projectId, dataset, mode = 'content', categ
       </article>}
     </div></div>
   }
-  if (type === 'siteSettings') return <div className="preview-content"><div className="preview-contact">
-    <section><h2 className="modal-title">Contacto</h2>
-      {text(doc.bookingUrl) && <span className="contact-booking">{text(doc.bookingLabel) || 'Agenda una cita'}</span>}
-      <div className="contact-phones"><span className="contact-phone-icon" />{rows(doc.phones).map((phone, i) => {
-        const row = object(phone)
-        return <Fragment key={i}><span className="contact-phone-label">{text(row.label)}</span><span className="contact-phone">{text(row.display)}</span></Fragment>
-      })}</div>
-    </section>
-    <section className="contact-success"><h2 className="modal-title">{text(doc.contactSuccessTitle)}</h2><p className="contact-success__body">{text(doc.contactSuccessBody)}</p></section>
-    <section className="audit-success"><h2 className="audit-title">{text(doc.auditSuccessTitle)}</h2><p className="audit-description">{text(doc.auditSuccessBody)}</p></section>
-    <section className="audit-group"><label className="audit-label" htmlFor="preview-revenue">Rango de facturación de tu empresa</label><select className="audit-input" id="preview-revenue">{rows(doc.revenueRanges).map((range, i) => <option key={i}>{text(range)}</option>)}</select></section>
-    <section><small>{text(doc.copyright)}</small></section>
-  </div></div>
-  return <div className="preview-content"><div className="preview-contact">
+  if (type === 'siteSettings') {
+    const success = settingsView.endsWith('-success')
+    return <div className="preview-scene preview-settings">
+      {settingsView.startsWith('audit') ? <AuditSection
+        ready={false} recomposesScene={false} onOpenChange={noop} onOpenLegal={noop}
+        preview={{state: success ? 'success' : 'form', revenueRanges: rows(doc.revenueRanges).map(text),
+          successTitle: text(doc.auditSuccessTitle), successBody: text(doc.auditSuccessBody)}}
+      /> : <ContactSection
+        ready={false} suppressed={false} onOpenChange={noop} onOpenLegal={noop}
+        preview={{state: success ? 'success' : 'form', bookingUrl: text(doc.bookingUrl),
+          bookingLabel: text(doc.bookingLabel) || 'Agenda una cita',
+          phones: rows(doc.phones).map((value) => {const phone = object(value); return {label: text(phone.label), display: text(phone.display), tel: text(phone.tel)}}),
+          successTitle: text(doc.contactSuccessTitle), successBody: text(doc.contactSuccessBody)}}
+      />}
+      <footer className="preview-copyright">{text(doc.copyright)}</footer>
+    </div>
+  }
+  return <div className="preview-content preview-scene"><div className="preview-contact modal-panel">
     <h1>{text(doc.title) || text(doc.label)}</h1><p>{text(doc.summary)}</p>
     {text(doc.body).split(/\n\s*\n/).map((paragraph, i) => <p key={i}>{paragraph}</p>)}
     <p>{text(doc.figureCaption)}</p>
@@ -104,7 +121,7 @@ export function PreviewFrame({children, width}: {children: React.ReactNode; widt
   return <iframe title="Vista previa del contenido" sandbox="allow-same-origin" srcDoc={frameDocument}
     className="editorial-preview-frame" style={{width}}
     onLoad={(event) => setBody(event.currentTarget.contentDocument?.body ?? null)}>
-    {body && createPortal(<div onClickCapture={(event) => {
+    {body && createPortal(<div onSubmitCapture={(event) => {event.preventDefault(); event.stopPropagation()}} onClickCapture={(event) => {
       if ((event.target as Element).closest('a,button')) {event.preventDefault(); event.stopPropagation()}
     }}>{children}</div>, body)}
   </iframe>
@@ -117,6 +134,7 @@ export function DocumentPreview({document}: {document: {displayed?: RecordValue}
   const [width, setWidth] = useState(390)
   const [mode, setMode] = useState<Mode>('content')
   const [category, setCategory] = useState('')
+  const [settingsView, setSettingsView] = useState<SettingsView>('contact')
   const categoryId = text(object(doc.category)._ref)
   useEffect(() => {
     let active = true
@@ -129,11 +147,13 @@ export function DocumentPreview({document}: {document: {displayed?: RecordValue}
   return <section className="editorial-preview">
     <header className="editorial-toolbar">
       <p>Vista previa de tus cambios sin publicar. Los enlaces no navegan y no se envían formularios.</p>
+      <p>Los paneles usan el diseño de la web sobre un fondo orientativo. La escena 3D se comprueba en la web.</p>
       <div className="editorial-controls">
         <label>Formato <select value={width} onChange={(event) => setWidth(Number(event.target.value))}><option value={390}>Móvil · 390 px</option><option value={960}>Escritorio · 960 px</option></select></label>
+        {doc._type === 'siteSettings' && <label>Mostrar <select value={settingsView} onChange={(event) => setSettingsView(event.target.value as SettingsView)}><option value="contact">Contacto · formulario</option><option value="contact-success">Contacto · confirmación</option><option value="audit">Auditoría · formulario</option><option value="audit-success">Auditoría · confirmación</option></select></label>}
         {doc._type === 'blogPost' && <label>Mostrar <select value={mode} onChange={(event) => setMode(event.target.value as Mode)}><option value="content">Entrada</option><option value="card">Tarjeta del listado</option><option value="social">Buscadores y redes</option></select></label>}
       </div>
     </header>
-    <div className="editorial-preview-scroll"><PreviewFrame width={width}><PreviewContent doc={doc} projectId={projectId} dataset={dataset} mode={mode} category={category} /></PreviewFrame></div>
+    <div className="editorial-preview-scroll"><PreviewFrame width={width}><PreviewContent doc={doc} projectId={projectId} dataset={dataset} mode={mode} category={category} settingsView={settingsView} /></PreviewFrame></div>
   </section>
 }

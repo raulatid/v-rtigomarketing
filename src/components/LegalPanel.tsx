@@ -1,35 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { COOKIE_COPY, LEGAL_DOCS } from '../content/site'
 import type { LegalDocId } from '../content/site'
-import type { LegalBlock } from '../content/types'
-import { spans } from './textSpans'
+import { LegalBlock } from './LegalBlock'
 import { CookiePreferences } from './CookiePreferences'
 import './modal.css'
 import './legalPanel.css'
-
-/**
- * The block half of the serializer.
- *
- * An EXPLICIT map from block kind to element, not a rich-text library and not
- * `dangerouslySetInnerHTML`. The inline half — marks and links — moved to
- * `textSpans.tsx` when the blog needed the same rules; the argument for it is
- * recorded there.
- *
- * The switch has no default that renders nothing: a block kind that reached here
- * without a case would be a type error, which is the point of the union.
- */
-function Block({ block }: { block: LegalBlock }) {
-  if (block.kind === 'heading') {
-    // The panel's own title is the h2, so a document heading starts at h3 and
-    // the outline stays in order for anyone navigating by headings.
-    return block.level === 2 ? <h3>{spans(block.spans)}</h3> : <h4>{spans(block.spans)}</h4>
-  }
-  if (block.kind === 'list') {
-    const items = block.items.map((item, i) => <li key={i}>{spans(item)}</li>)
-    return block.ordered ? <ol>{items}</ol> : <ul>{items}</ul>
-  }
-  return <p>{spans(block.spans)}</p>
-}
 
 interface Props {
   /** Which document is showing; null renders nothing. Data-nulled rather than
@@ -105,12 +80,12 @@ export function LegalPanel({ doc, onClose, idPrefix = 'legal' }: Props) {
         {doc === 'cookies' && <CookiePreferences />}
         {doc === 'cookies' ? <details className="cookie-policy">
           <summary>{COOKIE_COPY.policy}</summary>
-          <div className="legal-panel__body">{content.body.map((block, i) => <Block key={i} block={block} />)}</div>
+          <div className="legal-panel__body">{content.body.map((block, i) => <LegalBlock key={i} block={block} />)}</div>
         </details> : <div className="legal-panel__body">
           {content.body.map((block, i) => (
             // Keyed by index rather than by text: two identical paragraphs are
             // legitimate in a legal document, and the old text key collided.
-            <Block key={i} block={block} />
+            <LegalBlock key={i} block={block} />
           ))}
         </div>}
       </section>

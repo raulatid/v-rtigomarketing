@@ -96,8 +96,11 @@ Abre «Vista previa» junto a «Editar». Muestra los cambios del documento sin 
 
 - **Casos:** ficha y gráfico con los componentes de la web; imágenes de marca sobre fondo oscuro. Comprueba la transparencia: el formato PNG o WebP por sí solo no la garantiza.
 - **Blog:** entrada, tarjeta del listado y simulación de buscadores/redes. Los buscadores pueden cambiar lo que muestran.
-- **Ajustes:** teléfonos, reserva, confirmaciones, rangos de facturación y copyright. El correo destinatario no aparece en la vista pública.
-- **Servicios y legales:** vista de lectura para comprobar el contenido. La composición 3D se comprueba en la web.
+- **Ajustes:** el selector «Mostrar» permite ver el formulario completo de contacto, el de auditoría y sus confirmaciones. Los teléfonos, la reserva, los rangos de facturación y los mensajes reflejan el borrador. El correo destinatario no aparece en la vista pública.
+- **Legales:** texto dentro del panel oscuro de la web, con sus estilos y tipografía.
+- **Servicios:** vista de lectura para comprobar el contenido. La composición 3D se comprueba en la web.
+
+Los paneles usan el material de cristal ahumado de la web sobre un fondo orientativo. La escena 3D y su iluminación exacta se comprueban en la web. El blog conserva su fondo editorial claro.
 
 Los enlaces de la vista previa no navegan y no se envían formularios. Una vista previa no sustituye los errores de validación. Las imágenes del blog usan el encuadre del archivo; la imagen para redes se recorta desde el centro.
 

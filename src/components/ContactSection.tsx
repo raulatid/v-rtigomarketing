@@ -28,6 +28,15 @@ const FIELD_ORDER: Field[] = ['name', 'email', 'message']
 const EMAIL_RE = /.+@.+\..+/
 
 interface Props {
+  /** Editorial rendering without navigation, focus changes or submission. */
+  preview?: {
+    state: 'form' | 'success'
+    bookingUrl: string
+    bookingLabel: string
+    phones: {label: string; display: string; tel: string}[]
+    successTitle: string
+    successBody: string
+  }
   /** Chrome may exist at all — `phase === 'site'` (DECISIONS §26.16). */
   ready: boolean
   /** The site header's actions cell, which the trigger portals into. Null
@@ -71,6 +80,7 @@ function failureMessage(code: SubmissionErrorCode): string {
 }
 
 export function ContactSection({
+  preview,
   ready,
   triggerHost = null,
   idPrefix = 'contact',
@@ -79,11 +89,16 @@ export function ContactSection({
   onOpenLegal,
   submit = submitContactRequest,
 }: Props) {
-  const [open, setOpen] = useState(false)
+  const [liveOpen, setOpen] = useState(false)
   const [values, setValues] = useState<ContactRequest>(EMPTY)
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
-  const [submission, setSubmission] = useState<Submission>('idle')
+  const [liveSubmission, setSubmission] = useState<Submission>('idle')
+  const open = preview ? true : liveOpen
+  const submission: Submission = preview ? (preview.state === 'success' ? 'success' : 'idle') : liveSubmission
+  const content = preview ?? {
+    bookingUrl: BOOKING_URL, bookingLabel: BOOKING_LABEL, phones: SITE_PHONES,
+  }
 
   const [failure, setFailure] = useState<SubmissionErrorCode>('unknown')
   const [serverErrors, setServerErrors] = useState<Partial<Record<Field, string>>>({})
@@ -98,13 +113,15 @@ export function ContactSection({
   const errors = useMemo(() => validate(values), [values])
 
   const openDialog = useCallback(() => {
+    if (preview) return
     setOpen(true)
     onOpenChange(true)
     openedAtRef.current = Date.now()
     honeypotRef.current = ''
-  }, [onOpenChange])
+  }, [onOpenChange, preview])
 
   const close = useCallback(() => {
+    if (preview) return
     setOpen(false)
     onOpenChange(false)
     // The trigger is what opened this; focus returns there. In the same rAF
@@ -121,7 +138,7 @@ export function ContactSection({
       }
       return 'idle'
     })
-  }, [onOpenChange])
+  }, [onOpenChange, preview])
 
   // The audit took the screen (`suppressed` mirrors auditOpen in App.tsx). Its
   // curtain sits ABOVE this scrim, and the header that opens it sits above both
@@ -133,20 +150,21 @@ export function ContactSection({
   }, [suppressed, open, close])
 
   useEffect(() => {
-    if (!open) return
+    if (preview || !open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, close])
+  }, [open, close, preview])
 
   useEffect(() => {
-    if (open) titleRef.current?.focus()
-  }, [open])
+    if (!preview && open) titleRef.current?.focus()
+  }, [open, preview])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (preview) return
     if (submission === 'submitting' || submission === 'success') return
     setSubmitAttempted(true)
     const firstInvalid = FIELD_ORDER.find((f) => errors[f])
@@ -211,7 +229,7 @@ export function ContactSection({
       </p>
     ) : null
 
-  const trigger = ready && (
+  const trigger = !preview && ready && (
     <button
       ref={triggerRef}
       type="button"
@@ -251,11 +269,11 @@ export function ContactSection({
             {submission === 'success' ? (
               <div className="contact-success" role="status">
                 <h2 className="modal-title" id={`${idPrefix}-title`} tabIndex={-1} ref={titleRef}>
-                  {FORM_MESSAGES.contactTitle}
+                  {preview ? preview.successTitle : FORM_MESSAGES.contactTitle}
                 </h2>
                 {/* From Sanity (plan 012), so the promise in it is the
                     client's to reword. */}
-                <p className="contact-success__body">{FORM_MESSAGES.contactBody}</p>
+                <p className="contact-success__body">{preview ? preview.successBody : FORM_MESSAGES.contactBody}</p>
                 <button type="button" className="contact-cta" onClick={close}>
                   Volver
                 </button>
@@ -367,10 +385,10 @@ export function ContactSection({
                     that opens the alternatives block when it is present, and
                     hands it back to the phones when it is not — see the
                     `+ .contact-phones` rule in the stylesheet. */}
-                {BOOKING_URL && (
+                {content.bookingUrl && (
                   <a
                     className="contact-booking"
-                    href={BOOKING_URL}
+                    href={content.bookingUrl}
                     target="_blank"
                     // Modern browsers imply noopener with target=_blank; the
                     // attribute is what makes it true on the ones that do not.
@@ -389,7 +407,7 @@ export function ContactSection({
                       <rect x="2" y="3.5" width="12" height="10" rx="2" />
                       <path d="M2 6.5h12M5.5 2v3M10.5 2v3" />
                     </svg>
-                    {BOOKING_LABEL}
+                    {content.bookingLabel}
                   </a>
                 )}
 
@@ -420,7 +438,7 @@ export function ContactSection({
                       OUTSIDE the anchor, deliberately — the link's accessible
                       name should be the number a screen-reader user is about to
                       dial, not "Madrid +34…". */}
-                  {SITE_PHONES.map((phone, i) => (
+                  {content.phones.map((phone, i) => (
                     // Two offices can legitimately share one number, so the tel
                     // alone is not a key.
                     <Fragment key={`${phone.tel}-${i}`}>

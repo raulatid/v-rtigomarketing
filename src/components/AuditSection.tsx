@@ -344,6 +344,13 @@ function failureMessage(code: SubmissionErrorCode): string {
 //  - a submission in flight refuses a second one.
 
 interface Props {
+  /** Editorial rendering: no scene writes, focus changes or requests. */
+  preview?: {
+    state: 'form' | 'success'
+    revenueRanges: readonly string[]
+    successTitle: string
+    successBody: string
+  }
   // Lets App gate its global Escape handler (which otherwise skips the intro).
   onOpenChange: (open: boolean) => void
   // The trigger stays off-screen until the intro fully lands (satellites
@@ -388,6 +395,7 @@ interface Props {
 type Submission = 'idle' | 'submitting' | 'success' | 'error'
 
 export function AuditSection({
+  preview,
   onOpenChange,
   ready,
   triggerHost = null,
@@ -397,11 +405,18 @@ export function AuditSection({
   submit = submitAuditRequest,
   openRequest,
 }: Props) {
-  const [phase, setPhase] = useState<AuditPhase>('closed')
+  const [livePhase, setPhase] = useState<AuditPhase>('closed')
   const [values, setValues] = useState<Values>(EMPTY_VALUES)
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
-  const [submission, setSubmission] = useState<Submission>('idle')
+  const [liveSubmission, setSubmission] = useState<Submission>('idle')
+  const phase: AuditPhase = preview ? 'open' : livePhase
+  const submission: Submission = preview ? (preview.state === 'success' ? 'success' : 'idle') : liveSubmission
+  const content = preview ?? {
+    revenueRanges: REVENUE_RANGES,
+    successTitle: FORM_MESSAGES.auditTitle, successBody: FORM_MESSAGES.auditBody,
+  }
+
   /** Why the last attempt failed, so the banner can say something useful. */
   const [failure, setFailure] = useState<SubmissionErrorCode>('unknown')
   /**
@@ -437,7 +452,7 @@ export function AuditSection({
   useEffect(() => () => window.clearTimeout(timerRef.current), [])
 
   const open = useCallback(() => {
-    if (phase !== 'closed') return
+    if (preview || phase !== 'closed') return
     reducedRef.current = prefersReducedMotion()
     auditView.reducedMotion = reducedRef.current
     // Measured from when the FORM appeared, not from page load: the server's
@@ -455,10 +470,10 @@ export function AuditSection({
       () => setPhase('open'),
       reducedRef.current ? REDUCED_MS : ENTER_MS,
     )
-  }, [phase, onOpenChange])
+  }, [phase, onOpenChange, preview])
 
   const close = useCallback(() => {
-    if (phase !== 'open') return
+    if (preview || phase !== 'open') return
     setPhase('leaving')
     window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
@@ -470,7 +485,7 @@ export function AuditSection({
       // element would silently no-op.
       requestAnimationFrame(() => triggerRef.current?.focus())
     }, reducedRef.current ? REDUCED_MS : LEAVE_MS)
-  }, [phase, onOpenChange])
+  }, [phase, onOpenChange, preview])
 
   // An open request from outside the trigger (see `openRequest`). Acted on only
   // when the counter CHANGES — the value it mounted with is not a request — and
@@ -503,7 +518,7 @@ export function AuditSection({
   // with the section open and it crosses 768px, and a one-shot read taken when
   // the gesture started would have the camera keeping its portrait answer.
   useEffect(() => {
-    if (!recomposesScene) return
+    if (preview || !recomposesScene) return
     const wide = window.matchMedia(`(min-width: ${MOBILE_MAX}px)`)
     const sync = () => {
       auditView.open = shiftsFor(phase, wide.matches)
@@ -514,7 +529,7 @@ export function AuditSection({
       wide.removeEventListener('change', sync)
       auditView.open = false
     }
-  }, [phase, recomposesScene])
+  }, [phase, recomposesScene, preview])
 
   // No hard-close on an experience swap any more (2026-09-03): the header, and
   // with it this section, lives on Murcia as well as Earth, and a warp cannot
@@ -525,20 +540,20 @@ export function AuditSection({
   // Focus moves to the section heading once the entry completes; form controls
   // are already interactive before that (pointer-events are never blocked).
   useEffect(() => {
-    if (phase === 'open') headingRef.current?.focus({ preventScroll: true })
-  }, [phase])
+    if (!preview && phase === 'open') headingRef.current?.focus({ preventScroll: true })
+  }, [phase, preview])
 
   // Escape closes the section. Registered only while open, so it cannot race
   // the entry/exit animations, and App's own Escape handler is gated off while
   // this one is live.
   useEffect(() => {
-    if (phase !== 'open') return
+    if (preview || phase !== 'open') return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, close])
+  }, [phase, close, preview])
 
   // Errors are DERIVED, not stored. They are a pure function of `values`, and
   // the previous version kept them in state — which meant every writer had to
@@ -568,6 +583,7 @@ export function AuditSection({
   const handleSubmit = useCallback(
     (e: FormEvent) => {
       e.preventDefault()
+      if (preview) return
       // In flight or already delivered: there is nothing a second press should
       // do. 'error' deliberately falls through — the CTA is the retry.
       if (submission === 'submitting' || submission === 'success') return
@@ -609,15 +625,15 @@ export function AuditSection({
         },
       )
     },
-    [submission, errors, values, submit],
+    [submission, errors, values, submit, preview],
   )
 
   // The success state is an announcement, and focus is how it is announced to
   // everyone: the heading is what a screen reader lands on, and what the eye
   // finds where the form just was.
   useEffect(() => {
-    if (submission === 'success') successHeadingRef.current?.focus({ preventScroll: true })
-  }, [submission])
+    if (!preview && submission === 'success') successHeadingRef.current?.focus({ preventScroll: true })
+  }, [submission, preview])
 
   // Closing settles the submission's afterlife. A delivered request means the
   // form's job is done — reopening offers a fresh one. A failed attempt keeps
@@ -626,7 +642,7 @@ export function AuditSection({
   // flight is left to land — its .then above runs while closed, and THEN this
   // effect settles it.
   useEffect(() => {
-    if (phase !== 'closed') return
+    if (preview || phase !== 'closed') return
     if (submission === 'idle' || submission === 'submitting') return
     submitSeqRef.current += 1
     if (submission === 'success') {
@@ -636,7 +652,7 @@ export function AuditSection({
       setServerErrors({})
     }
     setSubmission('idle')
-  }, [phase, submission])
+  }, [phase, submission, preview])
 
   const showError = (field: Field): string | undefined => {
     // The server's complaint outranks ours: it saw the value we let through.
@@ -698,7 +714,7 @@ export function AuditSection({
   // non-closed phase so the invisible control cannot be clicked mid-fade. Kept
   // mounted while the section is open even if `ready` drops (a debug replay
   // rewinds the phase).
-  const trigger = (ready || phase !== 'closed') && (
+  const trigger = !preview && (ready || phase !== 'closed') && (
     <button
       ref={triggerRef}
       type="button"
@@ -763,12 +779,12 @@ export function AuditSection({
                     tabIndex={-1}
                     ref={successHeadingRef}
                   >
-                    {FORM_MESSAGES.auditTitle}
+                    {content.successTitle}
                   </h2>
                   {/* Both strings come from Sanity (plan 012): the promise in
                       them is about the client's own working week, so they can
                       reword it without a deploy. */}
-                  <p className="audit-description">{FORM_MESSAGES.auditBody}</p>
+                  <p className="audit-description">{content.successBody}</p>
                 </div>
                 <div className="audit-group">
                   <button type="button" className="audit-cta" onClick={close}>
@@ -819,7 +835,7 @@ export function AuditSection({
                       key={field}
                       idPrefix={idPrefix}
                       field={field}
-                      def={FIELD_DEFS[field]}
+                      def={field === 'revenue' ? {kind: 'select', label: FIELD_DEFS.revenue.label, placeholder: FIELD_DEFS.revenue.placeholder, options: content.revenueRanges.map((range) => ({value: range, label: range}))} : FIELD_DEFS[field]}
                       controlProps={fieldProps(field)}
                       onChange={(value) => setValue(field, value)}
                       error={errorLine(field)}
