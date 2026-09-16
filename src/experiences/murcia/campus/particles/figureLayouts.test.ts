@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Vector3 } from 'three';
+import { Matrix3, Vector3 } from 'three';
 import { FIGURE_KINDS } from '../content/servicesContent';
 import { figureLayout } from './figureLayouts';
 import { seededRandom } from './maskSampling';
@@ -16,14 +16,30 @@ describe('service diagrams', () => {
         return samples.map((_, i) => {
           const point = new Vector3();
           layout(i, samples.length, random, point, i / samples.length);
-          expect(Number.isFinite(point.x) && Number.isFinite(point.y)).toBe(true);
+          expect(point.toArray().every(Number.isFinite)).toBe(true);
           expect(Math.abs(point.x)).toBeLessThanOrEqual(0.5);
           expect(Math.abs(point.y)).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(point.z)).toBeLessThanOrEqual(0.5);
+          // The constant Y rotation must also fit, including at oblique angles.
+          expect(Math.hypot(point.x, point.z)).toBeLessThanOrEqual(0.5);
           return point.toArray();
         });
       };
-      expect(sample(100, 0)).toEqual(sample(0, 0));
+      const still = sample(0, 0);
+      expect(sample(100, 0)).toEqual(still);
       expect(sample(10, 1)).not.toEqual(sample(0, 1));
+      expect(Math.max(...still.map(p => p[2]!)) - Math.min(...still.map(p => p[2]!))).toBeGreaterThan(0.2);
+      // A tilted flat drawing also has Z extent. Nonzero covariance volume
+      // proves the point cloud is not confined to ANY plane.
+      const mean = [0, 1, 2].map(axis => still.reduce((sum, p) => sum + p[axis]!, 0) / still.length);
+      const covariance = new Matrix3();
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 3; col++) {
+          covariance.elements[col * 3 + row] = still.reduce((sum, p) =>
+            sum + (p[row]! - mean[row]!) * (p[col]! - mean[col]!), 0) / still.length;
+        }
+      }
+      expect(covariance.determinant()).toBeGreaterThan(0.000001);
     });
   }
 });

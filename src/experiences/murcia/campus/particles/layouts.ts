@@ -47,3 +47,13 @@ export function placeOnPlane(frame: PlaneFrame, u: number, v: number, out: THREE
     .addScaledVector(frame.right, u * frame.width)
     .addScaledVector(frame.up, v * frame.width);
 }
+
+/** Map a local volume onto the same frame. Depth follows right × up, so all
+ * service stops share a consistent orientation without allocating per point. */
+export function placeInVolume(frame: PlaneFrame, u: number, v: number, depth: number, out: THREE.Vector3): void {
+  placeOnPlane(frame, u, v, out);
+  const { right, up, width } = frame;
+  out.x += (right.y * up.z - right.z * up.y) * depth * width;
+  out.y += (right.z * up.x - right.x * up.z) * depth * width;
+  out.z += (right.x * up.y - right.y * up.x) * depth * width;
+}
