@@ -19,15 +19,37 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
   layer.style.transition += ', transform 300ms cubic-bezier(0.32, 0.72, 0, 1)';
   layer.style.setProperty('--campus-sheet-compact', `${CAMPUS_COMPACT_FRACTION * 100}dvh`);
   let expanded = false;
+  // The whole copy fits inside the compact stop, so there is nothing to
+  // expand: the sheet opens in full and the grip is withdrawn. Kept apart from
+  // `expanded`, which stays the reader's own choice for the stops that need it.
+  let fits = false;
   let suppressClick = false;
   let drag: { id: number; y: number; start: number; current: number; moved: boolean } | null = null;
-  const limit = () => Math.max(0, layer.offsetHeight - window.innerHeight * CAMPUS_COMPACT_FRACTION);
+  const compactHeight = () => window.innerHeight * CAMPUS_COMPACT_FRACTION;
+  const limit = () => Math.max(0, layer.offsetHeight - compactHeight());
   const sync = () => {
-    layer.dataset.sheetStop = expanded ? 'expanded' : 'compact';
-    grip.setAttribute('aria-expanded', String(expanded));
-    grip.setAttribute('aria-label', expanded ? labels.collapse : labels.expand);
-    body.tabIndex = !dock.matches && expanded ? 0 : -1;
-    if (!expanded) body.scrollTop = 0;
+    const open = expanded || fits;
+    layer.dataset.sheetStop = open ? 'expanded' : 'compact';
+    grip.hidden = fits;
+    grip.setAttribute('aria-expanded', String(open));
+    grip.setAttribute('aria-label', open ? labels.collapse : labels.expand);
+    body.tabIndex = !dock.matches && open ? 0 : -1;
+    if (!open) body.scrollTop = 0;
+  };
+  /** Re-measures the copy against the compact stop. Call after the copy changes. */
+  const fit = () => {
+    if (dock.matches) {
+      fits = false;
+    } else {
+      // Measured under the stylesheet's measuring state, which lifts the
+      // compact clamps WITHOUT touching the transform — flushing a changed
+      // transform would start a transition back from wherever it landed.
+      layer.dataset.sheetMeasuring = 'true';
+      const full = layer.offsetHeight;
+      delete layer.dataset.sheetMeasuring;
+      fits = full <= compactHeight() + 0.5;
+    }
+    sync();
   };
   const release = () => {
     const id = drag?.id;
@@ -72,7 +94,7 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
     expanded = !expanded;
     sync();
   };
-  const resize = () => { release(); sync(); };
+  const resize = () => { release(); fit(); };
   grip.addEventListener('pointerdown', down);
   grip.addEventListener('pointermove', move);
   grip.addEventListener('pointerup', up);
@@ -83,6 +105,7 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
   dock.addEventListener('change', resize);
   sync();
   return {
+    fit,
     reset() { release(); expanded = false; suppressClick = false; sync(); },
     dispose() {
       release();

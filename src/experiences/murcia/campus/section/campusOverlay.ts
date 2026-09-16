@@ -247,6 +247,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     caption.style.opacity = captionWanted ? '1' : '0';
     if (copy.accent) layer.style.setProperty('--campus-accent', copy.accent);
     else layer.style.removeProperty('--campus-accent');
+    // The sheet decides from this copy whether it has anything to expand.
+    sheet?.fit();
   };
 
   const cancelPending = (): void => {

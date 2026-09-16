@@ -4,14 +4,14 @@ import { attachCampusSheet } from './campusSheet';
 
 afterEach(() => { document.body.replaceChildren(); vi.unstubAllGlobals(); });
 
-function setup() {
+function setup(offsetHeight = 500) {
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   vi.stubGlobal('DOMMatrixReadOnly', class { m42 = 190; });
   const layer = document.createElement('div');
   const body = document.createElement('div');
   layer.append(body);
   document.body.append(layer);
-  Object.defineProperty(layer, 'offsetHeight', { value: 500 });
+  Object.defineProperty(layer, 'offsetHeight', { value: offsetHeight });
   const sheet = attachCampusSheet(layer, body, { expand: 'Leer más', collapse: 'Ver partículas' });
   const grip = layer.querySelector('button')!;
   grip.setPointerCapture = vi.fn();
@@ -60,5 +60,23 @@ describe('campus sheet input ownership', () => {
     r.grip.click();
     expect(r.layer.dataset.sheetStop).toBe('compact');
     expect(r.layer.querySelector('button')).toBeNull();
+  });
+
+  it('withdraws the grip and opens in full when the copy fits the compact stop', () => {
+    // jsdom's innerHeight is 768, so the compact stop is 268.8px: 200px of
+    // copy has nothing to expand, 500px does.
+    const short = setup(200);
+    short.sheet.fit();
+    expect(short.grip.hidden).toBe(true);
+    expect(short.layer.dataset.sheetStop).toBe('expanded');
+    expect(short.layer.hasAttribute('data-sheet-measuring')).toBe(false);
+    short.sheet.dispose();
+    document.body.replaceChildren();
+
+    const tall = setup(500);
+    tall.sheet.fit();
+    expect(tall.grip.hidden).toBe(false);
+    expect(tall.layer.dataset.sheetStop).toBe('compact');
+    tall.sheet.dispose();
   });
 });
