@@ -222,8 +222,8 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     swellSpeed: 0.5,
     rotationSpeed: (Math.PI * 2) / 120,
     color: 0xdfeef7,
-    // Half white, half the stop's colour (the content's `color`), mixed.
-    accentShare: 0.5,
+    // 70% white, 30% the stop's colour (the content's `color`), mixed.
+    accentShare: 0.3,
     opacity: 0.85,
   };
   const shapes: SectionShapes = { discRadius: r * 0.85, lift: r * 0.8, iconWidth: r * 1.4 };
