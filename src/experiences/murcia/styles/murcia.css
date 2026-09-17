@@ -502,6 +502,24 @@
   font-family: var(--font-display);
 }
 
+.murcia-ui .campus-overlay__page:hover:not(:disabled) {
+  opacity: 0.7;
+}
+
+/* Paging closes the desktop panel; the mobile sheet aligns it with the title. */
+.murcia-ui .campus-overlay__navigation {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px -12px 0;
+}
+
+.murcia-ui .campus-overlay__page:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 /* The padding round the arrow is its hit area; the negative top margin takes
    it back so the mark sits on the plate's padding line. */
 .murcia-ui .campus-overlay__back {
@@ -595,7 +613,13 @@
   /* Lifted into the top padding, and a wide gap before the title: the
      arrow is the way out, not the first line of the copy. */
   .murcia-ui .campus-overlay__back {
-    margin: -30px 0 36px;
+    margin: -34px 0 48px;
+  }
+
+  /* Use the bottom padding for paging, leaving 16px below the hit targets. */
+  .murcia-ui .campus-overlay__navigation {
+    position: relative;
+    top: calc(3.25rem - 16px);
   }
 
   .murcia-ui .campus-overlay__subtitle {
@@ -727,20 +751,35 @@
   .murcia-ui .campus-overlay__back svg {
     width: 26px;
     height: 17px;
+    transform: translateY(-4px);
   }
   /* Clear air between the grip and the title. */
   .murcia-ui .campus-overlay__body {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
     flex: 1;
     min-height: 0;
-    padding: 26px 24px max(24px, env(safe-area-inset-bottom));
+    padding: 42px 24px max(24px, env(safe-area-inset-bottom));
     overflow-y: auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
     scrollbar-width: thin;
     scrollbar-color: var(--text-muted) transparent;
   }
-  .murcia-ui .campus-overlay__title { padding: 0; }
+  .murcia-ui .campus-overlay__body > * { grid-column: 1; }
+  .murcia-ui .campus-overlay__title {
+    grid-row: 1;
+    align-self: center;
+    margin-top: 24px;
+    padding: 0 48px;
+  }
+  .murcia-ui .campus-overlay__navigation {
+    grid-row: 1;
+    align-self: center;
+    min-height: 44px;
+    pointer-events: none;
+  }
   /* The title is centred; everything under it is a centred column of
      LEFT-aligned text, sized to its longest line so a short block still sits
      in the middle of the sheet (client, 2026-09-16). */
@@ -776,7 +815,7 @@
   }
   @media (max-height: 500px) {
     .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
-      padding-top: 4px;
+      padding-top: 16px;
       padding-bottom: 8px;
     }
     .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__title {

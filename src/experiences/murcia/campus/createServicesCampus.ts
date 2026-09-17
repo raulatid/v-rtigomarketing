@@ -179,7 +179,8 @@ export async function createServicesCampus(
       waterNode: CAMPUS_WATER_NODE_NAME,
       overlay: {
         labels: { leave: campusLabel(locale, 'leave'), measures: campusLabel(locale, 'measures'),
-          expand: campusLabel(locale, 'expand'), collapse: campusLabel(locale, 'collapse') },
+          expand: campusLabel(locale, 'expand'), collapse: campusLabel(locale, 'collapse'),
+          previous: campusLabel(locale, 'previous'), next: campusLabel(locale, 'next') },
         // The site's text face, declared once for every document in
         // siteHeader.css — so no `fontUrl`, and the overlay registers nothing.
         // Its title takes the display face from murcia.css.

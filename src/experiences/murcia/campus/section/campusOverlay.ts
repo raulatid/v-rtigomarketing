@@ -15,9 +15,8 @@
  * kept from the start, but it only fades in on `revealCaption`, which the
  * section calls once the figure it names has formed.
  *
- * The one thing that takes the pointer is the back arrow at the top-left, when
- * the host asks for one. It only reports a click: what it means is the
- * caller's to decide.
+ * Back and paging arrows take the pointer when requested by the host.
+ * They report clicks; navigation remains the caller's responsibility.
  *
  * On the site the layer mounts into Murcia's own UI host (`container`), which
  * is full-viewport with `pointer-events: none`, rather than the body. The
@@ -76,8 +75,10 @@ export interface CampusOverlayOptions {
    * the site asks for one.
    */
   onClose?: () => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
   /** `leave` names the back arrow; `measures` labels the list of what gets measured. */
-  labels: { readonly leave: string; readonly measures?: string; readonly expand?: string; readonly collapse?: string };
+  labels: { readonly leave: string; readonly measures?: string; readonly expand?: string; readonly collapse?: string; readonly previous?: string; readonly next?: string };
   /** Where the layer mounts. Defaults to the body. */
   container?: HTMLElement;
   /** A family already declared by the host, or the one `fontUrl` registers. */
@@ -181,10 +182,35 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
 
   const body = document.createElement('div');
   body.className = 'campus-overlay__body';
-  body.append(title, subtitle, detail, measures, caption, hint);
+  body.append(title);
+  const pagingButtons: HTMLButtonElement[] = [];
+  let navigation: HTMLDivElement | null = null;
+  if (options.onPrevious && options.onNext && labels.previous && labels.next) {
+    navigation = document.createElement('div');
+    navigation.className = 'campus-overlay__navigation';
+    if (inlineLayout) navigation.style.cssText = 'display:flex;justify-content:space-between;gap:12px;margin-top:24px;';
+    for (const [direction, label, activate] of [
+      ['previous', labels.previous, options.onPrevious],
+      ['next', labels.next, options.onNext],
+    ] as const) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `campus-overlay__page campus-overlay__page--${direction}`;
+      button.setAttribute('aria-label', label);
+      button.style.cssText = 'display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;background:none;color:inherit;cursor:pointer;pointer-events:auto;';
+      button.innerHTML = '<svg width="28" height="24" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        (direction === 'previous' ? '<path d="M25 12H3M11 4l-8 8 8 8"/>' : '<path d="M3 12h22M17 4l8 8-8 8"/>') + '</svg>';
+      button.disabled = true;
+      button.addEventListener('click', () => { if (visible && !disposed) activate(); });
+      pagingButtons.push(button);
+      navigation.append(button);
+    }
+  }
+  body.append(subtitle, detail, measures, caption, hint);
+  if (navigation) body.append(navigation);
   layer.append(body);
 
-  // The one thing here that takes the pointer, first in the plate so it sits
+  // The back control comes first in the plate so it sits
   // at its top-left. A block, not inline: in the centred card an inline button
   // would be centred with the text, and the arrow belongs in the corner.
   const { onClose } = options;
@@ -259,6 +285,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   return {
     show(copy) {
       if (disposed) return;
+      for (const button of pagingButtons) button.disabled = false;
       cancelPending();
       captionWanted = false;
       if (!visible) {
@@ -294,6 +321,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
 
     hide() {
       if (disposed) return;
+      for (const button of pagingButtons) button.disabled = true;
       cancelPending();
       visible = false;
       captionWanted = false;

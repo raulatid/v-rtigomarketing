@@ -27,7 +27,7 @@ export type CampusLabelKey =
 const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, string>>>> = {
   es: {
     leave: 'salir de los servicios',
-    hint: '← Desliza hacia los lados para descubrir →',
+    hint: 'Desliza o pulsa las flechas para descubrir',
     previous: 'Servicio anterior',
     next: 'Servicio siguiente',
     explore: 'explorar',
@@ -38,7 +38,7 @@ const CAMPUS_LABELS: Readonly<Record<string, Readonly<Record<CampusLabelKey, str
   },
   en: {
     leave: 'leave the services',
-    hint: '← Swipe sideways to discover →',
+    hint: 'Swipe or use the arrows to discover',
     previous: 'Previous service',
     next: 'Next service',
     explore: 'explore',

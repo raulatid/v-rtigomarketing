@@ -52,7 +52,7 @@ export interface ServicesCampusOptions {
   waterNode?: string;
   overlay: {
     /** `leave` names the back button, when there is one; `measures` labels «Qué medimos». */
-    labels: { readonly leave: string; readonly measures?: string; readonly expand?: string; readonly collapse?: string };
+    labels: { readonly leave: string; readonly measures?: string; readonly expand?: string; readonly collapse?: string; readonly previous?: string; readonly next?: string };
     fontFamily?: string;
     fontUrl?: string;
     /** Where the copy mounts. Defaults to the body. */
@@ -82,8 +82,8 @@ export interface SectionTiming {
   morph: number;
   /** Of the figure morph, how much staggers the starts: the draw-in-order. */
   figureSpread: number;
-  /** How long a service holds its symbol, once formed, before turning into its figure, which it keeps. */
-  formHold: number;
+  /** Time from entering a service until its figure and list start appearing. */
+  figureDelay: number;
 }
 
 /** The screen's look. Edited live by a panel; applied through `applyScreen`. */
@@ -227,7 +227,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     opacity: 0.85,
   };
   const shapes: SectionShapes = { discRadius: r * 0.85, lift: r * 0.8, iconWidth: r * 1.4 };
-  const timing: SectionTiming = { flight: 1.4, morph: 0.8, figureSpread: 0.55, formHold: 1.5 };
+  const timing: SectionTiming = { flight: 1.4, morph: 0.8, figureSpread: 0.55, figureDelay: 1.5 };
   const cameraTuning: CampusCameraTuning = { distance: r * 4.5, elevationDeg: 24, direction: 1 };
   const figureMotion: FigureMotion = { speed: 1, amplitude: 1 };
 
@@ -305,6 +305,8 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
 
   const overlay = createCampusOverlay({
     labels: options.overlay.labels,
+    onPrevious: () => { if (settled()) state.previous(); },
+    onNext: () => { if (settled()) state.next(); },
     ...(options.overlay.container === undefined ? {} : { container: options.overlay.container }),
     ...(options.overlay.closeButton ? { onClose: back } : {}),
     ...(options.overlay.fontFamily === undefined ? {} : { fontFamily: options.overlay.fontFamily }),
@@ -318,7 +320,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
   };
 
   /**
-   * A service's two forms: its symbol, held `formHold` once formed, then its
+   * A service's two forms: its symbol, then, at `figureDelay` from entry, its
    * figure, which it keeps — the figure is what the plate's legend names, so
    * it stays to be read beside it. `captionAt` is when that legend may show:
    * when the figure starts forming. Null outside a service.
@@ -338,7 +340,8 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     if (form === 'icon') {
       field.setLayout(icon(service.icon, stop, 0), seconds);
       field.setLiveLayout((time) => icon(service.icon, stop, time));
-      cycle.swapAt = clock + Math.max(seconds, timing.flight) + timing.formHold;
+      // Count from service entry, while allowing the symbol and camera to settle.
+      cycle.swapAt = clock + Math.max(seconds, timing.flight, timing.figureDelay);
     } else {
       // Drawn in order, as the figure always was. Its clock starts with it, so
       // whatever travels along it sets off from where the draw put it.
