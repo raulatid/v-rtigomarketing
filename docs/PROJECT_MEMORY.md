@@ -775,6 +775,11 @@ Originally FOV 60, distance 551, elevation 44.2°, derived from the bounding sph
 ω 16, ζ 0.7 (1.0 under reduced motion). Cooldown 0.35–1.2 s, quiet gap 0.12 s. **None of these
 may be retuned for feel** — they are §15's accidental-warp safety case (`DECISIONS` §29).
 
+**The returning visitor's way into the intro:** `quietGrace: 6` (MEASURED — a warm-cache load is
+ready at ~3.5 s on a software GL; 3 s showed the drawing on the loads it exists to spare) ·
+`returnRevealDuration: 0.7` · `returnCollapseDuration: 0.35` (both JUDGED; the collapse only plays
+when the grace ran out and the 2D mark is on screen) (`DECISIONS.md` §51).
+
 **Earth → Murcia, after the commit:** `earthDepartureAimSeconds: 1` (JUDGED, client) — the swing
 above Spain that runs before the 1.6 s warp and is not part of it (`DECISIONS.md` §44).
 

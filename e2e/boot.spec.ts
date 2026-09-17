@@ -312,7 +312,7 @@ test('a refused consent stores nothing', async ({ page }) => {
   expect(record).toBeNull()
 })
 
-test('a returning visitor gets the loading draw, then lands without the tail', async ({ page }) => {
+test('a returning visitor never sees the loading draw, and enters at the crossover', async ({ page }) => {
   await page.addInitScript(() => {
     // Remembering the intro requires preferences consent; the shared fixture
     // refuses it, so a stored record alone must not enable the returning path.
@@ -320,15 +320,33 @@ test('a returning visitor gets the loading draw, then lands without the tail', a
       v: 2, preferences: true, analytics: false, at: '2026-01-01T00:00:00.000Z',
     }))
     window.localStorage.setItem('vertigo:intro', JSON.stringify({ v: 1, seen: true }))
+
+    // Watches from before the first paint, every frame, for the 2D mark being on
+    // screen at all. Sampling from the test would start too late to be evidence.
+    const flags = window as unknown as { __markWasSeen?: boolean }
+    flags.__markWasSeen = false
+    const watch = () => {
+      const svg = document.querySelector('svg.intro-svg')
+      if (svg && getComputedStyle(svg).visibility !== 'hidden') flags.__markWasSeen = true
+      requestAnimationFrame(watch)
+    }
+    requestAnimationFrame(watch)
   })
   await page.goto('/')
   await drawDone(page)
-  // The draw kept its floor: the returning path does not shorten the cover.
-  const drawing = await page.evaluate(() => {
-    const at = (name: string) => performance.getEntriesByName(name, 'mark')[0]?.startTime ?? NaN
-    return (at('vertigo:intro-complete') - at('vertigo:intro-visible')) / 1000
-  })
-  expect(drawing, `drawing lasted ${drawing.toFixed(2)}s`).toBeGreaterThan(2.9)
-  // No press: it lands on its own, well inside the tail's 9.7 s.
-  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 3_000 })
+  // The wait was unseen and had no floor: this load is served from the preview
+  // server on the same machine, far inside the grace after which a slow load
+  // shows the drawing after all (`DRAW_TIMING.quietGrace`).
+  // No press. It enters where the mark becomes 3D and the landing plays
+  // (DECISIONS §51). So the site is NOT there at once — no control may mount
+  // before `site` (§26.16) — and it IS there well inside the full tail's 9.7 s,
+  // because the drawing, the shrink and the warp never ran.
+  await tailStarted(page)
+  await page.waitForTimeout(1_500)
+  await expect(page.locator('.audit-trigger')).not.toBeAttached()
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 6_000 })
+  const seen = await page.evaluate(
+    () => (window as unknown as { __markWasSeen?: boolean }).__markWasSeen,
+  )
+  expect(seen, 'the 2D loading mark was on screen for a returning visitor').toBe(false)
 })

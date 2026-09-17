@@ -130,6 +130,21 @@ export const DRAW_TIMING = {
   // waiting. See plan 007 Phase 4: a timeout is not a readiness signal.
   timeoutNotice: 15.0,
 
+  // How long a RETURNING visitor's load may stay black before the drawing shows
+  // itself after all (DECISIONS §51). They are spared the drawing because a warm
+  // cache makes the wait short; when it is not short — an evicted cache, a bad
+  // connection — an empty screen is the blank page this module exists to prevent,
+  // so the mark appears, already as far along as the load really is, and the
+  // visit continues as a first one would.
+  //
+  // MEASURED 2026-09-17 against the production bundle with a warm cache: the
+  // network is done by ~1.5 s and the scene is ready at ~3.5 s, the rest being
+  // texture transcoding and shader compilation — on a software GL, so a real GPU
+  // is quicker. 3 s, the first value, sat ON that number and showed the drawing
+  // on loads it existed to spare. 6 s clears it with room for a slow device, and
+  // is still where a wait with nothing on screen stops being defensible.
+  quietGrace: 6.0,
+
   // The backstop. Reaching this DOES end the wait, as a failure (ADR 007).
   //
   // "A timeout is not a readiness signal" is still true and still the rule —

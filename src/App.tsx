@@ -212,6 +212,17 @@ export default function App() {
     if (!earthActive) setLegalDoc(null)
   }, [earthActive])
 
+  // Whether this browser has landed here before (DECISIONS §51). Read once per
+  // page: the record is what this browser knew when the page opened. It decides
+  // which way IN the intro takes — a returning visitor enters at the crossover,
+  // after the loading draw has played in full.
+  //
+  // The boot entry has usually answered already, because the drawing had to know
+  // before it drew; its answer wins, so the drawing and the timeline agree.
+  const [introSeenAtBoot] = useState(
+    () => window.__vertigoIntro?.returning ?? (hasConsent('preferences') && readIntroSeen()),
+  )
+
   const { phase, timeline } = useMasterTimeline({
     intro,
     config,
@@ -225,6 +236,7 @@ export default function App() {
     // table here costs a few dozen bytes; importing the content would cost the
     // entry chunk every case study's prose.
     satelliteCount: orbitAssignments.length,
+    returning: introSeenAtBoot,
   })
 
   // The music waits for Earth to be whole — 'site', where the header's controls
@@ -576,18 +588,6 @@ export default function App() {
     window.addEventListener('pointerdown', onPointer)
     return () => window.removeEventListener('pointerdown', onPointer)
   }, [phase, handleSkip, earthActive, blogOpen])
-
-  // A returning visitor skips the tail (plan 025). Read once per page: the
-  // record is what this browser knew when the page opened. The loading draw
-  // still plays in full; this acts at the first tail phase after it, and only
-  // once, so the /debug replay and seeks still play the tail.
-  const [introSeenAtBoot] = useState(() => hasConsent('preferences') && readIntroSeen())
-  const autoSkippedRef = useRef(false)
-  useLayoutEffect(() => {
-    if (!canSkipTail(phase) || !introSeenAtBoot || autoSkippedRef.current) return
-    autoSkippedRef.current = true
-    handleSkip()
-  }, [phase, introSeenAtBoot, handleSkip])
 
   // The first landing is what makes the next visit a returning one — whether
   // the tail played out or was skipped — but only with the visitor's consent

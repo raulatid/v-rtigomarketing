@@ -3894,6 +3894,45 @@ refused or withdrawn one. A visitor who never consents gets the full intro every
 policy (Sanity `legalDoc` `cookies`) still describes only the consent record and not
 `vertigo:sound`; that text is the client's and their legal review's.
 
+> **AMENDED 2026-09-17 — what a returning visitor sees.** Client direction, and it reverses two
+> things above: the returning visitor no longer gets the loading draw, and no longer seeks to
+> `site`. They see ONE thing — the 3D mark at centre, its spin, its flight to the corner while the
+> orbits draw in, and the site on landing.
+>
+> The seek to `site` was a cut with nothing over it: on one commit the 2D mark vanished, the logo
+> was parked, the camera went from the star field to the planet, and the header actions, footer,
+> banner and music all arrived. The client read it as the site appearing "de golpe". The reasoning
+> above still holds — the tail covers nothing on a second visit — but what a second visit has no
+> use for is the drawing, the shrink and the warp; the landing is the part that says where they are.
+>
+> - **The wait is unseen** (`quiet`, `intro-draw/introDraw.ts`). Every required resource is still
+>   waited for — quiet changes what is SEEN while waiting, never what is waited for — but the mark
+>   stays hidden and the wait ends the moment the scene is ready, with **no 3 s floor**: there is
+>   nothing on screen for a floor to protect. This retires the "draw shorter than its floor" clause
+>   below for returning visitors, deliberately.
+> - **It is not a promise.** Past `DRAW_TIMING.quietGrace` (6 s), or on a fatal load, the drawing
+>   shows itself, as far along as the load really is, and the visit continues with its floor. An
+>   evicted cache must not become the blank page ADR 007 exists to prevent. Measured the same
+>   day on the production bundle with a warm cache: network done at ~1.5 s, scene ready at ~3.5 s
+>   (texture transcoding and shader compilation, on a software GL). The first grace, 3 s, sat on
+>   that number and showed the drawing on exactly the loads it was there to spare.
+> - **The decision is made in the boot entry** (`intro-draw/returningVisitor.ts`), because the
+>   drawing has to know before it draws, and handed to the app on `window.__vertigoIntro.returning`
+>   the way `reducedMotion` is: one snapshot per document. The boot entry cannot import
+>   `app/consent` or `app/introSeen`, so it restates the two record shapes read-only, and
+>   `returningVisitor.test.ts` holds it to the owners' answers on the same storage.
+> - **Then the timeline enters at the crossover** (`useMasterTimeline`, `returning`): the draw is
+>   hidden and the 3D mark starts on one tick, under a black cover that fades the planet up behind
+>   it (`returnRevealDuration`, 0.7 s, written to `swapOverlay`); then `corner`, `orbits` and
+>   `site` exactly as on a first visit, placed at the LOGO's times rather than appended after the
+>   fade, because the logo spins and flies on its own clock. If the grace ran out and the 2D mark IS
+>   on screen, it first collapses through zero (`returnCollapseDuration`, 0.35 s) rather than
+>   vanishing. A variant of the timeline, like reduced motion's, not a seek — a seek to `swap`
+>   leaves stars becoming a planet between two uncovered frames.
+> - Only the first build takes it, so a replay and `/debug` still reach every phase. A press and
+>   Escape still seek to `site`, from inside it too. Reduced motion still lands at `site` directly,
+>   now without the drawing either.
+
 **Not chosen:** controls arriving during the tail (§26.16 stands) and shorter holds (the timeline's
 one-focal-thing-at-a-time choice stands). **Withdrawn:** pacing the tail by what is still loading —
 measured, it would pace by nothing.
@@ -3901,7 +3940,12 @@ measured, it would pace by nothing.
 **Broken when:** a press during the draw lands the site; a pointer press at `site` re-seeks (the
 parked logo jolts); a returning visitor's draw is shorter than its floor; `vertigo:intro` is
 written without an accepted consent, or survives a refusal; or the storage read throws instead of
-reading "not seen".
+reading "not seen". Since 2026-09-17 also: a returning visitor sees the 2D mark on a load inside the
+grace (`e2e/boot.spec.ts`), or the planet appear uncovered; a quiet wait ends before readiness, or
+stays black past its grace or over a fatal load (`introDraw.quiet.test.ts`); any control mounts
+before `site` on that path; a skip out of the fade leaves the cover up
+(`useMasterTimeline.test.tsx`); or the boot entry and `app/consent` disagree about who is
+returning (`returningVisitor.test.ts`).
 
 ## 52. A service's figure draws what its copy argues, and the plate names it
 

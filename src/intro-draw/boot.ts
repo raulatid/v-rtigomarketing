@@ -7,6 +7,7 @@
 import { createIntroDraw, IntroDrawHandle } from './introDraw'
 import { bootState, BootState, Readiness, REQUIRED_IDS } from './bootState'
 import { DRAW_TIMING } from './drawConfig'
+import { isReturningVisitor } from './returningVisitor'
 
 // Inline build constant keeps the boot entry independent of shared chunks.
 // In dev this entry can run before Vite's client installs the define on window.
@@ -16,6 +17,12 @@ declare const __VERTIGO_ENV__: string | undefined
 export interface VertigoIntro {
   /** Document motion snapshot handed to the application without importing boot. */
   readonly reducedMotion: boolean
+  /**
+   * This browser has landed here before, with consent to remember it. Decided
+   * here because the drawing has to know before it draws; handed to the
+   * application the same way as the motion snapshot, so both act on one answer.
+   */
+  readonly returning: boolean
   handle: IntroDrawHandle
   boot: BootState
   /** Resolves the first time the fill completes. Replays use subscribeComplete. */
@@ -57,6 +64,12 @@ function boot(): VertigoIntro {
   mark('vertigo:boot-start')
   const startedAt = performance.now()
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  let returning = false
+  try {
+    returning = isReturningVisitor(window.localStorage)
+  } catch {
+    // A browser blocking site data throws on the accessor itself. First visit.
+  }
 
   let markComplete: () => void = () => {}
   const completed = new Promise<void>((resolve) => {
@@ -85,11 +98,15 @@ function boot(): VertigoIntro {
       )
     },
     reducedMotion,
+    // A returning visitor waits unseen and goes straight to the 3D mark.
+    quiet: returning,
   })
 
   // First visible frame of the drawing, for the waterfall record.
+  // Not for a returning visitor: their wait is unseen, so there is no such frame
+  // to record, and a mark here would put a drawing in the waterfall that nobody saw.
   requestAnimationFrame(() => {
-    if (!sawVisible) {
+    if (!sawVisible && !returning) {
       sawVisible = true
       mark('vertigo:intro-visible')
     }
@@ -141,7 +158,7 @@ function boot(): VertigoIntro {
     }
   }
 
-  return { reducedMotion, handle, boot: bootState, completed, waitedTooLong: () => waited }
+  return { reducedMotion, returning, handle, boot: bootState, completed, waitedTooLong: () => waited }
 }
 
 // Idempotent: if the app chunk somehow evaluates this first, it still gets the

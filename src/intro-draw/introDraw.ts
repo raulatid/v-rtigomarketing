@@ -144,6 +144,18 @@ export interface IntroDrawOptions {
   onTimeoutNotice?: () => void
   reducedMotion?: boolean
   /**
+   * Wait for readiness WITHOUT showing the drawing: the mark stays hidden, and
+   * the wait ends the moment the scene is ready, with no minimum duration —
+   * there is nothing on screen for a minimum to protect. For a returning
+   * visitor, who goes straight to the 3D mark (DECISIONS §51).
+   *
+   * Not a promise. Past `DRAW_TIMING.quietGrace`, or on a fatal load, the
+   * drawing shows itself and everything below applies again, floor included.
+   * Readiness still gates the ending either way: quiet changes what is SEEN
+   * while waiting, never what is waited for.
+   */
+  quiet?: boolean
+  /**
    * Pulse the leading dot while the playhead is stalled, so a wait never reads
    * as a crash. Works from the first frame — it does not depend on the dot
    * having been drawn yet (plan 007 Phase 2).
@@ -173,6 +185,11 @@ export interface IntroDrawHandle {
   /** P2 warp's faked motion blur. */
   setWarp(blurPx: number, stretch: number): void
   setVisible(visible: boolean): void
+  /**
+   * Whether the mark is on screen. False after a quiet wait that stayed quiet,
+   * which is how the timeline knows there is no 2D mark to collapse.
+   */
+  isVisible(): boolean
   /** Debug seek / reduced motion: jump to the finished mark. */
   snapToEnd(): void
   /**
@@ -394,6 +411,8 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   let done = false
   let tracing = false
   const trace: Array<[number, number, number, number]> = []
+  /** Still waiting unseen. Cleared for good the first time the mark is shown. */
+  let quiet = options.quiet === true
 
   const playheadLimits = () => ({
     minimumDuration: DRAW_TIMING.minimumDuration,
@@ -430,6 +449,23 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   // nothing, and the clock picks up where it left off. Same reasoning as the
   // visibilitychange guards on the master timeline and the warp — this module
   // simply cannot borrow theirs, since it has no GSAP and no React.
+  /**
+   * The quiet wait's two ways out, shared by both loops. Returns true when the
+   * wait is over and the caller must stop.
+   */
+  function stepQuiet(elapsed: number, readiness: Readiness): boolean {
+    if (readiness === 'ready') {
+      finish()
+      return true
+    }
+    // Out of patience, or something to say: the drawing takes over from here.
+    if (readiness === 'fatal' || elapsed > DRAW_TIMING.quietGrace) {
+      quiet = false
+      svg.style.visibility = 'visible'
+    }
+    return false
+  }
+
   let resumed = false
   const onVisibility = () => {
     if (!doc.hidden) resumed = true
@@ -451,6 +487,14 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     current = f.visual
     holding = f.holding
     apply(current)
+
+    // Unseen, so nothing below — the pulse, the notice, the caption — has
+    // anything to say yet. The playhead keeps running underneath, which is what
+    // lets a drawing that does appear start where the load really is.
+    if (quiet) {
+      if (stepQuiet(f.elapsed, readiness)) return
+      if (quiet) return
+    }
 
     // ── Anti-dead-frame (plan 007 Phase 2) ──
     // Deliberately NOT gated on dotAlpha: that was false at exactly the state
@@ -526,6 +570,7 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   applyIsoOffset()
   measureEdges()
   apply(0)
+  if (quiet) svg.style.visibility = 'hidden'
 
   if (options.reducedMotion) {
     // No stroke-by-stroke build — but the fill invariant still holds, and it
@@ -546,10 +591,15 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       const raw = lastNow && !resumed ? (now - lastNow) / 1000 : 0
       resumed = false
       lastNow = now
-      const f = playhead.step(raw, 1, options.getReadiness())
+      const readiness = options.getReadiness()
+      const f = playhead.step(raw, 1, readiness)
       // Skip straight to the outline; only the ending is animated.
       current = Math.max(timeline.preReadyLimit, f.visual)
       apply(current)
+      if (quiet) {
+        if (stepQuiet(f.elapsed, readiness)) return
+        if (quiet) return
+      }
       if (f.done) finish()
     }
     raf = requestAnimationFrame(poll)
@@ -579,7 +629,10 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       svg.style.filter = blurPx > 0 ? `blur(${blurPx.toFixed(2)}px)` : ''
       svg.style.setProperty('--intro-warp', String(1 + stretch))
     },
+    isVisible: () => svg.style.visibility !== 'hidden',
     setVisible(visible) {
+      // Anyone showing the mark by hand has ended the quiet wait's claim on it.
+      if (visible) quiet = false
       svg.style.visibility = visible ? 'visible' : 'hidden'
       // The caption belongs to the drawing, so a seek that hides one hides both.
       if (!visible) caption.classList.remove('is-visible')
@@ -617,6 +670,8 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       noticed = false
       holding = false
       done = false
+      // A replay is asked for by someone who wants to SEE it.
+      quiet = false
       trace.length = 0
       svg.style.removeProperty('--intro-scale')
       svg.style.removeProperty('--intro-warp')

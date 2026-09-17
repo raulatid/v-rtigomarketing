@@ -57,6 +57,15 @@ export interface IntroConfig extends DrawConfig {
   swapFlashStrength: number
   swapFlashWidth: number
 
+  // ── The returning visitor's way in (DECISIONS §51) ──
+  // They enter AT the crossover: no drawing, no shrink, no warp. The planet
+  // cannot simply appear, so it fades up from black behind the 3D mark as it
+  // blooms. And on the rare load slow enough that the drawing DID show itself
+  // (`DRAW_TIMING.quietGrace`), that 2D mark cannot simply vanish either, so it
+  // collapses through zero first. Seconds.
+  returnCollapseDuration: number
+  returnRevealDuration: number
+
   // ── P4 corner ──
   spinPauseBefore: number
   spinDuration: number
@@ -240,6 +249,13 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   // A gentle 280ms dip centred on the substitution, rather than a short blink.
   swapFlashStrength: 0.16,
   swapFlashWidth: 0.2,
+
+  // About the real crossover's own collapse (swapDuration x swapCrossover = 0.32 s),
+  // which is the beat this stands in for.
+  returnCollapseDuration: 0.35,
+  // Longer than the bloom it sits over (0.39 s), on purpose: the mark should be
+  // legible before the planet behind it is, so the eye lands on it first.
+  returnRevealDuration: 0.7,
 
   spinPauseBefore: 0.15,
   spinDuration: 2.0,

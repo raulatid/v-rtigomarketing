@@ -1,9 +1,15 @@
 /**
  * Whether this browser has already watched the Earth intro land (plan 025).
  *
- * A returning visitor still gets the loading draw — it is the loading cover and
- * paces the real load — but not the ~9.7 s scripted tail after it, which covers
+ * A returning visitor is spared everything before the landing: the loading draw
+ * (their wait is unseen, `intro-draw/introDraw.ts` `quiet`), the shrink and the
+ * warp. They see the 3D mark at centre, its flight to the corner and the orbits
+ * drawing in (`useMasterTimeline`, DECISIONS §51). Most of the ~9.7 s tail covers
  * nothing on a second visit (measured 2026-09-15, plan 025).
+ *
+ * The boot entry reads this record too, before the app exists, through its own
+ * restatement of the shape (`intro-draw/returningVisitor.ts`). Change the key or
+ * the version here and `returningVisitor.test.ts` fails until that follows.
  *
  * Stored like the sound preference (`app/audio/backgroundMusic.ts`), for the
  * same reasons: a versioned record read tolerantly, so anything malformed, from
