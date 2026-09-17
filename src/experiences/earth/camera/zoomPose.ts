@@ -67,6 +67,11 @@ export function earthZoomScale(depth: number): number {
 }
 
 /** The orbit radius for a depth. The rig's `orbit.radius` and nothing else. */
-export function earthZoomRadius(depth: number): number {
-  return cfg.overviewRadius * earthZoomScale(depth)
+export function earthZoomRadius(depth: number, overviewRadius = cfg.overviewRadius): number {
+  if (overviewRadius === cfg.overviewRadius) return cfg.overviewRadius * earthZoomScale(depth)
+  const d = Number.isFinite(depth) ? THREE.MathUtils.clamp(depth, -1, 1) : 0
+  // Change the resting composition without moving either zoom endpoint or the
+  // closest approach of the committed warp.
+  const endpoint = cfg.overviewRadius * (d >= 0 ? cfg.zoomNearFactor : cfg.zoomFarFactor)
+  return THREE.MathUtils.lerp(overviewRadius, endpoint, Math.abs(d))
 }

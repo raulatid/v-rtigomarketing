@@ -4,6 +4,7 @@ import { CursorManager } from '../../../interaction/cursorManager'
 import { closeUpScreenOffset } from './closeUpFraming'
 import { satelliteAssemblyScale } from '../orbit/satelliteScale'
 import { earthZoomRadius } from './zoomPose'
+import { overviewRadiusForViewport } from './overviewPose'
 
 // Camera rig for the interactive phase, ported from earth-connections
 // (docs/extractions/003).
@@ -110,7 +111,7 @@ export function createFocusCameraRig({
    * was for the whole of `adr/009`: nothing wrote the orbit radius then, and the
    * default here is that behaviour.
    */
-  let zoomRadius = cfg.overviewRadius
+  let zoomRadius = overviewRadiusForViewport(domElement.clientWidth, domElement.clientHeight)
 
   function syncOrbitTo(position: THREE.Vector3) {
     const s = new THREE.Spherical().setFromVector3(position)
@@ -174,7 +175,7 @@ export function createFocusCameraRig({
    * rather than their own.
    */
   function setZoomDepth(depth: number) {
-    const radius = earthZoomRadius(depth)
+    const radius = earthZoomRadius(depth, overviewRadiusForViewport(domElement.clientWidth, domElement.clientHeight))
     if (radius === zoomRadius) return
     zoomRadius = radius
     overviewPosition.setLength(zoomRadius)

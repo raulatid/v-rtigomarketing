@@ -1,4 +1,13 @@
 import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
+import { isPhoneViewport } from './closeUpFraming'
+
+/** Shared by the intro landing, return warp and interactive zoom's rest point. */
+export function overviewRadiusForViewport(width: number, height: number): number {
+  const cfg = INTERACTION_CONFIG.camera
+  return !(width > 0 && height > 0) || isPhoneViewport(width, height)
+    ? cfg.overviewRadius
+    : cfg.desktopOverviewRadius
+}
 
 /**
  * The overview camera's resting point, as a position.

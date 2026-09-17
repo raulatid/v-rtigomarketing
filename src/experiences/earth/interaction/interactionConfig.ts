@@ -74,6 +74,8 @@ export const INTERACTION_CONFIG = {
     // goes 2.21 -> 2.84 against a planet of radius 2, i.e. FURTHER from the
     // surface than before, and the far end stays well inside the star shell.
     overviewRadius: 9 * R,
+    // A slightly closer desktop overview; mobile keeps the established framing.
+    desktopOverviewRadius: 8 * R,
 
     // Where on the sphere of that radius the overview camera rests, in the
     // three.js spherical convention: theta is the azimuth around +Y measured

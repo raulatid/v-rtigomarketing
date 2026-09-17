@@ -1,7 +1,7 @@
 import { prefersReducedMotion } from '../../../platform/motionPreference'
 import type { NavigationView } from '../../../interaction/navigationSignals'
 import { RefObject, useMemo, useRef } from 'react'
-import { overviewRestPosition } from './overviewPose'
+import { overviewRestPosition, overviewRadiusForViewport } from './overviewPose'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
@@ -86,7 +86,11 @@ export function CameraController({
   active,
   destinationRef,
 }: Props) {
-  const { camera } = useThree()
+  const { camera, size } = useThree()
+  const earthRest = useMemo(
+    () => overviewRestPosition(overviewRadiusForViewport(size.width, size.height)),
+    [size.width, size.height],
+  )
 
   // Warp scratch. Reused rather than allocated per frame — this runs in the
   // render loop.
@@ -159,7 +163,7 @@ export function CameraController({
       // back to the starfield rest position, shrinking the Earth to a dot for
       // the whole orbit reveal.
       const atEarth = atOrAfter(state.phase, 'swap')
-      cam.position.set(...(atEarth ? EARTH_REST : STAR_REST))
+      cam.position.set(...(atEarth ? earthRest : STAR_REST))
       cam.lookAt(atEarth ? EARTH_LOOK_AT : STAR_LOOK_AT)
       cam.fov = config.normalFov
       cam.updateProjectionMatrix()
@@ -178,7 +182,7 @@ export function CameraController({
 
     const position = firstHalf
       ? lerpVec3(STAR_REST, STAR_EXIT, localT)
-      : lerpVec3(EARTH_FAR, EARTH_REST, localT)
+      : lerpVec3(EARTH_FAR, earthRest, localT)
 
     cam.position.set(...position)
     cam.lookAt(firstHalf ? STAR_LOOK_AT : EARTH_LOOK_AT)
@@ -215,7 +219,7 @@ export function CameraController({
 
     if (!dollyCaptured.current) {
       if (departing) dollyAnchor.current.copy(cam.position)
-      else dollyAnchor.current.set(...EARTH_REST)
+      else dollyAnchor.current.set(...earthRest)
       // Captured beside the anchor and for the same reason: this is the pose the
       // cinematic is taking OVER from, and the lens is part of a pose.
       fovAtCommit.current = cam.fov
