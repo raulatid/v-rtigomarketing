@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveCameraPose, type EnvironmentConfig } from './environmentConfig'
+import { resolveCameraPose, resolveZoomFar, type EnvironmentConfig } from './environmentConfig'
 import { murciaConfig } from './murciaConfig'
 
 describe('resolveCameraPose', () => {
@@ -8,11 +8,23 @@ describe('resolveCameraPose', () => {
   })
 
   it('returns the landscape pose at every aspect while there are no overrides', () => {
-    // murciaConfig ships cameraPortraitOverrides: null, so the portrait branch
-    // is unreachable today. Asserted so a future override cannot land silently.
-    expect(murciaConfig.cameraPortraitOverrides).toBeNull()
+    const withoutOverrides: EnvironmentConfig = { ...murciaConfig, cameraPortraitOverrides: null }
     for (const aspect of [0.4, 0.5, 0.85, 1, 2.5, 3.56]) {
-      expect(resolveCameraPose(murciaConfig, aspect)).toEqual(murciaConfig.camera)
+      expect(resolveCameraPose(withoutOverrides, aspect)).toEqual(murciaConfig.camera)
+    }
+  })
+
+  it('ships a portrait pose that differs from landscape in distance alone, and outward', () => {
+    // 2026-09-17: a vertical fov crops a portrait viewport to a sliver of the
+    // landscape frame, so portrait rests further out. Pinned to DISTANCE so a
+    // second overridden term cannot land silently — fov in particular grows
+    // the footprint for free, which is the one thing the skirt cannot absorb.
+    expect(Object.keys(murciaConfig.cameraPortraitOverrides ?? {})).toEqual(['distance'])
+    expect(resolveCameraPose(murciaConfig, 0.5).distance).toBeGreaterThan(
+      murciaConfig.camera.distance,
+    )
+    for (const aspect of [0.85, 1, 16 / 9, 2.5, 3.56]) {
+      expect(resolveCameraPose(murciaConfig, aspect)).toBe(murciaConfig.camera)
     }
   })
 
@@ -56,6 +68,37 @@ describe('resolveCameraPose', () => {
       cameraPortraitOverrides: { distance: 220 },
     }
     expect(resolveCameraPose(withOverrides, 0.5)).not.toBe(withOverrides.camera)
+  })
+})
+
+describe('resolveZoomFar', () => {
+  const landscapeFar = {
+    distance: murciaConfig.zoomFarDistance,
+    elevationDegrees: murciaConfig.zoomFarElevationDegrees,
+  }
+
+  it('returns the configured far end at every aspect while there are no overrides', () => {
+    const withoutOverrides: EnvironmentConfig = { ...murciaConfig, zoomFarPortraitOverrides: null }
+    for (const aspect of [0.4, 0.5, 0.85, 1, 3.56]) {
+      expect(resolveZoomFar(withoutOverrides, aspect)).toEqual(landscapeFar)
+    }
+  })
+
+  it('switches on the same threshold as the pose, so rest and far never disagree', () => {
+    const threshold = murciaConfig.portraitAspectThreshold
+    expect(resolveZoomFar(murciaConfig, threshold - 0.01)).toEqual(
+      murciaConfig.zoomFarPortraitOverrides,
+    )
+    expect(resolveZoomFar(murciaConfig, threshold)).toEqual(landscapeFar)
+  })
+
+  it('keeps the shipped portrait far end outward of portrait rest and inward of the departure', () => {
+    const rest = resolveCameraPose(murciaConfig, 0.5)
+    const far = resolveZoomFar(murciaConfig, 0.5)
+    expect(far.distance).toBeGreaterThan(rest.distance)
+    expect(far.elevationDegrees).toBeGreaterThan(rest.elevationDegrees)
+    expect(far.distance).toBeLessThan(murciaConfig.warpDepartDistance)
+    expect(far.elevationDegrees).toBeLessThan(murciaConfig.warpDepartElevationDegrees)
   })
 })
 

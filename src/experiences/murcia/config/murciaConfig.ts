@@ -306,7 +306,26 @@ export const murciaConfig: EnvironmentConfig = {
     far: 3500,
   },
 
-  cameraPortraitOverrides: null,
+  // ── Portrait rests further out, 2026-09-17 ──
+  //
+  // CLIENT DIRECTION: on a phone the arrival sat too close. The cause is the
+  // lens, not the pose: `fov` is vertical, so a 390x844 viewport keeps the
+  // landscape frame's height and about a quarter of its width (~16 deg across
+  // against ~58 at 16:9). The same 285 units that compose the city on a desktop
+  // show a few facades on a phone.
+  //
+  // Distance only. FOV is the knob this file refuses everywhere (it grows the
+  // footprint for free, see `zoomPose.ts`), and the pitch is a fixed constant.
+  // Keyed on ASPECT rather than on a phone predicate because aspect is the
+  // mechanism: a phone held in landscape has the desktop's composition and keeps
+  // the desktop's pose, and the landscape path returns `camera` by identity, so
+  // nothing a wide viewport sees has moved.
+  //
+  // Portrait is the aspect with the most skirt in hand, so further out is the
+  // cheap direction here — but `check:footprint` and `check:warp` sweep portrait
+  // at THIS pose rather than trusting that, and both ends of the zoom band move
+  // with it (`zoomNearScale` by construction, `zoomFarPortraitOverrides` below).
+  cameraPortraitOverrides: { distance: 370 },
   portraitAspectThreshold: 0.85,
 
   // ── The drag's own feel no longer lives here ──
@@ -587,6 +606,12 @@ export const murciaConfig: EnvironmentConfig = {
   // `check:footprint`.
   zoomFarDistance: 400,
   zoomFarElevationDegrees: 55,
+  // Portrait rests at 370 (`cameraPortraitOverrides`), which would leave 30
+  // units of zoom-out against a far end of 400 — an outward half that does
+  // nothing. 450 @ 58 keeps roughly the landscape band's proportion, continues
+  // the same rising arc, and stays inward of `warpDepart*` (470 @ 66) on both
+  // terms, which `check:warp` §7 asserts per aspect.
+  zoomFarPortraitOverrides: { distance: 450, elevationDegrees: 58 },
 
   // Zooming IN keeps the resting pitch and only shortens the distance, because
   // nothing has to be paid for: flying in shrinks the footprint.

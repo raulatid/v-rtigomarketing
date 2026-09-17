@@ -88,7 +88,10 @@ import {
 import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { terrainVisualBounds } from '../src/experiences/murcia/environment/createTerrainTransition';
 import type { BoundsRect } from '../src/experiences/murcia/config/environmentConfig';
-import { resolveCameraPose } from '../src/experiences/murcia/config/environmentConfig';
+import {
+  resolveCameraPose,
+  resolveZoomFar,
+} from '../src/experiences/murcia/config/environmentConfig';
 
 import { banner, check, finish, section } from './lib/assert';
 
@@ -96,11 +99,29 @@ import { banner, check, finish, section } from './lib/assert';
 const nav = murciaConfig.navigation;
 const flight = murciaConfig.focusFlight;
 
-// The pose a viewport actually resolves to, not the configured literal. They are the
-// same today because `cameraPortraitOverrides` is null, and reading it through the
-// resolver is what makes this check keep telling the truth on the day it is not.
-const restPose = resolveCameraPose(murciaConfig, 16 / 9);
-const zoomBand = murciaZoomTargets(murciaConfig, restPose);
+// 3.56 is 5120x1440, the binding case the skirt was sized against. Azimuth
+// steps of 5 rather than warp-transition's 15 because azimuth is the binding
+// term here — the worst case sits near yaw 30, which a coarser sweep steps over.
+const ASPECTS: Array<[string, number]> = [
+  ['16:9', 16 / 9],
+  ['21:9', 21 / 9],
+  ['5120x1440', 5120 / 1440],
+  ['portrait', 0.5],
+];
+
+// The pose a viewport actually resolves to, not the configured literal. They stopped
+// being the same on 2026-09-17, when portrait got its own rest and its own far end —
+// so both are resolved PER ASPECT, and every sweep below measures an aspect at the
+// band that aspect really has rather than at the landscape one.
+function bandFor(aspect: number) {
+  const restPose = resolveCameraPose(murciaConfig, aspect);
+  return {
+    restPose,
+    zoomBand: murciaZoomTargets(murciaConfig, restPose, resolveZoomFar(murciaConfig, aspect)),
+  };
+}
+// Resolved once per aspect rather than once per sample: section 2 asks half a million times.
+const BANDS = new Map(ASPECTS.map(([, aspect]) => [aspect, bandFor(aspect)]));
 
 banner('Ground footprint — no reachable pose may out-reach the skirt');
 
@@ -114,56 +135,52 @@ check(
     'the direction that spends skirt margin and the reason this file exists',
 );
 
-check(
-  'the zoom band brackets rest, out one way and in the other',
-  zoomBand.nearDistance < restPose.distance && zoomBand.farDistance > restPose.distance,
-  `${zoomBand.nearDistance.toFixed(1)} .. ${restPose.distance} .. ${zoomBand.farDistance} — ` +
-    'a band that did not straddle rest would leave the viewer unable to get back to the pose ' +
-    'the city was composed for',
-);
+// Once per distinct band: the three wide aspects share one, portrait has its own.
+for (const [bandName, bandAspect] of [['landscape', 16 / 9], ['portrait', 0.5]] as const) {
+  const { restPose, zoomBand } = bandFor(bandAspect);
 
-// THE reason the far end is reachable at all, and the reason it is still asserted now
-// that reach is clamped rather than measured: the rise is also what takes the horizon
-// back OUT of frame on the way out. At 19 deg the resting frustum passes the horizon;
-// at 55 deg no ground edge enters it at any aspect or yaw. So zooming out puts the lid
-// back on the view, and a far end that receded without rising would take it off.
-check(
-  'the far end rises as it recedes',
-  zoomBand.farElevation > zoomBand.restElevation,
-  `${zoomBand.restElevation} deg -> ${zoomBand.farElevation} deg over ` +
-    `${(zoomBand.farDistance - restPose.distance).toFixed(1)} extra units — pulling back at the ` +
-    'resting pitch would leave the horizon in frame all the way out, and on wide viewports ' +
-    'would reach the edge of the filler city with it',
-);
+  check(
+    `${bandName}: the zoom band brackets rest, out one way and in the other`,
+    zoomBand.nearDistance < restPose.distance && zoomBand.farDistance > restPose.distance,
+    `${zoomBand.nearDistance.toFixed(1)} .. ${restPose.distance} .. ${zoomBand.farDistance} — ` +
+      'a band that did not straddle rest would leave the viewer unable to get back to the pose ' +
+      'the city was composed for',
+  );
 
-// Below roughly 60 units the fixed lookAtHeight tilts the camera up faster than
-// the shorter distance narrows the view, and the footprint starts GROWING again
-// as the camera flies in. That would silently invert the direction this whole check
-// assumes is safe.
-//
-// Measured at the compound minimum, which is a real place: zoom fully in, then open
-// a district. The two floors multiply, and neither one alone would find this.
-const closestDistance = zoomBand.nearDistance * flight.minDistanceScale;
-check(
-  'the closest approach stays above the footprint inversion floor',
-  closestDistance > 60,
-  `${closestDistance.toFixed(1)} units (floor ~60) — full zoom-in then a district flight, so the ` +
-    'two floors compound; below this the fixed lookAtHeight widens the footprint again and ' +
-    'flying IN stops being the safe direction',
-);
+  // THE reason the far end is reachable at all, and the reason it is still asserted now
+  // that reach is clamped rather than measured: the rise is also what takes the horizon
+  // back OUT of frame on the way out. At 19 deg the resting frustum passes the horizon;
+  // at 55 deg no ground edge enters it at any aspect or yaw. So zooming out puts the lid
+  // back on the view, and a far end that receded without rising would take it off.
+  check(
+    `${bandName}: the far end rises as it recedes`,
+    zoomBand.farElevation > zoomBand.restElevation,
+    `${zoomBand.restElevation} deg -> ${zoomBand.farElevation} deg over ` +
+      `${(zoomBand.farDistance - restPose.distance).toFixed(1)} extra units — pulling back at the ` +
+      'resting pitch would leave the horizon in frame all the way out, and on wide viewports ' +
+      'would reach the edge of the filler city with it',
+  );
+
+  // Below roughly 60 units the fixed lookAtHeight tilts the camera up faster than
+  // the shorter distance narrows the view, and the footprint starts GROWING again
+  // as the camera flies in. That would silently invert the direction this whole check
+  // assumes is safe.
+  //
+  // Measured at the compound minimum, which is a real place: zoom fully in, then open
+  // a district. The two floors multiply, and neither one alone would find this.
+  const closestDistance = zoomBand.nearDistance * flight.minDistanceScale;
+  check(
+    `${bandName}: the closest approach stays above the footprint inversion floor`,
+    closestDistance > 60,
+    `${closestDistance.toFixed(1)} units (floor ~60) — full zoom-in then a district flight, so the ` +
+      'two floors compound; below this the fixed lookAtHeight widens the footprint again and ' +
+      'flying IN stops being the safe direction',
+  );
+}
 
 // ---------------------------------------------------------------------------
 section('2. The whole plate stays navigable at every reachable pose');
 
-// 3.56 is 5120x1440, the binding case the skirt was sized against. Azimuth
-// steps of 5 rather than warp-transition's 15 because azimuth is the binding
-// term here — the worst case sits near yaw 30, which a coarser sweep steps over.
-const ASPECTS: Array<[string, number]> = [
-  ['16:9', 16 / 9],
-  ['21:9', 21 / 9],
-  ['5120x1440', 5120 / 1440],
-  ['portrait', 0.5],
-];
 const YAW_STEP = 5;
 // Coarser per axis than the single axis this replaced, because the grid is now the
 // PRODUCT of two. The fine resolution moved to section 3, which sweeps each axis on
@@ -189,7 +206,8 @@ const focus = new THREE.Vector3();
  * `CameraRig.getEffectivePose`, and it matters — a flight scales the ZOOMED distance,
  * not the configured one, so the two multiply rather than one overriding the other.
  */
-function poseFor(depth: number, scale: number) {
+function poseFor(depth: number, scale: number, aspect: number) {
+  const { restPose, zoomBand } = BANDS.get(aspect) ?? bandFor(aspect);
   const zoomed = murciaZoomPose(zoomBand, depth);
   return scalePoseDistance(
     { ...restPose, distance: zoomed.distance, elevationDegrees: zoomed.elevationDegrees },
@@ -205,7 +223,7 @@ function footprintAt(
   at: THREE.Vector3,
 ): GroundFootprint {
   camera.aspect = aspect;
-  applyPoseToCamera(camera, poseFor(depth, scale), at, yaw);
+  applyPoseToCamera(camera, poseFor(depth, scale, aspect), at, yaw);
   return computeGroundFootprint(camera, at, nav.groundPlaneHeight, nav.maxGroundDistance);
 }
 
@@ -274,7 +292,7 @@ for (const [aspectName, aspect] of ASPECTS) {
           const f = footprintAt(depth, scale, aspect, yaw, focus);
           samples++;
 
-          const pose = poseFor(depth, scale);
+          const pose = poseFor(depth, scale, aspect);
           const label =
             `${aspectName} yaw ${yaw} zoom ${depth.toFixed(2)} flight ${scale.toFixed(3)} ` +
             `(d=${pose.distance.toFixed(1)} e=${pose.elevationDegrees.toFixed(1)})`;
@@ -464,7 +482,7 @@ if (groundRect) {
           ]) {
             focus.set(cx, 0, cz);
             camera.aspect = aspect;
-            applyPoseToCamera(camera, poseFor(depth, scale), focus, yaw);
+            applyPoseToCamera(camera, poseFor(depth, scale, aspect), focus, yaw);
 
             const margin = Math.min(
               camera.position.x - skirtOuter.minX,
@@ -505,8 +523,8 @@ if (groundRect) {
 
   check(
     'the far plane clears the furthest skirt corner the camera can be from',
-    restPose.far > furthestSkirtCorner,
-    `far ${restPose.far} vs ${furthestSkirtCorner.toFixed(1)} units to the furthest corner — ` +
+    murciaConfig.camera.far > furthestSkirtCorner,
+    `far ${murciaConfig.camera.far} vs ${furthestSkirtCorner.toFixed(1)} units to the furthest corner — ` +
       'short of this the skirt is clipped, which reads as a moving line of background ' +
       'across the ground rather than as a distance',
   );

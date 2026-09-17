@@ -260,6 +260,12 @@ export type LightmapConfig = {
   baseUrl: string;
 } & ({ manifest: string } | { assetsManifest: string; groundManifest: string });
 
+/** Depth +1 of the zoom band: the furthest, highest pose a viewer may park at. */
+export interface ZoomFarConfig {
+  distance: number;
+  elevationDegrees: number;
+}
+
 export interface EnvironmentConfig {
   id: string;
   modelPath: string;
@@ -323,6 +329,16 @@ export interface EnvironmentConfig {
    */
   zoomFarDistance: number;
   zoomFarElevationDegrees: number;
+  /**
+   * The far end for viewports below `portraitAspectThreshold`, or null for one
+   * far end at every aspect.
+   *
+   * Exists because the far end is an absolute distance while the near end is a
+   * scale: a portrait rest that moves out would otherwise close on a far end
+   * that stayed put, and the outward half of the band would have nothing left
+   * to buy. Bound by the same two rules as the pair above.
+   */
+  zoomFarPortraitOverrides: ZoomFarConfig | null;
 
   /**
    * The near end of the zoom band, at depth -1, as a multiple of the resting
@@ -357,4 +373,15 @@ export function resolveCameraPose(
     return env.camera;
   }
   return { ...env.camera, ...env.cameraPortraitOverrides };
+}
+
+/** Resolves the zoom band's far end for a viewport, on the same threshold as the pose. */
+export function resolveZoomFar(env: EnvironmentConfig, aspect: number): ZoomFarConfig {
+  if (env.zoomFarPortraitOverrides === null || aspect >= env.portraitAspectThreshold) {
+    return {
+      distance: env.zoomFarDistance,
+      elevationDegrees: env.zoomFarElevationDegrees,
+    };
+  }
+  return env.zoomFarPortraitOverrides;
 }

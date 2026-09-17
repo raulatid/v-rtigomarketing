@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 
-import type { CameraPoseConfig, EnvironmentConfig } from '../config/environmentConfig';
+import type {
+  CameraPoseConfig,
+  EnvironmentConfig,
+  ZoomFarConfig,
+} from '../config/environmentConfig';
 
 /**
  * Where Murcia's camera goes for a given zoom depth.
@@ -56,17 +60,21 @@ export interface MurciaZoomPose {
  * pose the viewport actually produced — so a portrait override moves both ends
  * of the band with it instead of leaving the near end measured against a
  * distance nobody is at.
+ *
+ * The far end is absolute, so it cannot follow the pose that way: the caller
+ * resolves it for the same viewport (`resolveZoomFar`) and hands it in.
  */
 export function murciaZoomTargets(
   env: EnvironmentConfig,
   rest: CameraPoseConfig,
+  far: ZoomFarConfig,
 ): MurciaZoomTargets {
   return {
     restDistance: rest.distance,
     restElevation: rest.elevationDegrees,
     nearDistance: rest.distance * env.zoomNearScale,
-    farDistance: env.zoomFarDistance,
-    farElevation: env.zoomFarElevationDegrees,
+    farDistance: far.distance,
+    farElevation: far.elevationDegrees,
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { applyNavigationQueryOverrides } from './environmentQueryOverrides';
 import { murciaConfig } from './murciaConfig';
+import { resolveCameraPose, resolveZoomFar } from './environmentConfig';
 
 // The parser logs on every recognised override and warns on every rejected one.
 // Silenced so a passing run is quiet; the warn calls are asserted where they
@@ -94,6 +95,30 @@ describe('a lone parameter is not swallowed', () => {
     // pointer types, in `camera/cameraTuning.ts`, with no query surface yet.
   ])('?%s survives on its own', (query, read, expected) => {
     expect(read(apply(`?${query}`))).toBe(expected);
+  });
+});
+
+describe('a named term is the pose at every aspect', () => {
+  // The portrait overrides are spread OVER `camera` when the pose is resolved,
+  // so a parameter that only reached `camera` would do nothing on a phone —
+  // the one viewport the portrait pose is judged on.
+  it('?dist= reaches a portrait viewport too', () => {
+    const next = apply('?dist=333');
+    expect(resolveCameraPose(next, 0.5).distance).toBe(333);
+    expect(resolveCameraPose(next, 16 / 9).distance).toBe(333);
+  });
+
+  it('?zoomFar= and ?zoomFarElev= reach the portrait far end too', () => {
+    const next = apply('?zoomFar=444&zoomFarElev=61');
+    expect(resolveZoomFar(next, 0.5)).toEqual({ distance: 444, elevationDegrees: 61 });
+  });
+
+  it('leaves the portrait terms nobody named alone', () => {
+    const next = apply('?azimuth=42');
+    expect(resolveCameraPose(next, 0.5).distance).toBe(
+      resolveCameraPose(murciaConfig, 0.5).distance,
+    );
+    expect(resolveZoomFar(next, 0.5)).toEqual(resolveZoomFar(murciaConfig, 0.5));
   });
 });
 

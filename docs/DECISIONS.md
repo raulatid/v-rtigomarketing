@@ -1251,6 +1251,13 @@ full azimuth sweep against the terrain skirt (§5 of `PROJECT_MEMORY`, "a much l
 looks") and having a person judge a new composition. Named as an architectural issue rather than
 patched, which is what the audit brief asked for.
 
+> **Closed 2026-09-17.** Portrait now rests at 370 (`cameraPortraitOverrides: { distance }`) with
+> its own zoom far end, 450 @ 58 (`zoomFarPortraitOverrides`, resolved by `resolveZoomFar` on the
+> same threshold). Distance only — fov and pitch are untouched, and every aspect at or above
+> `portraitAspectThreshold` still gets `camera` by identity. `check:footprint` and `check:warp`
+> resolve rest and band per aspect now, so portrait is swept at the pose it really has. The
+> reasoning is in `murciaConfig.ts` beside the two fields.
+
 **How you would know it broke.** `check:navigation` §12 fails. Or `.case-panel` gains a width
 without `closeUpFraming.ts` being touched. Or an Earth texture URL appears outside
 `EARTH_TEXTURES`, which is how the preloads and the loader silently start disagreeing and every

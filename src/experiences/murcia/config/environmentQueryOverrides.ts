@@ -179,6 +179,29 @@ export function applyNavigationQueryOverrides(
       far: farPlane ?? env.camera.far,
       azimuthDegrees: azimuth ?? env.camera.azimuthDegrees,
     },
+    // A term named in the URL is the pose at EVERY aspect. Left alone, the
+    // portrait overrides would be spread over it in `resolveCameraPose` and
+    // `?dist=` would silently do nothing on exactly the phone it is being
+    // judged on.
+    cameraPortraitOverrides:
+      env.cameraPortraitOverrides === null
+        ? null
+        : {
+            ...env.cameraPortraitOverrides,
+            ...(elevation !== null && { elevationDegrees: elevation }),
+            ...(distance !== null && { distance }),
+            ...(fov !== null && { fov }),
+            ...(lookAt !== null && { lookAtHeight: lookAt }),
+            ...(farPlane !== null && { far: farPlane }),
+            ...(azimuth !== null && { azimuthDegrees: azimuth }),
+          },
+    zoomFarPortraitOverrides:
+      env.zoomFarPortraitOverrides === null
+        ? null
+        : {
+            distance: zoomFar ?? env.zoomFarPortraitOverrides.distance,
+            elevationDegrees: zoomFarElev ?? env.zoomFarPortraitOverrides.elevationDegrees,
+          },
     initialFocus: {
       ...env.initialFocus,
       x: focusX ?? env.initialFocus.x,

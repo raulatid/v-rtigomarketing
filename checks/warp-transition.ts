@@ -51,7 +51,10 @@ import {
 import { earthZoomRadius, earthZoomScale } from '../src/experiences/earth/camera/zoomPose';
 import { EARTH_CONFIG } from '../src/experiences/earth/config/earthConfig';
 import { INTERACTION_CONFIG } from '../src/experiences/earth/interaction/interactionConfig';
-import { resolveCameraPose } from '../src/experiences/murcia/config/environmentConfig';
+import {
+  resolveCameraPose,
+  resolveZoomFar,
+} from '../src/experiences/murcia/config/environmentConfig';
 import {
   applyPoseToCamera,
   scalePoseDistance,
@@ -406,14 +409,22 @@ for (const scale of FLIGHT_SCALES) {
       for (const depth of ZOOM_DEPTHS) {
         // Exactly what MurciaExperience.applyRigPose builds: the zoom resolves a
         // pose, and the warp's rest end IS that pose.
+        const rest = resolveCameraPose(murciaConfig, aspect);
         const zoomed = murciaZoomPose(
-          murciaZoomTargets(murciaConfig, resolveCameraPose(murciaConfig, aspect)),
+          murciaZoomTargets(murciaConfig, rest, resolveZoomFar(murciaConfig, aspect)),
           depth,
         );
         const zoomedTargets: MurciaWarpTargets = {
           ...targets,
           restDistance: zoomed.distance,
           restElevation: zoomed.elevationDegrees,
+        };
+        // The rest an ARRIVAL settles out to is the viewport's own — portrait
+        // lands further out than `targets` says, and that is the pose to measure.
+        const arrivalTargets: MurciaWarpTargets = {
+          ...targets,
+          restDistance: rest.distance,
+          restElevation: rest.elevationDegrees,
         };
 
         for (let i = 0; i <= FOOTPRINT_STEPS; i++) {
@@ -425,7 +436,7 @@ for (const scale of FLIGHT_SCALES) {
           // happen and would hide the case that can.
           const pose = departing
             ? murciaDeparturePose(zoomedTargets, amount)
-            : murciaWarpPose(targets, amount, departing);
+            : murciaWarpPose(arrivalTargets, amount, departing);
           const f = footprintAt(pose, aspect, yaw, scale);
           poses++;
 
@@ -544,84 +555,93 @@ for (let i = 0; i <= 40; i++) zoomDepths.push(-1 + (2 * i) / 40);
 
 // ── Murcia: one arc, three regions ──
 
-const murciaRest = resolveCameraPose(murciaConfig, 16 / 9);
-const murciaBand = murciaZoomTargets(murciaConfig, murciaRest);
+// Once per distinct band. Portrait rests further out and has its own far end
+// (2026-09-17), and each of the properties below is one a second band could
+// break on its own — the far end passing the departure most of all.
+for (const [bandName, bandAspect] of [['landscape', 16 / 9], ['portrait', 0.5]] as const) {
+  const murciaRest = resolveCameraPose(murciaConfig, bandAspect);
+  const murciaBand = murciaZoomTargets(
+    murciaConfig,
+    murciaRest,
+    resolveZoomFar(murciaConfig, bandAspect),
+  );
 
-check(
-  'zooming out is a rise, not a pull-back',
-  murciaBand.farDistance > murciaBand.restDistance &&
-    murciaBand.farElevation > murciaBand.restElevation,
-  `rest ${murciaBand.restDistance} @ ${murciaBand.restElevation} deg -> far ` +
-    `${murciaBand.farDistance} @ ${murciaBand.farElevation} deg — extra distance without ` +
-    'extra elevation is unpaid for (ADR 006), and this end is a pose a viewer can PARK at',
-);
-check(
-  'zooming in keeps the resting pitch',
-  murciaBand.nearDistance < murciaBand.restDistance,
-  `near ${murciaBand.nearDistance.toFixed(1)} — flying in shrinks the footprint, so it has ` +
-    'nothing to pay for and nothing to change',
-);
-// The near end WAS asserted to equal the district flight floor exactly, on the
-// grounds that a closer one would need its own footprint measurement. It has one
-// now (`adr/015`): the reuse made a full pinch-in worth x1.43 and the client
-// reported the inward half as not working, so the two were separated and swept.
-//
-// What replaces the equality is the margin, because that is what the equality
-// was really buying. `check:footprint` owns the absolute gate at the compound
-// minimum — zoom fully in, then open a district — and this asserts that the
-// chosen value is not sitting hard against it. The sweep put the cliff between
-// 0.35 and 0.30; anything that leaves less than a quarter of the floor in hand
-// is a value someone tightened without re-measuring.
-const compoundClosest = murciaBand.nearDistance * murciaConfig.focusFlight.minDistanceScale;
-check(
-  'the near end is measured, and keeps its margin over the inversion floor',
-  murciaBand.nearDistance < murciaRest.distance * murciaConfig.focusFlight.minDistanceScale &&
-    compoundClosest > 60 * 1.25,
-  `${murciaBand.nearDistance.toFixed(1)} near, ${compoundClosest.toFixed(1)} compound against a ` +
-    '~60 floor — inward of the flight floor because the viewer may put themselves closer than a ' +
-    'flight will dolly them, and clear of the cliff by more than a rounding error',
-);
+  check(
+    `${bandName}: zooming out is a rise, not a pull-back`,
+    murciaBand.farDistance > murciaBand.restDistance &&
+      murciaBand.farElevation > murciaBand.restElevation,
+    `rest ${murciaBand.restDistance} @ ${murciaBand.restElevation} deg -> far ` +
+      `${murciaBand.farDistance} @ ${murciaBand.farElevation} deg — extra distance without ` +
+      'extra elevation is unpaid for (ADR 006), and this end is a pose a viewer can PARK at',
+  );
+  check(
+    `${bandName}: zooming in keeps the resting pitch`,
+    murciaBand.nearDistance < murciaBand.restDistance,
+    `near ${murciaBand.nearDistance.toFixed(1)} — flying in shrinks the footprint, so it has ` +
+      'nothing to pay for and nothing to change',
+  );
+  // The near end WAS asserted to equal the district flight floor exactly, on the
+  // grounds that a closer one would need its own footprint measurement. It has one
+  // now (`adr/015`): the reuse made a full pinch-in worth x1.43 and the client
+  // reported the inward half as not working, so the two were separated and swept.
+  //
+  // What replaces the equality is the margin, because that is what the equality
+  // was really buying. `check:footprint` owns the absolute gate at the compound
+  // minimum — zoom fully in, then open a district — and this asserts that the
+  // chosen value is not sitting hard against it. The sweep put the cliff between
+  // 0.35 and 0.30; anything that leaves less than a quarter of the floor in hand
+  // is a value someone tightened without re-measuring.
+  const compoundClosest = murciaBand.nearDistance * murciaConfig.focusFlight.minDistanceScale;
+  check(
+    `${bandName}: the near end is measured, and keeps its margin over the inversion floor`,
+    murciaBand.nearDistance < murciaRest.distance * murciaConfig.focusFlight.minDistanceScale &&
+      compoundClosest > 60 * 1.25,
+    `${murciaBand.nearDistance.toFixed(1)} near, ${compoundClosest.toFixed(1)} compound against a ` +
+      '~60 floor — inward of the flight floor because the viewer may put themselves closer than a ' +
+      'flight will dolly them, and clear of the cliff by more than a rounding error',
+  );
 
-// THE continuity assertion. The departure has to lie BEYOND the far end of the
-// zoom along the same arc, or a warp committed from full zoom-out opens by
-// moving back toward the city the viewer is leaving.
-check(
-  'the departure continues the zoom-out rather than reversing it',
-  murciaConfig.warpDepartDistance > murciaBand.farDistance &&
-    murciaConfig.warpDepartElevationDegrees > murciaBand.farElevation,
-  `zoom reaches ${murciaBand.farDistance} @ ${murciaBand.farElevation} deg and the warp ` +
-    `departs to ${murciaConfig.warpDepartDistance} @ ${murciaConfig.warpDepartElevationDegrees} deg`,
-);
+  // THE continuity assertion. The departure has to lie BEYOND the far end of the
+  // zoom along the same arc, or a warp committed from full zoom-out opens by
+  // moving back toward the city the viewer is leaving.
+  check(
+    `${bandName}: the departure continues the zoom-out rather than reversing it`,
+    murciaConfig.warpDepartDistance > murciaBand.farDistance &&
+      murciaConfig.warpDepartElevationDegrees > murciaBand.farElevation,
+    `zoom reaches ${murciaBand.farDistance} @ ${murciaBand.farElevation} deg and the warp ` +
+      `departs to ${murciaConfig.warpDepartDistance} @ ${murciaConfig.warpDepartElevationDegrees} deg`,
+  );
 
-// And the same thing stated as motion rather than as two numbers: from EVERY
-// depth in the band, the first thing the cinematic does is keep going.
-let murciaReversedAt: number | null = null;
-let murciaWorstStep = Infinity;
-for (const depth of zoomDepths) {
-  const zoomed = murciaZoomPose(murciaBand, depth);
-  const departTargets: MurciaWarpTargets = {
-    ...targets,
-    restDistance: zoomed.distance,
-    restElevation: zoomed.elevationDegrees,
-  };
-  let previous = zoomed.distance;
-  for (let i = 1; i <= 100; i++) {
-    const { amount } = dollyAmount((WARP_TRANSITION.cut * i) / 100, WARP_LIMITS);
-    const step = murciaDeparturePose(departTargets, amount).distance - previous;
-    if (step < -1e-9 && murciaReversedAt === null) murciaReversedAt = depth;
-    if (step < murciaWorstStep) murciaWorstStep = step;
-    previous += step;
+  // And the same thing stated as motion rather than as two numbers: from EVERY
+  // depth in the band, the first thing the cinematic does is keep going.
+  let murciaReversedAt: number | null = null;
+  let murciaWorstStep = Infinity;
+  for (const depth of zoomDepths) {
+    const zoomed = murciaZoomPose(murciaBand, depth);
+    const departTargets: MurciaWarpTargets = {
+      ...targets,
+      restDistance: zoomed.distance,
+      restElevation: zoomed.elevationDegrees,
+    };
+    let previous = zoomed.distance;
+    for (let i = 1; i <= 100; i++) {
+      const { amount } = dollyAmount((WARP_TRANSITION.cut * i) / 100, WARP_LIMITS);
+      const step = murciaDeparturePose(departTargets, amount).distance - previous;
+      if (step < -1e-9 && murciaReversedAt === null) murciaReversedAt = depth;
+      if (step < murciaWorstStep) murciaWorstStep = step;
+      previous += step;
+    }
   }
+  check(
+    `${bandName}: and does so from every depth in the band, not merely from the ends`,
+    murciaReversedAt === null,
+    murciaReversedAt === null
+      ? `the departing distance never decreases from any of ${zoomDepths.length} depths ` +
+        `(smallest step ${murciaWorstStep.toFixed(4)})`
+      : `committing from depth ${murciaReversedAt} moves the camera back IN — the viewer ` +
+        'pushed away from the city and the transition answered by approaching it',
+  );
 }
-check(
-  'and does so from every depth in the band, not merely from the ends',
-  murciaReversedAt === null,
-  murciaReversedAt === null
-    ? `the departing distance never decreases from any of ${zoomDepths.length} depths ` +
-      `(smallest step ${murciaWorstStep.toFixed(4)})`
-    : `committing from depth ${murciaReversedAt} moves the camera back IN — the viewer ` +
-      'pushed away from the city and the transition answered by approaching it',
-);
 
 check(
   'a commit from rest still departs, so the keyboard route is not a special case',

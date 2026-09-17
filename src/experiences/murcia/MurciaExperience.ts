@@ -5,7 +5,7 @@ import { createAppConfig, applyQueryOverrides } from './config/appConfig';
 import type { AppConfig } from './config/appConfig';
 import { murciaConfig } from './config/murciaConfig';
 import type { BoundsRect, CameraPoseConfig, EnvironmentConfig } from './config/environmentConfig';
-import { resolveCameraPose } from './config/environmentConfig';
+import { resolveCameraPose, resolveZoomFar } from './config/environmentConfig';
 import { applyNavigationQueryOverrides } from './config/environmentQueryOverrides';
 import { createScene } from './core/createScene';
 import type { SceneBundle } from './core/createScene';
@@ -17,6 +17,7 @@ import type { LoadedCity } from './assets/loadCity';
 import { CameraRig } from './camera/CameraRig';
 import { murciaWarpPose } from './camera/warpPose';
 import { murciaZoomPose, murciaZoomTargets } from './camera/zoomPose';
+import type { MurciaZoomTargets } from './camera/zoomPose';
 import { createCameraInput } from './navigation/createCameraInput';
 import type { CameraInput } from './navigation/createCameraInput';
 import { createDefaultCameraTuning } from './camera/cameraTuning';
@@ -497,6 +498,16 @@ export class MurciaExperience {
     this.publishZoomTargets(immediate);
   }
 
+  /** The zoom band for the viewport as it is now: rest and far end both resolve by aspect. */
+  private zoomBand(): MurciaZoomTargets {
+    const aspect = this.viewport.aspect;
+    return murciaZoomTargets(
+      this.environment,
+      resolveCameraPose(this.environment, aspect),
+      resolveZoomFar(this.environment, aspect),
+    );
+  }
+
   /**
    * Hands the band's depth to the rig as a radius and an elevation.
    *
@@ -506,11 +517,17 @@ export class MurciaExperience {
    */
   private publishZoomTargets(immediate = false): void {
     if (!this.rig) return;
-    const rest = resolveCameraPose(this.environment, this.viewport.aspect);
-    const zoomed = murciaZoomPose(
-      murciaZoomTargets(this.environment, rest),
-      this.zoomDepth,
-    );
+    const band = this.zoomBand();
+    // The rig clamps every zoom target to the tuning's radius range, and that
+    // range was derived once, at load, from the pose the viewport had THEN. A
+    // phone rotated across `portraitAspectThreshold` has a different band, so
+    // the clamp follows it here or the rig would cut the new band short at the
+    // old one's ends.
+    if (this.cameraTuning) {
+      this.cameraTuning.minRadius = band.nearDistance;
+      this.cameraTuning.maxRadius = band.farDistance;
+    }
+    const zoomed = murciaZoomPose(band, this.zoomDepth);
     this.rig.setTargetZoom(Math.log(zoomed.distance), immediate);
     this.rig.setTargetPitch(zoomed.elevationDegrees, immediate);
   }
@@ -531,11 +548,7 @@ export class MurciaExperience {
    */
   private applyWarpPose(): void {
     if (!this.rig) return;
-    const rest = resolveCameraPose(this.environment, this.viewport.aspect);
-    const zoomed = murciaZoomPose(
-      murciaZoomTargets(this.environment, rest),
-      this.zoomDepth,
-    );
+    const zoomed = murciaZoomPose(this.zoomBand(), this.zoomDepth);
     const pose = murciaWarpPose(
       {
         restDistance: zoomed.distance,
