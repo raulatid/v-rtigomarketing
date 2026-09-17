@@ -35,7 +35,10 @@
  */
 import * as THREE from 'three';
 import { createFocusCameraRig } from '../src/experiences/earth/camera/createFocusCameraRig';
-import { overviewRestPosition } from '../src/experiences/earth/camera/overviewPose';
+import {
+  overviewRadiusForViewport,
+  overviewRestPosition,
+} from '../src/experiences/earth/camera/overviewPose';
 import { INTERACTION_CONFIG } from '../src/experiences/earth/interaction/interactionConfig';
 import { createCursorManager } from '../src/interaction/cursorManager';
 import { EARTH_CONFIG } from '../src/experiences/earth/config/earthConfig';
@@ -45,7 +48,6 @@ import type { StubElement } from './lib/stubDom';
 
 const cfg = INTERACTION_CONFIG.camera;
 const R = EARTH_CONFIG.radius;
-const OVERVIEW_RADIUS = cfg.overviewRadius;
 // The real rest pose, angles included, so the harness drags from where the
 // viewer actually starts rather than from the z axis it used to assume.
 const OVERVIEW_POSE: [number, number, number] = overviewRestPosition();
@@ -54,6 +56,10 @@ const REST_AZIMUTH = Math.atan2(OVERVIEW_POSE[0], OVERVIEW_POSE[2]);
 
 const WIDTH = 1920;
 const HEIGHT = 1080;
+// The radius the rig rests at FOR THIS VIEWPORT, through the resolver the rig itself
+// uses. `cfg.overviewRadius` stopped being that for a desktop canvas when desktop got
+// a closer overview of its own, and a literal here went on asserting the phone's.
+const OVERVIEW_RADIUS = overviewRadiusForViewport(WIDTH, HEIGHT);
 const DEG = 180 / Math.PI;
 
 // Pixels of horizontal drag that request one radian of yaw. The rig applies
