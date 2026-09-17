@@ -48,16 +48,29 @@ export const WARP_TRANSITION = {
    * orbit position rather than assuming the default.
    */
   earthCloseFactor: 0.25,
+  /**
+   * The closest the dolly may bring the camera to the Earth's centre, in world
+   * units, whatever radius it departs from. 2.84 is the pose the cut has always
+   * landed on (the old near end of the zoom, 11.34, times `earthCloseFactor`),
+   * against a planet of radius 2.
+   *
+   * A FLOOR because `earthCloseFactor` alone made the zoom's near end a function
+   * of it: the viewer could not be let closer than four times the cut, or the
+   * dive went through the surface before the flash closed. With the floor the
+   * zoom may go as deep as the satellites and the dive from there is simply
+   * shorter. `zoomPose.test.ts` asserts it clears the planet.
+   */
+  earthMinDollyRadius: 2.84,
 
   /**
-   * Where the third stage of Earth's band begins. Past this depth the same
-   * scroll that zooms also swings the camera onto the destination, so the
-   * viewer arrives aimed at Spain rather than at whatever they happened to be
-   * looking at. Below it the orbit is entirely free.
+   * Seconds the camera takes to swing above the destination AFTER the commit and
+   * BEFORE `duration` starts counting. The dolly below is radial and never
+   * re-orbits, so a departure from the far side of the planet would dive through
+   * it; this phase is what guarantees every departure begins over Spain. It
+   * replaced a zoom-driven steer, which had to lock the orbit for most of the
+   * band to win its race against a fast gesture. A fixed phase has no race.
    */
-  earthGuideStart: 0.35,
-  /** Finish steering before the zoom ends, leaving travel for the camera to settle. */
-  earthGuideEnd: 0.8,
+  earthDepartureAimSeconds: 1,
 
   // ─── Murcia leg ───
 
@@ -168,8 +181,6 @@ export interface WarpLimits {
   flashWidth: number
   motionBlurStrength: number
   earthCloseFactor: number
-  earthGuideStart: number
-  earthGuideEnd: number
   earthWarpFov: number
   murciaVacuumStart: number
   vacuumDistortAmount: number
@@ -187,8 +198,6 @@ export function createDefaultWarpLimits(): WarpLimits {
     flashWidth: WARP_TRANSITION.flashWidth,
     motionBlurStrength: WARP_TRANSITION.motionBlurStrength,
     earthCloseFactor: WARP_TRANSITION.earthCloseFactor,
-    earthGuideStart: WARP_TRANSITION.earthGuideStart,
-    earthGuideEnd: WARP_TRANSITION.earthGuideEnd,
     earthWarpFov: WARP_TRANSITION.earthWarpFov,
     murciaVacuumStart: WARP_TRANSITION.murciaVacuumStart,
     vacuumDistortAmount: WARP_TRANSITION.vacuumDistortAmount,
@@ -277,6 +286,21 @@ export function flash(p: number, limits: WarpLimits): number {
 /** Earth's FOV surge. Returns to the resting FOV at both ends on its own. */
 export function earthFov(p: number, limits: WarpLimits): number {
   return lerp(WARP_TRANSITION.earthRestFov, limits.earthWarpFov, speed(p, limits))
+}
+
+/**
+ * Earth's camera radius during the warp, from the radius it departed at.
+ *
+ * `earthRadiusScale` applied to the anchor, except that the closest point never
+ * goes below `earthMinDollyRadius` — nor ABOVE the anchor, so a camera already
+ * inside the floor holds its radius rather than being pushed back out.
+ */
+export function earthDollyRadius(anchorRadius: number, amount: number, limits: WarpLimits): number {
+  const closest = Math.min(
+    anchorRadius,
+    Math.max(anchorRadius * limits.earthCloseFactor, WARP_TRANSITION.earthMinDollyRadius),
+  )
+  return lerp(anchorRadius, closest, amount)
 }
 
 /** Scale applied to Earth's camera radius: 1 at rest, earthCloseFactor at the cut. */

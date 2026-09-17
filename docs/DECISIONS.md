@@ -3366,6 +3366,12 @@ Suppressed under `prefers-reduced-motion` by HOLDING AT ZERO rather than
 resetting. The cursor lean is suppressed for the same reason: both are involuntary
 motion applied to the viewer.
 
+> **RETIRED 2026-09-17 — the next two paragraphs.** The zoom-driven steer, the approach lock
+> and the held commit are gone; see "Earth swings above Spain AFTER the commit" below. They are
+> kept because the defects they record are the ones a replacement must not reintroduce. (The
+> threshold had also drifted: this text says 0.6, the code had said 0.35 since 2026-09-16, with
+> an `earthGuideEnd` of 0.8 and an `approachLerpK` of 12 that were never written down here.)
+
 **Earth gained a zone to dive at.** Past `earthGuideStart` (0.6) the same scroll
 that zooms also turns the globe toward the destination, so a viewer who pushes all
 the way arrives facing Spain.
@@ -3410,6 +3416,55 @@ the camera, and the frame the zoom reaches its end, the transition fires. The
 accidental-warp guarantee is the band itself — 1200 px, at least ten capped events. If the
 camera is still gliding onto Spain when the band ends, the commit is held and goes by
 itself as the glide lands.
+
+**Earth swings above Spain AFTER the commit, and the viewer looks freely until then**
+(2026-09-17, client direction). The band had two thresholds and so three zones — zoom and
+orbit, zoom only, commit — and the middle one read as the controls being taken away for most
+of the way in. It is gone: the orbit takes a drag and the satellites take a click at every
+depth, and arriving at the end of the band commits from wherever the camera is
+(`commitAtBandEnd`, unchanged).
+
+What the zone was FOR has not gone anywhere: `applyWarp` dollies along the radius it finds the
+camera on and never re-orbits, so a departure from the far side of the planet dives through
+it. The steer guaranteed the alignment BEFORE the commit and had a race to win against a fast
+gesture, which is why it needed both a lock and a held commit. The alignment now happens after
+the commit, as a phase of fixed length (`WARP_TRANSITION.earthDepartureAimSeconds`, 1 s) that
+`useExperienceTransition` runs ahead of the cinematic. A fixed phase has no race, so
+`NavigationContext.mayCommit`, the hold in `createNavigationInput`, `setApproachLock`,
+`approachLerpK`, `earthGuideStart/End` and `destinationSteer.ts` were all deleted with it.
+
+- **It is not part of the cinematic.** `transitionCommitted` stays false for its length: Earth's
+  own rig turns the camera (`departureAim.ts` resolves the orbit, the rig places it), so the
+  dolly departs from an orbit the rig actually holds and there is still one camera writer. The
+  signal is `NavigationSignals.departureAim`, 0..1 or null. The warp's duration is untouched.
+- **Input is already locked**, because the phase starts after `machine.commit()`; the rig's
+  drag has its own lock (`setDepartureLock`) for the same second. `transitioning` is true from
+  the swing's first frame, which is what the DOM reads.
+- **The orbit is placed without the rig's ease** (`setOrbitAnglesImmediate`). Eased again it
+  would trail its clock and finish short of Spain — the same lag that made the old gate
+  necessary. The clock also rests at exactly 1 for one frame before handing over, because its
+  last running value is always a frame short of it.
+- **The destination is read live**, and its azimuth is unwrapped against the previous frame's
+  rather than re-resolved from the start, so a goal near half a turn away cannot flip sides
+  mid-swing as the globe spins.
+- **The accessible control gets it too.** It was never held, so a keyboard commit from the far
+  side used to dive through the planet. It is the same transition now.
+- **Skipped under reduced motion.** That preference already removes the dolly, so there is no
+  planet to dive through, and a globe swinging half a turn is the motion it asks not to see.
+
+**And the band ends at the satellites' height** (same day, client direction): the commit read
+as too far from the planet. `zoomNearFactor` was pinned at 0.63 (11.34 units) by the warp, whose
+dolly was a bare `earthCloseFactor` of the departure radius — any nearer and the dive went
+through the surface before the flash closed. The dolly now has a floor
+(`earthDollyRadius`, `earthMinDollyRadius: 2.84`, the pose the cut has always landed on), which
+frees the near end; it is derived from the outermost of `ORBIT_PRESETS` (3.84 units), so it
+follows the satellites. From far out the dolly is unchanged, so the arrival from Murcia and a
+commit from rest are what they were. The band is still linear in RADIUS over its 1200 px, so
+the on-screen growth is now x4.69 rather than x1.59 and most of it lands in the last third.
+
+How you would know it broke: `departureContinuity.test.ts` (the real rig, a spinning globe, a
+commit from the far side, 30/60/120 fps) stops landing within 0.01° of the destination, or
+`useExperienceTransition.test.tsx` sees `transitionCommitted` during the swing.
 
 **A compass.** A hairline across the bottom of the frame with a pin per place
 worth clicking. Complementary to the beacons rather than a replacement: a beacon

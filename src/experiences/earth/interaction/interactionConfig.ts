@@ -1,4 +1,5 @@
 import { EARTH_CONFIG } from '../config/earthConfig'
+import { ORBIT_PRESETS } from '../orbit/orbitConfig'
 
 // Tuning for the interactive phase, ported from earth-connections'
 // satelliteFocusConfig.js (see docs/extractions/003).
@@ -13,9 +14,6 @@ export const INTERACTION_CONFIG = {
   camera: {
     // Exponential lerp constant: ~95% of the distance covered in ~1s.
     lerpK: 3,
-    // Guided turns must catch up while the radial zoom is still moving.
-    // ~95% in 250ms; free orbit and satellite flights keep their existing ease.
-    approachLerpK: 12,
     // Below this distance to its target the camera counts as arrived.
     arrivalEpsilon: 0.005 * R,
     // Manual spherical orbit (this replaces OrbitControls — see extraction §1).
@@ -73,6 +71,8 @@ export const INTERACTION_CONFIG = {
     // this reason), so the zoom now spans 11.34 .. 18 .. 28.29. Closest approach
     // goes 2.21 -> 2.84 against a planet of radius 2, i.e. FURTHER from the
     // surface than before, and the far end stays well inside the star shell.
+    // (The near end has since left 11.34 for the satellites' height — see
+    // `zoomNearFactor` below — and the closest approach is a floor now, not a product.)
     overviewRadius: 9 * R,
     // A slightly closer desktop overview; mobile keeps the established framing.
     desktopOverviewRadius: 8 * R,
@@ -97,7 +97,15 @@ export const INTERACTION_CONFIG = {
     //
     // Factors rather than radii, so they follow `overviewRadius` if it is ever
     // retuned. `camera/zoomPose.ts` carries the reasoning for both.
-    zoomNearFactor: 0.63,
+    //
+    // The near end is the OUTERMOST SATELLITE ORBIT (2026-09-17, client direction):
+    // the zoom ends — and Earth leaves for Murcia — with the camera at the height
+    // the satellites fly at. Derived from `ORBIT_PRESETS` so it follows them; their radii
+    // are in Earth-radius-1 units, hence the `R`. It was 0.63 (11.34 units) while
+    // the warp's dolly was a bare factor of the departure radius and the near end
+    // could not be closer than four times the cut; `earthMinDollyRadius` is what
+    // released it.
+    zoomNearFactor: (Math.max(...ORBIT_PRESETS.map((orbit) => orbit.radius)) * R) / (9 * R),
     zoomFarFactor: 11 / 7,
   },
 

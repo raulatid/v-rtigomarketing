@@ -4,6 +4,7 @@ import {
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
+  earthDollyRadius,
   earthRadiusScale,
   flash,
   motionBlur,
@@ -120,6 +121,26 @@ describe('the Earth leg returns to rest on its own', () => {
       WARP_TRANSITION.earthCloseFactor,
       6,
     )
+  })
+})
+
+describe('earthDollyRadius', () => {
+  const floor = WARP_TRANSITION.earthMinDollyRadius
+
+  it('is the bare factor from far out, where the floor is not in play', () => {
+    // Arriving from Murcia and committing from rest both start out here, and
+    // neither may change because the zoom's near end moved.
+    expect(earthDollyRadius(18, 1, WARP_LIMITS)).toBeCloseTo(18 * WARP_TRANSITION.earthCloseFactor, 9)
+    expect(earthDollyRadius(18, 0, WARP_LIMITS)).toBe(18)
+  })
+
+  it('stops at the floor from close in, instead of diving through the surface', () => {
+    expect(earthDollyRadius(3.84, 1, WARP_LIMITS)).toBe(floor)
+    expect(earthDollyRadius(3.84, 0.5, WARP_LIMITS)).toBeCloseTo((3.84 + floor) / 2, 9)
+  })
+
+  it('never pushes a camera already inside the floor back OUT', () => {
+    expect(earthDollyRadius(2.5, 1, WARP_LIMITS)).toBe(2.5)
   })
 })
 

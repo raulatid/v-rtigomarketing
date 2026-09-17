@@ -21,7 +21,7 @@ import {
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
-  earthRadiusScale,
+  earthDollyRadius,
   speed,
 } from '../../../utils/warpTransition'
 
@@ -232,14 +232,14 @@ export function CameraController({
     if (reducedMotion) return
 
     const radius = dollyAnchor.current.length()
-    cam.position.copy(dollyAnchor.current).setLength(radius * earthRadiusScale(amount, WARP_LIMITS))
+    cam.position.copy(dollyAnchor.current).setLength(earthDollyRadius(radius, amount, WARP_LIMITS))
 
     // THE AIM: the bell alone, both ways.
     //
     // Departing, `speed(0)` is exactly 0, so the first committed frame looks at
     // the sphere's centre — which is exactly where the rig was looking, because
-    // the Spain steer turns the rig's ORBIT rather than overriding its aim. A
-    // viewer who zoomed all the way in is already facing the zone along that
+    // the departure swing turns the rig's ORBIT rather than overriding its aim
+    // (`departureAim.ts`). It has just left the camera above the zone along that
     // same line, and the dive swings onto the destination as the bell rises.
     // Arriving, the bell falls 1 -> 0, so the camera emerges looking at the zone
     // and opens out to the whole globe.

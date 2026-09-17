@@ -75,32 +75,19 @@ export interface NavigationContext {
    */
   releaseFocus?: (() => void) | null
   /**
-   * Whether the world is ready for a commit. Absent means yes.
-   *
-   * Not a refusal. The band fills and the push arms exactly as usual; a push that
-   * reaches the commit while this is false is HELD — the accumulator stays full
-   * and does not decay — and the transition starts by itself on the first frame
-   * it turns true, with no further input. Zooming back out, or anything that
-   * refuses navigation, lets go of it. Read live, like `canNavigate`.
-   *
-   * Earth holds it false until the camera is above the destination, so the
-   * transition always leaves from over Spain and one gesture always suffices
-   * (DECISIONS §44). The accessible control commits outright and is not held:
-   * someone navigating by keyboard has no zoom with which to line anything up.
-   */
-  mayCommit?: boolean
-  /**
    * Reaching the END of the zoom band commits, with no push stage after it.
    * Absent means no: the band parks at its limit and a further push against it
    * commits (`adr/014`), which is how Murcia is left.
    *
-   * Earth sets it (DECISIONS §44). Past the steer threshold the zoom is already
-   * an approach — the camera is turning onto Spain and nothing else responds —
-   * so arriving at the end of it is the whole request, and a push stage after it
-   * read as the world freezing in front of Spain until another input. The
-   * accidental-warp guarantee is the band itself: 1200 px, at least ten capped
-   * events. With `mayCommit`, arriving before the camera is over Spain holds the
-   * commit, and it goes by itself as the camera lands.
+   * Earth sets it (DECISIONS §44). A push stage after the band read as the world
+   * freezing in front of Spain until another input, so arriving at the end of
+   * the zoom is the whole request. The accidental-warp guarantee is the band
+   * itself: 1200 px, at least ten capped events.
+   *
+   * Nothing waits for the camera to be anywhere. A commit used to be HELD until
+   * Earth's camera was above the destination; the transition now swings it there
+   * itself, after the commit (`useExperienceTransition`), so the input layer has
+   * no notion of the world being "ready".
    */
   commitAtBandEnd?: boolean
 }
@@ -350,10 +337,9 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
 
     if (travelPx >= 0) {
       const overflowPx = band.push(travelPx)
-      // Where the world commits at the band's limit, arriving there IS the commit:
-      // the frame loop takes it from here, and holds it if the world is not ready.
-      // Nothing is banked in the accumulator then, because there is no push stage
-      // for it to count.
+      // Where the world commits at the band's limit, arriving there IS the commit,
+      // and the frame loop takes it from here. Nothing is banked in the accumulator
+      // then, because there is no push stage for it to count.
       if (commitAtBandEnd && band.depth >= SATURATED_DEPTH) bandEndReached = true
       // A gesture that may not commit still fills the band; what it may not do
       // is spend the remainder. Zero rather than skipping the push, because the
@@ -379,12 +365,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   /** Last reported approach, so an unchanged frame costs no callback. */
   let reportedApproach = 0
 
-  /**
-   * A commit reached while the world was not ready for it
-   * (`NavigationContext.mayCommit`), waiting rather than lost — and where it came
-   * from, because the two sources are let go of differently. See the frame loop.
-   */
-  let heldCommit: 'accumulator' | 'band' | null = null
   /** Set by `pushTravel` when a `commitAtBandEnd` world's band reached its limit. */
   let bandEndReached = false
 
@@ -446,35 +426,19 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
 
     const f = gesture.step(dt, t)
 
-    // ── A commit the world is not ready for is HELD (DECISIONS §44) ──
-    //
-    // The accumulator already holds itself: once committed it stays full, takes
-    // no more travel and never decays, so a held commit needs no state beyond
-    // this flag. It goes on the first frame the world is ready, with no further
-    // input — one pinch or one scroll must always suffice — and it is let go if
-    // the accumulator was emptied meanwhile (a tab hide, a reset), or if the band
-    // is no longer at its limit: travel away from the other world unzooms the
-    // band without draining a committed accumulator, so that is how "the viewer
-    // changed their mind" arrives here. With `mayCommit` absent it commits on the
-    // frame it is reached, exactly as it always has.
-    //
     // Two things reach a commit: the accumulator filling (the push against the
     // band's limit), and — where the world asks for it — the band itself arriving
-    // at its limit (`commitAtBandEnd`). An accumulator commit is let go if the
-    // accumulator was emptied meanwhile; both are let go if the band has left its
-    // limit.
-    if (f.committed) heldCommit = 'accumulator'
-    else if (bandEndReached && heldCommit === null) heldCommit = 'band'
+    // at its limit (`commitAtBandEnd`). Either goes on the frame it is reached.
+    //
+    // Both are ABANDONED if the band has left its limit by then. Events arrive
+    // between frames, and travel away from the other world unzooms the band
+    // without draining a committed accumulator — so that is how "the viewer
+    // changed their mind" inside one frame arrives here.
+    const reached = f.committed || bandEndReached
     bandEndReached = false
-    if (heldCommit === 'accumulator' && gesture.state().travelPx < gestureLimits.commitDistancePx) {
-      heldCommit = null
-    }
-    const abandoned = heldCommit !== null && band.depth < SATURATED_DEPTH
-    const waiting =
-      heldCommit !== null && !abandoned && context.canNavigate && context.mayCommit === false
+    const abandoned = reached && band.depth < SATURATED_DEPTH
 
-    if (heldCommit !== null && !waiting) {
-      heldCommit = null
+    if (reached) {
       const intent = abandoned ? null : machine.commit(context.current)
       if (intent && context.canNavigate) {
         // Reset BEFORE handing over: the transition swaps the scene, and travel
@@ -503,9 +467,9 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
         return
       }
       // The commit was refused or abandoned — a stale scene, attention moved to a
-      // POI, or the viewer zoomed back out of a held commit. Drop it and start
-      // over rather
-      // than leaving a full accumulator primed to fire on the next pixel.
+      // POI, or the viewer zoomed back out within the frame. Drop it and start
+      // over rather than leaving a full accumulator primed to fire on the next
+      // pixel.
       machine.reset()
       gesture.reset()
     } else if (f.active) {
@@ -543,14 +507,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // Keep running while there is anything left to advance — including a spring
     // still settling after the accumulator has stopped. Stopping here is what
     // makes an idle session cost nothing.
-    // And while a commit is held: a band-end commit leaves the accumulator empty,
-    // so nothing else would keep the loop alive to see the world become ready.
-    if (
-      f.active ||
-      machine.phase !== 'idle' ||
-      !spring.settled(f.progress) ||
-      heldCommit !== null
-    ) {
+    if (f.active || machine.phase !== 'idle' || !spring.settled(f.progress)) {
       ensureRunning()
     }
   }

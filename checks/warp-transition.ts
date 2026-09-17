@@ -32,6 +32,7 @@ import {
   WARP_TRANSITION,
   dollyAmount,
   earthFov,
+  earthDollyRadius,
   earthRadiusScale,
   flash,
   motionBlur,
@@ -667,19 +668,28 @@ check(
 );
 
 // Earth's continuity is structural rather than tuned: `applyWarp` captures
-// `cam.position` and multiplies it, so the cinematic is relative to the zoom by
-// construction. What has to be checked is where that composition ENDS.
-const earthClosest = earthZoomRadius(1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount, WARP_LIMITS);
+// `cam.position` and dollies from it, so the cinematic is relative to the zoom by
+// construction. What has to be checked is where that composition ENDS — through
+// `earthDollyRadius`, the function the camera actually uses, because the floor in
+// it is what lets the zoom end as deep as the satellites (2026-09-17).
+const cutAmount = dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount;
+const earthClosest = earthDollyRadius(earthZoomRadius(1), cutAmount, WARP_LIMITS);
 check(
   'a commit from full zoom-in still stops outside the planet',
   earthClosest > EARTH_CONFIG.radius,
-  `closest approach ${earthClosest.toFixed(2)} against a planet of radius ${EARTH_CONFIG.radius} — ` +
-    'the dolly multiplies whatever radius the viewer left, so the zoom and the warp compound',
+  `closest approach ${earthClosest.toFixed(2)} from ${earthZoomRadius(1).toFixed(2)} against a planet ` +
+    `of radius ${EARTH_CONFIG.radius} — the dolly's floor holds it, not the zoom's near end`,
+);
+check(
+  'and it is still an approach, not a hold: the dive moves inward from the near end',
+  earthClosest < earthZoomRadius(1),
+  `${earthZoomRadius(1).toFixed(2)} -> ${earthClosest.toFixed(2)} — a near end at or inside the floor would ` +
+    'leave the warp with no dolly at all',
 );
 check(
   'and a commit from full zoom-out is still a real approach',
-  earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount, WARP_LIMITS) < earthRest,
-  `${(earthZoomRadius(-1) * earthRadiusScale(dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount, WARP_LIMITS)).toFixed(1)} ` +
+  earthDollyRadius(earthZoomRadius(-1), cutAmount, WARP_LIMITS) < earthRest,
+  `${earthDollyRadius(earthZoomRadius(-1), cutAmount, WARP_LIMITS).toFixed(1)} ` +
     `from ${earthZoomRadius(-1).toFixed(1)} — the furthest a viewer can park is still inside the cut`,
 );
 

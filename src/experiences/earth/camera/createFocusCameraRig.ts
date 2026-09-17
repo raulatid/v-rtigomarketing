@@ -42,8 +42,8 @@ interface Options {
  * who wound the globe round one and a half turns would watch it unwind every
  * degree on the way back. Two opposite requirements, which is why the rig has
  * two paths; Murcia keeps the same split between `CameraRig.yawDegrees` and
- * `CameraFlight.shortestYawDelta`. Exported for the destination steer, which
- * turns the orbit the short way for the same reason the return does.
+ * `CameraFlight.shortestYawDelta`. Exported for the departure swing
+ * (`departureAim.ts`), which turns the short way for the same reason the return does.
  */
 export function nearestEquivalentAngle(from: number, target: number): number {
   const TAU = Math.PI * 2
@@ -70,8 +70,8 @@ export function createFocusCameraRig({
   let mode: Mode = 'overview'
   let focused = false // is a close-up target active (decides who owns the target)
   let orbitEnabled = true
-  /** Past the steer threshold the zoom is the only control (DECISIONS §44). See setApproachLock. */
-  let approachLocked = false
+  /** The viewer has committed and the camera is swinging above the destination. See setDepartureLock. */
+  let departureLocked = false
 
   // ─── Manual spherical orbit (drag) ───
   //
@@ -230,9 +230,9 @@ export function createFocusCameraRig({
     // right tolerance.
     dragPointerType = e.pointerType
     if (!orbitEnabled) return // no orbit while a satellite is focused
-    // Nor on the approach to the destination: past the steer threshold the zoom
-    // is the only control, so nothing can take the view off its path to Spain.
-    if (approachLocked) return
+    // Nor once the viewer has left: the swing above the destination owns the
+    // orbit, and a drag would be fighting a turn they have already asked for.
+    if (departureLocked) return
     // A second finger must not take the gesture over. `onPointerMove` reacted to
     // `orbit.isDragging` alone and this reseeded the anchor for any pointer, so
     // two contact points both fed the orbit and the globe jittered between them.
@@ -444,9 +444,8 @@ export function createFocusCameraRig({
       // always takes the minor arc, so a drag that outran the ease by more than
       // half a turn was quietly resolved the wrong way round. Interpolating an
       // unbounded angle has no such seam — 540° is simply further than 180°.
-      const angleAlpha = approachLocked ? 1 - Math.exp(-cfg.approachLerpK * delta) : alpha
-      eased.theta += (orbit.theta - eased.theta) * angleAlpha
-      eased.phi += (orbit.phi - eased.phi) * angleAlpha
+      eased.theta += (orbit.theta - eased.theta) * alpha
+      eased.phi += (orbit.phi - eased.phi) * alpha
       eased.radius = THREE.MathUtils.lerp(eased.radius, orbit.radius, alpha)
       current.position.setFromSphericalCoords(eased.radius, eased.phi, eased.theta)
     } else {
@@ -529,17 +528,18 @@ export function createFocusCameraRig({
   }
 
   /**
-   * Past the steer threshold the orbit takes no drag at all: on the approach to
-   * the destination the zoom is the only control (DECISIONS §44).
+   * The orbit takes no drag while the camera swings above the destination, which
+   * is the ONLY time it refuses one: across the whole zoom band the viewer both
+   * zooms and looks (`departureAim.ts` records the zoom-only zone this replaced).
    *
    * A flag of its own rather than `setOrbitEnabled`, which the satellite focus
    * owns — it turns the drag off on select and back ON on deselect, so sharing
-   * one boolean would hand the drag back mid-approach the moment a close-up
-   * ended. A drag in progress when the lock engages is ended, not frozen.
+   * one boolean would let a deselect hand the drag back mid-swing. A drag in
+   * progress when the lock engages is ended, not frozen.
    */
-  function setApproachLock(locked: boolean) {
-    if (locked === approachLocked) return
-    approachLocked = locked
+  function setDepartureLock(locked: boolean) {
+    if (locked === departureLocked) return
+    departureLocked = locked
     if (locked && orbit.isDragging) endDrag()
   }
 
@@ -559,29 +559,31 @@ export function createFocusCameraRig({
     returnToOverview,
     setZoomDepth,
     setOrbitEnabled,
-    setApproachLock,
+    setDepartureLock,
     isActive: () => active,
     isDragging: () => orbit.isDragging,
     /** True while a satellite close-up owns the target, flying in or holding. */
     isFocused: () => focused,
     /**
-     * The drag orbit's TARGET angles — where the orbit has been asked to be, not
-     * where the eased camera is. Written into `out`, so a per-frame reader
-     * allocates nothing.
+     * Where the camera IS on the orbit, as opposed to where a drag has asked it
+     * to be. The departure swing starts from here (`departureAim.ts`).
      */
-    getOrbitAngles(out: { theta: number; phi: number }) {
-      out.theta = orbit.theta
-      out.phi = orbit.phi
+    getEasedOrbitAngles(out: { theta: number; phi: number }) {
+      out.theta = eased.theta
+      out.phi = eased.phi
       return out
     },
     /**
-     * Writes the same orbit target the drag writes, for the destination steer
-     * (`destinationSteer.ts`). `update()` eases it exactly as it eases a drag,
-     * and phi is held inside the same limits.
+     * Places the orbit with NO ease: target and eased angles together, the same
+     * two-write `setDebugPose` documents. For the departure swing, which is a
+     * timed curve of its own — eased again by `update()` it would trail its
+     * clock and finish short of the destination the dolly needs to start above.
+     * The radius is left to its ease on purpose.
      */
-    setOrbitAngles(theta: number, phi: number) {
-      if (Number.isFinite(theta)) orbit.theta = theta
-      if (Number.isFinite(phi)) orbit.phi = THREE.MathUtils.clamp(phi, cfg.phiMin, cfg.phiMax)
+    setOrbitAnglesImmediate(theta: number, phi: number) {
+      if (!Number.isFinite(theta) || !Number.isFinite(phi)) return
+      orbit.theta = eased.theta = theta
+      orbit.phi = eased.phi = THREE.MathUtils.clamp(phi, cfg.phiMin, cfg.phiMax)
     },
     /**
      * The point the camera is currently aimed at. Live, not a copy.

@@ -301,77 +301,10 @@ describe('the accessible control is the path a pinch cannot be', () => {
   })
 })
 
-describe('a world may hold the commit until it is ready to leave', () => {
-  // Earth holds `mayCommit` false until the camera is above Spain (DECISIONS §44).
-  // A push that reaches the commit meanwhile is HELD — not refused, not decayed —
-  // and the transition starts by itself the moment the world allows it.
-  const CAP = NAVIGATION_GESTURE.maxEventTravelPx
-  const band = Math.ceil(NAVIGATION_ZOOM.towardTravelPx / CAP)
-  const push = Math.ceil(NAVIGATION_GESTURE.commitDistancePx / CAP) + 1
-  const fillAndPush = () => {
-    for (let i = 0; i < band + push; i += 1) wheel(-CAP)
-  }
-
-  it('arms, and holds, while the world is not ready', async () => {
-    const t = setup({ mayCommit: false })
-    fillAndPush()
-    await after(150)
-    expect(t.depth()).toBeCloseTo(1, 6)
-    expect(t.progress()).toBeGreaterThan(0.5)
-    expect(t.commits).toEqual([])
-    t.input.dispose()
-  })
-
-  it('goes by itself, with no further input, the moment the world is ready', async () => {
-    const t = setup({ mayCommit: false })
-    fillAndPush()
-    // Longer than the idle gap: a push that had merely been refused would have
-    // decayed to nothing by now.
-    await after(NAVIGATION_GESTURE.idleGapSeconds * 1000 + 250)
-    expect(t.commits).toEqual([])
-    t.context.mayCommit = true
-    await after(100)
-    expect(t.commits).toEqual(['enter-murcia'])
-    t.input.dispose()
-  })
-
-  it('lets go when the viewer zooms back out', async () => {
-    const t = setup({ mayCommit: false })
-    fillAndPush()
-    await after(100)
-    wheel(CAP)
-    await after(100)
-    t.context.mayCommit = true
-    await after(150)
-    expect(t.commits).toEqual([])
-    t.input.dispose()
-  })
-
-  it('lets go when navigation is refused meanwhile', async () => {
-    const t = setup({ mayCommit: false })
-    fillAndPush()
-    await after(100)
-    t.context.canNavigate = false
-    await after(100)
-    t.context.canNavigate = true
-    t.context.mayCommit = true
-    await after(150)
-    expect(t.commits).toEqual([])
-    t.input.dispose()
-  })
-
-  it('does not hold the accessible control, which has no zoom to line anything up with', () => {
-    const t = setup({ mayCommit: false })
-    t.control.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    expect(t.commits).toEqual(['enter-murcia'])
-    t.input.dispose()
-  })
-})
-
 describe('a world may leave at the end of the zoom band', () => {
-  // Earth (DECISIONS §44): past the steer threshold the zoom is an approach, so
-  // arriving at the end of the band IS the request to leave — no push stage after
-  // it for the viewer to find.
+  // Earth (DECISIONS §44): arriving at the end of the band IS the request to
+  // leave — no push stage after it for the viewer to find, and nothing held back
+  // until the camera is somewhere: the transition swings it above Spain itself.
   const CAP = NAVIGATION_GESTURE.maxEventTravelPx
   const band = Math.ceil(NAVIGATION_ZOOM.towardTravelPx / CAP)
 
@@ -394,24 +327,12 @@ describe('a world may leave at the end of the zoom band', () => {
     t.input.dispose()
   })
 
-  it('holds at the limit while the world is not ready, then goes by itself', async () => {
-    const t = setup({ commitAtBandEnd: true, mayCommit: false })
+  it('lets go when the viewer zooms back out before the frame that would commit', async () => {
+    // Events arrive between frames. Reaching the limit and leaving it again
+    // inside one frame is a viewer who changed their mind, not a request.
+    const t = setup({ commitAtBandEnd: true })
     for (let i = 0; i < band; i += 1) wheel(-CAP)
-    await after(NAVIGATION_GESTURE.idleGapSeconds * 1000 + 250)
-    expect(t.commits).toEqual([])
-    t.context.mayCommit = true
-    await after(100)
-    expect(t.commits).toEqual(['enter-murcia'])
-    t.input.dispose()
-  })
-
-  it('lets go of the held commit when the viewer zooms back out', async () => {
-    const t = setup({ commitAtBandEnd: true, mayCommit: false })
-    for (let i = 0; i < band; i += 1) wheel(-CAP)
-    await after(100)
     wheel(CAP)
-    await after(100)
-    t.context.mayCommit = true
     await after(150)
     expect(t.commits).toEqual([])
     t.input.dispose()

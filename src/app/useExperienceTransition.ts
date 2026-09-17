@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createTransitionClock } from '../utils/transitionClock'
 import type { NavigationSignals } from '../interaction/navigationSignals'
 import type { ExperienceId } from './experience'
 import { WARP_LIMITS, WARP_TRANSITION, flash } from '../utils/warpTransition'
+import { prefersReducedMotion } from '../platform/motionPreference'
 
 
 interface Params {
@@ -71,6 +72,14 @@ interface Params {
 export function useExperienceTransition({ state, onSwap, onSettled, onCut, onStart }: Params) {
   const [transitioning, setTransitioning] = useState(false)
   const clockRef = useRef<ReturnType<typeof createTransitionClock> | null>(null)
+  // Earth's swing above the destination, which runs BEFORE the cinematic. A clock
+  // of its own rather than a stretch of the warp's: the warp's progress drives the
+  // flash, the blur and both dollies, and none of them may move while it turns.
+  const aimRef = useRef<ReturnType<typeof createTransitionClock> | null>(null)
+  /** Where the swing was headed, for the one frame it rests at 1 before handing over. */
+  const aimLandedRef = useRef<ExperienceId | null>(null)
+  // Sampled once, like the two Earth components that act on it.
+  const reducedMotion = useMemo(prefersReducedMotion, [])
   const onSwapRef = useRef(onSwap)
   onSwapRef.current = onSwap
   // Through a ref for the same reason `onSwap` is: `transitionTo` is memoised on
@@ -89,6 +98,10 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut, onSta
       // `onCut` into a tree that is going away.
       clockRef.current?.cancel()
       clockRef.current = null
+      aimRef.current?.cancel()
+      aimRef.current = null
+      aimLandedRef.current = null
+      state.departureAim = null
       // Leaving either part-way up would black out the page for good, or strand
       // a camera mid-dolly.
       state.transitionOverlay = 0
@@ -118,13 +131,8 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut, onSta
   // impossible reads as a guard against something possible, and the next person
   // to touch this would have to work out which.
 
-  const transitionTo = useCallback(
+  const startCinematic = useCallback(
     (to: ExperienceId) => {
-      // Re-entrancy guard. Without it a double click starts a second timeline
-      // whose reveal races the first one's cover, and the overlay can settle
-      // anywhere between 0 and 1.
-      if (clockRef.current) return
-
       setTransitioning(true)
       // The cinematic takes the camera from here. Set BEFORE the first step so
       // no frame can see non-zero progress that nobody has claimed.
@@ -181,6 +189,51 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut, onSta
     [state],
   )
 
+  const transitionTo = useCallback(
+    (to: ExperienceId) => {
+      // Re-entrancy guard. Without it a double click starts a second timeline
+      // whose reveal races the first one's cover, and the overlay can settle
+      // anywhere between 0 and 1. The swing counts: it is already the departure.
+      if (clockRef.current || aimRef.current) return
+
+      // Earth's dolly is radial and never re-orbits, so it has to BEGIN above the
+      // destination or it dives through the planet. The viewer may commit from any
+      // orbit, so the rig turns there first and the cinematic starts when it lands.
+      //
+      // Not under reduced motion: that preference already removes the dolly, so
+      // there is no planet to dive through, and a globe swinging a half turn is
+      // exactly the motion it asks not to see.
+      if (to !== 'murcia' || reducedMotion) {
+        startCinematic(to)
+        return
+      }
+
+      const aim = createTransitionClock({
+        duration: () => WARP_TRANSITION.earthDepartureAimSeconds,
+        cut: () => 1,
+        onCut: () => {},
+        // Parks at exactly 1 instead of starting the cinematic. The clock pins
+        // its own progress back to 0 on this frame, so the last value the rig saw
+        // was short of 1 by one frame's worth — and "almost above Spain" is the
+        // orbit the dolly would then capture. The next step hands over.
+        onComplete: () => {
+          state.departureAim = 1
+          aimLandedRef.current = to
+        },
+      })
+      if (!aim.start()) {
+        startCinematic(to)
+        return
+      }
+      aimRef.current = aim
+      state.departureAim = 0
+      // From the swing's first frame, not the cinematic's: `transitioning` is what
+      // the DOM reads to stop offering things a departing viewer cannot have.
+      setTransitioning(true)
+    },
+    [state, reducedMotion, startCinematic],
+  )
+
   /**
    * Advances the cinematic by one frame.
    *
@@ -193,12 +246,26 @@ export function useExperienceTransition({ state, onSwap, onSettled, onCut, onSta
    * A no-op when nothing is running, which is nearly every frame.
    */
   const stepTransition = useCallback((dt: number) => {
+    const landed = aimLandedRef.current
+    if (landed) {
+      aimLandedRef.current = null
+      aimRef.current = null
+      state.departureAim = null
+      startCinematic(landed)
+      return
+    }
+    const aim = aimRef.current
+    if (aim) {
+      aim.step(dt)
+      if (!aimLandedRef.current) state.departureAim = aim.progress
+      return
+    }
     clockRef.current?.step(dt)
     const clock = clockRef.current
     if (!clock) return
     state.transitionProgress = clock.progress
     state.transitionOverlay = flash(clock.progress, WARP_LIMITS)
-  }, [state])
+  }, [state, startCinematic])
 
   return { transitionTo, transitioning, stepTransition }
 }

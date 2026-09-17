@@ -8,6 +8,14 @@ import { createNavigationState } from './navigation/continuousState'
 import type { NavigationSignals } from '../interaction/navigationSignals'
 import type { ExperienceId } from './experience'
 
+// Hoisted so a test can flip it BEFORE the hook samples it on mount; the real
+// module caches its first answer for the session, which is right for the app and
+// would make the reduced-motion path unreachable here.
+const motion = vi.hoisted(() => ({ reduced: false }))
+vi.mock('../platform/motionPreference', () => ({
+  prefersReducedMotion: () => motion.reduced,
+}))
+
 // What happens on the one frame nobody can see.
 //
 // These are the assertions that cannot be made against the pure curves, and
@@ -101,6 +109,91 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+// Everything below the next two blocks drives the cinematic toward EARTH, and
+// that is deliberate: it is the direction with nothing in front of the cinematic,
+// so "the commit" and "the cut" keep meaning the cinematic's own first frame and
+// midpoint. Toward Murcia the same cinematic follows Earth's swing.
+describe('the swing above the destination', () => {
+  const AIM = WARP_TRANSITION.earthDepartureAimSeconds
+
+  it('runs first toward Murcia, and the cinematic has not claimed the camera yet', () => {
+    // Earth's own rig turns the camera during the swing, so ownership must NOT
+    // change hands: a rig that stood down here would freeze mid-orbit.
+    act(() => api.transitionTo('murcia'))
+    expect(state.departureAim).toBe(0)
+    expect(state.transitionCommitted).toBe(false)
+    seekTo(AIM * 0.5)
+    expect(state.departureAim).toBeGreaterThan(0.4)
+    expect(state.departureAim).toBeLessThan(0.6)
+    expect(state.transitionCommitted).toBe(false)
+    expect(state.transitionProgress).toBe(0)
+  })
+
+  it('rests at exactly 1 for a frame before handing over', () => {
+    // The rig places the orbit from this number. If the last value it saw were
+    // one frame short of 1, the dolly would capture "almost above Spain".
+    act(() => api.transitionTo('murcia'))
+    const seen: Array<number | null> = []
+    act(() => {
+      for (let i = 0; i < Math.ceil(AIM / FRAME) + 4; i++) {
+        api.stepTransition(FRAME)
+        seen.push(state.departureAim)
+      }
+    })
+    const landed = seen.indexOf(1)
+    expect(landed).toBeGreaterThan(-1)
+    expect(seen[landed + 1]).toBeNull()
+    expect(state.transitionCommitted).toBe(true)
+  })
+
+  it('is followed by the whole cinematic, unshortened', () => {
+    act(() => api.transitionTo('murcia'))
+    seekTo(AIM + WARP_TRANSITION.duration - FRAME * 2)
+    expect(state.transitionCommitted).toBe(true)
+    seekTo(AIM + WARP_TRANSITION.duration + FRAME * 2)
+    expect(state.transitionCommitted).toBe(false)
+    expect(events).toEqual(['cut', 'swap:murcia'])
+    expect(settled).toBe(1)
+  })
+
+  it('counts as a transition in flight, so a second one is refused during it', () => {
+    act(() => api.transitionTo('murcia'))
+    seekTo(AIM * 0.5)
+    act(() => api.transitionTo('earth'))
+    seekTo(AIM + WARP_TRANSITION.duration + FRAME * 2)
+    expect(events).toEqual(['cut', 'swap:murcia'])
+  })
+
+  it('does not happen toward Earth', () => {
+    act(() => api.transitionTo('earth'))
+    expect(state.departureAim).toBeNull()
+    expect(state.transitionCommitted).toBe(true)
+  })
+
+  it('is cleared on unmount', () => {
+    act(() => api.transitionTo('murcia'))
+    seekTo(AIM * 0.5)
+    act(() => root.unmount())
+    expect(state.departureAim).toBeNull()
+    root = createRoot(document.createElement('div'))
+  })
+})
+
+describe('the swing under reduced motion', () => {
+  it('is skipped: there is no dolly to aim, and a swinging globe is the motion refused', () => {
+    motion.reduced = true
+    act(() => root.unmount())
+    root = createRoot(container)
+    act(() => {
+      root.render(<Probe onReady={(h) => (api = h)} />)
+    })
+    act(() => api.transitionTo('murcia'))
+    expect(state.departureAim).toBeNull()
+    expect(state.transitionCommitted).toBe(true)
+    motion.reduced = false
+  })
+})
+
 describe('the commit', () => {
   it('plays the whole cinematic, however the viewer triggered it', () => {
     // The scrub made this length variable — it started wherever the gesture had
@@ -110,7 +203,7 @@ describe('the commit', () => {
     // Asserted by RUNNING it rather than by reading a duration off a timeline
     // object: one frame short of the duration it is still going, and at the
     // duration it has settled.
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(WARP_TRANSITION.duration - FRAME * 2)
     expect(state.transitionCommitted).toBe(true)
     seekTo(WARP_TRANSITION.duration)
@@ -118,7 +211,7 @@ describe('the commit', () => {
   })
 
   it('starts at rest, with nothing already spent', () => {
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     expect(state.transitionProgress).toBe(0)
     expect(state.transitionOverlay).toBe(0)
   })
@@ -126,11 +219,11 @@ describe('the commit', () => {
   it('refuses a second transition while one is running', () => {
     // The re-entrancy guard. Without it a double click starts a second run whose
     // reveal races the first one's cover, and the overlay settles anywhere.
-    act(() => api.transitionTo('murcia'))
     act(() => api.transitionTo('earth'))
+    act(() => api.transitionTo('murcia'))
     seekTo(WARP_TRANSITION.duration)
     // One journey, and it went where the first caller asked.
-    expect(events).toEqual(['cut', 'swap:murcia'])
+    expect(events).toEqual(['cut', 'swap:earth'])
     expect(settled).toBe(1)
   })
 })
@@ -143,13 +236,13 @@ describe('the cut', () => {
     // not in the same instant: the arriving world reads the zoom on its first
     // active frame, so a reset that landed after the swap would leave it
     // composing its pull-out against the departed world's zoom.
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(cutAt)
-    expect(events).toEqual(['cut', 'swap:murcia'])
+    expect(events).toEqual(['cut', 'swap:earth'])
   })
 
   it('happens once, not on every frame around it', () => {
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(cutAt)
     seekTo(cutAt + 0.1)
     seekTo(WARP_TRANSITION.duration)
@@ -159,13 +252,13 @@ describe('the cut', () => {
   it('lands under full cover', () => {
     // The reset is only invisible because the screen is black. If the flash bell
     // ever drifted off the swap this would be a snap in plain view.
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(cutAt)
     expect(state.transitionOverlay).toBeGreaterThan(0.99)
   })
 
   it('does not fire when the transition never gets that far', () => {
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(cutAt * 0.5)
     expect(events).toEqual([])
   })
@@ -180,7 +273,7 @@ describe('transitionCommitted', () => {
   it('is claimed before the cinematic writes its first frame', () => {
     // Set inside transitionTo rather than on the timeline's first update, so no
     // frame can observe non-zero progress that nobody has claimed.
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     expect(state.transitionCommitted).toBe(true)
   })
 
@@ -189,7 +282,7 @@ describe('transitionCommitted', () => {
   })
 
   it('is released on unmount, alongside the pins it sits with', () => {
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     expect(state.transitionCommitted).toBe(true)
     act(() => root.unmount())
     expect(state.transitionCommitted).toBe(false)
@@ -199,7 +292,7 @@ describe('transitionCommitted', () => {
 
 describe('settling', () => {
   it('reports once, after the pins', () => {
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(WARP_TRANSITION.duration)
     expect(settled).toBe(1)
     expect(state.transitionProgress).toBe(0)
@@ -210,7 +303,7 @@ describe('settling', () => {
 
 describe('teardown', () => {
   it('leaves no residual dolly or overlay behind on unmount', () => {
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(WARP_TRANSITION.duration * 0.25)
     expect(state.transitionProgress).toBeGreaterThan(0)
     act(() => root.unmount())
@@ -226,7 +319,7 @@ describe('navigation ownership', () => {
     const observed = state
     state.zoomDepth = 0.6
     state.approach = 0.4
-    act(() => api.transitionTo('murcia'))
+    act(() => api.transitionTo('earth'))
     seekTo(WARP_TRANSITION.duration * 0.25)
     expect(observed.transitionProgress).toBeGreaterThan(0)
     act(() => root.unmount())

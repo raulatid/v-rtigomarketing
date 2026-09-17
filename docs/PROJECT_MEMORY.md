@@ -775,6 +775,9 @@ Originally FOV 60, distance 551, elevation 44.2°, derived from the bounding sph
 ω 16, ζ 0.7 (1.0 under reduced motion). Cooldown 0.35–1.2 s, quiet gap 0.12 s. **None of these
 may be retuned for feel** — they are §15's accidental-warp safety case (`DECISIONS` §29).
 
+**Earth → Murcia, after the commit:** `earthDepartureAimSeconds: 1` (JUDGED, client) — the swing
+above Spain that runs before the 1.6 s warp and is not part of it (`DECISIONS.md` §44).
+
 **The pinch — ALL JUDGED, none settled by a hand except where noted:**
 `releaseGrowthPx: 16` (the only threshold left — it dismisses a focused display, and nothing
 else waits for it; `DECISIONS.md` §44) · `commitFraction: 0.42` · `minStartDistancePx: 24`.

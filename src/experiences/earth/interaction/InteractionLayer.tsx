@@ -12,15 +12,11 @@ import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { installCameraReadout } from '../debug/CameraReadout'
 import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
 import { PROTO_TUTORIAL } from '../config/protoTutorial'
-import { WARP_LIMITS } from '../../../utils/warpTransition'
 import {
-  EARTH_DEPARTURE_ALIGN_DEGREES,
-  advanceOrbitSteer,
-  createOrbitSteerState,
-  isAboveDestination,
-  resetOrbitSteer,
-  type OrbitSteerFrame,
-} from '../camera/destinationSteer'
+  advanceDepartureAim,
+  createDepartureAimState,
+  resetDepartureAim,
+} from '../camera/departureAim'
 import { INTERACTION_CONFIG } from './interactionConfig'
 import type { DestinationResolver } from '../navigation/destination'
 import { createSatelliteFocus, SatelliteFocus } from './createSatelliteFocus'
@@ -34,18 +30,11 @@ export interface InteractionHandle {
   deselect: () => void
   /** Bottom of the selected brand plate in client pixels, matching its shader. */
   getLogoBottom: (id: string) => number | null
-  /**
-   * Is the camera above the destination, so Earth may leave for Murcia?
-   * Measured on the pose the rig last wrote; true when there is no destination
-   * to measure against. The application reads it per event as
-   * `NavigationContext.mayCommit` (DECISIONS §44).
-   */
-  isAboveDestination: () => boolean
 }
 
 interface Props {
   auditView: Readonly<AuditComposition>
-  navigation: Pick<NavigationView, 'zoomDepth' | 'transitionCommitted'>
+  navigation: Pick<NavigationView, 'zoomDepth' | 'transitionCommitted' | 'departureAim'>
   state: SequenceState
   orbitSystemRef: RefObject<OrbitSystem | null>
   handleRef: RefObject<InteractionHandle | null>
@@ -68,7 +57,7 @@ interface Props {
    * Where on the globe the viewer is travelling to, in world space.
    *
    * Read every frame rather than captured, because the destination turns with
-   * the Earth's surface. Optional: the steer simply does not engage without one.
+   * the Earth's surface. Optional: without one the departure swing does not turn.
    */
   destinationRef?: RefObject<DestinationResolver | null>
   onSelect: (data: SatelliteDef) => void
@@ -98,22 +87,11 @@ export function InteractionLayer({
   active,
 }: Props) {
   const { camera, gl } = useThree()
-  /** The destination steer's memory, and scratch so a per-frame turn allocates nothing. */
-  const orbitSteer = useRef(createOrbitSteerState())
-  /** Whether the camera is above the destination. See `InteractionHandle`. */
-  const aboveDestination = useRef(true)
-  const steerDestination = useRef(new THREE.Vector3())
-  const steerSpherical = useRef(new THREE.Spherical())
+  /** The departure swing's memory, and scratch so a per-frame turn allocates nothing. */
+  const departureAim = useRef(createDepartureAimState())
+  const aimDestination = useRef(new THREE.Vector3())
+  const aimSpherical = useRef(new THREE.Spherical())
   const orbitAngles = useRef({ theta: 0, phi: 0 })
-  const steerFrame = useRef<OrbitSteerFrame>({
-    bandDepth: 0,
-    limits: WARP_LIMITS,
-    destinationTheta: 0,
-    destinationPhi: 0,
-    focused: false,
-    phiMin: INTERACTION_CONFIG.camera.phiMin,
-    phiMax: INTERACTION_CONFIG.camera.phiMax,
-  })
   const rigRef = useRef<FocusCameraRig | null>(null)
   const focusRef = useRef<SatelliteFocus | null>(null)
 
@@ -174,7 +152,6 @@ export function InteractionLayer({
       deselect: () => focus.deselect(),
       getLogoBottom: (id) => orbitSystem.satellites.find((sat) => sat.id === id)
         ?.getLogoBottom(camera, gl.domElement.getBoundingClientRect()) ?? null,
-      isAboveDestination: () => aboveDestination.current,
     }
 
     return () => {
@@ -233,13 +210,8 @@ export function InteractionLayer({
     rig.setZoomDepth(navigation.zoomDepth)
 
     const interactive = active && atOrAfter(state.phase, 'site')
-    const wasActive = rig.isActive()
     if (interactive) rig.activate()
     else if (rig.isActive()) rig.deactivate()
-    // The steer re-seeds WITH the rig: `activate()` rebuilds the orbit from the
-    // overview pose, so whatever the steer had applied to the old orbit is gone
-    // with it, and the next frame owes whatever the band asks for afresh.
-    if (interactive && !wasActive) resetOrbitSteer(orbitSteer.current)
 
     // A COMMITTED warp is playing: CameraController owns the camera for its
     // duration, so the rig stands down. Note this does NOT deactivate it —
@@ -267,17 +239,17 @@ export function InteractionLayer({
     // is disabled, so a click cannot fly the camera into a close-up (whose
     // composition contract assumes the full viewport) behind the panel.
     //
-    // ── The approach (DECISIONS §44) ──
+    // ── The departure swing ──
     //
-    // Past the steer threshold the zoom is the ONLY control: no orbit drag and no
-    // satellites. The steer below then brings the view onto Spain with nothing
-    // able to take it off that path, and the commit — which waits for the camera
-    // to be above Spain — is reachable by zooming alone. Zooming back below the
-    // threshold gives both back. A close-up cannot be open on the way in:
-    // navigation is refused while the case panel holds attention.
-    const approaching = navigation.zoomDepth > WARP_LIMITS.earthGuideStart
-    rig.setApproachLock(approaching)
-    focus.setEnabled(interactive && !cinematic && !auditView.open && !approaching)
+    // The viewer zooms AND looks across the whole band; nothing is taken away on
+    // the way in. Only once they have committed toward Murcia does the orbit stop
+    // taking a drag and the satellites stop taking a click, for the second the
+    // camera spends swinging above Spain before the warp (`departureAim.ts`).
+    const aimProgress = navigation.departureAim
+    const aiming = aimProgress !== null
+    rig.setDepartureLock(aiming)
+    focus.setEnabled(interactive && !cinematic && !auditView.open && !aiming)
+    if (!aiming) resetDepartureAim(departureAim.current)
 
     if (!interactive || cinematic) return
 
@@ -293,37 +265,32 @@ export function InteractionLayer({
     // an input to the rig rather than a correction of it, so it goes in at the
     // front and comes out smoothed by the rig's own radius ease.
     //
-    // ── The zone to dive at (stage 3 of the band) ──
+    // ── The departure swing ──
     //
-    // Also in FRONT of the rig, and for the same reason: the steer is an input to
-    // the orbit, eased by the rig like a drag, not a correction of the camera.
-    // Written after the rig it overrode satellite close-ups, killed the drag at
-    // full zoom and swung back on every zoom-out — see `destinationSteer.ts`.
-    const destination = destinationRef?.current?.(steerDestination.current)
-    if (destination) {
-      const spherical = steerSpherical.current.setFromVector3(destination)
-      const steer = steerFrame.current
-      steer.bandDepth = navigation.zoomDepth
-      steer.destinationTheta = spherical.theta
-      steer.destinationPhi = spherical.phi
-      steer.focused = rig.isFocused()
-      const orbit = rig.getOrbitAngles(orbitAngles.current)
-      advanceOrbitSteer(orbitSteer.current, steer, orbit)
-      rig.setOrbitAngles(orbit.theta, orbit.phi)
-    } else {
-      // Nothing to follow from, so the first frame it reappears is not a turn.
-      orbitSteer.current.previousDestinationTheta = null
+    // Also in FRONT of the rig, and for the same reason: it places the ORBIT and
+    // the rig places the camera, so there is still one camera writer and the dolly
+    // that follows departs from an orbit the rig actually holds. Placed without
+    // the rig's ease, which would trail the clock and land short of Spain.
+    //
+    // Not under reduced motion: `useExperienceTransition` never starts the phase
+    // there, so `aiming` is simply never true.
+    const destination = aiming ? destinationRef?.current?.(aimDestination.current) : null
+    if (aiming && destination) {
+      const spherical = aimSpherical.current.setFromVector3(destination)
+      const orbit = advanceDepartureAim(
+        departureAim.current,
+        aimProgress,
+        rig.getEasedOrbitAngles(orbitAngles.current),
+        spherical.theta,
+        spherical.phi,
+        INTERACTION_CONFIG.camera.phiMin,
+        INTERACTION_CONFIG.camera.phiMax,
+        orbitAngles.current,
+      )
+      rig.setOrbitAnglesImmediate(orbit.theta, orbit.phi)
     }
 
     rig.update(delta)
-
-    // Whether Earth may leave, measured on the pose the rig has just written, so
-    // the commit waits for the camera to ARRIVE over Spain rather than merely to
-    // be asked to go there. With no destination to measure against, nothing is
-    // held back.
-    aboveDestination.current = destination
-      ? isAboveDestination(camera.position, destination, EARTH_DEPARTURE_ALIGN_DEGREES)
-      : true
   })
 
   return null

@@ -6,6 +6,7 @@ export function createNavigationState(): NavigationSignals {
     transitionOverlay: 0,
     transitionProgress: 0,
     transitionCommitted: false,
+    departureAim: null,
     zoomDepth: 0,
     approach: 0,
   }

@@ -310,14 +310,11 @@ export default function App() {
       releaseFocus: murciaRef.current?.hasFocusedDistrict
         ? () => murciaRef.current?.releaseFocusedDistrict()
         : null,
-      // Earth leaves only from above the destination (DECISIONS §44). A push that
-      // reaches the commit before the camera is over Spain is held, and goes the
-      // moment it arrives. Read per event from the interaction handle, like the rest.
-      mayCommit:
-        activeExperience !== 'earth' || (interactionRef.current?.isAboveDestination() ?? true),
-      // And Earth leaves the moment the zoom reaches its end — no push stage after
-      // it, which read as the approach freezing in front of Spain until another
-      // input. Murcia keeps `adr/014`'s park-then-push.
+      // Earth leaves the moment the zoom reaches its end — no push stage after it,
+      // which read as the approach freezing in front of Spain until another input.
+      // From ANY orbit: the transition swings the camera above Spain before the
+      // warp (`useExperienceTransition`), so nothing here waits for an alignment.
+      // Murcia keeps `adr/014`'s park-then-push.
       commitAtBandEnd: activeExperience === 'earth',
     }),
     onCommit: (intent) => transitionTo(intent === 'enter-murcia' ? 'murcia' : 'earth'),

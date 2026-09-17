@@ -37,12 +37,12 @@ const cfg = INTERACTION_CONFIG.camera
  * Piecewise about rest so the two ends can be judged independently, which they
  * were: they answer different questions and are constrained by different things.
  *
- * **Inward (`zoomNearFactor`, 0.63).** Not free to choose. The committed warp
- * dollies from wherever the camera is by `earthRadiusScale`, which bottoms out
- * at 0.25 — so the closest point of a transition committed from full zoom-in is
- * `overviewRadius * 0.63 * 0.25` = 2.2 units, against an Earth of radius 2. That
- * is the pose the cut has always landed on, and it is under full flash cover.
- * Going deeper would put the camera inside the planet before the flash closed.
+ * **Inward (`zoomNearFactor`).** The height of the outermost satellite orbit, so
+ * the band ends among the satellites. It used to be pinned at 0.63 by the warp:
+ * the committed dolly was a bare 0.25 of the departure radius, so a nearer end
+ * would have put the camera inside the planet before the flash closed. The
+ * dolly now has a floor (`earthDollyRadius`, 2.84 units against a planet of 2 —
+ * the pose the cut has always landed on), and the near end is free of it.
  *
  * **Outward (`zoomFarFactor`, 11/7).** This is `zoomMax: 11 * R`, the far end of
  * the band `adr/009` retired, brought back unchanged — it was tuned against this

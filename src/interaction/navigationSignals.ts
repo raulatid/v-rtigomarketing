@@ -18,6 +18,14 @@ export interface NavigationSignals {
   // writer stands down for its duration; a gesture MODIFIES whatever pose the
   // viewer is currently dragging, and must never take the controls away.
   transitionCommitted: boolean
+  // 0..1 across Earth's swing above the destination, null when none is running.
+  //
+  // The phase between a commit toward Murcia and the cinematic: the viewer has
+  // already left, input is already locked, but `transitionCommitted` is still
+  // false because the camera has NOT changed hands — Earth's own rig turns it,
+  // so the orbit the dolly then departs from is one the rig actually holds.
+  // Linear; the reader owns the easing.
+  departureAim: number | null
   // Where the viewer has zoomed the world they are in, -1..+1 (`adr/014`).
   //
   // -1 is furthest from the transition, +1 is against the limit that leads to

@@ -1,6 +1,11 @@
 # ADR 014 — Zoom is a position the viewer owns, and the transition is what lies past it
 
 Status: **Accepted** — 2026-09-04
+
+> **AMENDED FOR EARTH — `DECISIONS.md` §44.** "Hold, then push" below is how MURCIA is left.
+> Earth commits on arriving at the end of the band (2026-09-10), and since 2026-09-17 it does so
+> from any orbit: the transition swings the camera above the destination itself, after the
+> commit, so no part of the band takes the orbit away.
 Reverses: `adr/009`'s third decision (*"Zoom is removed"*) and its consequence
 *"Zoom is gone from the product"*; `adr/012`'s consequence *"Zoom is still gone from the
 product"*
