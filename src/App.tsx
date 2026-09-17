@@ -82,6 +82,7 @@ export default function App() {
   const [selectedCase, setSelectedCase] = useState<SatelliteDef | null>(null)
   const orbitSystemRef = useRef<OrbitSystem | null>(null)
   const interactionRef = useRef<InteractionHandle | null>(null)
+  const getCaseLogoBottom = useCallback((id: string) => interactionRef.current?.getLogoBottom(id) ?? null, [])
 
   // P0. Adopts the drawing boot.ts already started, so React mounting does not
   // restart it — see hooks/useIntroDraw.ts.
@@ -734,6 +735,7 @@ export default function App() {
 
       <CasePanel
         data={earthActive ? selectedCase : null}
+        getLogoBottom={getCaseLogoBottom}
         onClose={handleClosePanel}
         onRequestAudit={handleRequestAudit}
       />

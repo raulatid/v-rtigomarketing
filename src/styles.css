@@ -531,11 +531,10 @@ html {
    444px of sheet, leaving 28% and 38% of it behind a scroll with no handle, no
    stop and no shadow to say there was one.
 
-   The stops are Murcia's 40/85, unchanged, and they check out here: peek is
-   341px at 393x852, which holds the header, the name, the meta line and both
-   metric tiles — the headline of the case — with the satellite at y=426 clear
-   of the sheet's top edge at y=511. Expanded is 724px against 706px of content,
-   so a typical phone reads the whole case without scrolling.
+   Both stops now respect the selected logo's projected lower edge, with a
+   16px gap. CasePanel writes the available height as the camera and visible
+   viewport change. Expansion and dragging share this ceiling, so reading
+   longer content uses the body's scroll instead of covering the brand.
 
    ALSO TRIGGERS ON HEIGHT. The query was `max-width: 767px` alone, and a phone
    in landscape is 852x393 — so it got the DESKTOP dock: 324px wide, 820px tall
@@ -552,7 +551,7 @@ html {
   .case-panel {
     top: auto;
     right: 0;
-    bottom: 0;
+    bottom: var(--case-sheet-bottom, 0px);
     left: 0;
     width: auto;
     /* A column, so the handle and header can hold their place while the body
@@ -560,10 +559,11 @@ html {
        dismissed without scrolling back up first. */
     display: flex;
     flex-direction: column;
-    /* `height`, not `max-height`: a stop is a known size, and a transition
-       needs two of them to animate between. Same reason murcia.css uses
-       height for the district sheet's stops. */
-    height: 40dvh;
+    /* Height animates between stops; max-height independently protects the logo. */
+    height: var(--case-sheet-compact, 0px);
+    /* A hard ceiling also constrains inline drag heights and in-flight easing. */
+    max-height: var(--case-sheet-maximum, 0px);
+    overflow: hidden;
     padding: 0 1.5rem 1.5rem;
     /* The home indicator sits inside the sheet's own bottom edge. */
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
@@ -596,7 +596,24 @@ html {
   }
 
   .case-panel[data-stop='expanded'] {
-    height: 85dvh;
+    height: var(--case-sheet-maximum, 0px);
+  }
+
+  .case-panel[data-sheet-waiting] {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .case-panel[data-sheet-dragging] {
+    transition: none;
+  }
+
+  .case-panel__handle,
+  .case-panel__header {
+    touch-action: none;
+    user-select: none;
+    cursor: ns-resize;
   }
 
   .case-panel__handle {
@@ -668,7 +685,11 @@ html {
 
   .case-panel__body {
     flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
+    /* Extend the scroll box to the sheet edge while preserving the text inset. */
+    margin-right: -1.5rem;
+    padding-right: 1.5rem;
     /* Claims the gesture back from the canvas, which is `touch-action: none`
        over the whole viewport. Without this the sheet cannot be scrolled.
        `contain` stops a scroll that reaches the end from becoming a page

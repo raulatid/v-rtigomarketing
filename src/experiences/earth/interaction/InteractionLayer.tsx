@@ -32,6 +32,8 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 export interface InteractionHandle {
   deselect: () => void
+  /** Bottom of the selected brand plate in client pixels, matching its shader. */
+  getLogoBottom: (id: string) => number | null
   /**
    * Is the camera above the destination, so Earth may leave for Murcia?
    * Measured on the pose the rig last wrote; true when there is no destination
@@ -170,6 +172,8 @@ export function InteractionLayer({
     focusRef.current = focus
     handleRef.current = {
       deselect: () => focus.deselect(),
+      getLogoBottom: (id) => orbitSystem.satellites.find((sat) => sat.id === id)
+        ?.getLogoBottom(camera, gl.domElement.getBoundingClientRect()) ?? null,
       isAboveDestination: () => aboveDestination.current,
     }
 

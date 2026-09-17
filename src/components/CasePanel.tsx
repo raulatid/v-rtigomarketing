@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import { CaseChart } from './CaseChart'
+import { attachSheetDrag } from '../interaction/sheetDrag'
+import { caseSheetLayout } from '../interaction/caseSheetLayout'
+import { CASE_PANEL_DOCK_MIN_WIDTH, CASE_PANEL_DOCK_MIN_HEIGHT } from '../experiences/earth/camera/closeUpFraming'
 
 interface Props {
   data: SatelliteDef | null
   onClose: () => void
+  /** Live client-space bottom edge of the selected satellite's brand plate. */
+  getLogoBottom?: (id: string) => number | null
   /**
    * Opens the audit from the foot of the case. Optional so a panel with no
    * audit behind it renders no dead link. Opening the audit deselects the case
@@ -18,10 +23,8 @@ type SheetStop = 'peek' | 'expanded'
 
 // "Caso de éxito" panel, shown while a satellite is focused.
 //
-// ONE COMPONENT, TWO LAYOUTS. Murcia's district panel made the same split for
-// the same reason; it was retired on 2026-08-31 when that district moved to a
-// projected in-world display, so this is now the only implementation of the
-// sheet below rather than a copy of one.
+// ONE COMPONENT, TWO LAYOUTS. The sheet shares its drag controller with the
+// services campus; each panel owns its own sizing and presentation.
 //
 // On desktop it docks to the right, and that composition is a contract with the
 // camera: the close-up pushes the satellite LEFT of centre precisely to clear
@@ -42,7 +45,7 @@ type SheetStop = 'peek' | 'expanded'
 // Kept mounted and toggled by class so it can transition in and out. The source
 // project pops it with display:block and its own notes call a transition "an
 // easy upgrade" — this is that upgrade.
-export function CasePanel({ data, onClose, onRequestAudit }: Props) {
+export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Props) {
   // `data` goes null the instant a case is deselected, but the panel takes its
   // CSS fade to leave. Rendering from `data` directly emptied every field on
   // the first frame of the exit, so the fade animated a blank shell — which is
@@ -52,16 +55,12 @@ export function CasePanel({ data, onClose, onRequestAudit }: Props) {
   if (data) lastDataRef.current = data
   const shown = data ?? lastDataRef.current
 
-  // OPENS EXPANDED (2026-09-05, client request). It opened at peek until then,
-  // and the reasoning for that is still written on the stops in styles.css and
-  // still true: at 85dvh the sheet's top edge is above the satellite the viewer
-  // just tapped, so opening expanded covers it. That was traded away
-  // deliberately — the case is what the viewer came to read, and reaching it
-  // cost a second deliberate tap on a grip that gave no hint of what it hid.
-  //
-  // Peek is NOT retired: the handle still lowers the sheet to it, which is now
-  // the gesture that uncovers the satellite rather than the state you start in.
+  // Open at the largest height that leaves the logo visible. Both dragging
+  // and clicking use this same live ceiling; peek offers more scene space.
   const [stop, setStop] = useState<SheetStop>('expanded')
+  const panelRef = useRef<HTMLElement>(null)
+  const gripRef = useRef<HTMLButtonElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
 
   // Every new selection re-opens at the expanded stop, so a case the viewer
   // lowered does not leave the NEXT one opening half-shut — the opening height
@@ -71,12 +70,77 @@ export function CasePanel({ data, onClose, onRequestAudit }: Props) {
   // one is already open is a new case and should re-open, and the deselect that
   // sets `data` to null must NOT reset, or the sheet jumps stop mid-fade.
   const selectedId = data?.id ?? null
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectedId) setStop('expanded')
   }, [selectedId])
 
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    const grip = gripRef.current
+    const header = headerRef.current
+    if (!selectedId || !panel || !grip || !header) return
+    const dock = window.matchMedia(`(min-width: ${CASE_PANEL_DOCK_MIN_WIDTH}px) and (min-height: ${CASE_PANEL_DOCK_MIN_HEIGHT}px)`)
+    let expanded = true
+    let limits = { maximum: 0, compact: 0 }
+    const measure = () => {
+      if (dock.matches) return
+      const viewport = window.visualViewport
+      const top = viewport?.offsetTop ?? 0
+      const height = viewport?.height ?? window.innerHeight
+      limits = caseSheetLayout(top, height, getLogoBottom?.(selectedId) ?? null)
+      // Read layout before writing CSS variables, avoiding a second layout pass.
+      const controls = grip.offsetHeight + header.offsetHeight +
+        (parseFloat(getComputedStyle(panel).paddingBottom) || 0)
+      const write = (name: string, value: number) => {
+        const css = `${value}px`
+        if (panel.style.getPropertyValue(name) !== css) panel.style.setProperty(name, css)
+      }
+      write('--case-sheet-maximum', limits.maximum)
+      write('--case-sheet-compact', limits.compact)
+      write('--case-sheet-bottom', Math.max(0, window.innerHeight - top - height))
+      // During approach the logo can still be near the viewport's lower edge.
+      // Wait for room for the controls rather than covering it with a minimum height.
+      panel.toggleAttribute('data-sheet-waiting', limits.maximum < controls || limits.maximum === 0)
+    }
+    measure()
+    // Follow the actual camera and billboard animation without React updates.
+    let frame = 0
+    const tick = () => { measure(); frame = requestAnimationFrame(tick) }
+    frame = requestAnimationFrame(tick)
+    const drag = attachSheetDrag({
+      grip,
+      surfaces: [header],
+      enabled: () => !dock.matches && limits.maximum > 0 && !panel.hasAttribute('data-sheet-waiting'),
+      expanded: () => expanded,
+      setExpanded(value) { expanded = value; setStop(value ? 'expanded' : 'peek') },
+      position: () => Math.max(0, limits.maximum - panel.getBoundingClientRect().height),
+      limit: () => limits.maximum - limits.compact,
+      render(position) {
+        if (position === null) {
+          panel.removeAttribute('data-sheet-dragging')
+          panel.style.removeProperty('height')
+        } else {
+          panel.dataset.sheetDragging = 'true'
+          panel.style.height = `${Math.max(limits.compact, Math.min(limits.maximum, limits.maximum - position))}px`
+        }
+      },
+    })
+    const reset = () => { drag.reset(); measure() }
+    dock.addEventListener('change', reset)
+    window.visualViewport?.addEventListener('resize', reset)
+    window.visualViewport?.addEventListener('scroll', reset)
+    return () => {
+      cancelAnimationFrame(frame)
+      dock.removeEventListener('change', reset)
+      window.visualViewport?.removeEventListener('resize', reset)
+      window.visualViewport?.removeEventListener('scroll', reset)
+      drag.dispose()
+    }
+  }, [selectedId, getLogoBottom])
+
   return (
     <aside
+      ref={panelRef}
       className={`case-panel${data ? ' is-visible' : ''}`}
       data-stop={stop}
       aria-hidden={!data}
@@ -93,15 +157,15 @@ export function CasePanel({ data, onClose, onRequestAudit }: Props) {
           not to a device, and a JS media query here would be a second source of
           truth for a breakpoint the stylesheet already owns. */}
       <button
+        ref={gripRef}
         className="case-panel__handle"
         type="button"
         aria-label="Desplegar o plegar el panel"
         aria-expanded={stop === 'expanded'}
-        onClick={() => setStop((s) => (s === 'peek' ? 'expanded' : 'peek'))}
         tabIndex={data ? 0 : -1}
       />
 
-      <div className="case-panel__header">
+      <div ref={headerRef} className="case-panel__header">
         <span className="case-panel__eyebrow">Caso de éxito</span>
         <button
           className="case-panel__close"

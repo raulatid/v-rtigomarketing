@@ -7,6 +7,8 @@ import { invitationPulse } from './invitation'
 import { deploymentFrom } from './holoDeployment'
 import { createEmitterCone } from './createEmitterCone'
 import { PROTO_HOLO } from '../config/protoHolo'
+import { billboardBottom } from './billboardBounds'
+import type { ElementRect } from '../../../interaction/screenSpace'
 
 // The SATELLITE PROJECTION FIELD: the brand artwork suspended in light above a
 // satellite, with `createEmitterCone.ts` supplying the volume it hangs in.
@@ -508,6 +510,10 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
   })
 
   const mesh = new THREE.Mesh(getGeometry(), material)
+  const boundsScratch = new THREE.Vector3()
+  // The artwork and glass tray end at p.y = -0.5 in the fragment shader.
+  // Exclude the decorative stem and the transparent margins of the quad.
+  const logoBottom = footprint.originY - 0.5 / footprint.height - 0.5
   // The FULLY DEPLOYED footprint, always: the shader opens and closes the
   // structure inside it. Positioned so the core's centre — not the quad's —
   // sits at offsetY; the stem hangs below toward the satellite.
@@ -661,6 +667,8 @@ export function createHoloPanel({ isotypeAtlas, logoAtlas, index, holoColor }: O
 
   return {
     group,
+    getLogoBottom: (camera: THREE.Camera, rect: ElementRect) =>
+      billboardBottom(mesh, camera, rect, logoBottom, boundsScratch),
     setOpacity,
     setExpanded,
     setInvited,

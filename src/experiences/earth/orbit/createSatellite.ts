@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { ElementRect } from '../../../interaction/screenSpace'
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import { ORBIT_CONFIG } from './orbitConfig'
 import { BrandAtlas } from './createBrandAtlas'
@@ -425,6 +426,8 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
 
   return {
     group,
+    getLogoBottom: (camera: THREE.Camera, rect: ElementRect) =>
+      holoPanel?.getLogoBottom(camera, rect) ?? null,
     hitTarget: hitMesh,
     setOpacity,
     setHighlight,
