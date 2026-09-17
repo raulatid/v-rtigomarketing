@@ -22,7 +22,7 @@ import { isPointVisible } from '../orbit/satelliteVisibility'
 // It also runs the hover TUTORIAL: the invited satellite auto-plays the hover
 // state twice after the scene settles, so a viewer with no cursor — or one who
 // has not thought to try — sees that the satellites respond. It is not an
-// animation of its own. It is a third writer of the same `highlight` the
+// animation of its own. It is another writer of the same `highlight` the
 // pointer writes, so whatever hover looks like, the tutorial looks like that.
 
 interface Options {
@@ -80,7 +80,7 @@ export function createSatelliteFocus({
   const worldPos = new THREE.Vector3()
 
   // The tutorial's synthetic hover: the satellite it is currently holding in
-  // the hover state, or null. A THIRD term beside `hoveredId` and `selectedId`,
+  // the hover state, or null. Kept separate from `hoveredId`,
   // never written INTO `hoveredId` — `updateHover` recomputes that from the
   // pointer every frame and would erase it. Same lifetime as `invited`: this
   // closure is built once per page load and survives the trip to Murcia and
@@ -113,7 +113,8 @@ export function createSatelliteFocus({
    * reverses from wherever it had got to instead of snapping shut.
    *
    * The three affordances read DIFFERENT state on purpose: the scale bump is on
-   * for hover or selection, the brand panel unfolds only for selection. Six
+   * for hover or the tutorial on unselected satellites; the brand panel unfolds
+   * only for selection. Six
    * satellites drift past the cursor during the overview — unfolding on hover
    * would have the panels flapping continuously. The invitation is on for the
    * invited satellite only while nothing stronger is saying anything about it:
@@ -129,7 +130,8 @@ export function createSatelliteFocus({
       const pointed = sat.id === hoveredId
       const demoed = sat.id === demoId && !pointed
       const hovered = pointed || demoed
-      orbitSystem.setSatelliteHighlight(sat.id, sat.id === selectedId || hovered, demoed)
+      // Opening a case releases the hover light, even if the pointer stays on it.
+      orbitSystem.setSatelliteHighlight(sat.id, sat.id !== selectedId && hovered, demoed)
       orbitSystem.setSatelliteExpanded(sat.id, sat.id === selectedId)
       orbitSystem.setSatelliteInvited(
         sat.id,

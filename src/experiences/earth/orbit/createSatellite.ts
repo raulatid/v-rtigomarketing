@@ -291,7 +291,7 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
     }
   }
 
-  // Hover/selection affordance: the inner group grows under the cursor and the
+  // Hover/tutorial affordance: the inner group grows under the cursor and the
   // panel's light comes up with it, on ONE eased strength.
   //
   // `setHighlight` only sets the target. The value advances in update(), on
@@ -367,8 +367,8 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
   /**
    * Unfolds the brand panel from isotype to full logo, or folds it back.
    *
-   * Deliberately NOT part of `setHighlight`, which is unioned over hover and
-   * selection. Six satellites drift past the cursor during the overview; if
+   * Deliberately NOT part of `setHighlight`, which responds to hover and the
+   * tutorial on unselected satellites. Six satellites drift past the cursor; if
    * hover unfolded them the panels would flap open and shut continuously. Only
    * selection — the click that opens the case panel — earns the lockup.
    */

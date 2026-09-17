@@ -8,7 +8,8 @@ import type { SatelliteDef } from '../orbit/orbitConfig'
 // What the brand panel unfolds for.
 //
 // The satellite has THREE affordances and they read different state: the scale
-// bump is on for hover OR selection, the panel unfolds only for selection, and
+// bump is on for hover or the tutorial on unselected satellites, the panel unfolds
+// only for selection, and
 // the invitation — one satellite's halo breathing brighter so the overview says
 // "these are clickable" — is on for the invited satellite while it is neither
 // hovered nor selected, until any satellite has been selected once. They are
@@ -297,7 +298,7 @@ describe('hovering a satellite', () => {
   it('bumps its scale without unfolding the panel', () => {
     // Six satellites drift past a still cursor during the overview. If hover
     // unfolded them the panels would flap open and shut continuously, which is
-    // why this reads `selectedId` while the scale bump reads both.
+    // why panel expansion follows selection while the scale bump follows hover.
     harness.hoverOver('a')
     harness.expanded.mockClear()
     harness.highlighted.mockClear()

@@ -307,8 +307,8 @@ export function createOrbitSystem({ renderer }: Options) {
    * Unfolds one satellite's brand panel from its isotype to the full logo.
    *
    * Separate from `setSatelliteHighlight` because the two answer different
-   * questions: the highlight is on for hover OR selection, the unfold only for
-   * selection. See createSatellite.setExpanded.
+   * questions: the highlight is on for hover or the tutorial on unselected
+   * satellites, the unfold only for selection. See createSatellite.setExpanded.
    */
   function setSatelliteExpanded(id: string, on: boolean) {
     findOrbit(id)?.satellite.setExpanded(on)
