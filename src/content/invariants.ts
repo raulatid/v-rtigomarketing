@@ -371,13 +371,17 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   // to pick — a form nobody can send, since the server refuses anything not in
   // this list — and a duplicate is one option shown twice. The mapper supplies
   // placeholders for an absent list, so either here means it was bypassed.
-  if (!Array.isArray(entry.revenueRanges) || entry.revenueRanges.length === 0) {
-    at('revenueRanges', 'at least one required')
-  } else {
-    entry.revenueRanges.forEach((range, i) => {
-      if (!nonEmpty(range)) at('revenueRanges[' + i + ']', 'must be a non-empty string')
-      else if (entry.revenueRanges.indexOf(range) !== i) at('revenueRanges[' + i + ']', 'is listed twice')
-    })
+  // The monthly-budget dropdown (2026-09-18) is the same arrangement.
+  for (const key of ['revenueRanges', 'budgetRanges'] as const) {
+    const ranges = entry[key]
+    if (!Array.isArray(ranges) || ranges.length === 0) {
+      at(key, 'at least one required')
+    } else {
+      ranges.forEach((range, i) => {
+        if (!nonEmpty(range)) at(key + '[' + i + ']', 'must be a non-empty string')
+        else if (ranges.indexOf(range) !== i) at(key + '[' + i + ']', 'is listed twice')
+      })
+    }
   }
 
   // The footer renders this list and the contact section links it. An empty one

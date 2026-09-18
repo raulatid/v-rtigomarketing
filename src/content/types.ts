@@ -134,6 +134,13 @@ export interface SiteSettings {
    * mapper substitutes placeholder ranges when the CMS has none.
    */
   revenueRanges: string[]
+  /**
+   * The options of the audit form's "Presupuesto mensual" dropdown, in order.
+   * The same arrangement as `revenueRanges`: the string is both the option and
+   * the submitted value, and the mapper substitutes placeholders when the CMS
+   * has none.
+   */
+  budgetRanges: string[]
 }
 
 /**

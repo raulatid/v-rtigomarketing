@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseAuditBody, parseContactBody, CAPS, PLANS } from './validate'
-import { REVENUE_RANGES } from '../src/content/site'
+import { BUDGET_RANGES, REVENUE_RANGES } from '../src/content/site'
 
 /**
  * The server's own reading of a submission. The client validates too, and these
@@ -17,7 +17,7 @@ import { REVENUE_RANGES } from '../src/content/site'
 const audit = {
   plan: 'auditoria-seo-completa',
   revenue: REVENUE_RANGES[0],
-  budget: '2.000 - 5.000 €',
+  budget: BUDGET_RANGES[0],
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'https://example.com',
@@ -287,27 +287,19 @@ describe('the audit form in particular', () => {
     expect(auditFields({ revenue: 'a'.repeat(CAPS.revenue + 1) })).toHaveProperty('revenue')
   })
 
-  it('takes the budget as free text, and still bounds it', () => {
-    // Every one of these is a real answer a person would type. None of them
-    // survives a schema, which is why there is no schema.
-    for (const value of [
-      '20.000 - 100.000 €',
-      '20k / 100k',
-      '20 000 a 100 000 €',
-      '5000',
-      'aprox. 3.000 al mes',
-      '2k-4k',
-      'No definido todavía',
-    ]) {
-      expect(auditValue({ budget: value }).budget, value).toBe(value)
+  it('accepts each monthly-budget bracket the dropdown offers and nothing else', () => {
+    // The same closed set as the billing range, since 2026-09-18.
+    expect(BUDGET_RANGES.length).toBeGreaterThan(0)
+    for (const range of BUDGET_RANGES) {
+      expect(auditValue({ budget: range }).budget, range).toBe(range)
     }
-
-    expect(auditFields({ budget: '' })).toHaveProperty('budget')
+    // What the field accepted when it was free text is refused now, and so is
+    // a near-miss of a real bracket.
+    for (const budget of ['', '   ', 'aprox. 3.000 al mes', BUDGET_RANGES[0] + ' aprox.', 42]) {
+      expect(auditFields({ budget }), String(budget)).toHaveProperty('budget')
+    }
     expect(auditFields({ budget: undefined })).toHaveProperty('budget')
     expect(auditFields({ budget: 'a'.repeat(CAPS.budget + 1) })).toHaveProperty('budget')
-
-    // Free text is not a hole in the control-character rule.
-    expect(auditValue({ budget: '2.000\r\n- 5.000' }).budget).toBe('2.000 - 5.000')
   })
 
   it('treats the phone as the one optional field', () => {

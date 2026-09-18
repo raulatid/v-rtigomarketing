@@ -16,7 +16,7 @@
  * the website rules below are the answer to API-2.
  */
 
-import { REVENUE_RANGES } from '../src/content/site'
+import { BUDGET_RANGES, REVENUE_RANGES } from '../src/content/site'
 
 /**
  * Field length caps, in characters after trimming.
@@ -28,11 +28,10 @@ import { REVENUE_RANGES } from '../src/content/site'
  */
 export const CAPS = {
   name: 80,
-  // The billing range is picked from the client's list, and the Studio bounds
-  // each entry at this same number (`EDITORIAL_BOUNDS.siteSettings.revenueRange`)
-  // so every range offered fits. The budget is short free-text context: 60
-  // leaves room for "2.000 - 5.000 € aprox." and stops well short of
-  // overrunning a row in the email a person actually reads.
+  // The billing range and the monthly budget are picked from the client's
+  // lists, and the Studio bounds each entry at this same number
+  // (`EDITORIAL_BOUNDS.siteSettings.revenueRange` / `budgetRange`) so every
+  // range offered fits.
   revenue: 60,
   budget: 60,
   email: 254,
@@ -74,10 +73,8 @@ export interface AuditSubmission {
    */
   revenue: string
   /**
-   * Monthly budget, as the visitor typed it. FREE TEXT by product decision, so
-   * there is no enum — but not unvalidated text: it goes through `readText`
-   * like every other field (control characters stripped, line breaks folded,
-   * length capped) and is escaped again at render in `renderEmail.ts`.
+   * Monthly budget: one of the client's brackets from Sanity (`BUDGET_RANGES`),
+   * verbatim, on the same terms as `revenue`. Free text until 2026-09-18.
    */
   budget: string
   name: string
@@ -373,6 +370,24 @@ function readWebsite(raw: unknown, fields: Record<string, string>): string {
   return url.href
 }
 
+/**
+ * One of a client-edited list of ranges, or a field error. Returns the LIST's
+ * spelling of the match, and `''` when there is none (with `fields[key]` set).
+ */
+function readRange(
+  spec: { key: string; raw: unknown; cap: number; ranges: readonly string[] },
+  message: string,
+  fields: Record<string, string>,
+): string {
+  const wire = readText(
+    { key: spec.key, raw: spec.raw, cap: spec.cap, missing: message, tooLong: message },
+    fields,
+  )
+  const match = spec.ranges.find((range) => clean(range, { multiline: false }) === wire) ?? ''
+  if (fields[spec.key] === undefined && match === '') fields[spec.key] = message
+  return match
+}
+
 export function parseAuditBody(raw: unknown): ParseResult<AuditSubmission> {
   const body = asObject(raw)
   if (body === null) return { ok: false, fields: { form: 'No hemos podido leer el formulario.' } }
@@ -391,35 +406,15 @@ export function parseAuditBody(raw: unknown): ParseResult<AuditSubmission> {
   // cleaned and capped before it is compared; the list is cleaned the same way
   // so a stray double space in the CMS cannot make its own option unsendable,
   // and what goes on is the list's spelling, not the wire's.
-  const revenueText = readText(
-    {
-      key: 'revenue',
-      raw: body.revenue,
-      cap: CAPS.revenue,
-      missing: 'Selecciona tu rango de facturación.',
-      tooLong: 'Selecciona tu rango de facturación.',
-    },
+  const revenue = readRange(
+    { key: 'revenue', raw: body.revenue, cap: CAPS.revenue, ranges: REVENUE_RANGES },
+    'Selecciona tu rango de facturación.',
     fields,
   )
-  const revenue =
-    REVENUE_RANGES.find((range) => clean(range, { multiline: false }) === revenueText) ?? ''
-  if (fields.revenue === undefined && revenue === '') {
-    fields.revenue = 'Selecciona tu rango de facturación.'
-  }
-
-  // Presence and length, and nothing else. There is deliberately no format
-  // rule: every separator, currency, abbreviation and "no lo sé todavía" is a
-  // valid answer here, so a pattern would reject real ones for no gain. The
-  // safety comes from `readText` and from `escapeHtml` downstream, not from a
-  // shape the value was never promised to have.
-  const budget = readText(
-    {
-      key: 'budget',
-      raw: body.budget,
-      cap: CAPS.budget,
-      missing: 'Indica tu presupuesto mensual.',
-      tooLong: 'Ese presupuesto es demasiado largo.',
-    },
+  // The same rule, since 2026-09-18; free text before that.
+  const budget = readRange(
+    { key: 'budget', raw: body.budget, cap: CAPS.budget, ranges: BUDGET_RANGES },
+    'Selecciona tu presupuesto mensual.',
     fields,
   )
 

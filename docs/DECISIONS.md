@@ -3848,7 +3848,7 @@ form was free text, on the argument that the client wanted business context and 
 force somebody to invent brackets. The client now wants the brackets — they just do not know them
 yet. So it is a `<select>` like «Servicio de interés», but its options are CONTENT:
 `siteSettings.revenueRanges` in Sanity, emitted as `REVENUE_RANGES` by `src/content/site.ts`.
-«Presupuesto mensual» stays free text.
+«Presupuesto mensual» stays free text (until §54).
 
 **The label is the value.** Each range is one string, shown as the option and submitted as-is. No
 id: nothing parses it, the notification email shows it as picked, and the editor keeps one list
@@ -4092,3 +4092,23 @@ above the artwork.
 | Blender owns every sampling property of a texture | plan 001, *Blender decides WHERE the texture is sampled* | It owns all of them except wrapping. The banded trim atlas needs `wrapS = Repeat` with `wrapT = ClampToEdge`, and Blender's Image Texture *Extension* is one setting for both axes — so `configureTrimTextures` in `loadCity.ts` expresses what the export had no way to say — **`blender-export-contract.md` §6.3** |
 | The trim sheet arrives inside the GLB | plan 001 Phase 7, `blender-export-contract.md` §6.5, *"this is a file swap"* | It is served from `/textures/murcia/` and put onto the material at load. Embedding it makes every colour change a re-export of 1.29 MB of Draco geometry, and the sheet will be iterated dozens of times before anyone is happy with it. It costs nothing to move: the GLB declares zero materials, so the runtime has to build the city's material either way — **`loadTrimSheet.ts`, `applyTrimSheet.ts`, plan 009 Phase 4** |
 | The runtime must not create materials for the city | plan 001 Phase 4, *"Prevent Existing Runtime Material Overrides"* | Only while the export has none to override. `GLTFLoader` fabricates one `metalness: 1` default for all 222 primitives, which is nobody's authored intent and is most of why the city read as grey. The rule survives where it was aimed: the moment the export ships a material, `applyTrimSheet` stops replacing it and dresses it instead — **`applyTrimSheet.ts`** |
+
+## 54. The monthly budget is a dropdown too, on the billing range's terms
+
+**Decided 2026-09-18,** at the client's request. «Presupuesto mensual» in the audit form was free
+text, kept so in §50 on the argument that "aprox. 3.000 al mes" and "No definido todavía" are
+useful answers. The client wants brackets here as well, and wants to edit them the same way. So it
+is exactly the §50 arrangement on a second field: `siteSettings.budgetRanges` in Sanity, emitted
+as `BUDGET_RANGES` by `src/content/site.ts`, the label is the value, and `server/validate.ts`
+refuses anything outside the list. The mapper, the invariants, the Studio validation and the
+server rule are shared with the billing range (`rangeList`, `readRange`) rather than copied, so
+the two fields cannot drift.
+
+**Four placeholders, in two places, again.** `BUDGET_RANGES_FALLBACK` covers a dataset that
+predates the field, and the same four are seeded so the Studio shows them as something to
+replace. The bounds are the billing range's (`EDITORIAL_BOUNDS.siteSettings.budgetRange` /
+`budgetRanges`, 60 and 8), matched by `CAPS.budget`.
+
+**Also broken when:** any of §50's conditions holds for this field; or a tab open across a
+bracket change submits the old wording and gets the field error the service select already
+accepts as the trade.

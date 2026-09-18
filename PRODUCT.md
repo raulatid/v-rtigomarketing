@@ -47,9 +47,9 @@ itself rather than through testimonials.
 ## Capabilities and Constraints
 
 - **Language:** all visitor-facing copy is Spanish (DECISIONS §11); `lang="es"`.
-- **Audit form:** single step; «Servicio de interés» and «Rango de facturación» are selects whose
-  options are CMS content and are validated server-side as a closed set; «Presupuesto mensual» is
-  free text (DECISIONS §50).
+- **Audit form:** single step; «Servicio de interés», «Rango de facturación» and «Presupuesto
+  mensual» are selects; the two ranges' options are CMS content and are validated server-side as
+  a closed set (DECISIONS §50, §54).
 - **Services:** Identidad de marca, Estrategia de contenidos, Campañas de pago, SEO, Analítica web
   (seed content). GEO is the headline claim but has no service record or copy in the content yet.
 - **Terminology:** *experience* = a user-facing world (Earth, Murcia); *scene* = a `THREE.Scene`.

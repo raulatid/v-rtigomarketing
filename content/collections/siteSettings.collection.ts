@@ -49,6 +49,9 @@ const {
   /** One option in the audit form's billing dropdown. */
   revenueRange: REVENUE_RANGE_MAX,
   revenueRanges: REVENUE_RANGES_MAX,
+  /** One option in the audit form's monthly-budget dropdown. */
+  budgetRange: BUDGET_RANGE_MAX,
+  budgetRanges: BUDGET_RANGES_MAX,
 } = EDITORIAL_BOUNDS.siteSettings
 
 /**
@@ -187,16 +190,35 @@ const REVENUE_RANGES_FALLBACK = [
 ] as const
 
 /**
+ * The audit form's monthly-budget brackets before the client has given us any
+ * (2026-09-18). PLACEHOLDERS, for exactly the reasons above: the field was
+ * free text until the client asked for a dropdown like the billing one, and
+ * they will write their own brackets in the Studio.
+ */
+const BUDGET_RANGES_FALLBACK = [
+  'Menos de 1.000 €',
+  '1.000 - 2.000 €',
+  '2.000 - 5.000 €',
+  'Más de 5.000 €',
+] as const
+
+/**
  * Each range is at once the option's label and the value the form submits,
  * so a present list is held to what a `<select>` needs: bounded, no blank
  * entries, and no two alike (one option shown twice, and a duplicate React key).
+ * Shared by the two range dropdowns, which differ only in bounds and fallback.
  */
-function revenueRanges(report: Report, path: string, raw: unknown): string[] | undefined {
+function rangeList(
+  report: Report,
+  path: string,
+  raw: unknown,
+  bounds: { each: number; count: number; fallback: readonly string[] },
+): string[] | undefined {
   if (raw === null || raw === undefined || (Array.isArray(raw) && raw.length === 0)) {
-    return [...REVENUE_RANGES_FALLBACK]
+    return [...bounds.fallback]
   }
-  const ranges = boundedArray(report, path, raw, REVENUE_RANGES_MAX, (r, p, v) =>
-    text(r, p, v, { max: REVENUE_RANGE_MAX }),
+  const ranges = boundedArray(report, path, raw, bounds.count, (r, p, v) =>
+    text(r, p, v, { max: bounds.each }),
   )
   if (ranges === undefined) return undefined
   for (const [i, range] of ranges.entries()) {
@@ -254,6 +276,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       contactSuccessTitle,
       contactSuccessBody,
       revenueRanges,
+      budgetRanges,
       cookieCopy
     }`,
   },
@@ -319,7 +342,16 @@ export const siteSettingsCollection = collection<SiteSettings>({
       source.contactSuccessBody,
       SUCCESS_BODY_MAX,
     )
-    const ranges = revenueRanges(scoped, 'revenueRanges', source.revenueRanges)
+    const ranges = rangeList(scoped, 'revenueRanges', source.revenueRanges, {
+      each: REVENUE_RANGE_MAX,
+      count: REVENUE_RANGES_MAX,
+      fallback: REVENUE_RANGES_FALLBACK,
+    })
+    const budgets = rangeList(scoped, 'budgetRanges', source.budgetRanges, {
+      each: BUDGET_RANGE_MAX,
+      count: BUDGET_RANGES_MAX,
+      fallback: BUDGET_RANGES_FALLBACK,
+    })
     const cookieCopy = { ...DEFAULT_COOKIE_COPY }
     if (source.cookieCopy != null) {
       if (typeof source.cookieCopy !== 'object' || Array.isArray(source.cookieCopy)) {
@@ -344,7 +376,8 @@ export const siteSettingsCollection = collection<SiteSettings>({
       auditSuccessBody === undefined ||
       contactSuccessTitle === undefined ||
       contactSuccessBody === undefined ||
-      ranges === undefined
+      ranges === undefined ||
+      budgets === undefined
     ) {
       return { ok: false, problems }
     }
@@ -366,6 +399,7 @@ export const siteSettingsCollection = collection<SiteSettings>({
       contactSuccessTitle,
       contactSuccessBody,
       revenueRanges: ranges,
+      budgetRanges: budgets,
       cookieCopy,
     }
 

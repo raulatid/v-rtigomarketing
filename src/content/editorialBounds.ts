@@ -135,5 +135,9 @@ export const EDITORIAL_BOUNDS = {
     revenueRange: 60,
     /** Options in that dropdown. More than this is a list nobody reads. */
     revenueRanges: 8,
+    /** One option in the audit form's monthly-budget dropdown. Same number
+        `server/validate.ts` caps the submitted value at, as for the range. */
+    budgetRange: 60,
+    budgetRanges: 8,
   },
 } as const

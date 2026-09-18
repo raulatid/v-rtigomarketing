@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom'
 import { auditView, shiftsFor, type AuditPhase } from '../app/auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
-import { FORM_MESSAGES, REVENUE_RANGES, type LegalDocId } from '../content/site'
+import { BUDGET_RANGES, FORM_MESSAGES, REVENUE_RANGES, type LegalDocId } from '../content/site'
 import './auditSection.css'
 
 // Audit section (plan 005): a trigger in the site header and a solid black form
@@ -123,17 +123,14 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
     placeholder: 'Selecciona un rango',
     options: REVENUE_RANGES.map((range) => ({ value: range, label: range })),
   },
-  // FREE TEXT, deliberately: "aprox. 3.000 al mes" and "No definido todavía"
-  // are both useful answers, and a select would force somebody to invent the
-  // brackets. It still goes through `readText` on the server and `escapeHtml`
-  // in renderEmail like every other field.
+  // Free text until 2026-09-18; a select now, at the client's request, on the
+  // same terms as the billing range above: the brackets are content edited in
+  // Sanity, the label is the value, and the server checks the closed set.
   budget: {
-    kind: 'input',
+    kind: 'select',
     label: 'Presupuesto mensual',
-    type: 'text',
-    autoComplete: 'off',
-    placeholder: '2.000 - 5.000 €',
-    maxLength: 60,
+    placeholder: 'Selecciona un rango',
+    options: BUDGET_RANGES.map((range) => ({ value: range, label: range })),
   },
   name: {
     kind: 'input',
@@ -168,6 +165,22 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
     maxLength: 32,
     optional: true,
   },
+}
+
+/**
+ * The definition a field renders with. The two range selects take their
+ * options from `content` rather than from FIELD_DEFS, because the Studio's
+ * preview passes a DRAFT's ranges and the live form the generated ones.
+ */
+function fieldDef(
+  field: Field,
+  content: { revenueRanges: readonly string[]; budgetRanges: readonly string[] },
+): FieldDef {
+  const def = FIELD_DEFS[field]
+  const ranges =
+    field === 'revenue' ? content.revenueRanges : field === 'budget' ? content.budgetRanges : null
+  if (ranges === null || def.kind !== 'select') return def
+  return { ...def, options: ranges.map((range) => ({ value: range, label: range })) }
 }
 
 /**
@@ -289,12 +302,7 @@ function validate(values: Values): Errors {
   const errors: Errors = {}
   if (!values.plan) errors.plan = 'Selecciona un servicio.'
   if (!values.revenue) errors.revenue = 'Selecciona tu rango de facturación.'
-  // Presence and length only. There is deliberately no format rule: every
-  // separator, currency, abbreviation and "no lo sé todavía" is a valid answer,
-  // and a pattern here would reject real ones. The cap mirrors FIELD_DEFS,
-  // which mirrors the server — see the maxLength comment above.
-  if (!values.budget.trim()) errors.budget = 'Indica tu presupuesto mensual.'
-  else if (values.budget.trim().length > 60) errors.budget = 'Máximo 60 caracteres.'
+  if (!values.budget) errors.budget = 'Selecciona tu presupuesto mensual.'
   if (!values.name.trim()) errors.name = 'Introduce tu nombre.'
   if (!values.email.trim()) errors.email = 'Introduce tu email.'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(values.email.trim()))
@@ -348,6 +356,7 @@ interface Props {
   preview?: {
     state: 'form' | 'success'
     revenueRanges: readonly string[]
+    budgetRanges: readonly string[]
     successTitle: string
     successBody: string
   }
@@ -414,6 +423,7 @@ export function AuditSection({
   const submission: Submission = preview ? (preview.state === 'success' ? 'success' : 'idle') : liveSubmission
   const content = preview ?? {
     revenueRanges: REVENUE_RANGES,
+    budgetRanges: BUDGET_RANGES,
     successTitle: FORM_MESSAGES.auditTitle, successBody: FORM_MESSAGES.auditBody,
   }
 
@@ -835,7 +845,7 @@ export function AuditSection({
                       key={field}
                       idPrefix={idPrefix}
                       field={field}
-                      def={field === 'revenue' ? {kind: 'select', label: FIELD_DEFS.revenue.label, placeholder: FIELD_DEFS.revenue.placeholder, options: content.revenueRanges.map((range) => ({value: range, label: range}))} : FIELD_DEFS[field]}
+                      def={fieldDef(field, content)}
                       controlProps={fieldProps(field)}
                       onChange={(value) => setValue(field, value)}
                       error={errorLine(field)}

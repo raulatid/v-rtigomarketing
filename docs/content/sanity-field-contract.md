@@ -150,6 +150,7 @@ One document, at the fixed id `siteSettings`.
 | `bookingLabel` | string | optional, ≤ 24; blank falls back to "Agenda una cita" | fail only when present and over-long |
 | `copyright` | string | non-empty, ≤ 120 | fail |
 | `revenueRanges[]` | string[] | 1–8 entries, each non-empty and ≤ 60, no duplicates; absent, null or empty falls back to four placeholder ranges | fail only when present and wrong |
+| `budgetRanges[]` | string[] | same rule as `revenueRanges[]`, with its own four placeholders | fail only when present and wrong |
 
 **Building banner retired (2026-09-15, audit AR-12).** The tower uses its bundled LED content. `bannerEnabled` and `bannerImage` remain hidden and read-only in Studio solely to preserve stored values. They are no longer projected, mirrored, mapped, validated or emitted by the content build; new fixtures and seeds omit them. Existing CMS documents and assets are not migrated or deleted. See [stage 2](../plans/028-architecture-audit-stage-2.md).
 
@@ -160,6 +161,8 @@ One document, at the fixed id `siteSettings`.
 **`label` is written without punctuation** — `Madrid`, never `Madrid:`. The colon is added by the stylesheet (`.contact-phone-label:not(:empty)::after`), so it is identical on every entry and cannot be forgotten on one or doubled on another. It is emitted as an **omitted key** rather than an empty string when unset, the same shape as an image `caption`, so a consumer tests `label !== undefined` and never `label !== ''`.
 
 **`revenueRanges` is the Auditoría form's billing dropdown, and each string is also the submitted value (2026-09-14).** There is no separate id: nothing parses the value, and the notification email shows it as picked. `server/validate.ts` refuses anything not in the list, reading it from the same build, so changing a range is a Studio edit plus a rebuild — and a tab left open across that rebuild gets a field error, the same trade the service select makes. The fallback exists because the client did not know their ranges when the field shipped; the same four placeholders are seeded into the dataset so the Studio shows them as something to replace.
+
+**`budgetRanges` is the same arrangement for «Presupuesto mensual» (2026-09-18),** which was free text until the client asked for a dropdown like the billing one. Same bounds, same closed-set check on the server, same fallback-and-seed pair.
 
 **Exactly one document, asserted by the build.** The Studio hides the "create another" button, but a restored backup or the HTTP API can produce a second one the Studio never shows. `src/content/site.ts` reads the first, so two documents would mean half the site quietly using one and nothing using the other. Zero documents also fails: an empty response is an outage, not a decision to delete the agency's phone number.
 

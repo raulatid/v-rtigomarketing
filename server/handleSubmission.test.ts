@@ -4,7 +4,7 @@ import { createLimiter } from './rateLimit'
 import type { MailConfig } from './config'
 import type { RenderedEmail } from './renderEmail'
 import type { SendOutcome } from './resend'
-import { REVENUE_RANGES } from '../src/content/site'
+import { BUDGET_RANGES, REVENUE_RANGES } from '../src/content/site'
 
 /**
  * A typed stand-in for the transport. Typed rather than inferred so that
@@ -59,7 +59,7 @@ const contactBody = {
 const auditBody = {
   plan: 'auditoria-seo-completa',
   revenue: REVENUE_RANGES[0],
-  budget: '2.000 - 5.000 EUR',
+  budget: BUDGET_RANGES[0],
   name: 'Nombre Prueba',
   email: 'prueba@example.com',
   website: 'example.com',

@@ -79,6 +79,13 @@ export const FORM_MESSAGES = {
  */
 export const REVENUE_RANGES: readonly string[] = settings.revenueRanges
 
+/**
+ * The audit form's monthly-budget brackets (2026-09-18), the same arrangement
+ * as the billing ranges: the client's list from Sanity, read by the dropdown
+ * and by `server/validate.ts` as a closed set.
+ */
+export const BUDGET_RANGES: readonly string[] = settings.budgetRanges
+
 /** The brand's own mark — NOT a third-party credit (backdrop.spec.ts guards
  *  those separately; the client rule it enforces is about attribution). */
 export const COPYRIGHT = settings.copyright

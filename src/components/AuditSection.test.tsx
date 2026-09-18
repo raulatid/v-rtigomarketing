@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuditSection } from './AuditSection'
 import type { AuditRequest } from '../app/auditSubmission'
-import { REVENUE_RANGES } from '../content/site'
+import { BUDGET_RANGES, REVENUE_RANGES } from '../content/site'
 
 // The submission flow's state model: idle → submitting → success | error.
 // What these pin down, in order of importance:
@@ -24,7 +24,7 @@ const VALID: Record<string, string> = {
   email: 'prueba@example.com',
   website: 'https://example.com',
   revenue: REVENUE_RANGES[0],
-  budget: 'aprox. 3.000 al mes',
+  budget: BUDGET_RANGES[0],
 }
 
 let container: HTMLDivElement
@@ -123,10 +123,7 @@ function openAndFill() {
   act(() => {
     pick(document.querySelector<HTMLSelectElement>('#audit-plan')!, 'auditoria-seo-completa')
     pick(document.querySelector<HTMLSelectElement>('#audit-revenue')!, VALID.revenue)
-    // Free text, and typed the way a person actually would. If this ever
-    // stopped being accepted, this fill would silently start failing validation
-    // and every test below it would fail for the wrong reason.
-    type(document.querySelector<HTMLInputElement>('#audit-budget')!, VALID.budget)
+    pick(document.querySelector<HTMLSelectElement>('#audit-budget')!, VALID.budget)
     type(document.querySelector<HTMLInputElement>('#audit-name')!, VALID.name)
     type(document.querySelector<HTMLInputElement>('#audit-email')!, VALID.email)
     type(document.querySelector<HTMLInputElement>('#audit-website')!, VALID.website)
@@ -153,6 +150,19 @@ describe('the billing range', () => {
     expect(placeholder.disabled).toBe(true)
     expect(ranges.map((o) => o.value)).toEqual([...REVENUE_RANGES])
     expect(ranges.map((o) => o.textContent)).toEqual([...REVENUE_RANGES])
+  })
+})
+
+describe('the monthly budget', () => {
+  it('is a dropdown of exactly the brackets from Sanity, in order', () => {
+    mount(() => Promise.resolve())
+    const select = document.querySelector<HTMLSelectElement>('#audit-budget')!
+    expect(select.tagName).toBe('SELECT')
+    const [placeholder, ...ranges] = Array.from(select.options)
+    expect(placeholder.value).toBe('')
+    expect(placeholder.disabled).toBe(true)
+    expect(ranges.map((o) => o.value)).toEqual([...BUDGET_RANGES])
+    expect(ranges.map((o) => o.textContent)).toEqual([...BUDGET_RANGES])
   })
 })
 

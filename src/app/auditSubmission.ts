@@ -41,9 +41,8 @@ export interface AuditRequest {
    */
   revenue: string
   /**
-   * Monthly budget, FREE TEXT as the visitor typed it. "aprox. 3.000 al mes"
-   * and "No definido todavía" are answers a salesperson can use, and neither
-   * survives a schema.
+   * Monthly budget: one of the client's brackets from Sanity, verbatim, on the
+   * same terms as `revenue` (free text until 2026-09-18).
    */
   budget: string
   name: string

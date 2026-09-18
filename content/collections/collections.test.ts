@@ -964,6 +964,49 @@ describe('the audit form\'s billing ranges', () => {
   })
 })
 
+/**
+ * The monthly-budget brackets (2026-09-18): the billing ranges' arrangement
+ * again, on a second field, so the same three claims hold.
+ */
+describe('the audit form\'s monthly-budget brackets', () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+  const bracketsOf = (record: Record<string, unknown>): string[] => {
+    const result = siteSettingsCollection.map(record, 0)
+    if (!result.ok) throw new Error('expected a valid record, got ' + JSON.stringify(result.problems))
+    return (result.value as SiteSettings).budgetRanges
+  }
+
+  it('carries the fixture\'s brackets through, in order', () => {
+    expect(bracketsOf(validSettings())).toEqual(settingsFixtures[0].budgetRanges)
+  })
+
+  it('falls back to placeholder brackets when the CMS has none', () => {
+    const fallback = bracketsOf({ ...validSettings(), budgetRanges: undefined })
+    expect(fallback.length).toBeGreaterThan(0)
+    for (const blank of [null, []]) {
+      expect(bracketsOf({ ...validSettings(), budgetRanges: blank }), JSON.stringify(blank)).toEqual(
+        fallback,
+      )
+    }
+  })
+
+  it('refuses a present list the dropdown could not use', () => {
+    const cases: Array<[unknown, string]> = [
+      [['Menos de 1.000 €', ''], 'site.budgetRanges[1]'],
+      [['a'.repeat(61)], 'site.budgetRanges[0]'],
+      [Array.from({ length: 9 }, (_, i) => 'Rango ' + i), 'site.budgetRanges'],
+      [['Igual', 'Igual'], 'site.budgetRanges[1]'],
+      ['Menos de 1.000 €', 'site.budgetRanges'],
+    ]
+    for (const [budgetRanges, path] of cases) {
+      expect(
+        problemsFor(siteSettingsCollection, { ...validSettings(), budgetRanges }),
+        JSON.stringify(budgetRanges),
+      ).toContain(path)
+    }
+  })
+})
+
 describe('the forms\' confirmation copy', () => {
   const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
 

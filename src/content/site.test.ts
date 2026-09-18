@@ -3,6 +3,7 @@ import { SITE_SETTINGS } from './generated/siteSettings'
 import { siteSettingsProblems } from './invariants'
 import {
   BOOKING_LABEL,
+  BUDGET_RANGES,
   BOOKING_URL,
   CONTACT_EMAIL,
   COPYRIGHT,
@@ -71,6 +72,12 @@ describe('the compatibility adapter', () => {
     expect(REVENUE_RANGES).toEqual(SITE_SETTINGS[0].revenueRanges)
     expect(REVENUE_RANGES.length).toBeGreaterThan(0)
     expect(new Set(REVENUE_RANGES).size).toBe(REVENUE_RANGES.length)
+  })
+
+  it('always has monthly-budget brackets for the audit dropdown', () => {
+    expect(BUDGET_RANGES).toEqual(SITE_SETTINGS[0].budgetRanges)
+    expect(BUDGET_RANGES.length).toBeGreaterThan(0)
+    expect(new Set(BUDGET_RANGES).size).toBe(BUDGET_RANGES.length)
   })
 
   it('offers at least one dialable number', () => {

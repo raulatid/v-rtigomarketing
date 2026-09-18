@@ -42,11 +42,12 @@ it('renders the contact draft, updates its confirmation, and refuses submissions
 it('uses draft audit ranges without changing camera state or submitting', () => {
   const submit = vi.fn()
   const initial = {...auditView}
-  const preview = {state: 'form' as const, revenueRanges: ['Rango del borrador'], successTitle: 'Recibido', successBody: 'Respuesta del borrador'}
+  const preview = {state: 'form' as const, revenueRanges: ['Rango del borrador'], budgetRanges: ['Presupuesto del borrador'], successTitle: 'Recibido', successBody: 'Respuesta del borrador'}
   act(() => root.render(<AuditSection ready={false} onOpenChange={() => {}} onOpenLegal={() => {}}
     submit={submit} preview={preview} />))
   expect(container.querySelectorAll('.audit-field')).toHaveLength(7)
   expect(container.querySelector('#audit-revenue')?.textContent).toContain('Rango del borrador')
+  expect(container.querySelector('#audit-budget')?.textContent).toContain('Presupuesto del borrador')
   act(() => {container.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}))})
   expect(submit).not.toHaveBeenCalled()
   expect(auditView).toEqual(initial)
