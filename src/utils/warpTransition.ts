@@ -75,14 +75,14 @@ export const WARP_TRANSITION = {
   // ─── Murcia leg ───
 
   /** The configured resting distance. Must equal murciaConfig.camera.distance. */
-  murciaRestDistance: 285,
+  murciaRestDistance: 440,
   /** The configured resting elevation. Must equal murciaConfig.camera.elevationDegrees. */
-  murciaRestElevation: 35,
+  murciaRestElevation: 42,
   /** Closest approach, arriving. See the envelope below before changing this. */
   murciaCloseDistance: 75,
   /** The departure pose, leaving. Must equal murciaConfig.warpDepart*. */
-  murciaDepartDistance: 470,
-  murciaDepartElevation: 66,
+  murciaDepartDistance: 760,
+  murciaDepartElevation: 68,
 
   /**
    * THE SAFETY ENVELOPE. Asserted by checks/warp-transition.ts.
@@ -125,8 +125,8 @@ export const WARP_TRANSITION = {
    * divergence itself is not about the skirt: it is lookAtHeight being a
    * constant, and 60 is still where it starts to bite.
    */
-  murciaMaxDistance: 285,
-  murciaDepartMaxDistance: 470,
+  murciaMaxDistance: 440,
+  murciaDepartMaxDistance: 760,
   murciaMinDistance: 60,
 
   // ─── The vacuum ───

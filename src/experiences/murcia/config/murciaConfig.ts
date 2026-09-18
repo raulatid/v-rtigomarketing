@@ -215,9 +215,33 @@ const REPRESENTATIVE_BUILDING_HEIGHT = 13;
  * eye is free — so the argument for 220 went with it, and 285 is the pose the
  * sandbox's feel was judged at. The pitch is unchanged. `zoomNearScale` returned
  * to 0.45 with it; see there.
+ *
+ * ── 35 deg / 285 / azimuth 267 -> 42 deg / 440 / azimuth 275, 2026-09-18 ──
+ *
+ * CLIENT DIRECTION, against a single reference frame of the arrival: the
+ * landmarks should all be in shot the moment the visitor lands — cathedral,
+ * tower, blog display and the services stadium — rather than discovered by
+ * panning. Found by sweeping `?elev=` / `?dist=` / `?azimuth=` / `?focusX=`
+ * at 1600x900 and comparing captures against the frame:
+ *
+ *  - **440**, up from 285, is what puts the far bank and the stadium in the
+ *    frame together with the cathedral. It sits past the old zoom-out end
+ *    (400), so the whole band moved with it — see `zoomFar*` and `warpDepart*`.
+ *  - **42 degrees**, up from 35, keeps the roofs reading as a map from that
+ *    height without flattening the facades; the reference is steeper than
+ *    the old pose, not lower.
+ *  - **azimuth 275** turns the river from a diagonal across the frame into a
+ *    line from the bottom centre to the top right, with the stadium beyond
+ *    the bridge at the top right where the reference has it.
+ *  - **initialFocus.x -285** shifts the composition up so the tower sits
+ *    just above centre and the cathedral in the lower left, instead of both
+ *    crowding the bottom edge.
+ *
+ * Distance and pitch both rose, so every footprint argument above is slack
+ * here; `check:footprint`, `check:warp` and `check:navigation` are the gates.
  */
-const ELEVATION_DEGREES = 35;
-const CAMERA_DISTANCE = 285;
+const ELEVATION_DEGREES = 42;
+const CAMERA_DISTANCE = 440;
 
 export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
@@ -278,7 +302,7 @@ export const murciaConfig: EnvironmentConfig = {
   camera: {
     fov: 35,
     elevationDegrees: ELEVATION_DEGREES,
-    azimuthDegrees: 267,
+    azimuthDegrees: 275,
     distance: CAMERA_DISTANCE,
     // ~45% of a representative building. Raising the aim point tilts the camera
     // up without flattening the rig itself, which is what stops the view
@@ -325,7 +349,8 @@ export const murciaConfig: EnvironmentConfig = {
   // cheap direction here — but `check:footprint` and `check:warp` sweep portrait
   // at THIS pose rather than trusting that, and both ends of the zoom band move
   // with it (`zoomNearScale` by construction, `zoomFarPortraitOverrides` below).
-  cameraPortraitOverrides: { distance: 370 },
+  // 370 -> 570 with the 2026-09-18 pose: the same x1.3 over the landscape rest.
+  cameraPortraitOverrides: { distance: 570 },
   portraitAspectThreshold: 0.85,
 
   // ── The drag's own feel no longer lives here ──
@@ -555,8 +580,12 @@ export const murciaConfig: EnvironmentConfig = {
   // value to compare against. What replaced it is in `checks/footprint.ts` §2.
   // `checks/warp-transition.ts` §7 is unaffected and still asserts the join from
   // every depth in the band.
-  warpDepartDistance: 470,
-  warpDepartElevationDegrees: 66,
+  //
+  // 470/66 -> 760/68, 2026-09-18, for the third time for the same reason: the
+  // zoom-out end moved to 600 @ 60 (700 @ 63 portrait) and the departure has to
+  // start beyond it on both terms.
+  warpDepartDistance: 760,
+  warpDepartElevationDegrees: 68,
 
   // ─── The user's zoom band (`adr/014`) ───
   //
@@ -604,14 +633,21 @@ export const murciaConfig: EnvironmentConfig = {
   //
   // Still the number to raise if the zoom reads timid, and still only through
   // `check:footprint`.
-  zoomFarDistance: 400,
-  zoomFarElevationDegrees: 55,
+  //
+  // 400 @ 55 -> 600 @ 60, 2026-09-18. Rest moved to 440 @ 42, past the old far
+  // end, so the band keeps roughly its x1.36 outward reach and continues the
+  // same rising arc from the steeper rest.
+  zoomFarDistance: 600,
+  zoomFarElevationDegrees: 60,
   // Portrait rests at 370 (`cameraPortraitOverrides`), which would leave 30
   // units of zoom-out against a far end of 400 — an outward half that does
   // nothing. 450 @ 58 keeps roughly the landscape band's proportion, continues
   // the same rising arc, and stays inward of `warpDepart*` (470 @ 66) on both
   // terms, which `check:warp` §7 asserts per aspect.
-  zoomFarPortraitOverrides: { distance: 450, elevationDegrees: 58 },
+  //
+  // 450 @ 58 -> 700 @ 63 with the 2026-09-18 pose, for the same reasons against
+  // a portrait rest of 570 and a departure of 760 @ 68.
+  zoomFarPortraitOverrides: { distance: 700, elevationDegrees: 63 },
 
   // Zooming IN keeps the resting pitch and only shortens the distance, because
   // nothing has to be paid for: flying in shrinks the footprint.
@@ -691,8 +727,11 @@ export const murciaConfig: EnvironmentConfig = {
   //
   // This is yaw 0 only. Turning moves the legal region and the clamp follows it
   // live; this number only has to be legal at the pose the city opens on.
+  //
+  // -250 -> -285, 2026-09-18: the pose comment above says why. The eye is free
+  // now, so the only constraint is the A2 ring, and -285 is well inside it.
   initialFocus: {
-    x: -250,
+    x: -285,
     z: (PLATE.minZ + PLATE.maxZ) / 2,
   },
 };
