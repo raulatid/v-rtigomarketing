@@ -12,8 +12,8 @@ import './consentBanner.css'
  *
  * Accept / reject applies to optional experience preferences and analytics.
  * Configure opens independent category switches and the collapsed legal policy.
- * Google Analytics is not installed; its future integration must gate loading
- * and withdrawal on `src/app/consent.ts`. Two equal ghost buttons on purpose — the blue family belongs to the
+ * Analytics is Vercel's (`src/app/vercelInsights.ts`), gated on loading and
+ * withdrawal by `src/app/consent.ts`. Two equal ghost buttons on purpose — the blue family belongs to the
  * primary CTA alone (DECISIONS §30), and rejecting has to be as easy as
  * accepting. The long text is the third legal document, opened through the
  * caller's LegalPanel like the other two.

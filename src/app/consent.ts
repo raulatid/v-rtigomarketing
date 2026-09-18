@@ -4,9 +4,10 @@
  * ── What it gates ──
  *
  * Experience preferences gate the intro memory independently of analytics.
- * Analytics is not installed: when integrated, update the policy and consent
- * version and gate both loading AND withdrawal on this module. Never load a
- * vendor from an old prospective choice alone. The sound toggle remembers an
+ * Analytics is Vercel Web Analytics and Speed Insights (`vercelInsights.ts`),
+ * which gates both loading AND withdrawal on this module. Version 3 arrived with
+ * it, so no choice made while nothing was installed counts as a yes to it. Any
+ * further vendor needs the policy updated and another bump. The sound toggle remembers an
  * explicitly requested setting separately; it does not enable analytics.
  *
  * ── Why localStorage and not a cookie ──
@@ -38,7 +39,7 @@
 
 export type ConsentCategory = 'preferences' | 'analytics'
 
-export const CONSENT_VERSION = 2
+export const CONSENT_VERSION = 3
 export const CONSENT_STORAGE_KEY = 'vertigo:consent'
 
 export interface ConsentRecord {

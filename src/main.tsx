@@ -2,10 +2,12 @@ import { prefersReducedMotion } from './platform/motionPreference'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { startVercelInsights } from './app/vercelInsights'
 import './styles.css'
 
 // Capture before rendering; late-mounted surfaces reuse this document decision.
 prefersReducedMotion()
+startVercelInsights()
 
 // Named rather than asserted: if index.html ever loses the mount node, the
 // difference between this message and "Cannot read properties of null" is the

@@ -135,7 +135,7 @@ describe('granular choices and withdrawal', () => {
     const { subscribeConsent, readConsent } = await fresh()
     const listener = vi.fn()
     const stop = subscribeConsent(listener)
-    const record = { v: 2, preferences: true, analytics: false, at: '2026-09-15' }
+    const record = { v: 3, preferences: true, analytics: false, at: '2026-09-15' }
     localStorage.setItem('vertigo:consent', JSON.stringify(record))
     window.dispatchEvent(new StorageEvent('storage', { key: 'vertigo:consent' }))
     expect(readConsent()).toEqual(record)

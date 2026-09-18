@@ -47,6 +47,15 @@ export const DEBUG_TOOLS_ENABLED =
   (typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__) !== 'production'
 
 /**
+ * Whether Vercel Web Analytics and Speed Insights may load: a production
+ * deployment only. `/_vercel/*` is served by Vercel alone, so under dev, `vite
+ * preview` and the e2e suite the scripts would 404; and preview traffic is the
+ * team's, not the client's audience. Inline for the same folding reason as above.
+ */
+export const VERCEL_INSIGHTS_ENABLED =
+  (typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__) === 'production'
+
+/**
  * Whether the browser is talking to a BUILT `dist/` rather than the dev server.
  *
  * True for a production deploy, a Vercel preview and a local `vite preview`;
