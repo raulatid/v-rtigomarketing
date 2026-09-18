@@ -43,6 +43,7 @@ const BOOKING_LABEL_MAX = 24
  * `copyright`: the Earth scene's footer only; the blog hardcodes its own.
  * The four success strings: in place of each form after a real send.
  * `revenueRanges`: the options of the Auditoría panel's billing dropdown.
+ * `budgetRanges`: the options of that panel's monthly-budget dropdown.
  */
 export const siteSettings = defineType({
   name: 'siteSettings',
@@ -357,6 +358,41 @@ export const siteSettings = defineType({
       validation: (rule) => [
         rule.required().min(1).error('Añade al menos un rango.'),
         rule.max(BOUNDS.revenueRanges).error(`Como máximo ${BOUNDS.revenueRanges} rangos.`),
+        rule.unique().error('Hay dos rangos iguales: el visitante no podría distinguirlos.'),
+      ],
+    }),
+
+    // ── Los rangos de presupuesto mensual ──
+    //
+    // El mismo arreglo que los rangos de facturación: cada línea es una opción
+    // del desplegable «Presupuesto mensual», y lo que escribes es lo que se ve
+    // y lo que llega en el correo.
+    defineField({
+      name: 'budgetRanges',
+      title: 'Rangos de presupuesto mensual',
+      description:
+        'Las opciones del desplegable «Presupuesto mensual» del panel Auditoría, en este mismo ' +
+        'orden (arrastra para reordenar). Lo que escribas es lo que ve el visitante y lo que te ' +
+        'llega en el correo.',
+      type: 'array',
+      fieldset: 'auditoria',
+      group: 'auditoria',
+      of: [
+        defineArrayMember({
+          type: 'string',
+          title: 'Rango',
+          components: { input: charCount(BOUNDS.budgetRange) },
+          validation: (rule) => [
+            rule.required().error('Escribe el rango o quita la línea.'),
+            rule.max(BOUNDS.budgetRange).error(
+              `Demasiado largo: como máximo ${BOUNDS.budgetRange} caracteres.`,
+            ),
+          ],
+        }),
+      ],
+      validation: (rule) => [
+        rule.required().min(1).error('Añade al menos un rango.'),
+        rule.max(BOUNDS.budgetRanges).error(`Como máximo ${BOUNDS.budgetRanges} rangos.`),
         rule.unique().error('Hay dos rangos iguales: el visitante no podría distinguirlos.'),
       ],
     }),

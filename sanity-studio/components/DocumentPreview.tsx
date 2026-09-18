@@ -96,6 +96,7 @@ export function PreviewContent({doc, projectId, dataset, mode = 'content', categ
       {settingsView.startsWith('audit') ? <AuditSection
         ready={false} recomposesScene={false} onOpenChange={noop} onOpenLegal={noop}
         preview={{state: success ? 'success' : 'form', revenueRanges: rows(doc.revenueRanges).map(text),
+          budgetRanges: rows(doc.budgetRanges).map(text),
           successTitle: text(doc.auditSuccessTitle), successBody: text(doc.auditSuccessBody)}}
       /> : <ContactSection
         ready={false} suppressed={false} onOpenChange={noop} onOpenLegal={noop}

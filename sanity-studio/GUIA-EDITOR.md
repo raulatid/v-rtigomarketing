@@ -84,6 +84,8 @@ En los dos casos el aviso te dice qué mide la imagen y qué debería medir, as�
 
 **Los rangos de facturación** («Ajustes del sitio» → «Formulario de auditoría») son las opciones del desplegable «Rango de facturación de tu empresa» del panel Auditoría, en el mismo orden en que los pongas (arrastra para reordenar). Lo que escribas es exactamente lo que ve el visitante y lo que te llega en el correo. **Los cuatro que hay ahora son de ejemplo:** cámbialos por los tuyos. Tiene que haber al menos uno.
 
+**Los rangos de presupuesto mensual** (en el mismo sitio) funcionan igual: son las opciones del desplegable «Presupuesto mensual» del panel Auditoría, en el orden en que los pongas, y los cuatro que hay son de ejemplo.
+
 **Los textos legales** se abren en una ventana sobre la web cuando alguien pulsa su enlace. «Términos y privacidad» se enlaza desde los dos formularios; «Aviso legal», desde el panel de Auditoría; y «Política de cookies», desde el aviso de cookies.
 
 ## Si algo va mal

@@ -169,6 +169,7 @@ for (const record of read('siteSettings')) {
     contactEmail: record.contactEmail,
     copyright: record.copyright,
     revenueRanges: record.revenueRanges,
+    budgetRanges: record.budgetRanges,
   })
 }
 

@@ -30,6 +30,7 @@ export function EditorialHome() {
       <li><IntentLink intent="edit" params={{id: 'siteSettings', type: 'siteSettings', path: 'phones'}}>Cambiar teléfonos y datos de contacto</IntentLink></li>
       <li><IntentLink intent="edit" params={{id: 'siteSettings', type: 'siteSettings', path: 'contactSuccessTitle'}}>Editar mensajes de los formularios</IntentLink></li>
       <li><IntentLink intent="edit" params={{id: 'siteSettings', type: 'siteSettings', path: 'revenueRanges'}}>Cambiar rangos de facturación</IntentLink></li>
+      <li><IntentLink intent="edit" params={{id: 'siteSettings', type: 'siteSettings', path: 'budgetRanges'}}>Cambiar rangos de presupuesto mensual</IntentLink></li>
       <li><IntentLink intent="create" params={{type: 'blogPost'}}>Escribir una entrada del blog</IntentLink></li>
     </ul>
     <h2>Cambios sin publicar</h2>
