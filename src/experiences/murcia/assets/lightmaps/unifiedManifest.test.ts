@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import { murciaConfig } from '../../config/murciaConfig';
 import { parseUnifiedManifest } from './unifiedManifest';
 
 const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
@@ -9,7 +10,28 @@ const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   } },
 } });
 describe('the selected unified bake contract', () => {
-  it('ships the stadium roof atlas within budget, with accurate texture metadata', () => {
+  it('ships the active v5.1 revision 2 profile with exact sizes, dimensions and total budgets', () => {
+    const config = murciaConfig.lightmaps!;
+    if (!('manifest' in config)) throw new Error('Expected the unified manifest');
+    const directory = 'public' + config.baseUrl;
+    const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
+    expect(Object.keys(shipped.atlases)).toHaveLength(15);
+    for (const resolution of [1024, 2048] as const) {
+      let total = 0;
+      for (const atlas of Object.values(shipped.atlases)) {
+        const variant = atlas.variants[resolution];
+        const data = fs.readFileSync(directory + variant.file);
+        expect(data.length).toBe(variant.bytes);
+        expect(data.subarray(0, 12).toString('hex')).toBe('ab4b5458203230bb0d0a1a0a');
+        expect(data.readUInt32LE(20)).toBe(resolution);
+        expect(data.readUInt32LE(24)).toBe(resolution);
+        expect(data.readUInt32LE(40)).toBe(variant.mipLevels);
+        total += data.length;
+      }
+      expect(total).toBe(resolution === 1024 ? 1993562 : 3982348);
+    }
+  });
+  it('retains the legacy stadium repair with accurate texture metadata', () => {
     const directory = 'public/textures/murcia/lightmaps-v2/';
     const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + 'lightmaps.json', 'utf8')));
     expect(shipped.requiredNames).toContain('estadio-techo');

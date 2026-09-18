@@ -7,14 +7,14 @@ import { createLightmapMaterial, prepareLightmapTexture } from './lightmapMateri
 import { parseUnifiedManifest } from './unifiedManifest';
 import type { LightmapResolution } from './lightmapManifest';
 
-/** The selected v4 bake: shared atlases without merging interactive building parts. */
+/** The selected city bake: shared atlases without merging interactive building parts. */
 export async function loadUnifiedLightmaps(
   gltf: GLTF, renderer: THREE.WebGLRenderer, base: string, file: string,
   resolution: LightmapResolution,
 ): Promise<{ resolution: LightmapResolution; dispose: () => void } | null> {
   const targets: Array<{ object: THREE.Mesh; geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }> = [];
   const textures = new Map<string, THREE.Texture>();
-  const materials = new Map<string, THREE.MeshBasicMaterial>();
+  const materials = new Map<string, THREE.Material>();
   const geometries: THREE.BufferGeometry[] = [];
   let disposed = false;
   const dispose = () => {
@@ -35,7 +35,19 @@ export async function loadUnifiedLightmaps(
     }
     gltf.scene.traverse(object => {
       const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh || typeof mesh.userData.lightmap_atlas !== 'string') return;
+      if (!mesh.isMesh) return;
+      // GLTFLoader turns a multi-material mesh into a Group. Its primitive
+      // children need the atlas and interaction tags stored on that group.
+      for (const key of ['lightmap_atlas', 'building_id', 'runtime_material', 'dynamic_rotation']) {
+        if (mesh.userData[key] !== undefined) continue;
+        for (let parent = mesh.parent; parent; parent = parent.parent) {
+          if (parent.userData[key] !== undefined) {
+            mesh.userData[key] = parent.userData[key];
+            break;
+          }
+        }
+      }
+      if (typeof mesh.userData.lightmap_atlas !== 'string') return;
       if (mesh.userData.runtime_material || mesh.userData.dynamic_rotation) {
         throw new Error(`[lightmaps] dynamic surface was baked: ${mesh.name}`);
       }
@@ -71,12 +83,19 @@ export async function loadUnifiedLightmaps(
       const build = (source: THREE.Material) => {
         const cacheKey = `${key}:${source.uuid}:${instanced}`;
         let material = materials.get(cacheKey);
+        if (!material && source.transparent && source.opacity < 0.999) {
+          // Lobby glass keeps runtime PBR lighting, opacity and roughness.
+          material = source.clone();
+          if ('lightMap' in material) material.lightMap = null;
+          material.depthWrite = false;
+          materials.set(cacheKey, material);
+        }
         if (!material) {
           material = createLightmapMaterial(source, {
             lightMap: textures.get(key)!, lightMapIntensity: row.threeLightMapIntensity,
             atlasSize: resolution, maxMip: row.variants[resolution].mipLevels - 1,
             instanced, preserveAlbedo: true,
-            programKey: `murcia-v4-v2-${instanced}-${resolution}-${row.variants[resolution].mipLevels}`,
+            programKey: `murcia-v5.1-${instanced}-${resolution}-${row.variants[resolution].mipLevels}`,
           });
           material.name = `${source.name} | ${key}`;
           materials.set(cacheKey, material);
