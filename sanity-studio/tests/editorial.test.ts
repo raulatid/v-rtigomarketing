@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { imageProblem, videoProblem } from '../schemas/lib/editorChecks'
 import { previewBody, previewCase, previewImage } from '../components/previewModel'
 import { serviceMembership } from '../schemas/lib/serviceMembership'
+import { highlightedCaseUnique } from '../schemas/lib/highlightedCase'
 import type { ValidationContext } from 'sanity'
 
 describe('editorial validation before publishing', () => {
@@ -26,6 +27,15 @@ describe('editorial validation before publishing', () => {
     expect(await serviceMembership(slugs.map((_slug, i) => ({_ref: 'id-' + i})), context)).toBe(true)
     slugs.pop()
     expect(await serviceMembership([{_ref: 'id-0'}], context)).not.toBe(true)
+  })
+  it('allows one highlighted case and refuses a second one, ignoring the document itself', async () => {
+    const make = (others: string[]) =>
+      ({document: {_id: 'drafts.case-a'}, getClient: () => ({fetch: async (_q: string, params: {ownId: string}) => (params.ownId === 'case-a' ? others : ['wrong'])})}) as unknown as ValidationContext
+    expect(await highlightedCaseUnique(false, make(['Mango']))).toBe(true)
+    expect(await highlightedCaseUnique(true, make([]))).toBe(true)
+    expect(await highlightedCaseUnique(true, make(['Mango']))).toContain('Mango')
+    const failing = {document: {_id: 'case-a'}, getClient: () => ({fetch: async () => { throw new Error('offline') }})} as unknown as ValidationContext
+    expect(await highlightedCaseUnique(true, failing)).not.toBe(true)
   })
 })
 

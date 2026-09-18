@@ -3,6 +3,7 @@ import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EditorialDocument } from '../components/EditorialDocument'
 import { charCount } from '../components/CharCountInput'
 import { ColorHexInput } from '../components/ColorHexInput'
+import { highlightedCaseUnique } from './lib/highlightedCase'
 import { brandMarkAdvice, brandMarkErrors } from './lib/brandMark'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
@@ -27,10 +28,12 @@ const BOUNDS = EDITORIAL_BOUNDS.caseStudy
  * A case study — one of the brands riding an orbit around the Earth.
  *
  * ── What is NOT here ──
- * Which orbit a case occupies. That is scene composition and lives in
- * `src/experiences/earth/orbit/orbitAssignments.ts`. Publishing a case study
- * does NOT create an orbit: the Earth keeps a finite, art-directed set of slots.
- * The editor is told this in the first fieldset, in plain words.
+ * Which orbit a case occupies. That is scene composition and is derived in
+ * `src/experiences/earth/orbit/orbitAssignments.ts`: the highlighted case
+ * (`highlighted`, below) always rides orbit-02 and the rest fill the other
+ * presets by id. Publishing a seventh case does NOT create an orbit: the Earth
+ * keeps a finite, art-directed set of slots. The editor is told this in the
+ * first fieldset, in plain words.
  *
  * ── The bounds are layout facts ──
  * `details` is a four-line bullet list, `metrics` is a fixed two-up grid, and
@@ -211,8 +214,17 @@ export const caseStudy = defineType({
       title: 'Marca',
       description:
         'Cada caso es una marca que gira alrededor del planeta, sobre un satélite. Hay seis ' +
-        'órbitas: un caso nuevo se guarda aquí, pero solo aparece en la web cuando el equipo ' +
-        'técnico le asigna una.',
+        'órbitas y los casos publicados las ocupan solos, por orden de identificador; el caso ' +
+        'resaltado va siempre en la misma. A partir del sexto caso, los demás no aparecen.',
+    },
+    {
+      name: 'resaltado',
+      title: 'Caso de éxito resaltado',
+      description:
+        'Uno de los casos, y solo uno, es el caso resaltado: su satélite brilla más que los ' +
+        'demás al llegar al planeta y es el ejemplo con el que la web enseña al visitante que ' +
+        'los satélites se pueden pinchar. Tiene que haber siempre uno publicado. Para cambiarlo, ' +
+        'desmarca el actual y marca el nuevo.',
     },
     {
       name: 'ficha',
@@ -330,6 +342,17 @@ export const caseStudy = defineType({
           .error(
             'Escribe el color en formato #rrggbb, por ejemplo #e0b33c — o déjalo vacío si la marca no tiene color',
           ),
+    }),
+    defineField({
+      name: 'highlighted',
+      title: 'Este es el caso resaltado',
+      description:
+        'Márcalo solo en el caso que quieres que brille y sirva de ejemplo. Si ya hay otro ' +
+        'marcado, el editor no te dejará publicar hasta que lo desmarques.',
+      type: 'boolean',
+      fieldset: 'resaltado',
+      initialValue: false,
+      validation: (rule) => rule.custom(highlightedCaseUnique),
     }),
     defineField({
       name: 'sector',
@@ -470,11 +493,13 @@ export const caseStudy = defineType({
   preview: {
     // The isotype, not the logo: square artwork reads better in Sanity's
     // document list, which crops its thumbnail to a square anyway.
-    select: { title: 'name', sector: 'sector', location: 'location', media: 'isotype' },
-    prepare: ({ title, sector, location, media }) => ({
+    select: { title: 'name', sector: 'sector', location: 'location', media: 'isotype', highlighted: 'highlighted' },
+    prepare: ({ title, sector, location, media, highlighted }) => ({
       title,
       media,
-      subtitle: [sector, location].filter(Boolean).join(' · '),
+      // Editors see which case is the highlighted one from the list, without
+      // opening each document.
+      subtitle: [highlighted === true ? 'Resaltado' : null, sector, location].filter(Boolean).join(' · '),
     }),
   },
 })

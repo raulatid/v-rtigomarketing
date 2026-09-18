@@ -46,7 +46,9 @@ Si dudas de si algo puede publicarse, déjalo en borrador y pregunta al equipo t
 
 ## Cosas que conviene saber
 
-**Un caso de éxito nuevo no aparece solo.** Hay seis órbitas alrededor del planeta. Puedes crear un caso y rellenarlo entero, pero solo sale en la web cuando el equipo técnico le asigna una. Avísales cuando esté listo.
+**Hay seis órbitas alrededor del planeta y los casos publicados las ocupan solos**, por orden de identificador; el caso resaltado va siempre en la misma órbita. Un caso nuevo aparece en la web al publicarlo, siempre que haya una órbita libre: a partir del sexto caso, los demás no salen. Si necesitas cambiar cuál sale, despublica uno.
+
+**Uno de los casos es el «caso de éxito resaltado», y solo uno.** Su satélite brilla más que los demás al llegar al planeta y es el ejemplo con el que la web enseña al visitante que los satélites se pueden pinchar. Tiene que haber siempre uno publicado: no lo despubliques ni lo borres sin marcar antes otro. Para cambiarlo, desmarca «Este es el caso resaltado» en el caso actual, publícalo, y márcalo en el nuevo. Si intentas marcar un segundo caso, el editor te avisa y no te deja publicar.
 
 **Al crear un caso o un servicio nuevo, el identificador se genera automáticamente al escribir el nombre.** Después queda protegido para evitar cambios accidentales. En las entradas del blog, pulsa «Generar» en «Dirección de la entrada», dentro de «Publicación»: es la dirección que compartirás.
 
