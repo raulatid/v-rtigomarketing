@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
 import { isPointVisible, orbitVisibility } from './satelliteVisibility'
 import { ORBIT_CONFIG, ORBIT_PRESETS } from './orbitConfig'
-import { invitedCaseId, orbitAssignments } from './orbitAssignments'
+import { invitedCaseIdFor, orbitAssignmentsFor } from './orbitAssignments'
+import { CASE_STUDIES } from '../../../content/generated/caseStudies'
 import { overviewRestPosition } from '../camera/overviewPose'
 import { earthZoomRadius } from '../camera/zoomPose'
 import { DEFAULT_APP_CONFIG } from '../config/introConfig'
@@ -31,6 +32,9 @@ function restCamera(width: number, height: number): THREE.PerspectiveCamera {
   camera.updateMatrixWorld(true)
   return camera
 }
+
+const invitedCaseId = invitedCaseIdFor(CASE_STUDIES)
+const orbitAssignments = orbitAssignmentsFor(CASE_STUDIES)
 
 function presetFor(caseId: string) {
   const orbitId = orbitAssignments.find((a) => a.caseId === caseId)?.orbitId

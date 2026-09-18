@@ -11,6 +11,7 @@ import {
   LOCAL_MEDIA_PATH,
   caseStudyProblems,
   collectionProblems,
+  highlightedCaseProblems,
 } from '../../src/content/invariants'
 import { Report, boundedArray, hexColor, num, oneOf, slug, text } from '../lib/validate'
 import { collection, type MediaRule } from './types'
@@ -165,6 +166,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
     // no `_ref`, no `_type`, no `slug.current`, no asset object.
     projection: `{
       "id": slug.current,
+      "highlighted": coalesce(highlighted, false),
       label,
       name,
       "isotype": isotype.asset->url,
@@ -206,6 +208,14 @@ export const caseStudiesCollection = collection<CaseStudy>({
 
     const name = text(scoped, 'name', source.name, { max: NAME_MAX })
     const label = text(scoped, 'label', source.label ?? source.name, { max: NAME_MAX })
+    // Absent is "not highlighted": the Studio field defaults to false and a
+    // document created before the field existed has no value at all. Anything
+    // present that is not a boolean is a defect, not a state.
+    let highlighted: boolean | undefined = false
+    if (source.highlighted !== undefined && source.highlighted !== null) {
+      if (typeof source.highlighted === 'boolean') highlighted = source.highlighted
+      else highlighted = scoped.fail('highlighted', 'expected a boolean')
+    }
     // A brand without a colour of its own is an editorial state, not a defect:
     // the Studio field is optional and says so. Absent or empty resolves to
     // white — the panel, cards, chart marks and bullets all read as plain glass
@@ -289,6 +299,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
     if (
       problems.length > 0 ||
       id === undefined ||
+      highlighted === undefined ||
       name === undefined ||
       label === undefined ||
       brandColor === undefined ||
@@ -305,6 +316,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
 
     const value: CaseStudy = {
       id,
+      highlighted,
       label,
       name,
       isotype,
@@ -329,7 +341,12 @@ export const caseStudiesCollection = collection<CaseStudy>({
   },
 
   audit(items) {
-    return collectionProblems(items, 'caseStudies')
+    // Which case is highlighted is the one thing about the orbits an editor
+    // decides, so the build is where "exactly one" is held for what ships.
+    return [
+      ...collectionProblems(items, 'caseStudies'),
+      ...highlightedCaseProblems(items, 'caseStudies'),
+    ]
   },
 
   emit: {

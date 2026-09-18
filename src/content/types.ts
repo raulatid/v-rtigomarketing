@@ -370,17 +370,28 @@ export interface CaseChart {
 
 /**
  * NO `orbitId` HERE, deliberately. Which case occupies which orbit is scene
- * composition, not editorial content — it lives in
- * `experiences/earth/orbit/orbitAssignments.ts` beside the presets it refers to,
- * the same way `cityDistrictBindings.ts` binds district copy to city geometry.
+ * composition, not editorial content — `experiences/earth/orbit/orbitAssignments.ts`
+ * derives it beside the presets it refers to, the same way
+ * `cityDistrictBindings.ts` binds district copy to city geometry. The one
+ * editorial input to that derivation is `highlighted`, below.
  *
- * Putting it back would let a CMS author decide where a client appears in a
- * hand-tuned composition, and would re-create the failure that table exists to
- * prevent: an ordering the scene did not choose.
+ * Putting an orbit id back would let a CMS author decide where a client
+ * appears in a hand-tuned composition, and would re-create the failure that
+ * derivation exists to prevent: an ordering the scene did not choose.
  */
 export interface CaseStudy {
   /** Stable identifier. Referenced by an `OrbitAssignment.caseId`. */
   id: string
+  /**
+   * The highlighted case — the Studio's «caso de éxito resaltado».
+   *
+   * EXACTLY ONE case carries `true`; the content build fails otherwise
+   * (`highlightedCaseProblems`). It is the satellite whose halo breathes
+   * brighter in the overview and the hover tutorial's target, and for that it
+   * always rides `orbit-02`, the one orbit that is on screen the whole way
+   * round at every supported viewport (`satelliteVisibility.test.ts`).
+   */
+  highlighted: boolean
   /**
    * NOT CURRENTLY RENDERED. This was the text drawn on the old flat 3D badge,
    * which the satellite GLB and the brand atlas replaced — the atlas draws

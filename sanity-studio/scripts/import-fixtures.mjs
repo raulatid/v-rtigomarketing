@@ -105,6 +105,7 @@ for (const record of read('caseStudy')) {
     _id: 'caseStudy-' + record.id,
     _type: 'caseStudy',
     slug: { _type: 'slug', current: record.id },
+    highlighted: record.highlighted === true,
     name: record.name,
     label: record.label,
     brandColor: record.brandColor,

@@ -139,6 +139,9 @@ export function caseStudyProblems(entry: CaseStudy): Problem[] {
   if (!HEX_COLOR_PATTERN.test(entry.brandColor)) {
     at('brandColor', 'must match ' + HEX_COLOR_PATTERN)
   }
+  if (typeof entry.highlighted !== 'boolean') {
+    at('highlighted', 'must be a boolean')
+  }
   if (entry.logo !== null && !LOCAL_MEDIA_PATH.test(entry.logo)) {
     at('logo', 'must be null or a local path under /')
   }
@@ -531,6 +534,42 @@ export function blogPostProblems(entry: BlogPost): Problem[] {
 }
 
 /** Collection-level bounds: the ones a single entry cannot see. */
+/**
+ * Exactly one highlighted case.
+ *
+ * The highlighted case always rides `orbit-02` and is the hover tutorial's
+ * target. None would leave the overview with no example and the tutorial with
+ * nothing to point at; two would give the tutorial two targets. The Studio
+ * refuses a second one at the field, but only against published documents,
+ * so this is the check that actually holds the line for what ships.
+ */
+export function highlightedCaseProblems(
+  items: readonly { id: string; highlighted: boolean }[],
+  label: string,
+): Problem[] {
+  const highlighted = items.filter((item) => item.highlighted).map((item) => item.id)
+  if (highlighted.length === 1) return []
+  if (highlighted.length === 0) {
+    return [
+      {
+        path: label,
+        message:
+          'no case study is highlighted — mark exactly one as «caso de éxito ' +
+          'resaltado» in the Studio; it rides orbit-02 and anchors the hover tutorial',
+      },
+    ]
+  }
+  return [
+    {
+      path: label,
+      message:
+        'more than one case study is highlighted (' +
+        highlighted.join(', ') +
+        ') — only one may be, because only one satellite can be the tutorial target',
+    },
+  ]
+}
+
 export function collectionProblems(items: readonly { id: string }[], label: string): Problem[] {
   const problems: Problem[] = []
   if (items.length === 0) {

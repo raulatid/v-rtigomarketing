@@ -362,6 +362,40 @@ describe('district particle colours', () => {
   })
 })
 
+describe('the highlighted case', () => {
+  it('maps an absent value to false, so documents older than the field still build', () => {
+    const record = validCase()
+    delete record.highlighted
+    const result = caseStudiesCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect((result.value as unknown as CaseStudy).highlighted).toBe(false)
+  })
+
+  it('keeps an explicit true', () => {
+    const record = validCase()
+    record.highlighted = true
+    const result = caseStudiesCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect((result.value as unknown as CaseStudy).highlighted).toBe(true)
+  })
+
+  it('rejects a value that is not a boolean rather than guessing', () => {
+    const record = validCase()
+    record.highlighted = 'yes'
+    expect(problemsFor(caseStudiesCollection, record)).toContain('satellite-01.highlighted')
+  })
+
+  it('is required exactly once across the collection', () => {
+    // It rides orbit-02 and anchors the hover tutorial: none leaves the globe
+    // with no example, two gives the tutorial two targets.
+    const item = (id: string, highlighted: boolean) => ({ id, highlighted })
+    expect(caseStudiesCollection.audit([item('a', true), item('b', false)])).toEqual([])
+    expect(caseStudiesCollection.audit([item('a', false), item('b', false)]).length).toBeGreaterThan(0)
+    const two = caseStudiesCollection.audit([item('a', true), item('b', true)])
+    expect(two.map((p) => p.message).join(' ')).toContain('a, b')
+  })
+})
+
 describe('collection audits', () => {
   it('reject a duplicate id across the collection', () => {
     const problems = caseStudiesCollection.audit([{ id: 'a' }, { id: 'a' }])

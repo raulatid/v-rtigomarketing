@@ -28,7 +28,7 @@ export function previewCase(doc: RecordValue): CaseStudy {
     return {label: text(row.label), value: text(row.value)}
   }
   return {
-    id: text(doc._id), name: text(doc.name), label: text(doc.name), isotype: null, logo: null,
+    id: text(doc._id), highlighted: doc.highlighted === true, name: text(doc.name), label: text(doc.name), isotype: null, logo: null,
     brandColor: /^#[0-9a-f]{6}$/i.test(text(doc.brandColor)) ? text(doc.brandColor) : '#ffffff',
     sector: text(doc.sector), location: text(doc.location), year: text(doc.year), summary: text(doc.summary),
     metrics: [metric(0), metric(1)], details: rows(doc.details).map(text),

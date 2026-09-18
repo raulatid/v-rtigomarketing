@@ -1,5 +1,5 @@
 import type { CaseStudy } from '../../../content/types'
-import type { OrbitAssignment } from './orbitAssignments'
+import { OrbitAssignmentError, type OrbitAssignment } from './orbitAssignments'
 import type { OrbitPreset } from './orbitConfig'
 
 /**
@@ -17,12 +17,7 @@ export interface OrbitCase {
   satellite: CaseStudy
 }
 
-export class OrbitAssignmentError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'OrbitAssignmentError'
-  }
-}
+export { OrbitAssignmentError }
 
 /**
  * Resolves the assignment table against the presets and the content collection.

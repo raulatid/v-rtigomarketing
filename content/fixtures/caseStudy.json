@@ -1,6 +1,7 @@
 [
   {
     "id": "satellite-01",
+    "highlighted": false,
     "label": "MANGO",
     "name": "Mango",
     "brandColor": "#e0b33c",
@@ -47,6 +48,7 @@
   },
   {
     "id": "satellite-02",
+    "highlighted": false,
     "label": "CABIFY",
     "name": "Cabify",
     "brandColor": "#7b4dff",
@@ -91,6 +93,7 @@
   },
   {
     "id": "satellite-03",
+    "highlighted": false,
     "label": "ESTRELLA",
     "name": "Estrella Galicia",
     "brandColor": "#e2452f",
@@ -137,6 +140,7 @@
   },
   {
     "id": "satellite-04",
+    "highlighted": false,
     "label": "IDEALISTA",
     "name": "Idealista",
     "brandColor": "#2fb56b",
@@ -181,6 +185,7 @@
   },
   {
     "id": "satellite-05",
+    "highlighted": false,
     "label": "CAMPER",
     "name": "Camper",
     "brandColor": "#ff7a3d",
@@ -229,6 +234,7 @@
   },
   {
     "id": "satellite-06",
+    "highlighted": true,
     "label": "FREIXENET",
     "name": "Freixenet",
     "brandColor": "#38a9d6",

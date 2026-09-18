@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { ORBIT_CONFIG, ORBIT_PRESETS, SatelliteDef } from './orbitConfig'
 import { CASE_STUDIES } from '../../../content/generated/caseStudies'
-import { invitedCaseId, orbitAssignments } from './orbitAssignments'
+import { invitedCaseIdFor, orbitAssignmentsFor } from './orbitAssignments'
 import { resolveOrbitCases } from './resolveOrbitCases'
 import { createOrbitLine, OrbitLine } from './createOrbitLine'
 import { createSatellite, Satellite } from './createSatellite'
@@ -59,7 +59,8 @@ export function createOrbitSystem({ renderer }: Options) {
   // a throw here into a FATAL boot state, which is the correct outcome: the
   // alternative is a globe quietly showing one client's numbers under another
   // client's name.
-  const orbitCases = resolveOrbitCases(ORBIT_PRESETS, orbitAssignments, CASE_STUDIES)
+  const orbitCases = resolveOrbitCases(ORBIT_PRESETS, orbitAssignmentsFor(CASE_STUDIES), CASE_STUDIES)
+  const invitedCaseId = invitedCaseIdFor(CASE_STUDIES)
 
   // TWO atlases for all six brand panels — the isotype each panel rests on and
   // the logo it unfolds into under selection. Built here rather than per

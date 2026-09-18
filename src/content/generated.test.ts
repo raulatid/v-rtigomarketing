@@ -6,6 +6,7 @@ import { SERVICES } from './generated/services'
 import {
   blogPostProblems,
   caseStudyProblems,
+  highlightedCaseProblems,
   collectionProblems,
   districtProblems,
 } from './invariants'
@@ -37,6 +38,7 @@ describe('the generated content on disk', () => {
 
   it('satisfies the collection-level invariants', () => {
     expect(collectionProblems(CASE_STUDIES, 'caseStudies')).toEqual([])
+    expect(highlightedCaseProblems(CASE_STUDIES, 'caseStudies')).toEqual([])
     expect(collectionProblems(DISTRICT_CONTENT, 'districts')).toEqual([])
   })
 

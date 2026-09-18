@@ -6,7 +6,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { OrbitSystem } from '../orbit/createOrbitSystem'
 import type { SatelliteDef } from '../orbit/orbitConfig'
-import { invitedCaseId } from '../orbit/orbitAssignments'
+import { invitedCaseIdFor } from '../orbit/orbitAssignments'
+import { CASE_STUDIES } from '../../../content/generated/caseStudies'
 import { createFocusCameraRig, FocusCameraRig } from '../camera/createFocusCameraRig'
 import { installDebugCameraHook } from '../camera/debugCameraHook'
 import { installCameraReadout } from '../debug/CameraReadout'
@@ -131,7 +132,7 @@ export function InteractionLayer({
       orbitSystem,
       cameraRig: rig,
       cursor,
-      invitedId: invitedCaseId,
+      invitedId: invitedCaseIdFor(CASE_STUDIES),
       onSelect: (data) => callbacks.current.onSelect(data),
       onDeselect: () => callbacks.current.onDeselect(),
       reducedMotion,

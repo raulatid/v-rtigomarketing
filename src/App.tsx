@@ -27,8 +27,7 @@ import { CustomCursor } from './components/CustomCursor'
 import { NavigationControl } from './components/NavigationControl'
 import { EarthHint } from './components/EarthHint'
 import { OrbitSystem } from './experiences/earth/orbit/createOrbitSystem'
-import type { SatelliteDef } from './experiences/earth/orbit/orbitConfig'
-import { orbitAssignments } from './experiences/earth/orbit/orbitAssignments'
+import { ORBIT_PRESETS, type SatelliteDef } from './experiences/earth/orbit/orbitConfig'
 import { useMasterTimeline } from './experiences/earth/timeline/useMasterTimeline'
 import type { CornerLogoHandle } from './corner-logo/cornerLogoConfig'
 import { useIntroDraw } from './experiences/earth/timeline/useIntroDraw'
@@ -230,12 +229,14 @@ export default function App() {
     cornerLogo,
     replayKey,
     drawComplete,
-    // The assignment table, not the content: how many orbits the scene reveals
-    // is a composition decision, and every entry is guaranteed to resolve (an
-    // unresolvable one fails the build — see resolveOrbitCases). Importing the
-    // table here costs a few dozen bytes; importing the content would cost the
-    // entry chunk every case study's prose.
-    satelliteCount: orbitAssignments.length,
+    // The preset count, not the content. The assignment table is derived from
+    // the published cases now (orbitAssignmentsFor), so the exact count lives
+    // in the scene chunk; importing the content here would cost the entry
+    // chunk every case study's prose. This is the UPPER bound the presets
+    // allow: with fewer published cases than presets the hold runs one
+    // introStagger (0.18s) longer per empty orbit, which is the cheaper
+    // error — a reveal that outruns its hold would cut to the site mid-stagger.
+    satelliteCount: ORBIT_PRESETS.length,
     returning: introSeenAtBoot,
   })
 
