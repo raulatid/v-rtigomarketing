@@ -32,10 +32,19 @@ export function stripShaderComments(shader: string): string {
 const PUBLIC_ROOTS = new Set(['audio', 'draco', 'earth', 'fonts', 'libs', 'logos', 'models', 'textures'])
 const PUBLIC_EXTENSIONS = new Set(['.mp3', '.js', '.wasm', '.ktx2', '.woff2', '.glb', '.png', '.webp', '.avif', '.json', '.svg'])
 
+/**
+ * Root-level files that ship. Everything else at the root of public/ is
+ * refused, which is the point of listing rather than copying: a stray file
+ * dropped there does not become a URL. `content-version.json` is written by
+ * the content build (content/lib/contentVersion.ts) and read by the Studio's
+ * «Estado de la web»; it holds a timestamp and the source name, nothing else.
+ */
+const PUBLIC_ROOT_FILES = new Set(['og-default.png', 'content-version.json'])
+
 export function isPublicAsset(file: string): boolean {
   const parts = file.replace(/\\/g, '/').split('/')
   if (parts.some((part) => part.startsWith('.') || part.startsWith('sky-test-'))) return false
-  return file === 'og-default.png' || (
+  return PUBLIC_ROOT_FILES.has(file) || (
     PUBLIC_ROOTS.has(parts[0]) && PUBLIC_EXTENSIONS.has(path.extname(file))
   )
 }

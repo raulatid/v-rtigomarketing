@@ -44,10 +44,12 @@ describe('publication hygiene', () => {
   })
 
   it('publishes runtime assets but excludes prototypes, hidden files and source files', () => {
-    for (const file of ['og-default.png', 'models/city.glb', 'textures/lightmaps.json', 'libs/basis/basis_transcoder.js']) {
+    // content-version.json is the build's own stamp, read by the Studio; any
+    // other root-level file is not a URL just because it landed in public/.
+    for (const file of ['og-default.png', 'content-version.json', 'models/city.glb', 'textures/lightmaps.json', 'libs/basis/basis_transcoder.js']) {
       expect(isPublicAsset(file), file).toBe(true)
     }
-    for (const file of ['proto-sky/a/4096/negx.png', 'textures/sky-test-new.png', 'logos/.gitkeep', 'textures/.env', 'models/raw.blend', 'libs/source.js.map']) {
+    for (const file of ['proto-sky/a/4096/negx.png', 'textures/sky-test-new.png', 'logos/.gitkeep', 'textures/.env', 'models/raw.blend', 'libs/source.js.map', 'notes.json', 'content-version.txt']) {
       expect(isPublicAsset(file), file).toBe(false)
     }
   })
