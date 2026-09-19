@@ -36,8 +36,11 @@ import type {
  */
 export const DISTRICT_SUMMARY_MAX = EDITORIAL_BOUNDS.district.summary
 
-/** The panel's metric row is a fixed two-up grid. Not a preference. */
-export const CASE_METRICS_REQUIRED = EDITORIAL_BOUNDS.caseStudy.metrics
+/** The panel's metric row shares its width between up to this many cards. */
+export const CASE_METRICS_MAX = EDITORIAL_BOUNDS.caseStudy.metrics
+
+/** Below this a chart is a dot; a case with nothing to plot has `chart: null` instead. */
+export const CHART_VALUES_MIN = EDITORIAL_BOUNDS.caseStudy.chartValuesMin
 
 /**
  * `CaseChart` normalises a series to its own min/max, so length is a layout
@@ -132,8 +135,12 @@ export function caseStudyProblems(entry: CaseStudy): Problem[] {
   if (!ID_PATTERN.test(entry.id)) {
     problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
   }
-  for (const field of ['label', 'name', 'sector', 'location', 'year', 'summary'] as const) {
+  for (const field of ['label', 'name', 'summary'] as const) {
     if (!nonEmpty(entry[field])) at(field, 'must be a non-empty string')
+  }
+  // Editorial: a case may say none of these. The panel joins whichever are set.
+  for (const field of ['sector', 'location', 'year'] as const) {
+    if (typeof entry[field] !== 'string') at(field, 'must be a string, possibly empty')
   }
 
   if (!HEX_COLOR_PATTERN.test(entry.brandColor)) {
@@ -165,21 +172,22 @@ export function caseStudyProblems(entry: CaseStudy): Problem[] {
     if (!nonEmpty(line)) at('details[' + i + ']', 'must be a non-empty string')
   })
 
-  if (entry.metrics.length !== CASE_METRICS_REQUIRED) {
-    at('metrics', 'exactly ' + CASE_METRICS_REQUIRED + ' required')
+  if (!Array.isArray(entry.metrics) || entry.metrics.length > CASE_METRICS_MAX) {
+    at('metrics', 'at most ' + CASE_METRICS_MAX + ' entries')
   }
-  entry.metrics.forEach((metric, i) => {
+  ;(entry.metrics ?? []).forEach((metric, i) => {
     if (!nonEmpty(metric?.label)) at('metrics[' + i + '].label', 'must be a non-empty string')
     if (!nonEmpty(metric?.value)) at('metrics[' + i + '].value', 'must be a non-empty string')
   })
 
   const chart = entry.chart
+  if (chart === null) return problems
   if (!nonEmpty(chart?.title)) at('chart.title', 'must be a non-empty string')
   if (!CHART_TYPES.includes(chart?.type)) {
     at('chart.type', 'must be one of ' + CHART_TYPES.join(', '))
   }
-  if (!Array.isArray(chart?.values) || chart.values.length === 0) {
-    at('chart.values', 'must have at least one value')
+  if (!Array.isArray(chart?.values) || chart.values.length < CHART_VALUES_MIN) {
+    at('chart.values', 'must have at least ' + CHART_VALUES_MIN + ' values, or the chart must be null')
   } else {
     if (chart.values.length > CHART_VALUES_MAX) {
       at('chart.values', 'at most ' + CHART_VALUES_MAX + ' values')

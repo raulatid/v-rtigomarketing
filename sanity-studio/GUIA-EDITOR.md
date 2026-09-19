@@ -56,6 +56,8 @@ Si dudas de si algo puede publicarse, déjalo en borrador y pregunta al equipo t
 
 **La descripción de un servicio se lee en dos tiempos.** El principio se ve siempre, debajo del nombre, y el resto desarrolla el detalle. Lo más claro es escribir dos párrafos: el primero, una sola frase que resuma el servicio; el segundo, el detalle.
 
+**En la ficha de un caso, lo único obligatorio es el nombre y el resumen.** Sector, ciudad y año son opcionales (se muestran los que rellenes, en una línea). Las métricas son de cero a dos: sin ninguna, la fila no aparece. El gráfico es opcional: si lo dejas vacío (sin título ni puntos), la ficha termina en los puntos clave; si lo empiezas, necesita un título y al menos dos puntos.
+
 **El gráfico de un caso** se rellena punto a punto: pulsa el botón de añadir y escribe el valor. Si el gráfico es de barras o donut, cada punto lleva también un nombre (lo que se lee bajo la barra, o en la leyenda del donut). El gráfico dibuja la forma de los datos; los números en sí no se ven, salvo los porcentajes del donut.
 
 **Cada caso puede llevar dos imágenes de marca**, en PNG o WebP con fondo transparente:

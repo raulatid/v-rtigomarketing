@@ -57,15 +57,16 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 | `logo` | image | PNG/WebP, ≥ 900×400, aspect 1.5–5:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `isotype` + `logo` | — | both present or both absent — they are one decision | fail |
 | `brandColor` | string | `#rrggbb`; **optional** — empty means the brand has no colour of its own and resolves to `#ffffff` | fail if present and not `#rrggbb` |
-| `sector` | string | non-empty, ≤ 60 | fail |
-| `location` | string | non-empty, ≤ 60 | fail |
-| `year` | string | non-empty, ≤ 16 | fail |
+| `sector` | string | optional (empty allowed), ≤ 60 | fail |
+| `location` | string | optional (empty allowed), ≤ 60 | fail |
+| `year` | string | optional (empty allowed), ≤ 16 | fail |
 | `summary` | text | non-empty, ≤ 400 | fail |
 | `details[]` | string[] | ≤ 4 entries, each non-empty and ≤ 200 | fail |
-| `metrics[]` | object[] | **exactly 2**, each `{ label ≤ 40, value ≤ 20 }` | fail |
+| `metrics[]` | object[] | **0–2**, each `{ label ≤ 40, value ≤ 20 }`; the row hides when empty | fail |
+| `chart` | object \| null | optional: absent, or untouched (no title, no points), emits `null` and the panel leaves the block out | — |
 | `chart.type` | string | `line` \| `bars` \| `area` \| `donut` | fail |
-| `chart.title` | string | non-empty, ≤ 80 | fail |
-| `chart.values[]` | number[] | 1–16 finite numbers | fail |
+| `chart.title` | string | non-empty once the chart is started, ≤ 80 | fail |
+| `chart.values[]` | number[] | **2**–16 finite numbers once the chart is started | fail |
 | `chart.labels[]` | string[] | **required for `bars` and `donut`**, one per value, each ≤ 24 | fail |
 
 **In the Studio the chart is entered as ONE list of points**, each `{ value, label }`, so an editor never keeps two lists aligned by hand; the projection splits them back into `values` and `labels` (`"labels": select(type in ["bars","donut"] => points[].label)`, which yields `null` for line and area charts — treated as "no labels"). The two rows above describe what the build receives, not what the editor types.
@@ -74,7 +75,7 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 
 **The slug is a reference, not a label.** `orbitAssignments.ts` names it. Changing a published slug breaks that binding and fails the build; that is the intended behaviour, not a bug to work around.
 
-**The lengths are layout facts.** `details` is a four-line bullet list, `metrics` is a fixed two-up grid, and chart values are normalised into 340 SVG units. Over-length is rejected rather than trimmed, because a sentence cut mid-word reads as a rendering bug and the person who can fix it properly is the person who wrote it.
+**The lengths are layout facts.** `details` is a four-line bullet list, `metrics` is a row of up to two cards, and chart values are normalised into 340 SVG units. What a case SAYS is editorial (2026-09-19): sector, location and year, the metrics and the chart may each be left out, and the panel adapts — it does not reserve space for what is not there. Over-length is rejected rather than trimmed, because a sentence cut mid-word reads as a rendering bug and the person who can fix it properly is the person who wrote it.
 
 **A bars or donut chart with no labels does not fail to draw — it draws wrong**, unlabelled, which is quieter and worse. Hence the rule.
 

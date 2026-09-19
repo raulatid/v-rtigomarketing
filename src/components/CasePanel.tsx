@@ -54,6 +54,7 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
   const lastDataRef = useRef<SatelliteDef | null>(null)
   if (data) lastDataRef.current = data
   const shown = data ?? lastDataRef.current
+  const meta = shown ? [shown.sector, shown.location, shown.year].filter((part) => part.trim() !== '').join(' · ') : ''
 
   // Open at the largest height that leaves the logo visible. Both dragging
   // and clicking use this same live ceiling; peek offers more scene space.
@@ -187,23 +188,27 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
         {/* All content renders from `shown` (the last selected case), never from
           `data` — that is what lets the exit fade play over the panel's final
           contents instead of over emptied fields. */}
-        <p className="case-panel__meta">
-          {shown ? `${shown.sector} · ${shown.location} · ${shown.year}` : ''}
-        </p>
+        {/* Sector, location and year are each editorial: the line joins the
+            ones the case says, and is left out when it says none. The
+            placeholders below keep the panel's height before the first case;
+            once a case is shown, its own absences drive the layout. */}
+        {(!shown || meta) && <p className="case-panel__meta">{meta}</p>}
 
-        <div className="case-panel__metrics">
-          {(
-            shown?.metrics ?? [
-              { label: 'Métrica', value: '—' },
-              { label: 'Métrica', value: '—' },
-            ]
-          ).map((metric, i) => (
-            <div className="case-panel__metric" key={i}>
-              <div className="case-panel__metric-label">{metric.label}</div>
-              <div className="case-panel__metric-value">{metric.value}</div>
-            </div>
-          ))}
-        </div>
+        {(!shown || shown.metrics.length > 0) && (
+          <div className="case-panel__metrics">
+            {(
+              shown?.metrics ?? [
+                { label: 'Métrica', value: '—' },
+                { label: 'Métrica', value: '—' },
+              ]
+            ).map((metric, i) => (
+              <div className="case-panel__metric" key={i}>
+                <div className="case-panel__metric-label">{metric.label}</div>
+                <div className="case-panel__metric-value">{metric.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <p className="case-panel__description">{shown?.summary ?? ''}</p>
 
@@ -214,8 +219,11 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
         </ul>
 
         {/* The graph area keeps a fixed height whether or not a case is selected,
-          so the panel's height doesn't jump during the fade. */}
-        <div className="case-panel__graph">{shown ? <CaseChart chart={shown.chart} /> : null}</div>
+          so the panel's height doesn't jump during the fade. A case with
+          nothing to plot has no block at all rather than an empty frame. */}
+        {(!shown || shown.chart) && (
+          <div className="case-panel__graph">{shown?.chart ? <CaseChart chart={shown.chart} /> : null}</div>
+        )}
 
         {/* The case's next step. The proof used to end at its chart, so the one
             ask on the site was never one step from the evidence for it. Text,

@@ -19,16 +19,21 @@ describe('case study content', () => {
   })
 
   it('never ships an empty string where the panel expects text', () => {
+    // Sector, location and year are editorial and may be empty; the panel
+    // joins whichever are set (CasePanel.tsx).
     for (const entry of CASE_STUDIES) {
-      for (const field of ['name', 'sector', 'location', 'year', 'summary'] as const) {
+      for (const field of ['name', 'summary'] as const) {
         expect(entry[field].trim().length, `${entry.id}.${field}`).toBeGreaterThan(0)
+      }
+      for (const field of ['sector', 'location', 'year'] as const) {
+        expect(typeof entry[field], `${entry.id}.${field}`).toBe('string')
       }
     }
   })
 
-  it('carries exactly two metrics, since the row is a fixed two-up grid', () => {
+  it('carries at most two metrics, each with text, since the row has two slots', () => {
     for (const entry of CASE_STUDIES) {
-      expect(entry.metrics, `${entry.id}`).toHaveLength(2)
+      expect(entry.metrics.length, `${entry.id}`).toBeLessThanOrEqual(2)
       for (const metric of entry.metrics) {
         expect(metric.label.trim().length).toBeGreaterThan(0)
         expect(metric.value.trim().length).toBeGreaterThan(0)
@@ -47,9 +52,11 @@ describe('case study content', () => {
 
   it('gives every chart a renderable series', () => {
     // CaseChart drops a chart whose series is empty or non-finite. That guard is
-    // the last line; this is the one that says the content was wrong.
+    // the last line; this is the one that says the content was wrong. A case
+    // with nothing to plot has `chart: null` and no block, not a thin chart.
     for (const entry of CASE_STUDIES) {
-      expect(entry.chart.values.length, `${entry.id}.chart`).toBeGreaterThan(0)
+      if (entry.chart === null) continue
+      expect(entry.chart.values.length, `${entry.id}.chart`).toBeGreaterThanOrEqual(2)
       for (const value of entry.chart.values) {
         expect(Number.isFinite(value), `${entry.id}.chart has a non-finite value`).toBe(true)
       }
@@ -62,6 +69,7 @@ describe('case study content', () => {
     // 'bars' draws x-axis ticks and 'donut' a legend from `labels`. A short list
     // renders unlabelled segments rather than failing.
     for (const entry of CASE_STUDIES) {
+      if (entry.chart === null) continue
       const { type, values, labels } = entry.chart
       if (type !== 'bars' && type !== 'donut') continue
       expect(labels, `${entry.id}.chart is ${type} and needs labels`).toBeDefined()

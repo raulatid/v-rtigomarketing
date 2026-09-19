@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CasePanel } from './CasePanel'
 import fixtures from '../../content/fixtures/caseStudy.json'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
+import type { CaseStudy } from '../content/types'
 
 // The case's next step: the panel ends with a doorway into the audit when it
 // is given one, and renders no dead link when it is not.
@@ -157,6 +158,39 @@ describe('the mobile case sheet', () => {
     expect(r.panel.hasAttribute('data-sheet-dragging')).toBe(false)
     expect(r.panel.style.getPropertyValue('--case-sheet-maximum')).toBe(`${Math.floor(470 - r.getLogoBottom() - 16)}px`)
     expect(r.panel.style.getPropertyValue('--case-sheet-bottom')).toBe(`${window.innerHeight - 470}px`)
+  })
+})
+
+describe('what a case leaves out, the panel leaves out', () => {
+  // Sector, location, year, the metrics and the chart are each editorial.
+  // The panel joins or hides them; it never reserves an empty frame.
+  const full = fixtures[0] as CaseStudy
+  const render = (data: CaseStudy) => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+    act(() => {
+      root.render(<CasePanel data={data} onClose={() => {}} />)
+    })
+  }
+
+  it('joins only the meta parts the case says, and drops the line when it says none', () => {
+    render({ ...full, sector: 'Moda', location: '', year: '2025' })
+    expect(container.querySelector('.case-panel__meta')!.textContent).toBe('Moda · 2025')
+    render({ ...full, sector: '', location: '', year: '' })
+    expect(container.querySelector('.case-panel__meta')).toBeNull()
+  })
+
+  it('shows one metric card alone, and no row at all for none', () => {
+    render({ ...full, metrics: [{ label: 'Tráfico', value: '+40 %' }] })
+    expect(container.querySelectorAll('.case-panel__metric')).toHaveLength(1)
+    render({ ...full, metrics: [] })
+    expect(container.querySelector('.case-panel__metrics')).toBeNull()
+  })
+
+  it('leaves the chart block out for a case with nothing to plot', () => {
+    render({ ...full, chart: null })
+    expect(container.querySelector('.case-panel__graph')).toBeNull()
+    render(full)
+    expect(container.querySelector('.case-panel__graph svg')).not.toBeNull()
   })
 })
 

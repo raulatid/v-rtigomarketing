@@ -44,8 +44,9 @@ export function PreviewContent({doc, projectId, dataset, mode = 'content', categ
         {logo ? <img src={logo.src} alt="Logotipo completo" /> : <p>Sin logotipo completo.</p>}
       </div>
       <CasePanel data={data} onClose={noop} onRequestAudit={noop} />
-      {!data.chart.values.length && <p className="preview-note">Añade datos para ver el gráfico.</p>}
-      {data.chart.values.length !== rows(object(doc.chart).points).length && <p className="preview-note">Hay puntos sin un número válido que todavía no se muestran. Complétalos antes de publicar.</p>}
+      {data.chart === null && <p className="preview-note">Sin gráfico: la ficha termina en los puntos clave. Para añadir uno, escribe qué muestra y al menos dos puntos.</p>}
+      {data.chart !== null && data.chart.values.length < 2 && <p className="preview-note">Un gráfico necesita al menos dos puntos con número. Añádelos, o deja el gráfico vacío.</p>}
+      {data.chart !== null && data.chart.values.length !== rows(object(doc.chart).points).length && <p className="preview-note">Hay puntos sin un número válido que todavía no se muestran. Complétalos antes de publicar.</p>}
     </div>
   }
   if (type === 'blogPost' && mode === 'social') {

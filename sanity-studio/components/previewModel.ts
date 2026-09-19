@@ -23,20 +23,19 @@ export function previewImage(value: unknown, projectId: string, dataset: string)
 export function previewCase(doc: RecordValue): CaseStudy {
   const chart = object(doc.chart)
   const points = rows(chart.points).map(object).filter((point) => typeof point.value === 'number' && Number.isFinite(point.value))
-  const metric = (index: number) => {
-    const row = object(rows(doc.metrics)[index])
-    return {label: text(row.label), value: text(row.value)}
-  }
+  // Untouched — no title, no points — is "no chart", as the build reads it.
+  const started = text(chart.title) !== '' || rows(chart.points).length > 0
   return {
     id: text(doc._id), highlighted: doc.highlighted === true, name: text(doc.name), label: text(doc.name), isotype: null, logo: null,
     brandColor: /^#[0-9a-f]{6}$/i.test(text(doc.brandColor)) ? text(doc.brandColor) : '#ffffff',
     sector: text(doc.sector), location: text(doc.location), year: text(doc.year), summary: text(doc.summary),
-    metrics: [metric(0), metric(1)], details: rows(doc.details).map(text),
-    chart: {
-      type: ['line', 'area', 'bars', 'donut'].includes(text(chart.type)) ? chart.type as CaseStudy['chart']['type'] : 'line',
+    metrics: rows(doc.metrics).slice(0, 2).map(object).map((row) => ({label: text(row.label), value: text(row.value)})),
+    details: rows(doc.details).map(text),
+    chart: started ? {
+      type: ['line', 'area', 'bars', 'donut'].includes(text(chart.type)) ? chart.type as NonNullable<CaseStudy['chart']>['type'] : 'line',
       title: text(chart.title), values: points.map((point) => point.value as number),
       ...(['bars', 'donut'].includes(text(chart.type)) ? {labels: points.map((point) => text(point.label))} : {}),
-    },
+    } : null,
   }
 }
 

@@ -445,15 +445,17 @@ export interface CaseStudy {
    * `rgb(NaN, NaN, NaN)`, which canvas silently ignores.
    */
   brandColor: string
+  /** The `sector · location · year` line. Each may be empty; the panel joins the ones that are not. */
   sector: string
   location: string
   year: string
   summary: string
   /** Bullet-point body copy under the summary. Four short lines each. */
   details: string[]
-  /** Exactly two — the panel's metric row is a fixed two-up grid. */
-  metrics: [CaseStudyMetric, CaseStudyMetric]
-  chart: CaseChart
+  /** Zero to `EDITORIAL_BOUNDS.caseStudy.metrics`. The row hides when empty. */
+  metrics: CaseStudyMetric[]
+  /** Null when the case has nothing to plot; the panel leaves the block out. */
+  chart: CaseChart | null
 }
 
 /**

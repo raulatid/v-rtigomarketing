@@ -101,8 +101,10 @@ export const EDITORIAL_BOUNDS = {
     /** One bullet. The count below is how many of them. */
     detailLine: 200,
     details: 4,
-    /** EXACTLY this many — the panel has two slots, not "up to" two. */
+    /** Up to this many; the row is a flex that shares its width, and none hides the row. */
     metrics: 2,
+    /** A chart with fewer points is a dot; a case with nothing to plot leaves the chart out. */
+    chartValuesMin: 2,
     /**
      * One brand-mark file. The media mirror fetches every one on a cold build,
      * and the Studio asks the asset's size before Publicar — a cap only the

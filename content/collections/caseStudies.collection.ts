@@ -2,9 +2,10 @@ import type { CaseChart, CaseStudy, CaseStudyMetric } from '../../src/content/ty
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
   CASE_DETAILS_MAX,
-  CASE_METRICS_REQUIRED,
+  CASE_METRICS_MAX,
   CHART_TYPES,
   CHART_VALUES_MAX,
+  CHART_VALUES_MIN,
   HEX_COLOR_PATTERN,
   DEFAULT_BRAND_COLOR,
   ID_PATTERN,
@@ -70,7 +71,7 @@ const BRAND_MARK_RULES: Record<string, MediaRule> = {
  *
  * ── Field lengths ──
  * The caps below are layout facts, not preferences: `details` is a four-line
- * bullet list, `metrics` is a fixed two-up grid, and `chart.values` is normalised
+ * bullet list, `metrics` is a row of up to two cards, and `chart.values` is normalised
  * into 340 SVG units. Over-cap is rejected rather than trimmed — a silently
  * shortened case study is a content bug that looks like a rendering bug.
  */
@@ -98,11 +99,24 @@ function metric(report: Report, path: string, raw: unknown): CaseStudyMetric | u
   return { label, value }
 }
 
-function chart(report: Report, path: string, raw: unknown): CaseChart | undefined {
-  if (raw === null || typeof raw !== 'object') {
+/**
+ * A chart, or null for a case with nothing to plot.
+ *
+ * "Nothing to plot" is an absent object OR one the editor never started: the
+ * Studio creates `{ type: 'line' }` with every new case (the type has an
+ * initial value), so a chart with no title and no points is the untouched
+ * default, not a half-written chart. One that IS started must be whole.
+ */
+function chart(report: Report, path: string, raw: unknown): CaseChart | null | undefined {
+  if (raw === null || raw === undefined) return null
+  if (typeof raw !== 'object') {
     return report.fail(path, 'expected an object')
   }
   const source = raw as Record<string, unknown>
+  const untouched =
+    (source.title === undefined || source.title === null || source.title === '') &&
+    (source.values === undefined || source.values === null || (Array.isArray(source.values) && source.values.length === 0))
+  if (untouched) return null
 
   const type = oneOf(report, path + '.type', source.type, CHART_TYPES)
   const title = text(report, path + '.title', source.title, { max: CHART_TITLE_MAX })
@@ -131,7 +145,9 @@ function chart(report: Report, path: string, raw: unknown): CaseChart | undefine
   }
 
   if (type === undefined || title === undefined || values === undefined) return undefined
-  if (values.length === 0) return report.fail(path + '.values', 'must have at least one value')
+  if (values.length < CHART_VALUES_MIN) {
+    return report.fail(path + '.values', 'has ' + values.length + ', needs at least ' + CHART_VALUES_MIN + ' — or leave the chart empty')
+  }
   return labels === undefined ? { type, title, values } : { type, title, values, labels }
 }
 
@@ -225,24 +241,20 @@ export const caseStudiesCollection = collection<CaseStudy>({
         ? DEFAULT_BRAND_COLOR
         : source.brandColor
     const brandColor = hexColor(scoped, 'brandColor', brandColorSource, HEX_COLOR_PATTERN)
-    const sector = text(scoped, 'sector', source.sector, { max: NAME_MAX })
-    const location = text(scoped, 'location', source.location, { max: NAME_MAX })
-    const year = text(scoped, 'year', source.year, { max: 16 })
+    // Editorial, each of the three: absent in GROQ is null, which is "not said".
+    const sector = text(scoped, 'sector', source.sector ?? '', { max: NAME_MAX, allowEmpty: true })
+    const location = text(scoped, 'location', source.location ?? '', { max: NAME_MAX, allowEmpty: true })
+    const year = text(scoped, 'year', source.year ?? '', { max: 16, allowEmpty: true })
     const summary = text(scoped, 'summary', source.summary, { max: SUMMARY_MAX })
 
     const details = boundedArray(scoped, 'details', source.details ?? [], CASE_DETAILS_MAX, (r, p, v) =>
       text(r, p, v, { max: DETAIL_MAX }),
     )
 
-    // The exact-two-tuple the type claims. A REST response cannot honour a tuple
-    // arity, so this is where the claim is actually kept — construct it or drop
-    // the entity; there is no third option that leaves the grid renderable.
-    const metrics = boundedArray(scoped, 'metrics', source.metrics, CASE_METRICS_REQUIRED, (r, p, v) =>
+    // Zero to CASE_METRICS_MAX. Absent in GROQ is null, which is "none".
+    const metrics = boundedArray(scoped, 'metrics', source.metrics ?? [], CASE_METRICS_MAX, (r, p, v) =>
       metric(r, p, v),
     )
-    if (metrics !== undefined && metrics.length !== CASE_METRICS_REQUIRED) {
-      scoped.fail('metrics', 'has ' + metrics.length + ', needs exactly ' + CASE_METRICS_REQUIRED)
-    }
 
     const chartValue = chart(scoped, 'chart', source.chart)
 
@@ -323,7 +335,7 @@ export const caseStudiesCollection = collection<CaseStudy>({
       year,
       summary,
       details,
-      metrics: [metrics[0], metrics[1]],
+      metrics,
       chart: chartValue,
     }
 

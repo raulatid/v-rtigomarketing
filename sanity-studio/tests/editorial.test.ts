@@ -184,9 +184,14 @@ describe('whether the site has caught up with what was published', () => {
 describe('draft previews', () => {
   it('does not invent metrics or chart data for incomplete drafts', () => {
     const draft = previewCase({_id: 'drafts.example', metrics: [{}], chart: {type: 'area', points: [{value: 0}, {}, {value: '7'}]}})
-    expect(draft.chart.values).toEqual([0])
-    expect(draft.metrics).toEqual([{label: '', value: ''}, {label: '', value: ''}])
-    expect(previewCase({}).chart.values).toEqual([])
+    expect(draft.chart?.values).toEqual([0])
+    // As many metric cards as rows, up to two — never a padded pair.
+    expect(draft.metrics).toEqual([{label: '', value: ''}])
+    expect(previewCase({metrics: [{label: 'a'}, {label: 'b'}, {label: 'c'}]}).metrics).toHaveLength(2)
+    // An untouched chart — the Studio's `{ type: 'line' }` default — is no chart, as the build reads it.
+    expect(previewCase({}).chart).toBeNull()
+    expect(previewCase({chart: {type: 'line'}}).chart).toBeNull()
+    expect(previewCase({chart: {type: 'line', title: 'x'}}).chart?.values).toEqual([])
   })
   it('derives image URLs only from valid image references', () => {
     expect(previewImage({asset: {_ref: 'javascript:alert(1)'}}, 'project', 'production')).toBeNull()

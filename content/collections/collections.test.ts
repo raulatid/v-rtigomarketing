@@ -161,14 +161,11 @@ describe('case study mapping rejects', () => {
     expect(problemsFor(caseStudiesCollection, record)).toContain('satellite-01.summary')
   })
 
-  it('a metrics list that is not exactly two', () => {
-    // The panel's metric row is a fixed two-up grid, and the type claims a
-    // two-tuple that a REST response cannot honour. This is where the claim is
-    // actually kept.
-    for (const metrics of [[], [{ label: 'a', value: '1' }]]) {
+  it('a metrics list longer than the row; none, one or absent are editorial', () => {
+    for (const metrics of [[], [{ label: 'a', value: '1' }], null, undefined]) {
       const record = validCase()
       record.metrics = metrics
-      expect(problemsFor(caseStudiesCollection, record).length).toBeGreaterThan(0)
+      expect(problemsFor(caseStudiesCollection, record)).toEqual([])
     }
     const three = validCase()
     three.metrics = [
@@ -177,6 +174,35 @@ describe('case study mapping rejects', () => {
       { label: 'c', value: '3' },
     ]
     expect(problemsFor(caseStudiesCollection, three)).toContain('satellite-01.metrics')
+  })
+
+  it('no chart at all — absent, null, or the untouched Studio default — maps to null', () => {
+    for (const chart of [undefined, null, { type: 'line' }, { type: 'line', title: '', values: [] }]) {
+      const record = validCase()
+      record.chart = chart
+      const result = caseStudiesCollection.map(record, 0)
+      expect(result.ok, JSON.stringify(chart)).toBe(true)
+      if (result.ok) expect((result.value as unknown as { chart: unknown }).chart).toBeNull()
+    }
+  })
+
+  it('a chart that was started but not finished: one point, or no title', () => {
+    const one = validCase()
+    one.chart = { type: 'line', title: 'x', values: [1] }
+    expect(problemsFor(caseStudiesCollection, one)).toContain('satellite-01.chart.values')
+    const untitled = validCase()
+    untitled.chart = { type: 'line', title: '', values: [1, 2] }
+    expect(problemsFor(caseStudiesCollection, untitled)).toContain('satellite-01.chart.title')
+  })
+
+  it('sector, location and year may each be empty or absent', () => {
+    const record = validCase()
+    record.sector = ''
+    record.location = null
+    delete record.year
+    const result = caseStudiesCollection.map(record, 0)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value).toMatchObject({ sector: '', location: '', year: '' })
   })
 
   it('a chart type outside the union', () => {

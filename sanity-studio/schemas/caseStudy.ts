@@ -75,8 +75,27 @@ const chart = defineField({
   type: 'object',
   fieldset: 'grafico',
   options: { collapsible: false },
+  // Optional as a whole, whole once started. `type` has an initial value, so
+  // every new case carries `{ type: 'line' }`; a chart with no title and no
+  // points is that untouched default and publishes as "no chart" (the build
+  // reads it the same way). Title and points are therefore required HERE,
+  // together, not on their own fields — a required title on a chart nobody
+  // started would block every case that has nothing to plot.
   validation: (rule) => [
-    rule.required().error('El caso necesita un gráfico.'),
+    rule.custom((value) => {
+      const current = value as (Chart & { title?: string }) | undefined
+      const points = current?.points ?? []
+      const title = (current?.title ?? '').trim()
+      if (points.length === 0 && title === '') return true
+      if (points.length < BOUNDS.chartValuesMin) {
+        return (
+          'Un gráfico necesita al menos ' + BOUNDS.chartValuesMin + ' puntos. Añade los que falten, ' +
+          'o deja el gráfico vacío (sin título ni puntos) y la ficha sale sin él.'
+        )
+      }
+      if (title === '') return 'Escribe qué muestra el gráfico, o deja el gráfico vacío (sin puntos) y la ficha sale sin él.'
+      return true
+    }),
     // The check the old two-list design promised in prose and never enforced.
     rule.custom((value) => {
       const current = value as Chart | undefined
@@ -119,7 +138,6 @@ const chart = defineField({
       placeholder: 'Tráfico orgánico mensual',
       components: { input: charCount(BOUNDS.chartTitle) },
       validation: (rule) => [
-        rule.required().error('Escribe qué muestra el gráfico.'),
         rule.max(BOUNDS.chartTitle).error(`Demasiado largo: como máximo ${BOUNDS.chartTitle} caracteres.`),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
@@ -173,7 +191,6 @@ const chart = defineField({
         }),
       ],
       validation: (rule) => [
-        rule.required().min(1).error('Añade al menos un punto.'),
         rule.max(BOUNDS.chartValues).error(
           `Como máximo ${BOUNDS.chartValues} puntos: con más no se distinguen.`,
         ),
@@ -240,15 +257,15 @@ export const caseStudy = defineType({
     {
       name: 'ficha',
       title: 'Sector, ciudad y año',
-      description: 'Se leen en una sola línea bajo el nombre: Sector · Ciudad · Año.',
+      description: 'Opcionales. Los que rellenes se leen en una sola línea bajo el nombre: Sector · Ciudad · Año.',
       options: { columns: 3 },
     },
     {
       name: 'panel',
       title: 'Texto del panel',
       description:
-        'Al pinchar el satélite se abre un panel con el caso: primero las dos métricas, luego el ' +
-        'resumen, los puntos clave y el gráfico.',
+        'Al pinchar el satélite se abre un panel con el caso: primero las métricas (si las hay), luego el ' +
+        'resumen, los puntos clave y el gráfico (si lo hay).',
     },
     {
       name: 'grafico',
@@ -379,7 +396,6 @@ export const caseStudy = defineType({
       placeholder: 'Moda y retail',
       components: { input: charCount(BOUNDS.name) },
       validation: (rule) => [
-        rule.required().error('Escribe el sector.'),
         rule.max(BOUNDS.name).error(`Demasiado largo: como máximo ${BOUNDS.name} caracteres.`),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
@@ -393,7 +409,6 @@ export const caseStudy = defineType({
       placeholder: 'Barcelona, España',
       components: { input: charCount(BOUNDS.name) },
       validation: (rule) => [
-        rule.required().error('Escribe la ubicación.'),
         rule.max(BOUNDS.name).error(`Demasiado largo: como máximo ${BOUNDS.name} caracteres.`),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
@@ -407,7 +422,6 @@ export const caseStudy = defineType({
       fieldset: 'ficha',
       placeholder: '2025',
       validation: (rule) => [
-        rule.required().error('Escribe el año.'),
         rule.max(16).error('Demasiado largo: como máximo 16 caracteres (por ejemplo «2024» o «2023–2025»).'),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
@@ -417,8 +431,8 @@ export const caseStudy = defineType({
       name: 'metrics',
       title: 'Métricas',
       description:
-        'Exactamente dos cifras destacadas, cada una en su tarjeta, con su nombre encima. ' +
-        'Ejemplo: Tráfico orgánico → +148 %',
+        'Opcional. Hasta dos cifras destacadas, cada una en su tarjeta, con su nombre encima; ' +
+        'sin ninguna, la ficha no muestra la fila. Ejemplo: Tráfico orgánico → +148 %',
       type: 'array',
       fieldset: 'panel',
       of: [
@@ -463,12 +477,7 @@ export const caseStudy = defineType({
         }),
       ],
       validation: (rule) =>
-        rule
-          .required()
-          .length(BOUNDS.metrics)
-          .error(
-            `Hacen falta exactamente ${BOUNDS.metrics} métricas: el panel tiene ${BOUNDS.metrics} huecos.`,
-          ),
+        rule.max(BOUNDS.metrics).error(`Como máximo ${BOUNDS.metrics} métricas: la fila tiene ${BOUNDS.metrics} huecos.`),
     }),
     defineField({
       name: 'summary',
