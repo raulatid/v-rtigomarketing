@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { imageProblem, videoProblem } from '../schemas/lib/editorChecks'
 import { previewBody, previewCase, previewImage } from '../components/previewModel'
+import { UPDATE_GRACE_MS, parseContentVersion, siteStatusFor } from '../components/siteStatusModel'
 import { serviceMembership } from '../schemas/lib/serviceMembership'
 import { effectiveOthers, highlightedCaseUnique } from '../schemas/lib/highlightedCase'
 import { brandMarkWeight } from '../schemas/lib/brandMarkWeight'
@@ -129,6 +130,34 @@ describe('editorial validation before publishing', () => {
     const words = (n: number) => [legalBlock(Array.from({length: n}, () => 'palabra').join(' '))]
     expect(legalLengthAdvice(words(LEGAL_WORDS_ADVISED))).toBe(true)
     expect(legalLengthAdvice(words(LEGAL_WORDS_ADVISED + 1))).toMatch(/Se publica igual/)
+  })
+})
+
+describe('whether the site has caught up with what was published', () => {
+  const version = {contentUpdatedAt: '2026-09-18T12:00:00Z', source: 'Sanity (p/d)', builtAt: '2026-09-18T12:03:00Z'}
+  const doc = (id: string, at: string) => ({_id: id, _type: 'legalDoc', label: id, _updatedAt: at})
+  const T = Date.parse('2026-09-18T12:30:00Z')
+  it('is live when nothing newer than the stamp is published', () => {
+    expect(siteStatusFor(version, [], T)).toEqual({kind: 'live', builtAt: version.builtAt})
+  })
+  it('is updating while the newest publish is younger than a build, and stale after that', () => {
+    const docs = [doc('a', '2026-09-18T12:10:00Z'), doc('b', '2026-09-18T12:25:00Z')]
+    const updating = siteStatusFor(version, docs, T)
+    expect(updating.kind).toBe('updating')
+    expect(updating.kind === 'updating' && updating.docs.map((d) => d._id)).toEqual(['b', 'a'])
+    expect(siteStatusFor(version, docs, T + UPDATE_GRACE_MS).kind).toBe('stale')
+    expect(siteStatusFor(version, [doc('a', 'not a date')], T).kind).toBe('stale')
+  })
+  it('says so when the site could not be read, or was not built from the CMS', () => {
+    expect(siteStatusFor(null, [], T)).toEqual({kind: 'unreachable'})
+    expect(siteStatusFor({...version, contentUpdatedAt: null, source: 'seed snapshot'}, [], T)).toEqual({kind: 'not-from-cms', source: 'seed snapshot'})
+  })
+  it('accepts only the JSON the build writes', () => {
+    expect(parseContentVersion(version)).toEqual(version)
+    expect(parseContentVersion({...version, contentUpdatedAt: null})).toEqual({...version, contentUpdatedAt: null})
+    expect(parseContentVersion({...version, contentUpdatedAt: 5})).toBeNull()
+    expect(parseContentVersion({contentUpdatedAt: 'x'})).toBeNull()
+    expect(parseContentVersion('<!doctype html>')).toBeNull()
   })
 })
 

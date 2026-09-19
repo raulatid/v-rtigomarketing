@@ -96,6 +96,7 @@ En los dos casos el aviso te dice qué mide la imagen y qué debería medir, as�
 
 Las validaciones comprueban el formato y la estructura. No pueden saber si un teléfono, una cifra o un texto son correctos: revísalos antes de publicar. Si la actualización falla, se conserva la versión anterior de la web.
 
+**«Estado de la web»**, en «Inicio y ayuda», te dice si la web ya tiene todo lo publicado. Tras publicar verás «se está actualizando» durante unos minutos; después, «al día». Si en su lugar aparece un aviso rojo con una lista de documentos, la actualización ha fallado: avisa al equipo técnico con esos nombres. La página se comprueba sola mientras hay una actualización en marcha.
 
 ## Vista previa
 

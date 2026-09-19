@@ -24,7 +24,7 @@ Field-by-field rules live in `docs/content/sanity-field-contract.md`; media rule
 
 | File | Variables | Read by | Committed? |
 |---|---|---|---|
-| `sanity-studio/.env` | `SANITY_STUDIO_PROJECT_ID`, `SANITY_STUDIO_DATASET` | the Sanity CLI — `dev`, `build`, `deploy` | no, gitignored |
+| `sanity-studio/.env` | `SANITY_STUDIO_PROJECT_ID`, `SANITY_STUDIO_DATASET`, `SANITY_STUDIO_SITE_URL` | the Sanity CLI — `dev`, `build`, `deploy` | no, gitignored |
 | `<repo root>/.env` | `SANITY_PROJECT_ID`, `SANITY_DATASET`, `SANITY_TOKEN` | `npm run content:build` | no, gitignored |
 | `<repo root>/.env.example` | — | **nothing**, it is a template | yes |
 
@@ -40,10 +40,13 @@ npx sanity login
 cat > .env <<'ENV'
 SANITY_STUDIO_PROJECT_ID=<your project id>
 SANITY_STUDIO_DATASET=<your dataset, e.g. production>
+SANITY_STUDIO_SITE_URL=https://<the production site, no trailing slash>
 ENV
 
 npm run dev            # http://localhost:3333
 ```
+
+`SANITY_STUDIO_SITE_URL` is where «Estado de la web» on the Studio's home page reads `/content-version.json` from — the stamp the content build writes (`content/lib/contentVersion.ts`) saying which publish the live site was built from. Without it the block explains itself and the rest of the Studio works. Nothing has to be configured in Vercel for this: the file is part of the site's build output and `vercel.json` already serves it with `Access-Control-Allow-Origin: *`.
 
 If `projectId` is missing you get a message naming this file and these variables — `sanity.config.ts` checks for them rather than letting Sanity's own `Configuration must contain projectId` fire, which is correct but says nothing about where to put it.
 

@@ -91,6 +91,11 @@ desktop.ini
 /public/logos/*
 !/public/logos/.gitkeep
 
+# What the site was built from (content/lib/contentVersion.ts), written by the
+# same build. The Studio reads it to tell an editor whether their publish is
+# live; a committed copy would always say something stale.
+/public/content-version.json
+
 # The Sanity Studio is its own package. Its dependencies and build output are
 # not part of this application and must never reach its bundle; .out/ holds the
 # NDJSON generated from content/fixtures/ for seeding a dataset.

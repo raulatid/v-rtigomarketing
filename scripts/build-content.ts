@@ -1,5 +1,7 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import { COLLECTIONS } from '../content/collections/index'
+import { contentVersionJson, latestUpdatedAt } from '../content/lib/contentVersion'
 import { readConfig, type ContentConfig } from '../content/lib/config'
 import { formatFailures, generate } from '../content/lib/generate'
 import { SourceError, fileSource, type ContentSource } from '../content/lib/source'
@@ -48,6 +50,8 @@ import { sanitySource } from '../content/lib/sanity'
  */
 const ROOT = process.cwd()
 const OUT_DIR = path.join(ROOT, 'src', 'content', 'generated')
+/** Served at `/content-version.json`; vercel.json opens it to the Studio's origin. */
+const VERSION_FILE = path.join(ROOT, 'public', 'content-version.json')
 
 /**
  * Where Sanity serves uploaded assets. Hardcoded rather than configurable: it is
@@ -103,11 +107,12 @@ async function main(): Promise<void> {
   if (!parsed.ok) fail(parsed.message)
 
   let result
+  let source: ContentSource
   try {
     // buildSource is INSIDE the try: sanitySource() validates the project id and
     // dataset shape and throws SourceError, and a malformed environment variable
     // deserves the same one-line message as an unreachable CMS, not a stack.
-    const source = buildSource(parsed.config)
+    source = buildSource(parsed.config)
     result = await generate({
       collections: COLLECTIONS,
       source,
@@ -134,6 +139,20 @@ async function main(): Promise<void> {
   } else {
     console.log('[content] wrote ' + result.changed.join(', '))
   }
+
+  // After the content, never before: a stamp beside content that failed to
+  // generate would describe a site that does not exist. Written to public/ so
+  // Vite ships it at the site root, like the mirrored logos; gitignored for the
+  // same reason they are.
+  const contentUpdatedAt =
+    parsed.config.mode === 'sanity'
+      ? await latestUpdatedAt(source, COLLECTIONS.map((collection) => collection.source.type))
+      : null
+  fs.writeFileSync(
+    VERSION_FILE,
+    contentVersionJson({ contentUpdatedAt, source: source.describe, builtAt: new Date().toISOString() }),
+  )
+  console.log('[content] content version: ' + (contentUpdatedAt ?? 'none (not from the CMS)'))
 }
 
 main().catch((error: unknown) => {

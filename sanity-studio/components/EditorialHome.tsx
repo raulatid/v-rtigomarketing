@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useClient } from 'sanity'
 import { IntentLink } from 'sanity/router'
+import { SiteStatus } from './SiteStatus'
 import './editorial.css'
 
 interface PendingDocument {_id: string; _type: string; label: string; _updatedAt: string}
@@ -25,6 +26,8 @@ export function EditorialHome() {
   return <main className="editorial-home">
     <h1>Editar la web</h1>
     <p>Elige lo que quieres cambiar. El contenido se guarda solo como borrador; abre «Vista previa» para comprobarlo antes de publicar.</p>
+    <h2>Estado de la web</h2>
+    <SiteStatus />
     <h2>Tareas frecuentes</h2>
     <ul>
       <li><IntentLink intent="edit" params={{id: 'siteSettings', type: 'siteSettings', path: 'phones'}}>Cambiar teléfonos y datos de contacto</IntentLink></li>
@@ -65,7 +68,7 @@ export function EditorialHome() {
     <details><summary>Corregir un error o recuperar un texto</summary>
       <p>Antes de publicar, revisa los cambios del documento. «Descartar cambios» elimina las modificaciones del borrador y conserva la versión publicada; úsalo solo si quieres perder esas modificaciones. El historial permite comparar versiones según la disponibilidad de tu plan.</p>
       <p>Las validaciones comprueban formato y estructura, pero no pueden saber si un teléfono, una cifra o una dirección son correctos. Compruébalos antes de publicar.</p>
-      <p>Si tras publicar y esperar unos minutos no aparece el cambio, avisa al equipo técnico con el nombre del documento. Una actualización fallida conserva la versión anterior de la web.</p>
+      <p>«Estado de la web», arriba en esta página, dice si la web ya tiene lo último publicado. Si pasados unos minutos sigue sin actualizarse, ahí verás qué documentos se han quedado sin publicar: avisa al equipo técnico con esos nombres. Una actualización fallida conserva la versión anterior de la web.</p>
     </details>
   </main>
 }
