@@ -3,6 +3,7 @@ import path from 'node:path'
 import { Report, remoteMediaUrl, sanityImageDimensions } from './validate'
 import { SourceError, withTimeout, type ContentSource } from './source'
 import type { MediaRule } from '../collections/types'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
  * Mirrors CMS media into the deployment instead of hotlinking it.
@@ -56,8 +57,8 @@ export interface MirrorOptions {
  */
 const SAFE_BASENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 
-/** Guarded because the whole media library is fetched on a cold build. */
-const MAX_BYTES = 4 * 1024 * 1024
+/** Guarded because the whole media library is fetched on a cold build. Shared with the Studio. */
+const MAX_BYTES = EDITORIAL_BOUNDS.caseStudy.brandMarkBytes
 
 export function withMediaMirror(inner: ContentSource, options: MirrorOptions): ContentSource {
   const doFetch = options.fetchImpl ?? fetch

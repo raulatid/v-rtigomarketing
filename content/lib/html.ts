@@ -113,13 +113,19 @@ export function stripHtml(input: string): string {
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<\/(p|div|li|h[1-6]|tr|section|article)>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
-    // Anything still holding a '<' at this point is malformed markup — an
-    // unclosed tag, a stray bracket from a bad paste. It cannot be a literal
-    // '<' the author typed, because WordPress encodes that as `&lt;` and this
-    // runs BEFORE entities are decoded. Dropping it is the only reading that
-    // leaves no markup behind.
-    .replace(/</g, '')
+    // A tag opens with a name (or `/`, `!`, `?`), never with a digit or a
+    // space: `<b>` is a tag, `<5% y a<b>` is not one long tag — the old
+    // `<[^>]*>` read it as one and ate the prose between.
+    .replace(/<\/?[A-Za-z][^>]*>/g, '')
+    .replace(/<[!?][^>]*>/g, '')
+    // A '<' still here that opens like a tag — `<div`, `</`, `<!--` — is
+    // malformed markup: an unclosed tag, a bad paste. One that does not —
+    // `<5%`, `de <10 a >40`, `a < b` — is prose. The rule used to drop every
+    // '<' on the argument that WordPress encodes a literal one as `&lt;`; Sanity
+    // stores what the editor typed, and the rule was turning «precio <5%» into
+    // «precio 5%» with no error anywhere (2026-09-19). No consumer parses
+    // markup (see plainTextProblem), so a bracket that is not a tag is safe.
+    .replace(/<(?=[A-Za-z/!?])/g, '')
 
   // Decode LAST, and this order is the whole design. Decoding first would turn
   // `&lt;script&gt;` into a real tag for the stripper to find and remove, which

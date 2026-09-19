@@ -22,6 +22,16 @@ describe('stripHtml', () => {
   it('leaves no markup behind for an unclosed or malformed tag', () => {
     expect(plainTextProblem(stripHtml('<p>Hola<'))).toBeNull()
     expect(stripHtml('<div class="x" data-y=\'>\'>Hola</div>')).not.toContain('<')
+    expect(stripHtml('Hola <scriptx')).toBe('Hola scriptx')
+    expect(stripHtml('Hola </')).toBe('Hola /')
+  })
+
+  it('keeps a bracket that is prose, not a tag', () => {
+    // Sanity stores what the editor typed. «precio <5%» is copy, and until
+    // 2026-09-19 it shipped as «precio 5%» with no error anywhere.
+    expect(stripHtml('precio <5% y a<b>c')).toBe('precio <5% y ac')
+    expect(stripHtml('de <10 a >40')).toBe('de <10 a >40')
+    expect(stripHtml('a < b')).toBe('a < b')
   })
 
   it('collapses the whitespace the tags left behind', () => {

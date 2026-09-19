@@ -1,6 +1,7 @@
 import type { HeadingBlock, ListBlock, ParagraphBlock, QuoteBlock, TextMark, TextSpan } from '../../src/content/types'
 import { plainTextProblem, stripHtml } from './html'
 import { Report } from './validate'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
  * Portable Text in, typed blocks out — and nothing in between reaches a
@@ -44,7 +45,9 @@ export const LEGAL_POLICY: BlockPolicy = {
   marks: ['strong', 'em'],
   allowLinks: true,
   allowLists: true,
-  maxBlocks: 120,
+  // Shared with the Studio — see src/content/editorialBounds.ts for why it is
+  // a net and not a length.
+  maxBlocks: EDITORIAL_BOUNDS.legalDoc.bodyBlocks,
   maxTextLength: 2000,
 }
 
@@ -85,6 +88,10 @@ export function richBlocks(
       index += 1
       continue
     }
+    if (block === null) {
+      index += 1
+      continue
+    }
 
     // A run of sibling list items is ONE list. Grouping here rather than in the
     // renderer is what keeps `<ul>` semantics correct for assistive technology.
@@ -93,6 +100,10 @@ export function richBlocks(
       const items: TextSpan[][] = []
       while (index < raw.length) {
         const item = asBlock(report, path + '[' + index + ']', raw[index], policy)
+        if (item === null) {
+          index += 1
+          continue
+        }
         if (item === undefined || item.listItem === undefined) break
         if ((item.listItem === 'number') !== ordered) break
         items.push(item.spans)
@@ -123,7 +134,15 @@ interface RawBlock {
   spans: TextSpan[]
 }
 
-function asBlock(report: Report, at: string, raw: unknown, policy: BlockPolicy): RawBlock | undefined {
+/**
+ * `undefined` is a failure, already reported. `null` is a block with nothing in
+ * it — the blank line an editor leaves between paragraphs, or the Enter at the
+ * end of a document — which Portable Text stores as a block with one empty
+ * span. It carries no clause, so dropping it loses nothing; failing on it
+ * (which this did until 2026-09-19) failed a deployment over a keystroke the
+ * Studio shows no sign of.
+ */
+function asBlock(report: Report, at: string, raw: unknown, policy: BlockPolicy): RawBlock | undefined | null {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     return report.fail(at, 'expected a block object, got ' + describe(raw))
   }
@@ -154,7 +173,7 @@ function asBlock(report: Report, at: string, raw: unknown, policy: BlockPolicy):
 
   const spans = readSpans(report, at, source.children, policy, links)
   if (spans === undefined) return undefined
-  if (spans.length === 0) return report.fail(at, 'is empty')
+  if (spans.length === 0) return null
 
   return { style, listItem, spans }
 }

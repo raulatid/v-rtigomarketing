@@ -89,6 +89,12 @@ export const EDITORIAL_BOUNDS = {
     details: 4,
     /** EXACTLY this many — the panel has two slots, not "up to" two. */
     metrics: 2,
+    /**
+     * One brand-mark file. The media mirror fetches every one on a cold build,
+     * and the Studio asks the asset's size before Publicar — a cap only the
+     * build knew about was a failed deployment for a PNG that looked fine.
+     */
+    brandMarkBytes: 4 * 1024 * 1024,
     metricLabel: 40,
     metricValue: 20,
     chartTitle: 80,
@@ -105,6 +111,16 @@ export const EDITORIAL_BOUNDS = {
   },
   legalDoc: {
     title: 80,
+    /**
+     * A SAFETY NET, not an editorial length. The panel scrolls, so a long legal
+     * text is a design judgement the editor makes, not a broken layout — and
+     * legal copy only ever grows (a clause per regulation, never fewer). It was
+     * 120, written here and again in `LEGAL_POLICY`, and «Términos» reached 86
+     * of them on 2026-09-18 without anyone being told. The number now exists
+     * only to stop a whole pasted PDF; the Studio advises on length in words,
+     * where an editor can act on it, and never refuses on that account.
+     */
+    bodyBlocks: 600,
   },
   service: {
     title: 60,

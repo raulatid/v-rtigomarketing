@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LEGAL_POLICY, richBlocks } from './portableText'
 import { Report } from './validate'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
  * Ingestion is the security boundary for structured content.
@@ -89,6 +90,17 @@ describe('converting Portable Text', () => {
     expect(blocks?.[0].kind === 'paragraph' && blocks[0].spans[0].marks).toEqual(['strong', 'em'])
   })
 
+  it('drops an empty block as a blank line, not a clause, and reports a body that is only blank lines', () => {
+    // A blank line between paragraphs, or the Enter at the end of a document.
+    const { blocks, problems } = convert([block('a'), block(''), block('b'), block('')])
+    expect(problems).toEqual([])
+    expect(blocks?.map((b) => b.kind)).toEqual(['paragraph', 'paragraph'])
+    // Inside a list run the blank line does not end the list either.
+    const list = convert([block('a', { listItem: 'bullet' }), block('', { listItem: 'bullet' }), block('b', { listItem: 'bullet' })])
+    expect(list.blocks?.[0].kind === 'list' && list.blocks[0].items).toHaveLength(2)
+    expect(convert([block(''), block('')]).problems.join()).toMatch(/no renderable content/)
+  })
+
   it('drops the empty spans Portable Text uses as separators', () => {
     const { blocks } = convert([
       { _type: 'block', style: 'normal', children: [span('a'), span(''), span('b')] },
@@ -168,9 +180,10 @@ describe('what ingestion refuses', () => {
   })
 
   it('a body past the block cap', () => {
-    const { blocks, problems } = convert(Array.from({ length: 121 }, () => block('x')))
+    const cap = EDITORIAL_BOUNDS.legalDoc.bodyBlocks
+    const { blocks, problems } = convert(Array.from({ length: cap + 1 }, () => block('x')))
     expect(blocks).toBeUndefined()
-    expect(problems.join()).toMatch(/over the 120 limit/)
+    expect(problems.join()).toMatch(new RegExp('over the ' + cap + ' limit'))
   })
 
   it('a whole document pasted into one span', () => {

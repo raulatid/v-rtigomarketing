@@ -178,7 +178,9 @@ At the fixed ids `legal-terms`, `legal-notice` and `legal-cookies`, with slugs `
 |---|---|---|---|
 | `slug.current` | slug | `terminos`, `aviso` or `cookies` | fail if any is absent |
 | `title` | string | non-empty, ≤ 80 | fail |
-| `body` | `legalBody` | 1–120 blocks; see below | fail |
+| `body` | `legalBody` | 1–600 blocks (`EDITORIAL_BOUNDS.legalDoc.bodyBlocks`); see below | fail |
+
+The block cap is a safety net against a pasted document, not an editorial length: the panel scrolls and legal copy only grows. Length (past 3 000 words) and a body with no heading block are Studio **warnings** — the editor is told, and may publish. Neither is checked by the build; on 2026-09-18 a heading rule that lived only in a component test failed a deployment over an editorial choice.
 
 `legalBody` allows exactly:
 
@@ -192,7 +194,7 @@ At the fixed ids `legal-terms`, `legal-notice` and `legal-cookies`, with slugs `
 
 **All three documents must exist.** The audit panel links the first two by name and the cookie consent banner the third; a deleted one leaves a link pointing at nothing. Which documents exist is app composition — the text is entirely editorial, the set is not.
 
-**An unsupported block fails the build; it is never dropped.** Dropping it would publish a legal document missing a clause an editor believed they had written. If the vocabulary needs to grow, it grows in `content/lib/portableText.ts`, the Studio schema and the renderer together.
+**An unsupported block fails the build; it is never dropped.** Dropping it would publish a legal document missing a clause an editor believed they had written. The one block that IS dropped is an empty one — a blank line between paragraphs, the Enter at the end of a document — because it carries no clause to lose; until 2026-09-19 it failed the build instead, over a keystroke the Studio shows no sign of. A body that is only blank lines still fails. If the vocabulary needs to grow, it grows in `content/lib/portableText.ts`, the Studio schema and the renderer together.
 
 **Structure is not HTML.** The blocks are converted into a typed vocabulary at ingest, and the renderer picks an element per kind. Nothing is ever injected as markup.
 

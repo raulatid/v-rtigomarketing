@@ -3,6 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { LegalPanel } from './LegalPanel'
+import { LegalBlock } from './LegalBlock'
 import { LEGAL_DOCS } from '../content/site'
 
 // The legal body stopped being `string[]` and became typed blocks, so the panel
@@ -74,20 +75,45 @@ describe('the legal panel', () => {
     }
   })
 
+  // The two below render the serializer over CONTROLLED blocks rather than
+  // over whatever is published. They used to assert on the real «Términos»,
+  // and on 2026-09-18 an editor rewrote it with no heading blocks and the
+  // deployment failed here — on a decision that was theirs to make and that
+  // the Studio now advises on. Whether a heading becomes an h3 is this
+  // component's property; whether the document has one is not.
   it('keeps headings below the panel title in the outline', () => {
     // The panel's own title is the h2. A document heading that also rendered as
     // h2 would put two peers in one dialog for anyone navigating by headings.
-    render('terminos')
-    expect(host.querySelectorAll('.legal-panel__body h2').length).toBe(0)
-    expect(host.querySelectorAll('.legal-panel__body h3').length).toBeGreaterThan(0)
+    act(() => {
+      root.render(
+        <>
+          <LegalBlock block={{ kind: 'heading', level: 2, spans: [{ text: 'Objeto' }] }} />
+          <LegalBlock block={{ kind: 'heading', level: 3, spans: [{ text: 'Alcance' }] }} />
+        </>,
+      )
+    })
+    expect(host.querySelectorAll('h2').length).toBe(0)
+    expect(host.querySelector('h3')?.textContent).toBe('Objeto')
+    expect(host.querySelector('h4')?.textContent).toBe('Alcance')
   })
 
   it('renders marks and links', () => {
-    render('terminos')
-    expect(host.querySelector('.legal-panel__body strong')).not.toBeNull()
-    const link = host.querySelector<HTMLAnchorElement>('.legal-panel__body a')
-    expect(link).not.toBeNull()
-    expect(link?.getAttribute('href')).toMatch(/^(https:|mailto:)/)
+    act(() => {
+      root.render(
+        <LegalBlock
+          block={{
+            kind: 'paragraph',
+            spans: [
+              { text: 'Responsable: ', marks: ['strong'] },
+              { text: 'hola@example.com', href: 'mailto:hola@example.com' },
+            ],
+          }}
+        />,
+      )
+    })
+    expect(host.querySelector('strong')?.textContent).toBe('Responsable: ')
+    const link = host.querySelector<HTMLAnchorElement>('a')
+    expect(link?.getAttribute('href')).toBe('mailto:hola@example.com')
     // The only outbound links in the application, in the one document where a
     // referrer leak is least welcome.
     expect(link?.getAttribute('rel')).toBe('noreferrer')
