@@ -9,9 +9,18 @@ import type { BlockStyleProps } from 'sanity'
  * left and a small label make the difference a thing you see, not a thing you
  * infer from font size. The label is `contentEditable={false}` as the Sanity
  * docs require: text the editor cannot select must not look like text it can.
+ *
+ * `props.children`, never `props.renderDefault`: the style dropdown in the
+ * toolbar renders this same component for its menu entry with only
+ * `{ children: title }` — no `renderDefault`, no `block` — and calling it
+ * there threw «renderDefault is not a function» on every legal document
+ * (2026-09-19). The `block` check is what tells the two callers apart.
  */
-function heading(label: string) {
+function heading(label: string, fontSize: string) {
   return function HeadingStyle(props: BlockStyleProps) {
+    const inEditor = props.block !== undefined
+    const text = <div style={{ fontSize, fontWeight: 700, lineHeight: 1.25 }}>{props.children}</div>
+    if (!inEditor) return text
     return (
       <div style={{ borderLeft: '3px solid var(--card-focus-ring-color, #2276fc)', paddingLeft: '0.75rem', margin: '0.5rem 0' }}>
         <div
@@ -20,11 +29,11 @@ function heading(label: string) {
         >
           {label}
         </div>
-        {props.renderDefault(props)}
+        {text}
       </div>
     )
   }
 }
 
-export const TitleStyle = heading('Título de sección')
-export const SubtitleStyle = heading('Subtítulo')
+export const TitleStyle = heading('Título de sección', '1.5rem')
+export const SubtitleStyle = heading('Subtítulo', '1.2rem')
