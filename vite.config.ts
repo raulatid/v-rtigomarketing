@@ -97,7 +97,28 @@ const INTRO_BUDGET_BYTES = 16_000
 // holo tint on the campus and `edificio-blog`, in hover) and the campus and
 // blog pointers taking the buildings as targets. Headroom before it was ~716 B;
 // after, ~635 B. The selective modulepreload loop is still the honest fix.
-const INITIAL_JS_BUDGET_BYTES = 1_612_000
+//
+// ── 1,612,000 -> 1,625,000, 2026-09-19, the 16–17 September feature work ──
+//
+// APP GROWTH, found late: the deploys from the evening of 2026-09-16 on were
+// failing the content tests first, so this gate was never reached and the
+// overrun went unseen for three days. Rebuilt commit by commit, with the
+// fixtures as content so only code varies:
+//
+//   1,610,354 B  fd456fe, 09-15 19:21 — under budget, 1,646 B of headroom
+//   1,616,678 B  a52eb85, 09-16 18:34 — the campus particle diagrams, the
+//                return to Earth from the city logo, the phone sheet
+//   1,621,930 B  8846187, 09-17 15:40 — the Earth zoom and orbit changes
+//   1,624,283 B  2414f83, 09-18 18:27 — Murcia v5.1, the arrival reframe
+//
+// Same 11 requests throughout; `SceneCanvas`, `MurciaExperience`, `useRoute`
+// and the app entry each grew by a few KB. Raised on the user's call to ship
+// the week's work. What is NOT in this number: the legal texts, which had
+// added a further 32 KB of CMS prose to this closure and were moved behind
+// the legal panel's chunk instead (src/content/legal.ts) — content must not
+// spend a code budget. Headroom after: ~3,900 B against the live content.
+// The selective modulepreload loop remains the honest fix, and is next.
+const INITIAL_JS_BUDGET_BYTES = 1_625_000
 // 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
 // existing city approach prefetch, not by the cold / modulepreload loop.
 // Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.
