@@ -65,8 +65,8 @@ Si dudas de si algo puede publicarse, déjalo en borrador y pregunta al equipo t
 
 **No hace falta que te lo aprendas: el editor lo comprueba solo.** Al subir una imagen te dice al momento si algo no encaja, y hay dos niveles:
 
-- **En rojo, y no te deja publicar** — el archivo no sirve: no es PNG ni WebP (un JPG no tiene transparencia y se vería como un rectángulo), es más pequeño que el mínimo (432×432 el isotipo, 900 de ancho el logotipo), o tiene una forma que no cabe (un isotipo alargado, un logotipo vertical).
-- **En amarillo, y sí puedes publicar** — el archivo sirve pero no es el ideal: se queda algo corto de tamaño, es mucho más grande de lo necesario, o tiene una proporción rara. Se verá bien; se vería mejor con el tamaño recomendado.
+- **En rojo, y no te deja publicar** — el archivo no sirve: no es PNG ni WebP (un JPG no tiene transparencia y se vería como un rectángulo), pesa más de 4 MB, o tiene una forma que no cabe (un isotipo alargado, un logotipo vertical).
+- **En amarillo, y sí puedes publicar** — el archivo sirve pero no es el ideal: es más pequeño que el hueco donde se dibuja (432×432 el isotipo, 900×400 el logotipo) y la web lo amplía, con lo que se verá borroso sobre todo al abrir la ficha; se queda algo corto del tamaño ideal; es mucho más grande de lo necesario; o tiene una proporción rara. Si solo existe esa versión de la marca, puedes publicarla; si hay una más grande, mejor esa.
 
 En los dos casos el aviso te dice qué mide la imagen y qué debería medir, así que se arregla pidiendo el archivo correcto — no hay que retocar nada aquí.
 

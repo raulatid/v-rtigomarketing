@@ -47,7 +47,13 @@ interface BrandMarkSpec {
   readonly noun: string
   readonly idealWidth: number
   readonly idealHeight: number
-  /** Below either of these the artwork is upscaled into its atlas cell. Error. */
+  /**
+   * Below either of these the artwork is upscaled into its atlas cell and
+   * draws soft. Warning, not error, since 2026-09-19: some brands have no
+   * larger artwork, the atlas contain-fits anything, and a softer mark is a
+   * trade-off the editor can see in the preview — unlike a wrong shape, which
+   * no scaling fixes. The build no longer counts pixels either (mirror.ts).
+   */
   readonly minWidth: number
   readonly minHeight: number
   /**
@@ -187,25 +193,6 @@ export function brandMarkErrors(kind: BrandMarkKind) {
       return 'Formato no admitido (.' + asset.extension + '). ' + formatHelp(asset.extension)
     }
 
-    if (asset.width < spec.minWidth || asset.height < spec.minHeight) {
-      return (
-        'Demasiado pequeña: ' +
-        size(asset) +
-        '. ' +
-        spec.noun +
-        ' necesita al menos ' +
-        spec.minWidth +
-        '×' +
-        spec.minHeight +
-        ' píxeles; por debajo la web la amplía y pierde nitidez al abrir la ficha. ' +
-        'El tamaño ideal es ' +
-        spec.idealWidth +
-        '×' +
-        spec.idealHeight +
-        '.'
-      )
-    }
-
     const aspect = asset.width / asset.height
     if (kind === 'isotype' && (aspect < spec.aspectMin || aspect > spec.aspectMax)) {
       return (
@@ -266,6 +253,23 @@ export function brandMarkAdvice(kind: BrandMarkKind) {
     if (aspect < spec.idealAspectMin || aspect > spec.idealAspectMax) {
       return (
         'Proporción poco habitual: ' + size(asset) + ' (' + ratio(asset) + '). ' + spec.aspectAdvice
+      )
+    }
+
+    if (asset.width < spec.minWidth || asset.height < spec.minHeight) {
+      return (
+        'Más pequeña que el hueco donde se dibuja: ' +
+        size(asset) +
+        ', y el hueco mide ' +
+        spec.minWidth +
+        '×' +
+        spec.minHeight +
+        '. La web la amplía para llenarlo, así que se verá borrosa, sobre todo al abrir la ficha. ' +
+        'Puedes publicar así; si existe una versión más grande de la marca, mejor esa (ideal ' +
+        spec.idealWidth +
+        '×' +
+        spec.idealHeight +
+        ').'
       )
     }
 

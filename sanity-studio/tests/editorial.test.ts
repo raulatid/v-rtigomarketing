@@ -5,6 +5,7 @@ import { UPDATE_GRACE_MS, parseContentVersion, siteStatusFor } from '../componen
 import { serviceMembership } from '../schemas/lib/serviceMembership'
 import { effectiveOthers, highlightedCaseUnique } from '../schemas/lib/highlightedCase'
 import { brandMarkWeight } from '../schemas/lib/brandMarkWeight'
+import { brandMarkAdvice, brandMarkErrors } from '../schemas/lib/brandMark'
 import { plainText, richText } from '../schemas/lib/plainText'
 import { darkColorAdvice, markupAdvice, serviceOpeningAdvice, singleParagraphAdvice } from '../schemas/lib/advice'
 import { ORBIT_CAPACITY, orbitCapacity } from '../schemas/lib/orbitCapacity'
@@ -73,6 +74,15 @@ describe('editorial validation before publishing', () => {
     expect(await highlightedCaseUnique(true, ctx)).toBe(true)
     const mirror = {document: {_id: 'drafts.case-b'}, getClient: () => ({fetch: async () => [...rows, {_id: 'drafts.case-a', highlighted: true}]})} as unknown as ValidationContext
     expect(await highlightedCaseUnique(false, mirror)).toBe(true)
+  })
+  it('advises on a brand mark below its atlas box rather than refusing it; shape is still refused', () => {
+    const small = {asset: {_ref: 'image-abc-300x300-png'}}
+    expect(brandMarkErrors('isotype')(small)).toBe(true)
+    expect(brandMarkAdvice('isotype')(small)).toMatch(/Más pequeña que el hueco.*300×300.*432×432.*Puedes publicar/)
+    expect(brandMarkErrors('logo')({asset: {_ref: 'image-abc-800x400-png'}})).toBe(true)
+    expect(brandMarkAdvice('logo')({asset: {_ref: 'image-abc-800x400-png'}})).toMatch(/900×400/)
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-900x300-png'}})).toMatch(/cuadrado/)
+    expect(brandMarkAdvice('isotype')({asset: {_ref: 'image-abc-512x512-png'}})).toBe(true)
   })
   it('refuses a brand mark over the shared weight cap, and passes what it cannot weigh', async () => {
     const cap = EDITORIAL_BOUNDS.caseStudy.brandMarkBytes

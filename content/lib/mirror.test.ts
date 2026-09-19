@@ -184,15 +184,11 @@ describe('brand marks the mirror refuses on format or geometry', () => {
     mediaRules: {
       isotype: {
         extensions: ['png', 'webp'],
-        minWidth: 432,
-        minHeight: 432,
         minAspect: 0.75,
         maxAspect: 4 / 3,
       },
       logo: {
         extensions: ['png', 'webp'],
-        minWidth: 900,
-        minHeight: 400,
         minAspect: 1.5,
         maxAspect: 5,
       },
@@ -241,12 +237,12 @@ describe('brand marks the mirror refuses on format or geometry', () => {
     )
   })
 
-  it('rejects an isotype below the atlas box it is drawn into', async () => {
+  it('accepts an isotype below the atlas box it is drawn into', async () => {
     const cdn = fakeCdn(png())
-    await expect(ruled(pair(asset('aaa-300x300.png'), GOOD_LOGO), cdn.impl)).rejects.toThrow(
-      /isotype: is 300x300, under the 432x432 minimum/,
-    )
-    expect(cdn.calls).toHaveLength(0)
+    // The atlas upscales it and it draws soft. That is a quality trade-off the
+    // Studio advises on, not a wrong deployment — some brands have no larger
+    // artwork, and the build used to refuse them outright.
+    await expect(ruled(pair(asset('aaa-300x300.png'), GOOD_LOGO), cdn.impl)).resolves.toBeDefined()
   })
 
   it('rejects an isotype that is not close to square', async () => {
@@ -262,11 +258,9 @@ describe('brand marks the mirror refuses on format or geometry', () => {
     await expect(ruled(pair(asset('aaa-512x540.png'), GOOD_LOGO), cdn.impl)).resolves.toBeDefined()
   })
 
-  it('rejects a logo narrower than the box, which would upscale and soften', async () => {
+  it('accepts a logo narrower than the box, which upscales and softens', async () => {
     const cdn = fakeCdn(png())
-    await expect(ruled(pair(GOOD_ISO, asset('bbb-800x400.png')), cdn.impl)).rejects.toThrow(
-      /logo: is 800x400, under the 900x400 minimum/,
-    )
+    await expect(ruled(pair(GOOD_ISO, asset('bbb-800x400.png')), cdn.impl)).resolves.toBeDefined()
   })
 
   it('rejects a logo that is too tall for the 2:1 expanded panel', async () => {
@@ -296,10 +290,11 @@ describe('brand marks the mirror refuses on format or geometry', () => {
 
   it('applies each field its own rule, not the first one it finds', async () => {
     const cdn = fakeCdn(png())
-    // 512x512 is a valid isotype and an invalid logo. If the rules were being
-    // looked up by anything other than the field name, this would pass.
+    // 512x512 is a valid isotype and, being square, an invalid logo. If the
+    // rules were being looked up by anything other than the field name, this
+    // would pass.
     await expect(ruled(pair(GOOD_ISO, asset('bbb-512x512.png')), cdn.impl)).rejects.toThrow(
-      /logo: is 512x512, under the 900x400 minimum/,
+      /logo: is 512x512 \(1.00:1\), outside the allowed 1.5:1 to 5:1/,
     )
   })
 })

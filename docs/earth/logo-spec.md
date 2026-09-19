@@ -38,7 +38,7 @@ se ven más grandes y más nítidas.
 | Punto | Requisito |
 |---|---|
 | **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. También se acepta **PNG-24**. **Nada más:** un JPG se rechaza al subirlo (no tiene alfa: sería un rectángulo sobre el panel) y un SVG también, por el motivo de más abajo. |
-| **Dimensiones** | **512 × 512 px** ideal, cuadrado. Hasta 1024 × 1024 si el símbolo tiene mucho detalle. **Mínimo 432 × 432**, que es la caja en la que se dibuja: por debajo se rechaza. |
+| **Dimensiones** | **512 × 512 px** ideal, cuadrado. Hasta 1024 × 1024 si el símbolo tiene mucho detalle. La caja en la que se dibuja mide 432 × 432: por debajo se amplía y pierde nitidez, con un aviso en el Studio. |
 | **Proporción** | **1:1.** El panel en reposo es cuadrado. Un símbolo casi cuadrado funciona y solo recibe un aviso; **fuera de 4:3 o 3:4 se rechaza**, porque se dibujaría demasiado pequeño para leerse. |
 | **Contenido** | **Solo el símbolo.** Sin el nombre de la marca, sin claim, sin recuadro. Si la marca no tiene símbolo separable del nombre, ver abajo. |
 | **Fondo** | **Totalmente transparente.** Sin caja blanca, sin tarjeta redondeada, sin sombra. |
@@ -66,7 +66,7 @@ Tres salidas, en orden de preferencia:
 | Punto | Requisito |
 |---|---|
 | **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. Pesa 10–40 KB frente a 60–150 KB del PNG equivalente, con calidad idéntica para arte plano. Se acepta **PNG-24** como alternativa. **JPG y SVG se rechazan al subirlos.** |
-| **Dimensiones** | **1600 × 800 px** ideal. **Mínimo 900 px de ancho y 400 de alto**, que es la caja en la que se dibuja: por debajo se rechaza. Por encima de 2048 de ancho solo pesa de más y recibe un aviso. |
+| **Dimensiones** | **1600 × 800 px** ideal. La caja en la que se dibuja mide 900 × 400: por debajo se amplía y pierde nitidez, con un aviso en el Studio. Por encima de 2048 de ancho solo pesa de más y recibe un aviso. |
 | **Proporción** | Entre **2:1 y 4:1** (lockup horizontal). El panel desplegado es 2:1, así que un lockup más alargado se dibuja más pequeño. **Fuera de 1,5:1 a 5:1 se rechaza**: un lockup vertical no cabe y uno larguísimo se dibuja diminuto. |
 | **Fondo** | **Totalmente transparente.** Sin caja blanca, sin tarjeta redondeada, sin sombra, sin degradado de fondo. Un fondo blanco se renderiza literalmente como un rectángulo blanco — el shader no elimina fondos. |
 | **Márgenes** | **Cero.** Recortar ajustado a la caja delimitadora del arte. **El margen lo pone la aplicación.** Un archivo entregado con un 30 % de espacio en blanco incorporado se verá un 30 % más pequeño que sus vecinos, y no hay forma de detectarlo automáticamente. Este es el punto que más se incumple. |
@@ -132,9 +132,9 @@ propio campo, además de fallar la compilación.
 de respuesta:
 
 - **Error, en rojo, con Publicar deshabilitado** — formato distinto de PNG o
-  WebP, por debajo del mínimo (432 × 432 el isotipo, 900 × 400 el logotipo), o
+  WebP, más de 4 MB, o
   una proporción fuera de las bandas de las tablas de arriba.
-- **Aviso, en amarillo, publicable** — por debajo del tamaño ideal, mucho más
+- **Aviso, en amarillo, publicable** — por debajo de la caja en la que se dibuja (432 × 432 el isotipo, 900 × 400 el logotipo; se amplía y pierde nitidez), por debajo del tamaño ideal, mucho más
   grande de lo necesario, o una proporción que funciona pero no es la óptima.
 
 El mensaje dice siempre qué mide el archivo y qué debería medir. Todo esto sale

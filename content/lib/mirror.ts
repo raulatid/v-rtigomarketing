@@ -123,12 +123,14 @@ function validateRemote(
  * small or the wrong shape is rejected without a fetch — and the message can
  * name the numbers, which is what makes it actionable in a build log.
  *
- * FAILS rather than warns. Wrong artwork does not break the renderer: the atlas
- * contain-fits anything, so an undersized logo simply draws soft and a
- * near-square one draws small. That is exactly the sort of quiet degradation
- * that survives a review and ships, which is the case for stopping the build
- * over it. The editor was already told in the Studio; anything arriving here
- * came in through an import, a restored backup or the HTTP API.
+ * FAILS on shape, ADVISES on size — and the advice is the Studio's job.
+ * Wrong artwork does not break the renderer: the atlas contain-fits anything.
+ * A mark outside the aspect band draws too small to read, and no scaling can
+ * fix that, so the build stops over it. A mark below its atlas box draws soft
+ * — the atlas upscales it — which is a quality trade-off the editor can see
+ * in the preview and choose to make; until 2026-09-19 this failed the build
+ * too, which refused a brand whose only artwork was small. The Studio warns
+ * (`brandMark.ts`); nothing here counts pixels.
  *
  * A URL whose name carries no dimensions is left alone — see
  * `sanityImageDimensions`. Sanity always supplies them; a hand-placed file is
@@ -139,12 +141,6 @@ function assertGeometry(at: string, url: string, rule: MediaRule): void {
   if (size === undefined) return
 
   const actual = size.width + 'x' + size.height
-  if (size.width < rule.minWidth || size.height < rule.minHeight) {
-    throw new SourceError(
-      at + ': is ' + actual + ', under the ' + rule.minWidth + 'x' + rule.minHeight + ' minimum',
-    )
-  }
-
   const aspect = size.width / size.height
   if (aspect < rule.minAspect || aspect > rule.maxAspect) {
     throw new SourceError(

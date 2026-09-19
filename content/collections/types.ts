@@ -105,9 +105,7 @@ export interface SanitySourceSpec {
 export interface MediaRule {
   /** Lower-case, no dot, e.g. `['png', 'webp']`. Anything else fails the build. */
   extensions: string[]
-  minWidth: number
-  minHeight: number
-  /** width / height, inclusive bounds. */
+  /** width / height, inclusive bounds. Size is not here: below the atlas box the mark draws soft, and the Studio advises. */
   minAspect: number
   maxAspect: number
 }

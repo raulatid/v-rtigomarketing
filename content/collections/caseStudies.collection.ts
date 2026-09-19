@@ -49,15 +49,11 @@ import { collection, type MediaRule } from './types'
 const BRAND_MARK_RULES: Record<string, MediaRule> = {
   isotype: {
     extensions: ['png', 'webp'],
-    minWidth: 432,
-    minHeight: 432,
     minAspect: 0.75,
     maxAspect: 4 / 3,
   },
   logo: {
     extensions: ['png', 'webp'],
-    minWidth: 900,
-    minHeight: 400,
     minAspect: 1.5,
     maxAspect: 5,
   },

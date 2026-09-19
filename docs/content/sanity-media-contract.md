@@ -58,8 +58,8 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 | Scheme is `https` | `remoteMediaUrl` | fail |
 | Not SVG or SVGZ | `remoteMediaUrl` | fail |
 | Extension is `.png` or `.webp` | `remoteMediaUrl`, against the rule's allowlist | fail |
-| At least 432×432 (isotype) / 900×400 (logo) | `mirror.ts`, `assertGeometry` | fail |
 | Aspect 0.75–1.33:1 (isotype) / 1.5–5:1 (logo) | `mirror.ts`, `assertGeometry` | fail |
+| At least 432×432 (isotype) / 900×400 (logo) | Studio only (`brandMark.ts`, advisory) | warn; the atlas upscales and the mark draws soft |
 | Filename is `[A-Za-z0-9][A-Za-z0-9._-]{0,127}` | `mirror.ts` | fail |
 | The asset actually downloads | `mirror.ts` | fail |
 | Not empty | `mirror.ts` | fail |
@@ -132,6 +132,11 @@ This document used to say 1024×512 for the logo. That was wrong in a way worth 
 above the 896-wide box, and `drawLogoContained` already `console.warn`s below it — the recommendation
 was steering editors towards artwork the renderer complains about. The minimum is 900 wide; 1600×800
 is the target.
+
+Size below the box is advised, not refused (2026-09-19). The atlas contain-fits anything, so a
+small mark draws soft rather than wrong, and some brands have no larger artwork; the Studio says
+what will happen and the editor decides. Shape is still refused: a mark outside its aspect band
+draws too small to read, and no scaling fixes that.
 
 The 4 MB cap is a guard against a mistake, not a target.
 

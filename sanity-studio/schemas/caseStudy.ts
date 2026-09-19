@@ -296,7 +296,7 @@ export const caseStudy = defineType({
       description:
         'Opcional, pero va junto con el logotipo: los dos o ninguno. Solo el símbolo de la ' +
         'marca, sin el nombre. PNG o WebP cuadrado con fondo transparente, 512×512 píxeles ' +
-        '(mínimo 432×432). Es lo que flota sobre el satélite todo el rato, así que es la más ' +
+        '(más pequeña se amplía y pierde nitidez). Es lo que flota sobre el satélite todo el rato, así que es la más ' +
         'importante de las dos. Sin imágenes, la web dibuja un anillo fino con la inicial de ' +
         'la marca.',
       type: 'image',
@@ -322,7 +322,7 @@ export const caseStudy = defineType({
       description:
         'Opcional, pero va junto con el isotipo: los dos o ninguno. El símbolo junto al ' +
         'nombre de la marca. PNG o WebP apaisado con fondo transparente, 1600×800 píxeles ' +
-        '(mínimo 900 de ancho). Solo aparece cuando alguien pincha el satélite y se abre el ' +
+        '(más pequeño se amplía y pierde nitidez). Solo aparece cuando alguien pincha el satélite y se abre el ' +
         'caso. Sin imágenes, la web dibuja el anillo con la inicial y el nombre escrito al lado.',
       type: 'image',
       fieldset: 'marca',
