@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { setIfMissing, type ObjectInputProps } from 'sanity'
-import { ORBIT_FILL_ORDER } from '../../src/experiences/earth/orbit/orbitAssignments'
+import { ORBIT_CAPACITY } from '../schemas/lib/orbitCapacity'
 import { cityDistrictBindings } from '../../src/experiences/murcia/scene/cityDistrictBindings'
 import { slugify } from '../schemas/lib/slug'
 
@@ -8,8 +8,9 @@ export function placement(type: string, slug: string): string | null {
   // Which orbit a case rides is derived from the published collection at
   // build time (orbitAssignmentsFor), so the Studio cannot name it here: the
   // note states the rule instead of a slot.
-  if (type === 'caseStudy') return 'Al publicarlo, este caso ocupa un satélite si queda una órbita libre: hay ' +
-    (ORBIT_FILL_ORDER.length + 1) + ' y se reparten por orden de identificador, con el caso resaltado siempre en la misma. Los que sobren no aparecen en el planeta.'
+  if (type === 'caseStudy') return 'Al publicarlo, este caso ocupa un satélite. El planeta tiene ' + ORBIT_CAPACITY +
+    ' órbitas y el editor no deja publicar más casos que órbitas, así que todo caso publicado se ve; el resaltado va siempre en la misma. ' +
+    'Para cambiar un caso por otro, despublica antes el que sale.'
   if (type === 'service') return cityDistrictBindings.some((district) => district.services.some((item) => item.serviceId === slug))
     ? 'Este servicio tiene un símbolo asignado en la ciudad y también puede usarse como tema del blog.'
     : 'Este servicio puede usarse como tema del blog. Para incorporarlo a la ciudad, pide al equipo técnico que le asigne un símbolo.'

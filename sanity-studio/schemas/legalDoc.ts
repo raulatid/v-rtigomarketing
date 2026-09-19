@@ -1,8 +1,11 @@
 import { DocumentTextIcon } from '@sanity/icons/DocumentText'
 import { defineField, defineType } from 'sanity'
 import { charCount } from '../components/CharCountInput'
+import { LegalBodyInput } from '../components/LegalBodyInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
+import { plainText } from './lib/plainText'
+import { markupAdvice } from './lib/advice'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
@@ -53,15 +56,24 @@ export const legalDoc = defineType({
       validation: (rule) => [
         rule.required().error('Escribe el título.'),
         rule.max(BOUNDS.title).error(`Demasiado largo: como máximo ${BOUNDS.title} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
       name: 'body',
       title: 'Texto',
       description:
-        'El documento completo. Se abre en una ventana sobre la web cuando alguien pulsa su ' +
-        'enlace. Puedes usar títulos, listas, negrita y enlaces; no admite imágenes ni vídeos.',
+        'El documento completo. Se abre en una ventana sobre la web cuando alguien pulsa su enlace. ' +
+        'Para un título de sección, pon el cursor en su línea y elige «Título» en el desplegable de estilo ' +
+        '(el que dice «Párrafo»): la negrita sola no lo convierte en título. ' +
+        'Admite listas, negrita, cursiva y enlaces; no admite imágenes ni vídeos. ' +
+        'Comprueba cómo queda en la pestaña «Vista previa».',
       type: 'legalBody',
+      // On the field rather than the type: an array type's `components.input`
+      // is typed for primitives, and the field alias is where the string inputs
+      // above hang theirs anyway.
+      components: { input: LegalBodyInput },
     }),
     defineField({
       name: 'slug',

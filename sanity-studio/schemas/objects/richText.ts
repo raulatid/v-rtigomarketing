@@ -1,4 +1,8 @@
 import { defineArrayMember, defineField, defineType } from 'sanity'
+import { EDITORIAL_BOUNDS } from '../../../src/content/editorialBounds'
+import { SubtitleStyle, TitleStyle } from '../../components/HeadingStyle'
+import { legalHeadingsAdvice, legalLengthAdvice } from '../lib/legalBody'
+import { richText } from '../lib/plainText'
 
 /**
  * The shared rich-text vocabulary.
@@ -46,7 +50,13 @@ const link = defineType({
   ],
 })
 
-/** Paragraphs, two heading levels, lists, bold, italic, links. Nothing else. */
+/**
+ * Paragraphs, two heading levels, lists, bold, italic, links. Nothing else.
+ *
+ * The block cap is the build's (`LEGAL_POLICY.maxBlocks`), through the shared
+ * table, and is a net rather than a length. Length and headings are advised,
+ * never refused — schemas/lib/legalBody.ts says why.
+ */
 export const legalBody = defineType({
   name: 'legalBody',
   title: 'Texto legal',
@@ -56,8 +66,8 @@ export const legalBody = defineType({
       type: 'block',
       styles: [
         { title: 'Párrafo', value: 'normal' },
-        { title: 'Título', value: 'h2' },
-        { title: 'Subtítulo', value: 'h3' },
+        { title: 'Título', value: 'h2', component: TitleStyle },
+        { title: 'Subtítulo', value: 'h3', component: SubtitleStyle },
       ],
       lists: [
         { title: 'Lista', value: 'bullet' },
@@ -68,7 +78,15 @@ export const legalBody = defineType({
   ],
   validation: (rule) => [
     rule.required().min(1).error('El documento no puede estar vacío.'),
-    rule.max(120).error('El documento es demasiado largo para mostrarse en un panel.'),
+    rule
+      .max(EDITORIAL_BOUNDS.legalDoc.bodyBlocks)
+      .error(
+        `El documento tiene más de ${EDITORIAL_BOUNDS.legalDoc.bodyBlocks} bloques. ` +
+          'Es mucho más de lo que cabe en cualquier texto legal: comprueba que no se haya pegado un documento entero por error.',
+      ),
+    rule.custom(richText),
+    rule.custom(legalHeadingsAdvice).warning(),
+    rule.custom(legalLengthAdvice).warning(),
   ],
 })
 
@@ -105,5 +123,6 @@ export const blogBody = defineType({
   validation: (rule) => [
     rule.required().min(1).error('La entrada no puede estar vacía.'),
     rule.max(400).error('La entrada es demasiado larga.'),
+    rule.custom(richText),
   ],
 })

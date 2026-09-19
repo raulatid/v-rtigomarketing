@@ -3,6 +3,8 @@ import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { charCount } from '../components/CharCountInput'
 import { phoneSpellingsAgree } from './lib/phone'
+import { plainText } from './lib/plainText'
+import { markupAdvice, singleParagraphAdvice } from './lib/advice'
 import { COOKIE_COPY_FIELDS } from '../../src/content/cookieCopy'
 
 /**
@@ -93,7 +95,7 @@ export const siteSettings = defineType({
       options: { collapsible: true, collapsed: true },
       fields: COOKIE_COPY_FIELDS.map(([name, title, max, initialValue]) => defineField({
         name, title, type: max > 200 ? 'text' : 'string', initialValue,
-        validation: Rule => Rule.required().max(max),
+        validation: Rule => [Rule.required().max(max), Rule.custom(plainText), Rule.custom(markupAdvice).warning(), ...(max > 200 ? [Rule.custom(singleParagraphAdvice).warning()] : [])],
       })),
     }),
     defineField({
@@ -119,10 +121,13 @@ export const siteSettings = defineType({
               type: 'string',
               placeholder: 'Madrid',
               components: { input: charCount(BOUNDS.label) },
-              validation: (rule) =>
+              validation: (rule) => [
                 rule.max(BOUNDS.label).error(
                   `Demasiado largo: como máximo ${BOUNDS.label} caracteres.`,
                 ),
+                rule.custom(plainText),
+                rule.custom(markupAdvice).warning(),
+              ],
             }),
             defineField({
               name: 'display',
@@ -136,6 +141,8 @@ export const siteSettings = defineType({
                 rule.max(BOUNDS.display).error(
                   `Demasiado largo: como máximo ${BOUNDS.display} caracteres.`,
                 ),
+                rule.custom(plainText),
+                rule.custom(markupAdvice).warning(),
               ],
             }),
             defineField({
@@ -246,10 +253,13 @@ export const siteSettings = defineType({
       group: 'contacto',
       placeholder: 'Agenda una cita',
       components: { input: charCount(BOOKING_LABEL_MAX) },
-      validation: (rule) =>
+      validation: (rule) => [
         rule
           .max(BOOKING_LABEL_MAX)
           .error(`Demasiado largo: como máximo ${BOOKING_LABEL_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
     }),
 
     // ── Los mensajes de "enviado" ──
@@ -274,6 +284,8 @@ export const siteSettings = defineType({
         rule.max(BOUNDS.successTitle).error(
           `Demasiado largo: como máximo ${BOUNDS.successTitle} caracteres.`,
         ),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -291,6 +303,8 @@ export const siteSettings = defineType({
         rule.max(BOUNDS.successBody).error(
           `Demasiado largo: como máximo ${BOUNDS.successBody} caracteres.`,
         ),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -307,6 +321,8 @@ export const siteSettings = defineType({
         rule.max(BOUNDS.successTitle).error(
           `Demasiado largo: como máximo ${BOUNDS.successTitle} caracteres.`,
         ),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -323,6 +339,8 @@ export const siteSettings = defineType({
         rule.max(BOUNDS.successBody).error(
           `Demasiado largo: como máximo ${BOUNDS.successBody} caracteres.`,
         ),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
 
@@ -352,6 +370,8 @@ export const siteSettings = defineType({
             rule.max(BOUNDS.revenueRange).error(
               `Demasiado largo: como máximo ${BOUNDS.revenueRange} caracteres.`,
             ),
+            rule.custom(plainText),
+            rule.custom(markupAdvice).warning(),
           ],
         }),
       ],
@@ -387,6 +407,8 @@ export const siteSettings = defineType({
             rule.max(BOUNDS.budgetRange).error(
               `Demasiado largo: como máximo ${BOUNDS.budgetRange} caracteres.`,
             ),
+            rule.custom(plainText),
+            rule.custom(markupAdvice).warning(),
           ],
         }),
       ],
@@ -408,6 +430,8 @@ export const siteSettings = defineType({
       validation: (rule) => [
         rule.required().error('Escribe la línea de copyright.'),
         rule.max(BOUNDS.copyright).error(`Demasiado largo: como máximo ${BOUNDS.copyright} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     // Retired banner fields remain hidden to preserve existing CMS values.

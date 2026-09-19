@@ -46,9 +46,9 @@ Si dudas de si algo puede publicarse, déjalo en borrador y pregunta al equipo t
 
 ## Cosas que conviene saber
 
-**Hay seis órbitas alrededor del planeta y los casos publicados las ocupan solos**, por orden de identificador; el caso resaltado va siempre en la misma órbita. Un caso nuevo aparece en la web al publicarlo, siempre que haya una órbita libre: a partir del sexto caso, los demás no salen. Si necesitas cambiar cuál sale, despublica uno.
+**Hay seis órbitas alrededor del planeta y los casos publicados las ocupan solos**; el caso resaltado va siempre en la misma órbita. Como máximo puede haber seis casos publicados: si intentas publicar un séptimo, el editor te avisa y no te deja, para que ningún caso quede fuera del planeta sin que lo sepas. Puedes tener más casos en borrador. Para cambiar un caso por otro, despublica primero el que sale y publica después el nuevo.
 
-**Uno de los casos es el «caso de éxito resaltado», y solo uno.** Su satélite brilla más que los demás al llegar al planeta y es el ejemplo con el que la web enseña al visitante que los satélites se pueden pinchar. Tiene que haber siempre uno publicado: no lo despubliques ni lo borres sin marcar antes otro. Para cambiarlo, desmarca «Este es el caso resaltado» en el caso actual, publícalo, y márcalo en el nuevo. Si intentas marcar un segundo caso, el editor te avisa y no te deja publicar.
+**Uno de los casos es el «caso de éxito resaltado», y solo uno.** Su satélite brilla más que los demás al llegar al planeta y es el ejemplo con el que la web enseña al visitante que los satélites se pueden pinchar. Tiene que haber siempre uno publicado, y el editor lo vigila: no te deja marcar un segundo, no te deja desmarcar el único, y en el caso resaltado «Borrar» y «Despublicar» están desactivados. Para cambiarlo, marca «Este es el caso resaltado» en el nuevo caso y desmárcalo en el actual (los dos como borrador; cada uno tiene en cuenta el borrador del otro), y publica los dos seguidos. Mientras solo esté publicado uno de los dos cambios, la web no se actualiza; al publicar el segundo, sí.
 
 **Al crear un caso o un servicio nuevo, el identificador se genera automáticamente al escribir el nombre.** Después queda protegido para evitar cambios accidentales. En las entradas del blog, pulsa «Generar» en «Dirección de la entrada», dentro de «Publicación»: es la dirección que compartirás.
 
@@ -90,9 +90,12 @@ En los dos casos el aviso te dice qué mide la imagen y qué debería medir, as�
 
 **Los textos legales** se abren en una ventana sobre la web cuando alguien pulsa su enlace. «Términos y privacidad» se enlaza desde los dos formularios; «Aviso legal», desde el panel de Auditoría; y «Política de cookies», desde el aviso de cookies.
 
+**Los títulos de sección de un texto legal** se hacen con el desplegable de estilo del editor (el que dice «Párrafo»): pon el cursor en la línea del título y elige «Título» o «Subtítulo». En el editor se muestran con una barra a la izquierda y una etiqueta. Poner la línea en negrita no la convierte en título: en la web sigue siendo un párrafo. Si el documento no tiene ningún título, verás un aviso amarillo bajo el texto; puedes publicar igualmente. Bajo el editor aparece el número de palabras y el tiempo de lectura como referencia; no hay un máximo de palabras.
+
 ## Si algo va mal
 
-Las validaciones comprueban el formato y la estructura. No pueden saber si un teléfono, una cifra o un texto son correctos: revísalos antes de publicar. Si la actualización falla, se conserva la versión anterior de la web. Avisa al equipo técnico con el nombre del documento.
+Las validaciones comprueban el formato y la estructura. No pueden saber si un teléfono, una cifra o un texto son correctos: revísalos antes de publicar. Si la actualización falla, se conserva la versión anterior de la web.
+
 
 ## Vista previa
 

@@ -3,6 +3,8 @@ import { PlayIcon } from '@sanity/icons/Play'
 import { LinkIcon } from '@sanity/icons/Link'
 import { defineField, defineType } from 'sanity'
 import { imageProblem, videoProblem } from '../lib/editorChecks'
+import { plainText } from '../lib/plainText'
+import { markupAdvice } from '../lib/advice'
 import { charCount } from '../../components/CharCountInput'
 
 /**
@@ -36,6 +38,8 @@ export const imageMedia = defineType({
         rule
           .max(IMAGE_TEXT_MAX)
           .error(`Demasiado largo: como máximo ${IMAGE_TEXT_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -47,8 +51,11 @@ export const imageMedia = defineType({
         'escribir lo mismo en las dos hace que se anuncie dos veces.',
       type: 'string',
       components: { input: charCount(IMAGE_TEXT_MAX) },
-      validation: (rule) =>
+      validation: (rule) => [
         rule.max(IMAGE_TEXT_MAX).error(`Demasiado largo: como máximo ${IMAGE_TEXT_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
     }),
   ],
   // NOT `required()`, and not `assetRequired()` either.

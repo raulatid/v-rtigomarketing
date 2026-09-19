@@ -5,6 +5,10 @@ import { charCount } from '../components/CharCountInput'
 import { ColorHexInput } from '../components/ColorHexInput'
 import { highlightedCaseUnique } from './lib/highlightedCase'
 import { brandMarkAdvice, brandMarkErrors } from './lib/brandMark'
+import { brandMarkWeight } from './lib/brandMarkWeight'
+import { plainText } from './lib/plainText'
+import { darkColorAdvice, markupAdvice, singleParagraphAdvice } from './lib/advice'
+import { orbitCapacity } from './lib/orbitCapacity'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
@@ -117,6 +121,8 @@ const chart = defineField({
       validation: (rule) => [
         rule.required().error('Escribe qué muestra el gráfico.'),
         rule.max(BOUNDS.chartTitle).error(`Demasiado largo: como máximo ${BOUNDS.chartTitle} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -148,10 +154,13 @@ const chart = defineField({
               // other two keeps a line chart's data entry to one number per row.
               hidden: ({ document }) =>
                 !needsLabels((document as { chart?: Chart } | undefined)?.chart?.type),
-              validation: (rule) =>
+              validation: (rule) => [
                 rule.max(BOUNDS.chartLabel).error(
                   `Demasiado largo: como máximo ${BOUNDS.chartLabel} caracteres.`,
                 ),
+                rule.custom(plainText),
+                rule.custom(markupAdvice).warning(),
+              ],
             }),
           ],
           preview: {
@@ -207,6 +216,8 @@ export const caseStudy = defineType({
   title: 'Caso de éxito',
   icon: EarthGlobeIcon,
   type: 'document',
+  // Document-level, beside Publicar: no field owns "there is no orbit left".
+  validation: (rule) => rule.custom(orbitCapacity),
   components: { input: EditorialDocument },
   fieldsets: [
     {
@@ -262,6 +273,8 @@ export const caseStudy = defineType({
       validation: (rule) => [
         rule.required().error('Escribe el nombre de la marca.'),
         rule.max(BOUNDS.name).error(`Demasiado largo: como máximo ${BOUNDS.name} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     // HIDDEN. Nothing on the site renders `label` (`src/content/types.ts` says
@@ -297,6 +310,7 @@ export const caseStudy = defineType({
           brandMarksTogether('logo', 'Has subido el logotipo completo: sube también el isotipo.'),
         ),
         rule.custom(brandMarkErrors('isotype')),
+        rule.custom(brandMarkWeight('isotype')),
         // `.warning()` is the whole difference between the two tiers: a warning
         // is shown at the field and leaves Publicar enabled.
         rule.custom(brandMarkAdvice('isotype')).warning(),
@@ -318,6 +332,7 @@ export const caseStudy = defineType({
           brandMarksTogether('isotype', 'Has subido el isotipo: sube también el logotipo completo.'),
         ),
         rule.custom(brandMarkErrors('logo')),
+        rule.custom(brandMarkWeight('logo')),
         rule.custom(brandMarkAdvice('logo')).warning(),
       ],
     }),
@@ -336,12 +351,14 @@ export const caseStudy = defineType({
       components: { input: ColorHexInput },
       // Optional on purpose — see the description. Empty means "white"; a value
       // that IS given must still be a real #rrggbb, so a typo cannot ship.
-      validation: (rule) =>
+      validation: (rule) => [
         rule
           .regex(/^#[0-9a-fA-F]{6}$/)
           .error(
             'Escribe el color en formato #rrggbb, por ejemplo #e0b33c — o déjalo vacío si la marca no tiene color',
           ),
+        rule.custom(darkColorAdvice).warning(),
+      ],
     }),
     defineField({
       name: 'highlighted',
@@ -364,6 +381,8 @@ export const caseStudy = defineType({
       validation: (rule) => [
         rule.required().error('Escribe el sector.'),
         rule.max(BOUNDS.name).error('Demasiado largo.'),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -376,6 +395,8 @@ export const caseStudy = defineType({
       validation: (rule) => [
         rule.required().error('Escribe la ubicación.'),
         rule.max(BOUNDS.name).error('Demasiado largo.'),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -388,6 +409,8 @@ export const caseStudy = defineType({
       validation: (rule) => [
         rule.required().error('Escribe el año.'),
         rule.max(16).error('Demasiado largo.'),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -415,6 +438,8 @@ export const caseStudy = defineType({
                 rule.max(BOUNDS.metricLabel).error(
                   `Demasiado largo: como máximo ${BOUNDS.metricLabel} caracteres.`,
                 ),
+                rule.custom(plainText),
+                rule.custom(markupAdvice).warning(),
               ],
             }),
             defineField({
@@ -429,6 +454,8 @@ export const caseStudy = defineType({
                 rule.max(BOUNDS.metricValue).error(
                   `Demasiado largo: como máximo ${BOUNDS.metricValue} caracteres.`,
                 ),
+                rule.custom(plainText),
+                rule.custom(markupAdvice).warning(),
               ],
             }),
           ],
@@ -454,6 +481,9 @@ export const caseStudy = defineType({
       validation: (rule) => [
         rule.required().error('Escribe un resumen.'),
         rule.max(BOUNDS.summary).error(`Demasiado largo: como máximo ${BOUNDS.summary} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+        rule.custom(singleParagraphAdvice).warning(),
       ],
     }),
     defineField({
@@ -468,10 +498,16 @@ export const caseStudy = defineType({
         defineArrayMember({
           type: 'string',
           components: { input: charCount(BOUNDS.detailLine) },
-          validation: (rule) =>
+          validation: (rule) => [
+            // An added line left blank is stored as '' and fails the build;
+            // `required()` on an optional list's items is the honest reading.
+            rule.required().error('Escribe el punto clave, o quita la línea.'),
             rule.max(BOUNDS.detailLine).error(
               `Demasiado largo: cada línea, como máximo ${BOUNDS.detailLine} caracteres.`,
             ),
+            rule.custom(plainText),
+            rule.custom(markupAdvice).warning(),
+          ],
         }),
       ],
       validation: (rule) =>

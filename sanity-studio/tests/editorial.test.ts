@@ -2,8 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { imageProblem, videoProblem } from '../schemas/lib/editorChecks'
 import { previewBody, previewCase, previewImage } from '../components/previewModel'
 import { serviceMembership } from '../schemas/lib/serviceMembership'
-import { highlightedCaseUnique } from '../schemas/lib/highlightedCase'
+import { effectiveOthers, highlightedCaseUnique } from '../schemas/lib/highlightedCase'
+import { brandMarkWeight } from '../schemas/lib/brandMarkWeight'
+import { plainText, richText } from '../schemas/lib/plainText'
+import { darkColorAdvice, markupAdvice, serviceOpeningAdvice, singleParagraphAdvice } from '../schemas/lib/advice'
+import { ORBIT_CAPACITY, orbitCapacity } from '../schemas/lib/orbitCapacity'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { LEGAL_WORDS_ADVISED, legalHeadingsAdvice, legalLengthAdvice, legalReadingMinutes, legalWordCount } from '../schemas/lib/legalBody'
 import type { ValidationContext } from 'sanity'
+
+const legalBlock = (text: string, style = 'normal', marks: string[] = []) =>
+  ({_type: 'block', style, markDefs: [], children: [{_type: 'span', text, marks}]})
 
 describe('editorial validation before publishing', () => {
   it('allows empty optional images, rejects unfinished images, SVG and oversized uploads', () => {
@@ -28,14 +37,98 @@ describe('editorial validation before publishing', () => {
     slugs.pop()
     expect(await serviceMembership([{_ref: 'id-0'}], context)).not.toBe(true)
   })
-  it('allows one highlighted case and refuses a second one, ignoring the document itself', async () => {
-    const make = (others: string[]) =>
-      ({document: {_id: 'drafts.case-a'}, getClient: () => ({fetch: async (_q: string, params: {ownId: string}) => (params.ownId === 'case-a' ? others : ['wrong'])})}) as unknown as ValidationContext
-    expect(await highlightedCaseUnique(false, make(['Mango']))).toBe(true)
-    expect(await highlightedCaseUnique(true, make([]))).toBe(true)
-    expect(await highlightedCaseUnique(true, make(['Mango']))).toContain('Mango')
+  it('keeps exactly one highlighted case: refuses a second, and refuses unticking the only one', async () => {
+    type Row = {_id: string; highlighted?: boolean | null; name?: string}
+    const make = (rows: Row[]) =>
+      ({document: {_id: 'drafts.case-a'}, getClient: () => ({fetch: async () => rows})}) as unknown as ValidationContext
+    const mango = {_id: 'case-b', highlighted: true, name: 'Mango'}
+    // Own document is excluded, whether as draft or published.
+    expect(await highlightedCaseUnique(true, make([{_id: 'case-a', highlighted: true}, {_id: 'drafts.case-a', highlighted: true}]))).toBe(true)
+    expect(await highlightedCaseUnique(true, make([mango]))).toContain('Mango')
+    expect(await highlightedCaseUnique(false, make([mango]))).toBe(true)
+    // The other half: this was the 2026-09-18 gap.
+    expect(await highlightedCaseUnique(false, make([{_id: 'case-b', highlighted: null}]))).toMatch(/único caso resaltado/)
+    expect(await highlightedCaseUnique(false, make([]))).toMatch(/único caso resaltado/)
     const failing = {document: {_id: 'case-a'}, getClient: () => ({fetch: async () => { throw new Error('offline') }})} as unknown as ValidationContext
     expect(await highlightedCaseUnique(true, failing)).not.toBe(true)
+  })
+  it('judges another case by its draft when it has one, so the highlight can be moved', async () => {
+    // Mango is highlighted in its published copy and unticked in its draft:
+    // ticking this case is allowed, and Mango's own unticking (the mirror
+    // image) is allowed because this draft is ticked.
+    const rows = [{_id: 'case-b', highlighted: true, name: 'Mango'}, {_id: 'drafts.case-b', highlighted: false, name: 'Mango'}]
+    expect(effectiveOthers(rows, 'case-a')).toEqual([{_id: 'case-b', highlighted: false, name: 'Mango'}])
+    const ctx = {document: {_id: 'drafts.case-a'}, getClient: () => ({fetch: async () => rows})} as unknown as ValidationContext
+    expect(await highlightedCaseUnique(true, ctx)).toBe(true)
+    const mirror = {document: {_id: 'drafts.case-b'}, getClient: () => ({fetch: async () => [...rows, {_id: 'drafts.case-a', highlighted: true}]})} as unknown as ValidationContext
+    expect(await highlightedCaseUnique(false, mirror)).toBe(true)
+  })
+  it('refuses a brand mark over the shared weight cap, and passes what it cannot weigh', async () => {
+    const cap = EDITORIAL_BOUNDS.caseStudy.brandMarkBytes
+    const withSize = (size: unknown) => ({getClient: () => ({fetch: async () => size})}) as unknown as ValidationContext
+    const value = {asset: {_ref: 'image-abc-512x512-png'}}
+    expect(await brandMarkWeight('isotype')(value, withSize(cap))).toBe(true)
+    expect(await brandMarkWeight('logo')(value, withSize(cap + 1))).toMatch(/^El logotipo pesa 4,0 MB/)
+    expect(await brandMarkWeight('isotype')(value, withSize(null))).toBe(true)
+    expect(await brandMarkWeight('isotype')(undefined, withSize(cap * 2))).toBe(true)
+    const failing = {getClient: () => ({fetch: async () => { throw new Error('offline') }})} as unknown as ValidationContext
+    expect(await brandMarkWeight('isotype')(value, failing)).toMatch(/conexión/)
+  })
+  it('refuses what the build\'s plain-text pass refuses: whitespace-only and HTML entities', () => {
+    expect(plainText(undefined)).toBe(true)
+    expect(plainText('')).toBe(true)
+    expect(plainText('Moda y retail')).toBe(true)
+    expect(plainText('   ')).toMatch(/solo tiene espacios/)
+    expect(plainText('&copy; 2026')).toMatch(/código HTML/)
+    // Decoded by the build, so accepted here — the same function decides both.
+    expect(plainText('Tom &amp; Jerry')).toBe(true)
+    expect(richText([legalBlock('Hola &nbsp; mundo')])).toBe(true)
+    expect(richText([legalBlock('Hola'), legalBlock('&copy; 2026')])).toMatch(/código HTML/)
+    expect(richText([{_type: 'image'}, null, 'x'])).toBe(true)
+  })
+  it('refuses a case past the planet\'s orbits, counting published cases other than this one', async () => {
+    const make = (count: unknown) => ({document: {_id: 'drafts.case-x'}, getClient: () => ({fetch: async () => count})}) as unknown as ValidationContext
+    expect(ORBIT_CAPACITY).toBe(6)
+    expect(await orbitCapacity(undefined, make(5))).toBe(true)
+    expect(await orbitCapacity(undefined, make(6))).toMatch(/6 órbitas/)
+    expect(await orbitCapacity(undefined, make(null))).toBe(true)
+    const failing = {document: {_id: 'case-x'}, getClient: () => ({fetch: async () => { throw new Error('offline') }})} as unknown as ValidationContext
+    expect(await orbitCapacity(undefined, failing)).toMatch(/conexión/)
+  })
+  it('says what the site will show differently from the Studio: stripped markup, joined lines, a long opening, a dark colour', () => {
+    expect(markupAdvice('precio <5%')).toBe(true)
+    expect(markupAdvice('Hola <b>mundo</b>')).toMatch(/«Hola mundo»/)
+    expect(markupAdvice(undefined)).toBe(true)
+    expect(singleParagraphAdvice('una\nlínea más')).toMatch(/un solo párrafo/)
+    expect(singleParagraphAdvice('una línea\n')).toBe(true)
+    expect(serviceOpeningAdvice('Una línea corta\nOtra línea corta\n\nDetalle largo que no importa')).toBe(true)
+    expect(serviceOpeningAdvice('Una\nDos\nTres')).toMatch(/3 líneas/)
+    expect(serviceOpeningAdvice('Una línea corta\nUna segunda línea bastante más larga de la cuenta')).toMatch(/caracteres/)
+    expect(serviceOpeningAdvice('Una sola frase larguísima que el sitio parte por su cuenta.')).toBe(true)
+    expect(darkColorAdvice('#050507')).toMatch(/casi negro/)
+    expect(darkColorAdvice('#1c67ff')).toBe(true)
+    expect(darkColorAdvice('#ffffff')).toBe(true)
+    expect(darkColorAdvice('')).toBe(true)
+  })
+  it('advises, never refuses, a legal text whose titles are bold paragraphs', () => {
+    // The 2026-09-18 shape: every section title typed in bold, no heading block.
+    const bold = [legalBlock('1. Objeto', 'normal', ['strong']), legalBlock('Estas condiciones…'), legalBlock('2. Datos', 'normal', ['strong'])]
+    expect(legalHeadingsAdvice(bold)).toMatch(/«Título»/)
+    expect(legalHeadingsAdvice([legalBlock('1. Objeto', 'h2'), legalBlock('Estas condiciones…')])).toBe(true)
+    expect(legalHeadingsAdvice([legalBlock('Subtítulo', 'h3'), legalBlock('…')])).toBe(true)
+    // A one-line document, a still-empty one, or garbage: nothing to say yet.
+    expect(legalHeadingsAdvice([legalBlock('Solo una línea.')])).toBe(true)
+    expect(legalHeadingsAdvice(undefined)).toBe(true)
+    expect(legalHeadingsAdvice([null, 'x', {_type: 'image'}])).toBe(true)
+  })
+  it('counts words across blocks and only advises past the recommended length', () => {
+    expect(legalWordCount(undefined)).toBe(0)
+    expect(legalWordCount([legalBlock('  uno   dos '), legalBlock('tres'), {_type: 'image'}, legalBlock('')])).toBe(3)
+    expect(legalReadingMinutes(0)).toBe(1)
+    expect(legalReadingMinutes(1000)).toBe(5)
+    const words = (n: number) => [legalBlock(Array.from({length: n}, () => 'palabra').join(' '))]
+    expect(legalLengthAdvice(words(LEGAL_WORDS_ADVISED))).toBe(true)
+    expect(legalLengthAdvice(words(LEGAL_WORDS_ADVISED + 1))).toMatch(/Se publica igual/)
   })
 })
 

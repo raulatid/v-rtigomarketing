@@ -1,6 +1,8 @@
 import { PinIcon } from '@sanity/icons/Pin'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { serviceMembership } from './lib/serviceMembership'
+import { plainText } from './lib/plainText'
+import { darkColorAdvice, markupAdvice, singleParagraphAdvice } from './lib/advice'
 import { charCount } from '../components/CharCountInput'
 import { colorHexInput } from '../components/ColorHexInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
@@ -96,6 +98,8 @@ export const district = defineType({
       validation: (rule) => [
         rule.required().error('Escribe el título de la sección.'),
         rule.max(BOUNDS.label).error(`Demasiado largo: como máximo ${BOUNDS.label} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -111,6 +115,9 @@ export const district = defineType({
         rule.max(BOUNDS.summary).error(
           `Demasiado largo: como máximo ${BOUNDS.summary} caracteres.`,
         ),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+        rule.custom(singleParagraphAdvice).warning(),
       ],
     }),
     defineField({
@@ -126,10 +133,12 @@ export const district = defineType({
       components: { input: PARTICLE_COLOR_INPUT },
       // Optional: empty means the site's blue. A value that IS given must still
       // be a real #rrggbb, so a typo cannot ship.
-      validation: (rule) =>
+      validation: (rule) => [
         rule
           .regex(/^#[0-9a-fA-F]{6}$/)
           .error('Escribe el color en formato #rrggbb, por ejemplo #1c67ff — o déjalo vacío'),
+        rule.custom(darkColorAdvice).warning(),
+      ],
     }),
     // HIDDEN, and not required here. Nothing has read `intro` since the campus
     // replaced the panel (§45), so asking for it had the editor writing a
@@ -145,8 +154,11 @@ export const district = defineType({
       rows: 5,
       fieldset: 'distrito',
       hidden: true,
-      validation: (rule) =>
+      validation: (rule) => [
         rule.max(BOUNDS.intro).error(`Demasiado largo: como máximo ${BOUNDS.intro} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
     }),
     defineField({
       name: 'services',

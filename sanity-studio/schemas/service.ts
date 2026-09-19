@@ -5,6 +5,8 @@ import { charCount } from '../components/CharCountInput'
 import { colorHexInput } from '../components/ColorHexInput'
 import { LOCKED_ID_DESCRIPTION, TECH_FIELDSET, lockedOnceSet } from './lib/locked'
 import { slugOptions, slugValidation } from './lib/slug'
+import { plainText } from './lib/plainText'
+import { darkColorAdvice, markupAdvice, serviceOpeningAdvice } from './lib/advice'
 import { DEFAULT_PARTICLE_COLOR, EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
@@ -79,6 +81,8 @@ export const service = defineType({
       validation: (rule) => [
         rule.required().error('Escribe el nombre del servicio.'),
         rule.max(BOUNDS.title).error(`Demasiado largo: como máximo ${BOUNDS.title} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -91,8 +95,11 @@ export const service = defineType({
         'el nombre completo.',
       type: 'string',
       components: { input: charCount(SHORT_TITLE_MAX, 'warning') },
-      validation: (rule) =>
+      validation: (rule) => [
         rule.max(SHORT_TITLE_MAX).warning('Cuanto más corto, mejor encaja en un filtro.'),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
     }),
     defineField({
       name: 'body',
@@ -108,6 +115,9 @@ export const service = defineType({
         rule.max(BOUNDS.body).error(
           `Demasiado largo: como máximo ${BOUNDS.body} caracteres (uno o dos párrafos).`,
         ),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+        rule.custom(serviceOpeningAdvice).warning(),
       ],
     }),
     // The figure itself is drawn by code (`cityDistrictBindings.ts`), because
@@ -123,10 +133,13 @@ export const service = defineType({
         'explica qué dibuja. Vacío, no se muestra.',
       type: 'string',
       components: { input: charCount(BOUNDS.figureCaption) },
-      validation: (rule) =>
+      validation: (rule) => [
         rule
           .max(BOUNDS.figureCaption)
           .error(`Demasiado largo: como máximo ${BOUNDS.figureCaption} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
     }),
     defineField({
       name: 'measures',
@@ -142,6 +155,8 @@ export const service = defineType({
           validation: (rule) => [
             rule.required().error('Escribe el punto destacado.'),
             rule.max(BOUNDS.measure).error(`Demasiado largo: como máximo ${BOUNDS.measure} caracteres.`),
+            rule.custom(plainText),
+            rule.custom(markupAdvice).warning(),
           ],
         }),
       ],
@@ -159,10 +174,12 @@ export const service = defineType({
       components: { input: PARTICLE_COLOR_INPUT },
       // Optional: empty means "the section's colour". A value that IS given
       // must still be a real #rrggbb, so a typo cannot ship.
-      validation: (rule) =>
+      validation: (rule) => [
         rule
           .regex(/^#[0-9a-fA-F]{6}$/)
           .error('Escribe el color en formato #rrggbb, por ejemplo #ffb020 — o déjalo vacío'),
+        rule.custom(darkColorAdvice).warning(),
+      ],
     }),
     defineField({
       name: 'slug',

@@ -7,7 +7,7 @@ import { PinIcon } from '@sanity/icons/Pin'
 import { WrenchIcon } from '@sanity/icons/Wrench'
 import { esESLocale } from '@sanity/locale-es-es'
 import type { ComponentType } from 'react'
-import { defineConfig } from 'sanity'
+import { defineConfig, type DocumentActionComponent } from 'sanity'
 import { structureTool, type StructureBuilder } from 'sanity/structure'
 import { schemaTypes } from './schemas'
 import { EditorialHome } from './components/EditorialHome'
@@ -69,6 +69,31 @@ function singletonItem(S: StructureBuilder, entry: Singleton) {
  * scene. Its TEXT is fully editorial; its existence is not.
  */
 const LOCKED_TYPES = new Set([...SINGLETONS.map((entry) => entry.type), 'district'])
+
+/**
+ * The highlighted case can be edited, not removed.
+ *
+ * The field rule (`schemas/lib/highlightedCase.ts`) keeps exactly one case
+ * highlighted across edits, but delete and unpublish are actions, not edits,
+ * and no field rule runs on them. Either one on the published highlight
+ * leaves zero and fails the next deployment. The actions stay visible and
+ * say why they are off, which is what the editor needs to do next.
+ */
+function keepHighlightedCase(Action: DocumentActionComponent): DocumentActionComponent {
+  if (Action.action !== 'delete' && Action.action !== 'unpublish') return Action
+  const Guarded: DocumentActionComponent = (props) => {
+    const description = Action(props)
+    if (description === null || (props.published as {highlighted?: unknown} | null)?.highlighted !== true) return description
+    return {
+      ...description,
+      disabled: true,
+      title: 'Este es el caso resaltado y tiene que haber siempre uno. Marca otro caso como resaltado y publícalo antes.',
+    }
+  }
+  Guarded.action = Action.action
+  Guarded.displayName = Action.displayName
+  return Guarded
+}
 
 /**
  * Reads a required Studio variable, or explains how to set it.
@@ -198,9 +223,12 @@ export default defineConfig({
   },
 
   document: {
-    actions: (prev, context) =>
-      LOCKED_TYPES.has(context.schemaType)
-        ? prev.filter((action) => action.action !== 'duplicate' && action.action !== 'delete')
-        : prev,
+    actions: (prev, context) => {
+      if (LOCKED_TYPES.has(context.schemaType)) {
+        return prev.filter((action) => action.action !== 'duplicate' && action.action !== 'delete')
+      }
+      if (context.schemaType === 'caseStudy') return prev.map(keepHighlightedCase)
+      return prev
+    },
   },
 })

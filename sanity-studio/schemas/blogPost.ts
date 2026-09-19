@@ -2,6 +2,8 @@ import { ComposeIcon } from '@sanity/icons/Compose'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { charCount } from '../components/CharCountInput'
 import { lockedOnceSet } from './lib/locked'
+import { plainText } from './lib/plainText'
+import { markupAdvice, singleParagraphAdvice } from './lib/advice'
 import { slugOptions, slugValidation } from './lib/slug'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
@@ -86,6 +88,8 @@ export const blogPost = defineType({
       validation: (rule) => [
         rule.required().error('Escribe el título de la entrada.'),
         rule.max(BOUNDS.title).error(`Demasiado largo: como máximo ${BOUNDS.title} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
       ],
     }),
     defineField({
@@ -101,6 +105,9 @@ export const blogPost = defineType({
       validation: (rule) => [
         rule.required().error('Escribe una entradilla.'),
         rule.max(BOUNDS.excerpt).error(`Demasiado largo: como máximo ${BOUNDS.excerpt} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+        rule.custom(singleParagraphAdvice).warning(),
       ],
     }),
     defineField({
@@ -196,10 +203,13 @@ export const blogPost = defineType({
       type: 'string',
       fieldset: 'seo',
       components: { input: charCount(SEO_TITLE_MAX, 'warning') },
-      validation: (rule) =>
+      validation: (rule) => [
         rule
           .max(SEO_TITLE_MAX)
           .warning(`Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
     }),
     defineField({
       name: 'metaDescription',
@@ -211,10 +221,14 @@ export const blogPost = defineType({
       rows: 2,
       fieldset: 'seo',
       components: { input: charCount(META_DESCRIPTION_MAX, 'warning') },
-      validation: (rule) =>
+      validation: (rule) => [
         rule
           .max(META_DESCRIPTION_MAX)
           .warning(`Google suele cortar a partir de unos ${META_DESCRIPTION_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+        rule.custom(singleParagraphAdvice).warning(),
+      ],
     }),
     defineField({
       name: 'ogImage',
