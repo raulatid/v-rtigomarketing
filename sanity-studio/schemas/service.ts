@@ -160,8 +160,16 @@ export const service = defineType({
           ],
         }),
       ],
-      validation: (rule) =>
-        rule.required().length(BOUNDS.measures).error(`Escribe exactamente ${BOUNDS.measures} puntos destacados.`),
+      // The build takes 0 to `measures`; the plate reads best with all of
+      // them. Demanding exactly three here (as this did until 2026-09-19)
+      // meant a service published before the field existed could not be
+      // re-published without inventing three.
+      validation: (rule) => [
+        rule.max(BOUNDS.measures).error(`Como máximo ${BOUNDS.measures} puntos destacados.`),
+        rule
+          .custom((value) => (!Array.isArray(value) || value.length === 0 || value.length >= BOUNDS.measures ? true : 'Lo ideal son ' + BOUNDS.measures + ' puntos: con menos, la lista queda corta en el campus.'))
+          .warning(),
+      ],
     }),
     defineField({
       name: 'particleColor',

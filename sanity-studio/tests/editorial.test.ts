@@ -24,7 +24,10 @@ describe('editorial validation before publishing', () => {
     expect(imageProblem({asset: {_ref: 'image-abc123-800x400-png'}})).toBe(true)
   })
   it('checks platform against the parsed hostname, including deceptive URLs', () => {
-    expect(videoProblem('https://vimeo.com/12345', 'youtube')).not.toBe(true)
+    // The wrong platform and a right platform on a host the site refuses are
+    // different mistakes, and the old single message sent the second in a circle.
+    expect(videoProblem('https://vimeo.com/12345', 'youtube')).toMatch(/es de Vimeo.*elegido YouTube/)
+    expect(videoProblem('https://m.youtube.com/watch?v=abc', 'youtube')).toMatch(/no acepta enlaces de m\.youtube\.com.*youtu\.be/)
     expect(videoProblem('https://youtu.be/abc', 'youtube')).toBe(true)
     expect(videoProblem('https://player.vimeo.com/video/12345', 'vimeo')).toBe(true)
     expect(videoProblem('https://youtube.com.example.org/watch?v=abc', 'youtube')).not.toBe(true)
@@ -33,10 +36,17 @@ describe('editorial validation before publishing', () => {
   })
   it('allows reordering city services but refuses a removed or substituted symbol binding', async () => {
     const slugs = ['brand-identity', 'paid-campaigns', 'content-strategy', 'web-analysis', 'seo']
-    const context = {document: {slug: {current: 'servicios'}}, getClient: () => ({fetch: async () => slugs})} as unknown as ValidationContext
-    expect(await serviceMembership(slugs.map((_slug, i) => ({_ref: 'id-' + i})), context)).toBe(true)
-    slugs.pop()
-    expect(await serviceMembership([{_ref: 'id-0'}], context)).not.toBe(true)
+    const refs = slugs.map((_slug, i) => ({_ref: 'id-' + i}))
+    const rows = slugs.map((slug, i) => ({_id: 'id-' + i, slug}))
+    const make = (result: unknown, districtId = 'servicios') =>
+      ({document: {slug: {current: districtId}}, getClient: () => ({fetch: async () => result})}) as unknown as ValidationContext
+    expect(await serviceMembership(refs, make(rows))).toBe(true)
+    expect(await serviceMembership([...refs].reverse(), make(rows))).toBe(true)
+    expect(await serviceMembership(refs.slice(0, 4), make(rows.slice(0, 4)))).toMatch(/símbolo en la ciudad/)
+    // The same five services, one of them only ever a draft: a different problem.
+    const oneDraft = [...rows.slice(0, 4), {_id: 'drafts.id-4', slug: 'seo'}]
+    expect(await serviceMembership(refs, make(oneDraft))).toMatch(/no está publicado/)
+    expect(await serviceMembership(refs, make(rows, 'otra'))).toMatch(/«otra».*no está enlazada/)
   })
   it('keeps exactly one highlighted case: refuses a second, and refuses unticking the only one', async () => {
     type Row = {_id: string; highlighted?: boolean | null; name?: string}

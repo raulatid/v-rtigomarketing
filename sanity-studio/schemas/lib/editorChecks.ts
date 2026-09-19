@@ -1,3 +1,5 @@
+import { EMBED_HOSTS } from '../../../src/content/editorialBounds'
+
 /** Pure checks used by Studio and its regression tests. No network or mutations. */
 export function imageProblem(value: unknown): true | string {
   if (value == null) return true
@@ -12,17 +14,28 @@ export function imageProblem(value: unknown): true | string {
   return true
 }
 
-const hosts: Record<string, readonly string[]> = {
-  youtube: ['www.youtube.com', 'youtube.com', 'youtu.be'],
-  vimeo: ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'],
-}
+const PROVIDER_NAME: Record<string, string> = {youtube: 'YouTube', vimeo: 'Vimeo'}
+const hosts: Record<string, readonly string[]> = EMBED_HOSTS
+
+/**
+ * Two different mistakes, two different messages. A Vimeo link under
+ * «YouTube» is the wrong platform; `m.youtube.com` under «YouTube» is the
+ * right platform on a host the site does not accept, and telling that editor
+ * to "select YouTube" sent them in a circle.
+ */
 export function videoProblem(value: unknown, provider: unknown): true | string {
   if (!value) return true // Required has its own message.
   let url: URL
   try { url = new URL(String(value)) } catch { return 'Pega la dirección completa del vídeo, empezando por https://' }
   if (url.protocol !== 'https:') return 'La dirección del vídeo debe empezar por https://'
-  if (!hosts[String(provider)]?.includes(url.hostname)) {
-    return 'El enlace no corresponde a la plataforma elegida. Selecciona YouTube o Vimeo según el enlace.'
+  const chosen = String(provider)
+  if (hosts[chosen]?.includes(url.hostname)) return true
+  const actual = Object.keys(hosts).find((name) => hosts[name].includes(url.hostname))
+  if (actual !== undefined && actual !== chosen) {
+    return 'Este enlace es de ' + PROVIDER_NAME[actual] + ', y arriba está elegido ' + (PROVIDER_NAME[chosen] ?? chosen) + '. Cambia la plataforma.'
   }
-  return true
+  return (
+    'La web no acepta enlaces de ' + url.hostname + '. Pega la dirección tal como aparece en el navegador del ordenador' +
+    (hosts[chosen] ? ', desde ' + hosts[chosen].join(', ') : '') + '.'
+  )
 }

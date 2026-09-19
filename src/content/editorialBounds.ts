@@ -30,11 +30,12 @@
  *
  * ── WHAT BELONGS HERE ──
  *
- * A number with TWO OR MORE consumers. A bound only the build applies
- * (`BODY_BLOCKS_MAX`, the SEO field ceiling) stays where it is applied; it has
- * one definition already and moving it here would only put distance between the
- * rule and the code that runs it. A bound only the Studio applies (the SEO
- * length warnings, `shortTitle`) stays in the schema for the same reason.
+ * A number with TWO OR MORE consumers. A bound only the build applies (the SEO
+ * field ceiling) stays where it is applied; it has one definition already and
+ * moving it here would only put distance between the rule and the code that
+ * runs it. A bound only the Studio applies (the SEO length warnings,
+ * `shortTitle`) stays in the schema for the same reason. The blog block cap
+ * looked like the first kind and was written three times (2026-09-19 audit).
  *
  * Values are the editorial contract, not a technical limit — every one of them
  * came from what the layout can hold, and `docs/content/sanity-field-contract.md`
@@ -69,12 +70,25 @@ export const DEFAULT_PARTICLE_COLOR = '#1c67ff'
 
 /** The 64 the pattern spells as a leading character plus `{0,63}`. */
 export const ID_MAX_LENGTH = 64
+
+/**
+ * Where a blog embed's URL may point, per provider. The renderer builds its
+ * own card from these parts, which is only safe while the host really is the
+ * provider's — so the build checks the parsed hostname against this list, and
+ * the Studio checks the same list while the editor is pasting.
+ */
+export const EMBED_HOSTS = {
+  youtube: ['www.youtube.com', 'youtube.com', 'youtu.be'],
+  vimeo: ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'],
+} as const
 export const EDITORIAL_BOUNDS = {
   blogPost: {
     title: 120,
     excerpt: 300,
     /** Topics. They become URL segments and filter keys, not prose. */
     tags: 8,
+    /** Blocks of any kind — paragraphs, headings, images, embeds. A very long article, not a limit anyone reaches writing. */
+    bodyBlocks: 400,
   },
   caseStudy: {
     /**

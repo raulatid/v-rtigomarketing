@@ -380,7 +380,7 @@ export const caseStudy = defineType({
       components: { input: charCount(BOUNDS.name) },
       validation: (rule) => [
         rule.required().error('Escribe el sector.'),
-        rule.max(BOUNDS.name).error('Demasiado largo.'),
+        rule.max(BOUNDS.name).error(`Demasiado largo: como máximo ${BOUNDS.name} caracteres.`),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
       ],
@@ -394,7 +394,7 @@ export const caseStudy = defineType({
       components: { input: charCount(BOUNDS.name) },
       validation: (rule) => [
         rule.required().error('Escribe la ubicación.'),
-        rule.max(BOUNDS.name).error('Demasiado largo.'),
+        rule.max(BOUNDS.name).error(`Demasiado largo: como máximo ${BOUNDS.name} caracteres.`),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
       ],
@@ -408,7 +408,7 @@ export const caseStudy = defineType({
       placeholder: '2025',
       validation: (rule) => [
         rule.required().error('Escribe el año.'),
-        rule.max(16).error('Demasiado largo.'),
+        rule.max(16).error('Demasiado largo: como máximo 16 caracteres (por ejemplo «2024» o «2023–2025»).'),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
       ],

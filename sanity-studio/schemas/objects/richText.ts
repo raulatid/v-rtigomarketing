@@ -122,7 +122,12 @@ export const blogBody = defineType({
   ],
   validation: (rule) => [
     rule.required().min(1).error('La entrada no puede estar vacía.'),
-    rule.max(400).error('La entrada es demasiado larga.'),
+    rule
+      .max(EDITORIAL_BOUNDS.blogPost.bodyBlocks)
+      .error(
+        `La entrada tiene más de ${EDITORIAL_BOUNDS.blogPost.bodyBlocks} bloques (párrafos, títulos, listas, imágenes). ` +
+          'Es más de lo que se lee de una vez: divídela en dos entradas.',
+      ),
     rule.custom(richText),
   ],
 })

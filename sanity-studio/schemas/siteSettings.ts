@@ -95,7 +95,15 @@ export const siteSettings = defineType({
       options: { collapsible: true, collapsed: true },
       fields: COOKIE_COPY_FIELDS.map(([name, title, max, initialValue]) => defineField({
         name, title, type: max > 200 ? 'text' : 'string', initialValue,
-        validation: Rule => [Rule.required().max(max), Rule.custom(plainText), Rule.custom(markupAdvice).warning(), ...(max > 200 ? [Rule.custom(singleParagraphAdvice).warning()] : [])],
+        description: max > 200 ? 'Un párrafo. Se lee tal cual en el aviso o en el panel de cookies.' : 'Se lee tal cual en el aviso o en el panel de cookies.',
+        components: { input: charCount(max) },
+        validation: Rule => [
+          Rule.required().error(`Escribe «${title.toLowerCase()}»; la web lo muestra en el aviso de cookies.`),
+          Rule.max(max).error(`Demasiado largo: como máximo ${max} caracteres.`),
+          Rule.custom(plainText),
+          Rule.custom(markupAdvice).warning(),
+          ...(max > 200 ? [Rule.custom(singleParagraphAdvice).warning()] : []),
+        ],
       })),
     }),
     defineField({

@@ -186,7 +186,7 @@ export const district = defineType({
       fieldset: 'tecnico',
       options: slugOptions('label'),
       readOnly: lockedOnceSet,
-      validation: (rule) => slugValidation(rule),
+      validation: (rule) => slugValidation(rule, 'Este identificador lo fija el equipo técnico y enlaza la sección con la ciudad. Si aparece vacío, no lo rellenes: avísales.'),
     }),
   ],
   preview: { select: { title: 'label', subtitle: 'summary' } },

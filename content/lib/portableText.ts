@@ -55,7 +55,7 @@ export const LEGAL_POLICY: BlockPolicy = {
 export const BLOG_TEXT_POLICY: BlockPolicy = {
   ...LEGAL_POLICY,
   styles: ['normal', 'h2', 'h3', 'blockquote'],
-  maxBlocks: 400,
+  maxBlocks: EDITORIAL_BOUNDS.blogPost.bodyBlocks,
 }
 
 /** `https:` for the outside world, `mailto:` for a data-protection contact. */

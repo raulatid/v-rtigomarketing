@@ -83,7 +83,7 @@ export const legalDoc = defineType({
       fieldset: 'tecnico',
       options: slugOptions('title'),
       readOnly: lockedOnceSet,
-      validation: (rule) => slugValidation(rule),
+      validation: (rule) => slugValidation(rule, 'Este identificador lo fija el equipo técnico («terminos», «aviso» o «cookies»). Si aparece vacío, no pulses «Generar»: avísales.'),
     }),
   ],
   preview: {

@@ -8,7 +8,7 @@ import type {
   VideoBlock,
 } from '../../src/content/types'
 import { ID_PATTERN, blogPostProblems, collectionProblems } from '../../src/content/invariants'
-import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { EDITORIAL_BOUNDS, EMBED_HOSTS } from '../../src/content/editorialBounds'
 import {
   BLOG_META_DESCRIPTION_FALLBACK_MAX,
   DEFAULT_OG_IMAGE_PATH,
@@ -48,16 +48,10 @@ import { collection } from './types'
 
 // Shared with the Studio, which refuses the same lengths at Publicar — see
 // src/content/editorialBounds.ts for why they cannot be two numbers.
-const { title: TITLE_MAX, excerpt: EXCERPT_MAX, tags: TAGS_MAX } = EDITORIAL_BOUNDS.blogPost
+const { title: TITLE_MAX, excerpt: EXCERPT_MAX, tags: TAGS_MAX, bodyBlocks: BODY_BLOCKS_MAX } = EDITORIAL_BOUNDS.blogPost
 
-/** Build-side only: nothing in the Studio counts blocks. */
-const BODY_BLOCKS_MAX = 400
-
-/** Hosts each provider is allowed to serve from. An allowlist, not a hint. */
-const EMBED_HOSTS: Record<EmbedBlock['provider'], readonly string[]> = {
-  youtube: ['www.youtube.com', 'youtube.com', 'youtu.be'],
-  vimeo: ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'],
-}
+/** Hosts each provider is allowed to serve from. An allowlist, not a hint; shared with the Studio. */
+const EMBED_HOSTS_BY_PROVIDER: Record<EmbedBlock['provider'], readonly string[]> = EMBED_HOSTS
 
 const EMBED_PROVIDERS = ['youtube', 'vimeo'] as const
 
@@ -99,10 +93,10 @@ function embed(report: Report, path: string, source: Record<string, unknown>): E
   // Parsed host against an allowlist, never a string prefix: the whole point of
   // storing a provider is that the renderer can build its own iframe, and that
   // is only safe if the url really belongs to the provider it claims.
-  if (!EMBED_HOSTS[provider].includes(url.hostname)) {
+  if (!EMBED_HOSTS_BY_PROVIDER[provider].includes(url.hostname)) {
     return report.fail(
       path + '.url',
-      url.hostname + ' is not a ' + provider + ' host (' + EMBED_HOSTS[provider].join(', ') + ')',
+      url.hostname + ' is not a ' + provider + ' host (' + EMBED_HOSTS_BY_PROVIDER[provider].join(', ') + ')',
     )
   }
   return { kind: 'embed', provider, url: url.toString() }
