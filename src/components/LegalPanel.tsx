@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { COOKIE_COPY, LEGAL_DOCS } from '../content/site'
+import { COOKIE_COPY } from '../content/site'
 import type { LegalDocId } from '../content/site'
+import { LEGAL_DOCS } from '../content/legal'
 import { LegalBlock } from './LegalBlock'
 import { CookiePreferences } from './CookiePreferences'
 import './modal.css'

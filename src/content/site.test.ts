@@ -7,10 +7,10 @@ import {
   BOOKING_URL,
   CONTACT_EMAIL,
   COPYRIGHT,
-  LEGAL_DOCS,
   REVENUE_RANGES,
   SITE_PHONES,
 } from './site'
+import { LEGAL_DOCS } from './legal'
 
 /**
  * A guard on the guard.

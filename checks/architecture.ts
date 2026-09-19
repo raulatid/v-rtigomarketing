@@ -235,6 +235,16 @@ forbidReachable(
   'src/content/generated/blogPosts',
   'the dataset rides the blog chunk — see BLOG_BUDGET_BYTES in vite.config.ts',
 );
+// The same reason, for the legal texts: 50 KB of prose read only after an
+// explicit open, and grown by an editor rather than by a commit (2026-09-18,
+// three rewritten documents failed the deployment on the budget). The panel
+// is lazy; this keeps its content behind the same seam.
+forbidReachable(
+  'the app entry cannot statically reach the generated legal texts',
+  'src/main.tsx',
+  'src/content/generated/legalDocs',
+  'the texts ride the legal panel chunk — import them from src/content/legal.ts, and that only from LegalPanel',
+);
 forbidReachable(
   'the app entry cannot statically reach the blog UI',
   'src/main.tsx',

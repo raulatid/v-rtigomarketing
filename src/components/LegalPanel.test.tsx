@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { LegalPanel } from './LegalPanel'
 import { LegalBlock } from './LegalBlock'
-import { LEGAL_DOCS } from '../content/site'
+import { LEGAL_DOCS } from '../content/legal'
 
 // The legal body stopped being `string[]` and became typed blocks, so the panel
 // grew a serializer. What these pin down:

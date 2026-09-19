@@ -9,7 +9,6 @@
 // The exports keep their old names and shapes on purpose: SiteFooter and
 // ContactSection are unchanged, and this file stays the one place to look.
 
-import { LEGAL_DOCS_LIST } from './generated/legalDocs'
 import { SITE_SETTINGS } from './generated/siteSettings'
 import type { LegalDoc, SitePhone } from './types'
 
@@ -106,22 +105,5 @@ export type LegalDocId = 'terminos' | 'aviso' | 'cookies'
 
 export type { LegalDoc }
 
-/**
- * The three documents, by id.
- *
- * `legalDocs.collection.ts`'s audit fails the build when any id is missing,
- * so the throw below can only fire against a hand-edited generated module. It
- * exists because the alternative is `LEGAL_DOCS[doc].title` on undefined, which
- * fails later and says less.
- */
-function required(id: LegalDocId): LegalDoc {
-  const doc = LEGAL_DOCS_LIST.find((entry) => entry.id === id)
-  if (doc === undefined) throw new Error('legal document "' + id + '" is missing from the generated content')
-  return doc
-}
-
-export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
-  terminos: required('terminos'),
-  aviso: required('aviso'),
-  cookies: required('cookies'),
-}
+// The documents themselves are in `legal.ts`, reached only from the lazy legal
+// panel: the text is 50 KB of prose and must not ride the initial JS of `/`.
