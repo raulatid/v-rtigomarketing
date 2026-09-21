@@ -127,8 +127,8 @@ describe('case study', () => {
   it('advises on metrics before it refuses them', () => {
     // The two numbers are a pair and only make sense in order: the warning is
     // the editorial judgement (a second row of cards pushes the rest of the
-    // panel down) and the error is a safety net (the desktop panel does not
-    // scroll, so a tall enough case puts its own ending out of reach). Equal or
+    // panel down) and the error is a safety net (an array that never passed
+    // through the Studio at all is not a choice anybody made). Equal or
     // inverted, the warning would be unreachable and the cap would read as a
     // style rule it is not.
     expect(B.metricsAdvised).toBeGreaterThan(0)

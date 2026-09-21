@@ -479,14 +479,14 @@ export const caseStudy = defineType({
       ],
       validation: (rule) => [
         // The ERROR is a safety net, not the editorial judgement — the count is
-        // the editor's now, and the row wraps to hold it. What the ceiling
-        // guards is that the desktop panel has no scroller: past it, the
-        // bottom of the case is off screen with no way to reach it.
+        // the editor's now, and the row wraps to hold it. It guarded the dock's
+        // missing scroller until 2026-09-21; the dock scrolls, so what is left
+        // is a guard against an array that never came through this form.
         rule
           .max(BOUNDS.metrics)
           .error(
-            `Como máximo ${BOUNDS.metrics} métricas: a partir de ahí la ficha no cabe en la ` +
-              'pantalla y su final queda fuera de alcance.',
+            `Como máximo ${BOUNDS.metrics} métricas: más allá de eso la ficha deja de leerse ` +
+              'como una ficha.',
           ),
         rule
           .max(BOUNDS.metricsAdvised)

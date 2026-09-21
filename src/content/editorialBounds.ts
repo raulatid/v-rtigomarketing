@@ -110,21 +110,26 @@ export const EDITORIAL_BOUNDS = {
      * that many. Editors asked for three and more, so the row is a grid that
      * WRAPS now (`.case-panel__metrics`) and the count is theirs.
      *
-     * Why there is still a ceiling at all. On a desktop the case panel does not
-     * scroll — `styles.css`: "Desktop has nothing to scroll: the dock is sized
-     * to its content" — and it is `position: fixed` centred with
-     * `translateY(-50%)`, so content past the viewport's height goes off BOTH
-     * edges with no way to reach it. Only the mobile sheet has a scroller. Each
-     * wrapped row of cards is about 82px, so 6 holds the worst case to two rows
-     * on a desktop and four on the sheet. An array arriving through the HTTP
-     * API rather than the Studio is what this actually guards against.
+     * Why there is still a ceiling at all, now that reaching the content is no
+     * longer the reason. It WAS: the desktop dock had no scroller, and being
+     * `position: fixed` centred it grew off both edges at once, so a long case
+     * put its own ending out of reach. The dock scrolls as of 2026-09-21, which
+     * removes that argument entirely — the count could be raised freely, and
+     * this number is no longer the thing holding the panel together.
+     *
+     * What is left is a guard against an array that never passed through the
+     * Studio at all: `sanity dataset import`, a restored backup and the HTTP API
+     * all write documents the schema's warning never sees. A case with fifty
+     * figures is not an editorial choice anybody made, and a panel is a panel.
+     * 6 is a net cast where nothing reasonable lives, not a layout fact.
      */
     metrics: 6,
     /**
      * Past this the Studio warns, and keeps Publicar enabled. Three is what
      * editors asked for and what fits one desktop row; beyond it the row wraps
-     * and pushes the summary, the bullets and the chart down a panel that
-     * cannot scroll.
+     * and pushes the summary, the bullets and the chart further down. That is a
+     * composition judgement the editor can see and accept — since the dock
+     * scrolls, it is no longer a question of whether they can be reached.
      */
     metricsAdvised: 3,
     /** A chart with fewer points is a dot; a case with nothing to plot leaves the chart out. */

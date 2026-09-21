@@ -34,8 +34,8 @@ describe('case study content', () => {
 
   it('carries no more metrics than the panel can hold, each with text', () => {
     // The row wraps since 2026-09-21, so this is no longer "two slots" — it is
-    // the safety net that keeps a case from growing past the desktop panel,
-    // which does not scroll. Read from the bound rather than restated, so
+    // the safety net against content that never passed through the Studio.
+    // Read from the bound rather than restated, so
     // raising the net does not leave a literal behind to contradict it.
     for (const entry of CASE_STUDIES) {
       expect(entry.metrics.length, `${entry.id}`).toBeLessThanOrEqual(

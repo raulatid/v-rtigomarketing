@@ -127,6 +127,29 @@ html {
   width: min(420px, 38vw);
   z-index: 35;
   padding: 2.25rem;
+  /* BOUNDED, AND THE BODY SCROLLS INSIDE IT.
+
+     The dock used to be sized purely by its content, with no ceiling and no
+     scroller — the sheet was the only half that could scroll. A case long
+     enough (a summary, four bullets, a chart, and now as many metrics as an
+     editor wants) grew past the viewport, and because this is `position: fixed`
+     centred with `translateY(-50%)` it grew off BOTH edges at once: the ending
+     was not merely below the fold, it was unreachable. That is why the metric
+     count needed a ceiling at all.
+
+     A column so the header keeps its place while the body scrolls under it,
+     exactly as the sheet does. The body is left at the default `flex: 0 1 auto`
+     rather than the sheet's `1 1 auto`: this panel is content-sized UP TO the
+     cap, so a short case must not be stretched to fill it.
+
+     The cap clears the site header, symmetrically because the panel is centred
+     — the header is the only fixed furniture either edge can meet, so its own
+     height plus a gap is the honest inset, taken from its tokens rather than
+     guessed. Nothing changes for a case that already fitted: `auto` shows no
+     scrollbar when there is nothing to scroll. */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2 * (var(--header-line-top) + var(--header-control) + 1rem));
   /* Density B, the compact plaque: one flat tint under one thin film, where
      there used to be a 160deg two-stop fog. A gradient that can be SEEN is a
      second thing competing with the panel's own light. */
@@ -527,9 +550,21 @@ html {
 }
 
 .case-panel__body {
-  /* Desktop has nothing to scroll: the dock is sized to its content. The rule
-     exists so the mobile block only has to add the scrolling. */
+  /* `min-height: 0` is what lets a flex item shrink below its content; without
+     it the body would keep its full height and push the panel past its cap
+     instead of scrolling. */
   min-height: 0;
+  overflow-y: auto;
+  /* The page behind is a fixed full-viewport canvas, so a scroll that reaches
+     the end must not chain anywhere. The wheel over this box is the browser's:
+     `createNavigationInput`'s global handler walks up from the event target and
+     stands down over any element that is `overflow-y: auto` AND actually
+     overflowing (`overScrollable`), which is why a scrollable case panel needs
+     no change there — and why a case that fits still navigates the scene. */
+  overscroll-behavior: contain;
+  /* No negative margin to bleed the scrollbar to the edge, unlike the sheet:
+     that panel is full-bleed and this one is a card, where a scrollbar inside
+     the padding reads as part of the plaque. */
 }
 
 /* ---- The case panel on a narrow OR SHORT viewport ----
@@ -577,7 +612,9 @@ html {
     width: auto;
     /* A column, so the handle and header can hold their place while the body
        scrolls under them. A sheet whose close button scrolls away cannot be
-       dismissed without scrolling back up first. */
+       dismissed without scrolling back up first. Restated rather than inherited:
+       the dock above became a column for the same reason on 2026-09-21, and this
+       block predates it — the sheet must not stop being one if that changes. */
     display: flex;
     flex-direction: column;
     /* Height animates between stops; max-height independently protects the logo. */
@@ -712,6 +749,9 @@ html {
   }
 
   .case-panel__body {
+    /* GROWS here, unlike the dock: the sheet has a height of its own, set from
+       the viewport, so the body has to fill what the header leaves rather than
+       size to its content. */
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;

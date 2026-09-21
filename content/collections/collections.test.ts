@@ -169,9 +169,9 @@ describe('case study mapping rejects', () => {
       expect(problemsFor(caseStudiesCollection, record)).toEqual([])
     }
     // Three was refused until 2026-09-21, when the row became a grid that wraps
-    // and the count became the editor's. What is left is a safety net, because
-    // the DESKTOP panel has no scroller and a case taller than the viewport
-    // puts its own ending out of reach.
+    // and the count became the editor's. What is left is a safety net against an
+    // array that never passed through the Studio — a restored backup, an import,
+    // the HTTP API — rather than a judgement about how many read well.
     const metric = (i: number) => ({ label: 'm' + i, value: String(i) })
     const many = validCase()
     many.metrics = Array.from({ length: EDITORIAL_BOUNDS.caseStudy.metrics }, (_, i) => metric(i))
