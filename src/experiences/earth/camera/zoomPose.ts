@@ -37,12 +37,17 @@ const cfg = INTERACTION_CONFIG.camera
  * Piecewise about rest so the two ends can be judged independently, which they
  * were: they answer different questions and are constrained by different things.
  *
- * **Inward (`zoomNearFactor`).** The height of the outermost satellite orbit, so
- * the band ends among the satellites. It used to be pinned at 0.63 by the warp:
- * the committed dolly was a bare 0.25 of the departure radius, so a nearer end
- * would have put the camera inside the planet before the flash closed. The
- * dolly now has a floor (`earthDollyRadius`, 2.84 units against a planet of 2 —
- * the pose the cut has always landed on), and the near end is free of it.
+ * **Inward (`zoomNearFactor`).** `ZOOM_NEAR_CLEARANCE` times the height of the
+ * outermost satellite orbit, so the band ends OUTSIDE the satellites rather than
+ * among them — 7.2 units against a planet of 2. It ended among them for four
+ * days and that framing showed the surface texture's texels; the clearance is
+ * what buys the distance back while keeping the end tied to the orbits.
+ *
+ * It used to be pinned at 0.63 by the warp: the committed dolly was a bare 0.25
+ * of the departure radius, so a nearer end would have put the camera inside the
+ * planet before the flash closed. The dolly has a floor now (`earthDollyRadius`,
+ * 3.5 units), and the near end is free of it — with room to spare, since a
+ * commit from 7.2 dives to 3.5 rather than barely moving.
  *
  * **Outward (`zoomFarFactor`, 11/7).** This is `zoomMax: 11 * R`, the far end of
  * the band `adr/009` retired, brought back unchanged — it was tuned against this

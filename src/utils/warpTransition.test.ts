@@ -135,8 +135,15 @@ describe('earthDollyRadius', () => {
   })
 
   it('stops at the floor from close in, instead of diving through the surface', () => {
-    expect(earthDollyRadius(3.84, 1, WARP_LIMITS)).toBe(floor)
-    expect(earthDollyRadius(3.84, 0.5, WARP_LIMITS)).toBeCloseTo((3.84 + floor) / 2, 9)
+    // "Close in" is any anchor inside `floor / earthCloseFactor` — 14 units —
+    // where the bare factor would land inside the floor and the floor takes
+    // over. Earth's zoom band ends at 7.2, well inside that, but the anchor is
+    // DERIVED rather than borrowed from the band: the rule belongs to the two
+    // constants above and holds for every anchor in the range. It used to be
+    // written as a literal 3.84 and went stale twice in a month.
+    const closeIn = floor / WARP_TRANSITION.earthCloseFactor / 2
+    expect(earthDollyRadius(closeIn, 1, WARP_LIMITS)).toBe(floor)
+    expect(earthDollyRadius(closeIn, 0.5, WARP_LIMITS)).toBeCloseTo((closeIn + floor) / 2, 9)
   })
 
   it('never pushes a camera already inside the floor back OUT', () => {

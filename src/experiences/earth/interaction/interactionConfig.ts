@@ -10,6 +10,17 @@ import { ORBIT_PRESETS } from '../orbit/orbitConfig'
 // orbitConfig keeps its presets in source units.
 const R = EARTH_CONFIG.radius
 
+/**
+ * How far outside the outermost satellite orbit the zoom's near end sits, as a
+ * multiple of that orbit's radius.
+ *
+ * Exported because `camera/zoomPose.test.ts` re-derives the near end from it
+ * rather than restating a literal: the point of the derivation is that the end
+ * follows `ORBIT_PRESETS`, and a test carrying its own copy of the answer would
+ * stop noticing if the orbits moved.
+ */
+export const ZOOM_NEAR_CLEARANCE = 1.875
+
 export const INTERACTION_CONFIG = {
   camera: {
     // Exponential lerp constant: ~95% of the distance covered in ~1s.
@@ -71,8 +82,9 @@ export const INTERACTION_CONFIG = {
     // this reason), so the zoom now spans 11.34 .. 18 .. 28.29. Closest approach
     // goes 2.21 -> 2.84 against a planet of radius 2, i.e. FURTHER from the
     // surface than before, and the far end stays well inside the star shell.
-    // (The near end has since left 11.34 for the satellites' height — see
-    // `zoomNearFactor` below — and the closest approach is a floor now, not a product.)
+    // (The near end has since left 11.34 for a clearance above the satellites,
+    // 7.2 units — see `zoomNearFactor` below — and the closest approach is a
+    // floor now, 3.5, not a product.)
     overviewRadius: 9 * R,
     // A slightly closer desktop overview; mobile keeps the established framing.
     desktopOverviewRadius: 8 * R,
@@ -98,14 +110,26 @@ export const INTERACTION_CONFIG = {
     // Factors rather than radii, so they follow `overviewRadius` if it is ever
     // retuned. `camera/zoomPose.ts` carries the reasoning for both.
     //
-    // The near end is the OUTERMOST SATELLITE ORBIT (2026-09-17, client direction):
-    // the zoom ends — and Earth leaves for Murcia — with the camera at the height
-    // the satellites fly at. Derived from `ORBIT_PRESETS` so it follows them; their radii
-    // are in Earth-radius-1 units, hence the `R`. It was 0.63 (11.34 units) while
-    // the warp's dolly was a bare factor of the departure radius and the near end
-    // could not be closer than four times the cut; `earthMinDollyRadius` is what
-    // released it.
-    zoomNearFactor: (Math.max(...ORBIT_PRESETS.map((orbit) => orbit.radius)) * R) / (9 * R),
+    // The near end CLEARS THE OUTERMOST SATELLITE ORBIT (2026-09-21, client
+    // direction), at `ZOOM_NEAR_CLEARANCE` times its radius: 7.2 units against a
+    // planet of 2. Still derived from `ORBIT_PRESETS` so it follows them — their
+    // radii are in Earth-radius-1 units, hence the `R` — but no longer equal to
+    // them.
+    //
+    // It sat ON that orbit from 2026-09-17 (3.84 units, 1.84 of altitude) and
+    // that is too close to this globe: the surface texture reads as texels at
+    // the depth the viewer PARKS at, before any commit, and the warp's FOV surge
+    // to 74 makes it worse at the cut. `earthConfig.ts` derives the texture
+    // budget from "the globe spans roughly 300 device pixels" and says outright
+    // to re-derive it if the framing ever changes — at 3.84 the globe overflows
+    // the frame, so that sum had quietly expired. 7.2 puts it back inside.
+    //
+    // (Before 2026-09-17 it was 0.63 — 11.34 units — pinned there by the warp,
+    // whose dolly was a bare factor of the departure radius. `earthMinDollyRadius`
+    // is what released it, and the release still stands; this is a retune of a
+    // free number, not a return to the old constraint.)
+    zoomNearFactor:
+      (Math.max(...ORBIT_PRESETS.map((orbit) => orbit.radius)) * R * ZOOM_NEAR_CLEARANCE) / (9 * R),
     zoomFarFactor: 11 / 7,
   },
 

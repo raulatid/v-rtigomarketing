@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { earthZoomRadius, earthZoomScale } from './zoomPose'
-import { INTERACTION_CONFIG } from '../interaction/interactionConfig'
+import { INTERACTION_CONFIG, ZOOM_NEAR_CLEARANCE } from '../interaction/interactionConfig'
 import { WARP_LIMITS, earthDollyRadius } from '../../../utils/warpTransition'
 import { ORBIT_PRESETS } from '../orbit/orbitConfig'
 import { EARTH_CONFIG } from '../config/earthConfig'
@@ -57,9 +57,10 @@ describe('earthZoomScale', () => {
     // Below about 1.5 an approach stops reading as one. The scrub this replaced
     // reached x1.587 at full gesture and that was judged to read, and zooming in
     // held exactly that number until 2026-09-17, when the near end moved to the
-    // satellites' height: x4.69 now (18 / 3.84). Zooming out is unchanged.
+    // satellites' height (x4.69). It went to x2.5 on 2026-09-21 — 18 / 7.2 —
+    // when that end was pulled back off the texture. Zooming out is unchanged.
     expect(onScreenScale(1)).toBeGreaterThan(1.5)
-    expect(onScreenScale(1)).toBeCloseTo(4.69, 2)
+    expect(onScreenScale(1)).toBeCloseTo(2.5, 2)
     expect(onScreenScale(-1)).toBeCloseTo(7 / 11, 3)
   })
 
@@ -83,21 +84,31 @@ describe('the ends are where they are for reasons outside this module', () => {
         EARTH_CONFIG.radius,
       )
     }
-    // 2.2 -> 2.84 when overviewRadius went 7R -> 9R on 2026-09-05. The margin
-    // over the surface GREW, which is the direction that costs nothing: the
-    // whole band is a set of factors on the overview radius, so pulling the
-    // resting camera back carries the cut out with it. The literal is kept
-    // rather than dropped because it is the one number here that would move
-    // silently — the assertion above only says "outside the planet", and a
-    // future retune could halve this margin without tripping it.
-    expect(closest).toBeCloseTo(2.84, 1)
+    // 2.2 -> 2.84 when overviewRadius went 7R -> 9R on 2026-09-05, then 2.84 ->
+    // 3.5 on 2026-09-21 to keep the surface texture off the lens at the cut.
+    // The margin over the surface has only ever GROWN, which is the direction
+    // that costs nothing. The literal is kept rather than dropped because it is
+    // the one number here that would move silently — the assertion above only
+    // says "outside the planet", and a future retune could halve this margin
+    // without tripping it.
+    expect(closest).toBeCloseTo(3.5, 1)
   })
 
-  it('ends the zoom at the height the satellites fly at', () => {
+  it('ends the zoom clear of the satellites, at a multiple of their orbit', () => {
     const outermost = Math.max(...ORBIT_PRESETS.map((orbit) => orbit.radius)) * EARTH_CONFIG.radius
-    expect(earthZoomRadius(1)).toBeCloseTo(outermost, 9)
+    // Re-derived rather than restated: the whole point of the near end being a
+    // function of ORBIT_PRESETS is that it follows them, and a literal here
+    // would stop noticing if they moved.
+    expect(earthZoomRadius(1)).toBeCloseTo(outermost * ZOOM_NEAR_CLEARANCE, 9)
+    // OUTSIDE them, which is the property the clearance exists to create — the
+    // band ended exactly ON this orbit until 2026-09-21 and that was too close
+    // to the surface to hold the texture together.
+    expect(earthZoomRadius(1)).toBeGreaterThan(outermost)
     // And from the closer desktop overview too: the ends do not move with it.
-    expect(earthZoomRadius(1, cfg.desktopOverviewRadius)).toBeCloseTo(outermost, 9)
+    expect(earthZoomRadius(1, cfg.desktopOverviewRadius)).toBeCloseTo(
+      outermost * ZOOM_NEAR_CLEARANCE,
+      9,
+    )
   })
 
   it('zooming fully out stays well inside the star shell', () => {

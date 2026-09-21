@@ -50,17 +50,28 @@ export const WARP_TRANSITION = {
   earthCloseFactor: 0.25,
   /**
    * The closest the dolly may bring the camera to the Earth's centre, in world
-   * units, whatever radius it departs from. 2.84 is the pose the cut has always
-   * landed on (the old near end of the zoom, 11.34, times `earthCloseFactor`),
-   * against a planet of radius 2.
+   * units, whatever radius it departs from. Against a planet of radius 2.
    *
    * A FLOOR because `earthCloseFactor` alone made the zoom's near end a function
    * of it: the viewer could not be let closer than four times the cut, or the
    * dive went through the surface before the flash closed. With the floor the
-   * zoom may go as deep as the satellites and the dive from there is simply
-   * shorter. `zoomPose.test.ts` asserts it clears the planet.
+   * near end is free to sit wherever it frames best, and the dive from there is
+   * simply shorter. `zoomPose.test.ts` asserts it clears the planet.
+   *
+   * 2.84 -> 3.5 on 2026-09-21: 2.84 was inherited arithmetic — the old near end
+   * of the zoom, 11.34, times `earthCloseFactor` — rather than a judged pose,
+   * and a commit from the near end of the band held the surface close enough,
+   * through the FOV surge, to read the texture's texels before the flash closed.
+   *
+   * IT HAS A CEILING: the floor may never reach the near end of the zoom band
+   * (7.2, `zoomNearFactor`). `earthDollyRadius` clamps to the departure radius,
+   * so a floor at or beyond that end would leave a commit from full zoom-in with
+   * no dolly at all — it would hold, not dive. checks/warp-transition.ts is what
+   * holds that line. The margin was 0.34 while the band ended at the satellites'
+   * height; the near end moved out to 7.2 the same day, so a commit from full
+   * zoom-in is a x2 approach again rather than a nudge.
    */
-  earthMinDollyRadius: 2.84,
+  earthMinDollyRadius: 3.5,
 
   /**
    * Seconds the camera takes to swing above the destination AFTER the commit and

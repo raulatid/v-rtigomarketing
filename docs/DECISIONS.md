@@ -2,7 +2,9 @@
 
 The decisions that shape this project, and what is true **now** as a result.
 
-Last updated: 2026-09-09 · §42 added (the blog is entered through a display, and the approach is
+Last updated: 2026-09-21 · §44 amended (Earth's zoom ends at a clearance above the satellites,
+7.2 units, and the warp's dolly floor rises to 3.5 — the surface texture read as texels at the
+old near end). Earlier: 2026-09-09 · §42 added (the blog is entered through a display, and the approach is
 the transition; the cluster tap is removed) and amended the same day (the panel is halved to 24
 units at elevation 19, and the plate's world-unit terms with it). Earlier: 2026-09-08 · §39 added (the camera never leaves the navigable area; Murcia's pose
 rises to 35 degrees at distance 220) and §20 amended. Earlier: 2026-08-23 · §31 added (the CMS is Sanity, and the editable surface grew to services,
@@ -3493,15 +3495,33 @@ the commit, as a phase of fixed length (`WARP_TRANSITION.earthDepartureAimSecond
 - **Skipped under reduced motion.** That preference already removes the dolly, so there is no
   planet to dive through, and a globe swinging half a turn is the motion it asks not to see.
 
-**And the band ends at the satellites' height** (same day, client direction): the commit read
-as too far from the planet. `zoomNearFactor` was pinned at 0.63 (11.34 units) by the warp, whose
-dolly was a bare `earthCloseFactor` of the departure radius — any nearer and the dive went
-through the surface before the flash closed. The dolly now has a floor
-(`earthDollyRadius`, `earthMinDollyRadius: 2.84`, the pose the cut has always landed on), which
-frees the near end; it is derived from the outermost of `ORBIT_PRESETS` (3.84 units), so it
-follows the satellites. From far out the dolly is unchanged, so the arrival from Murcia and a
-commit from rest are what they were. The band is still linear in RADIUS over its 1200 px, so
-the on-screen growth is now x4.69 rather than x1.59 and most of it lands in the last third.
+**And the band ends above the satellites** (same day, client direction; retuned 2026-09-21):
+the commit read as too far from the planet. `zoomNearFactor` was pinned at 0.63 (11.34 units)
+by the warp, whose dolly was a bare `earthCloseFactor` of the departure radius — any nearer and
+the dive went through the surface before the flash closed. The dolly now has a floor
+(`earthDollyRadius`, `earthMinDollyRadius`), which frees the near end; it is derived from the
+outermost of `ORBIT_PRESETS`, so it follows the satellites. From far out the dolly is unchanged,
+so the arrival from Murcia and a commit from rest are what they were.
+
+> **Amended 2026-09-21 — the near end is a CLEARANCE above the satellites, not their altitude,
+> and the dolly's floor rises with it.** Ending the zoom exactly on the outermost orbit (3.84
+> units against a planet of 2) parked the camera *inside* the constellation, and close enough
+> that the Earth's surface texture read as texels — at the pose the viewer sits at, not only at
+> the cut. `earthConfig.ts` derives the texture budget from "the globe spans roughly 300 device
+> pixels" and says outright to re-derive it if the framing changes; at 3.84 the globe overflows
+> the frame, so that sum had expired without anything failing. The near end is now
+> `ZOOM_NEAR_CLEARANCE` (1.875) times the outermost orbit — 7.2 units — still derived, so it
+> still follows them, and now 3.36 units clear of every orbit rather than level with the
+> outermost. `earthMinDollyRadius` went 2.84 -> 3.5 in the same session for the same reason.
+>
+> On-screen growth at full zoom-in is **x2.5** (x2.22 from the closer desktop overview), against
+> x4.69 before. Because the band is linear in RADIUS the magnification also spreads evenly over
+> the 1200 px now instead of piling into the last third — half the gesture buys 57% of the range
+> rather than 35%. The cut pose does not move: the floor governs the dive from any anchor inside
+> 14 units, so a commit still bottoms at 3.5, but it has 3.7 units of travel to do it in rather
+> than 0.34 and reads as a dive rather than a jump. One consequence worth naming: a satellite
+> close-up backs off to about 7.4 units, so opening and closing a case study at full zoom is now
+> an angular move rather than a radial round trip.
 
 How you would know it broke: `departureContinuity.test.ts` (the real rig, a spinning globe, a
 commit from the far side, 30/60/120 fps) stops landing within 0.01° of the destination, or
