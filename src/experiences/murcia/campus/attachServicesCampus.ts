@@ -407,9 +407,18 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     const service = content.services[snapshot.index];
     if (!service) return;
     // The summary stays visible; CMS highlights arrive with the figure.
+    //
+    // `detail` is the rest of the body under the opening lines. It was dropped
+    // here on 2026-09-16 and the Studio field was reworded to tell editors that
+    // additional paragraphs would not be shown — but the machinery stayed: the
+    // parser still requires it, `campusContent` still computes it, the overlay
+    // still has the element and three breakpoints still style it. What an
+    // editor saw was their description missing, which is how it was reported.
+    // Restored 2026-09-21, and the field's description says so again.
     const copy: OverlayCopy = {
       title: service.title,
       subtitle: service.subtitle,
+      detail: service.detail,
       measures: service.measures,
       accent: service.color,
     };

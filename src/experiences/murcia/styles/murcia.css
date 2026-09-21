@@ -782,15 +782,34 @@
   }
   /* The title is centred; everything under it is a centred column of
      LEFT-aligned text, sized to its longest line so a short block still sits
-     in the middle of the sheet (client, 2026-09-16). */
+     in the middle of the sheet (client, 2026-09-16).
+
+     CAPPED AT A MEASURE, which `max-width: 100%` alone is not. `fit-content`
+     takes the max-content width — one long line — up to whatever cap it is
+     given, so with 100% the copy runs the container's full width and only
+     wraps at its edge. On a portrait phone that is 342px and reads fine, which
+     is why it went unnoticed; this block also covers everything that is not
+     the desktop dock, and there a line ran 720px on a portrait tablet and
+     804px on a phone turned sideways. 35rem is the card's own 560px, in the
+     unit the rest of this file uses. */
   .murcia-ui .campus-overlay__subtitle,
   .murcia-ui .campus-overlay__detail,
   .murcia-ui .campus-overlay__measures,
   .murcia-ui .campus-overlay__caption {
     width: fit-content;
-    max-width: 100%;
+    max-width: min(100%, 35rem);
     margin-inline: auto;
     text-align: left;
+  }
+
+  /* The lead is the exception, and it is what the box being centred cannot do
+     on its own: `fit-content` sizes the box to the LONGEST line, so as soon as
+     the lead wraps, its shorter lines sit against the left of a box that is
+     itself centred — which reads as the subtitle being off-centre, because it
+     is. It is a two-line hook rather than a paragraph, so it takes the title's
+     alignment rather than the body copy's. */
+  .murcia-ui .campus-overlay__subtitle {
+    text-align: center;
   }
   .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
     flex: none;
@@ -798,21 +817,20 @@
     box-sizing: border-box;
     overflow: hidden;
   }
-  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-  }
-  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__detail,
-  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__caption {
-    display: none;
-  }
-  @media (max-height: 650px) {
-    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
-      -webkit-line-clamp: 2;
-    }
-  }
+  /* The detail and the legend used to be `display: none` at the compact stop,
+     from when that stop was a TEASER: a clamped lead, a body that did not
+     scroll, and the grip as the only way to the rest.
+
+     A later block in this same file — same media query, so it wins — turned
+     that stop into a scroller (`overflow-y: auto`) and dropped the lead's clamp
+     (`display: block` undoes `-webkit-box`, which is what `-webkit-line-clamp`
+     needs). Between the two the peek became a half-state: it scrolled, and the
+     paragraph it would have scrolled to was not in the document. Read as the
+     copy being cut, which is exactly what it was.
+
+     Removed rather than moved, so the stop is one thing: a short window onto
+     the whole copy, with the grip to open it fully. `[hidden]`, which the
+     overlay sets when a service has no legend, keeps working on its own. */
   @media (max-height: 500px) {
     .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
       padding-top: 16px;
@@ -823,7 +841,6 @@
     }
     .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
       margin-top: 6px;
-      -webkit-line-clamp: 1;
     }
   }
 }

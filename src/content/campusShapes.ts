@@ -53,12 +53,14 @@
 /**
  * The symbols a service's particles can form at rest.
  *
- * Placeholders until the real artwork arrives — four generic marks for five
- * services, so one repeats. That is why a symbol has a DEFAULT and a figure
- * does not: a symbol claims nothing about the service, and the particles at a
- * stop have to form something.
+ * Placeholders until the real artwork arrives. There were four of these for
+ * five services, so whichever way an editor filled the dropdown one service
+ * wore another's mark; `nodes` was added on 2026-09-21 to close that. They are
+ * a set of neutral marks rather than one mark per service, which is why a
+ * symbol has a DEFAULT and a figure does not: a symbol claims nothing about the
+ * service, and the particles at a stop have to form something.
  */
-export const CAMPUS_SYMBOLS = ['magnifier', 'window', 'pin', 'mark'] as const;
+export const CAMPUS_SYMBOLS = ['magnifier', 'window', 'pin', 'mark', 'nodes'] as const;
 export type CampusSymbol = (typeof CAMPUS_SYMBOLS)[number];
 
 /** What a service forms when nobody has chosen. See above for why one exists. */

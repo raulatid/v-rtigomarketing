@@ -52,6 +52,7 @@ const SYMBOL_TITLES: Record<(typeof CAMPUS_SYMBOLS)[number], string> = {
   window: 'Ventana',
   pin: 'Chincheta',
   mark: 'Marca',
+  nodes: 'Nodos',
 }
 
 /**
@@ -141,8 +142,9 @@ export const service = defineType({
       name: 'body',
       title: 'Descripción del servicio',
       description:
-        'Dos líneas breves debajo del título del servicio, separadas por un salto de línea. ' +
-        'Procura no superar los 40 caracteres por línea. Los párrafos adicionales no se muestran en el campus.',
+        'Empieza con dos líneas breves separadas por un salto de línea: son las que se leen en ' +
+        'grande bajo el nombre del servicio, y procura no pasar de 40 caracteres cada una. Lo que ' +
+        'escribas después, dejando una línea en blanco, se muestra debajo como la descripción.',
       type: 'text',
       rows: 2,
       components: { input: charCount(BOUNDS.body) },

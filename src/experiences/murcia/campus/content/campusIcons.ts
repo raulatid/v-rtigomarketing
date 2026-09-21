@@ -38,4 +38,19 @@ export const CAMPUS_ICONS: IconLibrary = {
       '<line x1="69" y1="128" x2="187" y2="128" stroke-width="9"/>' +
       '<line x1="69" y1="156" x2="136" y2="156" stroke-width="9"/>',
   ),
+  // Three nodes on a triangle, joined. The fifth mark, added because four of
+  // these had to cover five services and one brand therefore wore another's.
+  //
+  // The segments stop at the circles' edges rather than running under them —
+  // start and end are offset by the radius along each chord. The sampler reads
+  // ALPHA, so a line crossing a node would put ink where the ring is meant to
+  // read as an outline, and the `repeat` figure is built from these samples.
+  nodes: svg(
+    '<circle cx="128" cy="72" r="24" stroke-width="13"/>' +
+      '<circle cx="72" cy="184" r="24" stroke-width="13"/>' +
+      '<circle cx="184" cy="184" r="24" stroke-width="13"/>' +
+      '<line x1="117.3" y1="93.5" x2="82.7" y2="162.5" stroke-width="13" stroke-linecap="round"/>' +
+      '<line x1="138.7" y1="93.5" x2="173.3" y2="162.5" stroke-width="13" stroke-linecap="round"/>' +
+      '<line x1="96" y1="184" x2="160" y2="184" stroke-width="13" stroke-linecap="round"/>',
+  ),
 };
