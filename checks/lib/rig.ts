@@ -37,5 +37,10 @@ export function makeRig(
   );
   rig.setAspect(aspect);
   rig.setFocus(focus.x, focus.z);
+  // A rig is born holding `'inactive'`, because the city is built during the
+  // Earth intro and the viewer is never its first owner. Both harnesses drive a
+  // city that is SHOWING, so they say so — out loud, once, here — rather than
+  // inheriting a free rig and never noticing which state they were testing.
+  rig.release('inactive');
   return { camera, rig };
 }

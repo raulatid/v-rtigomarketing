@@ -103,12 +103,17 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
     // Primary button only. A right-drag used to rotate; it does not any more,
     // and letting it drag would make the context menu gesture move the world.
     if (event.pointerType === 'mouse' && event.button !== 0) return
-    // Not while something else owns the camera: Earth while it is showing, a
-    // district flight, the blog approach. This listens on the SHARED canvas, so
-    // without it every press on the globe would capture the pointer and write
-    // Murcia's drag cursor over Earth's. The map-pan controller refused presses
-    // under external control the same way.
-    if (rig.isExternallyControlled) return
+    // Not while ANYONE but the viewer owns the camera: Earth while it is
+    // showing, a warp mid-flight, a campus flight, the blog approach. This
+    // listens on the SHARED canvas, so without it every press on the globe
+    // would capture the pointer and write Murcia's drag cursor over Earth's.
+    //
+    // `isOwned` rather than a flag naming one of those owners, and the narrower
+    // question was the bug: the rig used to expose a boolean that only the
+    // campus and the blog ever set, so a press while Earth was showing — or
+    // during a warp, whose own comment says it deliberately does not take that
+    // flag — walked straight through and moved targets the viewer could not see.
+    if (rig.isOwned) return
 
     // Pointer capture so a drag survives leaving the canvas. Without it the
     // gesture dies at the window edge, which on a laptop trackpad is most
@@ -164,9 +169,11 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
 
     // One pointer only. With two or more the app's pinch owns the gesture.
     if (pointers.size !== 1) return
-    // Something else is flying the camera. Reading the drag anyway would leave
-    // the targets somewhere the viewer never put them.
-    if (rig.isExternallyControlled) return
+    // Something else owns the camera. Reading the drag anyway would leave the
+    // targets somewhere the viewer never put them — invisibly, because the
+    // springs are not stepped while anyone owns it, so the move shows up only
+    // as a lurch on the frame the camera comes back.
+    if (rig.isOwned) return
     if (dx === 0 && dy === 0) return
 
     rig.drag(dx / viewportWidth, dy / viewportHeight)

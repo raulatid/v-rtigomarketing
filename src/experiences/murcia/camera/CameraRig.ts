@@ -59,9 +59,26 @@ import type { CameraTuning } from './cameraTuning';
  */
 
 /**
+ * The names a camera owner claims under.
+ *
+ * Names ONLY. The rig attaches no meaning and no order to these values — it
+ * counts them and nothing else. Which owner wins when several hold at once is
+ * precedence, and precedence lives in `MurciaExperience.update()`, where the
+ * four rungs are already spelled out. Teaching the rig that a warp outranks a
+ * campus would put the city's vocabulary inside a class that otherwise knows
+ * only about springs and poses.
+ *
+ * A union rather than a bare `string` so that a typo is a compile error instead
+ * of a rig quietly owned forever by `'campuss'` — which, given that the failure
+ * mode of a stuck claim is a deaf camera, is exactly the mistake worth catching
+ * at build time.
+ */
+export type CameraClaim = 'inactive' | 'warp' | 'campus' | 'blog';
+
+/**
  * What a district flight or the blog approach holds to take the camera.
  *
- * A facade over two objects — the rig answers "is something else flying this",
+ * A facade over two objects — the rig answers "is anything else flying this",
  * the pointer input answers "is a finger on the world". Callers get this rather
  * than the pair, because handing out the rig would let them step the springs,
  * and stepping the springs on a frame someone else owns the camera is precisely
@@ -69,9 +86,9 @@ import type { CameraTuning } from './cameraTuning';
  */
 export interface CameraOwnership {
   readonly isDragging: boolean;
-  readonly isExternallyControlled: boolean;
-  beginExternalControl(): void;
-  endExternalControl(): void;
+  readonly isOwned: boolean;
+  claim(id: CameraClaim): void;
+  release(id: CameraClaim): void;
 }
 
 const DEG = Math.PI / 180;
@@ -185,10 +202,32 @@ export class CameraRig {
   private secondsSinceNavigation = 0;
 
   /**
-   * True while something else owns the camera — a district flight, or the blog
-   * approach. The springs are not stepped at all while it is set.
+   * Who owns the camera right now. Empty means the viewer does.
+   *
+   * ## Why a set of names and not a boolean
+   *
+   * It was a boolean, and the boolean had no reentrancy: every claimant had to
+   * keep its own "did I take it?" flag beside it, and the three that existed
+   * kept three different ones — `suspendedRig`, the campus adapter's `holding`,
+   * and the blog's nothing-at-all. Each new owner arrived with another guard of
+   * the form `if (!rig.isExternallyControlled)`, and it was one of those guards
+   * declining to claim that let the camera come back free with Earth on screen.
+   * A set makes "release only what I took" the default rather than a thing each
+   * caller re-derives.
+   *
+   * ## Seeded HELD, and that is the safety property
+   *
+   * The rig is born owned by `'inactive'`. The city is built during the Earth
+   * intro, so the viewer is never the first owner, and a rig that starts free
+   * is a rig whose seeding can be forgotten — which is precisely what happened:
+   * `MurciaExperience.setActive(false)` early-returns when `active` is already
+   * false, so the claim was never taken and every drag on the globe reached
+   * this rig through the shared canvas. Starting held inverts the failure mode
+   * of that whole class of mistake, from "input leaks silently for a session
+   * and then the camera spins on arrival" to "the camera does not respond",
+   * which is loud and shows up on the first frame someone looks at.
    */
-  private externallyControlled = false;
+  private readonly claims = new Set<CameraClaim>(['inactive']);
 
   constructor(camera: THREE.PerspectiveCamera, pose: CameraPoseConfig, tuning: CameraTuning) {
     this.camera = camera;
@@ -267,8 +306,27 @@ export class CameraRig {
     return this.distanceScale;
   }
 
-  get isExternallyControlled(): boolean {
-    return this.externallyControlled;
+  /**
+   * True while anyone but the viewer owns the camera.
+   *
+   * THE one question, asked by both the frame and the input layer. The frame
+   * uses it to decide whether to step the springs; `createCameraInput` uses it
+   * to decide whether a pointer means anything. They used to ask different
+   * questions — the frame a four-rung ladder, the input a single boolean that
+   * covered one rung of it — and the gap between the two answers is the whole
+   * of the bug this replaced.
+   */
+  get isOwned(): boolean {
+    return this.claims.size > 0;
+  }
+
+  hasClaim(id: CameraClaim): boolean {
+    return this.claims.has(id);
+  }
+
+  /** Every held claim, for the debug seam and the harnesses. */
+  claimList(): CameraClaim[] {
+    return [...this.claims];
   }
 
   /** Targets and damped values, for probes and the debug overlay. */
@@ -449,13 +507,37 @@ export class CameraRig {
   // ─── Handover ───
 
   /**
-   * Marks the camera as owned by something else. The springs stop being
-   * stepped; nothing else changes.
+   * Takes the camera under a name. The springs stop being stepped; nothing
+   * else changes.
+   *
+   * Claiming counts as navigation, so the cursor lean waits out its idle delay
+   * again after the visit rather than leaning the instant the camera comes
+   * back. Only the first claim of a run does it — a second owner arriving on
+   * top of one already held has not moved anything.
    */
-  setExternallyControlled(owned: boolean): void {
-    if (owned === this.externallyControlled) return;
-    this.externallyControlled = owned;
-    if (owned) this.markNavigated();
+  claim(id: CameraClaim): void {
+    if (this.claims.has(id)) return;
+    const wasFree = this.claims.size === 0;
+    this.claims.add(id);
+    if (wasFree) this.markNavigated();
+  }
+
+  /**
+   * Gives back one name, and only that one.
+   *
+   * Releasing a claim nobody holds is a no-op rather than an error: the campus
+   * camera reports `true` on dispose whether or not it ever flew, and the
+   * blog's approach ends the same way. Both used to need a guard of their own
+   * to avoid handing back a camera they never took.
+   */
+  release(id: CameraClaim): void {
+    this.claims.delete(id);
+  }
+
+  /** Both of the above, for the owners whose claim tracks a boolean already. */
+  setClaim(id: CameraClaim, held: boolean): void {
+    if (held) this.claim(id);
+    else this.release(id);
   }
 
   /**

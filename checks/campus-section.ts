@@ -57,7 +57,7 @@ function makeCity() {
   let onReturn: (() => void) | null = null;
   const adapter = createCampusCameraAdapter(rig, {
     onReturn: () => {
-      returns.push({ controlled: rig.isExternallyControlled, position: camera.position.clone() });
+      returns.push({ controlled: rig.isOwned, position: camera.position.clone() });
       onReturn?.();
     },
   });
@@ -74,7 +74,7 @@ function makeCity() {
   const externalFrames = { total: 0 };
   const frame = (dt: number): void => {
     campus.update(dt);
-    if (rig.isExternallyControlled) externalFrames.total += 1;
+    if (rig.isOwned) externalFrames.total += 1;
     else rig.update(dt);
     camera.updateMatrixWorld(true);
   };
@@ -109,7 +109,7 @@ section('1. From the first flight to the exit landing, the campus is the only wr
     const frames = Math.round(seconds * 60);
     for (let i = 0; i < frames; i += 1) {
       c.frame(1 / 60);
-      if (!c.rig.isExternallyControlled) heldEveryFrame = false;
+      if (!c.rig.isOwned) heldEveryFrame = false;
     }
   };
   hold(FLIGHT + 0.2);
@@ -118,7 +118,7 @@ section('1. From the first flight to the exit landing, the campus is the only wr
   c.campus.flyTo(2, FLIGHT);
   hold(FLIGHT + 0.2);
   check(
-    'the rig is externally controlled on every frame of the visit',
+    'the rig is held on every frame of the visit',
     heldEveryFrame && c.adapter.holding,
     `${c.externalFrames.total} frames held`,
   );
@@ -126,7 +126,7 @@ section('1. From the first flight to the exit landing, the campus is the only wr
   c.run(FLIGHT + 0.2);
   check(
     'and handed back exactly once, when the exit lands',
-    !c.rig.isExternallyControlled && !c.adapter.holding && c.returns.length === 1,
+    !c.rig.isOwned && !c.adapter.holding && c.returns.length === 1,
     `${c.returns.length} hand-back(s)`,
   );
   check(
@@ -253,15 +253,50 @@ section('6. The adapter never gives back a camera it did not take');
 {
   const c = makeCity();
   c.run(3);
-  // Earth is showing: MurciaExperience.setActive(false) holds the rig.
-  c.rig.setExternallyControlled(true);
+  // Earth is showing: MurciaExperience.setActive(false) holds the rig under
+  // `'inactive'`. Simulated here rather than driven, because this harness has
+  // no MurciaExperience — which is exactly why the real seeding of that claim
+  // could be missing for as long as it was. The unit tier covers the seeding
+  // itself; what is asserted here is what the ADAPTER does around it.
+  c.rig.claim('inactive');
   check('it cannot take a rig somebody else holds', !c.adapter.canTake, 'entry is refused upstream');
   // The campus camera reports `true` on dispose whether or not it ever flew.
   c.campus.dispose();
   check(
     'a dispose while Earth holds the rig leaves it held',
-    c.rig.isExternallyControlled && c.returns.length === 0,
-    c.rig.isExternallyControlled ? 'still held' : 'RELEASED',
+    c.rig.isOwned && c.returns.length === 0,
+    c.rig.isOwned ? 'still held' : 'RELEASED',
+  );
+}
+
+// --- 6b. Two owners at once ---------------------------------------------------------
+
+section('6b. A hand-back gives back one name, not the camera');
+{
+  // The hole a single ownership boolean left, and the reason claims are named.
+  //
+  // The viewer opens the campus and then leaves for Earth mid-visit. Both own
+  // the camera. When the campus lands and hands back, the rig must still be
+  // held — by Earth — or the city starts reading drags meant for the globe,
+  // through the canvas the two experiences share.
+  const c = makeCity();
+  c.run(3);
+  c.enter();
+  c.run(FLIGHT + 0.2);
+  c.rig.claim('inactive');
+  check('both owners hold it at once', c.rig.isOwned && c.adapter.holding, c.rig.claimList().join('+'));
+
+  c.campus.exit(FLIGHT);
+  c.run(FLIGHT + 0.2);
+  check(
+    'the campus let go',
+    !c.adapter.holding && c.returns.length === 1,
+    `${c.returns.length} hand-back(s)`,
+  );
+  check(
+    'and the rig is STILL held, because Earth never let go',
+    c.rig.isOwned && c.rig.hasClaim('inactive'),
+    c.rig.isOwned ? c.rig.claimList().join('+') : 'RELEASED — the city would take Earth\'s drags',
   );
 }
 
@@ -287,7 +322,7 @@ section('7. A resize during the visit waits for the hand-back');
   let appliedWhileFree = false;
   c.setOnReturn(() => {
     if (!deferred) return;
-    appliedWhileFree = !c.rig.isExternallyControlled;
+    appliedWhileFree = !c.rig.isOwned;
     c.rig.setPose(deferred);
     deferred = null;
   });

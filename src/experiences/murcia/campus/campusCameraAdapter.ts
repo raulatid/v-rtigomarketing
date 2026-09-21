@@ -5,7 +5,7 @@ import * as THREE from 'three';
  *
  * The campus flies the camera itself (`section/campusCamera.ts`): its stops sit
  * on a ring round the lake, at an elevation and a look-at height the rig cannot
- * express. So for the whole of a visit the rig is externally controlled and
+ * express. So for the whole of a visit the rig is claimed under `'campus'` and
  * its springs are not stepped — `MurciaExperience.update`'s owner switch
  * already has that rung — and the camera is handed back only when the exit
  * flight lands in the overview.
@@ -31,10 +31,15 @@ import * as THREE from 'three';
 export interface CampusCameraRig {
   readonly focus: THREE.Vector3;
   getEffectivePose(): { readonly lookAtHeight: number };
-  readonly isExternallyControlled: boolean;
-  setExternallyControlled(owned: boolean): void;
+  readonly isOwned: boolean;
+  hasClaim(id: 'campus'): boolean;
+  claim(id: 'campus'): void;
+  release(id: 'campus'): void;
   adoptFromCamera(): void;
 }
+
+/** The name this adapter owns the camera under. It touches no other. */
+const CLAIM = 'campus';
 
 export interface CampusCameraAdapter {
   /** The campus's look target. Written by its flights; seeded here. */
@@ -57,34 +62,38 @@ export function createCampusCameraAdapter(
   } = {},
 ): CampusCameraAdapter {
   const lookTarget = new THREE.Vector3();
-  let holding = false;
 
   return {
     lookTarget,
+    // Read off the rig rather than mirrored in a local flag. The mirror was a
+    // second source of truth for one fact, and keeping it in step with the rig
+    // was the adapter's job only because the rig could not answer "is this
+    // claim mine?" — it can now.
     get holding() {
-      return holding;
+      return rig.hasClaim(CLAIM);
     },
     get canTake() {
-      return holding || !rig.isExternallyControlled;
+      return rig.hasClaim(CLAIM) || !rig.isOwned;
     },
     seed() {
       lookTarget.set(rig.focus.x, rig.getEffectivePose().lookAtHeight, rig.focus.z);
     },
     onCameraControl(enabled) {
       if (!enabled) {
-        // Every flight asks, and only the first of a visit takes.
-        if (holding) return;
-        holding = true;
-        rig.setExternallyControlled(true);
+        // Every flight asks, and only the first of a visit takes. `claim` is
+        // idempotent, so this is a statement of intent rather than a guard.
+        rig.claim(CLAIM);
         return;
       }
       // The campus camera also reports `true` when it is disposed, whether or
       // not it ever flew. Releasing a rig it never took would hand the camera
       // back from under whoever does hold it — Earth, while the city is hidden.
-      if (!holding) return;
-      holding = false;
+      // The claim's own name is what makes that impossible now, but the guard
+      // stays: `onReturn` and the adopt below are a hand-back, and firing them
+      // for a visit that never happened would move a camera nobody moved.
+      if (!rig.hasClaim(CLAIM)) return;
       rig.adoptFromCamera();
-      rig.setExternallyControlled(false);
+      rig.release(CLAIM);
       hooks.onReturn?.();
     },
   };

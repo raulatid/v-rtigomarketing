@@ -158,8 +158,6 @@ export class MurciaExperience {
    */
   private waterTime = 0;
   private active = false;
-  /** True while THIS class suspended the rig, so it only resumes what it paused. */
-  private suspendedRig = false;
   private onLoadProgress: ((fraction: number) => void) | undefined;
   private loadFailed = true;
   /** 0 at the resting pose, 1 at the warp's extreme — which end depends on the role. */
@@ -457,12 +455,14 @@ export class MurciaExperience {
    * footprint invariant against the real placement maths; this method does not
    * re-check it.
    *
-   * No external control is taken, and the reason is now structural rather than
-   * a courtesy: while `state.transitionCommitted` holds, `update()` routes to
-   * `rig.applyWarpPose` and the springs are not stepped at all. Taking
-   * `setExternallyControlled` would collide with `setActive(true)` firing at the
-   * cut, which releases it, and the flag is shared with every district flight
-   * besides.
+   * The cinematic claims the camera under `'warp'` for as long as it is engaged.
+   * It used not to: ownership was a single boolean shared with every flight, and
+   * taking it would have collided with `setActive(true)` firing at the cut and
+   * releasing it. Freezing the springs through `update()`'s ladder was enough to
+   * keep the POSE right, but it left the input layer — which asked that same
+   * boolean — accepting drags across the second half of an arrival, where they
+   * were invisible and surfaced as a lurch the moment the warp let go. Claims
+   * are per-name, so `'inactive'` and `'warp'` now overlap without a fight.
    *
    * The warp does NOT touch the targets, so when it hands back the rig resumes
    * from exactly where the viewer parked it.
@@ -475,6 +475,15 @@ export class MurciaExperience {
     // the envelope is 0 at both ends — so amount alone cannot tell the first
     // departing frame from the pin-back, and the direction has to be read too.
     this.warpEngaged = amount > 0 || departing;
+    // The cinematic used to own the camera without saying so — it froze the
+    // springs through `update()`'s ladder and deliberately left the rig's
+    // ownership flag alone, because that flag was a single boolean and
+    // `setActive(true)` at the cut would have fought it. A named claim has no
+    // such collision: `'inactive'` and `'warp'` are different names and both
+    // can be held at once. Saying so is what stops the input layer accepting
+    // gestures across the second half of an arrival, where the pose is frozen
+    // and a drag would be invisible until the warp let go.
+    this.rig?.setClaim('warp', this.warpEngaged);
   }
 
   /**
@@ -580,7 +589,7 @@ export class MurciaExperience {
 
   /** The logo only returns home from the city, never a building or its flight. */
   get isCityOverview(): boolean {
-    return this.active && !this.hasFocusedDistrict && !!this.rig && !this.rig.isExternallyControlled;
+    return this.active && !this.hasFocusedDistrict && !!this.rig && !this.rig.isOwned;
   }
 
   /**
@@ -591,7 +600,10 @@ export class MurciaExperience {
    * the application because the wheel is scene navigation's (`adr/009`).
    */
   lookBy(dxPx: number): void {
-    if (!this.active || !this.rig || this.rig.isExternallyControlled) return;
+    // `isOwned`, which now includes the warp. A trackpad swipe arriving across
+    // the second half of an arrival used to write yaw the frozen pose could not
+    // show, and the camera turned to meet it once the cinematic let go.
+    if (!this.rig || this.rig.isOwned) return;
     this.rig.drag(dxPx / Math.max(1, this.viewport.width), 0);
   }
 
@@ -638,18 +650,35 @@ export class MurciaExperience {
       // back in: the next pointer move resolves the hover against wherever the
       // pointer actually is by then.
       this.cursor.clear();
-
-      if (this.rig && !this.rig.isExternallyControlled) {
-        this.rig.setExternallyControlled(true);
-        this.suspendedRig = true;
-      }
-    } else if (this.suspendedRig) {
-      this.suspendedRig = false;
-      // Nothing to adopt: whatever moved the camera while this was suspended
-      // wrote rig STATE through `setFocus`/`setYaw`, which re-seed the damped
-      // value, the target and the velocity together.
-      this.rig?.setExternallyControlled(false);
     }
+
+    // Nothing to adopt on the way back in: whatever moved the camera while this
+    // was held wrote rig STATE through `setFocus`/`setYaw`, which re-seed the
+    // damped value, the target and the velocity together.
+    this.applyActiveClaim();
+  }
+
+  /**
+   * The ONE writer of the `'inactive'` claim, and the reason the bug it fixes
+   * cannot come back by the same route.
+   *
+   * This used to live inline in `setActive` behind two conditions: a
+   * `suspendedRig` flag recording whether this object had been the one to take
+   * ownership, and an `if (!rig.isExternallyControlled)` that declined to take
+   * it when anyone else already had. Both were there to work around a boolean
+   * with no reentrancy, and between them they left three holes — the rig came
+   * back free if the campus released while Earth was showing, and, worse, the
+   * claim was never taken at all on the ordinary path: `active` starts false,
+   * `MurciaLayer` calls `setActive(false)` when it is already false, and the
+   * early return above fires before any of it runs.
+   *
+   * Idempotent, and stated rather than tracked. Calling it twice is a no-op,
+   * calling it from the rig's construction is how the seeding happens, and the
+   * early return in `setActive` can no longer hide anything, because the rig is
+   * born holding this claim and only this method lets go of it.
+   */
+  private applyActiveClaim(): void {
+    this.rig?.setClaim('inactive', !this.active);
   }
 
   private async loadAndSetup(assetLoader: AssetLoader): Promise<void> {
@@ -757,6 +786,34 @@ export class MurciaExperience {
     rig.setAspect(this.viewport.aspect);
     rig.setFocus(env.initialFocus.x, env.initialFocus.z);
     this.rig = rig;
+    // Seeded for the reason the campus and the blog display are seeded below:
+    // the city is built during the Earth intro, so `active` is normally still
+    // false here and setActive() will not fire again to correct it. The rig was
+    // the one consumer that never got this line, and its absence is the whole
+    // bug — the camera input listens on the SHARED canvas, so every drag on the
+    // globe reached it and piled up unbounded yaw that the springs then chased
+    // the moment the viewer arrived.
+    //
+    // The rig is born holding `'inactive'`, so this line only ever RELEASES,
+    // and forgetting it would strand a deaf camera rather than leak input.
+    this.applyActiveClaim();
+    // And the cinematic's, for the same reason: a warp can be in flight before
+    // this rig exists, and the claim has to match the state the object is in
+    // rather than the last transition it happened to observe.
+    rig.setClaim('warp', this.warpEngaged);
+
+    // Test seam, on the same flag as every other debug tool. Who owns the
+    // camera is invisible by construction — an owned rig looks exactly like a
+    // still one — so the only way to check the invariant from outside is to ask.
+    // `targetYaw` is the number that carried the bug: it must not move by so
+    // much as a degree while Earth is showing, however hard the globe is dragged.
+    if (this.debugTools) {
+      const seams = window as unknown as Record<string, unknown>;
+      seams.__vertigoCamera = {
+        claims: () => rig.claimList(),
+        snapshot: () => rig.snapshot(),
+      };
+    }
 
     // --- Bounds -------------------------------------------------------------
     this.recomputeBounds();
@@ -859,7 +916,7 @@ export class MurciaExperience {
       // panel behind one of those is not a request to leave for the blog.
       blocked: () => this.hasFocusedDistrict,
       beginExternalControl: () => {
-        this.rig?.setExternallyControlled(true);
+        this.rig?.claim('blog');
         // AND the campus goes deaf, which is not belt-and-braces. An entry
         // during the three-second approach would start the campus's flight
         // beside it — two owners writing the camera in one frame, which §9
@@ -874,7 +931,7 @@ export class MurciaExperience {
         // idea where it is. Solve the pose back out before letting the springs
         // run again, or the first frame of navigation snaps.
         this.rig?.adoptFromCamera();
-        this.rig?.setExternallyControlled(false);
+        this.rig?.release('blog');
         // Back to whatever the scene's own activity says, never a bare `true`:
         // the return can settle while Earth is showing.
         this.campus?.setEnabled(this.active);
@@ -1191,17 +1248,30 @@ export class MurciaExperience {
     //   3. the campus, which has already written the camera this frame
     //   4. nobody — the springs run and write the pose
     //
+    // PRECEDENCE LIVES HERE, and membership lives on the rig. The rig holds a
+    // set of claims and attaches no order to the names in it; this ladder is
+    // the only thing that says a blog approach outranks a warp. That split is
+    // what lets the input layer ask one question — "is anyone holding it?" —
+    // without learning the city's vocabulary, and it is why the two can no
+    // longer disagree about who is driving. They used to: this ladder read four
+    // separate booleans and the input read one of them.
+    //
     // A spring that is not stepped keeps its velocity, and that is the point:
     // it is what makes handing control away and taking it back seamless rather
     // than a snap. The flight re-seeds value, target AND velocity through
     // `setFocus`/`setYaw`, which is why there is nothing left to "adopt".
-    if (this.blogDisplay?.ownsCamera) {
+    if (this.rig?.hasClaim('blog')) {
       // Nothing. It wrote camera.position and camera.quaternion itself.
-    } else if (this.warpEngaged) {
+    } else if (this.rig?.hasClaim('warp')) {
       this.applyWarpPose();
-    } else if (this.rig?.isExternallyControlled) {
+    } else if (this.rig?.hasClaim('campus')) {
       // The campus's flight already wrote the camera this frame, in its own
       // update — directly, like the blog's, and `adoptFromCamera` hands it back.
+    } else if (this.rig?.isOwned) {
+      // Held under a name this ladder does not place. Unreachable while the
+      // four claims are the only four, and it is here so that adding a fifth
+      // fails by freezing the camera rather than by silently stepping springs
+      // underneath whoever is flying it.
     } else {
       this.rig?.update(delta);
     }
@@ -1217,7 +1287,11 @@ export class MurciaExperience {
     // bearings stay true and stop meaning anything, because the viewer is not
     // navigating. It sits below the flash in z-order, so the cut covers it.
     if (this.compass) {
-      const owned = this.warpEngaged || (this.blogDisplay?.ownsCamera ?? false);
+      // The same two names the ladder above routes to a direct pose write.
+      // Read off the claims rather than off the two systems, so "the viewer is
+      // not navigating" has one answer here too.
+      const owned =
+        (this.rig?.hasClaim('warp') ?? false) || (this.rig?.hasClaim('blog') ?? false);
       this.compass.setVisible(!owned && !this.hasFocusedDistrict);
       this.compass.update(this.camera);
     }

@@ -25,6 +25,10 @@ function makeRig(): CameraRig {
   )
   const rig = new CameraRig(camera, pose, tuning)
   rig.setFocus(murciaConfig.initialFocus.x, murciaConfig.initialFocus.z)
+  // Left holding the claim it is born with, deliberately. The rig does not gate
+  // itself on ownership — `drag` and `update` are callable whoever holds it, and
+  // the refusing is done by `createCameraInput` and by `update()`'s owner ladder
+  // — so these spring tests have no reason to take a position on it.
   return rig
 }
 
@@ -137,6 +141,10 @@ describe('handing the camera to another system and taking it back', () => {
     const rig = new CameraRig(camera, pose, tuning)
     rig.setAspect(ASPECT)
     rig.setFocus(murciaConfig.initialFocus.x, murciaConfig.initialFocus.z)
+    // A rig is born holding `'inactive'` — the city is built during the Earth
+    // intro and the viewer is never its first owner. These tests are about a
+    // city that is showing, so they say so.
+    rig.release('inactive')
     return { rig, camera }
   }
   const settle = (rig: CameraRig, seconds = 3) => {
@@ -147,13 +155,66 @@ describe('handing the camera to another system and taking it back', () => {
     const { rig } = makeHeld()
     settle(rig)
     expect(rig.snapshot().secondsSinceNavigation).toBeGreaterThan(2)
-    rig.setExternallyControlled(true)
-    expect(rig.isExternallyControlled).toBe(true)
+    rig.claim('campus')
+    expect(rig.isOwned).toBe(true)
     // So the cursor lean waits out its idle delay again after the visit,
     // rather than leaning the moment the camera comes back.
     expect(rig.snapshot().secondsSinceNavigation).toBe(0)
-    rig.setExternallyControlled(false)
-    expect(rig.isExternallyControlled).toBe(false)
+    rig.release('campus')
+    expect(rig.isOwned).toBe(false)
+  })
+
+  it('is born held, because the viewer is never its first owner', () => {
+    // The city is built during the Earth intro. A rig that started free is one
+    // whose seeding can be forgotten, and forgetting it is what let every drag
+    // on the globe reach Murcia's targets through the shared canvas. Deny by
+    // default turns that mistake into a camera that does not respond — loud,
+    // and on the first frame — instead of a yaw that piles up unseen.
+    const pose = resolveCameraPose(murciaConfig, ASPECT)
+    const camera = new THREE.PerspectiveCamera(pose.fov, ASPECT, pose.near, pose.far)
+    const tuning = createDefaultCameraTuning(
+      murciaConfig,
+      pose.distance,
+      pose.elevationDegrees,
+      murciaConfig.navigation.bounds,
+    )
+    const fresh = new CameraRig(camera, pose, tuning)
+    expect(fresh.isOwned).toBe(true)
+    expect(fresh.claimList()).toEqual(['inactive'])
+  })
+
+  it('gives back only the name it was asked for', () => {
+    // The hole the boolean left. Earth is showing AND the campus is flying;
+    // the campus lands and hands back. Under one shared flag the rig came back
+    // free with the globe still on screen, and the city started reading drags
+    // meant for Earth.
+    const { rig } = makeHeld()
+    rig.claim('inactive')
+    rig.claim('campus')
+    rig.release('campus')
+    expect(rig.isOwned).toBe(true)
+    expect(rig.hasClaim('inactive')).toBe(true)
+    expect(rig.hasClaim('campus')).toBe(false)
+    rig.release('inactive')
+    expect(rig.isOwned).toBe(false)
+  })
+
+  it('shrugs at a release nobody holds, and at a claim taken twice', () => {
+    // Both happen for real: the campus camera reports `true` on dispose whether
+    // or not it ever flew, and every campus flight claims rather than only the
+    // first. Neither may move the camera or the idle clock.
+    const { rig } = makeHeld()
+    rig.release('blog')
+    expect(rig.isOwned).toBe(false)
+
+    rig.claim('campus')
+    settle(rig, 1)
+    const idled = rig.snapshot().secondsSinceNavigation
+    expect(idled).toBeGreaterThan(0)
+    // A second claim on top of one already held has moved nothing, so it must
+    // not restart the lean's idle clock the way the first one does.
+    rig.claim('campus')
+    expect(rig.snapshot().secondsSinceNavigation).toBe(idled)
   })
 
   it('solves its own pose back out of a camera it left, exactly', () => {
@@ -167,13 +228,13 @@ describe('handing the camera to another system and taking it back', () => {
     // Another system flies away and back, writing the camera directly — and
     // the rig's own state is scrambled meanwhile, so only a real solve from
     // the camera can put it back.
-    rig.setExternallyControlled(true)
+    rig.claim('campus')
     rig.setFocus(-300, 200)
     rig.setYaw(-100)
     camera.position.copy(position)
     camera.lookAt(focus.x, rig.getEffectivePose().lookAtHeight, focus.z)
     rig.adoptFromCamera()
-    rig.setExternallyControlled(false)
+    rig.release('campus')
     settle(rig, 1)
 
     expect(camera.position.distanceTo(position)).toBeLessThan(1e-6)
@@ -187,7 +248,7 @@ describe('handing the camera to another system and taking it back', () => {
   it('re-places the camera from its own state on setPose — why a held rig must not get one', () => {
     const { rig, camera } = makeHeld()
     settle(rig)
-    rig.setExternallyControlled(true)
+    rig.claim('campus')
     camera.position.set(-150, 60, 450)
     const parked = camera.position.clone()
     rig.setAspect(0.5)

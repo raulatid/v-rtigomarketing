@@ -215,6 +215,47 @@ On the Murcia side the warp owns `distance` and `elevationDegrees`; `DragPanCont
 focus and yaw. They compose without either taking external control, because `setFocus` and
 `setYaw` re-apply whatever pose is current rather than re-deriving one from config.
 
+**Amendment 2026-09-21: ownership also decides who may accept INPUT, and it is one set of
+names.** This section governed who WRITES the camera in a frame, and nothing said who may
+READ a gesture. The code answered that second question with a boolean borrowed from the
+first — `CameraRig.externallyControlled` — and the two answers drifted apart, because the
+frame had a four-rung ladder (blog, warp, campus, nobody) and the input consulted a flag that
+only two of those four ever set.
+
+What it cost. `createCameraInput` listens on the SHARED canvas, so Earth's drags reach it
+too. `MurciaExperience.active` starts `false` and `MurciaLayer` calls `setActive(false)` when
+it is already false, so the early return fired and the rig was never claimed: for the whole
+Earth intro, every drag on the globe ran `rig.drag()` on the hidden city. Nothing moved,
+because the springs are not stepped while Murcia is inactive — so the yaw piled up UNSEEN and
+UNBOUNDED (`targetYaw` is deliberately unclamped, unlike the target position), and the camera
+turned to meet it on arrival. Reported as "the camera rotates by itself when you get to
+Murcia", and far worse on a phone: `rotationGain` is degrees per viewport WIDTH, so one
+200px globe-drag is worth about 38 degrees on a 390px screen against about 10 on a 1440px
+one, and dragging the globe with a finger is the whole of the mobile gesture.
+
+The rule now. The rig holds a SET of named claims — `'inactive'`, `'warp'`, `'campus'`,
+`'blog'`. While it is non-empty the viewer is not driving: the springs do not step and the
+input layer accepts nothing. Both the frame and the input ask `rig.isOwned`, and there is no
+second way to ask. Membership lives on the rig, which attaches no order to the names;
+precedence stays in `MurciaExperience.update()`'s ladder, which is the only thing that says a
+blog approach outranks a warp.
+
+Two properties are load-bearing, and neither is decoration:
+
+- **Claims are per-name and reentrant.** Each owner releases only what it took. The boolean
+  had no such thing, so three owners carried three different private "did I take it?" flags,
+  and a campus flight landing while Earth showed handed the camera back to nobody — free,
+  with the globe on screen.
+- **The rig is born holding `'inactive'`.** The city is built during the Earth intro, so the
+  viewer is never the first owner, and a rig that starts free is a rig whose seeding can be
+  forgotten — which is exactly what happened. Deny by default turns that whole class of
+  mistake from "input leaks silently for a session, then the camera spins" into "the camera
+  does not respond", which is loud and shows up on the first frame anyone looks at.
+
+Guarded by `createCameraInput.test.ts` (a gesture while held moves nothing, and the same
+gesture with nobody holding does move something) and `checks/campus-section.ts` §6b (two
+owners at once; the hand-back gives back one name, not the camera).
+
 ---
 
 ## 10. The intro's loading is real, and says so in Spanish
