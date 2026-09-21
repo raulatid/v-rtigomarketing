@@ -7,7 +7,7 @@ import earthVert from '../shaders/earth/vertex.glsl'
 import earthFrag from '../shaders/earth/fragment.glsl'
 import atmosphereVert from '../shaders/atmosphere/vertex.glsl'
 import atmosphereFrag from '../shaders/atmosphere/fragment.glsl'
-import { EARTH_CONFIG, EARTH_TEXTURES } from '../config/earthConfig'
+import { EARTH_CONFIG, EARTH_TEXTURES, usesNarrowEarthTextures } from '../config/earthConfig'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { earthVisible } from '../config/sceneVisibility'
@@ -61,10 +61,10 @@ earthManager.onError = (url) =>
  * silently downloads both.
  */
 function earthTextureUrls(): string[] {
-  const set =
-    window.innerWidth <= EARTH_TEXTURES.narrowMaxWidth
-      ? EARTH_TEXTURES.narrow
-      : EARTH_TEXTURES.wide
+  // `usesNarrowEarthTextures` rather than the width, because the zoom's near end
+  // reads the same answer (`createFocusCameraRig`) and the two must not be able
+  // to disagree — a rotated phone passes a width test and still holds these maps.
+  const set = usesNarrowEarthTextures() ? EARTH_TEXTURES.narrow : EARTH_TEXTURES.wide
   return [set.day, set.night, set.clouds]
 }
 

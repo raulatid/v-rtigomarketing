@@ -111,6 +111,31 @@ describe('the ends are where they are for reasons outside this module', () => {
     )
   })
 
+  it('stops a narrow-texture viewport further out, and still reaches the dolly floor', () => {
+    // The near end is a function of the SURFACE MAPS, not of the composition: a
+    // phone carries 1024-wide maps, so the framing that reads at x1.03 against
+    // the desktop's 4096 reads at x3.6 against a quarter of it. 12 units spends
+    // roughly half that magnification and leaves the globe at 41% of the height.
+    // `interactionConfig.zoomNearFactorNarrow` carries the table.
+    const narrow = earthZoomRadius(1, cfg.overviewRadius, cfg.zoomNearFactorNarrow)
+    expect(narrow).toBeCloseTo(12, 9)
+    expect(narrow).toBeGreaterThan(earthZoomRadius(1))
+
+    // Everything the default end is argued from still holds for it, BECAUSE it
+    // is further out — asserted rather than reasoned, since "further out is
+    // always safer" is the kind of claim that stops being true quietly.
+    const outermost = Math.max(...ORBIT_PRESETS.map((orbit) => orbit.radius)) * EARTH_CONFIG.radius
+    expect(narrow).toBeGreaterThan(outermost)
+    const closest = earthDollyRadius(narrow, 1, WARP_LIMITS)
+    expect(closest).toBeGreaterThan(EARTH_CONFIG.radius)
+    expect(closest).toBeLessThan(narrow)
+
+    // Rest and the far end are the texture tier's business not at all: only the
+    // inward half of the band moves.
+    expect(earthZoomRadius(0, cfg.overviewRadius, cfg.zoomNearFactorNarrow)).toBe(earthZoomRadius(0))
+    expect(earthZoomRadius(-1, cfg.overviewRadius, cfg.zoomNearFactorNarrow)).toBe(earthZoomRadius(-1))
+  })
+
   it('zooming fully out stays well inside the star shell', () => {
     // checks/space-backdrop.ts holds the real measurement — the nearest star sits
     // at 153 units. This is the cheap restatement of the same invariant, so a

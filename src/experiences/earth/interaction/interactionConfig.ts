@@ -130,6 +130,36 @@ export const INTERACTION_CONFIG = {
     // free number, not a return to the old constraint.)
     zoomNearFactor:
       (Math.max(...ORBIT_PRESETS.map((orbit) => orbit.radius)) * R * ZOOM_NEAR_CLEARANCE) / (9 * R),
+    /**
+     * The near end for a viewport carrying the NARROW surface maps: 12 units,
+     * where the one above gives 7.2.
+     *
+     * Bounded by the TEXTURE, not by the satellites, which is why it is a plain
+     * fraction here rather than a clearance derived from `ORBIT_PRESETS`. It
+     * clears them anyway — 12 against an outermost orbit of 3.84 — but saying so
+     * with their arithmetic would claim a reason it does not have.
+     *
+     * The sum, which `earthConfig.ts` asks to be re-derived whenever the framing
+     * moves and which had not been re-derived for a phone. The narrow maps are
+     * 1024x512, so the visible hemisphere carries 512 texels; at fov 45 and a
+     * drawing buffer capped at dpr 2 (`SceneCanvas.tsx`), a 390x844 phone gets:
+     *
+     *     radius   globe (% of height)   texels/px   magnification
+     *     18 rest         27%               0.72         x1.4
+     *     12              41%               0.47         x2.1
+     *     7.2             70%               0.28         x3.6
+     *
+     * x1.4 at rest is what the 1024 maps were chosen against — deliberately not
+     * 1:1, which would need a radius of 25, further out than the rest pose. So
+     * the maps are not the problem and raising them does not fix this: 2048
+     * still gives x1.8 at 7.2, short of the bar the phone already holds at rest.
+     * The zoom is the only lever that costs nothing, and 12 spends roughly half
+     * the magnification while leaving the globe at 41% of the screen.
+     *
+     * A desktop reaches 7.2 at x1.03 because it carries 4096-wide maps. The two
+     * ends differ because the two texture tiers do; they are one decision.
+     */
+    zoomNearFactorNarrow: 12 / (9 * R),
     zoomFarFactor: 11 / 7,
   },
 

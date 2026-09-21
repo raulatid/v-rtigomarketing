@@ -24,11 +24,24 @@ export const EARTH_CONFIG = {
  * rather than paging (`audits/ios-safari-2026-08-14.md`, I2). Compressed, the
  * same set is roughly a quarter of that.
  *
- * 2048 is not a compromise on a phone, it is the honest resolution. At 390 CSS
- * px and DPR 2 the globe spans roughly 300 device pixels, and an equirect map
- * puts about half its width across the visible hemisphere — 1024 texels over
- * 300 pixels, still more than 3x oversampled. Re-derive that if the close-up
- * framing ever changes; a globe that fills a phone screen is a different sum.
+ * THE NARROW SET IS 1024x512. This paragraph said 2048 and did its arithmetic
+ * with 1024 texels across the visible hemisphere — twice what a 1024-wide map
+ * carries — until 2026-09-21. The files were always 1024; the prose was wrong,
+ * and it is the kind of wrong that survives, because anyone re-deriving the
+ * budget re-derives it with the number written here.
+ *
+ * 1024 is not a compromise, it is the judged resolution, and the judgement was
+ * made against the RESTING pose: at 390 CSS px with the buffer capped at dpr 2
+ * the globe spans 456 device pixels and the hemisphere's 512 texels land at
+ * x1.4 magnification. Deliberately not 1:1 — that would need a radius of 25,
+ * further out than the rest pose itself, so no set anyone would ship reaches it.
+ *
+ * Re-derive that if the close-up framing ever changes; a globe that fills a
+ * phone screen is a different sum. It did change, and the sum had expired: the
+ * zoom's near end reaches a framing where the globe covers 70% of the height
+ * and the same maps land at x3.6. The answer was not more texels — 2048 still
+ * gives x1.8 there — but a nearer end for this tier, in
+ * `interactionConfig.zoomNearFactorNarrow`, which carries the table.
  *
  * `narrowMaxWidth` is deliberately the same 767 the sky panorama and the CSS
  * breakpoints use. One number for "this is a phone" across the project.
@@ -70,3 +83,36 @@ export const EARTH_TEXTURES = {
     clouds: '/earth/clouds-narrow.ktx2',
   },
 } as const
+
+/**
+ * Which set this session is using, decided once and remembered.
+ *
+ * LATCHED, and that is the whole point of it existing rather than each caller
+ * reading the width again. `EarthScene` already chooses once and never re-reads
+ * — re-downloading the set because a window crossed a breakpoint costs more
+ * than the mismatch it corrects, and a phone that rotates keeps the narrow set
+ * because both orientations of a phone are a phone.
+ *
+ * The zoom's near end depends on this (`interactionConfig.zoomNearFactorNarrow`),
+ * and a second reader asking the LIVE width would disagree with the texture the
+ * moment the phone rotated: 852x393 passes a 767 width test, so a phone turned
+ * sideways would be handed the unrestricted zoom while still carrying the
+ * 1024-wide maps — which is exactly the framing the restriction exists to stop.
+ * One latch, two readers.
+ *
+ * Reads `window` lazily rather than at module scope: `checks/` bundles this
+ * file's consumers for Node, where there is no window and nothing calls this.
+ */
+let narrowTier: boolean | null = null
+
+export function usesNarrowEarthTextures(): boolean {
+  if (narrowTier === null) {
+    narrowTier = typeof window !== 'undefined' && window.innerWidth <= EARTH_TEXTURES.narrowMaxWidth
+  }
+  return narrowTier
+}
+
+/** Test seam. Nothing in the application calls this. */
+export function resetEarthTextureTier(): void {
+  narrowTier = null
+}

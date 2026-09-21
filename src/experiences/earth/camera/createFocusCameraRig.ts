@@ -5,6 +5,7 @@ import { closeUpScreenOffset } from './closeUpFraming'
 import { satelliteAssemblyScale } from '../orbit/satelliteScale'
 import { earthZoomRadius } from './zoomPose'
 import { overviewRadiusForViewport } from './overviewPose'
+import { usesNarrowEarthTextures } from '../config/earthConfig'
 
 // Camera rig for the interactive phase, ported from earth-connections
 // (docs/extractions/003).
@@ -175,7 +176,15 @@ export function createFocusCameraRig({
    * rather than their own.
    */
   function setZoomDepth(depth: number) {
-    const radius = earthZoomRadius(depth, overviewRadiusForViewport(domElement.clientWidth, domElement.clientHeight))
+    // The near end follows the SURFACE MAPS, and `usesNarrowEarthTextures` is
+    // latched at load — the same decision `EarthScene` made, not a second read
+    // of the live viewport, which would hand a rotated phone the desktop end
+    // while it still carries the narrow maps.
+    const radius = earthZoomRadius(
+      depth,
+      overviewRadiusForViewport(domElement.clientWidth, domElement.clientHeight),
+      usesNarrowEarthTextures() ? cfg.zoomNearFactorNarrow : cfg.zoomNearFactor,
+    )
     if (radius === zoomRadius) return
     zoomRadius = radius
     overviewPosition.setLength(zoomRadius)

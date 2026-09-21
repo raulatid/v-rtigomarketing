@@ -49,6 +49,12 @@ const cfg = INTERACTION_CONFIG.camera
  * 3.5 units), and the near end is free of it — with room to spare, since a
  * commit from 7.2 dives to 3.5 rather than barely moving.
  *
+ * A viewport on the NARROW surface maps stops at 12 instead, and for an
+ * unrelated reason — the texture, not the orbits. See
+ * `interactionConfig.zoomNearFactorNarrow`, which carries the derivation. It is
+ * further out, so every argument above still holds for it: it clears the
+ * satellites by more, and a commit from 12 reaches the same 3.5 floor.
+ *
  * **Outward (`zoomFarFactor`, 11/7).** This is `zoomMax: 11 * R`, the far end of
  * the band `adr/009` retired, brought back unchanged — it was tuned against this
  * globe and nothing about the globe has changed. Safe against the star shell:
@@ -59,7 +65,7 @@ const cfg = INTERACTION_CONFIG.camera
  * a judged radius instead of extrapolating into the planet or out through the
  * stars.
  */
-export function earthZoomScale(depth: number): number {
+export function earthZoomScale(depth: number, nearFactor: number = cfg.zoomNearFactor): number {
   // Non-finite lands at REST rather than propagating. One NaN reaching
   // `orbit.radius` puts the camera at an unrecoverable position for the rest of
   // the session — every later lerp toward it is NaN too — and there is no
@@ -67,16 +73,31 @@ export function earthZoomScale(depth: number): number {
   if (!Number.isFinite(depth)) return 1
   const d = THREE.MathUtils.clamp(depth, -1, 1)
   return d >= 0
-    ? THREE.MathUtils.lerp(1, cfg.zoomNearFactor, d)
+    ? THREE.MathUtils.lerp(1, nearFactor, d)
     : THREE.MathUtils.lerp(1, cfg.zoomFarFactor, -d)
 }
 
-/** The orbit radius for a depth. The rig's `orbit.radius` and nothing else. */
-export function earthZoomRadius(depth: number, overviewRadius = cfg.overviewRadius): number {
-  if (overviewRadius === cfg.overviewRadius) return cfg.overviewRadius * earthZoomScale(depth)
+/**
+ * The orbit radius for a depth. The rig's `orbit.radius` and nothing else.
+ *
+ * `nearFactor` is a parameter because the near end depends on which SURFACE MAPS
+ * this session loaded, not on the composition: a viewport carrying the 1024-wide
+ * narrow set stops further out, because the same framing that reads at x1.03
+ * against a 4096 map reads at x3.6 against a quarter of it. The caller resolves
+ * it — `createFocusCameraRig` — from the latched tier, never from the live
+ * viewport, so a phone that rotates keeps the end its textures earned.
+ */
+export function earthZoomRadius(
+  depth: number,
+  overviewRadius = cfg.overviewRadius,
+  nearFactor: number = cfg.zoomNearFactor,
+): number {
+  if (overviewRadius === cfg.overviewRadius) {
+    return cfg.overviewRadius * earthZoomScale(depth, nearFactor)
+  }
   const d = Number.isFinite(depth) ? THREE.MathUtils.clamp(depth, -1, 1) : 0
   // Change the resting composition without moving either zoom endpoint or the
   // closest approach of the committed warp.
-  const endpoint = cfg.overviewRadius * (d >= 0 ? cfg.zoomNearFactor : cfg.zoomFarFactor)
+  const endpoint = cfg.overviewRadius * (d >= 0 ? nearFactor : cfg.zoomFarFactor)
   return THREE.MathUtils.lerp(overviewRadius, endpoint, Math.abs(d))
 }
