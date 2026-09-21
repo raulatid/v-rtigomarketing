@@ -684,7 +684,15 @@
    therefore measured against the sheet's own height (the 100% in the
    translate), never against the cap, and a sheet shorter than the compact
    stop simply opens in full. campusSheet.ts reads offsetHeight, so the drag
-   limit follows without a change. */
+   limit follows without a change.
+
+   `--campus-sheet-compact` is WRITTEN BY campusSheet.ts and re-written on every
+   resize, because the stop is derived per viewport now: it is the space the
+   particle field above cannot use (`campusMobileLayout.campusCompactFraction`),
+   which depends on the screen. The 35dvh fallbacks below are
+   CAMPUS_COMPACT_MIN_FRACTION — what a viewport with no slack gets, and what
+   every viewport got until 2026-09-21 — so a frame before the first write, or a
+   sheet whose script never ran, lands where it always did. */
 @media not all and (min-width: 1024px) and (min-aspect-ratio: 4/3) {
   .murcia-ui .campus-overlay {
     left: 0;

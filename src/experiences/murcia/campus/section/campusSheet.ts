@@ -1,4 +1,4 @@
-import { CAMPUS_COMPACT_FRACTION, CAMPUS_DOCK_QUERY } from '../campusMobileLayout';
+import { CAMPUS_DOCK_QUERY, campusCompactFraction } from '../campusMobileLayout';
 import { attachSheetDrag } from '../../../../interaction/sheetDrag';
 
 let nextSheetId = 0;
@@ -18,13 +18,28 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
   grip.setAttribute('aria-controls', body.id);
   layer.prepend(grip);
   layer.style.transition += ', transform 300ms cubic-bezier(0.32, 0.72, 0, 1)';
-  layer.style.setProperty('--campus-sheet-compact', `${CAMPUS_COMPACT_FRACTION * 100}dvh`);
+  /**
+   * The compact stop, published for the stylesheet and re-derived on every
+   * resize. It was a constant set once; it is a function of the viewport now,
+   * because the space the particle field cannot use belongs to the sheet
+   * (`campusCompactFraction`), and how much that is depends on the screen.
+   *
+   * Still `dvh` rather than the pixels this has to hand: the unit is what lets
+   * the sheet follow a collapsing URL bar between resize events, which is the
+   * reason it was written in `dvh` in the first place.
+   */
+  const publishCompact = () => {
+    const fraction = campusCompactFraction(window.innerWidth, window.innerHeight);
+    layer.style.setProperty('--campus-sheet-compact', `${(fraction * 100).toFixed(3)}dvh`);
+  };
+  publishCompact();
   let expanded = false;
   // The whole copy fits inside the compact stop, so there is nothing to
   // expand: the sheet opens in full and the grip is withdrawn. Kept apart from
   // `expanded`, which stays the reader's own choice for the stops that need it.
   let fits = false;
-  const compactHeight = () => window.innerHeight * CAMPUS_COMPACT_FRACTION;
+  const compactHeight = () =>
+    window.innerHeight * campusCompactFraction(window.innerWidth, window.innerHeight);
   const limit = () => Math.max(0, layer.offsetHeight - compactHeight());
   const sync = () => {
     const open = expanded || fits;
@@ -67,7 +82,10 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
       }
     },
   });
-  const resize = () => { drag.reset(); fit(); };
+  // The stop itself moves with the viewport now, so it is republished before
+  // the copy is re-measured against it — `fit()` compares the sheet's full
+  // height to `compactHeight()`, and the two have to be reading one number.
+  const resize = () => { publishCompact(); drag.reset(); fit(); };
   window.addEventListener('resize', resize);
   dock.addEventListener('change', resize);
   sync();
