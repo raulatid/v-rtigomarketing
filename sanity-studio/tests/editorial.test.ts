@@ -35,7 +35,7 @@ describe('editorial validation before publishing', () => {
     expect(videoProblem('https://youtube.com@example.org/watch?v=abc', 'youtube')).not.toBe(true)
     expect(videoProblem('http://youtube.com/watch?v=abc', 'youtube')).not.toBe(true)
   })
-  it('allows reordering city services but refuses a removed or substituted symbol binding', async () => {
+  it('lets the editor add, remove and reorder services, and still refuses an unpublished one', async () => {
     const slugs = ['brand-identity', 'paid-campaigns', 'content-strategy', 'web-analysis', 'seo']
     const refs = slugs.map((_slug, i) => ({_ref: 'id-' + i}))
     const rows = slugs.map((slug, i) => ({_id: 'id-' + i, slug}))
@@ -43,10 +43,16 @@ describe('editorial validation before publishing', () => {
       ({document: {slug: {current: districtId}}, getClient: () => ({fetch: async () => result})}) as unknown as ValidationContext
     expect(await serviceMembership(refs, make(rows))).toBe(true)
     expect(await serviceMembership([...refs].reverse(), make(rows))).toBe(true)
-    expect(await serviceMembership(refs.slice(0, 4), make(rows.slice(0, 4)))).toMatch(/símbolo en la ciudad/)
-    // The same five services, one of them only ever a draft: a different problem.
+    // Removing one was refused until 2026-09-21, when the symbol rows it needed
+    // a developer for became fields on the service document. There is nothing
+    // technical left to ask about, so the list is the editor's.
+    expect(await serviceMembership(refs.slice(0, 4), make(rows.slice(0, 4)))).toBe(true)
+    // What still has to be refused, because the build reads published documents
+    // only and the stop would go missing where it reads as an editorial choice.
     const oneDraft = [...rows.slice(0, 4), {_id: 'drafts.id-4', slug: 'seo'}]
     expect(await serviceMembership(refs, make(oneDraft))).toMatch(/no está publicado/)
+    // A reference to a document that is not there at all needs the other answer.
+    expect(await serviceMembership(refs, make(rows.slice(0, 4)))).toMatch(/ya no existe/)
     expect(await serviceMembership(refs, make(rows, 'otra'))).toMatch(/«otra».*no está enlazada/)
   })
   it('keeps exactly one highlighted case: refuses a second, and refuses unticking the only one', async () => {
@@ -78,11 +84,28 @@ describe('editorial validation before publishing', () => {
   it('advises on a brand mark below its atlas box rather than refusing it; shape is still refused', () => {
     const small = {asset: {_ref: 'image-abc-300x300-png'}}
     expect(brandMarkErrors('isotype')(small)).toBe(true)
-    expect(brandMarkAdvice('isotype')(small)).toMatch(/Más pequeña que el hueco.*300×300.*432×432.*Puedes publicar/)
+    // The BOX, not a rounded memory of it: 512² padded by 40 and 72.
+    expect(brandMarkAdvice('isotype')(small)).toMatch(/Más pequeña que el hueco.*300×300.*432×368.*Puedes publicar/)
     expect(brandMarkErrors('logo')({asset: {_ref: 'image-abc-800x400-png'}})).toBe(true)
-    expect(brandMarkAdvice('logo')({asset: {_ref: 'image-abc-800x400-png'}})).toMatch(/900×400/)
-    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-900x300-png'}})).toMatch(/cuadrado/)
+    expect(brandMarkAdvice('logo')({asset: {_ref: 'image-abc-800x400-png'}})).toMatch(/896×368/)
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-900x300-png'}})).toMatch(/apaisado/)
     expect(brandMarkAdvice('isotype')({asset: {_ref: 'image-abc-512x512-png'}})).toBe(true)
+  })
+
+  it('takes an isotype up to 2:1, and advises that a square one draws taller', () => {
+    // A brand whose symbol is genuinely landscape. Nothing in the renderer
+    // minds — `fitInk` contains any aspect and the panel shader contains the
+    // cell — so the band is a legibility judgement, and at 2:1 the mark draws
+    // 432×216 against a square one's 368×368: WIDER, and shorter. Refusing it
+    // sent the editor away to invent a square crop of a mark that has none.
+    const wide = {asset: {_ref: 'image-abc-1024x512-png'}}
+    expect(brandMarkErrors('isotype')(wide)).toBe(true)
+    expect(brandMarkAdvice('isotype')(wide)).toMatch(/Proporción poco habitual.*2,0:1/)
+    // The far side of the band is unchanged: past 2:1 the mark loses height
+    // faster than it gains anything, and 3:1 draws 432×144.
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-1500x500-png'}})).toMatch(/apaisado/)
+    // And portrait is still refused at the same 3:4 it always was.
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-500x1000-png'}})).toMatch(/alto/)
   })
   it('refuses a brand mark over the shared weight cap, and passes what it cannot weigh', async () => {
     const cap = EDITORIAL_BOUNDS.caseStudy.brandMarkBytes

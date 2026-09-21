@@ -22,18 +22,22 @@ import { collection, type MediaRule } from './types'
  * before it is fetched.
  *
  * ── Where the numbers come from ──
- * `createBrandAtlas.ts` fits an isotype into a 432×432 box (a 512² cell padded by
- * 40) and a logo into an 896×400 one (1024×512 padded by 64/56). The minimums are
- * those boxes: below them the artwork is upscaled and softens at the case-panel
- * close-up, which `drawLogoContained` already warns about in the console. The
- * ideals an editor is steered towards — 512×512 and 1600×800 — live in
- * `docs/earth/logo-spec.md` and are not enforced here; only the floor is.
+ * `createBrandAtlas.ts` pads both cells by `PAD_Y` = 72 vertically, so an
+ * isotype is fitted into a 432×368 box (a 512² cell, padX 40) and a logo into an
+ * 896×368 one (1024×512, padX 64). This comment said 432×432 and 896×400 until
+ * 2026-09-21, from before `PAD_Y` was unified. Nothing enforced those numbers
+ * here — the build stopped counting pixels on 2026-09-19 — but the Studio's
+ * advice tier did, against a box that no longer existed. The ideals an editor is
+ * steered towards — 512×512 and 1600×800 — live in `docs/earth/logo-spec.md`.
  *
  * The aspect bands are wide on purpose. The renderer contain-fits, so a shape it
  * did not expect is never broken, only small — these bounds mark where "small"
- * becomes "illegible": a nearly-square isotype is fine, a portrait one is not; a
- * lockup between 1.5:1 and 5:1 reads inside the 2:1 expanded panel, one outside
- * that does not.
+ * becomes "illegible". Past 432/368 = 1.174 a mark is WIDTH-bound and already
+ * drawn as wide as the box allows, so a 2:1 isotype is wider on screen than a
+ * square one and 42% as tall; at 3:1 it is a strip. Hence 3:4 to 2:1 — it was
+ * 4:3 until 2026-09-21, which sent a brand with a genuinely landscape symbol
+ * away to invent a square crop of a mark that has none. A lockup between 1.5:1
+ * and 5:1 reads inside the 2:1 expanded panel; one outside that does not.
  *
  * ── PNG and WebP only ──
  * Both carry an alpha channel. A JPEG does not, so it would ship a rectangle of
@@ -51,7 +55,7 @@ const BRAND_MARK_RULES: Record<string, MediaRule> = {
   isotype: {
     extensions: ['png', 'webp'],
     minAspect: 0.75,
-    maxAspect: 4 / 3,
+    maxAspect: 2,
   },
   logo: {
     extensions: ['png', 'webp'],

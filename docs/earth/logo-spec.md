@@ -38,8 +38,8 @@ se ven más grandes y más nítidas.
 | Punto | Requisito |
 |---|---|
 | **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. También se acepta **PNG-24**. **Nada más:** un JPG se rechaza al subirlo (no tiene alfa: sería un rectángulo sobre el panel) y un SVG también, por el motivo de más abajo. |
-| **Dimensiones** | **512 × 512 px** ideal, cuadrado. Hasta 1024 × 1024 si el símbolo tiene mucho detalle. La caja en la que se dibuja mide 432 × 432: por debajo se amplía y pierde nitidez, con un aviso en el Studio. |
-| **Proporción** | **1:1.** El panel en reposo es cuadrado. Un símbolo casi cuadrado funciona y solo recibe un aviso; **fuera de 4:3 o 3:4 se rechaza**, porque se dibujaría demasiado pequeño para leerse. |
+| **Dimensiones** | **512 × 512 px** ideal, cuadrado. Hasta 1024 × 1024 si el símbolo tiene mucho detalle. La caja en la que se dibuja mide 432 × 368 (la celda es cuadrada, pero lleva más margen arriba y abajo que a los lados): por debajo se amplía y pierde nitidez, con un aviso en el Studio. |
+| **Proporción** | **1:1 ideal.** El panel en reposo es cuadrado, así que un símbolo cuadrado es el que se dibuja más alto. Se acepta **de 3:4 a 2:1** con un aviso. **Fuera de ahí se rechaza:** por debajo de 3:4 el símbolo se dibuja estrecho, y por encima de 2:1 queda como una tira que no se lee en la vista general. |
 | **Contenido** | **Solo el símbolo.** Sin el nombre de la marca, sin claim, sin recuadro. Si la marca no tiene símbolo separable del nombre, ver abajo. |
 | **Fondo** | **Totalmente transparente.** Sin caja blanca, sin tarjeta redondeada, sin sombra. |
 | **Márgenes** | **Cero.** Recortar ajustado a la caja delimitadora. **El margen lo pone la aplicación.** |
@@ -54,10 +54,14 @@ Tres salidas, en orden de preferencia:
 1. **La inicial o el monograma** de la marca en su tipografía y color oficiales,
    recortada a cuadrado. Es lo que hacen sus propios perfiles sociales y su
    favicon — se puede pedir ese archivo por su nombre.
-2. **El logotipo completo recortado a cuadrado**, si aguanta la proporción. Se
-   verá pequeño, pero legible.
+2. **El logotipo completo recortado lo más cuadrado que aguante.** Hasta 2:1 se
+   acepta. Cuanto más apaisado, más bajo se dibuja: un 1:1 ocupa 368 px de alto
+   en la celda, un 2:1 solo 216. El ancho no cambia a partir de 1,17:1 — ahí la
+   marca ya llena la caja a lo ancho y lo único que pierde es altura.
 3. **No entregar ninguno de los dos** y dejar la placa generada. Es preferible a
-   inventar un símbolo que la marca no tiene.
+   inventar un símbolo que la marca no tiene, y también a entregar una tira
+   ilegible: la placa es un anillo con la inicial y el color de marca, y está
+   diseñada para ese hueco cuadrado.
 
 ---
 
@@ -66,7 +70,7 @@ Tres salidas, en orden de preferencia:
 | Punto | Requisito |
 |---|---|
 | **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. Pesa 10–40 KB frente a 60–150 KB del PNG equivalente, con calidad idéntica para arte plano. Se acepta **PNG-24** como alternativa. **JPG y SVG se rechazan al subirlos.** |
-| **Dimensiones** | **1600 × 800 px** ideal. La caja en la que se dibuja mide 900 × 400: por debajo se amplía y pierde nitidez, con un aviso en el Studio. Por encima de 2048 de ancho solo pesa de más y recibe un aviso. |
+| **Dimensiones** | **1600 × 800 px** ideal. La caja en la que se dibuja mide 896 × 368: por debajo se amplía y pierde nitidez, con un aviso en el Studio. Por encima de 2048 de ancho solo pesa de más y recibe un aviso. |
 | **Proporción** | Entre **2:1 y 4:1** (lockup horizontal). El panel desplegado es 2:1, así que un lockup más alargado se dibuja más pequeño. **Fuera de 1,5:1 a 5:1 se rechaza**: un lockup vertical no cabe y uno larguísimo se dibuja diminuto. |
 | **Fondo** | **Totalmente transparente.** Sin caja blanca, sin tarjeta redondeada, sin sombra, sin degradado de fondo. Un fondo blanco se renderiza literalmente como un rectángulo blanco — el shader no elimina fondos. |
 | **Márgenes** | **Cero.** Recortar ajustado a la caja delimitadora del arte. **El margen lo pone la aplicación.** Un archivo entregado con un 30 % de espacio en blanco incorporado se verá un 30 % más pequeño que sus vecinos, y no hay forma de detectarlo automáticamente. Este es el punto que más se incumple. |
@@ -134,7 +138,7 @@ de respuesta:
 - **Error, en rojo, con Publicar deshabilitado** — formato distinto de PNG o
   WebP, más de 4 MB, o
   una proporción fuera de las bandas de las tablas de arriba.
-- **Aviso, en amarillo, publicable** — por debajo de la caja en la que se dibuja (432 × 432 el isotipo, 900 × 400 el logotipo; se amplía y pierde nitidez), por debajo del tamaño ideal, mucho más
+- **Aviso, en amarillo, publicable** — por debajo de la caja en la que se dibuja (432 × 368 el isotipo, 896 × 368 el logotipo; se amplía y pierde nitidez), por debajo del tamaño ideal, mucho más
   grande de lo necesario, o una proporción que funciona pero no es la óptima.
 
 El mensaje dice siempre qué mide el archivo y qué debería medir. Todo esto sale

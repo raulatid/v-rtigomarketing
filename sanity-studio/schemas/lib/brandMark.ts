@@ -78,16 +78,45 @@ interface BrandMarkSpec {
 /**
  * The numbers, and where each one comes from.
  *
- * `createBrandAtlas.ts` pads a 512×512 isotype cell by 40 and a 1024×512 logo
- * cell by 64/56, so the artwork is fitted into a 432×432 box and an 896×400 box
- * respectively — which is what the minimums are. The ideals come from
- * `docs/earth/logo-spec.md`: roughly 2× the box, so thin strokes survive the
- * downscale at the case-panel close-up.
+ * `createBrandAtlas.ts` pads BOTH cells by `PAD_Y` = 72 vertically, and by 40
+ * (isotype, 512×512) and 64 (logo, 1024×512) horizontally. So the artwork is
+ * fitted into a **432×368** box and an **896×368** box, which is what the
+ * minimums are. Those two figures were 432×432 and 900×400 here until
+ * 2026-09-21, inherited from before `PAD_Y` was unified — the advice tier was
+ * measuring against a box that had not existed for a fortnight. The ideals come
+ * from `docs/earth/logo-spec.md`: roughly 2× the box, so thin strokes survive
+ * the downscale at the case-panel close-up.
  *
- * The isotype's error band is 3:4–4:3 rather than exactly square, because a
- * nearly-square symbol is still perfectly usable; only an exactly square one
- * earns a clean field. The logo's is 1.5:1–5:1 around an ideal 2:1–4:1, because
- * the expanded panel is 2:1 and a taller lockup is drawn small inside it.
+ * ── The isotype's band, and why it reaches 2:1 ──
+ *
+ * NOTHING in the renderer requires a square isotype. `fitInk` contains any
+ * aspect on its measured ink and the panel shader contains the cell into a
+ * field whose own aspect animates from 1:1 to 2:1; both are asserted across
+ * 1:1, 2:1, 4:1 and portrait. The band is a LEGIBILITY judgement, and it is
+ * written twice on purpose — see the header — so it has to be justified once,
+ * here, in numbers:
+ *
+ *     aspect   drawn      of the cell's height
+ *     1:1      368×368    71.9%
+ *     4:3      432×324    63.3%     <- the old ceiling
+ *     2:1      432×216    42.2%
+ *     3:1      432×144    28.1%
+ *
+ * Anything wider than 432/368 = 1.174 is WIDTH-bound, so it is already drawn as
+ * wide as the box allows: a 2:1 mark is wider on screen than a square one, and
+ * shorter. It reads. At 3:1 the height has halved again and the mark is a strip.
+ *
+ * 2:1 rather than 4:3 since 2026-09-21, because a brand whose symbol is
+ * genuinely landscape was being sent away to invent a square crop of a mark that
+ * has none, and no padding change can help it — `padX` is already the tightest
+ * number in the atlas. The advice tier still says a square one draws taller.
+ *
+ * The portrait side is unchanged at 3:4: a tall mark is height-bound, so it
+ * loses WIDTH, and the resting panel has width to spare in a way it does not
+ * have height.
+ *
+ * The logo's is 1.5:1–5:1 around an ideal 2:1–4:1, because the expanded panel is
+ * 2:1 and a taller lockup is drawn small inside it.
  */
 const BRAND_MARK_SPEC: Record<BrandMarkKind, BrandMarkSpec> = {
   isotype: {
@@ -95,21 +124,21 @@ const BRAND_MARK_SPEC: Record<BrandMarkKind, BrandMarkSpec> = {
     idealWidth: 512,
     idealHeight: 512,
     minWidth: 432,
-    minHeight: 432,
+    minHeight: 368,
     wastefulWidth: 1024,
     aspectMin: 0.75,
-    aspectMax: 4 / 3,
+    aspectMax: 2,
     idealAspectMin: 1,
     idealAspectMax: 1,
     aspectAdvice:
-      'El panel en reposo es cuadrado: un isotipo exactamente cuadrado se dibuja más grande.',
+      'El panel en reposo es cuadrado: un isotipo exactamente cuadrado se dibuja más alto.',
   },
   logo: {
     noun: 'El logotipo completo',
     idealWidth: 1600,
     idealHeight: 800,
-    minWidth: 900,
-    minHeight: 400,
+    minWidth: 896,
+    minHeight: 368,
     wastefulWidth: 2048,
     aspectMin: 1.5,
     aspectMax: 5,
@@ -194,12 +223,31 @@ export function brandMarkErrors(kind: BrandMarkKind) {
     }
 
     const aspect = asset.width / asset.height
-    if (kind === 'isotype' && (aspect < spec.aspectMin || aspect > spec.aspectMax)) {
+    // Two messages rather than one, because the two ways out are different: a
+    // tall mark is usually a lockup that needs cropping to its symbol, a very
+    // wide one usually has no square version at all and the way out is to leave
+    // both fields empty.
+    if (kind === 'isotype' && aspect < spec.aspectMin) {
       return (
         spec.noun +
-        ' debe ser cuadrado, o casi. Esta imagen mide ' +
+        ' es más alto que ancho. Esta imagen mide ' +
         size(asset) +
-        '. Recorta el símbolo ajustado, sin márgenes, dentro de una caja cuadrada.'
+        ' (' +
+        ratio(asset) +
+        '). El panel en reposo es cuadrado, así que un símbolo vertical se dibuja estrecho ' +
+        'y pequeño. Recorta solo el símbolo, ajustado y sin márgenes.'
+      )
+    }
+    if (kind === 'isotype' && aspect > spec.aspectMax) {
+      return (
+        spec.noun +
+        ' es demasiado apaisado: ' +
+        size(asset) +
+        ' (' +
+        ratio(asset) +
+        '). Como máximo el doble de ancho que alto; por encima de eso se dibuja como una ' +
+        'tira y no se lee en la vista general. Si la marca no tiene un símbolo aparte del ' +
+        'nombre, deja los dos campos vacíos y la web dibuja su propia placa.'
       )
     }
     if (kind === 'logo' && aspect < spec.aspectMin) {

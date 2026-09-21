@@ -1023,10 +1023,16 @@ describe('the case-study projection hands the mirror what it expects', () => {
     // advises on rather than the build refusing (mirror.ts, assertGeometry).
     expect(rules.isotype).not.toHaveProperty('minWidth')
     expect(rules.logo).not.toHaveProperty('minWidth')
-    // Square-ish for the resting panel, landscape for the 2:1 expanded one.
-    expect(rules.isotype.minAspect).toBeLessThan(1)
-    expect(rules.isotype.maxAspect).toBeGreaterThan(1)
-    expect(rules.logo.minAspect).toBeGreaterThan(1)
+    // The bands themselves, not merely their sign. These four numbers are
+    // written twice on purpose — `sanity-studio/schemas/lib/brandMark.ts` holds
+    // the same ones so an editor is stopped at the field rather than by a failed
+    // deploy — and neither package may import the other. A loose assertion
+    // ("minAspect < 1") passes however far the two copies drift, which is the
+    // one failure this pair has.
+    expect(rules.isotype.minAspect).toBe(0.75)
+    expect(rules.isotype.maxAspect).toBe(2)
+    expect(rules.logo.minAspect).toBe(1.5)
+    expect(rules.logo.maxAspect).toBe(5)
   })
 })
 
