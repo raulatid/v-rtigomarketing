@@ -28,7 +28,7 @@
  *     rather than becoming a habit.
  */
 
-import { CONTACT_EMAIL } from '../src/content/site'
+import { CONTACT_EMAIL } from '../src/content/site.js'
 
 /** The same deliberately-loose shape the rest of the repository uses. */
 const ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/

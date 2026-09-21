@@ -21,7 +21,7 @@
  * because the mail looks like it came from their own website.
  */
 
-import type { AuditSubmission, ContactSubmission } from './validate'
+import type { AuditSubmission, ContactSubmission } from './validate.js'
 
 /** Long enough to be useful in an inbox list, short enough not to be truncated. */
 export const SUBJECT_MAX = 120

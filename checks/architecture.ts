@@ -79,7 +79,14 @@ function isFile(candidate: string): boolean {
 
 function resolve(from: string, spec: string): string | null {
   if (!spec.startsWith('.')) return null;
-  const base = path.posix.normalize(path.posix.join(path.posix.dirname(from), spec));
+  // `./endpoint.js` names `endpoint.ts`: the TypeScript spelling for a module
+  // that has to survive Node's ESM resolver, which `api/` and `server/` use
+  // because Vercel transpiles them rather than bundling them (checks/
+  // function-boot.ts). Stripped BEFORE the candidates below, so the walk sees
+  // the same graph either way — without this, every such edge resolved to null
+  // and the server tier silently dropped out of the reachability rules.
+  const withoutJs = spec.replace(/\.js$/, '');
+  const base = path.posix.normalize(path.posix.join(path.posix.dirname(from), withoutJs));
   // Extensions first, then the bare path — and the bare path only if it is
   // genuinely a file. A module always wins over a directory that merely shares
   // its name under a case-insensitive filesystem.

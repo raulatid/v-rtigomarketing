@@ -9,11 +9,11 @@
  * since its web server is `vite preview` and not `vercel dev`.
  */
 
-import { readMailConfig, type MailConfig, type MailEnv } from './config'
-import { handleSubmission, type SubmissionKind, type HandleBody } from './handleSubmission'
-import { createLimiter, type Limiter } from './rateLimit'
-import { cmsRecipient } from './recipient'
-import { sendEmail } from './resend'
+import { readMailConfig, type MailConfig, type MailEnv } from './config.js'
+import { handleSubmission, type SubmissionKind, type HandleBody } from './handleSubmission.js'
+import { createLimiter, type Limiter } from './rateLimit.js'
+import { cmsRecipient } from './recipient.js'
+import { sendEmail } from './resend.js'
 
 /**
  * Bigger than any legitimate submission — the message field caps at 2000

@@ -16,7 +16,7 @@
  * the website rules below are the answer to API-2.
  */
 
-import { BUDGET_RANGES, REVENUE_RANGES } from '../src/content/site'
+import { BUDGET_RANGES, REVENUE_RANGES } from '../src/content/site.js'
 
 /**
  * Field length caps, in characters after trimming.

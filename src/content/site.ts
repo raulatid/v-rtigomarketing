@@ -9,8 +9,8 @@
 // The exports keep their old names and shapes on purpose: SiteFooter and
 // ContactSection are unchanged, and this file stays the one place to look.
 
-import { SITE_SETTINGS } from './generated/siteSettings'
-import type { LegalDoc, SitePhone } from './types'
+import { SITE_SETTINGS } from './generated/siteSettings.js'
+import type { LegalDoc, SitePhone } from './types.js'
 
 export type { SitePhone }
 

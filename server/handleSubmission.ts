@@ -14,12 +14,12 @@
  * route, so `api/handle.test.ts` would answer at a public URL.
  */
 
-import type { MailConfig } from './config'
-import type { Limiter } from './rateLimit'
-import { fillTimeVerdict } from './rateLimit'
-import { renderAuditEmail, renderContactEmail, type RenderedEmail } from './renderEmail'
-import type { SendOutcome } from './resend'
-import { parseAuditBody, parseContactBody, type ParseResult } from './validate'
+import type { MailConfig } from './config.js'
+import type { Limiter } from './rateLimit.js'
+import { fillTimeVerdict } from './rateLimit.js'
+import { renderAuditEmail, renderContactEmail, type RenderedEmail } from './renderEmail.js'
+import type { SendOutcome } from './resend.js'
+import { parseAuditBody, parseContactBody, type ParseResult } from './validate.js'
 
 export type SubmissionKind = 'audit' | 'contact'
 

@@ -9,7 +9,7 @@
  * the shared part.
  */
 
-import { respond } from '../server/endpoint'
+import { respond } from '../server/endpoint.js'
 
 /**
  * Longer than the 10 s this endpoint allows its own upstream call, so a slow
