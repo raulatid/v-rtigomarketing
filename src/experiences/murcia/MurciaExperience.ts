@@ -1044,7 +1044,6 @@ export class MurciaExperience {
       canvas: this.renderer.domElement,
       container: this.container,
       content,
-      binding,
       rig,
       keyLightDirection: new THREE.Vector3(...this.environment.sceneState.lighting.directional.position),
       viewportHeightPx: this.viewport.height * this.renderer.getPixelRatio(),

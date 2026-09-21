@@ -1,6 +1,13 @@
 import type { DistrictContent, DistrictService } from '../../src/content/types'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import {
+  DEFAULT_CAMPUS_SYMBOL,
+  isCampusFigure,
+  isCampusSymbol,
+  type CampusFigure,
+  type CampusSymbol,
+} from '../../src/content/campusShapes'
+import {
   DEFAULT_PARTICLE_COLOR,
   DISTRICT_SUMMARY_MAX,
   HEX_COLOR_PATTERN,
@@ -62,6 +69,37 @@ function measures(report: Report, path: string, value: unknown): string[] | unde
 }
 
 /**
+ * The symbol the particles form at rest. Absent is "no preference" and takes
+ * the default, because a stop has to show SOMETHING and a symbol asserts
+ * nothing about the copy.
+ *
+ * A value that IS present must be a name the campus can draw. Only the API can
+ * deliver one that is not — the Studio offers a closed list — so this fails the
+ * build rather than falling back, which would hide a mismatch between the two.
+ */
+function symbol(report: Report, path: string, value: unknown): CampusSymbol | undefined {
+  if (isBlank(value)) return DEFAULT_CAMPUS_SYMBOL
+  if (!isCampusSymbol(value)) return report.fail(path, 'not a campus symbol: ' + String(value))
+  return value
+}
+
+/**
+ * What that symbol turns into. Absent is NULL and deliberately has no default:
+ * each figure draws the one mechanism its service's copy argues, so a figure
+ * nobody chose would assert a mechanism nobody wrote. Null means the symbol
+ * stays a symbol — a hole, which someone can see and fill by editing.
+ *
+ * This used to come from a table in the scene keyed by the service's slug, and
+ * a service the table did not list rejected the whole campus document. That is
+ * why absent is a supported value here rather than a failure.
+ */
+function figure(report: Report, path: string, value: unknown): CampusFigure | null | undefined {
+  if (isBlank(value)) return null
+  if (!isCampusFigure(value)) return report.fail(path, 'not a campus figure: ' + String(value))
+  return value
+}
+
+/**
  * An optional Studio colour: absent or blank is an editorial choice ("use the
  * default"), resolved here so the shipped type is always a hex string. A value
  * that IS present must still parse; a typo fails the build. The case study's
@@ -104,17 +142,30 @@ function service(
   const color = particleColor(report, path + '.particleColor', source.particleColor, districtColor)
   const caption = figureCaption(report, path + '.figureCaption', source.figureCaption)
   const measured = measures(report, path + '.measures', source.measures)
+  const shape = symbol(report, path + '.symbol', source.symbol)
+  const turnsInto = figure(report, path + '.figure', source.figure)
   if (
     id === undefined ||
     title === undefined ||
     body === undefined ||
     color === undefined ||
     caption === undefined ||
-    measured === undefined
+    measured === undefined ||
+    shape === undefined ||
+    turnsInto === undefined
   ) {
     return undefined
   }
-  return { id, title, body, particleColor: color, figureCaption: caption, measures: measured }
+  return {
+    id,
+    title,
+    body,
+    particleColor: color,
+    figureCaption: caption,
+    measures: measured,
+    symbol: shape,
+    figure: turnsInto,
+  }
 }
 
 export const districtsCollection = collection<DistrictContent>({
@@ -136,7 +187,7 @@ export const districtsCollection = collection<DistrictContent>({
       summary,
       intro,
       particleColor,
-      services[]->{ "id": slug.current, title, body, particleColor, figureCaption, measures }
+      services[]->{ "id": slug.current, title, body, particleColor, figureCaption, measures, symbol, figure }
     }`,
   },
 

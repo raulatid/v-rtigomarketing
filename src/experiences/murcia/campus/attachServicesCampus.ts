@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { IconMasks } from './content/iconLibrary';
-import type { ServicesContent } from './content/servicesContent';
+import type { FigureKind, ServicesContent } from './content/servicesContent';
 import { findLakeBasin } from './lake/lakeBasin';
 import { attachLakeWater, type LakeWater, type LakeWaterConfig } from './lake/lakeWater';
 import { figureLayout, iconMotionLayout, type FigureMotion } from './particles/figureLayouts';
@@ -274,9 +274,11 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
   };
   const icon = (name: string, stop: number, time: number): TargetLayout =>
     iconMotionLayout(iconSamples(name), facing(stop), time, figureMotion);
-  // The symbol's samples go along because `repeat` is made of them.
-  const figure = (service: ServicesContent['services'][number], stop: number, time: number): TargetLayout =>
-    figureLayout(service.figure, facing(stop), time, figureMotion, iconSamples(service.icon));
+  // The symbol's samples go along because `repeat` is made of them. The kind is
+  // passed rather than read off the service, because a service's figure may be
+  // null and this is only ever called once that has been ruled out.
+  const figure = (kind: FigureKind, iconName: string, stop: number, time: number): TargetLayout =>
+    figureLayout(kind, facing(stop), time, figureMotion, iconSamples(iconName));
 
   const rebuildParticles = (): void => {
     samples.clear();
@@ -337,21 +339,36 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     if (!cycle) return;
     const { service, stop } = cycle;
     // `setLayout` clears the live layout, so the live one is set after it.
-    if (form === 'icon') {
-      field.setLayout(icon(service.icon, stop, 0), seconds);
-      field.setLiveLayout((time) => icon(service.icon, stop, time));
-      // Count from service entry, while allowing the symbol and camera to settle.
-      cycle.swapAt = clock + Math.max(seconds, timing.flight, timing.figureDelay);
-    } else {
+    const kind = service.figure;
+    if (form === 'figure' && kind !== null) {
       // Drawn in order, as the figure always was. Its clock starts with it, so
       // whatever travels along it sets off from where the draw put it.
-      field.setLayout(figure(service, stop, 0), seconds, timing.figureSpread);
+      field.setLayout(figure(kind, service.icon, stop, 0), seconds, timing.figureSpread);
       let start: number | null = null;
-      field.setLiveLayout((time) => figure(service, stop, time - (start ??= time)));
+      field.setLiveLayout((time) => figure(kind, service.icon, stop, time - (start ??= time)));
       cycle.swapAt = Infinity;
       cycle.captionAt = clock;
+      cycle.form = 'figure';
+      return;
     }
-    cycle.form = form;
+
+    field.setLayout(icon(service.icon, stop, 0), seconds);
+    field.setLiveLayout((time) => icon(service.icon, stop, time));
+    // When the turn would happen. A service with no figure never takes it: the
+    // Studio field is optional and has no default on purpose, because a figure
+    // draws the mechanism its copy argues and one nobody chose would draw a
+    // mechanism nobody wrote. So it is not SCHEDULED, rather than scheduled
+    // onto a stand-in.
+    const turnAt = clock + Math.max(seconds, timing.flight, timing.figureDelay);
+    cycle.swapAt = kind === null ? Infinity : turnAt;
+    // «Qué medimos» rides the same reveal as the legend, and it is ORDINARY
+    // COPY — it says nothing about a figure. So it is released on the beat the
+    // turn would have happened whether or not there is one, or a service with
+    // no figure would silently lose its highlights as well. The legend itself
+    // stays away: `campusContent.ts` drops it when there is no figure, because
+    // it exists to name one, and `write()` hides an absent caption outright.
+    if (kind === null) cycle.captionAt = turnAt;
+    cycle.form = 'icon';
   };
 
   // The one place a state change becomes something on screen.

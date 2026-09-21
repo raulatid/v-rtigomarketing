@@ -15,7 +15,9 @@
           "Base técnica para buscadores",
           "Contenidos según intención de búsqueda",
           "Seguimiento del rendimiento orgánico"
-        ]
+        ],
+        "symbol": "magnifier",
+        "figure": "compound"
       },
       {
         "id": "web-analysis",

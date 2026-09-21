@@ -20,7 +20,15 @@
  * `fillText`) is safe precisely because no string arriving here is ever markup.
  * Where content genuinely needs structure it arrives as typed BLOCKS instead —
  * never as HTML, and never through `dangerouslySetInnerHTML`.
+ *
+ * ── The one import, and why it is allowed ──
+ * `campusShapes.ts` is a sibling leaf in this same directory and carries no
+ * runtime of its own worth the name. Importing its TYPES keeps this module's
+ * zero-cost promise intact, and it is what lets a district service name its
+ * shapes in the contract rather than as a bare string every consumer re-checks.
  */
+
+import type { CampusFigure, CampusSymbol } from './campusShapes'
 
 /**
  * An image the CMS owns, normalized away from Sanity's asset shape.
@@ -508,6 +516,19 @@ export type DistrictService = Service & {
    * null when empty, and then the plate shows no legend.
    */
   figureCaption: string | null
+  /**
+   * The symbol this service's particles form at rest, a name from
+   * `campusShapes.ts`. Optional in the Studio; empty resolves, in the content
+   * build, to `DEFAULT_CAMPUS_SYMBOL`, so this is always a name.
+   */
+  symbol: CampusSymbol
+  /**
+   * What that symbol turns into, a name from `campusShapes.ts`. Optional in the
+   * Studio and NULL when empty — deliberately with no default, because a figure
+   * draws the mechanism its copy argues and one nobody chose would draw a
+   * mechanism nobody wrote. Null means the symbol stays a symbol.
+   */
+  figure: CampusFigure | null
   /**
    * The plate's «Qué medimos»: the names of what gets measured, not values.
    * Optional in the Studio; empty when none, and then the block is not drawn.

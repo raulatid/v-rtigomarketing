@@ -8,6 +8,7 @@ import { slugOptions, slugValidation } from './lib/slug'
 import { plainText } from './lib/plainText'
 import { darkColorAdvice, markupAdvice, serviceOpeningAdvice } from './lib/advice'
 import { DEFAULT_PARTICLE_COLOR, EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { CAMPUS_FIGURES, CAMPUS_SYMBOLS } from '../../src/content/campusShapes'
 
 /**
  * The lengths this schema refuses, shared with the content build.
@@ -35,6 +36,40 @@ const SHORT_TITLE_MAX = 24
  * An empty service colour resolves to its section's, which the Studio cannot
  * know from here; the picker starts at the section's default instead.
  */
+/**
+ * The Spanish names for the shapes, beside the values the campus draws.
+ *
+ * The VALUES come from `src/content/campusShapes.ts`, which the content build
+ * also reads — written twice they drift, and an option an editor can pick and
+ * the campus cannot draw looks like a choice that did nothing. The LABELS live
+ * here, because they are copy an editor reads and nothing else consumes them.
+ *
+ * Built by mapping the shared list rather than written out, so a shape added
+ * there and not named here is a compile error rather than a missing option.
+ */
+const SYMBOL_TITLES: Record<(typeof CAMPUS_SYMBOLS)[number], string> = {
+  magnifier: 'Lupa',
+  window: 'Ventana',
+  pin: 'Chincheta',
+  mark: 'Marca',
+}
+
+/**
+ * Each figure draws ONE mechanism. The title says what it draws rather than
+ * naming a shape, because the editor's question is "which of these is what my
+ * text explains?" and "Camino" alone does not answer it.
+ */
+const FIGURE_TITLES: Record<(typeof CAMPUS_FIGURES)[number], string> = {
+  compound: 'Compuesto — algo que se acumula y crece sobre sí mismo',
+  segments: 'Segmentos — un total que se reparte en partes',
+  funnel: 'Embudo — muchos entran y pocos llegan al final',
+  path: 'Camino — pasos en orden, uno detrás de otro',
+  repeat: 'Repetición — lo mismo aplicado muchas veces',
+}
+
+const SYMBOL_CHOICES = CAMPUS_SYMBOLS.map((value) => ({ value, title: SYMBOL_TITLES[value] }))
+const FIGURE_CHOICES = CAMPUS_FIGURES.map((value) => ({ value, title: FIGURE_TITLES[value] }))
+
 const PARTICLE_COLOR_INPUT = colorHexInput({
   shown: 'Así se verá junto al blanco de las partículas.',
   empty: 'Sin color: usará el de la entrada de la sección.',
@@ -51,10 +86,11 @@ const PARTICLE_COLOR_INPUT = colorHexInput({
  * fails the build naming the district and the position, rather than leaving a
  * stop missing where it would read as an editorial choice.
  *
- * The identifier keys the service to its particle symbol in
- * `cityDistrictBindings.ts` and is the blog's `?tema=` value, which is why it is
- * locked once set. That reasoning lives here, not in the description an editor
- * reads.
+ * The identifier is the blog's `?tema=` value, which is why it is locked once
+ * set: changing it breaks every link anyone has shared. It used to key the
+ * service to its particle shapes as well; those are fields on this document now
+ * (`symbol`, `figure`), so the identifier no longer decides anything about the
+ * city. That reasoning lives here, not in the description an editor reads.
  *
  * `body` is split by `district/serviceCopy.ts`: the first paragraph (or, with
  * one paragraph, the opening sentence) is the larger line under the title, and
@@ -120,9 +156,34 @@ export const service = defineType({
         rule.custom(serviceOpeningAdvice).warning(),
       ],
     }),
-    // The figure itself is drawn by code (`cityDistrictBindings.ts`), because
-    // it is geometry; only its wording is editorial. Both fields are optional
-    // so the documents published before they existed keep building.
+    // The shape this service takes around the lake. Both are optional, like
+    // `particleColor` and `measures` beside them, and for the same reason: a
+    // document published before the field existed has to keep building.
+    //
+    // They were a developer's decision in `cityDistrictBindings.ts` until
+    // 2026-09-21, keyed by this document's identifier. That made publishing a
+    // service depend on a code change, and it hid the mistake that matters:
+    // rewriting a service's copy under its existing identifier left its figure
+    // drawing the mechanism the OLD copy argued, with every test still green.
+    defineField({
+      name: 'symbol',
+      title: 'Símbolo de las partículas',
+      description:
+        'Opcional. La forma que dibujan las partículas al llegar a este servicio en la ciudad, ' +
+        'antes de transformarse. Son formas genéricas por ahora. Vacío, se usa una cualquiera.',
+      type: 'string',
+      options: { list: SYMBOL_CHOICES },
+    }),
+    defineField({
+      name: 'figure',
+      title: 'Figura en la que se transforma',
+      description:
+        'Opcional. El símbolo se convierte en esta figura mientras se lee el servicio. Elige la ' +
+        'que dibuje lo que explica tu texto: si ninguna encaja, déjalo vacío y el símbolo se ' +
+        'quedará como está. Vacío no es un error — es mejor eso que una figura que cuente otra cosa.',
+      type: 'string',
+      options: { list: FIGURE_CHOICES },
+    }),
     defineField({
       name: 'figureCaption',
       title: 'Leyenda anterior de la figura',

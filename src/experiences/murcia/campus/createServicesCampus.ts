@@ -3,7 +3,6 @@ import type { DistrictContent } from '../../../content/types';
 import type { CursorManager } from '../../../interaction/cursorManager';
 import { worldToClient } from '../../../interaction/screenSpace';
 import { DistrictA11y, type DistrictA11yView } from '../district/ui/districtA11y';
-import type { DistrictSceneBinding } from '../scene/cityDistrictBindings';
 import { attachServicesCampus, type ServicesCampus } from './attachServicesCampus';
 import { createCampusCameraAdapter, type CampusCameraRig } from './campusCameraAdapter';
 import type { CampusFraming } from './section/campusCamera';
@@ -30,7 +29,8 @@ import { CAMPUS_DOCK_QUERY, campusMobileFraming } from './campusMobileLayout';
  *
  * What it puts together:
  *   - the campus's nodes, gathered so the lab's code sees a campus-only root;
- *   - its content, from the CMS plus the scene's symbol rows;
+ *   - its content, from the CMS — including each service's symbol and figure,
+ *     which were the scene's rows until 2026-09-21 and are Studio fields now;
  *   - its symbols, rasterised once — the one asynchronous step;
  *   - the lab's `attachServicesCampus`, which brings the water, the strip, the
  *     particles, the section's camera and its copy;
@@ -54,7 +54,6 @@ export interface ServicesCampusSectionOptions {
   /** Murcia's UI host, where the copy mounts. */
   container: HTMLElement;
   content: DistrictContent;
-  binding: DistrictSceneBinding;
   rig: CampusCameraRig;
   /** Toward the scene's key light; the water's glint follows it. */
   keyLightDirection: THREE.Vector3;
@@ -143,11 +142,15 @@ export async function createServicesCampus(
   const group = gatherCampus(options.root);
   if (!group) return null;
 
-  const content = buildServicesContent(options.content, options.binding.services, locale);
+  const content = buildServicesContent(options.content, locale);
   if (!content) {
+    // No longer reachable through a missing symbol row: the shapes are Studio
+    // fields, the symbol defaults and the figure may be null. What is left is
+    // copy the parser refused, which the content build would already have
+    // failed on — so this is a floor, not a path anyone is expected to take.
     console.error(
-      `[campus] "${options.content.id}" did not make a campus document — a service with no ` +
-        'symbol row in scene/cityDistrictBindings.ts, or copy the parser refused. The campus stays scenery.',
+      `[campus] "${options.content.id}" did not make a campus document — copy the parser ` +
+        'refused. The campus stays scenery.',
     );
     return null;
   }

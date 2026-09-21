@@ -331,6 +331,67 @@ describe('district mapping rejects', () => {
     services(blank)[0].measures = ['Coste por conversión', '']
     expect(problemsFor(districtsCollection, blank)).toContain('servicios.services[0].measures[1]')
   })
+
+  it('a symbol or a figure the campus cannot draw', () => {
+    // Only the API can deliver these: the Studio offers closed lists built from
+    // the same table this validates against. Failing the build is the point —
+    // falling back would hide a disagreement between the two lists, which is
+    // the whole reason the table is shared.
+    const services = (record: Record<string, unknown>) => record.services as Array<Record<string, unknown>>
+    const symbol = validDistrict()
+    services(symbol)[0].symbol = 'spiral'
+    expect(problemsFor(districtsCollection, symbol)).toContain('servicios.services[0].symbol')
+    const figure = validDistrict()
+    services(figure)[0].figure = 'spiral'
+    expect(problemsFor(districtsCollection, figure)).toContain('servicios.services[0].figure')
+  })
+})
+
+// The two fields that decide what a service looks like around the lake.
+//
+// They were a developer's table keyed by the service's slug until 2026-09-21,
+// and a published service the table did not list rejected the WHOLE campus
+// document — the section went to scenery and the build stopped. They are
+// optional Studio fields now, and the asymmetry below is the design: a symbol
+// has a default because a stop has to form something and a symbol asserts
+// nothing, a figure has none because it draws the mechanism its copy argues.
+describe('district service shapes', () => {
+  const mapped = (record: unknown): DistrictContent => {
+    const result = districtsCollection.map(record, 0)
+    if (!result.ok) throw new Error(JSON.stringify(result.problems))
+    return result.value as DistrictContent
+  }
+
+  it('keep what the editor chose', () => {
+    const district = mapped(validDistrict())
+    expect(district.services[0]!.symbol).toBe('magnifier')
+    expect(district.services[0]!.figure).toBe('compound')
+  })
+
+  it('resolve an absent or blank symbol to the default, and an absent figure to none', () => {
+    // Every service published before the fields existed arrives without them,
+    // which is the state all five were in the day this landed.
+    const record = validDistrict()
+    const services = record.services as Array<Record<string, unknown>>
+    delete services[0].symbol
+    delete services[0].figure
+    services[1].symbol = '  '
+    services[1].figure = null
+    const district = mapped(record)
+    expect(district.services[0]!.symbol).toBe('mark')
+    expect(district.services[0]!.figure).toBeNull()
+    expect(district.services[1]!.symbol).toBe('mark')
+    expect(district.services[1]!.figure).toBeNull()
+  })
+
+  it('let a whole section publish with no figure chosen anywhere', () => {
+    const record = validDistrict()
+    for (const service of record.services as Array<Record<string, unknown>>) {
+      delete service.figure
+    }
+    expect(problemsFor(districtsCollection, record)).toEqual([])
+    expect(mapped(record).services.every((s) => s.figure === null)).toBe(true)
+  })
 })
 
 describe('district figure captions and measures', () => {

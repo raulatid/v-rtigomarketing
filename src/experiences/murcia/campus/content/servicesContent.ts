@@ -20,14 +20,33 @@
  * `figure` is one of `FIGURE_KINDS`. `detail` is the rest of the copy, under
  * the subtitle. `color` is `#rrggbb`, mixed with white in the particles.
  * `caption` names what the figure draws, or is null; `measures` may be empty.
+ *
+ * `figure` may be NULL, and that is a supported document rather than a broken
+ * one: the Studio field is optional and has no default, so a service whose copy
+ * has been rewritten but whose figure nobody has re-chosen keeps its symbol and
+ * turns into nothing. Rejecting the set for it — which is what happened while
+ * the figure came from a table keyed by slug — took the whole campus down to
+ * scenery over one service.
  */
+
+import {
+  CAMPUS_FIGURES,
+  isCampusFigure,
+  type CampusFigure,
+} from '../../../../content/campusShapes';
 
 /**
  * Each figure draws the one mechanism its service's copy states — see
  * `figureLayouts.ts` — so a figure belongs to a service, not to a style.
+ *
+ * Re-exported rather than declared. The list moved to `src/content/campusShapes.ts`
+ * when the choice became a Studio field: the Sanity schema has to offer these
+ * options and the content build has to refuse anything else, and neither of
+ * those may import an experience (`checks/architecture.ts` §1b). The name stays
+ * because the campus is full of it.
  */
-export const FIGURE_KINDS = ['compound', 'segments', 'funnel', 'path', 'repeat'] as const;
-export type FigureKind = (typeof FIGURE_KINDS)[number];
+export const FIGURE_KINDS = CAMPUS_FIGURES;
+export type FigureKind = CampusFigure;
 
 export interface IntroContent {
   readonly title: string;
@@ -43,8 +62,8 @@ export interface ServiceContent {
   readonly subtitle: string;
   /** A key of the icon library. Checked when the campus is attached. */
   readonly icon: string;
-  /** What the symbol turns into and back from. */
-  readonly figure: FigureKind;
+  /** What the symbol turns into and back from. Null: it stays a symbol. */
+  readonly figure: FigureKind | null;
   /** The rest of the copy, under the subtitle. */
   readonly detail: string;
   /** Mixed with white in the symbol and the figure, `#rrggbb`. */
@@ -66,8 +85,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isFilledString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
 
-const isFigureKind = (value: unknown): value is FigureKind =>
-  typeof value === 'string' && (FIGURE_KINDS as readonly string[]).includes(value);
+const isFigureKind = isCampusFigure;
 
 const isHexColor = (value: unknown): value is string =>
   typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
@@ -95,7 +113,10 @@ function parseService(value: unknown): ServiceContent | null {
   const caption = value['caption'];
   const measures = value['measures'];
   if (!isFilledString(id) || !isFilledString(title) || !isFilledString(subtitle)) return null;
-  if (!isFilledString(icon) || !isFigureKind(figure) || !isFilledString(detail)) return null;
+  // `figure` is the one field a valid document may omit: null is "keeps its
+  // symbol", and only a string that is not a figure kind is a mistake.
+  if (!isFilledString(icon) || !isFilledString(detail)) return null;
+  if (figure !== null && !isFigureKind(figure)) return null;
   if (!isHexColor(color)) return null;
   if (caption !== null && !isFilledString(caption)) return null;
   if (!Array.isArray(measures) || !measures.every(isFilledString)) return null;

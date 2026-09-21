@@ -56,11 +56,14 @@ const PARTICLE_COLOR_INPUT = colorHexInput({
  * welded to the 3D city, and `sanity.config.ts` removes "create", "duplicate"
  * and "delete" for this type. The editor edits its text and nothing else.
  *
- * ── Why the services list says "ask first" ──
- * Reordering is free. Adding or removing a service is not: every service in the
- * list needs a symbol row in `cityDistrictBindings.ts`, and
- * `cityDistrictBindings.test.ts` fails the build when the two lists differ. The
- * description tells the editor to ask, because nothing here can check the code.
+ * ── The services list is the editor's, as of 2026-09-21 ──
+ * Adding, removing and reordering are all free now. They were not: every service
+ * needed a symbol row in `cityDistrictBindings.ts` that only a developer could
+ * write, so the list was `readOnly` with add and remove disabled and the
+ * description told the editor to ask. The shapes moved onto the service document
+ * (`symbol`, `figure`), which left nothing technical to ask about. What still
+ * holds is the cap — `EDITORIAL_BOUNDS.district.services` — and the requirement
+ * that a listed service actually be published, which `serviceMembership` checks.
  */
 export const district = defineType({
   name: 'district',
@@ -164,13 +167,18 @@ export const district = defineType({
       name: 'services',
       title: 'Servicios y su orden',
       description:
-        'Arrástralos para cambiar el orden en que se visitan. Para añadir o quitar un servicio, ' +
-        'avisa antes al equipo técnico: cada uno necesita su propio símbolo en la ciudad, y sin ' +
-        'él la web no se actualiza.',
+        'Añade, quita y arrastra para cambiar el orden en que se visitan. Cada servicio es una ' +
+        'parada alrededor del lago. Su texto se edita en «Todos los servicios», y ahí mismo se ' +
+        'eligen su símbolo y su figura.',
       type: 'array',
       fieldset: 'servicios',
-      options: { disableActions: ['add', 'addBefore', 'addAfter', 'remove', 'duplicate', 'copy'], sortable: true },
-      of: [defineArrayMember({ type: 'reference', to: [{ type: 'service' }], readOnly: true })],
+      // Adding and removing were disabled until 2026-09-21, because each service
+      // needed a symbol row in `cityDistrictBindings.ts` that only a developer
+      // could write. The shapes are fields on the service document now, so there
+      // is nothing technical left to do and no reason to hold the editor back.
+      // The campus sizes itself: `stops` is `content.services.length + 1`.
+      options: { sortable: true },
+      of: [defineArrayMember({ type: 'reference', to: [{ type: 'service' }] })],
       validation: (rule) => [
         rule.required().min(1).error('Añade al menos un servicio.'),
         rule.max(BOUNDS.services).error(`Como máximo ${BOUNDS.services} servicios.`),

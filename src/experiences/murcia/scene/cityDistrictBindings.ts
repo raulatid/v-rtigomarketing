@@ -1,9 +1,14 @@
 /**
  * Binds editorial district content to its scene composition.
  *
- * Separate from the generated content on purpose: which shape a service takes
- * in the city is not editorial copy, and mixing the two puts a marketing edit
- * one typo away from moving the composition.
+ * Separate from the generated content on purpose: where the scene's geometry is
+ * and what it is called changes when the GLB is re-exported, not when marketing
+ * writes, so it must not be a marketing edit away from moving.
+ *
+ * The boundary is "does a re-export change it", NOT "is it visual". That
+ * distinction was got wrong once — a service's symbol and figure are visual, so
+ * they were kept here, and they turned out to belong to whoever writes the
+ * copy. See what the rows cost, below.
  *
  * ## What it has bound, in order
  *
@@ -18,52 +23,37 @@
  * looking, so neither number has a reader any more. Why the yaw had to turn
  * half round is in git history; it described a plaza no longer in the city.
  *
- * ## What it binds now: each service to a symbol
+ * Until 2026-09-21 it also carried one row per service — a symbol and a figure,
+ * keyed by the service's slug. That arrangement made an editorial act depend on
+ * a code change: a published service with no row produced no shapes, which
+ * `parseServicesContent` rejects per DOCUMENT, so ONE unlisted service took the
+ * whole campus down to scenery and the build down with it.
  *
- * The campus forms each service out of particles: a symbol at rest, a figure
- * when its detail opens. Which ones is scene composition, not copy — the CMS
- * carries `{ id, title, body }` and no Sanity change was wanted — so the
- * per-service rows are back, with a different payload. Every published service
- * needs a row; the unit test fails otherwise, and so would the campus's
- * content (`campus/campusContent.ts`).
+ * It also hid the mistake that matters. The rows were keyed by slug and the
+ * tests compared SETS of ids, so rewriting a service's copy under its existing
+ * slug kept every test green while its figure went on drawing the mechanism the
+ * old copy argued. On 2026-09-21 four of five services were in exactly that
+ * state, and the only one that made any noise was the fifth, whose slug had
+ * changed.
+ *
+ * Both are Studio fields now, offered as closed lists from
+ * `src/content/campusShapes.ts`. The symbol defaults; the figure has no default
+ * and may be null, because a figure asserts something about the copy and a
+ * symbol does not.
+ *
+ * ## What it binds now
+ *
+ * One thing: which district content this city's services section shows. That
+ * survives because it is genuinely scene composition — the id is welded to the
+ * lake in the GLB, which is why `sanity.config.ts` will not let an editor
+ * create or delete the document.
  */
-
-import type { FigureKind } from '../campus/content/servicesContent';
-
-/** One service's shapes in the campus's particle field. */
-export interface ServiceSymbolBinding {
-  /** References `Service.id` within the district's content. */
-  serviceId: string;
-  /** A key of `campus/content/campusIcons.ts`. */
-  icon: string;
-  /**
-   * What the symbol turns into and holds: the mechanism the service's copy
-   * states, drawn (`campus/particles/figureLayouts.ts`). Changing a service's
-   * copy can make its figure wrong; the Studio's `figureCaption` names it.
-   */
-  figure: FigureKind;
-}
 
 export interface DistrictSceneBinding {
   /** References `DistrictContent.id`. */
   contentId: string;
-  /**
-   * One row per published service, in any order — the tour order is the
-   * content's. Placeholders until the real artwork arrives: four symbols for
-   * five services, so one repeats, and never on neighbours.
-   */
-  services: readonly ServiceSymbolBinding[];
 }
 
 export const cityDistrictBindings: readonly DistrictSceneBinding[] = [
-  {
-    contentId: 'servicios',
-    services: [
-      { serviceId: 'seo', icon: 'magnifier', figure: 'compound' },
-      { serviceId: 'web-analysis', icon: 'window', figure: 'funnel' },
-      { serviceId: 'content-strategy', icon: 'magnifier', figure: 'path' },
-      { serviceId: 'paid-campaigns', icon: 'pin', figure: 'segments' },
-      { serviceId: 'brand-identity', icon: 'mark', figure: 'repeat' },
-    ],
-  },
+  { contentId: 'servicios' },
 ];

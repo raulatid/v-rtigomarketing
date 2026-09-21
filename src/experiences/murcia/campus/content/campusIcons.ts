@@ -5,12 +5,14 @@ import type { IconLibrary } from './iconLibrary';
  *
  * PLACEHOLDERS. These are the lab's four stand-ins (`service-campus/demo/
  * placeholderIcons.ts`), copied as they are until the real artwork arrives.
- * Replacing one is replacing its string: the NAMES are what
- * `scene/cityDistrictBindings.ts` points each service at, and they stay.
+ * Replacing one is replacing its string: the NAMES are `CAMPUS_SYMBOLS` in
+ * `src/content/campusShapes.ts`, they are offered to the editor as a closed
+ * list in the Studio, and they stay.
  *
  * In code rather than in the CMS by rule (`iconLibrary.ts`): an SVG from the
  * CMS is refused as a file, so the library ships in the bundle, an editor picks
- * by name, and nothing untrusted is ever rasterised.
+ * by name, and nothing untrusted is ever rasterised. `campusIcons.test.ts` is
+ * what stops a name being offered before anything here can draw it.
  *
  * Each value is square SVG markup with `width` and `height` declared; the
  * sampler reads alpha, so a hole is a subpath, never a dark fill.
