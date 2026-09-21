@@ -111,6 +111,44 @@ export const EDITORIAL_BOUNDS = {
      * build knew about was a failed deployment for a PNG that looked fine.
      */
     brandMarkBytes: 4 * 1024 * 1024,
+    /**
+     * The box inside its atlas cell that each brand mark is contain-fitted into,
+     * in cell pixels. `createBrandAtlas.ts` owns the cells and the padding —
+     * 512×512 padded by (40, 72) and 1024×512 padded by (64, 72) — and
+     * `createBrandAtlas.test.ts` asserts these two agree with it, because that
+     * module is under `src/experiences/` and neither the Studio nor `content/`
+     * may import it.
+     *
+     * Restated here because BOTH of them need it and got it wrong: the Studio
+     * advised against 432×432 and 900×400, and the build's comment repeated
+     * them, for a fortnight after `PAD_Y` was unified at 72. Two hand-copies of
+     * a derived number drifting from their source is precisely this table's
+     * subject.
+     */
+    brandMarkBox: {
+      isotype: { width: 432, height: 368 },
+      logo: { width: 896, height: 368 },
+    },
+    /**
+     * How much of the box a mark must still occupy, in cell pixels, on BOTH
+     * axes once it has been contain-fitted.
+     *
+     * THE RULE THAT REPLACED AN ASPECT BAND (2026-09-21). The isotype used to be
+     * refused outside 3:4–4:3, then 3:4–2:1, and each time a real brand arrived
+     * just outside it the number moved — because the aspect was a proxy for the
+     * thing anyone actually cares about, which is how tall the mark ends up.
+     * Stating that directly stops the ratchet and lets the message name the size
+     * the editor will get.
+     *
+     * 144 is where a symbol stops being a symbol. Past 432/144 = 3:1 the mark is
+     * a strip about 8px tall on the ~30px resting panel; at 2.35:1, the widest
+     * real asset so far, it draws 432×184 and reads.
+     *
+     * The isotype only. The logo keeps an aspect band, because its bound is not
+     * legibility — a lockup has to be HORIZONTAL to make sense of a panel that
+     * unfolds to 2:1, and a square one is not a lockup however large it draws.
+     */
+    brandMarkMinDrawn: 144,
     metricLabel: 40,
     metricValue: 20,
     chartTitle: 80,

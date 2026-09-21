@@ -39,7 +39,7 @@ se ven más grandes y más nítidas.
 |---|---|
 | **Formato** | **WebP** con canal alfa, calidad ≈ 90 o lossless. También se acepta **PNG-24**. **Nada más:** un JPG se rechaza al subirlo (no tiene alfa: sería un rectángulo sobre el panel) y un SVG también, por el motivo de más abajo. |
 | **Dimensiones** | **512 × 512 px** ideal, cuadrado. Hasta 1024 × 1024 si el símbolo tiene mucho detalle. La caja en la que se dibuja mide 432 × 368 (la celda es cuadrada, pero lleva más margen arriba y abajo que a los lados): por debajo se amplía y pierde nitidez, con un aviso en el Studio. |
-| **Proporción** | **1:1 ideal.** El panel en reposo es cuadrado, así que un símbolo cuadrado es el que se dibuja más alto. Se acepta **de 3:4 a 2:1** con un aviso. **Fuera de ahí se rechaza:** por debajo de 3:4 el símbolo se dibuja estrecho, y por encima de 2:1 queda como una tira que no se lee en la vista general. |
+| **Proporción** | **1:1 ideal.** El panel en reposo es cuadrado, así que un símbolo cuadrado es el que se dibuja más alto. **Cualquier otra proporción se acepta mientras el símbolo siga dibujándose al menos 144 px** —de alto si es apaisado, de ancho si es vertical— y recibe un aviso. En la práctica: **de 1:2,5 a 3:1**. Fuera de ahí queda como una tira y no se lee en la vista general. El aviso dice el tamaño exacto al que se va a dibujar. |
 | **Contenido** | **Solo el símbolo.** Sin el nombre de la marca, sin claim, sin recuadro. Si la marca no tiene símbolo separable del nombre, ver abajo. |
 | **Fondo** | **Totalmente transparente.** Sin caja blanca, sin tarjeta redondeada, sin sombra. |
 | **Márgenes** | **Cero.** Recortar ajustado a la caja delimitadora. **El margen lo pone la aplicación.** |
@@ -54,10 +54,11 @@ Tres salidas, en orden de preferencia:
 1. **La inicial o el monograma** de la marca en su tipografía y color oficiales,
    recortada a cuadrado. Es lo que hacen sus propios perfiles sociales y su
    favicon — se puede pedir ese archivo por su nombre.
-2. **El logotipo completo recortado lo más cuadrado que aguante.** Hasta 2:1 se
+2. **El logotipo completo recortado lo más cuadrado que aguante.** Hasta 3:1 se
    acepta. Cuanto más apaisado, más bajo se dibuja: un 1:1 ocupa 368 px de alto
-   en la celda, un 2:1 solo 216. El ancho no cambia a partir de 1,17:1 — ahí la
-   marca ya llena la caja a lo ancho y lo único que pierde es altura.
+   en la celda, un 2:1 son 216 y un 3:1 solo 144. El ancho no cambia a partir de
+   1,17:1 — ahí la marca ya llena la caja a lo ancho y lo único que pierde es
+   altura.
 3. **No entregar ninguno de los dos** y dejar la placa generada. Es preferible a
    inventar un símbolo que la marca no tiene, y también a entregar una tira
    ilegible: la placa es un anillo con la inicial y el color de marca, y está
@@ -136,10 +137,18 @@ propio campo, además de fallar la compilación.
 de respuesta:
 
 - **Error, en rojo, con Publicar deshabilitado** — formato distinto de PNG o
-  WebP, más de 4 MB, o
-  una proporción fuera de las bandas de las tablas de arriba.
-- **Aviso, en amarillo, publicable** — por debajo de la caja en la que se dibuja (432 × 368 el isotipo, 896 × 368 el logotipo; se amplía y pierde nitidez), por debajo del tamaño ideal, mucho más
-  grande de lo necesario, o una proporción que funciona pero no es la óptima.
+  WebP, más de 4 MB, un isotipo que se dibujaría por debajo de 144 px, o un
+  logotipo fuera de 1,5:1 – 5:1.
+- **Aviso, en amarillo, publicable** — la imagen hay que **ampliarla** para
+  llenar su hueco (432 × 368 el isotipo, 896 × 368 el logotipo) y perderá
+  nitidez, está por debajo del tamaño ideal, es mucho más grande de lo
+  necesario, o tiene una proporción que funciona pero no es la óptima.
+
+> El aviso de nitidez mira si hay que **ampliar** la imagen, no si es más
+> pequeña que el hueco en las dos dimensiones. Una marca apaisada nunca puede
+> ser tan alta como el hueco sin ser mucho más ancha que él: un archivo de
+> 512 × 218 se dibuja a 432 × 184, o sea **reducido y nítido**, y hasta
+> 2026-09-21 se le decía que saldría borroso.
 
 El mensaje dice siempre qué mide el archivo y qué debería medir. Todo esto sale
 de leer el nombre del asset (`image-<hash>-1600x800-webp`), así que es inmediato:

@@ -8,6 +8,7 @@ import { siteSettingsCollection } from './siteSettings.collection'
 import { blogPostsCollection } from './blogPosts.collection'
 import { legalDocsCollection } from './legalDocs.collection'
 import { COLLECTIONS } from './index'
+import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import caseFixtures from '../fixtures/caseStudy.json'
 import districtFixtures from '../fixtures/district.json'
 import serviceFixtures from '../fixtures/service.json'
@@ -1023,14 +1024,19 @@ describe('the case-study projection hands the mirror what it expects', () => {
     // advises on rather than the build refusing (mirror.ts, assertGeometry).
     expect(rules.isotype).not.toHaveProperty('minWidth')
     expect(rules.logo).not.toHaveProperty('minWidth')
-    // The bands themselves, not merely their sign. These four numbers are
-    // written twice on purpose — `sanity-studio/schemas/lib/brandMark.ts` holds
-    // the same ones so an editor is stopped at the field rather than by a failed
-    // deploy — and neither package may import the other. A loose assertion
-    // ("minAspect < 1") passes however far the two copies drift, which is the
-    // one failure this pair has.
-    expect(rules.isotype.minAspect).toBe(0.75)
-    expect(rules.isotype.maxAspect).toBe(2)
+    // The bands themselves, not merely their sign. A loose assertion
+    // ("minAspect < 1") passes however far this and the Studio's copy drift,
+    // which is the one failure a hand-duplicated pair actually has.
+    //
+    // The isotype's is DERIVED from the drawn-size floor, so the assertion is
+    // the derivation rather than two more literals: a mark at exactly the
+    // ceiling draws `minDrawn` tall, and one at the floor draws `minDrawn` wide.
+    const { brandMarkBox, brandMarkMinDrawn } = EDITORIAL_BOUNDS.caseStudy
+    expect(brandMarkBox.isotype.width / rules.isotype.maxAspect).toBe(brandMarkMinDrawn)
+    expect(brandMarkBox.isotype.height * rules.isotype.minAspect).toBe(brandMarkMinDrawn)
+    // 2.35:1 is the widest real brand asset delivered so far. It has to pass, or
+    // the floor is not where this says it is.
+    expect(512 / 218).toBeLessThan(rules.isotype.maxAspect)
     expect(rules.logo.minAspect).toBe(1.5)
     expect(rules.logo.maxAspect).toBe(5)
   })

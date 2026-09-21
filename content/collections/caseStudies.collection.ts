@@ -32,12 +32,23 @@ import { collection, type MediaRule } from './types'
  *
  * The aspect bands are wide on purpose. The renderer contain-fits, so a shape it
  * did not expect is never broken, only small — these bounds mark where "small"
- * becomes "illegible". Past 432/368 = 1.174 a mark is WIDTH-bound and already
- * drawn as wide as the box allows, so a 2:1 isotype is wider on screen than a
- * square one and 42% as tall; at 3:1 it is a strip. Hence 3:4 to 2:1 — it was
- * 4:3 until 2026-09-21, which sent a brand with a genuinely landscape symbol
- * away to invent a square crop of a mark that has none. A lockup between 1.5:1
- * and 5:1 reads inside the 2:1 expanded panel; one outside that does not.
+ * becomes "illegible".
+ *
+ * ── The isotype's band is DERIVED, not chosen ──
+ * `mirror.ts` can only express an aspect band, but the rule is about the drawn
+ * size: a mark must still occupy `brandMarkMinDrawn` pixels on both axes of its
+ * box once contained. Past 432/368 = 1.174 a mark is width-bound, so the wide
+ * ceiling is box.width / minDrawn and the portrait floor is minDrawn /
+ * box.height. Computed from the same two shared numbers the Studio uses, so the
+ * two tiers cannot disagree about where the line is.
+ *
+ * It was a hand-picked band until 2026-09-21 and it moved twice in one day —
+ * 4:3, then 2:1 — because each real brand landed just outside it. The aspect was
+ * a proxy for the drawn height; the ratchet was the proxy's fault.
+ *
+ * The logo keeps a chosen band, and that is not an inconsistency: its bound is
+ * not legibility. A lockup has to be HORIZONTAL to make sense of a panel that
+ * unfolds to 2:1, and a square logo is not a lockup however large it draws.
  *
  * ── PNG and WebP only ──
  * Both carry an alpha channel. A JPEG does not, so it would ship a rectangle of
@@ -51,11 +62,15 @@ import { collection, type MediaRule } from './types'
  * isotype/logo pairing rule below. Change `docs/earth/logo-spec.md` first, then
  * both copies.
  */
+const ISOTYPE_BOX = EDITORIAL_BOUNDS.caseStudy.brandMarkBox.isotype
+const MIN_DRAWN = EDITORIAL_BOUNDS.caseStudy.brandMarkMinDrawn
+
 const BRAND_MARK_RULES: Record<string, MediaRule> = {
   isotype: {
     extensions: ['png', 'webp'],
-    minAspect: 0.75,
-    maxAspect: 2,
+    // 144 / 368 ≈ 0.391 and 432 / 144 = 3. See the derivation above.
+    minAspect: MIN_DRAWN / ISOTYPE_BOX.height,
+    maxAspect: ISOTYPE_BOX.width / MIN_DRAWN,
   },
   logo: {
     extensions: ['png', 'webp'],

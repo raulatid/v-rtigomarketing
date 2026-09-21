@@ -28,6 +28,8 @@
  * same content-addressed-id fact is already load-bearing in `mirror.ts`.
  */
 
+import { EDITORIAL_BOUNDS } from '../../../src/content/editorialBounds'
+
 export type BrandMarkKind = 'isotype' | 'logo'
 
 export interface ParsedImageAsset {
@@ -48,15 +50,6 @@ interface BrandMarkSpec {
   readonly idealWidth: number
   readonly idealHeight: number
   /**
-   * Below either of these the artwork is upscaled into its atlas cell and
-   * draws soft. Warning, not error, since 2026-09-19: some brands have no
-   * larger artwork, the atlas contain-fits anything, and a softer mark is a
-   * trade-off the editor can see in the preview — unlike a wrong shape, which
-   * no scaling fixes. The build no longer counts pixels either (mirror.ts).
-   */
-  readonly minWidth: number
-  readonly minHeight: number
-  /**
    * The widest source still worth its bytes; above it, a warning.
    *
    * Both values are ~2.4× the atlas box the artwork is fitted into — 432 and
@@ -66,9 +59,13 @@ interface BrandMarkSpec {
    * multiple, rounded to the neighbouring power of two.
    */
   readonly wastefulWidth: number
-  /** Outside this band the mark draws too small to read. Error. */
-  readonly aspectMin: number
-  readonly aspectMax: number
+  /**
+   * The isotype has NO aspect band: it is judged on its drawn size against
+   * `brandMarkMinDrawn`, which is the header's subject. The logo has one,
+   * because "a lockup must be horizontal" is not a statement about size.
+   */
+  readonly aspectMin?: number
+  readonly aspectMax?: number
   /** Outside this band it still works, but bigger is available. Warning. */
   readonly idealAspectMin: number
   readonly idealAspectMax: number
@@ -78,56 +75,63 @@ interface BrandMarkSpec {
 /**
  * The numbers, and where each one comes from.
  *
- * `createBrandAtlas.ts` pads BOTH cells by `PAD_Y` = 72 vertically, and by 40
- * (isotype, 512×512) and 64 (logo, 1024×512) horizontally. So the artwork is
- * fitted into a **432×368** box and an **896×368** box, which is what the
- * minimums are. Those two figures were 432×432 and 900×400 here until
- * 2026-09-21, inherited from before `PAD_Y` was unified — the advice tier was
- * measuring against a box that had not existed for a fortnight. The ideals come
- * from `docs/earth/logo-spec.md`: roughly 2× the box, so thin strokes survive
- * the downscale at the case-panel close-up.
+ * The boxes the artwork is fitted into live in
+ * `EDITORIAL_BOUNDS.caseStudy.brandMarkBox` — 432×368 and 896×368 — because
+ * `content/` needs them too and neither package may import the atlas that owns
+ * them. They were restated here as 432×432 and 900×400 until 2026-09-21, from
+ * before `PAD_Y` was unified at 72, and the advice tier spent a fortnight
+ * telling editors their artwork was too small for a hole that did not exist.
+ * `createBrandAtlas.test.ts` now asserts the shared copy against the real cells.
  *
- * ── The isotype's band, and why it reaches 2:1 ──
+ * The ideals come from `docs/earth/logo-spec.md`: a canonical delivery size
+ * comfortably above the box, so thin strokes survive the downscale at the
+ * case-panel close-up.
+ *
+ * ── The isotype is judged on what it DRAWS, not on its aspect ──
  *
  * NOTHING in the renderer requires a square isotype. `fitInk` contains any
  * aspect on its measured ink and the panel shader contains the cell into a
  * field whose own aspect animates from 1:1 to 2:1; both are asserted across
- * 1:1, 2:1, 4:1 and portrait. The band is a LEGIBILITY judgement, and it is
- * written twice on purpose — see the header — so it has to be justified once,
- * here, in numbers:
+ * 1:1, 2:1, 4:1 and portrait. The bound is a LEGIBILITY judgement, so it is
+ * stated as the quantity legibility depends on:
  *
- *     aspect   drawn      of the cell's height
- *     1:1      368×368    71.9%
- *     4:3      432×324    63.3%     <- the old ceiling
- *     2:1      432×216    42.2%
- *     3:1      432×144    28.1%
+ *     aspect   drawn      ≈ on the 30px resting panel
+ *     1:1      368×368    21.6 × 21.6
+ *     4:3      432×324    25.3 × 19.0
+ *     2:1      432×216    25.3 × 12.7
+ *     2.35:1   432×184    25.3 × 10.8
+ *     3:1      432×144    25.3 ×  8.4   <- the floor
  *
- * Anything wider than 432/368 = 1.174 is WIDTH-bound, so it is already drawn as
- * wide as the box allows: a 2:1 mark is wider on screen than a square one, and
- * shorter. It reads. At 3:1 the height has halved again and the mark is a strip.
+ * Anything wider than 432/368 = 1.174 is WIDTH-bound and already drawn as wide
+ * as the box allows, so what a landscape mark loses is HEIGHT and nothing else.
+ * `EDITORIAL_BOUNDS.caseStudy.brandMarkMinDrawn` is where that height stops
+ * being a symbol.
  *
- * 2:1 rather than 4:3 since 2026-09-21, because a brand whose symbol is
- * genuinely landscape was being sent away to invent a square crop of a mark that
- * has none, and no padding change can help it — `padX` is already the tightest
- * number in the atlas. The advice tier still says a square one draws taller.
+ * This was an aspect band until 2026-09-21 and it moved twice in one day — 4:3,
+ * then 2:1 — because each real brand arrived just outside whatever the number
+ * was. The aspect was a proxy; the ratchet was the proxy's fault. Saying "at
+ * least 144 drawn pixels" fixes the bound to something that will not move, and
+ * lets the message name the size the editor is actually going to get.
  *
- * The portrait side is unchanged at 3:4: a tall mark is height-bound, so it
- * loses WIDTH, and the resting panel has width to spare in a way it does not
- * have height.
+ * Symmetric, so the portrait side moved with it: a tall mark is height-bound and
+ * loses WIDTH instead, and is refused at the same 144. That loosens portrait
+ * from 3:4 to about 1:2.6, which is deliberate — the same argument applies, and
+ * a vertical mark drawn 147×368 is no less readable than a horizontal one drawn
+ * 432×147.
  *
- * The logo's is 1.5:1–5:1 around an ideal 2:1–4:1, because the expanded panel is
- * 2:1 and a taller lockup is drawn small inside it.
+ * ── The logo keeps an aspect band, and that is not an inconsistency ──
+ *
+ * Its bound is not legibility. A lockup has to be HORIZONTAL to make sense of a
+ * panel that unfolds to 2:1, and a square logo is not a lockup however large it
+ * draws — a rule about drawn size could not express that. 1.5:1–5:1 around an
+ * ideal 2:1–4:1.
  */
 const BRAND_MARK_SPEC: Record<BrandMarkKind, BrandMarkSpec> = {
   isotype: {
     noun: 'El isotipo',
     idealWidth: 512,
     idealHeight: 512,
-    minWidth: 432,
-    minHeight: 368,
     wastefulWidth: 1024,
-    aspectMin: 0.75,
-    aspectMax: 2,
     idealAspectMin: 1,
     idealAspectMax: 1,
     aspectAdvice:
@@ -137,8 +141,6 @@ const BRAND_MARK_SPEC: Record<BrandMarkKind, BrandMarkSpec> = {
     noun: 'El logotipo completo',
     idealWidth: 1600,
     idealHeight: 800,
-    minWidth: 896,
-    minHeight: 368,
     wastefulWidth: 2048,
     aspectMin: 1.5,
     aspectMax: 5,
@@ -183,6 +185,32 @@ function size(asset: ParsedImageAsset): string {
   return asset.width + '×' + asset.height
 }
 
+/**
+ * What this file will actually be drawn at, in cell pixels, and by how much it
+ * has to be scaled to get there.
+ *
+ * The same contain-fit as `fitInk` in `createBrandAtlas.ts`: the mark is scaled
+ * until it fits the box on both axes, never cropped and never distorted. A
+ * `scale` above 1 means the file is being ENLARGED, which is the only thing
+ * that makes a mark soft.
+ *
+ * Approximate in one known way, and harmlessly. The atlas fits the measured
+ * INK; this can only see the file. They agree exactly for the tight trim the
+ * spec asks for, and where they differ the file is the more pessimistic of the
+ * two — a mark with baked-in margins draws bigger than this predicts, never
+ * smaller. So no artwork is refused for a margin the atlas is about to crop.
+ */
+function drawn(asset: ParsedImageAsset, kind: BrandMarkKind) {
+  const box = EDITORIAL_BOUNDS.caseStudy.brandMarkBox[kind]
+  const scale = Math.min(box.width / asset.width, box.height / asset.height)
+  return {
+    width: Math.round(asset.width * scale),
+    height: Math.round(asset.height * scale),
+    scale,
+    box,
+  }
+}
+
 /** `1,7:1` — one decimal, comma, as Spanish writes it. */
 function ratio(asset: ParsedImageAsset): string {
   return (asset.width / asset.height).toFixed(1).replace('.', ',') + ':1'
@@ -223,34 +251,44 @@ export function brandMarkErrors(kind: BrandMarkKind) {
     }
 
     const aspect = asset.width / asset.height
-    // Two messages rather than one, because the two ways out are different: a
-    // tall mark is usually a lockup that needs cropping to its symbol, a very
-    // wide one usually has no square version at all and the way out is to leave
-    // both fields empty.
-    if (kind === 'isotype' && aspect < spec.aspectMin) {
-      return (
-        spec.noun +
-        ' es más alto que ancho. Esta imagen mide ' +
-        size(asset) +
-        ' (' +
-        ratio(asset) +
-        '). El panel en reposo es cuadrado, así que un símbolo vertical se dibuja estrecho ' +
-        'y pequeño. Recorta solo el símbolo, ajustado y sin márgenes.'
-      )
+
+    // The isotype is judged on what it DRAWS. Two messages rather than one,
+    // because the two ways out are different: a very tall mark is usually a
+    // lockup that needs cropping to its symbol, a very wide one usually has no
+    // square version at all and the way out is to leave both fields empty.
+    if (kind === 'isotype') {
+      const fit = drawn(asset, kind)
+      const floor = EDITORIAL_BOUNDS.caseStudy.brandMarkMinDrawn
+      const at = ' Con esta forma se dibujaría ' + fit.width + '×' + fit.height +
+        ' dentro de un hueco de ' + fit.box.width + '×' + fit.box.height + '.'
+      if (fit.height < floor) {
+        return (
+          spec.noun +
+          ' es demasiado apaisado: ' +
+          size(asset) +
+          ' (' +
+          ratio(asset) +
+          ').' +
+          at +
+          ' Queda como una tira y no se lee en la vista general. Si la marca no tiene un ' +
+          'símbolo aparte del nombre, deja los dos campos vacíos y la web dibuja su propia placa.'
+        )
+      }
+      if (fit.width < floor) {
+        return (
+          spec.noun +
+          ' es demasiado estrecho: ' +
+          size(asset) +
+          ' (' +
+          ratio(asset) +
+          ').' +
+          at +
+          ' Recorta solo el símbolo, ajustado y sin márgenes.'
+        )
+      }
     }
-    if (kind === 'isotype' && aspect > spec.aspectMax) {
-      return (
-        spec.noun +
-        ' es demasiado apaisado: ' +
-        size(asset) +
-        ' (' +
-        ratio(asset) +
-        '). Como máximo el doble de ancho que alto; por encima de eso se dibuja como una ' +
-        'tira y no se lee en la vista general. Si la marca no tiene un símbolo aparte del ' +
-        'nombre, deja los dos campos vacíos y la web dibuja su propia placa.'
-      )
-    }
-    if (kind === 'logo' && aspect < spec.aspectMin) {
+
+    if (kind === 'logo' && aspect < spec.aspectMin!) {
       return (
         spec.noun +
         ' es apaisado: al menos vez y media más ancho que alto. Esta imagen mide ' +
@@ -261,7 +299,7 @@ export function brandMarkErrors(kind: BrandMarkKind) {
         'y la web dibuja su propia placa.'
       )
     }
-    if (kind === 'logo' && aspect > spec.aspectMax) {
+    if (kind === 'logo' && aspect > spec.aspectMax!) {
       return (
         'Demasiado alargada: ' +
         size(asset) +
@@ -304,14 +342,22 @@ export function brandMarkAdvice(kind: BrandMarkKind) {
       )
     }
 
-    if (asset.width < spec.minWidth || asset.height < spec.minHeight) {
+    // WILL IT BE ENLARGED — the only thing that makes a mark soft. Asked of the
+    // contain-fit rather than of each dimension against the box, which is what
+    // it was until 2026-09-21 and was simply wrong for anything not square: a
+    // 512×218 isotype is 218px tall against a 368px box, so it was told it
+    // would be "amplía[da] ... borrosa" while in fact it is DOWNSCALED 512→432
+    // and perfectly sharp. A landscape mark can never be as tall as the box
+    // without being far wider than it.
+    const fit = drawn(asset, kind)
+    if (fit.scale > 1) {
       return (
         'Más pequeña que el hueco donde se dibuja: ' +
         size(asset) +
-        ', y el hueco mide ' +
-        spec.minWidth +
+        ', y se dibuja a ' +
+        fit.width +
         '×' +
-        spec.minHeight +
+        fit.height +
         '. La web la amplía para llenarlo, así que se verá borrosa, sobre todo al abrir la ficha. ' +
         'Puedes publicar así; si existe una versión más grande de la marca, mejor esa (ideal ' +
         spec.idealWidth +
@@ -321,7 +367,14 @@ export function brandMarkAdvice(kind: BrandMarkKind) {
       )
     }
 
-    if (asset.width < spec.idealWidth || asset.height < spec.idealHeight) {
+    // Below the canonical delivery size, measured on the axis that BINDS the
+    // fit — the other one is free to be anything the mark's shape implies, and
+    // comparing it against the ideal asks a landscape mark to be square.
+    const bindsOnWidth = fit.width >= fit.box.width - 0.5
+    const shortOfIdeal = bindsOnWidth
+      ? asset.width < spec.idealWidth
+      : asset.height < spec.idealHeight
+    if (shortOfIdeal) {
       return (
         'Por debajo del tamaño ideal: ' +
         size(asset) +

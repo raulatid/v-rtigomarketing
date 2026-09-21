@@ -7,6 +7,7 @@ import {
   fitInk,
   artworkHalfHeight,
 } from './createBrandAtlas'
+import { EDITORIAL_BOUNDS } from '../../../content/editorialBounds'
 
 // createBrandAtlas draws into a real 2D context, which neither Node nor jsdom
 // provides. Rather than pull in a native canvas just to assert geometry, the
@@ -254,6 +255,24 @@ describe('normalising the artwork on its ink (plan 012 task 3)', () => {
     const CLEARANCE = 0.1
     for (const kind of ['logo', 'isotype'] as const) {
       expect(artworkHalfHeight(kind), kind).toBeLessThan(FIELD_EDGE - CLEARANCE)
+    }
+  })
+
+  it('is the box the Studio and the content build judge artwork against', () => {
+    // THIS module owns the cells and their padding. The other two tiers cannot
+    // read it — the Studio is a separate npm package and `checks/architecture.ts`
+    // §1b forbids `content/` importing an experience — so they read a restated
+    // copy in `editorialBounds.ts`, and this is what stops that copy drifting.
+    //
+    // It drifted once, for a fortnight: `PAD_Y` was unified at 72 and both tiers
+    // went on advising against a 432×432 isotype box and a 900×400 logo one. An
+    // editor was told their artwork was too small for a hole that did not exist.
+    for (const kind of ['isotype', 'logo'] as const) {
+      const cell = CELL[kind]
+      expect(EDITORIAL_BOUNDS.caseStudy.brandMarkBox[kind], kind).toEqual({
+        width: cell.width - cell.padX * 2,
+        height: cell.height - cell.padY * 2,
+      })
     }
   })
 })

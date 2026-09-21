@@ -84,28 +84,43 @@ describe('editorial validation before publishing', () => {
   it('advises on a brand mark below its atlas box rather than refusing it; shape is still refused', () => {
     const small = {asset: {_ref: 'image-abc-300x300-png'}}
     expect(brandMarkErrors('isotype')(small)).toBe(true)
-    // The BOX, not a rounded memory of it: 512² padded by 40 and 72.
-    expect(brandMarkAdvice('isotype')(small)).toMatch(/Más pequeña que el hueco.*300×300.*432×368.*Puedes publicar/)
-    expect(brandMarkErrors('logo')({asset: {_ref: 'image-abc-800x400-png'}})).toBe(true)
-    expect(brandMarkAdvice('logo')({asset: {_ref: 'image-abc-800x400-png'}})).toMatch(/896×368/)
-    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-900x300-png'}})).toMatch(/apaisado/)
+    // It names what the file will be DRAWN at, which is the number that says
+    // how much enlarging is going on — not the box, which is only the ceiling.
+    expect(brandMarkAdvice('isotype')(small)).toMatch(/Más pequeña que el hueco.*300×300.*368×368.*Puedes publicar/)
+    // 800×400 is DOWNSCALED into the 896×368 box, so it is sharp; what it is,
+    // is short of the canonical delivery size. Each dimension was compared
+    // against the box until 2026-09-21, which called this one blurry.
+    const mid = {asset: {_ref: 'image-abc-800x400-png'}}
+    expect(brandMarkErrors('logo')(mid)).toBe(true)
+    expect(brandMarkAdvice('logo')(mid)).toMatch(/Por debajo del tamaño ideal.*800×400.*1600×800/)
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-1500x400-png'}})).toMatch(/apaisado/)
     expect(brandMarkAdvice('isotype')({asset: {_ref: 'image-abc-512x512-png'}})).toBe(true)
   })
 
-  it('takes an isotype up to 2:1, and advises that a square one draws taller', () => {
+  it('judges a landscape isotype on what it draws, not on its aspect', () => {
     // A brand whose symbol is genuinely landscape. Nothing in the renderer
-    // minds — `fitInk` contains any aspect and the panel shader contains the
-    // cell — so the band is a legibility judgement, and at 2:1 the mark draws
-    // 432×216 against a square one's 368×368: WIDER, and shorter. Refusing it
-    // sent the editor away to invent a square crop of a mark that has none.
+    // minds: `fitInk` contains any aspect and the panel shader contains the
+    // cell. The bound is a legibility judgement, and it is the DRAWN HEIGHT —
+    // an aspect band was a proxy for it and moved twice in one day, once per
+    // brand that landed just outside whatever the number was.
     const wide = {asset: {_ref: 'image-abc-1024x512-png'}}
     expect(brandMarkErrors('isotype')(wide)).toBe(true)
     expect(brandMarkAdvice('isotype')(wide)).toMatch(/Proporción poco habitual.*2,0:1/)
-    // The far side of the band is unchanged: past 2:1 the mark loses height
-    // faster than it gains anything, and 3:1 draws 432×144.
-    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-1500x500-png'}})).toMatch(/apaisado/)
-    // And portrait is still refused at the same 3:4 it always was.
-    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-500x1000-png'}})).toMatch(/alto/)
+
+    // THE ASSET THAT PROMPTED THIS: 2.35:1, refused by the 2:1 band, and it
+    // draws 432×184 — over the 144 floor with room to spare.
+    const real = {asset: {_ref: 'image-abc-512x218-png'}}
+    expect(brandMarkErrors('isotype')(real)).toBe(true)
+    // And it is SHARP: 512 wide into a 432 box is a downscale. The old advice
+    // compared its 218 height against the box's 368 and called it blurry.
+    expect(brandMarkAdvice('isotype')(real)).not.toMatch(/borrosa/)
+
+    // The floor: 3:1 draws exactly 144 and passes, past it the mark is a strip.
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-1296x432-png'}})).toBe(true)
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-1500x400-png'}})).toMatch(/apaisado/)
+    // Symmetric on the portrait side, where a tall mark loses width instead.
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-500x1000-png'}})).toBe(true)
+    expect(brandMarkErrors('isotype')({asset: {_ref: 'image-abc-300x1000-png'}})).toMatch(/estrecho/)
   })
   it('refuses a brand mark over the shared weight cap, and passes what it cannot weigh', async () => {
     const cap = EDITORIAL_BOUNDS.caseStudy.brandMarkBytes
