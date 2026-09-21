@@ -36,7 +36,7 @@ import type {
  */
 export const DISTRICT_SUMMARY_MAX = EDITORIAL_BOUNDS.district.summary
 
-/** The panel's metric row shares its width between up to this many cards. */
+/** The safety net on the panel's metric grid; the editorial judgement is the Studio's warning. */
 export const CASE_METRICS_MAX = EDITORIAL_BOUNDS.caseStudy.metrics
 
 /** Below this a chart is a dot; a case with nothing to plot has `chart: null` instead. */

@@ -101,8 +101,32 @@ export const EDITORIAL_BOUNDS = {
     /** One bullet. The count below is how many of them. */
     detailLine: 200,
     details: 4,
-    /** Up to this many; the row is a flex that shares its width, and none hides the row. */
-    metrics: 2,
+    /**
+     * A SAFETY NET, not an editorial number. The editorial judgement is the
+     * Studio's warning from `metricsAdvised` upward; this is the point past
+     * which the panel stops being a panel.
+     *
+     * It was 2, and the row was a flex that shared its width between exactly
+     * that many. Editors asked for three and more, so the row is a grid that
+     * WRAPS now (`.case-panel__metrics`) and the count is theirs.
+     *
+     * Why there is still a ceiling at all. On a desktop the case panel does not
+     * scroll — `styles.css`: "Desktop has nothing to scroll: the dock is sized
+     * to its content" — and it is `position: fixed` centred with
+     * `translateY(-50%)`, so content past the viewport's height goes off BOTH
+     * edges with no way to reach it. Only the mobile sheet has a scroller. Each
+     * wrapped row of cards is about 82px, so 6 holds the worst case to two rows
+     * on a desktop and four on the sheet. An array arriving through the HTTP
+     * API rather than the Studio is what this actually guards against.
+     */
+    metrics: 6,
+    /**
+     * Past this the Studio warns, and keeps Publicar enabled. Three is what
+     * editors asked for and what fits one desktop row; beyond it the row wraps
+     * and pushes the summary, the bullets and the chart down a panel that
+     * cannot scroll.
+     */
+    metricsAdvised: 3,
     /** A chart with fewer points is a dot; a case with nothing to plot leaves the chart out. */
     chartValuesMin: 2,
     /**

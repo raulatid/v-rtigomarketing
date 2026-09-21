@@ -162,19 +162,24 @@ describe('case study mapping rejects', () => {
     expect(problemsFor(caseStudiesCollection, record)).toContain('satellite-01.summary')
   })
 
-  it('a metrics list longer than the row; none, one or absent are editorial', () => {
+  it('takes as many metrics as the row holds; none, one or absent are editorial', () => {
     for (const metrics of [[], [{ label: 'a', value: '1' }], null, undefined]) {
       const record = validCase()
       record.metrics = metrics
       expect(problemsFor(caseStudiesCollection, record)).toEqual([])
     }
-    const three = validCase()
-    three.metrics = [
-      { label: 'a', value: '1' },
-      { label: 'b', value: '2' },
-      { label: 'c', value: '3' },
-    ]
-    expect(problemsFor(caseStudiesCollection, three)).toContain('satellite-01.metrics')
+    // Three was refused until 2026-09-21, when the row became a grid that wraps
+    // and the count became the editor's. What is left is a safety net, because
+    // the DESKTOP panel has no scroller and a case taller than the viewport
+    // puts its own ending out of reach.
+    const metric = (i: number) => ({ label: 'm' + i, value: String(i) })
+    const many = validCase()
+    many.metrics = Array.from({ length: EDITORIAL_BOUNDS.caseStudy.metrics }, (_, i) => metric(i))
+    expect(problemsFor(caseStudiesCollection, many)).toEqual([])
+
+    const past = validCase()
+    past.metrics = Array.from({ length: EDITORIAL_BOUNDS.caseStudy.metrics + 1 }, (_, i) => metric(i))
+    expect(problemsFor(caseStudiesCollection, past)).toContain('satellite-01.metrics')
   })
 
   it('no chart at all — absent, null, or the untouched Studio default — maps to null', () => {

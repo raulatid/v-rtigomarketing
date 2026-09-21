@@ -460,7 +460,7 @@ export interface CaseStudy {
   summary: string
   /** Bullet-point body copy under the summary. Four short lines each. */
   details: string[]
-  /** Zero to `EDITORIAL_BOUNDS.caseStudy.metrics`. The row hides when empty. */
+  /** Zero to `EDITORIAL_BOUNDS.caseStudy.metrics`. The row wraps, and hides when empty. */
   metrics: CaseStudyMetric[]
   /** Null when the case has nothing to plot; the panel leaves the block out. */
   chart: CaseChart | null

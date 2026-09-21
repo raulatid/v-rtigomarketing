@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { CASE_STUDIES } from './generated/caseStudies'
+import { EDITORIAL_BOUNDS } from './editorialBounds'
 
 // Content invariants for the case-study collection, holding for whatever is in
 // the module — hand-written today, emitted by the content build later. The
@@ -7,7 +8,7 @@ import { CASE_STUDIES } from './generated/caseStudies'
 // here means either a bad hand edit or a validator that let something through.
 //
 // There was no test for this collection at all, which is why `metrics` being an
-// exact two-tuple and `brandColor` being parseable hex were only ever enforced
+// bounded list and `brandColor` being parseable hex were only ever enforced
 // by TypeScript — and types are erased at a network boundary.
 
 describe('case study content', () => {
@@ -31,9 +32,15 @@ describe('case study content', () => {
     }
   })
 
-  it('carries at most two metrics, each with text, since the row has two slots', () => {
+  it('carries no more metrics than the panel can hold, each with text', () => {
+    // The row wraps since 2026-09-21, so this is no longer "two slots" — it is
+    // the safety net that keeps a case from growing past the desktop panel,
+    // which does not scroll. Read from the bound rather than restated, so
+    // raising the net does not leave a literal behind to contradict it.
     for (const entry of CASE_STUDIES) {
-      expect(entry.metrics.length, `${entry.id}`).toBeLessThanOrEqual(2)
+      expect(entry.metrics.length, `${entry.id}`).toBeLessThanOrEqual(
+        EDITORIAL_BOUNDS.caseStudy.metrics,
+      )
       for (const metric of entry.metrics) {
         expect(metric.label.trim().length).toBeGreaterThan(0)
         expect(metric.value.trim().length).toBeGreaterThan(0)

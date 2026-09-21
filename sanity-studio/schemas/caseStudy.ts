@@ -40,13 +40,13 @@ const BOUNDS = EDITORIAL_BOUNDS.caseStudy
  * first fieldset, in plain words.
  *
  * ── The bounds are layout facts ──
- * `details` is a four-line bullet list, `metrics` is a fixed two-up grid, and
+ * `details` is a four-line bullet list, `metrics` is a grid that wraps, and
  * chart values are normalised into 340 SVG units. Over-length is REJECTED by the
  * build rather than trimmed. The descriptions below state the limit and never
  * the reason — the reason is for whoever edits this file.
  *
  * ── Fields are in the order the panel shows them ──
- * `CasePanel.tsx` reads: name, the sector · location · year line, the two
+ * `CasePanel.tsx` reads: name, the sector · location · year line, the
  * metrics, the summary, the bullets, the chart. The form follows it, so an
  * editor filling it top to bottom is writing the panel top to bottom.
  *
@@ -431,8 +431,9 @@ export const caseStudy = defineType({
       name: 'metrics',
       title: 'Métricas',
       description:
-        'Opcional. Hasta dos cifras destacadas, cada una en su tarjeta, con su nombre encima; ' +
-        'sin ninguna, la ficha no muestra la fila. Ejemplo: Tráfico orgánico → +148 %',
+        'Opcional. Cifras destacadas, cada una en su tarjeta con su nombre encima; sin ninguna, ' +
+        'la ficha no muestra la fila. Tres caben en una línea; a partir de ahí la fila baja a ' +
+        'la siguiente y empuja el resto de la ficha. Ejemplo: Tráfico orgánico → +148 %',
       type: 'array',
       fieldset: 'panel',
       of: [
@@ -476,13 +477,30 @@ export const caseStudy = defineType({
           preview: { select: { title: 'value', subtitle: 'label' } },
         }),
       ],
-      validation: (rule) =>
-        rule.max(BOUNDS.metrics).error(`Como máximo ${BOUNDS.metrics} métricas: la fila tiene ${BOUNDS.metrics} huecos.`),
+      validation: (rule) => [
+        // The ERROR is a safety net, not the editorial judgement — the count is
+        // the editor's now, and the row wraps to hold it. What the ceiling
+        // guards is that the desktop panel has no scroller: past it, the
+        // bottom of the case is off screen with no way to reach it.
+        rule
+          .max(BOUNDS.metrics)
+          .error(
+            `Como máximo ${BOUNDS.metrics} métricas: a partir de ahí la ficha no cabe en la ` +
+              'pantalla y su final queda fuera de alcance.',
+          ),
+        rule
+          .max(BOUNDS.metricsAdvised)
+          .warning(
+            `Más de ${BOUNDS.metricsAdvised} métricas ocupan otra línea de tarjetas, y eso ` +
+              'empuja el resumen, los puntos y el gráfico hacia abajo. Puedes publicar así; ' +
+              'revisa cómo queda la ficha abierta.',
+          ),
+      ],
     }),
     defineField({
       name: 'summary',
       title: 'Resumen',
-      description: 'Dos o tres frases sobre lo que se hizo. Se lee justo debajo de las dos métricas.',
+      description: 'Dos o tres frases sobre lo que se hizo. Se lee justo debajo de las métricas.',
       type: 'text',
       rows: 4,
       fieldset: 'panel',

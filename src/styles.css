@@ -234,8 +234,23 @@ html {
   min-height: 1.2em;
 }
 
+/* A grid that WRAPS, not a flex row that cannot.
+
+   It was `display: flex` with `flex: 1` cards, which shares the width between
+   however many arrive — but a flex item's default `min-width: auto` stops it
+   shrinking below its own text, so a third card did not make the row denser,
+   it made it overflow the panel. At 3-up on a 360px phone each card has 64px
+   of content, and the label "INDEXADAS" alone measures ~67px.
+
+   `minmax(6rem, 1fr)` rather than `1fr`: a definite track minimum is what lets
+   the track refuse to grow for its content, which is the whole difference. At
+   the desktop panel's 348px of content that resolves to three columns; the
+   sheet raises the minimum below, because a phone has less room and should
+   drop to two rather than squeeze. `auto-fit` collapses the empty tracks, so
+   one metric still fills the row as it did under flex. */
 .case-panel__metrics {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
@@ -259,7 +274,13 @@ html {
 }
 
 .case-panel__metric {
-  flex: 1;
+  /* A grid item's default minimum is its content too, so the track's refusal to
+     grow only reaches the card once this says so. With it, a value longer than
+     its card breaks instead of escaping the panel — which the 20-character
+     bound on `metricValue` has always permitted and nothing caught, because at
+     two-up there was enough room for it to go unnoticed. */
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0.875rem 1rem;
   /* Matte, not a second pane of glass: the figures are inset INTO the
      plaque. Lighter than a form field (0.45 against 0.55) because the panel
@@ -681,6 +702,13 @@ html {
     height: 45px;
     border-radius: 13px;
     font-size: 1.2rem;
+  }
+
+  /* A wider track minimum than the desktop dock's, so the sheet drops to two
+     cards per row instead of fitting a third into 64px of content. The sheet is
+     the narrower surface AND the one a thumb reads at arm's length. */
+  .case-panel__metrics {
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   }
 
   .case-panel__body {

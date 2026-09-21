@@ -115,6 +115,25 @@ describe('case study', () => {
     caseStudiesCollection,
     'details',
   )
+  boundary(
+    'the number of metrics',
+    B.metrics,
+    build,
+    (r, n) => { r.metrics = Array.from({ length: n }, (_, i) => ({ label: 'm' + i, value: String(i) })) },
+    caseStudiesCollection,
+    'metrics',
+  )
+
+  it('advises on metrics before it refuses them', () => {
+    // The two numbers are a pair and only make sense in order: the warning is
+    // the editorial judgement (a second row of cards pushes the rest of the
+    // panel down) and the error is a safety net (the desktop panel does not
+    // scroll, so a tall enough case puts its own ending out of reach). Equal or
+    // inverted, the warning would be unreachable and the cap would read as a
+    // style rule it is not.
+    expect(B.metricsAdvised).toBeGreaterThan(0)
+    expect(B.metricsAdvised).toBeLessThan(B.metrics)
+  })
 })
 
 describe('district', () => {
