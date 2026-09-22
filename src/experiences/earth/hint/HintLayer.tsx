@@ -4,11 +4,11 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 import { hintAllowed } from '../config/sceneVisibility'
 import { PROTO_HINT } from '../config/protoHint'
 import type { SequenceState } from '../config/sequenceState'
-import { createIdleWatch } from './hintIdle'
+import { createIdleWatch } from '../../../interaction/hintIdle'
 import { HINT_CONFIG } from './hintConfig'
 
 // WHEN the Earth's hint is offered. What it looks like is `EarthHint.tsx` and
-// `.earth-hint` in `styles.css`; this file decides nothing about that.
+// `.scene-hint` in `styles.css`; this file decides nothing about that.
 //
 // It drew the hint itself until 2026-09-09, as a figure of ~770 points gathered
 // out of the star field. The client rejected the particles and the sentence is
@@ -23,11 +23,10 @@ import { HINT_CONFIG } from './hintConfig'
 // something the scene offers while they are looking, rather than as a card
 // pushed at them every time a world lands.
 //
-// That is a different rule from Murcia's glass chip, which is still offered a
-// beat after each arrival and does not return until the next one. The two were
-// wired together while they shared a rule and are deliberately not any more:
-// `createNavigationInput` is untouched and owns the chip, and this owns the
-// sentence. What arrives from the app is only PERMISSION — `attention.hintAllowed`,
+// Murcia's hint has run on the same rule since 2026-09-22
+// (`murcia/hint/MurciaHintLayer`), sharing `interaction/hintIdle` and this
+// number; the glass chip it replaced was an arrival affordance and is gone.
+// What arrives from the app is only PERMISSION — `attention.hintAllowed`,
 // meaning the viewer is on Earth and nothing else has their attention.
 //
 // The stillness itself is counted here rather than in the app because it is a
@@ -37,7 +36,7 @@ import { HINT_CONFIG } from './hintConfig'
 // ## The element is FOUND, not threaded
 //
 // One `data-visible` attribute crosses from the scene to the page: this queries
-// `.earth-hint` and paints `dataset.visible`, and CSS owns every pixel after
+// `.earth-hint` (its identity class; the rules are `.scene-hint`, shared with Murcia's) and paints `dataset.visible`, and CSS owns every pixel after
 // that. It is the arrangement `createNavigationInput` used for Murcia's hint
 // plate until the plate was removed (2026-09-15).
 //

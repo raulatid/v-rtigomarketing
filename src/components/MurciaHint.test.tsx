@@ -2,9 +2,9 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { EarthHint } from './EarthHint'
+import { MurciaHint } from './MurciaHint'
 
-// Earth's hint is rendered ONCE and never re-rendered. Both glyphs and both
+// Murcia's hint is Earth's, turned round (2026-09-22): rendered ONCE and never re-rendered. Both glyphs and both
 // sentences are in the markup and the stylesheet picks by `(pointer: coarse)`,
 // so the guarantee that a thumb is never
 // told to scroll, or shown a mouse, is a guarantee that both sets are THERE.
@@ -23,7 +23,7 @@ beforeEach(() => {
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
-  act(() => root.render(<EarthHint />))
+  act(() => root.render(<MurciaHint />))
 })
 
 afterEach(() => {
@@ -31,50 +31,51 @@ afterEach(() => {
   container.remove()
 })
 
-const hint = () => container.querySelector<HTMLElement>('.earth-hint')!
+const hint = () => container.querySelector<HTMLElement>('.murcia-hint')!
 const sentences = () => [
   ...hint().querySelectorAll<HTMLElement>('.scene-hint__sentence'),
 ]
 const glyph = (name: string) => hint().querySelector<SVGSVGElement>(`svg.scene-hint__glyph--${name}`)!
 
-describe('the Earth hint', () => {
-  it('teaches the way IN: a forward wheel, a spreading pinch', () => {
-    expect(hint().dataset.gesture).toBe('in')
+describe('the Murcia hint', () => {
+  it('teaches the way OUT: a backward wheel, a closing pinch', () => {
+    expect(hint().dataset.gesture).toBe('out')
   })
 
   it('carries both gestures, so the stylesheet has something to pick from', () => {
     expect(sentences().map((el) => el.dataset.input)).toEqual(['fine', 'coarse'])
     expect(sentences().map((el) => el.textContent?.trim())).toEqual([
-      'Scroll para viajar a Murcia',
-      'Zoom para viajar a Murcia',
+      'Scroll para volver a la Tierra',
+      'Zoom para volver a la Tierra',
     ])
     expect(glyph('mouse')).not.toBeNull()
     expect(glyph('pinch')).not.toBeNull()
   })
 
-  it('names Murcia, so the sentence and the accessible button agree', () => {
-    // `.nav-control`'s aria-label is "Ir a Murcia". A hint that said "the other
-    // scene" would be a second vocabulary for one destination.
-    for (const el of sentences()) expect(el.textContent).toContain('Murcia')
+  it('names the Earth, so the sentence and the accessible button agree', () => {
+    // `.nav-control`'s aria-label over Murcia names the Earth. A hint that said
+    // "the other scene" would be a second vocabulary for one destination.
+    for (const el of sentences()) expect(el.textContent).toContain('Tierra')
   })
 
-  it('draws an upright mouse with forward chevrons above it', () => {
-    // The mouse stays upright; the lower upward chevron leads the upper one.
+  it('draws an upright mouse with backward chevrons below it', () => {
+    // The mouse stays upright; the chevrons hang under it and point down, and
+    // the upper one leads the lower — the wheel rolling toward the viewer.
     const svg = glyph('mouse')
     const body = svg.querySelector('rect')!
     expect(['x', 'y', 'width', 'height', 'rx'].map((a) => body.getAttribute(a))).toEqual([
       '7',
-      '14',
+      '2',
       '10',
       '20',
       '5',
     ])
-    expect(svg.querySelector('.scene-hint__part--wheel')?.getAttribute('d')).toBe('M12 18v4')
+    expect(svg.querySelector('.scene-hint__part--wheel')?.getAttribute('d')).toBe('M12 6v4')
     // Two chevrons, not one, and inside one group: the chase is a delay on the
     // group's second child, so a single chevron could only blink.
     const chase = [...svg.querySelectorAll('.scene-hint__chevrons .scene-hint__part--chase')]
-    expect(chase.map((p) => p.getAttribute('d'))).toEqual(['M8 12l4-4 4 4', 'M8 6l4-4 4 4'])
-    // Include the chevrons above the body and room for their round caps.
+    expect(chase.map((p) => p.getAttribute('d'))).toEqual(['M8 24l4 4 4-4', 'M8 30l4 4 4-4'])
+    // Include the chevrons below the body and room for their round caps.
     expect(svg.getAttribute('viewBox')).toBe('6 1 12 34')
   })
 
@@ -99,7 +100,7 @@ describe('the Earth hint', () => {
     }
   })
 
-  it('is sighted-only, because .nav-control is the real route to Murcia', () => {
+  it('is sighted-only, because .nav-control is the real route back to the Earth', () => {
     expect(hint().getAttribute('aria-hidden')).toBe('true')
   })
 

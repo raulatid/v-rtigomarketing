@@ -9,7 +9,7 @@
  * footer and the sentence's legibility over a bright limb can be looked at
  * against the live scene.
  *
- * That looking is not optional. The sizes in `.earth-hint` were carried over
+ * That looking is not optional. The sizes in `.scene-hint` were carried over
  * from a figure tuned at a different medium, and a stylesheet can say the
  * sentence fits without saying it reads.
  *

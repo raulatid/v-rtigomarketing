@@ -26,6 +26,7 @@ import { DebugOverlay } from './components/DebugOverlay'
 import { CustomCursor } from './components/CustomCursor'
 import { NavigationControl } from './components/NavigationControl'
 import { EarthHint } from './components/EarthHint'
+import { MurciaHint } from './components/MurciaHint'
 import { OrbitSystem } from './experiences/earth/orbit/createOrbitSystem'
 import { ORBIT_PRESETS, type SatelliteDef } from './experiences/earth/orbit/orbitConfig'
 import { useMasterTimeline } from './experiences/earth/timeline/useMasterTimeline'
@@ -73,6 +74,7 @@ export default function App() {
   const state = useMemo(() => createSequenceState(), [])
   const navigation = useMemo(() => createNavigationState(), [])
   const earthAttention = useMemo(() => ({ hintAllowed: false }), [])
+  const murciaAttention = useMemo(() => ({ hintAllowed: false }), [])
 
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -294,6 +296,9 @@ export default function App() {
   // An explicit application-owned permission channel. HintLayer reads it live
   // alongside the intro phase; no per-frame React state update is needed.
   earthAttention.hintAllowed = attentionIsFree && activeExperience === 'earth'
+  // Murcia's hint is the same affordance in the other world (2026-09-22); the
+  // city adds its own condition — that the viewer is navigating it — inside.
+  murciaAttention.hintAllowed = attentionIsFree && activeExperience === 'murcia'
   const [murciaOverviewBlocked, setMurciaOverviewBlocked] = useState(false)
   const {
     navigateTo,
@@ -702,6 +707,7 @@ export default function App() {
           <LazyScene
             navigation={navigation}
             attention={earthAttention}
+            murciaAttention={murciaAttention}
             auditView={auditView}
             stepTransition={stepTransition}
             suspended={blogOpen}
@@ -816,6 +822,9 @@ export default function App() {
           lifetime on a per-frame decision would be a different and worse thing
           than toggling one attribute on it. */}
       <EarthHint />
+      {/* Murcia's, on the same terms: mounted for both worlds, painted by
+          `MurciaHintLayer` only while the city is showing and navigated. */}
+      <MurciaHint />
 
       {/* The context is gone and nothing will draw again. Spanish, like every
           other visitor-facing string (DECISIONS §11), and it offers the only

@@ -589,6 +589,20 @@ export class MurciaExperience {
     return this.campus?.isEngaged ?? false;
   }
 
+  /**
+   * The viewer is moving about the city on their own: no cinematic or blog
+   * approach owns the camera, and no district holds their attention.
+   *
+   * Read off the rig's claims rather than off the systems that take them, so
+   * "the viewer is not navigating" has one answer — the compass and the hint
+   * both stand down on it.
+   */
+  get isNavigating(): boolean {
+    const owned =
+      (this.rig?.hasClaim('warp') ?? false) || (this.rig?.hasClaim('blog') ?? false);
+    return !owned && !this.hasFocusedDistrict;
+  }
+
   /** The logo only returns home from the city, never a building or its flight. */
   get isCityOverview(): boolean {
     return this.active && !this.hasFocusedDistrict && !!this.rig && !this.rig.isOwned;
@@ -1291,12 +1305,7 @@ export class MurciaExperience {
     // bearings stay true and stop meaning anything, because the viewer is not
     // navigating. It sits below the flash in z-order, so the cut covers it.
     if (this.compass) {
-      // The same two names the ladder above routes to a direct pose write.
-      // Read off the claims rather than off the two systems, so "the viewer is
-      // not navigating" has one answer here too.
-      const owned =
-        (this.rig?.hasClaim('warp') ?? false) || (this.rig?.hasClaim('blog') ?? false);
-      this.compass.setVisible(!owned && !this.hasFocusedDistrict);
+      this.compass.setVisible(this.isNavigating);
       this.compass.update(this.camera);
     }
 

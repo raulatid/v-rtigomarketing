@@ -8,6 +8,8 @@ import { EarthExperience } from '../experiences/earth/EarthExperience'
 import type { InteractionHandle } from '../experiences/earth/EarthExperience'
 import { CornerLogoLayer } from '../corner-logo/CornerLogoLayer'
 import { MurciaLayer } from '../experiences/murcia/MurciaLayer'
+import { MurciaHintLayer } from '../experiences/murcia/hint/MurciaHintLayer'
+import { HINT_CONFIG } from '../experiences/earth/hint/hintConfig'
 import { RenderPipeline } from '../graphics/RenderPipeline'
 import { DEBUG_TOOLS_ENABLED } from '../platform/buildFlags'
 import type { FrameSettings, RenderRoute } from '../graphics/renderableExperience'
@@ -48,6 +50,8 @@ interface Props {
   config: IntroConfig
   auditView: Readonly<AuditComposition>
   attention: Readonly<{ hintAllowed: boolean }>
+  /** Murcia's hint permission: the viewer is in the city and nothing else has their attention. */
+  murciaAttention: Readonly<{ hintAllowed: boolean }>
   navigation: NavigationView
   state: SequenceState
   /**
@@ -102,6 +106,7 @@ export function SceneCanvas({
   state,
   navigation,
   attention,
+  murciaAttention,
   auditView,
   stepTransition,
   overlayEl,
@@ -347,6 +352,14 @@ export function SceneCanvas({
         onAttentionChange={onMurciaAttentionChange}
         onOpenBlog={onOpenBlog}
         onBlogApproachStart={onBlogApproachStart}
+      />
+      {/* Murcia's hint, on Earth's stillness rule and Earth's number. Renders
+          nothing; it paints one attribute on the node App renders. */}
+      <MurciaHintLayer
+        attention={murciaAttention}
+        active={!earthActive}
+        experienceRef={murciaRef}
+        idleSeconds={HINT_CONFIG.presence.idleSeconds}
       />
       {/* Every decision the pipeline used to make for itself is made here:
           which experience is showing, whether a transition is playing, and

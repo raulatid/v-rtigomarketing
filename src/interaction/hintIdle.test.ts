@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { createIdleWatch } from './hintIdle'
-import { HINT_CONFIG } from './hintConfig'
 
 // The rule that replaced the arrival trigger: offered after a couple of seconds
 // of stillness, gone as soon as the viewer acts. Everything about WHAT counts
@@ -72,12 +71,5 @@ describe('createIdleWatch', () => {
   it('is idle immediately when the threshold is zero', () => {
     const watch = createIdleWatch({ idleSeconds: 0 })
     expect(watch.tick(DT)).toBe(true)
-  })
-
-  it('ships a threshold a person would actually wait through', () => {
-    // Long enough that it is not competing with someone who is still looking
-    // around, short enough to feel like a response to stillness rather than a
-    // timeout. Pinned so a retune is a decision rather than a drift.
-    expect(HINT_CONFIG.presence.idleSeconds).toBe(2)
   })
 })

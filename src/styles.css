@@ -1231,7 +1231,7 @@ html {
    struck when the type came down to 16px is preserved. A mark left at full white
    over an 85% sentence would read brighter than it did before the change, which
    is the opposite of what dimming the hint is for. */
-.earth-hint {
+.scene-hint {
   /* Named so the reservation in `bottom` and the swing in the keyframes cannot
      drift apart. They are the same 5px. */
   --hint-float: 5px;
@@ -1293,7 +1293,7 @@ html {
    `HintLayer`, which polls the permission and counts the stillness. An
    interrupted transition reverses from wherever it got to, which is the case the
    presence machine this replaced needed a branch for. */
-.earth-hint[data-visible] {
+.scene-hint[data-visible] {
   opacity: 1;
   visibility: visible;
   transition:
@@ -1307,21 +1307,21 @@ html {
    it; the mouse and the phone (§46) are drawings rather than a mark, and read
    as toys below ~20px wide. 1.25em is 20px; the height follows each viewBox.
    Judged by eye, not derived — the first numbers a client review may move. */
-.earth-hint__glyph {
+.scene-hint__glyph {
   display: block;
 }
 
-.earth-hint__glyph--mouse {
+.scene-hint__glyph--mouse {
   width: 1.25em;
   height: 3.5417em; /* 12:34 */
 }
 
-.earth-hint__glyph--pinch {
+.scene-hint__glyph--pinch {
   width: 2.5em;
   height: 2.5em;
 }
 
-.earth-hint__sentence {
+.scene-hint__sentence {
   /* The sentence is one line by design and wraps only on a very narrow
      viewport; `balance` is what keeps that wrap from leaving one word alone. */
   text-wrap: balance;
@@ -1331,19 +1331,19 @@ html {
    window on a laptop still has a mouse — and ONE query for both so the picture
    and the word cannot disagree. Fine is the default and
    the coarse block flips it. */
-.earth-hint__sentence[data-input='coarse'],
-.earth-hint__glyph--pinch {
+.scene-hint__sentence[data-input='coarse'],
+.scene-hint__glyph--pinch {
   display: none;
 }
 
 @media (pointer: coarse) {
-  .earth-hint__sentence[data-input='fine'],
-  .earth-hint__glyph--mouse {
+  .scene-hint__sentence[data-input='fine'],
+  .scene-hint__glyph--mouse {
     display: none;
   }
 
-  .earth-hint__sentence[data-input='coarse'],
-  .earth-hint__glyph--pinch {
+  .scene-hint__sentence[data-input='coarse'],
+  .scene-hint__glyph--pinch {
     display: block;
   }
 }
@@ -1360,21 +1360,21 @@ html {
    reduced-motion kill at the end of this block wins by source order alone.
    That specificity is a trap the plate hit: a rule one class heavier than the
    kill keeps the wheel scrolling for a visitor who asked it to stop. */
-.earth-hint__part {
+.scene-hint__part {
   transform-box: fill-box;
   transform-origin: center;
 }
 
-.earth-hint[data-visible] .earth-hint__part--wheel {
+.scene-hint[data-visible] .scene-hint__part--wheel {
   animation: earth-hint-wheel-forward 1.4s linear infinite;
 }
 
-.earth-hint[data-visible] .earth-hint__part--chase {
+.scene-hint[data-visible] .scene-hint__part--chase {
   animation: nav-hint-chase 1.4s ease-in-out infinite;
   animation-delay: -1s;
 }
 
-.earth-hint[data-visible] .earth-hint__chevrons .earth-hint__part--chase:nth-child(2) {
+.scene-hint[data-visible] .scene-hint__chevrons .scene-hint__part--chase:nth-child(2) {
   animation-delay: -0.84s;
 }
 
@@ -1386,19 +1386,19 @@ html {
    bottom-LEFT one. The plate's pinch shape: land, travel, hold on the 62–86%
    plateau, fade; the release is behind the fade because a finger snapping back
    reads as a second gesture. */
-.earth-hint__part--finger-a {
+.scene-hint__part--finger-a {
   transform-origin: 100% 100%;
 }
 
-.earth-hint__part--finger-b {
+.scene-hint__part--finger-b {
   transform-origin: 0 100%;
 }
 
-.earth-hint[data-visible] .earth-hint__part--finger-a {
+.scene-hint[data-visible] .scene-hint__part--finger-a {
   animation: earth-hint-pinch-a 1.8s ease-out infinite;
 }
 
-.earth-hint[data-visible] .earth-hint__part--finger-b {
+.scene-hint[data-visible] .scene-hint__part--finger-b {
   animation: earth-hint-pinch-b 1.8s ease-out infinite;
 }
 
@@ -1490,6 +1490,98 @@ html {
   }
 }
 
+/* ---- The way OUT (Murcia's hint, 2026-09-22) ----
+
+   Earth's hint brought to the city as it is, with the gesture turned round:
+   the return is an ascent (adr/006), made by zooming OUT. `SceneHint` draws
+   the mouse with its chevrons under the body pointing down, and lists the
+   upper one first so the same chase hand-off runs downward; the wheel notch
+   travels down; the fingers start spread and close. Keyed on `data-gesture`
+   rather than on the world, so a third world would only have to say which
+   way it is. Every rule sits at the same (0,3,0) as the way in, before the
+   reduced-motion kill, which therefore wins over both by source order. */
+.scene-hint[data-gesture='out'][data-visible] .scene-hint__part--wheel {
+  animation-name: scene-hint-wheel-backward;
+}
+
+.scene-hint[data-gesture='out'][data-visible] .scene-hint__part--finger-a {
+  animation-name: scene-hint-close-a;
+}
+
+.scene-hint[data-gesture='out'][data-visible] .scene-hint__part--finger-b {
+  animation-name: scene-hint-close-b;
+}
+
+/* Backward wheel rotation: the notch moves downward inside the upright mouse
+   (y 2–22), the mirror of `earth-hint-wheel-forward`. Reset while invisible. */
+@keyframes scene-hint-wheel-backward {
+  0% {
+    transform: translateY(-9px);
+    opacity: 0;
+  }
+  18% {
+    transform: translateY(-7px);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(1px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(2px);
+    opacity: 0;
+  }
+}
+
+/* The pinch's close: the spread's keyframes run the other way — land spread,
+   travel together, hold, fade — so the resting drawing is still the readable
+   one and the release stays behind the fade. */
+@keyframes scene-hint-close-a {
+  0% {
+    transform: rotate(-14deg);
+    opacity: 0;
+  }
+  14% {
+    transform: rotate(-14deg);
+    opacity: 1;
+  }
+  62% {
+    transform: rotate(6deg);
+    opacity: 1;
+  }
+  86% {
+    transform: rotate(6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(6deg);
+    opacity: 0;
+  }
+}
+
+@keyframes scene-hint-close-b {
+  0% {
+    transform: rotate(14deg);
+    opacity: 0;
+  }
+  14% {
+    transform: rotate(14deg);
+    opacity: 1;
+  }
+  62% {
+    transform: rotate(-6deg);
+    opacity: 1;
+  }
+  86% {
+    transform: rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-6deg);
+    opacity: 0;
+  }
+}
+
 /* The phone menu takes the screen and everything between the canvas and the
    panel stands down — the sibling of the list at the top of this file, stated
    here rather than joined to it because this needs no `visibility` flip: the
@@ -1497,11 +1589,11 @@ html {
    it. `attentionIsFree` already drops the permission when the menu opens, so
    this only covers the 900ms fade that starts as it does. */
 @media (max-width: 767px) {
-  .earth-hint {
+  .scene-hint {
     --hint-floor: 60px;
   }
 
-  .app__scene[data-menu-open] .earth-hint {
+  .app__scene[data-menu-open] .scene-hint {
     opacity: 0;
     transition: opacity 120ms ease;
   }
@@ -1513,11 +1605,11 @@ html {
    away from the resting drawing, never toward it. The second rule is at the
    animations' own (0,3,0) and AFTER them, which is the whole reason it wins. */
 @media (prefers-reduced-motion: reduce) {
-  .earth-hint {
+  .scene-hint {
     animation: none;
   }
 
-  .earth-hint[data-visible] .earth-hint__part {
+  .scene-hint[data-visible] .scene-hint__part {
     animation: none;
   }
 }
