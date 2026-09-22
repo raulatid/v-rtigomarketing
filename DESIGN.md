@@ -201,7 +201,7 @@ A near-black night palette of translucent graphite and white at three strengths,
 ### Neutral
 - **Void Black** (#050507): the opening black painted before anything loads, and the document's theme colour.
 - **Smoked Graphite** (three densities): the body of every overlay. Light (0.68) is the floating
-  tray: the hint frame, the consent plate. The middle density (0.78) is the
+  tray: the hint frame, the Murcia compass plate, the consent plate. The middle density (0.78) is the
   compact plaque: the case panel. Heavy (0.86) is the heavy panel: contact, legal, the audit
   curtain. Where `backdrop-filter` is unsupported all three go near-opaque (0.92 / 0.94 / 0.96)
   and keep their order.
@@ -253,8 +253,7 @@ back is a reorder. Neither new face has arrows (← → ↑ ↓), which come fro
 - **Blog title** (600, 3rem, 1.1, -0.01em, up to 620px wide) over **Blog prose** (1.25rem) in ink on Reading Paper.
 
 ### Named Rules
-**The Two Roles Rule.** Display face for headings, titles, CTAs, the cursor compass's labels and
-the LED facades.
+**The Two Roles Rule.** Display face for headings, titles, CTAs, the compass and the LED facades.
 Text face for everything else. Both are declared once, in `siteHeader.css`, under private names
 (never a plain `Inter` or `Switzer`), and read through `--font-display` and `--font-text`.
 
@@ -280,15 +279,10 @@ dialogs 62, header 70.
 - **The case plaque** floats right of centre (right: 20vw, min(420px, 38vw)) and becomes a bottom
   sheet under 767px. The camera's close-up framing knows about it.
 - **Dialogs** centre at min(440px, 100%) with a 16px viewport gutter and a scrim.
-- **Trays** sit bottom-centre (the hint frame), sized to clear the header's own groups.
-  On phones audio moves beside cookies at the bottom left. Audio stays white over both worlds,
-  with a small smoked backing.
-- **The cursor compass** in Murcia is a 56px accent ring, 2px stroke, on the pointer (centred on the canvas on
-  touch until the first finger) with an arrowhead and an uppercase word per place, 9px off the
-  rim, pointing at the place on screen: the arrowhead in the accent, the word white at weight 700 on
-  the smallest density-A plate (6px corners), the ring and arrowhead bare; no glow. With the cursor
-  near a place on screen the word rises to the hover blue, arrowhead and plate tremble, and its
-  building blinks.
+- **Trays** sit bottom-centre (the hint frame) or hang from the header line (the Murcia compass),
+  sized to clear the header's own groups.
+  On phones the compass spans 184–240px between the logo and menu; audio moves beside cookies
+  at the bottom left. Audio stays white over both worlds, with a small smoked backing.
 - **The blog** is a document of its own under a black bar, with a reading column.
 
 Width decides layout (767px and 1024px). Input capability decides behaviour: `(hover: hover)` gates
@@ -350,7 +344,7 @@ Quiet until needed. There is one button on the site that looks like a button.
 
 ### Cards / Containers
 - **Tray (density A):** 14px corners, `vertigo-blue-edge` border, light graphite, glass shadow. Used
-  for the hint frame (glyph over ONE uppercase word).
+  for the hint frame (glyph over ONE uppercase word) and the Murcia compass.
 - **Plaque (density B), the case panel:** 12px corners, glass edge, 2.25rem padding, an eyebrow
   on a neutral tick, the brand title in the display face, then meta at 0.45 white.
 - **Metric tile:** matte (rgba(4, 7, 11, 0.45)) inset into the plaque, 10px corners, and the case's own

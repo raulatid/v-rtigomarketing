@@ -1052,16 +1052,7 @@ html {
   border: 1.5px solid #1c67ff;
   transition:
     transform 0.25s ease,
-    background-color 0.25s ease,
-    opacity 0.25s ease;
-}
-
-/* Murcia's cursor compass draws its own, larger ring round the pointer
-   (murcia.css) and puts this class on <html> while it shows, the way this
-   cursor announces itself above; two circles would read as a fault. The hand
-   stays. */
-.has-cursor-compass .cursor-follow-core {
-  opacity: 0;
+    background-color 0.25s ease;
 }
 
 /* Interactive hover: the ring opens up and tints — "this is clickable". */
@@ -1206,7 +1197,7 @@ html {
    - LETTER-SPACING 0.055em, which small white type on a dark ground wants and
      large type does not: the counters close up as the size falls, and tracking
      is what keeps a quiet sentence legible instead of tight. Uppercase labels
-     reach for the same tool harder (the cursor compass's labels are 0.14em).
+     reach for the same tool harder (the compass's are 0.14em).
 
    At this size the sentence is ~265px wide and fits every viewport with the 24px
    margins clear, so the clamp is a guard rather than a working range — 14px below

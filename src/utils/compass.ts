@@ -1,16 +1,12 @@
 /**
- * Where a point of interest sits round a compass ring.
+ * Where a point of interest sits on a horizontal compass bar.
  *
- * Pure functions and no state. The DOM is `experiences/murcia/ui/cursorCompass.ts`;
+ * Pure functions and no state. The DOM is `experiences/murcia/ui/compassBar.ts`;
  * this is the part worth measuring — a compass is all sign conventions, and every
  * one of them is invisible until a marker slides the wrong way and nobody can say
- * by how much. Until 2026-09-22 the instrument was a horizontal bar under the
- * header drawn from the camera's ground bearing; the ring draws from where the
- * building is ON SCREEN relative to the cursor (`screenBearing`), and the
- * ground bearing below is the fallback for a building behind the camera, which
- * has no place on screen.
+ * by how much.
  *
- * ## Yaw only, deliberately (the fallback)
+ * ## Yaw only, deliberately
  *
  * The bearing is computed on the GROUND PLANE, from the camera's forward flattened
  * to x/z. The obvious alternative — projecting the target into camera space and
@@ -80,6 +76,35 @@ export function horizontalBearing(
   return Math.atan2(cross, dot)
 }
 
+/** Where a bearing lands on the bar, and whether it had to be held at an edge. */
+export interface CompassMark {
+  /** -1 at the left end of the bar, 0 at the centre, +1 at the right. */
+  readonly offset: number
+  /**
+   * The target is outside the bar's span and the offset is pinned to an edge.
+   *
+   * Reported rather than hidden here, because "off the left" and "hard left" are
+   * different things and only the caller knows how it wants to draw the
+   * difference. Clamping without saying so would make a target behind you
+   * indistinguishable from one at the edge of the span.
+   */
+  readonly beyond: boolean
+}
+
+/**
+ * Bearing -> a position on a bar spanning `spanRadians` in total.
+ *
+ * The span is the WHOLE bar, so a 180-degree span puts +/-90 at the ends. Anything
+ * further is clamped and flagged.
+ */
+export function compassMark(bearing: number, spanRadians: number): CompassMark {
+  const half = Math.max(1e-6, spanRadians / 2)
+  const raw = bearing / half
+  if (raw > 1) return { offset: 1, beyond: true }
+  if (raw < -1) return { offset: -1, beyond: true }
+  return { offset: raw, beyond: false }
+}
+
 /**
  * Smooth 0..1 ramp. Zero slope at both ends, so nothing arrives or leaves with a
  * visible corner.
@@ -96,14 +121,30 @@ function smoothstep(t: number): number {
 }
 
 /**
+ * How centred a mark is, 1 dead ahead and 0 at the edge of the band and beyond.
+ *
+ * `bandHalfWidth` is in the same -1..1 units as `CompassMark.offset`, so a band
+ * covering the middle QUARTER of the bar is a half-width of 0.25: the offset axis
+ * is two units wide, and a quarter of two is a half, centred.
+ *
+ * Ramped rather than thresholded because the caller draws this as a size and a
+ * colour, and a landmark that snapped to its warm colour the instant it crossed a
+ * line would read as a state change rather than as an approach. It also breaks the
+ * tie between two landmarks in the band at once: the more centred one always wins.
+ */
+export function centreCloseness(offset: number, bandHalfWidth: number): number {
+  if (bandHalfWidth <= 0) return 0
+  return smoothstep(1 - Math.abs(offset) / bandHalfWidth)
+}
+
+/**
  * How near a target is, 1 at `near` or closer and 0 at `far` or beyond.
  *
- * A distance in whatever unit the caller measures: the cursor compass hands it
- * client px from the ring to a building on screen, so "near" means the cursor
- * is near the building the viewer sees. The compass is a BEARING instrument and
- * knows nothing about distance on its own, which is exactly why this is
- * separate: on the ring a mark already sits at its bearing, so nearness is the
- * one thing left to say.
+ * The compass is a BEARING instrument and knows nothing about distance on its own,
+ * which is exactly why this is separate: a landmark can be dead ahead across the
+ * whole plate, and being pointed at something is not the same as having arrived
+ * near it. The caller multiplies the two, so both have to agree before anything
+ * lights up.
  *
  * Returns 0 for a degenerate range rather than dividing by it — an unset threshold
  * should light nothing, not everything.
@@ -113,148 +154,133 @@ export function rangeCloseness(distance: number, near: number, far: number): num
   return smoothstep(1 - (distance - near) / (far - near))
 }
 
-const DEG = Math.PI / 180
-const TAU = 2 * Math.PI
+/**
+ * A mark's opacity, faded across the outermost stretch of the bar.
+ *
+ * `fadeStart` is an offset magnitude, so 0.7 begins the fade with 15% of the bar's
+ * width left on that side. EXPRESSED AS A FRACTION OF THE BAR AND NOT IN PIXELS,
+ * which is the whole point: the bar is narrower on a phone than on a desktop, and
+ * a pixel threshold would put the fade in a different place on each — or, on a
+ * narrow enough bar, never reach it at all.
+ *
+ * Beyond the span the fade is already complete, so a clamped mark needs no special
+ * case here: its offset is +/-1, which lands on `minOpacity` by construction.
+ */
+export function edgeFadeOpacity(
+  offset: number,
+  fadeStart: number,
+  minOpacity: number,
+): number {
+  if (fadeStart >= 1) return 1
+  const past = (Math.abs(offset) - fadeStart) / (1 - fadeStart)
+  if (past <= 0) return 1
+  return minOpacity + (1 - minOpacity) * smoothstep(1 - past)
+}
 
-/** A mark's place round the ring, in px from its centre, and its arrowhead's turn. */
-export interface RingSlot {
+/** Whether a mark is waiting to arrive, and whether it just did. */
+export interface ArrivalEdge {
+  /** True while the mark may fire on its next rise through `on`. */
+  readonly armed: boolean
+  /** True on exactly the frame warmth rose through `on` while armed. */
+  readonly fire: boolean
+}
+
+/**
+ * One event per arrival, from a warmth that is read every frame.
+ *
+ * Fires when `warmth` rises through `on` while armed, and re-arms only once it
+ * has fallen below `off`. The gap between the two is the point: warmth is a
+ * continuous product of two ramps, and a pin drifting across a single threshold
+ * and back every frame would fire like a fault light. Nothing here is drawn —
+ * the caller decides what an arrival looks like.
+ */
+export function arrivalEdge(armed: boolean, warmth: number, on: number, off: number): ArrivalEdge {
+  if (armed) {
+    if (warmth >= on) return { armed: false, fire: true }
+    return { armed: true, fire: false }
+  }
+  return { armed: warmth < off, fire: false }
+}
+
+/** One label as the bar would draw it this frame, before any placing. */
+export interface LabelInput {
+  /** Its mark's centre, in px from the bar's centre: negative is left. */
   readonly x: number
-  /** Screen y, so a mark AHEAD is at negative y: up. */
-  readonly y: number
-  /** For CSS `rotate()`, which turns clockwise on a y-down screen. */
-  readonly angleDeg: number
+  /** Its drawn width in px, arrival growth included. */
+  readonly width: number
+  /** The higher of two colliding labels keeps its place. */
+  readonly priority: number
+  /** Whether it was drawn last frame — what the hysteresis below reads. */
+  readonly shown: boolean
+}
+
+/** Where a label goes relative to its mark, and whether it is drawn at all. */
+export interface LabelPlacement {
+  /** Px to move the label along the bar, off its mark, to keep it on the bar. */
+  readonly shift: number
+  readonly shown: boolean
+}
+
+export interface LabelRules {
+  /** Half the bar's width, in px: no label may reach past it. */
+  readonly halfSpan: number
+  /** The least clear space between two drawn labels, in px. */
+  readonly gap: number
+  /**
+   * The clear space a hidden label needs before it comes back. Wider than `gap`,
+   * for `arrivalEdge`'s reason: two marks drifting across one threshold would
+   * blink a label on and off every frame.
+   */
+  readonly reenterGap: number
+  /**
+   * Priority a drawn label keeps over one that is not. Two cold labels crossing
+   * the centre from either side swap which is nearer it; without this they would
+   * swap which one is drawn at the same moment.
+   */
+  readonly stickiness: number
 }
 
 /**
- * Bearing -> a slot on a ring of `radius`.
+ * Keeps labels on the bar and off each other.
  *
- * Zero is straight up and a positive bearing goes right, which is
- * `horizontalBearing`'s "positive is right" drawn on a screen whose y grows
- * DOWNWARD: `x = r·sin(b)` and `y = -r·cos(b)`. An arrowhead drawn pointing up
- * and rotated by `angleDeg` therefore points outward along its own radius, so
- * the CSS never has to know the sign convention.
+ * Two places a few degrees apart put their labels on top of each other, and the
+ * arrival pose is exactly such a view — the first thing Murcia shows. So labels
+ * are placed in priority order and a label that would come within `gap` of one
+ * already placed is not drawn: the pin still marks where that place is, the words
+ * belong to the one being arrived at. A label near an end is moved inward until
+ * it fits, so its pin can sit at the very end of the span without the word
+ * running off the glass.
+ *
+ * Everything is in px from the bar's centre, and the caller measures: this only
+ * places.
  */
-export function ringSlot(bearing: number, radius: number): RingSlot {
-  return {
-    x: radius * Math.sin(bearing),
-    y: -radius * Math.cos(bearing),
-    angleDeg: bearing / DEG,
-  }
-}
+export function placeLabels(labels: readonly LabelInput[], rules: LabelRules): LabelPlacement[] {
+  const shifts = labels.map((label) => keepOnBar(label.x, label.width / 2, rules.halfSpan))
+  const rank = (i: number): number =>
+    labels[i].priority + (labels[i].shown ? rules.stickiness : 0)
+  const order = labels.map((_, i) => i).sort((a, b) => rank(b) - rank(a))
 
-/**
- * Where a point on the SCREEN is from the ring, as a bearing `ringSlot` draws.
- *
- * `dx`, `dy` are client px from the ring's centre to the point, y growing
- * downward as the screen's does. Straight up is 0 and the right is +PI/2 —
- * `ringSlot`'s own convention, so the two compose without a flip, and the same
- * sign `horizontalBearing` uses, so a mark can fall back from one to the other
- * without turning round. This is what the cursor compass draws from (2026-09-22):
- * a building to the left of the cursor gets an arrow pointing left, whichever
- * way the camera faces, because that is what the viewer sees.
- */
-export function screenBearing(dx: number, dy: number): number {
-  return Math.atan2(dx, -dy)
-}
-
-/**
- * Which side of its arrowhead a label reads on.
- *
- * Text is never rotated with the mark — a word upside down is a word nobody
- * reads — so it hangs off the arrowhead horizontally, on the side away from the
- * ring: right of a mark on the right half, left of one on the left. Dead ahead
- * is the right, so a label there has one home rather than flipping on the sign
- * of a rounding error.
- */
-export function labelSide(bearing: number): 'left' | 'right' {
-  return Math.sin(bearing) >= 0 ? 'right' : 'left'
-}
-
-/** -PI..PI. */
-function wrap(angle: number): number {
-  let a = (angle + Math.PI) % TAU
-  if (a < 0) a += TAU
-  return a - Math.PI
-}
-
-/**
- * Pushes bearings apart until every neighbouring pair is `minSeparation` apart.
- *
- * Two places a few degrees apart put their arrowheads on top of each other, and
- * the arrival pose is exactly such a view — the first thing Murcia shows. Each
- * short pair is pushed apart SYMMETRICALLY, so a mark never moves more than it
- * has to and the pair keeps its order and its midpoint. Round the circle, so a
- * pair straddling the seam at ±PI is as close as any other. Continuous in its
- * inputs: nothing here pops.
- *
- * Passes rather than a solve: with the handful of landmarks a city has, a pass
- * per bearing settles every chain, and the cost is nothing.
- */
-export function spreadBearings(bearings: readonly number[], minSeparation: number): number[] {
-  const n = bearings.length
-  if (n < 2) return bearings.slice()
-  const order = bearings.map((_, i) => i).sort((a, b) => bearings[a] - bearings[b])
-  const spread = bearings.slice()
-  for (let pass = 0; pass < n; pass++) {
-    for (let k = 0; k < n; k++) {
-      const i = order[k]
-      const j = order[(k + 1) % n]
-      // The next mark round the circle; the last one's neighbour is the first, a turn on.
-      const gap = k + 1 < n ? spread[j] - spread[i] : spread[j] + TAU - spread[i]
-      const short = minSeparation - gap
-      if (short <= 0) continue
-      spread[i] -= short / 2
-      spread[j] += short / 2
+  const shown = labels.map(() => false)
+  const placed: number[] = []
+  for (const i of order) {
+    const need = labels[i].shown ? rules.gap : rules.reenterGap
+    const centre = labels[i].x + shifts[i]
+    const clear = placed.every((j) => {
+      const between = Math.abs(centre - (labels[j].x + shifts[j]))
+      return between - (labels[i].width + labels[j].width) / 2 >= need
+    })
+    if (clear) {
+      shown[i] = true
+      placed.push(i)
     }
   }
-  return spread.map(wrap)
+  return labels.map((_, i) => ({ shift: shifts[i], shown: shown[i] }))
 }
 
-/**
- * Vertical offsets that keep labels on the same side of the ring off each other.
- *
- * Near the top of the ring an angular spread barely moves a label's height —
- * `r(1 - cos 20°)` is two pixels at this radius — while both words hang to the
- * right, one over the other. So the axis that matters is handled on its own:
- * labels on a side are sorted by height and pushed apart symmetrically to
- * `minGap`, as `spreadBearings` does round the circle. Opposite sides never
- * meet and are not touched.
- */
-export function stackLabels(
-  labels: readonly { readonly side: 'left' | 'right'; readonly y: number }[],
-  minGap: number,
-): number[] {
-  const y = labels.map((label) => label.y)
-  for (const side of ['left', 'right'] as const) {
-    const order = labels
-      .map((_, i) => i)
-      .filter((i) => labels[i].side === side)
-      .sort((a, b) => y[a] - y[b])
-    for (let pass = 0; pass < order.length; pass++) {
-      for (let k = 0; k + 1 < order.length; k++) {
-        const i = order[k]
-        const j = order[k + 1]
-        const short = minGap - (y[j] - y[i])
-        if (short <= 0) continue
-        y[i] -= short / 2
-        y[j] += short / 2
-      }
-    }
-  }
-  return y.map((value, i) => value - labels[i].y)
-}
-
-/**
- * A slow blink for a place the viewer is near: 0..1 over `period` seconds,
- * never below `floor`.
- *
- * A sine rather than a square wave, and never fully dark, because it is drawn
- * on a building's surface: a light that snapped off would read as the building
- * losing its hover, and the point is the opposite — that it has one waiting.
- * The caller scales it by how near the place is.
- */
-export function proximityPulse(seconds: number, period: number, floor: number): number {
-  if (!(period > 0)) return 1
-  const wave = 0.5 + 0.5 * Math.sin((TAU * seconds) / period)
-  return floor + (1 - floor) * wave
+/** The shift that holds a label of half-width `half`, centred on `x`, inside the bar. */
+function keepOnBar(x: number, half: number, halfSpan: number): number {
+  // Wider than the bar: centred on it, the least-bad place.
+  if (half >= halfSpan) return -x
+  const held = Math.min(halfSpan - half, Math.max(-halfSpan + half, x))
+  return held - x
 }

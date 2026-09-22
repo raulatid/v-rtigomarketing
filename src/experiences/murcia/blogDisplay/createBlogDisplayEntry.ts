@@ -101,8 +101,6 @@ export interface BlogDisplayEntry {
    * the caller should not click.
    */
   screenPoint(): { x: number; y: number } | null;
-  /** The compass's nearness, 0..1, lit on the cluster under a hover (`buildingHighlight.ts`). */
-  setProximity(strength: number): void;
   setViewport(width: number, height: number): void;
   beginReturn(): void;
   dismissCover(): void;
@@ -208,10 +206,6 @@ export function createBlogDisplayEntry(
       const rect = options.canvas.getBoundingClientRect();
       const point = worldToClient(rect, options.camera, display.anchor(), projected);
       return point === null ? null : { x: point.x, y: point.y };
-    },
-
-    setProximity(strength: number): void {
-      highlight.setProximity(strength);
     },
 
     setViewport(width: number, height: number): void {

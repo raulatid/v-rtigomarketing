@@ -86,8 +86,6 @@ export interface ServicesCampusSection {
   anchor(out: THREE.Vector3): THREE.Vector3;
   /** The lake's centre in client pixels; null when it is behind the camera. */
   screenPoint(): { x: number; y: number } | null;
-  /** The compass's nearness, 0..1, lit on the buildings under a hover (`buildingHighlight.ts`). */
-  setProximity(strength: number): void;
   /** From the overview only. False when something else holds the camera. */
   enter(): boolean;
   next(): void;
@@ -335,9 +333,6 @@ export async function createServicesCampus(
         projected,
       );
       return point === null ? null : { x: point.x, y: point.y };
-    },
-    setProximity(strength) {
-      highlight.setProximity(strength);
     },
     enter,
     next: () => campus.next(),

@@ -36,7 +36,7 @@ import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
-import { CursorCompass, type CursorCompassLandmark } from './ui/cursorCompass';
+import { CompassBar, type CompassPoi } from './ui/compassBar';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
@@ -142,9 +142,7 @@ export class MurciaExperience {
    * The two places worth clicking, pointed at from any heading. Built after the
    * city loads, from whichever of them actually loaded.
    */
-  private cursorCompass: CursorCompass | null = null;
-  /** Set by the Earth -> Murcia cut, spent on the first navigable frame after it. */
-  private arrivalPending = false;
+  private compass: CompassBar | null = null;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
@@ -627,17 +625,6 @@ export class MurciaExperience {
     if (this.active === next) return;
     this.active = next;
 
-    // The compass's arrival is the landing from Earth, and only that: the blog
-    // and the campus never touch `active`. Hidden on the way out here rather
-    // than in update(), which stops running — the page class and the
-    // buildings' nearness would otherwise be left behind under Earth.
-    if (next) {
-      this.arrivalPending = true;
-    } else {
-      this.arrivalPending = false;
-      this.cursorCompass?.setVisible(false);
-    }
-
     // Frame work was always gated; INPUT was not. Both district interaction and
     // the click probe listen on the SHARED canvas, so while Earth was showing,
     // every click on the globe raycast the hidden city — and a district hit flew
@@ -866,7 +853,7 @@ export class MurciaExperience {
 
     await this.setupCampus(loaded.root);
     this.setupBlogDisplay(loaded.root);
-    this.setupCursorCompass();
+    this.setupCompass();
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
       reducedMotion: this.reducedMotion,
     });
@@ -996,42 +983,37 @@ export class MurciaExperience {
   }
 
   /**
-   * The compass, over whichever of the places worth clicking actually loaded.
+   * The compass, over whichever of the two places actually loaded.
    *
-   * THIS LIST IS THE REGISTRY of what the city says can be touched: a new
-   * interactable is one more entry here, with its anchor and the highlight it
-   * wants lit as the viewer nears it. Built from what is in the scene rather
-   * than from a list: a city exported without the blog cluster already logs an
-   * error and returns no building, and a compass pointing at a place that is
-   * not there would be the second failure.
+   * Built from what is in the scene rather than from a list: a city exported
+   * without the blog cluster already logs an error and returns no building, and
+   * a compass pointing at a place that is not there would be the second failure.
    */
-  private setupCursorCompass(): void {
-    const landmarks: CursorCompassLandmark[] = [];
+  private setupCompass(): void {
+    const pois: CompassPoi[] = [];
 
     const campus = this.campus;
     if (campus) {
       const content = findDistrictContent(DISTRICT_CONTENT, cityDistrictBindings[0].contentId);
-      landmarks.push({
+      pois.push({
         id: 'servicios',
         anchor: (out: THREE.Vector3) => campus.anchor(out),
         // The name comes from the CMS, like every other district string.
         label: content?.label ?? 'Servicios',
-        proximity: (strength) => campus.setProximity(strength),
       });
     }
 
     const blog = this.blogDisplay;
     if (blog) {
-      landmarks.push({
+      pois.push({
         id: 'blog',
         anchor: (out: THREE.Vector3) => blog.anchor(out),
         label: 'Blog',
-        proximity: (strength) => blog.setProximity(strength),
       });
     }
 
-    if (landmarks.length === 0) return;
-    this.cursorCompass = new CursorCompass(this.container, this.renderer.domElement, landmarks);
+    if (pois.length === 0) return;
+    this.compass = new CompassBar(this.container, pois);
   }
 
   /**
@@ -1303,24 +1285,14 @@ export class MurciaExperience {
     // Hidden while a cinematic or the blog approach owns the camera: the
     // bearings stay true and stop meaning anything, because the viewer is not
     // navigating. It sits below the flash in z-order, so the cut covers it.
-    //
-    // The arrival — each mark born on its building and travelling to the ring
-    // — is spent on the FIRST navigable frame after the cut from Earth: with
-    // the cinematic, the frame the warp claim lets go, camera at rest; under
-    // reduced motion there is no warp claim and it is the first active frame.
-    if (this.cursorCompass) {
+    if (this.compass) {
       // The same two names the ladder above routes to a direct pose write.
       // Read off the claims rather than off the two systems, so "the viewer is
       // not navigating" has one answer here too.
       const owned =
         (this.rig?.hasClaim('warp') ?? false) || (this.rig?.hasClaim('blog') ?? false);
-      const navigating = !owned && !this.hasFocusedDistrict;
-      this.cursorCompass.setVisible(navigating);
-      if (navigating && this.arrivalPending) {
-        this.arrivalPending = false;
-        this.cursorCompass.arrive(this.camera);
-      }
-      this.cursorCompass.update(this.camera, delta);
+      this.compass.setVisible(!owned && !this.hasFocusedDistrict);
+      this.compass.update(this.camera);
     }
 
     // One uniform write. `water.update` wants elapsed seconds, not the delta —
@@ -1398,8 +1370,8 @@ export class MurciaExperience {
     this.campus?.dispose();
     this.campus = null;
 
-    this.cursorCompass?.dispose();
-    this.cursorCompass = null;
+    this.compass?.dispose();
+    this.compass = null;
     this.cameraInput?.dispose();
     this.cameraInput = null;
     this.cameraTuning = null;

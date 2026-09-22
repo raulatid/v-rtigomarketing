@@ -38,8 +38,8 @@ const PARTICLE_COLOR_INPUT = colorHexInput({
  * is what the GROQ projection and the stored documents say.
  *
  * ── What each field is for since the campus (DECISIONS §45) ──
- * `label` is the big title when the section opens and the word on the cursor
- * compass; the service invitation on the LED ring is hardcoded and does NOT follow it.
+ * `label` is the big title when the section opens and the pin in the compass
+ * bar; the service invitation on the LED ring is hardcoded and does NOT follow it.
  * `summary` is the line under that title, on every device. `particleColor` is
  * mixed with white in the campus particles on entering, and stands in for any
  * service without its own. `services` is the set of stops around the lake, in

@@ -39,14 +39,6 @@ export const BUILDING_HIGHLIGHT: BuildingHighlightOptions = {
 export interface BuildingHighlight {
   /** Only sets where the strength is heading; `update` walks it there. */
   setTarget(on: boolean): void;
-  /**
-   * How near the viewer is, 0..1, applied as it is given: the caller supplies
-   * the blink (`utils/compass` `proximityPulse`), so the building and the
-   * cursor compass's mark share one phase and one reduced-motion answer. A
-   * hover always outweighs it, so a pointer resting on the building holds it
-   * steadily lit while the blink runs underneath.
-   */
-  setProximity(strength: number): void;
   update(deltaTime: number): void;
   /** Hands every mesh its own material back and frees the clones. */
   dispose(): void;
@@ -127,22 +119,16 @@ export function createBuildingHighlight(
 
   let progress = 0;
   let target = 0;
-  let proximity = 0;
 
   return {
     setTarget(on: boolean): void {
       target = on ? 1 : 0;
     },
 
-    setProximity(strength: number): void {
-      // `clamp01` passes NaN through, and NaN in a uniform is an invisible building.
-      proximity = Number.isFinite(strength) ? clamp01(strength) : 0;
-    },
-
     update(deltaTime: number): void {
-      if (progress !== target) progress = stepHighlight(progress, target, deltaTime, options.duration);
-      // The stronger of the two claims on the light, and exactly 0 with neither.
-      uHighlight.value = Math.max(easeHighlight(progress), proximity) * options.intensity;
+      if (progress === target) return;
+      progress = stepHighlight(progress, target, deltaTime, options.duration);
+      uHighlight.value = easeHighlight(progress) * options.intensity;
     },
 
     dispose(): void {

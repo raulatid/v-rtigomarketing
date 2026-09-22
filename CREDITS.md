@@ -186,7 +186,7 @@ Swapping a track: re-run the recipe, rename by hash, update `MUSIC_TRACKS` in
 The site self-hosts its families from `public/fonts/` as woff2, and sets type
 in two roles declared once for every document in `src/components/siteHeader.css`
 as `Vertigo Display` and `Vertigo Text`. Since 2026-09-12, under review, those
-are General Sans for display (headings, titles, the cursor compass's labels, the LED panels,
+are General Sans for display (headings, titles, the compass, the LED panels,
 the CTAs) and Gambetta for text, the blog's article body included.
 
 The faces they replaced stay declared as fallbacks until the change is
