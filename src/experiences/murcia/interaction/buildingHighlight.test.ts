@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
-import { createBuildingHighlight, easeHighlight, stepHighlight } from './buildingHighlight'
+import { blinkStrength, createBuildingHighlight, easeHighlight, stepHighlight } from './buildingHighlight'
 
 // The lightmapped materials this lands on are shared across the city and carry
 // a compile hook that samples the atlas. Both facts are what these tests pin:
@@ -125,5 +125,70 @@ describe('stepHighlight', () => {
   it('snaps when asked for no animation, and never leaks NaN', () => {
     expect(stepHighlight(0, 1, 0.016, 0)).toBe(1)
     expect(stepHighlight(Number.NaN, 0, 0.016, 0.4)).toBe(0)
+  })
+})
+
+describe('blinkStrength', () => {
+  // One blink per period: a smooth bump that fills the first `duration`
+  // seconds and nothing for the rest, so the building says "here" and then
+  // leaves the viewer alone.
+  it('is dark outside the blink and peaks in the middle of it', () => {
+    expect(blinkStrength(0, 5, 1)).toBe(0)
+    expect(blinkStrength(0.5, 5, 1)).toBeCloseTo(1, 10)
+    expect(blinkStrength(1, 5, 1)).toBe(0)
+    expect(blinkStrength(3, 5, 1)).toBe(0)
+  })
+
+  it('repeats every period', () => {
+    expect(blinkStrength(5.5, 5, 1)).toBeCloseTo(blinkStrength(0.5, 5, 1), 10)
+    expect(blinkStrength(10.5, 5, 1)).toBeCloseTo(1, 10)
+  })
+
+  it('rises and falls without a corner', () => {
+    expect(blinkStrength(0.1, 5, 1)).toBeLessThan(blinkStrength(0.3, 5, 1))
+    expect(blinkStrength(0.7, 5, 1)).toBeGreaterThan(blinkStrength(0.9, 5, 1))
+    expect(blinkStrength(0.25, 5, 1)).toBeCloseTo(blinkStrength(0.75, 5, 1), 10)
+  })
+
+  it('lights nothing for a degenerate period or duration', () => {
+    expect(blinkStrength(0.5, 0, 1)).toBe(0)
+    expect(blinkStrength(0.5, 5, 0)).toBe(0)
+  })
+})
+
+describe('the idle blink', () => {
+  const BLINKING = { ...OPTIONS, blink: { period: 5, duration: 1, strength: 0.7 } }
+
+  it('lights the building on its own, at the blink strength, and goes dark between blinks', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], BLINKING)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.update(0.5)
+    expect(light.value).toBeCloseTo(0.7 * OPTIONS.intensity, 10)
+    highlight.update(1)
+    expect(light.value).toBe(0)
+    highlight.update(4)
+    expect(light.value).toBeCloseTo(0.7 * OPTIONS.intensity, 10)
+  })
+
+  it('never outshines a hover, which holds the building fully lit through a blink', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], BLINKING)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.setTarget(true)
+    highlight.update(10)
+    highlight.update(0.5)
+    expect(light.value).toBeCloseTo(OPTIONS.intensity, 10)
+  })
+
+  it('stays dark with the blink off, as the reduced-motion build has it', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], { ...OPTIONS, blink: null })
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.update(0.5)
+    expect(light.value).toBe(0)
   })
 })

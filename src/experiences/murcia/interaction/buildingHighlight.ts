@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp01 } from '../../../utils/easing';
+import { prefersReducedMotion } from '../../../platform/motionPreference';
 
 /**
  * The satellites' hover light, on a set of the city's buildings.
@@ -19,7 +20,24 @@ import { clamp01 } from '../../../utils/easing';
  * There is no bloom in Murcia, so this reads as a lit surface, not a halo.
  * No light is added either: a new `THREE.Light` changes the scene's light
  * count and recompiles every program at the worst moment.
+ *
+ * ## The idle blink (2026-09-22)
+ *
+ * Viewers could not tell which buildings could be touched: a hover light
+ * only speaks to a pointer that is already there. So the set also blinks on
+ * its own — one soft bump every `blink.period` seconds, in the hover's colour
+ * at a fraction of its strength — and a hover always outweighs it, so a
+ * pointer resting on the building holds it steadily lit through a blink. Off
+ * under reduced motion: a periodic light is exactly the motion that setting
+ * declines, and the hover still answers.
  */
+
+/** One blink every `period` seconds, `duration` seconds long, at `strength` of the hover's light. */
+export interface BuildingBlink {
+  period: number;
+  duration: number;
+  strength: number;
+}
 
 export interface BuildingHighlightOptions {
   /** sRGB. Earth's `HOLO_COLOR`, restated: murcia may not import earth. */
@@ -28,12 +46,21 @@ export interface BuildingHighlightOptions {
   intensity: number;
   /** Seconds for a full rise, and for a full fall. The satellites' `highlightDuration`. */
   duration: number;
+  /** The idle blink; absent or null, the set lights on hover alone. */
+  blink?: BuildingBlink | null;
 }
+
+export const BUILDING_BLINK: BuildingBlink = {
+  period: 5,
+  duration: 0.9,
+  strength: 0.7,
+};
 
 export const BUILDING_HIGHLIGHT: BuildingHighlightOptions = {
   color: '#38a9d6',
   intensity: 0.35,
   duration: 0.4,
+  blink: BUILDING_BLINK,
 };
 
 export interface BuildingHighlight {
@@ -66,6 +93,22 @@ export function stepHighlight(current: number, target: number, delta: number, du
 export function easeHighlight(progress: number): number {
   const t = clamp01(progress);
   return t * t * (3 - 2 * t);
+}
+
+/**
+ * The idle blink's shape: 0..1 over the first `duration` seconds of every
+ * `period`, dark for the rest.
+ *
+ * A raised sine, so it rises and falls without a corner and peaks halfway —
+ * a breath rather than a flash, on a surface that has no bloom to soften one.
+ * Degenerate timings light nothing: an unset blink should be no blink.
+ */
+export function blinkStrength(seconds: number, period: number, duration: number): number {
+  if (!(period > 0) || !(duration > 0) || !Number.isFinite(seconds)) return 0;
+  const t = ((seconds % period) + period) % period;
+  if (t >= duration) return 0;
+  const s = Math.sin((Math.PI * t) / duration);
+  return s * s;
 }
 
 export function createBuildingHighlight(
@@ -119,6 +162,9 @@ export function createBuildingHighlight(
 
   let progress = 0;
   let target = 0;
+  // Read once, like every motion branch in the city: the setting applies on reload.
+  const blink = options.blink && !prefersReducedMotion() ? options.blink : null;
+  let clock = 0;
 
   return {
     setTarget(on: boolean): void {
@@ -126,9 +172,14 @@ export function createBuildingHighlight(
     },
 
     update(deltaTime: number): void {
-      if (progress === target) return;
-      progress = stepHighlight(progress, target, deltaTime, options.duration);
-      uHighlight.value = easeHighlight(progress) * options.intensity;
+      if (progress !== target) progress = stepHighlight(progress, target, deltaTime, options.duration);
+      let strength = easeHighlight(progress);
+      if (blink) {
+        clock += deltaTime;
+        // The brighter claim wins, so a hover is never dimmed by a blink ending under it.
+        strength = Math.max(strength, blink.strength * blinkStrength(clock, blink.period, blink.duration));
+      }
+      uHighlight.value = strength * options.intensity;
     },
 
     dispose(): void {

@@ -3613,6 +3613,17 @@ world; being pointed at something is not the same as having arrived at it.
 > arrival only from Earth, an open registry of landmarks in `MurciaExperience`) are in that
 > commit's message and its `cursorCompass.ts` header.
 
+> **Amended 2026-09-22 (later) — the interactable buildings blink on their own** (user
+> direction, starting from the bar again). The first half of the same report — which
+> buildings can be touched — is answered where the buildings are: `buildingHighlight.ts`
+> now blinks its set once every 5 s (`BUILDING_BLINK`: a 0.9 s raised-sine bump at 70% of the
+> hover's light, in the hover's colour), on the campus buildings and the blog cluster alike,
+> and a hover always outweighs it, so a pointer resting on a building holds it steadily lit
+> through a blink. No new light and no bloom: it is the same added `outgoingLight` term. Off
+> under reduced motion, read once at construction like every motion branch in the city. The
+> blink runs whenever the owner updates the highlight, so it goes on inside the campus and
+> during the blog approach too; if that reads as noise it is one gate away.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle
