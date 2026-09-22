@@ -71,10 +71,14 @@ export interface RioWaterConfig {
 }
 
 /**
- * The accepted look, tuned in the sandbox on 2026-08-28 against the Murcia rig:
- * a saturated blue channel with a slightly darker shore band, so the river reads
- * as the one coloured element against the grey city. Measured at 60 fps
- * (16.7 ms median) on the shipped 22-vertex mesh.
+ * The accepted look, tuned in the sandbox on 2026-08-28 against the Murcia rig
+ * and recoloured on 2026-09-22 to the water colour authored in Blender: the
+ * `rio` mesh in the shipped GLB carries one flat vertex colour, linear
+ * (0.0513, 0.1248, 0.0953), which is sRGB #406357. The shader replaces that
+ * material, so the value is copied here by hand rather than read at load; the
+ * shore band and the sky tint are the same hue a step darker and lighter, as
+ * the blue set was. Measured at 60 fps (16.7 ms median) on the shipped
+ * 22-vertex mesh.
  */
 export const DEFAULT_RIO_WATER_CONFIG: RioWaterConfig = {
   flowReversed: true,
@@ -85,9 +89,9 @@ export const DEFAULT_RIO_WATER_CONFIG: RioWaterConfig = {
   rippleStrength: 0.35,
   rippleLayerRatio: 2.0,
 
-  deepColor: 0x0e448b,
-  shallowColor: 0x003c8a,
-  skyColor: 0x3581e3,
+  deepColor: 0x406357,
+  shallowColor: 0x33544a,
+  skyColor: 0x6f9c8c,
   shoreWidth: 4.5,
 
   wallShadowStrength: 0.69,
