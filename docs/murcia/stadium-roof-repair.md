@@ -1,5 +1,9 @@
 # Nueva Condomina roof repair
 
+Historical v4 repair only. The current v5.1 r3 delivery uses the author's roof
+after its Blender animation was removed. Do not apply the placement adjustment
+below to that source; see [the r3 integration](lightmaps-v5.1-r3-integration.md).
+
 ## Cause
 
 The original delivery excluded `estadio-techo`: its Blender position was

@@ -3,6 +3,9 @@ this-file -- --delivery <lightmaps-v2 directory> --project <repo> --out <staging
 
 Repairs the omitted authoring roof, exports only that mesh and rebakes the
 affected atlases. All outputs stay in staging; authoring files are never saved.
+
+Historical v4 workflow only. For the corrected v5.1 authoring scene, use
+rebake-city-lightmaps.py, which preserves the current roof placement.
 """
 import argparse
 import copy

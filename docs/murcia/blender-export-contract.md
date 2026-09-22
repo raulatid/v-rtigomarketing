@@ -4,6 +4,11 @@ What the runtime reads out of the GLB, and what has to be true in the .blend for
 it to be there. Short on purpose — every item below exists because something
 either broke or could not be built without it.
 
+The active v5.1 r3 delivery includes `estadio-techo` at its corrected authored
+transform, with `static-NW` lightmapping and no exported animation clips. The
+old roof exclusion and v4 placement repair do not apply. See the
+[r3 integration and source measurements](lightmaps-v5.1-r3-integration.md).
+
 ---
 
 ## 1. Collection names are not exported. Name the objects.

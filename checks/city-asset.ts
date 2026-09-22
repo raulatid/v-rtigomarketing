@@ -93,6 +93,7 @@ const OFFENDERS_SHOWN = 3;
 
 interface Gltf {
   asset?: { generator?: string; version?: string };
+  animations?: unknown[];
   extensionsUsed?: string[];
   extensionsRequired?: string[];
   nodes?: Array<{
@@ -767,10 +768,22 @@ for (const [i, sampler] of (json.samplers ?? []).entries()) {
 
 section('Nueva Condomina: roof placement and baked material');
 const roofNodes = nodes.filter(n => n.name === 'estadio-techo');
-// The author selected the exact v5.1 export without the separate v4 repair.
-// Keep the old placement contract for repaired exports; adding a roof to v5.1
-// requires reviewing its geometry and bake together.
-if (['murcia-v5.1-lightmaps.glb', 'murcia-v5.1-lightmaps-r2.glb'].includes(MODEL.replaceAll('\\', '/').split('/').at(-1)!)) {
+const modelFilename = MODEL.replaceAll('\\', '/').split('/').at(-1)!;
+if (modelFilename === 'murcia-v5.1-lightmaps-r3.glb') {
+  // The author removed the Blender animation. Preserve that source placement;
+  // the historical repair's centering and pillar-height rules no longer apply.
+  // Bounds measured from the source bound_box, converted (x, y, z) -> (x, z, -y).
+  const roofBounds = worldBounds('estadio-techo');
+  check('the export contains exactly one authored stadium roof', roofNodes.length === 1);
+  check('the static city contains no animation clips', (json.animations?.length ?? 0) === 0);
+  check('the roof retains its authored Blender bounds', !!roofBounds &&
+    roofBounds.min.distanceTo(new Vector3(-450.445190, 9.211193, 81.126266)) < 0.002 &&
+    roofBounds.max.distanceTo(new Vector3(-370.401123, 10.208189, 155.456528)) < 0.002);
+  const primitives = roofNodes[0]?.mesh == null ? [] : meshes[roofNodes[0].mesh]?.primitives ?? [];
+  check('the authored roof has vertex color, both UV channels and the rebuilt northwest atlas',
+    roofNodes[0]?.extras?.lightmap_atlas === 'static-NW' && primitives.length > 0 &&
+    primitives.every(p => ['COLOR_0', 'TEXCOORD_0', 'TEXCOORD_1'].every(a => a in p.attributes)));
+} else if (['murcia-v5.1-lightmaps.glb', 'murcia-v5.1-lightmaps-r2.glb'].includes(modelFilename)) {
   check('v5.1 matches the selected export without the legacy roof repair', roofNodes.length === 0);
 } else {
   const roofBounds = worldBounds('estadio-techo');
