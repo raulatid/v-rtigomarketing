@@ -3600,6 +3600,19 @@ world; being pointed at something is not the same as having arrived at it.
 > tray's edge alone, so §37's accounting holds again, and no colour literal is left in its rules
 > (`--glass-bg-light-dense` is the phone's denser tray, now with a no-blur fallback).
 
+> **Amended 2026-09-22 — a cursor compass was built, and shelved the same day** (development
+> decision). Viewer reports said the bar was not understood and nothing told which buildings
+> could be touched, so the bar was replaced by a compass on the pointer: a 56px accent ring
+> following the cursor (centred on the canvas on touch), with an arrowhead and a word on a
+> density-A plate per place, pointing at the place ON SCREEN — the blog left of the cursor got
+> an arrow pointing left — each mark born on its building and travelling to the ring on the
+> landing from Earth, the word turning the hover blue and the building blinking as the cursor
+> neared it. Commit `70424f5`, reverted by `9e47ae6`: the bar stays for now. The work is kept
+> whole on the branch `cursor-compass` and returns with a cherry-pick or a merge; the design
+> questions it settled (screen space over the camera's bearing, nearness as screen distance,
+> arrival only from Earth, an open registry of landmarks in `MurciaExperience`) are in that
+> commit's message and its `cursorCompass.ts` header.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle
