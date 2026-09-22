@@ -558,3 +558,56 @@ export interface DistrictContent {
   /** The tour order: prev/next and tab order follow this array. */
   services: DistrictService[]
 }
+
+// ---------------------------------------------------------------------------
+// The Vértigo tower's LED screen
+// ---------------------------------------------------------------------------
+
+/**
+ * A slide's picture, mirrored into the deployment by the content build.
+ *
+ * `src` is a local path (`/media/tower/<hash>-<w>x<h>.webp`), never a CDN url:
+ * the facade draws it into a canvas texture, and a cross-origin draw would
+ * taint it. `width` and `height` are the upload's pixels, carried so the
+ * layout can size a `contain` box without decoding the file.
+ */
+export interface TowerSlideImage {
+  src: string
+  width: number
+  height: number
+  /** `cover` crops the picture to the slot; `contain` shows all of it, letterboxed. */
+  fit: 'cover' | 'contain'
+}
+
+/**
+ * One slide of the template. Every slot but the headline may be `null`, and
+ * a null slot is simply not drawn — the others keep their places, because
+ * the grid is fixed (`layoutTowerSlides.ts`).
+ */
+export interface TowerSlide {
+  /** `slide-<n>` from array position; the rotation names these. */
+  id: string
+  /** The one required slot: the word at the top, drawn in capitals. */
+  headline: string
+  /** Up to three lines under the headline. Empty means none. */
+  items: string[]
+  /** The big accent number, counted up on arrival, with an optional sign or unit each side. */
+  metric: { value: number; prefix?: string; suffix?: string } | null
+  caption1: string | null
+  caption2: string | null
+  caption3: string | null
+  image: TowerSlideImage | null
+}
+
+/**
+ * The screen's whole document. A singleton: `content/collections/towerScreen.collection.ts`
+ * proves there is exactly one, and `src/content/tower.ts` reads it by index.
+ */
+export interface TowerScreenContent {
+  /** Always `tower`; the projection writes it. */
+  id: string
+  /** How long each slide holds before the crossfade to the next. */
+  rotationSeconds: number
+  /** In rotation order. At least one; a single slide holds without rotating. */
+  slides: TowerSlide[]
+}

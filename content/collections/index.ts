@@ -5,6 +5,7 @@ import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
 import { legalDocsCollection } from './legalDocs.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
+import { towerScreenCollection } from './towerScreen.collection'
 
 /**
  * Every content collection the site publishes.
@@ -23,6 +24,7 @@ export const COLLECTIONS: readonly AnyCollection[] = [
   districtsCollection,
   servicesCollection,
   siteSettingsCollection,
+  towerScreenCollection,
   legalDocsCollection,
   blogPostsCollection,
 ]

@@ -2,22 +2,27 @@ import * as THREE from 'three';
 import type { FacadeContentDocument } from './content/facadeContent';
 import { createScreenPlayer, INERT_SCREEN, type ScreenPlayer } from '../../screens/screenPlayer';
 import { findScreen, selectScreenUv, uvAttributeName } from '../../screens/screenMesh';
-import { DESIGN_METRES_WIDE, TOWER_DOCUMENT } from './content/towerContent';
+import { DESIGN_METRES_WIDE } from './content/towerContent';
 import { applyTowerPalette } from './towerPalette';
 
 /**
  * The Vértigo tower's screen: the one entry point of this module.
  *
  * Handed a root that CONTAINS the tower — the tower's own export in the lab,
- * the whole city on the site — it colours the tower's parts, finds `LED_Main`,
- * and runs the compositions on it under the carousel. Nothing here loads a
- * model, owns a scene, a camera or a render loop: the caller ticks `update`
- * with its frame delta and disposes it with the rest of its world.
+ * the whole city on the site — and the document to show, it colours the
+ * tower's parts, finds `LED_Main`, and runs the compositions on it under the
+ * carousel. Nothing here loads a model, owns a scene, a camera or a render
+ * loop: the caller ticks `update` with its frame delta and disposes it with
+ * the rest of its world.
  *
  * ```
- *   TOWER_DOCUMENT  →  createComposition  →  mediaFacade  →  LED_Main
- *                          carousel ↗ (which slide, how far in)
+ *   TOWER_SCREEN_CONTENT  →  layoutTowerSlides  →  createComposition  →  mediaFacade  →  LED_Main
+ *      (src/content, CMS)     (the template)          carousel ↗ (which slide, how far in)
  * ```
+ *
+ * The document arrives as an option rather than being imported here, so this
+ * module stays free of generated content: the site hands it the CMS's slides
+ * through the template, the lab and the tests hand it whatever they like.
  *
  * A missing screen is not fatal. The tower still stands in its colours; the
  * screen warns once and stays dark, because a city must load without its
@@ -45,7 +50,8 @@ export interface TowerScreenOptions {
   readonly screenNodeName?: string;
   /** Which UV set is the screen (`VertigoBuildingConfig.screenUvChannel`). Default 0. */
   readonly screenUvChannel?: 0 | 1;
-  readonly document?: FacadeContentDocument;
+  /** What the screen shows. On the site, `layoutTowerSlides(TOWER_SCREEN_CONTENT)`. */
+  readonly document: FacadeContentDocument;
   /** The width the document's layouts were drawn for. See `towerContent`. */
   readonly designMetresWide?: number;
   readonly resolution?: number;
@@ -66,7 +72,7 @@ export function attachTowerScreen(root: THREE.Object3D, options: TowerScreenOpti
   }
   selectScreenUv(mesh, uvChannel);
 
-  const document = options.document ?? TOWER_DOCUMENT;
+  const document = options.document;
   if (document.compositions.length === 0) {
     console.warn('[vertigo] the tower document has no compositions; the screen stays dark');
     return INERT_SCREEN;

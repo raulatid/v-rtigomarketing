@@ -1,0 +1,39 @@
+[
+  {
+    "id": "tower",
+    "rotationSeconds": 5,
+    "slides": [
+      {
+        "headline": "VERTIGO",
+        "items": ["SEO", "Marca", "Progreso"],
+        "metricValue": 50,
+        "metricSuffix": "%",
+        "caption1": "CRECIMIENTO",
+        "caption2": "EN TRÁFICO ORGÁNICO",
+        "caption3": "EN LOS ÚLTIMOS 12 MESES",
+        "image": {
+          "src": "/textures/murcia/tower/global-earth-network-connections-001.webp",
+          "width": 612,
+          "height": 344
+        },
+        "imageFit": "cover"
+      },
+      {
+        "headline": "NAVIDAD",
+        "items": ["Identidad", "Web", "Crecimiento"],
+        "metricValue": 30,
+        "metricPrefix": "−",
+        "metricSuffix": "%",
+        "caption1": "DESCUENTO",
+        "caption2": "EN SERVICIOS",
+        "caption3": "SELECCIONADOS",
+        "image": {
+          "src": "/textures/murcia/tower/global-earth-network-connections-001.webp",
+          "width": 612,
+          "height": 344
+        },
+        "imageFit": "contain"
+      }
+    ]
+  }
+]

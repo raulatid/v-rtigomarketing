@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { Report, remoteMediaUrl, sanityImageDimensions } from './validate'
 import { SourceError, withTimeout, type ContentSource } from './source'
-import type { MediaRule } from '../collections/types'
+import type { MediaRule, SanitySourceSpec } from '../collections/types'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 
 /**
@@ -40,6 +40,13 @@ export interface MirrorOptions {
   dir: string
   /** Public path the emitted reference uses, e.g. `/logos`. */
   publicPath: string
+  /**
+   * The absolute `public/` directory, for a collection that names its own
+   * folder (`SanitySourceSpec.mirrorDir`). Optional so the logo mirror's call
+   * is unchanged; a collection with a `mirrorDir` and no root here fails the
+   * build, since a guessed folder is a file in the wrong place.
+   */
+  publicRoot?: string
   /** Only media on this origin is fetched. */
   allowedOrigin: string
   timeoutMs?: number
@@ -73,20 +80,24 @@ export function withMediaMirror(inner: ContentSource, options: MirrorOptions): C
       const fields = spec.mirror
       if (fields === undefined || fields.length === 0) return records
 
+      const target = resolveTarget(spec, options)
+
       for (const [index, record] of records.entries()) {
         if (record === null || typeof record !== 'object') continue
         for (const field of fields) {
-          const at = spec.type + '[' + index + '].' + field
-          const remote = readPath(record as Record<string, unknown>, field)
-          // An absent logo is legal — the atlas draws its own plate. Only a
-          // value that is actually there is held to the contract.
-          if (remote === null || remote === undefined || remote === '') continue
+          for (const slot of locate(record as Record<string, unknown>, field)) {
+            const at = spec.type + '[' + index + '].' + slot.path
+            const remote = slot.holder[slot.key]
+            // An absent picture is legal — the atlas draws its own plate, the
+            // tower draws a text-only slide. Only a value that is actually
+            // there is held to the contract.
+            if (remote === null || remote === undefined || remote === '') continue
 
-          const rule = spec.mediaRules?.[field]
-          const url = validateRemote(at, remote, options.allowedOrigin, rule)
-          if (rule !== undefined) assertGeometry(at, url, rule)
-          const local = await mirrorOne(url, at, options, doFetch, timeoutMs, log)
-          writePath(record as Record<string, unknown>, field, local)
+            const rule = spec.mediaRules?.[field]
+            const url = validateRemote(at, remote, options.allowedOrigin, rule)
+            if (rule !== undefined) assertGeometry(at, url, rule)
+            slot.holder[slot.key] = await mirrorOne(url, at, target, doFetch, timeoutMs, log)
+          }
         }
       }
       return records
@@ -158,10 +169,37 @@ function assertGeometry(at: string, url: string, rule: MediaRule): void {
   }
 }
 
+/** Where one collection's files land and how the emitted reference names them. */
+interface MirrorTarget {
+  dir: string
+  publicPath: string
+}
+
+/**
+ * A collection that names its own folder gets it under `public/`; one that
+ * does not gets the mirror's default, which is how the logos have always been
+ * placed. The folder name is asserted for the same reason `SAFE_BASENAME` is:
+ * it becomes a path on disk and a public URL, and `..` means a different
+ * thing in each.
+ */
+const SAFE_DIR = /^[A-Za-z0-9][A-Za-z0-9_-]*(\/[A-Za-z0-9][A-Za-z0-9_-]*)*$/
+
+function resolveTarget(spec: SanitySourceSpec, options: MirrorOptions): MirrorTarget {
+  const sub = spec.mirrorDir
+  if (sub === undefined) return { dir: options.dir, publicPath: options.publicPath }
+  if (!SAFE_DIR.test(sub)) {
+    throw new SourceError(spec.type + ': mirrorDir "' + sub + '" is not a usable folder name')
+  }
+  if (options.publicRoot === undefined) {
+    throw new SourceError(spec.type + ': names mirrorDir "' + sub + '" but the mirror has no publicRoot')
+  }
+  return { dir: path.join(options.publicRoot, ...sub.split('/')), publicPath: '/' + sub }
+}
+
 async function mirrorOne(
   url: string,
   at: string,
-  options: MirrorOptions,
+  options: MirrorTarget,
   doFetch: typeof fetch,
   timeoutMs: number,
   log: (message: string) => void,
@@ -202,31 +240,57 @@ async function mirrorOne(
 }
 
 /**
- * Dotted paths only, no array wildcards.
- *
- * Nothing mirrors into an array today: editorial imagery stays on the CMS CDN by
- * decision, and only the brand logos — which are drawn into a WebGL atlas — are
- * brought in-house. Adding wildcards before there is a caller would be inventing
- * a traversal language nobody has used.
+ * One place a mirrored value lives: the object that holds it and the key it
+ * sits under, so the local path can be written back where the url was read.
+ * `path` is the field with every wildcard resolved to its index, for the log.
  */
-function readPath(record: Record<string, unknown>, field: string): unknown {
-  let cursor: unknown = record
-  for (const key of field.split('.')) {
-    if (cursor === null || typeof cursor !== 'object') return undefined
-    cursor = (cursor as Record<string, unknown>)[key]
-  }
-  return cursor
+interface MediaSlot {
+  holder: Record<string, unknown>
+  key: string
+  path: string
 }
 
-function writePath(record: Record<string, unknown>, field: string, value: string): void {
+/**
+ * Dotted paths, with `[]` as the one wildcard: `slides[].image.src` is every
+ * slide's picture.
+ *
+ * Until 2026-09-22 this was dotted paths only, on the argument that nothing
+ * mirrored into an array and a traversal language with no caller is invented.
+ * The tower's slides are the caller. Still no `[n]`, no `*` over object keys:
+ * one wildcard for one shape, and the next one can argue for itself.
+ *
+ * A path that runs into something that is not there — a null slide, a record
+ * with no `image` — yields no slot, which the caller reads as "absent, legal".
+ */
+function locate(record: Record<string, unknown>, field: string): MediaSlot[] {
   const keys = field.split('.')
   const last = keys.pop()
-  if (last === undefined) return
-  let cursor: Record<string, unknown> = record
+  if (last === undefined) return []
+  let holders: Array<{ value: unknown; path: string }> = [{ value: record, path: '' }]
   for (const key of keys) {
-    const next = cursor[key]
-    if (next === null || typeof next !== 'object') return
-    cursor = next as Record<string, unknown>
+    const next: Array<{ value: unknown; path: string }> = []
+    const fanOut = key.endsWith('[]')
+    const name = fanOut ? key.slice(0, -2) : key
+    for (const holder of holders) {
+      if (holder.value === null || typeof holder.value !== 'object') continue
+      const value = (holder.value as Record<string, unknown>)[name]
+      const at = holder.path === '' ? name : holder.path + '.' + name
+      if (!fanOut) {
+        next.push({ value, path: at })
+      } else if (Array.isArray(value)) {
+        value.forEach((entry, i) => next.push({ value: entry, path: at + '[' + i + ']' }))
+      }
+    }
+    holders = next
   }
-  cursor[last] = value
+  const slots: MediaSlot[] = []
+  for (const holder of holders) {
+    if (holder.value === null || typeof holder.value !== 'object' || Array.isArray(holder.value)) continue
+    slots.push({
+      holder: holder.value as Record<string, unknown>,
+      key: last,
+      path: holder.path === '' ? last : holder.path + '.' + last,
+    })
+  }
+  return slots
 }

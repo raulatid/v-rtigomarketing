@@ -3,12 +3,14 @@ import { BLOG_POSTS } from './generated/blogPosts'
 import { CASE_STUDIES } from './generated/caseStudies'
 import { DISTRICT_CONTENT } from './generated/districts'
 import { SERVICES } from './generated/services'
+import { TOWER_SCREEN } from './generated/towerScreen'
 import {
   blogPostProblems,
   caseStudyProblems,
   highlightedCaseProblems,
   collectionProblems,
   districtProblems,
+  towerScreenProblems,
 } from './invariants'
 
 /**
@@ -77,11 +79,17 @@ it('satisfies every blog-post invariant', () => {
     expect(collectionProblems(BLOG_POSTS, 'blogPosts')).toEqual([])
   })
 
+  it('satisfies every tower-screen invariant', () => {
+    const problems = TOWER_SCREEN.flatMap(towerScreenProblems)
+    expect(problems.map((p) => p.path + ': ' + p.message)).toEqual([])
+  })
+
   it('is actually populated, so an empty run cannot pass silently', () => {
     // Every assertion above holds trivially over an empty array. This is what
     // notices a generator that wrote a valid, empty module.
     expect(CASE_STUDIES.length).toBeGreaterThan(0)
     expect(DISTRICT_CONTENT.length).toBeGreaterThan(0)
     expect(BLOG_POSTS.length).toBeGreaterThan(0)
+    expect(TOWER_SCREEN.length).toBeGreaterThan(0)
   })
 })

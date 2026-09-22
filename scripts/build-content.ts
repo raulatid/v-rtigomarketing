@@ -90,6 +90,9 @@ function buildSource(config: ContentConfig): ContentSource {
     {
       dir: path.join(ROOT, 'public', 'logos'),
       publicPath: '/logos',
+      // For a collection that names its own folder (`mirrorDir`); the two
+      // lines above stay the default so the logos never move.
+      publicRoot: path.join(ROOT, 'public'),
       allowedOrigin: SANITY_CDN_ORIGIN,
       timeoutMs: config.timeoutMs,
       log: (message) => console.log('[content] ' + message),

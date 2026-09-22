@@ -34,6 +34,8 @@ import { createServicesCampus } from './campus/createServicesCampus';
 import type { ServicesCampusSection } from './campus/createServicesCampus';
 import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
+import { TOWER_SCREEN_CONTENT } from '../../content/tower';
+import { layoutTowerSlides } from './landmark/towerScreen/content/layoutTowerSlides';
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
 import { CompassBar, type CompassPoi } from './ui/compassBar';
@@ -865,6 +867,10 @@ export class MurciaExperience {
     // on the first frame they are drawn. Not awaited: the slides' pictures are
     // tens of KB, and the screen draws a complete frame without them.
     this.towerScreen = attachTowerScreen(loaded.root, {
+      // The CMS's slides on the template. Generated content is imported at
+      // this level, like `DISTRICT_CONTENT`, so `towerScreen/` itself stays
+      // feedable by the lab and the tests.
+      document: layoutTowerSlides(TOWER_SCREEN_CONTENT),
       // The trim sheet's 4 (`loadCity.ts`, `TRIM_ANISOTROPY`): the screen is
       // seen at a grazing angle from the resting pose, like the sign before it.
       anisotropy: 4,

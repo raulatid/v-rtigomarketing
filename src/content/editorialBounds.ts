@@ -239,4 +239,73 @@ export const EDITORIAL_BOUNDS = {
     budgetRange: 60,
     budgetRanges: 8,
   },
+  /**
+   * The Vértigo tower's LED screen: a fixed template per slide, filled from
+   * named slots. The code places every slot on the facade in design metres
+   * (`towerScreen/content/layoutTowerSlides.ts`), so the only thing an editor
+   * can get wrong about layout is LENGTH — and a canvas clips overflow in
+   * silence, off the right edge of a 42.8 m wall.
+   *
+   * ── Where the character counts come from ──
+   * Measured on 2026-09-22 with the real fonts in headless Chromium, drawing
+   * each slot at its cap height on the 569×2048 canvas and dividing the usable
+   * width — 42.8 m minus the 7.5 m margin, 35.3 m — by the mean advance of
+   * mixed real text (`VERTIGO`, `Crecimiento orgánico`, `EN LOS ÚLTIMOS 12
+   * MESES`). The hard bound is that capacity; the advised one is where the
+   * Studio starts saying so, because a run of wide letters (M, W) fits fewer
+   * than the mean. For the record: `VERTIGO` is 28.3 m of the 35.3, and
+   * `Crecimiento orgánico` at 45.6 m would already be off the wall.
+   */
+  towerScreen: {
+    /**
+     * A SAFETY NET, not a layout fact: the carousel cycles any number. Six is
+     * a minute of slides at the default rotation, past which nobody sees the
+     * last one; it also stops a `sanity dataset import` writing a fifty-slide
+     * document the Studio's own `max` never saw.
+     */
+    slides: 6,
+    /** Below this the 0.6 s crossfade never settles before the next one starts. */
+    rotationSecondsMin: 3,
+    /** Above this the second slide is one nobody waits for. */
+    rotationSecondsMax: 60,
+    /** Past this the Studio says so; the build does not mind. */
+    rotationSecondsAdvised: 20,
+    /** Display 700 at 4.2 m cap, tracking 0.2 m: 4.1 m per capital letter. */
+    headline: 8,
+    headlineAdvised: 7,
+    /** Three baselines at 7.5 m from 22.5 m; a fourth at 45 m meets the picture at 46.2. */
+    listItems: 3,
+    /** Text 500 at 3.2 m cap: 2.3 m per mixed-case character. */
+    listItem: 15,
+    listItemAdvised: 12,
+    /** The count-up shows integers; `Math.round` of a decimal would quietly show something else. */
+    metricValueMax: 999_999,
+    /** `−`, `+`, `%`, `×`, `k€`: a sign or a unit, not a word. */
+    metricAffix: 3,
+    /** Display 700 at 6 m cap: 5.6–6.3 m per glyph, prefix and suffix included. */
+    metricChars: 6,
+    metricCharsAdvised: 5,
+    /** Text 500 at 1.8 m cap, tracking 0.25 m, capitals: 1.9 m per character. */
+    caption1: 18,
+    caption1Advised: 15,
+    /** Text 500 at 1.3 m cap, tracking 0.1 m, capitals: 1.1 m per character. */
+    caption: 30,
+    captionAdvised: 24,
+    /**
+     * The picture slot is 42.8 × 61.6 m, about 2:3. `cover` crops to it and
+     * `contain` letterboxes into it; outside this band the first leaves a
+     * sliver and the second a strip, and no fit choice rescues it.
+     */
+    imageMinAspect: 0.33,
+    imageMaxAspect: 3,
+    /**
+     * Below this a `cover` picture is being enlarged more than twice into the
+     * 569 px canvas and draws soft. Advice only: the LED grid hides a lot.
+     */
+    imageMinWidthAdvised: 1024,
+    /** Above this the bytes are never seen. Advice only. */
+    imageWastefulWidth: 4096,
+    /** The mirror's own cap, restated so the Studio can say the number. */
+    imageMaxSide: 8192,
+  },
 } as const

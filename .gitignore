@@ -90,6 +90,9 @@ desktop.ini
 # Mirrored CMS media, written by the same build for the same reason.
 /public/logos/*
 !/public/logos/.gitkeep
+# The tower screen's slide pictures, mirrored by the same build (content/collections/towerScreen.collection.ts).
+/public/media/tower/*
+!/public/media/tower/.gitkeep
 
 # What the site was built from (content/lib/contentVersion.ts), written by the
 # same build. The Studio reads it to tell an editor whether their publish is

@@ -153,7 +153,7 @@ One document, at the fixed id `siteSettings`.
 | `revenueRanges[]` | string[] | 1–8 entries, each non-empty and ≤ 60, no duplicates; absent, null or empty falls back to four placeholder ranges | fail only when present and wrong |
 | `budgetRanges[]` | string[] | same rule as `revenueRanges[]`, with its own four placeholders | fail only when present and wrong |
 
-**Building banner retired (2026-09-15, audit AR-12).** The tower uses its bundled LED content. `bannerEnabled` and `bannerImage` remain hidden and read-only in Studio solely to preserve stored values. They are no longer projected, mirrored, mapped, validated or emitted by the content build; new fixtures and seeds omit them. Existing CMS documents and assets are not migrated or deleted. See [stage 2](../plans/028-architecture-audit-stage-2.md).
+**Building banner retired (2026-09-15, audit AR-12).** The tower's screen is its own document now — see [`towerScreen`](#towerscreen--singleton) below; until 2026-09-22 it drew bundled content. `bannerEnabled` and `bannerImage` remain hidden and read-only in Studio solely to preserve stored values. They are no longer projected, mirrored, mapped, validated or emitted by the content build; new fixtures and seeds omit them. Existing CMS documents and assets are not migrated or deleted. See [stage 2](../plans/028-architecture-audit-stage-2.md).
 
 **The booking host is deliberately not checked.** The client chooses their own scheduling platform and may change it — they are on Calendly today and moving — so an allowlist would mean a deploy per platform, and a validation error about a link that works. Custom domains, which most of these platforms sell, would fail the same way. It gets the rule a Portable Text link gets (`safeHref`: `https:` or `mailto:`, any host), because it is the same kind of value: a visible `<a rel="noopener noreferrer">` the visitor reads before clicking. Host allowlists in this repo are for the cases where code *trusts* a host — the iframe embeds in `blogPosts.collection.ts`, the media CDN in `validate.ts`. Nothing trusts this one. What *is* checked is shape: https, a path beyond the origin (a bare domain is a marketing homepage, not a booking page), and no userinfo (`https://calendly.com@attacker.net/x` reads as one host and resolves to another).
 
@@ -166,6 +166,52 @@ One document, at the fixed id `siteSettings`.
 **`budgetRanges` is the same arrangement for «Presupuesto mensual» (2026-09-18),** which was free text until the client asked for a dropdown like the billing one. Same bounds, same closed-set check on the server, same fallback-and-seed pair.
 
 **Exactly one document, asserted by the build.** The Studio hides the "create another" button, but a restored backup or the HTTP API can produce a second one the Studio never shows. `src/content/site.ts` reads the first, so two documents would mean half the site quietly using one and nothing using the other. Zero documents also fails: an empty response is an outage, not a decision to delete the agency's phone number.
+
+---
+
+## `towerScreen` — singleton
+
+One document, at the fixed id `towerScreen`: what the Vértigo tower's LED screen shows in the
+city. **A template with slots, not a layout.** The editor fills named fields per slide and the
+site places each one on the facade in design metres (`layoutTowerSlides.ts`); nothing in the
+CMS is a position. A slot left empty is not drawn, and the rest stays where it was.
+
+| Field | Type | Rule | On violation |
+|---|---|---|---|
+| `rotationSeconds` | number | whole, 3–60 | fail |
+| `slides[]` | object[] | 1–6 entries, in rotation order; ids are `slide-<n>` from position | fail |
+| `slides[].headline` | string | non-empty, ≤ 8; drawn in capitals | fail |
+| `slides[].items[]` | string[] | 0–3 entries, each non-empty and ≤ 15 | fail only when present and wrong |
+| `slides[].metricValue` | number | **optional**; whole, ≤ 999 999 in magnitude | fail only when present and wrong |
+| `slides[].metricPrefix` / `metricSuffix` | string | **optional**, ≤ 3 each; refused beside an empty figure | fail only when present and wrong |
+| `slides[].caption1` | string | **optional**, ≤ 18; capitals | fail only when present and over-long |
+| `slides[].caption2` / `caption3` | string | **optional**, ≤ 30; capitals | fail only when present and over-long |
+| `slides[].image` | image | **optional**; mirrored to `/media/tower/…`; PNG, WebP or JPEG; aspect 0.33–3; ≤ 8192 px a side | fail only when present and wrong; **touched but never uploaded fails** |
+| `slides[].imageFit` | `cover` \| `contain` | absent reads as `cover` | fail only when present and not one of the two |
+
+**The character counts are measured, not chosen.** Each is the capacity of its slot on the
+42.8 m wall — 35.3 m past the margin — divided by the mean advance of real text in the slot's
+face and cap height, measured on 2026-09-22 with the shipped fonts. A canvas clips overflow in
+silence, off the right edge of a building, which is why the build refuses it rather than letting
+the runtime's `warnIfOverflowing` log it. The Studio warns a character or two earlier
+(`headlineAdvised` and friends in `EDITORIAL_BOUNDS.towerScreen`), because a run of wide
+capitals reaches the edge before the mean says it will.
+
+**What the Studio only advises on, and always lets publish:** a headline near the edge; the
+figure with its sign and unit past five characters; a landscape photo under «Rellenar el hueco»
+(it is cropped to a vertical slot); a picture under 1024 px wide (it draws soft) or over 4096
+(the rest only weighs); one slide (the screen holds it, no rotation); a rotation past 20 s.
+
+**What is derived rather than asked:** the dust motes. They are lit for a `contain` picture and
+not for a `cover` one — a full-bleed photograph has no air for them — which is exactly what the
+two bundled slides did.
+
+**Watermarks are not detectable.** The image field's description says stock previews may not be
+used; that is editorial responsibility, not a rule the build can check.
+
+**The build fails until the document exists.** The audit expects exactly one `towerScreen`;
+a dataset that has never had one published fails a Sanity-sourced build with "collection is
+empty" (fixtures and the seed carry their own). Publish the document, then deploy.
 
 ---
 

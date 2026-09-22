@@ -59,7 +59,7 @@
       ]
     },
     {
-      "source": "/(earth|models|textures|libs|draco|logos)/(.*)",
+      "source": "/(earth|models|textures|libs|draco|logos|media)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

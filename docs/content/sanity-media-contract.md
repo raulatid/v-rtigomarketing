@@ -13,6 +13,7 @@ Separate from `sanity-field-contract.md` on purpose. A field contract answers "w
 | | Owner | Served from | Why |
 |---|---|---|---|
 | Brand marks (isotype + logo) | CMS | **the deployment** (`/logos/…`) | Drawn into the shared WebGL brand atlas. A cross-origin draw can taint the canvas every case-study panel uses, and the site must not need Sanity's CDN to be up in order to look finished. |
+| Tower screen slide pictures | CMS | **the deployment** (`/media/tower/…`) | Drawn into the LED facade's canvas texture: the same taint and the same CDN-dependence argument as the brand marks, in its own folder so a photograph is never filed among logos. |
 | Blog and editorial imagery | CMS | `cdn.sanity.io` | No renderer exists yet, the library grows without bound, and copying every image into every deployment buys nothing until something displays them. |
 | GLB, KTX2, terrain, sky, shaders, fixed graphics | **the application** | the deployment | Not editorial. These change when the scene is re-exported, not when marketing writes. They are versioned with the code and are explicitly outside CMS scope. |
 
@@ -48,6 +49,10 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 
 `public/logos/` is gitignored (`.gitignore`, with a `.gitkeep`) and already has a cache header in `vercel.json`. Mirrored media is build output, exactly like `src/content/generated/`.
 
+**A collection may name its own folder.** `SanitySourceSpec.mirrorDir` (`media/tower` for the tower screen) puts that collection's files under `public/<mirrorDir>/` and emits `/<mirrorDir>/<file>`; without it the mirror's default, `/logos`, applies, so the logos never moved. The same `.gitignore` and `vercel.json` arrangement applies per folder.
+
+**Paths may fan out over an array.** `slides[].image.src` mirrors every slide's picture; `[]` is the one wildcard, added on 2026-09-22 for the first caller that needed it. The projection still has to hand each slot a url string (`image.asset->url`).
+
 ---
 
 ## Rules for an uploaded logo
@@ -80,6 +85,27 @@ which makes it the wrong thing to leave to an editor's judgement.
 
 **SVG is prohibited, deliberately and not permanently** — for a completely different reason, and it
 keeps its own check and its own message. See below.
+
+---
+
+## Rules for a tower slide picture
+
+The picture is a photograph feathered into a dark wall, so the alpha argument does not apply
+and JPEG is allowed. The band is the slot's: about 2:3, cropped to by `cover` and letterboxed
+into by `contain`.
+
+| Rule | Enforced by | On violation |
+|---|---|---|
+| Origin, scheme, not SVG, filename, reachability, ≤ 4 MB | as for a logo | fail |
+| Extension is `.png`, `.webp`, `.jpg` or `.jpeg` | `remoteMediaUrl`, against `SLIDE_IMAGE_RULE` | fail |
+| Aspect within 0.33:1 – 3:1 | `assertGeometry`, from the asset URL | fail — outside it `cover` leaves a sliver and `contain` a strip |
+| ≤ 8192 px a side | the mapper, from the projected dimensions | fail |
+| At least 1024 px wide | Studio only (`towerImage.ts`, advisory) | warn; it draws soft under the LED grid |
+| Landscape under `cover` | Studio only, advisory | warn; the crop keeps the middle third |
+| Over 4096 px wide | Studio only, advisory | warn; the bytes are never seen |
+
+The numbers live in `EDITORIAL_BOUNDS.towerScreen`, which both packages import, so unlike the
+brand-mark rules there is no second copy to keep in step.
 
 ---
 

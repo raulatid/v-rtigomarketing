@@ -3807,6 +3807,24 @@ pinch's fingers are drawn as one path with a morph (nothing else on the plate mo
 reduced motion could not freeze it readable); or the glyph swap is moved out of the
 `(pointer: coarse)` block that swaps the sentence.
 
+> **Amended 2026-09-22 — the hint goes to Murcia too, and "Zoom" becomes "Scroll" on a
+> mouse** (user direction). The city had no hint since its plate went on 2026-09-15; Earth's is
+> brought over as it is, with the gesture turned round. One component, `SceneHint`, draws
+> both: `EarthHint` the way IN (forward wheel, spreading pinch) and `MurciaHint` the way OUT
+> (the chevrons under the mouse pointing down, the notch travelling down, the fingers closing),
+> keyed on `data-gesture` so the stylesheet's loops are the same rules run the other way. The
+> rules moved from `.earth-hint` to `.scene-hint`; `earth-hint` and `murcia-hint` stay as
+> identity classes, which is what the layers query and the e2e locates. Copy: "Scroll para
+> viajar a Murcia" / "Scroll para volver a la Tierra" on a fine pointer — the word names the
+> gesture a mouse makes, where "Zoom" named its effect — and "Zoom para …" on a coarse one,
+> since a pinch is a zoom. Murcia's is offered on the same stillness rule and the same two
+> seconds (`interaction/hintIdle`, moved out of `earth/hint` because Murcia may not import
+> Earth; `MurciaHintLayer` in the Canvas), with the city's own conditions on top: only while
+> the viewer is NAVIGATING it (`MurciaExperience.isNavigating`: no warp or blog claim, no
+> district engaged — the compass reads the same getter), and a building under the pointer,
+> read off `cursorSignal`, counts as acting, as a satellite hover does on Earth. The app
+> publishes `murciaAttention.hintAllowed` beside Earth's.
+
 ## 47. Two typefaces in two roles
 
 **Decided 2026-09-11,** on client direction. The site sets type in two roles. **Switzer is the
@@ -4197,3 +4215,43 @@ replace. The bounds are the billing range's (`EDITORIAL_BOUNDS.siteSettings.budg
 **Also broken when:** any of §50's conditions holds for this field; or a tab open across a
 bracket change submits the old wording and gets the field error the service select already
 accepts as the trade.
+
+## 55. The tower's screen is edited in Sanity through a fixed template
+
+**Decided 2026-09-22.** The Vértigo tower's LED screen drew a document bundled in TypeScript —
+two slides of blocks positioned in design metres, one of them carrying a watermarked stock
+preview flagged "must not ship" — and the client needs to change its words, figures and picture
+without a deploy. It is a `towerScreen` singleton in Sanity now, on the pipeline every other
+collection uses (ADR 010/011): fetched at build time, validated by
+`content/collections/towerScreen.collection.ts`, emitted as `TOWER_SCREEN`, read by
+`src/content/tower.ts`, and handed to the facade by `MurciaExperience` through
+`layoutTowerSlides()`.
+
+**Slots, not blocks.** The editors have no technical profile, so nothing in the CMS is a
+position. A slide is a headline, up to three lines, a whole-number figure with a sign and a
+unit, three captions and a picture with a fit; `layoutTowerSlides.ts` puts each on the grid
+the two bundled slides were drawn on, and `layoutTowerSlides.test.ts` asserts that grid
+against the retired literal, so the same words draw the same wall. The renderer and its block
+vocabulary are untouched; `FreeformContent.template` still says a second template can join
+without a migration, and this one was placed in front of it rather than in it.
+
+**The picture is mirrored, like a logo.** It is drawn into a canvas texture, so it gets the
+brand marks' treatment — brought into the deployment by `mirror.ts`, in a folder of its own
+(`/media/tower/`, the first use of `mirrorDir`) and through the first array wildcard the
+mirror has (`slides[].image.src`). The watermarked file is gone; the fixture and the seed
+carry the Earth picture on both slides, once `cover` and once `contain`.
+
+**Errors are layout facts; the rest is advice.** The character count of every slot is the
+measured capacity of the wall (2026-09-22, real fonts, headless Chromium), and past it the
+build refuses the document — a canvas clips in silence and the runtime only logs. The Studio
+says so a character or two earlier, and everything cosmetic (a landscape photo under `cover`,
+a small picture, one slide, a long rotation) is a yellow note that publishes. Zero slides fails:
+a dark screen on the landmark reads as a fault. The dust is derived from the fit rather than
+asked, and slide ids come from position, so neither can be got wrong.
+
+**Deferred: preview in the Studio.** The document shape and the emitted contract were chosen
+so that a later preview can key on the Studio's own `_key` without touching either.
+
+**Also broken when:** the Sanity dataset has no published `towerScreen` — a Sanity-sourced
+build fails on "collection is empty" until one exists, by design; or a measured bound is
+relaxed in `editorialBounds.ts` without re-measuring the slot it describes.

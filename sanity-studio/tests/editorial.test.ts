@@ -8,6 +8,8 @@ import { brandMarkWeight } from '../schemas/lib/brandMarkWeight'
 import { brandMarkAdvice, brandMarkErrors } from '../schemas/lib/brandMark'
 import { plainText, richText } from '../schemas/lib/plainText'
 import { darkColorAdvice, markupAdvice, serviceOpeningAdvice, singleParagraphAdvice } from '../schemas/lib/advice'
+import { towerImageAdvice, towerImageErrors } from '../schemas/lib/towerImage'
+import { caption1Advice, captionAdvice, headlineAdvice, listItemAdvice, metricAdvice, rotationAdvice, singleSlideAdvice } from '../schemas/lib/towerAdvice'
 import { ORBIT_CAPACITY, orbitCapacity } from '../schemas/lib/orbitCapacity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { LEGAL_WORDS_ADVISED, legalHeadingsAdvice, legalLengthAdvice, legalReadingMinutes, legalWordCount } from '../schemas/lib/legalBody'
@@ -247,5 +249,49 @@ describe('draft previews', () => {
     const result = previewBody([{_type: 'embedMedia', provider: 'youtube', url: 'javascript:alert(1)'}], 'project', 'production')
     expect(result.body).toEqual([])
     expect(result.incomplete).toBe(true)
+  })
+})
+
+describe('the tower screen before publishing', () => {
+  const ref = (name: string) => ({asset: {_ref: 'image-' + name}})
+
+  it('refuses a slide picture by format, side and shape, and passes what it cannot read', () => {
+    expect(towerImageErrors(undefined)).toBe(true)
+    expect(towerImageErrors({asset: {_ref: 'not-an-asset-id'}})).toBe(true)
+    expect(towerImageErrors(ref('abc-1200x1800-jpg'))).toBe(true)
+    expect(towerImageErrors(ref('abc-1200x1800-svg'))).toMatch(/SVG/)
+    expect(towerImageErrors(ref('abc-1200x1800-gif'))).toMatch(/Formato no admitido/)
+    expect(towerImageErrors(ref('abc-9000x1800-webp'))).toMatch(/8192/)
+    expect(towerImageErrors(ref('abc-100x400-webp'))).toMatch(/estrecha/)
+    expect(towerImageErrors(ref('abc-4000x1000-webp'))).toMatch(/apaisada/)
+  })
+
+  it('advises on a landscape photo under cover, a small one, and a wasteful one, and lets each publish', () => {
+    expect(towerImageAdvice(ref('abc-1600x900-jpg'), 'cover')).toMatch(/se recortan los lados/)
+    expect(towerImageAdvice(ref('abc-1600x900-jpg'), 'contain')).toBe(true)
+    expect(towerImageAdvice(ref('abc-612x344-webp'), 'contain')).toMatch(/borrosa/)
+    expect(towerImageAdvice(ref('abc-5000x7000-webp'), 'cover')).toMatch(/solo pesa/)
+    expect(towerImageAdvice(ref('abc-1600x2400-webp'), 'cover')).toBe(true)
+    // An error is the error tier's to say; the advice tier stays quiet over it.
+    expect(towerImageAdvice(ref('abc-100x400-webp'), 'cover')).toBe(true)
+  })
+
+  it('says when a slot nears the edge of the wall, and when the figure grows past its room', () => {
+    const B = EDITORIAL_BOUNDS.towerScreen
+    expect(headlineAdvice('VERTIGO')).toBe(true)
+    expect(headlineAdvice('M'.repeat(B.headlineAdvised + 1))).toMatch(/borde derecho/)
+    expect(listItemAdvice('x'.repeat(B.listItemAdvised + 1))).toMatch(/borde derecho/)
+    expect(caption1Advice('x'.repeat(B.caption1Advised + 1))).toMatch(/borde derecho/)
+    expect(captionAdvice('x'.repeat(B.captionAdvised + 1))).toMatch(/borde derecho/)
+    expect(metricAdvice({metricValue: 50, metricSuffix: '%'})).toBe(true)
+    expect(metricAdvice({metricValue: 123456, metricPrefix: '+', metricSuffix: '%'})).toMatch(/cifra completa/)
+    expect(metricAdvice({metricSuffix: '%'})).toBe(true)
+  })
+
+  it('says that one slide holds and that a long rotation is rarely seen through', () => {
+    expect(singleSlideAdvice([{}])).toMatch(/no rota/)
+    expect(singleSlideAdvice([{}, {}])).toBe(true)
+    expect(rotationAdvice(EDITORIAL_BOUNDS.towerScreen.rotationSecondsAdvised)).toBe(true)
+    expect(rotationAdvice(EDITORIAL_BOUNDS.towerScreen.rotationSecondsAdvised + 1)).toMatch(/segunda/)
   })
 })

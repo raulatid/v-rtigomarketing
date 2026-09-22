@@ -16,7 +16,15 @@ function tower(screen?: THREE.Mesh): THREE.Group {
   return root
 }
 
-const options = { anisotropy: 1, reducedMotion: false }
+// One held slide, so a warning in these tests is about the SCREEN, never
+// about the document.
+const options = {
+  anisotropy: 1,
+  reducedMotion: false,
+  document: {
+    compositions: [{ template: 'freeform' as const, id: 'one', label: 'one', blocks: [] }],
+  },
+}
 
 describe('the tower screen', () => {
   it('stays dark and says so when the model has no screen, but still colours the tower', async () => {

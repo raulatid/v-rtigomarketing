@@ -6,8 +6,10 @@ type FacadeBlock = FreeformContent['blocks'][number];
  * What the campus's ring screen says, bundled: a service invitation running
  * round the building, centred on the strip.
  *
- * Plain serialisable data in the shape `parseScreenContent` accepts, so a CMS
- * document can replace it one for one; only where it comes from changes.
+ * Plain serialisable data in the shape `FacadeContentDocument` names, so a CMS
+ * document can replace it one for one; only where it comes from changes. The
+ * tower's already does: its slides come from Sanity through a template
+ * (`landmark/towerScreen/content/layoutTowerSlides.ts`).
  *
  * ## Every metre here is a DESIGN metre
  *

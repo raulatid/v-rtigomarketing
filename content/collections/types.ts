@@ -87,6 +87,15 @@ export interface SanitySourceSpec {
    * mirrored without anyone having to invent numbers for it.
    */
   mediaRules?: Record<string, MediaRule>
+  /**
+   * The folder under `public/` this collection's media lands in, e.g.
+   * `media/tower`, which is also the public path (`/media/tower/<file>`).
+   * Absent means the mirror's default folder — the logos' `/logos`, which
+   * predates this field and keeps its place. A folder per kind of asset, so
+   * a tower photograph is never filed among brand marks and the cache rule
+   * in `vercel.json` can name each.
+   */
+  mirrorDir?: string
 }
 
 /**

@@ -442,6 +442,11 @@ forbid('campus screens do not import the tower adapter',
   'src/experiences/murcia/landmark/towerScreen/attachTowerScreen',
   'both adapters use screens/screenPlayer and screens/screenMesh');
 
+forbid('the tower screen does not import generated content',
+  'src/experiences/murcia/landmark/towerScreen/',
+  'src/content/generated/',
+  'MurciaExperience hands it layoutTowerSlides(TOWER_SCREEN_CONTENT); the lab and the tests hand it their own document');
+
 section('2. The two experiences do not know about each other');
 
 forbid(

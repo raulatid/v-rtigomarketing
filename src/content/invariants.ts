@@ -22,6 +22,7 @@ import type {
   Service,
   SiteSettings,
   TextSpan,
+  TowerScreenContent,
 } from './types'
 
 // THE VALUES MOVED, THE NAMES DID NOT. These four are declared by the Sanity
@@ -402,6 +403,110 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   entry.phones.forEach((phone, i) => {
     if (!nonEmpty(phone?.display)) at('phones[' + i + '].display', 'must be a non-empty string')
     if (!TEL_PATTERN.test(phone?.tel)) at('phones[' + i + '].tel', 'is not a dialable number')
+  })
+  return problems
+}
+
+/** The tower screen's bounds, named where the predicate applies them. */
+const TOWER = EDITORIAL_BOUNDS.towerScreen
+const TOWER_IMAGE_FITS = ['cover', 'contain'] as const
+
+/**
+ * Everything wrong with the tower screen document, as a list.
+ *
+ * Re-run against the emitted module by `tower.test.ts`, the same guard on the
+ * guard as `siteSettingsProblems`. What it holds to are LAYOUT facts: the
+ * character counts are the measured capacity of each slot on the facade, and
+ * a slide that exceeds one is clipped off the right edge of the wall in
+ * silence (`warnIfOverflowing` only logs). Cosmetics — a headline near the
+ * edge, a small picture — are the Studio's advice tier and are not here.
+ */
+export function towerScreenProblems(entry: TowerScreenContent): Problem[] {
+  const problems: Problem[] = []
+  const at = (path: string, message: string) =>
+    problems.push({ path: entry.id + '.' + path, message })
+
+  if (!ID_PATTERN.test(entry.id)) {
+    problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
+  }
+
+  const seconds = entry.rotationSeconds
+  if (!Number.isInteger(seconds) || seconds < TOWER.rotationSecondsMin || seconds > TOWER.rotationSecondsMax) {
+    at(
+      'rotationSeconds',
+      'must be a whole number of seconds from ' + TOWER.rotationSecondsMin + ' to ' + TOWER.rotationSecondsMax,
+    )
+  }
+
+  // Zero slides is a dark screen on the city's landmark, which reads as a bug
+  // rather than as a choice; the bound above it is a net, not a layout fact.
+  if (!Array.isArray(entry.slides) || entry.slides.length === 0) {
+    at('slides', 'at least one required')
+    return problems
+  }
+  if (entry.slides.length > TOWER.slides) {
+    at('slides', 'has ' + entry.slides.length + ' entries, over the ' + TOWER.slides + ' limit')
+  }
+
+  const line = (path: string, value: unknown, max: number, required: boolean): void => {
+    if (value === null && !required) return
+    if (!nonEmpty(value)) {
+      at(path, 'must be a non-empty string')
+    } else if ((value as string).length > max) {
+      at(path, 'is ' + (value as string).length + ' chars, over the ' + max + ' limit')
+    }
+  }
+
+  entry.slides.forEach((slide, i) => {
+    const p = 'slides[' + i + ']'
+    if (!ID_PATTERN.test(slide.id)) at(p + '.id', 'must match ' + ID_PATTERN)
+    else if (entry.slides.findIndex((other) => other.id === slide.id) !== i) at(p + '.id', 'is listed twice')
+
+    line(p + '.headline', slide.headline, TOWER.headline, true)
+
+    if (!Array.isArray(slide.items)) at(p + '.items', 'expected an array')
+    else {
+      if (slide.items.length > TOWER.listItems) {
+        at(p + '.items', 'has ' + slide.items.length + ' entries, over the ' + TOWER.listItems + ' limit')
+      }
+      slide.items.forEach((item, j) => line(p + '.items[' + j + ']', item, TOWER.listItem, true))
+    }
+
+    if (slide.metric !== null) {
+      const { value, prefix, suffix } = slide.metric
+      if (!Number.isInteger(value) || Math.abs(value) > TOWER.metricValueMax) {
+        at(p + '.metric.value', 'must be a whole number up to ' + TOWER.metricValueMax)
+      }
+      if (prefix !== undefined) line(p + '.metric.prefix', prefix, TOWER.metricAffix, true)
+      if (suffix !== undefined) line(p + '.metric.suffix', suffix, TOWER.metricAffix, true)
+    }
+
+    line(p + '.caption1', slide.caption1, TOWER.caption1, false)
+    line(p + '.caption2', slide.caption2, TOWER.caption, false)
+    line(p + '.caption3', slide.caption3, TOWER.caption, false)
+
+    if (slide.image !== null) {
+      const { src, width, height, fit } = slide.image
+      // A local path, always: the mirror rewrote it, or the fixture wrote it
+      // that way. A CDN url here is a picture the facade would fail to draw.
+      if (!LOCAL_MEDIA_PATH.test(src)) at(p + '.image.src', 'must be a local media path')
+      const side = (n: unknown) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= TOWER.imageMaxSide
+      if (!side(width) || !side(height)) {
+        at(p + '.image', 'width and height must be whole pixels from 1 to ' + TOWER.imageMaxSide)
+      } else {
+        const aspect = width / height
+        if (aspect < TOWER.imageMinAspect || aspect > TOWER.imageMaxAspect) {
+          at(
+            p + '.image',
+            'is ' + width + 'x' + height + ' (' + aspect.toFixed(2) + ':1), outside the allowed ' +
+              TOWER.imageMinAspect + ':1 to ' + TOWER.imageMaxAspect + ':1',
+          )
+        }
+      }
+      if (!(TOWER_IMAGE_FITS as readonly string[]).includes(fit)) {
+        at(p + '.image.fit', 'must be one of ' + TOWER_IMAGE_FITS.join(', '))
+      }
+    }
   })
   return problems
 }

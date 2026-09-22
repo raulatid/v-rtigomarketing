@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { withMediaMirror } from '../lib/mirror'
-import type { BlogPost, CaseStudy, DistrictContent, SiteSettings } from '../../src/content/types'
+import type { BlogPost, CaseStudy, DistrictContent, SiteSettings, TowerScreenContent } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
+import { towerScreenCollection } from './towerScreen.collection'
 import { blogPostsCollection } from './blogPosts.collection'
 import { legalDocsCollection } from './legalDocs.collection'
 import { COLLECTIONS } from './index'
@@ -13,6 +14,7 @@ import caseFixtures from '../fixtures/caseStudy.json'
 import districtFixtures from '../fixtures/district.json'
 import serviceFixtures from '../fixtures/service.json'
 import settingsFixtures from '../fixtures/siteSettings.json'
+import towerFixtures from '../fixtures/towerScreen.json'
 import blogFixtures from '../fixtures/blogPost.json'
 
 /**
@@ -1459,5 +1461,129 @@ describe('retired building banner data', () => {
     expect(fetchImage).not.toHaveBeenCalled()
     expect(siteSettingsCollection.map(records[0], 0).ok).toBe(true)
     expect(siteSettingsCollection.source.projection).not.toMatch(/bannerImage|bannerEnabled/)
+  })
+})
+
+describe('the tower screen is a singleton of slides the build proves', () => {
+  const validTower = () => structuredClone(towerFixtures[0]) as Record<string, unknown>
+  const slideOf = (record: Record<string, unknown>, i = 0) => (record.slides as Record<string, unknown>[])[i]!
+  const tower = (mutate: (record: Record<string, unknown>) => void): string[] => {
+    const record = validTower()
+    mutate(record)
+    return problemsFor(towerScreenCollection, record)
+  }
+  const mapped = (mutate: (record: Record<string, unknown>) => void) => {
+    const record = validTower()
+    mutate(record)
+    const result = towerScreenCollection.map(record, 0)
+    return result.ok ? (result.value as TowerScreenContent) : undefined
+  }
+
+  it('accepts the committed fixture, with ids taken from position', () => {
+    const results = towerFixtures.map((r, i) => towerScreenCollection.map(r, i))
+    expect(results.map((r) => (r.ok ? [] : r.problems))).toEqual([[]])
+    const value = (results[0] as { ok: true; value: TowerScreenContent }).value
+    expect(value.slides.map((slide) => slide.id)).toEqual(['slide-1', 'slide-2'])
+    expect(value.slides[0]!.metric).toEqual({ value: 50, suffix: '%' })
+    expect(value.slides[1]!.metric).toEqual({ value: 30, prefix: '−', suffix: '%' })
+    expect(value.slides[1]!.image?.fit).toBe('contain')
+  })
+
+  it('accepts exactly one document, and fails on zero or two', () => {
+    expect(towerScreenCollection.audit([{ id: 'tower' }])).toEqual([])
+    expect(towerScreenCollection.audit([]).length).toBeGreaterThan(0)
+    const two = towerScreenCollection.audit([{ id: 'tower' }, { id: 'tower-2' }])
+    expect(two.some((p) => /exactly one/.test(p.message))).toBe(true)
+  })
+
+  it('asks the mirror for every slide picture, into a folder of its own', () => {
+    expect(towerScreenCollection.source.mirror).toEqual(['slides[].image.src'])
+    expect(towerScreenCollection.source.mirrorDir).toBe('media/tower')
+    expect(towerScreenCollection.source.mediaRules?.['slides[].image.src']?.extensions).toContain('jpg')
+    expect(towerScreenCollection.source.projection).toContain('image.asset->url')
+  })
+
+  it('rejects zero slides, and more than the net allows', () => {
+    expect(tower((r) => { r.slides = [] })).toContain('tower.slides')
+    const many = Array.from({ length: EDITORIAL_BOUNDS.towerScreen.slides + 1 }, () => slideOf(validTower()))
+    expect(tower((r) => { r.slides = many })).toContain('tower.slides')
+  })
+
+  it('rejects a rotation outside the band or not whole, and accepts a numeric string', () => {
+    for (const seconds of [2, 61, 2.5, '', null, 'cinco']) {
+      expect(tower((r) => { r.rotationSeconds = seconds }), String(seconds)).toContain('tower.rotationSeconds')
+    }
+    expect(tower((r) => { r.rotationSeconds = '5' })).toEqual([])
+  })
+
+  it('rejects a headline that is missing, blank or wider than the wall', () => {
+    const tooWide = 'M'.repeat(EDITORIAL_BOUNDS.towerScreen.headline + 1)
+    for (const headline of [undefined, null, '', '   ', tooWide]) {
+      expect(tower((r) => { slideOf(r).headline = headline }), String(headline)).toContain('tower.slides[0].headline')
+    }
+  })
+
+  it('takes up to three list lines, none at all, and refuses a fourth or a blank one', () => {
+    expect(tower((r) => { slideOf(r).items = [] })).toEqual([])
+    expect(tower((r) => { delete slideOf(r).items })).toEqual([])
+    expect(tower((r) => { slideOf(r).items = ['a', 'b', 'c', 'd'] })).toContain('tower.slides[0].items')
+    expect(tower((r) => { slideOf(r).items = ['a', ''] })).toContain('tower.slides[0].items[1]')
+    const tooWide = 'x'.repeat(EDITORIAL_BOUNDS.towerScreen.listItem + 1)
+    expect(tower((r) => { slideOf(r).items = [tooWide] })).toContain('tower.slides[0].items[0]')
+  })
+
+  it('takes a whole figure or none, and refuses a decimal, a unit inside it, or an affix with no figure', () => {
+    const noMetric = (record: Record<string, unknown>) => {
+      delete slideOf(record).metricValue
+      delete slideOf(record).metricPrefix
+      delete slideOf(record).metricSuffix
+    }
+    expect(tower(noMetric)).toEqual([])
+    expect(mapped(noMetric)?.slides[0]!.metric).toBeNull()
+    expect(tower((r) => { slideOf(r).metricValue = 12.5 })).toContain('tower.slides[0].metricValue')
+    expect(tower((r) => { slideOf(r).metricValue = '12%' })).toContain('tower.slides[0].metricValue')
+    expect(tower((r) => { slideOf(r).metricValue = 1_000_000 })).toContain('tower.slides[0].metricValue')
+    expect(tower((r) => { noMetric(r); slideOf(r).metricSuffix = '%' })).toContain('tower.slides[0].metricValue')
+    expect(tower((r) => { slideOf(r).metricSuffix = 'euros' })).toContain('tower.slides[0].metricSuffix')
+  })
+
+  it('takes captions or leaves them null, and refuses one over its slot', () => {
+    const value = mapped((r) => { slideOf(r).caption2 = ''; delete slideOf(r).caption3 })
+    expect(value?.slides[0]!.caption2).toBeNull()
+    expect(value?.slides[0]!.caption3).toBeNull()
+    const wide1 = 'M'.repeat(EDITORIAL_BOUNDS.towerScreen.caption1 + 1)
+    const wide3 = 'M'.repeat(EDITORIAL_BOUNDS.towerScreen.caption + 1)
+    expect(tower((r) => { slideOf(r).caption1 = wide1 })).toContain('tower.slides[0].caption1')
+    expect(tower((r) => { slideOf(r).caption3 = wide3 })).toContain('tower.slides[0].caption3')
+  })
+
+  it('lets a slide have no picture, and reads a missing fit as cover', () => {
+    const value = mapped((r) => { slideOf(r).image = null; slideOf(r, 1).imageFit = undefined })
+    expect(value?.slides[0]!.image).toBeNull()
+    expect(value?.slides[1]!.image?.fit).toBe('cover')
+  })
+
+  it('refuses a picture that was touched but never uploaded, in one sentence', () => {
+    const record = validTower()
+    slideOf(record).image = { src: null, width: null, height: null }
+    const result = towerScreenCollection.map(record, 0)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.problems).toHaveLength(1)
+      expect(result.problems[0]!.message).toMatch(/no image was uploaded/)
+    }
+  })
+
+  it('refuses a picture the mirror did not bring in, a bad fit, or a shape no fit rescues', () => {
+    const picture = (r: Record<string, unknown>) => slideOf(r).image as Record<string, unknown>
+    expect(tower((r) => { picture(r).src = 'https://cdn.sanity.io/images/p/d/a-612x344.webp' })).toContain('tower.slides[0].image.src')
+    expect(tower((r) => { slideOf(r).imageFit = 'stretch' })).toContain('tower.slides[0].image.fit')
+    expect(tower((r) => { picture(r).width = 4000; picture(r).height = 100 })).toContain('tower.slides[0].image')
+    expect(tower((r) => { picture(r).width = 0 })).toContain('tower.slides[0].image.width')
+  })
+
+  it('strips pasted markup from a slot rather than failing, but refuses an entity that survived', () => {
+    expect(mapped((r) => { slideOf(r).headline = '<b>VERT</b>IGO' })?.slides[0]!.headline).toBe('VERTIGO')
+    expect(tower((r) => { slideOf(r).headline = 'VER&copy;' })).toContain('tower.slides[0].headline')
   })
 })

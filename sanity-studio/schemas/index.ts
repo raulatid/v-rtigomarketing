@@ -6,6 +6,7 @@ import { embedMedia, imageMedia, videoMedia } from './objects/media'
 import { blogBody, legalBody } from './objects/richText'
 import { service } from './service'
 import { siteSettings } from './siteSettings'
+import { towerScreen } from './towerScreen'
 
 /**
  * ── Icons are imported from their SUBPATH, never from the package root ──
@@ -32,6 +33,7 @@ export const schemaTypes = [
   district,
   blogPost,
   siteSettings,
+  towerScreen,
   legalDoc,
   imageMedia,
   videoMedia,

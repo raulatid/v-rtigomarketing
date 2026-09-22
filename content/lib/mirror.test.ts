@@ -298,3 +298,85 @@ describe('brand marks the mirror refuses on format or geometry', () => {
     )
   })
 })
+
+describe('mirroring into an array, and into a folder of the collection\'s own', () => {
+  const PICTURE = CDN + '/images/p1/production/0a1b2c3d4e5f-1600x2400.webp'
+  const slides: SanitySourceSpec = {
+    type: 'towerScreen',
+    projection: '{ slides[]{ "image": { "src": image.asset->url } } }',
+    mirror: ['slides[].image.src'],
+    mirrorDir: 'media/tower',
+  }
+
+  function mirrorSlides(records: unknown[], fetchImpl: typeof fetch, publicRoot: string | null = dir) {
+    return withMediaMirror(inner(records), {
+      dir: path.join(dir, 'logos'),
+      publicPath: '/logos',
+      ...(publicRoot === null ? {} : { publicRoot }),
+      allowedOrigin: CDN,
+      fetchImpl,
+    }).fetchAll(slides)
+  }
+
+  it('fans the wildcard out over every slide and writes each local path back where it read the url', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = (await mirrorSlides(
+      [{ id: 'tower', slides: [{ image: { src: PICTURE } }, { image: null }, { image: { src: PICTURE } }] }],
+      cdn.impl,
+    )) as Array<{ slides: Array<{ image: { src: string } | null }> }>
+    expect(record.slides[0]!.image!.src).toBe('/media/tower/0a1b2c3d4e5f-1600x2400.webp')
+    expect(record.slides[1]!.image).toBeNull()
+    expect(record.slides[2]!.image!.src).toBe('/media/tower/0a1b2c3d4e5f-1600x2400.webp')
+    // Content-addressed: the same picture on two slides is one download.
+    expect(cdn.calls).toHaveLength(1)
+    expect(fs.existsSync(path.join(dir, 'media', 'tower', '0a1b2c3d4e5f-1600x2400.webp'))).toBe(true)
+  })
+
+  it('names the slide it failed on', async () => {
+    const cdn = fakeCdn(png())
+    await expect(
+      mirrorSlides([{ id: 'tower', slides: [{ image: null }, { image: { src: 'https://evil.example/x.png' } }] }], cdn.impl),
+    ).rejects.toThrow(/towerScreen\[0\]\.slides\[1\]\.image\.src/)
+  })
+
+  it('leaves a document with no slides, or slides with no picture, alone', async () => {
+    const cdn = fakeCdn(png())
+    const records = (await mirrorSlides([{ id: 'tower' }, { id: 'b', slides: [{}, { image: {} }] }], cdn.impl)) as unknown[]
+    expect(records).toEqual([{ id: 'tower' }, { id: 'b', slides: [{}, { image: {} }] }])
+    expect(cdn.calls).toHaveLength(0)
+  })
+
+  it('refuses to guess a folder when the mirror was given no public root', async () => {
+    const cdn = fakeCdn(png())
+    await expect(
+      mirrorSlides([{ id: 'tower', slides: [{ image: { src: PICTURE } }] }], cdn.impl, null),
+    ).rejects.toThrow(SourceError)
+  })
+
+  it('refuses a folder name that could leave public/', async () => {
+    const cdn = fakeCdn(png())
+    const escaping = { ...slides, mirrorDir: '../outside' }
+    await expect(
+      withMediaMirror(inner([{ id: 'tower', slides: [{ image: { src: PICTURE } }] }]), {
+        dir: path.join(dir, 'logos'),
+        publicPath: '/logos',
+        publicRoot: dir,
+        allowedOrigin: CDN,
+        fetchImpl: cdn.impl,
+      }).fetchAll(escaping),
+    ).rejects.toThrow(/not a usable folder name/)
+  })
+
+  it('keeps the logos exactly where they were: no mirrorDir means the default folder', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = (await withMediaMirror(inner([{ id: 'mango', logo: LOGO }]), {
+      dir,
+      publicPath: '/logos',
+      publicRoot: path.join(dir, 'public'),
+      allowedOrigin: CDN,
+      fetchImpl: cdn.impl,
+    }).fetchAll(spec)) as Array<{ logo: string }>
+    expect(record.logo).toBe('/logos/9f8e7d6c5b4a-512x512.png')
+    expect(fs.existsSync(path.join(dir, '9f8e7d6c5b4a-512x512.png'))).toBe(true)
+  })
+})
