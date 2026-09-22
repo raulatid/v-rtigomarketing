@@ -3600,6 +3600,67 @@ world; being pointed at something is not the same as having arrived at it.
 > tray's edge alone, so §37's accounting holds again, and no colour literal is left in its rules
 > (`--glass-bg-light-dense` is the phone's denser tray, now with a no-blur fallback).
 
+> **Amended 2026-09-22 — the bar is replaced by a compass round the pointer** (user
+> direction, after viewer reports). Two reports, one problem: viewers could not tell which
+> buildings could be touched, and did not understand the bar. An instrument at the edge of
+> the frame was furniture, and nothing said which of the buildings under it were places. The
+> bar, its plate, its pins and its labels are deleted (`ui/compassBar.ts`, the
+> `.murcia-compass` rules, the `--site-header-tail` observer in SiteHeader that existed only
+> to clear it); the yaw-only bearing maths and `rangeCloseness` in `utils/compass.ts` are
+> kept, and `compassMark`, `centreCloseness`, `edgeFadeOpacity`, `arrivalEdge` and
+> `placeLabels` go with the bar. In their place, `ui/cursorCompass.ts`: a 56px ring that
+> follows the pointer with the global cursor's own trail (styles.css hides that cursor's
+> 32px ring under a `has-cursor-compass` class on `<html>` while this one shows, the way
+> that cursor announces itself — one circle, the hand kept), and per place worth clicking
+> an ARROWHEAD and its word standing 9px off the rim, POINTING AT THE PLACE ON SCREEN. A
+> portable compass rather than a fixed one, and still not a control: `pointer-events:
+> none`, `aria-hidden`, `DistrictA11y` the accessible route.
+>
+> *Screen space, not the camera's bearing* (user direction, the same day, before any
+> commit: the first cut drew each arrowhead at the place's ground-plane bearing from the
+> camera, which could point right while the building sat visibly to the left of the
+> pointer). The direction is the vector from the ring's centre to the building's
+> projected point (`screenSpace.projectToClient`, which keeps a point past the rect's
+> edge and refuses only one behind the camera, then `utils/compass` `screenBearing`): the
+> blog to the left of the cursor gets an arrow pointing left, and moving the pointer or
+> turning the camera both swing the arrows, because both move the building relative to
+> the ring. A building that has slid off the side is still pointed at; one behind the
+> camera falls back to the ground bearing (`horizontalBearing`, kept for that). Under the
+> ring the direction is undefined and would spin, so within the mark radius a mark holds
+> its last one. Helpers, tested: `ringSlot` (bearing 0 is up, positive is right, on a
+> y-down screen), `labelSide` (words are never rotated; they hang off the arrowhead away
+> from the ring), `spreadBearings` and `stackLabels` (the arrival pose puts the two
+> places a few degrees apart, so arrowheads are pushed apart round the circle and
+> same-side words apart vertically, both symmetric and continuous), `proximityPulse`.
+>
+> *The arrival.* On every landing from Earth — the first navigable frame after the cut,
+> which is the frame the warp claim lets go, or the first active frame under reduced
+> motion, where there is no warp claim — each mark is born ON its building
+> (`screenSpace.worldToClient`) and travels 800ms to its slot on the ring: the one moment
+> the link between a word and a building is drawn rather than implied. A building off
+> screen has nowhere to be born and its mark fades in docked; reduced motion skips the
+> travel. Returning from the blog or leaving the campus only fades the ring back in,
+> docked. On a coarse pointer, where there is no global cursor, the ring is born at the
+> centre of the canvas so a viewer sees it before touching anything, and from the first
+> touch it follows the finger and stays where the finger left it.
+>
+> *Near is near on screen.* Warmth is `rangeCloseness` over the px between the ring and
+> the building on screen, from 12% to 40% of the canvas's shorter side (about 72 and 240
+> px on a 600 px canvas; the knobs for the visual pass), so a phone and a monitor agree
+> and "near" means the cursor is near the building the viewer sees. Near (0.55 on, 0.4 off), the
+> word rises to the hover blue, its arrowhead and its plate tremble, and the BUILDING BLINKS: the same
+> warmth, scaled by a 1.6s sine that never falls below 0.35, is handed to the place's
+> `buildingHighlight` through a new `setProximity`, which the hover's eased strength
+> always outweighs — a pointer resting on the building holds it steadily lit. Hiding the
+> ring stands every building down. *Blue.* The arrowheads are in the accent too (user
+> direction, same day); the words went blue for an hour and came back white once they had a
+> plate, as every tray's type is. Weight 700, 12px with an 11px arrowhead on a desktop and
+> 11px/9px on a phone. The arrowhead's blue is a new
+> visible spend against DESIGN.md's budget (a CTA, a focus ring, the trays' edges); the
+> ring's own blue is not, since the pointer ring it stands in for already wore it. Each word
+> sits on the smallest density-A plate (§37's recipe at 6px corners; user direction, same
+> day, for legibility over the lit city); the ring and the arrowheads stay bare. No glow.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle

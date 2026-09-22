@@ -111,7 +111,7 @@ The copy behind the services campus in the city — presented in the Studio as "
 | Field | Type | Rule | On violation |
 |---|---|---|---|
 | `slug.current` | slug | must match a `contentId` in `cityDistrictBindings.ts` | fail |
-| `label` | string | non-empty, ≤ 40 — the campus intro title and the compass pin | fail |
+| `label` | string | non-empty, ≤ 40 — the campus intro title and the cursor compass's word | fail |
 | `summary` | text | non-empty, **≤ 140** — the line under that title | fail |
 | `intro` | text | non-empty, ≤ 600. **Read by nothing since the campus (DECISIONS §45); `hidden` in the Studio and not `required()` there** (2026-09-11). The existing document has a value, which is what keeps the build's rule satisfied | fail |
 | `services[]` | reference[] | 1–12 published `service` documents, no duplicates, **exactly the services `cityDistrictBindings.ts` has symbol rows for** | fail |

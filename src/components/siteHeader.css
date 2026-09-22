@@ -39,8 +39,8 @@
 
 /* ---- Type: two faces in two roles ---------------------------------------------
 
-   General Sans is the DISPLAY role — headings, titles, the compass, the LED
-   panels, the CTAs. Gambetta, a serif, is the TEXT role — everything else,
+   General Sans is the DISPLAY role — headings, titles, the cursor compass's
+   labels, the LED panels, the CTAs. Gambetta, a serif, is the TEXT role — everything else,
    the blog's article body included (blog.css). Both ITF, from Fontshare.
 
    UNDER REVIEW (2026-09-12): these replaced Switzer and Inter, and the blog's
@@ -138,7 +138,7 @@
      Separation comes from the shadow, not from opacity. */
   --glass-bg-light: rgba(10, 15, 22, 0.68);
   /* Density A a shade denser, for a small tray over the city at its brightest
-     on a phone: the Murcia compass under 480px. */
+     on a phone. Unused since the Murcia compass plate went (2026-09-22). */
   --glass-bg-light-dense: rgba(10, 15, 22, 0.74);
   /* Density B — the compact plaque: the case panel. */
   --glass-bg: rgba(8, 12, 18, 0.78);
@@ -723,8 +723,7 @@
   .site-header__extra { position: relative; z-index: 2; }
 }
 
-/* Scene utilities leave the header flow on phones. The fixed wrapper also
-   removes its flex gap from the measured tail used by the compass. */
+/* Scene utilities leave the header flow on phones. */
 @media (max-width: 767px) {
   .site-header[data-layout='scene'] .site-header__extra:has(.sound-toggle) {
     position: fixed;

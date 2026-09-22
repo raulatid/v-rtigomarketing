@@ -84,3 +84,32 @@ export function worldToClient(
   out.y = rect.top + ((1 - out.y) / 2) * rect.height
   return out
 }
+
+/**
+ * A world position to client coordinates, KEPT when it falls outside the rect.
+ *
+ * `worldToClient` refuses a point that has slid off the side of the screen, for
+ * a reason that holds whenever the result positions an element: a DOM node
+ * parked three viewport widths off the left edge costs layout and can extend
+ * the scroll area. This is for a caller that wants a DIRECTION toward the
+ * point — Murcia's cursor compass, whose arrowhead has to keep pointing at a
+ * building the viewer has turned away from — and never places anything at it.
+ *
+ * The one guard kept is the one that makes the answer wrong rather than merely
+ * off-screen: behind the camera `w` is negative, the divide negates x and y, and
+ * the point reports on the opposite side of the screen. `null` there, and the
+ * caller falls back to something that does not need the projection.
+ */
+export function projectToClient(
+  rect: ElementRect,
+  camera: THREE.Camera,
+  world: THREE.Vector3,
+  out: THREE.Vector3,
+): THREE.Vector3 | null {
+  if (rect.width === 0 || rect.height === 0) return null
+  out.copy(world).project(camera)
+  if (out.z < -1 || out.z > 1) return null
+  out.x = rect.left + ((out.x + 1) / 2) * rect.width
+  out.y = rect.top + ((1 - out.y) / 2) * rect.height
+  return out
+}

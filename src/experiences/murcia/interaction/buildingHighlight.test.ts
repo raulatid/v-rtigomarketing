@@ -106,6 +106,58 @@ describe('the building highlight', () => {
     expect(freed).toHaveBeenCalledTimes(1)
   })
 
+  it('lights on nearness alone, at the strength it is given', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], OPTIONS)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.setProximity(0.5)
+    highlight.update(0)
+    expect(light.value).toBeCloseTo(0.5 * OPTIONS.intensity)
+  })
+
+  it('lets a hover at full strength outweigh nearness, and nearness outweigh a fading hover', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], OPTIONS)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.setTarget(true)
+    highlight.update(10)
+    highlight.setProximity(0.5)
+    highlight.update(0)
+    expect(light.value).toBeCloseTo(OPTIONS.intensity)
+
+    // The hover falls away underneath the nearness; the building stays lit at the near strength.
+    highlight.setTarget(false)
+    highlight.update(10)
+    expect(light.value).toBeCloseTo(0.5 * OPTIONS.intensity)
+  })
+
+  it('rests at exactly zero once both are off', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], OPTIONS)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.setProximity(0.5)
+    highlight.update(0)
+    highlight.setProximity(0)
+    highlight.update(0)
+    expect(light.value).toBe(0)
+  })
+
+  it('clamps nearness into 0..1 and reads NaN as nothing', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], OPTIONS)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.setProximity(2)
+    highlight.update(0)
+    expect(light.value).toBeCloseTo(OPTIONS.intensity)
+    highlight.setProximity(Number.NaN)
+    highlight.update(0)
+    expect(light.value).toBe(0)
+  })
+
   it('does not take back a material someone else has assigned since', () => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
     const highlight = createBuildingHighlight([mesh], OPTIONS)

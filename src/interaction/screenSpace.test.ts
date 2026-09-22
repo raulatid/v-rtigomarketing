@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import { clientToNdc, worldToClient } from './screenSpace'
+import { clientToNdc, projectToClient, worldToClient } from './screenSpace'
 
 const RECT = { left: 0, top: 0, width: 800, height: 600 }
 
@@ -98,5 +98,26 @@ describe('projecting a world point to the screen', () => {
       expect(ndc.x).toBeCloseTo(expected.x, 6)
       expect(ndc.y).toBeCloseTo(expected.y, 6)
     }
+  })
+})
+
+describe('projecting a world point to the screen without the frustum guard', () => {
+  it('agrees with the guarded projection for a point on screen', () => {
+    const guarded = worldToClient(RECT, camera(), new THREE.Vector3(1, 1, -10), new THREE.Vector3())
+    const direction = projectToClient(RECT, camera(), new THREE.Vector3(1, 1, -10), new THREE.Vector3())
+    expect(direction).not.toBeNull()
+    expect(direction!.x).toBeCloseTo(guarded!.x, 6)
+    expect(direction!.y).toBeCloseTo(guarded!.y, 6)
+  })
+
+  it('still answers for a point that has slid off the side, past the rect', () => {
+    const point = projectToClient(RECT, camera(), new THREE.Vector3(-30, 0, -10), new THREE.Vector3())
+    expect(point).not.toBeNull()
+    expect(point!.x).toBeLessThan(RECT.left)
+    expect(point!.y).toBeCloseTo(300, 4)
+  })
+
+  it('answers null for a point behind the camera, which would project mirrored', () => {
+    expect(projectToClient(RECT, camera(), new THREE.Vector3(0, 0, 10), new THREE.Vector3())).toBeNull()
   })
 })
