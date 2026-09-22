@@ -1045,7 +1045,6 @@ export class MurciaExperience {
       container: this.container,
       content,
       rig,
-      keyLightDirection: new THREE.Vector3(...this.environment.sceneState.lighting.directional.position),
       viewportHeightPx: this.viewport.height * this.renderer.getPixelRatio(),
       reducedMotion: this.reducedMotion,
       // The trim sheet's 4, like the tower's screen: the strip is seen at a

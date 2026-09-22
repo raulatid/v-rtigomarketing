@@ -51,6 +51,12 @@ export interface RioWater {
     matrixWorld: THREE.Matrix4,
     reversed: boolean,
   ) => void;
+  /**
+   * Re-applies every tunable of `config` except `flowReversed`, which is
+   * `setFlowAxis`'s. Same uniforms, same colour conversion as construction; no
+   * uniform is added, so the compiled program is kept.
+   */
+  configure: (config: RioWaterConfig) => void;
   dispose: () => void;
 }
 
@@ -119,9 +125,9 @@ export function createRioWater(config: RioWaterConfig): RioWater {
   };
 
   /**
-   * Private, and deliberately not exported: the colour uniforms need converting
-   * rather than assigning, so construction goes through here instead of
-   * inlining them above.
+   * Construction goes through here rather than inlining the values above
+   * because the colour uniforms need converting rather than assigning. Exposed
+   * as `configure` for the campus lake, which is tuned live.
    */
   const applyConfig = (next: RioWaterConfig): void => {
     const u = material.uniforms;
@@ -185,6 +191,7 @@ export function createRioWater(config: RioWaterConfig): RioWater {
     },
     setBankSegments,
     setFlowAxis,
+    configure: applyConfig,
     dispose: () => material.dispose(),
   };
 }

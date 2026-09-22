@@ -55,8 +55,6 @@ export interface ServicesCampusSectionOptions {
   container: HTMLElement;
   content: DistrictContent;
   rig: CampusCameraRig;
-  /** Toward the scene's key light; the water's glint follows it. */
-  keyLightDirection: THREE.Vector3;
   /** Drawing-buffer height, for point-size attenuation. */
   viewportHeightPx: number;
   reducedMotion: boolean;
@@ -178,7 +176,6 @@ export async function createServicesCampus(
       onCameraControl: adapter.onCameraControl,
       content,
       icons,
-      keyLightDirection: options.keyLightDirection,
       waterNode: CAMPUS_WATER_NODE_NAME,
       overlay: {
         labels: { leave: campusLabel(locale, 'leave'), measures: campusLabel(locale, 'measures'),

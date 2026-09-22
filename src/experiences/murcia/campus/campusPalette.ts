@@ -19,7 +19,7 @@ import { CAMPUS_PART_NODE_NAMES, type CampusPartName } from './campusConfig';
  * that is a visual-pass knob, not a reason to flatten all of them in advance.
  *
  * Not in the table, on purpose: the water, which `lake/lakeWater.ts` puts on
- * its own shader, and the LED strip, which the facade replaces. Both hand back
+ * the river's shader, and the LED strip, which the facade replaces. Both hand back
  * whatever they found when they are disposed.
  */
 

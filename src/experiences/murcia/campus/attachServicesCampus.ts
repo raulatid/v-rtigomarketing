@@ -3,6 +3,7 @@ import type { IconMasks } from './content/iconLibrary';
 import type { FigureKind, ServicesContent } from './content/servicesContent';
 import { findLakeBasin } from './lake/lakeBasin';
 import { attachLakeWater, type LakeWater, type LakeWaterConfig } from './lake/lakeWater';
+import { DEFAULT_RIO_WATER_CONFIG } from '../water/rioWaterConfig';
 import { figureLayout, iconMotionLayout, type FigureMotion } from './particles/figureLayouts';
 import { discLayout, type TargetLayout } from './particles/layouts';
 import { sampleMask, seededRandom, type MaskSample } from './particles/maskSampling';
@@ -47,7 +48,6 @@ export interface ServicesCampusOptions {
   content: ServicesContent;
   /** Every service's `icon` must be a key here. */
   icons: IconMasks;
-  keyLightDirection: THREE.Vector3;
   /** The water mesh's node name in the export. */
   waterNode?: string;
   overlay: {
@@ -170,18 +170,16 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
 
   // ---- the water -------------------------------------------------------------
 
+  // The river's water in the lake's colours. The three hex are the lake's own,
+  // kept from its previous shader; `shallowColor` is carried for completeness
+  // and never shows (see `lake/lakeWater.ts`).
   const water: LakeWaterConfig = {
-    waveLength: r * 0.12,
-    speed: 0.5,
-    strength: 1.8,
-    gloss: 220,
-    caustics: 0.45,
-    deep: 0x0d3a52,
-    shallow: 0x2a7d9c,
-    sky: 0x8fb8d4,
-    horizon: 0xd6e6ef,
+    ...DEFAULT_RIO_WATER_CONFIG,
+    deepColor: 0x0d3a52,
+    shallowColor: 0x2a7d9c,
+    skyColor: 0x8fb8d4,
   };
-  const surface: LakeWater = attachLakeWater(lake.mesh, options.keyLightDirection, water);
+  const surface: LakeWater = attachLakeWater(lake.mesh, water);
 
   // ---- the ring screen -------------------------------------------------------
 
