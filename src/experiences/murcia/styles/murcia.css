@@ -676,36 +676,21 @@
 .campus-overlay__handle { display: none; }
 .campus-overlay__body { display: contents; }
 
-/* Same layout boundary as CAMPUS_DOCK_QUERY. The panel translates between
-   two stops; its text scrolls independently of the canvas gestures.
-
-   The sheet is AS TALL AS ITS COPY, capped at 85dvh (client, 2026-09-16): a
-   fixed 85dvh left a short service mostly empty glass. The compact stop is
-   therefore measured against the sheet's own height (the 100% in the
-   translate), never against the cap, and a sheet shorter than the compact
-   stop simply opens in full. campusSheet.ts reads offsetHeight, so the drag
-   limit follows without a change.
-
-   `--campus-sheet-compact` is WRITTEN BY campusSheet.ts and re-written on every
-   resize, because the stop is derived per viewport now: it is the space the
-   particle field above cannot use (`campusMobileLayout.campusCompactFraction`),
-   which depends on the screen. The 35dvh fallbacks below are
-   CAMPUS_COMPACT_MIN_FRACTION — what a viewport with no slack gets, and what
-   every viewport got until 2026-09-21 — so a frame before the first write, or a
-   sheet whose script never ran, lands where it always did. */
+/* Same boundary as CAMPUS_DOCK_QUERY. Both stops size the actual reading
+   viewport, keeping the bottom of its scroller on screen throughout a drag. */
 @media not all and (min-width: 1024px) and (min-aspect-ratio: 4/3) {
   .murcia-ui .campus-overlay {
     left: 0;
     bottom: 0;
     top: auto;
     width: 100%;
-    height: auto;
+    height: var(--campus-sheet-compact, 35dvh);
     min-height: var(--campus-sheet-compact, 35dvh);
     max-height: 85dvh;
     padding: 0;
     display: flex;
     flex-direction: column;
-    transform: translateY(calc(100% - var(--campus-sheet-compact, 35dvh)));
+    transform: none;
     border-radius: 14px 14px 0 0;
     border-left: 0;
     border-right: 0;
@@ -715,7 +700,7 @@
     touch-action: pan-y;
     overflow: hidden;
   }
-  .murcia-ui .campus-overlay[data-sheet-stop='expanded'] { transform: translateY(0); }
+  .murcia-ui .campus-overlay[data-sheet-stop='expanded'] { height: var(--campus-sheet-full, 85dvh); }
   .murcia-ui .campus-overlay[data-sheet-dragging] { transition: none !important; }
   /* A bare pill, no caption: the grip's name is its aria-label. */
   .murcia-ui .campus-overlay__handle {
@@ -819,37 +804,19 @@
   .murcia-ui .campus-overlay__subtitle {
     text-align: center;
   }
-  .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
-    flex: none;
-    height: calc(var(--campus-sheet-compact, 35dvh) - 44px);
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-  /* The detail and the legend used to be `display: none` at the compact stop,
-     from when that stop was a TEASER: a clamped lead, a body that did not
-     scroll, and the grip as the only way to the rest.
-
-     A later block in this same file — same media query, so it wins — turned
-     that stop into a scroller (`overflow-y: auto`) and dropped the lead's clamp
-     (`display: block` undoes `-webkit-box`, which is what `-webkit-line-clamp`
-     needs). Between the two the peek became a half-state: it scrolled, and the
-     paragraph it would have scrolled to was not in the document. Read as the
-     copy being cut, which is exactly what it was.
-
-     Removed rather than moved, so the stop is one thing: a short window onto
-     the whole copy, with the grip to open it fully. `[hidden]`, which the
-     overlay sets when a service has no legend, keeps working on its own. */
+  /* Short screens need the same compact typography at BOTH stops, so the
+     text does not reflow or jump when the grip is released. */
   @media (max-height: 500px) {
-    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__body {
+    .murcia-ui .campus-overlay__body {
       padding-top: 16px;
-      padding-bottom: 8px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
     }
-    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__title {
+    .murcia-ui .campus-overlay__title {
       font-size: 22px !important;
+      margin-top: 0;
     }
-    .murcia-ui .campus-overlay[data-sheet-stop='compact'] .campus-overlay__subtitle {
-      margin-top: 6px;
-    }
+    .murcia-ui .campus-overlay__navigation { margin-top: 0; }
+    .murcia-ui .campus-overlay__subtitle { margin-top: 6px; }
   }
 }
 
@@ -900,25 +867,17 @@
   .murcia-ui .campus-overlay__measures { margin-top: 14px; }
   .murcia-ui .campus-overlay__measures-list { gap: 6px; }
 
-  /* The sheet measures its full copy against the compact stop (campusSheet.ts
-     fit()): while measuring, the compact clamps are lifted and nothing else
-     moves. Last in the file so it outranks every clamp above. */
-  .murcia-ui .campus-overlay[data-sheet-measuring] .campus-overlay__body {
-    flex: 1;
+  /* Measure intrinsic copy with the same padding and header at both stops. */
+  .murcia-ui .campus-overlay[data-sheet-measuring] {
     height: auto;
-    overflow: hidden;
+    transition: none !important;
   }
-  .murcia-ui .campus-overlay[data-sheet-measuring] .campus-overlay__subtitle {
-    display: block;
-    -webkit-line-clamp: none;
+  .murcia-ui .campus-overlay[data-sheet-measuring] .campus-overlay__body {
+    flex: 0 1 auto;
   }
-  .murcia-ui .campus-overlay[data-sheet-measuring] .campus-overlay__detail:not([hidden]),
-  .murcia-ui .campus-overlay[data-sheet-measuring] .campus-overlay__caption:not([hidden]) {
-    display: block;
-  }
-  /* When the copy fits, the sheet opens in full and the grip is withdrawn:
-     `hidden` has to beat the handle's own display. */
+  /* Reserve the close button's row even when no expansion is necessary. */
   .murcia-ui .campus-overlay__handle[hidden] {
-    display: none;
+    display: flex;
+    visibility: hidden;
   }
 }

@@ -6,19 +6,19 @@ afterEach(() => { document.body.replaceChildren(); vi.unstubAllGlobals(); });
 
 function setup(offsetHeight = 500) {
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
-  vi.stubGlobal('DOMMatrixReadOnly', class { m42 = 190; });
   const layer = document.createElement('div');
   const body = document.createElement('div');
   layer.append(body);
   document.body.append(layer);
   Object.defineProperty(layer, 'offsetHeight', { value: offsetHeight });
   const sheet = attachCampusSheet(layer, body, { expand: 'Leer más', collapse: 'Ver partículas' });
+  sheet.fit();
   const grip = layer.querySelector('button')!;
   grip.setPointerCapture = vi.fn();
   grip.hasPointerCapture = () => false;
   const pointer = (type: string, y: number) => {
     const event = new Event(type);
-    Object.assign(event, { pointerId: 1, clientY: y, button: 0, isPrimary: true });
+    Object.assign(event, { pointerId: 1, clientX: 100, clientY: y, button: 0, isPrimary: true });
     grip.dispatchEvent(event);
   };
   const dragUp = () => {
@@ -54,12 +54,23 @@ describe('campus sheet input ownership', () => {
     r.pointer('pointermove', 250);
     r.pointer('pointercancel', 250);
     expect(r.layer.dataset.sheetStop).toBe('compact');
-    expect(r.layer.style.transform).toBe('');
+    expect(r.layer.style.height).toBe('');
     expect(r.layer.hasAttribute('data-sheet-dragging')).toBe(false);
     r.sheet.dispose();
     r.grip.click();
     expect(r.layer.dataset.sheetStop).toBe('compact');
     expect(r.layer.querySelector('button')).toBeNull();
+  });
+
+  it('preserves the compact reading position on resize and remeasurement', () => {
+    const r = setup();
+    r.body.scrollTop = 120;
+    window.dispatchEvent(new Event('resize'));
+    expect(r.body.scrollTop).toBe(120);
+    expect(r.body.tabIndex).toBe(0);
+    r.sheet.fit();
+    expect(r.body.scrollTop).toBe(120);
+    r.sheet.dispose();
   });
 
   it('withdraws the grip and opens in full when the copy fits the compact stop', () => {
