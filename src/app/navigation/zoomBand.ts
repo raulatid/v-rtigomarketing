@@ -22,29 +22,16 @@ import type { ZoomBandLimits } from './navigationConfig'
 // sign that leads out of a world already had one owner, and a second opinion
 // would be a second place to get it wrong.
 //
-// ── The overflow is the whole point ──
-//
-// `push` returns the travel it could not absorb, and it can only ever do that at
-// the +1 end. That leftover is what `navigationGesture` accumulates, so the two
-// stages compose into one continuous journey: cross the band to arrive at the
-// limit, then keep pushing against it to leave. The far end (-1) is a dead stop
-// and returns nothing — there is no world out there to commit to.
-//
-// The caller is responsible for the ORDER in which the two stages are fed, and
-// it matters: travel toward the other world fills this first and overflows into
-// the accumulator, while travel away from it must drain the accumulator first
-// and only then unzoom. Otherwise a viewer who had banked half a commit would
-// watch the camera pull back out while an invisible total was still full, and
-// the next nudge would navigate from a pose that no longer looked like the edge
-// of anything.
+// The input layer confirms navigation at +1. This module only owns position;
+// it preserves overflow accounting at that end without requiring another stage.
+// The far end (-1) remains a dead stop, with no destination beyond it.
 //
 // ── Travel, in CSS pixels, not a rate ──
 //
 // Stored as a signed pixel POSITION rather than as the normalised depth,
 // because the two halves of the band are allowed to cost different amounts of
 // travel and a normalised accumulator would have to re-derive which half it was
-// in on every event. Same physical-distance argument as
-// `NavigationGestureLimits.commitDistancePx`: mouse notches, precision
+// in on every event. Mouse notches, precision
 // trackpads and two fingers on glass deliver wildly different event counts for
 // the same gesture, so anything counted in events feels like a different
 // product on every device.
@@ -54,15 +41,15 @@ export interface ZoomBand {
    * Absorbs signed travel toward the other world. Returns the unabsorbed px.
    *
    * Non-zero only when the band is already pinned at +1 and the push is still
-   * heading that way, which is exactly the condition the commit stage means.
-   * Clamped per event for the reason the accumulator clamps: one absurd event —
+   * heading that way. Navigation now commits at the end of the band itself.
+   * Clamped per event because one absurd event —
    * a dropped frame, a pen, a synthetic stream — must not be worth more than a
    * flick.
    */
   push(travelPx: number): number
   /** -1 at the far limit, 0 at rest, +1 at the limit that faces the other world. */
   readonly depth: number
-  /** Pinned against +1. The commit stage's precondition, and its cue. */
+  /** Pinned against +1, the shared navigation threshold. */
   readonly atLimit: boolean
   /**
    * Back to rest, with no travel of its own.

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createNavigationInput } from './createNavigationInput'
 import type { NavigationContext } from './createNavigationInput'
-import { NAVIGATION_GESTURE, NAVIGATION_ZOOM } from './navigationConfig'
+import { NAVIGATION_COOLDOWN, NAVIGATION_ZOOM } from './navigationConfig'
 
 // The control's painted state must derive from the navigation context, never
 // from the input loop happening to run. The bug these tests pin down: the loop
@@ -40,7 +40,6 @@ function setup(initial: Partial<NavigationContext> = {}) {
     commits,
     looks,
     depth: () => depth,
-    progress: () => Number(root.style.getPropertyValue('--nav-progress')) || 0,
     control: root.querySelector<HTMLElement>('.nav-control')!,
   }
 }
@@ -128,7 +127,7 @@ describe('a horizontal wheel swipe in Murcia turns rather than zooms', () => {
     const { input, looks } = setup({ current: 'murcia' })
     wheel(0, 5, 1)
     wheel(0, 20, 1)
-    expect(looks).toEqual([-80, -NAVIGATION_GESTURE.maxEventTravelPx])
+    expect(looks).toEqual([-80, -NAVIGATION_ZOOM.maxEventTravelPx])
     input.dispose()
   })
 
@@ -195,26 +194,16 @@ describe('painted state derives from the navigation context', () => {
   })
 })
 
-describe('one event cannot cross the gesture, whichever stage it lands in', () => {
-  const CAP = NAVIGATION_GESTURE.maxEventTravelPx
+describe('one event cannot cross the zoom band from rest', () => {
+  const CAP = NAVIGATION_ZOOM.maxEventTravelPx
 
-  it('caps an absurd wheel event before either stage sees it', async () => {
-    // The hazard `maxEventTravelPx` was written for: macOS momentum delivers
-    // hundreds of pixels in the event at the head of a flick, so one physical
-    // flick could carry a whole gesture.
-    //
-    // It used to be enforced inside `navigationGesture`, which was fine while
-    // that was the only thing an event could reach. `adr/014` put the zoom band
-    // in front of it and briefly broke the guarantee in the worst possible way:
-    // the uncapped event saturated the entire band AND overflowed by 99,400px,
-    // which the accumulator then clamped to a full 120px push. One notch threw
-    // the camera to the end of its travel and banked 40% of a warp.
+  it('caps an absurd wheel event before the band sees it', async () => {
+    // An extreme wheel impulse may move at most one capped step.
     const t = setup()
     wheel(-100_000)
     await twoFrames()
 
     expect(t.depth()).toBeCloseTo(CAP / NAVIGATION_ZOOM.towardTravelPx, 6)
-    expect(t.progress()).toBe(0)
     expect(t.commits).toEqual([])
     t.input.dispose()
   })
@@ -302,14 +291,12 @@ describe('the accessible control is the path a pinch cannot be', () => {
 })
 
 describe('a world may leave at the end of the zoom band', () => {
-  // Earth (DECISIONS §44): arriving at the end of the band IS the request to
-  // leave — no push stage after it for the viewer to find, and nothing held back
-  // until the camera is somewhere: the transition swings it above Spain itself.
-  const CAP = NAVIGATION_GESTURE.maxEventTravelPx
+  // The shared threshold is the end of the band, with no extra push.
+  const CAP = NAVIGATION_ZOOM.maxEventTravelPx
   const band = Math.ceil(NAVIGATION_ZOOM.towardTravelPx / CAP)
 
   it('commits the moment the band reaches its limit, with no push after it', async () => {
-    const t = setup({ commitAtBandEnd: true })
+    const t = setup({})
     for (let i = 0; i < band - 1; i += 1) wheel(-CAP)
     await after(100)
     expect(t.commits).toEqual([])
@@ -320,7 +307,7 @@ describe('a world may leave at the end of the zoom band', () => {
   })
 
   it('still needs the whole band: one enormous event does not navigate', async () => {
-    const t = setup({ commitAtBandEnd: true })
+    const t = setup({})
     wheel(-100_000)
     await after(100)
     expect(t.commits).toEqual([])
@@ -330,7 +317,7 @@ describe('a world may leave at the end of the zoom band', () => {
   it('lets go when the viewer zooms back out before the frame that would commit', async () => {
     // Events arrive between frames. Reaching the limit and leaving it again
     // inside one frame is a viewer who changed their mind, not a request.
-    const t = setup({ commitAtBandEnd: true })
+    const t = setup({})
     for (let i = 0; i < band; i += 1) wheel(-CAP)
     wheel(CAP)
     await after(150)
@@ -338,12 +325,83 @@ describe('a world may leave at the end of the zoom band', () => {
     t.input.dispose()
   })
 
-  it('leaves a world without it parked at the limit, waiting for the push', async () => {
+  it('commits at the same threshold leaving Murcia', async () => {
+    const t = setup({ current: 'murcia' })
+    for (let i = 0; i < band - 1; i += 1) wheel(CAP)
+    await twoFrames()
+    expect(t.commits).toEqual([])
+    wheel(CAP)
+    await twoFrames()
+    expect(t.commits).toEqual(['exit-murcia'])
+    t.input.dispose()
+  })
+
+  it('refuses a commit if attention changes before its frame, then accepts a fresh notch', async () => {
     const t = setup()
     for (let i = 0; i < band; i += 1) wheel(-CAP)
-    await after(150)
-    expect(t.depth()).toBeCloseTo(1, 6)
+    t.context.canNavigate = false
+    await twoFrames()
     expect(t.commits).toEqual([])
+    wheel(CAP)
+    expect(t.depth()).toBe(1)
+    t.context.canNavigate = true
+    wheel(-CAP)
+    await twoFrames()
+    expect(t.commits).toEqual(['enter-murcia'])
     t.input.dispose()
+  })
+
+})
+
+// Fake time and event timestamps share an origin, as they do in the browser.
+describe('momentum protection through real input', () => {
+  afterEach(() => vi.useRealTimers())
+
+  function timedWheel(deltaY: number) {
+    const event = new WheelEvent('wheel', { deltaY, cancelable: true })
+    Object.defineProperty(event, 'timeStamp', { value: performance.now() })
+    window.dispatchEvent(event)
+  }
+
+  it('keeps the explicit-action latch across reset and releases only after a quiet gap', async () => {
+    vi.useFakeTimers({ toFake: ['performance', 'requestAnimationFrame', 'cancelAnimationFrame'] })
+    const t = setup({ current: 'murcia' })
+    try {
+      t.input.navigateTo('earth')
+      t.input.reset()
+      await vi.advanceTimersByTimeAsync(415)
+      timedWheel(120)
+      expect(t.depth()).toBe(0)
+      await vi.advanceTimersByTimeAsync(415)
+      timedWheel(120)
+      expect(t.depth()).toBe(0)
+      await vi.advanceTimersByTimeAsync(NAVIGATION_COOLDOWN.latchGapSeconds * 1000)
+      timedWheel(120)
+      expect(t.depth()).toBeCloseTo(0.1)
+    } finally { t.input.dispose() }
+  })
+
+  it('records refused input, latches on the cooldown deadline, and never re-enters after leaving Murcia', async () => {
+    vi.useFakeTimers({ toFake: ['performance', 'requestAnimationFrame', 'cancelAnimationFrame'] })
+    const t = setup({ current: 'murcia' })
+    try {
+      for (let i = 0; i < 10; i++) timedWheel(120)
+      await vi.advanceTimersByTimeAsync(32)
+      expect(t.commits).toEqual(['exit-murcia'])
+      t.context.current = 'earth'
+      t.input.resetZoom()
+      t.input.settle()
+      for (let i = 0; i < 40; i++) {
+        timedWheel(i % 2 ? -120 : 120)
+        await vi.advanceTimersByTimeAsync(50)
+        expect(t.depth()).toBe(0)
+      }
+      expect(t.root.dataset.state).toBe('idle')
+      expect(t.commits).toEqual(['exit-murcia'])
+      await vi.advanceTimersByTimeAsync(NAVIGATION_COOLDOWN.latchGapSeconds * 1000)
+      for (let i = 0; i < 10; i++) timedWheel(-120)
+      await vi.advanceTimersByTimeAsync(32)
+      expect(t.commits).toEqual(['exit-murcia', 'enter-murcia'])
+    } finally { t.input.dispose() }
   })
 })

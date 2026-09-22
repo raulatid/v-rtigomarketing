@@ -8,6 +8,5 @@ export function createNavigationState(): NavigationSignals {
     transitionCommitted: false,
     departureAim: null,
     zoomDepth: 0,
-    approach: 0,
   }
 }

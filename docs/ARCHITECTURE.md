@@ -4,8 +4,14 @@
 
 - Application navigation owns a stable mutable channel created by
   `app/navigation/continuousState.ts`. Experiences receive read-only views of
-  its transition, zoom and approach signals through props. The shared contract
+  its transition and zoom signals through props. The shared contract
   is `interaction/navigationSignals.ts`; it creates no state.
+- Both worlds share a 1200px zoom band toward navigation. Wheel input commits
+  at its end; touch requires a new pinch starting there and at least 16px of
+  separation growth toward the destination. The input lock and cooldown are shared.
+  Post-processing follows the committed cinematic: Murcia supplies its departure
+  vacuum curve; Earth retains its aim phase and FOV surge. No effect requires
+  additional scroll after confirmation.
 - Earth owns only its intro phase, intro overlays, motion blur and orbit reveal
   in `experiences/earth/config/sequenceState.ts`. Hint permission is supplied
   separately by the application and combined with the live intro phase.

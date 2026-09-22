@@ -1,29 +1,20 @@
-import { prefersReducedMotion } from '../../platform/motionPreference'
 import type { ExperienceId } from '../experience'
 import { normalizeWheelDelta } from '../../utils/wheelDelta'
-import { createNavigationGesture } from './navigationGesture'
 import { createNavigationMachine, intentFor } from './navigationMachine'
 import type { NavigationIntent } from './navigationMachine'
-import { createProgressSpring } from './progressSpring'
 import { createZoomBand } from './zoomBand'
 import {
   NAVIGATION_COOLDOWN,
-  NAVIGATION_GESTURE,
   NAVIGATION_PINCH,
-  NAVIGATION_SPRING,
   NAVIGATION_ZOOM,
-  commitTravelPx,
   pinchGain,
   type NavigationCooldownLimits,
-  type NavigationGestureLimits,
-  type NavigationSpringLimits,
   type PinchLimits,
   type ZoomBandLimits,
 } from './navigationConfig'
 
-// The only impure module in `app/navigation/`: DOM listeners, a frame loop, and
-// the writes that drive the indicator. Everything it decides is decided by the
-// pure accumulator and the pure machine beside it.
+// DOM input and control state. The zoom band owns travel; the machine owns
+// transition locking. Each scene supplies direction and visual style.
 //
 // ── One global wheel authority ──
 //
@@ -41,13 +32,8 @@ import {
 //
 // ── Its own frame loop, and why not R3F's ──
 //
-// The accumulator needs a clock and there is no application-level frame loop —
-// R3F's belongs to the scene graph, and ADR 002 makes its priority ordering a
-// render contract. Putting a navigation concern in `useFrame` would make the
-// indicator a scene-graph citizen and tie input to a renderer that is allowed to
-// stop. So this owns a small rAF that runs only while something is happening:
-// started by the first input, stopped when travel reaches zero with nothing to
-// cool down. An idle Earth costs no frames here at all.
+// The input loop commits on the next frame and advances cooldown independently
+// of rendering. It stops when the machine is idle; persistent zoom needs no clock.
 
 export interface NavigationContext {
   /** Which experience is showing. Supplied, never owned — see navigationMachine. */
@@ -74,22 +60,6 @@ export interface NavigationContext {
    * Read live like `canNavigate`, for the same reason.
    */
   releaseFocus?: (() => void) | null
-  /**
-   * Reaching the END of the zoom band commits, with no push stage after it.
-   * Absent means no: the band parks at its limit and a further push against it
-   * commits (`adr/014`), which is how Murcia is left.
-   *
-   * Earth sets it (DECISIONS §44). A push stage after the band read as the world
-   * freezing in front of Spain until another input, so arriving at the end of
-   * the zoom is the whole request. The accidental-warp guarantee is the band
-   * itself: 1200 px, at least ten capped events.
-   *
-   * Nothing waits for the camera to be anywhere. A commit used to be HELD until
-   * Earth's camera was above the destination; the transition now swings it there
-   * itself, after the commit (`useExperienceTransition`), so the input layer has
-   * no notion of the world being "ready".
-   */
-  commitAtBandEnd?: boolean
 }
 
 export interface NavigationInputDeps {
@@ -98,35 +68,16 @@ export interface NavigationInputDeps {
    *
    * Carries the painted state, and contains the focusable button and the hint —
    * both optional, so a harness can pass a bare element and still exercise the
-   * accumulator without building the markup around it.
+   * input path without building the markup around it.
    */
   root: HTMLElement
   getContext: () => NavigationContext
   /** A commit. The caller runs the transition and must call `settle` when it ends. */
   onCommit: (intent: NavigationIntent) => void
   /**
-   * The gesture moved, 0..1, spring-smoothed. Called once per frame while
-   * anything is in flight, and once on every semantic edge.
-   *
-   * The SPRING output, not the accumulator's — the accumulator is deliberately
-   * blunt (travel lands the instant an event does), and a camera driven from it
-   * raw teleports on every notch. The spring is why a scrubbed world reads as
-   * having weight, and it is the same one the indicator used.
-   *
-   * Optional because this module's job is to produce navigation intent; what
-   * consumes the intermediate value is the caller's business, and the tests
-   * construct it without one.
-   */
-  onProgress?: (progress: number) => void
-  /**
    * The zoom moved, -1..+1. Called on every event that changes it.
    *
-   * PERSISTENT, and that is the whole difference from `onProgress` above: this
-   * number stays where the viewer left it, so the caller's job is to transport
-   * it to the scenes rather than to animate anything with it. Raw, not sprung —
-   * each world eases the depth through the smoothing its own camera already has
-   * (`adr/014`), because a spring here plus a rig ease there is two lags in
-   * series and the second one is not optional.
+   * Persistent and raw: each world applies its own camera smoothing.
    *
    * Not called per frame: nothing here advances it, so the only moments it can
    * change are an event and a reset.
@@ -140,20 +91,8 @@ export interface NavigationInputDeps {
    * turns the camera.
    */
   onLook?: (dxPx: number) => void
-  /**
-   * How far through the WHOLE journey the viewer has pushed, 0..1, RAW.
-   *
-   * The zoom band first, then the commit accumulator against its limit — the two
-   * stages of `adr/014` read as one number. Distinct from `onProgress`, which is
-   * the same gesture spring-painted for an indicator: this one drives a
-   * screen-space effect, and lag in a screen-space effect reads as the renderer
-   * struggling rather than as weight.
-   */
-  onApproach?: (approach: number) => void
   pinchLimits?: PinchLimits
-  gestureLimits?: NavigationGestureLimits
   cooldownLimits?: NavigationCooldownLimits
-  springLimits?: NavigationSpringLimits
   zoomLimits?: ZoomBandLimits
 }
 
@@ -208,43 +147,37 @@ const SCROLLABLE_SEARCH_DEPTH = 12
 const SATURATED_DEPTH = 1 - 1e-6
 
 export function createNavigationInput(deps: NavigationInputDeps): NavigationInput {
-  const gestureLimits = deps.gestureLimits ?? NAVIGATION_GESTURE
   const cooldownLimits = deps.cooldownLimits ?? NAVIGATION_COOLDOWN
 
   const zoomLimits = deps.zoomLimits ?? NAVIGATION_ZOOM
 
-  const gesture = createNavigationGesture(gestureLimits)
   const machine = createNavigationMachine(cooldownLimits)
   const band = createZoomBand(zoomLimits)
   /** Mirrors what the caller has been told, so a no-op event reports nothing. */
   let reportedZoom = 0
 
-  // The painted progress chases the accumulator through a damped spring, so a
-  // notch lands with weight and a release settles instead of fading (see
-  // progressSpring.ts). Elasticity is presentation, which is why reduced motion
-  // picks its damping here — in the one DOM-facing module — and the spring
-  // itself stays pure.
-  const springLimits = deps.springLimits ?? NAVIGATION_SPRING
-  const reducedMotion = prefersReducedMotion()
-  const spring = createProgressSpring({
-    omegaRadPerSec: springLimits.omegaRadPerSec,
-    damping: reducedMotion ? springLimits.reducedMotionDamping : springLimits.damping,
-  })
+  // Refused events still count as input. The latch survives resets and cuts.
+  let lastInputMs = Number.NEGATIVE_INFINITY
+  let latched = false
+  let bandEndReached = false
+
+  function latch(timeStampMs: number): void {
+    latched = true
+    lastInputMs = timeStampMs
+  }
 
   const root = deps.root
   /** The focusable button. Falls back to the root so a bare host still keys. */
   const control: HTMLElement = root.querySelector('.nav-control') ?? root
   let frame = 0
-  let lastFrameMs = 0
   /** Mirrors what is on the element, so a frame with no change writes nothing. */
-  let paintedProgress = -1
   let paintedState = ''
   let paintedDirection = ''
 
   // --- The clock -------------------------------------------------------------
   //
-  // `performance.now()` and event timestamps share an origin, so the accumulator
-  // can be fed event time and stepped with frame time without the two drifting.
+  // `performance.now()` and event timestamps share an origin, so cooldown and
+  // latch gaps can compare frame time with input time.
 
   const now = () => performance.now()
 
@@ -267,92 +200,26 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     return current === 'earth' ? raw : -raw
   }
 
-  // --- The two stages, and the order they are fed in ------------------------
-
-  /**
-   * Signed travel toward the other world -> the zoom, then the commit.
-   *
-   * The whole of `adr/014` at the input layer. There are two accumulators in
-   * series now — a persistent zoom that absorbs the first 600px, and the
-   * unchanged commit accumulator that only ever sees what is left over — and
-   * every event goes through here so that which one gets it is decided in
-   * exactly one place.
-   *
-   * ── The order flips with the direction, and that is not symmetry for its own
-   *    sake ──
-   *
-   * Think of the two as one continuous track: rest, then the zoom band, then the
-   * push against its limit. Travel toward the other world fills the band first
-   * and spills into the accumulator; travel away from it has to drain the
-   * accumulator first and only then unzoom, because that is retracing the same
-   * track backwards.
-   *
-   * Fed the other way round, a viewer who had banked half a commit and changed
-   * their mind would watch the camera pull back out while an invisible total was
-   * still nearly full — and the next nudge would navigate from a pose that no
-   * longer looked like the edge of anything. Which is the exact complaint
-   * `adr/009`'s decay was answering, reintroduced at a different layer.
-   *
-   * The accumulator has no way to report how much of a push it took, so it is
-   * measured: its total before and after. That is deliberate rather than lazy —
-   * `navigationGesture` refuses travel for four different reasons (latched,
-   * committed, clamped, not accumulating) and a return value would be a second
-   * statement of rules that already have one home.
-   */
+  /** Every input crosses the same band; its far end is the commit threshold. */
   function pushTravel(
     rawTravelPx: number,
     timeStampMs: number,
     accumulate: boolean,
     mayCommit = true,
-    commitAtBandEnd = false,
   ): void {
-    // The per-event cap, applied HERE rather than left to the accumulator.
-    //
-    // `maxEventTravelPx` exists so one absurd wheel event cannot navigate —
-    // macOS momentum delivers hundreds of pixels in the event at the head of a
-    // flick. It used to live entirely inside `navigationGesture`, which was the
-    // only thing an event could reach.
-    //
-    // That stopped being true with `adr/014`, and leaving it there was a real
-    // defect rather than an untidiness: an uncapped 100,000px flick saturated
-    // the whole zoom band in one event AND arrived at the accumulator with
-    // 99,400px of overflow, which the clamp then dutifully reduced to a capped
-    // push that armed a commit. One notch of the wheel both threw the camera to
-    // the end of its travel and banked 40% of a warp.
-    //
-    // Capping the input to the pair keeps the guarantee the cap was written for,
-    // now stated over the whole journey: no single event may cross more than
-    // `maxEventTravelPx` of it, wherever in the two stages that lands.
+    if (!Number.isFinite(rawTravelPx) || !Number.isFinite(timeStampMs)) return
+    if (latched && (timeStampMs - lastInputMs) / 1000 >= cooldownLimits.latchGapSeconds) {
+      latched = false
+    }
+    lastInputMs = timeStampMs
+    // Guard the band itself, not just the commit: refused input cannot zoom.
+    if (!accumulate || latched) return
     const travelPx =
-      Math.sign(rawTravelPx) * Math.min(Math.abs(rawTravelPx), gestureLimits.maxEventTravelPx)
-
-    if (!accumulate) {
-      // Still pushed, so a stream being refused reads as a stream. The
-      // cooldown's quiescence test depends on that — see `gesture.push`. Nothing
-      // may move: a refused gesture must not zoom either, or a wheel over a
-      // closed panel would leave the world somewhere the viewer never asked for.
-      gesture.push(travelPx, timeStampMs, false)
-      return
+      Math.sign(rawTravelPx) * Math.min(Math.abs(rawTravelPx), zoomLimits.maxEventTravelPx)
+    band.push(travelPx)
+    if (mayCommit && travelPx > 0 && band.depth >= SATURATED_DEPTH) {
+      bandEndReached = true
     }
-
-    if (travelPx >= 0) {
-      const overflowPx = band.push(travelPx)
-      // Where the world commits at the band's limit, arriving there IS the commit,
-      // and the frame loop takes it from here. Nothing is banked in the accumulator
-      // then, because there is no push stage for it to count.
-      if (commitAtBandEnd && band.depth >= SATURATED_DEPTH) bandEndReached = true
-      // A gesture that may not commit still fills the band; what it may not do
-      // is spend the remainder. Zero rather than skipping the push, because the
-      // cooldown's quiescence test reads the stream and a gesture that went
-      // quiet is not the same thing as a gesture that was refused.
-      gesture.push(mayCommit && !commitAtBandEnd ? overflowPx : 0, timeStampMs, true)
-    } else {
-      const before = gesture.state().travelPx
-      gesture.push(travelPx, timeStampMs, true)
-      const drained = before - gesture.state().travelPx
-      band.push(travelPx + drained)
-    }
-
     reportZoom()
   }
 
@@ -362,154 +229,43 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     deps.onZoom?.(reportedZoom)
   }
 
-  /** Last reported approach, so an unchanged frame costs no callback. */
-  let reportedApproach = 0
-
-  /** Set by `pushTravel` when a `commitAtBandEnd` world's band reached its limit. */
-  let bandEndReached = false
-
-  /**
-   * Publishes the whole journey as one number.
-   *
-   * Measured in the two stages' own pixels rather than by averaging their two
-   * normalised progresses, because they are not the same length: the band is
-   * `towardTravelPx` and the push is `commitDistancePx`, and the ratio between
-   * them is explicitly tunable. Only the half of the band that FACES the other
-   * world counts — zooming away from it is not progress toward it.
-   */
-  function reportApproach(rawProgress: number): void {
-    const toward = Math.max(0, band.depth)
-    const total = commitTravelPx(zoomLimits, gestureLimits)
-    const travelled =
-      toward * zoomLimits.towardTravelPx + rawProgress * gestureLimits.commitDistancePx
-    const next = total > 0 ? Math.min(1, Math.max(0, travelled / total)) : 0
-    if (next === reportedApproach) return
-    reportedApproach = next
-    deps.onApproach?.(next)
-  }
-
   // --- The loop --------------------------------------------------------------
 
   function ensureRunning(): void {
     if (frame !== 0) return
-    lastFrameMs = now()
     frame = requestAnimationFrame(tick)
   }
 
   function tick(): void {
     frame = 0
     const t = now()
-    const dt = Math.max(0, (t - lastFrameMs) / 1000)
-    lastFrameMs = t
-
     const context = deps.getContext()
-    const state = gesture.state()
+    const released = machine.tick(t, lastInputMs)
+    if (released?.onDeadline) latch(t)
 
-    // Cooldown first: it is what decides whether this frame may accumulate.
-    const released = machine.tick(t, state.lastInputMs)
-    if (released?.onDeadline) {
-      // Released because it ran out of patience, not because the stream stopped —
-      // so the stream is still running and handing it a fresh gesture now would
-      // undo the entire lock. Latch until it genuinely goes quiet.
-      gesture.latch(t)
-    }
-
-    // Two fingers holding a spread still are still INPUT.
-    //
-    // The accumulator decides when to retreat by measuring SILENCE, because the
-    // wheel has no other way to say it has stopped — and a wheel cannot be held.
-    // A pinch can, and without this the world would start easing back out from
-    // under fingers that had not moved, half a second in. Zero travel, so it
-    // changes nothing except "input arrived", which is exactly the fact the idle
-    // gap is asking about.
-    if (pinchOwnsProgress && contacts.size === 2) gesture.push(0, t)
-
-    const f = gesture.step(dt, t)
-
-    // Two things reach a commit: the accumulator filling (the push against the
-    // band's limit), and — where the world asks for it — the band itself arriving
-    // at its limit (`commitAtBandEnd`). Either goes on the frame it is reached.
-    //
-    // Both are ABANDONED if the band has left its limit by then. Events arrive
-    // between frames, and travel away from the other world unzooms the band
-    // without draining a committed accumulator — so that is how "the viewer
-    // changed their mind" inside one frame arrives here.
-    const reached = f.committed || bandEndReached
+    // Events can reach and then leave the limit before this frame.
+    const reached = bandEndReached
     bandEndReached = false
     const abandoned = reached && band.depth < SATURATED_DEPTH
 
     if (reached) {
       const intent = abandoned ? null : machine.commit(context.current)
       if (intent && context.canNavigate) {
-        // Reset BEFORE handing over: the transition swaps the scene, and travel
-        // banked under the old scene's sign means nothing under the new one.
-        gesture.reset()
-        spring.reset(0)
-        // The fingers may still be down, but the gesture they were making is
-        // over: the machine is locked from here and the keep-alive above would
-        // otherwise keep feeding an accumulator nobody is reading.
-        pinchOwnsProgress = false
-        // And the fingers are spent, not merely unowned. Resetting the
-        // accumulator was never enough, because the BAND is fed from the same
-        // events and it does not reset: the hand that commits is still moving,
-        // its remaining travel arrives after the swap, and `towardOther` signs it
-        // under the NEW world — where the same spread that just entered Murcia
-        // means zoom IN. Measured 2026-09-06: a phone entered the city at depth
-        // -1, parked at the closest the camera goes, which is most of why zooming
-        // there felt broken. Declining latches until the contacts lift, and a
-        // gesture whose world has changed under it is exactly what that is for.
+        // The remaining movement belongs to the departing world. Spend the pair
+        // so it cannot zoom the destination after the cut and cooldown.
         pinchSpent = true
         pinchDeliveredPx = 0
-        reportApproach(0)
-        paint(0, 'locked', context.current)
+        paint('locked', context.current)
         deps.onCommit(intent)
         ensureRunning()
         return
       }
-      // The commit was refused or abandoned — a stale scene, attention moved to a
-      // POI, or the viewer zoomed back out within the frame. Drop it and start
-      // over rather than leaving a full accumulator primed to fire on the next
-      // pixel.
+      // Attention may change between the arming event and this frame.
       machine.reset()
-      gesture.reset()
-    } else if (f.active) {
-      machine.beginGesture()
-    } else {
-      machine.endGesture()
     }
 
-    // Direct manipulation bypasses the spring; everything else goes through it.
-    //
-    // The spring exists to smooth DISCRETE impulses: a wheel notch lands whole
-    // and would otherwise teleport the camera. A pinch is already continuous, so
-    // the same spring contributes only its ~0.1s of lag — and lag between a
-    // finger and the thing it is holding does not read as weight, it reads as
-    // the world being late. Clamped either way, because the reveal transform is
-    // only meaningful on 0..1 and the spring is allowed past the target.
-    //
-    // The spring is kept SYNCHRONISED rather than skipped, so the frame the
-    // fingers leave hands back from exactly where they left it — no step, and no
-    // second code path for the retreat, which is still the spring settling.
-    const direct = pinchOwnsProgress && contacts.size === 2
-    if (direct) spring.reset(f.progress)
-    const displayed = direct
-      ? Math.min(1, Math.max(0, f.progress))
-      : Math.min(1, Math.max(0, spring.step(f.progress, dt)))
-    paint(displayed, phaseClass(context), context.current)
-    // From the RAW gesture, not from `displayed`. See `onApproach`.
-    reportApproach(f.progress)
-    // Deliberately NOT reached on the commit frame above, which returns early:
-    // the accumulator is reset there, so reporting from here would hand the
-    // caller a 0 on the very frame it started a transition from a non-zero
-    // position — and snap the camera back to rest under the warp.
-    deps.onProgress?.(displayed)
-
-    // Keep running while there is anything left to advance — including a spring
-    // still settling after the accumulator has stopped. Stopping here is what
-    // makes an idle session cost nothing.
-    if (f.active || machine.phase !== 'idle' || !spring.settled(f.progress)) {
-      ensureRunning()
-    }
+    paint(phaseClass(context), context.current)
+    if (machine.phase !== 'idle') ensureRunning()
   }
 
   function phaseClass(context: NavigationContext): string {
@@ -521,21 +277,9 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
 
   // --- Painting --------------------------------------------------------------
   //
-  // Straight onto the element, never through React. A wheel can produce well over
-  // a hundred events a second and every one of them would otherwise be a render of
-  // the whole tree. The rail reads `--nav-progress` in a transform, so this costs
-  // a compositor property and no layout.
-
-  function paint(progress: number, state: string, current: ExperienceId): void {
+  // Discrete control state is written directly, without per-event React renders.
+  function paint(state: string, current: ExperienceId): void {
     const direction = current === 'earth' ? 'down' : 'up'
-    // Rounded before comparing: sub-pixel churn on a scaleY is invisible and a
-    // raw float would defeat the guard on every frame.
-    const rounded = Math.round(progress * 1000) / 1000
-
-    if (rounded !== paintedProgress) {
-      paintedProgress = rounded
-      root.style.setProperty('--nav-progress', String(rounded))
-    }
     if (state !== paintedState) {
       paintedState = state
       root.dataset.state = state
@@ -619,7 +363,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       event.timeStamp,
       machine.canAccumulate() && context.canNavigate,
       true,
-      context.commitAtBandEnd === true,
     )
     ensureRunning()
   }
@@ -658,29 +401,19 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * legality check are the same ones every gesture passes — one commit path, as
    * it has been since `adr/009`.
    *
-   * BOTH stages at once since `adr/014`: from any zoom depth, including a full
-   * one, and with no zoom of its own on the way. Both worlds re-base the warp on
-   * the pose the viewer is actually at, so committing from full zoom-out is the
-   * same seamless departure as committing from rest — the cinematic simply has
-   * less of the journey left to cover.
+   * Explicit navigation commits from any zoom depth. Each world re-bases the
+   * cinematic on its actual camera pose, preserved until the covered cut.
    */
   function activate(timeStampMs: number): void {
     const context = deps.getContext()
     if (!context.canNavigate) return
     const intent = machine.commit(context.current)
     if (!intent) return
-    // The accumulator may hold travel from a gesture in flight; it means nothing
-    // under the world we are about to be in.
-    //
-    // The ZOOM is deliberately left alone here. It is a pose, not banked intent,
-    // and the departing camera is still standing in it for another few hundred
-    // milliseconds — clearing it now would pull the world back to rest in plain
-    // view, in front of the cinematic. `resetZoom` is called at the cut instead,
-    // under full cover.
-    gesture.reset()
-    gesture.latch(timeStampMs)
-    spring.reset(0)
-    paint(0, 'locked', context.current)
+    // Preserve the departing zoom pose until the covered cut.
+    bandEndReached = false
+    pinchSpent = true
+    latch(timeStampMs)
+    paint('locked', context.current)
     deps.onCommit(intent)
     ensureRunning()
   }
@@ -733,42 +466,22 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   /** True once a pair has armed a NAVIGATING pinch. */
   let pinchArmed = false
   /**
-   * Separation-growth px -> accumulator px. Sampled per gesture, not per module.
+   * Separation-growth px -> zoom-band px. Sampled per gesture, not per module.
    *
    * It depends on the viewport, and a phone that turns between one pinch and the
    * next must be measured against the side it now has. Re-read at each second
    * contact rather than mid-gesture, so a rotation can never rescale a pinch
    * that is already in flight.
    */
-  let gain = pinchGain(commitTravelPx(zoomLimits, gestureLimits), 1, pinchLimits)
+  let gain = pinchGain(zoomLimits.towardTravelPx, 1, pinchLimits)
 
   /** The touch contacts in play, keyed by pointer id, in the order they landed. */
   const contacts = new Map<number, { x: number; y: number }>()
   /** Growth px already handed over, so each sample pushes only the difference. */
   let pinchDeliveredPx = 0
-  /** True while a claimed pinch is driving progress. Read by the frame loop. */
-  let pinchOwnsProgress = false
   /**
-   * Whether THIS two-pointer sequence may reach the commit stage at all.
-   *
-   * Murcia only. Leaving the city and zooming out of it are the same motion —
-   * closing the hand — and they used to be the same gesture: on a 393px phone
-   * 110px of closure filled the zoom band and 55px more flew you back to Earth,
-   * with nothing in between to tell you the world was about to change. A close
-   * is bounded by how wide the fingers started, so an ordinary pinch-to-zoom-out
-   * ran off the end of the band and out of the world. Reported by the client as
-   * "when the zoom out triggers it just jumps out to Earth".
-   *
-   * So a pinch may leave only if it STARTED with the band already at the
-   * exit-facing end. One pinch zooms out and stops there; lift, pinch again, and
-   * the second one — which begins saturated, because the zoom is persistent —
-   * spends everything it has on the commit.
-   *
-   * Decided when the pair arms, which is now the only moment there is. It used
-   * to be worth saying "not at the claim", because a claim happened after some
-   * travel had already been spent and a gesture that saturated the band on its
-   * way to being claimed would have handed itself the permission this exists to
-   * withhold. With the claim gone the hazard cannot arise.
+   * Fixed when the pair arms: a pinch starting below the limit only zooms.
+   * A fresh pinch at the limit may commit after deliberate growth, in either world.
    */
   let pinchMayCommit = true
   /**
@@ -793,7 +506,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * a district closing under the fingers must not turn the rest of the same
    * gesture into a zoom. Cleared by `endPinch`.
    *
-   * This is the ONE place a pinch still waits for a threshold before acting, and
+   * Like a transition commit, this action needs a deliberate movement, and
    * `releaseGrowthPx` says why: dismissing what someone is reading cannot be
    * undone, so it may not happen on fingertip drift.
    */
@@ -806,17 +519,17 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   }
 
   /**
-   * The most growth one event may carry, given the accumulator clamp.
+   * The most growth one event may carry, given the per-event travel cap.
    *
    * `maxEventTravelPx` exists so one absurd WHEEL event cannot navigate. A pinch
    * is not an impulse though — it is a position, and the separation between two
    * fingers is ground truth about where the viewer has put the world. So the
    * clamp is respected and the remainder is CARRIED rather than discarded.
    */
-  const maxGrowthPerEvent = () => gestureLimits.maxEventTravelPx / gain
+  const maxGrowthPerEvent = () => zoomLimits.maxEventTravelPx / gain
 
   /**
-   * Hands over as much of `targetLog` as one event may carry, and remembers
+   * Hands over as much of `targetGrowthPx` as one event may carry, and remembers
    * exactly how much that was.
    *
    * The bookkeeping has to record what LANDED, not what was intended, and the
@@ -841,22 +554,13 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       delivered * gain,
       timeStampMs,
       machine.canAccumulate() && context.canNavigate,
-      pinchMayCommit,
-      context.commitAtBandEnd === true,
+      pinchMayCommit && targetGrowthPx >= pinchLimits.releaseGrowthPx,
     )
     ensureRunning()
   }
 
-  /** Drops the gesture. `retreat` starts the elastic return for a claimed one. */
-  function endPinch(retreat: boolean): void {
-    if (retreat && pinchArmed) {
-      // An explicit end, so the return starts now instead of waiting out an idle
-      // gap that only exists because the wheel has no release event. It is also
-      // what stops two disconnected pinches adding up into one.
-      gesture.release()
-      ensureRunning()
-    }
-    pinchOwnsProgress = false
+  /** A lifted or cancelled pair cannot resume from its previous separation. */
+  function endPinch(): void {
     pinchDeliveredPx = 0
     // Back to the permissive default. The next pair re-decides it from the band
     // when it arms; leaving a stale `false` here would be a refusal nothing
@@ -881,7 +585,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // A third finger is not a bigger pinch. Hand the whole thing back rather
     // than inventing a meaning for it.
     if (contacts.size > 2) {
-      endPinch(true)
+      endPinch()
       return
     }
     if (contacts.size < 2) return
@@ -910,12 +614,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
 
     pinchDeliveredPx = 0
     // Decided here, once, for the whole sequence. See the declaration.
-    pinchMayCommit = context.current !== 'murcia' || band.depth >= SATURATED_DEPTH
-    // The viewport is read here, once, for the gesture about to happen. Scaled
-    // against the WHOLE journey — the zoom band plus the push against it — so
-    // `commitFraction` of the viewport is still one complete navigation.
+    pinchMayCommit = band.depth >= SATURATED_DEPTH
+    // Preserve zoom travel per pixel, sampled once per gesture.
     gain = pinchGain(
-      commitTravelPx(zoomLimits, gestureLimits),
+      zoomLimits.towardTravelPx,
       Math.min(window.innerWidth || 0, window.innerHeight || 0),
       pinchLimits,
     )
@@ -926,8 +628,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // gesture; the district also closes its press ledger on it, which is what
     // lets the next tap after this pinch still be a tap.
     cancelContacts(event)
-    // The pinch owns the painted progress for the rest of the sequence.
-    pinchOwnsProgress = true
   }
 
   const onPinchMove = (event: PointerEvent): void => {
@@ -937,7 +637,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     contact.y = event.clientY
 
     if (contacts.size !== 2) return
-    if (pinchSpent) return
+    if (pinchSpent || (!pinchArmed && pinchReleasesFocus === null)) return
 
     const context = deps.getContext()
     // Signed by the SAME authority the wheel uses, so which
@@ -982,7 +682,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     contacts.delete(event.pointerId)
     // A pinch needs two. One contact has no separation and therefore no scale,
     // so a lift ends the gesture rather than pausing it.
-    endPinch(true)
+    endPinch()
   }
 
   /**
@@ -1019,33 +719,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       // flag staying set would deafen this module to every real cancel after.
       dispatchingPinchCancel = false
     }
-  }
-
-  // --- Grabbing the world lets go of the gesture -----------------------------
-
-  /**
-   * A press anywhere but the navigation control retreats any gesture in flight,
-   * immediately.
-   *
-   * Grabbing the world means you want to manipulate it, not travel through it.
-   * Without this the viewer scrolls, reaches for the globe, and has to drag
-   * against a scene that is still leaning somewhere else for the rest of the
-   * idle gap — which is most of what "it feels laggy" was.
-   *
-   * The control is exempt for a different reason than the rail was. The rail
-   * DROVE the gesture, so a press on it was the start of one. The control
-   * commits outright, so a press on it is a navigation about to happen — and
-   * retreating the scrub out from under it would be a visible flinch on the way
-   * into a transition.
-   *
-   * Capture phase and passive: this must see the press before any experience
-   * claims it, and it never needs to prevent anything.
-   */
-  const onPointerDownRelease = (event: PointerEvent): void => {
-    const target = event.target
-    if (target instanceof Node && root.contains(target)) return
-    gesture.release()
-    ensureRunning()
   }
 
   // --- Safari trackpad pinch -------------------------------------------------
@@ -1088,7 +761,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
   for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
     window.addEventListener(type, onSafariGesture, { capture: true, passive: false })
   }
-  window.addEventListener('pointerdown', onPointerDownRelease, { capture: true, passive: true })
   // Capture phase on `window`, so the contacts are seen wherever they land and
   // ahead of anything that might stop their propagation. Passive: nothing here
   // ever calls preventDefault — `.scene-canvas` is already `touch-action: none`,
@@ -1103,39 +775,21 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
 
   function contextChanged(): void {
     const context = deps.getContext()
-    const travel = gesture.state().travelPx
-    const progress = Math.min(1, Math.max(0, travel / gestureLimits.commitDistancePx))
-    // A semantic edge is a discontinuity, not a gesture: the spring must not be
-    // seen animating across a panel opening or a world swap.
-    spring.reset(progress)
-    paint(progress, phaseClass(context), context.current)
-    deps.onProgress?.(progress)
+    paint(phaseClass(context), context.current)
   }
 
-  // The initial paint is a derivation like any other: the JSX may mount the
-  // rail long before navigation is possible (the whole intro), and a hardcoded
-  // starting attribute would stand until the first gesture ran a frame.
   contextChanged()
 
   function reset(): void {
-    gesture.reset()
+    bandEndReached = false
     machine.reset()
-    spring.reset(0)
-    // The contacts are deliberately NOT cleared: the fingers are still on the
-    // glass and their pointerup is still coming, and forgetting them here would
-    // leave that lift unmatched. Dropping the CLAIM is enough — without it, a
-    // gesture the tab-hide just cancelled would keep driving the scrub.
-    endPinch(false)
+    endPinch()
     if (frame !== 0) {
       cancelAnimationFrame(frame)
       frame = 0
     }
     const context = deps.getContext()
-    paint(0, phaseClass(context), context.current)
-    // A reset is a scene event as much as an indicator one: the tab went away or
-    // the intro moved under us, and a world left leaning mid-scrub would stay
-    // that way until the next gesture.
-    deps.onProgress?.(0)
+    paint(phaseClass(context), context.current)
   }
 
   return {
@@ -1158,7 +812,6 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
       for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
         window.removeEventListener(type, onSafariGesture, { capture: true })
       }
-      window.removeEventListener('pointerdown', onPointerDownRelease, { capture: true })
       window.removeEventListener('pointerdown', onPinchDown, { capture: true })
       window.removeEventListener('pointermove', onPinchMove, { capture: true })
       window.removeEventListener('pointerup', onPinchUp, { capture: true })

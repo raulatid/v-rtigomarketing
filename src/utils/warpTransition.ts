@@ -143,17 +143,13 @@ export const WARP_TRANSITION = {
   // ─── The vacuum ───
   //
   // A screen-space pass on the way OUT of Murcia only: radial UV magnification,
-  // a radial streak blur, and a grey vignette. It is scrubbed from the viewer's
-  // own scroll before the commit and carried to full on the speed bell after,
-  // so the effect belongs to the gesture rather than to the cinematic.
+  // a radial streak blur, and a grey vignette. It begins at the commit and
+  // follows the departing cinematic, without requiring further input.
   //
   // Deliberately NOT a FOV widening. FOV would grow the ground footprint at no
   // distance cost, which is exactly what the safety envelope above exists to
   // prevent — the edge of the world would appear for ultrawide viewers with
   // every distance bound still satisfied.
-
-  /** Where the scrub starts, as a position in the whole-journey approach 0..1. */
-  murciaVacuumStart: 0.7,
 
   /** Peak radial magnification at the edges. */
   vacuumDistortAmount: 0.18,
@@ -193,7 +189,6 @@ export interface WarpLimits {
   motionBlurStrength: number
   earthCloseFactor: number
   earthWarpFov: number
-  murciaVacuumStart: number
   vacuumDistortAmount: number
   vacuumDistortPower: number
   vacuumBlurAmount: number
@@ -210,7 +205,6 @@ export function createDefaultWarpLimits(): WarpLimits {
     motionBlurStrength: WARP_TRANSITION.motionBlurStrength,
     earthCloseFactor: WARP_TRANSITION.earthCloseFactor,
     earthWarpFov: WARP_TRANSITION.earthWarpFov,
-    murciaVacuumStart: WARP_TRANSITION.murciaVacuumStart,
     vacuumDistortAmount: WARP_TRANSITION.vacuumDistortAmount,
     vacuumDistortPower: WARP_TRANSITION.vacuumDistortPower,
     vacuumBlurAmount: WARP_TRANSITION.vacuumBlurAmount,
@@ -330,28 +324,9 @@ export function motionBlur(p: number, limits: WarpLimits): number {
   return speed(p, limits) * limits.motionBlurStrength
 }
 
-/**
- * The vacuum, scrubbed from the viewer's own scroll. Reversible, and 0 until
- * the approach passes murciaVacuumStart.
- *
- * Takes the RAW approach, never a spring-painted one. An indicator that lags
- * reads as receiving your input; a screen-space effect that lags reads as the
- * renderer struggling.
- */
-export function vacuumScrub(approach: number, limits: WarpLimits): number {
-  return smootherstep(limits.murciaVacuumStart, 1, approach)
-}
-
-/**
- * The vacuum once the cinematic owns the camera: carried from wherever the
- * scrub had reached at the commit up to full on the speed bell.
- *
- * The latch is load-bearing. speed(0) is 0, so reading the bell alone would
- * snap the effect back to nothing on the first committed frame — visible as a
- * flinch exactly when the viewer has just succeeded.
- */
-export function vacuumCommitted(atCommit: number, p: number, limits: WarpLimits): number {
-  return atCommit + (1 - atCommit) * speed(p, limits)
+/** Rises throughout the visible departure, reaching full before the flash. */
+export function vacuumDeparture(p: number, limits: WarpLimits): number {
+  return smootherstep(0, limits.cut - limits.flashWidth, p)
 }
 
 /**

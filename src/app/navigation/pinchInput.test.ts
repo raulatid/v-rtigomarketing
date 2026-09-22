@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createNavigationInput } from './createNavigationInput'
 import type { NavigationContext } from './createNavigationInput'
-import { NAVIGATION_PINCH, NAVIGATION_ZOOM, commitTravelPx } from './navigationConfig'
+import { NAVIGATION_PINCH } from './navigationConfig'
 
 // The pinch, through the REAL DOM path: window capture listeners, the synthetic
 // cancel, the accumulator and the frame loop.
@@ -34,19 +34,8 @@ const COMMIT_GROWTH = SHORT_SIDE * NAVIGATION_PINCH.commitFraction
 /** The one threshold left in the gesture, and it guards a dismissal. */
 const RELEASE = NAVIGATION_PINCH.releaseGrowthPx
 
-/**
- * Where a fraction of a full commit growth ends up, now that there are two
- * stages in series (`adr/014`).
- *
- * A full opening of the hand is worth exactly one journey — `pinchGain` is
- * scaled against the total — but the journey is `towardTravelPx` of persistent
- * zoom followed by `commitDistancePx` of pushing against its limit. So most of
- * the gestures below move the ZOOM and leave the accumulator at rest.
- */
-const BAND_FRACTION = NAVIGATION_ZOOM.towardTravelPx / commitTravelPx()
-
-/** Zoom depth after opening the hand by `fraction` of a full commit growth. */
-const depthAfter = (fraction: number) => Math.min(1, fraction / BAND_FRACTION)
+/** Zoom depth after a fraction of the viewport-scaled band travel. */
+const depthAfter = (fraction: number) => Math.min(1, fraction)
 
 /** A grip wide enough that a full commit's worth of closing still fits inside it. */
 const WIDE = COMMIT_GROWTH * 1.1 + NAVIGATION_PINCH.minStartDistancePx
@@ -95,7 +84,6 @@ function setup(initial: Partial<NavigationContext> = {}) {
     commits,
     world: () => reachedTheWorld,
     cancels: () => cancels,
-    progress: () => Number(rail.style.getPropertyValue('--nav-progress')) || 0,
     /** The persistent zoom, -1 .. +1, read through the real callback. */
     depth: () => depth,
   }
@@ -162,7 +150,6 @@ describe('the pair arms on the second contact', () => {
     spread(t.host, COMMIT_GROWTH * 0.4)
     await frames()
     expect(t.depth()).toBeCloseTo(depthAfter(0.4), 1)
-    expect(t.progress()).toBe(0)
   })
 
   it('takes the fingers at the second contact, before any movement', async () => {
@@ -207,12 +194,13 @@ describe('the pair arms on the second contact', () => {
     expect(t.depth()).toBeCloseTo(depthAfter(0.6), 1)
   })
 
-  it('commits when the fingers open by the full commit growth', async () => {
+  it('fills the band without committing on a single full spread', async () => {
     const t = setup({ current: 'earth' })
     place(t.host, 'pointerdown', START)
     spread(t.host, COMMIT_GROWTH * 1.05, 20)
     await frames(200)
-    expect(t.commits).toEqual(['enter-murcia'])
+    expect(t.commits).toEqual([])
+    expect(t.depth()).toBeCloseTo(1)
   })
 
   it('costs the same effort from a tight grip as from a wide one', async () => {
@@ -265,33 +253,22 @@ describe('a pair is spent, never paused', () => {
     expect(t.commits).toEqual([])
   })
 
-  it('does not bank a commit across disconnected pushes', async () => {
-    // A lift is an explicit abandon. Without that, a series of small pushes
-    // against the zoom limit would navigate — the accidental-warp objection the
-    // accumulator exists to answer, arriving by a different road.
-    //
-    // Scoped to the COMMIT stage, which is the only stage that refuses to
-    // remember. The zoom is deliberately the opposite: it is a position the
-    // viewer put the camera in and it survives being let go of, which is why the
-    // band is saturated first here rather than being part of what is repeated.
-    const t = setup({ current: 'earth' })
+  it('does not add fingertip drift across disconnected pinches', async () => {
+    const t = setup()
     place(t.host, 'pointerdown', START)
-    spread(t.host, COMMIT_GROWTH * BAND_FRACTION, 8)
-    place(t.host, 'pointerup', START + COMMIT_GROWTH * BAND_FRACTION)
-    await frames(900)
-    expect(t.depth()).toBeCloseTo(1, 6)
-
-    for (let i = 0; i < 3; i += 1) {
+    spread(t.host, COMMIT_GROWTH * 1.05, 20)
+    place(t.host, 'pointerup', START + COMMIT_GROWTH * 1.05)
+    await frames()
+    expect(t.depth()).toBeCloseTo(1)
+    for (let i = 0; i < 3; i++) {
       place(t.host, 'pointerdown', START)
-      spread(t.host, COMMIT_GROWTH * 0.15, 8)
+      spread(t.host, RELEASE - 1)
+      place(t.host, 'pointerup', START + RELEASE - 1)
       await frames()
-      expect(t.progress()).toBeGreaterThan(0)
-      place(t.host, 'pointerup', START + COMMIT_GROWTH * 0.15)
-      await frames(900)
-      expect(t.progress()).toBe(0)
     }
     expect(t.commits).toEqual([])
   })
+
 })
 
 describe('Murcia may only leave from a band already at its limit', () => {
@@ -352,7 +329,6 @@ describe('a focused display is let go of by opening the hand', () => {
     expect(releaseFocus).toHaveBeenCalledTimes(1)
     expect(t.commits).toEqual([])
     expect(t.depth()).toBe(0)
-    expect(t.progress()).toBe(0)
   })
 
   it('does not release on fingertip drift below the threshold', async () => {
@@ -399,25 +375,42 @@ describe('a focused display is let go of by opening the hand', () => {
   })
 })
 
-describe('a world may leave at the end of the zoom band (pinch)', () => {
-  // The pinch half: on Earth one spread that carries the band to its limit is the
-  // whole gesture (DECISIONS §44). The band is two thirds of the journey the
-  // commit growth is scaled against, so 0.75 of it reaches the limit and 0.6
-  // stops short.
-  it('commits when the spread carries the band to its limit', async () => {
-    const t = setup({ current: 'earth', commitAtBandEnd: true })
-    place(t.host, 'pointerdown', START)
-    spread(t.host, COMMIT_GROWTH * 0.75, 16)
-    await frames(200)
-    expect(t.commits).toEqual(['enter-murcia'])
+describe.each(['earth', 'murcia'] as const)('shared pinch commitment in %s', (current) => {
+  const sign = current === 'earth' ? 1 : -1
+  const grip = current === 'earth' ? START : WIDE
+  it('requires a new pair and deliberate growth, then spends its remaining movement', async () => {
+    const t = setup({ current })
+    place(t.host, 'pointerdown', grip)
+    pinchFromTo(t.host, grip, grip + sign * COMMIT_GROWTH * 1.05, 20)
+    await frames()
+    expect(t.depth()).toBeCloseTo(1)
+    expect(t.commits).toEqual([])
+    place(t.host, 'pointerup', grip + sign * COMMIT_GROWTH * 1.05)
+    place(t.host, 'pointerdown', grip)
+    pinchFromTo(t.host, grip, grip + sign * (RELEASE - 1))
+    await frames()
+    expect(t.commits).toEqual([])
+    pinchFromTo(t.host, grip + sign * (RELEASE - 1), grip + sign * RELEASE)
+    await frames()
+    expect(t.commits).toEqual([current === 'earth' ? 'enter-murcia' : 'exit-murcia'])
+    t.context.current = current === 'earth' ? 'murcia' : 'earth'
+    t.input.resetZoom()
+    t.input.settle()
+    await frames(450)
+    pinchFromTo(t.host, grip + sign * RELEASE, grip + sign * COMMIT_GROWTH, 20)
+    expect(t.depth()).toBe(0)
+    expect(t.commits).toHaveLength(1)
   })
 
-  it('does not commit short of the limit', async () => {
-    const t = setup({ current: 'earth', commitAtBandEnd: true })
-    place(t.host, 'pointerdown', START)
-    spread(t.host, COMMIT_GROWTH * 0.6, 12)
-    await frames(200)
+  it('cannot acquire commit permission by reaching saturation inside a pinch', async () => {
+    const t = setup({ current })
+    place(t.host, 'pointerdown', grip)
+    pinchFromTo(t.host, grip, grip + sign * COMMIT_GROWTH * 0.8, 20)
+    place(t.host, 'pointerup', grip + sign * COMMIT_GROWTH * 0.8)
+    place(t.host, 'pointerdown', grip)
+    pinchFromTo(t.host, grip, grip + sign * COMMIT_GROWTH * 0.5, 20)
+    await frames()
+    expect(t.depth()).toBeCloseTo(1)
     expect(t.commits).toEqual([])
-    expect(t.depth()).toBeLessThan(1)
   })
 })

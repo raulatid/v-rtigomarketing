@@ -1,3 +1,4 @@
+import { vacuumDeparture, createDefaultWarpLimits } from './warpTransition'
 import { describe, it, expect } from 'vitest'
 import {
   WARP_LIMITS,
@@ -195,5 +196,23 @@ describe('the whole cinematic is available to a commit', () => {
 
   it('still has its whole flash bell left at the cut', () => {
     expect(flash(cut, WARP_LIMITS)).toBeGreaterThan(0.99)
+  })
+})
+
+describe('vacuumDeparture', () => {
+  const limits = createDefaultWarpLimits()
+  it('starts at zero, grows immediately, and reaches full before the flash', () => {
+    expect(vacuumDeparture(0, limits)).toBe(0)
+    expect(vacuumDeparture(0.001, limits)).toBeGreaterThan(0)
+    expect(vacuumDeparture(limits.cut - limits.flashWidth, limits)).toBe(1)
+  })
+  it('is monotone and bounded throughout departure', () => {
+    let previous = 0
+    for (let i = 0; i <= 500; i++) {
+      const amount = vacuumDeparture(i / 1000, limits)
+      expect(amount).toBeGreaterThanOrEqual(previous)
+      expect(amount).toBeLessThanOrEqual(1)
+      previous = amount
+    }
   })
 })

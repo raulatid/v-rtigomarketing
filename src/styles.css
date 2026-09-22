@@ -1080,7 +1080,7 @@ html {
    too, until the client removed Murcia's plate on 2026-09-15. */
 
 .nav {
-  /* Still carries --nav-progress, data-state and data-direction. Nothing draws
+  /* Carries data-state and data-direction. Nothing draws
      them any more — they are the observable surface the e2e suite reads, and
      the only place the literal-zero property of the retreat can be seen from
      outside. Cheap: three attribute writes on frames that already ran.

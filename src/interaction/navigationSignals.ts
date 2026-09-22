@@ -43,21 +43,6 @@ export interface NavigationSignals {
   // tab has not asked for their camera to move. The one thing that clears it is
   // the warp's cut, where the world under it is replaced anyway.
   zoomDepth: number
-  /**
-   * How far through the WHOLE journey to the other world the viewer has pushed,
-   * 0..1: the zoom band, then the commit accumulator against its limit.
-   *
-   * RAW, never spring-painted, and the distinction is load-bearing. The painted
-   * progress that drives `--nav-progress` is deliberately lagged, because an
-   * indicator that lags reads as receiving your input. This one drives a
-   * screen-space effect on the whole frame, and a screen-space effect that lags
-   * reads as the renderer struggling. Wiring this to `onProgress` instead of
-   * `onApproach` is the mistake to look for.
-   *
-   * Distinct from `transitionProgress`, which is the committed cinematic. This
-   * is what the viewer is doing BEFORE they commit, and it is reversible.
-   */
-  approach: number
 }
 
 export type NavigationView = Readonly<NavigationSignals>

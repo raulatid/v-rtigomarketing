@@ -1,3 +1,5 @@
+import { murciaDepartureVacuum } from '../experiences/murcia/camera/warpPose'
+import type { WarpLimits } from '../utils/warpTransition'
 import { prefersReducedMotion } from '../platform/motionPreference'
 import type { AuditComposition } from '../interaction/auditComposition'
 import type { NavigationView } from '../interaction/navigationSignals'
@@ -17,8 +19,6 @@ import {
   WARP_LIMITS,
   motionBlur as warpMotionBlur,
   transitionLeg,
-  vacuumCommitted,
-  vacuumScrub,
 } from '../utils/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { SequenceState } from '../experiences/earth/config/sequenceState'
@@ -28,6 +28,11 @@ import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import type { CornerLogoHandle } from '../corner-logo/cornerLogoConfig'
 import type { ExperienceId } from '../app/experience'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
+
+const departureVacuum: Record<ExperienceId, (p: number, limits: WarpLimits) => number> = {
+  earth: () => 0, // Earth expresses departure through its aim phase and FOV surge.
+  murcia: murciaDepartureVacuum,
+}
 
 /**
  * One `useFrame` whose only job is to advance the transition clock.
@@ -144,70 +149,24 @@ export function SceneCanvas({
   // disagreeing about the same setting.
   const reducedMotion = useRef(prefersReducedMotion())
 
-  /**
-   * How far the scrub had got when the viewer committed.
-   *
-   * LOAD-BEARING, not an optimisation. Once committed the vacuum rides the
-   * speed bell, and `speed(0)` is exactly 0 — so reading the bell alone would
-   * snap the effect back to nothing on the first committed frame, which is a
-   * visible flinch at the precise moment the viewer has succeeded. The latch
-   * carries it from wherever it had reached up to full instead.
-   */
-  const vacuumAtCommit = useRef(0)
-
   /** Which world the last frame drew, so the substitution can be seen happening. */
   const lastWorldWasEarth = useRef(earthActive)
 
   const readSettings = useCallback((): FrameSettings => {
     const warping = navigation.transitionProgress > 0
     const motionBlur = warping ? warpMotionBlur(navigation.transitionProgress, WARP_LIMITS) : state.motionBlur
-    // Gated on the BLUR, not on the warp being non-zero, and that distinction
-    // only started to matter when the gesture began driving the warp.
-    //
-    // `direct-composited` exists to lend the direct experience the composer's
-    // afterimage — which is most of what makes a warp read as one. `speed()` is
-    // exactly zero for the whole lower half of the scrub band (its bell is
-    // `cut ± speedPeakWidth`, and the band ends at `cut - flashWidth`), so the
-    // cheap route covers the part of the gesture that has nothing to composite
-    // anyway.
-    // ── The vacuum ──
-    //
-    // Murcia only, and only on the way OUT. Earth's departure is a dive toward
-    // a planet and already has the FOV surge to sell it; the city's is an
-    // ascent away from something, which is what the radial stretch is for.
-    //
-    // Suppressed under reduced motion by HOLDING AT ZERO rather than by
-    // resetting: this is a full-frame distortion applied TO the viewer, which is
-    // exactly the class of effect the preference is about. The flash and the cut
-    // still play, because concealing a jump is not a motion effect.
-    // The substitution, detected rather than signalled: the cut is the frame the
-    // world changes, and this is the only place that sees both sides of it.
+    // Clear the previous world's afterimage at the covered cut.
     const resetAccumulation = lastWorldWasEarth.current !== earthActive
     lastWorldWasEarth.current = earthActive
 
-    let vacuum = 0
-    if (!earthActive && !reducedMotion.current) {
-      if (navigation.transitionCommitted) {
-        // Only on the DEPARTING leg. Murcia is also the visible world for the
-        // second half of an arrival, and an ascent effect playing on a descent
-        // flattens the one difference between the two legs — the sandbox gates it
-        // the same way. Zero there rather than the bell: `vacuumAtCommit` is 0 on
-        // arrival, so the bell alone would run the vacuum at full as the flash lifts.
-        vacuum = transitionLeg(navigation.transitionProgress, WARP_LIMITS).departing
-          ? vacuumCommitted(vacuumAtCommit.current, navigation.transitionProgress, WARP_LIMITS)
-          : 0
-      } else {
-        vacuum = vacuumScrub(navigation.approach, WARP_LIMITS)
-        vacuumAtCommit.current = vacuum
-      }
-    } else {
-      vacuumAtCommit.current = 0
-    }
+    const vacuum =
+      navigation.transitionCommitted &&
+      !reducedMotion.current &&
+      transitionLeg(navigation.transitionProgress, WARP_LIMITS).departing
+      ? departureVacuum[earthActive ? 'earth' : 'murcia'](navigation.transitionProgress, WARP_LIMITS)
+      : 0
 
-    // Gated on the vacuum as well as the blur. The pass is a composer pass, so a
-    // scrub that distorts the frame has to be on the borrowed route even before
-    // the cinematic's smear starts — otherwise the effect would appear only at
-    // the commit, which is the half of the gesture it exists to precede.
+    // The vacuum begins before shared motion blur, so either needs composition.
     const route: RenderRoute = earthActive
       ? 'composer'
       : motionBlur > 0 || vacuum > 0

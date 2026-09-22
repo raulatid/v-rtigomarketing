@@ -448,10 +448,10 @@ function commitGrowth(page: Page) {
   const v = page.viewportSize()!
   // Mirrors `pinchGain`: the shorter side is what constrains how far two fingers
   // can travel apart, whichever way the phone is held.
-  return Math.min(v.width, v.height) * 0.42
+  return Math.min(v.width, v.height) * 0.28
 }
 
-test('two fingers spreading enter Murcia, and closing come back', async ({ page }) => {
+test('two separate spreads enter Murcia, and two closes come back', async ({ page }) => {
   // On touch this is the ONLY way between the two worlds — the rail is gone
   // (`adr/012`), the marker no longer navigates and the return button went with
   // `adr/009`. Everything below is therefore a primary control, not chrome.
@@ -466,20 +466,14 @@ test('two fingers spreading enter Murcia, and closing come back', async ({ page 
   await reachSite(page)
   const growth = commitGrowth(page)
 
-  // Not enough, and released. What this asserts changed with `adr/014`: it used
-  // to be "the world comes back", and a partial pinch now leaves the camera
-  // exactly where the fingers put it — 45% of a journey is inside the zoom band,
-  // so it zooms and stops. What must still be true is that it does not COMMIT.
+  // Partial zoom persists after release, without committing.
   await pinch(page, { from: 60, to: 60 + growth * 0.45 })
   await page.waitForTimeout(1800)
   expect(await inMurcia(page)).toBe(false)
 
-  // A deliberate opening of the hand. It regrips at the same 60px, because the
-  // classifier measures growth from where the fingers land and knows nothing
-  // about the last gesture — but the CAMERA does: the band is still holding what
-  // the partial pinch put into it, so this one has less of it left to cross.
-  // Which is the whole feel `adr/014` is after, and the reason a full opening is
-  // a comfortable commit rather than a marginal one.
+  // The next spread fills the remaining band; a fresh spread then commits.
+  await pinch(page, { from: 60, to: 60 + growth * 1.05 })
+  expect(await inMurcia(page)).toBe(false)
   await pinch(page, { from: 60, to: 60 + growth * 1.05 })
   await expect.poll(() => inMurcia(page), { timeout: 10_000 }).toBe(true)
 
@@ -1126,6 +1120,8 @@ test('a finger opens the services section, closes it, and opens it again', async
   await reachSite(page)
 
   await pinch(page, { from: 60, to: 60 + commitGrowth(page) * 1.05 })
+  expect(await inMurcia(page)).toBe(false)
+  await pinch(page, { from: 60, to: 60 + commitGrowth(page) * 1.05 })
   await expect.poll(() => inMurcia(page), { timeout: 15_000 }).toBe(true)
   // The arrival cinematic owns the camera, and a press fired inside it reads as
   // "stop the flight" rather than as a choice — by design, and it would make
@@ -1238,6 +1234,8 @@ test('a touch user can leave the services section two ways: its close, and a pin
   await bootToReady(page)
   await reachSite(page)
 
+  await pinch(page, { from: 60, to: 60 + commitGrowth(page) * 1.05 })
+  expect(await inMurcia(page)).toBe(false)
   await pinch(page, { from: 60, to: 60 + commitGrowth(page) * 1.05 })
   await expect.poll(() => inMurcia(page), { timeout: 15_000 }).toBe(true)
   await expect

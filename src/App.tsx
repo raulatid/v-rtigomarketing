@@ -328,29 +328,13 @@ export default function App() {
       releaseFocus: murciaRef.current?.hasFocusedDistrict
         ? () => murciaRef.current?.releaseFocusedDistrict()
         : null,
-      // Earth leaves the moment the zoom reaches its end — no push stage after it,
-      // which read as the approach freezing in front of Spain until another input.
-      // From ANY orbit: the transition swings the camera above Spain before the
-      // warp (`useExperienceTransition`), so nothing here waits for an alignment.
-      // Murcia keeps `adr/014`'s park-then-push.
-      commitAtBandEnd: activeExperience === 'earth',
     }),
     onCommit: (intent) => transitionTo(intent === 'enter-murcia' ? 'murcia' : 'earth'),
     // The zoom IS the scene feedback. Written straight onto the mutable sequence
     // state, never through React: a wheel produces well over a hundred events a
     // second and each world reads this from its own frame callback.
-    //
-    // There is deliberately no `onProgress` any more. It used to drive a scrub
-    // of the warp cinematic — the reversible bend that `adr/014` replaced — and
-    // the accumulator's remaining job is a commit threshold with nothing to
-    // draw: once the zoom is pinned at its limit, pushing further moves nothing
-    // until it navigates. The `--nav-progress` custom property still carries it
-    // for the e2e suite, painted by the input layer itself.
     onZoom: (depth) => {
       navigation.zoomDepth = depth
-    },
-    onApproach: (approach) => {
-      navigation.approach = approach
     },
     // A horizontal trackpad swipe turns Murcia's camera. The input only sends it
     // while Murcia is current; the experience refuses it while anything else

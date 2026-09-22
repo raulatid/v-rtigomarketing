@@ -318,7 +318,6 @@ describe('navigation ownership', () => {
   it('keeps the injected channel live and preserves zoom on an interrupted transition', () => {
     const observed = state
     state.zoomDepth = 0.6
-    state.approach = 0.4
     act(() => api.transitionTo('earth'))
     seekTo(WARP_TRANSITION.duration * 0.25)
     expect(observed.transitionProgress).toBeGreaterThan(0)
@@ -327,7 +326,6 @@ describe('navigation ownership', () => {
     expect(observed.transitionOverlay).toBe(0)
     expect(observed.transitionCommitted).toBe(false)
     expect(observed.zoomDepth).toBe(0.6)
-    expect(observed.approach).toBe(0.4)
     root = createRoot(document.createElement('div'))
   })
 })

@@ -44,7 +44,7 @@ import { forwardRef } from 'react'
  * ## It renders once and is never re-rendered
  *
  * There is no progress prop and no label prop. `createNavigationInput` writes
- * `--nav-progress`, `data-state`, `data-direction` and the `aria-label` straight
+ * `data-state`, `data-direction` and the `aria-label` straight
  * onto these elements through the ref. A wheel produces well over a hundred
  * events a second and a pinch is worse, and a prop would make every one of them
  * a render of the whole application tree — two canvases and all the overlay

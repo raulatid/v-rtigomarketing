@@ -18,23 +18,8 @@ interface Params {
    */
   getContext: () => NavigationContext
   onCommit: (intent: NavigationIntent) => void
-  /**
-   * Gesture progress, 0..1, every frame it changes.
-   *
-   * Read through a ref like the others, so a caller passing a fresh closure per
-   * render cannot rebuild the listeners and drop a gesture in flight.
-   */
-  onProgress?: (progress: number) => void
-  /**
-   * The persistent zoom moved, -1..+1. Same ref treatment as the others.
-   *
-   * Separate from `onProgress` because the two are different KINDS of number:
-   * progress is a transient the input owns and animates, the zoom is a position
-   * the viewer owns and nothing here ever takes back.
-   */
+  /** The persistent zoom moved, -1..+1. Read through a ref. */
   onZoom?: (depth: number) => void
-  /** The whole journey, raw. See `createNavigationInput`'s own `onApproach`. */
-  onApproach?: (approach: number) => void
   /** A horizontal wheel swipe in Murcia. See `createNavigationInput`'s own `onLook`. */
   onLook?: (dxPx: number) => void
 }
@@ -55,9 +40,7 @@ export function useSceneNavigation({
   rootRef,
   getContext,
   onCommit,
-  onProgress,
   onZoom,
-  onApproach,
   onLook,
 }: Params) {
   const inputRef = useRef<NavigationInput | null>(null)
@@ -66,12 +49,8 @@ export function useSceneNavigation({
   contextRef.current = getContext
   const commitRef = useRef(onCommit)
   commitRef.current = onCommit
-  const progressRef = useRef(onProgress)
-  progressRef.current = onProgress
   const zoomRef = useRef(onZoom)
   zoomRef.current = onZoom
-  const approachRef = useRef(onApproach)
-  approachRef.current = onApproach
   const lookRef = useRef(onLook)
   lookRef.current = onLook
 
@@ -83,9 +62,7 @@ export function useSceneNavigation({
       root,
       getContext: () => contextRef.current(),
       onCommit: (intent) => commitRef.current(intent),
-      onProgress: (progress) => progressRef.current?.(progress),
       onZoom: (depth) => zoomRef.current?.(depth),
-      onApproach: (approach) => approachRef.current?.(approach),
       onLook: (dxPx) => lookRef.current?.(dxPx),
     })
     inputRef.current = input

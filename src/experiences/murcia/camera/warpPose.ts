@@ -1,4 +1,10 @@
 import * as THREE from 'three';
+import { vacuumDeparture, type WarpLimits } from '../../../utils/warpTransition';
+
+/** Murcia's departure stretches the frame as the camera rises away. */
+export function murciaDepartureVacuum(p: number, limits: WarpLimits): number {
+  return vacuumDeparture(p, limits);
+}
 
 /**
  * Where Murcia's camera goes during an Earth <-> Murcia warp.
