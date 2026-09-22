@@ -26,7 +26,7 @@ import { prefersReducedMotion } from '../../../platform/motionPreference';
  * Viewers could not tell which buildings could be touched: a hover light
  * only speaks to a pointer that is already there. So the set also blinks on
  * its own — one soft bump every `blink.period` seconds, in the hover's colour
- * at a fraction of its strength — and a hover always outweighs it, so a
+ * at `blink.strength` of its light — and a hover always outweighs it, so a
  * pointer resting on the building holds it steadily lit through a blink. Off
  * under reduced motion: a periodic light is exactly the motion that setting
  * declines, and the hover still answers.
@@ -42,7 +42,7 @@ export interface BuildingBlink {
 export interface BuildingHighlightOptions {
   /** sRGB. Earth's `HOLO_COLOR`, restated: murcia may not import earth. */
   color: string;
-  /** Added light at full strength. Below the satellites' 0.45: no bloom to spend it on, and porcelain near white clips. */
+  /** Added light at full strength. Raised past the satellites' 0.45 on 2026-09-22 (user direction: the light read as faint); porcelain near white clips above about 0.6, so the visual pass owns this number. */
   intensity: number;
   /** Seconds for a full rise, and for a full fall. The satellites' `highlightDuration`. */
   duration: number;
@@ -51,14 +51,14 @@ export interface BuildingHighlightOptions {
 }
 
 export const BUILDING_BLINK: BuildingBlink = {
-  period: 5,
+  period: 6,
   duration: 0.9,
-  strength: 0.7,
+  strength: 1,
 };
 
 export const BUILDING_HIGHLIGHT: BuildingHighlightOptions = {
   color: '#38a9d6',
-  intensity: 0.35,
+  intensity: 0.5,
   duration: 0.4,
   blink: BUILDING_BLINK,
 };

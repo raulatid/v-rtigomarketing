@@ -3616,7 +3616,7 @@ world; being pointed at something is not the same as having arrived at it.
 > **Amended 2026-09-22 (later) — the interactable buildings blink on their own** (user
 > direction, starting from the bar again). The first half of the same report — which
 > buildings can be touched — is answered where the buildings are: `buildingHighlight.ts`
-> now blinks its set once every 5 s (`BUILDING_BLINK`: a 0.9 s raised-sine bump at 70% of the
+> now blinks its set once every 6 s (`BUILDING_BLINK`: a 0.9 s raised-sine bump at the full
 > hover's light, in the hover's colour), on the campus buildings and the blog cluster alike,
 > and a hover always outweighs it, so a pointer resting on a building holds it steadily lit
 > through a blink. No new light and no bloom: it is the same added `outgoingLight` term. Off
