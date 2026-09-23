@@ -562,9 +562,13 @@ html {
      overflowing (`overScrollable`), which is why a scrollable case panel needs
      no change there — and why a case that fits still navigates the scene. */
   overscroll-behavior: contain;
-  /* No negative margin to bleed the scrollbar to the edge, unlike the sheet:
-     that panel is full-bleed and this one is a card, where a scrollbar inside
-     the padding reads as part of the plaque. */
+  /* The scroll box bleeds to just short of the card's right edge, with the
+     text inset kept as padding: a scrollbar inside the full padding floated in
+     the plaque and split it into two columns, and one flush with the border
+     read as cramped. The body sits between the header and the bottom padding,
+     so the bar never reaches the rounded corners. */
+  margin-right: -1.9rem;
+  padding-right: 1.9rem;
 }
 
 /* ---- The case panel on a narrow OR SHORT viewport ----
