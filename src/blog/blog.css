@@ -109,6 +109,10 @@
   overscroll-behavior: contain;
   background: #fbfbfa;
   color: #0b0b0d;
+  /* The site's one scrollbar (siteHeader.css), in ink: its white thumb
+     vanishes on paper. */
+  --scrollbar-thumb: rgba(11, 11, 13, 0.22);
+  --scrollbar-thumb-hover: rgba(11, 11, 13, 0.34);
   font-family: 'Vertigo Text', 'Vertigo Blog Inter', Georgia, serif;
   -webkit-font-smoothing: antialiased;
   /* The site header is fixed over this page (siteHeader.css, blog dress: 14px

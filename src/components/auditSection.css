@@ -175,30 +175,9 @@
   box-shadow: 24px 0 80px rgba(0, 0, 0, 0.42);
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Firefox: a thin neutral thumb on a barely-there track. */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) rgba(255, 255, 255, 0.04);
-}
-
-/* WebKit/Blink: the same slim bar. It used to be brand blue, which put the
-   loudest colour in the panel down the side of a form whose one blue thing is
-   supposed to be the button at the bottom (§12). */
-.audit-panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.audit-panel::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 999px;
-}
-
-.audit-panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-}
-
-.audit-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.34);
+  /* The scrollbar is the site's one bar (siteHeader.css). It used to be brand
+     blue, which put the loudest colour in the panel down the side of a form
+     whose one blue thing is supposed to be the button at the bottom (§12). */
 }
 
 .audit-form {

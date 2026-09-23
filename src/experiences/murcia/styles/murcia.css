@@ -757,8 +757,8 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
-    scrollbar-width: thin;
-    scrollbar-color: var(--text-muted) transparent;
+    /* The site's one scrollbar (siteHeader.css), a touch brighter here. */
+    --scrollbar-thumb: var(--text-muted);
   }
   .murcia-ui .campus-overlay__body > * { grid-column: 1; }
   .murcia-ui .campus-overlay__title {

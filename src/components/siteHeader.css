@@ -206,6 +206,53 @@
   }
 }
 
+/* ---- One scrollbar for every scroller on the site ----------------------------
+
+   Here for the same reason as the tokens: the one sheet every document loads.
+   A slim rounded thumb on no track, and no arrow buttons. The thumb is white
+   for the dark glass; a light surface restates the two tokens in ink (blog.css
+   `.blog-root`), and every scroller inside it inherits them.
+
+   Chromium and WebKit get the pseudo-elements, Firefox the standard pair — and
+   ONLY Firefox. Chromium 121+ honours `scrollbar-width`/`scrollbar-color` too,
+   and once either is set it ignores every `::-webkit-scrollbar` rule and draws
+   its own thin bar, arrow buttons included on Windows. So no component may set
+   the standard pair itself: it would bring the arrows back in Chrome. */
+:root {
+  --scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
 /* blog.css has no global reset, so the header carries its own box model. */
 .site-header,
 .site-header * {

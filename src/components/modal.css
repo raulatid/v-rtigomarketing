@@ -67,33 +67,6 @@
   }
 }
 
-/* Neutral, and visible enough to grab: a bright blue bar down the side of a
-   dialog competed with the one thing in it that is supposed to be blue. The
-   Firefox pair is new here — this sheet had only the WebKit half, so Firefox
-   fell through to the UA scrollbar while the audit panel styled both. */
-.modal-panel {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) rgba(255, 255, 255, 0.04);
-}
-
-.modal-panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.modal-panel::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 999px;
-}
-
-.modal-panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-}
-
-.modal-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.34);
-}
-
 .modal-close {
   position: absolute;
   top: 10px;
