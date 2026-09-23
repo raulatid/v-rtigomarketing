@@ -62,6 +62,16 @@
  * max-side parameter any more because there is no outward direction — which also
  * retires the one warning in this file, since growing the ground footprint past the
  * terrain skirt is no longer reachable from a URL.
+ *
+ * ── The lightmap profile, added 2026-09-23 ──
+ *
+ *   ?lightmaps=all  ?lightmaps=none  ?lightmaps=outer-buildings,ground-Outer
+ *
+ * Which atlases a 2048 device loads at 1024: every one, none, or the named keys
+ * of the bake's manifest. Whether a halved atlas shows is judged from A/B
+ * screenshots at the closest poses, and each candidate list used to cost a
+ * rebuild. A key the bake does not have leaves the city unlit and says so
+ * (`atlasResolutions`). Settled lists belong in `murciaConfig.ts`'s `desktop1024`.
  */
 import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags';
 import type { EnvironmentConfig } from './environmentConfig';
@@ -97,6 +107,9 @@ export function applyNavigationQueryOverrides(
   if (!DEBUG_TOOLS_ENABLED || !enabled) return env;
 
   const params = new URLSearchParams(search);
+  // Before the pose, and outside its early return and its footprint warning: a
+  // texture size cannot move the edge of the world.
+  const lit = applyLightmapOverride(env, params);
 
   // Clamped rather than trusted: a floor above 1 would ask a flight to dolly OUT,
   // which is the direction whose footprint grows past the terrain skirt.
@@ -166,10 +179,10 @@ export function applyNavigationQueryOverrides(
     skirt,
     fade,
   ];
-  if (overrides.every((value) => value === null)) return env;
+  if (overrides.every((value) => value === null)) return lit;
 
   const next: EnvironmentConfig = {
-    ...env,
+    ...lit,
     camera: {
       ...env.camera,
       elevationDegrees: elevation ?? env.camera.elevationDegrees,
@@ -259,6 +272,23 @@ export function applyNavigationQueryOverrides(
   return next;
 }
 
+
+/** `?lightmaps=` onto a unified bake's `desktop1024`. Other bakes have no such list. */
+function applyLightmapOverride(env: EnvironmentConfig, params: URLSearchParams): EnvironmentConfig {
+  const raw = params.get('lightmaps');
+  if (raw === null || !env.lightmaps || !('manifest' in env.lightmaps)) return env;
+  const desktop1024 =
+    raw === 'all'
+      ? ('all' as const)
+      : raw === 'none'
+        ? []
+        : raw
+            .split(',')
+            .map((key) => key.trim())
+            .filter((key) => key !== '');
+  console.info('[lightmaps] overridden by query parameters', { desktop1024 });
+  return { ...env, lightmaps: { ...env.lightmaps, desktop1024 } };
+}
 
 /** Parses a finite number, ignoring the parameter entirely if it fails `valid`. */
 function readNumber(

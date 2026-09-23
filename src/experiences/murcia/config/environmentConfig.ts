@@ -258,7 +258,18 @@ export interface TrimSheetConfig {
 export type LightmapConfig = {
   /** Directory the manifests and every KTX2 they name sit in. Trailing slash. */
   baseUrl: string;
-} & ({ manifest: string } | { assetsManifest: string; groundManifest: string });
+} & (
+  | {
+      manifest: string;
+      /**
+       * Atlases a device that gets 2048 loads at 1024 instead, by the manifest's
+       * keys; `'all'` is every one. The keys are the bake's, so this lives beside
+       * the bake it names, and a key the manifest does not have is an error.
+       */
+      desktop1024?: readonly string[] | 'all';
+    }
+  | { assetsManifest: string; groundManifest: string }
+);
 
 /** Depth +1 of the zoom band: the furthest, highest pose a viewer may park at. */
 export interface ZoomFarConfig {

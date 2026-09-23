@@ -154,3 +154,25 @@ describe('what it refuses', () => {
     expect(murciaConfig.camera.azimuthDegrees).toBe(before);
   });
 });
+
+describe('?lightmaps= picks which atlases a 2048 device halves', () => {
+  const desktop1024 = (search: string) => {
+    const lightmaps = apply(search).lightmaps;
+    return lightmaps && 'manifest' in lightmaps ? lightmaps.desktop1024 : 'no unified bake';
+  };
+
+  it('reads every atlas, none, or a list of keys', () => {
+    expect(desktop1024('?lightmaps=all')).toBe('all');
+    expect(desktop1024('?lightmaps=none')).toEqual([]);
+    expect(desktop1024('?lightmaps=outer-buildings, ground-Outer,')).toEqual(['outer-buildings', 'ground-Outer']);
+  });
+
+  it('leaves the pose alone, so it does not trip the footprint warning', () => {
+    const next = apply('?lightmaps=all');
+    expect(next.camera).toBe(murciaConfig.camera);
+    expect(console.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('[murcia pose]'),
+      expect.anything(),
+    );
+  });
+});

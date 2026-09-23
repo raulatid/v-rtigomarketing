@@ -271,6 +271,22 @@ export const murciaConfig: EnvironmentConfig = {
   lightmaps: {
     baseUrl: '/textures/murcia/lightmaps-v5.1-r3/',
     manifest: 'lightmaps.json',
+    // Halved on desktop too: ~77 -> ~53 MiB of GPU memory, resident from the intro.
+    // Chosen from A/B screenshots at rest, closest zoom, a focus flight's floor and
+    // the campus and blog flights (2026-09-23). The ground and the blog building
+    // changed under 1% of pixels and no difference could be seen. `static-*`,
+    // `instances-*` (trees, windows) and `outer-buildings` visibly softened their
+    // contact shadows and shading, and `landmark-campus` lost soft shadows on the
+    // lawn at the end of its flight, so those stay at 2048. Replay any other list
+    // with `?lightmaps=`.
+    desktop1024: [
+      'ground-NE',
+      'ground-NW',
+      'ground-SE',
+      'ground-SW',
+      'ground-Outer',
+      'landmark-vertigo-blog',
+    ],
   },
 
   sceneState: {

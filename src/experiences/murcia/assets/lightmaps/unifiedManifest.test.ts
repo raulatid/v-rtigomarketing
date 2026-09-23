@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { murciaConfig } from '../../config/murciaConfig';
-import { parseUnifiedManifest } from './unifiedManifest';
+import { atlasResolutions, parseUnifiedManifest } from './unifiedManifest';
 
 const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   ground: { threeLightMapIntensity: Math.PI * 4, variants: {
@@ -83,5 +83,30 @@ describe('the selected unified bake contract', () => {
     const m = manifest();
     m.atlases.ground.variants[1024].bytes = 1_100_000;
     expect(() => parseUnifiedManifest({ ...m, atlases: { a: m.atlases.ground, b: m.atlases.ground } })).toThrow('total download');
+  });
+});
+
+describe('the size each atlas loads at', () => {
+  const two = () => {
+    const m = manifest();
+    return parseUnifiedManifest({ ...m, atlases: { ...m.atlases, tower: m.atlases.ground } });
+  };
+
+  it('takes the device size except where the profile halves an atlas', () => {
+    expect([...atlasResolutions(two(), 2048, ['tower'])]).toEqual([['ground', 2048], ['tower', 1024]]);
+    expect([...atlasResolutions(two(), 2048, 'all').values()]).toEqual([1024, 1024]);
+    expect([...atlasResolutions(two(), 1024, []).values()]).toEqual([1024, 1024]);
+  });
+
+  it('refuses a key the bake does not have, rather than loading it at full size', () => {
+    expect(() => atlasResolutions(two(), 2048, ['roof'])).toThrow('no atlas to reduce: roof');
+  });
+
+  it('names only atlases the shipped bake has', () => {
+    const config = murciaConfig.lightmaps!;
+    if (!('manifest' in config)) throw new Error('Expected the unified manifest');
+    const directory = 'public' + config.baseUrl;
+    const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
+    expect(() => atlasResolutions(shipped, 2048, config.desktop1024)).not.toThrow();
   });
 });

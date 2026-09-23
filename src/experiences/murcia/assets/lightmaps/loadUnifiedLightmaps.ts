@@ -4,13 +4,17 @@ import { acquireKtx2Loader, releaseKtx2Loader } from '../../../../graphics/decod
 import { findByAnyNameSpelling } from '../nodeNames';
 import { ownGeometryWithSt } from './attachAssetLightmaps';
 import { createLightmapMaterial, prepareLightmapTexture } from './lightmapMaterial';
-import { parseUnifiedManifest } from './unifiedManifest';
+import { atlasResolutions, parseUnifiedManifest } from './unifiedManifest';
 import type { LightmapResolution } from './lightmapManifest';
 
-/** The selected city bake: shared atlases without merging interactive building parts. */
+/**
+ * The selected city bake: shared atlases without merging interactive building parts.
+ *
+ * `resolution` is the device's; `reduced` names atlases that load at 1024 even so.
+ */
 export async function loadUnifiedLightmaps(
   gltf: GLTF, renderer: THREE.WebGLRenderer, base: string, file: string,
-  resolution: LightmapResolution,
+  resolution: LightmapResolution, reduced: readonly string[] | 'all' = [],
 ): Promise<{ resolution: LightmapResolution; dispose: () => void } | null> {
   const targets: Array<{ object: THREE.Mesh; geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }> = [];
   const textures = new Map<string, THREE.Texture>();
@@ -30,6 +34,7 @@ export async function loadUnifiedLightmaps(
     const response = await fetch(base + file);
     if (!response.ok) throw new Error(`[lightmaps] manifest HTTP ${response.status}`);
     const manifest = parseUnifiedManifest(await response.json());
+    const sizes = atlasResolutions(manifest, resolution, reduced);
     for (const name of manifest.requiredNames) {
       if (!findByAnyNameSpelling(gltf.scene, name)) throw new Error(`[lightmaps] missing runtime node: ${name}`);
     }
@@ -59,7 +64,7 @@ export async function loadUnifiedLightmaps(
     for (const key of new Set(targets.map(t => t.object.userData.lightmap_atlas as string))) {
       const row = manifest.atlases[key];
       if (!row) throw new Error(`[lightmaps] unknown atlas: ${key}`);
-      const texture = await ktx2.loadAsync(base + row.variants[resolution].file);
+      const texture = await ktx2.loadAsync(base + row.variants[sizes.get(key)!].file);
       textures.set(key, texture);
       prepareLightmapTexture(texture, manifest.uvChannel);
     }
@@ -91,11 +96,12 @@ export async function loadUnifiedLightmaps(
           materials.set(cacheKey, material);
         }
         if (!material) {
+          const size = sizes.get(key)!;
           material = createLightmapMaterial(source, {
             lightMap: textures.get(key)!, lightMapIntensity: row.threeLightMapIntensity,
-            atlasSize: resolution, maxMip: row.variants[resolution].mipLevels - 1,
+            atlasSize: size, maxMip: row.variants[size].mipLevels - 1,
             instanced, preserveAlbedo: true,
-            programKey: `murcia-v5.1-${instanced}-${resolution}-${row.variants[resolution].mipLevels}`,
+            programKey: `murcia-v5.1-${instanced}-${size}-${row.variants[size].mipLevels}`,
           });
           material.name = `${source.name} | ${key}`;
           materials.set(cacheKey, material);

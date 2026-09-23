@@ -40,3 +40,25 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
   }
   return m;
 }
+
+/**
+ * The size each atlas loads at: `base`, except the `reduced` ones, which take 1024.
+ *
+ * A reduced key the manifest does not have throws rather than being skipped. The
+ * list names one bake's atlases, and after a re-bake a stale name would otherwise
+ * put the atlas it meant back at full size without a word.
+ */
+export function atlasResolutions(
+  manifest: UnifiedManifest,
+  base: LightmapResolution,
+  reduced: readonly string[] | 'all' = [],
+): Map<string, LightmapResolution> {
+  const keys = Object.keys(manifest.atlases);
+  if (reduced !== 'all') {
+    for (const key of reduced) {
+      if (!(key in manifest.atlases)) throw new Error(`[lightmaps] no atlas to reduce: ${key}`);
+    }
+  }
+  const small = new Set(reduced === 'all' ? keys : reduced);
+  return new Map(keys.map((key) => [key, small.has(key) ? 1024 : base]));
+}

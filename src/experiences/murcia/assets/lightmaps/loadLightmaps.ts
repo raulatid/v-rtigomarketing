@@ -91,7 +91,9 @@ async function fetchJson(url: string): Promise<unknown> {
 export async function loadLightmaps(options: LoadLightmapsOptions): Promise<LightmapHandle | null> {
   const { gltf, config, renderer, terrain } = options;
   const resolution = deviceResolution();
-  if ('manifest' in config) return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, resolution);
+  if ('manifest' in config) {
+    return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, resolution, config.desktop1024);
+  }
   const base = config.baseUrl;
 
   const loaded = new Map<string, THREE.Texture>();
