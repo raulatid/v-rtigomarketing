@@ -2,6 +2,7 @@ import { CogIcon } from '@sanity/icons/Cog'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { charCount } from '../components/CharCountInput'
+import { faviconErrors } from './lib/faviconImage'
 import { phoneSpellingsAgree } from './lib/phone'
 import { plainText } from './lib/plainText'
 import { markupAdvice, singleParagraphAdvice } from './lib/advice'
@@ -29,6 +30,13 @@ const BOUNDS = EDITORIAL_BOUNDS.siteSettings
 const BOOKING_LABEL_MAX = 24
 
 /**
+ * Where Google usually truncates. Advisory and Studio-only, as on a blog post
+ * (`blogPost.ts`); the build bounds these fields only against the absurd.
+ */
+const SEO_TITLE_MAX = 60
+const META_DESCRIPTION_MAX = 160
+
+/**
  * The handful of global values an editor owns.
  *
  * A SINGLETON, presented as one document by `sanity.config.ts` — which is a
@@ -46,6 +54,9 @@ const BOOKING_LABEL_MAX = 24
  * The four success strings: in place of each form after a real send.
  * `revenueRanges`: the options of the Auditoría panel's billing dropdown.
  * `budgetRanges`: the options of that panel's monthly-budget dropdown.
+ * «SEO y buscadores»: the `<head>` of `/` and `/blog`, and the favicon on every
+ * page. Read by a separate collection, `siteSeo.collection.ts`, because only
+ * the build needs them.
  */
 export const siteSettings = defineType({
   name: 'siteSettings',
@@ -57,6 +68,7 @@ export const siteSettings = defineType({
     { name: 'formularios', title: 'Mensajes de enviado' },
     { name: 'auditoria', title: 'Formulario de auditoría' },
     { name: 'pie', title: 'Pie de página' },
+    { name: 'seo', title: 'SEO y buscadores' },
   ],
   fieldsets: [
     {
@@ -81,6 +93,21 @@ export const siteSettings = defineType({
         'Las opciones del panel «Auditoría», el que se abre con el botón Auditoría de la cabecera.',
     },
     { name: 'pie', title: 'Pie de página' },
+    {
+      name: 'seoInicio',
+      title: 'Página de inicio',
+      description:
+        'Cómo aparece la portada de la web en Google y al compartir su enlace por WhatsApp, ' +
+        'LinkedIn o redes sociales. Cada entrada del blog tiene los suyos en su propia ficha.',
+    },
+    {
+      name: 'seoBlog',
+      title: 'Página del blog',
+      description:
+        'Lo mismo para la página que lista todas las entradas del blog (/blog), no para cada ' +
+        'entrada.',
+    },
+    { name: 'icono', title: 'Icono de la pestaña' },
     // Every field in here is hidden (see bannerEnabled), and Sanity does not draw
     // a fieldset with nothing visible in it. Kept so the stored values keep
     // their home until the fields are removed end-to-end.
@@ -442,6 +469,36 @@ export const siteSettings = defineType({
         rule.custom(markupAdvice).warning(),
       ],
     }),
+    ...pageSeoFields('home', 'seoInicio', {
+      page: 'la portada',
+      title: 'Vertigo — Marketing que se mide',
+      description:
+        'Vertigo: agencia de marketing orientada a resultados. Casos reales, métricas reales y ' +
+        'auditoría gratuita de tu presencia digital.',
+      imageBlank: 'Vacía, el enlace se comparte sin imagen.',
+    }),
+    ...pageSeoFields('blog', 'seoBlog', {
+      page: 'la página del blog',
+      title: 'Blog — Vertigo',
+      description:
+        'Lo que aprendemos trabajando con datos reales, escrito para quien firma el presupuesto.',
+      imageBlank: 'Vacía, se usa la imagen general de Vertigo.',
+    }),
+    defineField({
+      name: 'favicon',
+      title: 'Icono de la pestaña (favicon)',
+      description:
+        'Opcional. El icono pequeño de la pestaña del navegador, de los marcadores y de la web ' +
+        'guardada en la pantalla de inicio del móvil. PNG cuadrado de al menos ' +
+        `${EDITORIAL_BOUNDS.siteSettings.faviconMinSide}×${EDITORIAL_BOUNDS.siteSettings.faviconMinSide} ` +
+        'píxeles, con fondo de color: en el iPhone la transparencia se ve negra. Vacío, se usa ' +
+        'el isotipo de Vertigo.',
+      type: 'image',
+      fieldset: 'icono',
+      group: 'seo',
+      options: { hotspot: false, accept: 'image/png' },
+      validation: (rule) => rule.custom(faviconErrors),
+    }),
     // Retired banner fields remain hidden to preserve existing CMS values.
     // The build no longer projects, mirrors or validates them. No migration
     // or asset deletion is performed; new documents need no banner defaults.
@@ -467,3 +524,72 @@ export const siteSettings = defineType({
     prepare: (selection) => ({ title: 'Ajustes del sitio', subtitle: selection.subtitle }),
   },
 })
+
+/**
+ * The title, description and share image of one page that is not a blog post.
+ *
+ * The same three fields and rules a blog post's «SEO» box has (`blogPost.ts`),
+ * so an editor meets one arrangement twice. All optional: blank means the text
+ * the page shipped with, which is also each field's placeholder, and which
+ * `content/collections/siteSeo.collection.ts` substitutes at build time.
+ */
+function pageSeoFields(
+  prefix: 'home' | 'blog',
+  fieldset: string,
+  copy: { page: string; title: string; description: string; imageBlank: string },
+) {
+  return [
+    defineField({
+      name: prefix + 'SeoTitle',
+      title: 'Título para buscadores',
+      description:
+        `Opcional. El título de ${copy.page} en Google, en la pestaña del navegador y al ` +
+        'compartir el enlace. Se usa tal cual lo escribas. Vacío, se usa el que ves en gris. ' +
+        `Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`,
+      type: 'string',
+      fieldset,
+      group: 'seo',
+      placeholder: copy.title,
+      components: { input: charCount(SEO_TITLE_MAX, 'warning') },
+      validation: (rule) => [
+        rule
+          .max(SEO_TITLE_MAX)
+          .warning(`Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
+    }),
+    defineField({
+      name: prefix + 'MetaDescription',
+      title: 'Descripción para buscadores',
+      description:
+        `Opcional. El texto bajo el título de ${copy.page} en Google y al compartir el enlace. ` +
+        'Vacía, se usa la que ves en gris. Google suele cortar a partir de unos ' +
+        `${META_DESCRIPTION_MAX} caracteres.`,
+      type: 'text',
+      rows: 2,
+      fieldset,
+      group: 'seo',
+      placeholder: copy.description,
+      components: { input: charCount(META_DESCRIPTION_MAX, 'warning') },
+      validation: (rule) => [
+        rule
+          .max(META_DESCRIPTION_MAX)
+          .warning(`Google suele cortar a partir de unos ${META_DESCRIPTION_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+        rule.custom(singleParagraphAdvice).warning(),
+      ],
+    }),
+    defineField({
+      name: prefix + 'OgImage',
+      title: 'Imagen para redes sociales',
+      description:
+        `Opcional. La imagen que se ve al compartir el enlace de ${copy.page}. ${copy.imageBlank} ` +
+        'Se recorta a 1200 × 630 desde el centro: deja lo importante en el medio.',
+      type: 'imageMedia',
+      fieldset,
+      group: 'seo',
+    }),
+  ]
+}

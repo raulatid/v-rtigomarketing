@@ -252,6 +252,17 @@ forbidReachable(
   'src/content/generated/legalDocs',
   'the texts ride the legal panel chunk — import them from src/content/legal.ts, and that only from LegalPanel',
 );
+// The site-wide head is written into the HTML by the build and read by no
+// component. Reached from either document, it would ship as JavaScript that
+// nothing on the page uses.
+for (const entry of ['src/main.tsx', 'src/entries/blog.tsx']) {
+  forbidReachable(
+    entry + ' cannot reach the generated site head',
+    entry,
+    'src/content/generated/siteSeo',
+    'SITE_SEO is build-only — read it in vite.config.ts, as the siteHead plugin does',
+  );
+}
 forbidReachable(
   'the app entry cannot statically reach the blog UI',
   'src/main.tsx',

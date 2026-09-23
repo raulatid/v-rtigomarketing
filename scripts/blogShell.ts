@@ -89,11 +89,11 @@ export function replaceRegion(haystack: string, replacement: string, what: strin
   if (start < 0 || end < 0 || end < start) {
     throw new Error(
       `[blog shells] ${what}: the ${SEO_START} / ${SEO_END} markers are missing or out of order ` +
-        'in blog.html. They are the anchor the per-post head is built on.',
+        'in the document. They are the anchor its head is built on.',
     )
   }
   if (haystack.indexOf(SEO_START, start + 1) >= 0 || haystack.indexOf(SEO_END, end + 1) >= 0) {
-    throw new Error(`[blog shells] ${what}: the seo markers appear more than once in blog.html`)
+    throw new Error(`[blog shells] ${what}: the seo markers appear more than once in the document`)
   }
   return haystack.slice(0, start) + replacement + haystack.slice(end + SEO_END.length)
 }

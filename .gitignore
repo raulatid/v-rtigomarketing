@@ -93,6 +93,9 @@ desktop.ini
 # The tower screen's slide pictures, mirrored by the same build (content/collections/towerScreen.collection.ts).
 /public/media/tower/*
 !/public/media/tower/.gitkeep
+# The favicon uploaded in «Ajustes del sitio», mirrored by the same build (content/collections/siteSeo.collection.ts).
+/public/media/site/*
+!/public/media/site/.gitkeep
 
 # What the site was built from (content/lib/contentVersion.ts), written by the
 # same build. The Studio reads it to tell an editor whether their publish is

@@ -167,6 +167,21 @@ One document, at the fixed id `siteSettings`.
 
 **Exactly one document, asserted by the build.** The Studio hides the "create another" button, but a restored backup or the HTTP API can produce a second one the Studio never shows. `src/content/site.ts` reads the first, so two documents would mean half the site quietly using one and nothing using the other. Zero documents also fails: an empty response is an outage, not a decision to delete the agency's phone number.
 
+### «SEO y buscadores» — the `<head>` of `/` and `/blog`, and the favicon (2026-09-23)
+
+These fields are in the same document, but a separate collection reads them: `content/collections/siteSeo.collection.ts`, which emits `SITE_SEO`. It is build-only. The `siteHead` plugin in `vite.config.ts` writes it into `index.html` and `blog.html`, and the architecture check keeps both entries from importing it. Each blog post keeps its own SEO fields (see [`blogPost`](#blogpost)).
+
+| Field | Type | Rule | On violation |
+|---|---|---|---|
+| `homeSeoTitle` / `blogSeoTitle` | string | optional, ≤ 2000. The whole `<title>`, og:title and twitter:title, with no suffix added. Blank means the title the page shipped with. The Studio warns above 60. | fail only when present and wrong |
+| `homeMetaDescription` / `blogMetaDescription` | text | optional, ≤ 2000. The meta description, and also og/twitter description. Blank means the shipped text. The Studio warns above 160. | fail only when present and wrong |
+| `homeOgImage` / `blogOgImage` | `imageMedia` | optional; same rules as a post's `ogImage`. Stays on the CDN and is cropped to 1200×630. Blank on `/` means no og:image and the `summary` card. Blank on `/blog` means `/og-default.png`. | fail on an assetless or SVG image |
+| `favicon` | image | optional; **PNG, square, ≥ `EDITORIAL_BOUNDS.siteSettings.faviconMinSide` (512)**. Mirrored to `/media/site/<hash>-WxH.png` and used for `rel="icon"` and `apple-touch-icon` on every page. Blank means the inline isotype in the HTML. | fail |
+
+**Blank means yesterday's head, byte for byte.** `SITE_SEO_FALLBACKS` holds the text the two documents shipped with, and the source HTML carries the same text between its seo markers, so the dev server shows it too. `scripts/siteHead.test.ts` fails if the two drift apart. The one exception is the home page's share line, which was always shorter than its meta description. A description written by an editor replaces both.
+
+**No SVG favicon.** Sanity's image pipeline documents no SVG rasterisation, and the pipeline refuses editor-uploaded SVG everywhere, because it would be served as a document from the site's own origin. See [the media contract](sanity-media-contract.md).
+
 ---
 
 ## `towerScreen` — singleton

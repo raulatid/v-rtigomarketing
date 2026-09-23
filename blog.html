@@ -30,8 +30,11 @@
          still carrying the generic copy — which would look completely fine and
          be worthless to every scraper that read it.
 
-         What survives here is what the INDEX at /blog says, so these values are
-         the real ones for that page, not placeholders. -->
+         Before that, the siteHead plugin rewrites the block with the /blog
+         index's title, description and image from «Ajustes del sitio», keeping
+         the markers. What is written here is the fallback the build uses when
+         those fields are blank, and what the dev server shows;
+         scripts/siteHead.test.ts keeps the two identical. -->
     <!--vertigo:seo:start-->
     <title>Blog — Vertigo</title>
     <meta
@@ -44,6 +47,8 @@
       property="og:description"
       content="Lo que aprendemos trabajando con datos reales, escrito para quien firma el presupuesto."
     />
+    <!-- Relative only here: the build writes it against the production origin,
+         because scrapers ignore a relative og:image. -->
     <meta property="og:image" content="/og-default.png" />
     <!-- Promoted from `summary`, which index.html still uses for the reason its
          own comment gives. Every post resolves an og:image at ingest

@@ -14,6 +14,7 @@ Separate from `sanity-field-contract.md` on purpose. A field contract answers "w
 |---|---|---|---|
 | Brand marks (isotype + logo) | CMS | **the deployment** (`/logos/…`) | Drawn into the shared WebGL brand atlas. A cross-origin draw can taint the canvas every case-study panel uses, and the site must not need Sanity's CDN to be up in order to look finished. |
 | Tower screen slide pictures | CMS | **the deployment** (`/media/tower/…`) | Drawn into the LED facade's canvas texture: the same taint and the same CDN-dependence argument as the brand marks, in its own folder so a photograph is never filed among logos. |
+| The favicon («Ajustes del sitio») | CMS | **the deployment** (`/media/site/…`) | Every page links it from the `<head>`. A tab icon must not depend on a third-party CDN being up, and the content-addressed filename means a new upload is a new URL, so no browser keeps showing the old one from its cache. |
 | Blog and editorial imagery | CMS | `cdn.sanity.io` | No renderer exists yet, the library grows without bound, and copying every image into every deployment buys nothing until something displays them. |
 | GLB, KTX2, terrain, sky, shaders, fixed graphics | **the application** | the deployment | Not editorial. These change when the scene is re-exported, not when marketing writes. They are versioned with the code and are explicitly outside CMS scope. |
 
@@ -106,6 +107,25 @@ into by `contain`.
 
 The numbers live in `EDITORIAL_BOUNDS.towerScreen`, which both packages import, so unlike the
 brand-mark rules there is no second copy to keep in step.
+
+---
+
+## Rules for the favicon
+
+One PNG serves as the tab icon and the iOS touch icon, and browsers scale it down. SVG is refused
+for the reason below. Sanity's image pipeline also documents no SVG-to-PNG rasterisation, so there
+is no supported way to derive the PNG sizes from an SVG upload.
+
+| Rule | Enforced by | On violation |
+|---|---|---|
+| Origin, scheme, not SVG, filename, reachability, ≤ 4 MB | as for a logo | fail |
+| Extension is `.png` | `remoteMediaUrl`, against `FAVICON_RULE` | fail |
+| Square | `assertGeometry`, from the asset URL | fail |
+| At least 512×512 | the mapper, from the mirrored filename | fail |
+| Every rule above | Studio (`faviconImage.ts`), blocking | Publicar disabled |
+
+The minimum is `EDITORIAL_BOUNDS.siteSettings.faviconMinSide`, shared by both packages.
+`scripts/publicationHygiene.ts` ships `media/site/*.png` and nothing else from that folder.
 
 ---
 

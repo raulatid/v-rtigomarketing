@@ -9,9 +9,12 @@ import path from 'node:path'
 // because `precheck` runs `content:build` before `vite build`. If the sitemap or
 // the blog shells ever come out empty, that ordering is the first thing to check.
 import { BLOG_POSTS } from './src/content/generated/blogPosts'
+import { SITE_SEO } from './src/content/generated/siteSeo'
 import {
   blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, seoFiles,
 } from './scripts/publicationPolicy'
+import { replaceRegion } from './scripts/blogShell'
+import { blogIndexRegion, pageHead, replaceFavicon } from './scripts/siteHead'
 import { findSecretLeaks, publicPrefixedSecrets, scannableSecrets } from './scripts/secretScan'
 import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verifyPublication } from './scripts/publicationHygiene'
 
@@ -967,6 +970,37 @@ function seoAssets(): Plugin {
 }
 
 /**
+ * The title, description, share image and favicon of `/` and `/blog`, from
+ * «Ajustes del sitio» (`content/collections/siteSeo.collection.ts`).
+ *
+ * Both documents mark the block with the seo markers, and the whole block is
+ * replaced rather than tag by tag, so an edit that breaks the anchor fails the
+ * build instead of shipping the fallback copy unnoticed. blog.html keeps its
+ * markers: blogRoutes cuts every post's head from the same region afterwards.
+ * The favicon swap lands in blog.html before blogRoutes copies it, so every
+ * post shell inherits it.
+ */
+function siteHead(): Plugin {
+  return {
+    name: 'vertigo-site-head',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const seo = SITE_SEO[0]
+        if (seo === undefined) throw new Error('[site head] SITE_SEO is empty; run npm run content:build')
+        const urls = { origin: PRODUCTION_ORIGIN }
+        let out = isBlogDocument(ctx.path)
+          ? replaceRegion(html, blogIndexRegion(seo.blog, urls), ctx.path)
+          : replaceRegion(html, pageHead(seo.home, urls), ctx.path)
+        if (seo.favicon !== undefined) out = replaceFavicon(out, seo.favicon, ctx.path)
+        return out
+      },
+    },
+  }
+}
+
+/**
  * Emits one static document per blog post, so a crawler and a social scraper get
  * a correct `<head>` without running any JavaScript.
  *
@@ -1088,6 +1122,7 @@ export default defineConfig(({ command }) => ({
     apiRouting(),
     blogRouting(),
     introEntry(),
+    siteHead(),
     seoAssets(),
     // Shells consume HTML markers before the final cleanup removes comments.
     blogRoutes(),

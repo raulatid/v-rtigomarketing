@@ -20,6 +20,7 @@ import type {
   DistrictContent,
   LegalDoc,
   Service,
+  SiteSeo,
   SiteSettings,
   TextSpan,
   TowerScreenContent,
@@ -404,6 +405,30 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
     if (!nonEmpty(phone?.display)) at('phones[' + i + '].display', 'must be a non-empty string')
     if (!TEL_PATTERN.test(phone?.tel)) at('phones[' + i + '].tel', 'is not a dialable number')
   })
+  return problems
+}
+
+/**
+ * The site-wide head, re-checked on the emitted module like every other
+ * collection. A blank title or description is a page Google and every share
+ * card show with no words; the mapper's fallbacks mean that can only happen if
+ * they were bypassed. The favicon becomes an href on every page, so it must be
+ * a same-origin path.
+ */
+export function siteSeoProblems(entry: SiteSeo): Problem[] {
+  const problems: Problem[] = []
+  const at = (path: string, message: string) =>
+    problems.push({ path: entry.id + '.' + path, message })
+
+  for (const page of ['home', 'blog'] as const) {
+    for (const field of ['title', 'description', 'shareDescription'] as const) {
+      if (!nonEmpty(entry[page]?.[field])) at(page + '.' + field, 'must be a non-empty string')
+    }
+  }
+  if (entry.blog?.image === undefined) at('blog.image', 'is required; the blog index always shares an image')
+  if (entry.favicon !== undefined && !LOCAL_MEDIA_PATH.test(entry.favicon)) {
+    at('favicon', 'must be a local path, got ' + JSON.stringify(entry.favicon))
+  }
   return problems
 }
 

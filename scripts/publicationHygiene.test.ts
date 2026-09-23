@@ -54,6 +54,14 @@ describe('publication hygiene', () => {
     }
   })
 
+  it('ships the mirrored favicon and nothing else from media/site', () => {
+    expect(isPublicAsset('media/site/abc123-512x512.png')).toBe(true)
+    expect(isPublicAsset('media\\site\\abc123-512x512.png')).toBe(true)
+    for (const file of ['media/site/.gitkeep', 'media/site/icon.svg', 'media/site/icon.webp', 'media/site/sub/icon.png', 'media/other/icon.png']) {
+      expect(isPublicAsset(file), file).toBe(false)
+    }
+  })
+
   it('detects copied/generated secret values without including the value in errors', () => {
     const env = { SANITY_TOKEN: 'synthetic-secret-value-for-test' }
     for (const name of ['textures/manifest.json', 'generated/blog-preview.json', 'models/city.glb']) {

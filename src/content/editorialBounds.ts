@@ -238,6 +238,9 @@ export const EDITORIAL_BOUNDS = {
         `server/validate.ts` caps the submitted value at, as for the range. */
     budgetRange: 60,
     budgetRanges: 8,
+    /** The favicon's shortest side, in pixels. The largest size it is drawn at
+        is a 512 px install icon, and it is only ever scaled down from there. */
+    faviconMinSide: 512,
   },
   /**
    * The Vértigo tower's LED screen: a fixed template per slide, filled from

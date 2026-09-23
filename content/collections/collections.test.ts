@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { withMediaMirror } from '../lib/mirror'
-import type { BlogPost, CaseStudy, DistrictContent, SiteSettings, TowerScreenContent } from '../../src/content/types'
+import type { BlogPost, CaseStudy, DistrictContent, SiteSeo, SiteSettings, TowerScreenContent } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
+import { SITE_SEO_FALLBACKS, siteSeoCollection } from './siteSeo.collection'
 import { towerScreenCollection } from './towerScreen.collection'
 import { blogPostsCollection } from './blogPosts.collection'
 import { legalDocsCollection } from './legalDocs.collection'
@@ -1585,5 +1586,110 @@ describe('the tower screen is a singleton of slides the build proves', () => {
   it('strips pasted markup from a slot rather than failing, but refuses an entity that survived', () => {
     expect(mapped((r) => { slideOf(r).headline = '<b>VERT</b>IGO' })?.slides[0]!.headline).toBe('VERTIGO')
     expect(tower((r) => { slideOf(r).headline = 'VER&copy;' })).toContain('tower.slides[0].headline')
+  })
+})
+
+describe('the site-wide head is read from «Ajustes del sitio», with the shipped copy as fallback', () => {
+  const validSeo = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+  const mapped = (record: Record<string, unknown>): SiteSeo => {
+    const result = siteSeoCollection.map(record, 0)
+    if (!result.ok) throw new Error(JSON.stringify(result.problems))
+    return result.value as SiteSeo
+  }
+  const CDN_IMAGE = {
+    src: 'https://cdn.sanity.io/images/p/production/abc-2400x1260.jpg',
+    width: 2400,
+    height: 1260,
+    alt: 'Equipo de Vertigo',
+  }
+
+  it('builds yesterday\'s head from a dataset that predates the fields', () => {
+    const seo = mapped(validSeo())
+    expect(seo.home).toEqual(SITE_SEO_FALLBACKS.home)
+    expect(seo.blog).toEqual(SITE_SEO_FALLBACKS.blog)
+    expect(seo).not.toHaveProperty('home.image')
+    expect(seo).not.toHaveProperty('favicon')
+    expect(siteSeoCollection.audit([seo])).toEqual([])
+  })
+
+  it('treats a cleared box as blank', () => {
+    for (const blank of [undefined, null, '']) {
+      const record = { ...validSeo(), homeSeoTitle: blank, homeMetaDescription: blank, blogSeoTitle: blank }
+      const seo = mapped(record)
+      expect(seo.home.title).toBe(SITE_SEO_FALLBACKS.home.title)
+      expect(seo.home.shareDescription).toBe(SITE_SEO_FALLBACKS.home.shareDescription)
+      expect(seo.blog.title).toBe(SITE_SEO_FALLBACKS.blog.title)
+    }
+  })
+
+  it('uses the editor\'s words, one description for search and share alike', () => {
+    const seo = mapped({
+      ...validSeo(),
+      homeSeoTitle: 'Agencia de marketing en Murcia',
+      homeMetaDescription: 'Marketing medible.',
+      blogSeoTitle: 'Artículos — Vertigo',
+      blogMetaDescription: 'Lo que aprendemos.',
+      homeOgImage: CDN_IMAGE,
+      blogOgImage: CDN_IMAGE,
+    })
+    expect(seo.home).toEqual({
+      title: 'Agencia de marketing en Murcia',
+      description: 'Marketing medible.',
+      shareDescription: 'Marketing medible.',
+      image: CDN_IMAGE,
+    })
+    expect(seo.blog.shareDescription).toBe('Lo que aprendemos.')
+    expect(seo.blog.image).toEqual(CDN_IMAGE)
+  })
+
+  it('refuses a present value that is wrong, rather than replacing it', () => {
+    const record = { ...validSeo(), homeSeoTitle: 'x'.repeat(2001), blogMetaDescription: 'A &copy; B' }
+    const paths = problemsFor(siteSeoCollection, record)
+    expect(paths).toContain('site.homeSeoTitle')
+    expect(paths).toContain('site.blogMetaDescription')
+    expect(problemsFor(siteSeoCollection, { ...validSeo(), homeOgImage: { alt: 'sin archivo' } }))
+      .toContain('site.homeOgImage')
+  })
+
+  it('accepts a mirrored square PNG of at least the minimum size as the favicon', () => {
+    const min = EDITORIAL_BOUNDS.siteSettings.faviconMinSide
+    const icon = `/media/site/abc-${min}x${min}.png`
+    expect(mapped({ ...validSeo(), favicon: icon }).favicon).toBe(icon)
+    for (const favicon of [
+      '/media/site/abc-512x400.png',
+      `/media/site/abc-${min - 1}x${min - 1}.png`,
+      '/media/site/abc-512x512.jpg',
+      '/media/site/abc-512x512.svg',
+      'https://cdn.sanity.io/images/p/production/abc-512x512.png',
+      '//evil.example/abc-512x512.png',
+    ]) {
+      expect(problemsFor(siteSeoCollection, { ...validSeo(), favicon }), favicon).toContain('site.favicon')
+    }
+  })
+
+  it('refuses a favicon that is not a square PNG before downloading it', async () => {
+    const fetchImage = vi.fn<typeof fetch>().mockRejectedValue(new Error('reached the download'))
+    const mirrored = (favicon: string) => withMediaMirror({
+      describe: 'site settings',
+      fetchAll: async () => [{ ...validSeo(), favicon }],
+    }, {
+      dir: 'out/favicon-must-not-download',
+      publicPath: '/logos',
+      publicRoot: 'out/favicon-must-not-download',
+      allowedOrigin: 'https://cdn.sanity.io',
+      fetchImpl: fetchImage,
+    }).fetchAll(siteSeoCollection.source)
+
+    for (const favicon of [
+      'https://cdn.sanity.io/images/p/production/abc-512x512.svg',
+      'https://cdn.sanity.io/images/p/production/abc-512x512.jpg',
+      'https://cdn.sanity.io/images/p/production/abc-800x600.png',
+    ]) {
+      await expect(mirrored(favicon), favicon).rejects.toThrow()
+    }
+    expect(fetchImage).not.toHaveBeenCalled()
+    // The control: a square PNG is the one that gets as far as the download.
+    await expect(mirrored('https://cdn.sanity.io/images/p/production/abc-512x512.png'))
+      .rejects.toThrow(/reached the download/)
   })
 })

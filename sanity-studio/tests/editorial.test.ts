@@ -9,6 +9,7 @@ import { brandMarkAdvice, brandMarkErrors } from '../schemas/lib/brandMark'
 import { plainText, richText } from '../schemas/lib/plainText'
 import { darkColorAdvice, markupAdvice, serviceOpeningAdvice, singleParagraphAdvice } from '../schemas/lib/advice'
 import { towerImageAdvice, towerImageErrors } from '../schemas/lib/towerImage'
+import { faviconErrors } from '../schemas/lib/faviconImage'
 import { caption1Advice, captionAdvice, headlineAdvice, listItemAdvice, metricAdvice, rotationAdvice, singleSlideAdvice } from '../schemas/lib/towerAdvice'
 import { ORBIT_CAPACITY, orbitCapacity } from '../schemas/lib/orbitCapacity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
@@ -249,6 +250,25 @@ describe('draft previews', () => {
     const result = previewBody([{_type: 'embedMedia', provider: 'youtube', url: 'javascript:alert(1)'}], 'project', 'production')
     expect(result.body).toEqual([])
     expect(result.incomplete).toBe(true)
+  })
+})
+
+describe('the favicon before publishing', () => {
+  const ref = (name: string) => ({asset: {_ref: 'image-' + name}})
+  const min = EDITORIAL_BOUNDS.siteSettings.faviconMinSide
+
+  it('takes a square PNG of the minimum size or more, and passes what it cannot read', () => {
+    expect(faviconErrors(undefined)).toBe(true)
+    expect(faviconErrors({asset: {_ref: 'not-an-asset-id'}})).toBe(true)
+    expect(faviconErrors(ref(`abc-${min}x${min}-png`))).toBe(true)
+    expect(faviconErrors(ref('abc-1024x1024-png'))).toBe(true)
+  })
+
+  it('refuses SVG, other formats, a non-square file and a small one', () => {
+    expect(faviconErrors(ref('abc-512x512-svg'))).toMatch(/SVG/)
+    expect(faviconErrors(ref('abc-512x512-jpg'))).toMatch(/PNG/)
+    expect(faviconErrors(ref('abc-600x512-png'))).toMatch(/cuadrado/)
+    expect(faviconErrors(ref(`abc-${min - 1}x${min - 1}-png`))).toMatch(/mínimo/)
   })
 })
 

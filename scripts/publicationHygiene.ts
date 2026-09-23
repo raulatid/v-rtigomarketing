@@ -41,10 +41,19 @@ const PUBLIC_EXTENSIONS = new Set(['.mp3', '.js', '.wasm', '.ktx2', '.woff2', '.
  */
 const PUBLIC_ROOT_FILES = new Set(['og-default.png', 'content-version.json'])
 
+/**
+ * The favicon uploaded in «Ajustes del sitio», mirrored by the content build
+ * (content/collections/siteSeo.collection.ts). One folder and one format, not
+ * all of `media/`: nothing else was asked of this change.
+ */
+function isSiteMedia(parts: string[]): boolean {
+  return parts.length === 3 && parts[0] === 'media' && parts[1] === 'site' && parts[2].endsWith('.png')
+}
+
 export function isPublicAsset(file: string): boolean {
   const parts = file.replace(/\\/g, '/').split('/')
   if (parts.some((part) => part.startsWith('.') || part.startsWith('sky-test-'))) return false
-  return PUBLIC_ROOT_FILES.has(file) || (
+  return PUBLIC_ROOT_FILES.has(file) || isSiteMedia(parts) || (
     PUBLIC_ROOTS.has(parts[0]) && PUBLIC_EXTENSIONS.has(path.extname(file))
   )
 }

@@ -152,6 +152,40 @@ export interface SiteSettings {
 }
 
 /**
+ * The search and share metadata of one page that is not a blog post.
+ *
+ * Every string is never empty: the mapper substitutes the text the page shipped
+ * with before the CMS had these fields.
+ */
+export interface PageSeo {
+  /** The whole `<title>`, og:title and twitter:title, with no suffix added. */
+  title: string
+  /** `<meta name="description">`. */
+  description: string
+  /**
+   * og:description and twitter:description. The editor's description when one
+   * is set; the fallback keeps the shorter line the home page always shared.
+   */
+  shareDescription: string
+  /** og:image. Absent on a page with no share image, which then claims the small card. */
+  image?: ImageMedia
+}
+
+/**
+ * The site-wide `<head>`: read from the same «Ajustes del sitio» document as
+ * `SiteSettings`, but emitted as its own module because only the build reads it.
+ * The runtime bundle never imports it, so none of this ships as JavaScript.
+ */
+export interface SiteSeo {
+  id: string
+  home: PageSeo
+  /** The blog index, /blog. Always has an image: the site default when unset. */
+  blog: PageSeo
+  /** A mirrored local path to a square PNG. Absent means the inline isotype in the HTML. */
+  favicon?: string
+}
+
+/**
  * Structured copy, for the few places plain strings are genuinely not enough.
  *
  * ── Why this is not HTML ──

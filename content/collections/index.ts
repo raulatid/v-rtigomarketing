@@ -4,6 +4,7 @@ import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
 import { legalDocsCollection } from './legalDocs.collection'
+import { siteSeoCollection } from './siteSeo.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
 import { towerScreenCollection } from './towerScreen.collection'
 
@@ -24,6 +25,7 @@ export const COLLECTIONS: readonly AnyCollection[] = [
   districtsCollection,
   servicesCollection,
   siteSettingsCollection,
+  siteSeoCollection,
   towerScreenCollection,
   legalDocsCollection,
   blogPostsCollection,

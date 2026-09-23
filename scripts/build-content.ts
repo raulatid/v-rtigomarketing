@@ -149,7 +149,8 @@ async function main(): Promise<void> {
   // same reason they are.
   const contentUpdatedAt =
     parsed.config.mode === 'sanity'
-      ? await latestUpdatedAt(source, COLLECTIONS.map((collection) => collection.source.type))
+      ? // A Set: `siteSeo` and `siteSettings` read the same document type.
+        await latestUpdatedAt(source, [...new Set(COLLECTIONS.map((collection) => collection.source.type))])
       : null
   fs.writeFileSync(
     VERSION_FILE,

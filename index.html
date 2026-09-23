@@ -6,6 +6,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Between the seo markers: rewritten at build time from «Ajustes del
+         sitio» in the CMS (siteHead in vite.config.ts). What is written here is
+         the fallback the build uses when those fields are blank, and what the
+         dev server shows; scripts/siteHead.test.ts keeps the two identical. -->
+    <!--vertigo:seo:start-->
     <title>Vertigo — Marketing que se mide</title>
     <meta
       name="description"
@@ -17,17 +22,16 @@
       property="og:description"
       content="Casos reales, métricas reales y auditoría gratuita de tu presencia digital."
     />
-    <!-- `summary`, not `summary_large_image`: there is no og:image yet, and a
-         large-image card with no image renders as a blank rectangle. Claiming
-         the smaller card is the honest description of what this page can
-         currently offer a scraper. Promote it back to summary_large_image in
-         the same change that adds the image. -->
+    <!-- `summary`, not `summary_large_image`: the fallback has no og:image,
+         and a large-image card with no image renders as a blank rectangle. The
+         build adds the image and claims the large card when the CMS has one. -->
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Vertigo — Marketing que se mide" />
     <meta
       name="twitter:description"
       content="Casos reales, métricas reales y auditoría gratuita de tu presencia digital."
     />
+    <!--vertigo:seo:end-->
     <meta property="og:site_name" content="Vertigo" />
     <meta property="og:locale" content="es_ES" />
     <!-- canonical and og:url are injected at build time from the Vercel
@@ -36,7 +40,8 @@
     <meta name="theme-color" content="#050507" />
     <!-- Inline so it costs no request and cannot 404. The isotype, white on the
          site's black so it reads on light and dark tab bars. blog.html carries
-         the identical href; scripts/favicon.test.ts keeps them one. -->
+         the identical href; scripts/favicon.test.ts keeps them one. The build
+         swaps it for the PNG uploaded in «Ajustes del sitio», when there is one. -->
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-80 -80 560 560'%3E%3Crect x='-80' y='-80' width='560' height='560' fill='%23050507'/%3E%3Cpath fill='white' d='M33.7 13.6 7.7 39.4l4.7 3.4c92.3 67.2 193 82.8 292.7 45.5 30.2-11.3 63.8-30.1 85-47.4L354.1.2l-3.4 2.3c-37.9 26-78.1 42.2-118.4 47.7-19.1 2.6-39.4 2.9-58.5.7-26.4-3-52.3-10.2-77.5-21.7C79.3 21.5 62.2 11.4 49.9 1.8L47.5 0Z'/%3E%3Cpath fill='white' d='M34.5 99.7 168.6 399.5h62.5L365 99.7l-6 2.9c-20.4 10.2-45.7 20.3-65.4 26l-2.5.9-45.5 101.1-45.4 101.2-45.6-101.1L109.1 129.3l-1.7-.3c-13.6-2.4-43.2-14.2-69.4-27.7Z'/%3E%3C/svg%3E"
