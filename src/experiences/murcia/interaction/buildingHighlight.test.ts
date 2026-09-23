@@ -191,4 +191,42 @@ describe('the idle blink', () => {
     highlight.update(0.5)
     expect(light.value).toBe(0)
   })
+
+  it('stays dark while paused, blink after blink', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], BLINKING)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.setBlinking(false)
+    highlight.update(0.5)
+    expect(light.value).toBe(0)
+    highlight.update(5)
+    expect(light.value).toBe(0)
+  })
+
+  it('fades a blink under way when paused, rather than cutting it', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], BLINKING)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.update(0.3)
+    highlight.setBlinking(false)
+    highlight.update(0.1)
+    expect(light.value).toBeGreaterThan(0)
+    expect(light.value).toBeLessThan(0.7 * blinkStrength(0.4, 5, 1) * OPTIONS.intensity)
+  })
+
+  it('resumes into a dark stretch, and blinks a full period later', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
+    const highlight = createBuildingHighlight([mesh], BLINKING)
+    const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
+
+    highlight.setBlinking(false)
+    highlight.update(2.5)
+    highlight.setBlinking(true)
+    highlight.update(0.2)
+    expect(light.value).toBe(0)
+    highlight.update(4.3)
+    expect(light.value).toBeCloseTo(0.7 * OPTIONS.intensity, 10)
+  })
 })

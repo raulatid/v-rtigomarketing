@@ -33,7 +33,9 @@ import { prefersReducedMotion } from '../../../platform/motionPreference';
  * at `blink.strength` of its light — and a hover always outweighs it, so a
  * pointer resting on the building holds it steadily lit through a blink. Off
  * under reduced motion: a periodic light is exactly the motion that setting
- * declines, and the hover still answers.
+ * declines, and the hover still answers. The owner pauses it (`setBlinking`)
+ * while the viewer is inside what the buildings open: an invitation to enter
+ * is noise once they have.
  */
 
 /** One blink every `period` seconds, `duration` seconds long, at `strength` of the hover's light. */
@@ -72,6 +74,8 @@ export const BUILDING_HIGHLIGHT: BuildingHighlightOptions = {
 export interface BuildingHighlight {
   /** Only sets where the strength is heading; `update` walks it there. */
   setTarget(on: boolean): void;
+  /** Pauses or resumes the idle blink; a blink under way fades out rather than cuts. */
+  setBlinking(on: boolean): void;
   update(deltaTime: number): void;
   /** Hands every mesh its own material back and frees the clones. */
   dispose(): void;
@@ -171,19 +175,33 @@ export function createBuildingHighlight(
   // Read once, like every motion branch in the city: the setting applies on reload.
   const blink = options.blink && !prefersReducedMotion() ? options.blink : null;
   let clock = 0;
+  // A gain on the blink rather than a flag, so pausing mid-blink fades like a hover does.
+  let blinkGain = 1;
+  let blinkTarget = 1;
 
   return {
     setTarget(on: boolean): void {
       target = on ? 1 : 0;
     },
 
+    setBlinking(on: boolean): void {
+      blinkTarget = on ? 1 : 0;
+    },
+
     update(deltaTime: number): void {
       if (progress !== target) progress = stepHighlight(progress, target, deltaTime, options.duration);
       let strength = easeHighlight(progress);
       if (blink) {
-        clock += deltaTime;
-        // The brighter claim wins, so a hover is never dimmed by a blink ending under it.
-        strength = Math.max(strength, blink.strength * blinkStrength(clock, blink.period, blink.duration));
+        if (blinkGain !== blinkTarget) blinkGain = stepHighlight(blinkGain, blinkTarget, deltaTime, options.duration);
+        if (blinkGain === 0) {
+          // Parked at the start of a dark stretch, so a resume never opens mid-blink.
+          clock = blink.duration;
+        } else {
+          clock += deltaTime;
+          // The brighter claim wins, so a hover is never dimmed by a blink ending under it.
+          const idle = blink.strength * blinkStrength(clock, blink.period, blink.duration);
+          strength = Math.max(strength, idle * easeHighlight(blinkGain));
+        }
       }
       uHighlight.value = strength * options.intensity;
     },

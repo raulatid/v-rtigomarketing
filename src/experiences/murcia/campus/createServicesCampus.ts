@@ -300,6 +300,7 @@ export async function createServicesCampus(
     const next = snapshot.stage !== 'overview';
     if (next === engaged) return;
     engaged = next;
+    highlight.setBlinking(!engaged);
     options.onEngagedChange?.();
   });
   a11y.update(a11yFor(campus.state.snapshot), null);
