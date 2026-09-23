@@ -198,7 +198,10 @@
     calc(var(--audit-close-top) + var(--audit-close-h) + 1.75rem),
     calc(env(safe-area-inset-top) + 2rem)
   );
-  padding-bottom: max(clamp(3rem, 8vh, 5rem), calc(env(safe-area-inset-bottom) + 2rem));
+  /* Not the top's floor: 8vh (4-5rem) left a long empty run under the legal
+     links once the form scrolls. 1.25rem plus the links' own 12px touch
+     padding reads as a 2rem gap; the notch still adds on top. */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1.25rem);
 }
 
 /* Grouped content reveal (§6): four blocks, small Y + tiny X toward the
