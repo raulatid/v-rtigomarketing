@@ -166,6 +166,14 @@
 .audit-panel {
   position: absolute;
   inset: 0;
+  /* The panel owns its ink rather than inheriting it. On the scene the document
+     is already white on black, so this changed nothing there; in the blog it is
+     the whole fix. `blog.html` never loads styles.css and `.blog-surface` sets
+     `color: #0b0b0d` for its paper, so anything in here without a colour of its
+     own came out near-black on smoked glass — which was every heading, since
+     the titles take their colour from the panel and the body copy does not. */
+  color: var(--text-primary);
+
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 14%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0) 12%),
