@@ -17,7 +17,7 @@ Esta guía es para quien va a cambiar textos, casos de éxito, servicios, entrad
 | **Servicios** → **Presentación y orden de los servicios** | La sección de servicios de la ciudad, la que se abre al pulsar el lago: su título, su subtítulo y el orden de los servicios. Hay una sola. |
 | **Servicios** → **Todos los servicios** | Cada servicio de la agencia, con su nombre y su descripción. Cada servicio es además un tema del blog. |
 | **Blog** | Las entradas del blog, de la más reciente a la más antigua. |
-| **Ajustes del sitio** | Teléfonos, correo que recibe los mensajes, botón de reservar cita, mensajes de «enviado» de los formularios, rangos de facturación del formulario de Auditoría, línea de copyright, y cómo sale la web en Google y al compartirla, con el icono de la pestaña. |
+| **Ajustes del sitio** | Teléfonos, correo que recibe los mensajes, botón de reservar cita, mensajes de «enviado» de los formularios, rangos de facturación del formulario de Auditoría, línea de copyright, y el SEO de la portada y del listado del blog, con el favicon. |
 | **Textos legales** | Los tres documentos legales: «Términos y privacidad», «Aviso legal» y «Política de cookies». |
 
 ## Guardar y publicar
@@ -90,9 +90,9 @@ En los dos casos el aviso te dice qué mide la imagen y qué debería medir, as�
 
 **Los rangos de presupuesto mensual** (en el mismo sitio) funcionan igual: son las opciones del desplegable «Presupuesto mensual» del panel Auditoría, en el orden en que los pongas, y los cuatro que hay son de ejemplo.
 
-**Cómo sale la web en Google y al compartirla** se cambia en «Ajustes del sitio» → «SEO y buscadores». Hay tres campos para la portada y otros tres para la página del blog: el título, la descripción y la imagen que se ve al compartir el enlace por WhatsApp, LinkedIn o redes sociales. Todos son opcionales. Si los dejas vacíos, se usan los textos que ves en gris. Cada entrada del blog tiene los suyos en su propia ficha, no aquí. Google suele cortar el título a partir de unos 60 caracteres y la descripción a partir de unos 160; el contador se pone amarillo, pero puedes publicar igualmente.
+**El SEO de la portada y del listado del blog** se cambia en «Ajustes del sitio» → «SEO». Cada página tiene tres campos: **meta título**, **meta descripción** e **imagen Open Graph (og:image)**. El meta título y la meta descripción se usan también para Open Graph y Twitter. Todos son opcionales. Si los dejas vacíos, se usan los textos que ves en gris. Cada entrada del blog tiene los mismos campos en su propia ficha, en el apartado «SEO». Google suele cortar el meta título a partir de unos 60 caracteres y la meta descripción a partir de unos 160; el contador se pone amarillo, pero puedes publicar igualmente.
 
-**El icono de la pestaña (favicon)** también está en «SEO y buscadores». Tiene que ser un PNG cuadrado de al menos 512 × 512 píxeles, con fondo de color, porque en el iPhone la transparencia se ve negra. Si no subes ninguno, se usa el isotipo de Vertigo. Algunos navegadores tardan un rato en mostrar el icono nuevo en una pestaña que ya tenías abierta.
+**El favicon** también está en «SEO». Tiene que ser un PNG cuadrado de al menos 512 × 512 píxeles, con fondo de color, porque en el iPhone la transparencia se ve negra. Si no subes ninguno, se usa el isotipo de Vertigo. Algunos navegadores tardan un rato en mostrar el icono nuevo en una pestaña que ya tenías abierta.
 
 Como todo lo demás, estos cambios se ven en cuanto se actualiza la web después de publicar. Google tarda más: vuelve a leer la página cuando le toca, y hasta entonces puede seguir mostrando el texto anterior.
 

@@ -68,7 +68,7 @@ export const blogPost = defineType({
     { name: 'publicacion', title: 'Publicación' },
     {
       name: 'seo',
-      title: 'Buscadores y redes',
+      title: 'SEO',
       description:
         'Opcional. Controla cómo se ve la entrada en Google y al compartirla. ' +
         'Si lo dejas vacío se usa el título y la entradilla de arriba.',
@@ -81,7 +81,7 @@ export const blogPost = defineType({
       title: 'Título',
       description:
         'El titular de la entrada, en el listado y en la propia entrada. También es el título ' +
-        'en Google si no rellenas «Título para buscadores».',
+        'en Google si no rellenas «Meta título».',
       type: 'string',
       fieldset: 'contenido',
       components: { input: charCount(BOUNDS.title) },
@@ -196,10 +196,11 @@ export const blogPost = defineType({
     }),
     defineField({
       name: 'seoTitle',
-      title: 'Título para buscadores',
+      title: 'Meta título',
       description:
-        'Opcional. El título que se ve en Google y al compartir la entrada. Vacío, se usa el ' +
-        `título de la entrada. Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`,
+        'Opcional. El <title> de la entrada, y también og:title y twitter:title. La web le añade ' +
+        '« — Vertigo» al final. Vacío, se usa el título de la entrada. Google suele cortar a ' +
+        `partir de unos ${SEO_TITLE_MAX} caracteres, contando el añadido.`,
       type: 'string',
       fieldset: 'seo',
       components: { input: charCount(SEO_TITLE_MAX, 'warning') },
@@ -213,10 +214,11 @@ export const blogPost = defineType({
     }),
     defineField({
       name: 'metaDescription',
-      title: 'Descripción para buscadores',
+      title: 'Meta descripción',
       description:
-        'Opcional. El texto bajo el título en Google y al compartir la entrada. Vacía, se usa ' +
-        `la entradilla. Google suele cortar a partir de unos ${META_DESCRIPTION_MAX} caracteres.`,
+        'Opcional. La <meta name="description"> de la entrada, y también og:description y ' +
+        'twitter:description. Vacía, se usa la entradilla, recortada a 160 caracteres como máximo. Google ' +
+        `suele cortar a partir de unos ${META_DESCRIPTION_MAX} caracteres.`,
       type: 'text',
       rows: 2,
       fieldset: 'seo',
@@ -232,10 +234,11 @@ export const blogPost = defineType({
     }),
     defineField({
       name: 'ogImage',
-      title: 'Imagen para redes sociales',
+      title: 'Imagen Open Graph (og:image)',
       description:
-        'Opcional. La imagen que se ve al compartir la entrada. Vacía, se usa la de portada. ' +
-        'Se recorta a 1200 × 630 desde el centro: deja lo importante en el medio.',
+        'Opcional. La og:image de la entrada; twitter:card es summary_large_image. Se recorta a ' +
+        '1200 × 630 desde el centro, así que deja lo importante en el medio. Vacía, se usa la ' +
+        'imagen de portada de la entrada y, si tampoco hay, la imagen por defecto del sitio.',
       type: 'imageMedia',
       fieldset: 'seo',
     }),

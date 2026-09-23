@@ -54,7 +54,7 @@ const META_DESCRIPTION_MAX = 160
  * The four success strings: in place of each form after a real send.
  * `revenueRanges`: the options of the Auditoría panel's billing dropdown.
  * `budgetRanges`: the options of that panel's monthly-budget dropdown.
- * «SEO y buscadores»: the `<head>` of `/` and `/blog`, and the favicon on every
+ * «SEO»: the `<head>` of `/` and `/blog`, and the favicon on every
  * page. Read by a separate collection, `siteSeo.collection.ts`, because only
  * the build needs them.
  */
@@ -68,7 +68,7 @@ export const siteSettings = defineType({
     { name: 'formularios', title: 'Mensajes de enviado' },
     { name: 'auditoria', title: 'Formulario de auditoría' },
     { name: 'pie', title: 'Pie de página' },
-    { name: 'seo', title: 'SEO y buscadores' },
+    { name: 'seo', title: 'SEO' },
   ],
   fieldsets: [
     {
@@ -95,19 +95,17 @@ export const siteSettings = defineType({
     { name: 'pie', title: 'Pie de página' },
     {
       name: 'seoInicio',
-      title: 'Página de inicio',
+      title: 'Portada (/)',
       description:
-        'Cómo aparece la portada de la web en Google y al compartir su enlace por WhatsApp, ' +
-        'LinkedIn o redes sociales. Cada entrada del blog tiene los suyos en su propia ficha.',
+        'Meta etiquetas y Open Graph de la portada. Cada entrada del blog tiene las suyas en su ' +
+        'propia ficha.',
     },
     {
       name: 'seoBlog',
-      title: 'Página del blog',
-      description:
-        'Lo mismo para la página que lista todas las entradas del blog (/blog), no para cada ' +
-        'entrada.',
+      title: 'Blog (/blog)',
+      description: 'Meta etiquetas y Open Graph del listado del blog, no de cada entrada.',
     },
-    { name: 'icono', title: 'Icono de la pestaña' },
+    { name: 'icono', title: 'Favicon' },
     // Every field in here is hidden (see bannerEnabled), and Sanity does not draw
     // a fieldset with nothing visible in it. Kept so the stored values keep
     // their home until the fields are removed end-to-end.
@@ -470,29 +468,31 @@ export const siteSettings = defineType({
       ],
     }),
     ...pageSeoFields('home', 'seoInicio', {
-      page: 'la portada',
+      page: 'la portada (/)',
       title: 'Vertigo — Marketing que se mide',
       description:
         'Vertigo: agencia de marketing orientada a resultados. Casos reales, métricas reales y ' +
         'auditoría gratuita de tu presencia digital.',
-      imageBlank: 'Vacía, el enlace se comparte sin imagen.',
+      imageBlank:
+        'Con imagen, twitter:card pasa a summary_large_image. Vacía, no hay og:image y ' +
+        'twitter:card es summary.',
     }),
     ...pageSeoFields('blog', 'seoBlog', {
-      page: 'la página del blog',
+      page: 'el listado del blog (/blog)',
       title: 'Blog — Vertigo',
       description:
         'Lo que aprendemos trabajando con datos reales, escrito para quien firma el presupuesto.',
-      imageBlank: 'Vacía, se usa la imagen general de Vertigo.',
+      imageBlank: 'Vacía, se usa la imagen por defecto del sitio (/og-default.png).',
     }),
     defineField({
       name: 'favicon',
-      title: 'Icono de la pestaña (favicon)',
+      title: 'Favicon',
       description:
-        'Opcional. El icono pequeño de la pestaña del navegador, de los marcadores y de la web ' +
-        'guardada en la pantalla de inicio del móvil. PNG cuadrado de al menos ' +
+        'Opcional. Se usa como <link rel="icon"> y apple-touch-icon en todas las páginas. PNG ' +
+        'cuadrado de al menos ' +
         `${EDITORIAL_BOUNDS.siteSettings.faviconMinSide}×${EDITORIAL_BOUNDS.siteSettings.faviconMinSide} ` +
-        'píxeles, con fondo de color: en el iPhone la transparencia se ve negra. Vacío, se usa ' +
-        'el isotipo de Vertigo.',
+        'px, con fondo opaco: iOS muestra la transparencia del apple-touch-icon en negro. Vacío, ' +
+        'se usa el isotipo de Vertigo en SVG.',
       type: 'image',
       fieldset: 'icono',
       group: 'seo',
@@ -541,11 +541,11 @@ function pageSeoFields(
   return [
     defineField({
       name: prefix + 'SeoTitle',
-      title: 'Título para buscadores',
+      title: 'Meta título',
       description:
-        `Opcional. El título de ${copy.page} en Google, en la pestaña del navegador y al ` +
-        'compartir el enlace. Se usa tal cual lo escribas. Vacío, se usa el que ves en gris. ' +
-        `Google suele cortar a partir de unos ${SEO_TITLE_MAX} caracteres.`,
+        `Opcional. El <title> de ${copy.page}, y también og:title y twitter:title. Se usa tal ` +
+        'cual, sin añadir « — Vertigo». Vacío, se usa el que ves en gris. Google suele cortar ' +
+        `a partir de unos ${SEO_TITLE_MAX} caracteres.`,
       type: 'string',
       fieldset,
       group: 'seo',
@@ -561,11 +561,11 @@ function pageSeoFields(
     }),
     defineField({
       name: prefix + 'MetaDescription',
-      title: 'Descripción para buscadores',
+      title: 'Meta descripción',
       description:
-        `Opcional. El texto bajo el título de ${copy.page} en Google y al compartir el enlace. ` +
-        'Vacía, se usa la que ves en gris. Google suele cortar a partir de unos ' +
-        `${META_DESCRIPTION_MAX} caracteres.`,
+        `Opcional. La <meta name="description"> de ${copy.page}, y también og:description y ` +
+        'twitter:description. Vacía, se usa la que ves en gris. Google suele cortar a partir de ' +
+        `unos ${META_DESCRIPTION_MAX} caracteres.`,
       type: 'text',
       rows: 2,
       fieldset,
@@ -583,10 +583,10 @@ function pageSeoFields(
     }),
     defineField({
       name: prefix + 'OgImage',
-      title: 'Imagen para redes sociales',
+      title: 'Imagen Open Graph (og:image)',
       description:
-        `Opcional. La imagen que se ve al compartir el enlace de ${copy.page}. ${copy.imageBlank} ` +
-        'Se recorta a 1200 × 630 desde el centro: deja lo importante en el medio.',
+        `Opcional. La og:image de ${copy.page}. Se recorta a 1200 × 630 desde el centro, así ` +
+        `que deja lo importante en el medio. ${copy.imageBlank}`,
       type: 'imageMedia',
       fieldset,
       group: 'seo',

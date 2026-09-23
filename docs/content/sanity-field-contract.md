@@ -167,7 +167,7 @@ One document, at the fixed id `siteSettings`.
 
 **Exactly one document, asserted by the build.** The Studio hides the "create another" button, but a restored backup or the HTTP API can produce a second one the Studio never shows. `src/content/site.ts` reads the first, so two documents would mean half the site quietly using one and nothing using the other. Zero documents also fails: an empty response is an outage, not a decision to delete the agency's phone number.
 
-### «SEO y buscadores» — the `<head>` of `/` and `/blog`, and the favicon (2026-09-23)
+### «SEO» — the `<head>` of `/` and `/blog`, and the favicon (2026-09-23)
 
 These fields are in the same document, but a separate collection reads them: `content/collections/siteSeo.collection.ts`, which emits `SITE_SEO`. It is build-only. The `siteHead` plugin in `vite.config.ts` writes it into `index.html` and `blog.html`, and the architecture check keeps both entries from importing it. Each blog post keeps its own SEO fields (see [`blogPost`](#blogpost)).
 
