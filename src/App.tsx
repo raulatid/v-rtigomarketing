@@ -17,7 +17,7 @@ import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
 import { LegalPanel } from './components/LazyLegalPanel'
 import { ConsentBanner } from './components/ConsentBanner'
-import { SiteFooter } from './components/SiteFooter'
+import { CopyrightMark } from './components/CopyrightMark'
 import { SiteMenuLayer, SiteMenuStage } from './components/SiteMenu'
 import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
@@ -752,7 +752,14 @@ export default function App() {
         openRequest={auditRequest}
       />
 
-      {phase === 'site' && earthActive && <SiteFooter />}
+      {/* Both experiences since 2026-09-23: the mark is the site's, not the
+          Earth scene's. `tone` is the header's prop and the header's reason —
+          the ground under it is black here and pale daylight over Murcia. The
+          shared `.scene-hint` already reserves its floor above this line on
+          both scenes (DECISIONS §41), so nothing new is competing for it. */}
+      {phase === 'site' && (
+        <CopyrightMark tone={earthActive ? 'dark' : 'light'} />
+      )}
 
       <LegalPanel doc={legalDoc} onClose={() => setLegalDoc(null)} />
 

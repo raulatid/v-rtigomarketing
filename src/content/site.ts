@@ -6,7 +6,7 @@
 // client edits their own contact details now, and the alternative to a
 // one-record collection is a deployment for a phone number.
 //
-// The exports keep their old names and shapes on purpose: SiteFooter and
+// The exports keep their old names and shapes on purpose: CopyrightMark and
 // ContactSection are unchanged, and this file stays the one place to look.
 
 import { SITE_SETTINGS } from './generated/siteSettings.js'

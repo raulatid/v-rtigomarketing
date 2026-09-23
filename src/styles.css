@@ -1659,10 +1659,13 @@ html {
 
 /* ---- z 42 — the site footer -----------------------------------------------
 
-   Earth-only, gated in App on phase 'site' and Earth showing (DECISIONS
-   §26.16 — chrome is unmounted before the intro lands, never hidden). The
-   contact dialog, the legal panels and the header triggers used to be styled
-   here too; since 2026-09-03 they mount in the blog as well, so their rules
+   Gated in App on phase 'site' alone (DECISIONS §26.16 — chrome is unmounted
+   before the intro lands, never hidden). It was Earth-only until 2026-09-23;
+   the mark belongs to the site rather than to one scene, and the light tone
+   below is what lets it cross to Murcia's daylight.
+
+   The contact dialog, the legal panels and the header triggers used to be
+   styled here too; since 2026-09-03 they mount in the blog as well, so their rules
    moved next to their components (contactSection.css, modal.css,
    legalPanel.css, siteHeader.css). The contact data and the legal texts live
    in src/content/site.ts, the single placeholder swap point.
@@ -1704,6 +1707,19 @@ html {
 
 .site-footer__copyright {
   letter-spacing: 0.04em;
+}
+
+/* Over Murcia's daylight (2026-09-23, when the mark stopped being Earth-only).
+   White with something to sit on rather than ink, which is the client's
+   standing direction for scene chrome — siteHeader.css records it for the
+   Contacto trigger, and the shared `.scene-hint` already runs white over both
+   skies. A shadow and not the header's scrim box: this is one short line at the
+   edge of the frame, and a plate there would read as a control the mark is
+   explicitly not. Lifted from 0.55 because the same alpha that is quiet over
+   black is illegible over a pale sky. */
+.site-footer[data-tone='light'] {
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {

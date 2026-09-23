@@ -33,7 +33,7 @@ describe('the shipped site settings', () => {
 
 describe('the compatibility adapter', () => {
   it('exposes the generated values under the names the renderers use', () => {
-    // SiteFooter and ContactSection import these three and nothing else. The
+    // CopyrightMark and ContactSection import these three and nothing else. The
     // point of the adapter is that moving the data into the CMS did not touch
     // either of them.
     const settings = SITE_SETTINGS[0]
