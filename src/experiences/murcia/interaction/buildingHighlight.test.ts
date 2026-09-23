@@ -49,7 +49,7 @@ describe('the building highlight', () => {
     expect(atlasHook).toHaveBeenCalledTimes(1)
     expect(clone.customProgramCacheKey()).toBe('lightmap-key|highlight')
     expect(shader.fragmentShader).toMatch(
-      /outgoingLight \+= uHighlightColor \* uHighlight;\n#include <opaque_fragment>/,
+      /outgoingLight = mix\(outgoingLight, uHighlightColor, uHighlight\);\n#include <opaque_fragment>/,
     )
     expect(shader.fragmentShader).toContain('uniform float uHighlight;')
     expect(shader.uniforms.uHighlight).toBeDefined()

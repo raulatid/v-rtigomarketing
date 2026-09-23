@@ -10,14 +10,18 @@ import { prefersReducedMotion } from '../../../platform/motionPreference';
  * cannot do it that way, for two reasons:
  *
  *   - its baked surfaces are `MeshBasicMaterial` (`lightmaps/lightmapMaterial.ts`),
- *     which has no emissive channel at all, so the colour is added to the
+ *     which has no emissive channel at all, so the colour is worked into the
  *     shader's `outgoingLight` instead — the same place an emissive term lands;
  *   - those materials are SHARED, by atlas and source material, across the
  *     whole city (`loadUnifiedLightmaps`, `citySurfaceDepth`). Every distinct
  *     material in the set is cloned once and the clone reused, so the rest of
  *     the city never glows with it.
  *
- * There is no bloom in Murcia, so this reads as a lit surface, not a halo.
+ * The colour is mixed in, not added (2026-09-23). With no bloom in Murcia an
+ * added colour only brightens: on near-white porcelain it clipped to white and
+ * lost its hue, while darker faces went blue, so one building lit unevenly.
+ * A mix tints every face toward the same hue and keeps the baked shading
+ * under it, which reads as "selected" rather than "glowing".
  * No light is added either: a new `THREE.Light` changes the scene's light
  * count and recompiles every program at the worst moment.
  *
@@ -40,9 +44,9 @@ export interface BuildingBlink {
 }
 
 export interface BuildingHighlightOptions {
-  /** sRGB. Earth's `HOLO_COLOR`, restated: murcia may not import earth. */
+  /** sRGB. */
   color: string;
-  /** Added light at full strength. Raised past the satellites' 0.45 on 2026-09-22 (user direction: the light read as faint); porcelain near white clips above about 0.6, so the visual pass owns this number. */
+  /** Mix toward `color` at full strength, 0..1: low keeps the baked shading readable, 1 is a flat silhouette. The visual pass owns this number. */
   intensity: number;
   /** Seconds for a full rise, and for a full fall. The satellites' `highlightDuration`. */
   duration: number;
@@ -57,8 +61,10 @@ export const BUILDING_BLINK: BuildingBlink = {
 };
 
 export const BUILDING_HIGHLIGHT: BuildingHighlightOptions = {
-  color: '#38a9d6',
-  intensity: 0.5,
+  // The Auditoría CTA's `--accent` (`components/siteHeader.css`), restated:
+  // a shader cannot read a CSS custom property, so a change there must land here too.
+  color: '#1c67ff',
+  intensity: 0.4,
   duration: 0.4,
   blink: BUILDING_BLINK,
 };
@@ -139,7 +145,7 @@ export function createBuildingHighlight(
       shader.uniforms.uHighlightColor = uHighlightColor;
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform float uHighlight;\nuniform vec3 uHighlightColor;')
-        .replace(INJECT_AT, `outgoingLight += uHighlightColor * uHighlight;\n${INJECT_AT}`);
+        .replace(INJECT_AT, `outgoingLight = mix(outgoingLight, uHighlightColor, uHighlight);\n${INJECT_AT}`);
     };
     const innerKey = source.customProgramCacheKey.call(source);
     clone.customProgramCacheKey = () => `${innerKey}|highlight`;
