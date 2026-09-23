@@ -81,15 +81,30 @@ export function variantFile(map: LightmapEntry, resolution: LightmapResolution, 
 /**
  * Which atlas size a device gets.
  *
- * Twelve maps at 2048 transcode to roughly 34 MB of GPU memory against the
- * ~70 MB this project measured as the whole iOS budget
- * (`docs/audits/ios-safari-2026-08-14.md` §3); at 1024 they are about a
- * quarter of that. The split follows the sky panorama's: a phone-width or
- * touch-first viewport takes the smaller set. Both inputs are booleans so the
- * rule is testable without a window.
+ * The v5.1-r3 bake's fifteen atlases hold ~77 MiB of GPU memory at 2048 and ~15 MiB
+ * at 1024 (measured, `docs/audits/reports/website-performance-and-optimization-murcia-2026-09-23.md`
+ * P1-B), resident from the intro whether or not the visitor ever reaches the
+ * city, against the ~70 MB this project measured as the whole iOS budget.
+ *
+ * A phone-width or touch-first viewport takes the smaller set, as the sky
+ * panorama does, and so do two devices those queries miss:
+ *
+ * - `touchCapable`: an iPad with a trackpad reports a fine primary pointer and a
+ *   desktop width, and was getting the full 77 MiB. Any touch screen counts,
+ *   which also sends touchscreen laptops to 1024; they are mostly integrated
+ *   GPUs sharing system memory, and that is the right side to err on.
+ * - `lowMemory`: `navigator.deviceMemory` of 4 GB or less. Chromium only; where
+ *   it is missing the caller passes false.
+ *
+ * All inputs are booleans so the rule is testable without a window.
  */
-export function chooseLightmapResolution(device: { narrow: boolean; coarse: boolean }): LightmapResolution {
-  return device.narrow || device.coarse ? 1024 : 2048;
+export function chooseLightmapResolution(device: {
+  narrow: boolean;
+  coarse: boolean;
+  touchCapable: boolean;
+  lowMemory: boolean;
+}): LightmapResolution {
+  return device.narrow || device.coarse || device.touchCapable || device.lowMemory ? 1024 : 2048;
 }
 
 /**
