@@ -80,6 +80,8 @@ export interface ServicesCampusSection {
   /** While this must be the camera's only writer — the host defers pose writes. */
   readonly holdsCamera: boolean;
   readonly snapshot: CampusSnapshot;
+  /** Parts born hidden, for the host's warm-up. See `ServicesCampus.precompileTargets`. */
+  readonly precompileTargets: readonly THREE.Object3D[];
   /** The lake's centre at the water, for the compass. */
   anchor(out: THREE.Vector3): THREE.Vector3;
   /** The lake's centre in client pixels; null when it is behind the camera. */
@@ -320,6 +322,7 @@ export async function createServicesCampus(
     get snapshot() {
       return campus.state.snapshot;
     },
+    precompileTargets: campus.precompileTargets,
     anchor(out) {
       return out.copy(campus.lake.center);
     },

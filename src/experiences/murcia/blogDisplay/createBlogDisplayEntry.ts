@@ -81,6 +81,8 @@ export interface BlogDisplayEntryOptions {
 
 export interface BlogDisplayEntry {
   readonly object3D: THREE.Object3D;
+  /** Parts born hidden, for the host's warm-up. See `BlogDisplay.precompileTargets`. */
+  readonly precompileTargets: readonly THREE.Object3D[];
   /** True while the approach or the return owns the camera (DECISIONS §9). */
   readonly ownsCamera: boolean;
   setEnabled(next: boolean): void;
@@ -187,6 +189,7 @@ export function createBlogDisplayEntry(
 
   return {
     object3D: display.object,
+    precompileTargets: display.precompileTargets,
 
     get ownsCamera() {
       return approach.ownsCamera;

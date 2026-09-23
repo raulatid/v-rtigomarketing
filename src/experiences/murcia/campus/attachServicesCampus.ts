@@ -139,6 +139,11 @@ export interface ServicesCampus {
   };
   /** Null when no screen was asked for or the strip is missing. */
   readonly screen: CampusScreen | null;
+  /**
+   * Parts born hidden, which `compileAsync` skips: the particles, invisible until
+   * the section plays them. The host's warm-up reveals them for the compile.
+   */
+  readonly precompileTargets: readonly THREE.Object3D[];
   applyParticles(): void;
   rebuildParticles(): void;
   applyWater(): void;
@@ -495,6 +500,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     lakeRadius: r,
     tuning: { particles, water, shapes, timing, camera: cameraTuning, figureMotion, screen: screenTuning },
     screen,
+    precompileTargets: [field.points],
     applyParticles: () => field.configure(particles),
     rebuildParticles,
     applyWater: () => surface.configure(water),

@@ -198,6 +198,11 @@ export interface BlogDisplay {
    * the number — one inset, not two. Nothing else has business here.
    */
   readonly panelMaterial: THREE.ShaderMaterial;
+  /**
+   * Parts born hidden, which `compileAsync` skips: the orbit ring. The host's
+   * warm-up reveals them for the compile — see `core/whileRevealed.ts`.
+   */
+  readonly precompileTargets: readonly THREE.Object3D[];
   /** Hands the face the rasterised page. Disposes the texture it replaces. */
   setPage(canvas: HTMLCanvasElement): void;
   /**
@@ -440,6 +445,7 @@ export function createBlogDisplay(options: BlogDisplayOptions): BlogDisplay {
     object: root,
     panel,
     panelMaterial,
+    precompileTargets: [orbitRing.object],
 
     setPage(canvas) {
       const next = new THREE.CanvasTexture(canvas);

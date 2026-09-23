@@ -10,6 +10,7 @@ import { applyNavigationQueryOverrides } from './config/environmentQueryOverride
 import { createScene } from './core/createScene';
 import type { SceneBundle } from './core/createScene';
 import type { ViewportSize } from './core/resize';
+import { whileRevealed } from './core/whileRevealed';
 import { createAssetLoader } from './assets/createAssetLoader';
 import type { AssetLoader } from './assets/createAssetLoader';
 import { loadCity, disposeLoadedCity } from './assets/loadCity';
@@ -396,15 +397,25 @@ export class MurciaExperience {
    *
    * The tiny target is used rather than a real render so nothing reaches the
    * canvas: at this point Earth is still on screen.
+   *
+   * Both walks visit VISIBLE objects only, so the parts born hidden — the blog's
+   * orbit ring, the campus particles — are revealed for the duration of each
+   * call. Left out, their programs compiled on the arrival frame instead.
    */
   async warm(): Promise<void> {
     if (!this.sceneBundle || !this.camera) return;
+    const scene = this.sceneBundle.scene;
+    const camera = this.camera;
+    const hiddenAtBirth = [
+      ...(this.campus?.precompileTargets ?? []),
+      ...(this.blogDisplay?.precompileTargets ?? []),
+    ];
 
     // One zero-length tick first, so the campus's strip paints its canvas and
     // the upload lands in the warm render below rather than on the first frame
     // anyone sees it. Nothing else in a zero tick moves.
     this.campus?.update(0);
-    await this.renderer.compileAsync(this.sceneBundle.scene, this.camera);
+    await whileRevealed(hiddenAtBirth, () => this.renderer.compileAsync(scene, camera));
 
     const target = new THREE.WebGLRenderTarget(1, 1);
     const previousTarget = this.renderer.getRenderTarget();
@@ -428,7 +439,7 @@ export class MurciaExperience {
     const previousClearAlpha = this.renderer.getClearAlpha();
     try {
       this.renderer.setRenderTarget(target);
-      this.renderer.render(this.sceneBundle.scene, this.camera);
+      whileRevealed(hiddenAtBirth, () => this.renderer.render(scene, camera));
     } finally {
       this.renderer.setRenderTarget(previousTarget);
       this.renderer.setClearColor(previousClear, previousClearAlpha);
