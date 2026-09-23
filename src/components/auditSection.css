@@ -576,11 +576,22 @@
   color: rgba(255, 255, 255, 0.72);
 }
 
+/* The manual-review caveat reads as the second half of the promise above it,
+   so it sits closer to the SLA line than to the fine print that follows, and
+   carries the SLA's brighter tone rather than the fine print's muted one. */
+.audit-note--sla + .audit-note {
+  margin-top: 0.2rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 /* The legal links at the panel's foot — the note's own muted register, so they
    read as fine print and never compete with the CTA above them. They came off
    the Earth floor line on 2026-08-24 (DECISIONS §30). */
 .audit-legal {
-  margin-top: 0.5rem;
+  /* Pulled up against the consent sentence above: the links carry a 12px
+     touch padding of their own, so the visual gap is that padding plus this
+     margin, and only a negative value closes it to match the pairing. */
+  margin-top: -0.55rem;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.4);
   text-align: center;
@@ -595,6 +606,14 @@
   color: inherit;
   cursor: pointer;
   transition: color 0.2s ease;
+}
+
+/* The consent sentence's inline link is underlined, unlike the footer pair:
+   it sits inside a running sentence, so the rule is what marks it as the
+   thing you can press. Same treatment as .contact-note__link. */
+.audit-note .audit-legal__link {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 .audit-legal__link:hover {
