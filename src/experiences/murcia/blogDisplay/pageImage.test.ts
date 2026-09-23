@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { nearestVariant, parsePreviewManifest, platePageSvg, textureSize } from './pageImage'
+import {
+  nearestVariant,
+  parsePreviewManifest,
+  platePageSvg,
+  restingTextureSize,
+  textureSize,
+} from './pageImage'
 import type { PreviewVariant } from './pageImage'
 
 // The two routes to the panel's texture, tested where they can be: the selection
@@ -91,18 +97,40 @@ describe('reading the manifest', () => {
 })
 
 describe('the texture size', () => {
-  it('doubles the layout size, because that is what the capture does too', () => {
-    expect(textureSize(1400, 880)).toEqual({ width: 2800, height: 1760 })
+  it('doubles the layout size on a 2x screen, because that is what the capture does too', () => {
+    expect(textureSize(1400, 880, 2)).toEqual({ width: 2800, height: 1760 })
+  })
+
+  it('follows the pixel ratio down to 1x and stops at 2x, as the renderer does', () => {
+    // At 1x a 2x page is detail the canvas never draws, uploaded on every approach.
+    expect(textureSize(1920, 1080, 1)).toEqual({ width: 1920, height: 1080 })
+    expect(textureSize(1440, 900, 1.5)).toEqual({ width: 2160, height: 1350 })
+    expect(textureSize(390, 844, 3)).toEqual({ width: 780, height: 1688 })
+    expect(textureSize(1920, 1080, 0.8)).toEqual({ width: 1920, height: 1080 })
   })
 
   it('stops at a side any GL will accept', () => {
     // Chrome's floor is 4096 and the panel is sampled 1:1 for one frame; a texture
     // the driver refuses is a blank page at the moment the page must be there.
-    const size = textureSize(3000, 2000)
+    const size = textureSize(3000, 2000, 2)
     expect(Math.max(size.width, size.height)).toBeLessThanOrEqual(4096)
     // And the aspect survives the clamp to within a rounded pixel, because the
     // panel's shape is solved from the same numbers.
     expect(size.width / size.height).toBeCloseTo(3000 / 2000, 3)
+  })
+})
+
+describe('the resting texture size', () => {
+  it('shrinks a desktop page to 2048 on its long side, keeping its shape', () => {
+    // 1920x1080 lays out to 3840x2160: ~44 MiB with mips for a panel in the distance.
+    const size = restingTextureSize(3840, 2160)
+    expect(size).toEqual({ width: 2048, height: 1152 })
+    expect(size.width / size.height).toBeCloseTo(3840 / 2160, 3)
+  })
+
+  it('leaves a page that is already small enough alone', () => {
+    // A phone's page, so it wears one canvas and never swaps.
+    expect(restingTextureSize(780, 1688)).toEqual({ width: 780, height: 1688 })
   })
 })
 

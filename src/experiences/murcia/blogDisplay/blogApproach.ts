@@ -7,7 +7,7 @@ import {
   smootherstep,
 } from './blogTransition';
 import { createHandoffImage, type HandoffImage } from './handoffImage';
-import type { PageImageSource } from './pageImage';
+import type { PageImage, PageImageSource } from './pageImage';
 import { createTransitionClock, type TransitionClock } from '../../../utils/transitionClock';
 
 /**
@@ -193,6 +193,27 @@ export function createBlogApproach(deps: BlogApproachDeps): BlogApproach {
   /** Supersedes an in-flight request whose answer would land after a newer one. */
   let requestGeneration = 0;
 
+  /** The latest page to land, and which of its two canvases the panel wears. */
+  let page: PageImage | null = null;
+  let worn: HTMLCanvasElement | null = null;
+
+  /**
+   * The resting canvas while the rig owns the camera, the full page while a flight
+   * does.
+   *
+   * The full page is swapped in at the click rather than partway through the run:
+   * its upload is one long frame, and the camera is still at rest on that frame
+   * where later it would be mid-flight. It stays through the blog and the return,
+   * which starts with the panel filling the frame, and is released again at rest.
+   */
+  const wearPage = (): void => {
+    if (!page) return;
+    const next = phase === 'rest' ? page.restingCanvas : page.canvas;
+    if (next === worn) return;
+    worn = next;
+    display.setPage(next);
+  };
+
   /**
    * Where the camera must stand for the readable core to fill the frame exactly.
    *
@@ -250,6 +271,8 @@ export function createBlogApproach(deps: BlogApproachDeps): BlogApproach {
     phase = 'rest';
     display.freezeFollow(false);
     display.setScreenPresence(1);
+    // Not on the way through `dispose`, whose display is about to be torn down.
+    if (!disposed) wearPage();
     deps.endExternalControl();
   };
 
@@ -338,16 +361,17 @@ export function createBlogApproach(deps: BlogApproachDeps): BlogApproach {
     const mine = ++requestGeneration;
     void pageImages
       .request(width, height)
-      .then((page) => {
+      .then((landed) => {
         if (disposed) return;
         // Superseded while this one was decoding. Applying it would put an older,
         // wrong-aspect page on the panel AFTER the newer one, where it would stay
         // until the next resize.
         if (mine !== requestGeneration) return;
-        display.setPage(page.canvas);
+        page = landed;
+        wearPage();
         // The cover wears the SAME bytes the texture was built from, so the frame
         // it covers and the frame behind it are one image rather than two.
-        return handoff.setSource(page.href);
+        return handoff.setSource(landed.href);
       })
       .then(() => {
         if (disposed || mine !== requestGeneration) return;
@@ -433,6 +457,7 @@ export function createBlogApproach(deps: BlogApproachDeps): BlogApproach {
       fromQuaternion.copy(camera.quaternion);
 
       phase = 'approaching';
+      wearPage();
       // Both other camera owners stand down for the whole run. The controller,
       // because a damped drag and a cinematic writing the same transform is a camera
       // fighting itself; the yaw follow, because a panel that keeps turning is a

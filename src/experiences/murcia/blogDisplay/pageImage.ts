@@ -38,22 +38,35 @@
  */
 
 /**
- * How many device pixels per CSS pixel the texture carries.
+ * The most device pixels per CSS pixel the texture carries.
  *
- * 2 is a deliberate ceiling rather than `devicePixelRatio`. The panel is seen at a
- * steep angle for most of the approach and dead-on only at the very end, so the
- * texture is undersampled almost the whole time and mipmaps do the work; the one
- * moment it is sampled 1:1 is the last frame before the handoff, and 2x is already
- * ample there. Following `devicePixelRatio` on a 3x phone would triple the decode
- * cost and the VRAM for a frame nobody sees for longer than it takes to leave.
+ * A ceiling on `devicePixelRatio`, and the same one `SceneCanvas`'s `dpr={[1, 2]}`
+ * puts on the renderer: the one moment the panel is sampled 1:1 is the last frame
+ * before the handoff, and a texel per rendered pixel is all that frame can show.
+ * Following a 3x phone past it would triple the decode cost and the VRAM for a frame
+ * nobody sees for longer than it takes to leave. Below it the ratio is followed
+ * down: at 1x, a 2x page is 44 MiB at 1920x1080 for detail the canvas never draws,
+ * and its upload is a long frame on every approach (measured 117 ms, 2026-09-23).
  *
- * `scripts/blog-preview.mjs` captures at this same `deviceScaleFactor`, so both
- * routes produce a canvas of the same dimensions for a given viewport.
+ * `scripts/blog-preview.mjs` captures at this ceiling, so a 1x page is the capture
+ * scaled down and both routes still produce a canvas of the same dimensions.
  */
 const TEXTURE_SCALE = 2;
 
 /** Chrome's floor is 4096 and most desktop GL exposes 16384. Stay well inside. */
 const MAX_TEXTURE_SIDE = 4096;
+
+/**
+ * The longest side of the texture the panel wears while it is scenery.
+ *
+ * The full page is sized for the last frame of an approach, and the rest of the
+ * session the panel is a plate in the distance, a fraction of the frame. On a 2x
+ * screen that page is 2880x1800 or more with mips, resident from the first view of
+ * the city and uploaded on that view's frames. At rest it wears this instead, and
+ * the full page only while a flight needs it. At 1x the full page is usually already
+ * this small, and there is one canvas and no swap.
+ */
+const RESTING_TEXTURE_SIDE = 2048;
 
 /** Written by the build, read here. See `scripts/blog-preview.mjs`. */
 const MANIFEST_URL = '/generated/blog-preview.json';
@@ -87,8 +100,13 @@ const PLATE_BAR_HEIGHT = 74;
 export type PageSource = 'screenshot' | 'plate';
 
 export interface PageImage {
-  /** What the display's material samples. */
+  /** What the display's material samples during a flight: the full page. */
   readonly canvas: HTMLCanvasElement;
+  /**
+   * What it samples at rest: `canvas` scaled to `RESTING_TEXTURE_SIDE`, or `canvas`
+   * itself when that is already small enough.
+   */
+  readonly restingCanvas: HTMLCanvasElement;
   /**
    * What the handoff element wears — a data URI on the plate route, the asset's own
    * URL on the screenshot route.
@@ -202,9 +220,20 @@ export function nearestVariant(
 }
 
 /** The device-pixel size of the canvas both routes draw into, for one viewport. */
-export function textureSize(cssWidth: number, cssHeight: number): { width: number; height: number } {
-  const scale = Math.min(TEXTURE_SCALE, MAX_TEXTURE_SIDE / Math.max(cssWidth, cssHeight));
+export function textureSize(
+  cssWidth: number,
+  cssHeight: number,
+  pixelRatio: number,
+): { width: number; height: number } {
+  const ratio = Math.min(TEXTURE_SCALE, Math.max(1, pixelRatio));
+  const scale = Math.min(ratio, MAX_TEXTURE_SIDE / Math.max(cssWidth, cssHeight));
   return { width: Math.round(cssWidth * scale), height: Math.round(cssHeight * scale) };
+}
+
+/** The resting texture's size for a full page of `width` x `height` device pixels. */
+export function restingTextureSize(width: number, height: number): { width: number; height: number } {
+  const scale = Math.min(1, RESTING_TEXTURE_SIDE / Math.max(width, height));
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
 /**
@@ -239,6 +268,15 @@ function newCanvas(
   return { canvas, ctx };
 }
 
+function restingCanvas(page: HTMLCanvasElement): HTMLCanvasElement {
+  const size = restingTextureSize(page.width, page.height);
+  if (size.width === page.width && size.height === page.height) return page;
+  const { canvas, ctx } = newCanvas(size.width, size.height);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(page, 0, 0, size.width, size.height);
+  return canvas;
+}
+
 async function loadImage(src: string): Promise<HTMLImageElement> {
   const image = new Image();
   image.src = src;
@@ -254,11 +292,18 @@ async function plateImage(cssWidth: number, cssHeight: number): Promise<PageImag
   const href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   const image = await loadImage(href);
 
-  const size = textureSize(cssWidth, cssHeight);
+  const size = textureSize(cssWidth, cssHeight, window.devicePixelRatio);
   const { canvas, ctx } = newCanvas(size.width, size.height);
   ctx.drawImage(image, 0, 0, size.width, size.height);
 
-  return { canvas, href, width: cssWidth, height: cssHeight, source: 'plate' };
+  return {
+    canvas,
+    restingCanvas: restingCanvas(canvas),
+    href,
+    width: cssWidth,
+    height: cssHeight,
+    source: 'plate',
+  };
 }
 
 /**
@@ -276,8 +321,10 @@ async function screenshotImage(
   cssHeight: number,
 ): Promise<PageImage> {
   const image = await loadImage(variant.src);
-  const size = textureSize(cssWidth, cssHeight);
+  const size = textureSize(cssWidth, cssHeight, window.devicePixelRatio);
   const { canvas, ctx } = newCanvas(size.width, size.height);
+  // Below 2x the capture is drawn DOWN, where the default filter aliases small text.
+  ctx.imageSmoothingQuality = 'high';
 
   const scale = Math.max(size.width / image.naturalWidth, size.height / image.naturalHeight);
   ctx.drawImage(
@@ -288,7 +335,14 @@ async function screenshotImage(
     Math.round(image.naturalHeight * scale),
   );
 
-  return { canvas, href: variant.src, width: cssWidth, height: cssHeight, source: 'screenshot' };
+  return {
+    canvas,
+    restingCanvas: restingCanvas(canvas),
+    href: variant.src,
+    width: cssWidth,
+    height: cssHeight,
+    source: 'screenshot',
+  };
 }
 
 export function createPageImageSource(options: PageImageSourceOptions): PageImageSource {
