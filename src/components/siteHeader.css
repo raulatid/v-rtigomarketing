@@ -217,10 +217,20 @@
    ONLY Firefox. Chromium 121+ honours `scrollbar-width`/`scrollbar-color` too,
    and once either is set it ignores every `::-webkit-scrollbar` rule and draws
    its own thin bar, arrow buttons included on Windows. So no component may set
-   the standard pair itself: it would bring the arrows back in Chrome. */
+   the standard pair itself: it would bring the arrows back in Chrome.
+
+   A scroller that is itself a rounded panel sets `--scrollbar-inset` to its
+   corner radius: the track is drawn along the straight edge, so without it
+   the thumb runs out past the curve at either end. It is reset on every
+   element so that it applies to that scroller alone — inherited, a textarea
+   inside the panel would take the panel's radius. */
 :root {
   --scrollbar-thumb: rgba(255, 255, 255, 0.22);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
+}
+
+* {
+  --scrollbar-inset: 0px;
 }
 
 ::-webkit-scrollbar {
@@ -228,7 +238,14 @@
   height: 6px;
 }
 
-::-webkit-scrollbar-track,
+::-webkit-scrollbar-track {
+  background: transparent;
+  /* Physical, not `margin-block`: the physical pair is what the track
+     pseudo-element is known to honour. */
+  margin-top: var(--scrollbar-inset);
+  margin-bottom: var(--scrollbar-inset);
+}
+
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
