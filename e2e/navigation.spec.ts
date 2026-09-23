@@ -89,6 +89,33 @@ async function wheelStream(page: Page, deltaY: number, count: number, gapMs = 16
   )
 }
 
+/**
+ * A viewer who keeps acting, for `durationMs`, without navigating anywhere.
+ *
+ * Keys rather than a wheel: the hint's grace is five seconds and 1200px of
+ * travel in one direction is a navigation, so a wheel held down that long would
+ * leave Earth before the rule it is testing had run. A bare modifier is in no
+ * handler on the page — it pokes the hint's watch and does nothing else.
+ *
+ * Returns the promise WITHOUT awaiting it, so a test can assert what the screen
+ * does while the viewer is still busy.
+ */
+function keyStream(page: Page, durationMs: number, gapMs = 100): Promise<void> {
+  return page.evaluate(
+    ([ms, gap]) =>
+      new Promise<void>((resolve) => {
+        const until = performance.now() + ms
+        const step = () => {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
+          if (performance.now() >= until) resolve()
+          else setTimeout(step, gap)
+        }
+        step()
+      }),
+    [durationMs, gapMs] as const,
+  )
+}
+
 /** Waits for the intro to land. The audit trigger only exists at phase 'site'. */
 async function reachSite(page: Page) {
   await page.waitForSelector('.audit-trigger', { timeout: 75_000 })
@@ -302,7 +329,7 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     expect((await rail(page))!.state).toBe('suppressed')
   })
 
-  test('the Earth hint answers stillness, and clears the footer while it floats', async ({
+  test('the Earth hint stands, steps aside for a busy viewer, and clears the footer while it floats', async ({
     page,
   }) => {
     // NEW COVERAGE, and it is new because it only just became possible. Until
@@ -321,8 +348,8 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
 
     const hint = page.locator('.earth-hint')
 
-    // It is offered on stillness. Nothing here acts, so it arrives on its own —
-    // which is the whole difference from Murcia's plate, offered on arrival.
+    // It STANDS (2026-09-23). Nothing here acts, and the sentence is simply
+    // there — it is no longer earned by two seconds of stillness first.
     await expect(hint).toHaveAttribute('data-visible', '', { timeout: 15_000 })
 
     // THE COLLISION THE BOTTOM EXPRESSION EXISTS TO PREVENT. `.site-footer` owns
@@ -347,10 +374,20 @@ test.describe('Earth <-> Murcia gesture navigation', () => {
     }
     expect(lowest).toBeLessThanOrEqual(footerTop)
 
-    // And it steps aside the moment the viewer acts. One event, far below the
-    // 1200px the gesture needs, so this dismisses the hint without navigating.
+    // A single act does NOT dismiss it any more: the grace outlives the gesture,
+    // which is the whole point of the change. One event, far below the 1200px
+    // the zoom band needs, so nothing navigates.
     await wheelStream(page, -40, 1)
-    await expect(hint).not.toHaveAttribute('data-visible', '', { timeout: 5_000 })
+    await page.waitForTimeout(1_000)
+    await expect(hint).toHaveAttribute('data-visible', '')
+
+    // It steps aside only for a viewer who keeps going. Asserted DURING the
+    // burst rather than after it: the return trip is two seconds of stillness,
+    // so a check that waited for the stream to end would be racing it.
+    const busy = keyStream(page, 9_000)
+    await page.waitForTimeout(6_500)
+    await expect(hint).not.toHaveAttribute('data-visible', '')
+    await busy
 
     // Then it comes back, because it answers a state and not an edge. This is
     // the half the arrival rule could not express: `onHintVisible` fired once

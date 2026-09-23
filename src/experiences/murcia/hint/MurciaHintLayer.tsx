@@ -9,9 +9,10 @@ import type { MurciaExperience } from '../MurciaExperience'
  * WHEN Murcia's hint is offered. What it looks like is `MurciaHint.tsx` and
  * `.scene-hint` in `styles.css`; this file decides nothing about that.
  *
- * Earth's `HintLayer`, brought to the city as it is (2026-09-22): offered on
- * STILLNESS, not on arrival — a couple of seconds of nothing, and it steps
- * aside the moment the viewer acts. The plate that stood here until
+ * Earth's `HintLayer`, brought to the city as it is (2026-09-22) and turned
+ * with it on 2026-09-23: the sentence STANDS on arrival, holds for five
+ * seconds into a burst of activity, and comes back after two seconds of
+ * stillness (`interaction/hintIdle`). The plate that stood here until
  * 2026-09-15 was offered a beat after each landing and did not come back; this
  * comes back whenever the viewer stops, which is when a way out is wanted.
  *
@@ -43,14 +44,20 @@ export function MurciaHintLayer({
   active,
   experienceRef,
   idleSeconds,
+  graceSeconds,
 }: {
   attention: Readonly<{ hintAllowed: boolean }>
   active: boolean
   experienceRef: RefObject<MurciaExperience | null>
-  /** Stillness before the hint is offered; Earth's number, shared on purpose. */
+  /** Stillness before the hint returns; Earth's number, shared on purpose. */
   idleSeconds: number
+  /** How long it stands while the viewer is busy; Earth's number too. */
+  graceSeconds: number
 }) {
-  const idle = useMemo(() => createIdleWatch({ idleSeconds }), [idleSeconds])
+  const idle = useMemo(
+    () => createIdleWatch({ idleSeconds, graceSeconds }),
+    [idleSeconds, graceSeconds],
+  )
   /** The node `App` renders. Null wherever nothing rendered it — the harnesses. */
   const el = useRef<HTMLElement | null>(null)
   /** What is currently painted, so a frame that changes nothing writes nothing. */
@@ -100,11 +107,11 @@ export function MurciaHintLayer({
 
     if (hovering.current) idle.poke()
 
-    // Idle is asked EVERY frame, including while the hint is up: the answer is
-    // a state and not an edge, so the first act after it appears turns this
-    // false and the sentence fades.
-    const still = idle.tick(clampFrameDelta(delta))
-    paint(el.current, painted, attention.hintAllowed && still)
+    // Asked EVERY frame, including while the hint is up: the answer is a state
+    // and not an edge, so the frame the grace runs out turns this false and the
+    // sentence fades.
+    const show = idle.tick(clampFrameDelta(delta))
+    paint(el.current, painted, attention.hintAllowed && show)
   })
 
   return null

@@ -16,22 +16,26 @@ import { HINT_CONFIG } from './hintConfig'
 // survived that change unaltered is everything below, because none of it was
 // ever about particles.
 //
-// ## It is offered on STILLNESS, not on arrival
+// ## It STANDS, and steps aside for a viewer who is plainly busy
 //
-// Client direction. The hint appears once the viewer has done nothing for a
-// couple of seconds and steps aside as soon as they act — so it reads as
-// something the scene offers while they are looking, rather than as a card
-// pushed at them every time a world lands.
+// Client direction, 2026-09-23. The sentence is there on arrival, holds for
+// five seconds into a burst of activity, and comes back after two seconds of
+// stillness. The rule itself is `interaction/hintIdle`; this file only decides
+// what counts as the viewer acting.
+//
+// It ran the other way round until that date — earned by two seconds of doing
+// nothing, gone on the first press — and that took the sentence away at exactly
+// the moment the viewer was trying the gesture it describes.
 //
 // Murcia's hint has run on the same rule since 2026-09-22
-// (`murcia/hint/MurciaHintLayer`), sharing `interaction/hintIdle` and this
-// number; the glass chip it replaced was an arrival affordance and is gone.
+// (`murcia/hint/MurciaHintLayer`), sharing `interaction/hintIdle` and these
+// numbers; the glass chip it replaced was an arrival affordance and is gone.
 // What arrives from the app is only PERMISSION — `attention.hintAllowed`,
 // meaning the viewer is on Earth and nothing else has their attention.
 //
-// The stillness itself is counted here rather than in the app because it is a
-// property of the viewer, not of the sequence, and because the frame loop is
-// already the thing that knows how much time has passed.
+// The counting happens here rather than in the app because it is a property of
+// the viewer, not of the sequence, and because the frame loop is already the
+// thing that knows how much time has passed.
 //
 // ## The element is FOUND, not threaded
 //
@@ -65,7 +69,11 @@ export function HintLayer({
   satelliteHoverRef: RefObject<boolean>
 }) {
   const idle = useMemo(
-    () => createIdleWatch({ idleSeconds: HINT_CONFIG.presence.idleSeconds }),
+    () =>
+      createIdleWatch({
+        idleSeconds: HINT_CONFIG.presence.idleSeconds,
+        graceSeconds: HINT_CONFIG.presence.graceSeconds,
+      }),
     [],
   )
   /** The node `App` renders. Null wherever nothing rendered it — the harnesses. */
@@ -88,7 +96,7 @@ export function HintLayer({
   //
   // A COMMITTED act, not attention. A press, a scroll, a key — someone doing any
   // of those has already decided where they are going, whether that is a drag
-  // towards a satellite or a button, and the hint steps aside for it.
+  // towards a satellite or a button, and the hint starts spending its grace.
   //
   // A bare `pointermove` is deliberately NOT on this list, and was: it dismissed
   // the hint on the smallest twitch of the mouse, which is the one thing a
@@ -130,7 +138,8 @@ export function HintLayer({
     // fired. It is the one hover the scene answers back — the badge bumps, the
     // cursor turns — so the viewer has already found a target and a hint
     // pointing at another one is in the way. Held down rather than poked once,
-    // so the wait only restarts when the pointer leaves.
+    // so a hover that outlasts the grace keeps the sentence away until the
+    // pointer leaves.
     //
     // The value is the previous frame's pick, which is why it is polled rather
     // than subscribed to: a frame of lag against a two-second rule is not a lag,
@@ -138,14 +147,18 @@ export function HintLayer({
     // the way out of the scene can.
     if (satelliteHoverRef.current) idle.poke()
 
-    // Idle is asked EVERY frame, including while the hint is up: the answer is a
-    // state and not an edge, so the first act after it appears turns this false
-    // and the sentence fades.
-    const still = idle.tick(dt)
+    // Asked EVERY frame, including while the hint is up: the answer is a state
+    // and not an edge, so the frame the grace runs out turns this false and the
+    // sentence fades.
+    const show = idle.tick(dt)
 
-    // `?hint=1` holds it up so the type can be judged; the stillness this waits
-    // for is otherwise broken by the very act of looking. DEBUG only.
-    paint(el.current, painted, PROTO_HINT.hold || (hintAllowed(state, attention.hintAllowed) && still))
+    // `?hint=1` pins it up so the type can be judged without the grace running
+    // out underneath. DEBUG only.
+    paint(
+      el.current,
+      painted,
+      PROTO_HINT.hold || (hintAllowed(state, attention.hintAllowed) && show),
+    )
   })
 
   return null

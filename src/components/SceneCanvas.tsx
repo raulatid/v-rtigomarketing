@@ -312,13 +312,14 @@ export function SceneCanvas({
         onOpenBlog={onOpenBlog}
         onBlogApproachStart={onBlogApproachStart}
       />
-      {/* Murcia's hint, on Earth's stillness rule and Earth's number. Renders
+      {/* Murcia's hint, on Earth's presence rule and Earth's numbers. Renders
           nothing; it paints one attribute on the node App renders. */}
       <MurciaHintLayer
         attention={murciaAttention}
         active={!earthActive}
         experienceRef={murciaRef}
         idleSeconds={HINT_CONFIG.presence.idleSeconds}
+        graceSeconds={HINT_CONFIG.presence.graceSeconds}
       />
       {/* Every decision the pipeline used to make for itself is made here:
           which experience is showing, whether a transition is playing, and
