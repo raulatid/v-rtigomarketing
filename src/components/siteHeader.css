@@ -490,7 +490,10 @@
    the fill and the radius — the audit is the site's one ask and only it wears
    a button; contact is the quieter door beside it. Colour alone carries the
    hover, so the 38px height stays purely as the touch target. */
-.contact-trigger {
+/* Blog and Servicios (SceneShortcuts.tsx) are quiet doors too, and wear
+   Contacto's every rule below: same word, same scrim, same menu row. */
+.contact-trigger,
+.scene-shortcut {
   display: inline-flex;
   align-items: center;
   height: 38px;
@@ -508,15 +511,24 @@
   animation: audit-trigger-in 480ms ease 60ms backwards;
 }
 
-.contact-trigger:hover {
+.contact-trigger:hover,
+.scene-shortcut:hover {
   color: #fff;
 }
 
-.contact-trigger:active {
+.contact-trigger:active,
+.scene-shortcut:active {
   transform: scale(0.97);
 }
 
-.contact-trigger:focus-visible {
+/* During a warp: offered again once it lands. */
+.scene-shortcut:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.contact-trigger:focus-visible,
+.scene-shortcut:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -530,11 +542,13 @@
 
 /* Over a light ground — Murcia's daylight sky, the blog's paper — the bare
    text goes ink. The Auditoría box carries its own colour everywhere. */
-.site-header[data-tone='light'] .contact-trigger {
+.site-header[data-tone='light'] .contact-trigger,
+.site-header[data-tone='light'] .scene-shortcut {
   color: rgba(11, 11, 13, 0.85);
 }
 
-.site-header[data-tone='light'] .contact-trigger:hover {
+.site-header[data-tone='light'] .contact-trigger:hover,
+.site-header[data-tone='light'] .scene-shortcut:hover {
   color: var(--accent);
 }
 
@@ -639,7 +653,8 @@
    it has no fill identity of its own, and at 6.81:1 the text can afford to be
    the only thing anybody notices. */
 @media (min-width: 768px) {
-  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger {
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger,
+  .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut {
     color: #fff;
     padding: 0 0.75rem;
     /* Squared to the site's corner language since plan 020 — a 999px pill was
@@ -660,7 +675,8 @@
       opacity 0.3s ease;
   }
 
-  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover {
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover,
+  .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut:hover {
     color: #fff;
     background: rgba(8, 12, 18, 0.75);
   }
@@ -825,6 +841,7 @@
 @media (prefers-reduced-motion: reduce) {
   .audit-trigger,
   .contact-trigger,
+  .scene-shortcut,
   .sound-toggle {
     transition: none;
     animation: none;

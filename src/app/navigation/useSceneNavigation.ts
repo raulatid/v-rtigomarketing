@@ -82,9 +82,12 @@ export function useSceneNavigation({
    */
   const settle = useCallback(() => inputRef.current?.settle(), [])
 
-  const navigateTo = useCallback((destination: NavigationContext['current']) => {
-    inputRef.current?.navigateTo(destination)
-  }, [])
+  /** Whether a warp was committed. See `NavigationInput.navigateTo`. */
+  const navigateTo = useCallback(
+    (destination: NavigationContext['current']): boolean =>
+      inputRef.current?.navigateTo(destination) ?? false,
+    [],
+  )
 
   /** Drops any gesture in flight. Used when the intro phase moves under us. */
   const reset = useCallback(() => inputRef.current?.reset(), [])

@@ -69,6 +69,12 @@
     --menu-3d-y: max(42vh, 320px);
   }
 
+  /* The scene's menu also carries the line of places under the doors
+     (Blog · Servicios, 2026-09-24), about 60px more; the blog's does not. */
+  .site-menu-stage.app__stage {
+    --menu-3d-y: max(46vh, 380px);
+  }
+
   .site-menu-viewport {
     transition:
       transform var(--menu-3d-ms, 560ms) var(--menu-3d-ease-out),
@@ -134,9 +140,11 @@
     padding: 0 max(var(--menu-side-inset), env(safe-area-inset-right)) 0 max(var(--menu-side-inset), env(safe-area-inset-left));
   }
 
+  /* A wrapping row rather than a column, so the two places can share one line
+     under the doors; each door is `width: 100%` and still takes a line alone. */
   .site-menu-layer .site-header__end {
     display: flex;
-    flex-direction: column;
+    flex-flow: row wrap;
     align-items: stretch;
     gap: 40px;
   }
@@ -154,6 +162,12 @@
     position: relative;
   }
 
+  /* The two places come after the two doors (SceneShortcuts.tsx). They mount
+     first, to sit left on the desktop line, so `order` puts them last here. */
+  .site-menu-layer .site-header__end > .scene-shortcut {
+    order: 3;
+  }
+
   /* Halfway through the gap, bounded by the menu's existing side gutters.
      It follows Contacto's entrance and never intercepts a press. */
   .site-menu-layer .site-header__end > .contact-trigger::before {
@@ -168,7 +182,8 @@
   }
 
   .site-menu-layer .site-header__end > .audit-trigger,
-  .site-menu-layer .site-header__end > .contact-trigger {
+  .site-menu-layer .site-header__end > .contact-trigger,
+  .site-menu-layer .site-header__end > .scene-shortcut {
     display: flex;
     position: relative;
     flex-direction: column;
@@ -196,6 +211,17 @@
     transition:
       opacity 240ms ease,
       transform 360ms var(--menu-3d-ease-in);
+  }
+
+  /* The places are a second tier: one line, a smaller word each, no caption
+     and no arrow — the doors stay the menu's two asks, and four full rows do
+     not fit above the card on a phone. The 40px gap reads as the break; the
+     negative margin pulls the line toward the doors it follows. */
+  .site-menu-layer .site-header__end > .scene-shortcut {
+    width: auto;
+    margin-top: -12px;
+    padding: 4px 0;
+    font-size: 24px;
   }
 
   .site-menu-layer .site-menu-arrow {
@@ -228,6 +254,14 @@
 
   .site-menu-surface[data-menu-state='open'] .site-menu-layer .site-header__end > .contact-trigger {
     transition-delay: 60ms;
+  }
+
+  .site-menu-surface[data-menu-state='open'] .site-menu-layer .site-header__end > .scene-shortcut[data-shortcut='blog'] {
+    transition-delay: 120ms;
+  }
+
+  .site-menu-surface[data-menu-state='open'] .site-menu-layer .site-header__end > .scene-shortcut[data-shortcut='services'] {
+    transition-delay: 180ms;
   }
 
   .site-menu-surface[data-menu-state='open'] .site-menu-layer .site-header__end > :active {

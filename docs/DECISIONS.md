@@ -1693,6 +1693,29 @@ exactly once. Any future chrome gates on the same prop-from-phase pattern, never
 > transform, which iOS Safari has been known to ignore; the fallback is `isolation: isolate` on the
 > card, and it is untested here because both mobile projects are Chromium.
 
+> **AMENDED 2026-09-24 — two places join the two doors (client direction).** Reverses "the two
+> doors only" above: Blog and Servicios sit beside Contacto and Auditoría, as words on the desktop
+> line (before the doors) and, in the phone menu, as one line of smaller words under the doors — a
+> second tier, because four full rows do not fit above the card; the scene's card drops to
+> `max(46vh, 380px)` to make room (the blog's menu keeps 42vh). So any visitor reaches the
+> blog and the services campus without finding them in the city. `SceneShortcuts.tsx` renders them
+> into the actions cell like the doors, gated on `site` like everything here; `useSceneShortcuts.ts`
+> is the journey, because neither place is a URL the scene can be sent to. The press waits for the
+> menu to report `closed` — `attentionIsFree` refuses a warp through the whole fold, and a flight
+> into a tilted scene is unseen — which on a desktop is at once.
+>
+> | | on Earth | in the city | a district open |
+> |---|---|---|---|
+> | Blog | /blog, no flight | the panel's approach, as a press on it | /blog, no flight |
+> | Servicios | the warp, then the campus flight | the campus flight | nothing — it is there |
+>
+> Servicios from Earth chains the warp and the campus through the warp's one real end
+> (`onSettled`), and only when `navigateTo` reports it committed (it now returns whether it did),
+> so a refused warp leaves nothing waiting for the next one. The city takes it as a REQUEST
+> (`MurciaExperience.requestServices`), consumed once the arrival's warp lets go of the rig and
+> dropped if anything else then has the camera, or if the city is left. The blog's own header
+> (`BlogRoute`) does not carry them yet.
+
 **26.17 — The cursor glyphs are inlined path data, and `public/icons/*.svg` is the design source
 that is not read at runtime.** Redrawing those files changes nothing on screen until the `d`
 attributes are re-pasted into the component; both the component and the stylesheet say so at the

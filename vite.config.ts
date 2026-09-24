@@ -121,7 +121,20 @@ const INTRO_BUDGET_BYTES = 16_000
 // the legal panel's chunk instead (src/content/legal.ts) — content must not
 // spend a code budget. Headroom after: ~3,900 B against the live content.
 // The selective modulepreload loop remains the honest fix, and is next.
-const INITIAL_JS_BUDGET_BYTES = 1_625_000
+//
+// ── 1,625,000 -> 1,628,000, 2026-09-24, the Murcia mobile work ──
+//
+// APP GROWTH, raised on the user's call. Same 11 requests and no new name in the
+// list. Measured by building each commit with the same content:
+//
+//   1,619,531 B  9afd484 — before
+//   1,621,393 B  a2724a3 — the finger's own turn, and its travel's release throw
+//   1,624,398 B  25e47c3 — the geotags, and the highlight's wait-then-show
+//   1,626,125 B  the header's Blog and Servicios buttons and their journey
+//
+// The last is what fired this: 25e47c3 had left 602 B, and it went over by
+// 1,125 B. Headroom after: 1,875 B. Still the selective preload loop next.
+const INITIAL_JS_BUDGET_BYTES = 1_628_000
 // 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
 // existing city approach prefetch, not by the cold / modulepreload loop.
 // Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.

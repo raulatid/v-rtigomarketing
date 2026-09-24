@@ -97,8 +97,12 @@ export interface NavigationInputDeps {
 }
 
 export interface NavigationInput {
-  /** Explicit navigation shares the gesture lock and never toggles at its destination. */
-  navigateTo(destination: NavigationContext['current']): void
+  /**
+   * Explicit navigation shares the gesture lock and never toggles at its destination.
+   * Returns whether a warp was committed, so a caller chaining something onto the
+   * arrival does not wait for one that was refused.
+   */
+  navigateTo(destination: NavigationContext['current']): boolean
   /** The transition finished. Starts the cooldown from this instant. */
   settle(): void
   /**
@@ -392,7 +396,9 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     activate(event.timeStamp)
   }
 
-  const onClick = (): void => activate(now())
+  const onClick = (): void => {
+    activate(now())
+  }
 
   /**
    * Take the whole journey at once.
@@ -404,11 +410,11 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
    * Explicit navigation commits from any zoom depth. Each world re-bases the
    * cinematic on its actual camera pose, preserved until the covered cut.
    */
-  function activate(timeStampMs: number): void {
+  function activate(timeStampMs: number): boolean {
     const context = deps.getContext()
-    if (!context.canNavigate) return
+    if (!context.canNavigate) return false
     const intent = machine.commit(context.current)
-    if (!intent) return
+    if (!intent) return false
     // Preserve the departing zoom pose until the covered cut.
     bandEndReached = false
     pinchSpent = true
@@ -416,6 +422,7 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     paint('locked', context.current)
     deps.onCommit(intent)
     ensureRunning()
+    return true
   }
   // --- Two fingers, on the canvas --------------------------------------------
   //
@@ -794,8 +801,8 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
 
   return {
     navigateTo(destination) {
-      if (deps.getContext().current === destination) return
-      activate(now())
+      if (deps.getContext().current === destination) return false
+      return activate(now())
     },
     settle() {
       machine.settle(now())

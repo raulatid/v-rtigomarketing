@@ -153,6 +153,8 @@ export class MurciaExperience {
   private compass: CompassBar | null = null;
   /** Pins over the same two places, from a distance. Self-contained: `geotags/`. */
   private geotags: Geotags | null = null;
+  /** The header's Servicios button, waiting for a free camera. See `requestServices`. */
+  private servicesRequested = false;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
@@ -659,6 +661,7 @@ export class MurciaExperience {
   setActive(next: boolean): void {
     if (this.active === next) return;
     this.active = next;
+    if (!next) this.servicesRequested = false;
 
     // Frame work was always gated; INPUT was not. Both district interaction and
     // the click probe listen on the SHARED canvas, so while Earth was showing,
@@ -1147,6 +1150,33 @@ export class MurciaExperience {
     this.campus?.releaseFocus();
   }
 
+  /**
+   * The header's Blog button, while the city is showing: the same approach a
+   * press on the panel starts. False when it could not — no blog in the city,
+   * not in the overview (a district or a flight has the camera), or already
+   * flying — and the caller then opens the blog without the flight.
+   */
+  flyToBlog(): boolean {
+    if (!this.isCityOverview || !this.blogDisplay) return false;
+    return this.blogDisplay.open();
+  }
+
+  /**
+   * The header's Servicios button: fly into the campus as soon as the camera is
+   * free.
+   *
+   * A REQUEST, consumed in `update()`, because the button can be pressed on
+   * Earth: the arrival's warp still holds the rig for the length of its
+   * pin-back after the scene becomes active, and `campus.enter()` refuses a held
+   * rig. It waits out the warp and nothing else — if the blog or the campus
+   * itself has the camera when the warp lets go, the request is dropped rather
+   * than acted on later, when the viewer has moved on. Leaving the city drops it
+   * too, so no later arrival opens the campus by surprise.
+   */
+  requestServices(): void {
+    if (this.campus) this.servicesRequested = true;
+  }
+
   // --- Viewport and bounds --------------------------------------------------
 
   /**
@@ -1320,6 +1350,14 @@ export class MurciaExperience {
       // underneath whoever is flying it.
     } else {
       this.rig?.update(delta);
+    }
+
+    // The Servicios button. After the ladder, so the flight it starts is picked
+    // up by the campus's own update at the top of the next frame. It waits only
+    // while the arrival's warp holds the rig; see `requestServices`.
+    if (this.servicesRequested && !this.rig?.hasClaim('warp')) {
+      this.servicesRequested = false;
+      if (this.rig && !this.rig.isOwned) this.campus?.enter();
     }
 
     // THE COMPASS RUNS LAST, after whichever owner wrote the pose.

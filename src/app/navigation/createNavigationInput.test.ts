@@ -75,8 +75,18 @@ describe('explicit destination navigation', () => {
 
   it('does not toggle back to Murcia when already on Earth', () => {
     const { input, commits } = setup()
-    input.navigateTo('earth')
+    expect(input.navigateTo('earth')).toBe(false)
     expect(commits).toEqual([])
+    input.dispose()
+  })
+
+  it('says whether it committed, so an arrival is only waited for when one is coming', () => {
+    const { input, context, commits } = setup({ current: 'murcia' })
+    context.canNavigate = false
+    expect(input.navigateTo('earth')).toBe(false)
+    context.canNavigate = true
+    expect(input.navigateTo('earth')).toBe(true)
+    expect(commits).toEqual(['exit-murcia'])
     input.dispose()
   })
 

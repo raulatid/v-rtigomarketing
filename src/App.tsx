@@ -15,6 +15,7 @@ import { LazyScene } from './components/LazyScene'
 import { CasePanel } from './components/CasePanel'
 import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
+import { SceneShortcuts } from './components/SceneShortcuts'
 import { LegalPanel } from './components/LazyLegalPanel'
 import { ConsentBanner } from './components/ConsentBanner'
 import { CopyrightMark } from './components/CopyrightMark'
@@ -41,6 +42,7 @@ import { useExperienceTransition } from './app/useExperienceTransition'
 import { crossfadeMusic, setMusicSuppressed, startMusic } from './app/audio/backgroundMusic'
 import { SoundToggle } from './components/SoundToggle'
 import { useSceneNavigation } from './app/navigation/useSceneNavigation'
+import { useSceneShortcuts } from './app/useSceneShortcuts'
 import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './platform/buildFlags'
 import { canSkipTail } from './app/introSkip'
@@ -147,6 +149,8 @@ export default function App() {
   // warp, and the warp is what releases the input lock and clears the zoom.
   const navigationRef = useRef<HTMLDivElement>(null)
   const settleNavigationRef = useRef<() => void>(() => {})
+  // The header's Servicios button waits on the same end, to fly into the campus.
+  const shortcutsSettledRef = useRef<() => void>(() => {})
   const resetZoomRef = useRef<() => void>(() => {})
 
   const { transitionTo, transitioning, stepTransition } = useExperienceTransition({
@@ -156,6 +160,7 @@ export default function App() {
     // render later — long enough for a trackpad momentum tail to be accepted.
     onSettled: () => {
       settleNavigationRef.current()
+      shortcutsSettledRef.current()
     },
     // The viewer's zoom belongs to the world they were in. Cleared on the cut's
     // frame, under full cover, alongside every other discontinuity (`adr/014`).
@@ -343,6 +348,16 @@ export default function App() {
   })
   settleNavigationRef.current = settleNavigation
   resetZoomRef.current = resetNavigationZoom
+
+  // Blog and Servicios in the header, from either world (useSceneShortcuts.ts).
+  const shortcuts = useSceneShortcuts({
+    activeExperience,
+    menuState: headerMenuState,
+    murciaRef,
+    navigateTo,
+    openBlogIndex: nav.openBlogIndex,
+  })
+  shortcutsSettledRef.current = shortcuts.onWarpSettled
 
   // Mirror focus for the DOM affordance; navigation still checks the live getter
   // at activation, so a district opening between renders cannot admit a warp.
@@ -736,6 +751,18 @@ export default function App() {
           first because portals append in mount order and it sits to the LEFT
           of the Auditoría box. The quiet sibling carries the phones (DECISIONS
           §30); the audit is the site's one full-attention ask. */}
+      {/* The two places, before the two doors: portals append in mount order, so
+          on the line they read Blog, Servicios, Contacto, Auditoría, and the
+          phone menu reorders them after the doors (siteMenu.css). They reverse
+          §26.16's "two doors only" — see its amendment of 2026-09-24. */}
+      <SceneShortcuts
+        ready={phase === 'site'}
+        triggerHost={headerActions}
+        disabled={transitioning}
+        onBlog={() => shortcuts.request('blog')}
+        onServices={() => shortcuts.request('services')}
+      />
+
       <ContactSection
         ready={phase === 'site'}
         triggerHost={headerActions}

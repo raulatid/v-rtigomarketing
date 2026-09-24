@@ -89,6 +89,12 @@ export interface BlogDisplayEntry {
   readonly highlightPulse: number;
   setEnabled(next: boolean): void;
   /**
+   * Starts the approach as a press on the panel would, for a way in that is not
+   * the panel — the header's Blog button. Refused, returning false, whenever the
+   * press would have been: disabled, blocked by a district, or already flying.
+   */
+  open(): boolean;
+  /**
    * The panel's centre in world space, copied into `out`.
    *
    * For the compass, which bears on this point. It follows the PANEL rather than
@@ -205,6 +211,12 @@ export function createBlogDisplayEntry(
       if (next === enabled) return;
       enabled = next;
       pointer.setEnabled(next);
+    },
+
+    open(): boolean {
+      if (!enabled || options.blocked() || approach.isBusy) return false;
+      approach.commit();
+      return true;
     },
 
     anchor(out: THREE.Vector3): THREE.Vector3 {
