@@ -158,10 +158,17 @@ describe('what it refuses', () => {
   });
 });
 
+/** The shipped touch numbers; every override below asks for something else. */
+const shippedTouch = () => ({
+  touchRotationGain: 80,
+  touchInertiaFriction: 5,
+  touchInertiaMinSpeed: 0.6,
+});
+
 describe('?touchYaw= sets the finger turn on the rig tuning', () => {
   // 57, not the shipped 80, per the note at the top of this file.
   const tuningFor = (search: string, enabled = true) => {
-    const tuning = { touchRotationGain: 80 };
+    const tuning = shippedTouch();
     applyCameraTuningQueryOverrides(tuning, search, enabled);
     return tuning.touchRotationGain;
   };
@@ -178,6 +185,33 @@ describe('?touchYaw= sets the finger turn on the rig tuning', () => {
 
   it('changes nothing when the shell says the tools are off', () => {
     expect(tuningFor('?touchYaw=57', false)).toBe(80);
+  });
+});
+
+describe('?touchInertia= and ?touchFlingMin= set the finger throw', () => {
+  const apply = (search: string, enabled = true) => {
+    const tuning = shippedTouch();
+    applyCameraTuningQueryOverrides(tuning, search, enabled);
+    return tuning;
+  };
+
+  it('each reaches the tuning on its own', () => {
+    expect(apply('?touchInertia=3').touchInertiaFriction).toBe(3);
+    expect(apply('?touchFlingMin=0.3').touchInertiaMinSpeed).toBe(0.3);
+  });
+
+  it('accepts 0, which turns the carry off or lets any speed throw', () => {
+    expect(apply('?touchInertia=0').touchInertiaFriction).toBe(0);
+    expect(apply('?touchFlingMin=0').touchInertiaMinSpeed).toBe(0);
+  });
+
+  it('refuses a negative or non-numeric value', () => {
+    expect(apply('?touchInertia=-1').touchInertiaFriction).toBe(5);
+    expect(apply('?touchFlingMin=slow').touchInertiaMinSpeed).toBe(0.6);
+  });
+
+  it('changes nothing when the shell says the tools are off', () => {
+    expect(apply('?touchInertia=3&touchFlingMin=0.3', false)).toEqual(shippedTouch());
   });
 });
 

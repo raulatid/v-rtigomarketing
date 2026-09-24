@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { CameraRig } from './CameraRig'
 import { createDefaultCameraTuning } from './cameraTuning'
+import type { CameraTuning } from './cameraTuning'
 import { murciaConfig } from '../config/murciaConfig'
 import { resolveCameraPose } from '../config/environmentConfig'
 
@@ -14,15 +15,18 @@ import { resolveCameraPose } from '../config/environmentConfig'
 
 const ASPECT = 16 / 9
 
-function makeRig(): CameraRig {
+function makeRig(overrides: Partial<CameraTuning> = {}): CameraRig {
   const pose = resolveCameraPose(murciaConfig, ASPECT)
   const camera = new THREE.PerspectiveCamera(pose.fov, ASPECT, pose.near, pose.far)
-  const tuning = createDefaultCameraTuning(
-    murciaConfig,
-    pose.distance,
-    pose.elevationDegrees,
-    murciaConfig.navigation.bounds,
-  )
+  const tuning = {
+    ...createDefaultCameraTuning(
+      murciaConfig,
+      pose.distance,
+      pose.elevationDegrees,
+      murciaConfig.navigation.bounds,
+    ),
+    ...overrides,
+  }
   const rig = new CameraRig(camera, pose, tuning)
   rig.setFocus(murciaConfig.initialFocus.x, murciaConfig.initialFocus.z)
   // Left holding the claim it is born with, deliberately. The rig does not gate
@@ -257,5 +261,97 @@ describe('handing the camera to another system and taking it back', () => {
     expect(camera.position.distanceTo(parked)).toBe(0)
     rig.setPose(resolveCameraPose(murciaConfig, 0.5))
     expect(camera.position.distanceTo(parked)).toBeGreaterThan(1)
+  })
+})
+
+describe('the release throw', () => {
+  /** How far the TARGET has moved from the rig's starting focus. */
+  const travelled = (rig: CameraRig) => {
+    const s = rig.snapshot()
+    return Math.hypot(s.targetX - murciaConfig.initialFocus.x, s.targetZ - murciaConfig.initialFocus.z)
+  }
+  const run = (rig: CameraRig, seconds: number, hz = 60) => {
+    for (let i = 0; i < seconds * hz; i += 1) rig.update(1 / hz)
+  }
+
+  it('coasts speed / friction viewport heights, the same ground a drag of that size covers', () => {
+    const thrown = makeRig({ touchInertiaFriction: 5 })
+    thrown.fling(1)
+    expect(thrown.isCoasting).toBe(true)
+    run(thrown, 4)
+    expect(thrown.isCoasting).toBe(false)
+
+    const dragged = makeRig()
+    dragged.drag(0, 1 / 5)
+    // Short by the tail cut off at the stop speed, 0.01/5 of a height.
+    expect(travelled(thrown)).toBeGreaterThan(0)
+    expect(Math.abs(travelled(thrown) - travelled(dragged))).toBeLessThan(0.02 * travelled(dragged))
+  })
+
+  it('coasts the same distance at 60Hz and 240Hz', () => {
+    const slow = makeRig()
+    slow.fling(1.5)
+    run(slow, 4, 60)
+    const fast = makeRig()
+    fast.fling(1.5)
+    run(fast, 4, 240)
+    expect(Math.abs(travelled(slow) - travelled(fast))).toBeLessThan(0.01 * travelled(slow))
+  })
+
+  it('does not throw below the minimum speed, or with the carry turned off', () => {
+    const slow = makeRig({ touchInertiaMinSpeed: 0.6 })
+    slow.fling(0.5)
+    expect(slow.isCoasting).toBe(false)
+
+    const off = makeRig({ touchInertiaFriction: 0 })
+    off.fling(3)
+    expect(off.isCoasting).toBe(false)
+  })
+
+  it('caps the speed it carries', () => {
+    const capped = makeRig({ touchInertiaMaxSpeed: 1 })
+    capped.fling(50)
+    run(capped, 4)
+    const atCap = makeRig({ touchInertiaMaxSpeed: 1 })
+    atCap.fling(1)
+    run(atCap, 4)
+    expect(travelled(capped)).toBeCloseTo(travelled(atCap), 9)
+  })
+
+  it('is dropped, not paused, when anything takes the camera', () => {
+    const rig = makeRig()
+    rig.fling(2)
+    rig.claim('campus')
+    expect(rig.isCoasting).toBe(false)
+    rig.release('campus')
+    const before = travelled(rig)
+    run(rig, 2)
+    expect(travelled(rig)).toBe(before)
+  })
+
+  it('is ended by a press and by anything that places the camera', () => {
+    const pressed = makeRig()
+    pressed.fling(2)
+    pressed.stopFling()
+    expect(pressed.isCoasting).toBe(false)
+
+    const placed = makeRig()
+    placed.fling(2)
+    placed.setFocus(murciaConfig.initialFocus.x, murciaConfig.initialFocus.z)
+    expect(placed.isCoasting).toBe(false)
+
+    const flown = makeRig()
+    flown.fling(2)
+    flown.setNavigated({ yaw: 30 })
+    expect(flown.isCoasting).toBe(false)
+  })
+
+  it('stops by itself against the bounds rather than pushing forever', () => {
+    const rig = makeRig()
+    // Straight at the edge, far past it: the carry has to end on the wall.
+    rig.drag(0, 50)
+    rig.fling(4)
+    run(rig, 1)
+    expect(rig.isCoasting).toBe(false)
   })
 })

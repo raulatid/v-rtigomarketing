@@ -23,11 +23,16 @@
  *
  * ── The finger's feel, added 2026-09-24 ──
  *
- *   ?touchYaw=80
+ *   ?touchYaw=80  ?touchInertia=5  ?touchFlingMin=0.6
  *
  * `touchRotationGain`, degrees per viewport width for a touch drag. Still being
  * judged on phones; 40 and 55 were earlier cuts, and `?touchYaw=75` is the
  * pre-split A/B.
+ *
+ * `touchInertiaFriction` (1/s) and `touchInertiaMinSpeed` (viewport heights per
+ * second): how fast a thrown stroke stops, and how fast a lift has to be to
+ * throw at all. Lower friction coasts further; `?touchInertia=0` is the A/B
+ * without any carry.
  *
  * Applied by `applyCameraTuningQueryOverrides`, since the tuning is not part of
  * the config.
@@ -294,18 +299,31 @@ export function applyNavigationQueryOverrides(
  * `camera/`.
  */
 export function applyCameraTuningQueryOverrides(
-  tuning: { touchRotationGain: number },
+  tuning: {
+    touchRotationGain: number;
+    touchInertiaFriction: number;
+    touchInertiaMinSpeed: number;
+  },
   search: string,
   enabled: boolean,
 ): void {
   // The same two gates as `applyNavigationQueryOverrides`, for the same reasons.
   if (!DEBUG_TOOLS_ENABLED || !enabled) return;
 
-  const touchYaw = readNumber(new URLSearchParams(search), 'touchYaw', (v) => v > 0);
-  if (touchYaw === null) return;
-  tuning.touchRotationGain = touchYaw;
-  console.info('[navigation] touch turn overridden by query parameters', {
-    touchRotationGain: touchYaw,
+  const params = new URLSearchParams(search);
+  const touchYaw = readNumber(params, 'touchYaw', (v) => v > 0);
+  // 0 is meaningful for both: no carry, and a carry from any speed.
+  const touchInertia = readNumber(params, 'touchInertia', (v) => v >= 0);
+  const touchFlingMin = readNumber(params, 'touchFlingMin', (v) => v >= 0);
+  if (touchYaw === null && touchInertia === null && touchFlingMin === null) return;
+
+  if (touchYaw !== null) tuning.touchRotationGain = touchYaw;
+  if (touchInertia !== null) tuning.touchInertiaFriction = touchInertia;
+  if (touchFlingMin !== null) tuning.touchInertiaMinSpeed = touchFlingMin;
+  console.info('[navigation] touch feel overridden by query parameters', {
+    touchRotationGain: tuning.touchRotationGain,
+    touchInertiaFriction: tuning.touchInertiaFriction,
+    touchInertiaMinSpeed: tuning.touchInertiaMinSpeed,
   });
 }
 

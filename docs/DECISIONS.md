@@ -3685,6 +3685,21 @@ reports together, and a trackpad never sends a pure one.
 > axis on a clearly vertical stroke — that is a classification, which this section rejects.
 > `check:navigation` §11 asserts the split and that travel is unaffected.
 
+> **Amended 2026-09-24, second change — a finger's travel carries on after it lifts.** Every
+> stroke used to stop dead on release, so on a phone covering ground took many short strokes,
+> and each one brought its own sideways drift into the heading. Now a TOUCH lift keeps the
+> stroke's vertical speed (read over its last 80 ms, in viewport heights per second) and the rig
+> feeds it into the travel target through `drag`, decaying as `exp(-friction·t)` — integrated
+> exactly, so it coasts `speed / friction` heights at any frame rate. Travel only: the turn stops
+> with the finger. No throw from a mouse, a cancel, the last finger of a pinch, a finger held
+> still before lifting, or a lift slower than `touchInertiaMinSpeed`. It is DROPPED, not paused,
+> by a new press, any claim (a paused carry would resume by itself when the owner let go), any
+> write that places the camera (`setFocus`, `setNavigated`, `adoptFromCamera`), and the bounds.
+> Provisional numbers: friction 5/s, minimum 0.6 and cap 4 heights/s — a brisk 250px flick on an
+> 844px phone coasts ~0.4 of a height. `?touchInertia=` (0 turns it off, the A/B) and
+> `?touchFlingMin=` tune them on a device. Asserted in `CameraRig.test.ts` and
+> `createCameraInput.test.ts` ("the release throw").
+
 
 ## 45. The services district is the campus
 

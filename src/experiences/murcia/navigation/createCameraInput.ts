@@ -35,6 +35,12 @@ import type { CameraRig } from '../camera/CameraRig'
  * `if (|dx| > |dy|)` branch and no forward vector captured at pointerdown — the
  * rig re-derives the heading from the yaw it has just written, which is what
  * makes a diagonal drag trace a curve rather than a straight line at an angle.
+ *
+ * ## The one thing it measures
+ *
+ * The speed of a touch stroke's last 80 ms, handed to `rig.fling` on the lift
+ * so a thrown stroke's travel carries on. The rig owns the thresholds and the
+ * decay; this module only knows how fast the finger was going when it left.
  */
 
 export interface CameraInputEvents {
@@ -63,6 +69,24 @@ interface PointerSample {
   y: number
 }
 
+/**
+ * How much of the end of a stroke its release speed is read from, ms.
+ *
+ * Short, so a finger that stops and THEN lifts reads as stopped — that is a
+ * placement, and it must not coast. Long enough to span several touch events
+ * at 60–120 Hz, so one noisy sample does not decide the throw.
+ */
+const FLING_WINDOW_MS = 80
+/** Floor on the span a speed is divided by, so a two-event stroke cannot spike. */
+const FLING_MIN_SPAN_MS = 16
+
+interface TravelSample {
+  /** `event.timeStamp`, ms. */
+  t: number
+  /** Vertical move in viewport heights, as handed to `rig.drag`. */
+  dy: number
+}
+
 export function createCameraInput(options: CameraInputOptions): CameraInput {
   const { element, rig, events } = options
 
@@ -70,6 +94,13 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
   let viewportWidth = Math.max(1, options.width)
   let viewportHeight = Math.max(1, options.height)
   let dragging = false
+
+  // The recent vertical travel of a one-finger stroke, for the release throw.
+  // `throwable` is decided at the first contact and lost for good the moment a
+  // second one lands: the last finger lifting off a pinch is not a throw.
+  const travelSamples: TravelSample[] = []
+  let strokeStart = 0
+  let throwable = false
 
   const setDragging = (next: boolean): void => {
     if (next === dragging) return
@@ -127,9 +158,15 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
     // A pointer that is down is not hovering.
     sendCursor(0, 0)
+    // Any press catches a coasting camera, the way a hand stops a thrown map.
+    rig.stopFling()
+    travelSamples.length = 0
     if (pointers.size === 1) {
+      strokeStart = event.timeStamp
+      throwable = event.pointerType === 'touch'
       setDragging(true)
     } else {
+      throwable = false
       // A second contact is a pinch, and the pinch belongs to the app layer.
       // Stop dragging rather than trying to arbitrate; there is nothing to
       // arbitrate, because two fingers now mean exactly one thing.
@@ -177,10 +214,48 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
     if (dx === 0 && dy === 0) return
 
     rig.drag(dx / viewportWidth, dy / viewportHeight, event.pointerType === 'touch')
+
+    if (throwable) {
+      travelSamples.push({ t: event.timeStamp, dy: dy / viewportHeight })
+      // Pruned against the newest sample, so the buffer stays a few entries long
+      // however long the stroke runs.
+      while (travelSamples.length > 0 && travelSamples[0].t < event.timeStamp - FLING_WINDOW_MS) {
+        travelSamples.shift()
+      }
+    }
+  }
+
+  /**
+   * The stroke's vertical speed over its last `FLING_WINDOW_MS`, viewport
+   * heights per second, measured back from the lift. Movement that ended before
+   * the window falls out of it, so a finger held still before lifting reads 0.
+   */
+  const releaseSpeed = (liftTime: number): number => {
+    const from = liftTime - FLING_WINDOW_MS
+    let travelled = 0
+    for (const sample of travelSamples) {
+      if (sample.t >= from) travelled += sample.dy
+    }
+    const span = Math.max(FLING_MIN_SPAN_MS, Math.min(FLING_WINDOW_MS, liftTime - strokeStart))
+    return travelled / (span / 1000)
   }
 
   const onPointerUp = (event: PointerEvent): void => {
     if (!pointers.has(event.pointerId)) return
+    // Only the lift of the one finger of a one-finger stroke throws, and only if
+    // nobody took the camera meanwhile. The rig decides whether it is fast enough.
+    if (throwable && pointers.size === 1 && !rig.isOwned) {
+      rig.fling(releaseSpeed(event.timeStamp))
+    }
+    travelSamples.length = 0
+    endPointer(event.pointerId)
+  }
+
+  // A cancel is the browser or the pinch taking the gesture away. Never a throw.
+  const onPointerCancel = (event: PointerEvent): void => {
+    if (!pointers.has(event.pointerId)) return
+    throwable = false
+    travelSamples.length = 0
     endPointer(event.pointerId)
   }
 
@@ -230,7 +305,7 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
   element.addEventListener('pointerdown', onPointerDown)
   element.addEventListener('pointermove', onPointerMove)
   element.addEventListener('pointerup', onPointerUp)
-  element.addEventListener('pointercancel', onPointerUp)
+  element.addEventListener('pointercancel', onPointerCancel)
   element.addEventListener('lostpointercapture', onLostPointerCapture)
   element.addEventListener('pointerleave', onPointerLeave)
   element.addEventListener('contextmenu', onContextMenu)
@@ -253,7 +328,7 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
       element.removeEventListener('pointerdown', onPointerDown)
       element.removeEventListener('pointermove', onPointerMove)
       element.removeEventListener('pointerup', onPointerUp)
-      element.removeEventListener('pointercancel', onPointerUp)
+      element.removeEventListener('pointercancel', onPointerCancel)
       element.removeEventListener('lostpointercapture', onLostPointerCapture)
       element.removeEventListener('pointerleave', onPointerLeave)
       element.removeEventListener('contextmenu', onContextMenu)

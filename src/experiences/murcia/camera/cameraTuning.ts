@@ -58,6 +58,24 @@ export interface CameraTuning {
    */
   travelGain: number
   /**
+   * A finger's travel carries on after it lifts, and this is how fast it stops,
+   * 1/s. 0 turns the carry off. Touch only: a mouse drag is not a throw.
+   *
+   * Exists because a phone runs out of glass: every stroke used to stop dead on
+   * release, so covering ground took many short strokes, and each stroke brings
+   * its own sideways drift into the heading (DECISIONS §44, amended
+   * 2026-09-24). The distance coasted is `speed / friction` viewport heights.
+   * Travel only — the turn stops with the finger.
+   */
+  touchInertiaFriction: number
+  /**
+   * Viewport heights per second below which a lift does not carry on. A slow,
+   * deliberate stroke is a placement, and should stop where the finger did.
+   */
+  touchInertiaMinSpeed: number
+  /** Ceiling on the carried speed, viewport heights per second. */
+  touchInertiaMaxSpeed: number
+  /**
    * Whether travel scales with how far back the camera is.
    *
    * On, so a drag covers the same fraction of the VISIBLE ground at every zoom.
@@ -152,6 +170,12 @@ export function createDefaultCameraTuning(
     // Provisional, client direction pending device feedback — `?touchYaw=` A/Bs it.
     touchRotationGain: 80,
     travelGain: 130,
+    // Provisional, pending device feedback — `?touchInertia=` and
+    // `?touchFlingMin=` A/B them. A brisk 250px flick on an 844px phone is ~2
+    // heights/s and coasts 0.4 of a height; the cap bounds a throw at 0.8.
+    touchInertiaFriction: 5,
+    touchInertiaMinSpeed: 0.6,
+    touchInertiaMaxSpeed: 4,
     scaleTravelWithDistance: true,
     travelReferenceRadius: TRAVEL_REFERENCE_RADIUS,
 
@@ -193,6 +217,9 @@ export function measurementCameraTuning(restElevation: number): CameraTuning {
     rotationGain: 0,
     touchRotationGain: 0,
     travelGain: 0,
+    touchInertiaFriction: 0,
+    touchInertiaMinSpeed: 0,
+    touchInertiaMaxSpeed: 0,
     scaleTravelWithDistance: false,
     travelReferenceRadius: TRAVEL_REFERENCE_RADIUS,
     rotationDamping: 1,

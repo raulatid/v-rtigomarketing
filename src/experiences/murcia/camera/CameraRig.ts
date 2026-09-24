@@ -160,6 +160,10 @@ const MAX_PITCH_DEGREES = 85;
 const MIN_RADIUS_FLOOR = 1;
 /** The idle clock stops counting here. A tab left open for a day must not overflow. */
 const IDLE_CLOCK_CAP_SECONDS = 3600;
+/** Viewport heights per second. Below it the carry is invisible and is ended. */
+const FLING_STOP_SPEED = 0.01;
+/** World units per frame. A carry pinned against both bounds moves less. */
+const FLING_STALL_UNITS = 1e-6;
 
 export class CameraRig {
   /** The navigation target on the ground. Damped; read by everything. */
@@ -193,6 +197,13 @@ export class CameraRig {
   private velZ = 0;
   private velZoom = 0;
   private velPitch = 0;
+
+  /**
+   * Travel a lifted finger is still carrying, viewport HEIGHTS per second,
+   * signed like `drag`'s `dy`. Fed into the target, not the spring, so the carry
+   * goes through the same heading, gain and bounds as the stroke that threw it.
+   */
+  private flingSpeed = 0;
 
   // ─── The cursor lean, which is not navigation ───
   private hoverX = 0;
@@ -411,6 +422,29 @@ export class CameraRig {
     this.markNavigated();
   }
 
+  /**
+   * A finger lifted while moving: carry its travel on and let it slow down.
+   *
+   * `dySpeed` is the stroke's recent vertical speed in viewport heights per
+   * second, as `drag` would read it. The rig decides whether it is a throw —
+   * the thresholds are tuning, and the input layer should not own them.
+   */
+  fling(dySpeed: number): void {
+    const { touchInertiaFriction, touchInertiaMinSpeed, touchInertiaMaxSpeed } = this.tuning;
+    if (!Number.isFinite(dySpeed) || touchInertiaFriction <= 0) return;
+    if (Math.abs(dySpeed) < touchInertiaMinSpeed) return;
+    this.flingSpeed = clamp(dySpeed, -touchInertiaMaxSpeed, touchInertiaMaxSpeed);
+  }
+
+  /** A new press, or anything that places the camera, ends a carry. */
+  stopFling(): void {
+    this.flingSpeed = 0;
+  }
+
+  get isCoasting(): boolean {
+    return this.flingSpeed !== 0;
+  }
+
   /** Hover position, -1..1 on each axis. Drives the lean only. */
   setCursor(hxNormalized: number, hyNormalized: number): void {
     this.hoverX = clamp(hxNormalized, -1, 1);
@@ -464,6 +498,8 @@ export class CameraRig {
    */
   update(dt: number): void {
     if (!Number.isFinite(dt) || dt <= 0) return;
+
+    if (this.flingSpeed !== 0) this.advanceFling(dt);
 
     computeSpringStep(this.tuning.rotationDamping, this.tuning.dampingRatio, dt);
     advanceSpring(this.yawDegrees, this.velYaw, this.targetYaw);
@@ -521,6 +557,9 @@ export class CameraRig {
    */
   claim(id: CameraClaim): void {
     if (this.claims.has(id)) return;
+    // Dropped, not paused: `update` is not called while owned, so a carry kept
+    // here would resume by itself whenever the owner happened to let go.
+    this.flingSpeed = 0;
     const wasFree = this.claims.size === 0;
     this.claims.add(id);
     if (wasFree) this.markNavigated();
@@ -556,6 +595,7 @@ export class CameraRig {
    * through the handover.
    */
   setNavigated(next: { x?: number; z?: number; yaw?: number }): void {
+    this.flingSpeed = 0;
     if (next.x !== undefined && Number.isFinite(next.x)) {
       this.x = next.x;
       this.targetX = next.x;
@@ -622,6 +662,7 @@ export class CameraRig {
     const horizontal = Math.hypot(dx, dz);
     const radius = Math.hypot(horizontal, dy);
 
+    this.flingSpeed = 0;
     this.x = groundX;
     this.z = groundZ;
     this.targetX = groundX;
@@ -693,6 +734,7 @@ export class CameraRig {
 
   /** Places the target immediately, springs and all. Construction and resets. */
   setFocus(x: number, z: number): void {
+    this.flingSpeed = 0;
     this.x = x;
     this.z = z;
     this.targetX = x;
@@ -713,6 +755,32 @@ export class CameraRig {
 
   private markNavigated(): void {
     this.secondsSinceNavigation = 0;
+  }
+
+  /**
+   * One frame of carry, integrated exactly: over `dt` the speed decays by
+   * `exp(-k*dt)` and the ground covered is its integral, so the total coasted
+   * is `speed / k` at any frame rate.
+   */
+  private advanceFling(dt: number): void {
+    const k = this.tuning.touchInertiaFriction;
+    if (k <= 0) {
+      this.flingSpeed = 0;
+      return;
+    }
+    const decay = Math.exp(-k * dt);
+    const dy = (this.flingSpeed * (1 - decay)) / k;
+    this.flingSpeed *= decay;
+
+    const beforeX = this.targetX;
+    const beforeZ = this.targetZ;
+    this.drag(0, dy, true);
+    // Against the bounds on both axes the carry has nowhere left to go, and
+    // leaving it running would keep the idle clock from ever reaching the lean.
+    const moved = Math.hypot(this.targetX - beforeX, this.targetZ - beforeZ);
+    if (moved < FLING_STALL_UNITS || Math.abs(this.flingSpeed) < FLING_STOP_SPEED) {
+      this.flingSpeed = 0;
+    }
   }
 
   private clampTargetToBounds(): void {

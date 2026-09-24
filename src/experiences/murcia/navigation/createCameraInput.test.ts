@@ -96,7 +96,11 @@ function pointer(type: string, x: number, y: number, extra: Record<string, unkno
   event.clientY = y
   event.buttons = 1
   event.button = 0
-  Object.assign(event, extra)
+  // `timeStamp` is a getter on `Event`, so assigning it would throw; defined
+  // on the instance instead, which is what the throw's speed is read from.
+  const { timeStamp, ...rest } = extra
+  if (timeStamp !== undefined) Object.defineProperty(event, 'timeStamp', { value: timeStamp })
+  Object.assign(event, rest)
   return event
 }
 
@@ -225,5 +229,84 @@ describe('the turn is chosen by pointer type', () => {
     }
     expect(travelOf('touch')).toBeGreaterThan(0)
     expect(travelOf('touch')).toBeCloseTo(travelOf('mouse'), 9)
+  })
+})
+
+describe('the release throw', () => {
+  /**
+   * A vertical stroke of `moves` 16ms steps of `step` px, then a lift `pauseMs`
+   * after the last one. Returns the rig, un-stepped, for the caller to read.
+   */
+  function stroke(
+    options: { pointerType?: string; step?: number; moves?: number; pauseMs?: number } = {},
+  ) {
+    const { pointerType = 'touch', step = 30, moves = 8, pauseMs = 0 } = options
+    const { rig, element } = setup([])
+    element.dispatchEvent(pointer('pointerdown', 200, 200, { pointerType, timeStamp: 1000 }))
+    for (let i = 1; i <= moves; i += 1) {
+      element.dispatchEvent(
+        pointer('pointermove', 200, 200 + i * step, { pointerType, timeStamp: 1000 + i * 16 }),
+      )
+    }
+    const last = 1000 + moves * 16
+    element.dispatchEvent(
+      pointer('pointerup', 200, 200 + moves * step, { pointerType, timeStamp: last + pauseMs }),
+    )
+    return { rig, element }
+  }
+
+  it('a brisk finger lift keeps the camera travelling', () => {
+    // 30px per 16ms on an 844px screen: ~2.2 heights per second.
+    const { rig } = stroke()
+    expect(rig.isCoasting).toBe(true)
+    const lifted = targets(rig)
+    for (let i = 0; i < 30; i += 1) rig.update(1 / 60)
+    const after = targets(rig)
+    expect(Math.hypot(after.targetX - lifted.targetX, after.targetZ - lifted.targetZ)).toBeGreaterThan(1)
+    // Travel only: the yaw stops with the finger.
+    expect(after.targetYaw).toBe(lifted.targetYaw)
+  })
+
+  it('a finger that stops before lifting does not', () => {
+    // The window is 80ms; everything the stroke moved lies before it.
+    expect(stroke({ pauseMs: 120 }).rig.isCoasting).toBe(false)
+  })
+
+  it('a slow, deliberate stroke does not', () => {
+    // 3px per 16ms: ~0.2 heights per second, under the shipped minimum.
+    expect(stroke({ step: 3 }).rig.isCoasting).toBe(false)
+  })
+
+  it('a mouse never throws', () => {
+    expect(stroke({ pointerType: 'mouse' }).rig.isCoasting).toBe(false)
+  })
+
+  it('a cancel is not a throw', () => {
+    const { rig, element } = setup([])
+    element.dispatchEvent(pointer('pointerdown', 200, 200, { timeStamp: 1000 }))
+    for (let i = 1; i <= 8; i += 1) {
+      element.dispatchEvent(pointer('pointermove', 200, 200 + i * 30, { timeStamp: 1000 + i * 16 }))
+    }
+    element.dispatchEvent(pointer('pointercancel', 200, 440, { timeStamp: 1130 }))
+    expect(rig.isCoasting).toBe(false)
+  })
+
+  it('the last finger of a pinch is not a throw', () => {
+    const { rig, element } = setup([])
+    element.dispatchEvent(pointer('pointerdown', 200, 200, { timeStamp: 1000 }))
+    element.dispatchEvent(pointer('pointerdown', 300, 200, { pointerId: 2, timeStamp: 1010 }))
+    element.dispatchEvent(pointer('pointerup', 300, 200, { pointerId: 2, timeStamp: 1050 }))
+    for (let i = 1; i <= 8; i += 1) {
+      element.dispatchEvent(pointer('pointermove', 200, 200 + i * 30, { timeStamp: 1050 + i * 16 }))
+    }
+    element.dispatchEvent(pointer('pointerup', 200, 440, { timeStamp: 1180 }))
+    expect(rig.isCoasting).toBe(false)
+  })
+
+  it('a new press catches a coasting camera', () => {
+    const { rig, element } = stroke()
+    expect(rig.isCoasting).toBe(true)
+    element.dispatchEvent(pointer('pointerdown', 100, 100, { timeStamp: 2000 }))
+    expect(rig.isCoasting).toBe(false)
   })
 })
