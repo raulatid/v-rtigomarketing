@@ -6,7 +6,10 @@ import type { AppConfig } from './config/appConfig';
 import { murciaConfig } from './config/murciaConfig';
 import type { BoundsRect, CameraPoseConfig, EnvironmentConfig } from './config/environmentConfig';
 import { resolveCameraPose, resolveZoomFar } from './config/environmentConfig';
-import { applyNavigationQueryOverrides } from './config/environmentQueryOverrides';
+import {
+  applyCameraTuningQueryOverrides,
+  applyNavigationQueryOverrides,
+} from './config/environmentQueryOverrides';
 import { createScene } from './core/createScene';
 import type { SceneBundle } from './core/createScene';
 import type { ViewportSize } from './core/resize';
@@ -809,6 +812,7 @@ export class MurciaExperience {
       pose.elevationDegrees,
       this.bounds,
     );
+    applyCameraTuningQueryOverrides(this.cameraTuning, window.location.search, this.debugTools);
     const rig = new CameraRig(this.camera, pose, this.cameraTuning);
     rig.setAspect(this.viewport.aspect);
     rig.setFocus(env.initialFocus.x, env.initialFocus.z);

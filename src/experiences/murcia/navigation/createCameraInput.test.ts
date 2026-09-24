@@ -44,12 +44,15 @@ const WIDTH = 390
 const HEIGHT = 844
 
 /** Read from the shipped tuning, never restated. */
-const DEFAULT_ROTATION_GAIN = createDefaultCameraTuning(
+const SHIPPED_TUNING = createDefaultCameraTuning(
   murciaConfig,
   resolveCameraPose(murciaConfig, WIDTH / HEIGHT).distance,
   resolveCameraPose(murciaConfig, WIDTH / HEIGHT).elevationDegrees,
   murciaConfig.navigation.bounds,
-).rotationGain
+)
+/** The events below are touch unless a test says otherwise. */
+const TOUCH_ROTATION_GAIN = SHIPPED_TUNING.touchRotationGain
+const MOUSE_ROTATION_GAIN = SHIPPED_TUNING.rotationGain
 
 function setup(claims: CameraClaim[]) {
   const aspect = WIDTH / HEIGHT
@@ -179,6 +182,48 @@ describe('a claim that arrives mid-gesture', () => {
     // Derived from the shipped gain rather than written down, so re-tuning the
     // turn does not make this a test of a number nobody meant to freeze.
     const resumed = Math.abs(targets(rig).targetYaw - interrupted.targetYaw)
-    expect(resumed).toBeCloseTo(((RESUMED_AT - SWALLOWED_TO) / WIDTH) * DEFAULT_ROTATION_GAIN, 9)
+    expect(resumed).toBeCloseTo(((RESUMED_AT - SWALLOWED_TO) / WIDTH) * TOUCH_ROTATION_GAIN, 9)
+  })
+})
+
+describe('the turn is chosen by pointer type', () => {
+  /** One 120px horizontal stroke with the given pointer type; returns the yaw it wrote. */
+  function yawOf(pointerType: string): number {
+    const { rig, element } = setup([])
+    const before = targets(rig).targetYaw
+    element.dispatchEvent(pointer('pointerdown', 40, 400, { pointerType }))
+    element.dispatchEvent(pointer('pointermove', 160, 400, { pointerType }))
+    element.dispatchEvent(pointer('pointerup', 160, 400, { pointerType }))
+    return targets(rig).targetYaw - before
+  }
+
+  it('turns a finger by the touch gain', () => {
+    expect(Math.abs(yawOf('touch'))).toBeCloseTo((120 / WIDTH) * TOUCH_ROTATION_GAIN, 9)
+  })
+
+  it('leaves the mouse on the desktop gain', () => {
+    expect(Math.abs(yawOf('mouse'))).toBeCloseTo((120 / WIDTH) * MOUSE_ROTATION_GAIN, 9)
+  })
+
+  it('keeps the two gains distinct, with the same sign', () => {
+    // The split is the fix: collapsing it back into one number would retune
+    // either the phone or the desktop without anyone deciding to. Which one is
+    // larger is a feel judgement still being made on devices, so not asserted.
+    expect(TOUCH_ROTATION_GAIN).not.toBe(MOUSE_ROTATION_GAIN)
+    expect(Math.sign(yawOf('touch'))).toBe(Math.sign(yawOf('mouse')))
+  })
+
+  it('does not change how far a vertical stroke travels', () => {
+    function travelOf(pointerType: string): number {
+      const { rig, element } = setup([])
+      const before = targets(rig)
+      element.dispatchEvent(pointer('pointerdown', 200, 300, { pointerType }))
+      element.dispatchEvent(pointer('pointermove', 200, 500, { pointerType }))
+      element.dispatchEvent(pointer('pointerup', 200, 500, { pointerType }))
+      const after = targets(rig)
+      return Math.hypot(after.targetX - before.targetX, after.targetZ - before.targetZ)
+    }
+    expect(travelOf('touch')).toBeGreaterThan(0)
+    expect(travelOf('touch')).toBeCloseTo(travelOf('mouse'), 9)
   })
 })

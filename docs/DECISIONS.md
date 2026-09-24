@@ -3666,6 +3666,25 @@ reports together, and a trackpad never sends a pure one.
 > the same review (about 72 → 56 px on a desktop, the width untouched): a shorter needle and pin
 > and smaller gaps, the arrived label's 1.2× reservation kept.
 
+> **Amended 2026-09-24 (mobile user reports):** on a phone viewers "do not quite get where they
+> want to go". The cause is the normalisation, not the model: yaw is degrees per viewport WIDTH
+> and travel is units per viewport HEIGHT, so a portrait phone turns far harder per pixel while
+> travelling about the same. At gain 75: 0.19 deg/px on 390x844 against 0.04 on 1920x1080, i.e.
+> 1.25 deg per unit of travel against 0.33 — about 4x. A thumb stroke meant to go straight drifts
+> sideways (it arcs about its joint), so a 250px stroke with 15° of drift turned ~13° on a phone
+> against ~2.6° on a desktop, and because travel follows the heading just written, the path bent
+> with it. New `touchRotationGain`, chosen by `pointerType === 'touch'` in `createCameraInput`;
+> the mouse, the trackpad swipe (`lookBy`) and every spring are unchanged. Split by pointer type,
+> not aspect, for §38's reason: aspect changes under a gesture when a device rotates. 40 was
+> arithmetic (drift roughly halved, a quarter turn ≈ 2.3 screen widths); raised the same day to 55 and
+> then to **80** (client direction, provisional while device feedback comes in) because turning
+> cost too many strokes. At 80 a finger turns slightly MORE per width than the mouse: a quarter
+> turn ≈ 1.1 widths, and the drift per straight stroke is back to ~14°, i.e. the original
+> complaint's size — the split is kept so the phone can be retuned without touching desktop.
+> `?touchYaw=` (debug builds only) A/Bs on a device; `?touchYaw=75` is the pre-split value. Not done, and the next rung if drift still bothers: attenuating the lateral
+> axis on a clearly vertical stroke — that is a classification, which this section rejects.
+> `check:navigation` §11 asserts the split and that travel is unaffected.
+
 
 ## 45. The services district is the campus
 

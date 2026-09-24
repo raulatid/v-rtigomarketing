@@ -18,8 +18,19 @@
  *
  * (`?dragGain=`, `?yawDeg=`, `?smooth=`, `?release=`, `?inertia=`, `?yawSmooth=`,
  * `?touchDragGain=` and `?touchYawDeg=` tuned the map-pan controller's feel, and
- * went with it — DECISIONS §44. The rig's feel lives in `camera/cameraTuning.ts`
- * and has no query surface.)
+ * went with it — DECISIONS §44. The rig's feel lives in `camera/cameraTuning.ts`;
+ * its only query surface is the touch block below.)
+ *
+ * ── The finger's feel, added 2026-09-24 ──
+ *
+ *   ?touchYaw=80
+ *
+ * `touchRotationGain`, degrees per viewport width for a touch drag. Still being
+ * judged on phones; 40 and 55 were earlier cuts, and `?touchYaw=75` is the
+ * pre-split A/B.
+ *
+ * Applied by `applyCameraTuningQueryOverrides`, since the tuning is not part of
+ * the config.
  *
  * ── The camera pose, added 2026-09-04 ──
  *
@@ -272,6 +283,31 @@ export function applyNavigationQueryOverrides(
   return next;
 }
 
+
+/**
+ * `?touchYaw=` onto the rig's tuning.
+ *
+ * MUTATES, unlike the function above, and that is the contract rather than a
+ * lapse: the tuning is created per experience and held by reference by the rig,
+ * so writing into it at construction is how the value reaches the rig (see
+ * `camera/cameraTuning.ts`). Typed structurally so `config/` keeps not importing
+ * `camera/`.
+ */
+export function applyCameraTuningQueryOverrides(
+  tuning: { touchRotationGain: number },
+  search: string,
+  enabled: boolean,
+): void {
+  // The same two gates as `applyNavigationQueryOverrides`, for the same reasons.
+  if (!DEBUG_TOOLS_ENABLED || !enabled) return;
+
+  const touchYaw = readNumber(new URLSearchParams(search), 'touchYaw', (v) => v > 0);
+  if (touchYaw === null) return;
+  tuning.touchRotationGain = touchYaw;
+  console.info('[navigation] touch turn overridden by query parameters', {
+    touchRotationGain: touchYaw,
+  });
+}
 
 /** `?lightmaps=` onto a unified bake's `desktop1024`. Other bakes have no such list. */
 function applyLightmapOverride(env: EnvironmentConfig, params: URLSearchParams): EnvironmentConfig {

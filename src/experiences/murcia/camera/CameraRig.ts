@@ -383,11 +383,15 @@ export class CameraRig {
    * line just wrote. That is what turns a diagonal drag into a curve rather than
    * a straight line at an angle, and it is why there is deliberately no forward
    * vector captured at pointerdown and no `if (|dx| > |dy|)` branch.
+   *
+   * `touch` selects `touchRotationGain` and nothing else — see that field for
+   * why a finger turns less per viewport width than a mouse.
    */
-  drag(dxNormalized: number, dyNormalized: number): void {
+  drag(dxNormalized: number, dyNormalized: number, touch = false): void {
     if (!Number.isFinite(dxNormalized) || !Number.isFinite(dyNormalized)) return;
 
-    this.targetYaw += dxNormalized * this.tuning.rotationGain;
+    const rotationGain = touch ? this.tuning.touchRotationGain : this.tuning.rotationGain;
+    this.targetYaw += dxNormalized * rotationGain;
 
     const heading = (this.pose.azimuthDegrees + this.targetYaw) * DEG;
     const forwardX = -Math.sin(heading);

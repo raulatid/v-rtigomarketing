@@ -176,7 +176,7 @@ export function createCameraInput(options: CameraInputOptions): CameraInput {
     if (rig.isOwned) return
     if (dx === 0 && dy === 0) return
 
-    rig.drag(dx / viewportWidth, dy / viewportHeight)
+    rig.drag(dx / viewportWidth, dy / viewportHeight, event.pointerType === 'touch')
   }
 
   const onPointerUp = (event: PointerEvent): void => {

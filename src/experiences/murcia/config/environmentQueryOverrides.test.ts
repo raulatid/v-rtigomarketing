@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { applyNavigationQueryOverrides } from './environmentQueryOverrides';
+import {
+  applyCameraTuningQueryOverrides,
+  applyNavigationQueryOverrides,
+} from './environmentQueryOverrides';
 import { murciaConfig } from './murciaConfig';
 import { resolveCameraPose, resolveZoomFar } from './environmentConfig';
 
@@ -90,9 +93,9 @@ describe('a lone parameter is not swallowed', () => {
     ['zoomNear=0.5', (c: typeof murciaConfig) => c.zoomNearScale, 0.5],
     ['zoomFar=380', (c: typeof murciaConfig) => c.zoomFarDistance, 380],
     // `?touchDragGain=` and `?touchYawDeg=` were the two rows here. They moved
-    // the map-pan controller's per-pointer-type gains, and both the gains and
-    // the controller are gone (DECISIONS §44) — the rig has one gain for both
-    // pointer types, in `camera/cameraTuning.ts`, with no query surface yet.
+    // the map-pan controller's per-pointer-type gains, and went with it
+    // (DECISIONS §44). The rig's touch turn, `?touchYaw=`, is not config and is
+    // tested below.
   ])('?%s survives on its own', (query, read, expected) => {
     expect(read(apply(`?${query}`))).toBe(expected);
   });
@@ -152,6 +155,29 @@ describe('what it refuses', () => {
     const before = murciaConfig.camera.azimuthDegrees;
     apply('?azimuth=123');
     expect(murciaConfig.camera.azimuthDegrees).toBe(before);
+  });
+});
+
+describe('?touchYaw= sets the finger turn on the rig tuning', () => {
+  // 57, not the shipped 80, per the note at the top of this file.
+  const tuningFor = (search: string, enabled = true) => {
+    const tuning = { touchRotationGain: 80 };
+    applyCameraTuningQueryOverrides(tuning, search, enabled);
+    return tuning.touchRotationGain;
+  };
+
+  it('writes the gain into the tuning it is given', () => {
+    expect(tuningFor('?touchYaw=57')).toBe(57);
+  });
+
+  it('refuses a gain that is zero, negative or not a number', () => {
+    expect(tuningFor('?touchYaw=0')).toBe(80);
+    expect(tuningFor('?touchYaw=-10')).toBe(80);
+    expect(tuningFor('?touchYaw=fast')).toBe(80);
+  });
+
+  it('changes nothing when the shell says the tools are off', () => {
+    expect(tuningFor('?touchYaw=57', false)).toBe(80);
   });
 });
 

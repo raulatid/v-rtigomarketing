@@ -31,9 +31,9 @@
  *     the cursor. There is no raycast solve any more, so it is GONE rather than
  *     weakened. Nothing here should be read as a claim that it still holds.
  *   - §12/§13 used to assert a per-pointer-type gain split, because a finger
- *     runs out of glass sooner than a mouse. The ported model uses one gain for
- *     both; the sandbox's hand-tuned figure landed within 10% of the old mouse
- *     value, so the split was not re-derived.
+ *     runs out of glass sooner than a mouse. The ported model shipped one gain
+ *     for both; a split came back on 2026-09-24 for the TURN only, for a
+ *     different reason (a phone pixel yaws ~4x harder), and §11 asserts it.
  *
  * §6 is the other one to read carefully. The old smoothing could not overshoot;
  * this spring is DELIBERATELY under-damped on rotation and travel, so the camera
@@ -48,6 +48,7 @@ import { CameraRig } from '../src/experiences/murcia/camera/CameraRig';
 import { createCameraInput } from '../src/experiences/murcia/navigation/createCameraInput';
 import type { CameraInput } from '../src/experiences/murcia/navigation/createCameraInput';
 import { expandRect } from '../src/experiences/murcia/navigation/navigationBounds';
+import { createDefaultCameraTuning } from '../src/experiences/murcia/camera/cameraTuning';
 
 const env = murciaConfig;
 const nav = env.navigation;
@@ -620,6 +621,59 @@ section('10. Travel scales with distance, so a drag means one thing');
     'the same drag covers more ground when the camera is further back',
     farMoved > nearMoved * 1.5,
     `${farMoved.toFixed(1)} units zoomed out against ${nearMoved.toFixed(1)} zoomed in`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+section('11. A finger turns by its own gain, and only the turn differs');
+
+{
+  // Yaw is normalised by viewport WIDTH, which makes a portrait phone pixel
+  // turn ~4x harder than a desktop one while travel barely changes, so a thumb's
+  // sideways drift bent every stroke (DECISIONS §44, amended 2026-09-24). The
+  // mouse blocks above are the desktop and must not have moved.
+  const shipped = createDefaultCameraTuning(
+    env,
+    env.camera.distance,
+    env.camera.elevationDegrees,
+    env.navigation.bounds,
+  );
+
+  const mouse = makeHarness();
+  drag(mouse, 300, 300, 8, 'mouse');
+  const ms = mouse.rig.snapshot();
+
+  const touch = makeHarness();
+  drag(touch, 300, 300, 8, 'touch');
+  const ts = touch.rig.snapshot();
+
+  check(
+    'a touch drag yaws by touchRotationGain',
+    close(ts.targetYaw, (300 / WIDTH) * shipped.touchRotationGain, 1e-9),
+    `${ts.targetYaw.toFixed(4)} deg for 300px at ${shipped.touchRotationGain} deg/width`,
+  );
+  check(
+    'a mouse drag still yaws by rotationGain',
+    close(ms.targetYaw, (300 / WIDTH) * shipped.rotationGain, 1e-9),
+    `${ms.targetYaw.toFixed(4)} deg for 300px at ${shipped.rotationGain} deg/width`,
+  );
+  check(
+    'the two gains are distinct, with the same sign',
+    shipped.touchRotationGain !== shipped.rotationGain &&
+      Math.sign(ts.targetYaw) === Math.sign(ms.targetYaw),
+    `touch ${shipped.touchRotationGain} against mouse ${shipped.rotationGain}`,
+  );
+
+  const mouseTravel = makeHarness();
+  drag(mouseTravel, 0, 300, 8, 'mouse');
+  const touchTravel = makeHarness();
+  drag(touchTravel, 0, 300, 8, 'touch');
+  const mt = mouseTravel.rig.snapshot();
+  const tt = touchTravel.rig.snapshot();
+  check(
+    'and a straight vertical stroke travels the same for both',
+    close(mt.targetX, tt.targetX, 1e-9) && close(mt.targetZ, tt.targetZ, 1e-9),
+    `mouse (${mt.targetX.toFixed(3)}, ${mt.targetZ.toFixed(3)}) touch (${tt.targetX.toFixed(3)}, ${tt.targetZ.toFixed(3)})`,
   );
 }
 

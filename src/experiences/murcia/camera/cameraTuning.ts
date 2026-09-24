@@ -36,6 +36,20 @@ export interface CameraTuning {
    */
   rotationGain: number
   /**
+   * `rotationGain` for a finger (`pointerType === 'touch'`). Same unit, same sign.
+   *
+   * Split by POINTER TYPE, as §38 once was, because normalising by viewport
+   * width makes a phone pixel turn far harder than a desktop one while travel,
+   * normalised by height, barely changes: at 75 a 390px portrait phone yaws
+   * 0.19 deg/px against 0.04 on a 1920px desktop — 1.25 deg per unit of travel
+   * against 0.33. A thumb stroke meant to go straight always drifts sideways, so
+   * on a phone every stroke bent the path by ~13 degrees and viewers did not
+   * arrive where they aimed (DECISIONS §44, amended 2026-09-24). Not by aspect:
+   * aspect changes under a gesture when a device rotates. The value is still
+   * being judged on devices, and may sit above the mouse's.
+   */
+  touchRotationGain: number
+  /**
    * World units of travel per viewport HEIGHT of vertical drag, at the
    * reference radius.
    *
@@ -135,6 +149,8 @@ export function createDefaultCameraTuning(
   return {
     // 100 until 2026-09-15, when the client found the turn too fast (DECISIONS §44).
     rotationGain: 75,
+    // Provisional, client direction pending device feedback — `?touchYaw=` A/Bs it.
+    touchRotationGain: 80,
     travelGain: 130,
     scaleTravelWithDistance: true,
     travelReferenceRadius: TRAVEL_REFERENCE_RADIUS,
@@ -175,6 +191,7 @@ export function createDefaultCameraTuning(
 export function measurementCameraTuning(restElevation: number): CameraTuning {
   return {
     rotationGain: 0,
+    touchRotationGain: 0,
     travelGain: 0,
     scaleTravelWithDistance: false,
     travelReferenceRadius: TRAVEL_REFERENCE_RADIUS,
