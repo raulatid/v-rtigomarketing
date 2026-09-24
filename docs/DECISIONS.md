@@ -3624,6 +3624,18 @@ world; being pointed at something is not the same as having arrived at it.
 > blink runs whenever the owner updates the highlight, so it goes on inside the campus and
 > during the blog approach too; if that reads as noise it is one gate away.
 
+> **Amended 2026-09-24 — the blink waits, then stays lit for 2 s, and geotags come with it**
+> (client direction). `BUILDING_BLINK` is now 6 s dark, then 2 s lit, with a 0.4 s smoothstepped
+> edge in and out (the hover's own rise), replacing the 0.9 s bump inside a 6 s cycle. The 6 s
+> is a code constant, not a Studio field. A pause parks the clock at the start of the wait. The
+> same 2 s now shows a map pin over each place (`src/experiences/murcia/geotags/`): the pin
+> reads its site's `highlightPulse` (the highlight's `idleLevel`) for its opacity and a small
+> rise, so it cannot drift from the blink, is depth-tested and not interactive, keeps a fixed
+> world size, is hidden up close (250–350 units from the camera, faded) and whenever the compass
+> is. Under reduced motion there is no blink, and a pin that came and went would be the motion
+> the setting declines, so the pins stay shown and still. Self-contained so it can be removed:
+> the folder, its wiring in `MurciaExperience`, and — optionally — the three read-only getters.
+
 **What it cost, and what it bought.** `DragPanController` (958 lines), the
 `NavigableArea` pipeline (347) and `pinchClassifier` (226) are deleted, with about
 1,400 lines of tests and harness that measured them. §39's eye-bounded rectangle

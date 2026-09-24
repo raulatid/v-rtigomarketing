@@ -79,6 +79,8 @@ export interface ServicesCampusSection {
   readonly isFlying: boolean;
   /** While this must be the camera's only writer — the host defers pose writes. */
   readonly holdsCamera: boolean;
+  /** The buildings' idle blink, 0..1. See `BuildingHighlight.idleLevel`. */
+  readonly highlightPulse: number;
   readonly snapshot: CampusSnapshot;
   /** Parts born hidden, for the host's warm-up. See `ServicesCampus.precompileTargets`. */
   readonly precompileTargets: readonly THREE.Object3D[];
@@ -318,6 +320,9 @@ export async function createServicesCampus(
     },
     get holdsCamera() {
       return adapter.holding;
+    },
+    get highlightPulse() {
+      return highlight.idleLevel;
     },
     get snapshot() {
       return campus.state.snapshot;

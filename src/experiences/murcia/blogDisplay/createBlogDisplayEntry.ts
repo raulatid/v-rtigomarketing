@@ -85,6 +85,8 @@ export interface BlogDisplayEntry {
   readonly precompileTargets: readonly THREE.Object3D[];
   /** True while the approach or the return owns the camera (DECISIONS §9). */
   readonly ownsCamera: boolean;
+  /** The cluster's idle blink, 0..1. See `BuildingHighlight.idleLevel`. */
+  readonly highlightPulse: number;
   setEnabled(next: boolean): void;
   /**
    * The panel's centre in world space, copied into `out`.
@@ -193,6 +195,10 @@ export function createBlogDisplayEntry(
 
     get ownsCamera() {
       return approach.ownsCamera;
+    },
+
+    get highlightPulse() {
+      return highlight.idleLevel;
     },
 
     setEnabled(next: boolean): void {

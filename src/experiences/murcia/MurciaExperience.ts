@@ -43,6 +43,8 @@ import { layoutTowerSlides } from './landmark/towerScreen/content/layoutTowerSli
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
 import { CompassBar, type CompassPoi } from './ui/compassBar';
+import { createCityGeotags } from './geotags/cityGeotags';
+import type { Geotags } from './geotags/createGeotags';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
@@ -149,6 +151,8 @@ export class MurciaExperience {
    * city loads, from whichever of them actually loaded.
    */
   private compass: CompassBar | null = null;
+  /** Pins over the same two places, from a distance. Self-contained: `geotags/`. */
+  private geotags: Geotags | null = null;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
@@ -412,6 +416,7 @@ export class MurciaExperience {
     const hiddenAtBirth = [
       ...(this.campus?.precompileTargets ?? []),
       ...(this.blogDisplay?.precompileTargets ?? []),
+      ...(this.geotags?.precompileTargets ?? []),
     ];
 
     // One zero-length tick first, so the campus's strip paints its canvas and
@@ -885,6 +890,14 @@ export class MurciaExperience {
     await this.setupCampus(loaded.root);
     this.setupBlogDisplay(loaded.root);
     this.setupCompass();
+    // Before `warm()`, which runs after this method, so the pins compile with the city.
+    this.geotags = createCityGeotags({
+      root: loaded.root,
+      campus: this.campus,
+      blog: this.blogDisplay,
+      reducedMotion: this.reducedMotion,
+    });
+    if (this.geotags) this.sceneBundle.scene.add(this.geotags.object3D);
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
       reducedMotion: this.reducedMotion,
     });
@@ -1323,6 +1336,12 @@ export class MurciaExperience {
       this.compass.setVisible(this.isNavigating);
       this.compass.update(this.camera);
     }
+    // Last for the compass's reason: they face and fade on this frame's pose.
+    // Shown on the same answer, so they are gone whenever the compass is.
+    if (this.geotags) {
+      this.geotags.setVisible(this.isNavigating);
+      this.geotags.update(delta, this.camera);
+    }
 
     // One uniform write. `water.update` wants elapsed seconds, not the delta —
     // passing `delta` straight through pins uTime at about 1/60 and the river
@@ -1401,6 +1420,8 @@ export class MurciaExperience {
 
     this.compass?.dispose();
     this.compass = null;
+    this.geotags?.dispose();
+    this.geotags = null;
     this.cameraInput?.dispose();
     this.cameraInput = null;
     this.cameraTuning = null;

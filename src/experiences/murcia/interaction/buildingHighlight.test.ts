@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
 import { blinkStrength, createBuildingHighlight, easeHighlight, stepHighlight } from './buildingHighlight'
+import type { BuildingHighlightOptions } from './buildingHighlight'
 
 // The lightmapped materials this lands on are shared across the city and carry
 // a compile hook that samples the atlas. Both facts are what these tests pin:
@@ -129,47 +130,56 @@ describe('stepHighlight', () => {
 })
 
 describe('blinkStrength', () => {
-  // One blink per period: a smooth bump that fills the first `duration`
-  // seconds and nothing for the rest, so the building says "here" and then
-  // leaves the viewer alone.
-  it('is dark outside the blink and peaks in the middle of it', () => {
-    expect(blinkStrength(0, 5, 1)).toBe(0)
-    expect(blinkStrength(0.5, 5, 1)).toBeCloseTo(1, 10)
-    expect(blinkStrength(1, 5, 1)).toBe(0)
-    expect(blinkStrength(3, 5, 1)).toBe(0)
+  // Dark for the wait, then lit for the duration, with a smooth edge in and out,
+  // so the building says "here" for long enough to be seen and then leaves the
+  // viewer alone.
+  it('is dark through the wait and fully lit in the middle of the duration', () => {
+    expect(blinkStrength(0, 5, 2, 0.4)).toBe(0)
+    expect(blinkStrength(4.9, 5, 2, 0.4)).toBe(0)
+    expect(blinkStrength(6, 5, 2, 0.4)).toBe(1)
+    expect(blinkStrength(5.5, 5, 2, 0.4)).toBe(1)
+    expect(blinkStrength(6.5, 5, 2, 0.4)).toBe(1)
   })
 
-  it('repeats every period', () => {
-    expect(blinkStrength(5.5, 5, 1)).toBeCloseTo(blinkStrength(0.5, 5, 1), 10)
-    expect(blinkStrength(10.5, 5, 1)).toBeCloseTo(1, 10)
+  it('repeats every wait plus duration', () => {
+    expect(blinkStrength(7.5, 5, 2, 0.4)).toBe(0)
+    expect(blinkStrength(13, 5, 2, 0.4)).toBe(1)
+    expect(blinkStrength(12.2, 5, 2, 0.4)).toBeCloseTo(blinkStrength(5.2, 5, 2, 0.4), 10)
   })
 
-  it('rises and falls without a corner', () => {
-    expect(blinkStrength(0.1, 5, 1)).toBeLessThan(blinkStrength(0.3, 5, 1))
-    expect(blinkStrength(0.7, 5, 1)).toBeGreaterThan(blinkStrength(0.9, 5, 1))
-    expect(blinkStrength(0.25, 5, 1)).toBeCloseTo(blinkStrength(0.75, 5, 1), 10)
+  it('rises over its first edge and falls over its last, symmetrically', () => {
+    expect(blinkStrength(5.1, 5, 2, 0.4)).toBeGreaterThan(0)
+    expect(blinkStrength(5.1, 5, 2, 0.4)).toBeLessThan(blinkStrength(5.3, 5, 2, 0.4))
+    expect(blinkStrength(6.9, 5, 2, 0.4)).toBeLessThan(blinkStrength(6.7, 5, 2, 0.4))
+    expect(blinkStrength(5.2, 5, 2, 0.4)).toBeCloseTo(blinkStrength(6.8, 5, 2, 0.4), 10)
+    expect(blinkStrength(5.2, 5, 2, 0.4)).toBeCloseTo(0.5, 10)
   })
 
-  it('lights nothing for a degenerate period or duration', () => {
-    expect(blinkStrength(0.5, 0, 1)).toBe(0)
-    expect(blinkStrength(0.5, 5, 0)).toBe(0)
+  it('switches without an edge when given none', () => {
+    expect(blinkStrength(5.01, 5, 2, 0)).toBe(1)
+  })
+
+  it('lights nothing for a degenerate wait or duration', () => {
+    expect(blinkStrength(6, -1, 2, 0.4)).toBe(0)
+    expect(blinkStrength(6, 5, 0, 0.4)).toBe(0)
+    expect(blinkStrength(Number.NaN, 5, 2, 0.4)).toBe(0)
   })
 })
 
 describe('the idle blink', () => {
-  const BLINKING = { ...OPTIONS, blink: { period: 5, duration: 1, strength: 0.7 } }
+  const BLINKING = { ...OPTIONS, blink: { wait: 5, duration: 2, edge: 0.4, strength: 0.7 } }
 
-  it('lights the building on its own, at the blink strength, and goes dark between blinks', () => {
+  it('waits, lights the building on its own at the blink strength, then goes dark again', () => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
     const highlight = createBuildingHighlight([mesh], BLINKING)
     const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
 
-    highlight.update(0.5)
-    expect(light.value).toBeCloseTo(0.7 * OPTIONS.intensity, 10)
     highlight.update(1)
     expect(light.value).toBe(0)
-    highlight.update(4)
+    highlight.update(5)
     expect(light.value).toBeCloseTo(0.7 * OPTIONS.intensity, 10)
+    highlight.update(1.5)
+    expect(light.value).toBe(0)
   })
 
   it('never outshines a hover, which holds the building fully lit through a blink', () => {
@@ -188,7 +198,7 @@ describe('the idle blink', () => {
     const highlight = createBuildingHighlight([mesh], { ...OPTIONS, blink: null })
     const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
 
-    highlight.update(0.5)
+    highlight.update(6)
     expect(light.value).toBe(0)
   })
 
@@ -200,7 +210,7 @@ describe('the idle blink', () => {
     highlight.setBlinking(false)
     highlight.update(0.5)
     expect(light.value).toBe(0)
-    highlight.update(5)
+    highlight.update(6)
     expect(light.value).toBe(0)
   })
 
@@ -209,14 +219,14 @@ describe('the idle blink', () => {
     const highlight = createBuildingHighlight([mesh], BLINKING)
     const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
 
-    highlight.update(0.3)
+    highlight.update(5.8)
     highlight.setBlinking(false)
     highlight.update(0.1)
     expect(light.value).toBeGreaterThan(0)
-    expect(light.value).toBeLessThan(0.7 * blinkStrength(0.4, 5, 1) * OPTIONS.intensity)
+    expect(light.value).toBeLessThan(0.7 * OPTIONS.intensity)
   })
 
-  it('resumes into a dark stretch, and blinks a full period later', () => {
+  it('resumes at the start of the wait, and lights a full wait later', () => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())
     const highlight = createBuildingHighlight([mesh], BLINKING)
     const light = compile(mesh.material as THREE.Material).uniforms.uHighlight
@@ -226,7 +236,42 @@ describe('the idle blink', () => {
     highlight.setBlinking(true)
     highlight.update(0.2)
     expect(light.value).toBe(0)
-    highlight.update(4.3)
+    highlight.update(4.7)
+    expect(light.value).toBe(0)
+    highlight.update(1.1)
     expect(light.value).toBeCloseTo(0.7 * OPTIONS.intensity, 10)
+  })
+})
+
+describe('idleLevel, what keeps time with the blink reads', () => {
+  const BLINKING = { ...OPTIONS, blink: { wait: 5, duration: 2, edge: 0.4, strength: 0.7 } }
+  const make = (options: BuildingHighlightOptions = BLINKING) =>
+    createBuildingHighlight([new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial())], options)
+
+  it('is the blink, without the intensity', () => {
+    const highlight = make()
+    highlight.update(6)
+    expect(highlight.idleLevel).toBeCloseTo(0.7, 10)
+    highlight.update(1.5)
+    expect(highlight.idleLevel).toBe(0)
+  })
+
+  it('ignores a hover, which is not the blink', () => {
+    const highlight = make()
+    highlight.setTarget(true)
+    highlight.update(2)
+    expect(highlight.idleLevel).toBe(0)
+  })
+
+  it('is 0 while paused and with the blink off', () => {
+    const paused = make()
+    paused.setBlinking(false)
+    paused.update(10)
+    paused.update(6)
+    expect(paused.idleLevel).toBe(0)
+
+    const off = make({ ...OPTIONS, blink: null })
+    off.update(6)
+    expect(off.idleLevel).toBe(0)
   })
 })

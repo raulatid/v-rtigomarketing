@@ -29,19 +29,29 @@ import { prefersReducedMotion } from '../../../platform/motionPreference';
  *
  * Viewers could not tell which buildings could be touched: a hover light
  * only speaks to a pointer that is already there. So the set also blinks on
- * its own — one soft bump every `blink.period` seconds, in the hover's colour
- * at `blink.strength` of its light — and a hover always outweighs it, so a
+ * its own — dark for `blink.wait` seconds, then lit for `blink.duration`, in
+ * the hover's colour at `blink.strength` of its light — and a hover always outweighs it, so a
  * pointer resting on the building holds it steadily lit through a blink. Off
  * under reduced motion: a periodic light is exactly the motion that setting
  * declines, and the hover still answers. The owner pauses it (`setBlinking`)
  * while the viewer is inside what the buildings open: an invitation to enter
  * is noise once they have.
+ *
+ * Wait-then-show since 2026-09-24, when the city's geotags (`geotags/`) began
+ * appearing with it: a 0.9 s bump inside a 6 s cycle became 6 s dark and 2 s
+ * lit, so a pin has time to be seen. The pins read `idleLevel` rather than
+ * keep a clock of their own.
  */
 
-/** One blink every `period` seconds, `duration` seconds long, at `strength` of the hover's light. */
+/**
+ * Dark for `wait` seconds, then lit for `duration` — which includes an `edge`
+ * rise at its start and an `edge` fall at its end — at `strength` of the
+ * hover's light. Then again.
+ */
 export interface BuildingBlink {
-  period: number;
+  wait: number;
   duration: number;
+  edge: number;
   strength: number;
 }
 
@@ -57,8 +67,11 @@ export interface BuildingHighlightOptions {
 }
 
 export const BUILDING_BLINK: BuildingBlink = {
-  period: 6,
-  duration: 0.9,
+  wait: 6,
+  duration: 2,
+  // The hover's own rise (`BUILDING_HIGHLIGHT.duration`), so a blink comes and
+  // goes the way a hover does.
+  edge: 0.4,
   strength: 1,
 };
 
@@ -76,6 +89,12 @@ export interface BuildingHighlight {
   setTarget(on: boolean): void;
   /** Pauses or resumes the idle blink; a blink under way fades out rather than cuts. */
   setBlinking(on: boolean): void;
+  /**
+   * The idle blink as of the last `update`, 0..1, before `intensity` and without
+   * the hover. 0 while paused and under reduced motion. Read by whatever keeps
+   * time with the blink, so it follows this set's own clock rather than a copy.
+   */
+  readonly idleLevel: number;
   update(deltaTime: number): void;
   /** Hands every mesh its own material back and frees the clones. */
   dispose(): void;
@@ -106,19 +125,23 @@ export function easeHighlight(progress: number): number {
 }
 
 /**
- * The idle blink's shape: 0..1 over the first `duration` seconds of every
- * `period`, dark for the rest.
+ * The idle blink's shape: dark for the first `wait` seconds of every
+ * `wait + duration`, then lit for `duration`, rising over its first `edge`
+ * seconds and falling over its last.
  *
- * A raised sine, so it rises and falls without a corner and peaks halfway —
- * a breath rather than a flash, on a surface that has no bloom to soften one.
- * Degenerate timings light nothing: an unset blink should be no blink.
+ * The edges are smoothstepped, like a hover, so it comes and goes without a
+ * corner on a surface that has no bloom to soften one. An edge longer than half
+ * the duration meets itself in the middle and never reaches full. Degenerate
+ * timings light nothing: an unset blink should be no blink.
  */
-export function blinkStrength(seconds: number, period: number, duration: number): number {
-  if (!(period > 0) || !(duration > 0) || !Number.isFinite(seconds)) return 0;
-  const t = ((seconds % period) + period) % period;
-  if (t >= duration) return 0;
-  const s = Math.sin((Math.PI * t) / duration);
-  return s * s;
+export function blinkStrength(seconds: number, wait: number, duration: number, edge: number): number {
+  if (!(wait >= 0) || !(duration > 0) || !Number.isFinite(seconds)) return 0;
+  const cycle = wait + duration;
+  const t = ((seconds % cycle) + cycle) % cycle;
+  if (t < wait) return 0;
+  const lit = t - wait;
+  if (!(edge > 0)) return 1;
+  return easeHighlight(Math.min(lit / edge, (duration - lit) / edge));
 }
 
 export function createBuildingHighlight(
@@ -178,8 +201,13 @@ export function createBuildingHighlight(
   // A gain on the blink rather than a flag, so pausing mid-blink fades like a hover does.
   let blinkGain = 1;
   let blinkTarget = 1;
+  let idleLevel = 0;
 
   return {
+    get idleLevel() {
+      return idleLevel;
+    },
+
     setTarget(on: boolean): void {
       target = on ? 1 : 0;
     },
@@ -194,13 +222,15 @@ export function createBuildingHighlight(
       if (blink) {
         if (blinkGain !== blinkTarget) blinkGain = stepHighlight(blinkGain, blinkTarget, deltaTime, options.duration);
         if (blinkGain === 0) {
-          // Parked at the start of a dark stretch, so a resume never opens mid-blink.
-          clock = blink.duration;
+          // Parked at the start of the wait, so a resume never opens mid-blink.
+          clock = 0;
+          idleLevel = 0;
         } else {
           clock += deltaTime;
           // The brighter claim wins, so a hover is never dimmed by a blink ending under it.
-          const idle = blink.strength * blinkStrength(clock, blink.period, blink.duration);
-          strength = Math.max(strength, idle * easeHighlight(blinkGain));
+          const idle = blink.strength * blinkStrength(clock, blink.wait, blink.duration, blink.edge);
+          idleLevel = idle * easeHighlight(blinkGain);
+          strength = Math.max(strength, idleLevel);
         }
       }
       uHighlight.value = strength * options.intensity;
