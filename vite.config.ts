@@ -136,7 +136,20 @@ const INTRO_BUDGET_BYTES = 16_000
 // 1,125 B. Headroom after: 1,875 B. Still the selective preload loop next.
 // 2026-09-25: user-approved +2 KB for v5.2 mixed-resolution lightmaps.
 // Same 11 requests: original runtime 1,628,184 B; updated runtime 1,628,918 B.
-const INITIAL_JS_BUDGET_BYTES = 1_630_000
+//
+// ── 1,630,000 -> 1,634,000, 2026-09-25, the vantage rest reports ──
+//
+// APP GROWTH, raised on the user's call. Same 11 requests and no new name in the
+// list: `MurciaExperience` grew by the rest detector, the camera sampling and the
+// `/api/view` client (murcia/observer/). The authoring overlay is NOT in this
+// number — it is a lazy chunk excluded from the preload loop, like stats.js.
+//
+//   1,629,034 B  21fce78 — before
+//   1,633,071 B  the rest reports, with the overlay lazy
+//
+// A production build, where the debug branches fold away, measures 1,614,858 ->
+// 1,617,514 B. Headroom after: ~930 B. Still the selective preload loop next.
+const INITIAL_JS_BUDGET_BYTES = 1_634_000
 // 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
 // existing city approach prefetch, not by the cold / modulepreload loop.
 // Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.
@@ -239,11 +252,24 @@ function isStatsChunk(chunk: OutputChunk): boolean {
   return chunk.moduleIds.some((id) => id.replace(/\\/g, '/').includes(STATS_MODULE))
 }
 
+/**
+ * The vantage authoring overlay (`?align=1`), loaded on demand by
+ * MurciaExperience on debug builds and absent from production. Excluded from
+ * the preload loop for the meter's reason: preloading authoring tools on `/`
+ * spends first-paint budget on something no visitor opens.
+ */
+const OBSERVER_DEBUG_MODULE = 'src/experiences/murcia/observer/observerDebug.ts'
+
+function isObserverDebugChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith(OBSERVER_DEBUG_MODULE) === true
+}
+
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   // Legal/preferences UI loads only after a visitor opens a legal document.
   if (chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/LegalPanel.tsx')) return false
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
+  if (isObserverDebugChunk(chunk)) return false
   // The city starts prefetchBlog() on approach; cold / does not need the route.
   if (isBlogRouteChunk(chunk)) return false
   return !chunk.isEntry
@@ -466,6 +492,25 @@ function assertChunkBudgets(): Plugin {
             'If the meter was removed, delete this assertion and isStatsChunk with it; if it ' +
             'was merged into another chunk, the exclusion in isPreloadedOnIndex is excluding ' +
             'nothing and / is preloading a debug meter.',
+        )
+      }
+
+      // The vantage authoring overlay, on the meter's two rules and for a
+      // sharper reason: its chunk carries the authoring anchors, which are
+      // enough to solve the vantage pose outright.
+      const observerDebug = chunks.filter(isObserverDebugChunk)
+      if (IS_PRODUCTION && observerDebug.length > 0) {
+        this.error(
+          `the vantage authoring overlay is in the production bundle ` +
+            `(${observerDebug.map((c) => c.fileName).join(', ')}). It carries the authoring ` +
+            'anchors. MurciaExperience must keep importing it dynamically, behind DEBUG_TOOLS_ENABLED.',
+        )
+      }
+      if (!IS_PRODUCTION && observerDebug.length !== 1) {
+        this.error(
+          `expected exactly one chunk faced by ${OBSERVER_DEBUG_MODULE} outside production, ` +
+            `found ${observerDebug.length}. If it was merged into another chunk, the exclusion ` +
+            'in isPreloadedOnIndex is excluding nothing and / is preloading authoring tools.',
         )
       }
 

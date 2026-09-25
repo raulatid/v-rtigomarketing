@@ -57,7 +57,7 @@ import { DEBUG_TOOLS_ENABLED } from '../../platform/buildFlags';
 import { createObserver, type Observer } from './observer/createObserver';
 import { OBSERVER } from './observer/observerConfig';
 import { createViewClient } from './observer/viewClient';
-import { createObserverDebug, type ObserverDebug } from './observer/observerDebug';
+import type { ObserverDebug } from './observer/observerDebug';
 
 /**
  * The zoom's ease used to live here, as ZOOM_LERP_K and ZOOM_SETTLE_EPSILON.
@@ -953,18 +953,27 @@ export class MurciaExperience {
       config: OBSERVER,
       onRest: (sample) => viewClient.report(sample),
     });
+    // Loaded on demand, as `MurciaDebugTools` loads stats.js: on a debug build a
+    // static import put the whole authoring overlay in the initial JS, past its
+    // budget, for a tool only `?align=1` ever opens. The literal still removes
+    // the branch — and with it the chunk — from a production build.
     if (DEBUG_TOOLS_ENABLED && this.debugTools && this.appConfig.alignmentDebugEnabled) {
-      this.observerDebug = createObserverDebug({
-        observer: this.observer,
-        viewClient,
-        camera: this.camera,
-        scene: this.sceneBundle.scene,
-        root: loaded.root,
-        canvas: this.renderer.domElement,
-        describeRig: () => {
-          const snap = rig.snapshot();
-          return { focusX: snap.x, focusZ: snap.z, yaw: snap.yaw, zoomDepth: this.zoomDepth };
-        },
+      const observer = this.observer;
+      void import('./observer/observerDebug').then(({ createObserverDebug }) => {
+        // Disposed while the chunk was in flight.
+        if (this.observer !== observer) return;
+        this.observerDebug = createObserverDebug({
+          observer,
+          viewClient,
+          camera: this.camera,
+          scene: this.sceneBundle.scene,
+          root: loaded.root,
+          canvas: this.renderer.domElement,
+          describeRig: () => {
+            const snap = rig.snapshot();
+            return { focusX: snap.x, focusZ: snap.z, yaw: snap.yaw, zoomDepth: this.zoomDepth };
+          },
+        });
       });
     }
     this.setupClickInteraction();
