@@ -84,8 +84,12 @@ describe('the content security policy', () => {
     // Google Analytics, behind analytics consent (src/app/googleAnalytics.ts).
     // Wildcards because GA4 picks a regional collection host
     // (region1.google-analytics.com, …); these are the hosts Google documents.
+    // `blob:` is not an origin: GLTFLoader fetches a GLB's embedded images
+    // through blob URLs (ImageBitmapLoader, Chromium), and fetch obeys
+    // connect-src, not img-src.
     expect(directive('connect-src')).toEqual([
       "'self'",
+      'blob:',
       'https://*.google-analytics.com',
       'https://*.analytics.google.com',
       'https://www.googletagmanager.com',
