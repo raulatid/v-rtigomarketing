@@ -149,7 +149,26 @@ const INTRO_BUDGET_BYTES = 16_000
 //
 // A production build, where the debug branches fold away, measures 1,614,858 ->
 // 1,617,514 B. Headroom after: ~930 B. Still the selective preload loop next.
-const INITIAL_JS_BUDGET_BYTES = 1_634_000
+//
+// ── 1,634,000 -> 1,638,000, 2026-09-26, the warp warm-up and the 404 document ──
+//
+// APP GROWTH, raised on the user's call. The ~930 B of headroom above was spent
+// by four commits that each built green only because nobody built after them
+// together; the sum went over on 6ca8e38 and stayed there. Measured by building
+// each commit with the same content:
+//
+//   1,634,056 B  151dbdb — Earth's programs warmed for the composer target
+//   1,634,538 B  c762bf5 — the warp-only passes compiled and first-drawn while loading
+//   1,634,552 B  63f9fda — the docked service plate kept inside laptop viewports
+//   1,634,823 B  6ca8e38 — the header's Blog button flown to the city's panel
+//   1,634,892 B  72ee034 — the 404 document (+69 B, and 11 -> 12 requests)
+//
+// The request is the one genuinely new thing: a third entry sharing `useRoute`
+// with the app cut it out of the ConsentBanner chunk into a 3,040 B chunk of
+// its own, the same re-signature the blog header caused on 2026-09-04. No new
+// module reaches `/`. Headroom after: ~3,100 B. Still the selective preload
+// loop next.
+const INITIAL_JS_BUDGET_BYTES = 1_638_000
 // 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
 // existing city approach prefetch, not by the cold / modulepreload loop.
 // Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.
