@@ -53,6 +53,11 @@ import { VERTIGO_BUILDING } from './landmark/vertigoBuildingConfig';
 import { createCursorManager } from '../../interaction/cursorManager';
 import type { CursorManager } from '../../interaction/cursorManager';
 import { clientToNdc } from '../../interaction/screenSpace';
+import { DEBUG_TOOLS_ENABLED } from '../../platform/buildFlags';
+import { createObserver, type Observer } from './observer/createObserver';
+import { OBSERVER } from './observer/observerConfig';
+import { createViewClient } from './observer/viewClient';
+import { createObserverDebug, type ObserverDebug } from './observer/observerDebug';
 
 /**
  * The zoom's ease used to live here, as ZOOM_LERP_K and ZOOM_SETTLE_EPSILON.
@@ -159,6 +164,9 @@ export class MurciaExperience {
   private towerLogo: TowerLogo | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
   private towerScreen: TowerScreen | null = null;
+  private observer: Observer | null = null;
+  /** Authoring overlay for the observer. Only ever built on a debug build with `?align=1`. */
+  private observerDebug: ObserverDebug | null = null;
   private loaded: LoadedCity | null = null;
   /**
    * Elapsed seconds handed to the water shader.
@@ -931,6 +939,34 @@ export class MurciaExperience {
       screenNodeName: VERTIGO_BUILDING.screenNodeName,
       screenUvChannel: VERTIGO_BUILDING.screenUvChannel,
     });
+    // Every rest is reported alike and nothing is shown: whether a rest means
+    // anything is decided by `/api/view`, and the browser never learns it.
+    const viewClient = createViewClient({
+      config: OBSERVER,
+      onReply: (reply) => this.observerDebug?.setReply(reply),
+      onError:
+        DEBUG_TOOLS_ENABLED && this.debugTools
+          ? (error) => console.warn('[align] report failed', error)
+          : undefined,
+    });
+    this.observer = createObserver({
+      config: OBSERVER,
+      onRest: (sample) => viewClient.report(sample),
+    });
+    if (DEBUG_TOOLS_ENABLED && this.debugTools && this.appConfig.alignmentDebugEnabled) {
+      this.observerDebug = createObserverDebug({
+        observer: this.observer,
+        viewClient,
+        camera: this.camera,
+        scene: this.sceneBundle.scene,
+        root: loaded.root,
+        canvas: this.renderer.domElement,
+        describeRig: () => {
+          const snap = rig.snapshot();
+          return { focusX: snap.x, focusZ: snap.z, yaw: snap.yaw, zoomDepth: this.zoomDepth };
+        },
+      });
+    }
     this.setupClickInteraction();
     this.statusOverlay.hide();
   }
@@ -1388,6 +1424,11 @@ export class MurciaExperience {
       this.geotags.setVisible(this.isNavigating);
       this.geotags.update(delta, this.camera);
     }
+    // After the ladder for the compass's reason: it samples this frame's pose.
+    // Only the viewer's own camera counts — a flight passing through the vantage
+    // point resets the hold rather than advancing it.
+    this.observer?.update(delta, this.camera, this.isCityOverview);
+    this.observerDebug?.update();
 
     // One uniform write. `water.update` wants elapsed seconds, not the delta —
     // passing `delta` straight through pins uTime at about 1/60 and the river
@@ -1454,6 +1495,9 @@ export class MurciaExperience {
     this.towerLogo = null;
     this.towerScreen?.dispose();
     this.towerScreen = null;
+    this.observerDebug?.dispose();
+    this.observerDebug = null;
+    this.observer = null;
     this.active = false;
 
     this.renderer.domElement.removeEventListener('pointerup', this.onPointerUpForClick);

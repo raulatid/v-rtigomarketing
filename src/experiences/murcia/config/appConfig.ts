@@ -32,6 +32,8 @@ export interface AppConfig {
    */
   debugOverlayEnabled: boolean;
   navigationDebugEnabled: boolean;
+  /** The vantage-point authoring overlay and `window.__vertigoAlign` (observer/observerDebug.ts). */
+  alignmentDebugEnabled: boolean;
   showGridHelper: boolean;
   overlayUpdatesPerSecond: number;
 
@@ -46,6 +48,7 @@ export function createAppConfig(): AppConfig {
     statsEnabled: false,
     debugOverlayEnabled: false,
     navigationDebugEnabled: false,
+    alignmentDebugEnabled: false,
     showGridHelper: false,
     overlayUpdatesPerSecond: 4,
 
@@ -57,7 +60,7 @@ export function createAppConfig(): AppConfig {
  * Applies query-parameter overrides for quick experimentation without editing
  * code. Returns a new object rather than mutating a shared singleton.
  *
- * Examples: ?debugNavigation=1  ?grid=1  ?stats=1  ?debug=1  ?model=/models/x.glb
+ * Examples: ?debugNavigation=1  ?grid=1  ?stats=1  ?debug=1  ?align=1  ?model=/models/x.glb
  *
  * `enabled` is passed in rather than read from `import.meta.env` here, for the
  * reason documented in scene/cityDistrictBindings.ts: the `checks/` harnesses
@@ -92,6 +95,9 @@ export function applyQueryOverrides(
 
   const debugNav = params.get('debugNavigation');
   if (debugNav !== null) next.navigationDebugEnabled = isTruthy(debugNav);
+
+  const align = params.get('align');
+  if (align !== null) next.alignmentDebugEnabled = isTruthy(align);
 
   const grid = params.get('grid');
   if (grid !== null) next.showGridHelper = isTruthy(grid);
