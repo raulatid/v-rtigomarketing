@@ -687,9 +687,11 @@ function blogRouting(): Plugin {
  * request that failed rather than as a dev server that would not start.
  */
 function apiRouting(): Plugin {
-  const ROUTES: Record<string, 'audit' | 'contact'> = {
+  const ROUTES: Record<string, 'audit' | 'contact' | 'view' | 'claim'> = {
     '/api/audit': 'audit',
     '/api/contact': 'contact',
+    '/api/view': 'view',
+    '/api/claim': 'claim',
   }
   /** Mirrors BODY_LIMIT_BYTES in server/endpoint.ts. */
   const BODY_LIMIT = 16 * 1024
@@ -755,16 +757,19 @@ function apiRouting(): Plugin {
           else if (Array.isArray(value)) headers.set(name, value.join(', '))
         }
 
-        const { respond } = await import('./server/endpoint')
-        const response = await respond(
-          kind,
-          new Request('http://localhost' + (req.url ?? '/'), {
-            method: req.method ?? 'GET',
-            headers,
-            ...(body === null ? {} : { body }),
-          }),
-          process.env,
-        )
+        const request = new Request('http://localhost' + (req.url ?? '/'), {
+          method: req.method ?? 'GET',
+          headers,
+          ...(body === null ? {} : { body }),
+        })
+        let response: Response
+        if (kind === 'view' || kind === 'claim') {
+          const { respondView, respondClaim } = await import('./server/view/respond')
+          response = await (kind === 'view' ? respondView : respondClaim)(request, process.env)
+        } else {
+          const { respond } = await import('./server/endpoint')
+          response = await respond(kind, request, process.env)
+        }
 
         res.statusCode = response.status
         response.headers.forEach((value, name) => res.setHeader(name, value))
