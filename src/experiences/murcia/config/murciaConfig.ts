@@ -247,7 +247,7 @@ export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
   // Root-absolute: a document-relative path resolves against the current
   // route and 404s anywhere but the root.
-  modelPath: '/models/murcia-v5.2-lightmaps.glb',
+  modelPath: '/models/murcia-v5.2-lightmaps-r1.glb',
 
   // No trim sheet since murcia-v7. The city's colour is vertex colour alone:
   // the export embeds a neutral white trim so Blender could bake against the
@@ -270,7 +270,7 @@ export const murciaConfig: EnvironmentConfig = {
   // prioritize central ground, the cathedral and rooftop parapets; outer
   // context stays smaller. The manifest enforces 4.5 MB mobile / 6.5 MB desktop.
   lightmaps: {
-    baseUrl: '/textures/murcia/lightmaps-v5.2/',
+    baseUrl: '/textures/murcia/lightmaps-v5.2-r1/',
     manifest: 'lightmaps.json',
     desktop1024: [],
   },

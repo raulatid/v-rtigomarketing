@@ -769,16 +769,28 @@ for (const [i, sampler] of (json.samplers ?? []).entries()) {
 section('Nueva Condomina: roof placement and baked material');
 const roofNodes = nodes.filter(n => n.name === 'estadio-techo');
 const modelFilename = MODEL.replaceAll('\\', '/').split('/').at(-1)!;
-if (['murcia-v5.1-lightmaps-r3.glb', 'murcia-v5.2-lightmaps.glb'].includes(modelFilename)) {
+if (['murcia-v5.1-lightmaps-r3.glb', 'murcia-v5.2-lightmaps.glb', 'murcia-v5.2-lightmaps-r1.glb'].includes(modelFilename)) {
   // The author removed the Blender animation. Preserve that source placement;
   // the historical repair's centering and pillar-height rules no longer apply.
   // Bounds measured from the source bound_box, converted (x, y, z) -> (x, z, -y).
   const roofBounds = worldBounds('estadio-techo');
   check('the export contains exactly one authored stadium roof', roofNodes.length === 1);
   check('the static city contains no animation clips', (json.animations?.length ?? 0) === 0);
+  const relocatedStadium = modelFilename === 'murcia-v5.2-lightmaps-r1.glb';
+  const expectedRoofMin = relocatedStadium
+    ? new Vector3(-174.185485840, 12.186351776, -191.099761963)
+    : new Vector3(-450.445190, 9.211193, 81.126266);
+  const expectedRoofMax = relocatedStadium
+    ? new Vector3(-63.573307037, 13.529690742, -77.428993225)
+    : new Vector3(-370.401123, 10.208189, 155.456528);
   check('the roof retains its authored Blender bounds', !!roofBounds &&
-    roofBounds.min.distanceTo(new Vector3(-450.445190, 9.211193, 81.126266)) < 0.002 &&
-    roofBounds.max.distanceTo(new Vector3(-370.401123, 10.208189, 155.456528)) < 0.002);
+    roofBounds.min.distanceTo(expectedRoofMin) < 0.002 &&
+    roofBounds.max.distanceTo(expectedRoofMax) < 0.002);
+  if (relocatedStadium) {
+    const theatre = nodesNamed('Teatro_Romea');
+    check('the updated city includes one Romea theatre in the northwest atlas',
+      theatre.length === 1 && nodes.find(n => n.name === theatre[0])?.extras?.lightmap_atlas === 'static-NW');
+  }
   const primitives = roofNodes[0]?.mesh == null ? [] : meshes[roofNodes[0].mesh]?.primitives ?? [];
   check('the authored roof has vertex color, both UV channels and the rebuilt northwest atlas',
     roofNodes[0]?.extras?.lightmap_atlas === 'static-NW' && primitives.length > 0 &&
