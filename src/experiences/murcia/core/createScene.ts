@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { AppConfig } from '../config/appConfig';
 import type { SceneStateConfig } from '../config/environmentConfig';
+import { installHeightFog } from './heightFog';
 
 export interface SceneBundle {
   scene: THREE.Scene;
@@ -53,6 +54,7 @@ export function createScene(cfg: AppConfig, initialState: SceneStateConfig): Sce
     background.setHex(state.backgroundColor);
     scene.background = background;
 
+    if (state.fog) installHeightFog(state.fog);
     scene.fog = state.fog
       ? new THREE.Fog(state.fog.color, state.fog.near, state.fog.far)
       : null;

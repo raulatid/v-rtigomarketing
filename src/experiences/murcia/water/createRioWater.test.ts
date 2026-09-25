@@ -48,9 +48,13 @@ describe('createRioWater', () => {
   })
 
   it('declares no uniform the shaders do not use', () => {
+    // Includes expanded: three's chunks declare the fog uniforms the material
+    // has to carry once `fog: true` meets a Scene with fog.
+    const expand = (source: string) =>
+      source.replace(/#include <(\w+)>/g, (_, chunk: string) => THREE.ShaderChunk[chunk as keyof typeof THREE.ShaderChunk] ?? '')
     const declared = new Set([
-      ...declaredUniforms(water.material.vertexShader),
-      ...declaredUniforms(water.material.fragmentShader),
+      ...declaredUniforms(expand(water.material.vertexShader)),
+      ...declaredUniforms(expand(water.material.fragmentShader)),
     ])
 
     // The other direction, which is what caught the sandbox's debug uniform on

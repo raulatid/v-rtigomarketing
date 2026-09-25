@@ -211,7 +211,20 @@ export interface SceneStateConfig {
    * from the background and the light rig it has to be judged against.
    */
   groundColor: number;
-  fog: { color: number; near: number; far: number } | null;
+  /**
+   * Ground fog over the outskirts (`core/heightFog.ts`). `near` and `far` are
+   * distances OUTSIDE `bounds`, not from the camera: the fog starts `near`
+   * units past the rectangle and is full by `far`. `height` is the layer's
+   * thickness above `groundY` where it starts.
+   */
+  fog: {
+    color: number;
+    near: number;
+    far: number;
+    bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+    groundY: number;
+    height: number;
+  } | null;
   /**
    * Light rig parameters. Keep the light count and types identical across
    * environments — changing them invalidates every material's shader program

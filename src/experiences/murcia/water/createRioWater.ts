@@ -76,17 +76,20 @@ export function createRioWater(config: RioWaterConfig): RioWater {
   const material = new THREE.ShaderMaterial({
     vertexShader: rioVertexShader,
     fragmentShader: rioFragmentShader,
-    // Fog is off in Murcia today (`sceneState.fog` is null), but fog is
-    // Scene-level state and applies to every material at once. Opting in costs
-    // nothing while it is null — three defines no `USE_FOG`, so the chunks
-    // compile away — and stops the river from being the one surface that
-    // ignores it if it is ever switched on.
+    // Fog is Scene-level state and applies to every material at once; opting
+    // in stops the river from being the one surface that ignores it. A
+    // ShaderMaterial with `fog: true` must carry the fog uniforms itself —
+    // three writes `fogColor.value` into them every frame fog is on.
     fog: true,
     // Opaque. The river is a recessed channel with the terrain plate around it;
     // there is nothing to see through it, and transparency would buy a sorting
     // problem for no pixels.
     transparent: false,
     uniforms: {
+      // Linear fog's three, not all of UniformsLib.fog: `fogDensity` is FogExp2's.
+      fogColor: { value: new THREE.Color(0xffffff) },
+      fogNear: { value: 1 },
+      fogFar: { value: 2000 },
       uTime: { value: 0 },
 
       uFlowSpeed: { value: config.flowSpeed },

@@ -306,9 +306,19 @@ export const murciaConfig: EnvironmentConfig = {
     // 0.62 bloom threshold Earth's composer thresholds at — the warp borrows
     // that composer, and the ground is what it would catch first.
     groundColor: 0x8a8f94,
-    // Left null until the transition skirt is validated on its own. Fog is
-    // support, not the edge-hiding mechanism (docs/plans/002 Phase 6).
-    fog: null,
+    // Ground fog over the outskirts, so the eye stays on the plate. The colour
+    // is the lit ground as it lands on screen (sampled at rest), so the far
+    // rings settle into the street rather than into a different hue. It starts
+    // at the plate's edge. Support, not the edge-hiding mechanism: the skirt
+    // still owns the edge (docs/plans/002 Phase 6).
+    fog: {
+      color: 0xded2bc,
+      near: 0,
+      far: 200,
+      bounds: { ...PLATE },
+      groundY: 0,
+      height: 18,
+    },
     lighting: {
       hemisphere: { sky: 0xffffff, ground: 0x556070, intensity: 1.4 },
       directional: { color: 0xffffff, intensity: 1.6, position: [60, 100, 40] },
