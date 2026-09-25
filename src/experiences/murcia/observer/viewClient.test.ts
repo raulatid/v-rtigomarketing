@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ObserverConfig } from './observerConfig';
 import { createObserverSample } from './observerProjection';
-import { createViewClient, VIEW_ENDPOINT } from './viewClient';
+import { claimWithToken, createViewClient, VIEW_ENDPOINT } from './viewClient';
 
 const CONFIG: ObserverConfig = {
   dwellSeconds: 1.8,
@@ -88,5 +88,35 @@ describe('createViewClient', () => {
     await h.report();
     expect(h.client.token).toBe(token('a'));
     expect(h.errors).toHaveLength(1);
+  });
+});
+
+describe('claimWithToken', () => {
+  function answering(body: unknown, status = 200) {
+    const sent: Array<Record<string, unknown>> = [];
+    const fetchImpl = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      sent.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(JSON.stringify(body), { status });
+    }) as typeof fetch;
+    return { sent, fetchImpl };
+  }
+
+  it('sends the token, the address and the consent', async () => {
+    const h = answering({ code: 'C' });
+    await claimWithToken(token('a'), 'w@example.com', h.fetchImpl);
+    expect(h.sent[0]).toEqual({ t: token('a'), email: 'w@example.com', consent: true });
+  });
+
+  it('maps each answer to its outcome', async () => {
+    expect(await claimWithToken('t', 'e', answering({ code: 'C' }).fetchImpl)).toEqual({ code: 'C' });
+    expect(await claimWithToken('t', 'e', answering({ code: null, closed: true }).fetchImpl)).toEqual({
+      code: null,
+      closed: true,
+    });
+    expect(await claimWithToken('t', 'e', answering({ code: null }).fetchImpl)).toEqual({ code: null, closed: false });
+  });
+
+  it('throws on a refused request, so the dialog offers a retry', async () => {
+    await expect(claimWithToken('t', 'e', answering({}, 500).fetchImpl)).rejects.toThrow();
   });
 });

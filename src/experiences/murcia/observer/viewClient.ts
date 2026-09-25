@@ -9,6 +9,8 @@ export const CLAIM_ENDPOINT = '/api/claim';
 
 export interface ViewReply {
   t: string;
+  /** Present once the token is of the FINAL stage: the claim may be offered. */
+  f?: 1;
   /** Present only when the server was started with `VIEW_DEBUG=1`, outside production. */
   dbg?: Record<string, unknown>;
 }
@@ -105,17 +107,32 @@ export function createViewClient(options: ViewClientOptions): ViewClient {
 }
 
 /**
- * Spends a final-stage token on a claim: the code, or null.
+ * What a claim came to. `closed` means somebody else already won — there is
+ * nothing left to retry — as opposed to a refusal that might not recur.
+ */
+export type ClaimOutcome = { code: string } | { code: null; closed: boolean };
+
+/** What the city hands outward when the final vantage point is held. */
+export type ViewpointClaim = (email: string) => Promise<ClaimOutcome>;
+
+/**
+ * Spends a final-stage token on a claim.
  *
- * A free function rather than a method of the client, so that nothing in a
- * production bundle names the endpoint until something there calls it. Today
- * only the authoring seam does; the eventual in-city claim will be the first.
+ * `consent: true` is sent because the only caller that reaches this in
+ * production is the claim dialog's submit, which is disabled until the
+ * claimant ticks the privacy box; the server refuses a claim without it.
+ * Throws on a network failure or a non-2xx answer, which the caller shows as
+ * "try again".
  */
 export async function claimWithToken(
   token: string,
   email: string,
   fetchImpl: typeof fetch = defaultFetch,
-): Promise<string | null> {
-  const body = (await post(fetchImpl, CLAIM_ENDPOINT, { t: token, email })) as { code?: unknown } | null;
-  return typeof body?.code === 'string' ? body.code : null;
+): Promise<ClaimOutcome> {
+  const body = (await post(fetchImpl, CLAIM_ENDPOINT, { t: token, email, consent: true })) as {
+    code?: unknown;
+    closed?: unknown;
+  } | null;
+  if (typeof body?.code === 'string') return { code: body.code };
+  return { code: null, closed: body?.closed === true };
 }

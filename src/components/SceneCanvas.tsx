@@ -28,6 +28,7 @@ import type { CornerLogo } from '../corner-logo/createCornerLogo'
 import type { CornerLogoHandle } from '../corner-logo/cornerLogoConfig'
 import type { ExperienceId } from '../app/experience'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
+import type { ViewpointClaim } from '../experiences/murcia/observer/viewClient'
 
 const departureVacuum: Record<ExperienceId, (p: number, limits: WarpLimits) => number> = {
   earth: () => 0, // Earth expresses departure through its aim phase and FOV surge.
@@ -93,6 +94,8 @@ interface Props {
   onOpenBlog: () => boolean
   /** That approach just started, three seconds before it needs the blog. */
   onBlogApproachStart: () => void
+  /** The final vantage point is held in the city; the claim may be offered. */
+  onViewpointReached: (claim: ViewpointClaim) => void
   /** The WebGL context was lost. Nothing will draw again without a reload. */
   onContextLost: (reason: string) => void
   /**
@@ -136,6 +139,7 @@ export function SceneCanvas({
   onMurciaAttentionChange,
   onOpenBlog,
   onBlogApproachStart,
+  onViewpointReached,
   onContextLost,
   suspended,
 }: Props) {
@@ -322,6 +326,7 @@ export function SceneCanvas({
         onAttentionChange={onMurciaAttentionChange}
         onOpenBlog={onOpenBlog}
         onBlogApproachStart={onBlogApproachStart}
+        onViewpointReached={onViewpointReached}
       />
       {/* Murcia's hint, on Earth's presence rule and Earth's numbers. Renders
           nothing; it paints one attribute on the node App renders. */}

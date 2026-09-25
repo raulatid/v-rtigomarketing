@@ -334,9 +334,9 @@ export function createObserverDebug(options: ObserverDebugOptions): ObserverDebu
     },
     async claim(email) {
       const token = viewClient.token;
-      const code = token === null ? null : await claimWithToken(token, email);
-      console.info(`[align] claim: ${code ?? 'no code'}`);
-      return code;
+      const outcome = token === null ? null : await claimWithToken(token, email);
+      console.info(`[align] claim: ${JSON.stringify(outcome)}`);
+      return outcome?.code ?? null;
     },
     reset() {
       observer.reset();

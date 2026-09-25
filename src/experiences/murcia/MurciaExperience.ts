@@ -56,7 +56,7 @@ import { clientToNdc } from '../../interaction/screenSpace';
 import { DEBUG_TOOLS_ENABLED } from '../../platform/buildFlags';
 import { createObserver, type Observer } from './observer/createObserver';
 import { OBSERVER } from './observer/observerConfig';
-import { createViewClient } from './observer/viewClient';
+import { claimWithToken, createViewClient, type ViewpointClaim } from './observer/viewClient';
 import type { ObserverDebug } from './observer/observerDebug';
 
 /**
@@ -125,6 +125,8 @@ export class MurciaExperience {
    */
   private readonly onOpenBlog?: () => boolean;
   private readonly onBlogApproachStart?: () => void;
+  /** See the constructor option of the same name. */
+  private readonly onViewpointReached?: (claim: ViewpointClaim) => void;
   private readonly buildAssetsAvailable: boolean;
   private blogDisplay: BlogDisplayEntry | null = null;
 
@@ -267,6 +269,17 @@ export class MurciaExperience {
        */
       onBlogApproachStart?: () => void;
       /**
+       * The viewer is holding the final vantage point's token: the claim may be
+       * offered.
+       *
+       * Hands out a CLAIM FUNCTION rather than the token, so the token never
+       * leaves the city; `App` decides whether and when to show the dialog.
+       * Fired on every rest the server answers as final, not once — a claim
+       * dismissed unfinished comes back on the next rest, and the caller is
+       * expected to ignore the offer while a dialog is already up or won.
+       */
+      onViewpointReached?: (claim: ViewpointClaim) => void;
+      /**
        * Whether this build serves `dist/`, and so whether the blog display can
        * have a screenshot of the built `/blog` rather than its neutral plate.
        *
@@ -283,6 +296,7 @@ export class MurciaExperience {
     this.onAttentionChange = options.onAttentionChange;
     this.onOpenBlog = options.onOpenBlog;
     this.onBlogApproachStart = options.onBlogApproachStart;
+    this.onViewpointReached = options.onViewpointReached;
     this.buildAssetsAvailable = options.buildAssetsAvailable ?? false;
     this.reducedMotion = prefersReducedMotion();
     this.appConfig = applyQueryOverrides(
@@ -943,7 +957,14 @@ export class MurciaExperience {
     // anything is decided by `/api/view`, and the browser never learns it.
     const viewClient = createViewClient({
       config: OBSERVER,
-      onReply: (reply) => this.observerDebug?.setReply(reply),
+      onReply: (reply) => {
+        this.observerDebug?.setReply(reply);
+        if (reply.f === 1) {
+          // The token current AT CLAIM TIME, not this reply's: a later rest
+          // re-issues it, and the older one would be the one nearer expiry.
+          this.onViewpointReached?.((email) => claimWithToken(viewClient.token ?? reply.t, email));
+        }
+      },
       onError:
         DEBUG_TOOLS_ENABLED && this.debugTools
           ? (error) => console.warn('[align] report failed', error)

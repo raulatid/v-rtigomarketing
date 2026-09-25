@@ -1,0 +1,50 @@
+/* ---- The vantage claim ------------------------------------------------------
+   The contact dialog's surface; only what it does not already have lives here:
+   the consent row and the claim code. */
+
+.claim-lead {
+  margin: 0 0 0.25rem;
+}
+
+.claim-consent {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.claim-consent input {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0.12rem 0 0;
+  accent-color: var(--accent);
+}
+
+.claim-consent input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.claim-consent input[aria-invalid='true'] {
+  outline: 1px solid rgba(255, 122, 122, 0.7);
+  outline-offset: 2px;
+}
+
+.claim-code {
+  margin: 0.2rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: var(--surface-matte);
+  text-align: center;
+}
+
+.claim-code code {
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  word-break: break-all;
+  user-select: all;
+}

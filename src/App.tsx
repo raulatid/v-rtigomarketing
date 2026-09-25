@@ -17,6 +17,8 @@ import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
 import { SceneShortcuts } from './components/SceneShortcuts'
 import { LegalPanel } from './components/LazyLegalPanel'
+import { ClaimDialog } from './components/LazyClaimDialog'
+import type { ViewpointClaim } from './experiences/murcia/observer/viewClient'
 import { ConsentBanner } from './components/ConsentBanner'
 import { CopyrightMark } from './components/CopyrightMark'
 import { SiteMenuLayer, SiteMenuStage } from './components/SiteMenu'
@@ -202,6 +204,14 @@ export default function App() {
   const [headerMenuState, setHeaderMenuState] = useState<HeaderMenuState>('closed')
   const headerMenuOpen = headerMenuState !== 'closed'
   const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null)
+  // The claim behind the final vantage point, as the function the city handed
+  // out (MurciaExperience's `onViewpointReached`) — never the token itself.
+  // Non-null means the dialog is up.
+  const [claimOffer, setClaimOffer] = useState<ViewpointClaim | null>(null)
+  const claimOpen = claimOffer !== null
+  // Won, or somebody else had: the city keeps offering on every final rest,
+  // and after this there is nothing left to offer.
+  const claimSettledRef = useRef(false)
 
   // The site header's actions cell, once it exists. The two sections portal
   // their triggers into it (SiteHeader.tsx); state rather than a ref so the
@@ -285,6 +295,7 @@ export default function App() {
     !auditOpen &&
     !contactOpen &&
     !legalDoc &&
+    !claimOpen &&
     // The phone menu, and it stays true for the WHOLE of its close — the header
     // reports the phase, not the panel. While the menu is up the viewport is a
     // tilted card with `pointer-events: none`, so no gesture reaches the
@@ -292,6 +303,9 @@ export default function App() {
     // and covers the tail while the card is on its way back.
     !headerMenuOpen &&
     !selectedCase
+  // For callbacks the scene holds across renders (handleViewpointReached).
+  const attentionFreeRef = useRef(attentionIsFree)
+  attentionFreeRef.current = attentionIsFree
 
   // Earth draws its hint in the scene, and it is an IDLE affordance: this says
   // only that it MAY be offered. How long the viewer has been still — the thing
@@ -387,6 +401,7 @@ export default function App() {
     auditOpen,
     contactOpen,
     legalDoc,
+    claimOpen,
     headerMenuOpen,
     selectedCase,
     murciaReady,
@@ -482,6 +497,19 @@ export default function App() {
    */
   const handleBlogApproachStart = useCallback(() => {
     prefetchBlog()
+  }, [])
+
+  /**
+   * The city holds the final vantage point: offer the claim.
+   *
+   * Offered on every final rest, so this is where "not now" lives: nothing
+   * once the claim has settled, and nothing while something else has the
+   * viewer's attention — the next rest offers again. The updater form, because
+   * the state IS a function and a bare `setClaimOffer(claim)` would call it.
+   */
+  const handleViewpointReached = useCallback((claim: ViewpointClaim) => {
+    if (claimSettledRef.current || !attentionFreeRef.current) return
+    setClaimOffer((current: ViewpointClaim | null) => current ?? claim)
   }, [])
 
   /**
@@ -669,7 +697,7 @@ export default function App() {
             }}
           />
         ) : undefined}
-        panelOpen={auditOpen || contactOpen || legalDoc !== null}
+        panelOpen={auditOpen || contactOpen || legalDoc !== null || claimOpen}
         menuHost={menuHost}
         onActionsHost={setHeaderActions}
         onMenuStateChange={setHeaderMenuState}
@@ -726,6 +754,7 @@ export default function App() {
             onMurciaAttentionChange={handleMurciaAttentionChange}
             onOpenBlog={handleOpenBlog}
             onBlogApproachStart={handleBlogApproachStart}
+            onViewpointReached={handleViewpointReached}
             onContextLost={handleContextLost}
           />
       </SiteMenuStage>
@@ -786,6 +815,18 @@ export default function App() {
           both scenes (DECISIONS §41), so nothing new is competing for it. */}
       {phase === 'site' && (
         <CopyrightMark tone={earthActive ? 'dark' : 'light'} />
+      )}
+
+      {/* Before the legal panel, which its consent link opens on top of it. */}
+      {claimOffer && (
+        <ClaimDialog
+          claim={claimOffer}
+          onClose={() => setClaimOffer(null)}
+          onSettled={() => {
+            claimSettledRef.current = true
+          }}
+          onOpenLegal={setLegalDoc}
+        />
       )}
 
       <LegalPanel doc={legalDoc} onClose={() => setLegalDoc(null)} />

@@ -2,6 +2,7 @@ import { prefersReducedMotion } from '../../platform/motionPreference'
 import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { MurciaExperience } from './MurciaExperience'
+import type { ViewpointClaim } from './observer/viewClient'
 import { loadProgress } from '../../loading/progress'
 import type { NavigationView } from '../../interaction/navigationSignals'
 import { WARP_LIMITS, dollyAmount } from '../../utils/warpTransition'
@@ -27,6 +28,8 @@ interface Props {
   onOpenBlog?: () => boolean
   /** That approach has just STARTED, three seconds before it needs the blog. */
   onBlogApproachStart?: () => void
+  /** Forwarded to MurciaExperience: the final vantage point is held; the claim may be offered. */
+  onViewpointReached?: (claim: ViewpointClaim) => void
 }
 
 // Drives the Murcia environment from R3F's frame loop.
@@ -51,6 +54,7 @@ export function MurciaLayer({
   onAttentionChange,
   onOpenBlog,
   onBlogApproachStart,
+  onViewpointReached,
 }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -68,6 +72,8 @@ export function MurciaLayer({
   onOpenBlogRef.current = onOpenBlog
   const onBlogApproachStartRef = useRef(onBlogApproachStart)
   onBlogApproachStartRef.current = onBlogApproachStart
+  const onViewpointReachedRef = useRef(onViewpointReached)
+  onViewpointReachedRef.current = onViewpointReached
   // build() is async, so the `active` effect below can run — and finish — long
   // before the experience exists. This is what the build applies on arrival so
   // a transition that happens mid-load is not silently dropped.
@@ -147,6 +153,7 @@ export function MurciaLayer({
         // rather than as consent it can park behind.
         onOpenBlog: () => onOpenBlogRef.current?.() ?? false,
         onBlogApproachStart: () => onBlogApproachStartRef.current?.(),
+        onViewpointReached: (claim) => onViewpointReachedRef.current?.(claim),
         // NOT `DEBUG_TOOLS_ENABLED`, which is true under `vite preview` too —
         // and preview serves a real `dist/` with a real blog capture in it. This
         // asks the narrower question the page image actually needs: does this

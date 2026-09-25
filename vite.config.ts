@@ -267,6 +267,8 @@ function isObserverDebugChunk(chunk: OutputChunk): boolean {
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   // Legal/preferences UI loads only after a visitor opens a legal document.
   if (chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/LegalPanel.tsx')) return false
+  // The vantage claim loads only for the visitor holding the final vantage point.
+  if (chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/ClaimDialog.tsx')) return false
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
   if (isObserverDebugChunk(chunk)) return false
