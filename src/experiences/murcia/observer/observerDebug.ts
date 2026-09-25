@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Observer } from './createObserver';
-import { AUTHORING_MARKERS } from './observerAuthoring';
+import { AUTHORING_MARKERS, type ViewpointMarker } from './observerAuthoring';
+import { cryptoRandom, scatterTargets } from './observerScatter';
 import {
   compositionError,
   projectMarkers,
@@ -24,8 +25,8 @@ import { claimWithToken, type ViewClient, type ViewReply } from './viewClient';
  *    server's last verdict (sent only when the dev server runs with
  *    `VIEW_DEBUG=1`, since the pose is not in the browser);
  *  - one `THREE.Points` marking the anchors in the world (one draw call);
- *  - `window.__vertigoAlign` — `pick()`, `capture()`, `status()`, `claim()`,
- *    `reset()` — because the console is where this repo's other seams already
+ *  - `window.__vertigoAlign` — `pick()`, `capture()`, `scatter()`, `status()`,
+ *    `claim()`, `reset()` — because the console is where this repo's other seams already
  *    live, and a key binding would be one more window-level listener.
  *
  * The overlay redraws every frame rather than at the F3 overlay's cadence:
@@ -53,6 +54,8 @@ export interface ObserverDebug {
 interface AlignSeam {
   pick(ndcX?: number, ndcY?: number): [number, number, number] | null;
   capture(): unknown;
+  /** Random anchors cast from the current pose; see `observerScatter.ts`. Then captures. */
+  scatter(count?: number): unknown;
   status(): unknown;
   claim(email: string): Promise<string | null>;
   reset(): void;
@@ -61,23 +64,46 @@ interface AlignSeam {
 /** Starting tolerances for a captured stage, to be tightened in the authoring session. */
 const CAPTURE_TOLERANCE = { positionUnits: 6, angleDegrees: 3, fovDegrees: 0.5 };
 
+// ── scatter() ──
+/** Targets fall within ±0.6 half-heights vertically. */
+const SCATTER_EXTENT = 0.6;
+/** And fit an upright phone horizontally (about 9:19.5). */
+const SCATTER_MIN_ASPECT = 9 / 19.5;
+/** No two targets closer than 12% of the viewport height. */
+const SCATTER_MIN_SEPARATION = 0.12;
+/** World units. Below this a hit is the ground plane, not a building detail. */
+const MIN_ANCHOR_HEIGHT = 3;
+/**
+ * Farthest anchor over nearest. Without real depth spread the figure is nearly
+ * a flat decal, legible from a wide cone of poses — the opposite of the point.
+ */
+const MIN_DEPTH_RATIO = 1.5;
+const SCATTER_ROUNDS = 40;
+
 const MARKER_COLOUR = '#ff3df2';
 const TARGET_COLOUR = '#3dfcff';
 const INSIDE_COLOUR = '#7bff8e';
 
 export function createObserverDebug(options: ObserverDebugOptions): ObserverDebug {
   const { observer, viewClient, camera, scene, root, canvas } = options;
-  const markers = AUTHORING_MARKERS;
-  const projected = new Float32Array(markers.length * PROJECTION_STRIDE);
+  // Replaceable at runtime by `scatter()`, so a new composition can be judged
+  // before it is pasted into `observerAuthoring.ts`.
+  let markers: readonly ViewpointMarker[] = AUTHORING_MARKERS;
+  let projected = new Float32Array(markers.length * PROJECTION_STRIDE);
   const error: CompositionError = { meanPx: 0, maxPx: 0, scored: 0 };
   let lastReply: ViewReply | null = null;
 
   // ── World helper ──
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(markers.flatMap((m) => [...m.position]), 3),
-  );
+  function setMarkers(next: readonly ViewpointMarker[]): void {
+    markers = next;
+    projected = new Float32Array(markers.length * PROJECTION_STRIDE);
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(markers.flatMap((m) => [...m.position]), 3),
+    );
+  }
+  setMarkers(markers);
   const material = new THREE.PointsMaterial({
     color: MARKER_COLOUR,
     size: 7,
@@ -257,6 +283,42 @@ export function createObserverDebug(options: ObserverDebugOptions): ObserverDebu
           `\n── rig, to reproduce the framing ──\n${literal(rig)}`,
       );
       return { stage, markers: captured, rig };
+    },
+    scatter(count = 6) {
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / Math.max(1, rect.height);
+      for (let attempt = 0; attempt < SCATTER_ROUNDS; attempt++) {
+        const targets = scatterTargets({
+          count,
+          aspect,
+          extent: SCATTER_EXTENT,
+          minAspect: SCATTER_MIN_ASPECT,
+          minSeparation: SCATTER_MIN_SEPARATION,
+          random: cryptoRandom,
+        });
+        if (targets === null) break;
+
+        const anchors: Array<{ point: THREE.Vector3; distance: number }> = [];
+        for (const [x, y] of targets) {
+          ndc.set(x, y);
+          raycaster.setFromCamera(ndc, camera);
+          const hit = raycaster.intersectObject(root, true)[0];
+          if (!hit || hit.point.y < MIN_ANCHOR_HEIGHT) break;
+          anchors.push({ point: hit.point.clone(), distance: hit.distance });
+        }
+        if (anchors.length !== count) continue;
+        const depths = anchors.map((a) => a.distance);
+        if (Math.max(...depths) / Math.min(...depths) < MIN_DEPTH_RATIO) continue;
+
+        setMarkers(
+          anchors.map(({ point }) => ({
+            position: [round(point.x, 2), round(point.y, 2), round(point.z, 2)] as const,
+          })),
+        );
+        return seam.capture();
+      }
+      console.info('[align] scatter: nothing here met the constraints — move the camera and try again');
+      return null;
     },
     status() {
       return {
