@@ -45,7 +45,7 @@ describe('the Murcia hint', () => {
   it('carries both gestures, so the stylesheet has something to pick from', () => {
     expect(sentences().map((el) => el.dataset.input)).toEqual(['fine', 'coarse'])
     expect(sentences().map((el) => el.textContent?.trim())).toEqual([
-      'Scroll para volver a la Tierra',
+      'Scroll o desliza para volver a la Tierra',
       'Zoom para volver a la Tierra',
     ])
     expect(glyph('mouse')).not.toBeNull()

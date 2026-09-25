@@ -14,7 +14,7 @@ export function MurciaHint() {
     <SceneHint
       world="murcia"
       gesture="out"
-      fine="Scroll para volver a la Tierra"
+      fine="Scroll o desliza para volver a la Tierra"
       coarse="Zoom para volver a la Tierra"
     />
   )

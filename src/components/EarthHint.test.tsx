@@ -45,7 +45,7 @@ describe('the Earth hint', () => {
   it('carries both gestures, so the stylesheet has something to pick from', () => {
     expect(sentences().map((el) => el.dataset.input)).toEqual(['fine', 'coarse'])
     expect(sentences().map((el) => el.textContent?.trim())).toEqual([
-      'Scroll para viajar a Murcia',
+      'Scroll o desliza para viajar a Murcia',
       'Zoom para viajar a Murcia',
     ])
     expect(glyph('mouse')).not.toBeNull()
