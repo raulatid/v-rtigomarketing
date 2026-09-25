@@ -9,13 +9,15 @@
  * was given. The token is the progress: its stage says which vantage point is
  * next. A rest at that point earns the next stage; any other rest earns the
  * same stage re-issued, so progress is never lost to a miss; no progress earns
- * a decoy. Every answer is `200 { t }` with a 44-character `t`.
+ * a decoy. Every answer is `200 { t }` with a 44-character `t`, plus `f: 1`
+ * once the token is of the FINAL stage — the signal that opens the claim.
  *
  * ── /api/claim ──
  *
- * A token of the FINAL stage plus an email. The first valid claim wins,
- * atomically, and gets a claim code; the team is notified. Every later claim —
- * and every invalid one — gets `{ code: null }`. Once a winner exists the view
+ * A token of the FINAL stage, an email and `consent: true`. The first valid
+ * claim wins, atomically, and gets a claim code; the team is notified and the
+ * claimant is sent the code. A claim after the win gets `{ code: null, closed:
+ * true }`; any other refusal `{ code: null }`. Once a winner exists the view
  * endpoint closes too.
  *
  * ── What a refusal looks like ──
@@ -28,6 +30,7 @@
 import { readMailConfig, type MailEnv } from '../config.js'
 import { clientIp, json, readJsonBody } from '../endpoint.js'
 import { cmsRecipient } from '../recipient.js'
+import type { RenderedEmail } from '../renderEmail.js'
 import { sendEmail } from '../resend.js'
 import { readViewConfig, VIEW_OPEN, type ViewConfig, type ViewEnv, type Vec3 } from './config.js'
 import { measure, type ViewSample } from './solution.js'
@@ -183,17 +186,27 @@ export async function respondView(
   else if (held > 0) t = await issueToken(config.secret, held, now)
   else t = decoyToken()
 
-  // Authoring only; `readViewConfig` refuses `debug` in production.
-  if (config.debug) return json(200, { t, dbg: { stage: next, held, ...deviation } })
-  return json(200, { t })
+  // The FINAL stage is the one thing the city must hear, because it opens the
+  // claim; every earlier stage answers exactly like a miss. `f` is UX, not a
+  // secret — a script learns the same by trying its token against /api/claim.
+  const final = (deviation?.inside ? next : held) === config.stages.length
+  return json(200, {
+    t,
+    ...(final && { f: 1 }),
+    // Authoring only; `readViewConfig` refuses `debug` in production.
+    ...(config.debug && { dbg: { stage: next, held, ...deviation } }),
+  })
 }
 
 export function parseClaimBody(body: unknown): { token: string; email: string } | null {
   if (body === null || typeof body !== 'object') return null
-  const { t, email } = body as Record<string, unknown>
+  const { t, email, consent } = body as Record<string, unknown>
   const token = readToken(t)
   if (typeof token !== 'string') return null
   if (typeof email !== 'string') return null
+  // The address is kept to hand over a prize; that needs the claimant's say-so,
+  // and a claim without it is refused rather than stored.
+  if (consent !== true) return null
   const address = email.trim()
   if (address.length > EMAIL_MAX || !ADDRESS_PATTERN.test(address)) return null
   return { token, email: address }
@@ -215,33 +228,53 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;')
 }
 
+interface ClaimRecord {
+  code: string
+  email: string
+  at: string
+  /** The claimant ticked the consent box; `parseClaimBody` refuses a claim without it. */
+  consent: true
+}
+
 /**
- * Tells the team. A failure here does NOT undo the win: the record is already
- * in the store, which is the source of truth, and the claimant holds the code.
+ * Tells the team, then sends the claimant their code. A failure in either does
+ * NOT undo the win: the record is already in the store, which is the source of
+ * truth, and the claimant has the code on screen.
  */
 async function notify(
   env: MailEnv,
-  record: { code: string; email: string; at: string },
+  record: ClaimRecord,
   log: (line: string) => void,
   fetchImpl: typeof fetch | undefined,
 ): Promise<void> {
   const mail = readMailConfig(env)
   if (!mail.ok) {
-    log('[view] claim registered; notification not sent: mail not configured')
+    log('[view] claim registered; mail not sent: mail not configured')
     return
   }
   if (mail.config.mode !== 'send') {
-    log('[view] claim registered; notification skipped (mail dry run)')
+    log('[view] claim registered; mail skipped (dry run)')
     return
   }
-  let to: string
+  let team: string
   try {
-    to = mail.config.toOverride ?? cmsRecipient()
+    team = mail.config.toOverride ?? cmsRecipient()
   } catch {
-    log('[view] claim registered; notification not sent: no recipient')
+    log('[view] claim registered; mail not sent: no recipient')
     return
   }
-  const outcome = await sendEmail(
+  // Held narrowed: the closure below would otherwise see the whole union again.
+  const sending = mail.config
+  const send = (message: RenderedEmail, to: string) =>
+    sendEmail(message, {
+      apiKey: sending.apiKey,
+      from: sending.from,
+      to,
+      timeoutMs: sending.timeoutMs,
+      ...(fetchImpl ? { fetchImpl } : {}),
+    })
+
+  const toTeam = await send(
     {
       subject: 'Reclamación registrada',
       text:
@@ -258,15 +291,34 @@ async function notify(
         '<p>El registro también está en el store, clave <code>' + WINNER_KEY + '</code>.</p>',
       replyTo: record.email,
     },
-    {
-      apiKey: mail.config.apiKey,
-      from: mail.config.from,
-      to,
-      timeoutMs: mail.config.timeoutMs,
-      ...(fetchImpl ? { fetchImpl } : {}),
-    },
+    team,
   )
-  log(outcome.ok ? '[view] claim registered; team notified' : '[view] claim registered; notification failed: ' + outcome.detail)
+  log(toTeam.ok ? '[view] claim registered; team notified' : '[view] claim registered; team notification failed: ' + toTeam.detail)
+
+  // Replies go to the team, so the claimant can answer this message to reach
+  // whoever hands the prize over.
+  const toClaimant = await send(
+    {
+      subject: 'Tu código de reclamación',
+      text:
+        'Has sido la primera persona en encontrar el punto de vista.\n\n' +
+        'Tu código de reclamación es:\n\n' +
+        '    ' + record.code + '\n\n' +
+        'Guárdalo: es la prueba de que llegaste primero. Nos pondremos en contacto ' +
+        'contigo en esta dirección; también puedes responder a este mensaje.\n\n' +
+        'Si no has sido tú, ignora este email.',
+      html:
+        '<p>Has sido la primera persona en encontrar el punto de vista.</p>' +
+        '<p>Tu código de reclamación es:</p>' +
+        '<p style="font-size:18px;letter-spacing:1px"><code>' + escapeHtml(record.code) + '</code></p>' +
+        '<p>Guárdalo: es la prueba de que llegaste primero. Nos pondremos en contacto ' +
+        'contigo en esta dirección; también puedes responder a este mensaje.</p>' +
+        '<p>Si no has sido tú, ignora este email.</p>',
+      replyTo: team,
+    },
+    record.email,
+  )
+  log(toClaimant.ok ? '[view] claimant sent their code' : '[view] claimant code mail failed: ' + toClaimant.detail)
 }
 
 export async function respondClaim(
@@ -282,22 +334,29 @@ export async function respondClaim(
   if (parsed === null) return invalid()
 
   const log = options.log ?? ((line: string) => console.log(line))
+  // `closed` only when there is nothing left to win, so the city can say so
+  // instead of inviting a retry. Everything else is a plain no.
   const none = () => json(200, { code: null })
-  if (!VIEW_OPEN) return none()
+  const closed = () => json(200, { code: null, closed: true })
+  if (!VIEW_OPEN) return closed()
   const config = configOrLog(env, log)
   if (config === null) return none()
 
   const nowMs = (options.now ?? Date.now)()
   const store = options.store ?? storeFor(config, options.fetchImpl)
 
-  let record: { code: string; email: string; at: string }
+  let record: ClaimRecord
   try {
     if (!(await admit(store, config, clientIp(request), nowMs))) return none()
+    // Before the token: once somebody has won, /api/view stops issuing real
+    // tokens, so a late claimant arrives holding a decoy — and "it is over" is
+    // the true answer for them, where a bare no would invite a retry.
+    if (await store.exists(WINNER_KEY)) return closed()
     const stage = await verifyToken(config.secret, parsed.token, nowMs)
     if (stage !== config.stages.length) return none()
 
-    record = { code: claimCode(), email: parsed.email, at: new Date(nowMs).toISOString() }
-    if (!(await store.setIfAbsent(WINNER_KEY, JSON.stringify(record)))) return none()
+    record = { code: claimCode(), email: parsed.email, at: new Date(nowMs).toISOString(), consent: true }
+    if (!(await store.setIfAbsent(WINNER_KEY, JSON.stringify(record)))) return closed()
   } catch (error) {
     // Usually nothing was written and the claimant can simply retry. The one
     // unlucky case — the write landed but its answer was lost — leaves a record

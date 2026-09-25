@@ -46,12 +46,12 @@ const options = (extra: object = {}) => ({ store, now: () => NOW, log: (l: strin
 
 async function view(body: unknown, env: ViewEnv = ENV, ip?: string) {
   const response = await respondView(request(body, ip), env, options())
-  return { status: response.status, body: (await response.json()) as { t: string; dbg?: unknown } }
+  return { status: response.status, body: (await response.json()) as { t: string; f?: number; dbg?: unknown } }
 }
 
 async function claim(body: unknown, env: ViewEnv = ENV, extra: object = {}) {
   const response = await respondClaim(request(body), env, options(extra))
-  return { status: response.status, body: (await response.json()) as { code: string | null } }
+  return { status: response.status, body: (await response.json()) as { code: string | null; closed?: boolean } }
 }
 
 const stageOf = (t: string) => verifyToken(SECRET, t, NOW)
@@ -127,50 +127,99 @@ describe('respondView', () => {
   })
 })
 
+
+describe('the final-stage signal', () => {
+  it('is absent from a miss and from an earlier stage', async () => {
+    expect((await view(MISS)).body.f).toBeUndefined()
+    expect((await view(AT_1)).body.f).toBeUndefined()
+  })
+
+  it('is present once the token is of the final stage, and stays while it is held', async () => {
+    const t1 = (await view(AT_1)).body.t
+    const reached = await view({ ...AT_2, t: t1 })
+    expect(reached.body.f).toBe(1)
+    expect((await view({ ...MISS, t: reached.body.t })).body.f).toBe(1)
+  })
+})
+
 describe('respondClaim', () => {
   async function finalToken(): Promise<string> {
     const t1 = (await view(AT_1)).body.t
     return (await view({ ...AT_2, t: t1 })).body.t
   }
 
+  const claimOf = async (email: string) => ({ t: await finalToken(), email, consent: true })
+
+  /** Resend, faked: records who each message went to, answers with `status`. */
+  function fakeResend(status = 200) {
+    const sent: Array<{ to: string; replyTo: string; text: string }> = []
+    const fetchImpl = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { to: string[]; reply_to: string; text: string }
+      sent.push({ to: body.to[0], replyTo: body.reply_to, text: body.text })
+      return new Response(JSON.stringify(status === 200 ? { id: 'x' } : { message: 'no' }), { status })
+    }) as typeof fetch
+    return { sent, fetchImpl }
+  }
+
+  const SENDING = {
+    ...ENV,
+    MAIL_DRY_RUN: undefined,
+    RESEND_API_KEY: 're_test',
+    MAIL_FROM: 'Test <no-reply@example.com>',
+    MAIL_TO_OVERRIDE: 'team@example.com',
+  }
+
   it('refuses a body that is not a claim', async () => {
     expect((await claim({})).status).toBe(422)
-    expect((await claim({ t: 'x', email: 'not-an-address' })).status).toBe(422)
+    expect((await claim({ t: 'x', email: 'not-an-address', consent: true })).status).toBe(422)
   })
 
-  it('gives the first valid claim a code and records it', async () => {
-    const answer = await claim({ t: await finalToken(), email: 'winner@example.com' })
+  it('refuses a claim without consent, and stores nothing', async () => {
+    const { consent: _, ...withoutConsent } = await claimOf('a@example.com')
+    expect((await claim(withoutConsent)).status).toBe(422)
+    expect((await claim({ ...withoutConsent, consent: 'yes' })).status).toBe(422)
+    expect(await store.exists(WINNER_KEY)).toBe(false)
+  })
+
+  it('gives the first valid claim a code and records it with the consent', async () => {
+    const answer = await claim(await claimOf('winner@example.com'))
     expect(answer.body.code).toMatch(/^([0-9A-F]{4}-){7}[0-9A-F]{4}$/)
-    const record = JSON.parse((await store.get(WINNER_KEY))!) as Record<string, string>
-    expect(record).toMatchObject({ code: answer.body.code, email: 'winner@example.com' })
+    const record = JSON.parse((await store.get(WINNER_KEY))!) as Record<string, unknown>
+    expect(record).toMatchObject({ code: answer.body.code, email: 'winner@example.com', consent: true })
   })
 
-  it('gives every later claim nothing', async () => {
-    await claim({ t: await finalToken(), email: 'first@example.com' })
-    expect((await claim({ t: await finalToken(), email: 'second@example.com' })).body.code).toBeNull()
+  it('tells every later claim that it is closed', async () => {
+    await claim(await claimOf('first@example.com'))
+    const later = await claim(await claimOf('second@example.com'))
+    expect(later.body).toEqual({ code: null, closed: true })
     const record = JSON.parse((await store.get(WINNER_KEY))!) as Record<string, string>
     expect(record.email).toBe('first@example.com')
   })
 
-  it('refuses a token that is not of the final stage', async () => {
+  it('refuses a token that is not of the final stage, without saying closed', async () => {
     const t1 = (await view(AT_1)).body.t
-    expect((await claim({ t: t1, email: 'a@example.com' })).body.code).toBeNull()
+    expect((await claim({ t: t1, email: 'a@example.com', consent: true })).body).toEqual({ code: null })
     expect(await store.exists(WINNER_KEY)).toBe(false)
   })
 
-  it('keeps the win when the team notification fails', async () => {
-    const env = {
-      ...ENV,
-      MAIL_DRY_RUN: undefined,
-      RESEND_API_KEY: 're_test',
-      MAIL_FROM: 'Test <no-reply@example.com>',
-      MAIL_TO_OVERRIDE: 'team@example.com',
-    }
-    const failingResend = (async () => new Response('upstream says no', { status: 500 })) as typeof fetch
-    const answer = await claim({ t: await finalToken(), email: 'w@example.com' }, env, { fetchImpl: failingResend })
+  it('notifies the team and sends the claimant their code', async () => {
+    const resend = fakeResend()
+    const answer = await claim(await claimOf('w@example.com'), SENDING, { fetchImpl: resend.fetchImpl })
+    expect(resend.sent.map((m) => m.to)).toEqual(['team@example.com', 'w@example.com'])
+    // The team can reply to the claimant; the claimant's replies reach the team.
+    expect(resend.sent[0].replyTo).toBe('w@example.com')
+    expect(resend.sent[1].replyTo).toBe('team@example.com')
+    expect(resend.sent[1].text).toContain(answer.body.code!)
+  })
+
+  it('keeps the win when both mails fail', async () => {
+    const resend = fakeResend(500)
+    const answer = await claim(await claimOf('w@example.com'), SENDING, { fetchImpl: resend.fetchImpl })
     expect(answer.body.code).not.toBeNull()
     expect(await store.exists(WINNER_KEY)).toBe(true)
-    expect(lines.join('\n')).toContain('notification failed')
-    expect(lines.join('\n')).not.toContain('w@example.com')
+    const log = lines.join('\n')
+    expect(log).toContain('team notification failed')
+    expect(log).toContain('claimant code mail failed')
+    expect(log).not.toContain('w@example.com')
   })
 })
