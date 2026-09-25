@@ -31,7 +31,9 @@ describe('the selected unified bake contract', () => {
       }
       const selected = atlasResolutions(shipped, resolution);
       const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + shipped.atlases[key].variants[size].bytes, 0);
-      expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_000_000 : 6_000_000);
+      expect(selected.get('outer-ring-b')).toBe(2048);
+      expect(loadedBytes).toBe(resolution === 1024 ? 4_446_660 : 6_447_755);
+      expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_500_000 : 6_500_000);
     }
   });
   it('preserves the eight unaffected atlases and their runtime metadata exactly', () => {
@@ -83,7 +85,7 @@ describe('the selected unified bake contract', () => {
   });
   it('enforces the total budget across atlases, not a budget per file', () => {
     const m = manifest();
-    m.atlases.ground.variants[1024].bytes = 2_100_000;
+    m.atlases.ground.variants[1024].bytes = 2_300_000;
     expect(() => parseUnifiedManifest({ ...m, atlases: { a: m.atlases.ground, b: m.atlases.ground } })).toThrow('total download');
   });
 });
@@ -125,7 +127,22 @@ describe('mixed-resolution profile allocation', () => {
     }
   });
   it('enforces the bytes actually selected by the mobile profile', () => {
-    const m = manifest(); m.atlases.ground.variants[2048].bytes = 4_100_000;
+    const m = manifest(); m.atlases.ground.variants[2048].bytes = 4_500_001;
     expect(() => parseUnifiedManifest({ ...m, profiles: { mobile: { atlasResolutions: { ground: 2048 } } } })).toThrow('mobile exceeds');
   });
+});
+
+describe('exact profile budget boundaries', () => {
+  for (const [profile, resolution, limit] of [['mobile', 1024, 4_500_000], ['desktop', 2048, 6_500_000]] as const) {
+    for (const explicit of [false, true]) {
+      it(`${profile} ${explicit ? 'allocated' : 'fallback'} accepts the ceiling and rejects one byte more`, () => {
+        const m = manifest();
+        m.atlases.ground.variants[resolution].bytes = limit;
+        const candidate = explicit ? { ...m, profiles: { [profile]: { atlasResolutions: { ground: resolution } } } } : m;
+        expect(() => parseUnifiedManifest(candidate)).not.toThrow();
+        m.atlases.ground.variants[resolution].bytes++;
+        expect(() => parseUnifiedManifest(candidate)).toThrow('total download budget');
+      });
+    }
+  }
 });

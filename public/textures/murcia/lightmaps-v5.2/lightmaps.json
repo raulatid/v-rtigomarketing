@@ -640,8 +640,8 @@
   "profiles": {
     "desktop": {
       "resolution": 2048,
-      "totalBytes": 5989106,
-      "budgetBytes": 6000000,
+      "totalBytes": 6447755,
+      "budgetBytes": 6500000,
       "atlasCount": 20,
       "atlasResolutions": {
         "landmark-cathedral": 2048,
@@ -662,14 +662,14 @@
         "instances-main-1": 1024,
         "instances-outer-1": 1024,
         "instances-main-2": 1024,
-        "outer-ring-b": 1024,
+        "outer-ring-b": 2048,
         "outer-buildings": 1024
       }
     },
     "mobile": {
       "resolution": 1024,
-      "totalBytes": 3988011,
-      "budgetBytes": 4000000,
+      "totalBytes": 4446660,
+      "budgetBytes": 4500000,
       "atlasCount": 20,
       "atlasResolutions": {
         "landmark-cathedral": 2048,
@@ -690,7 +690,7 @@
         "instances-main-1": 1024,
         "instances-outer-1": 1024,
         "instances-main-2": 1024,
-        "outer-ring-b": 1024,
+        "outer-ring-b": 2048,
         "outer-buildings": 1024
       }
     }

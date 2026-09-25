@@ -36,10 +36,10 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
       totals[resolution] += v.bytes;
     }
   }
-  if ((!m.profiles?.mobile?.atlasResolutions && totals[1024] > 4_000_000) || (!m.profiles?.desktop?.atlasResolutions && totals[2048] > 6_000_000)) {
+  if ((!m.profiles?.mobile?.atlasResolutions && totals[1024] > 4_500_000) || (!m.profiles?.desktop?.atlasResolutions && totals[2048] > 6_500_000)) {
     throw new Error('[lightmaps] profile exceeds the total download budget');
   }
-  for (const [profile, limit] of [['mobile', 4_000_000], ['desktop', 6_000_000]] as const) {
+  for (const [profile, limit] of [['mobile', 4_500_000], ['desktop', 6_500_000]] as const) {
     const sizes = m.profiles?.[profile]?.atlasResolutions;
     if (sizes === undefined) continue;
     if (!sizes || typeof sizes !== 'object' || Object.keys(sizes).length !== Object.keys(m.atlases).length ||

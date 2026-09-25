@@ -268,7 +268,7 @@ export const murciaConfig: EnvironmentConfig = {
 
   // Versioned model and manifest are one delivery. Mixed atlas resolutions
   // prioritize central ground, the cathedral and rooftop parapets; outer
-  // context stays smaller. The manifest enforces 4 MB mobile / 6 MB desktop.
+  // context stays smaller. The manifest enforces 4.5 MB mobile / 6.5 MB desktop.
   lightmaps: {
     baseUrl: '/textures/murcia/lightmaps-v5.2/',
     manifest: 'lightmaps.json',
