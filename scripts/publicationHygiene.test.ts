@@ -62,6 +62,15 @@ describe('publication hygiene', () => {
     }
   })
 
+  it('ships the mirrored tower slide pictures and nothing else from media/tower', () => {
+    for (const file of ['media/tower/abc123-1024x1536.png', 'media/tower/abc123-800x600.webp', 'media/tower/abc123-800x600.jpg', 'media/tower/abc123-800x600.jpeg', 'media\\tower\\abc123-800x600.png']) {
+      expect(isPublicAsset(file), file).toBe(true)
+    }
+    for (const file of ['media/tower/.gitkeep', 'media/tower/pic.svg', 'media/tower/pic.gif', 'media/tower/sub/pic.png']) {
+      expect(isPublicAsset(file), file).toBe(false)
+    }
+  })
+
   it('detects copied/generated secret values without including the value in errors', () => {
     const env = { SANITY_TOKEN: 'synthetic-secret-value-for-test' }
     for (const name of ['textures/manifest.json', 'generated/blog-preview.json', 'models/city.glb']) {

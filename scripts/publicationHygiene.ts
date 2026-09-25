@@ -50,10 +50,23 @@ function isSiteMedia(parts: string[]): boolean {
   return parts.length === 3 && parts[0] === 'media' && parts[1] === 'site' && parts[2].endsWith('.png')
 }
 
+/**
+ * The tower screen's slide pictures, mirrored by the content build
+ * (content/collections/towerScreen.collection.ts) in the formats its
+ * SLIDE_IMAGE_RULE accepts. The facade draws them from this origin, so a file
+ * left out here is a 404 the renderer only warns about.
+ */
+const TOWER_MEDIA_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
+
+function isTowerMedia(parts: string[]): boolean {
+  return parts.length === 3 && parts[0] === 'media' && parts[1] === 'tower' &&
+    TOWER_MEDIA_EXTENSIONS.has(path.extname(parts[2]).toLowerCase())
+}
+
 export function isPublicAsset(file: string): boolean {
   const parts = file.replace(/\\/g, '/').split('/')
   if (parts.some((part) => part.startsWith('.') || part.startsWith('sky-test-'))) return false
-  return PUBLIC_ROOT_FILES.has(file) || isSiteMedia(parts) || (
+  return PUBLIC_ROOT_FILES.has(file) || isSiteMedia(parts) || isTowerMedia(parts) || (
     PUBLIC_ROOTS.has(parts[0]) && PUBLIC_EXTENSIONS.has(path.extname(file))
   )
 }
