@@ -17,6 +17,7 @@ import type {
 } from './renderableExperience'
 import { clampFrameDelta } from './frameDelta'
 import { observeContextLoss } from './contextLoss'
+import { compileAsyncForRenderTarget } from './compileForTarget'
 
 interface Props {
   /**
@@ -178,6 +179,53 @@ export function RenderPipeline({ readSettings, directRef, overlayRef, onContextL
       composer.dispose()
     }
   }, [composer, bloomPass, afterimagePass, vacuumPass, outputPass, renderPass])
+
+  // The warp-only passes, compiled and first drawn now rather than on the first
+  // frame of a warp. Both stay disabled until motion blur or the vacuum is
+  // non-zero, so their programs used to compile synchronously on the frame the
+  // warp began. Drawn into the composer's targets, never the canvas: OutputPass
+  // is always the last pass, so a render-target compile is the variant they use.
+  //
+  // The 1x1 draw after the compile is not redundant. A program's first draw
+  // still costs ~40 ms on ANGLE/D3D11 once compiled — three's first-use checks
+  // and the driver's own draw-time preparation — which is why
+  // `MurciaExperience.warm()` renders too.
+  useEffect(() => {
+    const geometry = new THREE.PlaneGeometry(2, 2)
+    const warmScene = new THREE.Scene()
+    for (const material of [
+      afterimagePass.compFsQuad.material,
+      afterimagePass.copyFsQuad.material,
+      vacuumPass.pass.material,
+    ]) {
+      warmScene.add(new THREE.Mesh(geometry, material))
+    }
+    const warmCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
+    // The dispose effect above frees these materials; drawing them afterwards
+    // would quietly rebuild their programs.
+    let disposed = false
+    compileAsyncForRenderTarget(gl, warmScene, warmCamera)
+      .then(() => {
+        if (disposed) return
+        const target = new THREE.WebGLRenderTarget(1, 1)
+        const previous = gl.getRenderTarget()
+        try {
+          gl.setRenderTarget(target)
+          gl.render(warmScene, warmCamera)
+        } finally {
+          gl.setRenderTarget(previous)
+          target.dispose()
+        }
+      })
+      .catch((error) => {
+        // Not fatal: the passes still compile on first use, with a hitch.
+        console.warn('[graphics] warp pass warm-up failed; the first warp may hitch', error)
+      })
+      .finally(() => geometry.dispose())
+    return () => {
+      disposed = true
+    }
+  }, [gl, afterimagePass, vacuumPass])
 
   useFrame((_, delta) => {
     const direct = directRef.current
