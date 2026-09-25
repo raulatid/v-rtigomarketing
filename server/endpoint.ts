@@ -53,7 +53,7 @@ export interface RespondOptions {
   fetchImpl?: typeof fetch
 }
 
-function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
+export function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -70,12 +70,54 @@ function json(status: number, body: unknown, headers: Record<string, string> = {
  * Spoofable by anyone talking to the origin directly, which is why the address
  * is one input to a best-effort limiter and never an identity.
  */
-function clientIp(request: Request): string | null {
+export function clientIp(request: Request): string | null {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded !== null && forwarded.trim().length > 0) {
     return forwarded.split(',')[0].trim()
   }
   return request.headers.get('x-real-ip')
+}
+
+/**
+ * The body checks every endpoint here shares: a JSON content type, a size cap
+ * enforced on the header AND on the measured bytes, and a parse. Returns the
+ * refusal ready to send, so a caller cannot forget to send it.
+ */
+export async function readJsonBody(
+  request: Request,
+): Promise<{ ok: true; value: unknown } | { ok: false; response: Response }> {
+  const contentType = request.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return { ok: false, response: json(415, { ok: false, code: 'unsupported_media_type' }) }
+  }
+
+  // Checked before the stream is touched, so an oversized body costs nothing.
+  const declared = Number(request.headers.get('content-length') ?? '0')
+  if (Number.isFinite(declared) && declared > BODY_LIMIT_BYTES) {
+    return { ok: false, response: json(400, { ok: false, code: 'malformed' }) }
+  }
+
+  let raw: string
+  try {
+    raw = await request.text()
+  } catch {
+    return { ok: false, response: json(400, { ok: false, code: 'malformed' }) }
+  }
+  // A content-length header is a claim; this is the measurement — and it has to
+  // be a measurement in the same UNIT. `raw.length` counts UTF-16 code units,
+  // so 16 KB of `content-length` and 16 KB of `raw.length` are different sizes
+  // the moment a body is not ASCII: three bytes per character is ordinary for
+  // CJK, and a body twice the limit passed a header check it had simply omitted.
+  // The cap is named in bytes; count bytes.
+  if (new TextEncoder().encode(raw).length > BODY_LIMIT_BYTES) {
+    return { ok: false, response: json(400, { ok: false, code: 'malformed' }) }
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(raw) as unknown }
+  } catch {
+    return { ok: false, response: json(400, { ok: false, code: 'malformed' }) }
+  }
 }
 
 export async function respond(
@@ -93,39 +135,9 @@ export async function respond(
     return json(405, { ok: false, code: 'method_not_allowed' }, { allow: 'POST' })
   }
 
-  const contentType = request.headers.get('content-type') ?? ''
-  if (!contentType.toLowerCase().includes('application/json')) {
-    return json(415, { ok: false, code: 'unsupported_media_type' })
-  }
-
-  // Checked before the stream is touched, so an oversized body costs nothing.
-  const declared = Number(request.headers.get('content-length') ?? '0')
-  if (Number.isFinite(declared) && declared > BODY_LIMIT_BYTES) {
-    return json(400, { ok: false, code: 'malformed' })
-  }
-
-  let raw: string
-  try {
-    raw = await request.text()
-  } catch {
-    return json(400, { ok: false, code: 'malformed' })
-  }
-  // A content-length header is a claim; this is the measurement — and it has to
-  // be a measurement in the same UNIT. `raw.length` counts UTF-16 code units,
-  // so 16 KB of `content-length` and 16 KB of `raw.length` are different sizes
-  // the moment a body is not ASCII: three bytes per character is ordinary for
-  // CJK, and a body twice the limit passed a header check it had simply omitted.
-  // The cap is named in bytes; count bytes.
-  if (new TextEncoder().encode(raw).length > BODY_LIMIT_BYTES) {
-    return json(400, { ok: false, code: 'malformed' })
-  }
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw) as unknown
-  } catch {
-    return json(400, { ok: false, code: 'malformed' })
-  }
+  const read = await readJsonBody(request)
+  if (!read.ok) return read.response
+  const parsed = read.value
 
   const configResult = readMailConfig(env)
   if (!configResult.ok) {
