@@ -14,6 +14,7 @@ import { createScene } from './core/createScene';
 import type { SceneBundle } from './core/createScene';
 import type { ViewportSize } from './core/resize';
 import { whileRevealed } from './core/whileRevealed';
+import { compileAsyncForRenderTarget } from '../../graphics/compileForTarget';
 import { createAssetLoader } from './assets/createAssetLoader';
 import type { AssetLoader } from './assets/createAssetLoader';
 import { loadCity, disposeLoadedCity } from './assets/loadCity';
@@ -415,12 +416,18 @@ export class MurciaExperience {
    *
    * Two separate costs, because compileAsync only covers one of them:
    *
-   * 1. Shader programs and texture uploads — `compileAsync(scene, camera)`.
-   *    Verified against three 0.174: the signature is
+   * 1. Shader programs — `compileAsync(scene, camera)`, twice. The city is
+   *    drawn two ways: straight onto the canvas, and through the composer's
+   *    render targets for the length of a warp (`direct-composited`). three
+   *    keys a program on which of the two it draws into, so each material has
+   *    two programs, and a plain compileAsync prepares only the canvas one. The
+   *    other set used to compile synchronously inside the 1x1 render below —
+   *    it draws into a target too — which froze the intro for ~0.6 s on a
+   *    desktop GPU (2026-09-25). Verified against three 0.174: the signature is
    *    `compileAsync(scene, camera, targetScene = null)`, and it works on a
    *    scene that is not R3F's default one.
-   * 2. Geometry attribute buffers, which three uploads lazily on first draw
-   *    and which compileAsync does NOT cover (PROJECT_MEMORY, "Loading").
+   * 2. Geometry attribute buffers and textures, which three uploads lazily on
+   *    first draw and which compileAsync does NOT cover (PROJECT_MEMORY, "Loading").
    *    Forced here with one render into a 1x1 target — the smallest draw that
    *    still walks the whole visible graph. 957 GPU-instanced buildings'
    *    buffers landing on the transition frame is exactly the hitch this
@@ -447,7 +454,12 @@ export class MurciaExperience {
     // the upload lands in the warm render below rather than on the first frame
     // anyone sees it. Nothing else in a zero tick moves.
     this.campus?.update(0);
-    await whileRevealed(hiddenAtBirth, () => this.renderer.compileAsync(scene, camera));
+    await whileRevealed(hiddenAtBirth, () =>
+      Promise.all([
+        this.renderer.compileAsync(scene, camera),
+        compileAsyncForRenderTarget(this.renderer, scene, camera),
+      ]),
+    );
 
     const target = new THREE.WebGLRenderTarget(1, 1);
     const previousTarget = this.renderer.getRenderTarget();
