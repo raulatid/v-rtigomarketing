@@ -789,7 +789,15 @@ export class MurciaExperience {
       // being wrapped, and notching for it there would cut two holes in open
       // countryside.
       const openings = !groundPastContent && loaded.riverBounds ? [loaded.riverBounds] : [];
-      const transition = createTerrainTransition(wrapped, env.terrainTransition, { openings });
+      // Under a fog, the world must not end in the sky colour before the
+      // horizon: the underlay carries the ground out past the far plane.
+      const underlay = env.sceneState.fog
+        ? { color: env.sceneState.fog.color, reach: env.camera.far * 1.5 }
+        : undefined;
+      const transition = createTerrainTransition(wrapped, env.terrainTransition, {
+        openings,
+        underlay,
+      });
       this.sceneBundle.scene.add(transition.group);
       this.transition = transition;
       // Nothing about where the viewer may go is decided here any more. This is

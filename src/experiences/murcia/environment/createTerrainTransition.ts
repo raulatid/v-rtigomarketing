@@ -14,6 +14,14 @@ export interface TerrainTransitionOptions {
    * being sealed by a wall of terrain.
    */
   openings?: readonly BoundsRect[];
+  /**
+   * When set, an opaque ground of this colour runs under everything out to
+   * `underlayReach` from the plate centre, so the world never ends in the
+   * background colour before the horizon. Meant to be the fog colour: out
+   * there the fog is total, so the underlay reads as the far ground, and the
+   * skirt fades into it rather than into the sky.
+   */
+  underlay?: { color: number; reach: number };
 }
 
 export interface TerrainTransition {
@@ -103,6 +111,12 @@ export function createTerrainTransition(
   const skirt = buildSkirt(plateBounds, topY, config, gaps, material.clone());
   group.add(skirt.mesh);
   disposables.push(skirt);
+
+  if (options.underlay) {
+    const underlay = buildUnderlay(plateBounds, box.min.y - 1, options.underlay);
+    group.add(underlay.mesh);
+    disposables.push(underlay);
+  }
 
   return {
     group,
@@ -342,6 +356,37 @@ function buildSkirt(
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'TerrainTransitionSkirt';
+  mesh.matrixAutoUpdate = false;
+  mesh.updateMatrix();
+  mesh.raycast = () => {};
+
+  return {
+    mesh,
+    dispose: () => {
+      geometry.dispose();
+      material.dispose();
+    },
+  };
+}
+
+// --- Underlay ---------------------------------------------------------------
+
+/**
+ * One quad under the whole world, below the lowest point of the ground so it
+ * never z-fights the terrain or shows through the river where there is water.
+ */
+function buildUnderlay(
+  plate: BoundsRect,
+  y: number,
+  underlay: { color: number; reach: number },
+): { mesh: THREE.Mesh; dispose: () => void } {
+  const geometry = new THREE.PlaneGeometry(underlay.reach * 2, underlay.reach * 2);
+  geometry.rotateX(-Math.PI / 2);
+  const material = new THREE.MeshBasicMaterial({ color: underlay.color });
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = 'TerrainUnderlay';
+  mesh.position.set((plate.minX + plate.maxX) / 2, y, (plate.minZ + plate.maxZ) / 2);
   mesh.matrixAutoUpdate = false;
   mesh.updateMatrix();
   mesh.raycast = () => {};
