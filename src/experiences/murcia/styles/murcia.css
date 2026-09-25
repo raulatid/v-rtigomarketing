@@ -595,31 +595,92 @@
   vertical-align: 0.06em;
 }
 
+/* The docked detail's scroll fade (below). Registered so it interpolates; its
+   initial 0 is what a detail with no scroll timeline keeps: no fade. */
+@property --campus-detail-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes campus-detail-fade {
+  from { --campus-detail-fade: 2em; }
+  95% { --campus-detail-fade: 2em; }
+  to { --campus-detail-fade: 0px; }
+}
+
 /* The dock: the case panel's (styles.css .case-panel) on the other side. 30vw
    rather than its 38vw, so from 20vw the plate never crosses the middle of
    the frame, where the camera has put the lake's disc. Roomier than the
    card: it has the height of the screen to itself, so the copy breathes. */
 @media (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  /* Centred in the band between the site header and the bottom edge, and
+     never taller than it. It used to be centred on the viewport with no
+     limit, so on a laptop (1366x650 of viewport, say) the longer services
+     ran off both ends — taking the back arrow and the paging with them —
+     and even a plate that fit slid its top under the header. */
   .murcia-ui .campus-overlay {
+    --campus-dock-top: calc(var(--header-line-top) + var(--header-control) + 16px);
     left: 20vw;
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
+    top: var(--campus-dock-top);
+    bottom: 16px;
+    height: fit-content;
+    max-height: calc(100dvh - var(--campus-dock-top) - 16px);
+    margin-block: auto;
+    transform: none;
+    display: flex;
+    flex-direction: column;
     width: min(420px, 30vw);
-    padding: 3rem 2.5rem 3.25rem;
+    padding: 3rem 2.5rem 16px;
     text-align: left;
   }
 
-  /* Lifted into the top padding, and a wide gap before the title: the
-     arrow is the way out, not the first line of the copy. */
+  /* When the band is short, the detail is what gives: it shrinks and
+     scrolls, and everything else — the way out, the title, what gets
+     measured, the paging — stays put. It is the one long, editor-sized
+     block; scrolling the whole plate would carry the arrows away again. */
+  .murcia-ui .campus-overlay__body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .murcia-ui .campus-overlay__body > * {
+    flex-shrink: 0;
+  }
+
+  .murcia-ui .campus-overlay__body > .campus-overlay__detail {
+    flex-shrink: 1;
+    min-height: 4.5em;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* The layer lets the pointer through to the city; a scroller has to
+       catch the wheel. The navigation input already leaves a wheel over a
+       scrolling element alone. */
+    pointer-events: auto;
+  }
+
+  /* A clipped line reads as a bug; a fading one reads as more to come. Driven
+     by the detail's own scroll, so the fade exists only while there is text
+     below it — a detail that fits has no scroll timeline and no mask. Where
+     scroll timelines are unsupported the cut stays hard, with the scrollbar. */
+  @supports (animation-timeline: scroll()) {
+    .murcia-ui .campus-overlay__body > .campus-overlay__detail {
+      mask-image: linear-gradient(to bottom, #000 calc(100% - var(--campus-detail-fade)), transparent);
+      animation: campus-detail-fade linear both;
+      animation-timeline: scroll(self);
+    }
+  }
   .murcia-ui .campus-overlay__back {
+    flex-shrink: 0;
     margin: -34px 0 48px;
   }
 
-  /* Use the bottom padding for paging, leaving 16px below the hit targets. */
+  /* Paging closes the plate, 16px above its bottom edge. The gap above is
+     what the bottom padding used to give it when it sat inside that padding;
+     a flex column cannot reach into its own padding. */
   .murcia-ui .campus-overlay__navigation {
-    position: relative;
-    top: calc(3.25rem - 16px);
+    margin-top: calc(24px + 3.25rem - 16px);
   }
 
   .murcia-ui .campus-overlay__subtitle {
@@ -652,8 +713,77 @@
     content: none;
   }
 
+  /* The label is hidden, and the list's margin used to collapse into the
+     block's own; a flex item does not collapse its children's margins. */
+  .murcia-ui .campus-overlay__measures-label[hidden] + .campus-overlay__measures-list {
+    margin-top: 0;
+  }
+
   .murcia-ui .campus-overlay__caption {
     margin-top: 26px;
+  }
+}
+
+/* A laptop's height. The roomy spacing above is sized for a tall screen; at
+   these heights it alone would outgrow the band, leaving the detail no room
+   to scroll in. Tighter, so the plate usually fits whole. */
+@media (min-width: 1024px) and (min-aspect-ratio: 4/3) and (max-height: 860px) {
+  .murcia-ui .campus-overlay {
+    padding: 2rem 2.25rem 12px;
+  }
+
+  .murcia-ui .campus-overlay__back {
+    margin: -22px 0 20px;
+  }
+
+  .murcia-ui .campus-overlay__subtitle {
+    margin-top: 14px;
+  }
+
+  .murcia-ui .campus-overlay__body > .campus-overlay__detail {
+    margin-top: 18px;
+    line-height: 1.6;
+    min-height: 3.2em;
+  }
+
+  .murcia-ui .campus-overlay__measures {
+    margin-top: 18px;
+  }
+
+  .murcia-ui .campus-overlay__measures-list li {
+    padding: 5px 0;
+  }
+
+  .murcia-ui .campus-overlay__caption {
+    margin-top: 16px;
+  }
+
+  .murcia-ui .campus-overlay__navigation {
+    margin-top: 16px;
+  }
+}
+
+/* A 720p laptop, or a 768p one at 125%, where even the tight spacing leaves
+   a service's fixed parts taller than the band. */
+@media (min-width: 1024px) and (min-aspect-ratio: 4/3) and (max-height: 640px) {
+  .murcia-ui .campus-overlay {
+    padding-top: 1.5rem;
+  }
+
+  .murcia-ui .campus-overlay__back {
+    margin-bottom: 8px;
+  }
+
+  .murcia-ui .campus-overlay__body > .campus-overlay__detail {
+    min-height: 2.4em;
+  }
+
+  /* The last resort, below every step above: the body scrolls whole, so on
+     the shortest screens the paging is at worst scrolled to, never cut off. */
+  .murcia-ui .campus-overlay__body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    pointer-events: auto;
   }
 }
 

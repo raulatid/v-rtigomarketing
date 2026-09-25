@@ -249,6 +249,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
 
   const write = (copy: OverlayCopy): void => {
     body.scrollTop = 0;
+    // The docked plate scrolls the detail alone on a short screen (murcia.css).
+    detail.scrollTop = 0;
     title.textContent = copy.title;
     subtitle.textContent = copy.subtitle;
     hint.textContent = copy.hint ?? '';
