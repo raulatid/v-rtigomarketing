@@ -3,6 +3,7 @@ import { useLoader, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
 import { acquireKtx2Loader, releaseKtx2Loader } from '../../../graphics/decoders'
+import { compileAsyncForRenderTarget } from '../../../graphics/compileForTarget'
 import earthVert from '../shaders/earth/vertex.glsl'
 import earthFrag from '../shaders/earth/fragment.glsl'
 import atmosphereVert from '../shaders/atmosphere/vertex.glsl'
@@ -162,7 +163,14 @@ export function EarthScene({
         // compile() collects materials with scene.traverse, so the invisible
         // Earth group IS included; async so KHR_parallel_shader_compile can
         // link off the critical path. Covers the starfield material too.
-        await gl.compileAsync(scene, camera)
+        //
+        // For a render target, because that is where this scene is drawn: Earth
+        // always takes the composer route (RenderPipeline), and three keys a
+        // program on whether it draws into a target. A plain compileAsync
+        // prepared the canvas variant, which nothing uses, so every material
+        // born hidden — the sky at the warp's cut, the orbits — compiled its
+        // real program synchronously on the frame it appeared.
+        await compileAsyncForRenderTarget(gl, scene, camera)
       } catch (error) {
         // Fall back to compile-on-first-render rather than blocking the gate.
         console.warn('[earth] GPU warm-up failed; continuing cold', error)
