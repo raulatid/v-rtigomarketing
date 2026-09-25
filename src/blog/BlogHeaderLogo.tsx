@@ -40,7 +40,7 @@ import type { DetachHeaderLogo } from './headerLogoRuntime'
  * (DECISIONS §26.17): nothing to fetch and nothing that can 404 in a header.
  * The same data is the site's favicon, in both `index.html` and `blog.html`.
  */
-const MarkPaths = () => (
+export const MarkPaths = () => (
   <>
     <path
       fill="currentColor"
@@ -96,14 +96,23 @@ interface Props {
   /** Present on an article, where the mark goes back to the index. Absent on
    *  the index itself, where it would link to the page you are already on. */
   onHome?: () => void
+  /**
+   * Whether this mark may claim the document's ONE 3D logo instance
+   * (`headerLogoRuntime`'s `instance`). The 404 page passes `false`: it draws
+   * that instance large in its hero, and a second attachment from the header
+   * would pull the canvas straight back out of it. The SVG is the whole mark
+   * then, which is what every failure path already shows.
+   */
+  upgrade?: boolean
 }
 
-export function BlogHeaderLogo({ onHome }: Props) {
+export function BlogHeaderLogo({ onHome, upgrade = true }: Props) {
   const stageRef = useRef<HTMLSpanElement>(null)
   const markRef = useRef<SVGSVGElement>(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    if (!upgrade) return
     let cancelled = false
     let detach: DetachHeaderLogo | null = null
 
@@ -145,7 +154,7 @@ export function BlogHeaderLogo({ onHome }: Props) {
       detach?.()
       detach = null
     }
-  }, [])
+  }, [upgrade])
 
   // `data-gl` drives the crossfade, and it is on the STAGE rather than the
   // canvas so the SVG can fade out under a canvas the runtime owns and React

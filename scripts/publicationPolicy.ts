@@ -17,6 +17,15 @@ export function isBlogDocument(path: string): boolean {
   return path.replace(/^\//, '') === 'blog.html'
 }
 
+/**
+ * The document Vercel serves, with status 404, for a path no file and no
+ * rewrite answers. It has no CMS head, no canonical and no scene, so every
+ * document-shaping plugin in vite.config.ts skips it by this name.
+ */
+export function isNotFoundDocument(path: string): boolean {
+  return path.replace(/^\//, '') === '404.html'
+}
+
 export function documentCanonical(path: string, origin: string): string {
   return `${origin}${isBlogDocument(path) ? '/blog' : '/'}`
 }

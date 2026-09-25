@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { BlogPost } from '../src/content/types'
 import { parseRoute, routeToPath } from '../src/app/route'
 import { SEO_START, SEO_END } from './blogShell'
-import { blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, seoFiles } from './publicationPolicy'
+import {
+  blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, isNotFoundDocument, seoFiles,
+} from './publicationPolicy'
 
 const origin = 'https://vertigo.example'
 const post: BlogPost = {
@@ -52,6 +54,14 @@ describe('publication documents', () => {
     ])
     expect(blogTreeProblems([], ['retired'])).toHaveLength(1)
     expect(blogDocuments(shell, [], origin)).toEqual([{ fileName: 'blog/index.html', source: shell }])
+  })
+
+  it('tells the three documents apart by name', () => {
+    expect(isNotFoundDocument('/404.html')).toBe(true)
+    expect(isNotFoundDocument('404.html')).toBe(true)
+    expect(isNotFoundDocument('blog.html')).toBe(false)
+    expect(isNotFoundDocument('/index.html')).toBe(false)
+    expect(isBlogDocument('404.html')).toBe(false)
   })
 
   it('uses the production origin for both entry canonicals', () => {

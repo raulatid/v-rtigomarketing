@@ -19,8 +19,9 @@ function iconHref(file: string): string {
 }
 
 describe('the favicon', () => {
-  it('is the same in the site and the blog', () => {
+  it('is the same in the site, the blog and the 404 page', () => {
     expect(iconHref('blog.html')).toBe(iconHref('index.html'))
+    expect(iconHref('404.html')).toBe(iconHref('index.html'))
   })
 
   it('is the isotype the blog header draws', () => {

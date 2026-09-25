@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
  * fails rather than merely explaining.
  */
 const config = JSON.parse(fs.readFileSync('vercel.json', 'utf8')) as {
+  rewrites: Array<{ source: string; destination: string }>
   headers: Array<{ source: string; headers: Array<{ key: string; value: string }> }>
 }
 
@@ -120,6 +121,16 @@ describe('the content security policy', () => {
     // survives the build, which is what keeps 'unsafe-inline' off script-src.
     expect(directive('style-src')).toEqual(["'self'", "'unsafe-inline'"])
     expect(directive('script-src')).not.toContain("'unsafe-inline'")
+  })
+})
+
+describe('the rewrites', () => {
+  it('name their paths, so anything else reaches 404.html with status 404', () => {
+    // A catch-all here would answer every unknown URL with the 3D site at
+    // 200 — a soft 404 — and the platform would never reach the 404 document
+    // the build emits. Every source must be one of the paths that actually
+    // has a document behind it.
+    expect(config.rewrites.map((rule) => rule.source).sort()).toEqual(['/blog', '/blog/:slug', '/debug'])
   })
 })
 

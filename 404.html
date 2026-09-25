@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- The 404 page's own document.
+
+     Vercel serves a `404.html` at the root of the build output for any request
+     that matches no file and no rewrite, with status 404. That is the only way
+     an unknown URL gets a branded page AND a real 404: a catch-all rewrite to
+     index.html would answer 200 and boot the whole 3D site to say "not here".
+
+     Deliberately ABSENT compared to index.html: the intro boot script, every
+     Earth/sky <link rel="preload">, and the scene modulepreloads. The
+     introEntry plugin in vite.config.ts branches on the document path to keep
+     it that way, as it does for blog.html.
+
+     No seo markers either, on purpose: this document has no CMS head, is never
+     canonical for anything, and asks not to be indexed. The siteHead and
+     seoAssets plugins skip it by name. -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Página no encontrada — Vertigo</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- The scene's black, not the blog's paper: the mark on this page is brand
+         white. Inline so it is painted on the first frame, as index.html does. -->
+    <meta name="theme-color" content="#050507" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #050507;
+      }
+    </style>
+    <!-- The two faces the page sets in, as blog.html preloads them.
+         `crossorigin` is required even same-origin — a font request is
+         CORS-mode, and without it the preload is fetched twice. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/gambetta-variable-f705e571.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/general-sans-variable-49d3fbd2.woff2" crossorigin />
+    <!-- The site's favicon: identical to index.html's href. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-80 -80 560 560'%3E%3Crect x='-80' y='-80' width='560' height='560' fill='%23050507'/%3E%3Cpath fill='white' d='M33.7 13.6 7.7 39.4l4.7 3.4c92.3 67.2 193 82.8 292.7 45.5 30.2-11.3 63.8-30.1 85-47.4L354.1.2l-3.4 2.3c-37.9 26-78.1 42.2-118.4 47.7-19.1 2.6-39.4 2.9-58.5.7-26.4-3-52.3-10.2-77.5-21.7C79.3 21.5 62.2 11.4 49.9 1.8L47.5 0Z'/%3E%3Cpath fill='white' d='M34.5 99.7 168.6 399.5h62.5L365 99.7l-6 2.9c-20.4 10.2-45.7 20.3-65.4 26l-2.5.9-45.5 101.1-45.4 101.2-45.6-101.1L109.1 129.3l-1.7-.3c-13.6-2.4-43.2-14.2-69.4-27.7Z'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/entries/not-found.tsx"></script>
+  </body>
+</html>

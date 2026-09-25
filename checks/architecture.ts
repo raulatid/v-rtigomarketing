@@ -255,7 +255,7 @@ forbidReachable(
 // The site-wide head is written into the HTML by the build and read by no
 // component. Reached from either document, it would ship as JavaScript that
 // nothing on the page uses.
-for (const entry of ['src/main.tsx', 'src/entries/blog.tsx']) {
+for (const entry of ['src/main.tsx', 'src/entries/blog.tsx', 'src/entries/not-found.tsx']) {
   forbidReachable(
     entry + ' cannot reach the generated site head',
     entry,
@@ -285,6 +285,30 @@ forbidReachable(
   'src/entries/blog.tsx',
   'src/graphics/',
   '',
+);
+
+// The 404 document is the blog's shape without the blog: the same chrome, the
+// same dynamic seam to the 3D mark, and none of the article library. Each of
+// those is a rule, because each has a plausible accident behind it — importing
+// `BlogRoute` for its `BlogSurface` would drag every post body onto a page
+// that shows none.
+forbidReachable(
+  'the 404 entry never reaches an experience',
+  'src/entries/not-found.tsx',
+  'src/experiences/',
+  'a 404 is chrome and a logo, not the site',
+);
+forbidReachable(
+  'the 404 entry never reaches graphics',
+  'src/entries/not-found.tsx',
+  'src/graphics/',
+  '',
+);
+forbidReachable(
+  'the 404 entry cannot statically reach the generated blog content',
+  'src/entries/not-found.tsx',
+  'src/content/generated/blogPosts',
+  'import the chrome from src/blog/BlogSurface.tsx, never from BlogRoute',
 );
 
 forbid('blog/ does not import any experience', 'src/blog/', 'src/experiences/', '');
@@ -638,19 +662,25 @@ check(
 //     `import('./headerLogoRuntime')` is safe, and the same type from
 //     `'./headerLogoRuntime.ts'` is not — a one-character difference with three
 //     hundred kilobytes behind it.
+// The 404 entry crosses the same seam from `NotFoundLogo`, for its hero.
 {
   const HOST = 'src/blog/headerLogoRuntime.ts';
-  check(
-    'the blog IS reachable to the 3D mark, dynamically',
-    reachable('src/entries/blog.tsx').has(HOST),
-    'BlogHeaderLogo must keep its dynamic import, or the cold-blog rules pass on an absent feature',
-  );
-  check(
-    'the blog reaches the 3D mark ONLY through that dynamic seam',
-    !staticallyReachable('src/entries/blog.tsx').has(HOST),
-    'a static edge here puts three.js in the blog chunk — check for a type-only import whose ' +
-      'specifier differs from the dynamic one',
-  );
+  for (const [name, entry] of [
+    ['the blog', 'src/entries/blog.tsx'],
+    ['the 404 page', 'src/entries/not-found.tsx'],
+  ] as const) {
+    check(
+      `${name} IS reachable to the 3D mark, dynamically`,
+      reachable(entry).has(HOST),
+      'the dynamic import must stay, or the cold-document rules pass on an absent feature',
+    );
+    check(
+      `${name} reaches the 3D mark ONLY through that dynamic seam`,
+      !staticallyReachable(entry).has(HOST),
+      'a static edge here puts three.js in the document chunk — check for a type-only import whose ' +
+        'specifier differs from the dynamic one',
+    );
+  }
 }
 
 check(

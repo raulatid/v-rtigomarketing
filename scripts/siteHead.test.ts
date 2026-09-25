@@ -68,6 +68,17 @@ describe('the source documents', () => {
     const built = normalize(pageHead(SITE_SEO_FALLBACKS.blog, { origin: ORIGIN })).replace(ORIGIN, '')
     expect(region(fs.readFileSync('blog.html', 'utf8'))).toBe(built)
   })
+
+  // The 404 document has no CMS head: a fixed title, noindex, and no markers
+  // for the build to fill. siteHead() skips it by name for exactly that reason.
+  it('404.html carries a fixed, unindexed head and no seo region', () => {
+    const html = fs.readFileSync('404.html', 'utf8')
+    expect(html).not.toContain(SEO_START)
+    expect(html).toContain('<title>Página no encontrada — Vertigo</title>')
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow" />')
+    expect(html).toContain('<meta name="theme-color" content="#050507" />')
+    expect(html).toContain('<script type="module" src="/src/entries/not-found.tsx"></script>')
+  })
 })
 
 describe('blogIndexRegion', () => {
@@ -85,7 +96,7 @@ describe('replaceFavicon', () => {
   const href = '/media/site/abc-512x512.png'
 
   it('swaps the source isotype for the uploaded PNG and its touch icon', () => {
-    for (const file of ['index.html', 'blog.html']) {
+    for (const file of ['index.html', 'blog.html', '404.html']) {
       const html = replaceFavicon(fs.readFileSync(file, 'utf8'), href, file)
       expect(html.match(/rel="icon"/g), file).toHaveLength(1)
       expect(html).toContain(`<link rel="icon" type="image/png" href="${href}" />`)

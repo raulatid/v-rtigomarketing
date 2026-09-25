@@ -11,7 +11,7 @@ import path from 'node:path'
 import { BLOG_POSTS } from './src/content/generated/blogPosts'
 import { SITE_SEO } from './src/content/generated/siteSeo'
 import {
-  blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, seoFiles,
+  blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, isNotFoundDocument, seoFiles,
 } from './scripts/publicationPolicy'
 import { replaceRegion } from './scripts/blogShell'
 import { blogIndexRegion, pageHead, replaceFavicon } from './scripts/siteHead'
@@ -274,7 +274,23 @@ function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   if (isObserverDebugChunk(chunk)) return false
   // The city starts prefetchBlog() on approach; cold / does not need the route.
   if (isBlogRouteChunk(chunk)) return false
+  if (isBlogSurfaceChunk(chunk)) return false
   return !chunk.isEntry
+}
+
+/**
+ * The blog's chrome (`src/blog/BlogSurface.tsx`), shared by the lazy blog route
+ * and the 404 entry, so Rollup cuts it as a chunk of its own. `/` reaches it
+ * only through `LazyBlog`, the same seam as the route it dresses; preloading it
+ * on a cold `/` would spend a request on a header the scene draws its own
+ * version of. Excluded for the route's reason, and the static-edge check in
+ * assertChunkBudgets keeps this an exclusion of a lazy seam rather than a hole.
+ *
+ * Matched on the module, not the facade: a chunk Rollup cuts for two importers
+ * has no facade, only the modules in it.
+ */
+function isBlogSurfaceChunk(chunk: OutputChunk): boolean {
+  return chunk.moduleIds.some((id) => id.replace(/\\/g, '/').endsWith('src/blog/BlogSurface.tsx'))
 }
 
 function isBlogRouteChunk(chunk: OutputChunk): boolean {
@@ -846,11 +862,13 @@ function introEntry(): Plugin {
     config: () => ({
       build: {
         rollupOptions: {
-          // Three inputs, and the third is the whole of adr/013: /blog is its
+          // Four inputs. The blog one is the whole of adr/013: /blog is its
           // own document, so a cold reader never receives the intro script, the
           // scene modulepreloads or 2.43 MB of Earth textures. Making that an
-          // absence rather than a set of guards is the point.
-          input: { index: 'index.html', blog: 'blog.html', intro: INTRO_ENTRY },
+          // absence rather than a set of guards is the point. The 404 document
+          // is the same shape for the same reason, and Vercel serves it by
+          // name for any path nothing else answers.
+          input: { index: 'index.html', blog: 'blog.html', notFound: '404.html', intro: INTRO_ENTRY },
         },
       },
     }),
@@ -860,7 +878,8 @@ function introEntry(): Plugin {
         // blog.html gets NONE of this: no intro script, and no modulepreload for
         // three, the scene or Murcia. It is a 2D document and the reader is
         // here to read. The build asserts the result — see assertChunkBudgets.
-        if (isBlogDocument(ctx.path)) return []
+        // 404.html is the same kind of document.
+        if (isBlogDocument(ctx.path) || isNotFoundDocument(ctx.path)) return []
 
         // LINKED, not inlined — and that was measured rather than assumed.
         //
@@ -1015,6 +1034,10 @@ function seoAssets(): Plugin {
     transformIndexHtml: {
       order: 'post',
       handler(_html, ctx) {
+        // The 404 document is canonical for nothing and carries its own
+        // `noindex` in the source; a canonical of `/` on it would tell a crawler
+        // the home page is what it found at a dead URL.
+        if (isNotFoundDocument(ctx.path)) return []
         // Each document declares its own canonical. blog.html's is /blog, and
         // the per-post shells rewrite it to /blog/<slug> in blogRoutes below —
         // which is why the exact string emitted here is also an anchor there.
@@ -1057,9 +1080,14 @@ function siteHead(): Plugin {
         const seo = SITE_SEO[0]
         if (seo === undefined) throw new Error('[site head] SITE_SEO is empty; run npm run content:build')
         const urls = { origin: PRODUCTION_ORIGIN }
-        let out = isBlogDocument(ctx.path)
-          ? replaceRegion(html, blogIndexRegion(seo.blog, urls), ctx.path)
-          : replaceRegion(html, pageHead(seo.home, urls), ctx.path)
+        // The 404 document has no seo region (its head is fixed and noindex),
+        // and replaceRegion fails loudly on a document without markers. Only
+        // the favicon is the site's to swap there.
+        let out = isNotFoundDocument(ctx.path)
+          ? html
+          : isBlogDocument(ctx.path)
+            ? replaceRegion(html, blogIndexRegion(seo.blog, urls), ctx.path)
+            : replaceRegion(html, pageHead(seo.home, urls), ctx.path)
         if (seo.favicon !== undefined) out = replaceFavicon(out, seo.favicon, ctx.path)
         return out
       },

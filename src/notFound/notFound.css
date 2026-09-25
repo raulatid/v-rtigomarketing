@@ -1,0 +1,198 @@
+/* The 404 page, on the scene's black.
+
+   Everything here is scoped under `.not-found` or `.blog-surface--not-found`:
+   the blog's chrome (blog.css) is reused as is, and only its paper ground and
+   ink are turned over. The header bar is already black in the blog dress, so
+   the bar and the page become one surface. */
+
+.blog-root.not-found {
+  /* A column, so the floor line sits on the viewport's bottom edge on a tall
+     screen and the composition takes what is between: the root is the fixed,
+     scrolling box (blog.css), and its height is the viewport's. */
+  display: flex;
+  flex-direction: column;
+  background: #050507;
+  color: #fff;
+  /* The site's one scrollbar, back in its scene colours: the ink thumb blog.css
+     sets vanishes on black. */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
+}
+
+/* The phone menu's rounded viewport shows its own ground at the corners while
+   the card is out; on this page that ground is black, not paper. */
+.blog-surface--not-found .site-menu-viewport {
+  background: #050507;
+}
+
+.not-found__main {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1152px;
+  margin: 0 auto;
+  /* The bottom pad clears the fixed floor line on a short screen. */
+  padding: 24px 24px 48px;
+  /* Take what the header leaves, so the composition sits in the viewport
+     rather than at its top. On a short screen the root scrolls. */
+  flex: 1 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  gap: 48px;
+}
+
+/* ------------------------------------------------------------------ mark */
+
+/* Square, and larger than the glyph: the runtime fills this box with its
+   canvas and sizes the model from the SVG's height, so the SVG's size is the
+   model's and the box is the room it turns in. */
+.not-found__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(60vw, 420px);
+  aspect-ratio: 1;
+}
+
+.not-found__glyph {
+  width: 62%;
+  height: auto;
+  color: #fff;
+  transition: opacity 200ms ease;
+}
+
+/* The crossfade the blog header does at 44px (blog.css), at this size. The
+   canvas keeps the runtime's own class, so its rule below is the only half
+   this file has to restate. */
+.not-found__stage[data-gl='ready'] .not-found__glyph {
+  opacity: 0;
+}
+
+.not-found__stage[data-gl='ready'] .blog-topbar__mark-gl {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------------ copy */
+
+.not-found__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  justify-self: start;
+}
+
+.not-found__code {
+  margin: 0;
+  font-family: 'Vertigo Display', 'Vertigo Blog Inter', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* The article title's scale (blog.css), in white. */
+.not-found__title {
+  margin: 0;
+  font-family: 'Vertigo Display', 'Vertigo Blog Inter', system-ui, sans-serif;
+  font-size: 3rem;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  max-width: 520px;
+}
+
+/* The heading is the focus target on arrival, as in the blog: no ring on a
+   heading nobody clicked. */
+.not-found__title:focus {
+  outline: none;
+}
+
+.not-found__lead {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  text-wrap: pretty;
+  max-width: 380px;
+}
+
+.not-found__link {
+  margin-top: 8px;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+
+.not-found__link:hover {
+  color: #1c67ff;
+  text-decoration-color: #1c67ff;
+}
+
+/* ----------------------------------------------------------------- floor */
+
+/* The scene's floor line (`.site-footer` in styles.css, which this document
+   never loads): the mark alone in the bottom-right corner, no rule above it.
+   Same insets, size and alpha, so the 404 and the site read as one floor. */
+.not-found .blog-footer {
+  position: fixed;
+  z-index: 42;
+  left: max(18px, env(safe-area-inset-left));
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: flex-end;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- mobile */
+
+@media (max-width: 767px) {
+  .not-found__main {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    padding-inline: 20px;
+    gap: 24px;
+  }
+
+  .not-found__stage {
+    width: min(70vw, 300px);
+  }
+
+  .not-found__text {
+    align-items: center;
+    text-align: center;
+    justify-self: center;
+  }
+
+  .not-found__title {
+    font-size: 2.25rem;
+  }
+
+  .not-found__lead {
+    font-size: 1.05rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .not-found__glyph,
+  .not-found__link {
+    transition: none;
+  }
+}
