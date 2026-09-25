@@ -34,6 +34,14 @@ const departureVacuum: Record<ExperienceId, (p: number, limits: WarpLimits) => n
   murcia: murciaDepartureVacuum,
 }
 
+// The phone-width and touch-first queries the lightmap and sky tiers use. Read
+// once: the drawing buffer is not worth re-sizing because a window crossed 767px.
+const HANDHELD =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(max-width: 767px), (pointer: coarse)').matches
+const MAX_DPR = HANDHELD ? 1.5 : 2
+
 /**
  * One `useFrame` whose only job is to advance the transition clock.
  *
@@ -221,12 +229,15 @@ export function SceneCanvas({
       // has been capped at 2x by a library default ever since: correct, and
       // held by nothing.
       //
-      // [1, 2] is the same value R3F defaults to, so this changes no pixels.
-      // What it changes is that a dependency bump can no longer move it
+      // [1, 2] is the same value R3F defaults to, so on desktop this changes no
+      // pixels. What it changes is that a dependency bump can no longer move it
       // silently, and that the cap has somewhere to be argued about. A 3x
       // iPhone renders 2.25x fewer pixels through the post chain than its
       // display would ask for, which is the whole reason the cap exists.
-      dpr={[1, 2]}
+      //
+      // Phones and tablets stop at 1.5: ~44% fewer shaded pixels than at 2,
+      // on GPUs that are fill-bound long before they are vertex-bound.
+      dpr={[1, MAX_DPR]}
       gl={{
         antialias: true,
         // R3F defaults this to TRUE, and nothing here wants a see-through
