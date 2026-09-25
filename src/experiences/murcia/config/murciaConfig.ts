@@ -247,7 +247,7 @@ export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
   // Root-absolute: a document-relative path resolves against the current
   // route and 404s anywhere but the root.
-  modelPath: '/models/murcia-v5.1-lightmaps-r3.glb',
+  modelPath: '/models/murcia-v5.2-lightmaps.glb',
 
   // No trim sheet since murcia-v7. The city's colour is vertex colour alone:
   // the export embeds a neutral white trim so Blender could bake against the
@@ -266,27 +266,13 @@ export const murciaConfig: EnvironmentConfig = {
     orm: null,
   },
 
-  // Selected 512-sample bake: 15 atlases, 1K mobile / 2K desktop.
-  // Total KTX2 payload: 1,993,861 / 3,995,942 bytes. Keep model and manifest paired.
+  // Versioned model and manifest are one delivery. Mixed atlas resolutions
+  // prioritize central ground, the cathedral and rooftop parapets; outer
+  // context stays smaller. The manifest enforces 4 MB mobile / 6 MB desktop.
   lightmaps: {
-    baseUrl: '/textures/murcia/lightmaps-v5.1-r3/',
+    baseUrl: '/textures/murcia/lightmaps-v5.2/',
     manifest: 'lightmaps.json',
-    // Halved on desktop too: ~77 -> ~53 MiB of GPU memory, resident from the intro.
-    // Chosen from A/B screenshots at rest, closest zoom, a focus flight's floor and
-    // the campus and blog flights (2026-09-23). The ground and the blog building
-    // changed under 1% of pixels and no difference could be seen. `static-*`,
-    // `instances-*` (trees, windows) and `outer-buildings` visibly softened their
-    // contact shadows and shading, and `landmark-campus` lost soft shadows on the
-    // lawn at the end of its flight, so those stay at 2048. Replay any other list
-    // with `?lightmaps=`.
-    desktop1024: [
-      'ground-NE',
-      'ground-NW',
-      'ground-SE',
-      'ground-SW',
-      'ground-Outer',
-      'landmark-vertigo-blog',
-    ],
+    desktop1024: [],
   },
 
   sceneState: {

@@ -5,6 +5,7 @@ export interface UnifiedAtlas {
   variants: Record<LightmapResolution, { file: string; bytes: number; mipLevels: number }>;
 }
 export interface UnifiedManifest {
+  profiles?: Partial<Record<'mobile' | 'desktop', { atlasResolutions?: Record<string, LightmapResolution> }>>;
   uvChannel: 1;
   requiredNames: string[];
   atlases: Record<string, UnifiedAtlas>;
@@ -35,14 +36,25 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
       totals[resolution] += v.bytes;
     }
   }
-  if (totals[1024] > 2_000_000 || totals[2048] > 4_000_000) {
+  if ((!m.profiles?.mobile?.atlasResolutions && totals[1024] > 4_000_000) || (!m.profiles?.desktop?.atlasResolutions && totals[2048] > 6_000_000)) {
     throw new Error('[lightmaps] profile exceeds the total download budget');
+  }
+  for (const [profile, limit] of [['mobile', 4_000_000], ['desktop', 6_000_000]] as const) {
+    const sizes = m.profiles?.[profile]?.atlasResolutions;
+    if (sizes === undefined) continue;
+    if (!sizes || typeof sizes !== 'object' || Object.keys(sizes).length !== Object.keys(m.atlases).length ||
+        Object.keys(sizes).some(key => !(key in m.atlases)) ||
+        Object.keys(m.atlases).some(key => sizes[key] !== 1024 && sizes[key] !== 2048)) {
+      throw new Error(`[lightmaps] invalid ${profile} atlas resolutions`);
+    }
+    const total = Object.entries(sizes).reduce((sum, [key, size]) => sum + m.atlases[key].variants[size].bytes, 0);
+    if (total > limit) throw new Error(`[lightmaps] ${profile} exceeds the total download budget`);
   }
   return m;
 }
 
 /**
- * The size each atlas loads at: `base`, except the `reduced` ones, which take 1024.
+ * The manifest may allocate mixed resolutions per profile. Explicit reductions take precedence.
  *
  * A reduced key the manifest does not have throws rather than being skipped. The
  * list names one bake's atlases, and after a re-bake a stale name would otherwise
@@ -60,5 +72,6 @@ export function atlasResolutions(
     }
   }
   const small = new Set(reduced === 'all' ? keys : reduced);
-  return new Map(keys.map((key) => [key, small.has(key) ? 1024 : base]));
+  const profile = manifest.profiles?.[base === 1024 ? 'mobile' : 'desktop']?.atlasResolutions;
+  return new Map(keys.map((key) => [key, small.has(key) ? 1024 : profile?.[key] ?? base]));
 }

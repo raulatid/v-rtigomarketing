@@ -134,7 +134,9 @@ const INTRO_BUDGET_BYTES = 16_000
 //
 // The last is what fired this: 25e47c3 had left 602 B, and it went over by
 // 1,125 B. Headroom after: 1,875 B. Still the selective preload loop next.
-const INITIAL_JS_BUDGET_BYTES = 1_628_000
+// 2026-09-25: user-approved +2 KB for v5.2 mixed-resolution lightmaps.
+// Same 11 requests: original runtime 1,628,184 B; updated runtime 1,628,918 B.
+const INITIAL_JS_BUDGET_BYTES = 1_630_000
 // 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
 // existing city approach prefetch, not by the cold / modulepreload loop.
 // Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.

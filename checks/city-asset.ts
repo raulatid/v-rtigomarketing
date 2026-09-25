@@ -769,7 +769,7 @@ for (const [i, sampler] of (json.samplers ?? []).entries()) {
 section('Nueva Condomina: roof placement and baked material');
 const roofNodes = nodes.filter(n => n.name === 'estadio-techo');
 const modelFilename = MODEL.replaceAll('\\', '/').split('/').at(-1)!;
-if (modelFilename === 'murcia-v5.1-lightmaps-r3.glb') {
+if (['murcia-v5.1-lightmaps-r3.glb', 'murcia-v5.2-lightmaps.glb'].includes(modelFilename)) {
   // The author removed the Blender animation. Preserve that source placement;
   // the historical repair's centering and pillar-height rules no longer apply.
   // Bounds measured from the source bound_box, converted (x, y, z) -> (x, z, -y).

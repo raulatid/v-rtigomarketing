@@ -1,0 +1,737 @@
+{
+  "preparedSHA256": "3788a25cd3c6ab1af5e3022d9cfe4536df2f97ca51a71889575137cce717104a",
+  "sourceSHA256": "4525e33c9224b4d639907e533a2f82095f30cf8863e2d474b03c09dfd3a91579",
+  "uvChannel": 1,
+  "samples": 512,
+  "atlases": {
+    "landmark-cathedral": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.81567907333374,
+      "masterResolution": 4096,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "landmark-cathedral-1024.ktx2",
+          "bytes": 97854,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 33.817541433251954
+        },
+        "2048": {
+          "file": "landmark-cathedral-2048.ktx2",
+          "bytes": 1385941,
+          "mipLevels": 2,
+          "codec": "uastc",
+          "quality": "uastc-rdo2",
+          "psnr": 41.230627126161
+        }
+      },
+      "seconds": 362.4549880027771,
+      "masters": {
+        "landmark-cathedral-1024.png": "e70cf358ff2b6aae29a7f672d56e7c012b77cfe192e3025250d5983abdeeccaf",
+        "landmark-cathedral-2048.png": "eca4fee4e196854083aeb815cd087f2dde426afbdf2b959f7b7475de415e1c86",
+        "landmark-cathedral.exr": "eafd1384253c94d2dfed66dc27f51caf9b7cdab7cf09f0eae9ed0aff4ffdb566"
+      }
+    },
+    "rooftop-parapets": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.086320877075195,
+      "masterResolution": 4096,
+      "bakeMargin": 4,
+      "variants": {
+        "1024": {
+          "file": "rooftop-parapets-1024.ktx2",
+          "bytes": 304012,
+          "mipLevels": 1,
+          "codec": "uastc",
+          "quality": "uastc-rdo2",
+          "psnr": 34.91390947581582
+        },
+        "2048": {
+          "file": "rooftop-parapets-2048.ktx2",
+          "bytes": 1001099,
+          "mipLevels": 1,
+          "codec": "uastc",
+          "quality": "uastc-rdo2",
+          "psnr": 39.658491084168254
+        }
+      },
+      "seconds": 221.80715441703796,
+      "masters": {
+        "rooftop-parapets-1024.png": "f4fba7f77123d7af7afe9317bd7f743848b23a767574ab1895a0671f57ac3702",
+        "rooftop-parapets-2048.png": "03f2eeb98504f91cad26fb3ff8539235afdcccbcbf89a7cfbfcd4dc91e05cc73",
+        "rooftop-parapets.exr": "90f7380a03a1455e0d24bcc1e7bee8a54ead2d920b7cbcfd662179d0264debc3"
+      }
+    },
+    "ground-NE": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.344951868057251,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "ground-NE-1024.ktx2",
+          "bytes": 77788,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 37.315197266540814
+        },
+        "2048": {
+          "file": "ground-NE-2048.ktx2",
+          "bytes": 296190,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 37.22263502284514
+        }
+      },
+      "seconds": 184.4283995628357,
+      "masters": {
+        "ground-NE-1024.png": "577a37a9f2ead345c18fde6d3122ef39ac863f3b2a188d05f6081deae28e55d4",
+        "ground-NE-2048.png": "1c19ef7d77e15186b838aa07bc318faa36baac9e2c6d6a3fed26ac18ef77fa4d",
+        "ground-NE.exr": "86add2f9febb3a2b20e4d8ea476c9f720c1074543cde2b626197deaf4b50df0f"
+      }
+    },
+    "ground-SW": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.183199644088745,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "ground-SW-1024.ktx2",
+          "bytes": 57121,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 33.695389222876415
+        },
+        "2048": {
+          "file": "ground-SW-2048.ktx2",
+          "bytes": 207230,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 36.25912697281899
+        }
+      },
+      "seconds": 78.0916154384613,
+      "masters": {
+        "ground-SW-1024.png": "25e19e2cd6fd29206b1e4c1aa1c3f02a83c332097ecc6db8f3952439e3ca9a36",
+        "ground-SW-2048.png": "b6efc3bcfe407c449ebc7c92ec282f3e156ed562808d99f0c8ab5ed001f82375",
+        "ground-SW.exr": "abfa6f66c88ed0099698d856691ddff5541156b8f27dc9d600738ffac85e2362"
+      }
+    },
+    "ground-SE": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.8027265071868896,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "ground-SE-1024.ktx2",
+          "bytes": 64231,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 35.05100888355501
+        },
+        "2048": {
+          "file": "ground-SE-2048.ktx2",
+          "bytes": 237679,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 37.308093389496825
+        }
+      },
+      "seconds": 90.66514325141907,
+      "masters": {
+        "ground-SE-1024.png": "1ea09fab83070e5897cdce7d1389b890ea9a46822b4d85a0875b158de32e1f22",
+        "ground-SE-2048.png": "9ddd41b18079d6fcede740e7e6bf6feee3d5e535607c17d372d22f5483c1e99d",
+        "ground-SE.exr": "d6daec8647b38528e5947d7d4962a955002d4190ee6f8d0132b81f6e87e3667b"
+      }
+    },
+    "ground-Outer": {
+      "linearScale": 2.0,
+      "threeLightMapIntensity": 6.283185307179586,
+      "maximum": 1.6011624336242676,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "ground-Outer-1024.ktx2",
+          "bytes": 51829,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 32,
+          "psnr": 27.859987291993566
+        },
+        "2048": {
+          "file": "ground-Outer-2048.ktx2",
+          "bytes": 258820,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 35.42722182885254
+        }
+      },
+      "seconds": 50.26536321640015,
+      "masters": {
+        "ground-Outer-1024.png": "61d027e1262c95ac0e6b20443a70ba66bec13e9771b5f2150086458b6be32501",
+        "ground-Outer-2048.png": "264b2c0eff2a43968299b0c3a7abaaa38cc16a9b7d227b38c4acd027e065240a",
+        "ground-Outer.exr": "9ae50747384f1995d4dda3462aab222e806dcdde0d957ebb1872715cba9c14b8"
+      }
+    },
+    "static-SW": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.2269721031188965,
+      "masterResolution": 2048,
+      "bakeMargin": 3,
+      "variants": {
+        "1024": {
+          "file": "static-SW-1024.ktx2",
+          "bytes": 84285,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 33.19810557706972
+        },
+        "2048": {
+          "file": "static-SW-2048.ktx2",
+          "bytes": 337096,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 37.96639227507448
+        }
+      },
+      "seconds": 113.62460136413574,
+      "masters": {
+        "static-SW-1024.png": "42618b2bdccf35b19f7d4ab95d4b8f904641d500f40f318a9de3641e66fce8f5",
+        "static-SW-2048.png": "34775009165ccdccc61cb3e643e758377b46028eb9bd64974e7ff520d60562e3",
+        "static-SW.exr": "77a90d55bd349ab7f7dd6172ddd3580fcc679c1e3d3181a6eeb65b3cf450984e"
+      }
+    },
+    "static-NE": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.198982238769531,
+      "masterResolution": 2048,
+      "bakeMargin": 3,
+      "variants": {
+        "1024": {
+          "file": "static-NE-1024.ktx2",
+          "bytes": 100164,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 31.669328133461722
+        },
+        "2048": {
+          "file": "static-NE-2048.ktx2",
+          "bytes": 380540,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 35.5426017990288
+        }
+      },
+      "seconds": 86.69578576087952,
+      "masters": {
+        "static-NE-1024.png": "a1f4848797f5af1962316866e96f171c08fcf3cd4e7700750a086d3fff56f775",
+        "static-NE-2048.png": "3b425d03adf117c17d79475fdf44a4b3979c696936e3257ffbd330cac8fdf349",
+        "static-NE.exr": "0935dde071144261ba83dc1f6c7b8b4052bfbed583221c058829439f1381a948"
+      }
+    },
+    "static-NW": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.353780269622803,
+      "masterResolution": 2048,
+      "bakeMargin": 3,
+      "variants": {
+        "1024": {
+          "file": "static-NW-1024.ktx2",
+          "bytes": 95820,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 32.76278417908689
+        },
+        "2048": {
+          "file": "static-NW-2048.ktx2",
+          "bytes": 378575,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 35.99565311035705
+        }
+      },
+      "seconds": 123.73026013374329,
+      "masters": {
+        "static-NW-1024.png": "ef83ff1588e547c3f10133f3f104f5f124ef08e7c6a33e4198ca0044a120f835",
+        "static-NW-2048.png": "7f14c470338420262390bf3d2e7579b633c0c192c840a5bfb85860b713945733",
+        "static-NW.exr": "70f955da5a966755c4ab08bf348dbcd0b174ed9caac00f9787432c3c167fcb2b"
+      }
+    },
+    "static-SE": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.9699418544769287,
+      "masterResolution": 2048,
+      "bakeMargin": 3,
+      "variants": {
+        "1024": {
+          "file": "static-SE-1024.ktx2",
+          "bytes": 87451,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 33.680816483603586
+        },
+        "2048": {
+          "file": "static-SE-2048.ktx2",
+          "bytes": 346105,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 36.45134367449152
+        }
+      },
+      "seconds": 137.08853816986084,
+      "masters": {
+        "static-SE-1024.png": "292b30335649cc2943f7631a23df640526f5a9efcc937cee91a627e06c984fa0",
+        "static-SE-2048.png": "47ecb9534910ac9536dd58e755ff08b2af3c8cf4ccfa63ef5cf749ccd0803d31",
+        "static-SE.exr": "e894d45023c03f5ec08106f404a5b845c0b0086f8fea9f96a0cf83621a5bf589"
+      }
+    },
+    "ground-NW": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.306478500366211,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "ground-NW-1024.ktx2",
+          "bytes": 70658,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 35.809813728040666
+        },
+        "2048": {
+          "file": "ground-NW-2048.ktx2",
+          "bytes": 255511,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 35.1473611060872
+        }
+      },
+      "seconds": 169.29126501083374,
+      "masters": {
+        "ground-NW-1024.png": "7c631883e4328528214366e4101911102571c4f73de04844c25afab6bba6576b",
+        "ground-NW-2048.png": "3138c1725daa276986cdbb947f164660348fa220c15430a3569a8ed47fd2e0c7",
+        "ground-NW.exr": "09d4031c344acc0551eba9442885f6b448f528efde0fd60256a51b474bb0cf1f"
+      }
+    },
+    "landmark-vertigo-blog": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.8232903480529785,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "landmark-vertigo-blog-1024.ktx2",
+          "bytes": 54698,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 31.83075204953876
+        },
+        "2048": {
+          "file": "landmark-vertigo-blog-2048.ktx2",
+          "bytes": 190718,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 38.45960803968459
+        }
+      },
+      "seconds": 14.683186531066895,
+      "masters": {
+        "landmark-vertigo-blog-1024.png": "f5d15c7cf23326c67093c4f76a1ce6d28d29479a116554169dd5aa4abfd60e02",
+        "landmark-vertigo-blog-2048.png": "b77393e1c76e562c1d3070ef15b53b23346cff296b173e7f554c6de2fc409772",
+        "landmark-vertigo-blog.exr": "90cd0396085b610de1096260b2b4a0a4ba5dfc04ac52d0f7888d34ca0ca30f2e"
+      }
+    },
+    "landmark-campus": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.37420392036438,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "variants": {
+        "1024": {
+          "file": "landmark-campus-1024.ktx2",
+          "bytes": 34924,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 30.431292606310706
+        },
+        "2048": {
+          "file": "landmark-campus-2048.ktx2",
+          "bytes": 128316,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 36.73768609498324
+        }
+      },
+      "seconds": 23.006919145584106,
+      "masters": {
+        "landmark-campus-1024.png": "2257e025a88756bcb183aa995ec2a1404ca79a473354006a4749daad3eea5fee",
+        "landmark-campus-2048.png": "e87548117554200d9e70d69a0d271fc081ccbab5317748e29e759adfbf8231f9",
+        "landmark-campus.exr": "2a86638765e7ddad04409c74cf764aae4de5c32fcad1f34182ebc0b885698b16"
+      }
+    },
+    "instances-main-0": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.6157114505767822,
+      "masterResolution": 2048,
+      "bakeMargin": 4,
+      "variants": {
+        "1024": {
+          "file": "instances-main-0-1024.ktx2",
+          "bytes": 153252,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 31.280931828119503
+        },
+        "2048": {
+          "file": "instances-main-0-2048.ktx2",
+          "bytes": 388065,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 32.33083400986635
+        }
+      },
+      "seconds": 60.46160864830017,
+      "masters": {
+        "instances-main-0-1024.png": "02b3ff4af8b71a1320ad896e2811c6d19eca35c8f56ba71f70f580dabff37fb5",
+        "instances-main-0-2048.png": "1d66db80b424f50759036e05dc9e516edcc671d781cea75c25e5b2bcd37528d8",
+        "instances-main-0.exr": "2d779c2b76c643a2d76e51a2fc9f856bd8ec4ebed5c7f7659e704b5834af0677"
+      }
+    },
+    "instances-outer-0": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.333233594894409,
+      "masterResolution": 2048,
+      "bakeMargin": 2,
+      "variants": {
+        "1024": {
+          "file": "instances-outer-0-1024.ktx2",
+          "bytes": 97736,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 32,
+          "psnr": 29.949816751306976
+        },
+        "2048": {
+          "file": "instances-outer-0-2048.ktx2",
+          "bytes": 452434,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 35.32772163294934
+        }
+      },
+      "seconds": 54.60665273666382,
+      "masters": {
+        "instances-outer-0-1024.png": "9dd7d7e34df7a5803f73973eff26af1e47f31fd18e4641d9d0e2b5f9ed3ead54",
+        "instances-outer-0-2048.png": "76988c3b07ea34ad5ad4ca50169b31d32d57b68f4114ef69cca4519ab4e310bf",
+        "instances-outer-0.exr": "9a7863ff07f1e315173e0f405ee2f18ab9cbf50eb2a89251d194c22bed95df5a"
+      }
+    },
+    "instances-main-1": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.530763864517212,
+      "masterResolution": 2048,
+      "bakeMargin": 4,
+      "variants": {
+        "1024": {
+          "file": "instances-main-1-1024.ktx2",
+          "bytes": 134340,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 32.23856322461964
+        },
+        "2048": {
+          "file": "instances-main-1-2048.ktx2",
+          "bytes": 406232,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 35.468091741374764
+        }
+      },
+      "seconds": 70.60177254676819,
+      "masters": {
+        "instances-main-1-1024.png": "cfcc4db4b7bfc05fa88de71171e8ab57349f8355f60ae6632137f764042abad1",
+        "instances-main-1-2048.png": "4f69090da188ee02819be1204faf42988e38286db65f3987b8d992fdb0c50c16",
+        "instances-main-1.exr": "0bc0d077b0c2aeb3fee069fdd1675b244120738441a3ab2749f5aa7a4538e7c1"
+      }
+    },
+    "instances-outer-1": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.548529624938965,
+      "masterResolution": 2048,
+      "bakeMargin": 2,
+      "variants": {
+        "1024": {
+          "file": "instances-outer-1-1024.ktx2",
+          "bytes": 84291,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 32,
+          "psnr": 28.743280807449487
+        },
+        "2048": {
+          "file": "instances-outer-1-2048.ktx2",
+          "bytes": 394106,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 34.70492987785734
+        }
+      },
+      "seconds": 51.35421538352966,
+      "masters": {
+        "instances-outer-1-1024.png": "461f24aab3f3f75295f60764ae4d007397188b3df108800a14b7cbd149103a15",
+        "instances-outer-1-2048.png": "dab2e4a315e7dfb00cee2d0cf7385aa3f0cfa18ae8d77bb11b9301ae36cb9bd3",
+        "instances-outer-1.exr": "48ed4f09a503f828ccc19c0724bed8deec9a0deaee26a6f037d9a8338e84f33d"
+      }
+    },
+    "instances-main-2": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.3568289279937744,
+      "masterResolution": 2048,
+      "bakeMargin": 4,
+      "variants": {
+        "1024": {
+          "file": "instances-main-2-1024.ktx2",
+          "bytes": 103901,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 32.453795388892686
+        },
+        "2048": {
+          "file": "instances-main-2-2048.ktx2",
+          "bytes": 254225,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 34.82118527415682
+        }
+      },
+      "seconds": 42.095789432525635,
+      "masters": {
+        "instances-main-2-1024.png": "5bae4c0dbe5e532911c656e9ef7b82b3be73b9636584539fa8a32a90161b0dbe",
+        "instances-main-2-2048.png": "93515b66eeb4c3623e48d71612c966441d04a8ba0b7720b1a6ac6e2d085e8b11",
+        "instances-main-2.exr": "8fef2081747b4f9a32a991b47869c92d64043127a087366e11332eede69fefef"
+      }
+    },
+    "outer-ring-b": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.596736431121826,
+      "masterResolution": 2048,
+      "bakeMargin": 1,
+      "variants": {
+        "1024": {
+          "file": "outer-ring-b-1024.ktx2",
+          "bytes": 108785,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 27.05990147644158
+        },
+        "2048": {
+          "file": "outer-ring-b-2048.ktx2",
+          "bytes": 567434,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 32.2949620278266
+        }
+      },
+      "seconds": 116.36424422264099,
+      "masters": {
+        "outer-ring-b-1024-final-decoded.png": "fcbb0d9fedb9ae21cdcd9720b7445f04f76fa5ba4291a7b95f24505458332de4",
+        "outer-ring-b-1024.png": "61f2e54d36d1b92a3980ea0bb73d88434fc3a816e12061a2229531c4e1f8f035",
+        "outer-ring-b-2048-final-decoded.png": "73badd64c4317f89156886368baceef3f56636b03caa3bbf6a71daf7109019e7",
+        "outer-ring-b-2048.png": "0af35c6dc09a42ade800f9aff1a3d5a5e3ab9f3c9fea891868cef808b86f7e9b",
+        "outer-ring-b.exr": "758c05f0fbc301aa987a881757971e88f15044cd668f48aabfe2930c85382799"
+      }
+    },
+    "outer-buildings": {
+      "linearScale": 2.0,
+      "threeLightMapIntensity": 6.283185307179586,
+      "maximum": 1.3832772970199585,
+      "masterResolution": 2048,
+      "bakeMargin": 1,
+      "variants": {
+        "1024": {
+          "file": "outer-buildings-1024.ktx2",
+          "bytes": 109972,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 26.413171956669906
+        },
+        "2048": {
+          "file": "outer-buildings-2048.ktx2",
+          "bytes": 581131,
+          "mipLevels": 2,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 31.902491308929008
+        }
+      },
+      "seconds": 66.47726345062256,
+      "masters": {
+        "outer-buildings-1024-final-decoded.png": "d0e43c3b191186de48fcbdce1e518dfbcd49909487a15f8aa6998f9b21abba4d",
+        "outer-buildings-1024.png": "1c2cdac02eee70639e6225608edb5318c6caab0fc05eed04f7ff88c1cc624146",
+        "outer-buildings-2048-final-decoded.png": "a012ca983101ad24d9121a51558a0ea358a195cd1b6c29aa7b4667ce911417ce",
+        "outer-buildings-2048.png": "1fa1a22957e7409c28ae53c5da52f1295d20aae9b5ea6acd57570eb7ce8548dd",
+        "outer-buildings.exr": "a9ebbd0ada0ebe0312b39283caab998c473af823ee312c66cc13c4c49ee1ca3e"
+      }
+    }
+  },
+  "selectiveInvalidation": {
+    "previousPreparedSHA256": "eacfcb6cf223204fb6ce377693c8fab83d3dbb3127e2a70e0260673ea673ad73",
+    "atlases": [
+      "outer-buildings",
+      "outer-ring-b"
+    ],
+    "reason": "Outer narrow faces were sub-pixel; all other UVs and all geometry, colors, source UVs, transforms and lighting are unchanged."
+  },
+  "profiles": {
+    "desktop": {
+      "resolution": 2048,
+      "totalBytes": 5989106,
+      "budgetBytes": 6000000,
+      "atlasCount": 20,
+      "atlasResolutions": {
+        "landmark-cathedral": 2048,
+        "rooftop-parapets": 2048,
+        "ground-NE": 2048,
+        "ground-SW": 2048,
+        "ground-SE": 2048,
+        "ground-Outer": 1024,
+        "static-SW": 2048,
+        "static-NE": 2048,
+        "static-NW": 2048,
+        "static-SE": 2048,
+        "ground-NW": 2048,
+        "landmark-vertigo-blog": 2048,
+        "landmark-campus": 2048,
+        "instances-main-0": 1024,
+        "instances-outer-0": 1024,
+        "instances-main-1": 1024,
+        "instances-outer-1": 1024,
+        "instances-main-2": 1024,
+        "outer-ring-b": 1024,
+        "outer-buildings": 1024
+      }
+    },
+    "mobile": {
+      "resolution": 1024,
+      "totalBytes": 3988011,
+      "budgetBytes": 4000000,
+      "atlasCount": 20,
+      "atlasResolutions": {
+        "landmark-cathedral": 2048,
+        "rooftop-parapets": 1024,
+        "ground-NE": 2048,
+        "ground-SW": 2048,
+        "ground-SE": 2048,
+        "ground-Outer": 1024,
+        "static-SW": 1024,
+        "static-NE": 1024,
+        "static-NW": 1024,
+        "static-SE": 1024,
+        "ground-NW": 2048,
+        "landmark-vertigo-blog": 1024,
+        "landmark-campus": 1024,
+        "instances-main-0": 1024,
+        "instances-outer-0": 1024,
+        "instances-main-1": 1024,
+        "instances-outer-1": 1024,
+        "instances-main-2": 1024,
+        "outer-ring-b": 1024,
+        "outer-buildings": 1024
+      }
+    }
+  },
+  "requiredNames": [
+    "Text",
+    "edificio-blog",
+    "Blog_Windows_North",
+    "Blog_Windows_South",
+    "Blog_Windows_East",
+    "Blog_Windows_West",
+    "LED_Main",
+    "ARCH_Glass_DeepBlue",
+    "ARCH_Glass_SilverBlue",
+    "ARCH_Glass_WarmOffices",
+    "ARCH_Glass_Lobby",
+    "ARCH_Metal_Graphite",
+    "ARCH_Metal_Champagne",
+    "ARCH_Stone_Limestone",
+    "ARCH_Light_Warm",
+    "ARCH_Roof_Zinc",
+    "BRAND_VERTIGO",
+    "logo-V",
+    "logo-curva",
+    "logo-curva.001",
+    "CAMPUS_SCREEN_Continuous",
+    "ARCH_Porcelain_White",
+    "ARCH_Glazing_Opaque_Blue",
+    "ARCH_Blue_Light",
+    "ARCH_Window_Frames",
+    "ARCH_Vertigo_Blue",
+    "ARCH_Roof_Joints",
+    "ARCH_Solar_Blue",
+    "SITE_Light_Limestone",
+    "PARK_Grass",
+    "PARK_Water",
+    "ARCH_Porcelain_White.001",
+    "estadio-techo",
+    "suelo-principal",
+    "Fachada_Murcia_15k",
+    "Cathedral_Structure"
+  ],
+  "encoding": "KTX2 sRGB radiance divided by per-atlas linearScale; diffuse direct + indirect without albedo"
+}

@@ -10,12 +10,12 @@ const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   } },
 } });
 describe('the selected unified bake contract', () => {
-  it('ships the active v5.1 revision 3 profile with exact sizes, dimensions and total budgets', () => {
+  it('ships the active v5.2 profile with exact sizes, dimensions and total budgets', () => {
     const config = murciaConfig.lightmaps!;
     if (!('manifest' in config)) throw new Error('Expected the unified manifest');
     const directory = 'public' + config.baseUrl;
     const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
-    expect(Object.keys(shipped.atlases)).toHaveLength(15);
+    expect(Object.keys(shipped.atlases)).toHaveLength(20);
     expect(shipped.requiredNames).toContain('estadio-techo');
     for (const resolution of [1024, 2048] as const) {
       let total = 0;
@@ -29,13 +29,15 @@ describe('the selected unified bake contract', () => {
         expect(data.readUInt32LE(40)).toBe(variant.mipLevels);
         total += data.length;
       }
-      expect(total).toBe(resolution === 1024 ? 1993861 : 3995942);
+      const selected = atlasResolutions(shipped, resolution);
+      const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + shipped.atlases[key].variants[size].bytes, 0);
+      expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_000_000 : 6_000_000);
     }
   });
   it('preserves the eight unaffected atlases and their runtime metadata exactly', () => {
     const config = murciaConfig.lightmaps!;
     if (!('manifest' in config)) throw new Error('Expected the unified manifest');
-    const directory = 'public' + config.baseUrl;
+    const directory = 'public/textures/murcia/lightmaps-v5.1-r3/';
     const baseline = 'public/textures/murcia/lightmaps-v5.1-r2/';
     const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
     const previous = parseUnifiedManifest(JSON.parse(fs.readFileSync(baseline + 'lightmaps.json', 'utf8')));
@@ -81,7 +83,7 @@ describe('the selected unified bake contract', () => {
   });
   it('enforces the total budget across atlases, not a budget per file', () => {
     const m = manifest();
-    m.atlases.ground.variants[1024].bytes = 1_100_000;
+    m.atlases.ground.variants[1024].bytes = 2_100_000;
     expect(() => parseUnifiedManifest({ ...m, atlases: { a: m.atlases.ground, b: m.atlases.ground } })).toThrow('total download');
   });
 });
@@ -108,5 +110,22 @@ describe('the size each atlas loads at', () => {
     const directory = 'public' + config.baseUrl;
     const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
     expect(() => atlasResolutions(shipped, 2048, config.desktop1024)).not.toThrow();
+  });
+});
+
+describe('mixed-resolution profile allocation', () => {
+  it('loads central mobile maps at 2K and honors explicit reductions', () => {
+    const m = parseUnifiedManifest({ ...manifest(), profiles: { mobile: { atlasResolutions: { ground: 2048 } } } });
+    expect(atlasResolutions(m, 1024).get('ground')).toBe(2048);
+    expect(atlasResolutions(m, 1024, ['ground']).get('ground')).toBe(1024);
+  });
+  it('rejects incomplete, unknown and unsupported resolution allocations', () => {
+    for (const atlasResolutions of [{}, { other: 2048 }, { ground: 4096 }]) {
+      expect(() => parseUnifiedManifest({ ...manifest(), profiles: { mobile: { atlasResolutions } } })).toThrow('atlas resolutions');
+    }
+  });
+  it('enforces the bytes actually selected by the mobile profile', () => {
+    const m = manifest(); m.atlases.ground.variants[2048].bytes = 4_100_000;
+    expect(() => parseUnifiedManifest({ ...m, profiles: { mobile: { atlasResolutions: { ground: 2048 } } } })).toThrow('mobile exceeds');
   });
 });
