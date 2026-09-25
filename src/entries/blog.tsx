@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import BlogRoute from '../blog/BlogRoute'
 import { useRoute } from '../app/useRoute'
 import { startVercelInsights } from '../app/vercelInsights'
+import { startGoogleAnalytics } from '../app/googleAnalytics'
 
 /**
  * The cold blog's entry point: `blog.html` -> here -> `BlogRoute`.
@@ -70,6 +71,7 @@ function BlogApp() {
 // Capture before rendering; late-mounted surfaces reuse this document decision.
 prefersReducedMotion()
 startVercelInsights()
+startGoogleAnalytics()
 
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('[blog] #root not found in blog.html')

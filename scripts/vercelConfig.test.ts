@@ -67,17 +67,37 @@ describe('the content security policy', () => {
     //
     // Drop it the day the transcoder is built with `-sDYNAMIC_EXECUTION=0`.
     // `'wasm-unsafe-eval'` stays either way, which is why both are listed.
-    expect(directive('script-src')).toEqual(["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'", 'blob:'])
+    //
+    // The one remote origin is gtag.js, appended by src/app/googleAnalytics.ts
+    // only after the visitor accepts analytics.
+    expect(directive('script-src')).toEqual([
+      "'self'",
+      "'unsafe-eval'",
+      "'wasm-unsafe-eval'",
+      'blob:',
+      'https://www.googletagmanager.com',
+    ])
   })
 
-  it('lets nothing load from an origin the site does not own, except the CMS CDN', () => {
+  it('lets nothing load from an origin the site does not own, except the CMS CDN and Google Analytics', () => {
     expect(directive('default-src')).toEqual(["'self'"])
-    expect(directive('connect-src')).toEqual(["'self'"])
+    // Google Analytics, behind analytics consent (src/app/googleAnalytics.ts).
+    // Wildcards because GA4 picks a regional collection host
+    // (region1.google-analytics.com, …); these are the hosts Google documents.
+    expect(directive('connect-src')).toEqual([
+      "'self'",
+      'https://*.google-analytics.com',
+      'https://*.analytics.google.com',
+      'https://www.googletagmanager.com',
+    ])
     expect(directive('font-src')).toEqual(["'self'"])
     // Blog artwork is served by Sanity. Case-study logos are NOT — they are
     // mirrored into public/logos/ at build time precisely so this line stays
     // short (DECISIONS §27).
     expect(directive('img-src')).toContain('https://cdn.sanity.io')
+    // GA's image-beacon fallback, for the same consented vendor.
+    expect(directive('img-src')).toContain('https://*.google-analytics.com')
+    expect(directive('img-src')).toContain('https://www.googletagmanager.com')
   })
 
   it('closes the sinks that have no legitimate use here', () => {

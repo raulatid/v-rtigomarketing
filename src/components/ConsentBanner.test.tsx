@@ -67,7 +67,7 @@ describe('the consent banner', () => {
   it('renders only the policy icon when a choice is already stored', async () => {
     localStorage.setItem(
       'vertigo:consent',
-      JSON.stringify({ v: 3, preferences: false, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
+      JSON.stringify({ v: 4, preferences: false, analytics: false, at: '2026-01-01T00:00:00.000Z' }),
     )
     await mount()
     expect(banner()).toBeNull()
@@ -77,7 +77,7 @@ describe('the consent banner', () => {
   it('keeps the policy in reach through the icon', async () => {
     localStorage.setItem(
       'vertigo:consent',
-      JSON.stringify({ v: 3, preferences: true, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
+      JSON.stringify({ v: 4, preferences: true, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
     )
     const onOpenLegal = vi.fn()
     const { act } = await mount({ onOpenLegal })

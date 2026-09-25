@@ -22,7 +22,7 @@
  */
 
 const CONSENT_KEY = 'vertigo:consent'
-const CONSENT_VERSION = 3
+const CONSENT_VERSION = 4
 const INTRO_KEY = 'vertigo:intro'
 const INTRO_VERSION = 1
 

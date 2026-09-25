@@ -286,7 +286,7 @@ test('the first landing is remembered, with consent', async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(
       'vertigo:consent',
-      JSON.stringify({ v: 3, preferences: true, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
+      JSON.stringify({ v: 4, preferences: true, analytics: true, at: '2026-01-01T00:00:00.000Z' }),
     )
   })
   await page.goto('/')
@@ -317,7 +317,7 @@ test('a returning visitor never sees the loading draw, and enters at the crossov
     // Remembering the intro requires preferences consent; the shared fixture
     // refuses it, so a stored record alone must not enable the returning path.
     window.localStorage.setItem('vertigo:consent', JSON.stringify({
-      v: 3, preferences: true, analytics: false, at: '2026-01-01T00:00:00.000Z',
+      v: 4, preferences: true, analytics: false, at: '2026-01-01T00:00:00.000Z',
     }))
     window.localStorage.setItem('vertigo:intro', JSON.stringify({ v: 1, seen: true }))
 

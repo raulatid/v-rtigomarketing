@@ -39,7 +39,7 @@ test.describe('the cookie consent banner', () => {
     await expect(dialog.locator('details')).not.toHaveAttribute('open', '')
     await dialog.getByRole('switch', { name: 'Preferencias de experiencia' }).check()
     await dialog.getByRole('button', { name: 'Guardar preferencias' }).click()
-    expect(await stored(page)).toMatchObject({ v: 3, preferences: true, analytics: false })
+    expect(await stored(page)).toMatchObject({ v: 4, preferences: true, analytics: false })
     await dialog.getByRole('button', { name: 'Cerrar', exact: true }).click()
     await page.reload()
     await page.getByRole('button', { name: 'Cookies y preferencias' }).click()
@@ -93,7 +93,7 @@ test.describe('the cookie consent banner', () => {
     await reachSite(page)
     await page.getByRole('button', { name: 'Aceptar todas' }).click()
     await expect(page.locator('.consent-banner')).toHaveCount(0)
-    expect(await stored(page)).toMatchObject({ v: 3, preferences: true, analytics: true })
+    expect(await stored(page)).toMatchObject({ v: 4, preferences: true, analytics: true })
 
     await page.reload()
     await reachSite(page)
@@ -105,7 +105,7 @@ test.describe('the cookie consent banner', () => {
     await reachSite(page)
     await page.getByRole('button', { name: 'Rechazar todas' }).click()
     await expect(page.locator('.consent-banner')).toHaveCount(0)
-    expect(await stored(page)).toMatchObject({ v: 3, preferences: false, analytics: false })
+    expect(await stored(page)).toMatchObject({ v: 4, preferences: false, analytics: false })
   })
 
   test('a record of another version asks again', async ({ page }) => {

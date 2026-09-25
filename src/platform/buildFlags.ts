@@ -56,6 +56,14 @@ export const VERCEL_INSIGHTS_ENABLED =
   (typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__) === 'production'
 
 /**
+ * Whether Google Analytics may load: a production deployment only, for the
+ * second reason above — dev and preview traffic would pollute the client's
+ * property. Inline for the same folding reason.
+ */
+export const GOOGLE_ANALYTICS_ENABLED =
+  (typeof __VERTIGO_ENV__ === 'undefined' ? 'development' : __VERTIGO_ENV__) === 'production'
+
+/**
  * Whether the browser is talking to a BUILT `dist/` rather than the dev server.
  *
  * True for a production deploy, a Vercel preview and a local `vite preview`;
