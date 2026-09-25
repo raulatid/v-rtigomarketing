@@ -16,6 +16,7 @@ interface Props {
 function setup(initial: Props, options: { flies?: boolean; warps?: boolean } = {}) {
   const city: SceneShortcutCity = {
     flyToBlog: vi.fn(() => options.flies ?? true),
+    requestBlog: vi.fn(),
     requestServices: vi.fn(),
   }
   const murciaRef = { current: city }
@@ -52,15 +53,15 @@ describe('a press waits for the menu to close', () => {
   it('does nothing while the menu is folding, and acts once it is closed', () => {
     const t = setup({ activeExperience: 'earth', menuState: 'closing' })
     t.request('blog')
-    expect(t.openBlogIndex).not.toHaveBeenCalled()
+    expect(t.navigateTo).not.toHaveBeenCalled()
     t.render({ activeExperience: 'earth', menuState: 'closed' })
-    expect(t.openBlogIndex).toHaveBeenCalledTimes(1)
+    expect(t.navigateTo).toHaveBeenCalledTimes(1)
   })
 
   it('acts at once where there is no menu to wait for', () => {
     const t = setup({ activeExperience: 'earth', menuState: 'closed' })
     t.request('blog')
-    expect(t.openBlogIndex).toHaveBeenCalledTimes(1)
+    expect(t.navigateTo).toHaveBeenCalledTimes(1)
   })
 
   it('acts once, not again on the next render', () => {
@@ -72,11 +73,26 @@ describe('a press waits for the menu to close', () => {
 })
 
 describe('Blog', () => {
-  it('opens the blog directly from Earth, with no flight', () => {
+  it('warps from Earth, and asks for the flight to the panel when the warp settles', () => {
     const t = setup({ activeExperience: 'earth', menuState: 'closed' })
     t.request('blog')
-    expect(t.city.flyToBlog).not.toHaveBeenCalled()
-    expect(t.openBlogIndex).toHaveBeenCalledTimes(1)
+    expect(t.navigateTo).toHaveBeenCalledWith('murcia')
+    expect(t.city.requestBlog).not.toHaveBeenCalled()
+    t.settled()
+    expect(t.city.requestBlog).toHaveBeenCalledTimes(1)
+    expect(t.city.requestServices).not.toHaveBeenCalled()
+    // Never over Earth: the opening is the flight's, at the end of its approach.
+    expect(t.openBlogIndex).not.toHaveBeenCalled()
+    t.settled()
+    expect(t.city.requestBlog).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing from Earth when the warp is refused', () => {
+    const t = setup({ activeExperience: 'earth', menuState: 'closed' }, { warps: false })
+    t.request('blog')
+    t.settled()
+    expect(t.city.requestBlog).not.toHaveBeenCalled()
+    expect(t.openBlogIndex).not.toHaveBeenCalled()
   })
 
   it('flies to the panel in the city, and leaves the opening to the flight', () => {

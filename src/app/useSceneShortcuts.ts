@@ -7,12 +7,14 @@ import type { HeaderMenuState } from '../corner-logo/headerMenuTiming'
  *
  * ## Why this is a journey and not a link
  *
- * The campus exists only inside Murcia, and the header is shown on Earth too.
- * So Servicios on Earth is two moves the app already knows how to make — the
- * warp (`navigateTo('murcia')`) and, once it has landed, the campus flight
- * (`MurciaExperience.requestServices`) — chained through the warp's one real
- * end, `onSettled`. Blog needs no chain: the /blog route opens over either
- * scene, and in the city it is flown to through the panel, as a press would.
+ * The campus and the blog's panel exist only inside Murcia, and the header is
+ * shown on Earth too. So either button on Earth is two moves the app already
+ * knows how to make — the warp (`navigateTo('murcia')`) and, once it has
+ * landed, the flight (`requestServices` / `requestBlog`) — chained through the
+ * warp's one real end, `onSettled`. Blog used to open the /blog route straight
+ * over Earth instead; that skipped the approach's cover and prefetch and opened
+ * the route while the city could still be building under it, and it is gone.
+ * A warp that is refused does nothing, for both.
  *
  * ## Why it waits for the menu
  *
@@ -28,6 +30,7 @@ export type SceneShortcut = 'blog' | 'services'
 /** What the city has to offer this module. `MurciaExperience` satisfies it. */
 export interface SceneShortcutCity {
   flyToBlog(): boolean
+  requestBlog(): void
   requestServices(): void
 }
 
@@ -49,33 +52,34 @@ export interface SceneShortcuts {
 export function useSceneShortcuts(options: SceneShortcutOptions): SceneShortcuts {
   const { activeExperience, menuState, murciaRef, navigateTo, openBlogIndex } = options
   const [pending, setPending] = useState<SceneShortcut | null>(null)
-  // Set only when a warp toward the campus was actually committed, so a refused
+  // Set only when a warp toward the city was actually committed, so a refused
   // one cannot leave an arrival waiting for whichever warp happens next.
-  const servicesOnArrival = useRef(false)
+  const onArrival = useRef<SceneShortcut | null>(null)
 
   useEffect(() => {
     if (pending === null || menuState !== 'closed') return
     setPending(null)
-    const inCity = activeExperience === 'murcia'
-    if (pending === 'blog') {
-      // In the city, the flight to the panel; if that is refused — a district
-      // is open, or there is no panel — the blog still opens, without it.
-      if (!inCity || !murciaRef.current?.flyToBlog()) openBlogIndex()
+    if (activeExperience !== 'murcia') {
+      if (navigateTo('murcia')) onArrival.current = pending
       return
     }
-    if (inCity) {
-      murciaRef.current?.requestServices()
-    } else if (navigateTo('murcia')) {
-      servicesOnArrival.current = true
+    if (pending === 'blog') {
+      // The flight to the panel; if that is refused — a district is open, or
+      // there is no panel — the blog still opens, without it.
+      if (!murciaRef.current?.flyToBlog()) openBlogIndex()
+      return
     }
+    murciaRef.current?.requestServices()
   }, [pending, menuState, activeExperience, murciaRef, navigateTo, openBlogIndex])
 
   const request = useCallback((shortcut: SceneShortcut) => setPending(shortcut), [])
 
   const onWarpSettled = useCallback(() => {
-    if (!servicesOnArrival.current) return
-    servicesOnArrival.current = false
-    murciaRef.current?.requestServices()
+    const arrival = onArrival.current
+    if (arrival === null) return
+    onArrival.current = null
+    if (arrival === 'blog') murciaRef.current?.requestBlog()
+    else murciaRef.current?.requestServices()
   }, [murciaRef])
 
   return { request, onWarpSettled }

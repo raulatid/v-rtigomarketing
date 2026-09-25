@@ -163,6 +163,8 @@ export class MurciaExperience {
   private geotags: Geotags | null = null;
   /** The header's Servicios button, waiting for a free camera. See `requestServices`. */
   private servicesRequested = false;
+  /** The header's Blog button, pressed on Earth, waiting for a free camera. See `requestBlog`. */
+  private blogRequested = false;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
@@ -695,7 +697,10 @@ export class MurciaExperience {
   setActive(next: boolean): void {
     if (this.active === next) return;
     this.active = next;
-    if (!next) this.servicesRequested = false;
+    if (!next) {
+      this.servicesRequested = false;
+      this.blogRequested = false;
+    }
 
     // Frame work was always gated; INPUT was not. Both district interaction and
     // the click probe listen on the SHARED canvas, so while Earth was showing,
@@ -1263,6 +1268,19 @@ export class MurciaExperience {
     if (this.campus) this.servicesRequested = true;
   }
 
+  /**
+   * The header's Blog button, pressed on Earth: fly to the panel once the
+   * arrival's warp lets go of the camera.
+   *
+   * A request for `requestServices`'s reason — `flyToBlog()` refuses while the
+   * warp's pin-back still holds the rig, and that outlasts `onSettled`. Dropped,
+   * not deferred, if anything else has the camera by then, and on leaving the
+   * city.
+   */
+  requestBlog(): void {
+    if (this.blogDisplay) this.blogRequested = true;
+  }
+
   // --- Viewport and bounds --------------------------------------------------
 
   /**
@@ -1444,6 +1462,11 @@ export class MurciaExperience {
     if (this.servicesRequested && !this.rig?.hasClaim('warp')) {
       this.servicesRequested = false;
       if (this.rig && !this.rig.isOwned) this.campus?.enter();
+    }
+    // The Blog button from Earth, on the same terms; see `requestBlog`.
+    if (this.blogRequested && !this.rig?.hasClaim('warp')) {
+      this.blogRequested = false;
+      this.flyToBlog();
     }
 
     // THE COMPASS RUNS LAST, after whichever owner wrote the pose.
