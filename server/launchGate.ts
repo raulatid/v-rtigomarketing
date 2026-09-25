@@ -161,7 +161,8 @@ const COUNTDOWN_SCRIPT = `(() => {
       setTimeout(() => location.reload(), 1000 + Math.random() * 2000);
       return;
     }
-    setTimeout(tick, 1000 - ((end - performance.now()) % 1000));
+    // Wake just past the next whole second, when the rounded-up value changes.
+    setTimeout(tick, ((end - performance.now()) % 1000) + 20);
   };
   tick();
 })();
