@@ -29,5 +29,8 @@ export const OBSERVER: ObserverConfig = {
   stillLinearSpeed: 2,
   stillAngularSpeedDegrees: 1.5,
   minReportIntervalSeconds: 4,
-  maxReportsPerSession: 120,
+  // Zero while `VIEW_OPEN` in server/view/config.ts is false: a closed endpoint
+  // answers only decoys, and every report would still be a function invocation.
+  // Reopen both together; the value before closing was 120.
+  maxReportsPerSession: 0,
 };

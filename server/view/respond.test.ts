@@ -1,8 +1,15 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ViewEnv } from './config'
 import { respondClaim, respondView, resetViewStateForTests, WINNER_KEY } from './respond'
 import { createMemoryStore, type ViewStore } from './store'
 import { TOKEN_LENGTH, verifyToken } from './token'
+
+// The open path is what these tests are about, whatever the switch is set to in
+// production; respondClosed.test.ts covers the switch.
+vi.mock('./config', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./config')>()),
+  VIEW_OPEN: true,
+}))
 
 const SECRET = 'k'.repeat(40)
 const NOW = 1_790_000_000_000

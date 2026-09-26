@@ -22,8 +22,12 @@
  * The switch to turn the whole thing off by hand. False answers every request
  * with a decoy and touches nothing. Once someone has won, the endpoints close
  * by themselves (see `WINNER_KEY`); this is for retiring the code afterwards.
+ *
+ * Closed since 2026-09-26: the reports exhausted the Upstash free quota in a
+ * day. The city stops reporting through `maxReportsPerSession: 0` in
+ * `src/experiences/murcia/observer/observerConfig.ts`; reopen both together.
  */
-export const VIEW_OPEN = true
+export const VIEW_OPEN = false
 
 export type Vec3 = [number, number, number]
 
