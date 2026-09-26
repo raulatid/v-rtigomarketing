@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuditSection } from './AuditSection'
 import type { AuditRequest } from '../app/auditSubmission'
-import { BUDGET_RANGES, REVENUE_RANGES } from '../content/site'
+import { BUDGET_RANGES, FORM_MESSAGES, REVENUE_RANGES } from '../content/site'
 
 // The submission flow's state model: idle → submitting → success | error.
 // What these pin down, in order of importance:
@@ -176,7 +176,11 @@ describe('audit form submission states', () => {
     const overlay = document.querySelector('.audit-overlay')!
     expect(overlay.getAttribute('data-state')).toBe('open')
     expect(document.querySelector('.audit-success')).not.toBeNull()
-    expect(document.body.textContent).toMatch(/recibid/i)
+    // The copy is CMS-owned and regenerated on every build, so pin the success
+    // state to whatever Sanity says rather than to a particular wording.
+    const success = document.querySelector('.audit-success')!
+    expect(success.textContent).toContain(FORM_MESSAGES.auditTitle)
+    expect(success.textContent).toContain(FORM_MESSAGES.auditBody)
   })
 
   it('refuses a second submission while one is in flight', async () => {
