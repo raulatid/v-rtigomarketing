@@ -190,6 +190,8 @@ export function createBlogApproach(deps: BlogApproachDeps): BlogApproach {
   let pendingViewport: { width: number; height: number } | null = null;
 
   let resizeTimer: number | null = null;
+  /** The return's wait for a resized page image; cleared by `dispose` like `resizeTimer`. */
+  let returnTimer: number | null = null;
   /** Supersedes an in-flight request whose answer would land after a newer one. */
   let requestGeneration = 0;
 
@@ -423,11 +425,13 @@ export function createBlogApproach(deps: BlogApproachDeps): BlogApproach {
     const proceed = (): void => {
       if (settled) return;
       settled = true;
-      window.clearTimeout(timeout);
+      if (returnTimer !== null) window.clearTimeout(returnTimer);
+      returnTimer = null;
       startReturnFlight();
     };
-    const timeout = window.setTimeout(() => {
-      if (settled) return;
+    returnTimer = window.setTimeout(() => {
+      returnTimer = null;
+      if (settled || disposed) return;
       settled = true;
       console.warn('[blogDisplay] the page image did not arrive; returning without it');
       // Still delivered, cover down, rather than held on a still image.
@@ -590,6 +594,10 @@ export function createBlogApproach(deps: BlogApproachDeps): BlogApproach {
       if (resizeTimer !== null) {
         window.clearTimeout(resizeTimer);
         resizeTimer = null;
+      }
+      if (returnTimer !== null) {
+        window.clearTimeout(returnTimer);
+        returnTimer = null;
       }
 
       // A body-level element nothing else will clear. Unlike the lab's, this one is
