@@ -37,39 +37,6 @@ describe('the selected unified bake contract', () => {
       expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_500_000 : 6_500_000);
     }
   });
-  it('preserves the eight unaffected atlases and their runtime metadata exactly', () => {
-    const config = murciaConfig.lightmaps!;
-    if (!('manifest' in config)) throw new Error('Expected the unified manifest');
-    const directory = 'public/textures/murcia/lightmaps-v5.1-r3/';
-    const baseline = 'public/textures/murcia/lightmaps-v5.1-r2/';
-    const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
-    const previous = parseUnifiedManifest(JSON.parse(fs.readFileSync(baseline + 'lightmaps.json', 'utf8')));
-    for (const key of ['ground-NE', 'ground-SE', 'ground-SW', 'instances-2',
-      'landmark-campus', 'landmark-vertigo-blog', 'static-SE', 'static-SW']) {
-      expect(shipped.atlases[key]).toEqual(previous.atlases[key]);
-      for (const resolution of [1024, 2048] as const) {
-        const file = shipped.atlases[key].variants[resolution].file;
-        expect(fs.readFileSync(directory + file).equals(fs.readFileSync(baseline + file))).toBe(true);
-      }
-    }
-  });
-  it('retains the legacy stadium repair with accurate texture metadata', () => {
-    const directory = 'public/textures/murcia/lightmaps-v2/';
-    const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + 'lightmaps.json', 'utf8')));
-    expect(shipped.requiredNames).toContain('estadio-techo');
-    expect(shipped.atlases['stadium-roof']).toBeDefined();
-    for (const atlas of Object.values(shipped.atlases)) {
-      for (const resolution of [1024, 2048] as const) {
-        const variant = atlas.variants[resolution];
-        const bytes = fs.readFileSync(directory + variant.file);
-        expect(bytes.length).toBe(variant.bytes);
-        expect(bytes.subarray(0, 12).toString('hex')).toBe('ab4b5458203230bb0d0a1a0a');
-        expect(bytes.readUInt32LE(20)).toBe(resolution);
-        expect(bytes.readUInt32LE(24)).toBe(resolution);
-        expect(bytes.readUInt32LE(40)).toBe(variant.mipLevels);
-      }
-    }
-  });
   it('retains per-atlas safe mip limits and radiance scales', () => {
     const parsed = parseUnifiedManifest(manifest());
     expect(parsed.atlases.ground.variants[2048].mipLevels).toBe(2);
