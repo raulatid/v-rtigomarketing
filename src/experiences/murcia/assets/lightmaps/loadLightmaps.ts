@@ -92,6 +92,9 @@ export async function loadLightmaps(options: LoadLightmapsOptions): Promise<Ligh
   const { gltf, config, renderer, terrain } = options;
   const resolution = deviceResolution();
   if ('manifest' in config) {
+    // First: the baked materials keep the authored albedo (`preserveAlbedo`),
+    // so a trim still attached here would be copied onto every one of them.
+    dropEmbeddedTrim(gltf.scene);
     return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, resolution, config.desktop1024);
   }
   const base = config.baseUrl;
