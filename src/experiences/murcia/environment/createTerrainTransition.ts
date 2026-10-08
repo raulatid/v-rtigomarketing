@@ -298,16 +298,21 @@ function buildSkirt(
   const segments = Math.max(1, Math.floor(config.segmentsPerSide));
   const ring = buildRing(plateBounds, segments, gaps);
   const perimeterCount = ring.length;
-  const vertexCount = perimeterCount * (loops + 1);
+  const alphaAt = (loop: number): number => fadeAlpha(loop / loops, config.fadeEndFraction, config.fadeExponent);
+  // Loops stay spaced over the whole width, but stop at the first transparent
+  // one: every strip past it is alpha 0 at both edges and changes no pixel.
+  let emitted = 1;
+  while (emitted < loops && alphaAt(emitted) > 0) emitted += 1;
+  const vertexCount = perimeterCount * (emitted + 1);
 
   const positions = new Float32Array(vertexCount * 3);
   const colors = new Float32Array(vertexCount * 4);
 
-  for (let loop = 0; loop <= loops; loop += 1) {
+  for (let loop = 0; loop <= emitted; loop += 1) {
     const t = loop / loops;
     const offset = -config.innerOverlap + t * (config.width + config.innerOverlap);
     const rect = expandRect(plateBounds, offset);
-    const alpha = fadeAlpha(t, config.fadeEndFraction, config.fadeExponent);
+    const alpha = alphaAt(loop);
 
     for (let p = 0; p < perimeterCount; p += 1) {
       const index = loop * perimeterCount + p;
@@ -328,7 +333,7 @@ function buildSkirt(
   }
 
   const indices: number[] = [];
-  for (let loop = 0; loop < loops; loop += 1) {
+  for (let loop = 0; loop < emitted; loop += 1) {
     for (let p = 0; p < perimeterCount; p += 1) {
       if (ring[p]!.openAfter) continue;
       const q = (p + 1) % perimeterCount;
