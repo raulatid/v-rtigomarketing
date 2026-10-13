@@ -98,6 +98,8 @@ export function InteractionLayer({
 
   const callbacks = useRef({ onSelect, onDeselect })
   callbacks.current = { onSelect, onDeselect }
+  const activeRef = useRef(active)
+  activeRef.current = active
 
   // Sampled once: matchMedia inside a frame callback would be a media lookup per
   // frame, and every other reader in the application samples it once too. The
@@ -145,7 +147,7 @@ export function InteractionLayer({
       orbitSystem.satellites.every((s) => orbitSystem.isSatelliteActive(s.id)),
     )
     // The on-screen half of the same idea, behind `?debug=1` as Murcia's is.
-    const uninstallReadout = installCameraReadout(rig, DEBUG_TOOLS_ENABLED)
+    const uninstallReadout = installCameraReadout(rig, DEBUG_TOOLS_ENABLED, () => activeRef.current)
 
     rigRef.current = rig
     focusRef.current = focus

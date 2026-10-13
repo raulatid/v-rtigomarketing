@@ -43,7 +43,16 @@ const DEG = 180 / Math.PI
  * reason murcia/config/appConfig.ts documents: the decision belongs to the
  * shell, and a module that reads it directly cannot be bundled for Node.
  */
-export function installCameraReadout(rig: FocusCameraRig, enabled: boolean): () => void {
+export function installCameraReadout(
+  rig: FocusCameraRig,
+  enabled: boolean,
+  /**
+   * Earth stays mounted while Murcia is on screen, and Murcia's overlay sits in
+   * the same corner — so the readout steps aside whenever Earth is not the
+   * active world, or it covers the draw calls and timings beneath it.
+   */
+  isEarthActive: () => boolean,
+): () => void {
   if (!enabled) return () => {}
   if (typeof document === 'undefined') return () => {}
 
@@ -63,6 +72,9 @@ export function installCameraReadout(rig: FocusCameraRig, enabled: boolean): () 
   window.addEventListener('keydown', onKeyDown)
 
   const render = (): void => {
+    // The `hidden` attribute rather than the `.hidden` class, so F3 keeps its
+    // own state and the readout comes back as the viewer left it.
+    el.hidden = !isEarthActive()
     const p = rig.getDebugPose()
     el.textContent =
       `Radius         ${p.radius.toFixed(2)}\n` +
