@@ -199,12 +199,26 @@ export function ContactSection({
     )
   }
 
-  /** The server saw the value our own rules let through, so it outranks them. */
+  const answered = (field: Field) => values[field].trim() !== ''
+
+  /**
+   * The server saw the value our own rules let through, so it outranks them.
+   * Otherwise a field is only wrong once there is something wrong in it, or
+   * once "Enviar" was pressed: entering a field and leaving it empty is not an
+   * error, it is a question not answered yet (plan 026).
+   */
   const messageFor = (field: Field): string | undefined =>
     serverErrors[field] ??
-    (touched[field] || submitAttempted ? errors[field] : undefined)
+    ((touched[field] && answered(field)) || submitAttempted ? errors[field] : undefined)
 
   const showError = (field: Field) => messageFor(field) !== undefined
+
+  /** Drives the check at the end of the line; the stylesheet draws it. */
+  const isValid = (field: Field) =>
+    (touched[field] || submitAttempted) &&
+    answered(field) &&
+    errors[field] === undefined &&
+    serverErrors[field] === undefined
 
   const fieldProps = (field: Field) => ({
     id: `${idPrefix}-${field}`,
@@ -228,6 +242,13 @@ export function ContactSection({
         {messageFor(field)}
       </p>
     ) : null
+
+  /** Decorative: the field's state is already in aria-invalid and the error text. */
+  const fieldCheck = (
+    <svg className="contact-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M2.5 7.5l3 3 6-7" />
+    </svg>
+  )
 
   const trigger = !preview && ready && (
     <button
@@ -300,44 +321,60 @@ export function ContactSection({
                   Escríbenos para lo que necesites
                 </h2>
 
-                <div className="contact-field">
+                <div className="contact-field" data-valid={isValid('name') || undefined}>
                   <label className="contact-label" htmlFor={`${idPrefix}-name`}>
+                    <span className="contact-label__stroke" aria-hidden="true" />
                     Nombre
                   </label>
-                  <input
-                    className="contact-input"
-                    type="text"
-                    autoComplete="name"
-                    maxLength={80}
-                    {...fieldProps('name')}
-                  />
+                  <div className="contact-control">
+                    <input
+                      className="contact-input"
+                      type="text"
+                      autoComplete="name"
+                      maxLength={80}
+                      {...fieldProps('name')}
+                    />
+                    {fieldCheck}
+                  </div>
                   {errorLine('name')}
                 </div>
 
-                <div className="contact-field">
+                <div className="contact-field" data-valid={isValid('email') || undefined}>
                   <label className="contact-label" htmlFor={`${idPrefix}-email`}>
+                    <span className="contact-label__stroke" aria-hidden="true" />
                     Email
                   </label>
-                  <input
-                    className="contact-input"
-                    type="email"
-                    autoComplete="email"
-                    maxLength={254}
-                    {...fieldProps('email')}
-                  />
+                  <div className="contact-control">
+                    <input
+                      className="contact-input"
+                      type="email"
+                      autoComplete="email"
+                      maxLength={254}
+                      {...fieldProps('email')}
+                    />
+                    {fieldCheck}
+                  </div>
                   {errorLine('email')}
                 </div>
 
-                <div className="contact-field">
+                <div className="contact-field" data-valid={isValid('message') || undefined}>
                   <label className="contact-label" htmlFor={`${idPrefix}-message`}>
+                    <span className="contact-label__stroke" aria-hidden="true" />
                     Mensaje
                   </label>
-                  <textarea
-                    className="contact-input contact-textarea"
-                    rows={4}
-                    maxLength={2000}
-                    {...fieldProps('message')}
-                  />
+                  {/* Shown only while typing; the maxLength is what enforces it. */}
+                  <span className="contact-counter" aria-hidden="true">
+                    {values.message.length} / 2000
+                  </span>
+                  <div className="contact-control">
+                    <textarea
+                      className="contact-input contact-textarea"
+                      rows={4}
+                      maxLength={2000}
+                      {...fieldProps('message')}
+                    />
+                    {fieldCheck}
+                  </div>
                   {errorLine('message')}
                 </div>
 

@@ -232,3 +232,58 @@ describe('audit form submission states', () => {
     expect(document.body.textContent).not.toMatch(/paso\s*0?1/i)
   })
 })
+
+function openPanel() {
+  act(() => {
+    document.querySelector<HTMLButtonElement>('.audit-trigger')!.click()
+  })
+  act(() => {
+    vi.advanceTimersByTime(1500)
+  })
+}
+
+function visit(el: HTMLElement) {
+  act(() => {
+    el.focus()
+    el.blur()
+  })
+}
+
+const auditControl = (field: string) => document.querySelector<HTMLInputElement>(`#audit-${field}`)!
+
+// Same rule as the contact dialog: red needs something to be wrong.
+describe('when an audit field says it is wrong', () => {
+  it('leaves a field that was entered and left empty unmarked', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    visit(auditControl('name'))
+    expect(auditControl('name').getAttribute('aria-invalid')).toBeNull()
+  })
+
+  it('marks a value that is there but wrong once the field is left', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    act(() => type(auditControl('website'), 'localhost'))
+    visit(auditControl('website'))
+    expect(auditControl('website').getAttribute('aria-invalid')).toBe('true')
+  })
+
+  it('marks every empty required field on submit, and never the optional phone', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    submitForm()
+    for (const field of ['plan', 'revenue', 'budget', 'name', 'email', 'website']) {
+      expect(auditControl(field).getAttribute('aria-invalid')).toBe('true')
+    }
+    expect(auditControl('phone').getAttribute('aria-invalid')).toBeNull()
+  })
+
+  it('marks a left field with a right value as valid', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    act(() => type(auditControl('email'), VALID.email))
+    visit(auditControl('email'))
+    expect(auditControl('email').closest('.audit-field')!.hasAttribute('data-valid')).toBe(true)
+    expect(auditControl('name').closest('.audit-field')!.hasAttribute('data-valid')).toBe(false)
+  })
+})

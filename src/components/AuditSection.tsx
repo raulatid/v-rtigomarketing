@@ -183,6 +183,15 @@ function fieldDef(
   return { ...def, options: ranges.map((range) => ({ value: range, label: range })) }
 }
 
+/** Decorative: the field's state is already in aria-invalid and the error text. */
+function FieldCheck() {
+  return (
+    <svg className="audit-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M2.5 7.5l3 3 6-7" />
+    </svg>
+  )
+}
+
 /**
  * The shared markup: label, control, error slot. One copy, so the aria wiring
  * between the three cannot drift between fields.
@@ -199,6 +208,7 @@ function AuditField({
   controlProps,
   onChange,
   error,
+  valid,
 }: {
   idPrefix: string
   field: Field
@@ -206,10 +216,12 @@ function AuditField({
   controlProps: Record<string, unknown>
   onChange: (value: string) => void
   error: ReactNode
+  valid: boolean
 }) {
   return (
-    <div className="audit-field">
+    <div className="audit-field" data-valid={valid || undefined}>
       <label className="audit-label" htmlFor={`${idPrefix}-${field}`}>
+        <span className="audit-label__stroke" aria-hidden="true" />
         {def.label}
         {def.kind === 'input' && def.optional ? (
           <>
@@ -219,7 +231,7 @@ function AuditField({
         ) : null}
       </label>
       {def.kind === 'select' ? (
-        <div className="audit-select-wrap">
+        <div className="audit-control audit-select-wrap">
           <select
             className="audit-input audit-select"
             {...controlProps}
@@ -234,17 +246,21 @@ function AuditField({
               </option>
             ))}
           </select>
+          <FieldCheck />
         </div>
       ) : (
-        <input
-          className="audit-input"
-          type={def.type}
-          autoComplete={def.autoComplete}
-          placeholder={def.placeholder}
-          maxLength={def.maxLength}
-          {...controlProps}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <div className="audit-control">
+          <input
+            className="audit-input"
+            type={def.type}
+            autoComplete={def.autoComplete}
+            placeholder={def.placeholder}
+            maxLength={def.maxLength}
+            {...controlProps}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <FieldCheck />
+        </div>
       )}
       {error}
     </div>
@@ -576,8 +592,9 @@ export function AuditSection({
   // to read, because validation happens at render against the current values.
   //
   // Errors are computed live but only *shown* once the field was touched or a
-  // submit was attempted — no errors before interaction (plan 005 §11). That is
-  // `showError` below; this is just the arithmetic.
+  // submit was attempted — no errors before interaction (plan 005 §11), and an
+  // empty field the visitor merely passed through is not one either (plan 026).
+  // That is `showError` below; this is just the arithmetic.
   const errors = useMemo(() => validate(values), [values])
 
   const setValue = useCallback((field: Field, value: string) => {
@@ -668,8 +685,20 @@ export function AuditSection({
     // The server's complaint outranks ours: it saw the value we let through.
     const fromServer = serverErrors[field]
     if (fromServer !== undefined) return fromServer
-    return touched[field] || submitAttempted ? errors[field] : undefined
+    // Entering a field and leaving it empty is a question not answered yet,
+    // not an error: only a value that is there and wrong, or a submit, shows
+    // one (plan 026).
+    return (touched[field] && answered(field)) || submitAttempted ? errors[field] : undefined
   }
+
+  const answered = (field: Field) => values[field].trim() !== ''
+
+  /** Drives the check at the end of the line; the stylesheet draws it. */
+  const isValid = (field: Field) =>
+    (touched[field] || submitAttempted) &&
+    answered(field) &&
+    errors[field] === undefined &&
+    serverErrors[field] === undefined
 
   // Built once, per field, and never rebuilt: a `ref` callback is compared by
   // identity, so a fresh closure on every render makes React call the old one
@@ -849,6 +878,7 @@ export function AuditSection({
                       controlProps={fieldProps(field)}
                       onChange={(value) => setValue(field, value)}
                       error={errorLine(field)}
+                      valid={isValid(field)}
                     />
                   ))}
                 </div>

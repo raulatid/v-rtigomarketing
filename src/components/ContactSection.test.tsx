@@ -189,3 +189,68 @@ describe('the booking button above the phones', () => {
     expect(document.querySelector('.contact-booking')!.tagName).toBe('A')
   })
 })
+
+/** Native-setter write + input event, so React's controlled control sees it. */
+function type(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(el, value)
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+function visit(el: HTMLElement) {
+  act(() => {
+    el.focus()
+    el.blur()
+  })
+}
+
+const control = (field: string) =>
+  document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#contact-${field}`)!
+
+// Red is an error, and an error needs something to be wrong. A field that was
+// entered and left empty has not been answered yet — only a value that is
+// there and wrong, or a press of "Enviar", earns the mark.
+describe('when a field says it is wrong', () => {
+  it('leaves a field that was entered and left empty unmarked', () => {
+    openDialog()
+    visit(control('name'))
+    expect(control('name').getAttribute('aria-invalid')).toBeNull()
+    expect(document.querySelector('#contact-name-error')).toBeNull()
+  })
+
+  it('marks a value that is there but wrong once the field is left', () => {
+    openDialog()
+    act(() => type(control('email'), 'nombre@'))
+    visit(control('email'))
+    expect(control('email').getAttribute('aria-invalid')).toBe('true')
+    expect(document.querySelector('#contact-email-error')!.textContent).toMatch(/formato/i)
+  })
+
+  it('marks every empty field once "Enviar" is pressed', () => {
+    openDialog()
+    act(() => {
+      document
+        .querySelector<HTMLFormElement>('.contact-form')!
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    for (const field of ['name', 'email', 'message']) {
+      expect(control(field).getAttribute('aria-invalid')).toBe('true')
+    }
+  })
+
+  it('drops the mark while the value is being corrected', () => {
+    openDialog()
+    act(() => type(control('email'), 'nombre@'))
+    visit(control('email'))
+    act(() => type(control('email'), 'nombre@empresa.com'))
+    expect(control('email').getAttribute('aria-invalid')).toBeNull()
+  })
+
+  it('marks a left field with a right value as valid, and an untouched one as nothing', () => {
+    openDialog()
+    act(() => type(control('name'), 'Nombre Prueba'))
+    visit(control('name'))
+    expect(control('name').closest('.contact-field')!.hasAttribute('data-valid')).toBe(true)
+    expect(control('email').closest('.contact-field')!.hasAttribute('data-valid')).toBe(false)
+  })
+})

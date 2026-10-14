@@ -4324,3 +4324,33 @@ so that a later preview can key on the Studio's own `_key` without touching eith
 **Also broken when:** the Sanity dataset has no published `towerScreen` — a Sanity-sourced
 build fails on "collection is empty" until one exists, by design; or a measured bound is
 relaxed in `editorialBounds.ts` without re-measuring the slot it describes.
+
+## 56. Form fields are lines, and only a wrong value is red
+
+**Decided 2026-10-14,** for the Awwwards submission, on an interactive mock-up approved in
+review. The contact, audit and claim fields were matte boxes inset into the glass
+with the label above. They are a hairline now (`--field-line`), and focus draws a brand-blue line
+over it from the left plus an 18px stroke in front of the label (`--field-line-active`). A field
+left with a right value draws a small check (`data-valid`, computed in React because the forms
+are `noValidate`). The CTA's hover is a sweep of the lighter blue rather than a flash, gated to
+`(hover: hover)`, and a sending CTA runs a progress line along its foot. The panels, type, copy
+and submission flows are unchanged.
+
+**Red needs something wrong in the field.** A field the visitor entered and left empty is not
+answered yet, so it is not an error until "Enviar" is pressed; a value that is there and wrong
+shows its error on blur, as before. Server-rejected fields still always show. Pinned by the
+"when a field says it is wrong" tests in `ContactSection.test.tsx` and `AuditSection.test.tsx`.
+
+**The smoked-glass dropdown is progressive.** The audit selects use `appearance: base-select`
+inside `@supports`, so the list is the panel's glass where Chromium can style it and the OS
+list elsewhere, which on phones is the right control anyway. A JavaScript listbox was rejected:
+it would trade the native control's accessibility for a desktop-only look. The list sits in
+the top layer, outside the panel, so it is not glass nested in glass (§16). While it is open,
+focus is on an option in the top layer and `:focus-within` stops matching, so the open select
+carries the field's active look itself.
+
+**Also broken when:** the resting line drops below what reads over a bright frame of the scene
+(raise `--field-line`, do not remove it); a field-qualified error or focus rule loses to a
+hover rule or to the blog's `.blog-surface :focus-visible` ring; or `::picker(select)` is
+written into a selector list outside `@supports`, which makes browsers without it drop the
+whole rule.

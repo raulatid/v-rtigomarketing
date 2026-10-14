@@ -173,6 +173,7 @@ export function ClaimDialog({ claim, onClose, onSettled, onOpenLegal, idPrefix =
 
             <div className="contact-field">
               <label className="contact-label" htmlFor={`${idPrefix}-email`}>
+                <span className="contact-label__stroke" aria-hidden="true" />
                 Email
               </label>
               <input

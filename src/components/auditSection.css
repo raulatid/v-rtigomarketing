@@ -271,12 +271,13 @@
   max-width: 44ch;
 }
 
-/* The five fields. Without a gap of its own each label sat flush on the input
-   above it, nearer that one than its own — the grouping read backwards. */
+/* The fields. Without a gap of its own each label sat flush on the input
+   above it, nearer that one than its own — the grouping read backwards. Lines
+   rather than boxes (plan 026) want a little more air than the boxes did. */
 .audit-group--2 {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.6rem;
 }
 
 .audit-group--3 {
@@ -288,24 +289,63 @@
 .audit-field {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
 .audit-label {
-  font-size: 0.8rem;
+  display: flex;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-size: 0.74rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.92);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  transition: color 240ms ease;
 }
 
 .audit-label__optional {
-  color: rgba(255, 255, 255, 0.4);
+  margin-left: 0.4em;
+  color: var(--text-muted);
   font-weight: 400;
 }
 
+/* Same stroke as the contact dialog's: brand blue, drawn in front of the label
+   on focus, zero-width at rest. */
+.audit-label__stroke {
+  display: inline-block;
+  align-self: center;
+  width: 0;
+  height: 1.5px;
+  margin-right: 0;
+  background: var(--field-line-active);
+  transition:
+    width 420ms var(--field-ease),
+    margin-right 420ms var(--field-ease);
+}
+
+.audit-field:focus-within .audit-label {
+  color: var(--text-primary);
+}
+
+.audit-field:focus-within .audit-label__stroke {
+  width: 18px;
+  margin-right: 0.55rem;
+}
+
+.audit-field:has([aria-invalid='true']) .audit-label__stroke {
+  background: var(--field-error);
+}
+
+/* Holds the check, and the select's chevron. */
+.audit-control {
+  position: relative;
+}
+
 .audit-input {
-  height: 48px;
-  padding: 0 0.9rem;
+  --audit-line: var(--field-line);
+  --audit-line-active: var(--field-line-active);
+  width: 100%;
+  height: 46px;
+  padding: 0 28px 0 0;
   font-family: inherit;
   /* 16px, and it is not a type choice — it is the threshold below which iOS
      Safari zooms the page on focus. It was 0.9rem (14.4px), so focusing any of
@@ -314,68 +354,91 @@
      then stuck: the canvas is `touch-action: none` across the whole viewport,
      so they could not pinch out either.
      Suppressing zoom instead would be a WCAG 1.4.4 failure and would treat the
-     symptom. The height went 46 -> 48px to keep the text off the border. */
+     symptom. */
   font-size: 1rem;
-  /* Matte, inset into the glass rather than made of it: the panel is the
-     material and the fields are cut into it. No backdrop-filter here — one
-     blurred layer per surface (§16). */
   color: var(--text-primary);
-  background: var(--surface-matte);
-  border: 1px solid var(--surface-border);
-  box-shadow: var(--surface-inset);
-  border-radius: 10px;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  /* A line, not a box (plan 026), and the same recipe as the contact dialog:
+     the resting hairline and the focus line are two background layers, and the
+     focus line draws itself from the left by growing its width. Still no glass
+     of its own — one blurred layer per surface (§16). */
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(var(--audit-line-active), var(--audit-line-active)) left bottom / 0% 1.5px no-repeat,
+    linear-gradient(var(--audit-line), var(--audit-line)) left bottom / 100% 1px no-repeat;
+  transition: background-size 520ms var(--field-ease);
 }
 
 .audit-input::placeholder {
-  color: rgba(255, 255, 255, 0.42);
+  color: rgba(255, 255, 255, 0.32);
+  transition: color 240ms ease;
 }
 
 @media (hover: hover) {
-  .audit-input:hover {
-    background: var(--surface-matte-hover);
-    border-color: rgba(220, 230, 245, 0.22);
+  .audit-field:hover .audit-input {
+    --audit-line: var(--field-line-hover);
   }
 }
 
-/* The border does the work, the blue only confirms it — same recipe as the
-   contact dialog. A bright blue border on a focused field was competing with
-   the one button that is supposed to be blue. */
 .audit-input:focus,
 .audit-input:focus-visible {
   outline: none;
-  border-color: var(--surface-border-focus);
-  box-shadow: var(--surface-inset), 0 0 0 3px var(--accent-ring);
-  background: var(--surface-matte-hover);
+  background-size: 100% 1.5px, 100% 1px;
 }
 
-/* Error state is border + message text, never colour alone (§11). */
-.audit-input[aria-invalid='true'] {
-  border-color: rgba(255, 122, 122, 0.7);
+.audit-input:focus::placeholder {
+  color: rgba(255, 255, 255, 0.46);
 }
 
-.audit-input[aria-invalid='true']:focus,
-.audit-input[aria-invalid='true']:focus-visible {
-  border-color: rgba(255, 122, 122, 0.9);
-  box-shadow: var(--surface-inset), 0 0 0 3px rgba(255, 122, 122, 0.18);
+/* Error state is line + message text, never colour alone (§11). Field-qualified
+   so hovering a wrong field cannot turn its line back to grey. */
+.audit-field .audit-input[aria-invalid='true'] {
+  --audit-line: var(--field-error);
+  --audit-line-active: var(--field-error);
 }
 
+/* Mounted only when there is an error, so it arrives rather than transitions. */
 .audit-field__error {
+  margin-top: 0.45rem;
   font-size: 0.75rem;
   line-height: 1.35;
   color: rgba(255, 158, 158, 0.95);
+  animation: audit-error-in 280ms var(--field-ease);
+}
+
+@keyframes audit-error-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* Valid: a small check draws itself at the end of the line. */
+.audit-check {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  color: var(--field-ok);
+  pointer-events: none;
+}
+
+.audit-check path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  transition: stroke-dashoffset 360ms var(--field-ease) 60ms;
+}
+
+.audit-field[data-valid] .audit-check path {
+  stroke-dashoffset: 0;
 }
 
 /* Native select restyled in place; the chevron is drawn from two borders so
-   it needs no asset and no replacement widget. It was blue, and it was one of
-   the strongest blue marks in the panel for something that is not an action
-   (plan 020 §11) — neutral now, and a hair thinner. */
-.audit-select-wrap {
-  position: relative;
-}
-
+   it needs no asset and no replacement widget. Neutral, not blue: it is not
+   an action (plan 020 §11). */
 .audit-select {
-  width: 100%;
   /* Prefixed first: Safari only took `appearance` unprefixed at 15.4, and
      without this the native select chrome comes back on older iOS and collides
      with the ::after chevron below. */
@@ -386,11 +449,20 @@
 
 .audit-select:invalid,
 .audit-select option[value=''] {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.32);
 }
 
-/* The dropdown list is painted by the OS, not by the panel: it gets a flat
-   opaque colour, since there is nothing behind it to show through. */
+/* The prompt, as faint as the inputs' placeholders. `:invalid` above never
+   matches — the select is not `required`, the form validates itself — so the
+   empty state is read from the placeholder option being the chosen one. On its
+   own rule so a browser without `:has` keeps the one above. */
+.audit-select:has(option[value='']:checked) {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+/* Where the list is painted by the OS (everywhere `base-select` is not
+   supported): a flat opaque colour, since there is nothing behind it to show
+   through. */
 .audit-select option {
   background: #0a0c12;
   color: rgba(255, 255, 255, 0.95);
@@ -399,14 +471,130 @@
 .audit-select-wrap::after {
   content: '';
   position: absolute;
-  right: 0.95rem;
+  right: 4px;
   top: 50%;
   width: 8px;
   height: 8px;
   border-right: 1.5px solid rgba(255, 255, 255, 0.55);
   border-bottom: 1.5px solid rgba(255, 255, 255, 0.55);
   transform: translateY(-70%) rotate(45deg);
+  transition: transform 320ms var(--field-ease);
   pointer-events: none;
+}
+
+/* Answered and right: the check takes the chevron's place. */
+.audit-field[data-valid] .audit-select-wrap::after {
+  opacity: 0;
+}
+
+/* The smoked-glass list (plan 026). `base-select` makes the native select's
+   list stylable — Chromium only, today. Everywhere else the rules above stand
+   and the OS paints the list; on phones the system picker is used either way,
+   which is right there. The list sits in the top layer, outside the panel, so
+   it is a surface of its own and not glass nested in glass (§16). */
+@supports (appearance: base-select) {
+  .audit-select,
+  .audit-select::picker(select) {
+    appearance: base-select;
+  }
+
+  .audit-select {
+    display: flex;
+    align-items: center;
+  }
+
+  .audit-select::picker-icon {
+    display: none;
+  }
+
+  .audit-select::picker(select) {
+    min-width: anchor-size(width);
+    margin-top: 8px;
+    padding: 6px;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: var(--glass-film), var(--glass-bg-heavy);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-shadow-heavy);
+    color: var(--text-primary);
+    opacity: 0;
+    transform: translateY(-6px);
+    transition:
+      opacity 220ms ease,
+      transform 320ms var(--field-ease),
+      overlay 320ms allow-discrete,
+      display 320ms allow-discrete;
+  }
+
+  .audit-select:open::picker(select) {
+    opacity: 1;
+    transform: none;
+  }
+
+  @starting-style {
+    .audit-select:open::picker(select) {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+
+  .audit-select option {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 0.8rem;
+    border-radius: 8px;
+    font-size: 15px;
+    color: var(--text-secondary);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  /* The placeholder is the closed select's prompt, not a choice in the list. */
+  .audit-select option[value=''] {
+    display: none;
+  }
+
+  .audit-select option:hover,
+  .audit-select option:focus-visible {
+    outline: none;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+  }
+
+  .audit-select option:checked {
+    color: #fff;
+  }
+
+  .audit-select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--field-line-active);
+  }
+
+  /* While the list is open, focus is on an option in the top layer and the
+     field no longer matches :focus-within — so the open select keeps the
+     field's active look itself. */
+  .audit-field:has(.audit-select:open) .audit-label {
+    color: var(--text-primary);
+  }
+
+  .audit-field:has(.audit-select:open) .audit-label__stroke {
+    width: 18px;
+    margin-right: 0.55rem;
+  }
+
+  .audit-select:open {
+    background-size: 100% 1.5px, 100% 1px;
+  }
+
+  .audit-select-wrap:has(.audit-select:open)::after {
+    transform: translateY(-20%) rotate(225deg);
+  }
 }
 
 .audit-cta {
@@ -429,20 +617,45 @@
   border: 1px solid var(--accent-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
   cursor: pointer;
+  /* The sweep and the progress line below are painted inside the button. */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
+/* The hover is a sweep, not a flash (plan 026): the lighter blue crosses the
+   face from the left and leaves to the right. Same as the contact dialog's. */
+.audit-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, var(--accent-hover) 88%, rgba(120, 165, 255, 1));
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 560ms var(--field-ease);
+}
+
 @media (hover: hover) {
-  .audit-cta:hover {
-    background: var(--accent-hover);
+  .audit-cta:not(:disabled):hover {
     border-color: rgba(150, 185, 255, 0.5);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.3);
+  }
+
+  .audit-cta:not(:disabled):hover::before {
+    transform: scaleX(1);
+    transform-origin: left center;
   }
 }
 
 /* Pressed sits down rather than shrinking. */
-.audit-cta:active {
+.audit-cta:active,
+.audit-cta:active::before {
   background: var(--accent-pressed);
+}
+
+.audit-cta:active {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
@@ -453,6 +666,32 @@
   cursor: default;
   opacity: 0.6;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* And a progress line runs along its foot: it slows towards the end and holds
+   short of full, because it does not know when the server will answer. */
+.audit-cta:disabled::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.75);
+  transform-origin: left center;
+  animation: audit-cta-progress 1.6s var(--field-ease) forwards;
+}
+
+@keyframes audit-cta-progress {
+  from {
+    transform: scaleX(0);
+  }
+  70% {
+    transform: scaleX(0.82);
+  }
+  to {
+    transform: scaleX(0.92);
+  }
 }
 
 /* The submission failed. Same red family as the field errors — this is the
@@ -680,6 +919,32 @@
   .audit-cta {
     transition: none;
     animation: none;
+  }
+
+  /* The fields and the button change state without travelling, as in the
+     contact dialog; the sending state is left to the label. */
+  .audit-input,
+  .audit-label__stroke,
+  .audit-check path,
+  .audit-select-wrap::after,
+  .audit-cta::before {
+    transition: none;
+  }
+
+  /* On its own: a browser without `::picker` would drop a whole selector
+     list that named it. */
+  @supports (appearance: base-select) {
+    .audit-select::picker(select) {
+      transition: none;
+    }
+  }
+
+  .audit-field__error {
+    animation: none;
+  }
+
+  .audit-cta:disabled::after {
+    content: none;
   }
 
   .audit-success .audit-group,

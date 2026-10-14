@@ -173,8 +173,16 @@
   --surface-matte: rgba(4, 7, 11, 0.55);
   --surface-matte-hover: rgba(6, 10, 15, 0.65);
   --surface-border: rgba(220, 230, 245, 0.14);
-  --surface-border-focus: rgba(220, 230, 245, 0.32);
-  --surface-inset: inset 0 1px 1px rgba(0, 0, 0, 0.25);
+
+  /* The form fields are lines, not boxes (plan 026): a hairline at rest, and a
+     brand-blue line that draws over it on focus. The resting line is 0.34 so it
+     still reads over a bright patch of the scene behind the glass. */
+  --field-line: rgba(220, 230, 245, 0.34);
+  --field-line-hover: rgba(220, 230, 245, 0.5);
+  --field-line-active: var(--accent-hover);
+  --field-error: rgba(255, 122, 122, 0.9);
+  --field-ok: rgba(150, 220, 180, 0.9);
+  --field-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --text-primary: rgba(255, 255, 255, 0.94);
   --text-secondary: rgba(255, 255, 255, 0.68);
@@ -182,15 +190,14 @@
   /* The neutral tick that replaced the blue eyebrow accent. */
   --rule-strong: rgba(255, 255, 255, 0.35);
 
-  /* Blue is worth more used less: a filled primary CTA, the ring behind a
-     focused field's neutral border, and the edge of the
+  /* Blue is worth more used less: a filled primary CTA, the line a focused
+     field draws, and the edge of the
      floating trays through --glass-border-accent above. Nothing else — the
      phone burger wore it for an hour on 2026-09-09 and went back to white. */
   --accent: #1c67ff;
   --accent-hover: #3a7dff;
   --accent-pressed: #1656d6;
   --accent-border: rgba(120, 160, 255, 0.35);
-  --accent-ring: rgba(28, 103, 255, 0.22);
   /* The keyboard focus outline, unchanged from before this redesign. */
   --focus-ring: rgba(120, 170, 255, 0.9);
 }
