@@ -155,20 +155,26 @@
     <!-- The sky. A required boot resource — the shell stays hidden until it is
          ready, so a late arrival delays the cut, not just the scenery.
 
-         `type` and `media` between them mean exactly ONE of these is ever
-         fetched. A browser skips a preload whose `type` it cannot decode, so
-         the AVIF is not downloaded by anything that would only fail on it; and
-         `media` picks the resolution, so a phone never pulls the 186 KB / 33.6 MB
-         desktop panorama. The WebP fallbacks are deliberately NOT preloaded:
+         `media` means exactly ONE of these is ever fetched: it picks the
+         resolution, so a phone never pulls the 186 KB / 33.6 MB desktop
+         panorama. The WebP fallbacks are deliberately NOT preloaded:
          adding them would make modern browsers fetch both formats, which costs
          everyone bytes to save a minority a round trip. SkyShell asks for them
          only after the AVIF fails to decode.
+
+         `as="fetch"`, not `image`: SkyShell loads it with `fetch()` and decodes it
+         to an ImageBitmap off the main thread, and only a fetch preload is reused
+         by a fetch. Safari before 17 and Firefox before 98 still use an `<img>`
+         there, which does not reuse it. And a fetch preload is not filtered by
+         `type` the way an image preload was, so a browser without AVIF fetches
+         it in vain before falling back. Of the engines on SkyShell's bitmap
+         path, only Edge before 121 lacks AVIF.
 
          Keep the 767px breakpoint in step with SPACE_CONFIG.sky.narrowMaxWidth
          and the mobile breakpoint in styles.css. -->
     <link
       rel="preload"
-      as="image"
+      as="fetch"
       type="image/avif"
       media="(min-width: 768px)"
       crossorigin
@@ -177,7 +183,7 @@
     />
     <link
       rel="preload"
-      as="image"
+      as="fetch"
       type="image/avif"
       media="(max-width: 767px)"
       crossorigin

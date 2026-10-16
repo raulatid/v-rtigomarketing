@@ -87,9 +87,9 @@ function loadFirstAvailable(
   onLoad: (texture: THREE.Texture) => void,
   onFail: (lastUrl: string) => void,
 ): void {
-  const loader = new THREE.TextureLoader()
+  const load = imageBitmapsUsable() ? loadAsImageBitmap : loadAsImage
   const attempt = (i: number) => {
-    loader.load(urls[i], onLoad, undefined, () => {
+    load(urls[i], onLoad, () => {
       if (i + 1 < urls.length) {
         console.warn(`[sky] ${urls[i]} did not decode, falling back to ${urls[i + 1]}`)
         attempt(i + 1)
@@ -99,6 +99,52 @@ function loadFirstAvailable(
     })
   }
   attempt(0)
+}
+
+/**
+ * Whether `createImageBitmap` honours the options the sky needs.
+ *
+ * three's own rule, from `GLTFLoader` (0.174): Safari before 17 and Firefox
+ * before 98 ignore or reject them, so they keep the `<img>` path.
+ */
+function imageBitmapsUsable(): boolean {
+  if (typeof createImageBitmap === 'undefined') return false
+  const userAgent = navigator.userAgent
+  const safari = /^((?!chrome|android).)*safari/i.test(userAgent)
+    ? Number(userAgent.match(/Version\/(\d+)/)?.[1] ?? -1)
+    : null
+  const firefox = /Firefox\/(\d+)\./.exec(userAgent)
+  return !(safari !== null && safari < 17) && !(firefox && Number(firefox[1]) < 98)
+}
+
+function loadAsImage(url: string, onLoad: (texture: THREE.Texture) => void, onError: () => void) {
+  new THREE.TextureLoader().load(url, onLoad, undefined, onError)
+}
+
+/**
+ * The panorama as an ImageBitmap: decoded off the main thread, so the upload in
+ * `useFrame` below is only the copy. With an `<img>` the decode happened inside
+ * that upload — measured with the 4096 panorama under a 4x CPU throttle: ~200 ms
+ * on the main thread, ~70 ms as a bitmap (99 ms on the Xiaomi Pad 5, traced).
+ * The texels are identical, compared byte for byte for all four files.
+ *
+ * Flipped at decode, because WebGL ignores UNPACK_FLIP_Y for bitmaps. The
+ * preloads in index.html are `as="fetch"` so this request reuses them.
+ */
+function loadAsImageBitmap(url: string, onLoad: (texture: THREE.Texture) => void, onError: () => void) {
+  const loader = new THREE.ImageBitmapLoader()
+  loader.setOptions({ imageOrientation: 'flipY', premultiplyAlpha: 'none' })
+  loader.load(
+    url,
+    (bitmap) => {
+      const texture = new THREE.Texture(bitmap)
+      texture.flipY = false
+      texture.needsUpdate = true
+      onLoad(texture)
+    },
+    undefined,
+    onError,
+  )
 }
 
 // A 1x1 black pixel standing in for the panorama until it loads.
@@ -249,6 +295,10 @@ export function SkyShell({ config, state, active }: Props) {
       // Forces the upload now rather than on the first frame that samples it,
       // which would otherwise be the cut. Same reason `gpu:warmup` exists.
       gl.initTexture(sky)
+      // The GPU holds its copy now. A bitmap's own would otherwise stay
+      // resident for the session (33.6 MB on desktop); nothing uploads this
+      // texture again, a restored context included (contextLoss.ts).
+      if (typeof ImageBitmap !== 'undefined' && sky.image instanceof ImageBitmap) sky.image.close()
       material.uniforms.uSky.value = sky
       uploaded.current = true
     }
