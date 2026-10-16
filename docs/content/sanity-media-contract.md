@@ -48,6 +48,8 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 
 **Filenames come from Sanity, not from us.** Sanity asset URLs are content-addressed — the basename carries the asset hash — so the same image always produces the same filename, the emitted module is byte-identical across builds, and a file already on disk never needs re-downloading. That is what lets `emit.ts` keep claiming determinism now that media is involved.
 
+**Except an oversized brand mark (2026-10-16).** A mark larger than 1.5× its atlas box on either axis (`MediaRule.maxSize`: 648×552 isotype, 1344×552 logo) is fetched through Sanity's image API at `?w=…&h=…&fit=max` and saved as `<asset-hash>-<w>x<h>-fit<W>x<H>.<ext>`. Same format, never upscaled, and still content-addressed. The atlas reads every mark at full resolution on the main thread during the intro, so a 2172×724 logo cost ~100 ms there (4× throttled desktop) and ~60–75 ms at 1344×448; past 1.5× the extra pixels only paid for margin the atlas crops away.
+
 `public/logos/` is gitignored (`.gitignore`, with a `.gitkeep`) and already has a cache header in `vercel.json`. Mirrored media is build output, exactly like `src/content/generated/`.
 
 **A collection may name its own folder.** `SanitySourceSpec.mirrorDir` (`media/tower` for the tower screen) puts that collection's files under `public/<mirrorDir>/` and emits `/<mirrorDir>/<file>`; without it the mirror's default, `/logos`, applies, so the logos never moved. The same `.gitignore` and `vercel.json` arrangement applies per folder.
@@ -70,6 +72,7 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 | The asset actually downloads | `mirror.ts` | fail |
 | Not empty | `mirror.ts` | fail |
 | At most 4 MB | `mirror.ts` | fail |
+| At most 648×552 (isotype) / 1344×552 (logo) | `mirror.ts`, `oversizedFor` | resized by Sanity on download |
 | The emitted reference is a local path, and not protocol-relative | `LOCAL_MEDIA_PATH` | fail |
 | Absent (`null`, missing, `""`) | — | **allowed**, but only for both marks together |
 | `isotype` and `logo` are both present, or both absent | `caseStudies.collection.ts` mapper, and `caseStudyProblems` | fail |

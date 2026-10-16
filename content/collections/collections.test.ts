@@ -1048,6 +1048,19 @@ describe('the case-study projection hands the mirror what it expects', () => {
     expect(rules.logo.minAspect).toBe(1.5)
     expect(rules.logo.maxAspect).toBe(5)
   })
+
+  it('downloads each brand mark at most 1.5x the box it is drawn into', () => {
+    const rules = caseStudiesCollection.source.mediaRules!
+    const { brandMarkBox } = EDITORIAL_BOUNDS.caseStudy
+    expect(rules.isotype.maxSize).toEqual({ width: 648, height: 552 })
+    expect(rules.logo.maxSize).toEqual({ width: 1344, height: 552 })
+    expect(rules.logo.maxSize!.width / brandMarkBox.logo.width).toBe(1.5)
+    // Every isotype on the site today is at most 512 wide and 500 tall, so the
+    // cap only ever reaches an oversized logo; a cap below them would soften a
+    // symbol that is already upscaled.
+    expect(rules.isotype.maxSize!.width).toBeGreaterThan(512)
+    expect(rules.isotype.maxSize!.height).toBeGreaterThan(500)
+  })
 })
 
 /**
