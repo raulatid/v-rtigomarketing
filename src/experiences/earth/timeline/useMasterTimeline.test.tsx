@@ -8,6 +8,7 @@ import { createSequenceState, type SequenceState } from '../config/sequenceState
 import { orbitRevealDuration } from '../orbit/orbitConfig'
 import type { IntroDrawHandle } from '../../../intro-draw/introDraw'
 import type { CornerLogoHandle } from '../../../corner-logo/cornerLogoConfig'
+import { createOpening, next, type Presentation } from '../../../intro-draw/openingMachine'
 
 // WHICH WAY IN the intro takes, and that the two ways land identically.
 //
@@ -230,5 +231,59 @@ describe('a returning visitor', () => {
     walk(tl, tl.duration(), phases)
     expect(phases).toEqual(['site'])
     expect(tl.labels.swap).toBeUndefined()
+  })
+})
+
+// ADR 016, migration step 1: the opening machine, driven from the timeline's own
+// phase changes, lands where the timeline does on every way in. The timeline
+// still owns time; the machine is told only that the current phase is over.
+describe('agrees with the opening machine', () => {
+  // Fails to compile if the machine's states and the app's phases ever differ.
+  const toPresentation = (phase: Phase): Presentation => phase
+  const toPhase = (presentation: Presentation): Phase => presentation
+
+  /**
+   * Every write the timeline makes to `state.phase`, checked as it happens. A
+   * change the machine is not already in is offered as `elapsed` once, and
+   * must then match: the machine may not lag, skip or invent a phase.
+   */
+  function shadow(options: { returning: boolean; reducedMotion: boolean; replay?: boolean }) {
+    let machine = createOpening(options)
+    if (options.replay) machine = next(machine, { type: 'replay' })
+    // What the timeline is built on: readiness, then the drawing's fill.
+    machine = next(machine, { type: 'readiness', readiness: 'ready' })
+    machine = next(machine, { type: 'fill' })
+
+    const disagreements: string[] = []
+    const visited: Presentation[] = []
+    let phase = state.phase
+    Object.defineProperty(state, 'phase', {
+      configurable: true,
+      get: () => phase,
+      set: (value: Phase) => {
+        if (value !== phase) {
+          if (machine.presentation !== toPresentation(value)) machine = next(machine, { type: 'elapsed' })
+          if (machine.presentation !== value) disagreements.push(`timeline ${value}, machine ${machine.presentation}`)
+          visited.push(toPresentation(value))
+        }
+        phase = value
+      },
+    })
+    return { disagreements, visited, current: () => toPhase(machine.presentation) }
+  }
+
+  it.each([
+    ['a first visit', false, false, false],
+    ['a returning visitor', true, false, false],
+    ['a returning visitor’s replay', true, false, true],
+    ['reduced motion', false, true, false],
+  ])('%s', (_, returning, reducedMotion, replay) => {
+    motion.reduced = reducedMotion
+    const machine = shadow({ returning, reducedMotion, replay })
+    const tl = mount(returning, replay ? 1 : 0)
+    walk(tl, tl.duration(), [])
+    expect(machine.disagreements).toEqual([])
+    expect(machine.visited.at(-1)).toBe('site')
+    expect(machine.current()).toBe('site')
   })
 })

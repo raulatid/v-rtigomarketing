@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest'
 import { admitsDeferredWork, atOrAfter, hintAllowed, backdropVisible, earthVisible, orbitsVisible, starsVisible } from './sceneVisibility'
 import { defaultIntroConfig, PHASE_ORDER, type Phase } from './introConfig'
 import { createSequenceState, type SequenceState } from './sequenceState'
+import { admits } from '../../../intro-draw/openingMachine'
 
 const config = defaultIntroConfig()
 
@@ -123,5 +124,12 @@ describe('admitsDeferredWork', () => {
 
   it.each(PHASE_ORDER)('%s', (phase) => {
     expect(admitsDeferredWork(phase)).toBe(ADMITS[phase])
+  })
+
+  // The opening machine's table, which says `draw` admits everything: work that
+  // finishes inside the drawing. Work started late cannot promise that, so it
+  // is the machine's answer everywhere after `draw`.
+  it.each(PHASE_ORDER.filter((phase) => phase !== 'draw'))('agrees with the opening machine in %s', (phase) => {
+    expect(admitsDeferredWork(phase)).toBe(admits({ presentation: phase }, 'main'))
   })
 })
