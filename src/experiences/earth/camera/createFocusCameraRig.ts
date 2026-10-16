@@ -105,6 +105,30 @@ export function createFocusCameraRig({
   const eased = { theta: 0, phi: Math.PI / 2, radius: 1 }
   let dragDistance = 0
 
+  // The viewport, cached for `setZoomDepth`. That runs every frame, Murcia
+  // included (Earth stays mounted under it), and a live `clientWidth` there
+  // forced a style and layout pass on every frame something else had dirtied
+  // the DOM: ~40 ms/s on the Xiaomi Pad 5. The observer reads the same two
+  // properties, after layout, when they can actually change. Without
+  // ResizeObserver (the node harnesses) the read stays live, as before.
+  const viewport = { width: domElement.clientWidth, height: domElement.clientHeight }
+  const resizeObserver =
+    typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => {
+          viewport.width = domElement.clientWidth
+          viewport.height = domElement.clientHeight
+        })
+      : null
+  resizeObserver?.observe(domElement)
+
+  function viewportSize() {
+    if (!resizeObserver) {
+      viewport.width = domElement.clientWidth
+      viewport.height = domElement.clientHeight
+    }
+    return viewport
+  }
+
   /**
    * The radius the viewer's zoom asks for (`adr/014`).
    *
@@ -180,9 +204,10 @@ export function createFocusCameraRig({
     // latched at load — the same decision `EarthScene` made, not a second read
     // of the live viewport, which would hand a rotated phone the desktop end
     // while it still carries the narrow maps.
+    const { width, height } = viewportSize()
     const radius = earthZoomRadius(
       depth,
-      overviewRadiusForViewport(domElement.clientWidth, domElement.clientHeight),
+      overviewRadiusForViewport(width, height),
       usesNarrowEarthTextures() ? cfg.zoomNearFactorNarrow : cfg.zoomNearFactor,
     )
     if (radius === zoomRadius) return
@@ -553,6 +578,7 @@ export function createFocusCameraRig({
   }
 
   function dispose() {
+    resizeObserver?.disconnect()
     domElement.removeEventListener('pointerdown', onPointerDown)
     domElement.removeEventListener('pointermove', onPointerMove)
     domElement.removeEventListener('pointerup', onPointerUp)
