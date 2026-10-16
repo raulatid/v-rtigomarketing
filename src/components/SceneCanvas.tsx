@@ -4,8 +4,9 @@ import { prefersReducedMotion } from '../platform/motionPreference'
 import type { AuditComposition } from '../interaction/auditComposition'
 import type { NavigationView } from '../interaction/navigationSignals'
 import { RefObject, useCallback, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, extend, useFrame } from '@react-three/fiber'
 import { clampFrameDelta } from '../graphics/frameDelta'
+import { THREE_CATALOGUE } from '../graphics/threeCatalogue'
 import { EarthExperience } from '../experiences/earth/EarthExperience'
 import type { InteractionHandle } from '../experiences/earth/EarthExperience'
 import { CornerLogoLayer } from '../corner-logo/CornerLogoLayer'
@@ -29,6 +30,10 @@ import type { CornerLogoHandle } from '../corner-logo/cornerLogoConfig'
 import type { ExperienceId } from '../app/experience'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 import type { ViewpointClaim } from '../experiences/murcia/observer/viewClient'
+
+// Before any <Canvas> mounts: the build strips R3F's own `extend(THREE)`, so
+// this is the only registration there is (graphics/threeCatalogue.ts).
+extend(THREE_CATALOGUE)
 
 const departureVacuum: Record<ExperienceId, (p: number, limits: WarpLimits) => number> = {
   earth: () => 0, // Earth expresses departure through its aim phase and FOV surge.

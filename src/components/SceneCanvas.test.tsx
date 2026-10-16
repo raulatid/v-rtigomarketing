@@ -10,7 +10,11 @@ import { SceneCanvas } from './SceneCanvas'
 
 const pipeline = vi.hoisted(() => ({ read: null as (() => FrameSettings) | null, reduced: false }))
 // Exercise the application's real settings callback without creating a WebGL renderer.
-vi.mock('@react-three/fiber', () => ({ Canvas: ({ children }: { children: ReactNode }) => children, useFrame: () => {} }))
+vi.mock('@react-three/fiber', () => ({
+  Canvas: ({ children }: { children: ReactNode }) => children,
+  extend: () => {},
+  useFrame: () => {},
+}))
 vi.mock('../experiences/earth/EarthExperience', () => ({ EarthExperience: () => null }))
 vi.mock('../corner-logo/CornerLogoLayer', () => ({ CornerLogoLayer: () => null }))
 vi.mock('../experiences/murcia/MurciaLayer', () => ({ MurciaLayer: () => null }))

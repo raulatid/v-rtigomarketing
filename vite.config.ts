@@ -168,7 +168,24 @@ const INTRO_BUDGET_BYTES = 16_000
 // its own, the same re-signature the blog header caused on 2026-09-04. No new
 // module reaches `/`. Headroom after: ~3,100 B. Still the selective preload
 // loop next.
-const INITIAL_JS_BUDGET_BYTES = 1_638_000
+//
+// ── 1,638,000 -> 1,510,000, 2026-10-16, the three catalogue ──
+//
+// LOWERED, and from here the rule is: this number does not go up. Seven raises
+// in five weeks, each one "the selective preload loop next", and the loop was
+// the wrong lead — `MurciaExperience` is preloaded at low priority and compiled
+// off the main thread, so cutting it would only have moved the city later. The
+// weight was three: R3F's `<Canvas>` registered the whole namespace, which kept
+// all of it. The app now registers the five classes its JSX uses
+// (`vertigo-three-catalogue` below, src/graphics/threeCatalogue.ts):
+//
+//   1,636,703 B (422,671 B br)  ada0417 — before
+//   1,503,585 B (395,308 B br)  three 822 -> 689 KB, same 12 requests
+//
+// Headroom after: 6,415 B, fixed on purpose. When something new does not fit,
+// make room for it — take something out of this closure — rather than
+// raising the line.
+const INITIAL_JS_BUDGET_BYTES = 1_510_000
 // 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
 // existing city approach prefetch, not by the cold / modulepreload loop.
 // Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.
@@ -641,7 +658,8 @@ function assertChunkBudgets(): Plugin {
           `initial JS for / is ${initialBytes}B over ${counted.length} requests, past the ` +
             `${INITIAL_JS_BUDGET_BYTES}B budget by ${initialBytes - INITIAL_JS_BUDGET_BYTES}B.\n` +
             `  counted (every non-entry chunk, plus the app and intro entries):\n${itemised}\n` +
-            '  A new name here is a loading decision; an existing one growing is app growth.',
+            '  A new name here is a loading decision; an existing one growing is app growth.\n' +
+            '  Since 2026-10-16 this budget is not raised: make room by taking something out.',
         )
       }
 
@@ -1225,12 +1243,63 @@ function publicationHygiene(): Plugin {
   }
 }
 
+// R3F's `<Canvas>` registers the whole three namespace on mount — `extend(THREE)`,
+// with no option to turn it off — and that one reference kept all of three in
+// the `three` chunk, used or not. Removing it took the initial JS from
+// 1,636,703 to 1,503,585 B (−27 KB brotli) on 2026-10-16. The app registers
+// what its JSX uses instead (src/graphics/threeCatalogue.ts).
+//
+// Removed in the dev server's dependency pre-bundle too, not only in the build:
+// an element missing from the catalogue then throws in dev, where it is seen,
+// rather than only in production. A changed line after an R3F update fails the
+// build and the dev server instead of quietly keeping the whole namespace.
+const R3F_CANVAS_MODULE = /[\\/]@react-three[\\/]fiber[\\/]dist[\\/]react-three-fiber\.esm\.js$/
+const R3F_EXTEND_ALL = 'React.useMemo(() => extend(THREE), []);'
+
+function withoutR3fExtendAll(code: string, id: string): string {
+  if (!code.includes(R3F_EXTEND_ALL)) {
+    throw new Error(
+      `[vertigo-three-catalogue] ${id} no longer contains \`${R3F_EXTEND_ALL}\`. ` +
+        'R3F changed how <Canvas> registers three: re-check the removal against the new version.',
+    )
+  }
+  return code.replace(R3F_EXTEND_ALL, '')
+}
+
+function threeCatalogue(): Plugin {
+  return {
+    name: 'vertigo-three-catalogue',
+    enforce: 'pre',
+    config: () => ({
+      optimizeDeps: {
+        esbuildOptions: {
+          plugins: [
+            {
+              name: 'vertigo-three-catalogue',
+              setup(build) {
+                build.onLoad({ filter: R3F_CANVAS_MODULE }, async (args) => ({
+                  contents: withoutR3fExtendAll(await fs.promises.readFile(args.path, 'utf8'), args.path),
+                  loader: 'js',
+                }))
+              },
+            },
+          ],
+        },
+      },
+    }),
+    transform(code, id) {
+      if (R3F_CANVAS_MODULE.test(id.split('?')[0])) return withoutR3fExtendAll(code, id)
+    },
+  }
+}
+
 // `command` distinguishes built assets from the dev server independently of
 // the deployment environment (local/preview builds also generate dist/).
 export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     glsl({ compress: command === 'build' ? stripShaderComments : false }),
+    threeCatalogue(),
     // Before blogRouting, which rewrites `req.url`: the API paths must be
     // matched against what the client actually asked for.
     apiRouting(),
