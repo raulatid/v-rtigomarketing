@@ -60,11 +60,17 @@ export async function loadUnifiedLightmaps(
       targets.push({ object: mesh, geometry: mesh.geometry, material: mesh.material });
     });
     if (!targets.length) throw new Error('[lightmaps] no receivers');
+    const keys = [...new Set(targets.map(t => t.object.userData.lightmap_atlas as string))];
+    for (const key of keys) if (!manifest.atlases[key]) throw new Error(`[lightmaps] unknown atlas: ${key}`);
+    // Download in parallel: one file after another paid a round trip each,
+    // 4.5 s for 20 atlases on the tablet. A failure surfaces at its own await
+    // below; the catch only keeps the ones never reached from going unhandled.
+    const downloads = keys.map(key => fetchBuffer(base + manifest.atlases[key].variants[sizes.get(key)!].file));
+    for (const download of downloads) download.catch(() => {});
     // Decode serially to avoid simultaneous worker/upload peaks on phones.
-    for (const key of new Set(targets.map(t => t.object.userData.lightmap_atlas as string))) {
-      const row = manifest.atlases[key];
-      if (!row) throw new Error(`[lightmaps] unknown atlas: ${key}`);
-      const texture = await ktx2.loadAsync(base + row.variants[sizes.get(key)!].file);
+    for (const [index, key] of keys.entries()) {
+      const buffer = await downloads[index];
+      const texture = await new Promise<THREE.Texture>((resolve, reject) => ktx2.parse(buffer, resolve, reject));
       textures.set(key, texture);
       prepareLightmapTexture(texture, manifest.uvChannel);
     }
@@ -118,4 +124,10 @@ export async function loadUnifiedLightmaps(
   } finally {
     releaseKtx2Loader();
   }
+}
+
+async function fetchBuffer(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`[lightmaps] ${url} HTTP ${response.status}`);
+  return response.arrayBuffer();
 }
