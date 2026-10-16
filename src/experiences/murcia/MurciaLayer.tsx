@@ -30,6 +30,12 @@ interface Props {
   onBlogApproachStart?: () => void
   /** Forwarded to MurciaExperience: the final vantage point is held; the claim may be offered. */
   onViewpointReached?: (claim: ViewpointClaim) => void
+  /**
+   * Whether the application admits the city's main-thread work yet (ADR 016).
+   * Asked once per frame until the first yes, which starts the build; a
+   * function rather than a boolean because the answer moves between renders.
+   */
+  workAdmitted: () => boolean
 }
 
 // Drives the Murcia environment from R3F's frame loop.
@@ -55,6 +61,7 @@ export function MurciaLayer({
   onOpenBlog,
   onBlogApproachStart,
   onViewpointReached,
+  workAdmitted,
 }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -79,6 +86,10 @@ export function MurciaLayer({
   // a transition that happens mid-load is not silently dropped.
   const activeRef = useRef(active)
   activeRef.current = active
+  const workAdmittedRef = useRef(workAdmitted)
+  workAdmittedRef.current = workAdmitted
+  // Set while the build waits for admission; the frame loop below resolves it.
+  const admitRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     let disposed = false
@@ -92,40 +103,39 @@ export function MurciaLayer({
     // for BOTH experiences.
     const host = document.createElement('div')
     host.className = 'murcia-ui'
-    // Hidden until this experience is showing. It loads during the Earth intro
-    // so the transition never waits on it, and its own "Loading city…" status
-    // overlay would otherwise sit at z-index 16 on top of the intro.
+    // Hidden until this experience is showing. It loads while Earth is up so
+    // the transition never waits on it, and its own "Loading city…" status
+    // overlay would otherwise sit at z-index 16 on top of Earth.
     host.style.display = 'none'
     const parent = gl.domElement.parentElement ?? document.body
     parent.appendChild(host)
     hostRef.current = host
 
     const build = async () => {
-      // Not until the intro has handed over.
+      // Not until the application admits it: phase `site` (ADR 016).
       //
-      // Everything below competes with the boot it is not part of: 1.26 MB of
-      // city, the Draco and Basis decoders (707 KB of wasm between them) and a
-      // KTX2 bake, all fetched by three's FileLoader over XHR — which Chrome
-      // gives HIGH priority, while the Earth textures readiness actually waits
-      // for are preloaded LOW so they cannot out-rank the app chunk. Neither
-      // decision is wrong alone; together they invert the intended order
-      // (audit 2026-08-27, P1-D). And the bytes are the smaller half: the Draco
-      // parse and the GPU warm run on the same main thread the drawing is
-      // animating on.
+      // Everything below competes with the opening it is not part of. During
+      // the drawing it is the bytes: 1.26 MB of city, the Draco and Basis
+      // decoders (707 KB of wasm between them) and a KTX2 bake, all fetched by
+      // three's FileLoader over XHR — which Chrome gives HIGH priority, while
+      // the Earth textures readiness actually waits for are preloaded LOW so
+      // they cannot out-rank the app chunk (audit 2026-08-27, P1-D). After the
+      // drawing it is the main thread: the Draco results arriving, the river
+      // frame, the campus mask readback and the GPU warm measured ~0.8 s of
+      // long tasks inside `shrink` and `warp` (2026-10-16), the stretch where
+      // a stall is most visible. This used to wait for `intro.completed`,
+      // which is exactly where that stretch begins.
       //
-      // Waiting costs nothing that is visible. Navigation already requires BOTH
+      // Waiting costs nothing reachable. Navigation already requires BOTH
       // `murciaReady` AND phase `site` (App.tsx's canNavigate), so the city can
-      // never be reached before it is built — deferring it moves work off the
-      // critical path rather than making the viewer wait for it later.
+      // never be entered before it is built. What it costs is the interval
+      // between `site` and the gesture becoming available.
       //
-      // `completed` and not `scene-ready`: readiness is when the scene COULD be
-      // shown, and the drawing keeps running for its own ending after that.
-      // The intro's last second is still the intro.
-      //
-      // Missing boot entry is the one case that must not wait forever — the
-      // page was assembled wrong, useIntroDraw fails open, and so does this.
-      const intro = window.__vertigoIntro
-      if (intro) await intro.completed
+      // Resolved from the frame loop, not from an event: the phase is mutable
+      // state the timeline writes, and the frame is where it is read.
+      await new Promise<void>((resolve) => {
+        admitRef.current = resolve
+      })
       if (disposed) return
 
       const { MurciaExperience: Ctor } = await import(
@@ -220,6 +230,10 @@ export function MurciaLayer({
 
     return () => {
       disposed = true
+      // A build still waiting for admission returns on `disposed` instead of
+      // hanging on a promise nothing will resolve.
+      admitRef.current?.()
+      admitRef.current = null
       experienceRef.current = null
       hostRef.current = null
       experience?.dispose()
@@ -247,6 +261,12 @@ export function MurciaLayer({
   // final before RenderPipeline (priority 1) draws. update() is itself a no-op
   // while inactive, so this costs one call per frame when Earth is showing.
   useFrame((_, delta) => {
+    const admit = admitRef.current
+    if (admit && workAdmittedRef.current()) {
+      admitRef.current = null
+      admit()
+    }
+
     const experience = experienceRef.current
     if (!experience) return
 

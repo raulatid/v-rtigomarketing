@@ -7,7 +7,7 @@
 // it keeps that dependency visible instead of granting every test a window and
 // letting one appear in the boot chunk unnoticed.
 import { describe, it, expect } from 'vitest'
-import { atOrAfter, hintAllowed, backdropVisible, earthVisible, orbitsVisible, starsVisible } from './sceneVisibility'
+import { admitsDeferredWork, atOrAfter, hintAllowed, backdropVisible, earthVisible, orbitsVisible, starsVisible } from './sceneVisibility'
 import { defaultIntroConfig, PHASE_ORDER, type Phase } from './introConfig'
 import { createSequenceState, type SequenceState } from './sequenceState'
 
@@ -104,5 +104,24 @@ describe('hint permission from application orchestration', () => {
     state.phase = 'site'
     expect(hintAllowed(state, true)).toBe(true)
     expect(hintAllowed(state, false)).toBe(false)
+  })
+})
+
+describe('admitsDeferredWork', () => {
+  // ADR 016's table, stated per phase rather than as "site onward": a phase
+  // inserted into the motion must be refused until someone decides otherwise,
+  // and a derived property would admit it silently if it landed after `site`.
+  const ADMITS: Record<Phase, boolean> = {
+    draw: false,
+    shrink: false,
+    warp: false,
+    swap: false,
+    corner: false,
+    orbits: false,
+    site: true,
+  }
+
+  it.each(PHASE_ORDER)('%s', (phase) => {
+    expect(admitsDeferredWork(phase)).toBe(ADMITS[phase])
   })
 })

@@ -66,7 +66,8 @@ const RESOURCES: Record<StepId, Resource> = {
   // that the asset grew past 1.2 MB underneath it, and a re-export can move
   // that figure again next week. What does not move is the shape of the
   // argument: a whole city has to be decoded and compiled, that takes long
-  // enough to be felt, and the intro is the only place with time to spend.
+  // enough to be felt, and it is paid at `site`, after the opening's motion
+  // and before the gesture that needs it (ADR 016).
   //
   // Weight kept low deliberately: this is the one manifest entry whose bytes
   // the viewer is not waiting for, so it should not dominate the drawing's

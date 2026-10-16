@@ -23,6 +23,7 @@ import {
 } from '../utils/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { SequenceState } from '../experiences/earth/config/sequenceState'
+import { admitsDeferredWork } from '../experiences/earth/config/sceneVisibility'
 import { OrbitSystem } from '../experiences/earth/orbit/createOrbitSystem'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
@@ -200,6 +201,10 @@ export function SceneCanvas({
     }
   }, [state, navigation, config, earthActive])
 
+  // The city's build waits on this (ADR 016). Murcia cannot ask the intro's
+  // phase itself: the two experiences do not import each other.
+  const murciaWorkAdmitted = useCallback(() => admitsDeferredWork(state.phase), [state])
+
   return (
     <Canvas
       className="scene-canvas"
@@ -321,6 +326,7 @@ export function SceneCanvas({
         onOpenBlog={onOpenBlog}
         onBlogApproachStart={onBlogApproachStart}
         onViewpointReached={onViewpointReached}
+        workAdmitted={murciaWorkAdmitted}
       />
       {/* Murcia's hint, on Earth's presence rule and Earth's numbers. Renders
           nothing; it paints one attribute on the node App renders. */}

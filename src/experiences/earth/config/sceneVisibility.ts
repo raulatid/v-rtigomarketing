@@ -56,3 +56,15 @@ export function orbitsVisible(state: SequenceState): boolean {
 export function hintAllowed(state: SequenceState, permitted: boolean): boolean {
   return permitted && atOrAfter(state.phase, 'site')
 }
+
+// Whether the opening admits main-thread work that readiness did not ask for:
+// parsing, geometry assembly, uploads, program links (ADR 016, the work rule).
+// `draw` spends its main thread on the required steps, which is what holds the
+// drawing open; `shrink` through `orbits` are the motion the visitor is
+// watching, where a long task is a visible stall. Only `site` is left.
+//
+// Main thread only. Fetching and worker decoding are admitted throughout, and
+// a caller that splits its work that way may start those parts earlier.
+export function admitsDeferredWork(phase: Phase): boolean {
+  return phase === 'site'
+}
