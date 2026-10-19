@@ -1389,9 +1389,9 @@ distance it appears to: it is at `[0,0,-200]` on the last frame of leg 1 and `[0
 first frame of leg 2, and **that teleport is the transition**. One progress value is read
 through three curves with deliberately nested widths — travel (full), speed and motion blur
 (±0.34), overlay flash (±0.10) — so the blur ramps gradually while the overlay reads as a
-flicker rather than a fade. The tween is `ease: 'none'` **on purpose**; a GSAP ease on top would
-compound with the three curves and destroy that width relationship. **The cut keys off raw
-progress, not the eased travel curve**, so visibility and the flash stay locked together if the
+flicker rather than a fade. The progress is linear **on purpose** (`openingTail`'s warp motion,
+§26.3); an ease on top would compound with the three curves and destroy that width
+relationship. **The cut keys off raw progress, not the eased travel curve**, so visibility and the flash stay locked together if the
 position easing is ever retuned. §7 applies the same structure to the Earth ⇄ Murcia warp.
 
 **26.7 — The starfield exists because we have no city.** The source prototype's leg 1 flies away
