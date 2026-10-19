@@ -1,6 +1,6 @@
 import { Phase } from './introConfig'
 
-// Continuous values shared between the GSAP master timeline and the R3F render
+// Continuous values shared between the intro's tail (openingTail) and the R3F render
 // loop. This object is mutated in place and never triggers a React render —
 // plan 002 §1.2: useState is for discrete phase changes only, because at 60fps
 // setState would re-render the SVG layer, both canvases and the debug panel.
