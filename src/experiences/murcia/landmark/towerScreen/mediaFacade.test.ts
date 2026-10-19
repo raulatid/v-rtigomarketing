@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
 import { createMediaFacade, measureFacade, toDesignMetres } from './mediaFacade'
 import { DESIGN_METRES_WIDE } from './content/towerContent'
+import type { FacadeComposition } from './facadeComposition'
 
 // The screen's size is read off the mesh, and the city's export has its scale
 // APPLIED at ~0.307. These two facts together are what the design width exists
@@ -100,5 +101,54 @@ describe('the scroll and the flip', () => {
     const { uniforms } = facade({ flipY: true })
     expect((uniforms['uMapA']!.value as THREE.Texture).flipY).toBe(true)
     expect((uniforms['uMapB']!.value as THREE.Texture).flipY).toBe(true)
+  })
+})
+
+describe('the idle slot', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  // A crossfade needs two canvases, but only for the length of the fade. The
+  // slot nobody is looking at holds a 1x1 canvas rather than a full-size one,
+  // so its texture is not a full-size allocation on the GPU.
+  function facade() {
+    const inert: CanvasRenderingContext2D = new Proxy({} as CanvasRenderingContext2D, {
+      get: () => () => {},
+    })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(inert as never)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const mesh = new THREE.Mesh(strip(40, 4))
+    const built = createMediaFacade({ mesh, resolution: 256, anisotropy: 1 })
+    built.setFadeSeconds(0.5)
+    const uniforms = (mesh.material as THREE.ShaderMaterial).uniforms
+    const widths = () => ['uMapA', 'uMapB'].map((key) =>
+      ((uniforms[key]!.value as THREE.Texture).image as HTMLCanvasElement).width)
+    return { built, widths }
+  }
+
+  const composition = (id: string): FacadeComposition => ({
+    id, label: id, isAnimating: () => false, draw: () => {},
+  })
+
+  it('allocates nothing full-size before there is something to show', () => {
+    expect(facade().widths()).toEqual([1, 1])
+  })
+
+  it('keeps only the shown slot full-size once a fade has finished', () => {
+    const { built, widths } = facade()
+    built.setComposition(composition('one'))
+    expect(widths()).toEqual([1, 256])
+    built.update(1)
+    built.setComposition(composition('two'))
+    expect(widths()).toEqual([256, 256])
+    built.update(1)
+    expect(widths()).toEqual([256, 1])
+  })
+
+  it('resizes only the shown slot', () => {
+    const { built, widths } = facade()
+    built.setComposition(composition('one'))
+    built.update(1)
+    built.setResolution(512)
+    expect(widths()).toEqual([1, 512])
   })
 })

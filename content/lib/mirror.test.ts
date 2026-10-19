@@ -299,6 +299,64 @@ describe('brand marks the mirror refuses on format or geometry', () => {
   })
 })
 
+describe('brand marks larger than the site needs', () => {
+  const CAPPED: SanitySourceSpec = {
+    type: 'caseStudy',
+    projection: '{ "id": slug.current, logo }',
+    mirror: ['logo'],
+    mediaRules: {
+      logo: { extensions: ['png', 'webp'], minAspect: 1.5, maxAspect: 5, maxSize: { width: 1344, height: 552 } },
+    },
+  }
+  const asset = (name: string) => CDN + '/images/p1/production/' + name
+
+  function capped(logo: string, fetchImpl: typeof fetch) {
+    return withMediaMirror(inner([{ id: 'a', logo }]), {
+      dir,
+      publicPath: '/logos',
+      allowedOrigin: CDN,
+      fetchImpl,
+    }).fetchAll(CAPPED) as Promise<Array<{ logo: string }>>
+  }
+
+  it('fetches an oversized upload resized to fit, and names the file by that request', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = await capped(asset('ccc-2172x724.png'), cdn.impl)
+    expect(cdn.calls).toEqual([asset('ccc-2172x724.png') + '?w=1344&h=552&fit=max'])
+    expect(record.logo).toBe('/logos/ccc-2172x724-fit1344x552.png')
+    expect(fs.existsSync(path.join(dir, 'ccc-2172x724-fit1344x552.png'))).toBe(true)
+  })
+
+  it('resizes an upload past the cap on one axis only', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = await capped(asset('ddd-1200x600.webp'), cdn.impl)
+    expect(cdn.calls).toEqual([asset('ddd-1200x600.webp') + '?w=1344&h=552&fit=max'])
+    expect(record.logo).toBe('/logos/ddd-1200x600-fit1344x552.webp')
+  })
+
+  it('fetches an upload within the cap as it is', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = await capped(asset('eee-1344x552.png'), cdn.impl)
+    expect(cdn.calls).toEqual([asset('eee-1344x552.png')])
+    expect(record.logo).toBe('/logos/eee-1344x552.png')
+  })
+
+  it('does not take the full-size file an earlier build mirrored for the resized one', async () => {
+    fs.writeFileSync(path.join(dir, 'ccc-2172x724.png'), png())
+    const cdn = fakeCdn(png())
+    const [record] = await capped(asset('ccc-2172x724.png'), cdn.impl)
+    expect(cdn.calls).toHaveLength(1)
+    expect(record.logo).toBe('/logos/ccc-2172x724-fit1344x552.png')
+  })
+
+  it('leaves a name carrying no dimensions as it is', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = await capped(asset('satellite-01-logo.webp'), cdn.impl)
+    expect(cdn.calls).toEqual([asset('satellite-01-logo.webp')])
+    expect(record.logo).toBe('/logos/satellite-01-logo.webp')
+  })
+})
+
 describe('mirroring into an array, and into a folder of the collection\'s own', () => {
   const PICTURE = CDN + '/images/p1/production/0a1b2c3d4e5f-1600x2400.webp'
   const slides: SanitySourceSpec = {

@@ -61,9 +61,25 @@ import { collection, type MediaRule } from './types'
  * npm package and neither side may import the other, exactly as with the
  * isotype/logo pairing rule below. Change `docs/earth/logo-spec.md` first, then
  * both copies.
+ *
+ * ── Mirrored at most 1.5× its box ──
+ * The atlas reads every mark at full resolution to find its ink, then draws it
+ * into the box — on the main thread, during the intro. A 2172×724 logo cost
+ * ~100 ms of that on a 4× throttled desktop, against ~60–75 ms at 1344×448
+ * (2026-10-16). Past the box the extra pixels buy nothing but the margin the
+ * atlas crops away: at 1.5× a mark keeps the box's resolution with up to a
+ * third of each axis cropped, more than the 25% of area the atlas already warns
+ * about. Only the Studio's copy decides what an editor may upload; this only
+ * decides what the site downloads.
  */
 const ISOTYPE_BOX = EDITORIAL_BOUNDS.caseStudy.brandMarkBox.isotype
+const LOGO_BOX = EDITORIAL_BOUNDS.caseStudy.brandMarkBox.logo
 const MIN_DRAWN = EDITORIAL_BOUNDS.caseStudy.brandMarkMinDrawn
+
+const atMost = (box: { width: number; height: number }) => ({
+  width: Math.round(box.width * 1.5),
+  height: Math.round(box.height * 1.5),
+})
 
 const BRAND_MARK_RULES: Record<string, MediaRule> = {
   isotype: {
@@ -71,11 +87,13 @@ const BRAND_MARK_RULES: Record<string, MediaRule> = {
     // 144 / 368 ≈ 0.391 and 432 / 144 = 3. See the derivation above.
     minAspect: MIN_DRAWN / ISOTYPE_BOX.height,
     maxAspect: ISOTYPE_BOX.width / MIN_DRAWN,
+    maxSize: atMost(ISOTYPE_BOX),
   },
   logo: {
     extensions: ['png', 'webp'],
     minAspect: 1.5,
     maxAspect: 5,
+    maxSize: atMost(LOGO_BOX),
   },
 }
 

@@ -206,6 +206,20 @@ function pinPath(width: number, height: number, holeRadius: number): string {
   )
 }
 
+/**
+ * A custom property, written only when its text changes.
+ *
+ * `update` runs every frame and most marks hold still between frames: far
+ * off-centre ones keep their warmth and fade at zero, and a still camera moves
+ * none of them. Writing the same text again still costs a CSSOM write per
+ * property, five per mark per frame (Xiaomi Pad 5 trace, 2026-10-15).
+ */
+function writeVar(el: HTMLElement, written: Map<string, string>, name: string, value: string): void {
+  if (written.get(name) === value) return
+  written.set(name, value)
+  el.style.setProperty(name, value)
+}
+
 export class CompassBar {
   private readonly root: HTMLDivElement
   private readonly line: SVGSVGElement
@@ -220,6 +234,9 @@ export class CompassBar {
     labelWidth: number
     /** Drawn last frame; `placeLabels` reads it for its hysteresis. */
     labelShown: boolean
+    /** The custom properties last written on `el` and on `label`; see `writeVar`. */
+    written: Map<string, string>
+    labelWritten: Map<string, string>
   }> = []
   private readonly anchor = new THREE.Vector3()
   /** The bar's width in px, from the observer; 0 until it first reports. */
@@ -339,7 +356,10 @@ export class CompassBar {
 
       el.append(pin, label, pulse)
       this.root.append(el)
-      this.marks.push({ poi, el, label, pulse, armed: true, labelWidth: 0, labelShown: true })
+      this.marks.push({
+        poi, el, label, pulse, armed: true, labelWidth: 0, labelShown: true,
+        written: new Map(), labelWritten: new Map(),
+      })
     }
 
     this.sizes =
@@ -409,10 +429,12 @@ export class CompassBar {
       // it to be at any breakpoint and this never has to measure it. The lab's
       // version computed a width in JS and got it wrong, because the bar is
       // built hidden and `getBoundingClientRect` returned zero.
-      mark.el.style.setProperty('--offset', `${(offset * 50).toFixed(3)}%`)
-      mark.el.style.setProperty('--warmth', warmth.toFixed(4))
-      mark.el.style.setProperty('--label-scale', labelScale.toFixed(4))
-      mark.el.style.setProperty(
+      writeVar(mark.el, mark.written, '--offset', `${(offset * 50).toFixed(3)}%`)
+      writeVar(mark.el, mark.written, '--warmth', warmth.toFixed(4))
+      writeVar(mark.el, mark.written, '--label-scale', labelScale.toFixed(4))
+      writeVar(
+        mark.el,
+        mark.written,
         '--fade',
         edgeFadeOpacity(offset, EDGE_FADE_START, EDGE_MIN_OPACITY).toFixed(4),
       )
@@ -457,7 +479,7 @@ export class CompassBar {
       })
       this.marks.forEach((mark, i) => {
         const { shift, shown } = placements[i]
-        mark.label.style.setProperty('--label-shift', `${shift.toFixed(1)}px`)
+        writeVar(mark.label, mark.labelWritten, '--label-shift', `${shift.toFixed(1)}px`)
         if (shown !== mark.labelShown) {
           mark.labelShown = shown
           mark.label.toggleAttribute('data-hidden', !shown)
@@ -469,7 +491,8 @@ export class CompassBar {
     // that happens to be later in the DOM wins, which is a different landmark
     // depending on which way the viewer turned.
     for (const mark of this.marks) {
-      mark.el.style.zIndex = mark.el === warmestEl ? '2' : '1'
+      const zIndex = mark.el === warmestEl ? '2' : '1'
+      if (mark.el.style.zIndex !== zIndex) mark.el.style.zIndex = zIndex
     }
   }
 

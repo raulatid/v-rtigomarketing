@@ -236,6 +236,8 @@ interface Slot {
   composition: FacadeComposition | null;
   /** The progress this slot was last painted at; NaN means never. */
   drawnAt: number;
+  /** Held at 1x1 while nothing is shown or fading through it. */
+  parked: boolean;
 }
 
 export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
@@ -310,12 +312,14 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
     canvas.height = aspect >= 1 ? Math.max(1, Math.round(resolution / aspect)) : resolution;
   };
 
+  // Both start parked: a blank 1x1 samples exactly as a blank full-size canvas.
   const makeSlot = (): Slot => {
     const canvas = document.createElement('canvas');
-    sizeCanvas(canvas);
+    canvas.width = 1;
+    canvas.height = 1;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('[vertigo] no 2D context for the media facade');
-    return { canvas, ctx, texture: makeTexture(canvas), composition: null, drawnAt: Number.NaN };
+    return { canvas, ctx, texture: makeTexture(canvas), composition: null, drawnAt: Number.NaN, parked: true };
   };
 
   const slots: [Slot, Slot] = [makeSlot(), makeSlot()];
@@ -353,6 +357,37 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
   });
 
   options.mesh.material = material;
+
+  /**
+   * A NEW texture, not the old one flagged dirty — see `makeTexture`. Reusing
+   * it uploads into storage sized for the previous canvas and silently keeps
+   * showing the stale image. Resizing a canvas also clears it, so the slot is
+   * stale either way.
+   */
+  const resizeSlot = (index: 0 | 1, parked: boolean): void => {
+    const slot = slots[index];
+    slot.parked = parked;
+    if (parked) {
+      slot.canvas.width = 1;
+      slot.canvas.height = 1;
+    } else {
+      sizeCanvas(slot.canvas);
+    }
+    slot.texture.dispose();
+    slot.texture = makeTexture(slot.canvas);
+    material.uniforms[index === 0 ? 'uMapA' : 'uMapB']!.value = slot.texture;
+    slot.drawnAt = Number.NaN;
+  };
+
+  /**
+   * The slot a finished fade leaves behind is sampled at weight 0, so its
+   * pixels cannot show. At 1x1 it stops holding a full-size texture on the GPU
+   * (~6.6 MiB on the campus ring) until a composition fades in through it.
+   */
+  const park = (index: 0 | 1): void => {
+    slots[index].composition = null;
+    resizeSlot(index, true);
+  };
 
   /**
    * Pushes one slot's dust rect and strength to the material.
@@ -429,6 +464,8 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
       if (active.composition?.id === composition?.id && fadeTarget === activeSlot) return;
 
       const incoming: 0 | 1 = activeSlot === 0 ? 1 : 0;
+      // A blank needs no size: cleared, 1x1 shows the same nothing.
+      if (composition && slots[incoming].parked) resizeSlot(incoming, false);
       slots[incoming].composition = composition;
       slots[incoming].drawnAt = Number.NaN;
       // Painted NOW, without waiting for assets. A composition draws a complete
@@ -459,18 +496,11 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
       if (next === resolution) return;
       resolution = next;
       slots.forEach((slot, index) => {
-        sizeCanvas(slot.canvas);
-
-        // A NEW texture, not the old one flagged dirty — see `makeTexture`.
-        // Reusing it uploads into storage sized for the previous resolution and
-        // silently keeps showing the stale image.
-        slot.texture.dispose();
-        slot.texture = makeTexture(slot.canvas);
-        material.uniforms[index === 0 ? 'uMapA' : 'uMapB']!.value = slot.texture;
-
+        // A parked slot takes the new size when it is next unparked.
+        if (slot.parked) return;
+        resizeSlot(index as 0 | 1, false);
         // Resizing a canvas resets its context state and clears it, so whatever
         // was drawn is gone and the slot must be repainted, not just flagged.
-        slot.drawnAt = Number.NaN;
         repaint(slot);
       });
     },
@@ -522,9 +552,7 @@ export function createMediaFacade(options: MediaFacadeOptions): MediaFacade {
           // The slot that just left the screen holds a composition nobody is
           // looking at. Dropping it means the next fade repaints from scratch,
           // which is correct: it would have to anyway, at a new progress.
-          const idle = slots[target === 0 ? 1 : 0];
-          idle.composition = null;
-          idle.drawnAt = Number.NaN;
+          park(target === 0 ? 1 : 0);
         }
       }
 

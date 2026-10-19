@@ -1,16 +1,10 @@
-import {
-  ARC_D,
-  ARC_START,
-  CENTER,
-  DEPTH_VERTICES,
-  FILL_D,
-  FIRST_VERTEX,
-  VIEWBOX,
-  V_D,
-} from './isotype'
-import { DEFAULT_DRAW_CONFIG, DRAW_SHAPE, DRAW_TIMING, DrawConfig } from './drawConfig'
+import { ARC_D, CENTER, DEPTH_VERTICES, FILL_D, OVERDRAW, VIEWBOX, V_D } from './isotype'
+import { DEFAULT_DRAW_CONFIG, DRAW_TIMING, DrawConfig } from './drawConfig'
 import { layoutStages } from './stageLayout'
-import { createPlayhead, Readiness } from './playhead'
+import type { Readiness } from './playhead'
+import { CaptionKey, createDrawLoop, DrawTick, playheadLimits } from './drawLoop'
+import { edgeLength as depthEdgeLength, isoOffset, markPose } from './drawPose'
+import type { FromDrawWorker, ToDrawWorker } from './drawWorker'
 
 // P0: the isotype drawn stroke by stroke, a dot riding the tip — and the site's
 // loading animation. Standalone by rule: no React, no GSAP, no three, no
@@ -19,7 +13,14 @@ import { createPlayhead, Readiness } from './playhead'
 //
 // The playhead is a function of load progress, not of wall-clock time. See
 // plan 006 §2 — the mapping and its four failure modes are all implemented in
-// `frame()` below.
+// playhead.ts, and the policy around it in drawLoop.ts.
+//
+// Drawn in one of two places (ADR 016 item 3). Where the browser can, a worker
+// paints it into an OffscreenCanvas, so the boot's long tasks on this thread no
+// longer freeze the stroke. Elsewhere — no OffscreenCanvas 2D, no module
+// worker, or a worker that fails — it is the SVG it always was, on this thread.
+// Both run the same policy and choreography; this file owns the DOM, the
+// caption and the handle, whichever is drawing.
 
 const NS = 'http://www.w3.org/2000/svg'
 
@@ -29,35 +30,32 @@ const NS = 'http://www.w3.org/2000/svg'
 // about something that is not true: `slow` only appears once the drawing has
 // genuinely waited past its notice threshold, and `failed` only when a required
 // asset has hard-failed and the sequence will never release.
-const CAPTIONS = {
+const CAPTIONS: Record<CaptionKey, string> = {
   loading: 'Cargando experiencia',
   preparing: 'Estamos preparándolo todo',
   almost: 'Casi listo',
   slow: 'Esto está tardando más de lo habitual',
   failed: 'No se pudo cargar la experiencia',
-} as const
+}
 const STYLE_ID = 'vertigo-intro-draw-style'
 
-const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
-
-// GSAP names on the left, since these ratios were tuned there: power1 is
-// quadratic, power2 is cubic.
-const quadOut = (t: number) => 1 - (1 - t) * (1 - t)
-const quadInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
-const cubicOut = (t: number) => 1 - Math.pow(1 - t, 3)
-const cubicInOut = (t: number) =>
-  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+// The canvas carries OVERDRAW on every side, so it is this much larger than the
+// SVG's box for the mark inside it to come out the same size.
+const CANVAS_SCALE = (VIEWBOX.width + 2 * OVERDRAW) / VIEWBOX.width
 
 // Fixed layout box, scaled by transform only; changing width/height each frame
 // causes layout and rasterization work (docs/reports/006).
 const CSS = `
 .intro-root{position:fixed;inset:0;z-index:20;display:flex;align-items:center;
   justify-content:center;pointer-events:none;background:transparent}
-.intro-svg{
+.intro-mark{
   width:min(calc(var(--intro-base,32) * 1vmin),480px);
   height:min(calc(var(--intro-base,32) * 1vmin),480px);
   overflow:visible;will-change:transform,filter;transform-origin:50% 50%;
   transform:scale(calc(var(--intro-scale,1) * var(--intro-warp,1)))}
+.intro-canvas{
+  width:min(calc(var(--intro-base,32) * ${CANVAS_SCALE}vmin),${480 * CANVAS_SCALE}px);
+  height:min(calc(var(--intro-base,32) * ${CANVAS_SCALE}vmin),${480 * CANVAS_SCALE}px)}
 .intro-svg .v-stroke{fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;
   stroke-linejoin:round}
 .intro-svg .v-stroke--back{stroke-width:1.75;opacity:.85}
@@ -106,7 +104,7 @@ function samplePath(path: SVGPathElement, samples = 256) {
   return {
     length,
     at(t: number) {
-      const u = clamp01(t) * samples
+      const u = (t < 0 ? 0 : t > 1 ? 1 : t) * samples
       const i = Math.floor(u)
       const j = Math.min(i + 1, samples)
       const f = u - i
@@ -115,12 +113,26 @@ function samplePath(path: SVGPathElement, samples = 256) {
   }
 }
 
-// Local progress for item `index` inside a staggered group, given the group's
-// own 0..1 progress.
-function staggered(t: number, index: number, count: number, stagger: number, dur: number) {
-  const span = dur + (count - 1) * stagger
-  const start = (index * stagger) / span
-  return clamp01((t - start) / (dur / span))
+/** Every browser feature the worker path needs, checked before committing to it. */
+function canDrawOffThread() {
+  return (
+    typeof Worker === 'function' &&
+    typeof OffscreenCanvasRenderingContext2D === 'function' &&
+    typeof HTMLCanvasElement === 'function' &&
+    'transferControlToOffscreen' in HTMLCanvasElement.prototype
+  )
+}
+
+// What a renderer gives the handle. The handle keeps the state the app reads
+// (playhead, done, holding, visibility) and the renderer reports into it.
+interface DrawEngine {
+  readonly mark: SVGSVGElement | HTMLCanvasElement
+  replay(): void
+  snapToEnd(): void
+  /** `cfg` changed; re-lay out and redraw the current position. */
+  configure(): void
+  unquiet(): void
+  destroy(): void
 }
 
 export interface IntroDrawOptions {
@@ -137,6 +149,12 @@ export interface IntroDrawOptions {
   getReadiness: () => Readiness
   /** Fires each time the fill completes — on first run and after every replay. */
   onComplete: () => void
+  /**
+   * The first frame the drawing put on screen, as a performance.now() time.
+   * Once. Off the main thread that frame is the worker's, and it can land well
+   * after this thread's first rAF.
+   */
+  onFirstFrame?: (startTime: number) => void
   /**
    * Diagnostics only. The intro keeps waiting; it does NOT complete, and this
    * never implies readiness (plan 007 Phase 4).
@@ -165,7 +183,11 @@ export interface IntroDrawOptions {
 
 export interface IntroDrawHandle {
   readonly root: HTMLDivElement
-  readonly svg: SVGSVGElement
+  /**
+   * The element the mark is drawn in: a canvas painted by the worker, or the
+   * SVG where that is unavailable. `.intro-mark` either way.
+   */
+  readonly mark: SVGSVGElement | HTMLCanvasElement
   /** 0..1 across the whole draw, fill included. */
   playhead(): number
   /** True once the fill has finished. Only reachable through readiness. */
@@ -217,33 +239,6 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   root.className = 'intro-root'
   root.setAttribute('aria-hidden', 'true')
 
-  const svg = el('svg', {
-    class: 'intro-svg',
-    viewBox: `0 0 ${VIEWBOX.width} ${VIEWBOX.height}`,
-    preserveAspectRatio: 'xMidYMid meet',
-  })
-  svg.style.setProperty('--intro-base', String(cfg.introSize))
-  root.appendChild(svg)
-
-  const isoGroup = el('g')
-  const isoInner = el('g')
-  const backV = el('path', { class: 'v-stroke v-stroke--back', d: V_D })
-  const backArc = el('path', { class: 'v-stroke v-stroke--back', d: ARC_D })
-  isoInner.append(backV, backArc)
-  isoGroup.appendChild(isoInner)
-
-  const edges = DEPTH_VERTICES.map(([x, y]) =>
-    el('line', { class: 'v-stroke v-stroke--depth', x1: x, y1: y, x2: x, y2: y }),
-  )
-  edges.forEach((e) => isoGroup.appendChild(e))
-
-  const frontV = el('path', { class: 'v-stroke', d: V_D })
-  const frontArc = el('path', { class: 'v-stroke', d: ARC_D })
-  const fill = el('path', { class: 'v-fill', d: FILL_D })
-  const dot = el('circle', { class: 'v-dot', r: 4, cx: CENTER.x, cy: CENTER.y })
-
-  svg.append(isoGroup, frontV, frontArc, fill, dot)
-
   // Loading caption. Absolutely positioned rather than added to the flex flow,
   // because the mark has to stay EXACTLY at screen centre — the 3D logo blooms
   // there at the swap crossover, and nudging the 2D mark up would break the
@@ -257,39 +252,6 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   caption.setAttribute('role', 'status')
   root.appendChild(caption)
   ;(options.container ?? doc.body).appendChild(root)
-
-  // ── Geometry, measured once ──
-  const vSample = samplePath(frontV)
-  const arcSample = samplePath(frontArc)
-  const backLengths = [backV, backArc].map((p) => p.getTotalLength())
-
-  function applyIsoOffset() {
-    const ox = cfg.isoOffset
-    const oy = -cfg.isoOffset * DRAW_SHAPE.collapseYRatio
-    isoInner.setAttribute('transform', `translate(${ox} ${oy})`)
-    edges.forEach((e, i) => {
-      const [x, y] = DEPTH_VERTICES[i]
-      e.setAttribute('x2', String(x + ox))
-      e.setAttribute('y2', String(y + oy))
-    })
-  }
-
-  // Every depth edge is the same diagonal, so one length covers all nine.
-  // Written to strokeDasharray here rather than per frame — only the offset
-  // changes while drawing.
-  let edgeLength = 0
-  function measureEdges() {
-    edgeLength = Math.hypot(cfg.isoOffset, cfg.isoOffset * DRAW_SHAPE.collapseYRatio)
-    for (const edge of edges) edge.style.strokeDasharray = String(edgeLength)
-  }
-
-  ;[frontV, frontArc].forEach((p, i) => {
-    const len = i === 0 ? vSample.length : arcSample.length
-    p.style.strokeDasharray = String(len)
-  })
-  ;[backV, backArc].forEach((p, i) => {
-    p.style.strokeDasharray = String(backLengths[i])
-  })
 
   // ── Stage layout, and the three zones (plan 007 Phase 1) ──
   //
@@ -312,119 +274,15 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   // instead of a copy of them.
   let timeline = layoutStages(cfg)
 
-  const local = (name: string, p: number) => {
-    const s = timeline.stages[name]
-    return clamp01((p - s.start) / (s.end - s.start))
-  }
-
-  // ── Rendering one playhead position ──
-  let dotAlpha = 0
-
-  function apply(p: number) {
-    let dx = CENTER.x
-    let dy = CENTER.y
-
-    // STAGE 1 — the dot appears at centre.
-    const tDot = cubicOut(local('dot', p))
-    dotAlpha = tDot
-    const dotScale = DRAW_SHAPE.dotScaleFrom + (1 - DRAW_SHAPE.dotScaleFrom) * tDot
-    dot.setAttribute('r', String(4 * dotScale))
-
-    // STAGE 2 — it travels to the V's first vertex.
-    const tMove = cubicInOut(local('dotMove', p))
-    dx = CENTER.x + (FIRST_VERTEX[0] - CENTER.x) * tMove
-    dy = CENTER.y + (FIRST_VERTEX[1] - CENTER.y) * tMove
-
-    // STAGE 3 — the V is traced, the dot riding the stroke tip.
-    const tV = quadInOut(local('drawV', p))
-    frontV.style.strokeDashoffset = String(vSample.length * (1 - tV))
-    if (p > timeline.stages.drawV.start) {
-      const pt = vSample.at(tV)
-      dx = pt.x
-      dy = pt.y
-    }
-
-    // STAGE 3b — hop to the arc, then trace it.
-    const tHop = cubicInOut(local('arcHop', p))
-    if (p > timeline.stages.arcHop.start) {
-      const from = vSample.at(1)
-      dx = from.x + (ARC_START[0] - from.x) * tHop
-      dy = from.y + (ARC_START[1] - from.y) * tHop
-    }
-    const tArc = quadInOut(local('drawArc', p))
-    frontArc.style.strokeDashoffset = String(arcSample.length * (1 - tArc))
-    if (p > timeline.stages.drawArc.start) {
-      const pt = arcSample.at(tArc)
-      dx = pt.x
-      dy = pt.y
-    }
-
-    dot.setAttribute('cx', String(dx))
-    dot.setAttribute('cy', String(dy))
-
-    // STAGE 4 — the fake isometric construction.
-    const tBack = local('isoBack', p)
-    ;[backV, backArc].forEach((path, i) => {
-      const t = quadInOut(staggered(tBack, i, 2, DRAW_SHAPE.isoStagger, cfg.isoDrawDuration))
-      path.style.strokeDashoffset = String(backLengths[i] * (1 - t))
-    })
-
-    const tDepth = local('depth', p)
-    edges.forEach((edge, i) => {
-      const t = quadOut(
-        staggered(tDepth, i, edges.length, DRAW_SHAPE.depthStagger, cfg.depthDuration),
-      )
-      edge.style.strokeDashoffset = String(edgeLength * (1 - t))
-    })
-
-    // STAGE 5 — collapse back to the frontal view.
-    const tCollapse = cubicInOut(local('collapse', p))
-    isoGroup.style.opacity = String(1 - tCollapse)
-    isoGroup.style.transform = `translate(${-cfg.isoOffset * tCollapse}px, ${
-      cfg.isoOffset * DRAW_SHAPE.collapseYRatio * tCollapse
-    }px)`
-
-    // STAGE 6 — the fill.
-    //
-    // INVARIANT (plan 007 Phase 10): the outline communicates ongoing work;
-    // the fill communicates that the application is ready to transition.
-    // Nothing but readiness may activate it — not elapsed time, not the
-    // autonomous curve, not a timeout. The playhead cannot reach here without
-    // readiness because Zone C is gated in playhead.ts.
-    const tFill = cubicInOut(clamp01((p - timeline.ceiling) / (1 - timeline.ceiling)))
-    fill.style.opacity = String(tFill)
-    frontV.style.opacity = String(1 - tFill)
-    frontArc.style.opacity = String(1 - tFill)
-    dotAlpha *= 1 - Math.min(tFill * 3, 1)
-    dot.style.opacity = String(dotAlpha)
-  }
-
-  // ── Playhead ──
-  // The arithmetic lives in playhead.ts so it can be tested without a DOM.
-  // This function only renders what that returns.
-  let raf = 0
-  let lastNow = 0
-  let current = 0
-  let stalledFor = 0
-  let noticed = false
+  // ── What the app reads, whichever renderer is drawing ──
+  let current = options.reducedMotion ? timeline.preReadyLimit : 0
   let holding = false
   let done = false
   let tracing = false
   const trace: Array<[number, number, number, number]> = []
   /** Still waiting unseen. Cleared for good the first time the mark is shown. */
   let quiet = options.quiet === true
-
-  const playheadLimits = () => ({
-    minimumDuration: DRAW_TIMING.minimumDuration,
-    preReadyLimit: timeline.preReadyLimit,
-    reserve: DRAW_TIMING.reserve,
-    driftDuration: DRAW_TIMING.driftDuration,
-    catchUp: DRAW_TIMING.catchUp,
-    smoothRate: DRAW_TIMING.smoothRate,
-    maxDt: DRAW_TIMING.maxDt,
-    stallEpsilon: DRAW_TIMING.stallEpsilon,
-  })
-  const playhead = createPlayhead(playheadLimits())
+  let firstFrameSeen = false
 
   const completeListeners = new Set<() => void>()
 
@@ -433,121 +291,8 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     // The mark is about to shrink into the crossover; the caption has said all
     // it can and must be gone before the 3D logo blooms at centre.
     caption.classList.remove('is-visible')
-    if (raf) cancelAnimationFrame(raf)
-    raf = 0
     options.onComplete()
     for (const fn of completeListeners) fn()
-  }
-
-  // The playhead spends REAL seconds now rather than frames, which introduces
-  // one hazard the old clamp had been hiding: a backgrounded tab would spend
-  // the drawing's three seconds with nobody watching, and the viewer would come
-  // back to an intro that had already happened. rAF does not fire while hidden,
-  // so the whole away-time would arrive as one enormous delta.
-  //
-  // So the drawing measures VISIBLE time: the frame that resumes contributes
-  // nothing, and the clock picks up where it left off. Same reasoning as the
-  // visibilitychange guards on the master timeline and the warp — this module
-  // simply cannot borrow theirs, since it has no GSAP and no React.
-  /**
-   * The quiet wait's two ways out, shared by both loops. Returns true when the
-   * wait is over and the caller must stop.
-   */
-  function stepQuiet(elapsed: number, readiness: Readiness): boolean {
-    if (readiness === 'ready') {
-      finish()
-      return true
-    }
-    // Out of patience, or something to say: the drawing takes over from here.
-    if (readiness === 'fatal' || elapsed > DRAW_TIMING.quietGrace) {
-      quiet = false
-      svg.style.visibility = 'visible'
-    }
-    return false
-  }
-
-  let resumed = false
-  const onVisibility = () => {
-    if (!doc.hidden) resumed = true
-  }
-  doc.addEventListener('visibilitychange', onVisibility)
-
-  function frame(now: number) {
-    raf = requestAnimationFrame(frame)
-    // `resumed` discards exactly the one delta that spans the hidden window;
-    // `lastNow` does the same for the first frame of the run.
-    const raw = lastNow && !resumed ? (now - lastNow) / 1000 : 0
-    resumed = false
-    lastNow = now
-
-    const load = options.getProgress()
-    const readiness = options.getReadiness()
-    const f = playhead.step(raw, load, readiness)
-
-    current = f.visual
-    holding = f.holding
-    apply(current)
-
-    // Unseen, so nothing below — the pulse, the notice, the caption — has
-    // anything to say yet. The playhead keeps running underneath, which is what
-    // lets a drawing that does appear start where the load really is.
-    if (quiet) {
-      if (stepQuiet(f.elapsed, readiness)) return
-      if (quiet) return
-    }
-
-    // ── Anti-dead-frame (plan 007 Phase 2) ──
-    // Deliberately NOT gated on dotAlpha: that was false at exactly the state
-    // where the page looked broken. A floor alpha means the pulse works from
-    // the first frame, whatever the playhead is doing.
-    stalledFor = f.stalled ? stalledFor + Math.min(raw, DRAW_TIMING.maxDt) : 0
-    if (options.dotIdle !== false && stalledFor > DRAW_TIMING.stallAfter && !done) {
-      const breath = 0.72 + 0.28 * Math.cos(f.elapsed * 4.2)
-      const base = Math.max(dotAlpha, DRAW_TIMING.pulseMinAlpha)
-      dot.style.opacity = String(base * breath)
-    }
-
-    // ── Timeout: diagnostics ONLY (plan 007 Phase 4) ──
-    // It does not complete the drawing, does not set readiness, and does not
-    // release the sequence into an unready scene. The intro keeps waiting.
-    if (!noticed && f.elapsed > DRAW_TIMING.timeoutNotice && readiness !== 'ready') {
-      noticed = true
-      options.onTimeoutNotice?.()
-    }
-
-    // ── Caption ──
-    // Derived from the same real state the drawing is, never from a timer: the
-    // whole point of the progress playhead is that what the viewer sees is what
-    // is actually happening (ARCHITECTURE 20). "Casi listo" therefore means the
-    // drawing is genuinely holding at the pre-ready limit waiting on required
-    // assets, not that some clock elapsed.
-    // Driven by MEASURED load and readiness — never by the drawing's own
-    // playhead.
-    //
-    // Those are different numbers and conflating them is the bug this whole
-    // module was rebuilt to avoid (plan 007). With no measured progress the
-    // autonomous curve still carries the outline up to the pre-ready limit and
-    // holds it there, so the drawing can look nearly finished while nothing has
-    // actually downloaded. A caption reading the playhead would announce
-    // "Casi listo" over an empty cache — reassuring, and false.
-    //
-    // So "Casi listo" is spent only on genuine readiness, and the middle state
-    // on real bytes.
-    setCaption(
-      readiness === 'fatal'
-        ? CAPTIONS.failed
-        : noticed
-          ? CAPTIONS.slow
-          : readiness === 'ready'
-            ? CAPTIONS.almost
-            : load >= 0.5
-              ? CAPTIONS.preparing
-              : CAPTIONS.loading,
-    )
-
-    if (tracing) trace.push([f.elapsed, raw, load, current])
-
-    if (f.done) finish()
   }
 
   let captionText = ''
@@ -560,56 +305,329 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     caption.classList.add('is-visible')
   }
 
-  function start() {
-    if (raf) return
-    lastNow = 0
-    raf = requestAnimationFrame(frame)
+  function firstFrame(startTime: number) {
+    if (firstFrameSeen) return
+    firstFrameSeen = true
+    options.onFirstFrame?.(startTime)
   }
 
-  // ── Init ──
-  applyIsoOffset()
-  measureEdges()
-  apply(0)
-  if (quiet) svg.style.visibility = 'hidden'
+  /** One frame's outcome, from either renderer. The renderer has already drawn it. */
+  function report(tick: DrawTick) {
+    current = tick.visual
+    holding = tick.holding
+    if (tick.revealed) {
+      quiet = false
+      engine.mark.style.visibility = 'visible'
+    }
+    if (tick.notice) options.onTimeoutNotice?.()
+    if (tick.caption) setCaption(CAPTIONS[tick.caption])
+    if (tracing && tick.trace) trace.push(tick.trace)
+    if (tick.done) finish()
+  }
 
-  if (options.reducedMotion) {
-    // No stroke-by-stroke build — but the fill invariant still holds, and it
-    // did NOT before: the previous version called apply(1), which showed the
-    // FILLED mark at t=0 and only then waited. That announced "ready" before
-    // anything was, for exactly the users least able to reinterpret it.
+  function newMark<T extends SVGSVGElement | HTMLCanvasElement>(mark: T): T {
+    mark.style.setProperty('--intro-base', String(cfg.introSize))
+    if (quiet) mark.style.visibility = 'hidden'
+    // Before the caption, which is where the SVG always sat in the root.
+    root.insertBefore(mark, caption)
+    return mark
+  }
+
+  // ── The SVG, on this thread ──
+  function createSvgEngine(): DrawEngine {
+    const svg = newMark(
+      el('svg', {
+        class: 'intro-mark intro-svg',
+        viewBox: `0 0 ${VIEWBOX.width} ${VIEWBOX.height}`,
+        preserveAspectRatio: 'xMidYMid meet',
+      }),
+    )
+
+    const isoGroup = el('g')
+    const isoInner = el('g')
+    const backV = el('path', { class: 'v-stroke v-stroke--back', d: V_D })
+    const backArc = el('path', { class: 'v-stroke v-stroke--back', d: ARC_D })
+    isoInner.append(backV, backArc)
+    isoGroup.appendChild(isoInner)
+
+    const edges = DEPTH_VERTICES.map(([x, y]) =>
+      el('line', { class: 'v-stroke v-stroke--depth', x1: x, y1: y, x2: x, y2: y }),
+    )
+    edges.forEach((e) => isoGroup.appendChild(e))
+
+    const frontV = el('path', { class: 'v-stroke', d: V_D })
+    const frontArc = el('path', { class: 'v-stroke', d: ARC_D })
+    const fill = el('path', { class: 'v-fill', d: FILL_D })
+    const dot = el('circle', { class: 'v-dot', r: 4, cx: CENTER.x, cy: CENTER.y })
+
+    svg.append(isoGroup, frontV, frontArc, fill, dot)
+
+    // ── Geometry, measured once ──
+    const vSample = samplePath(frontV)
+    const arcSample = samplePath(frontArc)
+    const backLengths = [backV, backArc].map((p) => p.getTotalLength())
+    const paths = { v: vSample, arc: arcSample }
+
+    function applyIsoOffset() {
+      const offset = isoOffset(cfg)
+      isoInner.setAttribute('transform', `translate(${offset.x} ${offset.y})`)
+      edges.forEach((e, i) => {
+        const [x, y] = DEPTH_VERTICES[i]
+        e.setAttribute('x2', String(x + offset.x))
+        e.setAttribute('y2', String(y + offset.y))
+      })
+    }
+
+    // Every depth edge is the same diagonal, so one length covers all nine.
+    // Written to strokeDasharray here rather than per frame — only the offset
+    // changes while drawing.
+    let edgeLength = 0
+    function measureEdges() {
+      edgeLength = depthEdgeLength(cfg)
+      for (const edge of edges) edge.style.strokeDasharray = String(edgeLength)
+    }
+
+    ;[frontV, frontArc].forEach((p, i) => {
+      const len = i === 0 ? vSample.length : arcSample.length
+      p.style.strokeDasharray = String(len)
+    })
+    ;[backV, backArc].forEach((p, i) => {
+      p.style.strokeDasharray = String(backLengths[i])
+    })
+
+    // ── Rendering one playhead position ──
+    let dotAlpha = 0
+
+    function apply(p: number) {
+      const pose = markPose(p, cfg, timeline, paths)
+      dotAlpha = pose.dot.alpha
+      dot.setAttribute('r', String(pose.dot.r))
+      dot.setAttribute('cx', String(pose.dot.x))
+      dot.setAttribute('cy', String(pose.dot.y))
+      frontV.style.strokeDashoffset = String(vSample.length * (1 - pose.v))
+      frontArc.style.strokeDashoffset = String(arcSample.length * (1 - pose.arc))
+      ;[backV, backArc].forEach((path, i) => {
+        path.style.strokeDashoffset = String(backLengths[i] * (1 - pose.back[i]))
+      })
+      edges.forEach((edge, i) => {
+        edge.style.strokeDashoffset = String(edgeLength * (1 - pose.edges[i]))
+      })
+      isoGroup.style.opacity = String(pose.iso.opacity)
+      isoGroup.style.transform = `translate(${pose.iso.x}px, ${pose.iso.y}px)`
+      fill.style.opacity = String(pose.fill)
+      frontV.style.opacity = String(pose.outlineOpacity)
+      frontArc.style.opacity = String(pose.outlineOpacity)
+      dot.style.opacity = String(dotAlpha)
+    }
+
+    // ── Playhead ──
+    let raf = 0
+    let lastNow = 0
+    const loop = createDrawLoop({
+      limits: playheadLimits(timeline.preReadyLimit),
+      quiet,
+      reducedMotion: options.reducedMotion === true,
+      dotIdle: options.dotIdle !== false,
+    })
+
+    // The playhead spends REAL seconds now rather than frames, which introduces
+    // one hazard the old clamp had been hiding: a backgrounded tab would spend
+    // the drawing's three seconds with nobody watching, and the viewer would come
+    // back to an intro that had already happened. rAF does not fire while hidden,
+    // so the whole away-time would arrive as one enormous delta.
     //
-    // Show the completed outline instead, and let readiness bring the fill,
-    // still respecting the minimum duration. Same semantics as the animated
-    // path, just without the stroke-by-stroke build (plan 007 §12 case 9).
-    current = timeline.preReadyLimit
-    apply(current)
-    const poll = (now: number) => {
-      raf = requestAnimationFrame(poll)
-      // Same visible-time rule as `frame`: reduced motion skips the build, not
-      // the three-second contract, so it must not spend it on a hidden tab
-      // either.
+    // So the drawing measures VISIBLE time: the frame that resumes contributes
+    // nothing, and the clock picks up where it left off. Same reasoning as the
+    // visibilitychange guards on the master timeline and the warp — this module
+    // simply cannot borrow theirs, since it has no GSAP and no React.
+    let resumed = false
+    const onVisibility = () => {
+      if (!doc.hidden) resumed = true
+    }
+    doc.addEventListener('visibilitychange', onVisibility)
+
+    function frame(now: number) {
+      raf = requestAnimationFrame(frame)
+      // `resumed` discards exactly the one delta that spans the hidden window;
+      // `lastNow` does the same for the first frame of the run.
       const raw = lastNow && !resumed ? (now - lastNow) / 1000 : 0
       resumed = false
       lastNow = now
-      const readiness = options.getReadiness()
-      const f = playhead.step(raw, 1, readiness)
-      // Skip straight to the outline; only the ending is animated.
-      current = Math.max(timeline.preReadyLimit, f.visual)
-      apply(current)
-      if (quiet) {
-        if (stepQuiet(f.elapsed, readiness)) return
-        if (quiet) return
+
+      const tick = loop.tick(raw, options.getProgress(), options.getReadiness())
+      apply(tick.visual)
+      if (tick.pulse !== null) {
+        dot.style.opacity = String(Math.max(dotAlpha, DRAW_TIMING.pulseMinAlpha) * tick.pulse)
       }
-      if (f.done) finish()
+      if (tick.done) stop()
+      firstFrame(now)
+      report(tick)
     }
-    raf = requestAnimationFrame(poll)
-  } else {
+
+    function start() {
+      if (raf) return
+      lastNow = 0
+      raf = requestAnimationFrame(frame)
+    }
+
+    function stop() {
+      if (raf) cancelAnimationFrame(raf)
+      raf = 0
+    }
+
+    // ── Init ──
+    applyIsoOffset()
+    measureEdges()
+    // Under reduced motion the completed outline shows from the start, never
+    // the filled mark: that would announce "ready" before anything was, for
+    // exactly the users least able to reinterpret it.
+    apply(options.reducedMotion ? timeline.preReadyLimit : 0)
     start()
+
+    return {
+      mark: svg,
+      replay() {
+        stop()
+        loop.reset()
+        resumed = false
+        apply(0)
+        start()
+      },
+      snapToEnd() {
+        stop()
+        apply(1)
+      },
+      configure() {
+        applyIsoOffset()
+        measureEdges()
+        loop.setLimits(playheadLimits(timeline.preReadyLimit))
+        apply(current)
+      },
+      unquiet: () => loop.unquiet(),
+      destroy() {
+        stop()
+        doc.removeEventListener('visibilitychange', onVisibility)
+      },
+    }
   }
+
+  // ── The canvas, painted by the worker (ADR 016 item 3) ──
+  //
+  // Returns null when the worker cannot even be constructed, so the SVG takes
+  // over before anything was shown. A worker that fails later — its script will
+  // not load, or it has no 2D context — hands over to the SVG the same way,
+  // which starts its own clock: a fallback, so honest rather than seamless.
+  function createCanvasEngine(): DrawEngine | null {
+    let worker: Worker
+    try {
+      worker = new Worker(new URL('./drawWorker.ts', import.meta.url), { type: 'module' })
+    } catch {
+      return null
+    }
+    const canvas = newMark(doc.createElement('canvas'))
+    canvas.className = 'intro-mark intro-canvas'
+    const offscreen = canvas.transferControlToOffscreen()
+
+    const post = (message: ToDrawWorker, transfer: Transferable[] = []) =>
+      worker.postMessage(message, transfer)
+    // Device pixels for the layout box. clientWidth ignores the shrink and warp
+    // transforms, which scale the painted bitmap rather than resize it.
+    const backing = () => ({
+      width: canvas.clientWidth * (window.devicePixelRatio || 1),
+      height: canvas.clientHeight * (window.devicePixelRatio || 1),
+    })
+    // Only the DrawConfig fields: setConfig is handed the app's whole config.
+    const drawConfig = () =>
+      Object.fromEntries(
+        Object.keys(DEFAULT_DRAW_CONFIG).map((key) => [key, cfg[key as keyof DrawConfig]]),
+      ) as unknown as DrawConfig
+
+    // Inputs are posted when they change, read whenever a frame arrives: they
+    // only ever change on this thread, so a frame is as often as anything new
+    // can exist, and a stall here is a stall in their changing too.
+    let load = options.getProgress()
+    let readiness = options.getReadiness()
+    let generation = 0
+    let failed = false
+
+    const onVisibility = () => post({ type: 'hidden', hidden: doc.hidden })
+    doc.addEventListener('visibilitychange', onVisibility)
+    const observer =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(() => post({ type: 'size', ...backing() }))
+        : null
+
+    function release() {
+      worker.terminate()
+      observer?.disconnect()
+      doc.removeEventListener('visibilitychange', onVisibility)
+    }
+
+    function fallBack(reason: string) {
+      if (failed) return
+      failed = true
+      release()
+      canvas.remove()
+      if (done) return
+      console.warn(`[intro] drawing on the main thread instead: ${reason}`)
+      engine = createSvgEngine()
+    }
+
+    worker.onmessage = ({ data }: MessageEvent<FromDrawWorker>) => {
+      if (failed) return
+      if (data.type === 'unsupported') return fallBack('no 2D context in the worker')
+      if (data.type === 'painted') return firstFrame(data.at - performance.timeOrigin)
+      // Posted before a replay or a seek this thread has since asked for.
+      if (data.generation !== generation) return
+      const nextLoad = options.getProgress()
+      const nextReadiness = options.getReadiness()
+      if (nextLoad !== load || nextReadiness !== readiness) {
+        load = nextLoad
+        readiness = nextReadiness
+        post({ type: 'inputs', load, readiness })
+      }
+      report(data.tick)
+    }
+    worker.onerror = (event) => {
+      event.preventDefault()
+      fallBack(event.message || 'the worker failed')
+    }
+    worker.onmessageerror = () => fallBack('a message from the worker could not be read')
+
+    post(
+      {
+        type: 'start',
+        canvas: offscreen,
+        ...backing(),
+        config: drawConfig(),
+        quiet,
+        reducedMotion: options.reducedMotion === true,
+        dotIdle: options.dotIdle !== false,
+        load,
+        readiness,
+        hidden: doc.hidden,
+      },
+      [offscreen],
+    )
+    observer?.observe(canvas)
+
+    return {
+      mark: canvas,
+      replay: () => post({ type: 'replay', generation: ++generation }),
+      snapToEnd: () => post({ type: 'snap', generation: ++generation }),
+      configure: () => post({ type: 'config', config: drawConfig() }),
+      unquiet: () => post({ type: 'unquiet' }),
+      destroy: release,
+    }
+  }
+
+  let engine: DrawEngine = (canDrawOffThread() && createCanvasEngine()) || createSvgEngine()
 
   return {
     root,
-    svg,
+    get mark() {
+      return engine.mark
+    },
     playhead: () => current,
     isDone: () => done,
     isHolding: () => holding,
@@ -623,67 +641,56 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
       return () => completeListeners.delete(fn)
     },
     setScale(scale) {
-      svg.style.setProperty('--intro-scale', String(scale))
+      engine.mark.style.setProperty('--intro-scale', String(scale))
     },
     setWarp(blurPx, stretch) {
-      svg.style.filter = blurPx > 0 ? `blur(${blurPx.toFixed(2)}px)` : ''
-      svg.style.setProperty('--intro-warp', String(1 + stretch))
+      engine.mark.style.filter = blurPx > 0 ? `blur(${blurPx.toFixed(2)}px)` : ''
+      engine.mark.style.setProperty('--intro-warp', String(1 + stretch))
     },
-    isVisible: () => svg.style.visibility !== 'hidden',
+    isVisible: () => engine.mark.style.visibility !== 'hidden',
     setVisible(visible) {
       // Anyone showing the mark by hand has ended the quiet wait's claim on it.
-      if (visible) quiet = false
-      svg.style.visibility = visible ? 'visible' : 'hidden'
+      if (visible) {
+        quiet = false
+        engine.unquiet()
+      }
+      engine.mark.style.visibility = visible ? 'visible' : 'hidden'
       // The caption belongs to the drawing, so a seek that hides one hides both.
       if (!visible) caption.classList.remove('is-visible')
     },
     snapToEnd() {
-      if (raf) cancelAnimationFrame(raf)
-      raf = 0
       done = true
       holding = false
       current = 1
-      apply(1)
+      engine.snapToEnd()
     },
     getConfig: () => ({ ...cfg }),
     setConfig(next) {
       cfg = { ...cfg, ...next }
-      svg.style.setProperty('--intro-base', String(cfg.introSize))
-      applyIsoOffset()
-      measureEdges()
+      engine.mark.style.setProperty('--intro-base', String(cfg.introSize))
       timeline = layoutStages(cfg)
       // The zone boundaries move with the weights, so the playhead's limits
       // must follow — otherwise Zone C stays gated at the old position and the
       // fill unlocks early or never. Updated in place, never rebuilt: a rebuild
       // would reset `elapsed` and restart the minimum duration on every edit.
-      playhead.setLimits(playheadLimits())
-      apply(current)
+      engine.configure()
     },
     replay() {
-      if (raf) cancelAnimationFrame(raf)
-      raf = 0
-      playhead.reset()
-      lastNow = 0
-      resumed = false
       current = 0
-      stalledFor = 0
-      noticed = false
       holding = false
       done = false
       // A replay is asked for by someone who wants to SEE it.
       quiet = false
       trace.length = 0
-      svg.style.removeProperty('--intro-scale')
-      svg.style.removeProperty('--intro-warp')
-      svg.style.filter = ''
-      svg.style.visibility = 'visible'
-      apply(0)
-      start()
+      const mark = engine.mark
+      mark.style.removeProperty('--intro-scale')
+      mark.style.removeProperty('--intro-warp')
+      mark.style.filter = ''
+      mark.style.visibility = 'visible'
+      engine.replay()
     },
     destroy() {
-      if (raf) cancelAnimationFrame(raf)
-      raf = 0
-      doc.removeEventListener('visibilitychange', onVisibility)
+      engine.destroy()
       root.remove()
     },
     trace,

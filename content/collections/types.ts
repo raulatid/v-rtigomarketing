@@ -117,6 +117,12 @@ export interface MediaRule {
   /** width / height, inclusive bounds. Size is not here: below the atlas box the mark draws soft, and the Studio advises. */
   minAspect: number
   maxAspect: number
+  /**
+   * The largest file the site has a use for, in pixels. A Sanity upload past it
+   * on either axis is mirrored resized down to fit (`fit=max`, never up); one
+   * within it, or whose name carries no dimensions, is mirrored as uploaded.
+   */
+  maxSize?: { width: number; height: number }
 }
 
 export type MapResult<T> = { ok: true; value: T } | { ok: false; problems: Problem[] }

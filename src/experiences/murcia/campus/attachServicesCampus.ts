@@ -342,13 +342,16 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     if (!cycle) return;
     const { service, stop } = cycle;
     // `setLayout` clears the live layout, so the live one is set after it.
+    // Without motion every layout is its time-0 self (figureLayouts.test.ts), so
+    // re-evaluating and re-uploading all 4000 targets each frame would change nothing.
+    const moving = figureMotion.amplitude !== 0;
     const kind = service.figure;
     if (form === 'figure' && kind !== null) {
       // Drawn in order, as the figure always was. Its clock starts with it, so
       // whatever travels along it sets off from where the draw put it.
       field.setLayout(figure(kind, service.icon, stop, 0), seconds, timing.figureSpread);
       let start: number | null = null;
-      field.setLiveLayout((time) => figure(kind, service.icon, stop, time - (start ??= time)));
+      if (moving) field.setLiveLayout((time) => figure(kind, service.icon, stop, time - (start ??= time)));
       cycle.swapAt = Infinity;
       cycle.captionAt = clock;
       cycle.form = 'figure';
@@ -356,7 +359,7 @@ export function attachServicesCampus(options: ServicesCampusOptions): ServicesCa
     }
 
     field.setLayout(icon(service.icon, stop, 0), seconds);
-    field.setLiveLayout((time) => icon(service.icon, stop, time));
+    if (moving) field.setLiveLayout((time) => icon(service.icon, stop, time));
     // When the turn would happen. A service with no figure never takes it: the
     // Studio field is optional and has no default on purpose, because a figure
     // draws the mechanism its copy argues and one nobody chose would draw a

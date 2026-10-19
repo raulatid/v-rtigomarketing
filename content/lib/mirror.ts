@@ -96,7 +96,8 @@ export function withMediaMirror(inner: ContentSource, options: MirrorOptions): C
             const rule = spec.mediaRules?.[field]
             const url = validateRemote(at, remote, options.allowedOrigin, rule)
             if (rule !== undefined) assertGeometry(at, url, rule)
-            slot.holder[slot.key] = await mirrorOne(url, at, target, doFetch, timeoutMs, log)
+            const fit = rule?.maxSize === undefined ? undefined : oversizedFor(url, rule.maxSize)
+            slot.holder[slot.key] = await mirrorOne(url, at, target, doFetch, timeoutMs, log, fit)
           }
         }
       }
@@ -169,6 +170,21 @@ function assertGeometry(at: string, url: string, rule: MediaRule): void {
   }
 }
 
+/**
+ * The size to fetch an upload at, when it is larger than the rule's `maxSize` on
+ * either axis; `undefined` to fetch it as uploaded. Read from the name, like the
+ * geometry check above, so an oversized file is never downloaded whole.
+ */
+function oversizedFor(
+  url: string,
+  maxSize: { width: number; height: number },
+): { width: number; height: number } | undefined {
+  const size = sanityImageDimensions(url)
+  if (size === undefined) return undefined
+  if (size.width <= maxSize.width && size.height <= maxSize.height) return undefined
+  return maxSize
+}
+
 /** Where one collection's files land and how the emitted reference names them. */
 interface MirrorTarget {
   dir: string
@@ -203,10 +219,29 @@ async function mirrorOne(
   doFetch: typeof fetch,
   timeoutMs: number,
   log: (message: string) => void,
+  fit?: { width: number; height: number },
 ): Promise<string> {
-  const name = path.posix.basename(new URL(url).pathname)
-  if (!SAFE_BASENAME.test(name)) {
-    throw new SourceError(at + ': "' + name + '" is not a usable media file name')
+  const uploaded = path.posix.basename(new URL(url).pathname)
+  if (!SAFE_BASENAME.test(uploaded)) {
+    throw new SourceError(at + ': "' + uploaded + '" is not a usable media file name')
+  }
+
+  // Resized by Sanity's image API, which keeps the format. The name records
+  // the request rather than the result, so it stays content-addressed, never
+  // collides with the full-size file a previous build mirrored, and claims no
+  // dimensions to `sanityImageDimensions` — `-fit` is not `-<w>x<h>.`.
+  let name = uploaded
+  let source = url
+  if (fit !== undefined) {
+    name = uploaded.replace(/(\.[A-Za-z0-9]+)$/, '-fit' + fit.width + 'x' + fit.height + '$1')
+    if (!SAFE_BASENAME.test(name)) {
+      throw new SourceError(at + ': "' + name + '" is not a usable media file name')
+    }
+    const resized = new URL(url)
+    resized.searchParams.set('w', String(fit.width))
+    resized.searchParams.set('h', String(fit.height))
+    resized.searchParams.set('fit', 'max')
+    source = resized.toString()
   }
 
   const file = path.join(options.dir, name)
@@ -215,7 +250,7 @@ async function mirrorOne(
   // Content-addressed, so a file already here is already the right bytes.
   if (fs.existsSync(file)) return publicRef
 
-  const response = await withTimeout(doFetch, url, timeoutMs)
+  const response = await withTimeout(doFetch, source, timeoutMs)
   if (!response.ok) {
     // A published asset that 404s means the content and the media library
     // disagree. Shipping a silently logo-less case study is the quiet kind of
@@ -235,7 +270,8 @@ async function mirrorOne(
 
   fs.mkdirSync(options.dir, { recursive: true })
   fs.writeFileSync(file, bytes)
-  log('mirrored ' + publicRef + ' (' + bytes.byteLength + ' bytes)')
+  const resizedFrom = fit === undefined ? '' : ', resized from ' + uploaded
+  log('mirrored ' + publicRef + ' (' + bytes.byteLength + ' bytes' + resizedFrom + ')')
   return publicRef
 }
 

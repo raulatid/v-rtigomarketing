@@ -52,9 +52,9 @@ declare global {
   }
 }
 
-const mark = (name: string) => {
+const mark = (name: string, startTime?: number) => {
   try {
-    performance.mark(name)
+    performance.mark(name, startTime === undefined ? undefined : { startTime })
   } catch {
     // Never let instrumentation break the boot path.
   }
@@ -97,19 +97,20 @@ function boot(): VertigoIntro {
           'The intro keeps waiting; it will NOT enter an unready scene.',
       )
     },
+    // First visible frame of the drawing, for the waterfall record. Stamped
+    // with the frame's own time: drawn by the worker, it can reach this thread
+    // late.
+    // Not for a returning visitor: their wait is unseen, so there is no such frame
+    // to record, and a mark here would put a drawing in the waterfall that nobody saw.
+    onFirstFrame: (startTime) => {
+      if (!sawVisible && !returning) {
+        sawVisible = true
+        mark('vertigo:intro-visible', startTime)
+      }
+    },
     reducedMotion,
     // A returning visitor waits unseen and goes straight to the 3D mark.
     quiet: returning,
-  })
-
-  // First visible frame of the drawing, for the waterfall record.
-  // Not for a returning visitor: their wait is unseen, so there is no such frame
-  // to record, and a mark here would put a drawing in the waterfall that nobody saw.
-  requestAnimationFrame(() => {
-    if (!sawVisible && !returning) {
-      sawVisible = true
-      mark('vertigo:intro-visible')
-    }
   })
 
   // The backstop against a required resource that neither completes nor fails

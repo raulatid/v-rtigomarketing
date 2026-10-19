@@ -34,7 +34,8 @@ test('boots to a ready scene with a visible canvas', async ({ page }) => {
     .poll(() => readiness(page), { timeout: 75_000 })
     .toBe('ready')
 
-  const canvas = page.locator('canvas')
+  // The loading draw's 2D canvas (intro-draw/drawWorker.ts) is not a renderer.
+  const canvas = page.locator('canvas:not(.intro-canvas)')
   await expect(canvas.first()).toBeVisible()
 
   // Exactly one WebGL canvas — DECISIONS section 2, and the property that was
@@ -70,7 +71,7 @@ test('reaches the site phase and finishes the intro', async ({ page }) => {
   // The drawing hands over rather than sitting on top of the scene forever.
   // It sits at z-index 20, above the canvas, so a drawing that never leaves is
   // a blank-looking site rather than an error.
-  await expect(page.locator('svg.intro-svg')).toBeHidden({ timeout: 30_000 })
+  await expect(page.locator('.intro-mark')).toBeHidden({ timeout: 30_000 })
 })
 
 test('gives the drawing its full duration', async ({ page }) => {
@@ -240,8 +241,8 @@ async function drawDone(page: Page) {
 async function tailStarted(page: Page) {
   await page.waitForFunction(
     () => {
-      const svg = document.querySelector('svg.intro-svg') as SVGElement | null
-      return svg !== null && svg.style.getPropertyValue('--intro-scale') !== ''
+      const mark = document.querySelector<HTMLElement | SVGElement>('.intro-mark')
+      return mark !== null && mark.style.getPropertyValue('--intro-scale') !== ''
     },
     undefined,
     { timeout: 5_000 },
@@ -274,7 +275,7 @@ test('a press during loading does nothing', async ({ page }) => {
   expect(await readiness(page)).not.toBe('ready')
   await page.mouse.click(800, 450)
   // Still loading: the draw stays up and nothing has landed.
-  await expect(page.locator('svg.intro-svg')).toBeVisible()
+  await expect(page.locator('.intro-mark')).toBeVisible()
   await expect(page.locator('.audit-trigger')).not.toBeAttached()
   // And the intro still completes on its own afterwards.
   await drawDone(page)
@@ -323,11 +324,25 @@ test('a returning visitor never sees the loading draw, and enters at the crossov
 
     // Watches from before the first paint, every frame, for the 2D mark being on
     // screen at all. Sampling from the test would start too late to be evidence.
-    const flags = window as unknown as { __markWasSeen?: boolean }
+    //
+    // And for the tail's writes to it, which happen whether it is shown or not:
+    // the shrink takes `--intro-scale` below 1, and the warp's faked motion blur
+    // takes `--intro-warp` above 1 for most of its length.
+    const flags = window as unknown as {
+      __markWasSeen?: boolean
+      __markScales?: string[]
+      __markMaxWarp?: number
+    }
     flags.__markWasSeen = false
+    flags.__markScales = []
+    flags.__markMaxWarp = 1
     const watch = () => {
-      const svg = document.querySelector('svg.intro-svg')
-      if (svg && getComputedStyle(svg).visibility !== 'hidden') flags.__markWasSeen = true
+      const mark = document.querySelector<HTMLElement | SVGElement>('.intro-mark')
+      if (mark && getComputedStyle(mark).visibility !== 'hidden') flags.__markWasSeen = true
+      const scale = mark?.style.getPropertyValue('--intro-scale')
+      if (scale && !flags.__markScales!.includes(scale)) flags.__markScales!.push(scale)
+      const warp = Number(mark?.style.getPropertyValue('--intro-warp') || 1)
+      if (warp > flags.__markMaxWarp!) flags.__markMaxWarp = warp
       requestAnimationFrame(watch)
     }
     requestAnimationFrame(watch)
@@ -339,14 +354,21 @@ test('a returning visitor never sees the loading draw, and enters at the crossov
   // shows the drawing after all (`DRAW_TIMING.quietGrace`).
   // No press. It enters where the mark becomes 3D and the landing plays
   // (DECISIONS §51). So the site is NOT there at once — no control may mount
-  // before `site` (§26.16) — and it IS there well inside the full tail's 9.7 s,
-  // because the drawing, the shrink and the warp never ran.
+  // before `site` (§26.16).
   await tailStarted(page)
   await page.waitForTimeout(1_500)
   await expect(page.locator('.audit-trigger')).not.toBeAttached()
-  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 6_000 })
-  const seen = await page.evaluate(
-    () => (window as unknown as { __markWasSeen?: boolean }).__markWasSeen,
-  )
-  expect(seen, 'the 2D loading mark was on screen for a returning visitor').toBe(false)
+  // The tail runs on frames, not on the wall clock (ADR 016): a headless browser
+  // drawing a few frames a second plays it in slow motion. So the proof that the
+  // shrink and the warp never ran is their writes never happening, not how soon
+  // `site` arrives.
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 30_000 })
+  const flags = await page.evaluate(() => {
+    const w = window as unknown as { __markWasSeen?: boolean; __markScales?: string[]; __markMaxWarp?: number }
+    return { seen: w.__markWasSeen, scales: w.__markScales, maxWarp: w.__markMaxWarp }
+  })
+  expect(flags.seen, 'the 2D loading mark was on screen for a returning visitor').toBe(false)
+  // The tail did write to the mark — its reset — so the watch is not looking at nothing.
+  expect(flags.scales, 'the mark was scaled: a shrink or a collapse ran').toEqual(['1'])
+  expect(flags.maxWarp, 'the mark was stretched: the warp ran').toBe(1)
 })

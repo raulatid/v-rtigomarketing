@@ -1347,6 +1347,20 @@ Earth spin, logo idle, satellites orbiting — which accumulates from `useFrame`
 timeline owns when those *start*, never their heartbeat. The price is that the orbit reveal
 cannot be scrubbed backwards; seeking away resets it and the draw-in replays.
 
+> **Amended 2026-10-19 — `adr/016`. The single clock is no longer GSAP's.** Past `shrink`,
+> time belongs to `experiences/earth/timeline/openingTail.ts`, stepped from a `useFrame` inside
+> the Canvas with the clamped delta (`graphics/frameDelta`), beside the Earth ⇄ Murcia clock
+> (§44). Which phase comes next is not the clock's to decide: the opening machine
+> (`intro-draw/openingMachine.ts`) accepts every change as `elapsed`, in its sequence for the
+> way in, and refuses the crossover's substitution without a model (§26.8). The clock owns only
+> how long each phase lasts and the motion inside it. Phase starts are still the debug seek
+> targets: a seek forward fires every cue on the way, a seek back starts the tail again. There
+> is no `visibilitychange` guard, because rAF does not run in a hidden tab. The tail follows
+> frames rather than the wall clock, so a frame longer than 0.1 s slows it instead of skipping
+> it; below 10 fps, which in practice only a headless browser reaches, it plays in slow motion.
+> `gsap` is no longer a dependency. *How you would know it broke:* a phase written anywhere
+> but through the machine, or a second clock driving any part of P1–P5.
+
 ### The boot path
 
 **26.4 — Code that runs first depends on nothing.** The intro draw is a standalone module with
@@ -1375,9 +1389,9 @@ distance it appears to: it is at `[0,0,-200]` on the last frame of leg 1 and `[0
 first frame of leg 2, and **that teleport is the transition**. One progress value is read
 through three curves with deliberately nested widths — travel (full), speed and motion blur
 (±0.34), overlay flash (±0.10) — so the blur ramps gradually while the overlay reads as a
-flicker rather than a fade. The tween is `ease: 'none'` **on purpose**; a GSAP ease on top would
-compound with the three curves and destroy that width relationship. **The cut keys off raw
-progress, not the eased travel curve**, so visibility and the flash stay locked together if the
+flicker rather than a fade. The progress is linear **on purpose** (`openingTail`'s warp motion,
+§26.3); an ease on top would compound with the three curves and destroy that width
+relationship. **The cut keys off raw progress, not the eased travel curve**, so visibility and the flash stay locked together if the
 position easing is ever retuned. §7 applies the same structure to the Earth ⇄ Murcia warp.
 
 **26.7 — The starfield exists because we have no city.** The source prototype's leg 1 flies away
@@ -4203,6 +4217,7 @@ above the artwork.
 | The navigable area bounds the CAMERA, and the outer part of it is a band travelled against a falling gain | `navigation/navigableArea.ts` and `resistToRect`, deleted 2026-09-10; **§39**, **§40** | The viewer's TARGET is clamped to one rectangle, and the rectangle is the A2 ring the GLB carries. The band bought pan range; the wider rectangle gives it outright — **§44** |
 | A pinch has to prove it is not a two-finger turn before it may drive anything | `app/navigation/pinchClassifier.ts`, deleted 2026-09-10; **`adr/015`** | Two fingers mean a pinch, because nothing else uses two fingers. It arms on the second contact and drives the band from the first sample — **§44** |
 | The Earth ⇄ Murcia cinematic is counted by a GSAP timeline | `app/useExperienceTransition.ts`, rewritten 2026-09-10 | A `dt` clock, `utils/transitionClock.ts`. The timeline was two linear tweens and a callback; the `visibilitychange` guard it needed is structurally impossible now — **§44** |
+| The intro's tail (P1–P5) is one paused GSAP timeline | `useMasterTimeline.ts`, rewritten 2026-10-19; **§26.3** as first written | A `dt` clock, `experiences/earth/timeline/openingTail.ts`, whose phases are the opening machine's (`adr/016`). `gsap` was removed with it — **§26.3** amendment |
 | The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** |
 | The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
 | Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |

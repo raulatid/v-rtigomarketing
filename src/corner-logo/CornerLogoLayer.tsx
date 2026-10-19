@@ -79,6 +79,8 @@ function applyHeaderLine(logo: CornerLogo): void {
 export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
+  const sizeRef = useRef(size)
+  sizeRef.current = size
 
   const configRef = useRef(config)
   configRef.current = config
@@ -116,6 +118,12 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
         return
       }
 
+      // The size effect below ran at mount, before this logo existed, and runs
+      // again only on a resize. Without this the motion has no surface height
+      // and falls back to `window.innerHeight` on every frame, which forces a
+      // layout on Android whenever the DOM is dirty (~60 ms/s in Murcia on the
+      // Xiaomi Pad 5).
+      logo.setSize(sizeRef.current.width, sizeRef.current.height)
       applyHeaderLine(logo)
       logoRef.current = logo
       handleRef.current = {

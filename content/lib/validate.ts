@@ -269,7 +269,9 @@ function mediaExtension(pathname: string): string | undefined {
  *
  * Sanity names an image asset `<hash>-<width>x<height>.<ext>`, so the geometry
  * of an upload is knowable without downloading or decoding it — and it survives
- * mirroring, because `mirror.ts` keeps the CMS basename verbatim.
+ * mirroring, because `mirror.ts` keeps the CMS basename verbatim. Except for a
+ * file it fetched resized (`MediaRule.maxSize`): that one is named
+ * `<hash>-<w>x<h>-fit<w>x<h>.<ext>` and reads as carrying no dimensions.
  *
  * `undefined` for anything that does not match, which is not a failure: the seed
  * and the fixtures carry hand-written local paths like

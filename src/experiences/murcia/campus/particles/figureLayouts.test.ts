@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Matrix3, Vector3 } from 'three';
 import { FIGURE_KINDS } from '../content/servicesContent';
-import { figureLayout } from './figureLayouts';
+import { figureLayout, iconMotionLayout } from './figureLayouts';
 import { seededRandom } from './maskSampling';
 
 const frame = { center: new Vector3(), right: new Vector3(1, 0, 0), up: new Vector3(0, 1, 0), width: 1 };
@@ -42,4 +42,20 @@ describe('service diagrams', () => {
       expect(covariance.determinant()).toBeGreaterThan(0.000001);
     });
   }
+});
+
+describe('the service symbol', () => {
+  it('is stationary with reduced motion', () => {
+    const sample = (time: number, amplitude: number) => {
+      const layout = iconMotionLayout(samples, frame, time, { speed: 1, amplitude });
+      const random = seededRandom(1337);
+      return samples.map((_, i) => {
+        const point = new Vector3();
+        layout(i, samples.length, random, point, i / samples.length);
+        return point.toArray();
+      });
+    };
+    expect(sample(100, 0)).toEqual(sample(0, 0));
+    expect(sample(10, 1)).not.toEqual(sample(0, 1));
+  });
 });

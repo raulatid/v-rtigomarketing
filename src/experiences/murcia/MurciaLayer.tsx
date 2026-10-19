@@ -3,6 +3,8 @@ import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { MurciaExperience } from './MurciaExperience'
 import type { ViewpointClaim } from './observer/viewClient'
+import type { WorkKind } from '../../intro-draw/openingMachine'
+import type { CityBytes } from './assets/cityBytes'
 import { loadProgress } from '../../loading/progress'
 import type { NavigationView } from '../../interaction/navigationSignals'
 import { WARP_LIMITS, dollyAmount } from '../../utils/warpTransition'
@@ -30,6 +32,12 @@ interface Props {
   onBlogApproachStart?: () => void
   /** Forwarded to MurciaExperience: the final vantage point is held; the claim may be offered. */
   onViewpointReached?: (claim: ViewpointClaim) => void
+  /**
+   * The application's work scheduler (ADR 016): runs `start` once it admits
+   * work of `kind`, and returns a cancel. The whole build is queued as one
+   * main-thread unit.
+   */
+  scheduleWork: (kind: WorkKind, start: () => void) => () => void
 }
 
 // Drives the Murcia environment from R3F's frame loop.
@@ -55,6 +63,7 @@ export function MurciaLayer({
   onOpenBlog,
   onBlogApproachStart,
   onViewpointReached,
+  scheduleWork,
 }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -79,10 +88,16 @@ export function MurciaLayer({
   // a transition that happens mid-load is not silently dropped.
   const activeRef = useRef(active)
   activeRef.current = active
+  const scheduleWorkRef = useRef(scheduleWork)
+  scheduleWorkRef.current = scheduleWork
 
   useEffect(() => {
     let disposed = false
     let experience: MurciaExperience | null = null
+    // Set while the build waits for admission: withdraws it and lets it return.
+    let withdraw: (() => void) | null = null
+    // The city's files, read ahead once the opening admits network work.
+    let bytes: Promise<CityBytes> | null = null
 
     // Murcia's overlays are position: fixed and were written assuming they own
     // the viewport. They mount into this element so the stylesheet can be
@@ -92,45 +107,68 @@ export function MurciaLayer({
     // for BOTH experiences.
     const host = document.createElement('div')
     host.className = 'murcia-ui'
-    // Hidden until this experience is showing. It loads during the Earth intro
-    // so the transition never waits on it, and its own "Loading city…" status
-    // overlay would otherwise sit at z-index 16 on top of the intro.
+    // Hidden until this experience is showing. It loads while Earth is up so
+    // the transition never waits on it, and its own "Loading city…" status
+    // overlay would otherwise sit at z-index 16 on top of Earth.
     host.style.display = 'none'
     const parent = gl.domElement.parentElement ?? document.body
     parent.appendChild(host)
     hostRef.current = host
 
+    // Two units, because the build is two kinds of work (ADR 016). Its files
+    // are network work, admitted from `shrink`: the model and the bake are
+    // read into memory while the opening plays, so `site` does not also wait
+    // for the download. Not in `draw`, where they would compete with the
+    // required steps for bandwidth (audit 2026-08-27, P1-D). The rest is the
+    // main-thread unit below.
+    //
+    // Through the city's own chunk, which this evaluates early: ~22 ms of main
+    // thread with the CPU at 4x, under one long frame (2026-10-19). A chunk of
+    // its own would be one more request in the initial closure of `/`.
+    const cancelPrefetch = scheduleWorkRef.current('network', () => {
+      bytes = import('./MurciaExperience').then(({ prefetchCityBytes }) => prefetchCityBytes())
+    })
+
     const build = async () => {
-      // Not until the intro has handed over.
+      // Not until the application admits it: phase `site` (ADR 016).
       //
-      // Everything below competes with the boot it is not part of: 1.26 MB of
-      // city, the Draco and Basis decoders (707 KB of wasm between them) and a
-      // KTX2 bake, all fetched by three's FileLoader over XHR — which Chrome
-      // gives HIGH priority, while the Earth textures readiness actually waits
-      // for are preloaded LOW so they cannot out-rank the app chunk. Neither
-      // decision is wrong alone; together they invert the intended order
-      // (audit 2026-08-27, P1-D). And the bytes are the smaller half: the Draco
-      // parse and the GPU warm run on the same main thread the drawing is
-      // animating on.
+      // Everything below competes with the opening it is not part of. During
+      // the drawing it is the bytes: 1.26 MB of city and the Draco and Basis
+      // decoders (707 KB of wasm between them) — which Chrome gives HIGH
+      // priority, while the Earth textures readiness actually waits for are
+      // preloaded LOW so they cannot out-rank the app chunk (audit 2026-08-27,
+      // P1-D). The city's own files are read ahead above. After the
+      // drawing it is the main thread: the Draco results arriving, the river
+      // frame, the campus mask readback and the GPU warm measured ~0.8 s of
+      // long tasks inside `shrink` and `warp` (2026-10-16), the stretch where
+      // a stall is most visible. This used to wait for `intro.completed`,
+      // which is exactly where that stretch begins.
       //
-      // Waiting costs nothing that is visible. Navigation already requires BOTH
+      // Waiting costs nothing reachable. Navigation already requires BOTH
       // `murciaReady` AND phase `site` (App.tsx's canNavigate), so the city can
-      // never be reached before it is built — deferring it moves work off the
-      // critical path rather than making the viewer wait for it later.
+      // never be entered before it is built. What it costs is the interval
+      // between `site` and the gesture becoming available.
       //
-      // `completed` and not `scene-ready`: readiness is when the scene COULD be
-      // shown, and the drawing keeps running for its own ending after that.
-      // The intro's last second is still the intro.
-      //
-      // Missing boot entry is the one case that must not wait forever — the
-      // page was assembled wrong, useIntroDraw fails open, and so does this.
-      const intro = window.__vertigoIntro
-      if (intro) await intro.completed
+      // Resolved by the scheduler, which is stepped from the frame loop: the
+      // phase is mutable state the timeline writes, and the frame is where it
+      // is read.
+      await new Promise<void>((resolve) => {
+        const cancel = scheduleWorkRef.current('main', resolve)
+        withdraw = () => {
+          cancel()
+          resolve()
+        }
+      })
+      withdraw = null
       if (disposed) return
 
       const { MurciaExperience: Ctor } = await import(
         './MurciaExperience'
       )
+      // Queued first, so started no later than this unit. Null only if it never
+      // ran, and then each file is fetched as the load reaches it.
+      const cityBytes = bytes ? await bytes : undefined
+      bytes = null
       if (disposed) return
 
       // Counts how many times the city has been BUILT in this document.
@@ -174,6 +212,7 @@ export function MurciaLayer({
       // logo uses for its compile.
       await experience.load({
         onProgress: (fraction) => loadProgress.setStep('murcia:model', fraction * 0.8),
+        bytes: cityBytes,
       })
       if (disposed) {
         experience.dispose()
@@ -220,6 +259,10 @@ export function MurciaLayer({
 
     return () => {
       disposed = true
+      // A build still waiting for admission returns on `disposed` instead of
+      // hanging on a promise nothing will resolve.
+      withdraw?.()
+      cancelPrefetch()
       experienceRef.current = null
       hostRef.current = null
       experience?.dispose()

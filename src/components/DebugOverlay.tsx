@@ -1,4 +1,5 @@
 import { RefObject, useEffect, useRef, useState } from 'react'
+import type { OpeningTail } from '../experiences/earth/timeline/openingTail'
 import { defaultIntroConfig, IntroConfig, Phase, PHASE_ORDER } from '../experiences/earth/config/introConfig'
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
   onReplay: () => void
   onSeek: (label: string) => void
   onSkip: () => void
-  timeline: RefObject<gsap.core.Timeline | null>
+  timeline: RefObject<OpeningTail | null>
 }
 
 type Control = {
@@ -160,7 +161,8 @@ export function DebugOverlay({
     const tick = () => {
       id = requestAnimationFrame(tick)
       const tl = timeline.current
-      if (tl && !scrubbing.current) setScrub(tl.progress())
+      // Reduced motion's tail has no length: it is at its end from the start.
+      if (tl && !scrubbing.current) setScrub(tl.duration > 0 ? tl.time / tl.duration : 1)
     }
     id = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(id)
@@ -200,7 +202,8 @@ export function DebugOverlay({
               onChange={(e) => {
                 const v = Number(e.target.value)
                 setScrub(v)
-                timeline.current?.progress(v)
+                const tl = timeline.current
+                tl?.seek(v * tl.duration)
               }}
             />
           </label>

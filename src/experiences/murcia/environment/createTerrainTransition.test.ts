@@ -197,6 +197,23 @@ describe('createTerrainTransition', () => {
     }
   })
 
+  it('ends the skirt at its first fully transparent loop', () => {
+    // Past the fade every strip is alpha 0 at both edges: blended, it changes
+    // no pixel, yet it was rasterised across most of the horizon each frame.
+    const config = { ...CONFIG, loops: 10 }
+    const skirt = createTerrainTransition(plate(100, 200), config).group
+      .getObjectByName('TerrainTransitionSkirt') as THREE.Mesh
+    const alpha = skirt.geometry.getAttribute('color')
+    const index = skirt.geometry.getIndex()!
+    for (let i = 0; i < index.count; i += 3) {
+      const corners = [0, 1, 2].map((corner) => alpha.getW(index.getX(i + corner)))
+      expect(Math.max(...corners), `skirt triangle ${i / 3} is invisible`).toBeGreaterThan(0)
+    }
+    let outermost = Infinity
+    for (let v = 0; v < alpha.count; v += 1) outermost = Math.min(outermost, alpha.getW(v))
+    expect(outermost).toBe(0)
+  })
+
   it('reports the visual extent the navigable area is inset from', () => {
     // `checks/footprint.ts` and the navigable area both read this. The collar
     // is opaque and narrower than the skirt, so it must NOT widen the number —

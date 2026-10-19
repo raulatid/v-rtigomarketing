@@ -269,18 +269,14 @@ test.describe('the blog', () => {
     // second running beside it.
     await expect(page.locator('.blog-topbar__mark canvas')).toHaveCount(1, { timeout: 20_000 })
     expect(
-      await page.locator('canvas').count(),
+      // The loading draw's 2D canvas (intro-draw/drawWorker.ts) is not a renderer.
+      await page.locator('canvas:not(.intro-canvas)').count(),
       'a warm blog has exactly two canvases: the suspended scene, and the mark',
     ).toBe(2)
 
-    // GSAP is quiescent, which is why nothing needed pausing. If this ever
-    // fails, pause THAT timeline on the blog edge — never the global one.
-    const activeTweens = await page.evaluate(() => {
-      const g = (window as unknown as { gsap?: { globalTimeline: { getChildren: (a: boolean, b: boolean, c: boolean) => { isActive: () => boolean }[] } } }).gsap
-      if (!g) return 0
-      return g.globalTimeline.getChildren(true, true, false).filter((t) => t.isActive()).length
-    })
-    expect(activeTweens).toBe(0)
+    // There used to be a GSAP check here: the intro's timeline ran on a ticker
+    // of its own and had to be quiescent. Its tail is now stepped by the scene's
+    // frame loop (adr/016), which the assertions above have just proven frozen.
 
     // ── An article, then back to the index, then back to the scene ──
     await page.locator('.blog-card').first().click()
