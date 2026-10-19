@@ -3,6 +3,7 @@ import { RefObject, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { MurciaExperience } from './MurciaExperience'
 import type { ViewpointClaim } from './observer/viewClient'
+import type { WorkKind } from '../../intro-draw/openingMachine'
 import { loadProgress } from '../../loading/progress'
 import type { NavigationView } from '../../interaction/navigationSignals'
 import { WARP_LIMITS, dollyAmount } from '../../utils/warpTransition'
@@ -31,11 +32,11 @@ interface Props {
   /** Forwarded to MurciaExperience: the final vantage point is held; the claim may be offered. */
   onViewpointReached?: (claim: ViewpointClaim) => void
   /**
-   * Whether the application admits the city's main-thread work yet (ADR 016).
-   * Asked once per frame until the first yes, which starts the build; a
-   * function rather than a boolean because the answer moves between renders.
+   * The application's work scheduler (ADR 016): runs `start` once it admits
+   * work of `kind`, and returns a cancel. The whole build is queued as one
+   * main-thread unit.
    */
-  workAdmitted: () => boolean
+  scheduleWork: (kind: WorkKind, start: () => void) => () => void
 }
 
 // Drives the Murcia environment from R3F's frame loop.
@@ -61,7 +62,7 @@ export function MurciaLayer({
   onOpenBlog,
   onBlogApproachStart,
   onViewpointReached,
-  workAdmitted,
+  scheduleWork,
 }: Props) {
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -86,14 +87,14 @@ export function MurciaLayer({
   // a transition that happens mid-load is not silently dropped.
   const activeRef = useRef(active)
   activeRef.current = active
-  const workAdmittedRef = useRef(workAdmitted)
-  workAdmittedRef.current = workAdmitted
-  // Set while the build waits for admission; the frame loop below resolves it.
-  const admitRef = useRef<(() => void) | null>(null)
+  const scheduleWorkRef = useRef(scheduleWork)
+  scheduleWorkRef.current = scheduleWork
 
   useEffect(() => {
     let disposed = false
     let experience: MurciaExperience | null = null
+    // Set while the build waits for admission: withdraws it and lets it return.
+    let withdraw: (() => void) | null = null
 
     // Murcia's overlays are position: fixed and were written assuming they own
     // the viewport. They mount into this element so the stylesheet can be
@@ -131,11 +132,17 @@ export function MurciaLayer({
       // never be entered before it is built. What it costs is the interval
       // between `site` and the gesture becoming available.
       //
-      // Resolved from the frame loop, not from an event: the phase is mutable
-      // state the timeline writes, and the frame is where it is read.
+      // Resolved by the scheduler, which is stepped from the frame loop: the
+      // phase is mutable state the timeline writes, and the frame is where it
+      // is read.
       await new Promise<void>((resolve) => {
-        admitRef.current = resolve
+        const cancel = scheduleWorkRef.current('main', resolve)
+        withdraw = () => {
+          cancel()
+          resolve()
+        }
       })
+      withdraw = null
       if (disposed) return
 
       const { MurciaExperience: Ctor } = await import(
@@ -232,8 +239,7 @@ export function MurciaLayer({
       disposed = true
       // A build still waiting for admission returns on `disposed` instead of
       // hanging on a promise nothing will resolve.
-      admitRef.current?.()
-      admitRef.current = null
+      withdraw?.()
       experienceRef.current = null
       hostRef.current = null
       experience?.dispose()
@@ -261,12 +267,6 @@ export function MurciaLayer({
   // final before RenderPipeline (priority 1) draws. update() is itself a no-op
   // while inactive, so this costs one call per frame when Earth is showing.
   useFrame((_, delta) => {
-    const admit = admitRef.current
-    if (admit && workAdmittedRef.current()) {
-      admitRef.current = null
-      admit()
-    }
-
     const experience = experienceRef.current
     if (!experience) return
 

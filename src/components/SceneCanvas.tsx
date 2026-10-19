@@ -3,7 +3,7 @@ import type { WarpLimits } from '../utils/warpTransition'
 import { prefersReducedMotion } from '../platform/motionPreference'
 import type { AuditComposition } from '../interaction/auditComposition'
 import type { NavigationView } from '../interaction/navigationSignals'
-import { RefObject, useCallback, useRef } from 'react'
+import { RefObject, useCallback, useRef, useState } from 'react'
 import { Canvas, extend, useFrame } from '@react-three/fiber'
 import { clampFrameDelta } from '../graphics/frameDelta'
 import { THREE_CATALOGUE } from '../graphics/threeCatalogue'
@@ -23,7 +23,6 @@ import {
 } from '../utils/warpTransition'
 import { IntroConfig } from '../experiences/earth/config/introConfig'
 import { SequenceState } from '../experiences/earth/config/sequenceState'
-import { admitsDeferredWork } from '../experiences/earth/config/sceneVisibility'
 import { OrbitSystem } from '../experiences/earth/orbit/createOrbitSystem'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import type { CornerLogo } from '../corner-logo/createCornerLogo'
@@ -31,6 +30,7 @@ import type { CornerLogoHandle } from '../corner-logo/cornerLogoConfig'
 import type { ExperienceId } from '../app/experience'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 import type { ViewpointClaim } from '../experiences/murcia/observer/viewClient'
+import { createWorkScheduler } from '../intro-draw/workScheduler'
 
 // Before any <Canvas> mounts: the build strips R3F's own `extend(THREE)`, so
 // this is the only registration there is (graphics/threeCatalogue.ts).
@@ -204,9 +204,11 @@ export function SceneCanvas({
     }
   }, [state, navigation, config, earthActive])
 
-  // The city's build waits on this (ADR 016). Murcia cannot ask the intro's
-  // phase itself: the two experiences do not import each other.
-  const murciaWorkAdmitted = useCallback(() => admitsDeferredWork(state.phase), [state])
+  // Deferred work starts when the opening admits it (ADR 016). Stepped here
+  // because the phase is the intro's: Murcia cannot ask it itself, the two
+  // experiences do not import each other.
+  const [workScheduler] = useState(createWorkScheduler)
+  const stepWork = useCallback(() => workScheduler.step(state.phase), [workScheduler, state])
 
   return (
     <Canvas
@@ -298,6 +300,8 @@ export function SceneCanvas({
           order, and every consumer below is priority 0. */}
       <TransitionClockDriver step={stepIntro} />
       <TransitionClockDriver step={stepTransition} />
+      {/* Not a clock, but right after the intro's, so it reads this frame's phase. */}
+      <TransitionClockDriver step={stepWork} />
       <EarthExperience
         navigation={navigation}
         attention={attention}
@@ -330,7 +334,7 @@ export function SceneCanvas({
         onOpenBlog={onOpenBlog}
         onBlogApproachStart={onBlogApproachStart}
         onViewpointReached={onViewpointReached}
-        workAdmitted={murciaWorkAdmitted}
+        scheduleWork={workScheduler.schedule}
       />
       {/* Murcia's hint, on Earth's presence rule and Earth's numbers. Renders
           nothing; it paints one attribute on the node App renders. */}
