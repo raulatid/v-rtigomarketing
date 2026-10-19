@@ -19,3 +19,7 @@
 - Documentation only → `check:audit`
 - Static asset re-encode → `check:asset:contract`, plus byte/dimension comparison and a visual look
 - Bundle size, tree shaking, dead code → production build, and inspect the emitted chunks directly
+
+## Documentation
+- Index of current decisions and traps: `docs/README.md`. Read the area's decision and traps before changing its behaviour.
+- Documentation is written in Spanish; code, identifiers, code file names and commit messages stay in English. Archived docs keep their original language.
