@@ -53,7 +53,7 @@ function setup() {
     overlayEl: { current: null }, orbitSystemRef: { current: null },
     interactionRef: { current: null }, logoRef: { current: null },
     cornerLogoHandleRef: { current: null }, murciaRef: { current: null },
-    stepTransition: noop, onSelectCase: noop, onDeselectCase: noop,
+    stepTransition: noop, stepIntro: noop, onSelectCase: noop, onDeselectCase: noop,
     onLogoLoadFailed: noop, onMurciaReady: noop, onMurciaAttentionChange: noop,
     onOpenBlog: () => false, onBlogApproachStart: noop, onViewpointReached: noop, onContextLost: noop,
   }

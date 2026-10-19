@@ -21,8 +21,8 @@
  * three bells depend on — so the library was contributing a clock, and `step(dt)`
  * is already a clock.
  *
- * GSAP is NOT removed from the project: `useMasterTimeline` still owns the intro,
- * where a real timeline with real easing earns its keep (DECISIONS 26.3).
+ * The intro went the same way later (ADR 016, migration step 4): its tail is
+ * `experiences/earth/timeline/openingTail`, stepped from the frame loop too.
  *
  * ## What that GAINED, rather than merely preserved
  *

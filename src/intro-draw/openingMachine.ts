@@ -5,10 +5,10 @@
 // it; this only says which state the opening is in, what may move it on, and
 // how much main-thread work that state admits.
 //
-// Not yet the owner of anything. The master timeline still decides when each
-// phase begins, and the timeline's test drives this machine from the timeline's
-// own phase changes to show the two agree (migration step 1). Events are plain
-// objects on purpose: a worker can sit on the other side of them (step 3).
+// The intro's tail (experiences/earth/timeline/openingTail) moves through the
+// phases only as `elapsed` events this accepts, in this machine's sequence for
+// the way in; the tail owns only how long each lasts (migration step 4). Events
+// are plain objects on purpose: a worker can sit on the other side of them (step 3).
 
 import type { Readiness } from './bootState'
 

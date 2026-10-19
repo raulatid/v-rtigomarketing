@@ -239,7 +239,7 @@ export default function App() {
     () => window.__vertigoIntro?.returning ?? (hasConsent('preferences') && readIntroSeen()),
   )
 
-  const { phase, timeline } = useMasterTimeline({
+  const { phase, timeline, step: stepIntro } = useMasterTimeline({
     intro,
     config,
     state,
@@ -415,10 +415,10 @@ export default function App() {
     setReplayKey((k) => k + 1)
   }, [logoRef])
 
-  // GSAP's seek() suppresses callbacks by default, which would skip every
-  // setPhase() and the crossover's substitution. Pass suppressEvents=false and
-  // reconcile the imperative state (SVG visibility, logo pose) by hand, since
-  // tweens rewind but direct style writes do not.
+  // The tail's seek() fires every cue on the way, the crossover's substitution
+  // included, and a seek back starts the tail again from its beginning. The
+  // logo's pose and the drawing's finished frame are not the tail's to restore,
+  // so they are reconciled here by hand.
   const handleSeek = useCallback(
     (label: string) => {
       const draw = intro.current
@@ -441,7 +441,7 @@ export default function App() {
       const afterSwap = target >= PHASE_ORDER.indexOf('corner')
 
       // Seeking into or past the orbit phase must set the flag the reveal gates
-      // on, since the timeline's own .call() only fires when played through.
+      // on. The tail's own cue sets it too, on a seek forward through `orbits`.
       state.orbitsStarted = target >= PHASE_ORDER.indexOf('orbits')
 
       if (afterSwap) {
@@ -458,7 +458,7 @@ export default function App() {
         state.swapOverlay = 0
       }
 
-      tl.seek(label, false)
+      tl.seek(label as Phase)
       tl.play()
     },
     [timeline, logoRef, intro, state],
@@ -737,6 +737,7 @@ export default function App() {
             murciaAttention={murciaAttention}
             auditView={auditView}
             stepTransition={stepTransition}
+            stepIntro={stepIntro}
             suspended={blogOpen}
             config={config}
             state={state}

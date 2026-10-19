@@ -75,6 +75,8 @@ interface Props {
    * one behind the progress that produced it.
    */
   stepTransition: (dt: number) => void
+  /** Advances the intro's tail (P1-P5) by one frame, inside the Canvas for the same reason. */
+  stepIntro: (dt: number) => void
   overlayEl: RefObject<HTMLDivElement | null>
   orbitSystemRef: RefObject<OrbitSystem | null>
   interactionRef: RefObject<InteractionHandle | null>
@@ -123,6 +125,7 @@ export function SceneCanvas({
   murciaAttention,
   auditView,
   stepTransition,
+  stepIntro,
   overlayEl,
   orbitSystemRef,
   interactionRef,
@@ -293,6 +296,7 @@ export function SceneCanvas({
       {/* FIRST inside the Canvas, so the progress every other layer reads this
           frame is this frame's. R3F runs same-priority frame callbacks in mount
           order, and every consumer below is priority 0. */}
+      <TransitionClockDriver step={stepIntro} />
       <TransitionClockDriver step={stepTransition} />
       <EarthExperience
         navigation={navigation}
