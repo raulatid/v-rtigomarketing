@@ -991,6 +991,8 @@ the case assumed a photograph must carry its own stars.*
 
 ## 20. Murcia navigates like a map
 
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 > **Amended 2026-08-13 — §21.** The gain is 0.7 rather than 1:1.
 >
 > **Amended again 2026-08-19 — `adr/009`. The zoom band is gone**, on the wheel and on the
@@ -1092,6 +1094,8 @@ stops being available.
 ---
 
 ## 21. The pan gain is 0.7, so grab-the-point is a property of the solve rather than of the feel
+
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Amends **§20**, which states pan as "1:1 under the cursor". The gesture split, the
 > rotation sensitivity and the zoom band in that entry are unchanged; only the gain is.
@@ -2645,6 +2649,8 @@ a panel's material stops being one of the three densities, or `blog.css` starts 
 
 ## 38. Pan and yaw feel are split by pointer type, because a finger runs out of glass
 
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 > Amends **§21** (the pan gain) and **§20** (Murcia navigates like a map). Neither is
 > reversed: both described one gesture with one sensitivity, and there are now two of each.
 > Note also that §21's heading says "the pan gain is 0.7" and the shipped mouse value is
@@ -2720,6 +2726,8 @@ the 60 mouse ones green. Or the distinctness checks fail, which means a retune c
 pair back into one number.
 
 ## 39. The camera never leaves the navigable area
+
+> **Migrada (2026-10-20) →** [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Amends **§20** ("Murcia navigates like a map"). The navigable area is no longer a property
 > of the plate alone — it is a function of the pose, and it bounds the CAMERA and not only
@@ -2830,6 +2838,8 @@ about WHY the eye is bounded at all is still the reason, and §40 is only about 
 stops.
 
 ## 40. The edge is felt arriving, not hit
+
+> **Migrada (2026-10-20) →** [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Amends **§39** ("The camera never leaves the navigable area"). The rule is unchanged and the
 > enforcement is unchanged. What changes is which rectangle it guards — the authored plate
@@ -3355,6 +3365,8 @@ clearing `data-visible` when `active` goes false.
 ---
 
 ## 44. Murcia is navigated by one pointer carrying both axes, over a spring
+
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/sensacion-de-camara.md`](decisiones/murcia/sensacion-de-camara.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md), [`murcia/brujula.md`](decisiones/murcia/brujula.md), [`murcia/edificios-interactivos.md`](decisiones/murcia/edificios-interactivos.md), [`navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** «The vacuum» (bloque transición/warp) y la salida de Earth hacia España con el final de la banda sobre los satélites (bloque Earth).
 
 **2026-09-10.** Ported from `prototypes/vertigo-lab`, experiment
 `camera-navigation`. Replaces **§20** and its amendments **§21** and **§38**,

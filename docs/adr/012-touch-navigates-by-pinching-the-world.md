@@ -1,5 +1,7 @@
 # ADR 012 — Touch navigates by pinching the world
 
+> **Migrada (2026-10-20) →** [`navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-26, **"zoom is still gone" reversed 2026-09-04 by `adr/014`**
 Reverses: `adr/009` §4 (*"Touch navigates on a right-edge rail, not by a canvas swipe"*) and its
 consequence *"Two-finger centroid rotation survives; pinch does not"*

@@ -1,5 +1,7 @@
 # ADR 014 — Zoom is a position the viewer owns, and the transition is what lies past it
 
+> **Migrada (2026-10-20) →** [`navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-09-04
 
 > **AMENDED FOR EARTH — `DECISIONS.md` §44.** "Hold, then push" below is how MURCIA is left.
