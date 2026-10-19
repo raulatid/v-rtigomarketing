@@ -269,7 +269,8 @@ test.describe('the blog', () => {
     // second running beside it.
     await expect(page.locator('.blog-topbar__mark canvas')).toHaveCount(1, { timeout: 20_000 })
     expect(
-      await page.locator('canvas').count(),
+      // The loading draw's 2D canvas (intro-draw/drawWorker.ts) is not a renderer.
+      await page.locator('canvas:not(.intro-canvas)').count(),
       'a warm blog has exactly two canvases: the suspended scene, and the mark',
     ).toBe(2)
 

@@ -106,7 +106,8 @@ test('boots on a phone, fills the viewport, and never scrolls sideways', async (
   const errors = collect(page)
   await bootToReady(page)
 
-  const canvas = page.locator('canvas')
+  // The loading draw's 2D canvas (intro-draw/drawWorker.ts) is not a renderer.
+  const canvas = page.locator('canvas:not(.intro-canvas)')
   await expect(canvas).toHaveCount(1)
 
   // Horizontal overflow is the classic narrow-viewport failure, and it is

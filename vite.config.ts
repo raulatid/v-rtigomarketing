@@ -32,7 +32,10 @@ import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verif
 // fired at 12005B, which is exactly its job. Do not raise it again without
 // knowing what was added; gzipped is what the user waits for, and the build
 // prints both.
-const INTRO_BUDGET_BYTES = 16_000
+//  17.9KB  + the worker drawing's host, with the SVG kept as its fallback
+//          (ADR 016 item 3). The worker's own code is a separate file and
+//          not counted here.
+const INTRO_BUDGET_BYTES = 18_500
 // WHAT A COLD `/` ACTUALLY COSTS, measured 2026-08-31 against the production
 // build with a headless browser: 1,525,267 B of JavaScript over 9 requests
 // (386,597 B brotli), all of it requested within ~130 ms of navigation start.

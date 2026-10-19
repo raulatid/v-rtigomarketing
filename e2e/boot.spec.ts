@@ -34,7 +34,8 @@ test('boots to a ready scene with a visible canvas', async ({ page }) => {
     .poll(() => readiness(page), { timeout: 75_000 })
     .toBe('ready')
 
-  const canvas = page.locator('canvas')
+  // The loading draw's 2D canvas (intro-draw/drawWorker.ts) is not a renderer.
+  const canvas = page.locator('canvas:not(.intro-canvas)')
   await expect(canvas.first()).toBeVisible()
 
   // Exactly one WebGL canvas — DECISIONS section 2, and the property that was
@@ -70,7 +71,7 @@ test('reaches the site phase and finishes the intro', async ({ page }) => {
   // The drawing hands over rather than sitting on top of the scene forever.
   // It sits at z-index 20, above the canvas, so a drawing that never leaves is
   // a blank-looking site rather than an error.
-  await expect(page.locator('svg.intro-svg')).toBeHidden({ timeout: 30_000 })
+  await expect(page.locator('.intro-mark')).toBeHidden({ timeout: 30_000 })
 })
 
 test('gives the drawing its full duration', async ({ page }) => {
@@ -240,8 +241,8 @@ async function drawDone(page: Page) {
 async function tailStarted(page: Page) {
   await page.waitForFunction(
     () => {
-      const svg = document.querySelector('svg.intro-svg') as SVGElement | null
-      return svg !== null && svg.style.getPropertyValue('--intro-scale') !== ''
+      const mark = document.querySelector<HTMLElement | SVGElement>('.intro-mark')
+      return mark !== null && mark.style.getPropertyValue('--intro-scale') !== ''
     },
     undefined,
     { timeout: 5_000 },
@@ -274,7 +275,7 @@ test('a press during loading does nothing', async ({ page }) => {
   expect(await readiness(page)).not.toBe('ready')
   await page.mouse.click(800, 450)
   // Still loading: the draw stays up and nothing has landed.
-  await expect(page.locator('svg.intro-svg')).toBeVisible()
+  await expect(page.locator('.intro-mark')).toBeVisible()
   await expect(page.locator('.audit-trigger')).not.toBeAttached()
   // And the intro still completes on its own afterwards.
   await drawDone(page)
@@ -326,8 +327,8 @@ test('a returning visitor never sees the loading draw, and enters at the crossov
     const flags = window as unknown as { __markWasSeen?: boolean }
     flags.__markWasSeen = false
     const watch = () => {
-      const svg = document.querySelector('svg.intro-svg')
-      if (svg && getComputedStyle(svg).visibility !== 'hidden') flags.__markWasSeen = true
+      const mark = document.querySelector('.intro-mark')
+      if (mark && getComputedStyle(mark).visibility !== 'hidden') flags.__markWasSeen = true
       requestAnimationFrame(watch)
     }
     requestAnimationFrame(watch)

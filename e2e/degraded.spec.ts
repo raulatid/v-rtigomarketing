@@ -56,8 +56,9 @@ test('no WebGL 2: says so, and never evaluates the scene chunk', async ({ browse
   expect(three.length, 'modulepreload means these are expected to be fetched').toBeGreaterThan(0)
 
   // No R3F canvas was ever mounted. The probe canvas isWebGLAvailable creates is
-  // detached and thrown away, so nothing should be in the document.
-  await expect(page.locator('canvas')).toHaveCount(0)
+  // detached and thrown away, so nothing should be in the document. The
+  // loading draw's 2D canvas (intro-draw/drawWorker.ts) is not a renderer.
+  await expect(page.locator('canvas:not(.intro-canvas)')).toHaveCount(0)
 
   await context.close()
 })
