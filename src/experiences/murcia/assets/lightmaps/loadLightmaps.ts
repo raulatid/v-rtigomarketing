@@ -5,13 +5,14 @@ import { acquireKtx2Loader, releaseKtx2Loader } from '../../../../graphics/decod
 import type { LightmapConfig } from '../../config/environmentConfig';
 import {
   LIGHTMAP_CHUNKS,
-  chooseLightmapResolution,
   parseAssetLightmapManifest,
   parseGroundLightmapManifest,
   variantFile,
   type LightmapChunk,
   type LightmapResolution,
 } from './lightmapManifest';
+import { deviceResolution } from './deviceResolution';
+import type { CityBytes } from '../cityBytes';
 import { prepareLightmapTexture } from './lightmapMaterial';
 import { assetAtlasKey, attachAssetLightmaps, type AttachedAssetLightmaps } from './attachAssetLightmaps';
 import { attachGroundLightmaps, meanVertexColour, type AttachedGroundLightmaps } from './attachGroundLightmaps';
@@ -63,23 +64,8 @@ export interface LoadLightmapsOptions {
   renderer: THREE.WebGLRenderer;
   /** The plate, hidden under the baked ground and recoloured for the skirt. */
   terrain: THREE.Mesh | null;
-}
-
-const NARROW_QUERY = '(max-width: 767px)';
-const COARSE_QUERY = '(pointer: coarse)';
-const ANY_COARSE_QUERY = '(any-pointer: coarse)';
-const LOW_MEMORY_GB = 4;
-
-function deviceResolution(): LightmapResolution {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 2048;
-  // Not in lib.dom: Chromium-only, and absent everywhere else.
-  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  return chooseLightmapResolution({
-    narrow: window.matchMedia(NARROW_QUERY).matches,
-    coarse: window.matchMedia(COARSE_QUERY).matches,
-    touchCapable: navigator.maxTouchPoints > 1 || window.matchMedia(ANY_COARSE_QUERY).matches,
-    lowMemory: typeof memory === 'number' && memory <= LOW_MEMORY_GB,
-  });
+  /** Where the unified bake's files come from; fetched on demand when absent. */
+  bytes?: CityBytes;
 }
 
 async function fetchJson(url: string): Promise<unknown> {
@@ -89,13 +75,13 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 export async function loadLightmaps(options: LoadLightmapsOptions): Promise<LightmapHandle | null> {
-  const { gltf, config, renderer, terrain } = options;
+  const { gltf, config, renderer, terrain, bytes } = options;
   const resolution = deviceResolution();
   if ('manifest' in config) {
     // First: the baked materials keep the authored albedo (`preserveAlbedo`),
     // so a trim still attached here would be copied onto every one of them.
     dropEmbeddedTrim(gltf.scene);
-    return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, resolution, config.desktop1024);
+    return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, resolution, config.desktop1024, bytes);
   }
   const base = config.baseUrl;
 

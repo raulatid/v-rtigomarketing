@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import type { MurciaExperience } from './MurciaExperience'
 import type { ViewpointClaim } from './observer/viewClient'
 import type { WorkKind } from '../../intro-draw/openingMachine'
+import type { CityBytes } from './assets/cityBytes'
 import { loadProgress } from '../../loading/progress'
 import type { NavigationView } from '../../interaction/navigationSignals'
 import { WARP_LIMITS, dollyAmount } from '../../utils/warpTransition'
@@ -95,6 +96,8 @@ export function MurciaLayer({
     let experience: MurciaExperience | null = null
     // Set while the build waits for admission: withdraws it and lets it return.
     let withdraw: (() => void) | null = null
+    // The city's files, read ahead once the opening admits network work.
+    let bytes: Promise<CityBytes> | null = null
 
     // Murcia's overlays are position: fixed and were written assuming they own
     // the viewport. They mount into this element so the stylesheet can be
@@ -112,15 +115,29 @@ export function MurciaLayer({
     parent.appendChild(host)
     hostRef.current = host
 
+    // Two units, because the build is two kinds of work (ADR 016). Its files
+    // are network work, admitted from `shrink`: the model and the bake are
+    // read into memory while the opening plays, so `site` does not also wait
+    // for the download. Not in `draw`, where they would compete with the
+    // required steps for bandwidth (audit 2026-08-27, P1-D). The rest is the
+    // main-thread unit below.
+    //
+    // Through the city's own chunk, which this evaluates early: ~22 ms of main
+    // thread with the CPU at 4x, under one long frame (2026-10-19). A chunk of
+    // its own would be one more request in the initial closure of `/`.
+    const cancelPrefetch = scheduleWorkRef.current('network', () => {
+      bytes = import('./MurciaExperience').then(({ prefetchCityBytes }) => prefetchCityBytes())
+    })
+
     const build = async () => {
       // Not until the application admits it: phase `site` (ADR 016).
       //
       // Everything below competes with the opening it is not part of. During
-      // the drawing it is the bytes: 1.26 MB of city, the Draco and Basis
-      // decoders (707 KB of wasm between them) and a KTX2 bake, all fetched by
-      // three's FileLoader over XHR — which Chrome gives HIGH priority, while
-      // the Earth textures readiness actually waits for are preloaded LOW so
-      // they cannot out-rank the app chunk (audit 2026-08-27, P1-D). After the
+      // the drawing it is the bytes: 1.26 MB of city and the Draco and Basis
+      // decoders (707 KB of wasm between them) — which Chrome gives HIGH
+      // priority, while the Earth textures readiness actually waits for are
+      // preloaded LOW so they cannot out-rank the app chunk (audit 2026-08-27,
+      // P1-D). The city's own files are read ahead above. After the
       // drawing it is the main thread: the Draco results arriving, the river
       // frame, the campus mask readback and the GPU warm measured ~0.8 s of
       // long tasks inside `shrink` and `warp` (2026-10-16), the stretch where
@@ -148,6 +165,10 @@ export function MurciaLayer({
       const { MurciaExperience: Ctor } = await import(
         './MurciaExperience'
       )
+      // Queued first, so started no later than this unit. Null only if it never
+      // ran, and then each file is fetched as the load reaches it.
+      const cityBytes = bytes ? await bytes : undefined
+      bytes = null
       if (disposed) return
 
       // Counts how many times the city has been BUILT in this document.
@@ -191,6 +212,7 @@ export function MurciaLayer({
       // logo uses for its compile.
       await experience.load({
         onProgress: (fraction) => loadProgress.setStep('murcia:model', fraction * 0.8),
+        bytes: cityBytes,
       })
       if (disposed) {
         experience.dispose()
@@ -240,6 +262,7 @@ export function MurciaLayer({
       // A build still waiting for admission returns on `disposed` instead of
       // hanging on a promise nothing will resolve.
       withdraw?.()
+      cancelPrefetch()
       experienceRef.current = null
       hostRef.current = null
       experience?.dispose()

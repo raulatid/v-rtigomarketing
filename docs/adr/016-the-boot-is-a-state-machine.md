@@ -2,7 +2,8 @@
 
 Status: **Accepted** — 2026-10-19 (proposed 2026-10-16). Migration steps 1–4 done; `gsap`
 removed. The work rule runs through `intro-draw/workScheduler.ts`, stepped by the frame loop;
-the city is its first unit. Deferred work never starts in `draw`, and `site` starts one
+the city is two units: its files are read ahead as `network` work from `shrink`
+(`murcia/assets/cityBytes.ts`), and its parse, decoding and assembly are one `main` unit at `site`. Deferred work never starts in `draw`, and `site` starts one
 main-thread unit per frame until the slice budget is decided.
 Amends: DECISIONS §26.3 (who owns time). Would amend: §33 ("the lever is fewer bytes, not
 rescheduling"). Keeps: ADR 007, DECISIONS §26.4, §26.5, §26.8, §26.16, §26.20.

@@ -14,6 +14,7 @@ import { computeRiverFrame } from '../water/riverFrame';
 import { applyCampusPalette } from '../campus/campusPalette';
 import { loadLightmaps, type LightmapHandle } from './lightmaps/loadLightmaps';
 import type { LightmapConfig } from '../config/environmentConfig';
+import { fetchCityBytes, type CityBytes } from './cityBytes';
 
 /**
  * The river mesh in the GLB.
@@ -74,12 +75,16 @@ export interface LoadCityOptions {
    */
   groundColor?: number;
   /**
-   * Download progress, 0..1, when the server reports a content length.
+   * Download progress, 0..1. Reported once, as 1, when the model's bytes are in
+   * memory: they are usually read ahead (`cityBytes`), so there is nothing to
+   * count by the time this runs.
    *
    * Reports bytes only — not parse, not GPU upload — so a caller driving a
    * progress display must not treat 1 as "ready to show".
    */
   onProgress?: (fraction: number) => void;
+  /** Where the model and the unified bake come from; fetched on demand when absent. */
+  bytes?: CityBytes;
 }
 
 export interface LoadedCity {
@@ -165,8 +170,8 @@ export interface SceneReport {
  * The loader is injected rather than constructed here: the Draco worker pool is
  * shared application-wide (docs/plans/002 Amendment A7).
  *
- * Network vs. parse separation is approximate: GLTFLoader's onProgress fires as
- * bytes arrive; parseCompleteTime is when onLoad resolves.
+ * networkCompleteTime is when the model's bytes are in memory, which is at once
+ * when they were read ahead; parseCompleteTime is when the parse resolves.
  */
 export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   const timings: LoadTimings = {
@@ -177,29 +182,31 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     bytesLoaded: null,
   };
 
+  const bytes = options.bytes ?? fetchCityBytes;
+  const modelBytes = bytes.buffer(options.modelPath);
   const gltfPromise = new Promise<GLTF>((resolve, reject) => {
-    options.loader.load(
-      options.modelPath,
-      (result) => {
-        timings.parseCompleteTime = performance.now();
-        resolve(result);
-      },
-      (event) => {
-        // Fires as bytes download. Last event ~ network complete (approx).
-        timings.networkCompleteTime = performance.now();
-        if (event.lengthComputable) {
-          timings.bytesLoaded = event.loaded;
-          if (event.total > 0) options.onProgress?.(event.loaded / event.total);
-        }
-      },
-      (error) => {
-        reject(
-          error instanceof Error
-            ? error
-            : new Error(`Failed to load GLB at "${options.modelPath}"`),
-        );
-      },
-    );
+    const fail = (error: unknown) => {
+      reject(
+        error instanceof Error
+          ? error
+          : new Error(`Failed to load GLB at "${options.modelPath}"`),
+      );
+    };
+    modelBytes.then((buffer) => {
+      timings.networkCompleteTime = performance.now();
+      timings.bytesLoaded = buffer.byteLength;
+      options.onProgress?.(1);
+      // What `load()` would resolve against: the GLB's own directory.
+      options.loader.parse(
+        buffer,
+        THREE.LoaderUtils.extractUrlBase(options.modelPath),
+        (result) => {
+          timings.parseCompleteTime = performance.now();
+          resolve(result);
+        },
+        fail,
+      );
+    }, fail);
   });
 
   // Alongside the model, not after it. The sheet is a few tens of KB against
@@ -268,6 +275,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
           config: options.lightmaps,
           renderer: options.renderer,
           terrain: found.mesh,
+          bytes,
         })
       : null;
   const surfaceDepth = applyCitySurfaceDepth(root);

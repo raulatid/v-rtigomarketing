@@ -19,6 +19,7 @@ import { createAssetLoader } from './assets/createAssetLoader';
 import type { AssetLoader } from './assets/createAssetLoader';
 import { loadCity, disposeLoadedCity } from './assets/loadCity';
 import type { LoadedCity } from './assets/loadCity';
+import type { CityBytes } from './assets/cityBytes';
 import { CameraRig } from './camera/CameraRig';
 import { murciaWarpPose } from './camera/warpPose';
 import { murciaZoomPose, murciaZoomTargets } from './camera/zoomPose';
@@ -341,8 +342,13 @@ export class MurciaExperience {
    * Resolves once the environment is ready to be shown. Rejects nothing: a
    * fatal load surfaces on the status overlay and leaves the environment
    * inert, exactly as it did standalone.
+   *
+   * `bytes` is the city's files read ahead (`assets/cityBytes`); without it
+   * each file is fetched when the load reaches it.
    */
-  async load(options: { onProgress?: (fraction: number) => void } = {}): Promise<void> {
+  async load(
+    options: { onProgress?: (fraction: number) => void; bytes?: CityBytes } = {},
+  ): Promise<void> {
     this.onLoadProgress = options.onProgress;
     this.sceneBundle = createScene(this.appConfig, this.environment.sceneState);
     this.camera = new THREE.PerspectiveCamera(
@@ -362,7 +368,7 @@ export class MurciaExperience {
     this.assetLoader = assetLoader;
 
     try {
-      await this.loadAndSetup(assetLoader);
+      await this.loadAndSetup(assetLoader, options.bytes);
       this.loadFailed = false;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -758,7 +764,7 @@ export class MurciaExperience {
     this.rig?.setClaim('inactive', !this.active);
   }
 
-  private async loadAndSetup(assetLoader: AssetLoader): Promise<void> {
+  private async loadAndSetup(assetLoader: AssetLoader, bytes: CityBytes | undefined): Promise<void> {
     const env = this.environment;
     this.statusOverlay.setLoading('Cargando la ciudad…', env.modelPath);
 
@@ -776,6 +782,7 @@ export class MurciaExperience {
       // skirt clone the plate's material, and they are built below.
       groundColor: env.sceneState.groundColor,
       onProgress: this.onLoadProgress,
+      bytes,
     });
     this.loaded = loaded;
     this.sceneBundle.scene.add(loaded.root);
@@ -1609,3 +1616,7 @@ export class MurciaExperience {
     // environment. Disposing them here would take Earth down with it.
   }
 }
+
+// Through this chunk rather than one of its own: a chunk shared by this one and
+// MurciaLayer would be one more request in the initial closure of `/`.
+export { prefetchCityBytes } from './assets/cityBytes';

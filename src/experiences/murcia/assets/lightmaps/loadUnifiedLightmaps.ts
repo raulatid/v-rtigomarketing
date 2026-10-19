@@ -6,6 +6,7 @@ import { ownGeometryWithSt } from './attachAssetLightmaps';
 import { createLightmapMaterial, prepareLightmapTexture } from './lightmapMaterial';
 import { atlasResolutions, parseUnifiedManifest } from './unifiedManifest';
 import type { LightmapResolution } from './lightmapManifest';
+import { fetchCityBytes, type CityBytes } from '../cityBytes';
 
 /**
  * The selected city bake: shared atlases without merging interactive building parts.
@@ -15,6 +16,7 @@ import type { LightmapResolution } from './lightmapManifest';
 export async function loadUnifiedLightmaps(
   gltf: GLTF, renderer: THREE.WebGLRenderer, base: string, file: string,
   resolution: LightmapResolution, reduced: readonly string[] | 'all' = [],
+  bytes: CityBytes = fetchCityBytes,
 ): Promise<{ resolution: LightmapResolution; dispose: () => void } | null> {
   const targets: Array<{ object: THREE.Mesh; geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }> = [];
   const textures = new Map<string, THREE.Texture>();
@@ -31,9 +33,7 @@ export async function loadUnifiedLightmaps(
   };
   const ktx2 = acquireKtx2Loader(renderer);
   try {
-    const response = await fetch(base + file);
-    if (!response.ok) throw new Error(`[lightmaps] manifest HTTP ${response.status}`);
-    const manifest = parseUnifiedManifest(await response.json());
+    const manifest = parseUnifiedManifest(await bytes.json(base + file));
     const sizes = atlasResolutions(manifest, resolution, reduced);
     for (const name of manifest.requiredNames) {
       if (!findByAnyNameSpelling(gltf.scene, name)) throw new Error(`[lightmaps] missing runtime node: ${name}`);
@@ -65,7 +65,7 @@ export async function loadUnifiedLightmaps(
     // Download in parallel: one file after another paid a round trip each,
     // 4.5 s for 20 atlases on the tablet. A failure surfaces at its own await
     // below; the catch only keeps the ones never reached from going unhandled.
-    const downloads = keys.map(key => fetchBuffer(base + manifest.atlases[key].variants[sizes.get(key)!].file));
+    const downloads = keys.map(key => bytes.buffer(base + manifest.atlases[key].variants[sizes.get(key)!].file));
     for (const download of downloads) download.catch(() => {});
     // Decode serially to avoid simultaneous worker/upload peaks on phones.
     for (const [index, key] of keys.entries()) {
@@ -124,10 +124,4 @@ export async function loadUnifiedLightmaps(
   } finally {
     releaseKtx2Loader();
   }
-}
-
-async function fetchBuffer(url: string): Promise<ArrayBuffer> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`[lightmaps] ${url} HTTP ${response.status}`);
-  return response.arrayBuffer();
 }
