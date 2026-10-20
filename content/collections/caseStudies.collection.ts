@@ -216,7 +216,6 @@ export const caseStudiesCollection = collection<CaseStudy>({
     projection: `{
       "id": slug.current,
       "highlighted": coalesce(highlighted, false),
-      label,
       name,
       "isotype": isotype.asset->url,
       "logo": logo.asset->url,
@@ -256,7 +255,6 @@ export const caseStudiesCollection = collection<CaseStudy>({
     const scoped = new Report(at)
 
     const name = text(scoped, 'name', source.name, { max: NAME_MAX })
-    const label = text(scoped, 'label', source.label ?? source.name, { max: NAME_MAX })
     // Absent is "not highlighted": the Studio field defaults to false and a
     // document created before the field existed has no value at all. Anything
     // present that is not a boolean is a defect, not a state.
@@ -346,7 +344,6 @@ export const caseStudiesCollection = collection<CaseStudy>({
       id === undefined ||
       highlighted === undefined ||
       name === undefined ||
-      label === undefined ||
       brandColor === undefined ||
       sector === undefined ||
       location === undefined ||
@@ -362,7 +359,6 @@ export const caseStudiesCollection = collection<CaseStudy>({
     const value: CaseStudy = {
       id,
       highlighted,
-      label,
       name,
       isotype,
       logo,

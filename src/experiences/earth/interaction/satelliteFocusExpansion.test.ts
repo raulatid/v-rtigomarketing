@@ -24,7 +24,7 @@ import type { SatelliteDef } from '../orbit/orbitConfig'
 const VIEWPORT = { left: 0, top: 0, width: 800, height: 600 }
 
 function def(id: string): SatelliteDef {
-  return { id, name: id, label: id } as unknown as SatelliteDef
+  return { id, name: id } as unknown as SatelliteDef
 }
 
 /**

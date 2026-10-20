@@ -73,7 +73,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 52. **Barras o donut sin etiquetas no fallan: se dibujan mal.** Por eso el build exige una etiqueta por valor. Fija: `caseStudies.test.ts`.
 53. **El panel del caso pinta desde `shown`, no desde `data`.** Un bloque nuevo que lea `data` se vacía al empezar el fundido de salida, y si no reserva su altura, el panel salta. Fija en parte: `CasePanel.test.tsx`.
 54. **El color de marca va solo en las marcas de la gráfica** (`--case-brand`, `color-mix`). No lo lleves a la rejilla ni escribas un hex en el CSS: viene de Sanity. Solo visual.
-55. **`CaseStudy.label` existe y nada lo dibuja** (el atlas dibuja `name`; `types.ts` lo marca «NOT CURRENTLY RENDERED»). Está oculto en el Studio. No lo uses creyendo que se ve.
+55. **`CaseStudy.label` ya no existe en el sitio** (retirado el 2026-10-20): el atlas y el panel usan `name`. En el Studio sigue declarado y oculto (`sanity-studio/schemas/caseStudy.ts`) solo porque los documentos publicados guardan valores; sin el campo, el Studio los marcaría como desconocidos. Quítalo cuando se hayan borrado esos valores del dataset.
 56. **Los casos de los fixtures son de relleno:** ver [contenido](contenido.md), n.º 25.
 
 ## Datos de marca
@@ -101,5 +101,4 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 ## Posibles defectos
 
 - **Falta `viewport-fit=cover`** en las tres páginas (n.º 18).
-- **`CaseStudy.label` se declara, se proyecta y se valida sin lector** (n.º 55).
 - **`PRIORITY` conserva `district` y `marker`, de módulos borrados** (n.º 40); quitarlos es una tarea de código aparte.

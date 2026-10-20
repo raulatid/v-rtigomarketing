@@ -294,10 +294,10 @@ export const caseStudy = defineType({
         rule.custom(markupAdvice).warning(),
       ],
     }),
-    // HIDDEN. Nothing on the site renders `label` (`src/content/types.ts` says
-    // so, and the build fills it from `name` when empty), so offering it asked
-    // the editor for words nobody reads. The stored values stay; removing the
-    // field from the projection and the types is a separate task.
+    // RETIRED 2026-10-20: the site never rendered it, and the build no longer
+    // projects it. Still declared, and hidden, only because published
+    // documents carry stored values: without a field the Studio flags them as
+    // unknown. Delete this once those values have been unset in the dataset.
     defineField({
       name: 'label',
       title: 'Nombre corto',

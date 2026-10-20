@@ -137,7 +137,7 @@ export function caseStudyProblems(entry: CaseStudy): Problem[] {
   if (!ID_PATTERN.test(entry.id)) {
     problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
   }
-  for (const field of ['label', 'name', 'summary'] as const) {
+  for (const field of ['name', 'summary'] as const) {
     if (!nonEmpty(entry[field])) at(field, 'must be a non-empty string')
   }
   // Editorial: a case may say none of these. The panel joins whichever are set.

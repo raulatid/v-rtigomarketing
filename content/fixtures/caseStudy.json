@@ -2,7 +2,6 @@
   {
     "id": "satellite-01",
     "highlighted": false,
-    "label": "MANGO",
     "name": "Mango",
     "brandColor": "#e0b33c",
     "isotype": null,
@@ -49,7 +48,6 @@
   {
     "id": "satellite-02",
     "highlighted": false,
-    "label": "CABIFY",
     "name": "Cabify",
     "brandColor": "#7b4dff",
     "isotype": null,
@@ -94,7 +92,6 @@
   {
     "id": "satellite-03",
     "highlighted": false,
-    "label": "ESTRELLA",
     "name": "Estrella Galicia",
     "brandColor": "#e2452f",
     "isotype": null,
@@ -141,7 +138,6 @@
   {
     "id": "satellite-04",
     "highlighted": false,
-    "label": "IDEALISTA",
     "name": "Idealista",
     "brandColor": "#2fb56b",
     "isotype": null,
@@ -186,7 +182,6 @@
   {
     "id": "satellite-05",
     "highlighted": false,
-    "label": "CAMPER",
     "name": "Camper",
     "brandColor": "#ff7a3d",
     "isotype": null,
@@ -235,7 +230,6 @@
   {
     "id": "satellite-06",
     "highlighted": true,
-    "label": "FREIXENET",
     "name": "Freixenet",
     "brandColor": "#38a9d6",
     "isotype": null,

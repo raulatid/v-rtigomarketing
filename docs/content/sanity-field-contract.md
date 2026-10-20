@@ -58,7 +58,6 @@ These ride the orbits around the Earth. Ordered by slug. The highlighted case ri
 | `slug.current` | slug | `^[a-z0-9][a-z0-9-]{0,63}$`, unique | fail |
 | `name` | string | non-empty, ≤ 60 | fail |
 | `highlighted` | boolean | absent reads as `false`; **exactly one published case is highlighted** (`highlightedCaseProblems`) | fail |
-| `label` | string | ≤ 60; falls back to `name`. **Not rendered anywhere, and `hidden` in the Studio** (2026-09-11) | fail if over |
 | `isotype` | image | PNG/WebP, ≥ 432×432, aspect 0.75–1.33:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `logo` | image | PNG/WebP, ≥ 900×400, aspect 1.5–5:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `isotype` + `logo` | — | both present or both absent — they are one decision | fail |

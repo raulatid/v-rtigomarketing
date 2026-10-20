@@ -434,13 +434,6 @@ export interface CaseStudy {
    * round at every supported viewport (`satelliteVisibility.test.ts`).
    */
   highlighted: boolean
-  /**
-   * NOT CURRENTLY RENDERED. This was the text drawn on the old flat 3D badge,
-   * which the satellite GLB and the brand atlas replaced — the atlas draws
-   * `name`. Kept because it is a reasonable short-form field for an API to
-   * carry, but nothing reads it today.
-   */
-  label: string
   /** Full brand name, shown as the panel title. */
   name: string
   /**

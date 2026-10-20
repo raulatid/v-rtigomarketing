@@ -23,7 +23,6 @@ const preset = (id: string): OrbitPreset => ({
 const study = (id: string, highlighted = false): CaseStudy => ({
   id,
   highlighted,
-  label: id.toUpperCase(),
   name: id,
   isotype: null,
   logo: null,

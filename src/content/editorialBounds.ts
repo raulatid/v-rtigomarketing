@@ -92,9 +92,9 @@ export const EDITORIAL_BOUNDS = {
   },
   caseStudy: {
     /**
-     * ONE bound, four fields: `name`, `label`, `sector` and `location`. They sit
-     * in the same holographic panel column and are cut off by the same edge, so
-     * a separate number per field would be four ways of writing one measurement.
+     * ONE bound, three fields: `name`, `sector` and `location`. They sit in the
+     * same holographic panel column and are cut off by the same edge, so a
+     * separate number per field would be three ways of writing one measurement.
      */
     name: 60,
     summary: 400,
