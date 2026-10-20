@@ -27,7 +27,7 @@ La documentación anterior (`DECISIONS.md`, `ARCHITECTURE.md`, `adr/`) se está 
 | Contenido / CMS | migrada |
 | Blog | migrada |
 | Render y gráficos (ADR 001, 002, 008) | migrada |
-| Build y presupuestos | pendiente |
+| Build y presupuestos | migrada |
 
 Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), conservando su ruta relativa (`content/x.md` → `archivo/content/x.md`), y se actualizan los enlaces que apuntan a ellos.
 
@@ -129,6 +129,22 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Fallos de WebGL](decisiones/render/fallos-de-webgl.md): sin WebGL 2 no se evalúa la escena; la pérdida de contexto se declara y no se restaura.
 - [Decodificadores compartidos](decisiones/render/decodificadores-compartidos.md): un Draco y un KTX2 con contador, que se sueltan al terminar la carga.
 
+### Build y presupuestos
+- [JS inicial de la portada](decisiones/build/js-inicial-de-la-portada.md): la puerta es todo el JS inicial de `/`, en bytes y peticiones, y no se sube; los techos por chunk y el del worker del dibujo son secundarios.
+- [Precarga de la portada](decisiones/build/precarga-de-la-portada.md): `/` precarga todos los chunks salvo los que se abren por intención, y cada exclusión tiene su guarda.
+- [three en su chunk](decisiones/build/three-en-su-chunk.md): three va aparte y solo se alcanza con un import dinámico.
+- [Catálogo de three](decisiones/build/catalogo-de-three.md): R3F registra solo las clases de three que usa la app.
+- [Depuración fuera de producción](decisiones/build/depuracion-fuera-de-produccion.md): las herramientas de depuración no llegan al bundle de producción.
+- [Puerta de despliegue](decisiones/build/puerta-de-despliegue.md): `npm run build` es la puerta: checks, build, vista previa del blog y verificación de la salida.
+- [Niveles de prueba](decisiones/build/niveles-de-prueba.md): unitarios, harnesses y e2e local; qué va en cada uno.
+- [Producción y preview](decisiones/build/produccion-y-preview.md): los separa un solo valor, leído solo del entorno del proceso.
+- [Salida verificada](decisiones/build/salida-verificada.md): la salida se revisa antes de publicarse.
+- [Despliegue en Vercel](decisiones/build/despliegue-en-vercel.md): qué ejecuta Vercel, qué necesita del proyecto y cómo se cachea cada ruta.
+- [Recursos publicados](decisiones/build/recursos-publicados.md): en `public/` solo está lo vigente, y lo que cambia cambia de nombre.
+- [Entrega de la ciudad](decisiones/build/entrega-de-la-ciudad.md): un GLB y su carpeta de lightmaps con la misma versión; presupuesto de lightmaps por perfil.
+- [Contrato del GLB](decisiones/build/contrato-del-glb.md): el GLB se comprueba leyendo su JSON; el build exige la parte de nombres y el check completo aún no va en la cadena.
+- [Compresión y decodificadores](decisiones/build/compresion-y-decodificadores.md): Draco y KTX2, con los decodificadores de three.
+
 ## Trampas
 
 - [Cámara y navegación de Murcia](trampas/murcia-camara.md)
@@ -140,6 +156,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Blog](trampas/blog.md)
 - [Interfaz](trampas/interfaz.md)
 - [Render y gráficos](trampas/render.md)
+- [Build y presupuestos](trampas/build.md)
 
 ## Contratos
 

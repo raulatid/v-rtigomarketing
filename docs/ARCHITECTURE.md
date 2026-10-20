@@ -489,6 +489,8 @@ each effect retains its existing reduced-motion behavior.
 
 ## Publication policy and asset delivery
 
+> **Migrada en parte (2026-10-20):** el tercer párrafo (qué va en `public/`) → [`decisiones/build/recursos-publicados.md`](decisiones/build/recursos-publicados.md); el archivo `design/murcia/archive/` ya no existe (`49f14c8`).
+
 `scripts/publicationPolicy.ts` derives SEO files, entry canonicals, verified blog
 documents and local route rewrites from explicit inputs. It imports no Vite
 runtime, filesystem or environment. Vite retains hook ordering, HTML tag
@@ -622,6 +624,8 @@ only lives in this file is a rule the code will drift past. Adding one there is 
 removing one should require the same argument as changing this document.
 
 ## What the import graph cannot tell you
+
+> **Migrada en parte (2026-10-20):** lo que un import legal mete en un chunk con presupuesto → [`trampas/build.md`](trampas/build.md).
 
 These rules are about *direction*, and there is a second constraint they are structurally unable
 to express: **which chunk a legal import lands a module in.**

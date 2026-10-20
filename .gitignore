@@ -6,6 +6,8 @@ node_modules/
 # Build outputs
 dist/
 build/
+# Not a build output: the Build area of the documentation.
+!/docs/decisiones/build/
 out/
 .next/
 .nuxt/

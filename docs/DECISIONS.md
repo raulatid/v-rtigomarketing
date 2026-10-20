@@ -36,7 +36,7 @@ what it rules out, and how you would know it had been broken.
 | **`DECISIONS.md`** (this file) | The binding decisions, and the current state of each. The first thing to read. |
 | `adr/` | One file per architectural decision, with alternatives and trade-offs in full. Linked from here; not duplicated here. |
 | `archivo/PROJECT_MEMORY.md` | **Archived** 2026-10-20 (see `README.md`). History, not policy. Was: durable facts: what exists, the numbers that keep mattering, the traps. **The only one** — Murcia's separate memory was folded into it on 2026-08-07. Cite its sections by title, never by number. |
-| `integration/00-migration-log.md` | The execution record, phase by phase. History, not policy. |
+| `archivo/integration/00-migration-log.md` | **Archived** 2026-10-20. The execution record, phase by phase. History, not policy. |
 | `ARCHITECTURE.md` | The architecture as it should be. Binding. |
 | `archivo/ENGINEERING_PRINCIPLES.md` | **Archived** 2026-10-20 (see `README.md`): generic principles already covered by `CLAUDE.md` and the decisions. History, not policy. |
 | `murcia/blender-export-contract.md` | What the runtime reads out of the GLB and what must be true in the `.blend`. Read before any re-export. |
@@ -306,6 +306,8 @@ a visitor, and their names are how the fields are talked about in the docs.
 
 ## 12. Guard behaviour on the artifact, not on review
 
+> **Migrada (2026-10-20) →** [`build/puerta-de-despliegue.md`](decisiones/build/puerta-de-despliegue.md), [`build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md), y el párrafo de `VERTIGO_SKIP_BUDGETS` → [`trampas/build.md`](trampas/build.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Inherited and extended.** The intro chunk's standalone-ness is asserted on the emitted
 bundle rather than on imports, because standalone-ness breaks equally through a dynamic
 import, a global or a side-effectful module — and review would not catch it.
@@ -348,6 +350,8 @@ equivalent here, and an escape hatch on the gate is the gate.
 ---
 
 ## 13. Migration and refactoring stay separate
+
+> **Migrada en parte (2026-10-20):** «Vite is pinned at 5» → [`build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md) y [`trampas/build.md`](trampas/build.md). El resto es historia del proceso de migración.
 
 **Inherited** — `ENGINEERING_PRINCIPLES` §19. Upheld through the whole migration: Earth
 came across byte-for-byte first (identical emitted chunk hashes), and structural change came
@@ -439,6 +443,8 @@ continuous scrubbing — a different and much larger feature.
 ---
 
 ## 16. Production and preview are different builds, and the difference is one flag
+
+> **Migrada (2026-10-20) →** [`build/produccion-y-preview.md`](decisiones/build/produccion-y-preview.md), [`build/despliegue-en-vercel.md`](decisiones/build/despliegue-en-vercel.md), [`build/depuracion-fuera-de-produccion.md`](decisiones/build/depuracion-fuera-de-produccion.md), [`build/js-inicial-de-la-portada.md`](decisiones/build/js-inicial-de-la-portada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`audits/reports/production-readiness-vercel-2026-08-07.md`**, **`adr/007-loading-has-a-deadline.md`**
 
@@ -1172,6 +1178,8 @@ is eating part of the drag.
 ---
 
 ## 22. There are two test tiers, and a rule for telling them apart
+
+> **Migrada (2026-10-20) →** [`build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`docs/plans/000-testing-strategy.md`**
 
@@ -4062,6 +4070,8 @@ activation on touch; or a track lands in `public/audio/` without its hash in the
 
 ## 49. The centre of the city is baked and unlit; the exterior is lit
 
+> **Migrada en parte (2026-10-20):** «Resolution follows the sky's split», «Cost» y «Also broken when» → [`build/entrega-de-la-ciudad.md`](decisiones/build/entrega-de-la-ciudad.md) y [`build/contrato-del-glb.md`](decisiones/build/contrato-del-glb.md). El resto (por qué sin luz, la placa, receptores por `extras`) sigue sin migrar y puede estar desfasado.
+
 **Decided 2026-09-11,** with murcia-v7. The city's centre — the four quadrants inside the A2 ring,
 their windows and props, and the streets — ships with its light baked into twelve KTX2 atlases,
 and renders **unlit**: `MeshBasicMaterial` with a lightmap, the scene's rig ignored. The exterior
@@ -4324,8 +4334,8 @@ above the artwork.
 | The warp is triggered by a control, never by scroll | **§15**, inherited from the Murcia prototype | A gesture: wheel on desktop, a two-finger pinch on touch. Accumulated, reversible, threshold-committed — **`adr/009`**, then **`adr/012`** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md) |
 | A bounded zoom band lands on the wheel and on pinch | **§20**, 2026-08-13 | There is no zoom anywhere. Flights are the only way to get closer — **`adr/009`**. A pinch means NAVIGATE, not zoom — **`adr/012`** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md) |
 | Wheel is claimed by both experiences’ cameras | `createFocusCameraRig.ts`, `DragPanController.ts` | One global listener owns the whole wheel stream, which is what makes trackpad momentum tractable — **`adr/009`** · **Migrada →** [`trampas/murcia-camara.md`](trampas/murcia-camara.md) |
-| The repo has no test runner | `PROJECT_MEMORY` §2, "no ESLint and no test runner" | Vitest for pure logic; `checks/` unchanged; Playwright local — **§22** |
-| `npm run check` is the gate, and nothing runs it | `PROJECT_MEMORY` §10, audit `VER-1` | `npm run build` runs it, and every harness can fail — **§12** |
+| The repo has no test runner | `PROJECT_MEMORY` §2, "no ESLint and no test runner" | Vitest for pure logic; `checks/` unchanged; Playwright local — **§22** · **Migrada →** [`decisiones/build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md) |
+| `npm run check` is the gate, and nothing runs it | `PROJECT_MEMORY` §10, audit `VER-1` | `npm run build` runs it, and every harness can fail — **§12** · **Migrada →** [`decisiones/build/puerta-de-despliegue.md`](decisiones/build/puerta-de-despliegue.md) |
 | Pan is 1:1 under the cursor | **§20**, 2026-08-13 | Gain 0.7; exactness is asserted on the solve at gain 1 instead — **§21** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md) |
 | One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md) |
 | The Earth prototype keeps its own decisions file | `earth/DECISIONS.md`, 1862 lines, listed above as still authoritative | Retired 2026-08-17; what still binds is **§26**, and this file is the only one — **§26** |
@@ -4355,7 +4365,7 @@ above the artwork.
 | The 3D logo gets its own renderer | the Earth prototype's "The 3D logo gets its own renderer" | Overlay pass on the shared renderer — **§2**, `adr/002` · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md) |
 | One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` · **Migrada →** [`decisiones/render/escenas-separadas.md`](decisiones/render/escenas-separadas.md) |
 | Murcia always bypasses the composer | `adr/001` | Bypasses it *except during a warp* — **§7**, `adr/005` · **Migrada →** [`decisiones/transicion/warp.md`](decisiones/transicion/warp.md), [`decisiones/render/el-pipeline-dibuja-un-contrato.md`](decisiones/render/el-pipeline-dibuja-un-contrato.md) |
-| The city loader needs only Draco | `createAssetLoader.ts` | The shared KTX2 transcoder is attached too, before any texture exists — a GLTFLoader without one *rejects* a Basis image rather than degrading, and the production trim set has to be compressed to fit the iOS budget — **`murcia/blender-export-contract.md` §6.5** |
+| The city loader needs only Draco | `createAssetLoader.ts` | The shared KTX2 transcoder is attached too, before any texture exists — a GLTFLoader without one *rejects* a Basis image rather than degrading, and the production trim set has to be compressed to fit the iOS budget — **`murcia/blender-export-contract.md` §6.5** · **Migrada →** [`decisiones/build/compresion-y-decodificadores.md`](decisiones/build/compresion-y-decodificadores.md) |
 | Blender owns every sampling property of a texture | plan 001, *Blender decides WHERE the texture is sampled* | It owns all of them except wrapping. The banded trim atlas needs `wrapS = Repeat` with `wrapT = ClampToEdge`, and Blender's Image Texture *Extension* is one setting for both axes — so `configureTrimTextures` in `loadCity.ts` expresses what the export had no way to say — **`blender-export-contract.md` §6.3** |
 | The trim sheet arrives inside the GLB | plan 001 Phase 7, `blender-export-contract.md` §6.5, *"this is a file swap"* | It is served from `/textures/murcia/` and put onto the material at load. Embedding it makes every colour change a re-export of 1.29 MB of Draco geometry, and the sheet will be iterated dozens of times before anyone is happy with it. It costs nothing to move: the GLB declares zero materials, so the runtime has to build the city's material either way — **`loadTrimSheet.ts`, `applyTrimSheet.ts`, plan 009 Phase 4** |
 | The runtime must not create materials for the city | plan 001 Phase 4, *"Prevent Existing Runtime Material Overrides"* | Only while the export has none to override. `GLTFLoader` fabricates one `metalness: 1` default for all 222 primitives, which is nobody's authored intent and is most of why the city read as grey. The rule survives where it was aimed: the moment the export ships a material, `applyTrimSheet` stops replacing it and dresses it instead — **`applyTrimSheet.ts`** |
