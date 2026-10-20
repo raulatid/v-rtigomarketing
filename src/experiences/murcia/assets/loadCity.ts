@@ -5,8 +5,7 @@ import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { findByAnyNameSpelling } from './nodeNames';
 import { applyTrimSheet } from './applyTrimSheet';
-import { loadTrimSheet } from './loadTrimSheet';
-import type { BoundsRect, TrimSheetConfig } from '../config/environmentConfig';
+import type { BoundsRect } from '../config/environmentConfig';
 import { collectTextures, disposeObject3D } from '../../../graphics/disposal';
 import { createRioWater, type RioWater } from '../water/createRioWater';
 import { DEFAULT_RIO_WATER_CONFIG } from '../water/rioWaterConfig';
@@ -56,22 +55,20 @@ export interface LoadCityOptions {
    */
   groundObjectName?: string | null;
   /**
-   * The trim sheet to dress the city in, and the renderer the compressed-texture
-   * transcoder needs to ask the GPU what formats it has.
-   *
-   * Optional as a pair: omitting them loads the city untextured, which is what
-   * the tests and any future caller that only wants the geometry get.
-   */
-  trimSheet?: TrimSheetConfig;
-  /**
    * The baked light, when the model carries receivers for it. Needs the
-   * renderer for the same reason the sheet does; omitted, the city renders lit.
+   * renderer, which the compressed-texture transcoder asks what formats the GPU
+   * has; omitted, the city renders lit.
    */
   lightmaps?: LightmapConfig;
+  /**
+   * The renderer. Omitting it loads the geometry only — no city materials, no
+   * lightmaps — which is what the tests and any caller that only wants the
+   * geometry get.
+   */
   renderer?: THREE.WebGLRenderer;
   /**
-   * Base colour for the terrain plate's material. Travels with the sheet
-   * because it is only ever applied on the same pass; see `applyTrimSheet`.
+   * Base colour for the terrain plate's material, applied on the same pass as
+   * the city's materials; see `applyTrimSheet`.
    */
   groundColor?: number;
   /**
@@ -209,28 +206,14 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
     }, fail);
   });
 
-  // Alongside the model, not after it. The sheet is a few tens of KB against
-  // the GLB's 1.29 MB, so serialising them would spend a round trip to save
-  // nothing — and `loadTrimSheet` never rejects, so it cannot turn a texture
-  // problem into a failed city.
-  //
-  // Progress stays the GLB's byte count alone. Folding the sheet in would mean
-  // a new `StepId` in `bootState`, and `intro-draw/` is the one module that may
-  // import nothing and is held to a 16 KB budget; a few tens of KB is not worth
-  // spending that on.
-  const sheetPromise =
-    options.trimSheet && options.renderer
-      ? loadTrimSheet({ paths: options.trimSheet, renderer: options.renderer })
-      : Promise.resolve(null);
-
-  const [gltf, sheet] = await Promise.all([gltfPromise, sheetPromise]);
+  const gltf = await gltfPromise;
 
   const root = gltf.scene;
 
   // Order matters here, and every step depends on the one above it:
   //
   //   1. the plate has to be identified before the material is applied, because
-  //      it is the one mesh that must NOT get the sheet;
+  //      it is the one mesh that gets the ground material;
   //   2. the material has to exist before anything looks at materials, and the
   //      GLB supplies none;
   //   3. `configureTrimTextures` then finds the new textures by walking the
@@ -240,7 +223,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   //      blanket-assigns the buildings material to every mesh it walks — do it
   //      before and the water is silently overwritten with grey concrete;
   //      the services campus's colours go on here for the same reason — its
-  //      parts ship with no materials, and the sheet would otherwise be their look;
+  //      parts ship with no materials, and the buildings' would otherwise be their look;
   //   5. the lightmaps go on AFTER every pass above: `configureTrimTextures`
   //      would set repeat wrapping on the atlases, and the palettes replace
   //      materials on named nodes — none of which are receivers, but the order
@@ -251,10 +234,9 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   //      baked materials.
   const found = findTerrainPlate(root, options.terrainObjectName);
   const ground = findOuterGround(root, options.groundObjectName ?? null, found.mesh);
-  if (sheet) {
+  if (options.renderer) {
     applyTrimSheet({
       root,
-      sheet,
       terrain: found.mesh,
       ground,
       // The FILE's answer, not the scene graph's: once GLTFLoader has finished,

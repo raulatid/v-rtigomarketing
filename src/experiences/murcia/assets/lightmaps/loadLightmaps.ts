@@ -48,8 +48,8 @@ import { attachGroundLightmaps, meanVertexColour, type AttachedGroundLightmaps }
  * ## Failure
  *
  * Loud, not fatal. A manifest or atlas that will not load leaves the city on
- * its authored lit material — standing, wrongly lit, and reported — the same
- * bargain `loadTrimSheet` makes. Murcia is a non-required boot resource and a
+ * its authored lit material — standing, wrongly lit, and reported. Murcia is a
+ * non-required boot resource and a
  * texture must not be what takes it down.
  */
 

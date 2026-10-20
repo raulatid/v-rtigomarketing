@@ -389,15 +389,14 @@ export class MurciaExperience {
    * They were held for the whole mounted session, which is the trade
    * `graphics/decoders.ts` exists to refuse: it ref-counts precisely so a pool
    * lives no longer than the load that needs it, and every other consumer —
-   * `loadLogoAssets`, `createSatellite`, `loadTrimSheet` — already releases in a
+   * `loadLogoAssets`, `createSatellite` — already releases in a
    * `finally`. This one held its reference on the EXPERIENCE instead, so once
    * the intro was over one Draco pool and one Basis pool stayed resident for the
    * rest of the visit: four workers each at three's default, with a WASM heap
    * apiece, on exactly the device the reference counting was written for.
    *
-   * Safe here and nowhere earlier. `loadCity` awaits the GLB and the trim sheet
-   * together (`Promise.all`), the sheet and the lightmaps each acquire and
-   * release their own transcoder reference, and nothing in this environment loads an asset after
+   * Safe here and nowhere earlier. `loadCity` awaits the GLB, the lightmaps
+   * acquire and release their own transcoder reference, and nothing in this environment loads an asset after
    * that — the district, the blog building and the river all work on the graph
    * already in memory. A later feature that does load one acquires its own pair
    * rather than reviving this field.
@@ -773,9 +772,8 @@ export class MurciaExperience {
       modelPath: env.modelPath,
       terrainObjectName: env.terrainTransition.terrainObjectName,
       groundObjectName: env.terrainTransition.groundObjectName,
-      // The renderer travels with the sheet because a KTX2 set cannot be
+      // The renderer travels with the lightmaps because a KTX2 set cannot be
       // decoded without asking this GPU which compressed formats it has.
-      trimSheet: env.trimSheet,
       lightmaps: env.lightmaps,
       renderer: this.renderer,
       // Applied here rather than after the fact because the collar and the

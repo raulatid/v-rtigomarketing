@@ -6,25 +6,12 @@ import {
   CITY_VERTEX_COLOR_MATERIAL_NAME,
   GROUND_MATERIAL_NAME,
 } from './applyTrimSheet'
-import { isCompressedTexturePath } from './loadTrimSheet'
-import type { TrimSheet } from './loadTrimSheet'
-import { collectTextures } from '../../../graphics/disposal'
 
 // What the city's material has to be true of, asserted without a GLB, a
 // renderer or a GPU. Every one of these fails silently in the browser: a second
-// material is invisible until somebody reads a profiler, a map on the terrain
-// plate only shows up hundreds of units away on the skirt, and a wrong name
+// material is invisible until somebody reads a profiler, a wrong ground
+// material only shows up hundreds of units away on the skirt, and a wrong name
 // only breaks a harness nobody re-reads.
-
-function sheet(textures: TrimSheet['textures'] = {}): TrimSheet {
-  return { textures }
-}
-
-function named(name: string): THREE.Texture {
-  const tex = new THREE.Texture()
-  tex.name = name
-  return tex
-}
 
 /** Gives a mesh a white COLOR_0, as GLTFLoader names it: `color`, RGBA. */
 function coloured(mesh: THREE.Mesh): void {
@@ -58,28 +45,24 @@ function city(meshCount: number): {
 
 describe('applyTrimSheet, on a GLB that declares no materials', () => {
   it('gives every building the same material instance', () => {
-    // The promise of a trim sheet is many surfaces behind few materials, and
-    // `check:asset`'s MATERIAL_CEILING of 4 is that promise written down. One
-    // material per mesh would render identically and cost 222 of them.
+    // Many surfaces behind few materials: `check:asset`'s MATERIAL_CEILING of 4
+    // is that rule written down. One material per mesh would render identically
+    // and cost 222 of them.
     const { root, meshes, terrain } = city(5)
 
-    applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+    applyTrimSheet({ root, terrain, authored: false })
 
     const distinct = new Set(meshes.map((mesh) => mesh.material))
     expect(distinct.size).toBe(1)
   })
 
-  it('keeps the trim sheet off the terrain plate', () => {
-    // Not squeamishness about the ground. `createTerrainTransition` clones the
-    // plate's material for the collar and the skirt, and both of those
-    // geometries are built from positions and vertex colours with NO uv
-    // attribute — so a map inherited down that chain samples texel (0,0) across
-    // the whole horizon.
+  it('gives the terrain plate its own ground material', () => {
+    // `createTerrainTransition` clones the plate's material for the collar and
+    // the skirt, so the plate's material is the horizon's.
     const { root, terrain } = city(3)
 
     const applied = applyTrimSheet({
       root,
-      sheet: sheet({ baseColor: named('base') }),
       terrain,
       authored: false,
     })
@@ -87,16 +70,15 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     const ground = terrain.material as THREE.MeshStandardMaterial
     expect(ground).toBe(applied.ground)
     expect(ground.name).toBe(GROUND_MATERIAL_NAME)
-    expect(ground.map).toBeNull()
   })
 
   it('lights the ground the same way it lights the buildings', () => {
-    // The plate is separated to keep the MAP off it, not to give it a different
+    // The plate is separated to give it its own colour, not a different
     // response. Leaving it on the fabricated metalness-1 default would trade the
     // bug being fixed for a new inconsistency between ground and buildings.
     const { root, terrain } = city(2)
 
-    const applied = applyTrimSheet({ root, sheet: sheet(), terrain, authored: false })
+    const applied = applyTrimSheet({ root, terrain, authored: false })
     const buildings = applied.textured[0] as THREE.MeshStandardMaterial
     const ground = applied.ground as THREE.MeshStandardMaterial
 
@@ -108,12 +90,11 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     // The plate is the one large flat surface in the scene, so its albedo is
     // what decides how bright the floor is. At white it reached 227/255 and the
     // warp's borrowed bloom pass caught it. The buildings take their colour from
-    // the sheet and must not be tinted with it.
+    // their vertex colour and must not be tinted with it.
     const { root, terrain } = city(2)
 
     const applied = applyTrimSheet({
       root,
-      sheet: sheet(),
       terrain,
       authored: false,
       groundColor: 0x8a8f94,
@@ -129,18 +110,18 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     // fallback invented here.
     const { root, terrain } = city(1)
 
-    const applied = applyTrimSheet({ root, sheet: sheet(), terrain, authored: false })
+    const applied = applyTrimSheet({ root, terrain, authored: false })
 
     expect((applied.ground as THREE.MeshStandardMaterial).color.getHex()).toBe(0xffffff)
   })
 
   it('never writes to the material it displaces', () => {
-    // That instance is shared by every primitive of this load, so setting a map
-    // on it would texture the whole city at once — including the plate this
-    // function just went to the trouble of excluding.
+    // That instance is shared by every primitive of this load, so writing to it
+    // would recolour the whole city at once — including the plate this function
+    // just went to the trouble of separating.
     const { root, terrain, fabricated } = city(2)
 
-    applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+    applyTrimSheet({ root, terrain, authored: false })
 
     expect(fabricated.map).toBeNull()
     expect(fabricated.metalness).toBe(1)
@@ -151,7 +132,7 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     // went (plan 024); it is pinned so a rename is a decision, not an accident.
     const { root, terrain } = city(1)
 
-    const applied = applyTrimSheet({ root, sheet: sheet(), terrain, authored: false })
+    const applied = applyTrimSheet({ root, terrain, authored: false })
 
     expect(applied.textured[0].name).toBe(CITY_MATERIAL_NAME)
   })
@@ -159,33 +140,12 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
   it('is not metallic', () => {
     // GLTFLoader's fabricated default is `metalness: 1`, and this scene has no
     // environment map — a fully metallic surface has almost no diffuse term, so
-    // a base colour on it is very nearly invisible. Without this the sheet would
-    // look like it had failed to load.
+    // a base colour on it is very nearly invisible.
     const { root, terrain } = city(1)
 
-    const applied = applyTrimSheet({ root, sheet: sheet(), terrain, authored: false })
+    const applied = applyTrimSheet({ root, terrain, authored: false })
 
     expect((applied.textured[0] as THREE.MeshStandardMaterial).metalness).toBe(0)
-  })
-
-  it('routes each map to its slot and omits the ones that are absent', () => {
-    const base = named('base')
-    const normal = named('normal')
-    const { root, terrain } = city(1)
-
-    const applied = applyTrimSheet({
-      root,
-      sheet: sheet({ baseColor: base, normal }),
-      terrain,
-      authored: false,
-    })
-    const material = applied.textured[0] as THREE.MeshStandardMaterial
-
-    expect(material.map).toBe(base)
-    expect(material.normalMap).toBe(normal)
-    // Not a black or white stand-in: a wrong ORM is worse than none.
-    expect(material.aoMap).toBeNull()
-    expect(material.roughnessMap).toBeNull()
   })
 
   it('gives every coloured building ONE shared vertex-colour material, and the rest the plain one', () => {
@@ -195,7 +155,7 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     coloured(meshes[0])
     coloured(meshes[1])
 
-    const applied = applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+    const applied = applyTrimSheet({ root, terrain, authored: false })
     const plain = meshes[2].material as THREE.MeshStandardMaterial
     const tinted = meshes[0].material as THREE.MeshStandardMaterial
 
@@ -211,23 +171,15 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
   })
 
   it('lets the vertex-colour material differ from the plain one ONLY in vertexColors', () => {
-    // Same trim sheet instances, same lighting: white COLOR_0 must reproduce the
-    // plain material exactly, or the comparison the experiment rests on is void.
-    const base = named('base')
-    const normal = named('normal')
-    const orm = named('orm')
+    // Same lighting: white COLOR_0 must reproduce the plain material exactly,
+    // or the comparison the experiment rests on is void.
     const { root, meshes, terrain } = city(2)
     coloured(meshes[0])
 
-    applyTrimSheet({ root, sheet: sheet({ baseColor: base, normal, orm }), terrain, authored: false })
+    applyTrimSheet({ root, terrain, authored: false })
     const tinted = meshes[0].material as THREE.MeshStandardMaterial
     const plain = meshes[1].material as THREE.MeshStandardMaterial
 
-    expect(tinted.map).toBe(base)
-    expect(tinted.normalMap).toBe(normal)
-    expect(tinted.aoMap).toBe(orm)
-    expect(tinted.roughnessMap).toBe(orm)
-    expect(tinted.metalnessMap).toBe(orm)
     expect(tinted.metalness).toBe(plain.metalness)
     expect(tinted.roughness).toBe(plain.roughness)
     expect(tinted.color.getHex()).toBe(plain.color.getHex())
@@ -237,52 +189,29 @@ describe('applyTrimSheet, on a GLB that declares no materials', () => {
     // The shipped city has no COLOR_0: its material set must be exactly today's.
     const { root, terrain } = city(3)
 
-    const applied = applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+    const applied = applyTrimSheet({ root, terrain, authored: false })
 
     expect(applied.textured).toHaveLength(1)
     expect((applied.textured[0] as THREE.MeshStandardMaterial).vertexColors).toBe(false)
   })
 
   it('keeps the ground on its own material even when the plate carries COLOR_0', () => {
-    // A coloured plate must not become a building: it would pick up the sheet
-    // that the collar and skirt then smear across the horizon.
+    // A coloured plate must not become a building: the collar and skirt clone
+    // its material across the horizon.
     const { root, terrain } = city(1)
     coloured(terrain)
 
-    const applied = applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: false })
+    const applied = applyTrimSheet({ root, terrain, authored: false })
 
     expect(terrain.material).toBe(applied.ground)
     expect(applied.textured).toHaveLength(1)
   })
-
-  it('shares one ORM texture across the three slots it packs, and disposal sees it once', () => {
-    // The glTF packing is occlusion/roughness/metallic in one image. Three reads
-    // the UV set from `Texture.channel`, which belongs to the texture rather
-    // than the slot, so one instance cannot disagree with itself about which
-    // UVs to use — and `collectTextures` dedupes it, so `disposeObject3D` will
-    // not free it three times.
-    const orm = named('orm')
-    const { root, terrain } = city(1)
-
-    const applied = applyTrimSheet({ root, sheet: sheet({ orm }), terrain, authored: false })
-    const material = applied.textured[0] as THREE.MeshStandardMaterial
-
-    expect(material.aoMap).toBe(orm)
-    expect(material.roughnessMap).toBe(orm)
-    expect(material.metalnessMap).toBe(orm)
-    expect(orm.channel).toBe(0)
-
-    const found = new Set<THREE.Texture>()
-    collectTextures(material, found)
-    expect(found.size).toBe(1)
-  })
 })
 
 describe('applyTrimSheet, on a GLB that declares its own materials', () => {
-  it('dresses the authored material instead of replacing it', () => {
-    // The state after the artist's re-export: the export contract §6.4 asks for
-    // one authored material, and `DistrictHighlight` reads an authored emissive
-    // and SCALES rather than overwrites it. Replacing the material would throw
+  it('leaves the authored materials untouched', () => {
+    // The artist's export: `DistrictHighlight` reads an authored emissive and
+    // SCALES rather than overwrites it. Replacing the material would throw
     // both away silently — plan 001 Phase 4 exists to prevent exactly this.
     const authoredMaterial = new THREE.MeshStandardMaterial({
       name: 'ciudad',
@@ -293,30 +222,15 @@ describe('applyTrimSheet, on a GLB that declares its own materials', () => {
     const root = new THREE.Group()
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), authoredMaterial)
     root.add(mesh)
-    const base = named('base')
 
-    applyTrimSheet({ root, sheet: sheet({ baseColor: base }), terrain: null, authored: true })
+    const applied = applyTrimSheet({ root, terrain: null, authored: true })
 
+    expect(applied.textured).toEqual([])
     expect(mesh.material).toBe(authoredMaterial)
-    expect(authoredMaterial.map).toBe(base)
     expect(authoredMaterial.name).toBe('ciudad')
     expect(authoredMaterial.color.getHex()).toBe(0x8899aa)
     expect(authoredMaterial.emissive.getHex()).toBe(0xff8800)
     expect(authoredMaterial.roughness).toBe(0.4)
-  })
-
-  it('still keeps the sheet off the terrain plate', () => {
-    const authoredMaterial = new THREE.MeshStandardMaterial({ name: 'ciudad' })
-    const groundMaterial = new THREE.MeshStandardMaterial({ name: 'suelo' })
-    const root = new THREE.Group()
-    root.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), authoredMaterial))
-    const terrain = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), groundMaterial)
-    root.add(terrain)
-
-    applyTrimSheet({ root, sheet: sheet({ baseColor: named('base') }), terrain, authored: true })
-
-    expect(authoredMaterial.map).not.toBeNull()
-    expect(groundMaterial.map).toBeNull()
   })
 
   it('does not tint an authored ground material', () => {
@@ -331,7 +245,6 @@ describe('applyTrimSheet, on a GLB that declares its own materials', () => {
 
     const applied = applyTrimSheet({
       root,
-      sheet: sheet({ baseColor: named('base') }),
       terrain,
       authored: true,
       groundColor: 0x8a8f94,
@@ -340,23 +253,5 @@ describe('applyTrimSheet, on a GLB that declares its own materials', () => {
     expect(applied.ground).toBeNull()
     expect(terrain.material).toBe(groundMaterial)
     expect(groundMaterial.color.getHex()).toBe(0x223344)
-  })
-})
-
-describe('isCompressedTexturePath', () => {
-  // The whole PNG-now / KTX2-later migration is this one predicate, so it is
-  // asserted rather than trusted to a manual swap.
-  it('recognises a KTX2 file, whatever the case or query string', () => {
-    expect(isCompressedTexturePath('/textures/murcia/murcia-basecolor.ktx2')).toBe(true)
-    expect(isCompressedTexturePath('/textures/murcia/MURCIA-BASECOLOR.KTX2')).toBe(true)
-    expect(isCompressedTexturePath('/textures/murcia/murcia-basecolor.ktx2?v=2')).toBe(true)
-  })
-
-  it('sends everything else to the plain loader', () => {
-    expect(isCompressedTexturePath('/textures/murcia/murcia-basecolor.png')).toBe(false)
-    expect(isCompressedTexturePath('/textures/murcia/murcia-basecolor.jpg')).toBe(false)
-    // Not a substring match: a directory named for the format must not decide
-    // the loader.
-    expect(isCompressedTexturePath('/textures/ktx2/sheet.png')).toBe(false)
   })
 })

@@ -249,23 +249,6 @@ export const murciaConfig: EnvironmentConfig = {
   // route and 404s anywhere but the root.
   modelPath: '/models/murcia-v5.2-lightmaps-r1.glb',
 
-  // No trim sheet since murcia-v7. The city's colour is vertex colour alone:
-  // the export embeds a neutral white trim so Blender could bake against the
-  // same material graph, and the runtime drops it rather than multiply by
-  // white (`assets/lightmaps/loadLightmaps.ts`). The mechanism stays — a real
-  // sheet is still a file drop into these three strings (docs/plans/009 Phase
-  // 4) — but a path here would be written onto the authored material and over
-  // the colours the light was baked for.
-  //
-  // Normal and ORM are null until they exist. They are not placeholders waiting
-  // to be filled in with something plausible: a wrong normal map is worse than
-  // none, and the material simply omits the slot.
-  trimSheet: {
-    baseColor: null,
-    normal: null,
-    orm: null,
-  },
-
   // Versioned model and manifest are one delivery. Mixed atlas resolutions
   // prioritize central ground, the cathedral and rooftop parapets; outer
   // context stays smaller. The manifest enforces 4.5 MB mobile / 6.5 MB desktop.
