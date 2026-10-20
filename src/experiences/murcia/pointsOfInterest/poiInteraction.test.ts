@@ -51,6 +51,7 @@ function makeFixture() {
   const cursor = { request: vi.fn() }
   const activate = vi.fn()
   const state = { available: true, dragging: false }
+  const focus = { isEngaged: false, exit: vi.fn() }
 
   const interaction = new PoiInteraction({
     canvas,
@@ -62,6 +63,7 @@ function makeFixture() {
     tower,
     available: () => state.available,
     activate,
+    focus,
   })
 
   const event = (type: string, x: number, y: number, pointerType = 'mouse') =>
@@ -76,7 +78,7 @@ function makeFixture() {
   }
 
   return {
-    interaction, canvas, markers, tower, cursor, activate, state, tap, event, hover,
+    interaction, canvas, markers, tower, cursor, activate, state, focus, tap, event, hover,
     screenPoint: toClient(new THREE.Vector3(0, 30, 0)),
     basePoint: toClient(new THREE.Vector3(0, 3, 0)),
     dots,
@@ -143,5 +145,38 @@ describe('the points of interest pointer', () => {
     fixture.interaction.update()
     expect(fixture.markers.setPointed).toHaveBeenLastCalledWith(null)
     expect(fixture.cursor.request).toHaveBeenLastCalledWith('marker:poi', '')
+  })
+})
+
+describe('the way out from in front of the screen', () => {
+  const key = (k: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }))
+
+  it('leaves on Escape, and Escape does nothing otherwise', () => {
+    fixture = makeFixture()
+    key('Escape')
+    expect(fixture.focus.exit).not.toHaveBeenCalled()
+    fixture.focus.isEngaged = true
+    key('Escape')
+    expect(fixture.focus.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves on a tap anywhere but the screen, and a tap on the screen stays', () => {
+    fixture = makeFixture()
+    fixture.focus.isEngaged = true
+    fixture.state.available = false
+    fixture.tap(fixture.screenPoint.x, fixture.screenPoint.y)
+    expect(fixture.focus.exit).not.toHaveBeenCalled()
+    fixture.tap(1500, 850)
+    expect(fixture.focus.exit).toHaveBeenCalledTimes(1)
+    // Nothing else answers while the screen holds the camera.
+    expect(fixture.activate).not.toHaveBeenCalled()
+  })
+
+  it('does not take a pan for a way out', () => {
+    fixture = makeFixture()
+    fixture.focus.isEngaged = true
+    fixture.event('pointerdown', 1500, 850)
+    fixture.event('pointerup', 1400, 850)
+    expect(fixture.focus.exit).not.toHaveBeenCalled()
   })
 })

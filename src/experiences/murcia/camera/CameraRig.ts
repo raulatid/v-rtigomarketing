@@ -64,7 +64,7 @@ import type { CameraTuning } from './cameraTuning';
  * Names ONLY. The rig attaches no meaning and no order to these values — it
  * counts them and nothing else. Which owner wins when several hold at once is
  * precedence, and precedence lives in `MurciaExperience.update()`, where the
- * four rungs are already spelled out. Teaching the rig that a warp outranks a
+ * rungs are already spelled out. Teaching the rig that a warp outranks a
  * campus would put the city's vocabulary inside a class that otherwise knows
  * only about springs and poses.
  *
@@ -73,7 +73,7 @@ import type { CameraTuning } from './cameraTuning';
  * mode of a stuck claim is a deaf camera, is exactly the mistake worth catching
  * at build time.
  */
-export type CameraClaim = 'inactive' | 'warp' | 'campus' | 'blog';
+export type CameraClaim = 'inactive' | 'warp' | 'campus' | 'blog' | 'tower';
 
 /**
  * What a district flight or the blog approach holds to take the camera.

@@ -25,6 +25,12 @@ import { POI_DEFINITIONS, type PoiId } from './poiConfig';
  *
  * A dot is nearer the eye than any surface: it is drawn over everything, so a
  * tap that lands on one is the dot's, whatever is behind it.
+ *
+ * ## In front of the screen
+ *
+ * While Anuncios holds the camera (`landmark/towerFocus.ts`) the dots are gone
+ * and this is the way out: Escape, or a clean tap anywhere but the screen. A
+ * tap ON the screen is someone looking closer, not leaving.
  */
 
 export interface PoiTower {
@@ -51,6 +57,14 @@ export interface PoiInteractionDeps {
   available(): boolean;
   /** A clickable point of interest was tapped. */
   activate(id: PoiId): void;
+  /** Anuncios, while it holds the camera. */
+  focus?: { readonly isEngaged: boolean; exit(): void };
+}
+
+/** Keys typed into a field are the field's, whatever the scene is doing. */
+function isEditable(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
 }
 
 const CLICKABLE = new Set(POI_DEFINITIONS.filter((definition) => definition.clickable).map((d) => d.id));
@@ -84,6 +98,7 @@ export class PoiInteraction {
     deps.canvas.addEventListener('pointermove', this.onPointerMove);
     deps.canvas.addEventListener('pointerup', this.onPointerUp);
     deps.canvas.addEventListener('pointercancel', this.onPointerCancel);
+    window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('pointerup', this.onWindowPointerRelease, { capture: true, passive: true });
     window.addEventListener('pointercancel', this.onWindowPointerRelease, { capture: true, passive: true });
   }
@@ -183,12 +198,24 @@ export class PoiInteraction {
     if (!press || this.deps.isDragging()) return;
     const threshold = press.touch ? this.deps.tapThresholdPx.touch : this.deps.tapThresholdPx.mouse;
     if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > threshold) return;
-    if (!this.deps.available()) return;
-
     const x = press.touch ? press.x : event.clientX;
     const y = press.touch ? press.y : event.clientY;
+
+    const focus = this.deps.focus;
+    if (focus?.isEngaged) {
+      if (this.surfaceAt(x, y) !== 'anuncios') focus.exit();
+      return;
+    }
+    if (!this.deps.available()) return;
     const target = this.deps.markers.dotAt(x, y, press.touch) ?? this.surfaceAt(x, y);
     if (target !== null && CLICKABLE.has(target)) this.deps.activate(target);
+  };
+
+  private readonly onKeyDown = (event: KeyboardEvent): void => {
+    // On `window`, so it would fire while Earth owns the screen.
+    if (!this.enabled || event.defaultPrevented || event.key !== 'Escape') return;
+    if (event.altKey || event.ctrlKey || event.metaKey || isEditable(event.target)) return;
+    if (this.deps.focus?.isEngaged) this.deps.focus.exit();
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
@@ -207,6 +234,7 @@ export class PoiInteraction {
     canvas.removeEventListener('pointermove', this.onPointerMove);
     canvas.removeEventListener('pointerup', this.onPointerUp);
     canvas.removeEventListener('pointercancel', this.onPointerCancel);
+    window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('pointerup', this.onWindowPointerRelease, { capture: true });
     window.removeEventListener('pointercancel', this.onWindowPointerRelease, { capture: true });
     this.deps.cursor.request('marker:poi', '');
