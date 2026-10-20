@@ -16,7 +16,7 @@
  * this application holds roughly 280 MB of GPU memory for the whole session by
  * design (ADR 001/003 keep both worlds resident). So context loss here is not
  * the rare driver accident it is on a desktop; it is the expected end of a long
- * mobile session. See `audits/ios-safari-2026-08-14.md`, I1 and I2.
+ * mobile session. See `audits/reports/ios-safari-2026-08-14.md`, I1 and I2.
  *
  * WHAT `preventDefault()` DOES, AND WHY IT IS CALLED ANYWAY. It is the only way
  * to tell the browser we would like the context back — without it, restoration

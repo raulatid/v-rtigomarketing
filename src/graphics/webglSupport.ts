@@ -4,8 +4,9 @@
  * Checked before mounting the Canvas rather than left to `SceneErrorBoundary`,
  * so the common case is a deliberate answer instead of a caught exception: an
  * unsupported device, WebGL disabled in settings, or a headless/blocked
- * environment. The boundary still covers everything else — a context lost after
- * creation, a driver reset, a throw inside a scene component.
+ * environment. The boundary still covers a throw inside a scene component. A
+ * context lost after creation is a DOM event the boundary never sees;
+ * `contextLoss.ts` handles it.
  *
  * The probe canvas is thrown away immediately; contexts are a limited resource
  * and this one exists only to answer the question. The result is cached because

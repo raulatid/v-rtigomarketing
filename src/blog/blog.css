@@ -19,10 +19,10 @@
  * `.blog-*` rules. The files are the genuine Inter and Source Serif 4; only the
  * declared family differs.
  *
- * UNDER REVIEW (2026-09-12): the site's text role, Gambetta ('Vertigo Text',
- * siteHeader.css), now stands first in front of both, for the interface and
- * the article alike. Those two stay declared and second, so going back is a
- * reorder. While second, they are fetched only for a glyph Gambetta lacks —
+ * Since 2026-09-11 the site's text role, Gambetta ('Vertigo Text',
+ * siteHeader.css), stands first in front of both, for the interface and the
+ * article alike. Those two stay declared and second. While second, they are
+ * fetched only for a glyph Gambetta lacks —
  * it has no arrows (see siteHeader.css).
  *
  * ── Only latin and latin-ext ──

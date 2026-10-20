@@ -6,7 +6,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 1. **Solo `RenderPipeline` usa una prioridad de `useFrame` distinta de 0.** Cualquier prioridad mayor que 0 hace que R3F deje de dibujar; una prioridad 2 correría DESPUÉS del dibujo y su efecto se vería un fotograma tarde. Entre las de prioridad 0 manda el orden de montaje (ver [`transicion.md`](transicion.md), n.º 6). Sin test.
 2. **Un reloj que la escena lee no puede ir en un rAF propio:** si corriera después del de R3F, cada fotograma pintaría el valor anterior. Se monta como `TransitionClockDriver` dentro del Canvas. Sin test.
-3. **El comentario «Last, and the only thing that renders» de `SceneCanvas.tsx` está encima de `MurciaLayer`, pero habla de `RenderPipeline`.** Quedó desplazado al insertar `MurciaLayer` (`ebf6b47`). Lo último y lo único que dibuja es `RenderPipeline`. Corregir el comentario es una tarea de código aparte.
+3. **`RenderPipeline` va el último en `SceneCanvas.tsx`:** es lo único que dibuja, y toda capa que escriba estado por fotograma que él consume tiene que montarse antes. Sin test.
 
 ## Composer y pases
 
@@ -25,32 +25,24 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 ## Fallos de WebGL
 
 12. **El error boundary no ve la pérdida de contexto.** Es un evento DOM: three deja de dibujar en silencio y nada lanza. Sin `preventDefault()`, el navegador ni siquiera intenta restaurarlo. Fija: `e2e/mobile.spec.ts` («a lost WebGL context…»).
-13. **Los comentarios de `SceneErrorBoundary.tsx` («a driver reset») y `webglSupport.ts` («a context lost after creation, a driver reset») dicen que el boundary cubre la pérdida de contexto.** No es así: la cubre `contextLoss.ts`. Corregirlos es una tarea de código aparte.
 
 ## Decodificadores
 
-14. **Adquiere y suelta por parejas, y suelta al terminar la carga.** Un `release` de más quita el grupo de workers a quien aún decodifica; atarlo a la vida de un objeto que no se libera deja los workers para siempre. Fija solo para los lightmaps: `loadUnifiedLightmaps.test.ts`.
-15. **El comentario de `decoders.ts` dice que cada consumidor suelta «with no change to when things are freed».** Es falso desde `8e40377`: el logo y Murcia sueltan al terminar la carga, no en su `dispose`. La regla buena es la de [decodificadores compartidos](../decisiones/render/decodificadores-compartidos.md).
+13. **Adquiere y suelta por parejas, y suelta al terminar la carga.** Un `release` de más quita el grupo de workers a quien aún decodifica; atarlo a la vida de un objeto que no se libera deja los workers para siempre. Fija solo para los lightmaps: `loadUnifiedLightmaps.test.ts`.
 
 ## Configuración
 
-16. **El límite de densidad está copiado en cuatro sitios:** `dpr` en `SceneCanvas.tsx`, `setPixelRatio` en `headerLogoRuntime.ts`, `TEXTURE_SCALE` en `pageImage.ts` y `DEVICE_SCALE_FACTOR` en `scripts/blog-preview.mjs`. Si cambias uno, revisa los otros. Sin test.
-17. **`alpha: false` no ahorra composición del navegador:** three crea el contexto con `alpha: true` igualmente. No vuelvas a deducir un ahorro de esa línea.
-18. **El tone mapping y el espacio de color de la escena no están escritos en ningún sitio:** son el valor por defecto de R3F, y `headerLogoRuntime.ts` los copia a mano. Un `flat` o `linear` en el Canvas, o un cambio de R3F, separaría las dos marcas. Fija en parte: `e2e/backdrop.spec.ts`.
-19. **El canvas se mide por `offsetSize`.** Con el valor por defecto de R3F, el rectángulo inclinado del menú del móvil entraría en `gl.setSize` → `composer.setSize` → `setViewport`. Fija: `e2e/mobile.spec.ts` («the burger hinges the scene away…»).
-
-## Comentarios rancios
-
-20. **`RenderPipeline.tsx` dice que importa «three.js, its addons, and two local modules».** Importa cinco módulos locales (`vacuumPass`, `renderableExperience`, `frameDelta`, `contextLoss`, `compileForTarget`). La regla real la vigila `check:architecture`, no el comentario.
-21. **`renderableExperience.ts` dice que «a future Earth experience» cumplirá el contrato.** No lo hará: Earth se queda en la escena por defecto de R3F ([el pipeline dibuja un contrato](../decisiones/render/el-pipeline-dibuja-un-contrato.md)).
-22. **La auditoría de iOS se cita como `audits/ios-safari-2026-08-14.md`, que no existe;** está en `docs/audits/reports/`. El enlace roto aparece en `RenderPipeline.tsx`, `contextLoss.ts`, `decoders.ts`, `earthConfig.ts`, `createAssetLoader.ts`, `loadCity.ts` y `createBrandAtlas.test.ts`.
+14. **El límite de densidad está copiado en cuatro sitios:** `dpr` en `SceneCanvas.tsx`, `setPixelRatio` en `headerLogoRuntime.ts`, `TEXTURE_SCALE` en `pageImage.ts` y `DEVICE_SCALE_FACTOR` en `scripts/blog-preview.mjs`. Si cambias uno, revisa los otros. Sin test.
+15. **`alpha: false` no ahorra composición del navegador:** three crea el contexto con `alpha: true` igualmente. No vuelvas a deducir un ahorro de esa línea.
+16. **El tone mapping y el espacio de color de la escena no están escritos en ningún sitio:** son el valor por defecto de R3F, y `headerLogoRuntime.ts` los copia a mano. Un `flat` o `linear` en el Canvas, o un cambio de R3F, separaría las dos marcas. Fija en parte: `e2e/backdrop.spec.ts`.
+17. **El canvas se mide por `offsetSize`.** Con el valor por defecto de R3F, el rectángulo inclinado del menú del móvil entraría en `gl.setSize` → `composer.setSize` → `setViewport`. Fija: `e2e/mobile.spec.ts` («the burger hinges the scene away…»).
 
 ## Ya migradas en otras áreas
 
 - Retorno temprano en `RenderPipeline` = lienzo en blanco, los dos buffers del afterimage, el bloom a 0 al tomar prestado el composer, `EffectComposer.dispose()`, el número de luces y el precalentado: [`transicion.md`](transicion.md), n.º 5 y 14-20.
 - Fatal tras ceder el paso, `disposed` con StrictMode, `alpha: false` exige `setClearColor`: [`intro.md`](intro.md), n.º 4, 5 y 10.
 - Promesa rechazada en caché, el alfa y el umbral de bloom, `scene.background` sin tone mapping: [`earth.md`](earth.md), n.º 17, 21 y 24; `colorspace_fragment` y KTX2: [convenciones de render](../decisiones/earth/convenciones-de-render.md).
-- `display: none` y el comentario de `decoders.ts` sobre un solo renderer: [`blog.md`](blog.md), n.º 7 y 24.
+- `display: none` y `detectSupport` con dos contextos: [`blog.md`](blog.md), n.º 7 y 24.
 
 ## Cómo verificar esta área
 
@@ -74,5 +66,4 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 ## Posibles defectos
 
-- Los comentarios de las trampas n.º 3, 13, 15, 20, 21 y 22 están desfasados; corregirlos es una tarea de código aparte.
-- El tone mapping y el espacio de color implícitos (n.º 18) no son un defecto hoy, pero un cambio de valores por defecto de R3F desajustaría en silencio la marca del blog.
+- El tone mapping y el espacio de color implícitos (n.º 16) no son un defecto hoy, pero un cambio de valores por defecto de R3F desajustaría en silencio la marca del blog.

@@ -559,8 +559,7 @@ test('the accessible control is reachable and names its destination', async ({ p
 /**
  * The phone menu. On the SCENE the viewport itself hinges away and slides down,
  * and the menu is the layer it uncovers behind itself (plan 023); on the BLOG
- * it is still the plan-011 glass field, because there is no scene canvas there
- * to move.
+ * the page is the card, and moves the same way.
  *
  * The motion is CSS and is judged by eye. What these prove is the contract —
  * what opens it, what closes it, that the canvas underneath is neither

@@ -23,7 +23,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 17. **El menú lee el movimiento reducido al cerrar** (`prefersReducedMotion()`, instantánea del documento), y el CSS reacciona en vivo. Si la preferencia cambia a mitad de sesión, la fase dura más que la transición; nunca al revés.
 18. **Ninguna página lleva `viewport-fit=cover`** (`index.html`, `blog.html`, `404.html`): en iOS todos los `env(safe-area-inset-*)` valen 0 y los `max(12px, env(…))` caen al mínimo. Debe llegar junto con el relleno que habilita, no antes.
 19. **Las esquinas redondeadas de la tarjeta dependen de que `overflow: hidden` recorte una capa WebGL bajo una transformación 3D,** y iOS Safari puede ignorarlo. El blog lleva `isolation: isolate` en `.blog-surface`; la escena no. Sin probar: los proyectos móviles de Playwright son Chromium.
-20. **Comentarios rancios:** `e2e/mobile.spec.ts` dice que el blog usa aún el campo de vidrio (falso desde el 2026-09-16); `headerMenuTiming.ts` y `protoMenu3d.ts` sitúan el CSS en `styles.css`, `.app__viewport` (está en `siteMenu.css`, `.site-menu-viewport`); `siteHeader.css` sigue hablando del «dark glass field».
+20. **El menú del móvil ya no es un campo de vidrio:** desde el 2026-09-16, también en el blog, la página es la tarjeta que se mueve. Su CSS está en `siteMenu.css` (`.site-menu-viewport`), no en `styles.css`. Lo que hable del «glass field» o del plan 011 es historia.
 
 ## Vidrio y color
 
@@ -34,7 +34,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 25. **No pongas `scrollbar-width` ni `scrollbar-color` en un componente:** Chromium dejaría de aplicar `::-webkit-scrollbar` y volverían las flechas en Windows. Un panel redondeado con scroll fija `--scrollbar-inset` a su radio.
 26. **`backdrop-filter` sin prefijo no desenfoca en iOS 15–17.** Cada uso lleva `-webkit-backdrop-filter` y una placa con alfa que se lea sin desenfoque.
 27. **El texto de un campo nunca baja de 16 px,** o iOS amplía la página al enfocar y la escena no se puede volver a pellizcar. Fija: solo la búsqueda del blog (`e2e/mobile.spec.ts`).
-28. **`@keyframes site-header-breath` no lo usa nadie** (`siteHeader.css`): código muerto, no una pista. Los comentarios de la densidad A citan aún el marco de la pista, que ya no existe.
+28. **`@keyframes site-header-breath` no lo usa nadie** (`siteHeader.css`): código muerto, no una pista.
 
 ## Tipografía
 
@@ -44,7 +44,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 32. **El atlas de marcas de Earth dibuja en `system-ui`:** su cara cambia según la plataforma; mide con `measureText` y no compares capturas de texto entre plataformas.
 33. **Quitar Switzer o Inter del respaldo deja las flechas (← → ↑ ↓) sin cara.** Decide antes de dónde salen.
 34. **Un archivo nuevo en `public/fonts/` lleva los 8 primeros hexadecimales de su SHA-256 en el nombre** (`immutable`), y su precarga, `crossorigin`. Sin test.
-35. **Comentarios rancios:** `siteHeader.css` y `blog.css` marcan las caras como «UNDER REVIEW (2026-09-12)», pero la decisión está tomada (commit del 2026-09-11); `styles.css` dice que la pista se pinta en `system-ui`, y hereda Gambetta.
+35. **La pista de escena no lleva `font-family` a propósito:** hereda el rol de texto (hoy Gambetta). Una familia propia la separaría de la página. El reparto de caras es definitivo: ver [tipografías](../decisiones/interfaz/tipografias.md).
 
 ## Capas
 
@@ -57,7 +57,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 39. **No crees un segundo `CursorManager` en el mismo canvas:** vuelve el parpadeo. Usa el de tu experiencia con una clave `fuente:instancia`. Sin test.
 40. **`PRIORITY` solo decide de verdad entre `'grabbing'` y `'pointer'`.** Una fuente que no está en la tabla vale 0 (hoy `campus:*` y `murcia:blog-display`); `district` y `marker` son restos de módulos borrados. Sin test del árbitro.
 41. **Una experiencia que se desactiva retira sus peticiones en ese momento,** porque el `update()` que las retiraría deja de correr. Una fuente nueva en Earth se retira también en ese camino. Fija: tests de `campusInteraction` y `panelPointer`; Earth sin test.
-42. **Los glifos no tienen archivo fuente:** los comentarios de `CustomCursor.tsx` y `styles.css` citan `docs/icons/*.svg`, que nunca se ha versionado. La fuente es el `d` del componente. No restiles a silueta blanca ni quites `fill-rule: nonzero`.
+42. **Los glifos no tienen archivo fuente:** los SVG originales nunca se han versionado; el `d` de `CustomCursor.tsx` es la única copia. No restiles a silueta blanca ni quites `fill-rule: nonzero`.
 43. **Un tap no produce `pointermove`:** una acción que lea un hover guardado no funciona en táctil, sin error. Pica con las coordenadas del evento.
 44. **Las tolerancias de tap son dos números por tipo de puntero; nunca las juntes.** En Murcia, `dragThresholdPx` es la tolerancia de TAP del ratón. La cita a «`check:navigation` §12» de los documentos antiguos ya no existe.
 45. **Un dedo se resuelve donde aterrizó; el ratón, donde se suelta** (`campusInteraction.ts`). En la pantalla del blog deben caer sobre el objetivo los dos extremos ([blog](blog.md), n.º 15).
@@ -107,4 +107,4 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 - **`CaseStudy.label` se declara, se proyecta y se valida sin lector** (n.º 55).
 - **Sobre los campos de texto se ve la mano señaladora y no el cursor de texto:** `INTERACTIVE_SELECTOR` incluye `input` y `textarea`.
 - **`blog.html` declara `theme-color` de papel (`#fbfbfa`) con la barra negra.**
-- **Comentarios rancios en código** (n.º 20, 28, 35, 40, 42); corregirlos es una tarea de código aparte.
+- **`PRIORITY` conserva `district` y `marker`, de módulos borrados** (n.º 40); quitarlos es una tarea de código aparte.

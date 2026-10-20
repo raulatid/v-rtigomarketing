@@ -46,12 +46,12 @@ Ya documentado en otras áreas, y no se repite aquí: la reclamación `'blog'` d
 
 22. **`headerLogoRuntime` no se importa de forma estática desde `src/blog/`.** Tampoco con un `import type` cuyo especificador no sea idéntico byte a byte al del `import()` del mismo archivo: `check:architecture` lo cuenta como arista estática, y eso mete three.js en el chunk del documento.
 23. **Una instancia por documento.** Solo la conexión ACTUAL puede desacoplarse: un remontaje puede conectar el árbol nuevo antes de que React desmonte el viejo.
-24. **El comentario de `graphics/decoders.ts` dice que solo hay un renderer.** Ya no es verdad (en caliente hay dos contextos), pero es inofensivo mientras la marca no use KTX2: solo el renderer de la escena llama a `detectSupport`. Si la marca vuelve a usar KTX2, revísalo.
+24. **Solo el renderer de la escena llama a `detectSupport`** (`graphics/decoders.ts`). En caliente hay dos contextos, pero la marca no carga KTX2. Si vuelve a usarlo, revisa `acquireKtx2Loader`.
 25. **La lista de permitidos del e2e en frío aún admite `/textures/logoBake.ktx2`**, que ya no existe (`e2e/blog.spec.ts`). Es una permisividad sobrante, no un fallo; no la amplíes más.
 
 ## Tipografía
 
-26. **Las familias propias del blog tienen nombre propio** (`'Vertigo Blog Inter'`, `'Vertigo Blog Serif'` en `blog.css`). En caliente, `blog.css` se inyecta en el documento vivo y `@font-face` es global: una familia registrada con un nombre que la escena ya pide cambiaría la tipografía de la escena al volver de un artículo. Fija: `e2e/blog.spec.ts` (la fuente del `body` antes y después). Hoy el blog pone delante las familias del sitio (`'Vertigo Display'`, `'Vertigo Text'`), marcadas en `blog.css` como «UNDER REVIEW (2026-09-12)»; ese comentario está desfasado, porque la revisión está cerrada y el reparto actual es el definitivo: ver [tipografías](../decisiones/interfaz/tipografias.md).
+26. **Las familias propias del blog tienen nombre propio** (`'Vertigo Blog Inter'`, `'Vertigo Blog Serif'` en `blog.css`). En caliente, `blog.css` se inyecta en el documento vivo y `@font-face` es global: una familia registrada con un nombre que la escena ya pide cambiaría la tipografía de la escena al volver de un artículo. Fija: `e2e/blog.spec.ts` (la fuente del `body` antes y después). Hoy el blog pone delante las familias del sitio (`'Vertigo Display'`, `'Vertigo Text'`); el reparto es definitivo: ver [tipografías](../decisiones/interfaz/tipografias.md).
 
 ## Publicación
 

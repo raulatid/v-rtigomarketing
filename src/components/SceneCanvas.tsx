@@ -323,8 +323,6 @@ export function SceneCanvas({
         logoRef={logoRef}
         handleRef={cornerLogoHandleRef}
       />
-      {/* Last, and the only thing that renders. Must stay after every layer
-          that writes per-frame state it consumes. */}
       <MurciaLayer
         active={!earthActive}
         state={navigation}
@@ -345,7 +343,10 @@ export function SceneCanvas({
         idleSeconds={HINT_CONFIG.presence.idleSeconds}
         graceSeconds={HINT_CONFIG.presence.graceSeconds}
       />
-      {/* Every decision the pipeline used to make for itself is made here:
+      {/* Last, and the only thing that renders. Must stay after every layer
+          that writes per-frame state it consumes.
+
+          Every decision the pipeline used to make for itself is made here:
           which experience is showing, whether a transition is playing, and
           which of two blur sources wins. The pipeline gets numbers and a
           route. Murcia and the corner logo satisfy RenderableExperience and

@@ -14,7 +14,7 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
  * duplicated WASM heap — and because all three of those assets load during the
  * intro, they existed AT THE SAME TIME, alongside 209 MB of texture uploads.
  * That is the loading peak, on the platform that terminates tabs for it
- * (`audits/ios-safari-2026-08-14.md`, I6).
+ * (`audits/reports/ios-safari-2026-08-14.md`, I6).
  *
  * `createAssetLoader` already made this argument for Murcia — "creating and
  * disposing it per load would spin a pool up and tear it down again for every
@@ -27,8 +27,9 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js'
  * a loading spike for permanent residency — a bad trade on a device where the
  * steady state is already the problem. Counting keeps both properties: at most
  * one pool of each kind exists at a time, and the last consumer to finish
- * releases it. Every call site already had a dispose path, so each maps onto a
- * `release` with no change to when things are freed.
+ * releases it. Callers release when their load settles, not in their
+ * `dispose`: the corner logo and Murcia live for the whole session, and tying
+ * the reference to them kept the workers resident for good.
  *
  * WORKER LIMITS ARE LEFT AT THREE'S DEFAULT, deliberately. Lowering them would
  * cut the WASM heap further and slow decoding of the city's 257 meshes by an
@@ -85,8 +86,9 @@ export function releaseDracoLoader(): void {
  * The shared KTX2/Basis transcoder. Pair with {@link releaseKtx2Loader}.
  *
  * `detectSupport` asks the renderer which compressed formats the GPU actually
- * has, and gets it right for one renderer — which is all there ever is here
- * (ADR 001). Calling it again on an existing instance is harmless and keeps the
+ * has, and gets it right for one renderer. Only the scene's renderer calls this
+ * (ADR 001); the blog's header mark has a context of its own but loads no KTX2.
+ * Calling it again on an existing instance is harmless and keeps the
  * answer correct if the renderer identity ever changes, which is why it is not
  * inside the construction branch.
  */

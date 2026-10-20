@@ -211,8 +211,8 @@ export function createSatelliteFocus({
    * Coordinate-driven rather than reading stored hover state, because a TAP
    * fires pointerdown → pointerup → click with no pointermove in between: on a
    * touch device the hover is never computed, so anything that consulted it
-   * no-opped and the whole scene was mouse-only. Same shape as
-   * DistrictInteraction.pickAt, which is why Murcia's interior already worked.
+   * no-opped and the whole scene was mouse-only. Murcia's `targetAt`
+   * (campusInteraction.ts) has the same shape.
    */
   function pickAt(clientX: number, clientY: number): string | null {
     clientToNdc(domElement.getBoundingClientRect(), clientX, clientY, ndc)

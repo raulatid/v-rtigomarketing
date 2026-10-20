@@ -964,7 +964,7 @@ html {
 }
 
 /* The hand glyphs: the designer's icons, path data inlined in CustomCursor.tsx
-   (docs/icons/*.svg is the design source, not a runtime fetch). All three are
+   (the only copy; the source SVGs were never committed). All three are
    always in the DOM, absolutely stacked; data-state / data-pressed crossfades
    between them.
 
@@ -1212,10 +1212,9 @@ html {
    its CENTRE, so a taller one ate the bottom gap; a `bottom:`-anchored box grows
    UPWARD, so a second line moves away from the footer rather than into it.
 
-   No `font-family`. The sheet asks for `'Inter', system-ui, sans-serif` and
-   resolves to `system-ui` on this route (PROJECT_MEMORY §11.68); the particle
-   hint restated that stack only because a canvas has to be told what to measure.
-   Inheriting is the same face and cannot drift from it.
+   No `font-family`. It inherits the text role (`--font-text`, Gambetta; see
+   siteHeader.css); the particle hint restated the old stack only because a
+   canvas has to be told what to measure. Inheriting cannot drift from the page.
 
    WHITE, not the figure's rgb(200,200,200). That value existed solely to sit
    under UnrealBloom's 0.62 linear knee, and bloom samples the WebGL frame — this

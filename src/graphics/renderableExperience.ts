@@ -16,9 +16,9 @@ import * as THREE from 'three'
  * none of the pipeline's business.
  *
  * Structural, so nothing has to implement it explicitly. `MurciaExperience`
- * already exposed both as getters and satisfies this unchanged; a future Earth
- * experience will satisfy it the same way, at which point the pipeline stops
- * having a special case at all.
+ * already exposed both as getters and satisfies this unchanged. Earth does not
+ * and is not meant to: it stays in R3F's default scene, the pipeline's one
+ * special case.
  */
 export interface RenderableExperience {
   /** The scene to draw. */

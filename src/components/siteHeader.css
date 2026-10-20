@@ -43,9 +43,9 @@
    panels, the CTAs. Gambetta, a serif, is the TEXT role — everything else,
    the blog's article body included (blog.css). Both ITF, from Fontshare.
 
-   UNDER REVIEW (2026-09-12): these replaced Switzer and Inter, and the blog's
-   Source Serif 4, to be judged by eye. The old faces stay declared under
-   their own names, second in each stack, so going back is a reorder.
+   Decided 2026-09-11: these replaced Switzer and Inter, and the blog's
+   Source Serif 4. The old faces stay declared under their own names, second
+   in each stack.
 
    A browser only fetches a face it has to draw a glyph from, and the new
    faces cover all of Spanish — but NEITHER has arrows (← → ↑ ↓), which the
@@ -134,7 +134,9 @@
    blog.css may consume the dark-material tokens. It reads --header-control
    and nothing else, and that is the line to hold. */
 :root {
-  /* Density A — the floating tray: hint frame and consent plate.
+  /* Density A — the floating tray: the Murcia compass and the sound toggle's
+     backing. The consent plate is the same tray with its own literal
+     (consentBanner.css).
      Separation comes from the shadow, not from opacity. */
   --glass-bg-light: rgba(10, 15, 22, 0.68);
   /* Density A a shade denser, for a small tray over the city at its brightest
@@ -147,8 +149,8 @@
   --glass-bg-heavy: rgba(7, 10, 15, 0.86);
 
   --glass-border: rgba(220, 230, 245, 0.1);
-  /* The density-A trays wear a blue edge rather than the neutral one: the hint
-     frame and the consent plate. Aliased to the CTA's own
+  /* The density-A trays wear a blue edge rather than the neutral one: the
+     Murcia compass and the consent plate. Aliased to the CTA's own
      border instead of carrying its own literal, so the two blues that share a
      frame are one colour and not two that nearly match. */
   --glass-border-accent: var(--accent-border);
@@ -619,19 +621,20 @@
 
    The scrim is the old hint frame's recipe (density A, DECISIONS §37): dark glass, blurred,
    fully round. Deliberately lighter than that one (0.42 against 0.72) and with
-   no border — the l.201 note above is explicit that contact is the quieter door
+   no border — contact is the quieter door
    beside the Auditoría CTA, and a pill with the same weight as the button would
    make them a pair of buttons. It reads as a shadow under the word, not as a
    control. */
 /* PHONE IS DELIBERATELY EXCLUDED, and this was checked rather than assumed.
 
    The first attempt applied the white at every width, on the reasoning that
-   below 768px Contacto is a row inside the phone menu's "dark glass field" and
-   white would be right there. The field is TRANSLUCENT, not dark: it blurs
-   whatever is behind it, and behind the top of it — after the camera dropped to
-   19 degrees — is Murcia's pale sky. Captured, it renders near-white, and white
-   text on it was less readable than the ink it replaced. The burger had the
-   same problem in the closed state: white bars at 2.06:1 against that sky,
+   below 768px Contacto was then a row inside the phone menu's "dark glass
+   field" (plan 011, since replaced by the layer the card uncovers) and white
+   would be right there. The field was TRANSLUCENT, not dark: it blurred
+   whatever was behind it, and behind the top of it — after the camera dropped
+   to 19 degrees — was Murcia's pale sky. Captured, it rendered near-white, and
+   white text on it was less readable than the ink it replaced. The burger had
+   the same problem in the closed state: white bars at 2.06:1 against that sky,
    where #0b0b0d was never in any doubt.
 
    So below 768px nothing changes: the [data-tone='light'] ink rule above still
@@ -641,8 +644,8 @@
    The rules therefore live entirely inside the media query below. */
 
 /* The scrim is the LINE's, and only the line's. The phone menu supplies its own
-   ground — a pill inside the field would be a second surface on top of the
-   glass, and the row design (plan 011) is a bare word against an accent tick.
+   ground — the layer the card uncovers — and a pill there would be a second
+   surface on top of it.
    This rule outranks that one on specificity, so it has to be bounded by width
    rather than left to lose. */
 /* MEASURED, against the sky actually behind the header at the 19-degree pose

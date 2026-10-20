@@ -367,14 +367,14 @@ export const murciaConfig: EnvironmentConfig = {
     //
     // Until 2026-08-14 one 6px threshold served both, and the consequence was
     // not a slightly awkward gesture: a finger tap that wandered 7px was
-    // classified as a drag, and `DistrictInteraction.onPointerUp` refuses to
+    // classified as a drag, and `DistrictInteraction.onPointerUp` refused to
     // select while the controller reports one. So tapping a district — the only
     // *content* in Murcia — failed intermittently, with no error and nothing on
     // screen to explain it.
     //
-    // 12 matches the numbers Earth already ships (`interactionConfig`'s
-    // `touchDragClickThreshold`, `createGeoMarkers`' `TOUCH_CLICK_SLOP_PX`),
-    // which were measured against real taps during the 2026-08-11 touch work.
+    // 12 matches the number Earth already ships (`interactionConfig`'s
+    // `touchDragClickThreshold`), measured against real taps during the
+    // 2026-08-11 touch work.
     // This is not a feel value and was not judged by hand — it is a tolerance,
     // and PROJECT_MEMORY section 11.23 records where the 5–15px figure comes
     // from. Collapsing these back into one number re-breaks touch even with

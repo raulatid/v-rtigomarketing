@@ -189,11 +189,11 @@ export function CustomCursor({ enabled = true }: Props) {
       <div className="cursor-follow" ref={followRef}>
         <div className="cursor-follow-core" />
       </div>
-      {/* Artwork is the designer's, from docs/icons/{open,pointer,close}-hand-icon.svg
-          — path data inlined rather than fetched, because a cursor that 404s or
-          flashes on first hover leaves the site with no visible pointer at all.
-          THOSE FILES ARE NOT READ AT RUNTIME: re-paste the `d` attribute here if
-          they are ever redrawn.
+      {/* Artwork is the designer's. The source SVGs were never committed: the
+          `d` attributes below are the only copy, inlined rather than fetched,
+          because a cursor that 404s or flashes on first hover leaves the site
+          with no visible pointer at all. To redraw a hand, paste its new `d`
+          here.
 
           All three stay mounted; CSS crossfades them on data-pressed /
           data-state so the swap costs one attribute write, no DOM churn. */}

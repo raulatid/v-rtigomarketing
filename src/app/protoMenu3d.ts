@@ -3,12 +3,12 @@
  * sibling of `protoHolo.ts`, built the same way for the same reasons.
  *
  * On a phone over the scene the menu is the viewport hinging away and sliding
- * down (styles.css, `.app__viewport`), and the composition — how far it drops,
- * how far it recedes, how far it hinges — is a handful of custom properties on
- * `.app__stage`. On a desktop they are edited in DevTools; on the phone the
- * composition is actually for, the address bar is the only knob panel there
- * is. This reads them from the URL and App writes them inline on the stage,
- * where they outrank the stylesheet's defaults.
+ * down (siteMenu.css, `.site-menu-viewport`), and the composition — how far
+ * it drops, how far it recedes, how far it hinges — is a handful of custom
+ * properties on `.app__stage`. On a desktop they are edited in DevTools; on
+ * the phone the composition is actually for, the address bar is the only knob
+ * panel there is. This reads them from the URL and App writes them inline on
+ * the stage, where they outrank the stylesheet's defaults.
  *
  *   ?menu3d=1&y=42&z=-140&tilt=12&scale=1&radius=18&persp=1200&hinge=100&eye=50
  *

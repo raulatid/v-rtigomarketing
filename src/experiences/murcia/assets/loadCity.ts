@@ -677,9 +677,10 @@ function buildSceneReport(
     if (img?.width && img?.height && (img.width > 2048 || img.height > 2048)) {
       // The megabytes, not just the dimensions. This project's binding
       // constraint is GPU memory on iOS — ~226 MB resident before the
-      // 2026-08-14 remediation, ~70 MB after (audits/ios-safari-2026-08-14.md
-      // §3) — and "4096x4096" does not read as "89 MB" to anyone scanning a
-      // log. x4 for RGBA8, x1.33 for the mip chain.
+      // 2026-08-14 remediation, ~70 MB after
+      // (audits/reports/ios-safari-2026-08-14.md §3) — and "4096x4096" does
+      // not read as "89 MB" to anyone scanning a log. x4 for RGBA8, x1.33 for
+      // the mip chain.
       const mb = (img.width * img.height * 4 * 1.33) / (1024 * 1024);
       report.warnings.push(
         `Large texture ${img.width}x${img.height} (${tex.name || 'unnamed'}), ` +

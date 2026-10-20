@@ -3,9 +3,9 @@
  * stylesheet both run on.
  *
  * Over the scene the menu is the viewport itself hinging away and sliding down
- * to reveal the navigation behind it (styles.css, `.app__viewport`). That motion
- * is a CSS transition, so nothing here interpolates; what React owns is the
- * PHASES, because the close has a tail. While the card is travelling back to
+ * to reveal the navigation behind it (siteMenu.css, `.site-menu-viewport`). That
+ * motion is a CSS transition, so nothing here interpolates; what React owns is
+ * the PHASES, because the close has a tail. While the card is travelling back to
  * fullscreen the header must still report itself open — `attentionIsFree`
  * (App.tsx) reads that, and the chrome that stood down for the menu waits on it
  * too — and the only way to know when that tail ends is a timer that agrees with

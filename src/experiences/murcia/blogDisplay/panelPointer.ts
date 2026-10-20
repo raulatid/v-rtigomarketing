@@ -5,8 +5,9 @@ import type { CursorManager } from '../../../interaction/cursorManager';
  * Clicking the display. The one input the blog's entry point has, and — since the
  * cluster tap went with plan 022 — the only way into the blog from the city.
  *
- * The raycast, the NDC maths and the drag arbitration are `DistrictInteraction`'s
- * and `BlogBuilding`'s; the core-UV test is the lab's. What is not here is
+ * The raycast, the NDC maths and the drag arbitration come from the retired
+ * `DistrictInteraction` and from `BlogBuilding`; the core-UV test is the lab's.
+ * What is not here is
  * everything downstream of a hit: no control rects, no hover slots, no press state,
  * no scroll gesture, no modes. The whole readable core is one target, the
  * `edificio-blog` cluster beneath it is the other, and the only thing either does is

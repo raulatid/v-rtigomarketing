@@ -21,8 +21,8 @@ export const EARTH_CONFIG = {
  * compressed format. As RGBA8 JPEGs 4096x2048 cost 44.7 MB of GPU memory each
  * with mipmaps — 134 MB for the set, the largest single item in a texture
  * budget the iOS audit measured at ~226 MB, on a platform that terminates tabs
- * rather than paging (`audits/ios-safari-2026-08-14.md`, I2). Compressed, the
- * same set is roughly a quarter of that.
+ * rather than paging (`audits/reports/ios-safari-2026-08-14.md`, I2).
+ * Compressed, the same set is roughly a quarter of that.
  *
  * THE NARROW SET IS 1024x512. This paragraph said 2048 and did its arithmetic
  * with 1024 texels across the visible hemisphere — twice what a 1024-wide map

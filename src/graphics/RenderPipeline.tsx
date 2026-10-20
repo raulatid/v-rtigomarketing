@@ -9,7 +9,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { createVacuumPass } from './vacuumPass'
 // This file imports nothing from either experience and nothing from the
 // application layer. §17 allows `graphics -> shared` only, and that is now all
-// there is: three.js, its addons, and two local modules.
+// there is: three.js, its addons, and modules of its own in graphics/.
 import type {
   FrameSettings,
   OverlayPass,
@@ -262,7 +262,7 @@ export function RenderPipeline({ readSettings, directRef, overlayRef, onContextL
     // the whole rest of the session this pass was running a full-resolution
     // comp AND a full-resolution copy to produce an image identical to its
     // input. Two fullscreen passes and 21MB of HalfFloat targets, every frame,
-    // for a no-op (`audits/ios-safari-2026-08-14.md`, I3).
+    // for a no-op (`audits/reports/ios-safari-2026-08-14.md`, I3).
     //
     // Safe against the ghosting the soft reset above exists for: `damp` is
     // already 0 by the time this disables the pass, so the accumulation buffer

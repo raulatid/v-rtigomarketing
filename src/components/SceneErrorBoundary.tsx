@@ -14,9 +14,12 @@ interface State {
  * three.js.
  *
  * Without it, any throw below `<Canvas>` — a refused WebGL context on an old
- * device, a driver reset, a bad frame in a scene component — unmounts the React
- * tree and leaves the viewer looking at `index.html`'s inline `#050507`
- * background. A black screen, no message, nothing in the UI to say why.
+ * device, a bad frame in a scene component — unmounts the React tree and
+ * leaves the viewer looking at `index.html`'s inline `#050507` background. A
+ * black screen, no message, nothing in the UI to say why.
+ *
+ * A context lost after creation is not a throw and never reaches here: it is a
+ * DOM event, and `graphics/contextLoss.ts` handles it.
  *
  * It renders no fallback UI of its own, and that is deliberate. The intro
  * drawing is NOT React-owned (see App.tsx, "intro-draw owns its own DOM"), so

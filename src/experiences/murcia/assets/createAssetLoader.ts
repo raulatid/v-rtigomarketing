@@ -40,9 +40,9 @@ export interface AssetLoader {
  * And it decides the shape of the trim-sheet migration. A production
  * BaseColor + Normal + ORM set at 2048 is 67 MB of RGBA8 against a GPU budget
  * measured at ~70 MB after the 2026-08-14 remediation
- * (`docs/audits/ios-safari-2026-08-14.md` §3) — so the production atlas has to
- * be compressed, and this makes swapping it in a file change rather than a code
- * change.
+ * (`docs/audits/reports/ios-safari-2026-08-14.md` §3) — so the production
+ * atlas has to be compressed, and this makes swapping it in a file change
+ * rather than a code change.
  *
  * The renderer is a parameter because `detectSupport` asks the GPU which
  * compressed formats it actually has; there is exactly one renderer (ADR 001),

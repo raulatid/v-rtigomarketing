@@ -291,7 +291,7 @@ describe('normalising the artwork on its ink (plan 012 task 3)', () => {
  * put 50 MB of atlas on a phone stops instead. When it fires the fix is a
  * smaller cell or a compressed upload, not a bigger number — the iOS budget it
  * is measured against is ~226 MB for EVERYTHING
- * (docs/audits/ios-safari-2026-08-14.md §3).
+ * (docs/audits/reports/ios-safari-2026-08-14.md §3).
  */
 describe('what the CMS can grow', () => {
   /** RGBA8 plus a full mip chain is 4/3 of the base level. Decimal MB. */

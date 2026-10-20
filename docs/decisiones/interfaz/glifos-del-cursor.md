@@ -5,7 +5,7 @@
 ## Decisión
 
 1. **Las tres manos (abierta, señalando y puño) son path data incrustado en `src/components/CustomCursor.tsx`.** No se descargan. Las tres están siempre en el DOM y el CSS las funde según `data-state` y `data-pressed`.
-2. **La fuente de los glifos es ese path data.** No hay archivo de diseño en el repo: para redibujar una mano se pega el `d` nuevo en el componente. Los comentarios que remiten a `docs/icons/` están rancios (ver [trampas](../../trampas/interfaz.md)).
+2. **La fuente de los glifos es ese path data.** No hay archivo de diseño en el repo: para redibujar una mano se pega el `d` nuevo en el componente.
 3. **Dos propiedades no se «limpian»:**
    - **relleno blanco con un borde negro fino,** para que se lea sobre el cielo negro y sobre el vidrio claro del panel del caso;
    - **`fill-rule: nonzero`,** porque las divisiones de los dedos son subtrazados del mismo sentido que deben rellenarse enteros.
