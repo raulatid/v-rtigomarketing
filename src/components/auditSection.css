@@ -33,7 +33,10 @@
 .audit-curtain {
   /* The back arrow's band, shared with .audit-form's top padding below so the
      form's content can never rise under the control. */
-  --audit-close-top: clamp(1.4rem, 4vh, 2.4rem);
+  --audit-close-top: calc(clamp(1.4rem, 4vh, 2.4rem) + env(safe-area-inset-top));
+  /* The form's left gutter, shared with the back arrow below. The curtain is
+     anchored left, so only that side can meet a landscape notch. */
+  --audit-gutter-left: max(clamp(2rem, 5vw, 4.5rem), env(safe-area-inset-left));
   --audit-close-h: 40px;
   position: absolute;
   top: 0;
@@ -99,7 +102,7 @@
   top: var(--audit-close-top);
   /* The form's own inline padding, minus the 8px the button carries around the
      glyph, so the arrow's visible left edge still sits on the text's line. */
-  left: calc(clamp(2rem, 5vw, 4.5rem) - 8px);
+  left: calc(var(--audit-gutter-left) - 8px);
   padding: 12px 8px;
   background: none;
   border: none;
@@ -195,6 +198,7 @@
   justify-content: center;
   gap: 1.75rem;
   padding: clamp(3rem, 8vh, 5rem) clamp(2rem, 5vw, 4.5rem);
+  padding-left: var(--audit-gutter-left);
   /* Three floors, the largest wins: the composition's own top padding, the back
      arrow's band plus air, and the notch. The form is vertically centred and at
      ~900px tall its first line used to sit 6px under the arrow; now a short

@@ -409,7 +409,11 @@
 
   .consent-banner__plate {
     margin-bottom: 0;
-    padding: 0.85rem max(16px, env(safe-area-inset-left)) max(1.4rem, env(safe-area-inset-bottom));
+    padding:
+      0.85rem
+      max(16px, env(safe-area-inset-right))
+      max(1.4rem, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
   }
 
   /* A sheet against the frame's bottom edge, so it keeps its fade-out there

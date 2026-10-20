@@ -118,7 +118,7 @@
   /* The site header is fixed over this page (siteHeader.css, blog dress: 14px
      above and below one control). Pad by that band so the page starts under
      the bar rather than behind it. */
-  padding-top: calc(28px + var(--header-control));
+  padding-top: calc(28px + var(--header-control) + env(safe-area-inset-top));
   /* The scene canvas sets `touch-action: none`; this element is not inside it
      and must keep the browser's own panning and pinch-zoom. */
   touch-action: auto;
@@ -286,6 +286,15 @@
 .blog-footer {
   margin: 0 auto;
   padding-inline: 24px;
+}
+
+/* Clear of a landscape notch. Not the article: it is centred at its reading
+   measure and already well inside the insets. */
+.blog-page,
+.blog-related,
+.blog-footer {
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
 }
 
 .blog-page,
@@ -889,7 +898,7 @@
 
 .blog-footer {
   margin-top: 88px;
-  padding-block: 24px 40px;
+  padding-block: 24px calc(40px + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(11, 11, 13, 0.12);
   font-size: 0.75rem;
   color: rgba(11, 11, 13, 0.55);

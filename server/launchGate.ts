@@ -173,7 +173,7 @@ function renderCountdown(remainingMs: number): string {
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#050507">
 <title>Vertigo · Muy pronto</title>

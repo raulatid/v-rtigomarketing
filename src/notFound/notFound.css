@@ -30,8 +30,14 @@
   width: 100%;
   max-width: 1152px;
   margin: 0 auto;
-  /* The bottom pad clears the fixed floor line on a short screen. */
-  padding: 24px 24px 48px;
+  /* The bottom pad clears the fixed floor line on a short screen; that line
+     rises with the home indicator, so the pad does too. The sides clear a
+     landscape notch. */
+  padding:
+    24px
+    max(24px, env(safe-area-inset-right))
+    max(48px, calc(env(safe-area-inset-bottom) + 34px))
+    max(24px, env(safe-area-inset-left));
   /* Take what the header leaves, so the composition sits in the viewport
      rather than at its top. On a short screen the root scrolls. */
   flex: 1 0 auto;

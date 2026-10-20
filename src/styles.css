@@ -626,7 +626,11 @@ html {
     /* A hard ceiling also constrains inline drag heights and in-flight easing. */
     max-height: var(--case-sheet-maximum, 0px);
     overflow: hidden;
-    padding: 0 1.5rem 1.5rem;
+    /* The sheet's side gutters, clear of a landscape notch. The handle and the
+       body bleed back out by exactly these, so they are tokens. */
+    --sheet-pad-l: max(1.5rem, env(safe-area-inset-left));
+    --sheet-pad-r: max(1.5rem, env(safe-area-inset-right));
+    padding: 0 var(--sheet-pad-r) 1.5rem var(--sheet-pad-l);
     /* The home indicator sits inside the sheet's own bottom edge. */
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
     border-radius: 14px 14px 0 0;
@@ -690,13 +694,13 @@ html {
        3rem short of the right one. The grip below centres on the BUTTON, which
        put it 24px left of the sheet's real centre on every phone: the reported
        misalignment. It also cost 48px of tap target on the right. */
-    width: calc(100% + 3rem);
+    width: calc(100% + var(--sheet-pad-l) + var(--sheet-pad-r));
     /* 44px because it is the control that raises and lowers the sheet — the
        most-used thing on the panel, and the one a thumb has to find. The same
        size and the same reasoning as Murcia's, which was raised from 26px for
        exactly this after the 2026-08-14 audit. */
     height: 44px;
-    margin: 0 -1.5rem;
+    margin: 0 calc(-1 * var(--sheet-pad-r)) 0 calc(-1 * var(--sheet-pad-l));
     border: 0;
     background: transparent;
     cursor: pointer;
@@ -760,8 +764,8 @@ html {
     min-height: 0;
     overflow-y: auto;
     /* Extend the scroll box to the sheet edge while preserving the text inset. */
-    margin-right: -1.5rem;
-    padding-right: 1.5rem;
+    margin-right: calc(-1 * var(--sheet-pad-r));
+    padding-right: var(--sheet-pad-r);
     /* Claims the gesture back from the canvas, which is `touch-action: none`
        over the whole viewport. Without this the sheet cannot be scrolled.
        `contain` stops a scroll that reaches the end from becoming a page
@@ -1129,7 +1133,7 @@ html {
 .nav-control:focus-visible {
   width: auto;
   height: auto;
-  right: 16px;
+  right: max(16px, env(safe-area-inset-right));
   top: 50%;
   transform: translateY(-50%);
   clip-path: none;
@@ -1753,7 +1757,7 @@ html {
   align-items: center;
   justify-content: center;
   gap: 1.25rem;
-  padding: 2rem;
+  padding: 2rem max(2rem, env(safe-area-inset-right)) 2rem max(2rem, env(safe-area-inset-left));
   /* The insets are live here because this is full-bleed: without them the copy
      can sit under the notch in landscape. */
   padding-top: max(2rem, env(safe-area-inset-top));

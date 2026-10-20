@@ -304,7 +304,14 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   height: calc(var(--header-line-top) + var(--header-control));
-  padding: var(--header-line-top) var(--header-inset) 0;
+  /* The sides clear a landscape notch: a phone on its side is wider than the
+     phone breakpoint, so the desktop inset applies there. CornerLogoLayer
+     measures this padding, so the 3D logo follows. */
+  padding:
+    var(--header-line-top)
+    max(var(--header-inset), env(safe-area-inset-right))
+    0
+    max(var(--header-inset), env(safe-area-inset-left));
 }
 
 .site-header__start,
@@ -401,8 +408,12 @@
   --header-line-top: 14px;
 }
 
+/* The bar's 14px band sits UNDER the notch, not inside it: the token stays the
+   band (it is the bottom padding too) and the inset is added on top only. The
+   blog page pads by the same sum (blog.css, .blog-root). */
 .site-header[data-layout='blog'] .site-header__row {
-  height: calc(var(--header-line-top) * 2 + var(--header-control));
+  height: calc(var(--header-line-top) * 2 + var(--header-control) + env(safe-area-inset-top));
+  padding-top: calc(var(--header-line-top) + env(safe-area-inset-top));
   padding-bottom: var(--header-line-top);
 }
 

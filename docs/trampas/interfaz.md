@@ -21,7 +21,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 15. **La caja `.site-header__menu` se monta siempre** (con `display: contents` donde no es superficie). Si se pierde, ContactSection pinta su disparador dentro de la página.
 16. **Lo que se aparta con el menú usa `visibility`, no `display: none`:** el pie y el consentimiento repetirían su animación de entrada. El burger sí usa `display: none` con un panel abierto.
 17. **El menú lee el movimiento reducido al cerrar** (`prefersReducedMotion()`, instantánea del documento), y el CSS reacciona en vivo. Si la preferencia cambia a mitad de sesión, la fase dura más que la transición; nunca al revés.
-18. **Ninguna página lleva `viewport-fit=cover`** (`index.html`, `blog.html`, `404.html`): en iOS todos los `env(safe-area-inset-*)` valen 0 y los `max(12px, env(…))` caen al mínimo. Debe llegar junto con el relleno que habilita, no antes.
+18. **Las páginas llevan `viewport-fit=cover`** (`index.html`, `blog.html`, `404.html` y la puerta de `server/launchGate.ts`, desde el 2026-10-20): en iOS la página llega bajo el notch y el indicador de inicio. Todo lo que se pegue a un borde debe sumar o acotar con `env(safe-area-inset-*)`, también por los lados: un móvil en horizontal supera el corte de 767 px y recibe los valores de escritorio. Chromium da 0 a esos `env()`; para verlos sin iPhone, `Emulation.setSafeAreaInsetsOverride` por CDP. Sin test.
 19. **Las esquinas redondeadas de la tarjeta dependen de que `overflow: hidden` recorte una capa WebGL bajo una transformación 3D,** y iOS Safari puede ignorarlo. El blog lleva `isolation: isolate` en `.blog-surface`; la escena no. Sin probar: los proyectos móviles de Playwright son Chromium.
 20. **El menú del móvil ya no es un campo de vidrio:** desde el 2026-09-16, también en el blog, la página es la tarjeta que se mueve. Su CSS está en `siteMenu.css` (`.site-menu-viewport`), no en `styles.css`. Lo que hable del «glass field» o del plan 011 es historia.
 
@@ -100,5 +100,4 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 ## Posibles defectos
 
-- **Falta `viewport-fit=cover`** en las tres páginas (n.º 18).
 - **`PRIORITY` conserva `district` y `marker`, de módulos borrados** (n.º 40); quitarlos es una tarea de código aparte.

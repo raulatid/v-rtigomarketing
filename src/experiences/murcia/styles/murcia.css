@@ -130,8 +130,8 @@
 .murcia-ui .district-a11y-control:focus-visible {
   width: auto;
   height: auto;
-  left: 16px;
-  top: 16px;
+  left: max(16px, env(safe-area-inset-left));
+  top: max(16px, env(safe-area-inset-top));
   clip-path: none;
   padding: 10px 16px;
   min-height: 44px;
@@ -221,8 +221,12 @@
      other term and the plate is as wide as it is anywhere under the header. */
   --murcia-compass-min: 240px;
   --murcia-compass-air: 21px;
+  /* The header's side padding, as siteHeader.css now computes it; the
+     compass is centred, so the wider of the two sides decides. */
   --murcia-compass-clear: calc(
-    var(--site-header-tail, 323px) + var(--header-inset) + var(--murcia-compass-air)
+    var(--site-header-tail, 323px) +
+      max(var(--header-inset), env(safe-area-inset-left), env(safe-area-inset-right)) +
+      var(--murcia-compass-air)
   );
   --murcia-compass-room: calc(100vw - 2 * var(--murcia-compass-clear));
   --murcia-compass-short: calc((var(--murcia-compass-min) - var(--murcia-compass-room)) * 1000);
@@ -293,7 +297,9 @@
     --murcia-compass-min: 184px;
     --murcia-compass-air: 12px;
     --murcia-compass-clear: calc(
-      max(44px, var(--site-header-tail, 44px)) + var(--header-inset) + var(--murcia-compass-air)
+      max(44px, var(--site-header-tail, 44px)) +
+        max(var(--header-inset), env(safe-area-inset-left), env(safe-area-inset-right)) +
+        var(--murcia-compass-air)
     );
     width: min(240px, max(var(--murcia-compass-room), var(--murcia-compass-short)));
     border-radius: 12px;
@@ -863,7 +869,7 @@
   .murcia-ui .campus-overlay__back {
     position: absolute;
     top: 0;
-    left: 16px;
+    left: max(16px, env(safe-area-inset-left));
     z-index: 1;
     margin: 0;
     padding: 0;
@@ -883,7 +889,11 @@
     align-content: start;
     flex: 1;
     min-height: 0;
-    padding: 42px 24px max(24px, env(safe-area-inset-bottom));
+    padding:
+      42px
+      max(24px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
     overflow-y: auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
