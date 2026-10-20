@@ -360,6 +360,8 @@ PROJECT_MEMORY, *Known debt*: Vite is pinned at 5, and `noUncheckedIndexedAccess
 
 ## 14. The custom cursor is global, so every hover source must publish a hint
 
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/cursor-propio.md`](decisiones/interfaz/cursor-propio.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Decided 2026-08-07.** `CustomCursor` mounts once for the whole session. It is not gated on
 the active experience. Every source that wants to change the cursor goes through a
 `CursorManager`, and each experience owns one.
@@ -483,6 +485,8 @@ them every build looks like `development`: the debug console ships and productio
 ---
 
 ## 17. 3D picking resolves from the event's own coordinates, never from a stored hover
+
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md), [`trampas/interfaz.md`](trampas/interfaz.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Every raycast that decides an action takes `clientX, clientY` and returns an answer.** No
 handler may read a hover result computed on a previous frame.
@@ -1288,6 +1292,8 @@ the same file for the same reason: the path belongs to whoever owns the decoder.
 
 ## 25. Mobile is a first-class target, and it is capability-detected
 
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md), [`decisiones/render/configuracion-del-renderer.md`](decisiones/render/configuracion-del-renderer.md), [`decisiones/earth/panel-del-caso.md`](decisiones/earth/panel-del-caso.md), [`decisiones/earth/banda-de-zoom-de-earth.md`](decisiones/earth/banda-de-zoom-de-earth.md), [`decisiones/murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 → **`audits/mobile-responsiveness-2026-08-14.md`**, **`audits/ios-safari-2026-08-14.md`**
 
 **Decided 2026-08-14**, after auditing both. The site is production, not a desktop prototype,
@@ -1340,7 +1346,7 @@ visitor downloads both sets.
 
 ## 26. The Earth experience's own decisions
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/maquina-de-apertura.md`](decisiones/intro/maquina-de-apertura.md), [`decisiones/intro/arranque-sin-dependencias.md`](decisiones/intro/arranque-sin-dependencias.md), [`decisiones/intro/carga-real-y-disponibilidad.md`](decisiones/intro/carga-real-y-disponibilidad.md), [`decisiones/intro/ritmo-del-dibujo.md`](decisiones/intro/ritmo-del-dibujo.md), [`decisiones/intro/warp-de-la-intro.md`](decisiones/intro/warp-de-la-intro.md), [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/intro/salto-y-visita-que-vuelve.md`](decisiones/intro/salto-y-visita-que-vuelve.md), [`decisiones/earth/convenciones-de-render.md`](decisiones/earth/convenciones-de-render.md), [`decisiones/earth/satelites.md`](decisiones/earth/satelites.md), [`decisiones/earth/camara-de-earth.md`](decisiones/earth/camara-de-earth.md), [`decisiones/earth/panel-del-caso.md`](decisiones/earth/panel-del-caso.md), [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md), [`decisiones/earth/validacion-de-marcas-subidas.md`](decisiones/earth/validacion-de-marcas-subidas.md), [`decisiones/blog/marca-3d-en-la-cabecera.md`](decisiones/blog/marca-3d-en-la-cabecera.md) (enmienda de 26.16 del 2026-09-04, la marca 3D en el blog), [`decisiones/blog/entrada-por-la-pantalla.md`](decisiones/blog/entrada-por-la-pantalla.md) (fila Blog de la enmienda de 26.16 del 2026-09-24). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** 26.13 y 26.14 (datos y gráficos de los casos), 26.17 (cursor) y las enmiendas de 26.16 sobre la cabecera y el menú (bloque interfaz/contenido).
+> **Migrada (2026-10-20) →** [`decisiones/intro/maquina-de-apertura.md`](decisiones/intro/maquina-de-apertura.md), [`decisiones/intro/arranque-sin-dependencias.md`](decisiones/intro/arranque-sin-dependencias.md), [`decisiones/intro/carga-real-y-disponibilidad.md`](decisiones/intro/carga-real-y-disponibilidad.md), [`decisiones/intro/ritmo-del-dibujo.md`](decisiones/intro/ritmo-del-dibujo.md), [`decisiones/intro/warp-de-la-intro.md`](decisiones/intro/warp-de-la-intro.md), [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/intro/salto-y-visita-que-vuelve.md`](decisiones/intro/salto-y-visita-que-vuelve.md), [`decisiones/earth/convenciones-de-render.md`](decisiones/earth/convenciones-de-render.md), [`decisiones/earth/satelites.md`](decisiones/earth/satelites.md), [`decisiones/earth/camara-de-earth.md`](decisiones/earth/camara-de-earth.md), [`decisiones/earth/panel-del-caso.md`](decisiones/earth/panel-del-caso.md), [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md), [`decisiones/earth/validacion-de-marcas-subidas.md`](decisiones/earth/validacion-de-marcas-subidas.md), [`decisiones/blog/marca-3d-en-la-cabecera.md`](decisiones/blog/marca-3d-en-la-cabecera.md) (enmienda de 26.16 del 2026-09-04, la marca 3D en el blog), [`decisiones/blog/entrada-por-la-pantalla.md`](decisiones/blog/entrada-por-la-pantalla.md) (fila Blog de la enmienda de 26.16 del 2026-09-24). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. Las enmiendas de 26.16 sobre la cabecera y el menú → [`decisiones/interfaz/cabecera-unica.md`](decisiones/interfaz/cabecera-unica.md), [`decisiones/interfaz/menu-movil.md`](decisiones/interfaz/menu-movil.md), [`decisiones/interfaz/atajos-blog-y-servicios.md`](decisiones/interfaz/atajos-blog-y-servicios.md); 26.14 → [`decisiones/interfaz/graficas-del-caso.md`](decisiones/interfaz/graficas-del-caso.md); 26.17 → [`decisiones/interfaz/glifos-del-cursor.md`](decisiones/interfaz/glifos-del-cursor.md); 26.13 → [`trampas/contenido.md`](trampas/contenido.md) n.º 25.
 
 **Folded in 2026-08-17**, when `earth/DECISIONS.md` was retired so that this file is the only
 decisions file in the repository. That document was 1862 lines of chronological entries running
@@ -2198,7 +2204,7 @@ is shown while the context is refusing navigation.
 
 ## 30. Contact, legal and the brand's own mark
 
-> **Migrada (2026-10-20) →** [`decisiones/formularios/dialogo-de-contacto.md`](decisiones/formularios/dialogo-de-contacto.md), [`decisiones/formularios/backend-de-formularios.md`](decisiones/formularios/backend-de-formularios.md), [`decisiones/privacidad/textos-legales.md`](decisiones/privacidad/textos-legales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** «The brand data has one home…» y su revisión del 2026-08-23 (bloque interfaz/contenido).
+> **Migrada (2026-10-20) →** [`decisiones/formularios/dialogo-de-contacto.md`](decisiones/formularios/dialogo-de-contacto.md), [`decisiones/formularios/backend-de-formularios.md`](decisiones/formularios/backend-de-formularios.md), [`decisiones/privacidad/textos-legales.md`](decisiones/privacidad/textos-legales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. «The brand data has one home…» y su revisión del 2026-08-23 → [`decisiones/formularios/dialogo-de-contacto.md`](decisiones/formularios/dialogo-de-contacto.md), [`decisiones/contenido/sanity-y-proyeccion-groq.md`](decisiones/contenido/sanity-y-proyeccion-groq.md) y [`trampas/interfaz.md`](trampas/interfaz.md) n.º 57.
 
 The Earth scene grew its floor and its second CTA on 2026-08-20: phone numbers bottom-left
 as bare `tel:` links (a number behind a disclosure costs calls), "Términos y privacidad" ·
@@ -2568,7 +2574,7 @@ warp or swallows Escape; it appears before `site`; a copy mounts outside `.app__
 
 ## 36. The Vertigo building is the client's, and it moves
 
-> **Migrada en parte (2026-10-20):** el banner editorial de la torre se retiró el 2026-09-15 (`1ad78f5`); la pantalla vigente es [`decisiones/contenido/pantalla-de-la-torre.md`](decisiones/contenido/pantalla-de-la-torre.md). **Sin migrar todavía:** el resto de esta entrada.
+> **Migrada en parte (2026-10-20):** el banner editorial de la torre se retiró el 2026-09-15 (`1ad78f5`); la pantalla vigente es [`decisiones/contenido/pantalla-de-la-torre.md`](decisiones/contenido/pantalla-de-la-torre.md). La barra negra del blog está en [`decisiones/interfaz/cabecera-unica.md`](decisiones/interfaz/cabecera-unica.md). **Sin migrar todavía:** el resto de esta entrada.
 
 **Decided** 2026-09-05, plan 019. Four things landed together; each is its own decision.
 
@@ -2618,6 +2624,8 @@ Broken when: a second frame loop appears for the logo, the banner texture is fet
 material or a bake, or a second colour appears on the blog's bar.
 
 ## 37. The overlay UI is one smoked-glass material in three densities, and blue is spent once
+
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/vidrio-ahumado.md`](decisiones/interfaz/vidrio-ahumado.md), [`decisiones/interfaz/uso-del-azul.md`](decisiones/interfaz/uso-del-azul.md), [`decisiones/interfaz/campos-como-lineas.md`](decisiones/interfaz/campos-como-lineas.md), [`decisiones/murcia/brujula.md`](decisiones/murcia/brujula.md), [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-09-06, plan 020, drawn on a design canvas before a line of CSS changed
 (`design/smoked-glass/`, 11 artboards over real captures of the Earth and Murcia scenes). The
@@ -3972,6 +3980,8 @@ reduced motion could not freeze it readable); or the glyph swap is moved out of 
 
 ## 47. Two typefaces in two roles
 
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/tipografias.md`](decisiones/interfaz/tipografias.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Decided 2026-09-11,** on client direction. The site sets type in two roles. **Switzer is the
 display role**: headings, titles, the compass, the LED panels, the CTAs. **Inter is the text
 role**: everything else. The blog keeps Source Serif 4 for reading runs of prose.
@@ -4277,7 +4287,7 @@ above the artwork.
 | Decision | Was | Now |
 |---|---|---|
 | The services district is a projected in-world display that owns every control, entered from any of its buildings, and a flight that frames the plaza | `district/display/**`, `interaction/DistrictInteraction.ts`, `camera/CameraFlight.ts`, `checks/district-flight.ts`, deleted 2026-09-11; **§34** | The lab's campus: a tap on the lake, a ring of stops walked by swipe, arrows and Escape, symbols and figures made of particles, copy in a DOM overlay, and the campus's own camera — **§45**, `plans/024` |
-| The phone burger is four bars drawn as geometry on the canvas, and they fly to the centre to become the frame of the menu | `corner-logo/headerBurger.ts`, deleted 2026-09-09; **§26.16** amendments of 2026-09-08 | Three flat bars, and the SCENE moves: the viewport hinges away and slides down as a card, uncovering the menu behind it — **§26.16** amendment 2026-09-09, `plans/023` |
+| The phone burger is four bars drawn as geometry on the canvas, and they fly to the centre to become the frame of the menu | `corner-logo/headerBurger.ts`, deleted 2026-09-09; **§26.16** amendments of 2026-09-08 | Three flat bars, and the SCENE moves: the viewport hinges away and slides down as a card, uncovering the menu behind it — **§26.16** amendment 2026-09-09, `plans/023` · **Migrada →** [`decisiones/interfaz/menu-movil.md`](decisiones/interfaz/menu-movil.md) |
 | The blog is entered by a tap on the `blog_edificios` cluster, which owns no camera and is "not a district, and must not become one" | `interaction/BlogBuilding.ts`, deleted 2026-09-09 | A display floating above that cluster, and a three-second approach into the page. The tap is gone rather than kept beside it — **§42** |
 | Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** |
 | The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** |
@@ -4292,9 +4302,9 @@ above the artwork.
 | The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** |
 | Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** |
 | The footprint inset is disabled whenever the model carries ground past the plate | `MurciaExperience.ts`, `disableFootprintInsets`, 2026-09-04 | It is asked per pose, and is back ON: at 35 degrees no reachable pose clamps a ray, so the footprint is a measurement again. The flag survives only for the no-skirt case — **§39** |
-| The audit section is an opaque curtain: the scene goes away while the form is open | `auditSection.css` `.audit-panel { background: #050506 }`, **§26.15** | Density C smoked glass. The world stays behind the questions as soft context, and the panel is the same material as the contact and legal sheets — **§37** |
-| The emitter hairline is the site’s signature, restated in six sheets because they cannot share | `styles.css`, `murcia.css`, `consentBanner.css`, `siteHeader.css`, `auditSection.css`, `contactSection.css` | Removed. Where the line said something it stayed and went neutral; the sharing problem it caused went with it — **§37** |
-| Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37** |
+| The audit section is an opaque curtain: the scene goes away while the form is open | `auditSection.css` `.audit-panel { background: #050506 }`, **§26.15** | Density C smoked glass. The world stays behind the questions as soft context, and the panel is the same material as the contact and legal sheets — **§37** · **Migrada →** [`decisiones/interfaz/vidrio-ahumado.md`](decisiones/interfaz/vidrio-ahumado.md) |
+| The emitter hairline is the site’s signature, restated in six sheets because they cannot share | `styles.css`, `murcia.css`, `consentBanner.css`, `siteHeader.css`, `auditSection.css`, `contactSection.css` | Removed. Where the line said something it stayed and went neutral; the sharing problem it caused went with it — **§37** · **Migrada →** [`decisiones/interfaz/vidrio-ahumado.md`](decisiones/interfaz/vidrio-ahumado.md) |
+| Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37** · **Migrada →** [`decisiones/interfaz/uso-del-azul.md`](decisiones/interfaz/uso-del-azul.md) |
 | The services district is engaged through a building, and a floating card shows that service | `DistrictInteraction.ts`, `districtPanel.ts`, `districtLabel.ts`, **§32** | A projected in-world display owns every control; buildings are one entry target and otherwise scenery — **§34** |
 | A swap between buildings re-aims the flight and keeps the distance | **§32**, `checks/district-flight.ts` §7d | Paging moves no camera at all. The only district flights are in and out — **§34** |
 | The district camera frames around the panel that covers part of the canvas | **§32**, `unobstructedCenterNdc(rect, panel.getObstructionRect())` | The display is in the world and moves with the camera, so the framing target is simply the centre — **§34** |
@@ -4334,14 +4344,14 @@ above the artwork.
 | The carve technique is how a nebula gets its shape | `purple-nebula-complex.xml`, the canonical preset the first refinements copied | A carve removes almost everything from an additive stack that starts from black rather than from a full-sky wash: C2 did exactly that and measured p95 0.07. Coverage is controlled by `powerAmount` (exponent `1/powerAmount`), not by `shelfAmount` — **§19** amendment 2026-08-27 |
 | The sky is too dark to judge, so brightness is the knob | the first brightness sweep | The gas is authored orders of magnitude below the stars: variant C at 10x reaches mean 1.82 while its stars hit max 247, near clipping. The fix is the ramp inside the bake, never `uSkyBrightness` — **§19** amendment 2026-08-27 |
 | The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** |
-| A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) |
-| Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** |
+| A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) · **Migrada →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md) |
+| Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** · **Migrada →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md) |
 | A lost WebGL context is unhandled | `production-readiness-vercel-2026-08-07.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** · **Migrada →** [`decisiones/render/fallos-de-webgl.md`](decisiones/render/fallos-de-webgl.md) |
 | Each consumer builds its own Draco/KTX2 loader | `createAssetLoader`, `loadLogoAssets`, `createSatellite` | One of each, reference counted, in `graphics/` — **§24** · **Migrada →** [`decisiones/render/decodificadores-compartidos.md`](decisiones/render/decodificadores-compartidos.md) |
 | The Earth ships one set of 4096 maps to every device | `EarthScene.tsx` | Two sets, media-gated at 767px like the sky — **§25** |
 | The renderer takes R3F's defaults | `SceneCanvas.tsx`, `gl={{ antialias: true }}` | `alpha: false` and an explicit `dpr`, so the cap has an owner again — **§25** · **Migrada →** [`decisiones/render/configuracion-del-renderer.md`](decisiones/render/configuracion-del-renderer.md) |
 | A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** |
-| `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** |
+| `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** · **Migrada →** [`decisiones/interfaz/cursor-propio.md`](decisiones/interfaz/cursor-propio.md) |
 | The 3D logo gets its own renderer | the Earth prototype's "The 3D logo gets its own renderer" | Overlay pass on the shared renderer — **§2**, `adr/002` · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md) |
 | One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` · **Migrada →** [`decisiones/render/escenas-separadas.md`](decisiones/render/escenas-separadas.md) |
 | Murcia always bypasses the composer | `adr/001` | Bypasses it *except during a warp* — **§7**, `adr/005` |
@@ -4415,6 +4425,8 @@ build fails on "collection is empty" until one exists, by design; or a measured 
 relaxed in `editorialBounds.ts` without re-measuring the slot it describes.
 
 ## 56. Form fields are lines, and only a wrong value is red
+
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/campos-como-lineas.md`](decisiones/interfaz/campos-como-lineas.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-10-14,** for the Awwwards submission, on an interactive mock-up approved in
 review. The contact, audit and claim fields were matte boxes inset into the glass

@@ -51,7 +51,7 @@ Ya documentado en otras áreas, y no se repite aquí: la reclamación `'blog'` d
 
 ## Tipografía
 
-26. **Las familias propias del blog tienen nombre propio** (`'Vertigo Blog Inter'`, `'Vertigo Blog Serif'` en `blog.css`). En caliente, `blog.css` se inyecta en el documento vivo y `@font-face` es global: una familia registrada con un nombre que la escena ya pide cambiaría la tipografía de la escena al volver de un artículo. Fija: `e2e/blog.spec.ts` (la fuente del `body` antes y después). Hoy el blog pone delante las familias del sitio (`'Vertigo Display'`, `'Vertigo Text'`), marcadas en `blog.css` como «UNDER REVIEW (2026-09-12)». El reparto de tipografías es del área de interfaz. Pendiente de confirmar con el usuario: si esa revisión está cerrada (y el reparto actual es el definitivo) o se revierte.
+26. **Las familias propias del blog tienen nombre propio** (`'Vertigo Blog Inter'`, `'Vertigo Blog Serif'` en `blog.css`). En caliente, `blog.css` se inyecta en el documento vivo y `@font-face` es global: una familia registrada con un nombre que la escena ya pide cambiaría la tipografía de la escena al volver de un artículo. Fija: `e2e/blog.spec.ts` (la fuente del `body` antes y después). Hoy el blog pone delante las familias del sitio (`'Vertigo Display'`, `'Vertigo Text'`), marcadas en `blog.css` como «UNDER REVIEW (2026-09-12)»; ese comentario está desfasado, porque la revisión está cerrada y el reparto actual es el definitivo: ver [tipografías](../decisiones/interfaz/tipografias.md).
 
 ## Publicación
 

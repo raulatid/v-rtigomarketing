@@ -22,7 +22,7 @@ La documentación anterior (`DECISIONS.md`, `ARCHITECTURE.md`, `adr/`) se está 
 | Transición / warp | migrada |
 | Intro y arranque | migrada |
 | Escena de la Tierra | migrada |
-| Interfaz y contenido (cabecera y menú, cursor, picking, vidrio, tipografías, datos de casos) | pendiente |
+| Interfaz y contenido (cabecera y menú, cursor, picking, vidrio, tipografías, datos de casos) | migrada |
 | Formularios, consentimiento y legal | migrada |
 | Contenido / CMS | migrada |
 | Blog | migrada |
@@ -107,6 +107,20 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Entrada por la pantalla](decisiones/blog/entrada-por-la-pantalla.md): pantalla sobre `edificio-blog`, la aproximación es la transición y la vuelta es el mismo vuelo.
 - [Captura de la página](decisiones/blog/captura-de-la-pagina.md): captura del blog construido o placa neutra; navegador confinado, sin sandbox solo en Vercel.
 
+### Interfaz
+- [Cabecera única](decisiones/interfaz/cabecera-unica.md): una sola cabecera con portales; la línea medida coloca el logo; barra negra en el blog.
+- [Menú del móvil](decisiones/interfaz/menu-movil.md): la vista se pliega como una tarjeta y descubre el menú; el mismo en la escena y en el blog.
+- [Blog y Servicios](decisiones/interfaz/atajos-blog-y-servicios.md): dos atajos junto a las puertas, que son un recorrido y no un enlace; no van en la cabecera del blog.
+- [Vidrio ahumado](decisiones/interfaz/vidrio-ahumado.md): un material en tres densidades, tokens en `siteHeader.css` y una sola barra de scroll.
+- [Uso del azul](decisiones/interfaz/uso-del-azul.md): un solo azul en cuatro sitios; el azul fuera de la lista y los literales quedan pendientes.
+- [Campos como líneas](decisiones/interfaz/campos-como-lineas.md): campos de línea fina; el rojo solo con un valor erróneo; desplegable de vidrio progresivo.
+- [Tipografías](decisiones/interfaz/tipografias.md): General Sans y Gambetta en dos papeles, con nombres privados y declaradas una vez.
+- [Pila de capas](decisiones/interfaz/pila-de-capas.md): la lista está en `styles.css`; reglas de orden que no se invierten.
+- [Cursor propio](decisiones/interfaz/cursor-propio.md): montado una vez; cada fuente pide su estado al árbitro de su experiencia.
+- [Glifos del cursor](decisiones/interfaz/glifos-del-cursor.md): path data incrustado, blanco con borde negro, `nonzero`.
+- [Picking por coordenadas](decisiones/interfaz/picking-por-coordenadas.md): coordenadas del propio evento, dos tolerancias por tipo de puntero, detección por capacidad.
+- [Gráficas del caso](decisiones/interfaz/graficas-del-caso.md): SVG a mano en cuatro tipos; color de marca solo en las marcas; gráfica opcional.
+
 ### Render y gráficos
 - [Un renderer para la escena](decisiones/render/un-renderer-para-la-escena.md): un canvas, un renderer y un bucle de R3F; solo el pipeline dibuja; regla de los rAF; excepciones: precalentado fuera de pantalla y marca del blog.
 - [Escenas separadas](decisiones/render/escenas-separadas.md): Earth y Murcia con su escena y su cámara; el logo lleva una tercera; la transición cambia qué escena se dibuja.
@@ -124,6 +138,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Contenido y CMS](trampas/contenido.md)
 - [Formularios, consentimiento, analítica y legal](trampas/formularios-y-privacidad.md)
 - [Blog](trampas/blog.md)
+- [Interfaz](trampas/interfaz.md)
 - [Render y gráficos](trampas/render.md)
 
 ## Contratos
