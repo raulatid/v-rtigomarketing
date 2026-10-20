@@ -35,10 +35,10 @@ what it rules out, and how you would know it had been broken.
 |---|---|
 | **`DECISIONS.md`** (this file) | The binding decisions, and the current state of each. The first thing to read. |
 | `adr/` | One file per architectural decision, with alternatives and trade-offs in full. Linked from here; not duplicated here. |
-| `PROJECT_MEMORY.md` | Durable facts: what exists, the numbers that keep mattering, the traps. **The only one** — Murcia's separate memory was folded into it on 2026-08-07. Cite its sections by title, never by number. |
+| `archivo/PROJECT_MEMORY.md` | **Archived** 2026-10-20 (see `README.md`). History, not policy. Was: durable facts: what exists, the numbers that keep mattering, the traps. **The only one** — Murcia's separate memory was folded into it on 2026-08-07. Cite its sections by title, never by number. |
 | `integration/00-migration-log.md` | The execution record, phase by phase. History, not policy. |
 | `ARCHITECTURE.md` | The architecture as it should be. Binding. |
-| `ENGINEERING_PRINCIPLES.md` | How to work in this repo. Binding. |
+| `archivo/ENGINEERING_PRINCIPLES.md` | **Archived** 2026-10-20 (see `README.md`): generic principles already covered by `CLAUDE.md` and the decisions. History, not policy. |
 | `murcia/blender-export-contract.md` | What the runtime reads out of the GLB and what must be true in the `.blend`. Read before any re-export. |
 | `content/sanity-field-contract.md` | What the content build expects from the CMS, field by field, with the rule and what happens when it is broken. Written to be handed to whoever edits the content. |
 | `content/sanity-media-contract.md` | Where uploaded media lives, which formats are accepted, what is mirrored into the deployment and what stays on the CDN. Separate on purpose. |

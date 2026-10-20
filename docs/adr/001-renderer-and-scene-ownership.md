@@ -2,7 +2,7 @@
 
 Status: **Accepted** — 2026-08-07
 Supersedes: the Murcia prototype's one-Scene rule (for the Earth↔Murcia boundary only). That
-document has since been folded into `docs/PROJECT_MEMORY.md`; the clause is quoted below.
+document has since been folded into `docs/archivo/PROJECT_MEMORY.md`; the clause is quoted below.
 
 ## Context
 

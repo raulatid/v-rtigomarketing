@@ -693,7 +693,7 @@ That is potentially evidence of a poor abstraction.
 Cross-reference:
 
 - `docs/ARCHITECTURE.md`
-- `docs/ENGINEERING_PRINCIPLES.md`
+- `docs/archivo/ENGINEERING_PRINCIPLES.md`
 - `docs/adr/` — the accepted decision records
 - other project design documents
 

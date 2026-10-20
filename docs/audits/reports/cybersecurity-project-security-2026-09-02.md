@@ -2,7 +2,7 @@
 
 ```
 Audited:  2026-09-02 · against commit 528dd42 (main = origin/main, 107 commits) + 5 uncommitted
-          entries (docs/DECISIONS.md, docs/PROJECT_MEMORY.md, e2e/mobile.spec.ts,
+          entries (docs/DECISIONS.md, docs/archivo/PROJECT_MEMORY.md, e2e/mobile.spec.ts,
           src/blog/BlogRoute.tsx, src/blog/blog.css — blog UI polish and notes; nothing config-
           or pipeline-related among them; audited as the working tree)
 Scope:    the whole repository (source, the Sanity content pipeline, the new blog document and
@@ -398,7 +398,7 @@ shape of the blog route parser and the CDN path gap; no values, no ids, no explo
 | `.env` (root) | ignored (`.gitignore:22`); `SANITY_PROJECT_ID` + `SANITY_DATASET` only — **no token** | public identifiers | none |
 | `sanity-studio/.env` | ignored; `SANITY_STUDIO_PROJECT_ID` + `_DATASET` | public identifiers, compiled into the Studio bundle by design | none |
 | `.env.example` | values empty; no `.env*` ever added to history (`git log --all --diff-filter=A`) | compliant | none |
-| Sanity project id (8 chars) | **now in 5 tracked files**: `content/fixtures/blogPost.json`, `content/seed/blogPost.json`, `src/blog/sanityImage.test.ts` (as `cdn.sanity.io/images/<id>/development/…` URLs), `docs/PROJECT_MEMORY.md:1844`, `docs/audits/reports/website-performance-and-optimization-2026-08-27.md:21`; also in the live blog chunk (4) and both prerendered heads | **public by design** — it is the hostname of every API URL and a path segment of every image the site serves | none required. The 08-27 statement "not in any tracked file" is superseded. The hygiene contract does not list it; this brief's habit of not printing it is kept here, but the project should decide once whether the id is redacted in docs or not, because half-redaction is what produces stale claims |
+| Sanity project id (8 chars) | **now in 5 tracked files**: `content/fixtures/blogPost.json`, `content/seed/blogPost.json`, `src/blog/sanityImage.test.ts` (as `cdn.sanity.io/images/<id>/development/…` URLs), `docs/archivo/PROJECT_MEMORY.md:1844`, `docs/audits/reports/website-performance-and-optimization-2026-08-27.md:21`; also in the live blog chunk (4) and both prerendered heads | **public by design** — it is the hostname of every API URL and a path segment of every image the site serves | none required. The 08-27 statement "not in any tracked file" is superseded. The hygiene contract does not list it; this brief's habit of not printing it is kept here, but the project should decide once whether the id is redacted in docs or not, because half-redaction is what produces stale claims |
 | Hosted Studio `appId` | `sanity-studio/sanity.cli.ts` | public identifier | none |
 | `SANITY_TOKEN` | documented in `.env.example`; **no value exists anywhere**; not set locally | — | when one is created: read-only, Production scope only, never `VITE_`; the code already refuses to put it in a URL or a banner |
 | Future Deploy Hook URL | not created | will be a secret | Vercel-side only |

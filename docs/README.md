@@ -12,7 +12,9 @@
 
 ## Migración en curso
 
-La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.md`, `ENGINEERING_PRINCIPLES.md`, `adr/`) se está migrando por áreas. Una entrada antigua marcada como **Migrada** es historia: la fuente válida es el archivo nuevo al que apunta. Lo que aún no está migrado sigue en su sitio y puede estar desfasado.
+La documentación anterior (`DECISIONS.md`, `ARCHITECTURE.md`, `adr/`) se está migrando por áreas. Una entrada antigua marcada como **Migrada** es historia: la fuente válida es el archivo nuevo al que apunta. Lo que aún no está migrado sigue en su sitio y puede estar desfasado.
+
+`PROJECT_MEMORY.md` y `ENGINEERING_PRINCIPLES.md` están archivados enteros desde el 2026-10-20 ([`archivo/PROJECT_MEMORY.md`](archivo/PROJECT_MEMORY.md), [`archivo/ENGINEERING_PRINCIPLES.md`](archivo/ENGINEERING_PRINCIPLES.md)). El primero llevaba mucho tiempo desfasado: el detalle de lo que se hizo está en los commits y el porqué, en las decisiones. El segundo eran principios genéricos que ya cubren `CLAUDE.md` y las decisiones. Son historia, no fuente: no se marcan apartado por apartado. Las citas por nombre que quedan en comentarios de código («PROJECT_MEMORY, …») se refieren a la copia archivada.
 
 | Área | Estado |
 |---|---|

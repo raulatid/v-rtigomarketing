@@ -805,7 +805,7 @@ There is no CI configuration in the repository (`.github/` does not exist), and 
 no `buildCommand`, so the deploy runs `npm run build` → `npm run check` → `vitest run`. The
 85/80/85/85 thresholds run only when a human types `npm run test:coverage`.
 
-`docs/PROJECT_MEMORY.md:93` describes the command as *"scoped coverage, thresholds enforced"*.
+`docs/archivo/PROJECT_MEMORY.md:93` describes the command as *"scoped coverage, thresholds enforced"*.
 Enforced when run, by whoever remembers to run it.
 
 **Why this is still worth fixing rather than deleting.** The file's own reasoning remains the best
