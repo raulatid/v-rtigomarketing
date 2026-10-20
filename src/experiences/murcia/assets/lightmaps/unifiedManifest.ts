@@ -11,6 +11,14 @@ export interface UnifiedManifest {
   atlases: Record<string, UnifiedAtlas>;
 }
 
+/**
+ * The lightmap download budget per profile, in bytes, over the whole set rather
+ * than per file. A manifest past it is refused before anything is fetched. Mobile
+ * is the 1024 set, desktop the 2048 one, unless the manifest assigns resolutions
+ * per atlas, in which case the assigned mix is what is measured.
+ */
+export const LIGHTMAP_BUDGET_BYTES = { mobile: 4_500_000, desktop: 6_500_000 } as const;
+
 /** Validate before allocating GPU resources; filenames stay within the versioned folder. */
 export function parseUnifiedManifest(value: unknown): UnifiedManifest {
   if (!value || typeof value !== 'object') throw new Error('[lightmaps] invalid manifest');
@@ -36,10 +44,12 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
       totals[resolution] += v.bytes;
     }
   }
-  if ((!m.profiles?.mobile?.atlasResolutions && totals[1024] > 4_500_000) || (!m.profiles?.desktop?.atlasResolutions && totals[2048] > 6_500_000)) {
+  if ((!m.profiles?.mobile?.atlasResolutions && totals[1024] > LIGHTMAP_BUDGET_BYTES.mobile) ||
+      (!m.profiles?.desktop?.atlasResolutions && totals[2048] > LIGHTMAP_BUDGET_BYTES.desktop)) {
     throw new Error('[lightmaps] profile exceeds the total download budget');
   }
-  for (const [profile, limit] of [['mobile', 4_500_000], ['desktop', 6_500_000]] as const) {
+  for (const profile of ['mobile', 'desktop'] as const) {
+    const limit = LIGHTMAP_BUDGET_BYTES[profile];
     const sizes = m.profiles?.[profile]?.atlasResolutions;
     if (sizes === undefined) continue;
     if (!sizes || typeof sizes !== 'object' || Object.keys(sizes).length !== Object.keys(m.atlases).length ||
