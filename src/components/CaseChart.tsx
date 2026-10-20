@@ -95,6 +95,22 @@ function BarChart({ values, labels }: { values: number[]; labels?: string[] }) {
   )
 }
 
+// The donut tells segments apart by opacity alone (one colour per case). Steps
+// of 0.22 from 0.95 for up to four segments; past four the same range, down to
+// the fourth segment's 0.29, is shared evenly, so no segment ever fades out.
+const DONUT_OPACITY_TOP = 0.95
+const DONUT_OPACITY_FLOOR = 0.29
+const DONUT_OPACITY_STEP = 0.22
+
+export function donutOpacity(index: number, count: number): number {
+  if (count <= 1) return DONUT_OPACITY_TOP
+  const step = Math.min(
+    DONUT_OPACITY_STEP,
+    (DONUT_OPACITY_TOP - DONUT_OPACITY_FLOOR) / (count - 1),
+  )
+  return DONUT_OPACITY_TOP - index * step
+}
+
 function DonutChart({ values, labels }: { values: number[]; labels?: string[] }) {
   // Shares of nothing: without the guard every dash array and every legend
   // percentage came out NaN.
@@ -122,7 +138,7 @@ function DonutChart({ values, labels }: { values: number[]; labels?: string[] })
             cx={cx}
             cy={cy}
             r={r}
-            style={{ opacity: 0.95 - i * 0.22 }}
+            style={{ opacity: donutOpacity(i, segments.length) }}
             strokeDasharray={`${s.len} ${circumference - s.len}`}
             strokeDashoffset={-s.start}
             transform={`rotate(-90 ${cx} ${cy})`}
@@ -132,7 +148,7 @@ function DonutChart({ values, labels }: { values: number[]; labels?: string[] })
       <ul className="case-chart__legend">
         {values.map((v, i) => (
           <li key={i}>
-            <span className="case-chart__swatch" style={{ opacity: 0.95 - i * 0.22 }} />
+            <span className="case-chart__swatch" style={{ opacity: donutOpacity(i, values.length) }} />
             {labels?.[i] ?? `Serie ${i + 1}`}
             <span className="case-chart__legend-value">{Math.round((v / total) * 100)}%</span>
           </li>

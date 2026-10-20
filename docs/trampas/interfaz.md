@@ -101,7 +101,6 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 ## Posibles defectos
 
 - **Falta `viewport-fit=cover`** en las tres páginas (n.º 18).
-- **Un donut con más de cuatro segmentos no se ve entero:** la opacidad baja con cada segmento hasta desaparecer (fórmula en `CaseChart.tsx`), y el build admite hasta `chartValues` valores.
 - **`CaseStudy.label` se declara, se proyecta y se valida sin lector** (n.º 55).
 - **Sobre los campos de texto se ve la mano señaladora y no el cursor de texto:** `INTERACTIVE_SELECTOR` incluye `input` y `textarea`.
 - **`blog.html` declara `theme-color` de papel (`#fbfbfa`) con la barra negra.**
