@@ -49,4 +49,4 @@ Cobertura acotada: una cifra de todo el repositorio la dominaría la superficie 
 
 ## Afecta a
 
-`vitest.config.ts`, `scripts/coverageModules.ts`, `playwright.config.ts`, `checks/`, `checks/lib/assert.ts`, `e2e/`, `package.json` (`test`, `test:coverage`, `check:*`, `e2e*`). Las reglas de dependencias que vigila `check:architecture` siguen en `ARCHITECTURE.md` §17; el contrato que vigila `check:audit`, en `docs/audits/README.md`.
+`vitest.config.ts`, `scripts/coverageModules.ts`, `playwright.config.ts`, `checks/`, `checks/lib/assert.ts`, `e2e/`, `package.json` (`test`, `test:coverage`, `check:*`, `e2e*`). Las reglas de dependencias que vigila `check:architecture` están en [capas y dependencias](../arquitectura/capas-y-dependencias.md); el contrato que vigila `check:audit`, en `docs/audits/README.md`.
