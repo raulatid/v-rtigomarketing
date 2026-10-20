@@ -158,7 +158,7 @@
    attention curtain that took the scene away entirely while the form was
    open. It is now the same heavy glass as the contact and legal panels, so
    the world stays visible behind the questions as soft context — see the
-   amended entry in docs/DECISIONS.md.
+   amended entry in docs/archivo/DECISIONS.md.
 
    The film rides in the BACKGROUND stack rather than on a pseudo-element,
    because this panel is the scroller: an absolutely positioned overlay would

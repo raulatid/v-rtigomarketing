@@ -559,7 +559,7 @@ if (groundRect) {
 // horizon are drawing real ground rather than the edge of the model.
 //
 // Anyone reinstating an eye-bounded rectangle should read §39 in
-// docs/DECISIONS.md first — it is in the Superseded table, with the pan range it
+// docs/archivo/DECISIONS.md first — it is in the Superseded table, with the pan range it
 // cost — rather than rebuilding it from this file's silence.
 
 

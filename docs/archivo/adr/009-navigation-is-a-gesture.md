@@ -1,6 +1,6 @@
 # ADR 009 — Navigation is a gesture, and the wheel has one owner
 
-> **Migrada (2026-10-20) →** [`navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`navegacion/banda-de-zoom-y-commit.md`](../../decisiones/navegacion/banda-de-zoom-y-commit.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-08-19, **§4 reversed 2026-08-26 by `adr/012`**,
 **"zoom is removed" reversed 2026-09-04 by `adr/014`**

@@ -1,6 +1,6 @@
 # ADR 001 — Renderer and Scene Ownership
 
-> **Migrada (2026-10-20) →** [`render/un-renderer-para-la-escena.md`](../decisiones/render/un-renderer-para-la-escena.md), [`render/escenas-separadas.md`](../decisiones/render/escenas-separadas.md), [`render/el-pipeline-dibuja-un-contrato.md`](../decisiones/render/el-pipeline-dibuja-un-contrato.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`render/un-renderer-para-la-escena.md`](../../decisiones/render/un-renderer-para-la-escena.md), [`render/escenas-separadas.md`](../../decisiones/render/escenas-separadas.md), [`render/el-pipeline-dibuja-un-contrato.md`](../../decisiones/render/el-pipeline-dibuja-un-contrato.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-08-07
 Supersedes: the Murcia prototype's one-Scene rule (for the Earth↔Murcia boundary only). That
@@ -20,7 +20,7 @@ The unified application merges two working prototypes with incompatible runtime 
 
 The two source documents disagreed on the target model:
 
-- `docs/ARCHITECTURE.md` §17/§29 — Earth and Murcia must not depend on each other; shared
+- `docs/archivo/ARCHITECTURE.md` §17/§29 — Earth and Murcia must not depend on each other; shared
   infrastructure must not depend on an experience.
 - The Murcia prototype's project memory — "one `WebGLRenderer`, one canvas, **one
   `THREE.Scene`**, two environments inside it, one active at a time."

@@ -14,7 +14,7 @@ the relationship is named.
 | Item | Value |
 |---|---|
 | HEAD | `528dd42` *change sky panorama image* |
-| Working tree | User WIP: `docs/DECISIONS.md`, `docs/archivo/PROJECT_MEMORY.md`, `e2e/mobile.spec.ts`, `src/blog/BlogRoute.tsx`, `src/blog/blog.css`; untracked prior audit reports and this brief |
+| Working tree | User WIP: `docs/archivo/DECISIONS.md`, `docs/archivo/PROJECT_MEMORY.md`, `e2e/mobile.spec.ts`, `src/blog/BlogRoute.tsx`, `src/blog/blog.css`; untracked prior audit reports and this brief |
 | Node / npm | v22.22.0 / 10.9.3 |
 | Playwright | 1.62.1 |
 | GPU | Not queried in this environment |

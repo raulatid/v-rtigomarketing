@@ -73,7 +73,7 @@ Primary sources: [App](../../../src/App.tsx), [SceneCanvas](../../../src/compone
 - **Coverage expanded, but drifted again:** the comment promises all modules with an adjacent test; the list remains manual, AR-06.
 - **`warpTransition` is in `utils/`:** the move is complete. Other experience-to-`app/` imports remain, AR-05.
 - **The previous services district was replaced by the campus:** its main implementation and harness were removed; some remnants remain. [Plan 024](../../plans/024-services-campus.md).
-- **The blog does have its own 3D logo:** the September 4 amendment to [ADR 013](../../adr/013-the-blog-is-a-second-document.md) accepts it. Loading Three.js is not, by itself, reported as a regression.
+- **The blog does have its own 3D logo:** the September 4 amendment to [ADR 013](../../archivo/adr/013-the-blog-is-a-second-document.md) accepts it. Loading Three.js is not, by itself, reported as a regression.
 
 ## 4. Prioritized findings
 
@@ -226,7 +226,7 @@ This does not claim an exhaustive review of every CSS selector or dynamically re
 
 Resulting direction: **entry points → orchestration → experience adapters → experience modules / infrastructure**. Experiences do not depend on `app/`. **Content build → content contract**; the browser never reaches the build. **Campus and tower → shared LED engine**, not campus → concrete tower adapter. **Specific transports → shared protocol**, not one form → another.
 
-No third experience abstraction, universal scene framework or standardization of the Earth and Murcia cameras is proposed. The boundaries accepted in [ADR 001](../../adr/001-renderer-and-scene-ownership.md), [ADR 003](../../adr/003-experience-lifecycle.md) and ADR 013 remain.
+No third experience abstraction, universal scene framework or standardization of the Earth and Murcia cameras is proposed. The boundaries accepted in [ADR 001](../../archivo/adr/001-renderer-and-scene-ownership.md), [ADR 003](../../archivo/adr/003-experience-lifecycle.md) and ADR 013 remain.
 
 ### State and resources
 

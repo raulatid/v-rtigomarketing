@@ -1,5 +1,6 @@
 /**
- * The dependency rules in ARCHITECTURE.md §17, asserted against the real import
+ * The dependency rules of docs/decisiones/arquitectura/capas-y-dependencias.md
+ * (ARCHITECTURE.md §17 before it was archived), asserted against the real import
  * graph.
  *
  * Every one of these was already written down, and one of them was already
@@ -13,7 +14,7 @@
  * instead of reporting a chunk that grew.
  *
  * Adding a rule here is cheap. Deleting one should require the same argument as
- * changing ARCHITECTURE.md, because it is the same decision.
+ * changing that decision, because it is the same decision.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -120,7 +121,7 @@ const modules: Module[] = ROOTS.flatMap((root) => listSources(root)).map((file) 
 
 const byFile = new Map(modules.map((m) => [m.file, m]));
 
-banner('ARCHITECTURE — dependency rules (ARCHITECTURE.md §17, §29)');
+banner('ARCHITECTURE — dependency rules (docs/decisiones/arquitectura/capas-y-dependencias.md)');
 
 /**
  * Walks STATIC edges only, from one entry point.

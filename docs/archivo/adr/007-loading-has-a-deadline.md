@@ -1,6 +1,6 @@
 # ADR 007 — Loading has a deadline, and the deadline is a failure
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/plazo-de-carga.md`](../decisiones/intro/plazo-de-carga.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/intro/plazo-de-carga.md`](../../decisiones/intro/plazo-de-carga.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-08-07
 Amends: plan 007 Phase 4 ("a timeout is not a readiness signal"), narrowly

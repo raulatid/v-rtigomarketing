@@ -60,7 +60,7 @@ interface Params {
  * for the curves.
  *
  * The swap itself is a HARD CUT at full cover, never a cross-fade. That is the
- * project's strongest visual rule (docs/DECISIONS.md 6: "Nothing ever
+ * project's strongest visual rule (docs/archivo/DECISIONS.md 6: "Nothing ever
  * cross-fades" — both intro substitutions are hard cuts timed to a concealment
  * beat), and it is also what makes the transition free: at the moment of the
  * cut, only one scene is ever being drawn, so there is no frame where both

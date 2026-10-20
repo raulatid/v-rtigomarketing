@@ -57,6 +57,8 @@ Keep entries short enough to read in full. If one needs more than a screen, it w
 
 ## 1. Two prototypes converge into one application
 
+> **Historia (2026-10-20):** la unificación está hecha; no hay nada vigente que migrar. Este texto puede contradecir el código.
+
 **Decided.** `starting-animation` (Earth: React + R3F) and `murcia-test` (Murcia: vanilla
 three) become one application rather than two pages or two bundles.
 
@@ -73,7 +75,7 @@ pass unmodified.
 
 ## 2. One renderer, one canvas, one frame loop, one render authority
 
-> **Migrada (2026-10-20) →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/render/un-renderer-para-la-escena.md`](../decisiones/render/un-renderer-para-la-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`adr/001-renderer-and-scene-ownership.md`**, **`adr/002-single-render-pipeline.md`**
 
@@ -94,7 +96,7 @@ outside `RenderPipeline`.
 
 ## 3. Two `THREE.Scene`s, not one
 
-> **Migrada (2026-10-20) →** [`decisiones/render/escenas-separadas.md`](decisiones/render/escenas-separadas.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/render/escenas-separadas.md`](../decisiones/render/escenas-separadas.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`adr/001-renderer-and-scene-ownership.md`**
 
@@ -115,7 +117,7 @@ permanently.
 
 ## 4. Both experiences stay mounted; nothing is destroyed at a transition
 
-> **Migrada (2026-10-20) →** [`transicion/ciclo-de-vida.md`](decisiones/transicion/ciclo-de-vida.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`transicion/ciclo-de-vida.md`](../decisiones/transicion/ciclo-de-vida.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`adr/003-experience-lifecycle.md`**
 
@@ -135,7 +137,7 @@ exact moment the viewer is watching.
 
 ## 5. The transition never waits
 
-> **Migrada (2026-10-20) →** [`transicion/precarga-de-murcia.md`](decisiones/transicion/precarga-de-murcia.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`transicion/precarga-de-murcia.md`](../decisiones/transicion/precarga-de-murcia.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`adr/004-transition-and-prefetch.md`**
 
@@ -154,7 +156,7 @@ transition frame is exactly the hitch this avoids.
 
 ## 6. Nothing ever cross-fades
 
-> **Migrada (2026-10-20) →** [`transicion/corte-bajo-destello.md`](decisiones/transicion/corte-bajo-destello.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`transicion/corte-bajo-destello.md`](../decisiones/transicion/corte-bajo-destello.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Inherited and upheld** — from the Earth prototype, which called it "the single most important
 visual principle in the project". The mechanism at the 2D→3D crossover is **§26.8**.
@@ -169,7 +171,7 @@ one scene is ever drawn, so there is no frame that renders both worlds.
 
 ## 7. The Earth ⇄ Murcia transition is the intro's warp, and it knows which way it is going
 
-> **Migrada (2026-10-20) →** [`transicion/warp.md`](decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`transicion/warp.md`](../decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`adr/005-warp-transition.md`**, amended by **`adr/006-the-return-is-an-ascent.md`**
 
@@ -206,7 +208,7 @@ no distance bound tells them apart.
 
 ## 8. Each experience moves its own camera
 
-> **Migrada (2026-10-20) →** [`transicion/warp.md`](decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`transicion/warp.md`](../decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided.** The transition publishes `state.transitionProgress` and fires the swap. It
 drives no camera. Earth and Murcia each read that number and move their own.
@@ -219,7 +221,7 @@ experience that defines its interaction model.
 
 ## 9. Exactly one camera owner per frame, always
 
-> **Migrada (2026-10-20) →** [`decisiones/earth/camara-de-earth.md`](decisiones/earth/camara-de-earth.md), [`trampas/murcia-camara.md`](trampas/murcia-camara.md), [`trampas/transicion.md`](trampas/transicion.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/earth/camara-de-earth.md`](../decisiones/earth/camara-de-earth.md), [`trampas/murcia-camara.md`](../trampas/murcia-camara.md), [`trampas/transicion.md`](../trampas/transicion.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Inherited and upheld** — from the Earth prototype. Two writers per frame is the failure
 the source project removed `OrbitControls` to avoid.
@@ -278,7 +280,7 @@ owners at once; the hand-back gives back one name, not the camera).
 
 ## 10. The intro's loading is real, and says so in Spanish
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/carga-real-y-disponibilidad.md`](decisiones/intro/carga-real-y-disponibilidad.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/intro/carga-real-y-disponibilidad.md`](../decisiones/intro/carga-real-y-disponibilidad.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Inherited and upheld** — the drawing is driven by measured asset progress, never a timer,
 and will not release into an unready scene.
@@ -296,6 +298,8 @@ false.
 
 ## 11. The site is Spanish
 
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/idioma-del-sitio.md`](../decisiones/interfaz/idioma-del-sitio.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Decided.** All user-facing copy is Spanish. Placeholder content is Spanish placeholder
 content, not English awaiting translation.
 
@@ -306,7 +310,7 @@ a visitor, and their names are how the fields are talked about in the docs.
 
 ## 12. Guard behaviour on the artifact, not on review
 
-> **Migrada (2026-10-20) →** [`build/puerta-de-despliegue.md`](decisiones/build/puerta-de-despliegue.md), [`build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md), y el párrafo de `VERTIGO_SKIP_BUDGETS` → [`trampas/build.md`](trampas/build.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`build/puerta-de-despliegue.md`](../decisiones/build/puerta-de-despliegue.md), [`build/niveles-de-prueba.md`](../decisiones/build/niveles-de-prueba.md), y el párrafo de `VERTIGO_SKIP_BUDGETS` → [`trampas/build.md`](../trampas/build.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Inherited and extended.** The intro chunk's standalone-ness is asserted on the emitted
 bundle rather than on imports, because standalone-ness breaks equally through a dynamic
@@ -351,7 +355,7 @@ equivalent here, and an escape hatch on the gate is the gate.
 
 ## 13. Migration and refactoring stay separate
 
-> **Migrada en parte (2026-10-20):** «Vite is pinned at 5» → [`build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md) y [`trampas/build.md`](trampas/build.md). El resto es historia del proceso de migración.
+> **Migrada en parte (2026-10-20):** «Vite is pinned at 5» → [`build/niveles-de-prueba.md`](../decisiones/build/niveles-de-prueba.md) y [`trampas/build.md`](../trampas/build.md). El resto es historia del proceso de migración.
 
 **Inherited** — `ENGINEERING_PRINCIPLES` §19. Upheld through the whole migration: Earth
 came across byte-for-byte first (identical emitted chunk hashes), and structural change came
@@ -364,7 +368,7 @@ PROJECT_MEMORY, *Known debt*: Vite is pinned at 5, and `noUncheckedIndexedAccess
 
 ## 14. The custom cursor is global, so every hover source must publish a hint
 
-> **Migrada (2026-10-20) →** [`decisiones/interfaz/cursor-propio.md`](decisiones/interfaz/cursor-propio.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/cursor-propio.md`](../decisiones/interfaz/cursor-propio.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-08-07.** `CustomCursor` mounts once for the whole session. It is not gated on
 the active experience. Every source that wants to change the cursor goes through a
@@ -401,6 +405,8 @@ a district hovered and the hand never relaxes.
 ---
 
 ## 15. The warp is triggered by a control, never by scroll
+
+> **Sustituida (2026-10-20):** el warp lo dispara un gesto; la fuente válida es [`decisiones/navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md). Este texto es historia.
 
 > **REVERSED 2026-08-19 — `adr/009-navigation-is-a-gesture.md`.** The warp is now driven by a
 > gesture: wheel on desktop, a two-finger pinch on touch (a right-edge rail until `adr/012`),
@@ -444,7 +450,7 @@ continuous scrubbing — a different and much larger feature.
 
 ## 16. Production and preview are different builds, and the difference is one flag
 
-> **Migrada (2026-10-20) →** [`build/produccion-y-preview.md`](decisiones/build/produccion-y-preview.md), [`build/despliegue-en-vercel.md`](decisiones/build/despliegue-en-vercel.md), [`build/depuracion-fuera-de-produccion.md`](decisiones/build/depuracion-fuera-de-produccion.md), [`build/js-inicial-de-la-portada.md`](decisiones/build/js-inicial-de-la-portada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`build/produccion-y-preview.md`](../decisiones/build/produccion-y-preview.md), [`build/despliegue-en-vercel.md`](../decisiones/build/despliegue-en-vercel.md), [`build/depuracion-fuera-de-produccion.md`](../decisiones/build/depuracion-fuera-de-produccion.md), [`build/js-inicial-de-la-portada.md`](../decisiones/build/js-inicial-de-la-portada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`audits/reports/production-readiness-vercel-2026-08-07.md`**, **`adr/007-loading-has-a-deadline.md`**
 
@@ -492,7 +498,7 @@ them every build looks like `development`: the debug console ships and productio
 
 ## 17. 3D picking resolves from the event's own coordinates, never from a stored hover
 
-> **Migrada (2026-10-20) →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md), [`trampas/interfaz.md`](trampas/interfaz.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/picking-por-coordenadas.md`](../decisiones/interfaz/picking-por-coordenadas.md), [`trampas/interfaz.md`](../trampas/interfaz.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Every raycast that decides an action takes `clientX, clientY` and returns an answer.** No
 handler may read a hover result computed on a previous frame.
@@ -531,7 +537,7 @@ nothing responds and nothing errors.
 
 ## 18. The brand plates are a drawn floor that real logos upgrade, and readiness never waits on artwork
 
-> **Migrada (2026-10-20) →** [`decisiones/earth/placas-de-marca.md`](decisiones/earth/placas-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/earth/placas-de-marca.md`](../decisiones/earth/placas-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 `createBrandAtlas` rasterises its placeholder plates **synchronously**, then loads any real
 `logo` URLs in the background and redraws those cells when they land. A logo that 404s, fails
@@ -582,7 +588,7 @@ Artwork requirements are in `earth/logo-spec.md` — it is written to be sent to
 
 ## 19. The sky is a photograph, and it is a mesh rather than a background
 
-> **Migrada (2026-10-20) →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/earth/cielo.md`](../decisiones/earth/cielo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > **Superseded in part, 2026-08-13.** The sky was generated on the GPU and baked into a
 > cubemap; it is now a downloaded photographic panorama. The mesh-not-background half of this
@@ -1023,7 +1029,7 @@ the case assumed a photograph must carry its own stars.*
 
 ## 20. Murcia navigates like a map
 
-> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md), [`murcia/limites-de-camara.md`](../decisiones/murcia/limites-de-camara.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > **Amended 2026-08-13 — §21.** The gain is 0.7 rather than 1:1.
 >
@@ -1127,7 +1133,7 @@ stops being available.
 
 ## 21. The pan gain is 0.7, so grab-the-point is a property of the solve rather than of the feel
 
-> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Amends **§20**, which states pan as "1:1 under the cursor". The gesture split, the
 > rotation sensitivity and the zoom band in that entry are unchanged; only the gain is.
@@ -1179,7 +1185,7 @@ is eating part of the drag.
 
 ## 22. There are two test tiers, and a rule for telling them apart
 
-> **Migrada (2026-10-20) →** [`build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`build/niveles-de-prueba.md`](../decisiones/build/niveles-de-prueba.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`docs/plans/000-testing-strategy.md`**
 
@@ -1237,7 +1243,7 @@ started all of this: a harness reporting failures while `npm run check` exits 0.
 
 ## 23. A lost graphics context is a stated failure, not a blank screen
 
-> **Migrada (2026-10-20) →** [`decisiones/render/fallos-de-webgl.md`](decisiones/render/fallos-de-webgl.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/render/fallos-de-webgl.md`](../decisiones/render/fallos-de-webgl.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`audits/ios-safari-2026-08-14.md`** §I1
 
@@ -1269,7 +1275,7 @@ nothing on it.
 
 ## 24. The decoders are owned once, and counted
 
-> **Migrada (2026-10-20) →** [`decisiones/render/decodificadores-compartidos.md`](decisiones/render/decodificadores-compartidos.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/render/decodificadores-compartidos.md`](../decisiones/render/decodificadores-compartidos.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-08-14.** `graphics/decoders.ts` owns one `DRACOLoader` and one `KTX2Loader` for
 the application, acquired and released in pairs.
@@ -1300,7 +1306,7 @@ the same file for the same reason: the path belongs to whoever owns the decoder.
 
 ## 25. Mobile is a first-class target, and it is capability-detected
 
-> **Migrada (2026-10-20) →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md), [`decisiones/render/configuracion-del-renderer.md`](decisiones/render/configuracion-del-renderer.md), [`decisiones/earth/panel-del-caso.md`](decisiones/earth/panel-del-caso.md), [`decisiones/earth/banda-de-zoom-de-earth.md`](decisiones/earth/banda-de-zoom-de-earth.md), [`decisiones/murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/picking-por-coordenadas.md`](../decisiones/interfaz/picking-por-coordenadas.md), [`decisiones/render/configuracion-del-renderer.md`](../decisiones/render/configuracion-del-renderer.md), [`decisiones/earth/panel-del-caso.md`](../decisiones/earth/panel-del-caso.md), [`decisiones/earth/banda-de-zoom-de-earth.md`](../decisiones/earth/banda-de-zoom-de-earth.md), [`decisiones/murcia/pose-de-reposo.md`](../decisiones/murcia/pose-de-reposo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`audits/mobile-responsiveness-2026-08-14.md`**, **`audits/ios-safari-2026-08-14.md`**
 
@@ -1354,7 +1360,7 @@ visitor downloads both sets.
 
 ## 26. The Earth experience's own decisions
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/maquina-de-apertura.md`](decisiones/intro/maquina-de-apertura.md), [`decisiones/intro/arranque-sin-dependencias.md`](decisiones/intro/arranque-sin-dependencias.md), [`decisiones/intro/carga-real-y-disponibilidad.md`](decisiones/intro/carga-real-y-disponibilidad.md), [`decisiones/intro/ritmo-del-dibujo.md`](decisiones/intro/ritmo-del-dibujo.md), [`decisiones/intro/warp-de-la-intro.md`](decisiones/intro/warp-de-la-intro.md), [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/intro/salto-y-visita-que-vuelve.md`](decisiones/intro/salto-y-visita-que-vuelve.md), [`decisiones/earth/convenciones-de-render.md`](decisiones/earth/convenciones-de-render.md), [`decisiones/earth/satelites.md`](decisiones/earth/satelites.md), [`decisiones/earth/camara-de-earth.md`](decisiones/earth/camara-de-earth.md), [`decisiones/earth/panel-del-caso.md`](decisiones/earth/panel-del-caso.md), [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md), [`decisiones/earth/validacion-de-marcas-subidas.md`](decisiones/earth/validacion-de-marcas-subidas.md), [`decisiones/blog/marca-3d-en-la-cabecera.md`](decisiones/blog/marca-3d-en-la-cabecera.md) (enmienda de 26.16 del 2026-09-04, la marca 3D en el blog), [`decisiones/blog/entrada-por-la-pantalla.md`](decisiones/blog/entrada-por-la-pantalla.md) (fila Blog de la enmienda de 26.16 del 2026-09-24). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. Las enmiendas de 26.16 sobre la cabecera y el menú → [`decisiones/interfaz/cabecera-unica.md`](decisiones/interfaz/cabecera-unica.md), [`decisiones/interfaz/menu-movil.md`](decisiones/interfaz/menu-movil.md), [`decisiones/interfaz/atajos-blog-y-servicios.md`](decisiones/interfaz/atajos-blog-y-servicios.md); 26.14 → [`decisiones/interfaz/graficas-del-caso.md`](decisiones/interfaz/graficas-del-caso.md); 26.17 → [`decisiones/interfaz/glifos-del-cursor.md`](decisiones/interfaz/glifos-del-cursor.md); 26.13 → [`trampas/contenido.md`](trampas/contenido.md) n.º 25.
+> **Migrada (2026-10-20) →** [`decisiones/intro/maquina-de-apertura.md`](../decisiones/intro/maquina-de-apertura.md), [`decisiones/intro/arranque-sin-dependencias.md`](../decisiones/intro/arranque-sin-dependencias.md), [`decisiones/intro/carga-real-y-disponibilidad.md`](../decisiones/intro/carga-real-y-disponibilidad.md), [`decisiones/intro/ritmo-del-dibujo.md`](../decisiones/intro/ritmo-del-dibujo.md), [`decisiones/intro/warp-de-la-intro.md`](../decisiones/intro/warp-de-la-intro.md), [`decisiones/intro/nada-interactivo-hasta-site.md`](../decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/intro/salto-y-visita-que-vuelve.md`](../decisiones/intro/salto-y-visita-que-vuelve.md), [`decisiones/earth/convenciones-de-render.md`](../decisiones/earth/convenciones-de-render.md), [`decisiones/earth/satelites.md`](../decisiones/earth/satelites.md), [`decisiones/earth/camara-de-earth.md`](../decisiones/earth/camara-de-earth.md), [`decisiones/earth/panel-del-caso.md`](../decisiones/earth/panel-del-caso.md), [`decisiones/earth/holograma-de-marca.md`](../decisiones/earth/holograma-de-marca.md), [`decisiones/earth/validacion-de-marcas-subidas.md`](../decisiones/earth/validacion-de-marcas-subidas.md), [`decisiones/blog/marca-3d-en-la-cabecera.md`](../decisiones/blog/marca-3d-en-la-cabecera.md) (enmienda de 26.16 del 2026-09-04, la marca 3D en el blog), [`decisiones/blog/entrada-por-la-pantalla.md`](../decisiones/blog/entrada-por-la-pantalla.md) (fila Blog de la enmienda de 26.16 del 2026-09-24). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. Las enmiendas de 26.16 sobre la cabecera y el menú → [`decisiones/interfaz/cabecera-unica.md`](../decisiones/interfaz/cabecera-unica.md), [`decisiones/interfaz/menu-movil.md`](../decisiones/interfaz/menu-movil.md), [`decisiones/interfaz/atajos-blog-y-servicios.md`](../decisiones/interfaz/atajos-blog-y-servicios.md); 26.14 → [`decisiones/interfaz/graficas-del-caso.md`](../decisiones/interfaz/graficas-del-caso.md); 26.17 → [`decisiones/interfaz/glifos-del-cursor.md`](../decisiones/interfaz/glifos-del-cursor.md); 26.13 → [`trampas/contenido.md`](../trampas/contenido.md) n.º 25.
 
 **Folded in 2026-08-17**, when `earth/DECISIONS.md` was retired so that this file is the only
 decisions file in the repository. That document was 1862 lines of chronological entries running
@@ -1995,7 +2001,7 @@ without a word, which means `parseImageRef` is failing open against a live asset
 
 ## 27. Content is generated at build time, and the browser never calls the CMS
 
-> **Migrada (2026-10-20) →** [`decisiones/contenido/generado-en-build.md`](decisiones/contenido/generado-en-build.md), [`decisiones/contenido/fallo-estricto-y-fuentes.md`](decisiones/contenido/fallo-estricto-y-fuentes.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/contenido/generado-en-build.md`](../decisiones/contenido/generado-en-build.md), [`decisiones/contenido/fallo-estricto-y-fuentes.md`](../decisiones/contenido/fallo-estricto-y-fuentes.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-08-20. Full reasoning and the alternatives in **`adr/010`**.
 
@@ -2055,7 +2061,7 @@ what makes a content diff mean something and keeps Vite's chunk hashes stable.
 
 ## 28. Scene composition is code-owned; the CMS owns copy and nothing else
 
-> **Migrada (2026-10-20) →** [`decisiones/contenido/que-decide-el-editor.md`](decisiones/contenido/que-decide-el-editor.md), que la reformula: el editor decide todo lo que pasa por Sanity, también lo visual, y nunca código. Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/contenido/que-decide-el-editor.md`](../decisiones/contenido/que-decide-el-editor.md), que la reformula: el editor decide todo lo que pasa por Sanity, también lo visual, y nunca código. Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-08-20, with §27.
 
@@ -2100,6 +2106,8 @@ some is merely not-yet-moved, and conflating them turns a temporary constraint i
 ---
 
 ## 29. The rail's feel is presentation, and its dress is the journey
+
+> **Sustituida (2026-10-20):** el riel, su muelle (`progressSpring.ts`, borrado en `3781db7`) y la pista de gesto de Murcia ya no existen. La navegación vigente está en [`decisiones/navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md) y la pista de Earth, en [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md). Este texto es historia.
 
 > **AMENDED 2026-08-26 — `adr/012`. The rail is gone, and the hint waits.** Touch navigates by
 > pinching the scene, so the rail lost both of its jobs: the scene is the indicator now, and there
@@ -2212,7 +2220,7 @@ is shown while the context is refusing navigation.
 
 ## 30. Contact, legal and the brand's own mark
 
-> **Migrada (2026-10-20) →** [`decisiones/formularios/dialogo-de-contacto.md`](decisiones/formularios/dialogo-de-contacto.md), [`decisiones/formularios/backend-de-formularios.md`](decisiones/formularios/backend-de-formularios.md), [`decisiones/privacidad/textos-legales.md`](decisiones/privacidad/textos-legales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. «The brand data has one home…» y su revisión del 2026-08-23 → [`decisiones/formularios/dialogo-de-contacto.md`](decisiones/formularios/dialogo-de-contacto.md), [`decisiones/contenido/sanity-y-proyeccion-groq.md`](decisiones/contenido/sanity-y-proyeccion-groq.md) y [`trampas/interfaz.md`](trampas/interfaz.md) n.º 57.
+> **Migrada (2026-10-20) →** [`decisiones/formularios/dialogo-de-contacto.md`](../decisiones/formularios/dialogo-de-contacto.md), [`decisiones/formularios/backend-de-formularios.md`](../decisiones/formularios/backend-de-formularios.md), [`decisiones/privacidad/textos-legales.md`](../decisiones/privacidad/textos-legales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. «The brand data has one home…» y su revisión del 2026-08-23 → [`decisiones/formularios/dialogo-de-contacto.md`](../decisiones/formularios/dialogo-de-contacto.md), [`decisiones/contenido/sanity-y-proyeccion-groq.md`](../decisiones/contenido/sanity-y-proyeccion-groq.md) y [`trampas/interfaz.md`](../trampas/interfaz.md) n.º 57.
 
 The Earth scene grew its floor and its second CTA on 2026-08-20: phone numbers bottom-left
 as bare `tel:` links (a number behind a disclosure costs calls), "Términos y privacidad" ·
@@ -2282,7 +2290,7 @@ phones and the legal links drift back onto the floor line.
 
 ## 31. The CMS is Sanity, and the client edits more than copy
 
-> **Migrada (2026-10-20) →** [`decisiones/contenido/sanity-y-proyeccion-groq.md`](decisiones/contenido/sanity-y-proyeccion-groq.md), [`decisiones/contenido/texto-estructurado.md`](decisiones/contenido/texto-estructurado.md), [`decisiones/contenido/medios-replicados.md`](decisiones/contenido/medios-replicados.md), [`decisiones/contenido/limites-editoriales.md`](decisiones/contenido/limites-editoriales.md), [`decisiones/contenido/vista-previa-del-studio.md`](decisiones/contenido/vista-previa-del-studio.md) y, para el párrafo del blog, [`decisiones/blog/segundo-documento.md`](decisiones/blog/segundo-documento.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/contenido/sanity-y-proyeccion-groq.md`](../decisiones/contenido/sanity-y-proyeccion-groq.md), [`decisiones/contenido/texto-estructurado.md`](../decisiones/contenido/texto-estructurado.md), [`decisiones/contenido/medios-replicados.md`](../decisiones/contenido/medios-replicados.md), [`decisiones/contenido/limites-editoriales.md`](../decisiones/contenido/limites-editoriales.md), [`decisiones/contenido/vista-previa-del-studio.md`](../decisiones/contenido/vista-previa-del-studio.md) y, para el párrafo del blog, [`decisiones/blog/segundo-documento.md`](../decisiones/blog/segundo-documento.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-08-23. Full reasoning and the alternatives in **`adr/011`**. Everything §27 says
 about *when* content is fetched still holds; what changed is *from where*, and *how much*.
@@ -2353,6 +2361,8 @@ renders with a clause missing; or the entry budget fails and the message blames 
 
 ## 32. One service per building, one interaction per district
 
+> **Sustituida (2026-10-20):** la sección de servicios es el campus; la fuente válida es [`decisiones/campus/modelo-y-recorrido.md`](../decisiones/campus/modelo-y-recorrido.md). Este texto es historia.
+
 **Decided** 2026-08-27, when the re-exported city shipped `edificio-servicio-001..007` and `009`.
 
 **The district is engaged through a building, never picked as a whole.** Until now "Servicios" was
@@ -2407,7 +2417,7 @@ buildings against the +Z plate edge, where the framing solve may clamp; it is tu
 
 ## 33. The boot is measured in pixels, and the city is not part of it
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/trabajo-por-fase.md`](decisiones/intro/trabajo-por-fase.md), [`decisiones/transicion/precarga-de-murcia.md`](decisiones/transicion/precarga-de-murcia.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/intro/trabajo-por-fase.md`](../decisiones/intro/trabajo-por-fase.md), [`decisiones/transicion/precarga-de-murcia.md`](../decisiones/transicion/precarga-de-murcia.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-08-28, from plan 008. Users reported the screen "flashing white" during the
 opening and the intro feeling rough.
@@ -2457,6 +2467,8 @@ to come from a measured reveal deadline, not from reusing the city's answer.
 ---
 
 ## 34. The services district is driven by a projected display, not by its buildings
+
+> **Sustituida (2026-10-20):** la pantalla proyectada se borró; la fuente válida es [`decisiones/campus/modelo-y-recorrido.md`](../decisiones/campus/modelo-y-recorrido.md). Este texto es historia.
 
 **Decided** 2026-08-31, porting the design from `prototypes/vertigo-lab`
 (`src/experiments/services-buildings/`). The plans it was built against are copied to
@@ -2528,7 +2540,7 @@ and `intro` still have no reader.
 
 ## 35. Consent is asked once, as the intro's last stroke
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/privacidad/consentimiento.md`](decisiones/privacidad/consentimiento.md), [`decisiones/privacidad/analitica.md`](decisiones/privacidad/analitica.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/intro/nada-interactivo-hasta-site.md`](../decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/privacidad/consentimiento.md`](../decisiones/privacidad/consentimiento.md), [`decisiones/privacidad/analitica.md`](../decisiones/privacidad/analitica.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-09-05, plan 018. The client requires a cookie banner and plans Google Analytics
 after launch; the runtime inventory taken that day found the site setting no cookies, keeping no
@@ -2582,7 +2594,7 @@ warp or swallows Escape; it appears before `site`; a copy mounts outside `.app__
 
 ## 36. The Vertigo building is the client's, and it moves
 
-> **Migrada en parte (2026-10-20):** el banner editorial de la torre se retiró el 2026-09-15 (`1ad78f5`); la pantalla vigente es [`decisiones/contenido/pantalla-de-la-torre.md`](decisiones/contenido/pantalla-de-la-torre.md). La barra negra del blog está en [`decisiones/interfaz/cabecera-unica.md`](decisiones/interfaz/cabecera-unica.md). **Sin migrar todavía:** el resto de esta entrada.
+> **Migrada en parte (2026-10-20):** el banner editorial de la torre se retiró el 2026-09-15 (`1ad78f5`); la pantalla vigente es [`decisiones/contenido/pantalla-de-la-torre.md`](../decisiones/contenido/pantalla-de-la-torre.md). La barra negra del blog está en [`decisiones/interfaz/cabecera-unica.md`](../decisiones/interfaz/cabecera-unica.md). **Sin migrar todavía:** el resto de esta entrada.
 
 **Decided** 2026-09-05, plan 019. Four things landed together; each is its own decision.
 
@@ -2633,7 +2645,7 @@ material or a bake, or a second colour appears on the blog's bar.
 
 ## 37. The overlay UI is one smoked-glass material in three densities, and blue is spent once
 
-> **Migrada (2026-10-20) →** [`decisiones/interfaz/vidrio-ahumado.md`](decisiones/interfaz/vidrio-ahumado.md), [`decisiones/interfaz/uso-del-azul.md`](decisiones/interfaz/uso-del-azul.md), [`decisiones/interfaz/campos-como-lineas.md`](decisiones/interfaz/campos-como-lineas.md), [`decisiones/murcia/brujula.md`](decisiones/murcia/brujula.md), [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/vidrio-ahumado.md`](../decisiones/interfaz/vidrio-ahumado.md), [`decisiones/interfaz/uso-del-azul.md`](../decisiones/interfaz/uso-del-azul.md), [`decisiones/interfaz/campos-como-lineas.md`](../decisiones/interfaz/campos-como-lineas.md), [`decisiones/murcia/brujula.md`](../decisiones/murcia/brujula.md), [`decisiones/earth/holograma-de-marca.md`](../decisiones/earth/holograma-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-09-06, plan 020, drawn on a design canvas before a line of CSS changed
 (`design/smoked-glass/`, 11 artboards over real captures of the Earth and Murcia scenes). The
@@ -2707,7 +2719,7 @@ a panel's material stops being one of the three densities, or `blog.css` starts 
 
 ## 38. Pan and yaw feel are split by pointer type, because a finger runs out of glass
 
-> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Amends **§21** (the pan gain) and **§20** (Murcia navigates like a map). Neither is
 > reversed: both described one gesture with one sensitivity, and there are now two of each.
@@ -2785,7 +2797,7 @@ pair back into one number.
 
 ## 39. The camera never leaves the navigable area
 
-> **Migrada (2026-10-20) →** [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`murcia/limites-de-camara.md`](../decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](../decisiones/murcia/pose-de-reposo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Amends **§20** ("Murcia navigates like a map"). The navigable area is no longer a property
 > of the plate alone — it is a function of the pose, and it bounds the CAMERA and not only
@@ -2897,7 +2909,7 @@ stops.
 
 ## 40. The edge is felt arriving, not hit
 
-> **Migrada (2026-10-20) →** [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`murcia/limites-de-camara.md`](../decisiones/murcia/limites-de-camara.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Amends **§39** ("The camera never leaves the navigable area"). The rule is unchanged and the
 > enforcement is unchanged. What changes is which rectangle it guards — the authored plate
@@ -2989,7 +3001,7 @@ to the firm area on purpose, a composed shot having no business landing in the m
 
 ## 41. The Earth's hint is drawn in the scene, out of particles
 
-> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > **REVERSED 2026-09-09 by §43.** The particle figure is gone and the hint is DOM text. Kept
 > because it is the record of how the figure was tuned and why it was rejected — and because
@@ -3156,7 +3168,7 @@ float's amplitude stops being reserved in the bottom gap.
 
 ## 42. The blog is entered through a display, and the approach is the transition
 
-> **Migrada (2026-10-20) →** [`decisiones/blog/entrada-por-la-pantalla.md`](decisiones/blog/entrada-por-la-pantalla.md), [`decisiones/blog/captura-de-la-pagina.md`](decisiones/blog/captura-de-la-pagina.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/blog/entrada-por-la-pantalla.md`](../decisiones/blog/entrada-por-la-pantalla.md), [`decisiones/blog/captura-de-la-pagina.md`](../decisiones/blog/captura-de-la-pagina.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-09, plan 022,** porting `vertigo-lab`'s `blog-transition` experiment
 (`src/experiments/blog-transition/`, six commits on `feat/blog-transition`). Roughly 1,900 of its
@@ -3317,7 +3329,7 @@ is a judgement by eye, with 0.4 as the deliberate non-proportional fallback.
 
 ## 43. Earth's hint is text again
 
-> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > Reverses **§41 (2026-09-08, the particle figure)**. Murcia's plate is untouched and stays
 > hidden on Earth by the same one-line rule.
@@ -3430,7 +3442,7 @@ clearing `data-visible` when `active` goes false.
 
 ## 44. Murcia is navigated by one pointer carrying both axes, over a spring
 
-> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/sensacion-de-camara.md`](decisiones/murcia/sensacion-de-camara.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md), [`murcia/brujula.md`](decisiones/murcia/brujula.md), [`murcia/edificios-interactivos.md`](decisiones/murcia/edificios-interactivos.md), [`navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md), [`transicion/vacio.md`](decisiones/transicion/vacio.md), [`transicion/giro-de-earth-hacia-espana.md`](decisiones/transicion/giro-de-earth-hacia-espana.md), [`decisiones/earth/banda-de-zoom-de-earth.md`](decisiones/earth/banda-de-zoom-de-earth.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md), [`murcia/sensacion-de-camara.md`](../decisiones/murcia/sensacion-de-camara.md), [`murcia/limites-de-camara.md`](../decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](../decisiones/murcia/pose-de-reposo.md), [`murcia/brujula.md`](../decisiones/murcia/brujula.md), [`murcia/edificios-interactivos.md`](../decisiones/murcia/edificios-interactivos.md), [`navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md), [`transicion/vacio.md`](../decisiones/transicion/vacio.md), [`transicion/giro-de-earth-hacia-espana.md`](../decisiones/transicion/giro-de-earth-hacia-espana.md), [`decisiones/earth/banda-de-zoom-de-earth.md`](../decisiones/earth/banda-de-zoom-de-earth.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **2026-09-10.** Ported from `prototypes/vertigo-lab`, experiment
 `camera-navigation`. Replaces **§20** and its amendments **§21** and **§38**,
@@ -3828,6 +3840,8 @@ reports together, and a trackpad never sends a pure one.
 
 ## 45. The services district is the campus
 
+> **Migrada (2026-10-20) →** [`campus/modelo-y-recorrido.md`](../decisiones/campus/modelo-y-recorrido.md), [`campus/camara-propia.md`](../decisiones/campus/camara-propia.md), [`campus/contenido-y-composicion.md`](../decisiones/campus/contenido-y-composicion.md), [`campus/tira-led.md`](../decisiones/campus/tira-led.md), [`campus/placa-y-hoja.md`](../decisiones/campus/placa-y-hoja.md), [`campus/aspecto-del-campus.md`](../decisiones/campus/aspecto-del-campus.md), [`campus/particulas-y-movimiento-reducido.md`](../decisiones/campus/particulas-y-movimiento-reducido.md), [`trampas/campus.md`](../trampas/campus.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **2026-09-11.** Ported from `prototypes/vertigo-lab`, experiment
 `service-campus`, whose `core/` was split out to be copied the way the tower's
 screen was. Replaces **§34** — the projected display — whole. The working
@@ -3897,7 +3911,7 @@ figure. Both are judgements for the visual pass on real hardware.
 
 ## 46. Earth's glyph is the wheel again, and a hand on a phone for touch
 
-> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > **Amended 2026-09-15 — forward wheel rotation zooms in.** Users reported
 > trying the opposite direction. Desktop vertical wheel input is now inverted
@@ -3988,7 +4002,7 @@ reduced motion could not freeze it readable); or the glyph swap is moved out of 
 
 ## 47. Two typefaces in two roles
 
-> **Migrada (2026-10-20) →** [`decisiones/interfaz/tipografias.md`](decisiones/interfaz/tipografias.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/tipografias.md`](../decisiones/interfaz/tipografias.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-11,** on client direction. The site sets type in two roles. **Switzer is the
 display role**: headings, titles, the compass, the LED panels, the CTAs. **Inter is the text
@@ -4028,7 +4042,7 @@ a preload loses `crossorigin`; or a facade text block type is added without choo
 
 ## 48. The music crossfades; the picture still cuts
 
-> **Migrada (2026-10-20) →** [`transicion/musica.md`](decisiones/transicion/musica.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`transicion/musica.md`](../decisiones/transicion/musica.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-11,** on client direction. There is background music: one loop for Earth and
 one for Murcia. It starts when Earth is whole, and the warp crossfades from one track to the
@@ -4070,7 +4084,7 @@ activation on touch; or a track lands in `public/audio/` without its hash in the
 
 ## 49. The centre of the city is baked and unlit; the exterior is lit
 
-> **Migrada en parte (2026-10-20):** «Resolution follows the sky's split», «Cost» y «Also broken when» → [`build/entrega-de-la-ciudad.md`](decisiones/build/entrega-de-la-ciudad.md) y [`build/contrato-del-glb.md`](decisiones/build/contrato-del-glb.md). El resto (por qué sin luz, la placa, receptores por `extras`) sigue sin migrar y puede estar desfasado.
+> **Migrada en parte (2026-10-20):** «Resolution follows the sky's split», «Cost» y «Also broken when» → [`build/entrega-de-la-ciudad.md`](../decisiones/build/entrega-de-la-ciudad.md) y [`build/contrato-del-glb.md`](../decisiones/build/contrato-del-glb.md). El resto (por qué sin luz, la placa, receptores por `extras`) sigue sin migrar y puede estar desfasado.
 
 **Decided 2026-09-11,** with murcia-v7. The city's centre — the four quadrants inside the A2 ring,
 their windows and props, and the streets — ships with its light baked into twelve KTX2 atlases,
@@ -4113,7 +4127,7 @@ a re-bake changes the manifests' `uvChannel`.
 
 ## 50. The billing range is a dropdown, and its options are the client's
 
-> **Migrada (2026-10-20) →** [`decisiones/formularios/rangos-del-formulario-de-auditoria.md`](decisiones/formularios/rangos-del-formulario-de-auditoria.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/formularios/rangos-del-formulario-de-auditoria.md`](../decisiones/formularios/rangos-del-formulario-de-auditoria.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-14,** at the client's request. «Rango de facturación de tu empresa» in the audit
 form was free text, on the argument that the client wanted business context and a select would
@@ -4142,7 +4156,7 @@ the Studio reads `EDITORIAL_BOUNDS.siteSettings.revenueRange`); or a publish of 
 
 ## 51. The intro's tail can be left once loading is done, and a returning visitor leaves it
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/salto-y-visita-que-vuelve.md`](decisiones/intro/salto-y-visita-que-vuelve.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/intro/salto-y-visita-que-vuelve.md`](../decisiones/intro/salto-y-visita-que-vuelve.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-15** with the user, on measurements (plan 025). The loading draw is the loading
 cover and is untouched: it waits on every required resource and has a 3 s floor. The tail after
@@ -4223,6 +4237,8 @@ returning (`returningVisitor.test.ts`).
 
 ## 52. A service's figure draws what its copy argues, and the plate names it
 
+> **Migrada (2026-10-20) →** [`campus/figuras-que-argumentan.md`](../decisiones/campus/figuras-que-argumentan.md), [`campus/particulas-y-movimiento-reducido.md`](../decisiones/campus/particulas-y-movimiento-reducido.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **2026-09-15.** The client said the campus plates beside the particles "only have text" and asked
 for graphs. A graph was already there, and it was decoration: each symbol turned every ~3 s into
 `bars`, `ring`, `pins` or `line`, with constant bar heights and a sum of sines, and two services
@@ -4255,7 +4271,7 @@ changes the binding; or a document without the new fields fails the build.
 
 ## 53. The selected hologram lands on a smoked-glass tray, edge and all
 
-> **Migrada (2026-10-20) →** [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/earth/holograma-de-marca.md`](../decisiones/earth/holograma-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-09-16, from the client's report that the expanded lockup could not be read
 when the close-up put it over the daylit hemisphere. One of five options analysed before any
@@ -4294,85 +4310,87 @@ above the artwork.
 
 ## Superseded
 
+> **Historia (2026-10-20):** cada fila ya está recogida, como «Qué se descartó» o «Sustituye a», en la decisión vigente de su área (índice en [`README.md`](../README.md)).
+
 | Decision | Was | Now |
 |---|---|---|
 | The services district is a projected in-world display that owns every control, entered from any of its buildings, and a flight that frames the plaza | `district/display/**`, `interaction/DistrictInteraction.ts`, `camera/CameraFlight.ts`, `checks/district-flight.ts`, deleted 2026-09-11; **§34** | The lab's campus: a tap on the lake, a ring of stops walked by swipe, arrows and Escape, symbols and figures made of particles, copy in a DOM overlay, and the campus's own camera — **§45**, `plans/024` |
-| The phone burger is four bars drawn as geometry on the canvas, and they fly to the centre to become the frame of the menu | `corner-logo/headerBurger.ts`, deleted 2026-09-09; **§26.16** amendments of 2026-09-08 | Three flat bars, and the SCENE moves: the viewport hinges away and slides down as a card, uncovering the menu behind it — **§26.16** amendment 2026-09-09, `plans/023` · **Migrada →** [`decisiones/interfaz/menu-movil.md`](decisiones/interfaz/menu-movil.md) |
-| The blog is entered by a tap on the `blog_edificios` cluster, which owns no camera and is "not a district, and must not become one" | `interaction/BlogBuilding.ts`, deleted 2026-09-09 | A display floating above that cluster, and a three-second approach into the page. The tap is gone rather than kept beside it — **§42** · **Migrada →** [`decisiones/blog/entrada-por-la-pantalla.md`](decisiones/blog/entrada-por-la-pantalla.md) |
-| Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md) |
-| The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md) |
-| Earth's way out is drawn in the scene, as ~770 points that gather out of the star field | `experiences/earth/hint/{createHintParticles,sampleInk,buildHintFigure,hintPresence}.ts`, deleted 2026-09-09, **§41** | Plain white DOM text carrying the same chevrons and the same sentence, faded in over 2 s and floating ±5 px. The client's objection was the glass plate, never the text — **§43** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md) |
-| Earth's mark is the two chevrons alone, for both inputs | `EarthHint.tsx`, **§43** | The plate's mouse (body, scrolling notch, chasing chevrons) on fine pointers, and a hand spreading two fingers on a phone for touch, picked by the same `(pointer: coarse)` rule as the sentence — **§46** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md) |
-| Murcia navigates like a map: one finger pans the ground 1:1 under the cursor, a second finger or the right button rotates | `navigation/DragPanController.ts`, deleted 2026-09-10; **§20**, **§21**, **§38** | One pointer carries BOTH axes at once over a second-order spring, and two fingers mean only a pinch. The ground-raycast grab-the-point solve is gone rather than kept beside it — **§44** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`decisiones/murcia/sensacion-de-camara.md`](decisiones/murcia/sensacion-de-camara.md) |
-| The navigable area bounds the CAMERA, and the outer part of it is a band travelled against a falling gain | `navigation/navigableArea.ts` and `resistToRect`, deleted 2026-09-10; **§39**, **§40** | The viewer's TARGET is clamped to one rectangle, and the rectangle is the A2 ring the GLB carries. The band bought pan range; the wider rectangle gives it outright — **§44** · **Migrada →** [`decisiones/murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md) |
-| A pinch has to prove it is not a two-finger turn before it may drive anything | `app/navigation/pinchClassifier.ts`, deleted 2026-09-10; **`adr/015`** | Two fingers mean a pinch, because nothing else uses two fingers. It arms on the second contact and drives the band from the first sample — **§44** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md) |
-| The Earth ⇄ Murcia cinematic is counted by a GSAP timeline | `app/useExperienceTransition.ts`, rewritten 2026-09-10 | A `dt` clock, `utils/transitionClock.ts`. The timeline was two linear tweens and a callback; the `visibilitychange` guard it needed is structurally impossible now — **§44** · **Migrada →** [`decisiones/transicion/corte-bajo-destello.md`](decisiones/transicion/corte-bajo-destello.md), [`trampas/transicion.md`](trampas/transicion.md) |
-| The intro's tail (P1–P5) is one paused GSAP timeline | `useMasterTimeline.ts`, rewritten 2026-10-19; **§26.3** as first written | A `dt` clock, `experiences/earth/timeline/openingTail.ts`, whose phases are the opening machine's (`adr/016`). `gsap` was removed with it — **§26.3** amendment · **Migrada →** [`decisiones/intro/maquina-de-apertura.md`](decisiones/intro/maquina-de-apertura.md) |
-| The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** · **Migrada →** [`decisiones/murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md) |
-| The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** · **Migrada →** [`decisiones/murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md) |
-| Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** · **Migrada →** [`decisiones/murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md) |
+| The phone burger is four bars drawn as geometry on the canvas, and they fly to the centre to become the frame of the menu | `corner-logo/headerBurger.ts`, deleted 2026-09-09; **§26.16** amendments of 2026-09-08 | Three flat bars, and the SCENE moves: the viewport hinges away and slides down as a card, uncovering the menu behind it — **§26.16** amendment 2026-09-09, `plans/023` · **Migrada →** [`decisiones/interfaz/menu-movil.md`](../decisiones/interfaz/menu-movil.md) |
+| The blog is entered by a tap on the `blog_edificios` cluster, which owns no camera and is "not a district, and must not become one" | `interaction/BlogBuilding.ts`, deleted 2026-09-09 | A display floating above that cluster, and a three-second approach into the page. The tap is gone rather than kept beside it — **§42** · **Migrada →** [`decisiones/blog/entrada-por-la-pantalla.md`](../decisiones/blog/entrada-por-la-pantalla.md) |
+| Earth teaches its way out on a glass chip at the bottom of the viewport | `.nav-hint` travel cell, `NavigationControl.tsx`, **§39 (the hint frame)** | It is drawn IN the scene, as ~770 points that gather out of the star field. The plate is hidden on Earth and kept in full for Murcia — **§41** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md) |
+| The Earth hint is offered a beat after each arrival, and does not return until the next one | `createNavigationInput`'s `onHintVisible`, **§41** as first shipped | It is offered after two seconds of STILLNESS and returns whenever the viewer goes quiet again. Murcia's chip keeps the arrival rule, and the two are no longer wired together — **§41 revision** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md) |
+| Earth's way out is drawn in the scene, as ~770 points that gather out of the star field | `experiences/earth/hint/{createHintParticles,sampleInk,buildHintFigure,hintPresence}.ts`, deleted 2026-09-09, **§41** | Plain white DOM text carrying the same chevrons and the same sentence, faded in over 2 s and floating ±5 px. The client's objection was the glass plate, never the text — **§43** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md) |
+| Earth's mark is the two chevrons alone, for both inputs | `EarthHint.tsx`, **§43** | The plate's mouse (body, scrolling notch, chasing chevrons) on fine pointers, and a hand spreading two fingers on a phone for touch, picked by the same `(pointer: coarse)` rule as the sentence — **§46** · **Migrada →** [`decisiones/earth/pista-de-escena.md`](../decisiones/earth/pista-de-escena.md) |
+| Murcia navigates like a map: one finger pans the ground 1:1 under the cursor, a second finger or the right button rotates | `navigation/DragPanController.ts`, deleted 2026-09-10; **§20**, **§21**, **§38** | One pointer carries BOTH axes at once over a second-order spring, and two fingers mean only a pinch. The ground-raycast grab-the-point solve is gone rather than kept beside it — **§44** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md), [`decisiones/murcia/sensacion-de-camara.md`](../decisiones/murcia/sensacion-de-camara.md) |
+| The navigable area bounds the CAMERA, and the outer part of it is a band travelled against a falling gain | `navigation/navigableArea.ts` and `resistToRect`, deleted 2026-09-10; **§39**, **§40** | The viewer's TARGET is clamped to one rectangle, and the rectangle is the A2 ring the GLB carries. The band bought pan range; the wider rectangle gives it outright — **§44** · **Migrada →** [`decisiones/murcia/limites-de-camara.md`](../decisiones/murcia/limites-de-camara.md) |
+| A pinch has to prove it is not a two-finger turn before it may drive anything | `app/navigation/pinchClassifier.ts`, deleted 2026-09-10; **`adr/015`** | Two fingers mean a pinch, because nothing else uses two fingers. It arms on the second contact and drives the band from the first sample — **§44** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md) |
+| The Earth ⇄ Murcia cinematic is counted by a GSAP timeline | `app/useExperienceTransition.ts`, rewritten 2026-09-10 | A `dt` clock, `utils/transitionClock.ts`. The timeline was two linear tweens and a callback; the `visibilitychange` guard it needed is structurally impossible now — **§44** · **Migrada →** [`decisiones/transicion/corte-bajo-destello.md`](../decisiones/transicion/corte-bajo-destello.md), [`trampas/transicion.md`](../trampas/transicion.md) |
+| The intro's tail (P1–P5) is one paused GSAP timeline | `useMasterTimeline.ts`, rewritten 2026-10-19; **§26.3** as first written | A `dt` clock, `experiences/earth/timeline/openingTail.ts`, whose phases are the opening machine's (`adr/016`). `gsap` was removed with it — **§26.3** amendment · **Migrada →** [`decisiones/intro/maquina-de-apertura.md`](../decisiones/intro/maquina-de-apertura.md) |
+| The navigable area is the authored plate, and its edge is a hard clamp | `computeStationLimitedBounds(configured, …)` and `clampToRect` in `DragPanController.applyPan`, **§39** | The plate plus the A2 ring, with the ring travelled against a gain that falls to zero. Same rule, wider rectangle, felt edge — **§40** · **Migrada →** [`decisiones/murcia/limites-de-camara.md`](../decisiones/murcia/limites-de-camara.md) |
+| The navigable area bounds the focus | `NavigableArea`, `DragPanController`, and `checks/footprint.ts` §3, which bounded the eye against the *skirt* and passed while the camera stood off the city | It bounds the CAMERA. The eye offset is `distance * cos(pitch)` — 271 units on a 352-unit plate — so the focus being legal never made the eye legal — **§39** · **Migrada →** [`decisiones/murcia/limites-de-camara.md`](../decisiones/murcia/limites-de-camara.md) |
+| Murcia rests at 18 degrees and distance 285 | **§20** amendment 2026-09-04, client direction, `murciaConfig.ts` pose docblock | 35 degrees and 220. The low pose put the horizon in frame on arrival and the camera off the plate everywhere — **§39** · **Migrada →** [`decisiones/murcia/pose-de-reposo.md`](../decisiones/murcia/pose-de-reposo.md) |
 | The footprint inset is disabled whenever the model carries ground past the plate | `MurciaExperience.ts`, `disableFootprintInsets`, 2026-09-04 | It is asked per pose, and is back ON: at 35 degrees no reachable pose clamps a ray, so the footprint is a measurement again. The flag survives only for the no-skirt case — **§39** |
-| The audit section is an opaque curtain: the scene goes away while the form is open | `auditSection.css` `.audit-panel { background: #050506 }`, **§26.15** | Density C smoked glass. The world stays behind the questions as soft context, and the panel is the same material as the contact and legal sheets — **§37** · **Migrada →** [`decisiones/interfaz/vidrio-ahumado.md`](decisiones/interfaz/vidrio-ahumado.md) |
-| The emitter hairline is the site’s signature, restated in six sheets because they cannot share | `styles.css`, `murcia.css`, `consentBanner.css`, `siteHeader.css`, `auditSection.css`, `contactSection.css` | Removed. Where the line said something it stayed and went neutral; the sharing problem it caused went with it — **§37** · **Migrada →** [`decisiones/interfaz/vidrio-ahumado.md`](decisiones/interfaz/vidrio-ahumado.md) |
-| Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37** · **Migrada →** [`decisiones/interfaz/uso-del-azul.md`](decisiones/interfaz/uso-del-azul.md) |
+| The audit section is an opaque curtain: the scene goes away while the form is open | `auditSection.css` `.audit-panel { background: #050506 }`, **§26.15** | Density C smoked glass. The world stays behind the questions as soft context, and the panel is the same material as the contact and legal sheets — **§37** · **Migrada →** [`decisiones/interfaz/vidrio-ahumado.md`](../decisiones/interfaz/vidrio-ahumado.md) |
+| The emitter hairline is the site’s signature, restated in six sheets because they cannot share | `styles.css`, `murcia.css`, `consentBanner.css`, `siteHeader.css`, `auditSection.css`, `contactSection.css` | Removed. Where the line said something it stayed and went neutral; the sharing problem it caused went with it — **§37** · **Migrada →** [`decisiones/interfaz/vidrio-ahumado.md`](../decisiones/interfaz/vidrio-ahumado.md) |
+| Blue marks accents, focus, scrollbars, arrows, ticks, leaders and gradients | plan 005 palette note, `auditSection.css` header | Four homes: the primary CTA, a focused field’s ring, the beacon dot, the focus outline — **§37** · **Migrada →** [`decisiones/interfaz/uso-del-azul.md`](../decisiones/interfaz/uso-del-azul.md) |
 | The services district is engaged through a building, and a floating card shows that service | `DistrictInteraction.ts`, `districtPanel.ts`, `districtLabel.ts`, **§32** | A projected in-world display owns every control; buildings are one entry target and otherwise scenery — **§34** |
 | A swap between buildings re-aims the flight and keeps the distance | **§32**, `checks/district-flight.ts` §7d | Paging moves no camera at all. The only district flights are in and out — **§34** |
 | The district camera frames around the panel that covers part of the canvas | **§32**, `unobstructedCenterNdc(rect, panel.getObstructionRect())` | The display is in the world and moves with the camera, so the framing target is simply the centre — **§34** |
-| Murcia loads during the Earth intro so the transition never waits on it | `MurciaLayer.tsx`, ADR 004 | It loads after the handover. The transition still never waits — `canNavigate` gates on `murciaReady`, which lands before phase `site` — and the intro stops competing with 2 MB it does not need — **§33** · **Migrada →** [`decisiones/transicion/precarga-de-murcia.md`](decisiones/transicion/precarga-de-murcia.md) |
+| Murcia loads during the Earth intro so the transition never waits on it | `MurciaLayer.tsx`, ADR 004 | It loads after the handover. The transition still never waits — `canNavigate` gates on `murciaReady`, which lands before phase `site` — and the intro stops competing with 2 MB it does not need — **§33** · **Migrada →** [`decisiones/transicion/precarga-de-murcia.md`](../decisiones/transicion/precarga-de-murcia.md) |
 | "Servicios" is one district, picked as a cluster, opening an accordion of every service | `cityDistrictBindings.ts` (`blog_edificios*` stand-in), `districtPanel.ts` accordion, §20 | One building per service (`edificio-servicio-NNN`), engaged one at a time; the panel shows one service with prev/next — **§32** |
 | The terrain plate is `Plane.013` | `murciaConfig.ts`, `blender-export-contract.md` §5 | `suelo-principal` since the 2026-08-27 re-export; the largest-flat-mesh fallback covered the gap and warned — **§32** |
-| WordPress is the editorial source of truth | **§27**, `adr/010` | Sanity. The WordPress mapping never worked — flat keys against a `rendered`/`acf` envelope — so nothing working was replaced — **§31**, `adr/011` · **Migrada →** [`decisiones/contenido/sanity-y-proyeccion-groq.md`](decisiones/contenido/sanity-y-proyeccion-groq.md) |
-| `WP_CONTENT_BASE`'s presence selects the source; `wp \| fixture \| seed` | `scripts/build-content.ts` | `SANITY_PROJECT_ID` selects it; `sanity \| fixture \| seed`. A leftover `WP_CONTENT_BASE` fails with a message naming what changed — **§31** · **Migrada →** [`decisiones/contenido/fallo-estricto-y-fuentes.md`](decisiones/contenido/fallo-estricto-y-fuentes.md) |
-| A torn pull is caught by asserting `X-WP-Total` against what arrived | `content/lib/source.ts` | One GROQ query per collection removes the failure class. Eventual consistency after a publish remains, and is documented rather than slept on — **§31**, `adr/011` · **Migrada →** [`decisiones/contenido/sanity-y-proyeccion-groq.md`](decisiones/contenido/sanity-y-proyeccion-groq.md) |
-| Content is fixtures and two collections; a phone number does not earn a post type | **§30** | Six collections. Services, site settings and both legal documents are CMS-owned; `site.ts` is a compatibility adapter over generated content — **§31** · **Migrada →** [`decisiones/contenido/que-decide-el-editor.md`](decisiones/contenido/que-decide-el-editor.md), [`decisiones/contenido/sanity-y-proyeccion-groq.md`](decisiones/contenido/sanity-y-proyeccion-groq.md), [`trampas/interfaz.md`](trampas/interfaz.md) |
-| Legal copy is `string[]`, one entry per paragraph | **§30**, `site.ts` | Constrained Portable Text, converted to typed blocks at ingest and rendered by an explicit serializer — **§31**, `adr/011` · **Migrada →** [`decisiones/contenido/texto-estructurado.md`](decisiones/contenido/texto-estructurado.md) |
-| `SATELLITES` is the single seam an API would replace | **§26.13**, `orbitConfig.ts` | The seam is the generated module. `SATELLITES` is deleted; content is emitted at build time — **§27**, `adr/010` · **Migrada →** [`decisiones/contenido/generado-en-build.md`](decisiones/contenido/generado-en-build.md) |
-| The satellite↔orbit pairing is positional, and `orbitId` is unread | `createOrbitSystem.ts`, `caseStudies.ts` | `orbitId` is off the content type; `orbitAssignments.ts` binds preset to case and unresolvable ones fail the build — **§28** · **Migrada →** [`decisiones/earth/satelites.md`](decisiones/earth/satelites.md), [`decisiones/contenido/que-decide-el-editor.md`](decisiones/contenido/que-decide-el-editor.md) |
-| `logo` becomes a CMS media URL, needing CORS and an `img-src` entry | **§18**, 2026-08-14 | Media is mirrored into `public/logos/` at build time, so it stays same-origin and the CSP is untouched — **§27** · **Migrada →** [`decisiones/contenido/medios-replicados.md`](decisiones/contenido/medios-replicados.md) |
-| `logo` is a single string, and that is the entire media seam; one 2048×1536 atlas whose 2:1 cell is coupled to `panel.width` | **§18**, `PROJECT_MEMORY` §9 | A pair, `isotype` + `logo`, both or neither; two atlases, and the shader contain-fits so panel and cell aspect are independent — **§18** amendment 2026-08-25, **§26.21** · **Migrada →** [`decisiones/earth/placas-de-marca.md`](decisiones/earth/placas-de-marca.md), [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md) |
-| The panel's frame is Vertigo's cyan holographic language (`panel.frameColor`, brackets, scanlines, brand-tinted pane) | `createHoloPanel.ts`, `orbitConfig.ts` until 2026-08-25 | Dark glass matching `.case-panel`, a screen-constant hairline, and the brand colour only on the emitter line — **§26.22** · **Migrada →** [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md) |
-| The warp is triggered by a control, never by scroll | **§15**, inherited from the Murcia prototype | A gesture: wheel on desktop, a two-finger pinch on touch. Accumulated, reversible, threshold-committed — **`adr/009`**, then **`adr/012`** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md) |
-| A bounded zoom band lands on the wheel and on pinch | **§20**, 2026-08-13 | There is no zoom anywhere. Flights are the only way to get closer — **`adr/009`**. A pinch means NAVIGATE, not zoom — **`adr/012`** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md) |
-| Wheel is claimed by both experiences’ cameras | `createFocusCameraRig.ts`, `DragPanController.ts` | One global listener owns the whole wheel stream, which is what makes trackpad momentum tractable — **`adr/009`** · **Migrada →** [`trampas/murcia-camara.md`](trampas/murcia-camara.md) |
-| The repo has no test runner | `PROJECT_MEMORY` §2, "no ESLint and no test runner" | Vitest for pure logic; `checks/` unchanged; Playwright local — **§22** · **Migrada →** [`decisiones/build/niveles-de-prueba.md`](decisiones/build/niveles-de-prueba.md) |
-| `npm run check` is the gate, and nothing runs it | `PROJECT_MEMORY` §10, audit `VER-1` | `npm run build` runs it, and every harness can fail — **§12** · **Migrada →** [`decisiones/build/puerta-de-despliegue.md`](decisiones/build/puerta-de-despliegue.md) |
-| Pan is 1:1 under the cursor | **§20**, 2026-08-13 | Gain 0.7; exactness is asserted on the solve at gain 1 instead — **§21** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md) |
-| One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md) |
+| WordPress is the editorial source of truth | **§27**, `adr/010` | Sanity. The WordPress mapping never worked — flat keys against a `rendered`/`acf` envelope — so nothing working was replaced — **§31**, `adr/011` · **Migrada →** [`decisiones/contenido/sanity-y-proyeccion-groq.md`](../decisiones/contenido/sanity-y-proyeccion-groq.md) |
+| `WP_CONTENT_BASE`'s presence selects the source; `wp \| fixture \| seed` | `scripts/build-content.ts` | `SANITY_PROJECT_ID` selects it; `sanity \| fixture \| seed`. A leftover `WP_CONTENT_BASE` fails with a message naming what changed — **§31** · **Migrada →** [`decisiones/contenido/fallo-estricto-y-fuentes.md`](../decisiones/contenido/fallo-estricto-y-fuentes.md) |
+| A torn pull is caught by asserting `X-WP-Total` against what arrived | `content/lib/source.ts` | One GROQ query per collection removes the failure class. Eventual consistency after a publish remains, and is documented rather than slept on — **§31**, `adr/011` · **Migrada →** [`decisiones/contenido/sanity-y-proyeccion-groq.md`](../decisiones/contenido/sanity-y-proyeccion-groq.md) |
+| Content is fixtures and two collections; a phone number does not earn a post type | **§30** | Six collections. Services, site settings and both legal documents are CMS-owned; `site.ts` is a compatibility adapter over generated content — **§31** · **Migrada →** [`decisiones/contenido/que-decide-el-editor.md`](../decisiones/contenido/que-decide-el-editor.md), [`decisiones/contenido/sanity-y-proyeccion-groq.md`](../decisiones/contenido/sanity-y-proyeccion-groq.md), [`trampas/interfaz.md`](../trampas/interfaz.md) |
+| Legal copy is `string[]`, one entry per paragraph | **§30**, `site.ts` | Constrained Portable Text, converted to typed blocks at ingest and rendered by an explicit serializer — **§31**, `adr/011` · **Migrada →** [`decisiones/contenido/texto-estructurado.md`](../decisiones/contenido/texto-estructurado.md) |
+| `SATELLITES` is the single seam an API would replace | **§26.13**, `orbitConfig.ts` | The seam is the generated module. `SATELLITES` is deleted; content is emitted at build time — **§27**, `adr/010` · **Migrada →** [`decisiones/contenido/generado-en-build.md`](../decisiones/contenido/generado-en-build.md) |
+| The satellite↔orbit pairing is positional, and `orbitId` is unread | `createOrbitSystem.ts`, `caseStudies.ts` | `orbitId` is off the content type; `orbitAssignments.ts` binds preset to case and unresolvable ones fail the build — **§28** · **Migrada →** [`decisiones/earth/satelites.md`](../decisiones/earth/satelites.md), [`decisiones/contenido/que-decide-el-editor.md`](../decisiones/contenido/que-decide-el-editor.md) |
+| `logo` becomes a CMS media URL, needing CORS and an `img-src` entry | **§18**, 2026-08-14 | Media is mirrored into `public/logos/` at build time, so it stays same-origin and the CSP is untouched — **§27** · **Migrada →** [`decisiones/contenido/medios-replicados.md`](../decisiones/contenido/medios-replicados.md) |
+| `logo` is a single string, and that is the entire media seam; one 2048×1536 atlas whose 2:1 cell is coupled to `panel.width` | **§18**, `PROJECT_MEMORY` §9 | A pair, `isotype` + `logo`, both or neither; two atlases, and the shader contain-fits so panel and cell aspect are independent — **§18** amendment 2026-08-25, **§26.21** · **Migrada →** [`decisiones/earth/placas-de-marca.md`](../decisiones/earth/placas-de-marca.md), [`decisiones/earth/holograma-de-marca.md`](../decisiones/earth/holograma-de-marca.md) |
+| The panel's frame is Vertigo's cyan holographic language (`panel.frameColor`, brackets, scanlines, brand-tinted pane) | `createHoloPanel.ts`, `orbitConfig.ts` until 2026-08-25 | Dark glass matching `.case-panel`, a screen-constant hairline, and the brand colour only on the emitter line — **§26.22** · **Migrada →** [`decisiones/earth/holograma-de-marca.md`](../decisiones/earth/holograma-de-marca.md) |
+| The warp is triggered by a control, never by scroll | **§15**, inherited from the Murcia prototype | A gesture: wheel on desktop, a two-finger pinch on touch. Accumulated, reversible, threshold-committed — **`adr/009`**, then **`adr/012`** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md) |
+| A bounded zoom band lands on the wheel and on pinch | **§20**, 2026-08-13 | There is no zoom anywhere. Flights are the only way to get closer — **`adr/009`**. A pinch means NAVIGATE, not zoom — **`adr/012`** · **Migrada →** [`decisiones/navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md) |
+| Wheel is claimed by both experiences’ cameras | `createFocusCameraRig.ts`, `DragPanController.ts` | One global listener owns the whole wheel stream, which is what makes trackpad momentum tractable — **`adr/009`** · **Migrada →** [`trampas/murcia-camara.md`](../trampas/murcia-camara.md) |
+| The repo has no test runner | `PROJECT_MEMORY` §2, "no ESLint and no test runner" | Vitest for pure logic; `checks/` unchanged; Playwright local — **§22** · **Migrada →** [`decisiones/build/niveles-de-prueba.md`](../decisiones/build/niveles-de-prueba.md) |
+| `npm run check` is the gate, and nothing runs it | `PROJECT_MEMORY` §10, audit `VER-1` | `npm run build` runs it, and every harness can fail — **§12** · **Migrada →** [`decisiones/build/puerta-de-despliegue.md`](../decisiones/build/puerta-de-despliegue.md) |
+| Pan is 1:1 under the cursor | **§20**, 2026-08-13 | Gain 0.7; exactness is asserted on the solve at gain 1 instead — **§21** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md) |
+| One gesture carries both navigation axes | `PROJECT_MEMORY` §7, signed off 2026-08-06 | Pan owns the primary gesture; rotation is right-button/two-finger; zoom exists — **§20** · **Migrada →** [`decisiones/murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md) |
 | The Earth prototype keeps its own decisions file | `earth/DECISIONS.md`, 1862 lines, listed above as still authoritative | Retired 2026-08-17; what still binds is **§26**, and this file is the only one — **§26** |
-| The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** · **Migrada →** [`decisiones/earth/placas-de-marca.md`](decisiones/earth/placas-de-marca.md) |
-| The cold blog document is 2D by construction, and pays for no 3D at all | **`adr/013`**, 2026-08-31; the ban asserted in `e2e/blog.spec.ts` | It pays for the BRAND MARK and nothing else: three, the Draco decoder and the mark's GLB (the KTX2 bake and its transcoder went with plan 019 §3, 2026-09-05 — the geometry has no UVs and the mark is unlit brand white) — deferred until after the article paints, with the SVG as the first paint and the permanent fallback. What it still refuses is the 3D APPLICATION, and the e2e states that as an allow-list in both directions rather than a blanket ban — **`adr/013` amendment**, **§26.16** · **Migrada →** [`decisiones/blog/marca-3d-en-la-cabecera.md`](decisiones/blog/marca-3d-en-la-cabecera.md) |
-| The application has one WebGL renderer | **`adr/001`**, **`adr/002`**, and `graphics/decoders.ts`'s "which is all there ever is here" | One renderer for the SCENE. A warm document also holds the blog header's 44×44 `low-power` context — **`adr/013` amendment** · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md) |
-| A logo should be delivered at ~1024×512 | `sanity-media-contract.md` and the Studio's own field description, since 2026-08-23 | 1600×800, minimum 900 wide. 1024×512 is barely above the 896×400 box the artwork is fitted into, and `drawLogoContained` already warns below it — the CMS was advising editors towards artwork the renderer complains about. `docs/earth/logo-spec.md` had said 1600×800 all along and was the copy nobody reconciled — **§26.23** · **Migrada →** [`decisiones/earth/validacion-de-marcas-subidas.md`](decisiones/earth/validacion-de-marcas-subidas.md) |
-| The format and size rules for a brand mark are guidance for the editor | the two `description` strings on `caseStudy.isotype` / `.logo` | They are validation. Wrong format or geometry disables Publicar and fails the build; only the ideal-versus-acceptable difference is advice — **§26.23** · **Migrada →** [`decisiones/earth/validacion-de-marcas-subidas.md`](decisiones/earth/validacion-de-marcas-subidas.md) |
-| The backdrop is a field of uniform points on a shell | the Earth prototype's "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** · **Migrada →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md) |
-| The sky is generated on the GPU, not downloaded | **§19**, first form | It is a 113 KB photograph. The procedural nebula could not be made to look like anything but dirt, for structural reasons — **§19** · **Migrada →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md) |
-| The sky source is an equirectangular panorama | **§19**, `CREDITS.md`, `spaceConfig.ts`, and the `width === height * 2` guard that "checked" it | It is a flat 2:1 image, and so is every candidate that was screened. Aspect ratio is not projection. Mitigated by `convergePoles`, not fixed — only a different source fixes it — **§19** amendment 2026-08-20, `audits/reports/sky-panorama-projection-2026-08-19.md` · **Migrada →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md), [`trampas/earth.md`](trampas/earth.md) |
+| The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** · **Migrada →** [`decisiones/earth/placas-de-marca.md`](../decisiones/earth/placas-de-marca.md) |
+| The cold blog document is 2D by construction, and pays for no 3D at all | **`adr/013`**, 2026-08-31; the ban asserted in `e2e/blog.spec.ts` | It pays for the BRAND MARK and nothing else: three, the Draco decoder and the mark's GLB (the KTX2 bake and its transcoder went with plan 019 §3, 2026-09-05 — the geometry has no UVs and the mark is unlit brand white) — deferred until after the article paints, with the SVG as the first paint and the permanent fallback. What it still refuses is the 3D APPLICATION, and the e2e states that as an allow-list in both directions rather than a blanket ban — **`adr/013` amendment**, **§26.16** · **Migrada →** [`decisiones/blog/marca-3d-en-la-cabecera.md`](../decisiones/blog/marca-3d-en-la-cabecera.md) |
+| The application has one WebGL renderer | **`adr/001`**, **`adr/002`**, and `graphics/decoders.ts`'s "which is all there ever is here" | One renderer for the SCENE. A warm document also holds the blog header's 44×44 `low-power` context — **`adr/013` amendment** · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](../decisiones/render/un-renderer-para-la-escena.md) |
+| A logo should be delivered at ~1024×512 | `sanity-media-contract.md` and the Studio's own field description, since 2026-08-23 | 1600×800, minimum 900 wide. 1024×512 is barely above the 896×400 box the artwork is fitted into, and `drawLogoContained` already warns below it — the CMS was advising editors towards artwork the renderer complains about. `docs/earth/logo-spec.md` had said 1600×800 all along and was the copy nobody reconciled — **§26.23** · **Migrada →** [`decisiones/earth/validacion-de-marcas-subidas.md`](../decisiones/earth/validacion-de-marcas-subidas.md) |
+| The format and size rules for a brand mark are guidance for the editor | the two `description` strings on `caseStudy.isotype` / `.logo` | They are validation. Wrong format or geometry disables Publicar and fails the build; only the ideal-versus-acceptable difference is advice — **§26.23** · **Migrada →** [`decisiones/earth/validacion-de-marcas-subidas.md`](../decisiones/earth/validacion-de-marcas-subidas.md) |
+| The backdrop is a field of uniform points on a shell | the Earth prototype's "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** · **Migrada →** [`decisiones/earth/cielo.md`](../decisiones/earth/cielo.md) |
+| The sky is generated on the GPU, not downloaded | **§19**, first form | It is a 113 KB photograph. The procedural nebula could not be made to look like anything but dirt, for structural reasons — **§19** · **Migrada →** [`decisiones/earth/cielo.md`](../decisiones/earth/cielo.md) |
+| The sky source is an equirectangular panorama | **§19**, `CREDITS.md`, `spaceConfig.ts`, and the `width === height * 2` guard that "checked" it | It is a flat 2:1 image, and so is every candidate that was screened. Aspect ratio is not projection. Mitigated by `convergePoles`, not fixed — only a different source fixes it — **§19** amendment 2026-08-20, `audits/reports/sky-panorama-projection-2026-08-19.md` · **Migrada →** [`decisiones/earth/cielo.md`](../decisiones/earth/cielo.md), [`trampas/earth.md`](../trampas/earth.md) |
 | `convergePoles` removed the polar spokes | **§19** amendment 2026-08-19, and a pole view rendered looking only for what it had just fixed | It removed them above ~75 degrees. Its fade weight is 0.06 at 60 and 0.40 at 70, so the dashes survived across 45-75 — most of a pole view — for six days. Fixed 2026-08-25 by ramping the median window with latitude — **§19** amendment 2026-08-25 |
-| The polar caps are dark because `convergePoles` darkened them | the shape of the artifact, and the fact that the fade obviously removes signal | It is **mean-preserving on both passes**: the box blur preserves each row's sum and the fade is `row += (mean - row) * fade`. The darkness is the flat source's own top and bottom rows. Turning the fade off restores the spokes, re-inflates the file, and does not lighten the caps by one code value — **§19** amendment 2026-08-25 · **Migrada →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md), [`trampas/earth.md`](trampas/earth.md) |
+| The polar caps are dark because `convergePoles` darkened them | the shape of the artifact, and the fact that the fade obviously removes signal | It is **mean-preserving on both passes**: the box blur preserves each row's sum and the fade is `row += (mean - row) * fade`. The darkness is the flat source's own top and bottom rows. Turning the fade off restores the spokes, re-inflates the file, and does not lighten the caps by one code value — **§19** amendment 2026-08-25 · **Migrada →** [`decisiones/earth/cielo.md`](../decisiones/earth/cielo.md), [`trampas/earth.md`](../trampas/earth.md) |
 | High azimuthal detail near the pole means the sky there is healthy | the ring metric used to verify the 2026-08-25 diagnosis | 1.16 at 25 degrees against ordinary sky's 0.37-0.80 was the DASHES, not gas. The metric cannot tell structure from aliased streaks, so it cannot be read in either direction — **§19** amendment 2026-08-25 |
-| A procedural sky cannot be art-directed, because its failures are structural | **§19**, the 2026-08-13 abandonment | True of THAT implementation — value-noise lattice, stationary fbm, one analytic gaussian for all large-scale structure. An authored multi-layer bake with hand-aimed features is a different technique, and C6 delivers blue and purple against true black — **§19** amendment 2026-08-27, `audits/reports/sky-cubemap-discovery-2026-08-27.md` · **Migrada →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md) |
+| A procedural sky cannot be art-directed, because its failures are structural | **§19**, the 2026-08-13 abandonment | True of THAT implementation — value-noise lattice, stationary fbm, one analytic gaussian for all large-scale structure. An authored multi-layer bake with hand-aimed features is a different technique, and C6 delivers blue and purple against true black — **§19** amendment 2026-08-27, `audits/reports/sky-cubemap-discovery-2026-08-27.md` · **Migrada →** [`decisiones/earth/cielo.md`](../decisiones/earth/cielo.md) |
 | The carve technique is how a nebula gets its shape | `purple-nebula-complex.xml`, the canonical preset the first refinements copied | A carve removes almost everything from an additive stack that starts from black rather than from a full-sky wash: C2 did exactly that and measured p95 0.07. Coverage is controlled by `powerAmount` (exponent `1/powerAmount`), not by `shelfAmount` — **§19** amendment 2026-08-27 |
 | The sky is too dark to judge, so brightness is the knob | the first brightness sweep | The gas is authored orders of magnitude below the stars: variant C at 10x reaches mean 1.82 while its stars hit max 247, near clipping. The fix is the ramp inside the bake, never `uSkyBrightness` — **§19** amendment 2026-08-27 |
-| The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** · **Migrada →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md), [`decisiones/render/el-pipeline-dibuja-un-contrato.md`](decisiones/render/el-pipeline-dibuja-un-contrato.md) |
-| A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) · **Migrada →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md) |
-| Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** · **Migrada →** [`decisiones/interfaz/picking-por-coordenadas.md`](decisiones/interfaz/picking-por-coordenadas.md) |
-| A lost WebGL context is unhandled | `production-readiness-vercel-2026-08-07.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** · **Migrada →** [`decisiones/render/fallos-de-webgl.md`](decisiones/render/fallos-de-webgl.md) |
-| Each consumer builds its own Draco/KTX2 loader | `createAssetLoader`, `loadLogoAssets`, `createSatellite` | One of each, reference counted, in `graphics/` — **§24** · **Migrada →** [`decisiones/render/decodificadores-compartidos.md`](decisiones/render/decodificadores-compartidos.md) |
-| The Earth ships one set of 4096 maps to every device | `EarthScene.tsx` | Two sets, media-gated at 767px like the sky — **§25** · **Migrada →** [`decisiones/earth/banda-de-zoom-de-earth.md`](decisiones/earth/banda-de-zoom-de-earth.md) |
-| The renderer takes R3F's defaults | `SceneCanvas.tsx`, `gl={{ antialias: true }}` | `alpha: false` and an explicit `dpr`, so the cap has an owner again — **§25** · **Migrada →** [`decisiones/render/configuracion-del-renderer.md`](decisiones/render/configuracion-del-renderer.md) |
-| A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** · **Migrada →** [`decisiones/intro/plazo-de-carga.md`](decisiones/intro/plazo-de-carga.md) |
-| `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** · **Migrada →** [`decisiones/interfaz/cursor-propio.md`](decisiones/interfaz/cursor-propio.md) |
-| The 3D logo gets its own renderer | the Earth prototype's "The 3D logo gets its own renderer" | Overlay pass on the shared renderer — **§2**, `adr/002` · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md) |
-| One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` · **Migrada →** [`decisiones/render/escenas-separadas.md`](decisiones/render/escenas-separadas.md) |
-| Murcia always bypasses the composer | `adr/001` | Bypasses it *except during a warp* — **§7**, `adr/005` · **Migrada →** [`decisiones/transicion/warp.md`](decisiones/transicion/warp.md), [`decisiones/render/el-pipeline-dibuja-un-contrato.md`](decisiones/render/el-pipeline-dibuja-un-contrato.md) |
-| The city loader needs only Draco | `createAssetLoader.ts` | The shared KTX2 transcoder is attached too, before any texture exists — a GLTFLoader without one *rejects* a Basis image rather than degrading, and the production trim set has to be compressed to fit the iOS budget — **`murcia/blender-export-contract.md` §6.5** · **Migrada →** [`decisiones/build/compresion-y-decodificadores.md`](decisiones/build/compresion-y-decodificadores.md) |
+| The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** · **Migrada →** [`decisiones/earth/cielo.md`](../decisiones/earth/cielo.md), [`decisiones/render/el-pipeline-dibuja-un-contrato.md`](../decisiones/render/el-pipeline-dibuja-un-contrato.md) |
+| A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) · **Migrada →** [`decisiones/interfaz/picking-por-coordenadas.md`](../decisiones/interfaz/picking-por-coordenadas.md) |
+| Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** · **Migrada →** [`decisiones/interfaz/picking-por-coordenadas.md`](../decisiones/interfaz/picking-por-coordenadas.md) |
+| A lost WebGL context is unhandled | `production-readiness-vercel-2026-08-07.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** · **Migrada →** [`decisiones/render/fallos-de-webgl.md`](../decisiones/render/fallos-de-webgl.md) |
+| Each consumer builds its own Draco/KTX2 loader | `createAssetLoader`, `loadLogoAssets`, `createSatellite` | One of each, reference counted, in `graphics/` — **§24** · **Migrada →** [`decisiones/render/decodificadores-compartidos.md`](../decisiones/render/decodificadores-compartidos.md) |
+| The Earth ships one set of 4096 maps to every device | `EarthScene.tsx` | Two sets, media-gated at 767px like the sky — **§25** · **Migrada →** [`decisiones/earth/banda-de-zoom-de-earth.md`](../decisiones/earth/banda-de-zoom-de-earth.md) |
+| The renderer takes R3F's defaults | `SceneCanvas.tsx`, `gl={{ antialias: true }}` | `alpha: false` and an explicit `dpr`, so the cap has an owner again — **§25** · **Migrada →** [`decisiones/render/configuracion-del-renderer.md`](../decisiones/render/configuracion-del-renderer.md) |
+| A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** · **Migrada →** [`decisiones/intro/plazo-de-carga.md`](../decisiones/intro/plazo-de-carga.md) |
+| `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** · **Migrada →** [`decisiones/interfaz/cursor-propio.md`](../decisiones/interfaz/cursor-propio.md) |
+| The 3D logo gets its own renderer | the Earth prototype's "The 3D logo gets its own renderer" | Overlay pass on the shared renderer — **§2**, `adr/002` · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](../decisiones/render/un-renderer-para-la-escena.md) |
+| One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` · **Migrada →** [`decisiones/render/escenas-separadas.md`](../decisiones/render/escenas-separadas.md) |
+| Murcia always bypasses the composer | `adr/001` | Bypasses it *except during a warp* — **§7**, `adr/005` · **Migrada →** [`decisiones/transicion/warp.md`](../decisiones/transicion/warp.md), [`decisiones/render/el-pipeline-dibuja-un-contrato.md`](../decisiones/render/el-pipeline-dibuja-un-contrato.md) |
+| The city loader needs only Draco | `createAssetLoader.ts` | The shared KTX2 transcoder is attached too, before any texture exists — a GLTFLoader without one *rejects* a Basis image rather than degrading, and the production trim set has to be compressed to fit the iOS budget — **`murcia/blender-export-contract.md` §6.5** · **Migrada →** [`decisiones/build/compresion-y-decodificadores.md`](../decisiones/build/compresion-y-decodificadores.md) |
 | Blender owns every sampling property of a texture | plan 001, *Blender decides WHERE the texture is sampled* | It owns all of them except wrapping. The banded trim atlas needs `wrapS = Repeat` with `wrapT = ClampToEdge`, and Blender's Image Texture *Extension* is one setting for both axes — so `configureTrimTextures` in `loadCity.ts` expresses what the export had no way to say — **`blender-export-contract.md` §6.3** |
 | The trim sheet arrives inside the GLB | plan 001 Phase 7, `blender-export-contract.md` §6.5, *"this is a file swap"* | It is served from `/textures/murcia/` and put onto the material at load. Embedding it makes every colour change a re-export of 1.29 MB of Draco geometry, and the sheet will be iterated dozens of times before anyone is happy with it. It costs nothing to move: the GLB declares zero materials, so the runtime has to build the city's material either way — **`loadTrimSheet.ts`, `applyTrimSheet.ts`, plan 009 Phase 4** |
 | The runtime must not create materials for the city | plan 001 Phase 4, *"Prevent Existing Runtime Material Overrides"* | Only while the export has none to override. `GLTFLoader` fabricates one `metalness: 1` default for all 222 primitives, which is nobody's authored intent and is most of why the city read as grey. The rule survives where it was aimed: the moment the export ships a material, `applyTrimSheet` stops replacing it and dresses it instead — **`applyTrimSheet.ts`** |
 
 ## 54. The monthly budget is a dropdown too, on the billing range's terms
 
-> **Migrada (2026-10-20) →** [`decisiones/formularios/rangos-del-formulario-de-auditoria.md`](decisiones/formularios/rangos-del-formulario-de-auditoria.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/formularios/rangos-del-formulario-de-auditoria.md`](../decisiones/formularios/rangos-del-formulario-de-auditoria.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-18,** at the client's request. «Presupuesto mensual» in the audit form was free
 text, kept so in §50 on the argument that "aprox. 3.000 al mes" and "No definido todavía" are
@@ -4394,7 +4412,7 @@ accepts as the trade.
 
 ## 55. The tower's screen is edited in Sanity through a fixed template
 
-> **Migrada (2026-10-20) →** [`decisiones/contenido/pantalla-de-la-torre.md`](decisiones/contenido/pantalla-de-la-torre.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/contenido/pantalla-de-la-torre.md`](../decisiones/contenido/pantalla-de-la-torre.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-22.** The Vértigo tower's LED screen drew a document bundled in TypeScript —
 two slides of blocks positioned in design metres, one of them carrying a watermarked stock
@@ -4436,7 +4454,7 @@ relaxed in `editorialBounds.ts` without re-measuring the slot it describes.
 
 ## 56. Form fields are lines, and only a wrong value is red
 
-> **Migrada (2026-10-20) →** [`decisiones/interfaz/campos-como-lineas.md`](decisiones/interfaz/campos-como-lineas.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`decisiones/interfaz/campos-como-lineas.md`](../decisiones/interfaz/campos-como-lineas.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-10-14,** for the Awwwards submission, on an interactive mock-up approved in
 review. The contact, audit and claim fields were matte boxes inset into the glass

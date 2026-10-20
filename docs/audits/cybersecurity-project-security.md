@@ -234,7 +234,7 @@ A build-time pipeline is an execution context of its own: it runs in Node on the
 platform, it may hold a credential, and what it writes is compiled into the bundle. It is often the
 only place external data enters the product, so treat it with the same rigour as a runtime API.
 
-Today (ADR 010, `docs/adr/010-content-is-generated-at-build-time.md`, and ADR 011, which replaced
+Today (`docs/decisiones/contenido/generado-en-build.md`, and ADR 011, archived, which replaced
 WordPress with Sanity) this is the Sanity content build: `scripts/build-content.ts`,
 `content/lib/{config,sanity,source,html,validate,generate,emit}.ts`, `content/collections/*`,
 inputs `content/fixtures/` and `content/seed/`, outputs `src/content/generated/` and

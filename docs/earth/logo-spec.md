@@ -189,8 +189,8 @@ abra; admitirlos más adelante debería ser un cambio revisado con un sanitizado
 detrás, no una subida que nadie ve. La sección anterior sobre SVG se mantiene por
 si el archivo se coloca a mano en `public/logos/`, que sigue siendo posible.
 
-Detalle técnico completo en `docs/adr/010-content-is-generated-at-build-time.md`,
-`docs/adr/011-the-cms-is-sanity.md` y `docs/content/sanity-media-contract.md`.
+Detalle técnico completo en [generado en build](../decisiones/contenido/generado-en-build.md),
+[medios replicados](../decisiones/contenido/medios-replicados.md) y [medios de Sanity](../content/sanity-media-contract.md).
 
 ---
 

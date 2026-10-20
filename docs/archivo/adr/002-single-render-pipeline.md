@@ -1,10 +1,10 @@
 # ADR 002 — A Single Render Pipeline
 
-> **Migrada (2026-10-20) →** [`render/un-renderer-para-la-escena.md`](../decisiones/render/un-renderer-para-la-escena.md), [`render/el-pipeline-dibuja-un-contrato.md`](../decisiones/render/el-pipeline-dibuja-un-contrato.md); «Consequence discovered afterwards» → [`build/three-en-su-chunk.md`](../decisiones/build/three-en-su-chunk.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`render/un-renderer-para-la-escena.md`](../../decisiones/render/un-renderer-para-la-escena.md), [`render/el-pipeline-dibuja-un-contrato.md`](../../decisiones/render/el-pipeline-dibuja-un-contrato.md); «Consequence discovered afterwards» → [`build/three-en-su-chunk.md`](../../decisiones/build/three-en-su-chunk.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-08-07 (written up 2026-08-07; the decision was implemented in P2)
 Supersedes: the Earth prototype's "The 3D logo gets its own renderer" — see the `Superseded`
-table in `docs/DECISIONS.md`
+table in `docs/archivo/DECISIONS.md`
 
 > Written late. The code referenced "ADR 002" from six places for several phases before this
 > file existed. Recorded here as a caution: a citation to a document nobody wrote is worse

@@ -2,7 +2,7 @@
 
 ```
 Audited:  2026-09-02 · against commit 528dd42 (main = origin/main, 107 commits) + 5 uncommitted
-          entries (docs/DECISIONS.md, docs/archivo/PROJECT_MEMORY.md, e2e/mobile.spec.ts,
+          entries (docs/archivo/DECISIONS.md, docs/archivo/PROJECT_MEMORY.md, e2e/mobile.spec.ts,
           src/blog/BlogRoute.tsx, src/blog/blog.css — blog UI polish and notes; nothing config-
           or pipeline-related among them; audited as the working tree)
 Scope:    the whole repository (source, the Sanity content pipeline, the new blog document and
@@ -69,8 +69,8 @@ one-line code fix that has been carried twice.
 | SEC-14 emitter escaping untested | P3 | **OPEN** | `emit.ts:60-69` still correct (`JSON.stringify` + U+2028/9). No `emit.test.ts`; no test feeds U+2028, a backtick or `</script>` through `emitModule`. (The *blog head* emitter, a different layer, does have 23 hostile-input tests — `blogShell.test.ts`.) |
 | SEC-15 `docs/audits/reports/` is a roadmap if visibility changes | org | **OPEN (accepted)** | `checks/audit-hygiene.ts:28,41,224-227` still pins the directory and runs inside `npm run check`, which `build` runs first. |
 | SEC-16 mirror trusts CDN bytes and follows redirects | P3 | **OPEN, unchanged** | `mirror.ts` and `mirror.test.ts` have no diff since baseline; `source.ts:77-83` still uses `fetch`'s default `redirect: 'follow'`; no magic-byte check before `writeFileSync` (`mirror.ts:202`). Still never exercised against a real logo: every `logo`/`isotype` in the dataset is `null`. |
-| ORG-1 site live and indexable in a "not publishable" state, untracked | P2 | **OPEN — and the content source is now proven** | Live: `robots.txt` `Allow: /` + sitemap (4 URLs); canonical/`og:url` on the project URL; no `noindex`; the live entry chunk still ships the placeholder phone (2 hits, one of them as the site's contact number), `tuempresa.com` (1) and the fictional brand satellites (`MANGO`, `CABIFY`). `docs/DECISIONS.md` still has no line naming the deployment URL, branch, protection state or content source (`grep vercel.app|protection` → 0 at HEAD and in the working tree). New this pass: the live blog chunk and the prerendered `og:image` tags name the **`development`** dataset, so production is built from `development`, not from `seed`. The readiness brief has still not been re-run against a deploy from the consolidated tree. |
-| ORG-2 published = public, editor not told | P3 | **FIXED (verified)** | `sanity-studio/GUIA-EDITOR.md:30-40` «Publicar es hacerlo público» (names personal data and passwords as things with no home in the dataset); `docs/adr/011-the-cms-is-sanity.md:82-84` carries the rule and a new "how you would know it broke" line. Live keys of `blogPost` and `siteSettings` (anonymous read) contain nothing that looks internal. |
+| ORG-1 site live and indexable in a "not publishable" state, untracked | P2 | **OPEN — and the content source is now proven** | Live: `robots.txt` `Allow: /` + sitemap (4 URLs); canonical/`og:url` on the project URL; no `noindex`; the live entry chunk still ships the placeholder phone (2 hits, one of them as the site's contact number), `tuempresa.com` (1) and the fictional brand satellites (`MANGO`, `CABIFY`). `docs/archivo/DECISIONS.md` still has no line naming the deployment URL, branch, protection state or content source (`grep vercel.app|protection` → 0 at HEAD and in the working tree). New this pass: the live blog chunk and the prerendered `og:image` tags name the **`development`** dataset, so production is built from `development`, not from `seed`. The readiness brief has still not been re-run against a deploy from the consolidated tree. |
+| ORG-2 published = public, editor not told | P3 | **FIXED (verified)** | `sanity-studio/GUIA-EDITOR.md:30-40` «Publicar es hacerlo público» (names personal data and passwords as things with no home in the dataset); `docs/archivo/adr/011-the-cms-is-sanity.md:82-84` carries the rule and a new "how you would know it broke" line. Live keys of `blogPost` and `siteSettings` (anonymous read) contain nothing that looks internal. |
 | DEP-1 build-tooling advisories | P3 | **OPEN, 2 → 3 (all dev-only)** | Root `npm audit`: vite 5.4.21 (GHSA-fx2h-pf6j-xcff high, GHSA-v6wh-96g9-6wx3, GHSA-4w7w-66w2-5vf9), esbuild 0.21.5 (GHSA-67mh-4wv8-2f99), and **new** browserslist 4.28.6 (GHSA-c83g-rgw3-j3cx high, GHSA-73wf-gq98-2v4g) — the last has a non-breaking fix. `npm audit --omit=dev` → **0**. No dependency changed since baseline (only `package.json` scripts). Studio: the same 7-finding accepted chain (§5). |
 | API-2 SSRF via audit form `website` | blocking (future) | **OPEN, unchanged** | `AuditSection.tsx:186` regex unchanged; no backend. |
 | API-3 no server-side form controls | blocking (future) | **OPEN, unchanged** | as SEC-12. |
@@ -230,7 +230,7 @@ None.
   satellite labels `MANGO`/`CABIFY` (logos `null`). The live blog chunk and both prerendered
   `og:image` tags reference `cdn.sanity.io/images/<projectId>/development/…`, so **production is
   built from the `development` dataset**, whose `siteSettings` (contact e-mail, phone) are what
-  the site shows. `docs/DECISIONS.md` (HEAD and working tree) has 0 lines matching `vercel.app`
+  the site shows. `docs/archivo/DECISIONS.md` (HEAD and working tree) has 0 lines matching `vercel.app`
   or `protection`; the working-tree edit adds only a gitignore rule. `production-readiness-vercel-*`
   has not been run since 08-20.
 - *Why it stays P2:* untracked production state is the precondition for the brief's objectives
@@ -242,11 +242,11 @@ None.
   empty `production` dataset would fail the build rather than ship an empty site (CMS-2, singleton
   checks), which is the right failure but still a surprise nobody documented.
 - *Remediation:* (a) decide whether the deployment stays public (Vercel Deployment Protection or a
-  `noindex` build until CONTENT-1); (b) add a "Deployments" section to `docs/DECISIONS.md`: URL,
+  `noindex` build until CONTENT-1); (b) add a "Deployments" section to `docs/archivo/DECISIONS.md`: URL,
   branch, protection, **content source per environment (today: `development`)**, last promoted
   commit — updated on every promote; (c) decide what the `production` dataset is for and write it
   down (seed it and switch, or delete it); (d) re-run the readiness brief against the live
-  deploy. *Complexity:* small. *Verification:* the section exists; `grep vercel.app docs/DECISIONS.md`
+  deploy. *Complexity:* small. *Verification:* the section exists; `grep vercel.app docs/archivo/DECISIONS.md`
   ≥ 1; the readiness report is dated after the blog deploy.
 
 ### P3 — Low
@@ -511,7 +511,7 @@ subsetted woff2, SIL OFL 1.1 credited in `CREDITS.md:157-171`, `font-src 'self'`
 ## 8. Remediation Plan
 
 **Immediate (hours)**
-1. ORG-1: add the "Deployments" section to `docs/DECISIONS.md` (URL, branch, protection,
+1. ORG-1: add the "Deployments" section to `docs/archivo/DECISIONS.md` (URL, branch, protection,
    content source per environment = `development`, last promoted commit); decide public vs
    protected; decide the `production` dataset's purpose.
 2. SEC-17: pin the CDN path to `/images/<projectId>/<dataset>/` at ingest and render; add the
@@ -573,7 +573,7 @@ subsetted woff2, SIL OFL 1.1 credited in `CREDITS.md:157-171`, `font-src 'self'`
 | Sanity `GET /datasets`, anonymous | 401 |
 | Sanity query API and CDN with `Origin: https://evil.example`, the site's origin, and `http://localhost:3333` | API: 403 / 403 / —; CDN: 403 / 403 / 200 + allow-origin with credentials |
 | `diff -rq content/fixtures content/seed`; `cmp` of the two `- narrow` sky files against the referenced ones; `git ls-files public` + per-file reference grep | identical; identical; 30 files, 3 unreferenced |
-| `docs/DECISIONS.md` (HEAD + working tree) grep for deployment facts; `GUIA-EDITOR.md`, ADR 011 diff; `CREDITS.md` diff; `.claude/settings.json`, `CLAUDE.md` contents; `checks/audit-hygiene.ts` wiring | ORG-1 open; ORG-2 closed; OFL credited; nothing sensitive; harness on the gate |
+| `docs/archivo/DECISIONS.md` (HEAD + working tree) grep for deployment facts; `GUIA-EDITOR.md`, ADR 011 diff; `CREDITS.md` diff; `.claude/settings.json`, `CLAUDE.md` contents; `checks/audit-hygiene.ts` wiring | ORG-1 open; ORG-2 closed; OFL credited; nothing sensitive; harness on the gate |
 | `npm run check:audit` on this report | run after writing — see the closing note of the job |
 
 **Not verified**

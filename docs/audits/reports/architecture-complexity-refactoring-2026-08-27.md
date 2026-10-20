@@ -333,7 +333,7 @@ done this week.
 
 **Files:** `checks/architecture.ts:22` (`const SRC = 'src'`) · root `content/` (19 modules) ·
 `sanity-studio/` (19 tracked files) · `src/content/invariants.ts` ·
-`docs/adr/010-content-is-generated-at-build-time.md` · `docs/adr/011-the-cms-is-sanity.md`
+`docs/archivo/adr/010-content-is-generated-at-build-time.md` · `docs/archivo/adr/011-the-cms-is-sanity.md`
 
 **Unchanged half.** `checks/architecture.ts` still walks `listSources('src')` and nothing else.
 Verified today, none of the following is checked by anything:
@@ -754,7 +754,7 @@ call sites and removes the trap. 75 `check:district` assertions cover this rig.
 
 #### P3-D · CARRIED, one item resolved, one new (P3-3) · Documentation drift on load-bearing text
 
-1. **ADR 008 still misquotes the contract it defines.** `docs/adr/008-…:62` states
+1. **ADR 008 still misquotes the contract it defines.** `docs/archivo/adr/008-…:62` states
    `export type RenderRoute = 'composer' | 'direct'`. The shipped type at
    `graphics/renderableExperience.ts:60` has three members; the third is the composer-borrowing
    route ADR 005 requires. **Unchanged since 2026-08-20.**

@@ -135,7 +135,7 @@ check the mirror will use.
 ### CMS-2 · P1 · Production silently fell back to fixtures — FIXED
 
 **Affected:** `scripts/build-content.ts` (`chooseMode`), `docs/archivo/content/wordpress-field-contract.md`,
-`docs/DECISIONS.md` §27, `.env.example`
+`docs/archivo/DECISIONS.md` §27, `.env.example`
 
 **Evidence.** `chooseMode()` returned `'fixture'` whenever `WP_CONTENT_BASE` was unset — in every
 environment. A Vercel project with the variable missing, typo'd, or scoped to Preview only would
@@ -174,7 +174,7 @@ the "never set `VERTIGO_SKIP_BUDGETS`" note and the system-variables toggle. **R
 The publish flow was a diagram (`WP publish → Deploy Hook → Vercel build`) with no creation steps
 and no WordPress-side trigger. A runbook now lives in `wordpress-field-contract.md` §"Publish flow",
 stating honestly that the WP half is outside this repo and unbuilt, and what to do until it exists
-(Redeploy / push). `docs/DECISIONS.md:258` (§12, the live decisions file) described the retired
+(Redeploy / push). `docs/archivo/DECISIONS.md:258` (§12, the live decisions file) described the retired
 chain as current; corrected with the history kept. `PROJECT_MEMORY.md:1056` annotated. The two
 earlier audits are dated records and were left as they were, with a pointer added to the 08-11 one.
 **RESOLVED**

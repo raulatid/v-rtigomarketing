@@ -1,6 +1,6 @@
 # ADR 008 — The Render Pipeline Draws a Contract, Not an Experience
 
-> **Migrada (2026-10-20) →** [`render/el-pipeline-dibuja-un-contrato.md`](../decisiones/render/el-pipeline-dibuja-un-contrato.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`render/el-pipeline-dibuja-un-contrato.md`](../../decisiones/render/el-pipeline-dibuja-un-contrato.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-08-13
 Extends: ADR 001 (renderer and scene ownership), ADR 002 (a single render pipeline)

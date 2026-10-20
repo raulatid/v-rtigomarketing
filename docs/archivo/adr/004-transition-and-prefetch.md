@@ -1,6 +1,6 @@
 # ADR 004 — Transition and Prefetch
 
-> **Migrada (2026-10-20) →** [`transicion/precarga-de-murcia.md`](../decisiones/transicion/precarga-de-murcia.md), [`transicion/corte-bajo-destello.md`](../decisiones/transicion/corte-bajo-destello.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`transicion/precarga-de-murcia.md`](../../decisiones/transicion/precarga-de-murcia.md), [`transicion/corte-bajo-destello.md`](../../decisiones/transicion/corte-bajo-destello.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-08-07
 
@@ -23,7 +23,7 @@ Three costs could produce one:
 **swap on that frame**, reveal (0.5s, `power2.out`). The swap changes the active scene, the
 active camera and which experience owns input, all at full cover.
 
-Never a cross-fade. `docs/DECISIONS.md` §6 calls this the project's single most
+Never a cross-fade. `docs/archivo/DECISIONS.md` §6 calls this the project's single most
 important visual principle, and both intro substitutions already work this way. It is also
 what makes the transition cheap: there is no frame on which both worlds are drawn.
 

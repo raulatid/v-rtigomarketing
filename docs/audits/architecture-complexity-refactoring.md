@@ -103,7 +103,8 @@ Before proposing changes, reconstruct the current architecture from the code.
 Do not hand-derive what the repository already asserts.
 
 `checks/architecture.ts` (`npm run check:architecture`, gated inside `npm run check`) reads the
-real import graph and enforces the dependency rules recorded in `docs/ARCHITECTURE.md`: shared
+real import graph and enforces the dependency rules recorded in
+`docs/decisiones/arquitectura/capas-y-dependencias.md`: shared
 infrastructure never imports an experience; `content/` never imports `experiences/`, `app/` or
 `graphics/`; the two experiences never import each other; the boot entry depends on nothing; and
 there are no circular dependencies. It names the offending file and specifier.
@@ -111,8 +112,9 @@ there are no circular dependencies. It names the offending file and specifier.
 Five sibling harnesses cover behaviour the import graph cannot see — `check:navigation`,
 `check:footprint`, `check:district`, `check:warp`, `check:space`.
 
-Run them first. Treat their output as the verified baseline, and treat `docs/ARCHITECTURE.md`
-§ "What the import graph cannot tell you" as the map of where hand analysis is actually required.
+Run them first. Treat their output as the verified baseline, and treat `docs/trampas/build.md`
+no. 7 and `docs/trampas/arquitectura.md` (what the import graph cannot tell you) as the map of
+where hand analysis is actually required.
 
 These harnesses are themselves part of the architecture. Assess them as such in Phase 26 and
 Phase 27 rather than overlooking them.
@@ -692,16 +694,18 @@ That is potentially evidence of a poor abstraction.
 
 Cross-reference:
 
-- `docs/ARCHITECTURE.md`
-- `docs/archivo/ENGINEERING_PRINCIPLES.md`
-- `docs/adr/` — the accepted decision records
+- `docs/README.md` — the index of the current decisions (`docs/decisiones/`) and traps
+  (`docs/trampas/`)
 - other project design documents
+
+`docs/archivo/` (the former `ARCHITECTURE.md`, `DECISIONS.md`, `adr/`, `ENGINEERING_PRINCIPLES.md`)
+is history, not a source: it may contradict the code.
 
 Determine where documentation no longer matches implementation.
 
 ## Accepted decisions are not findings
 
-`docs/adr/` records decisions that were already argued and settled. Several sit directly inside
+`docs/decisiones/` records decisions that were already argued and settled. Several sit directly inside
 this audit's blast radius: renderer and scene ownership, the single render pipeline, the
 experience lifecycle, the pipeline contract, navigation as a gesture, content generated at build
 time.

@@ -2,7 +2,7 @@ import { cinematicSpeed, cinematicTravel, lerp, narrowPeak, smootherstep } from 
 
 // The Earth <-> Murcia warp, as pure functions of one progress value.
 //
-// Same structure as the intro's warp (docs/DECISIONS.md 26.6): ONE
+// Same structure as the intro's warp (docs/archivo/DECISIONS.md 26.6): ONE
 // progress value read through three curves with deliberately nested widths.
 // Position runs the full width so the move feels continuous; the speed bell is
 // narrower so the FOV surge and blur ramp inside it; the flash is narrower

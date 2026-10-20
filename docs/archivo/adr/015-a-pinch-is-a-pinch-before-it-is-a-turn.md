@@ -1,6 +1,6 @@
 # ADR 015 — A pinch is a pinch before it is a turn, and leaving Murcia is its own gesture
 
-> **Migrada (2026-10-20) →** [`navegacion/banda-de-zoom-y-commit.md`](../decisiones/navegacion/banda-de-zoom-y-commit.md), [`murcia/modelo-de-entrada.md`](../decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`navegacion/banda-de-zoom-y-commit.md`](../../decisiones/navegacion/banda-de-zoom-y-commit.md), [`murcia/modelo-de-entrada.md`](../../decisiones/murcia/modelo-de-entrada.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-09-06
 Amends: `adr/012` §4 (*"Murcia's rotate wins ties"*) — the tie is now decided on the rival

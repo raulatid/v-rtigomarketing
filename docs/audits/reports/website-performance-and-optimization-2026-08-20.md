@@ -304,7 +304,7 @@ the observed 27.8 s.
 **Relevant files.** `src/intro-draw/bootState.ts` (the `required` flags), `index.html` (the preload
 block, which already gets this right for the Earth textures via `fetchpriority="low"`),
 `src/components/MurciaLayer.tsx` and `src/experiences/murcia/assets/*` (the city fetch),
-`src/experiences/earth/orbit/createSatellite.ts`, `docs/adr/004-transition-and-prefetch.md`.
+`src/experiences/earth/orbit/createSatellite.ts`, `docs/archivo/adr/004-transition-and-prefetch.md`.
 
 **Root cause.** ADR 004 decided the city loads during the intro so the transition never waits on it
 — a correct decision about the *transition*. What it did not settle is **priority**: the city,

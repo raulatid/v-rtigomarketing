@@ -1,6 +1,6 @@
 # ADR 011 — The CMS is Sanity, and structure is not HTML
 
-> **Migrada (2026-10-20) →** [`contenido/sanity-y-proyeccion-groq.md`](../decisiones/contenido/sanity-y-proyeccion-groq.md), [`contenido/texto-estructurado.md`](../decisiones/contenido/texto-estructurado.md), [`contenido/medios-replicados.md`](../decisiones/contenido/medios-replicados.md), [`contenido/fallo-estricto-y-fuentes.md`](../decisiones/contenido/fallo-estricto-y-fuentes.md), [`contenido/limites-editoriales.md`](../decisiones/contenido/limites-editoriales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+> **Migrada (2026-10-20) →** [`contenido/sanity-y-proyeccion-groq.md`](../../decisiones/contenido/sanity-y-proyeccion-groq.md), [`contenido/texto-estructurado.md`](../../decisiones/contenido/texto-estructurado.md), [`contenido/medios-replicados.md`](../../decisiones/contenido/medios-replicados.md), [`contenido/fallo-estricto-y-fuentes.md`](../../decisiones/contenido/fallo-estricto-y-fuentes.md), [`contenido/limites-editoriales.md`](../../decisiones/contenido/limites-editoriales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 Status: **Accepted** — 2026-08-23
 Extends: `adr/010` (content is generated at build time — every guarantee it makes still holds)

@@ -223,7 +223,7 @@ they are pure moves, but they must follow P2-1 or they cannot be made green.
 #### P1-2 · The newest architectural boundary is the only one with no harness at all
 
 **Files:** `checks/architecture.ts:22` (`const SRC = 'src'`) · `content/` (root, 13 modules) ·
-`src/content/invariants.ts` · `docs/adr/010-content-is-generated-at-build-time.md`
+`src/content/invariants.ts` · `docs/archivo/adr/010-content-is-generated-at-build-time.md`
 
 **Current responsibility.** ARCHITECTURE §3 states the rule plainly:
 

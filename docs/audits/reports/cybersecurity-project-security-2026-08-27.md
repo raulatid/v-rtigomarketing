@@ -58,7 +58,7 @@ The 08-20 classification stands, with fewer open items and one new organisationa
 | SEC-13 build log echoes CMS values on validation failure | P3 | **OPEN** | `content/lib/validate.ts:72,95,124,170,182,218` unchanged: slug, shaped strings, numbers, enums, colours and URLs are quoted verbatim. Text bodies are not. |
 | SEC-14 emitter escaping untested | P3 | **OPEN** | `emit.ts:60-63` still correct; no test in `content/lib/*.test.ts` or `src/content/*.test.ts` feeds U+2028, a backtick, `${` or `</script>` through `emitModule` and re-parses. (`html.test.ts:18` and `portableText.test.ts:136,157` do exercise `<script>` and `javascript:` at the *sanitiser*, which is the more important half.) |
 | SEC-15 `docs/audits/reports/` is a roadmap if visibility changes | org | **OPEN (accepted)** | Still private; `checks/audit-hygiene.ts` still on the gate; this report adds Sanity-side detail (§2, ORG-2) that must leave with the directory. |
-| ORG-1 site live and indexable in a "not publishable" state, untracked | P2 | **OPEN — deployment now tracked in memory, not in docs** | Live 08-27 build: `robots.txt` `Allow: /` + sitemap, canonical/og:url on the project URL, no `noindex`; the live entry chunk still contains the fictional brand names (Mango, Cabify, …), the placeholder phone and `tuempresa.com`. `docs/DECISIONS.md` has no line naming the deployment URL, branch or protection state (`grep vercel.app docs/DECISIONS.md` → 0). The readiness runbook was not re-run for the 08-27 deploy. |
+| ORG-1 site live and indexable in a "not publishable" state, untracked | P2 | **OPEN — deployment now tracked in memory, not in docs** | Live 08-27 build: `robots.txt` `Allow: /` + sitemap, canonical/og:url on the project URL, no `noindex`; the live entry chunk still contains the fictional brand names (Mango, Cabify, …), the placeholder phone and `tuempresa.com`. `docs/archivo/DECISIONS.md` has no line naming the deployment URL, branch or protection state (`grep vercel.app docs/archivo/DECISIONS.md` → 0). The readiness runbook was not re-run for the 08-27 deploy. |
 | DEP-1 build-tooling advisories | P3 | **OPEN, reduced 7 → 2** | Root: vite 5.4.21 (GHSA-fx2h-pf6j-xcff high, GHSA-v6wh-96g9-6wx3, GHSA-4w7w-66w2-5vf9) and esbuild 0.21.5 (GHSA-67mh-4wv8-2f99). `potrace`/`jimp`/`phin` are gone. `npm audit --omit=dev` → **0**. The Studio package adds 7 of its own (§5). |
 | API-2 SSRF via audit form `website` | blocking (future) | **OPEN, unchanged** | `AuditSection.tsx:186` regex unchanged; no backend. |
 | API-3 no server-side form controls | blocking (future) | **OPEN, unchanged** | as SEC-12. |
@@ -249,7 +249,7 @@ None.
   the two are byte-identical in content, so the bundle does not say, and the build log is not in
   the repo.
 - *Remediation:* (a) decide whether the deployment stays public (Vercel Deployment Protection
-  or a `noindex` build until CONTENT-1); (b) add a "Deployments" section to `docs/DECISIONS.md` or
+  or a `noindex` build until CONTENT-1); (b) add a "Deployments" section to `docs/archivo/DECISIONS.md` or
   the readiness runbook: URL, branch, protection, content source per environment, last promoted
   commit — updated on every promote; (c) re-run the readiness brief against the live 08-27
   deploy, which is what it was written for. *Complexity:* small.
@@ -515,7 +515,7 @@ Sanity's own origin, authenticated by Sanity; it is not part of the public site'
 4. SEC-11: make `DEBUG_TOOLS_ENABLED` a direct constant expression of the define; verify
    `grep -c debugNavigation dist/assets/*.js` → 0 on a production-path build.
 5. ORG-1: add the "Deployments" section (URL, branch, protection, content source per
-   environment, last promoted commit) to `docs/DECISIONS.md`; decide public-vs-protected.
+   environment, last promoted commit) to `docs/archivo/DECISIONS.md`; decide public-vs-protected.
 
 **Short-term engineering (days)**
 6. SEC-2: promote the CSP on the first Preview; re-run the headless walk.

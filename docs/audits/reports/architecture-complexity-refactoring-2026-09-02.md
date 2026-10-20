@@ -255,7 +255,7 @@ every backticked repo path in `docs/**` resolves — is still about fifteen line
 **Files:** `checks/architecture.ts:22` (`const SRC = 'src'`) · `vite.config.ts` (759 lines,
 5 plugins) · `scripts/blogShell.ts` · root `content/` (19 modules) · `sanity-studio/` (19 tracked
 files) · `src/content/invariants.ts` · `package.json:11` (`check:harnesses`) ·
-`docs/adr/010`, `docs/adr/011`, `docs/adr/013`
+`docs/archivo/adr/010`, `docs/archivo/adr/011`, `docs/archivo/adr/013`
 
 **Current responsibility.** `checks/architecture.ts` walks `listSources('src')` and nothing else.
 Everything the previous pass listed as unchecked is still unchecked, verified today:
@@ -379,7 +379,7 @@ than it does is worse than a rule known to be narrow.
 
 **Files:** `src/app/route.ts:66–100` (`parseRoute`, `routeToPath`) · `vercel.json:3–7` (rewrites) ·
 `vite.config.ts:317–374` (dev routing), `:521–560` (sitemap), `:623–699` (per-post shells) ·
-`index.html`, `blog.html` · `docs/adr/013-the-blog-is-a-second-document.md`
+`index.html`, `blog.html` · `docs/archivo/adr/013-the-blog-is-a-second-document.md`
 
 **Current responsibility.** Nothing owns "what URLs this site has". Four artefacts each hold part
 of the answer, and they are not merely duplicated — **they are interlocking**:
@@ -829,10 +829,10 @@ to produce.
 
 #### P2-H · NEW · `ARCHITECTURE.md` does not mention the blog, and `checks/architecture.ts` now enforces roughly ten rules the document does not state
 
-**Files:** `docs/ARCHITECTURE.md` §3, §4, §9, §17, §31 · `checks/architecture.ts:161–298` ·
-`docs/adr/013-the-blog-is-a-second-document.md`
+**Files:** `docs/archivo/ARCHITECTURE.md` §3, §4, §9, §17, §31 · `checks/architecture.ts:161–298` ·
+`docs/archivo/adr/013-the-blog-is-a-second-document.md`
 
-**Measured today.** The string "blog" appears in `docs/ARCHITECTURE.md` **zero times**. So does
+**Measured today.** The string "blog" appears in `docs/archivo/ARCHITECTURE.md` **zero times**. So does
 "entries". Concretely, the document that describes the current architecture does not contain:
 
 - `src/blog/` or `src/entries/` in the §3 layer diagram
@@ -936,7 +936,7 @@ costs six call sites and removes the trap. 71 `check:district` assertions cover 
 
 #### P3-D · CARRIED and SHARPENED · Documentation drift on load-bearing text
 
-1. **ADR 008 still misquotes the contract it defines.** `docs/adr/008-…:62` states
+1. **ADR 008 still misquotes the contract it defines.** `docs/archivo/adr/008-…:62` states
    `export type RenderRoute = 'composer' | 'direct'`. The shipped type at
    `graphics/renderableExperience.ts:60` has three members; the third is the composer-borrowing
    route ADR 005 requires. **Unchanged across all three passes.**
@@ -962,7 +962,7 @@ The Stage-0 harness rule both previous reports proposed — assert every backtic
 `docs/**` resolves, excluding `docs/audits/reports/` — is still worth about fifteen lines beside
 `checks/audit-hygiene.ts` and still not written. It would have caught none of items 1–4, which are
 *values* rather than paths; the cheaper win for those is item 3 specifically, where a single
-assertion that `ARCHITECTURE.md` and `docs/adr/**` contain no budget literal absent from
+assertion that `ARCHITECTURE.md` and `docs/archivo/adr/**` contain no budget literal absent from
 `vite.config.ts` would close a recurring drift.
 
 ---
