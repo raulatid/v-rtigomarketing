@@ -25,7 +25,6 @@ describe('the unified bake path', () => {
       gltf: { scene } as unknown as GLTF,
       config: { baseUrl: '/maps/', manifest: 'lightmaps.json', desktop1024: [] },
       renderer: {} as THREE.WebGLRenderer,
-      terrain: null,
     });
 
     expect(unified.mapsSeen).toEqual([null]);

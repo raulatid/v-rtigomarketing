@@ -327,10 +327,10 @@ export function applyCameraTuningQueryOverrides(
   });
 }
 
-/** `?lightmaps=` onto a unified bake's `desktop1024`. Other bakes have no such list. */
+/** `?lightmaps=` onto the bake's `desktop1024`. */
 function applyLightmapOverride(env: EnvironmentConfig, params: URLSearchParams): EnvironmentConfig {
   const raw = params.get('lightmaps');
-  if (raw === null || !env.lightmaps || !('manifest' in env.lightmaps)) return env;
+  if (raw === null || !env.lightmaps) return env;
   const desktop1024 =
     raw === 'all'
       ? ('all' as const)

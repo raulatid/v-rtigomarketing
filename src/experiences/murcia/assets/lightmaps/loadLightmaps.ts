@@ -1,21 +1,10 @@
 import { loadUnifiedLightmaps } from './loadUnifiedLightmaps';
 import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { acquireKtx2Loader, releaseKtx2Loader } from '../../../../graphics/decoders';
 import type { LightmapConfig } from '../../config/environmentConfig';
-import {
-  LIGHTMAP_CHUNKS,
-  parseAssetLightmapManifest,
-  parseGroundLightmapManifest,
-  variantFile,
-  type LightmapChunk,
-  type LightmapResolution,
-} from './lightmapManifest';
+import type { LightmapResolution } from './lightmapManifest';
 import { deviceResolution } from './deviceResolution';
 import type { CityBytes } from '../cityBytes';
-import { prepareLightmapTexture } from './lightmapMaterial';
-import { assetAtlasKey, attachAssetLightmaps, type AttachedAssetLightmaps } from './attachAssetLightmaps';
-import { attachGroundLightmaps, meanVertexColour, type AttachedGroundLightmaps } from './attachGroundLightmaps';
 
 /**
  * The city's baked light, fetched as files beside the model and put on the
@@ -23,20 +12,10 @@ import { attachGroundLightmaps, meanVertexColour, type AttachedGroundLightmaps }
  *
  * ## What it touches, and what it never does
  *
- * Receivers are the nodes carrying the export's `asset_lightmap_kind` or
- * `ground_lightmap_chunk` extras. The 21 nodes the site finds by name and
- * dresses itself (the tower's screen and logo, the campus, the blog building,
- * the river, the plate) carry `runtime_lightmap: false` and are never visited
- * — their names, pivots and UVs are exactly as exported.
- *
- * ## The plate under the ground
- *
- * `suelo-principal` and the ground chunks cover the same rectangle at the same
- * height. The plate is what the skirt is built from and what every bounds
- * measurement reads, so it stays in the graph — invisible, since the baked
- * ground is what should be seen. Its material becomes an unlit one in the
- * outer ground's mean colour, because that material is what the skirt clones,
- * and the skirt has to continue the ground it wraps.
+ * Receivers are the nodes carrying the export's `lightmap_atlas` extra, each
+ * naming an atlas in the bake's one `lightmaps.json` (`unifiedManifest`). The
+ * nodes the site finds by name and dresses itself carry no atlas and are never
+ * visited — their names, pivots and UVs are exactly as exported.
  *
  * ## Why after every other material pass
  *
@@ -62,116 +41,16 @@ export interface LoadLightmapsOptions {
   gltf: GLTF;
   config: LightmapConfig;
   renderer: THREE.WebGLRenderer;
-  /** The plate, hidden under the baked ground and recoloured for the skirt. */
-  terrain: THREE.Mesh | null;
-  /** Where the unified bake's files come from; fetched on demand when absent. */
+  /** Where the bake's files come from; fetched on demand when absent. */
   bytes?: CityBytes;
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`[lightmaps] ${url}: HTTP ${response.status}`);
-  return response.json();
-}
-
 export async function loadLightmaps(options: LoadLightmapsOptions): Promise<LightmapHandle | null> {
-  const { gltf, config, renderer, terrain, bytes } = options;
-  const resolution = deviceResolution();
-  if ('manifest' in config) {
-    // First: the baked materials keep the authored albedo (`preserveAlbedo`),
-    // so a trim still attached here would be copied onto every one of them.
-    dropEmbeddedTrim(gltf.scene);
-    return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, resolution, config.desktop1024, bytes);
-  }
-  const base = config.baseUrl;
-
-  const loaded = new Map<string, THREE.Texture>();
-  let assets: AttachedAssetLightmaps | null = null;
-  let ground: AttachedGroundLightmaps | null = null;
-
-  // Held only while decoding, like every other consumer of the transcoder.
-  const ktx2 = acquireKtx2Loader(renderer);
-  try {
-    const [assetManifest, groundManifest] = await Promise.all([
-      fetchJson(base + config.assetsManifest).then(parseAssetLightmapManifest),
-      fetchJson(base + config.groundManifest).then(parseGroundLightmapManifest),
-    ]);
-
-    // Sequential rather than twelve at once: each transcode is a worker job
-    // and a decoded upload, and a phone doing twelve together is the memory
-    // spike the resolution split exists to avoid.
-    const load = async (key: string, file: string, uvChannel: number) => {
-      const texture = await ktx2.loadAsync(base + file);
-      prepareLightmapTexture(texture, uvChannel);
-      loaded.set(key, texture);
-    };
-    const assetAtlases = new Map<ReturnType<typeof assetAtlasKey>, THREE.Texture>();
-    const groundAtlases = new Map<LightmapChunk, THREE.Texture>();
-    for (const chunk of LIGHTMAP_CHUNKS) {
-      for (const kind of ['static', 'instances'] as const) {
-        const key = assetAtlasKey(chunk, kind);
-        await load(key, variantFile(assetManifest.chunks[chunk][kind], resolution, key), assetManifest.uvChannel);
-        assetAtlases.set(key, loaded.get(key)!);
-      }
-      const key = `ground:${chunk}`;
-      await load(key, variantFile(groundManifest.chunks[chunk], resolution, key), groundManifest.uvChannel);
-      groundAtlases.set(chunk, loaded.get(key)!);
-    }
-
-    assets = await attachAssetLightmaps(gltf, assetManifest, assetAtlases, resolution);
-    ground = attachGroundLightmaps(gltf.scene, groundManifest, groundAtlases, resolution);
-    hidePlateUnderGround(terrain, ground.context);
-    dropEmbeddedTrim(gltf.scene);
-  } catch (error) {
-    console.warn('[lightmaps] not applied', error);
-    restore(assets, ground);
-    for (const texture of loaded.values()) texture.dispose();
-    return null;
-  } finally {
-    releaseKtx2Loader();
-  }
-
-  const attachedAssets = assets;
-  const attachedGround = ground;
-  return {
-    resolution,
-    dispose: () => {
-      restore(attachedAssets, attachedGround);
-      for (const texture of loaded.values()) texture.dispose();
-    },
-  };
-}
-
-function restore(assets: AttachedAssetLightmaps | null, ground: AttachedGroundLightmaps | null): void {
-  if (assets) {
-    for (const target of assets.targets) {
-      target.object.material = target.material;
-      target.object.geometry = target.geometry;
-    }
-    for (const material of assets.materials) material.dispose();
-    for (const geometry of assets.geometries) geometry.dispose();
-  }
-  if (ground) {
-    for (const target of ground.targets) target.object.material = target.material;
-    for (const material of ground.materials) material.dispose();
-  }
-}
-
-/**
- * The plate stays for measurement and as the skirt's template; the baked
- * ground is what renders. `Box3.setFromObject` reads geometry regardless of
- * `visible`, so nothing measured off the plate changes.
- */
-function hidePlateUnderGround(terrain: THREE.Mesh | null, context: THREE.Mesh | null): void {
-  if (!terrain) return;
-  terrain.visible = false;
-  const colour = (context && meanVertexColour(context)) ?? new THREE.Color(0xffffff);
-  const source = Array.isArray(terrain.material) ? terrain.material[0] : terrain.material;
-  terrain.material = new THREE.MeshBasicMaterial({
-    name: 'MAT_CITY_GROUND',
-    color: colour,
-    toneMapped: source?.toneMapped ?? true,
-  });
+  const { gltf, config, renderer, bytes } = options;
+  // First: the baked materials keep the authored albedo (`preserveAlbedo`),
+  // so a trim still attached here would be copied onto every one of them.
+  dropEmbeddedTrim(gltf.scene);
+  return loadUnifiedLightmaps(gltf, renderer, config.baseUrl, config.manifest, deviceResolution(), config.desktop1024, bytes);
 }
 
 /**

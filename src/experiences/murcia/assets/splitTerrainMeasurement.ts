@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { meanVertexColour } from './lightmaps/attachGroundLightmaps';
 
 /** A hidden bounds template for the skirt; the five authored ground parts render normally.
  * Only eight points are needed: the transition consumes the box, not surface topology.
@@ -39,4 +38,26 @@ export function splitTerrainMeasurement(group: THREE.Object3D): THREE.Mesh | nul
   mesh.raycast = () => {};
   group.add(mesh);
   return mesh;
+}
+
+/**
+ * The average vertex colour of a mesh, in linear space as it is stored.
+ *
+ * Used to colour the horizon skirt: the skirt is a clone of the plate's
+ * material with its RGB held white, so whatever colour that material carries
+ * is the colour the horizon fades from. Reading it off the outer ground it
+ * continues is what keeps the seam invisible without anyone tuning a hex.
+ */
+function meanVertexColour(mesh: THREE.Mesh): THREE.Color | null {
+  const attribute = mesh.geometry.getAttribute('color');
+  if (!attribute || attribute.count === 0) return null;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (let i = 0; i < attribute.count; i += 1) {
+    r += attribute.getX(i);
+    g += attribute.getY(i);
+    b += attribute.getZ(i);
+  }
+  return new THREE.Color(r / attribute.count, g / attribute.count, b / attribute.count);
 }

@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { acquireKtx2Loader, releaseKtx2Loader } from '../../../../graphics/decoders';
 import { findByAnyNameSpelling } from '../nodeNames';
-import { ownGeometryWithSt } from './attachAssetLightmaps';
-import { createLightmapMaterial, prepareLightmapTexture } from './lightmapMaterial';
+import { LIGHTMAP_ST_ATTRIBUTE, createLightmapMaterial, prepareLightmapTexture } from './lightmapMaterial';
 import { atlasResolutions, parseUnifiedManifest } from './unifiedManifest';
 import type { LightmapResolution } from './lightmapManifest';
 import { fetchCityBytes, type CityBytes } from '../cityBytes';
@@ -124,4 +123,35 @@ export async function loadUnifiedLightmaps(
   } finally {
     releaseKtx2Loader();
   }
+}
+
+/**
+ * The prototype's attributes by reference, plus this group's own ST.
+ *
+ * Every instance reads its own rectangle of the atlas through `_LIGHTMAP_ST`,
+ * exported as an `EXT_mesh_gpu_instancing` attribute. `GLTFLoader` (0.174)
+ * promotes only `_COLOR_0` to an instance attribute; anything else it sets on
+ * the geometry as an ordinary per-vertex attribute — and that geometry is the
+ * PROTOTYPE, shared by every group that instances the same window or tree, so
+ * the last group loaded would have written its rectangles over the others'.
+ * The export records each group's accessor in `instance_st_accessor` for
+ * exactly this reason; it is read back through the parser and wrapped here.
+ * Sharing the position/normal/uv buffers keeps the GPU cost of instancing —
+ * one prototype upload — while giving each group the one attribute that differs.
+ */
+function ownGeometryWithSt(source: THREE.BufferGeometry, st: THREE.BufferAttribute): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  for (const [attribute, value] of Object.entries(source.attributes)) {
+    if (attribute !== LIGHTMAP_ST_ATTRIBUTE) geometry.setAttribute(attribute, value);
+  }
+  geometry.setIndex(source.index);
+  for (const group of source.groups) geometry.addGroup(group.start, group.count, group.materialIndex);
+  geometry.setDrawRange(source.drawRange.start, source.drawRange.count);
+  geometry.boundingBox = source.boundingBox?.clone() ?? null;
+  geometry.boundingSphere = source.boundingSphere?.clone() ?? null;
+  geometry.setAttribute(
+    LIGHTMAP_ST_ATTRIBUTE,
+    new THREE.InstancedBufferAttribute(st.array as Float32Array, 4, st.normalized),
+  );
+  return geometry;
 }

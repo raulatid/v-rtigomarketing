@@ -239,27 +239,23 @@ export interface SceneStateConfig {
 /**
  * Where the city's baked light is served from.
  *
- * Files, not slots: the bake pipeline writes two manifests naming every atlas
- * per chunk and resolution, and the runtime reads those rather than carrying
- * a second copy of the list (`assets/lightmaps/`). Absent means the model is
- * not baked and renders lit, which is every city before murcia-v7 and what
- * the tests' untextured loads still get.
+ * Files, not slots: the bake pipeline writes one versioned manifest
+ * (`lightmaps.json`) naming every atlas and its resolutions, and the runtime
+ * reads that rather than carrying a second copy of the list
+ * (`assets/lightmaps/unifiedManifest`). Absent means the model is not baked and
+ * renders lit, which is what the tests' untextured loads still get.
  */
 export type LightmapConfig = {
-  /** Directory the manifests and every KTX2 they name sit in. Trailing slash. */
+  /** Directory the manifest and every KTX2 it names sit in. Trailing slash. */
   baseUrl: string;
-} & (
-  | {
-      manifest: string;
-      /**
-       * Atlases a device that gets 2048 loads at 1024 instead, by the manifest's
-       * keys; `'all'` is every one. The keys are the bake's, so this lives beside
-       * the bake it names, and a key the manifest does not have is an error.
-       */
-      desktop1024?: readonly string[] | 'all';
-    }
-  | { assetsManifest: string; groundManifest: string }
-);
+  manifest: string;
+  /**
+   * Atlases a device that gets 2048 loads at 1024 instead, by the manifest's
+   * keys; `'all'` is every one. The keys are the bake's, so this lives beside
+   * the bake it names, and a key the manifest does not have is an error.
+   */
+  desktop1024?: readonly string[] | 'all';
+};
 
 /** Depth +1 of the zoom band: the furthest, highest pose a viewer may park at. */
 export interface ZoomFarConfig {

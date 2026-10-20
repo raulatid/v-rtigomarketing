@@ -256,7 +256,6 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
           gltf,
           config: options.lightmaps,
           renderer: options.renderer,
-          terrain: found.mesh,
           bytes,
         })
       : null;

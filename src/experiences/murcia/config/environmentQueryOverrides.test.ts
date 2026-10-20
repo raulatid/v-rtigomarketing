@@ -218,7 +218,7 @@ describe('?touchInertia= and ?touchFlingMin= set the finger throw', () => {
 describe('?lightmaps= picks which atlases a 2048 device halves', () => {
   const desktop1024 = (search: string) => {
     const lightmaps = apply(search).lightmaps;
-    return lightmaps && 'manifest' in lightmaps ? lightmaps.desktop1024 : 'no unified bake';
+    return lightmaps ? lightmaps.desktop1024 : 'no bake';
   };
 
   it('reads every atlas, none, or a list of keys', () => {

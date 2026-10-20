@@ -33,7 +33,7 @@ export interface LightmapMaterialOptions {
   lightMapIntensity: number;
   /** The atlas width in texels, for the footprint arithmetic. */
   atlasSize: number;
-  /** Mip levels above the base a sample may reach (see `maxMipLevel`). */
+  /** Mip levels above the base a sample may reach (from the manifest's `mipLevels`). */
   maxMip: number;
   /** Set for instanced receivers: the per-instance atlas rectangle. */
   instanced: boolean;
@@ -133,20 +133,4 @@ export function prepareLightmapTexture(texture: THREE.Texture, uvChannel: number
   texture.magFilter = THREE.LinearFilter;
   texture.anisotropy = 1;
   texture.needsUpdate = true;
-}
-
-/**
- * An unlit twin of the authored material for surfaces that are NOT baked but
- * sit beside baked ones — the outer ground. Lit, a flat plate under the rig
- * reads at 2.7 of irradiance and blows out next to the baked streets; unlit it
- * is simply its vertex colour, which is what the bake preview showed the
- * artist.
- */
-export function createUnlitVertexColourMaterial(source: THREE.Material): THREE.MeshBasicMaterial {
-  return new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    vertexColors: true,
-    side: source.side,
-    toneMapped: source.toneMapped,
-  });
 }

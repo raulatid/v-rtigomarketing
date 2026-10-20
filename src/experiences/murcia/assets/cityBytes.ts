@@ -58,7 +58,7 @@ export function prefetchCityBytes(
 
   read(env.modelPath, readAhead.buffer);
   const lightmaps = env.lightmaps;
-  if (lightmaps && 'manifest' in lightmaps) {
+  if (lightmaps) {
     // The same choice `loadUnifiedLightmaps` makes. The atlases are added
     // before the loader can see the manifest, because this reaction is
     // registered on its promise first.
