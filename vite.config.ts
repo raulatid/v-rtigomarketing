@@ -33,6 +33,11 @@ import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verif
 // build prints both. The worker's own code is a separate file and not counted
 // here. The history of each raise is in git (`git log -p -- vite.config.ts`).
 const INTRO_BUDGET_BYTES = 18_500
+// The intro's drawing worker (`src/intro-draw/drawWorker.ts`), which no other
+// budget counts: it is a file of its own, created by `new Worker(...)` during
+// the opening, so every cold `/` downloads it. The boot's rule applies to it
+// too — no dependencies, and a size somebody chose.
+const DRAW_WORKER_BUDGET_BYTES = 11_000
 // WHAT A COLD `/` ACTUALLY COSTS: every chunk the modulepreload loop in
 // `introEntry` links, plus the app and intro entries.
 //
@@ -62,7 +67,7 @@ const INTRO_BUDGET_BYTES = 18_500
 //
 // The build prints the measured total on every run; the history of each raise
 // is in git.
-const INITIAL_JS_BUDGET_BYTES = 1_510_000
+const INITIAL_JS_BUDGET_BYTES = 1_460_000
 // Why the requests are counted, and why this many: the blog's header became a
 // SECOND dynamic consumer of the corner logo, and Rollup re-signatures every
 // module two dynamic entries share — `utils/easing` and `graphics/decoders`
@@ -342,6 +347,21 @@ function assertChunkBudgets(): Plugin {
         this.error(`intro entry is ${introSize}B, over the ${INTRO_BUDGET_BYTES}B budget`)
       }
 
+      // Vite emits a worker as an asset of this bundle, not as a chunk.
+      const workers = Object.values(bundle).filter((o) => /(^|\/)drawWorker-[^/]+\.js$/.test(o.fileName))
+      if (workers.length !== 1) {
+        this.error(
+          `expected exactly one drawWorker file, found ${workers.length}. If the worker was ` +
+            'renamed or removed, update DRAW_WORKER_BUDGET_BYTES and this lookup with it.',
+        )
+      }
+      const worker = workers[0]
+      const workerSize =
+        worker.type === 'chunk' ? Buffer.byteLength(worker.code, 'utf8') : Buffer.byteLength(worker.source)
+      if (workerSize > DRAW_WORKER_BUDGET_BYTES) {
+        this.error(`the intro's draw worker is ${workerSize}B, over the ${DRAW_WORKER_BUDGET_BYTES}B budget`)
+      }
+
       const entry = chunks.find((c) => c.isEntry && c.name === 'index')
       if (!entry) {
         // Previously a silent skip: a missing entry left the size at 0 and every
@@ -568,6 +588,7 @@ function assertChunkBudgets(): Plugin {
         `chunk budgets ok — initial JS for / ${initialBytes}B (${initialBr}B br) over ` +
           `${counted.length} requests, budget ${INITIAL_JS_BUDGET_BYTES}B/` +
           `${INITIAL_JS_REQUEST_BUDGET}; intro ${introSize}B (${gz(intro.code)}B gz), ` +
+          `draw worker ${workerSize}B, ` +
           `app entry ${entrySize}B (${gz(entry.code)}B gz)` +
           `${blog ? `, blog ${blogSize}B (${gz(blog.code)}B gz)` : ''}`,
       )
