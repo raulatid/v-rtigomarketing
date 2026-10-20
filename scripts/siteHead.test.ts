@@ -79,6 +79,12 @@ describe('the source documents', () => {
     expect(html).toContain('<meta name="theme-color" content="#050507" />')
     expect(html).toContain('<script type="module" src="/src/entries/not-found.tsx"></script>')
   })
+
+  // The browser's chrome continues the blog's black header bar, not its paper.
+  it('blog.html paints the browser chrome in the header bar black', () => {
+    const html = fs.readFileSync('blog.html', 'utf8')
+    expect(html).toContain('<meta name="theme-color" content="#0b0b0d" />')
+  })
 })
 
 describe('blogIndexRegion', () => {

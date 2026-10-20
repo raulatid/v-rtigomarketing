@@ -102,5 +102,4 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 - **Falta `viewport-fit=cover`** en las tres páginas (n.º 18).
 - **`CaseStudy.label` se declara, se proyecta y se valida sin lector** (n.º 55).
-- **`blog.html` declara `theme-color` de papel (`#fbfbfa`) con la barra negra.**
 - **`PRIORITY` conserva `district` y `marker`, de módulos borrados** (n.º 40); quitarlos es una tarea de código aparte.

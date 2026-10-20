@@ -65,10 +65,9 @@
     <meta property="og:locale" content="es_ES" />
     <!-- canonical and og:url are injected at build time; see seoAssets in
          vite.config.ts. -->
-    <!-- Light, unlike the rest of the site. The blog deliberately inverts the
-         palette, and this is what stops the browser painting a dark chrome
-         around a paper-white page before the stylesheet lands. -->
-    <meta name="theme-color" content="#fbfbfa" />
+    <!-- The blog's header bar (`#0b0b0d`, siteHeader.css), not its paper: the
+         browser's own chrome continues the black bar at the top of the page. -->
+    <meta name="theme-color" content="#0b0b0d" />
     <!-- The faces that render above the fold, and only those: Gambetta for the
          UI and the standfirst, General Sans for the title. The italic is left
          to `font-style`: the browser fetches it if a style on the page needs

@@ -1,6 +1,6 @@
 # Una sola cabecera en todas las superficies
 
-**Estado:** vigente · **Desde:** 2026-09-03 (`da319e6`); Contacto blanco sobre un velo en la escena desde el 2026-09-04 (`e4d4cd2`); barra negra del blog desde el 2026-09-05 (`ae12e18`); logo más alto (`--header-logo-height` en `siteHeader.css`) y sonido abajo en móvil desde el 2026-09-15 (`f6e4c8c`); el logo de la ciudad vuelve a la Tierra desde el 2026-09-16 (`a15a46c`) · **Sustituye a:** la enmienda del 2026-09-03 de DECISIONS §26.16 y el párrafo «The blog's bar is black» de §36
+**Estado:** vigente · **Desde:** 2026-09-03 (`da319e6`); Contacto blanco sobre un velo en la escena desde el 2026-09-04 (`e4d4cd2`); barra negra del blog desde el 2026-09-05 (`ae12e18`); logo más alto (`--header-logo-height` en `siteHeader.css`) y sonido abajo en móvil desde el 2026-09-15 (`f6e4c8c`); el logo de la ciudad vuelve a la Tierra desde el 2026-09-16 (`a15a46c`); `theme-color` del blog en el negro de la barra desde el 2026-10-20 · **Sustituye a:** la enmienda del 2026-09-03 de DECISIONS §26.16 y el párrafo «The blog's bar is black» de §36
 
 ## Decisión
 
@@ -8,7 +8,7 @@
 2. **Los disparadores entran con un portal.** `AuditSection`, `ContactSection` y `SceneShortcuts` pintan su botón en `.site-header__end` (`triggerHost`) y conservan su foco de retorno, su `data-state` y sus tests. El blog monta sus propias instancias (`BlogSurface.tsx`).
 3. **La línea de la cabecera es la única fuente de su geometría:** `--header-inset`, `--header-control` y `--header-line-top` en `siteHeader.css`. `CornerLogoLayer` mide `.site-header__row` de la cabecera de la escena para colocar y escalar el logo 3D (en móvil, `--header-logo-height`). Ninguna de esas cifras se repite en TypeScript.
 4. **Sobre la escena es transparente y no recibe eventos;** solo sus controles. Va por encima de la cortina de auditoría y de los diálogos.
-5. **En el blog es una barra negra, en un solo selector** (`.site-header[data-layout='blog']`), con `tone="dark"`. Va por debajo de la cortina y de los diálogos, porque es opaca. La marca 3D de esa barra es [otra decisión](../blog/marca-3d-en-la-cabecera.md).
+5. **En el blog es una barra negra, en un solo selector** (`.site-header[data-layout='blog']`), con `tone="dark"`. Va por debajo de la cortina y de los diálogos, porque es opaca. La marca 3D de esa barra es [otra decisión](../blog/marca-3d-en-la-cabecera.md). El `theme-color` de `blog.html` es el mismo negro (`#0b0b0d`), para que la barra del navegador continúe la cabecera y no el papel (decisión del usuario).
 6. **`tone` dice cómo de claro es el fondo.** Sobre fondo claro, Contacto, Blog y Servicios van en tinta. En la escena de escritorio, sobre Murcia, van en blanco sobre un velo de vidrio, acotado por `data-layout='scene'` y no por `tone`. La caja de Auditoría lleva su propio color en todas partes.
 7. **En Murcia, la celda de inicio es «Volver a la Tierra»** (`.scene-home`: el elemento en `App.tsx`, el estilo en `siteHeader.css`): activa solo en la vista general de la ciudad (`isCityOverview`) y con la atención libre.
 8. **La cabecera de la escena publica el ancho de su cola** en `--site-header-tail`, para que la [brújula](../murcia/brujula.md) se centre.
