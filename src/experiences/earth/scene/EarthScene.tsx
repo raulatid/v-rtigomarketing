@@ -208,7 +208,7 @@ export function EarthScene({
   // The surface still rotates from here, so the destination does drift off
   // over the following ~40s. That is recoverable by dragging the globe, which
   // the focus rig already supports, but it is a product question rather than
-  // a settled one: see docs/integration/00-migration-log.md.
+  // a settled one: see docs/archivo/integration/00-migration-log.md.
   useEffect(() => {
     if (spinRef.current) {
       spinRef.current.rotation.y = spinToFace(DESTINATION.lat, DESTINATION.lng)

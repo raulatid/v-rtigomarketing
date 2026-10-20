@@ -21,7 +21,7 @@ Authoring sources, relative to `04_Assets/3D-assets/ciudad-de-murcia/`:
 
 ## Repair
 
-[The repair script](../../scripts/repair-stadium-roof.py) copies the original
+The repair script (`scripts/repair-stadium-roof.py`, removed in `55ed423`; see git history) copies the original
 roof, clears the copy's animation and aligns it with `estadio-base`. It retains
 the roof's original scale because its dimensions already include the overhang.
 Its Blender position becomes `(-267.76941, -110.01694, 9.01128)`, with the

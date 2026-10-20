@@ -60,7 +60,7 @@ budgets; unchanged maps retain their original bytes and metadata.
 
 ## Reproduction and provenance
 
-Run [the selective pipeline](../../scripts/rebake-city-lightmaps.py) with Blender
+Run the selective pipeline (`scripts/rebake-city-lightmaps.py`, removed in `55ed423`; see git history) with Blender
 5.1.2 in background mode, factory startup, automatic script execution disabled,
 and `--python-exit-code 1`. Pass `--source`, `--baseline`, `--out`, and `--stage`
 after Blender's `--` separator. Stages are `prepare`, `bake`, `compress`, `export`,
