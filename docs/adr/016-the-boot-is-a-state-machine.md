@@ -1,5 +1,7 @@
 # ADR 016 — The boot is a state machine, and work has a place in it
 
+> **Migrada (2026-10-20) →** [`decisiones/intro/maquina-de-apertura.md`](../decisiones/intro/maquina-de-apertura.md), [`decisiones/intro/trabajo-por-fase.md`](../decisiones/intro/trabajo-por-fase.md), [`decisiones/intro/ritmo-del-dibujo.md`](../decisiones/intro/ritmo-del-dibujo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-10-19 (proposed 2026-10-16). Migration steps 1–4 done; `gsap`
 removed. The work rule runs through `intro-draw/workScheduler.ts`, stepped by the frame loop;
 the city is two units: its files are read ahead as `network` work from `shrink`

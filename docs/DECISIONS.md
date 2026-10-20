@@ -215,6 +215,8 @@ experience that defines its interaction model.
 
 ## 9. Exactly one camera owner per frame, always
 
+> **Migrada (2026-10-20) →** [`decisiones/earth/camara-de-earth.md`](decisiones/earth/camara-de-earth.md), [`trampas/murcia-camara.md`](trampas/murcia-camara.md), [`trampas/transicion.md`](trampas/transicion.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Inherited and upheld** — from the Earth prototype. Two writers per frame is the failure
 the source project removed `OrbitControls` to avoid.
 
@@ -271,6 +273,8 @@ owners at once; the hand-back gives back one name, not the camera).
 ---
 
 ## 10. The intro's loading is real, and says so in Spanish
+
+> **Migrada (2026-10-20) →** [`decisiones/intro/carga-real-y-disponibilidad.md`](decisiones/intro/carga-real-y-disponibilidad.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Inherited and upheld** — the drawing is driven by measured asset progress, never a timer,
 and will not release into an unready scene.
@@ -513,6 +517,8 @@ nothing responds and nothing errors.
 
 ## 18. The brand plates are a drawn floor that real logos upgrade, and readiness never waits on artwork
 
+> **Migrada (2026-10-20) →** [`decisiones/earth/placas-de-marca.md`](decisiones/earth/placas-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 `createBrandAtlas` rasterises its placeholder plates **synchronously**, then loads any real
 `logo` URLs in the background and redraws those cells when they land. A logo that 404s, fails
 CORS, or decodes to nothing keeps its drawn plate. **A panel is never blank.**
@@ -561,6 +567,8 @@ Artwork requirements are in `earth/logo-spec.md` — it is written to be sent to
 ---
 
 ## 19. The sky is a photograph, and it is a mesh rather than a background
+
+> **Migrada (2026-10-20) →** [`decisiones/earth/cielo.md`](decisiones/earth/cielo.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 > **Superseded in part, 2026-08-13.** The sky was generated on the GPU and baked into a
 > cubemap; it is now a downloaded photographic panorama. The mesh-not-background half of this
@@ -1323,6 +1331,8 @@ visitor downloads both sets.
 ---
 
 ## 26. The Earth experience's own decisions
+
+> **Migrada (2026-10-20) →** [`decisiones/intro/maquina-de-apertura.md`](decisiones/intro/maquina-de-apertura.md), [`decisiones/intro/arranque-sin-dependencias.md`](decisiones/intro/arranque-sin-dependencias.md), [`decisiones/intro/carga-real-y-disponibilidad.md`](decisiones/intro/carga-real-y-disponibilidad.md), [`decisiones/intro/ritmo-del-dibujo.md`](decisiones/intro/ritmo-del-dibujo.md), [`decisiones/intro/warp-de-la-intro.md`](decisiones/intro/warp-de-la-intro.md), [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/intro/salto-y-visita-que-vuelve.md`](decisiones/intro/salto-y-visita-que-vuelve.md), [`decisiones/earth/convenciones-de-render.md`](decisiones/earth/convenciones-de-render.md), [`decisiones/earth/satelites.md`](decisiones/earth/satelites.md), [`decisiones/earth/camara-de-earth.md`](decisiones/earth/camara-de-earth.md), [`decisiones/earth/panel-del-caso.md`](decisiones/earth/panel-del-caso.md), [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md), [`decisiones/earth/validacion-de-marcas-subidas.md`](decisiones/earth/validacion-de-marcas-subidas.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** 26.13 y 26.14 (datos y gráficos de los casos), 26.17 (cursor) y las enmiendas de 26.16 sobre la cabecera y el menú (bloque interfaz/contenido).
 
 **Folded in 2026-08-17**, when `earth/DECISIONS.md` was retired so that this file is the only
 decisions file in the repository. That document was 1862 lines of chronological entries running
@@ -2367,6 +2377,8 @@ buildings against the +Z plate edge, where the framing solve may clamp; it is tu
 
 ## 33. The boot is measured in pixels, and the city is not part of it
 
+> **Migrada (2026-10-20) →** [`decisiones/intro/trabajo-por-fase.md`](decisiones/intro/trabajo-por-fase.md), [`decisiones/transicion/precarga-de-murcia.md`](decisiones/transicion/precarga-de-murcia.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Decided** 2026-08-28, from plan 008. Users reported the screen "flashing white" during the
 opening and the intro feeling rough.
 
@@ -2485,6 +2497,8 @@ and `intro` still have no reader.
 ---
 
 ## 35. Consent is asked once, as the intro's last stroke
+
+> **Migrada (2026-10-20) →** [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** el registro de consentimiento (categorías, versión, qué carga cada una), que es del bloque consentimiento/legal.
 
 **Decided** 2026-09-05, plan 018. The client requires a cookie banner and plans Google Analytics
 after launch; the runtime inventory taken that day found the site setting no cookies, keeping no
@@ -2941,6 +2955,8 @@ to the firm area on purpose, a composed shot having no business landing in the m
 
 ## 41. The Earth's hint is drawn in the scene, out of particles
 
+> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 > **REVERSED 2026-09-09 by §43.** The particle figure is gone and the hint is DOM text. Kept
 > because it is the record of how the figure was tuned and why it was rejected — and because
 > everything below about WHEN the hint appears, and the placement arithmetic that answers to
@@ -3265,6 +3281,8 @@ is a judgement by eye, with 0.4 as the deliberate non-proportional fallback.
 
 ## 43. Earth's hint is text again
 
+> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 > Reverses **§41 (2026-09-08, the particle figure)**. Murcia's plate is untouched and stays
 > hidden on Earth by the same one-line rule.
 >
@@ -3376,7 +3394,7 @@ clearing `data-visible` when `active` goes false.
 
 ## 44. Murcia is navigated by one pointer carrying both axes, over a spring
 
-> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/sensacion-de-camara.md`](decisiones/murcia/sensacion-de-camara.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md), [`murcia/brujula.md`](decisiones/murcia/brujula.md), [`murcia/edificios-interactivos.md`](decisiones/murcia/edificios-interactivos.md), [`navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md), [`transicion/vacio.md`](decisiones/transicion/vacio.md), [`transicion/giro-de-earth-hacia-espana.md`](decisiones/transicion/giro-de-earth-hacia-espana.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** «And the band ends above the satellites» (bloque Earth).
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/sensacion-de-camara.md`](decisiones/murcia/sensacion-de-camara.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md), [`murcia/brujula.md`](decisiones/murcia/brujula.md), [`murcia/edificios-interactivos.md`](decisiones/murcia/edificios-interactivos.md), [`navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md), [`transicion/vacio.md`](decisiones/transicion/vacio.md), [`transicion/giro-de-earth-hacia-espana.md`](decisiones/transicion/giro-de-earth-hacia-espana.md), [`decisiones/earth/banda-de-zoom-de-earth.md`](decisiones/earth/banda-de-zoom-de-earth.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **2026-09-10.** Ported from `prototypes/vertigo-lab`, experiment
 `camera-navigation`. Replaces **§20** and its amendments **§21** and **§38**,
@@ -3843,6 +3861,8 @@ figure. Both are judgements for the visual pass on real hardware.
 
 ## 46. Earth's glyph is the wheel again, and a hand on a phone for touch
 
+> **Migrada (2026-10-20) →** [`decisiones/earth/pista-de-escena.md`](decisiones/earth/pista-de-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 > **Amended 2026-09-15 — forward wheel rotation zooms in.** Users reported
 > trying the opposite direction. Desktop vertical wheel input is now inverted
 > at `onWheel`: forward approaches, backward retreats, consistently in Earth and
@@ -4080,6 +4100,8 @@ the Studio reads `EDITORIAL_BOUNDS.siteSettings.revenueRange`); or a publish of 
 
 ## 51. The intro's tail can be left once loading is done, and a returning visitor leaves it
 
+> **Migrada (2026-10-20) →** [`decisiones/intro/salto-y-visita-que-vuelve.md`](decisiones/intro/salto-y-visita-que-vuelve.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Decided 2026-09-15** with the user, on measurements (plan 025). The loading draw is the loading
 cover and is untouched: it waits on every required resource and has a 3 s floor. The tail after
 it — shrink, warp, swap, the corner hold and the orbit reveal, 9.7 s fixed — plays over a scene
@@ -4190,6 +4212,8 @@ formed; a service's body is rewritten to argue something its figure does not dra
 changes the binding; or a document without the new fields fails the build.
 
 ## 53. The selected hologram lands on a smoked-glass tray, edge and all
+
+> **Migrada (2026-10-20) →** [`decisiones/earth/holograma-de-marca.md`](decisiones/earth/holograma-de-marca.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-09-16, from the client's report that the expanded lockup could not be read
 when the close-up put it over the daylit hemisphere. One of five options analysed before any

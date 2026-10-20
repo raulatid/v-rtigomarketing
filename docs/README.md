@@ -18,11 +18,38 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 |---|---|
 | Cámara y navegación de Murcia | migrada |
 | Transición / warp | migrada |
-| Earth | pendiente |
+| Intro y arranque | migrada |
+| Escena de la Tierra | migrada |
+| Interfaz y contenido (cabecera y menú, cursor, picking, vidrio, tipografías, datos de casos) | pendiente |
+| Consentimiento y legal | pendiente |
 | Contenido / CMS | pendiente |
+| Render y gráficos (ADR 001, 002, 008) | pendiente |
 | Build y presupuestos | pendiente |
 
 ## Decisiones
+
+### Intro y arranque
+- [Arranque sin dependencias](decisiones/intro/arranque-sin-dependencias.md): el chunk de arranque no importa nada y tiene presupuesto.
+- [Carga real y disponibilidad](decisiones/intro/carga-real-y-disponibilidad.md): progreso visual, progreso medido y disponibilidad son tres cosas.
+- [Plazo de carga](decisiones/intro/plazo-de-carga.md): el plazo solo puede fallar; las decoraciones no son fatales.
+- [Ritmo del dibujo](decisiones/intro/ritmo-del-dibujo.md): segundos visibles, ritmo uniforme, dibujo en un worker.
+- [Máquina de apertura](decisiones/intro/maquina-de-apertura.md): fases ordenadas, tres caminos de entrada, reloj propio sin gsap.
+- [Trabajo por fase](decisiones/intro/trabajo-por-fase.md): qué trabajo se admite en cada fase.
+- [Warp de la intro](decisiones/intro/warp-de-la-intro.md): dos tramos, corte oculto, cruce por cero del logo.
+- [Nada interactivo hasta `site`](decisiones/intro/nada-interactivo-hasta-site.md): y el consentimiento es el último trazo.
+- [Salto y visita que vuelve](decisiones/intro/salto-y-visita-que-vuelve.md): saltar la cola, espera silenciosa, movimiento reducido, depuración.
+
+### Escena de la Tierra
+- [Cámara de Earth](decisiones/earth/camara-de-earth.md): un escritor por fotograma, rig de foco, desplazamiento de la auditoría.
+- [Banda de zoom de Earth](decisiones/earth/banda-de-zoom-de-earth.md): el extremo cercano por encima de los satélites; texturas fijadas.
+- [Satélites](decisiones/earth/satelites.md): órbitas, modelo, tamaño, orientación, invitación.
+- [Holograma de marca](decisiones/earth/holograma-de-marca.md): isotipo en reposo, logo al seleccionar, una sola luz.
+- [Placas de marca](decisiones/earth/placas-de-marca.md): suelo dibujado que los logos reales mejoran.
+- [Validación de marcas subidas](decisiones/earth/validacion-de-marcas-subidas.md): Studio en dos niveles y otra vez en el build.
+- [Panel del caso](decisiones/earth/panel-del-caso.md): hoja inferior en móvil, acotada por el logo.
+- [Cielo](decisiones/earth/cielo.md): fotografía en una malla; las imágenes y la exposición actuales son las buenas.
+- [Pista de escena](decisiones/earth/pista-de-escena.md): la misma pista en los dos mundos.
+- [Convenciones de render](decisiones/earth/convenciones-de-render.md): texturas horneadas, escala en el montaje, `colorspace_fragment`, KTX2.
 
 ### Navegación entre mundos
 - [Banda de zoom y commit](decisiones/navegacion/banda-de-zoom-y-commit.md): ambos mundos comparten banda; la rueda hace commit al final, el dedo con un pellizco nuevo desde el final; dos dedos solo son pellizco.
@@ -48,9 +75,12 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 
 - [Cámara y navegación de Murcia](trampas/murcia-camara.md)
 - [Transición y warp](trampas/transicion.md)
+- [Intro y arranque](trampas/intro.md)
+- [Escena de la Tierra](trampas/earth.md)
 
 ## Contratos
 
 - [Campos de Sanity](content/sanity-field-contract.md)
 - [Medios de Sanity](content/sanity-media-contract.md)
 - [Exportación desde Blender](murcia/blender-export-contract.md)
+- [Especificación de logos para el cliente](earth/logo-spec.md)
