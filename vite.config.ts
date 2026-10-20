@@ -89,7 +89,7 @@ const INITIAL_JS_REQUEST_BUDGET = 12
 // answers "did a large dependency or the generated dataset land in the ENTRY".
 // three.js is no longer this budget's job — it has its own structural assertion
 // below, on the emitted chunk graph rather than on a size.
-const ENTRY_BUDGET_BYTES = 160_000
+const ENTRY_BUDGET_BYTES = 60_000
 /**
  * The blog chunk carries the UI, the serializer and the WHOLE post dataset, so
  * it grows with the article library rather than with the code. At three posts it
