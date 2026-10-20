@@ -712,18 +712,17 @@
    through the card's way back, and the burger should already read "menu" by
    then. Every surface shares this closing phase.
 
-   DOUBLED 2026-09-09, on client direction: every number below is twice what it
-   was, so the mark keeps its 11:1 bar ratio and simply reads bigger. At 44px it
-   now spans the button edge to edge, which is why `left` is 0 — the button is
-   the 44px touch target and the line's height, and it must not grow past
-   `--header-control` or the glyph leaves the header's line. The ✕ still fits:
-   a 44px bar turned 45° needs only 44/√2 ≈ 31px each way. */
+   32 × 3px bars, centred in the 44px button, on every surface since
+   2026-10-20 (the scene had them from 2026-09-15 and the blog kept the
+   doubled 44 × 4px by mistake). The button is the 44px touch target and the
+   line's height, and it must not grow past `--header-control` or the glyph
+   leaves the header's line. */
 .site-header__burger-bar {
   position: absolute;
-  left: 0;
-  top: calc(50% - 2px);
-  width: 44px;
-  height: 4px;
+  left: 6px;
+  top: calc(50% - 1.5px);
+  width: 32px;
+  height: 3px;
   border-radius: 2px;
   background: currentColor;
   transform-origin: center;
@@ -733,11 +732,11 @@
 }
 
 .site-header__burger-bar:nth-child(1) {
-  transform: translateY(-12px);
+  transform: translateY(-9px);
 }
 
 .site-header__burger-bar:nth-child(3) {
-  transform: translateY(12px);
+  transform: translateY(9px);
 }
 
 .site-header[data-menu-state='open'] .site-header__burger-bar:nth-child(1) {
@@ -777,10 +776,9 @@
    THE COST IS ON MURCIA AND IT IS REAL. White over Earth is 21:1; over
    Murcia's daylight it is whatever the roof under it happens to be, and pale
    roofs are most of that city — under 2:1 in places, below the 3:1 a control
-   needs. Doubling the bars is what makes it hold up at all: 4px of mass reads
-   where 2px would vanish. If it ever reads too faint, the fix is a shadow on
-   the bars rather than a colour that changes with the sky, because the sky is
-   what this rule exists not to follow. */
+   needs. What holds it up is a shadow on the bars (the phone rule below), not
+   a colour that changes with the sky, because the sky is what this rule exists
+   not to follow. */
 .site-header[data-layout='scene'] .site-header__burger {
   color: #fff;
 }
@@ -823,19 +821,7 @@
   }
 
   .site-header[data-layout='scene'] .site-header__burger-bar {
-    left: 6px;
-    width: 32px;
-    height: 3px;
-    top: calc(50% - 1.5px);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
-  }
-
-  .site-header[data-layout='scene']:not([data-menu-state='open']) .site-header__burger-bar:nth-child(1) {
-    transform: translateY(-9px);
-  }
-
-  .site-header[data-layout='scene']:not([data-menu-state='open']) .site-header__burger-bar:nth-child(3) {
-    transform: translateY(9px);
   }
 }
 

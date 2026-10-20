@@ -1,6 +1,6 @@
 # El menú del móvil: la vista se pliega como una tarjeta y descubre el menú
 
-**Estado:** vigente · **Desde:** 2026-09-09 (`e2bef6c`); burger blanco y al doble el mismo día (`f576ed8`); capa de grafito con frases de apoyo desde el 2026-09-15 (`6c9c353`); el blog usa el mismo menú desde el 2026-09-16 (`dfb43b6`) · **Sustituye a:** las enmiendas de DECISIONS §26.16 del 2026-09-04 («glass field»), del 2026-09-08 y del 2026-09-09; la fila «The phone burger is four bars…» de «Superseded»
+**Estado:** vigente · **Desde:** 2026-09-09 (`e2bef6c`); burger blanco y al doble el mismo día (`f576ed8`); capa de grafito con frases de apoyo desde el 2026-09-15 (`6c9c353`); el blog usa el mismo menú desde el 2026-09-16 (`dfb43b6`); barras de 32 × 3 px en todas las superficies desde el 2026-10-20 · **Sustituye a:** las enmiendas de DECISIONS §26.16 del 2026-09-04 («glass field»), del 2026-09-08 y del 2026-09-09; la fila «The phone burger is four bars…» de «Superseded»
 
 ## Decisión
 
@@ -13,7 +13,7 @@
 7. **Mientras se mueve, la tarjeta no recibe punteros**, y el canvas tampoco (con `!important`, porque R3F escribe `pointer-events: auto` en línea).
 8. **Nada se remonta ni se redimensiona:** `SceneCanvas` mide con `resize={{ offsetSize: true }}`.
 9. **El resto de la interfaz de la escena se aparta con `visibility`** (`data-menu-open`), sin desmontarse, para no repetir sus entradas.
-10. **El burger son tres barras que se convierten en ✕,** blanco en los dos mundos: es el único control que no sigue al cielo. Desaparece mientras está abierto un panel al que lleva, y va en el DOM antes que las acciones. Hoy sus barras miden distinto en la escena móvil y en el blog: no es intencionado (ver los posibles defectos de las [trampas](../../trampas/interfaz.md)).
+10. **El burger son tres barras que se convierten en ✕,** blanco en los dos mundos: es el único control que no sigue al cielo. Desaparece mientras está abierto un panel al que lleva, y va en el DOM antes que las acciones. Sus barras miden lo mismo en la escena y en el blog (`.site-header__burger-bar` en `siteHeader.css`); sobre la escena llevan además una sombra, por el cielo claro de Murcia.
 11. **Lo que descubre la tarjeta:** fondo de grafito con luz reflejada estática; Auditoría y Contacto como texto grande, en la tipografía actual de `siteMenu.css`, cada uno con una frase de apoyo (`.site-menu-caption`) y una flecha; un separador neutro; debajo, [Blog y Servicios](atajos-blog-y-servicios.md). El orden sale de `order`.
 12. **En el blog,** la página es `inert` mientras el menú no está cerrado.
 

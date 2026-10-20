@@ -100,7 +100,6 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 ## Posibles defectos
 
-- **El burger de la escena en móvil mide 32×3 px con sombra y el del blog 44×4** (`siteHeader.css`). No es intencionado: es un error de implementación; arreglarlo es una tarea de código aparte.
 - **Falta `viewport-fit=cover`** en las tres páginas (n.º 18).
 - **El lápiz recibe tolerancias distintas según dónde toque:** la del ratón en Earth (`dragPointerType === 'touch'`) y en el campus (`pointerType === 'touch'`), la del dedo en la pantalla del blog (`pointerType !== 'mouse'`).
 - **Un donut con más de cuatro segmentos no se ve entero:** la opacidad baja con cada segmento hasta desaparecer (fórmula en `CaseChart.tsx`), y el build admite hasta `chartValues` valores.
