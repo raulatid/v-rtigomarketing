@@ -12,7 +12,7 @@
  * minifier drops it. That is worth having on its own: the panel is a static
  * import in the app entry chunk, and that chunk is under a hard byte budget
  * asserted at build time (`ENTRY_BUDGET_BYTES` in vite.config.ts, which carries
- * its own history and the rule for raising it). Gating the panel here is what
+ * the rule for raising it). Gating the panel here is what
  * keeps its bytes out of the number that budget is measured against.
  *
  * No percentage is quoted, on purpose. This comment used to carry one and it

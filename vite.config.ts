@@ -20,207 +20,70 @@ import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verif
 
 // The loading animation is worthless if it is itself waiting on a bundle, so
 // the boot entry's standalone-ness is a build-time invariant rather than a
-// convention (DECISIONS.md 26.4, "Code that runs first depends on nothing").
+// convention (docs/decisiones/intro/arranque-sin-dependencias.md).
 //
 // Asserted on the emitted bundle rather than on import statements: a dynamic
 // import, a stray global or a side-effectful module would all slip past an
 // ESLint path rule while breaking the actual property.
-// Measured, not guessed. History, so the next raise is an informed one:
-//   9.6KB  the drawing + isotype path data (plan 006)
-//  12.0KB  + boot state machine, readiness, diagnostics (plan 007)
-// Raised to 16KB deliberately when the state machine landed — the assertion
-// fired at 12005B, which is exactly its job. Do not raise it again without
-// knowing what was added; gzipped is what the user waits for, and the build
-// prints both.
-//  17.9KB  + the worker drawing's host, with the SVG kept as its fallback
-//          (ADR 016 item 3). The worker's own code is a separate file and
-//          not counted here.
+//
+// Measured, not guessed: the drawing and isotype path data, the boot state
+// machine, readiness, diagnostics and the worker drawing's host. Do not raise it
+// without knowing what was added; gzipped is what the user waits for, and the
+// build prints both. The worker's own code is a separate file and not counted
+// here. The history of each raise is in git (`git log -p -- vite.config.ts`).
 const INTRO_BUDGET_BYTES = 18_500
-// WHAT A COLD `/` ACTUALLY COSTS, measured 2026-08-31 against the production
-// build with a headless browser: 1,525,267 B of JavaScript over 9 requests
-// (386,597 B brotli), all of it requested within ~130 ms of navigation start.
+// WHAT A COLD `/` ACTUALLY COSTS: every chunk the modulepreload loop in
+// `introEntry` links, plus the app and intro entries.
 //
-// The number below used to be a budget on the app ENTRY CHUNK alone, and that
-// was the wrong thing to measure from the day the modulepreload loop in
-// `introEntry` landed. That loop injects a link for EVERY non-entry chunk, so
-// `/`'s initial closure is the whole bundle minus the blog document's entry —
-// the entry chunk is 110,828 B of it, 7.3%. A 332,000 B guard on 7.3% of the
-// payload left 221 KB of silent headroom and could not see the growth vector
-// that matters: a new lazy chunk joins the initial load automatically, and
-// nothing noticed when `BlogRoute` (14,050 B) did exactly that.
-//
-// It also could not see three.js. Adding `blog.html` as a second HTML entry
-// (adr/013) gave Rollup two consumers for React and it hoisted React into a
-// shared chunk, which is why the entry FELL from ~322 KB to 110,828 B in one
-// commit while what a visitor downloads stayed the same — the bytes moved next
-// door. Redistribution reads as a 65% improvement to a single-chunk budget.
+// This is not a budget on the app ENTRY CHUNK alone, because that was the wrong
+// thing to measure from the day the modulepreload loop landed. The loop injects
+// a link for every chunk `isPreloadedOnIndex` accepts, so a new lazy chunk joins
+// the initial load automatically, and a budget on the entry cannot see it. Nor
+// can it see bytes that merely move: adding `blog.html` as a second HTML entry
+// (adr/013) made Rollup hoist React into a shared chunk, and the entry fell by
+// two thirds while what a visitor downloads stayed the same.
 //
 // So the primary gate is the whole closure, and the request count beside it:
-// bytes alone would let a new 70 KB route chunk onto the initial load in
-// silence, and a new REQUEST on `/` is the thing worth a human look regardless
-// of its size.
+// bytes alone would let a new route chunk onto the initial load in silence, and
+// a new REQUEST on `/` is the thing worth a human look regardless of its size.
 //
-// Headroom is deliberate and small — about 4.9%, roughly 75 KB. When this
-// fires, read the itemised list in the message before raising it: a NEW chunk
-// in the list is a loading decision, an existing one growing is app growth, and
-// they do not have the same fix.
+// THIS NUMBER DOES NOT GO UP (since 2026-10-16). It was raised seven times in
+// five weeks, each time expecting a selective preload loop to fix it, and the
+// loop was the wrong lead: `MurciaExperience` is preloaded at low priority and
+// compiled off the main thread, so cutting it would only have moved the city
+// later. The weight was three, and the three catalogue below fixed it. When
+// something new does not fit, make room for it — take something out of this
+// closure — rather than raising the line. When it fires, read the itemised list
+// in the message: a NEW chunk in the list is a loading decision, an existing one
+// growing is app growth, and they do not have the same fix. Content must not
+// spend a code budget either: the legal texts live behind the legal panel's
+// chunk (src/content/legal.ts).
 //
-// ── 1,600,000 -> 1,610,000, 2026-09-09, plan 022 ──
-//
-// APP GROWTH, not a loading decision: no new name appeared in the list, and the
-// existing `MurciaExperience` chunk grew. Measured rather than estimated —
-// `createBlogDisplayEntry` was stubbed to return null and the bundle rebuilt, so
-// the whole feature's graph fell out and the difference is attributable:
-//
-//   128,439 B  MurciaExperience without the blog display
-//   148,548 B  with it
-//    20,109 B  the blog's display, its two camera flights and its page image
-//
-// against 15,142 B of headroom, so it was over by 4,967 B. What the 20 KB buys is
-// documented in DECISIONS §42: a second shader-drawn display over the blog
-// cluster, the approach and return flights, the page-image pipeline and the
-// full-screen cover the handoff runs behind.
-//
-// Three alternatives were measured and rejected. Dropping the extruded plate
-// behind the panel saves 3,596 B of the 20,109 — not enough on its own, and it
-// costs the thing that makes the display read as an object. Making the display a
-// dynamic import does not help, for the reason recorded above: `introEntry`'s
-// modulepreload loop injects a link for every non-entry chunk, so a new chunk
-// rejoins this closure automatically and brings a request with it. Cutting the
-// feature was declined by the client.
-//
-// The headroom this leaves is 5,033 B, which is much less than the 4.9% above
-// describes. The next thing that lands here will fire this again, and the honest
-// answer at that point is probably to make the modulepreload loop selective
-// rather than to raise this a second time.
-//
-// ── 1,610,000 -> 1,612,000, 2026-09-15, building hover light ──
-//
-// APP GROWTH again, raised on the user's call despite the note above and AR-01's
-// "keep this limit" below (whose 10 requests measured 11 at this HEAD): the list
-// kept its 11 requests and only `MurciaExperience` grew, 175,020 -> 177,101 B.
-// The 2,081 B are `murcia/interaction/buildingHighlight.ts` (the satellites'
-// holo tint on the campus and `edificio-blog`, in hover) and the campus and
-// blog pointers taking the buildings as targets. Headroom before it was ~716 B;
-// after, ~635 B. The selective modulepreload loop is still the honest fix.
-//
-// ── 1,612,000 -> 1,625,000, 2026-09-19, the 16–17 September feature work ──
-//
-// APP GROWTH, found late: the deploys from the evening of 2026-09-16 on were
-// failing the content tests first, so this gate was never reached and the
-// overrun went unseen for three days. Rebuilt commit by commit, with the
-// fixtures as content so only code varies:
-//
-//   1,610,354 B  fd456fe, 09-15 19:21 — under budget, 1,646 B of headroom
-//   1,616,678 B  a52eb85, 09-16 18:34 — the campus particle diagrams, the
-//                return to Earth from the city logo, the phone sheet
-//   1,621,930 B  8846187, 09-17 15:40 — the Earth zoom and orbit changes
-//   1,624,283 B  2414f83, 09-18 18:27 — Murcia v5.1, the arrival reframe
-//
-// Same 11 requests throughout; `SceneCanvas`, `MurciaExperience`, `useRoute`
-// and the app entry each grew by a few KB. Raised on the user's call to ship
-// the week's work. What is NOT in this number: the legal texts, which had
-// added a further 32 KB of CMS prose to this closure and were moved behind
-// the legal panel's chunk instead (src/content/legal.ts) — content must not
-// spend a code budget. Headroom after: ~3,900 B against the live content.
-// The selective modulepreload loop remains the honest fix, and is next.
-//
-// ── 1,625,000 -> 1,628,000, 2026-09-24, the Murcia mobile work ──
-//
-// APP GROWTH, raised on the user's call. Same 11 requests and no new name in the
-// list. Measured by building each commit with the same content:
-//
-//   1,619,531 B  9afd484 — before
-//   1,621,393 B  a2724a3 — the finger's own turn, and its travel's release throw
-//   1,624,398 B  25e47c3 — the geotags, and the highlight's wait-then-show
-//   1,626,125 B  the header's Blog and Servicios buttons and their journey
-//
-// The last is what fired this: 25e47c3 had left 602 B, and it went over by
-// 1,125 B. Headroom after: 1,875 B. Still the selective preload loop next.
-// 2026-09-25: user-approved +2 KB for v5.2 mixed-resolution lightmaps.
-// Same 11 requests: original runtime 1,628,184 B; updated runtime 1,628,918 B.
-//
-// ── 1,630,000 -> 1,634,000, 2026-09-25, the vantage rest reports ──
-//
-// APP GROWTH, raised on the user's call. Same 11 requests and no new name in the
-// list: `MurciaExperience` grew by the rest detector, the camera sampling and the
-// `/api/view` client (murcia/observer/). The authoring overlay is NOT in this
-// number — it is a lazy chunk excluded from the preload loop, like stats.js.
-//
-//   1,629,034 B  21fce78 — before
-//   1,633,071 B  the rest reports, with the overlay lazy
-//
-// A production build, where the debug branches fold away, measures 1,614,858 ->
-// 1,617,514 B. Headroom after: ~930 B. Still the selective preload loop next.
-//
-// ── 1,634,000 -> 1,638,000, 2026-09-26, the warp warm-up and the 404 document ──
-//
-// APP GROWTH, raised on the user's call. The ~930 B of headroom above was spent
-// by four commits that each built green only because nobody built after them
-// together; the sum went over on 6ca8e38 and stayed there. Measured by building
-// each commit with the same content:
-//
-//   1,634,056 B  151dbdb — Earth's programs warmed for the composer target
-//   1,634,538 B  c762bf5 — the warp-only passes compiled and first-drawn while loading
-//   1,634,552 B  63f9fda — the docked service plate kept inside laptop viewports
-//   1,634,823 B  6ca8e38 — the header's Blog button flown to the city's panel
-//   1,634,892 B  72ee034 — the 404 document (+69 B, and 11 -> 12 requests)
-//
-// The request is the one genuinely new thing: a third entry sharing `useRoute`
-// with the app cut it out of the ConsentBanner chunk into a 3,040 B chunk of
-// its own, the same re-signature the blog header caused on 2026-09-04. No new
-// module reaches `/`. Headroom after: ~3,100 B. Still the selective preload
-// loop next.
-//
-// ── 1,638,000 -> 1,510,000, 2026-10-16, the three catalogue ──
-//
-// LOWERED, and from here the rule is: this number does not go up. Seven raises
-// in five weeks, each one "the selective preload loop next", and the loop was
-// the wrong lead — `MurciaExperience` is preloaded at low priority and compiled
-// off the main thread, so cutting it would only have moved the city later. The
-// weight was three: R3F's `<Canvas>` registered the whole namespace, which kept
-// all of it. The app now registers the five classes its JSX uses
-// (`vertigo-three-catalogue` below, src/graphics/threeCatalogue.ts):
-//
-//   1,636,703 B (422,671 B br)  ada0417 — before
-//   1,503,585 B (395,308 B br)  three 822 -> 689 KB, same 12 requests
-//
-// Headroom after: 6,415 B, fixed on purpose. When something new does not fit,
-// make room for it — take something out of this closure — rather than
-// raising the line.
+// The build prints the measured total on every run; the history of each raise
+// is in git.
 const INITIAL_JS_BUDGET_BYTES = 1_510_000
-// 2026-09-15, audit AR-01: keep this limit. BlogRoute is now fetched on the
-// existing city approach prefetch, not by the cold / modulepreload loop.
-// Measured initial closure: 1,613,978 -> 1,596,527 B; 11 -> 10 requests.
-// Raised 10 -> 12 on 2026-09-04, and here is the itemised reason the message
-// below asks for. The blog's header became a SECOND dynamic consumer of the
-// corner logo, and Rollup re-signatures every module those two dynamic entries
-// share: `utils/easing` (1,207 B) and `graphics/decoders` (420 B) stopped being
-// duplicated into their importers and became chunks of their own.
+// Why the requests are counted, and why this many: the blog's header became a
+// SECOND dynamic consumer of the corner logo, and Rollup re-signatures every
+// module two dynamic entries share — `utils/easing` and `graphics/decoders`
+// stopped being duplicated into their importers and became chunks of their own.
+// The 404 document did the same to `useRoute`. Neither was new code on `/`: the
+// same bytes, cut differently, each costing a request.
 //
-// So this is neither of the two cases the note below names. It is not new code
-// on `/` — the initial closure went from 1,527,335 B to 1,530,652 B, and the
-// 3,317 B difference is chunk boilerplate — and it is not a new feature landing
-// on the initial load: the header logo's own chunk is excluded from the preload
-// loop (see `isPreloadedOnIndex`). It is the same bytes, cut differently.
+// A split like that is worth fixing when there is a static edge to remove:
+// `logoMotion` came back inside the corner-logo chunk once `CornerLogoLayer`
+// stopped statically importing a constant out of it (a three-importing module
+// reached for a plain value — the shape the assertion further down warns
+// about). The remaining ones are shared-module hoists with no edge to remove.
 //
-// Two of the three splits WERE worth fixing and were: `logoMotion` came back
-// inside the corner-logo chunk once `CornerLogoLayer` stopped statically
-// importing a constant out of it (a three-importing module reached for a plain
-// value — the shape the assertion further down warns about). The remaining two
-// are shared-module hoists with no static edge to remove.
-//
-// 12 rather than 11 keeps the one slot of headroom this budget has always had.
+// There is no headroom: `/` makes exactly this many requests, so any new chunk
+// on `/` fails here. That is intended to be a decision, not growth.
 const INITIAL_JS_REQUEST_BUDGET = 12
 
 // Secondary, and narrow now that the closure above is the real gate: it only
 // answers "did a large dependency or the generated dataset land in the ENTRY".
 // three.js is no longer this budget's job — it has its own structural assertion
 // below, on the emitted chunk graph rather than on a size.
-//
-// Measured 110,828 B on 2026-08-31.
 const ENTRY_BUDGET_BYTES = 160_000
-
 /**
  * The blog chunk carries the UI, the serializer and the WHOLE post dataset, so
  * it grows with the article library rather than with the code. At three posts it
@@ -243,8 +106,7 @@ const BLOG_BUDGET_BYTES = 120_000
  * than this repository. This one is OURS, it grows with every scene feature, and
  * it is downloaded before anything is drawn.
  *
- * Measured 246,990 B in the 2026-09-05 production build. The ceiling is that
- * plus about 15%: tight enough that a whole new subsystem landing here fires it,
+ * The ceiling is a measured production build plus about 15%: tight enough that a whole new subsystem landing here fires it,
  * loose enough that ordinary scene work does not. It is a CEILING, not a target
  * — when it fires, read the initial-closure total first (it is the primary gate
  * and it moves for a different set of reasons), then decide whether what was
@@ -253,19 +115,6 @@ const BLOG_BUDGET_BYTES = 120_000
  */
 const SCENE_BUDGET_BYTES = 285_000
 
-/**
- * Chunks that `index.html` modulepreloads: every non-entry chunk in the bundle.
- *
- * ONE PREDICATE, TWO CONSUMERS, and that is the point of extracting it. The
- * loop in `introEntry` emits the links; `assertChunkBudgets` sizes the result.
- * Written twice they could disagree, and a budget that measures a set the HTML
- * does not emit is worse than no budget — it would report a healthy number
- * while the browser downloaded something else.
- *
- * Add `/`'s two entry chunks (the app entry and the intro entry, which are
- * script tags rather than preloads) and this IS the initial JS closure of `/`:
- * the whole bundle except the blog document's own entry.
- */
 /**
  * The FPS meter, which `?stats=1` asks for and nothing else ever does.
  *
@@ -303,6 +152,19 @@ function isObserverDebugChunk(chunk: OutputChunk): boolean {
   return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith(OBSERVER_DEBUG_MODULE) === true
 }
 
+/**
+ * Chunks that `index.html` modulepreloads: every non-entry chunk in the bundle,
+ * except the lazy seams excluded below.
+ *
+ * ONE PREDICATE, TWO CONSUMERS, and that is the point of extracting it. The
+ * loop in `introEntry` emits the links; `assertChunkBudgets` sizes the result.
+ * Written twice they could disagree, and a budget that measures a set the HTML
+ * does not emit is worse than no budget — it would report a healthy number
+ * while the browser downloaded something else.
+ *
+ * Add `/`'s two entry chunks (the app entry and the intro entry, which are
+ * script tags rather than preloads) and this IS the initial JS closure of `/`.
+ */
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   // Legal/preferences UI loads only after a visitor opens a legal document.
   if (chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/LegalPanel.tsx')) return false
@@ -523,11 +385,6 @@ function assertChunkBudgets(): Plugin {
         )
       }
 
-      // A guard on the guard: `isPreloadedOnIndex` excludes the header-logo
-      // chunk by its source module, and an exclusion that stops matching fails
-      // OPEN — `/` would quietly start preloading the blog's 3D mark and the
-      // request budget would absorb it as ordinary growth. Assert the chunk is
-      // there and singular instead.
       // The FPS meter must be ABSENT from a production build and PRESENT
       // everywhere else, and both halves matter. Absent is the security-adjacent
       // half: a value import used to put the whole library in the production
@@ -571,6 +428,11 @@ function assertChunkBudgets(): Plugin {
         )
       }
 
+      // A guard on the guard: `isPreloadedOnIndex` excludes the header-logo
+      // chunk by its source module, and an exclusion that stops matching fails
+      // OPEN — `/` would quietly start preloading the blog's 3D mark and the
+      // request budget would absorb it as ordinary growth. Assert the chunk is
+      // there and singular instead.
       const headerLogo = chunks.filter(isHeaderLogoChunk)
       if (headerLogo.length !== 1) {
         this.error(
@@ -623,9 +485,9 @@ function assertChunkBudgets(): Plugin {
       //
       // Not one chunk. The modulepreload loop in `introEntry` emits a link for
       // every chunk `isPreloadedOnIndex` accepts, so the browser has all of them
-      // in flight before the app entry has finished evaluating — measured at 9
-      // requests inside ~130ms. Add the two script tags `/` carries (the app
-      // entry and the intro entry) and this is the whole initial JS closure.
+      // in flight before the app entry has finished evaluating. Add the two
+      // script tags `/` carries (the app entry and the intro entry) and this is
+      // the whole initial JS closure.
       //
       // Deliberately shares `isPreloadedOnIndex` with the loop that emits the
       // links. Blog-only and debug exclusions are defined in that predicate;
@@ -959,13 +821,13 @@ function introEntry(): Plugin {
           { tag: 'script', attrs: { type: 'module', src }, injectTo: 'head-prepend' },
         ]
 
-        // modulepreload the scene chunks (plan 007 Phase 8 item 4).
+        // modulepreload the scene chunks.
         //
         // This is the ONLY tool that separates the two concerns properly:
         // it fetches and compiles without evaluating. Starting the dynamic
         // import earlier would not do it — `import()` evaluates as soon as the
         // graph resolves, so awaiting its promise later defers your USE of the
-        // module, not the 800 KB of three.js executing on the main thread.
+        // module, not all of three.js executing on the main thread.
         //
         // So: the network request happens here, at first parse, in parallel
         // with the app chunk; evaluation still happens when LazyScene calls
@@ -1248,9 +1110,8 @@ function publicationHygiene(): Plugin {
 
 // R3F's `<Canvas>` registers the whole three namespace on mount — `extend(THREE)`,
 // with no option to turn it off — and that one reference kept all of three in
-// the `three` chunk, used or not. Removing it took the initial JS from
-// 1,636,703 to 1,503,585 B (−27 KB brotli) on 2026-10-16. The app registers
-// what its JSX uses instead (src/graphics/threeCatalogue.ts).
+// the `three` chunk, used or not. The app registers what its JSX uses instead
+// (src/graphics/threeCatalogue.ts); the saving is in git (2026-10-16).
 //
 // Removed in the dev server's dependency pre-bundle too, not only in the build:
 // an element missing from the catalogue then throws in dev, where it is seen,
@@ -1331,18 +1192,11 @@ export default defineConfig(({ command }) => ({
     copyPublicDir: false,
     rollupOptions: {
       output: {
-        // three.js is pinned to its own chunk deliberately.
+        // three.js is pinned to its own chunk deliberately. With a single
+        // dynamic-import consumer, Rollup would inline all of it into the
+        // SceneCanvas chunk.
         //
-        // It used to land in one anyway, as an accident: the corner logo's
-        // dynamic import was rooted at the app entry while the scene's was
-        // rooted at LazyScene, so three had two dynamic-import consumers and
-        // Rollup hoisted it into a shared chunk (emitted as `KTX2Loader-*`,
-        // named after its seed module). Moving the corner logo inside the
-        // Canvas (ADR 002) left three with a single consumer, and Rollup
-        // promptly inlined all 800KB of it into the SceneCanvas chunk.
-        //
-        // That is worth preventing on its own merits rather than by accident:
-        // three is the one dependency that essentially never changes between
+        // Separate is better on its own merits: three is the one dependency that essentially never changes between
         // deploys, so keeping it separately hashed is what lets a returning
         // visitor skip re-downloading it after an app-code change. Both
         // chunks are modulepreloaded together, so the split costs nothing on
