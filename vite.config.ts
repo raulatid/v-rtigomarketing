@@ -879,6 +879,16 @@ if (process.env.VERCEL && !process.env.VERCEL_ENV) {
   )
 }
 
+// The budget escape hatch is for inspecting a failing bundle locally. It skips
+// every assertion in assertChunkBudgets, the structural ones included, and still
+// writes dist/ — on Vercel that is a deployment nothing checked.
+if (process.env.VERCEL && process.env.VERTIGO_SKIP_BUDGETS) {
+  throw new Error(
+    '[vertigo] VERTIGO_SKIP_BUDGETS is set on Vercel. It skips every bundle assertion and ' +
+      "is for local inspection only — remove it from the project's environment variables.",
+  )
+}
+
 // And an unrecognised value is refused as well, because the comparison below is
 // `=== 'production'` and anything else — `Production`, `prod` — reads as "not
 // production" and ships the debug console with a Disallow robots.txt out of a
