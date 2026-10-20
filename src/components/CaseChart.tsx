@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { CaseChart as CaseChartData } from '../content/types'
 
 // Tiny hand-rolled SVG charts for the case panel: line, bars, area, donut.
@@ -7,6 +8,11 @@ import type { CaseChart as CaseChartData } from '../content/types'
 // the panel's monochrome glass styling (currentColor + opacity) in CSS.
 //
 // All values are normalized here, so the data file can use any units.
+//
+// Every mark draws itself in when its case opens, and the motion is all CSS
+// (styles.css, `.case-chart`): the line by its dash, normalised to one with
+// `pathLength`, the bars from their baseline, the donut segment by segment.
+// The markup only carries what CSS cannot know: each mark's index, as `--i`.
 
 interface Props {
   chart: CaseChartData
@@ -54,7 +60,9 @@ function LineChart({ values, filled }: { values: number[]; filled: boolean }) {
           d={`${path} L${last[0]},${H - PAD} L${pts[0][0]},${H - PAD} Z`}
         />
       )}
-      <path className="case-chart__stroke" d={path} />
+      <path className="case-chart__stroke" d={path} pathLength={1} />
+      {/* One soft ring off the end point as the line arrives: the result. */}
+      <circle className="case-chart__ping" cx={last[0]} cy={last[1]} r={3.5} />
       <circle className="case-chart__dot" cx={last[0]} cy={last[1]} r={3.5} />
     </svg>
   )
@@ -74,7 +82,7 @@ function BarChart({ values, labels }: { values: number[]; labels?: string[] }) {
         const h = (v / max) * (plotH - PAD)
         const x = PAD + slot * i + (slot - barW) / 2
         return (
-          <g key={i}>
+          <g key={i} style={{ '--i': i } as CSSProperties}>
             <rect
               className={`case-chart__bar${v === max ? ' is-max' : ''}`}
               x={x}
@@ -138,7 +146,7 @@ function DonutChart({ values, labels }: { values: number[]; labels?: string[] })
             cx={cx}
             cy={cy}
             r={r}
-            style={{ opacity: donutOpacity(i, segments.length) }}
+            style={{ opacity: donutOpacity(i, segments.length), '--i': i, '--circumference': circumference } as CSSProperties}
             strokeDasharray={`${s.len} ${circumference - s.len}`}
             strokeDashoffset={-s.start}
             transform={`rotate(-90 ${cx} ${cy})`}
@@ -147,7 +155,7 @@ function DonutChart({ values, labels }: { values: number[]; labels?: string[] })
       </svg>
       <ul className="case-chart__legend">
         {values.map((v, i) => (
-          <li key={i}>
+          <li key={i} style={{ '--i': i } as CSSProperties}>
             <span className="case-chart__swatch" style={{ opacity: donutOpacity(i, values.length) }} />
             {labels?.[i] ?? `Serie ${i + 1}`}
             <span className="case-chart__legend-value">{Math.round((v / total) * 100)}%</span>

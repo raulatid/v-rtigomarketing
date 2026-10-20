@@ -7,6 +7,9 @@ import fixtures from '../../content/fixtures/caseStudy.json'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import type { CaseStudy } from '../content/types'
 
+const motion = vi.hoisted(() => ({ reduced: false }))
+vi.mock('../platform/motionPreference', () => ({ prefersReducedMotion: () => motion.reduced }))
+
 // The case's next step: the panel ends with a doorway into the audit when it
 // is given one, and renders no dead link when it is not.
 
@@ -220,5 +223,52 @@ describe('the case panel ends one step from the audit', () => {
       root.render(<CasePanel data={null} onClose={() => {}} onRequestAudit={() => {}} />)
     })
     expect(container.querySelector('.case-panel__next')!.getAttribute('tabindex')).toBe('-1')
+  })
+})
+
+describe('the metric count-up', () => {
+  const full = fixtures[0] as SatelliteDef
+  const one = { ...full, metrics: [{ label: 'Tráfico', value: '+38%' }] }
+  let frames: FrameRequestCallback[]
+
+  beforeEach(() => {
+    frames = []
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback))
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
+
+  afterEach(() => {
+    motion.reduced = false
+  })
+
+  const written = () => container.querySelector('.case-panel__metric-written')!
+  const count = () => container.querySelector('.case-panel__metric-count')!
+  // Runs the queued frames at `now`, keeping only the ones they queue next.
+  const runFrames = (now: number) => {
+    const due = frames
+    frames = []
+    act(() => due.forEach((frame) => frame(now)))
+  }
+
+  it('keeps the written value for the reader and counts the copy drawn over it', () => {
+    act(() => root.render(<CasePanel data={one} onClose={() => {}} />))
+    expect(written().textContent).toBe('+38%')
+    expect(count().getAttribute('aria-hidden')).toBe('true')
+    expect(count().textContent).toBe('+0%')
+    runFrames(performance.now() + 60_000)
+    expect(count().textContent).toBe('+38%')
+  })
+
+  it('shows the result at once when the case closes mid-count', () => {
+    act(() => root.render(<CasePanel data={one} onClose={() => {}} />))
+    act(() => root.render(<CasePanel data={null} onClose={() => {}} />))
+    expect(count().textContent).toBe('+38%')
+  })
+
+  it('does not count under reduced motion', () => {
+    motion.reduced = true
+    act(() => root.render(<CasePanel data={one} onClose={() => {}} />))
+    expect(count().textContent).toBe('+38%')
   })
 })

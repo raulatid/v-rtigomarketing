@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import { CaseChart } from './CaseChart'
+import { countsUp, metricAt } from './metricCount'
+import { prefersReducedMotion } from '../platform/motionPreference'
 import { attachSheetDrag } from '../interaction/sheetDrag'
 import { caseSheetLayout } from '../interaction/caseSheetLayout'
 import { CASE_PANEL_DOCK_MIN_WIDTH, CASE_PANEL_DOCK_MIN_HEIGHT } from '../experiences/earth/camera/closeUpFraming'
@@ -20,6 +22,44 @@ interface Props {
 
 /** Which of the mobile sheet's two heights is showing. Inert on desktop. */
 type SheetStop = 'peek' | 'expanded'
+
+/** The count starts as the metrics row arrives in the reveal (styles.css). */
+const METRIC_COUNT_DELAY_MS = 140
+const METRIC_COUNT_MS = 900
+
+// A metric value that counts up to itself each time its case opens.
+//
+// Two copies stacked in one cell: the written value, transparent, holds the
+// card's size and is what a screen reader reads; the counting copy draws over
+// it and is hidden from assistive tech. The card never resizes mid-count, and
+// nobody hears a dozen intermediate numbers. React renders the counting copy
+// empty and the effect owns its text, so the two never fight over the node.
+function MetricValue({ value, play }: { value: string; play: boolean }) {
+  const countRef = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const count = countRef.current
+    if (!count) return
+    count.textContent = value
+    if (!play || !countsUp(value) || prefersReducedMotion()) return
+    count.textContent = metricAt(value, 0)
+    const start = performance.now() + METRIC_COUNT_DELAY_MS
+    let frame = 0
+    const tick = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - start) / METRIC_COUNT_MS))
+      // Ease-out cubic: fast through the low numbers, settling on the result.
+      count.textContent = metricAt(value, 1 - (1 - t) ** 3)
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [value, play])
+  return (
+    <div className="case-panel__metric-value">
+      <span className="case-panel__metric-written">{value}</span>
+      <span ref={countRef} className="case-panel__metric-count" aria-hidden="true" />
+    </div>
+  )
+}
 
 // "Caso de éxito" panel, shown while a satellite is focused.
 //
@@ -182,7 +222,10 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
       {/* Everything below the header scrolls; the handle and the header do not.
           A sheet whose close button scrolls away is a sheet you cannot dismiss
           without first scrolling back up. */}
-      <div className="case-panel__body">
+      {/* Keyed on the case so a new selection remounts the body and its reveal
+          (styles.css, `case-reveal`) plays again while the panel stays open.
+          Keyed on `shown`, not `data`, so the exit fade does not remount. */}
+      <div className="case-panel__body" key={shown?.id ?? ''}>
         <h2 className="case-panel__title">{shown?.name ?? ''}</h2>
 
         {/* All content renders from `shown` (the last selected case), never from
@@ -204,7 +247,7 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
             ).map((metric, i) => (
               <div className="case-panel__metric" key={i}>
                 <div className="case-panel__metric-label">{metric.label}</div>
-                <div className="case-panel__metric-value">{metric.value}</div>
+                <MetricValue value={metric.value} play={data !== null} />
               </div>
             ))}
           </div>

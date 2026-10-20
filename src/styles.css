@@ -328,6 +328,21 @@ html {
   margin-top: 0.35rem;
   font-size: 1.25rem;
   font-weight: 600;
+  /* The written value and its count share one cell (CasePanel's MetricValue):
+     the written one sizes the card, the count draws over it. Tabular figures
+     so the count does not jitter sideways as its digits change. */
+  display: grid;
+  font-variant-numeric: tabular-nums;
+}
+
+.case-panel__metric-written,
+.case-panel__metric-count {
+  grid-area: 1 / 1;
+}
+
+/* Transparent, not hidden: it is the copy a screen reader reads. */
+.case-panel__metric-written {
+  opacity: 0;
 }
 
 .case-panel__description {
@@ -541,6 +556,116 @@ html {
   font-weight: 600;
 }
 
+/* Only ever seen while it plays: at rest the result is the dot alone. */
+.case-chart__ping {
+  fill: none;
+  stroke: var(--case-brand);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ---- The chart draws itself in ----
+   Gated like the panel's reveal (see `case-reveal`), and timed to start as the
+   chart's own block has just arrived: `--case-chart-start`. Each mark's index
+   comes from the markup as `--i`. */
+.case-chart {
+  --case-chart-start: 420ms;
+}
+
+@keyframes case-chart-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes case-chart-fade {
+  from { opacity: 0; }
+}
+
+@keyframes case-chart-pop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+@keyframes case-chart-ping {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(4.5);
+  }
+}
+
+@keyframes case-chart-grow {
+  from { transform: scaleY(0); }
+}
+
+@keyframes case-chart-sweep {
+  from { stroke-dasharray: 0 var(--circumference); }
+}
+
+@keyframes case-chart-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+/* The gap is 2, not 1: at offset 1 a 1-long gap ends exactly at the path's
+   end, where a zero-length dash with round caps would paint a dot. */
+.case-panel.is-visible .case-chart__stroke {
+  stroke-dasharray: 1 2;
+  animation: case-chart-draw 760ms cubic-bezier(0.65, 0, 0.35, 1) var(--case-chart-start) both;
+}
+
+.case-panel.is-visible .case-chart__fill {
+  animation: case-chart-fade 600ms ease-out calc(var(--case-chart-start) + 200ms) both;
+}
+
+.case-panel.is-visible .case-chart__dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: case-chart-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) calc(var(--case-chart-start) + 680ms) both;
+}
+
+.case-panel.is-visible .case-chart__ping {
+  animation: case-chart-ping 900ms ease-out calc(var(--case-chart-start) + 820ms) both;
+}
+
+.case-panel.is-visible .case-chart__bar {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: case-chart-grow 560ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--case-chart-start) + var(--i) * 55ms) both;
+}
+
+.case-panel.is-visible .case-chart__tick {
+  animation: case-chart-fade 400ms ease-out calc(var(--case-chart-start) + var(--i) * 55ms + 160ms) both;
+}
+
+.case-panel.is-visible .case-chart__segment {
+  animation: case-chart-sweep 520ms cubic-bezier(0.65, 0, 0.35, 1) calc(var(--case-chart-start) + var(--i) * 130ms) both;
+}
+
+.case-panel.is-visible .case-chart__legend li {
+  animation: case-chart-slide 420ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--case-chart-start) + var(--i) * 80ms + 120ms) both;
+}
+
+/* Decoration of an arrival, not a state change, so it is removed rather than
+   shortened: the panel's own fade (shortened below) is the state change, and
+   the count-up stands down in JS through `prefersReducedMotion`. */
+@media (prefers-reduced-motion: reduce) {
+  .case-panel.is-visible .case-panel__body > *,
+  .case-panel.is-visible .case-chart * {
+    animation: none;
+  }
+}
+
 /* The sheet's grip. Hidden wherever the panel is a dock — it is a control for
    raising and lowering a sheet, and there is no sheet on a desktop. Declared
    outside the media query so the "not on desktop" half is stated rather than
@@ -570,6 +695,31 @@ html {
   margin-right: -1.9rem;
   padding-right: 1.9rem;
 }
+
+/* The case arrives block by block: title, meta, metrics, summary, details,
+   chart, next step, 55ms apart. Under `.is-visible` so it plays on every
+   opening (re-adding the class restarts it) and CasePanel keys the body on the
+   case so a new selection restarts it while the panel stays open. The exit
+   fade drops the class, and with it the animation, so every block is already
+   at rest when the panel leaves. Absent blocks just close up the sequence. */
+@keyframes case-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.case-panel.is-visible .case-panel__body > * {
+  animation: case-reveal 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 60ms;
+}
+
+.case-panel.is-visible .case-panel__body > :nth-child(2) { animation-delay: 115ms; }
+.case-panel.is-visible .case-panel__body > :nth-child(3) { animation-delay: 170ms; }
+.case-panel.is-visible .case-panel__body > :nth-child(4) { animation-delay: 225ms; }
+.case-panel.is-visible .case-panel__body > :nth-child(5) { animation-delay: 280ms; }
+.case-panel.is-visible .case-panel__body > :nth-child(6) { animation-delay: 335ms; }
+.case-panel.is-visible .case-panel__body > :nth-child(n + 7) { animation-delay: 390ms; }
 
 /* ---- The case panel on a narrow OR SHORT viewport ----
 
