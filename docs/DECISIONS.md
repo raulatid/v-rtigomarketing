@@ -2190,6 +2190,8 @@ is shown while the context is refusing navigation.
 
 ## 30. Contact, legal and the brand's own mark
 
+> **Migrada (2026-10-20) →** [`decisiones/formularios/dialogo-de-contacto.md`](decisiones/formularios/dialogo-de-contacto.md), [`decisiones/formularios/backend-de-formularios.md`](decisiones/formularios/backend-de-formularios.md), [`decisiones/privacidad/textos-legales.md`](decisiones/privacidad/textos-legales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** «The brand data has one home…» y su revisión del 2026-08-23 (bloque interfaz/contenido).
+
 The Earth scene grew its floor and its second CTA on 2026-08-20: phone numbers bottom-left
 as bare `tel:` links (a number behind a disclosure costs calls), "Términos y privacidad" ·
 "Aviso legal" · the © mark bottom-right, and a Contacto ghost button beside Auditoría — a
@@ -2504,7 +2506,7 @@ and `intro` still have no reader.
 
 ## 35. Consent is asked once, as the intro's last stroke
 
-> **Migrada (2026-10-20) →** [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** el registro de consentimiento (categorías, versión, qué carga cada una), que es del bloque consentimiento/legal.
+> **Migrada (2026-10-20) →** [`decisiones/intro/nada-interactivo-hasta-site.md`](decisiones/intro/nada-interactivo-hasta-site.md), [`decisiones/privacidad/consentimiento.md`](decisiones/privacidad/consentimiento.md), [`decisiones/privacidad/analitica.md`](decisiones/privacidad/analitica.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-09-05, plan 018. The client requires a cookie banner and plans Google Analytics
 after launch; the runtime inventory taken that day found the site setting no cookies, keeping no
@@ -4083,6 +4085,8 @@ a re-bake changes the manifests' `uvChannel`.
 
 ## 50. The billing range is a dropdown, and its options are the client's
 
+> **Migrada (2026-10-20) →** [`decisiones/formularios/rangos-del-formulario-de-auditoria.md`](decisiones/formularios/rangos-del-formulario-de-auditoria.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Decided 2026-09-14,** at the client's request. «Rango de facturación de tu empresa» in the audit
 form was free text, on the argument that the client wanted business context and a select would
 force somebody to invent brackets. The client now wants the brackets — they just do not know them
@@ -4339,6 +4343,8 @@ above the artwork.
 | The runtime must not create materials for the city | plan 001 Phase 4, *"Prevent Existing Runtime Material Overrides"* | Only while the export has none to override. `GLTFLoader` fabricates one `metalness: 1` default for all 222 primitives, which is nobody's authored intent and is most of why the city read as grey. The rule survives where it was aimed: the moment the export ships a material, `applyTrimSheet` stops replacing it and dresses it instead — **`applyTrimSheet.ts`** |
 
 ## 54. The monthly budget is a dropdown too, on the billing range's terms
+
+> **Migrada (2026-10-20) →** [`decisiones/formularios/rangos-del-formulario-de-auditoria.md`](decisiones/formularios/rangos-del-formulario-de-auditoria.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-18,** at the client's request. «Presupuesto mensual» in the audit form was free
 text, kept so in §50 on the argument that "aprox. 3.000 al mes" and "No definido todavía" are

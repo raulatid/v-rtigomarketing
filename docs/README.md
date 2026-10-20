@@ -21,7 +21,7 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 | Intro y arranque | migrada |
 | Escena de la Tierra | migrada |
 | Interfaz y contenido (cabecera y menú, cursor, picking, vidrio, tipografías, datos de casos) | pendiente |
-| Consentimiento y legal | pendiente |
+| Formularios, consentimiento y legal | migrada |
 | Contenido / CMS | migrada |
 | Blog | migrada |
 | Render y gráficos (ADR 001, 002, 008) | pendiente |
@@ -85,6 +85,17 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Pantalla de la torre](decisiones/contenido/pantalla-de-la-torre.md): singleton con plantilla de huecos y límites medidos.
 - [Vista previa del Studio](decisiones/contenido/vista-previa-del-studio.md): reutiliza los componentes y el CSS del sitio; obliga a redesplegar el Studio; check pendiente.
 
+### Formularios
+- [Backend de los formularios](decisiones/formularios/backend-de-formularios.md): dos funciones del mismo origen; éxito solo si se entrega; sin clave en producción, error.
+- [Diálogo de contacto, teléfonos y ©](decisiones/formularios/dialogo-de-contacto.md): el pie lleva solo el ©; teléfonos y reserva en el diálogo; enlaces legales en la auditoría.
+- [Rangos del formulario de auditoría](decisiones/formularios/rangos-del-formulario-de-auditoria.md): facturación y presupuesto son listas de Sanity; la etiqueta es el valor; el servidor exige el conjunto cerrado.
+
+### Privacidad
+- [Consentimiento](decisiones/privacidad/consentimiento.md): un registro versionado en `localStorage`, dos categorías, borradores en el panel, botón de información tras elegir.
+- [Analítica](decisiones/privacidad/analitica.md): Vercel y GA4 a petición del cliente, solo en producción y tras consentir; retirada completa.
+- [Textos legales](decisiones/privacidad/textos-legales.md): paneles, tres documentos fijos en código, fuera del JS inicial; casilla de consentimiento pendiente.
+- [Cabeceras de seguridad y CSP](decisiones/privacidad/cabeceras-y-csp.md): CSP aplicada, su porqué en `vercelConfig.test.ts`, `'unsafe-eval'` solo por KTX2, escaneo de secretos.
+
 ### Blog
 - [El blog es un segundo documento](decisiones/blog/segundo-documento.md): `/blog` tiene su propio HTML, en frío no carga el 3D y `/` no precarga su chunk.
 - [Escena congelada](decisiones/blog/escena-congelada.md): con el blog abierto, `frameloop="never"` y `visibility: hidden`, nunca `display: none`.
@@ -101,6 +112,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Intro y arranque](trampas/intro.md)
 - [Escena de la Tierra](trampas/earth.md)
 - [Contenido y CMS](trampas/contenido.md)
+- [Formularios, consentimiento, analítica y legal](trampas/formularios-y-privacidad.md)
 - [Blog](trampas/blog.md)
 
 ## Contratos
