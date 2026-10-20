@@ -179,7 +179,7 @@ export class CampusInteraction {
         id: event.pointerId,
         x: event.clientX,
         y: event.clientY,
-        touch: event.pointerType === 'touch',
+        touch: event.pointerType !== 'mouse',
       };
     }
     if (this.deps.section.stage !== 'overview' && this.swipe === null) {

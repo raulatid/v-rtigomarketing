@@ -518,4 +518,21 @@ section('7. A second contact point is a passenger, never a driver');
   );
 }
 
+section('8. A pen taps with the finger tolerance');
+
+// A pen slides on glass like a finger does; only the mouse keeps the tight one.
+{
+  const h = makeHarness();
+  for (const pointerType of ['mouse', 'touch', 'pen'] as const) {
+    h.stub.fire('pointerdown', { button: 0, clientX: 400, clientY: 300, pointerId: 1, pointerType });
+    const expected = pointerType === 'mouse' ? cfg.dragClickThreshold : cfg.touchDragClickThreshold;
+    check(
+      `a ${pointerType} tap is measured against ${expected}px`,
+      h.rig.getDragClickThreshold() === expected,
+      `got ${h.rig.getDragClickThreshold()}`,
+    );
+    h.pointerUp();
+  }
+}
+
 finish();

@@ -44,7 +44,7 @@ interface Fixture {
 }
 
 interface Pointer {
-  pointerType?: 'mouse' | 'touch'
+  pointerType?: 'mouse' | 'touch' | 'pen'
   pointerId?: number
 }
 
@@ -195,6 +195,14 @@ describe('entering from the overview', () => {
     // 10 px of roll: over the mouse's 6, inside the finger's 12.
     fixture.press(lakePoint.x, lakePoint.y, touch)
     fixture.release(lakePoint.x + 10, lakePoint.y, touch)
+    expect(fixture.section.enter).toHaveBeenCalledTimes(1)
+  })
+
+  it('measures a pen like a finger', () => {
+    const { lakePoint } = fixture
+    const pen = { pointerType: 'pen' as const }
+    fixture.press(lakePoint.x, lakePoint.y, pen)
+    fixture.release(lakePoint.x + 10, lakePoint.y, pen)
     expect(fixture.section.enter).toHaveBeenCalledTimes(1)
   })
 

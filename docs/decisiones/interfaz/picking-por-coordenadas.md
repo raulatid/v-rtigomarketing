@@ -1,6 +1,6 @@
 # El picking 3D se resuelve con las coordenadas del propio evento
 
-**Estado:** vigente · **Desde:** 2026-08-11 (`10a68b4`, DECISIONS §17); tolerancia táctil en Murcia desde el 2026-08-14 (DECISIONS §25); el satélite se pica solo contra su esfera desde el 2026-09-16 (`f27f393`) · **Sustituye a:** DECISIONS §17; de DECISIONS §25, el primer punto y «Still capability detection»; las filas «A click acts on the satellite the pointer is hovering» y «Tap tolerance is per pointer type *on Earth*» de «Superseded»
+**Estado:** vigente · **Desde:** 2026-08-11 (`10a68b4`, DECISIONS §17); tolerancia táctil en Murcia desde el 2026-08-14 (DECISIONS §25); el satélite se pica solo contra su esfera desde el 2026-09-16 (`f27f393`); el lápiz con la tolerancia del dedo desde el 2026-10-20 · **Sustituye a:** DECISIONS §17; de DECISIONS §25, el primer punto y «Still capability detection»; las filas «A click acts on the satellite the pointer is hovering» y «Tap tolerance is per pointer type *on Earth*» de «Superseded»
 
 ## Decisión
 
@@ -12,7 +12,7 @@
    - Earth: `dragClickThreshold` y `touchDragClickThreshold` en `INTERACTION_CONFIG.camera` (`interactionConfig.ts`); ver también [cámara de Earth](../earth/camara-de-earth.md), punto 5;
    - Murcia: `navigation.dragThresholdPx` y `touchDragThresholdPx` en `murciaConfig.ts`, que llegan como `tapThresholdPx` al campus y a la pantalla del blog. Son solo de tap (ver [trampas de la cámara de Murcia](../../trampas/murcia-camara.md), n.º 26).
 
-   Un dedo se resuelve donde aterrizó. En la pantalla del blog, los dos extremos del gesto deben caer sobre el objetivo.
+   Solo el ratón usa la tolerancia corta; el dedo y el lápiz usan la táctil (`pointerType !== 'mouse'`). Un dedo o un lápiz se resuelven donde aterrizaron. En la pantalla del blog, los dos extremos del gesto deben caer sobre el objetivo.
 4. **El tipo de entrada se decide por capacidad, nunca por dispositivo:** `pointerType`, `(hover: none)` y `(pointer: coarse)`/`(pointer: fine)`. Nada se revela solo con hover sin una respuesta táctil equivalente: el tutorial de [satélites](../earth/satelites.md) y el parpadeo de [edificios interactivos](../murcia/edificios-interactivos.md).
 5. **El raycast vive dentro de cada experiencia,** contra una lista explícita de objetivos (en Earth, la esfera invisible `hitTarget` de cada satélite, no el modelo). La conversión a NDC es compartida: `clientToNdc` en `src/interaction/screenSpace.ts`, con el rectángulo del canvas.
 
@@ -33,8 +33,8 @@
 ## Se ha roto si…
 
 - En un móvil nada responde y nada da error.
-- Fallan en Murcia `campusInteraction.test.ts` («enters on a tap on the lake», «measures a finger against the touch threshold, where it landed», «still enters after a release that landed off the canvas») o `panelPointer.test.ts` («allows a finger more slop than a mouse», «needs BOTH ends of the gesture on the core», «resolves hover once a frame, not once an event»).
-- Falla `npm run check:earth` §7 (un segundo dedo nunca es un tap). **Ningún test comprueba en Earth que un tap táctil use `touchDragClickThreshold` ni que seleccione un satélite.**
+- Fallan en Murcia `campusInteraction.test.ts` («enters on a tap on the lake», «measures a finger against the touch threshold, where it landed», «measures a pen like a finger», «still enters after a release that landed off the canvas») o `panelPointer.test.ts` («allows a finger more slop than a mouse», «needs BOTH ends of the gesture on the core», «resolves hover once a frame, not once an event»).
+- Falla `npm run check:earth` §7 (un segundo dedo nunca es un tap) o §8 (el dedo y el lápiz se miden con `touchDragClickThreshold`). **Ningún test comprueba en Earth que un tap táctil seleccione un satélite.**
 - Falla `src/interaction/screenSpace.test.ts`.
 
 ## Afecta a

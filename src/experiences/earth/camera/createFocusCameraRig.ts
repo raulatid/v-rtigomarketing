@@ -251,10 +251,11 @@ export function createFocusCameraRig({
   }
 
   // How much accumulated travel still counts as a tap. A finger tap routinely
-  // jitters 5–15px, so the mouse tolerance would reject most taps as drags;
-  // mouse and pen are precise and keep the original, tighter number.
+  // jitters 5–15px, so the mouse tolerance would reject most taps as drags. A
+  // pen slides on glass the same way and gets the finger's number; only the
+  // mouse keeps the original, tighter one.
   function dragClickThreshold() {
-    return dragPointerType === 'touch' ? cfg.touchDragClickThreshold : cfg.dragClickThreshold
+    return dragPointerType === 'mouse' ? cfg.dragClickThreshold : cfg.touchDragClickThreshold
   }
 
   function onPointerDown(e: PointerEvent) {
