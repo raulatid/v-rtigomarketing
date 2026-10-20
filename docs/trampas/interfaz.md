@@ -53,7 +53,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 ## Cursor y picking
 
-38. **Escribir `style.cursor` no se ve:** con el cursor propio, `cursor: none !important` se aplica a todo. Pide el estado al `CursorManager` de tu experiencia. Fija: `panelPointer.test.ts`.
+38. **Escribir `style.cursor` no se ve:** con el cursor propio, `cursor: none !important` se aplica a todo (salvo mientras el puntero está sobre un campo de texto). Pide el estado al `CursorManager` de tu experiencia. Fija: `panelPointer.test.ts`.
 39. **No crees un segundo `CursorManager` en el mismo canvas:** vuelve el parpadeo. Usa el de tu experiencia con una clave `fuente:instancia`. Sin test.
 40. **`PRIORITY` solo decide de verdad entre `'grabbing'` y `'pointer'`.** Una fuente que no está en la tabla vale 0 (hoy `campus:*` y `murcia:blog-display`); `district` y `marker` son restos de módulos borrados. Sin test del árbitro.
 41. **Una experiencia que se desactiva retira sus peticiones en ese momento,** porque el `update()` que las retiraría deja de correr. Una fuente nueva en Earth se retira también en ese camino. Fija: tests de `campusInteraction` y `panelPointer`; Earth sin test.
@@ -102,6 +102,5 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 - **Falta `viewport-fit=cover`** en las tres páginas (n.º 18).
 - **`CaseStudy.label` se declara, se proyecta y se valida sin lector** (n.º 55).
-- **Sobre los campos de texto se ve la mano señaladora y no el cursor de texto:** `INTERACTIVE_SELECTOR` incluye `input` y `textarea`.
 - **`blog.html` declara `theme-color` de papel (`#fbfbfa`) con la barra negra.**
 - **`PRIORITY` conserva `district` y `marker`, de módulos borrados** (n.º 40); quitarlos es una tarea de código aparte.

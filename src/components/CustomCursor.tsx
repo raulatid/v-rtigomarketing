@@ -16,6 +16,14 @@ const SETTLE_EPSILON_SQ = 0.01
 // (audit trigger, panel close, links, debug controls).
 const INTERACTIVE_SELECTOR = 'a, button, [role="button"], input, select, textarea, label, summary'
 
+// Fields you type into. Over these the hand steps aside and the system's own
+// text cursor shows: a hand cannot say "click here to place the caret".
+const TEXT_FIELD_SELECTOR =
+  'textarea, [contenteditable=""], [contenteditable="true"], input' +
+  ':not([type="checkbox"]):not([type="radio"]):not([type="button"])' +
+  ':not([type="submit"]):not([type="reset"]):not([type="range"])' +
+  ':not([type="color"]):not([type="file"]):not([type="image"])'
+
 // White hand pinned to the pointer (open at rest, a fist while the button is
 // held — the grab/drag metaphor), blue follower ring easing after it.
 // All motion is direct style writes inside one rAF loop — this component
@@ -79,6 +87,7 @@ export function CustomCursor({ enabled = true }: Props) {
     let hint: CursorHint = ''
     let domHover = false
     let appliedState = ''
+    let overTextField = false
 
     function applyState() {
       const next = hint || (domHover ? 'pointer' : '')
@@ -130,6 +139,14 @@ export function CustomCursor({ enabled = true }: Props) {
       const target = event.target as Element | null
       domHover = !!target?.closest?.(INTERACTIVE_SELECTOR)
       applyState()
+      // Dropping the class lifts `cursor: none`, so the field's own I-beam
+      // shows; the hand fades out while it does.
+      const overText = !!target?.closest?.(TEXT_FIELD_SELECTOR)
+      if (overText !== overTextField) {
+        overTextField = overText
+        document.documentElement.classList.toggle('has-custom-cursor', !overText)
+        layer!.classList.toggle('is-native', overText)
+      }
       wake()
     }
 

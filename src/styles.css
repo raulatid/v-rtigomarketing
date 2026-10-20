@@ -955,6 +955,11 @@ html {
   opacity: 1;
 }
 
+/* Over a text field the system's I-beam shows instead (CustomCursor.tsx). */
+.cursor-layer.is-native {
+  opacity: 0;
+}
+
 .cursor-lead,
 .cursor-follow {
   position: fixed;
