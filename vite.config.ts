@@ -173,9 +173,9 @@ function isObserverDebugChunk(chunk: OutputChunk): boolean {
  */
 function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   // Legal/preferences UI loads only after a visitor opens a legal document.
-  if (chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/LegalPanel.tsx')) return false
+  if (isLegalPanelChunk(chunk)) return false
   // The vantage claim loads only for the visitor holding the final vantage point.
-  if (chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/ClaimDialog.tsx')) return false
+  if (isClaimDialogChunk(chunk)) return false
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
   if (isObserverDebugChunk(chunk)) return false
@@ -198,6 +198,14 @@ function isPreloadedOnIndex(chunk: OutputChunk): boolean {
  */
 function isBlogSurfaceChunk(chunk: OutputChunk): boolean {
   return chunk.moduleIds.some((id) => id.replace(/\\/g, '/').endsWith('src/blog/BlogSurface.tsx'))
+}
+
+function isLegalPanelChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/LegalPanel.tsx') === true
+}
+
+function isClaimDialogChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/ClaimDialog.tsx') === true
 }
 
 function isBlogRouteChunk(chunk: OutputChunk): boolean {
@@ -526,6 +534,23 @@ function assertChunkBudgets(): Plugin {
       }
       if (chunks.filter(isBlogRouteChunk).length !== 1) {
         this.error('expected exactly one lazy BlogRoute chunk; review the initial preload policy')
+      }
+      // The other exclusions by source module, guarded the same way: one that
+      // stops matching fails OPEN, and `/` starts preloading what was meant to
+      // wait for the visitor's intent.
+      for (const [label, isExcluded] of [
+        ['src/components/LegalPanel.tsx', isLegalPanelChunk],
+        ['src/components/ClaimDialog.tsx', isClaimDialogChunk],
+        ['src/blog/BlogSurface.tsx', isBlogSurfaceChunk],
+      ] as const) {
+        const found = chunks.filter(isExcluded).length
+        if (found !== 1) {
+          this.error(
+            `expected exactly one chunk for ${label}, found ${found}. If it was renamed, merged ` +
+              'away or deleted, isPreloadedOnIndex is excluding nothing: fix the match there, ' +
+              'or remove the exclusion and this entry if the module is gone.',
+          )
+        }
       }
       const counted = initial
         .map((c) => ({ name: c.fileName, bytes: Buffer.byteLength(c.code, 'utf8') }))
