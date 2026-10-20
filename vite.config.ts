@@ -16,6 +16,7 @@ import {
 import { replaceRegion } from './scripts/blogShell'
 import { blogIndexRegion, pageHead, replaceFavicon } from './scripts/siteHead'
 import { findSecretLeaks, publicPrefixedSecrets, scannableSecrets } from './scripts/secretScan'
+import { buildEnvironmentProblem, resolveBuildEnvironment } from './scripts/buildEnvironment'
 import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verifyPublication } from './scripts/publicationHygiene'
 
 // The loading animation is worthless if it is itself waiting on a bundle, so
@@ -892,23 +893,12 @@ if (process.env.VERCEL && process.env.VERTIGO_SKIP_BUDGETS) {
 // And an unrecognised value is refused as well, because the comparison below is
 // `=== 'production'` and anything else — `Production`, `prod` — reads as "not
 // production" and ships the debug console with a Disallow robots.txt out of a
-// deployment that believed it was live. There are exactly three values (the same
-// list content/lib/config.ts and server/config.ts enforce); a fourth is a
-// mistake. Surrounding whitespace is trimmed rather than refused, so a value
-// pasted out of a dashboard with a trailing space still reads as production.
-const VERCEL_ENVIRONMENTS = ['production', 'preview', 'development']
-const [ENV_SOURCE, ENV_VALUE] = (process.env.VERCEL_ENV ?? '').trim()
-  ? (['VERCEL_ENV', (process.env.VERCEL_ENV ?? '').trim()] as const)
-  : (process.env.VITE_VERCEL_ENV ?? '').trim()
-    ? (['VITE_VERCEL_ENV', (process.env.VITE_VERCEL_ENV ?? '').trim()] as const)
-    : (['default', 'development'] as const)
-if (!VERCEL_ENVIRONMENTS.includes(ENV_VALUE)) {
-  throw new Error(
-    `[vertigo] ${ENV_SOURCE}="${ENV_VALUE}" is not one of ${VERCEL_ENVIRONMENTS.join(', ')}. ` +
-      'Refusing to build: an unrecognised value silently means "not production".',
-  )
-}
-const BUILD_ENV = ENV_VALUE
+// deployment that believed it was live. So is a build environment written in a
+// `.env` file, which this config cannot see but content:build and
+// check:publication can. The rule is shared with both (scripts/buildEnvironment.ts).
+const ENV_PROBLEM = buildEnvironmentProblem(process.env, process.cwd())
+if (ENV_PROBLEM) throw new Error(`[vertigo] Refusing to build: ${ENV_PROBLEM}`)
+const BUILD_ENV = resolveBuildEnvironment(process.env).value
 const IS_PRODUCTION = BUILD_ENV === 'production'
 
 // The canonical origin. VERCEL_PROJECT_PRODUCTION_URL is set on every

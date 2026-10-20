@@ -7,6 +7,7 @@ import { formatFailures, generate } from '../content/lib/generate'
 import { SourceError, fileSource, type ContentSource } from '../content/lib/source'
 import { withMediaMirror } from '../content/lib/mirror'
 import { sanitySource } from '../content/lib/sanity'
+import { buildEnvironmentProblem } from './buildEnvironment'
 
 /**
  * The content build.
@@ -106,6 +107,10 @@ function fail(message: string): never {
 }
 
 async function main(): Promise<void> {
+  // node has already loaded `.env` into process.env, so the file is read
+  // directly: a build environment written there is refused (buildEnvironment.ts).
+  const environmentProblem = buildEnvironmentProblem(process.env, process.cwd())
+  if (environmentProblem) fail(environmentProblem)
   const parsed = readConfig(process.env)
   if (!parsed.ok) fail(parsed.message)
 
