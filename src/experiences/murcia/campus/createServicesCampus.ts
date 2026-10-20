@@ -79,8 +79,8 @@ export interface ServicesCampusSection {
   readonly isFlying: boolean;
   /** While this must be the camera's only writer — the host defers pose writes. */
   readonly holdsCamera: boolean;
-  /** The buildings' idle blink, 0..1. See `BuildingHighlight.idleLevel`. */
-  readonly highlightPulse: number;
+  /** A mouse is over the lake or a building, from the overview. Its point of interest names itself. */
+  readonly hovered: boolean;
   readonly snapshot: CampusSnapshot;
   /** Parts born hidden, for the host's warm-up. See `ServicesCampus.precompileTargets`. */
   readonly precompileTargets: readonly THREE.Object3D[];
@@ -248,6 +248,7 @@ export async function createServicesCampus(
   );
   const buildings = group.children.filter((node) => buildingNames.has(node.name));
   const highlight = createBuildingHighlight(buildings);
+  let hovered = false;
 
   const interaction = new CampusInteraction({
     canvas: options.canvas,
@@ -257,7 +258,10 @@ export async function createServicesCampus(
     tapThresholdPx: options.tapThresholdPx,
     lake: campus.lake,
     buildings,
-    onHoverChange: (hovering) => highlight.setTarget(hovering),
+    onHoverChange: (hovering) => {
+      hovered = hovering;
+      highlight.setTarget(hovering);
+    },
     section: {
       get stage() {
         return campus.state.snapshot.stage;
@@ -304,7 +308,6 @@ export async function createServicesCampus(
     const next = snapshot.stage !== 'overview';
     if (next === engaged) return;
     engaged = next;
-    highlight.setBlinking(!engaged);
     options.onEngagedChange?.();
   });
   a11y.update(a11yFor(campus.state.snapshot), null);
@@ -321,8 +324,8 @@ export async function createServicesCampus(
     get holdsCamera() {
       return adapter.holding;
     },
-    get highlightPulse() {
-      return highlight.idleLevel;
+    get hovered() {
+      return hovered;
     },
     get snapshot() {
       return campus.state.snapshot;

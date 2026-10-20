@@ -45,8 +45,12 @@ import { layoutTowerSlides } from './landmark/towerScreen/content/layoutTowerSli
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
 import { CompassBar, type CompassPoi } from './ui/compassBar';
-import { createCityGeotags } from './geotags/cityGeotags';
-import type { Geotags } from './geotags/createGeotags';
+import { createPoiMarkers, type PoiMarkers, type PoiSite } from './pointsOfInterest/poiMarkers';
+import { PoiInteraction } from './pointsOfInterest/poiInteraction';
+import type { PoiId } from './pointsOfInterest/poiConfig';
+import { createTowerTargets, type TowerTargets } from './landmark/towerTargets';
+import { CAMPUS_BUILDING_NODE_NAMES } from './campus/campusConfig';
+import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
@@ -79,6 +83,27 @@ import type { ObserverDebug } from './observer/observerDebug';
  * its measured bounds ARE `contentBounds` — that rectangle was measured off it.
  */
 const GROUND_REACH_EPSILON = 1;
+
+/**
+ * How far above the blog panel's CENTRE its top edge sits: half of its 24-unit
+ * height (`blogDisplay.ts`, `PANEL_HEIGHT`) at its 45° lean
+ * (`PANEL_TILT_DEGREES`). The blog's dot stands on that edge.
+ */
+const BLOG_PANEL_HALF_RISE = 12 * Math.sin(Math.PI / 4);
+
+/** The roof's centre of the tallest of the named nodes; null when none is in the city. */
+function tallestTop(root: THREE.Object3D, names: readonly string[]): THREE.Vector3 | null {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  let best: THREE.Vector3 | null = null;
+  for (const name of names) {
+    const match = findByAnyNameSpelling(root, name);
+    if (!match) continue;
+    box.setFromObject(match.object);
+    if (!best || box.max.y > best.y) best = box.getCenter(new THREE.Vector3()).setY(box.max.y);
+  }
+  return best;
+}
 
 /**
  * Lifecycle coordinator for the Murcia environment.
@@ -160,8 +185,19 @@ export class MurciaExperience {
    * city loads, from whichever of them actually loaded.
    */
   private compass: CompassBar | null = null;
-  /** Pins over the same two places, from a distance. Self-contained: `geotags/`. */
-  private geotags: Geotags | null = null;
+  /** A dot on every place that answers a click, and its name. See `pointsOfInterest/`. */
+  private poiMarkers: PoiMarkers | null = null;
+  private poiInteraction: PoiInteraction | null = null;
+  /** The tower's screen and base, as the places Anuncios and Conócenos point at. */
+  private towerTargets: TowerTargets | null = null;
+  /**
+   * The city was just arrived in — from Earth, or back from the blog — and its
+   * places have not been named yet. Consumed by the first frame no cinematic
+   * holds; see `update`.
+   */
+  private arrivalPending = false;
+  /** The canvas's client rectangle, as of the last resize. The dots are placed against it. */
+  private canvasRect: DOMRect | null = null;
   /** The header's Servicios button, waiting for a free camera. See `requestServices`. */
   private servicesRequested = false;
   /** The header's Blog button, pressed on Earth, waiting for a free camera. See `requestBlog`. */
@@ -454,7 +490,7 @@ export class MurciaExperience {
     const hiddenAtBirth = [
       ...(this.campus?.precompileTargets ?? []),
       ...(this.blogDisplay?.precompileTargets ?? []),
-      ...(this.geotags?.precompileTargets ?? []),
+      ...(this.towerTargets?.precompileTargets ?? []),
     ];
 
     // One zero-length tick first, so the campus's strip paints its canvas and
@@ -705,6 +741,8 @@ export class MurciaExperience {
     if (!next) {
       this.servicesRequested = false;
       this.blogRequested = false;
+    } else {
+      this.arrivalPending = true;
     }
 
     // Frame work was always gated; INPUT was not. Both district interaction and
@@ -714,6 +752,7 @@ export class MurciaExperience {
     // back. Frozen has to mean deaf as well as still.
     this.campus?.setEnabled(next);
     this.blogDisplay?.setEnabled(next);
+    this.poiInteraction?.setEnabled(next);
 
     // The camera input listens on the SHARED canvas, so while Earth is
     // showing, every Earth drag also reaches it — its targets would drift and
@@ -945,14 +984,6 @@ export class MurciaExperience {
     await this.setupCampus(loaded.root);
     this.setupBlogDisplay(loaded.root);
     this.setupCompass();
-    // Before `warm()`, which runs after this method, so the pins compile with the city.
-    this.geotags = createCityGeotags({
-      root: loaded.root,
-      campus: this.campus,
-      blog: this.blogDisplay,
-      reducedMotion: this.reducedMotion,
-    });
-    if (this.geotags) this.sceneBundle.scene.add(this.geotags.object3D);
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
       reducedMotion: this.reducedMotion,
     });
@@ -975,6 +1006,10 @@ export class MurciaExperience {
       screenNodeName: VERTIGO_BUILDING.screenNodeName,
       screenUvChannel: VERTIGO_BUILDING.screenUvChannel,
     });
+    // After the screen, which recolours the tower and moves the screen's UVs;
+    // before `warm()`, so the screen's highlight compiles with the city.
+    this.towerTargets = createTowerTargets(loaded.root, VERTIGO_BUILDING);
+    this.setupPointsOfInterest(loaded.root);
     // Every rest is reported alike and nothing is shown: whether a rest means
     // anything is decided by `/api/view`, and the browser never learns it.
     const viewClient = createViewClient({
@@ -1115,6 +1150,8 @@ export class MurciaExperience {
    */
   releaseFromBlog(): void {
     this.blogDisplay?.beginReturn();
+    // Back in the city: its places are named again once the return lands.
+    this.arrivalPending = true;
   }
 
   /**
@@ -1161,6 +1198,81 @@ export class MurciaExperience {
 
     if (pois.length === 0) return;
     this.compass = new CompassBar(this.container, pois);
+  }
+
+  /**
+   * The dots on the places that answer a click, and their names.
+   *
+   * Built from what loaded, as the compass is: a place missing from the city has
+   * already said so, and a dot over nothing would be the second failure. Each
+   * place lends its own hover, so a mouse over the building names it as a mouse
+   * over the dot does.
+   */
+  private setupPointsOfInterest(root: THREE.Object3D): void {
+    const sites: PoiSite[] = [];
+    const blog = this.blogDisplay;
+    if (blog) {
+      sites.push({
+        id: 'blog',
+        // On the panel's top edge: the panel is what is pressed, and its face
+        // is a picture a dot in the middle would sit on.
+        anchor: (out) => {
+          blog.anchor(out);
+          return out.setY(out.y + BLOG_PANEL_HALF_RISE);
+        },
+        hovered: () => blog.hovered,
+      });
+    }
+    const campus = this.campus;
+    const campusTop = campus ? tallestTop(root, CAMPUS_BUILDING_NODE_NAMES) : null;
+    if (campus && campusTop) {
+      sites.push({ id: 'servicios', anchor: (out) => out.copy(campusTop), hovered: () => campus.hovered });
+    }
+    const tower = this.towerTargets;
+    if (tower?.screen) {
+      sites.push({
+        id: 'anuncios',
+        anchor: (out) => tower.screenAnchor(out),
+        hovered: () => this.poiInteraction?.screenHovered ?? false,
+      });
+    }
+    if (tower?.base) {
+      sites.push({
+        id: 'conocenos',
+        anchor: (out) => tower.baseAnchor(out),
+        hovered: () => this.poiInteraction?.baseHovered ?? false,
+      });
+    }
+    if (sites.length === 0) return;
+
+    this.poiMarkers = createPoiMarkers(this.container, sites);
+    this.poiInteraction = new PoiInteraction({
+      canvas: this.renderer.domElement,
+      camera: this.camera,
+      cursor: this.cursor,
+      isDragging: () => this.cameraInput?.isDragging ?? false,
+      tapThresholdPx: {
+        mouse: this.environment.navigation.dragThresholdPx,
+        touch: this.environment.navigation.touchDragThresholdPx,
+      },
+      markers: this.poiMarkers,
+      tower: tower ?? { screen: null, base: null, setScreenHover() {}, setBaseHover() {} },
+      available: () => this.isCityOverview,
+      activate: (id) => this.activatePointOfInterest(id),
+    });
+    // Seeded for the campus's reason: built during the Earth intro.
+    this.poiInteraction.setEnabled(this.active);
+  }
+
+  /**
+   * A dot was tapped. Each place is entered by the way it already has, and that
+   * way refuses a camera something else holds — so a dot over its own building
+   * starts one flight however many listeners heard the tap.
+   */
+  private activatePointOfInterest(id: PoiId): void {
+    if (!this.isCityOverview) return;
+    if (id === 'blog') this.flyToBlog();
+    else if (id === 'servicios') this.campus?.enter();
   }
 
   /**
@@ -1297,6 +1409,7 @@ export class MurciaExperience {
    */
   setViewport(size: ViewportSize): void {
     this.viewport = size;
+    this.canvasRect = this.renderer.domElement.getBoundingClientRect();
     if (!this.camera) return;
 
     this.camera.aspect = size.aspect;
@@ -1488,11 +1601,21 @@ export class MurciaExperience {
       this.compass.setVisible(this.isNavigating);
       this.compass.update(this.camera);
     }
-    // Last for the compass's reason: they face and fade on this frame's pose.
-    // Shown on the same answer, so they are gone whenever the compass is.
-    if (this.geotags) {
-      this.geotags.setVisible(this.isNavigating);
-      this.geotags.update(delta, this.camera);
+    // The points of interest, last for the compass's reason: they are placed on
+    // this frame's pose. Shown only over the overview — no cinematic, flight or
+    // section holds the camera — which is also when they answer a pointer.
+    //
+    // The arrival is announced on the first frame no warp or blog flight holds
+    // the camera, and only into the overview: a header shortcut that opens a
+    // section on arrival has the viewer somewhere the names would not show.
+    if (this.arrivalPending && !this.rig?.hasClaim('warp') && !this.rig?.hasClaim('blog')) {
+      this.arrivalPending = false;
+      if (this.isCityOverview) this.poiMarkers?.announce();
+    }
+    this.poiInteraction?.update();
+    this.towerTargets?.update(delta);
+    if (this.poiMarkers && this.canvasRect) {
+      this.poiMarkers.update(delta, this.camera, this.canvasRect, this.isCityOverview);
     }
     // After the ladder for the compass's reason: it samples this frame's pose.
     // Only the viewer's own camera counts — a flight passing through the vantage
@@ -1580,8 +1703,12 @@ export class MurciaExperience {
 
     this.compass?.dispose();
     this.compass = null;
-    this.geotags?.dispose();
-    this.geotags = null;
+    this.poiInteraction?.dispose();
+    this.poiInteraction = null;
+    this.poiMarkers?.dispose();
+    this.poiMarkers = null;
+    this.towerTargets?.dispose();
+    this.towerTargets = null;
     this.cameraInput?.dispose();
     this.cameraInput = null;
     this.cameraTuning = null;

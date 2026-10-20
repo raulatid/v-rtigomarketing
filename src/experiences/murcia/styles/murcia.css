@@ -1021,3 +1021,125 @@
     visibility: hidden;
   }
 }
+
+/* ── The points of interest ───────────────────────────────────────────────────
+   `pointsOfInterest/poiMarkers.ts`: a dot on each place that answers a click,
+   and its name over it on arrival or under a mouse. Each site is moved to its
+   projected point by a transform written per frame; everything inside it is
+   placed around that point.
+
+   THE DOT IS THE BRAND'S BLUE, the Auditoría button's `--accent` and the hover
+   tint's colour (`interaction/buildingHighlight.ts`), so "blue" means "you can
+   go here" across the city (docs/decisiones/interfaz/uso-del-azul.md). The
+   ring pulses every two seconds; under reduced motion it holds still.
+
+   THE LABEL is density A, the floating tray, the compass's glass: one blurred
+   layer each, never animated — only its opacity and a 4px rise move. Below the
+   rest of the city's overlays, which only ever show while these are hidden. */
+.murcia-ui .murcia-poi {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+
+.murcia-ui .murcia-poi[data-visible='true'] {
+  opacity: 1;
+}
+
+.murcia-ui .murcia-poi__site {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.murcia-ui .murcia-poi__site[data-on-screen='false'] {
+  visibility: hidden;
+}
+
+.murcia-ui .murcia-poi__dot {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  /* A hairline of light round it, so the blue holds over the blue river and
+     the sky as well as over stone. */
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.murcia-ui .murcia-poi__ring {
+  position: absolute;
+  inset: -2px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: murcia-poi-pulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@keyframes murcia-poi-pulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+.murcia-ui .murcia-poi__label {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-film), var(--glass-bg-light);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition: opacity 240ms ease, transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.murcia-ui .murcia-poi__site[data-labelled='true'] .murcia-poi__label {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* An arrival names the places one after another; a hover answers at once. */
+.murcia-ui .murcia-poi[data-announcing='true'] .murcia-poi__site[data-labelled='true'] .murcia-poi__label {
+  transition-delay: calc(var(--i, 0) * 90ms + 200ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .murcia-ui .murcia-poi__ring {
+    animation: none;
+    opacity: 0.5;
+    transform: scale(1.8);
+  }
+
+  .murcia-ui .murcia-poi,
+  .murcia-ui .murcia-poi__label {
+    transition-duration: 1ms;
+    transition-delay: 0ms !important;
+  }
+
+  .murcia-ui .murcia-poi__label {
+    transform: translate(-50%, 0);
+  }
+}

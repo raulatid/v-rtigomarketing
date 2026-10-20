@@ -70,6 +70,13 @@ export interface VertigoBuildingConfig {
    * §6.8); the facade reads whichever set this names and ignores the other.
    */
   screenUvChannel: 0 | 1;
+  /**
+   * The part that is the tower's base: the lobby's glass. Its node carries two
+   * primitives and the LOWER one is the street-level glazing, the one part of
+   * the tower that stops short of its full height — so "the base" is that mesh,
+   * not a cut through every part.
+   */
+  baseNodeName: string;
   logo: TowerLogoConfig;
 }
 
@@ -77,5 +84,6 @@ export const VERTIGO_BUILDING: VertigoBuildingConfig = {
   logoNodeNames: ['logo-V', 'logo-curva'],
   screenNodeName: 'LED_Main',
   screenUvChannel: 1,
+  baseNodeName: 'ARCH_Glass_Lobby',
   logo: { axis: 'y', angularSpeedRadPerSec: 0.35 },
 };

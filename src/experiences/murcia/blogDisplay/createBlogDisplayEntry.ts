@@ -85,8 +85,8 @@ export interface BlogDisplayEntry {
   readonly precompileTargets: readonly THREE.Object3D[];
   /** True while the approach or the return owns the camera (DECISIONS §9). */
   readonly ownsCamera: boolean;
-  /** The cluster's idle blink, 0..1. See `BuildingHighlight.idleLevel`. */
-  readonly highlightPulse: number;
+  /** A mouse is over the panel, its invitation or the building. Its point of interest names itself. */
+  readonly hovered: boolean;
   setEnabled(next: boolean): void;
   /**
    * Starts the approach as a press on the panel would, for a way in that is not
@@ -171,6 +171,7 @@ export function createBlogDisplayEntry(
   });
 
   const highlight = createBuildingHighlight(meshes);
+  let hovered = false;
 
   const pointer: PanelPointer = createPanelPointer({
     canvas: options.canvas,
@@ -178,7 +179,10 @@ export function createBlogDisplayEntry(
     panel: display.panel,
     invitations: [display.invitation],
     buildings: meshes,
-    onHoverChange: (hovering) => highlight.setTarget(hovering),
+    onHoverChange: (hovering) => {
+      hovered = hovering;
+      highlight.setTarget(hovering);
+    },
     cursor: options.cursor,
     tapThresholdPx: options.tapThresholdPx,
     blocked: options.blocked,
@@ -203,8 +207,8 @@ export function createBlogDisplayEntry(
       return approach.ownsCamera;
     },
 
-    get highlightPulse() {
-      return highlight.idleLevel;
+    get hovered() {
+      return hovered;
     },
 
     setEnabled(next: boolean): void {
