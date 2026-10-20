@@ -53,7 +53,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 30. **`createServicesCampus` conserva la forma exterior del distrito borrado** (`isEngaged`, `isFlying`, `anchor`, `screenPoint`, `releaseFocus`, `setEnabled`), y `MurciaExperience` la lee como `hasFocusedDistrict`. De ese nombre cuelgan la retirada de la navegación, el logo y la salida por pellizco: «distrito» en `App.tsx` y en la navegación significa hoy «campus». Fija: `pinchInput.test.ts`; el resto, solo en e2e.
 31. **Los puntos de depuración siguen llamándose `__vertigoDistrictPoint` y `__vertigoDistrictSettled`** (y `__vertigoCampus`), solo en builds con depuración. `e2e/mobile.spec.ts` los usa: no los renombres sin él.
-32. **El parpadeo de los edificios se pausa con la sección abierta** (`setBlinking`), y el pin lee `highlightPulse` por eso: un reloj propio se desfasaría. Fija: `buildingHighlight.test.ts` («stays dark while paused, blink after blink», «resumes at the start of the wait…»).
+32. **Un tap en el punto de Servicios lo oyen dos listeners:** `CampusInteraction`, si cae sobre el lago o un edificio, y `PoiInteraction`. Entra una sola vez porque la segunda llamada encuentra la cámara tomada y se rechaza (`MurciaExperience.activatePointOfInterest` exige la vista general). No le pongas al punto una entrada propia que salte esa comprobación. Fija: `poiInteraction.test.ts`; la entrada única, sin test. (Hasta el 2026-10-21 este número era el parpadeo, retirado.)
 
 ## Posibles defectos
 

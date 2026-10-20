@@ -11,7 +11,7 @@
    - con el atajo Servicios de la cabecera (ver [Blog y Servicios](../interfaz/atajos-blog-y-servicios.md));
    - con el botón de teclado de `district/ui/districtA11y.ts`.
 
-   El hover sobre el lago o un edificio ilumina los edificios y pide el cursor de mano, solo en la vista general y nunca en táctil. Parpadeo y pin: [edificios interactivos](../murcia/edificios-interactivos.md). Con la sección abierta, el parpadeo se pausa (`setBlinking`).
+   El hover sobre el lago o un edificio ilumina los edificios y pide el cursor de mano, solo en la vista general y nunca en táctil. El punto de interés de Servicios entra igual: [edificios interactivos](../murcia/edificios-interactivos.md). Con la sección abierta, los puntos se ocultan.
 4. **Dentro se avanza:**
    - con un arrastre horizontal, un paso por gesto (`SWIPE_COMMIT_PX`): hacia la izquierda, el siguiente, como un carrusel. Un arrastre más vertical que horizontal no cuenta;
    - con ← y → del teclado, y con las dos flechas de la placa;

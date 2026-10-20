@@ -26,9 +26,9 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Cada t
 
 ## Quién mueve la cámara
 
-17. **Un solo dueño de la cámara por fotograma.** La propiedad es un conjunto de reclamaciones con nombre (`CameraClaim`: `'inactive' | 'warp' | 'campus' | 'blog'`). Libera solo la tuya. La precedencia vive en `MurciaExperience.update`, no en el rig. Los dueños externos escriben ESTADO (`setNavigated`, `setFocus`, `setYaw`, `adoptFromCamera`), nunca objetivos. Fija: `CameraRig.test.ts`.
+17. **Un solo dueño de la cámara por fotograma.** La propiedad es un conjunto de reclamaciones con nombre (`CameraClaim`: `'inactive' | 'warp' | 'campus' | 'blog' | 'tower'`). Libera solo la tuya. La precedencia vive en `MurciaExperience.update`, no en el rig. Los dueños externos escriben ESTADO (`setNavigated`, `setFocus`, `setYaw`, `adoptFromCamera`), nunca objetivos. Fija: `CameraRig.test.ts`.
 18. **Una experiencia inactiva no procesa entrada.** El canvas es compartido: el rig nace con la reclamación `'inactive'` y la entrada comprueba `rig.isOwned` al pulsar y al mover. Fija: `CameraRig.test.ts` («is born held…»), `createCameraInput.test.ts`.
-19. **`setPose` recoloca la cámara, así que un rig reclamado no debe recibirla.** El campus aplaza el `setPose` de un resize hasta después de `adoptFromCamera`. `setPose` ya no toca distancia ni elevación (son estado del muelle), así que un resize con zoom no salta. Fija: `CameraRig.test.ts`, `check:campus`.
+19. **`setPose` recoloca la cámara, así que un rig reclamado no debe recibirla.** El campus y la pantalla de anuncios aplazan el `setPose` de un resize hasta después de `adoptFromCamera`. `setPose` ya no toca distancia ni elevación (son estado del muelle), así que un resize con zoom no salta. Fija: `CameraRig.test.ts`, `check:campus`.
 20. **Limita el objetivo, nunca el foco renderizado.** `clampTargetToBounds` actúa sobre `targetX/Z`. Fija: `check:navigation` §6.
 
 ## Entrada
@@ -64,7 +64,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Cada t
 | Pose, banda de zoom, faldón, límites | `npm run check:footprint` + `npm run check:warp` + `npm run check:navigation` |
 | Banda compartida, pellizco, rueda, enfriamiento | tests de `src/app/navigation/` |
 | Anillo A2 o GLB de la ciudad | `npm run check:asset:contract` |
-| Brújula, parpadeo, geotags | `compass.test.ts`, `compassBar.test.ts`, `buildingHighlight.test.ts`, tests de `geotags/` |
+| Brújula, tinte de hover, puntos de interés, pantalla de anuncios | `compass.test.ts`, `compassBar.test.ts`, `buildingHighlight.test.ts`, tests de `pointsOfInterest/`, `towerTargets.test.ts`, `towerFocus.test.ts` |
 | Flujo completo en navegador | `npm run e2e` (`navigation.spec.ts`, `mobile.spec.ts`), solo si se pide |
 
 **Huecos conocidos en la cobertura:**

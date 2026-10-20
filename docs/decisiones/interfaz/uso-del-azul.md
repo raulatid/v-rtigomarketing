@@ -1,6 +1,6 @@
 # El azul se gasta en pocos sitios
 
-**Estado:** vigente · **Desde:** 2026-09-06 (`24f03ce`; borde azul de las bandejas el mismo día, `16084ae`, por indicación del cliente); el burger volvió a blanco el 2026-09-09 (`f576ed8`); el anillo del campo pasó a ser una línea el 2026-10-14 (`411de44`) · **Sustituye a:** DECISIONS §37 («Blue is scarce…» y su enmienda); la fila «Blue marks accents, focus, scrollbars…» de «Superseded»
+**Estado:** vigente · **Desde:** 2026-09-06 (`24f03ce`; borde azul de las bandejas el mismo día, `16084ae`, por indicación del cliente); el burger volvió a blanco el 2026-09-09 (`f576ed8`); el anillo del campo pasó a ser una línea el 2026-10-14 (`411de44`); los puntos de interés de Murcia desde el 2026-10-21 (`5201df9`) · **Sustituye a:** DECISIONS §37 («Blue is scarce…» y su enmienda); la fila «Blue marks accents, focus, scrollbars…» de «Superseded»
 
 ## Decisión
 
@@ -8,7 +8,8 @@
    - la cara del CTA principal (el disparador Auditoría y los botones de envío);
    - la línea de un campo con foco y el trazo junto a su etiqueta (`--field-line-active`);
    - el borde de las bandejas de densidad A (`--glass-border-accent`, alias de `--accent-border`, para que sean el mismo azul);
-   - el contorno de foco del teclado (`--focus-ring`).
+   - el contorno de foco del teclado (`--focus-ring`);
+   - en Murcia, lo que responde a un clic: los [puntos de interés](../murcia/edificios-interactivos.md) (`.murcia-poi__dot` y su anillo, en `murcia.css`) y el tinte de hover de los lugares (`BUILDING_HIGHLIGHT` y la carcasa de la pantalla LED, repetidos a mano en el shader). Ahí el azul significa «aquí se puede ir», lo mismo que en el CTA.
 2. **Todo lo demás es neutro:** separadores, barras de scroll, chevrones, marcas de antetítulo y líneas decorativas.
 3. **Un azul nuevo es una decisión, no un estilo.** Las hojas de panel no escriben literales de color: leen tokens.
 4. **El blog, sobre papel, es la excepción:** sus enlaces, marcas y filete de cita son azules.
@@ -21,7 +22,7 @@ El azul estaba en acentos, botones, barras de scroll, flechas, focos, marcas, gu
 
 - El degradado de 110° y el brillo exterior del CTA.
 - El burger azul (una hora, el 2026-09-09).
-- El punto azul de las balizas (retiradas el 2026-09-10, `be65215`).
+- El punto azul de las balizas (retiradas el 2026-09-10, `be65215`). Para lo que se puede tocar en Murcia lo sustituyen los puntos de interés (2026-10-21): sin marca visible, los visitantes seguían sin saber qué edificios eran clicables.
 
 ## Qué queda abierto
 

@@ -15,7 +15,7 @@
    - no hay oleaje, ni giro, ni movimiento de figura (`figureMotion.amplitude` a cero), ni capa viva que recalcule destinos en cada fotograma;
    - el símbolo sigue convirtiéndose en su figura, una vez, con un morph corto y sin dibujo en orden;
    - el texto sigue cada paso; sus fundidos CSS pasan a casi nada (`murcia.css`);
-   - los edificios no parpadean ([edificios interactivos](../murcia/edificios-interactivos.md)); la tira LED sigue deslizándose ([tira LED](tira-led.md)).
+   - el anillo del punto de interés no late ([edificios interactivos](../murcia/edificios-interactivos.md)); la tira LED sigue deslizándose ([tira LED](tira-led.md)).
 
 ## Por qué
 

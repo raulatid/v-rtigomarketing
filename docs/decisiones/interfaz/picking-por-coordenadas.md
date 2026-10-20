@@ -13,7 +13,7 @@
    - Murcia: `navigation.dragThresholdPx` y `touchDragThresholdPx` en `murciaConfig.ts`, que llegan como `tapThresholdPx` al campus y a la pantalla del blog. Son solo de tap (ver [trampas de la cámara de Murcia](../../trampas/murcia-camara.md), n.º 26).
 
    Solo el ratón usa la tolerancia corta; el dedo y el lápiz usan la táctil (`pointerType !== 'mouse'`). Un dedo o un lápiz se resuelven donde aterrizaron. En la pantalla del blog, los dos extremos del gesto deben caer sobre el objetivo.
-4. **El tipo de entrada se decide por capacidad, nunca por dispositivo:** `pointerType`, `(hover: none)` y `(pointer: coarse)`/`(pointer: fine)`. Nada se revela solo con hover sin una respuesta táctil equivalente: el tutorial de [satélites](../earth/satelites.md) y el parpadeo de [edificios interactivos](../murcia/edificios-interactivos.md).
+4. **El tipo de entrada se decide por capacidad, nunca por dispositivo:** `pointerType`, `(hover: none)` y `(pointer: coarse)`/`(pointer: fine)`. Nada se revela solo con hover sin una respuesta táctil equivalente: el tutorial de [satélites](../earth/satelites.md) y los puntos de [edificios interactivos](../murcia/edificios-interactivos.md), siempre visibles y con su nombre en cada llegada.
 5. **El raycast vive dentro de cada experiencia,** contra una lista explícita de objetivos (en Earth, la esfera invisible `hitTarget` de cada satélite, no el modelo). La conversión a NDC es compartida: `clientToNdc` en `src/interaction/screenSpace.ts`, con el rectángulo del canvas.
 
 ## Por qué

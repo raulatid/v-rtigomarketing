@@ -8,7 +8,7 @@
 2. **En la exportación horneada actual,** las piezas del campus llevan `lightmap_atlas` y conservan su color de vértice y su luz horneada, y `applyCampusPalette` (`campusPalette.ts`) las salta. La tira y el agua no se hornean (`runtime_material`).
 3. **`CAMPUS_PALETTE` sirve para una exportación sin hornear:** viste cada pieza por su nombre con los valores del laboratorio, metalicidad incluida, y sustituye el material en vez de modificarlo. Se aplica en `loadCity`, después de `applyTrimSheet` y del agua del río.
 4. **Los árboles del parque** (`CAMPUS_INSTANCED_TREE_NAMES`) son vegetación instanciada de la ciudad; con el campus horneado no se exigen.
-5. **Hover y parpadeo:** [edificios interactivos](../murcia/edificios-interactivos.md).
+5. **Hover y punto de interés:** [edificios interactivos](../murcia/edificios-interactivos.md).
 
 ## Por qué
 

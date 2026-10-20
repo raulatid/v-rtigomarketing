@@ -1,6 +1,6 @@
 # El panel del caso: lateral en escritorio, hoja inferior en móvil
 
-**Estado:** vigente · **Desde:** 2026-08; altura acotada por el logo desde 2026-09-17 (`fdc406e`) · **Sustituye a:** DECISIONS §26.19
+**Estado:** vigente · **Desde:** 2026-08; altura acotada por el logo desde 2026-09-17 (`fdc406e`); entrada animada desde el 2026-10-21 (`0544393`) · **Sustituye a:** DECISIONS §26.19
 
 ## Decisión
 
@@ -8,6 +8,9 @@
 2. **La hoja tiene dos paradas, `peek` y `expanded`, y cada selección nueva se abre en `expanded`.**
 3. **Las alturas se calculan en vivo** (`caseSheetLayout`): la máxima nunca tapa el logo proyectado del satélite, y se vuelven a medir cada fotograma desde su borde inferior. Mientras no hay sitio, la hoja espera (`data-sheet-waiting`).
 4. **La cámara nunca se reencuadra por la hoja.**
+5. **El contenido llega por bloques al abrir cada caso:** título, meta, métricas, resumen, detalles, gráfica y siguiente paso, con 55 ms entre uno y otro (`case-reveal` en `styles.css`). El cuerpo lleva como `key` el id del caso, así que la entrada se repite al cambiar de satélite con el panel abierto, y no al cerrarlo.
+6. **Cada métrica cuenta hasta su valor** en unos 900 ms con frenada final (`MetricValue` en `CasePanel.tsx`). Solo cuenta el primer número del texto editorial y conserva su notación: signo, unidad, decimales y separadores (`metricCount.ts`). Un valor sin número aparece tal cual. La copia escrita, transparente, fija el tamaño de la tarjeta y es la que oye el lector de pantalla.
+7. **Con movimiento reducido no hay cascada ni conteo:** se ve el resultado y solo queda el fundido del panel, acortado.
 
 ## Por qué
 
@@ -22,8 +25,9 @@ Una hoja única de altura fija, una media query solo por ancho, abrir en `peek` 
 ## Se ha roto si…
 
 - Fallan `src/interaction/caseSheetLayout.test.ts` o `closeUpFraming.test.ts` («sits exactly on the constants it is named for»).
+- Fallan `src/components/metricCount.test.ts` o el bloque «the metric count-up» de `src/components/CasePanel.test.tsx`.
 - En e2e falla `mobile.spec.ts`: hoja y no columna de 142 px, se abre expandida, horizontal recibe la hoja, la cabecera no se mueve.
 
 ## Afecta a
 
-`src/components/CasePanel.tsx`, `src/interaction/caseSheetLayout.ts`, `src/experiences/earth/camera/closeUpFraming.ts`, `src/experiences/earth/orbit/billboardBounds.ts`, `src/styles.css`
+`src/components/CasePanel.tsx`, `src/components/metricCount.ts`, `src/interaction/caseSheetLayout.ts`, `src/experiences/earth/camera/closeUpFraming.ts`, `src/experiences/earth/orbit/billboardBounds.ts`, `src/styles.css`
