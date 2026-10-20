@@ -17,6 +17,7 @@
 - Earth sky and stars → `check:space`
 - Warp transition → `check:warp`
 - Module boundaries → `check:architecture`
+- Who builds renderers and decoders, who draws, `useFrame` priorities → `check:render`
 - `api/`, `server/` → unit tests + `check:functions` + `check:architecture`
 - `vercel.json` headers, CSP, rewrites → `npx vitest run scripts/vercelConfig.test.ts`
 - What gets published (publication hygiene, secret scan) → their unit tests, then `check:publication` on a fresh `dist/`

@@ -49,6 +49,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 | Cambio | Comprobación |
 |---|---|
 | Imports de `graphics/` o `corner-logo/` | `npm run check:architecture` |
+| Quién crea renderers y decodificadores, quién dibuja, prioridades de `useFrame` | `npm run check:render` |
 | Ruta, bloom retenido, vacío, reinicio de acumulación | `SceneCanvas.test.tsx` |
 | Cadena del composer, tone mapping, cielo | `e2e/backdrop.spec.ts`, solo si se pide e2e |
 | Un canvas, suspensión del bucle | `e2e/boot.spec.ts`, `e2e/blog.spec.ts`, solo si se pide e2e |
@@ -58,8 +59,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 **Sin cobertura:**
 - el propio `RenderPipeline` (orden de pases, desactivación, caída al composer, pase del logo);
-- que solo el pipeline dibuje en el canvas, que nadie más use prioridad distinta de 0 y que los rAF ajenos no dibujen;
-- `new WebGLRenderer`, `new DRACOLoader` o `new KTX2Loader` fuera de su sitio;
+- que los rAF ajenos no dibujen;
 - densidad de píxeles, `antialias` y las cuatro copias del límite;
 - separación de escenas y cámaras;
 - liberación de recursos al desmontar.

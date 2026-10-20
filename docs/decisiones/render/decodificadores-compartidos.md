@@ -25,7 +25,7 @@ Murcia vuelve a crear un grupo de Draco después de la apertura; los archivos se
 
 ## Se ha roto si…
 
-- Aparece `new DRACOLoader` o `new KTX2Loader` fuera de `graphics/decoders.ts`, o el aviso de three de «multiple instances» en la consola: **sin check**, solo revisión.
+- Falla `npm run check:render` (`new DRACOLoader` o `new KTX2Loader` fuera de `graphics/decoders.ts`), o aparece el aviso de three de «multiple instances» en la consola.
 - Siguen vivos workers de Draco o Basis después de que la ciudad esté lista (medición manual de `8e40377`, sin test).
 - Falla `loadUnifiedLightmaps.test.ts` (el transcodificador se suelta una sola vez, también si falla la descarga).
 

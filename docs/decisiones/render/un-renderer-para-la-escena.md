@@ -29,7 +29,8 @@
 
 - `e2e/boot.spec.ts` («boots to a ready scene with a visible canvas») o `e2e/mobile.spec.ts` («boots on a phone…») ven más de un `canvas:not(.intro-canvas)`.
 - `e2e/blog.spec.ts` («a warm round trip freezes the scene and never rebuilds it») no ve exactamente dos canvas.
-- Aparece un `gl.render()`/`composer.render()` sobre el canvas fuera de `RenderPipeline`, otro `useFrame` con prioridad distinta de 0, un rAF que dibuje o que no se pare, o un `new THREE.WebGLRenderer` fuera de `src/blog/headerLogoRuntime.ts`: **sin test ni check**, solo revisión.
+- Falla `npm run check:render` (`checks/render-ownership.ts`): un `.render()` de renderer o composer fuera de `RenderPipeline` (y de las dos excepciones que lista con su motivo), otro `useFrame` con prioridad distinta de 0 o un `new WebGLRenderer` fuera de `src/blog/headerLogoRuntime.ts`.
+- Un rAF propio dibuja o no se para: **sin test ni check**, solo revisión.
 
 ## Afecta a
 
