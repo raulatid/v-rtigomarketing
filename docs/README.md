@@ -26,7 +26,7 @@ La documentación anterior (`DECISIONS.md`, `ARCHITECTURE.md`, `adr/`) se está 
 | Formularios, consentimiento y legal | migrada |
 | Contenido / CMS | migrada |
 | Blog | migrada |
-| Render y gráficos (ADR 001, 002, 008) | pendiente |
+| Render y gráficos (ADR 001, 002, 008) | migrada |
 | Build y presupuestos | pendiente |
 
 Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), conservando su ruta relativa (`content/x.md` → `archivo/content/x.md`), y se actualizan los enlaces que apuntan a ellos.
@@ -107,6 +107,14 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Entrada por la pantalla](decisiones/blog/entrada-por-la-pantalla.md): pantalla sobre `edificio-blog`, la aproximación es la transición y la vuelta es el mismo vuelo.
 - [Captura de la página](decisiones/blog/captura-de-la-pagina.md): captura del blog construido o placa neutra; navegador confinado, sin sandbox solo en Vercel.
 
+### Render y gráficos
+- [Un renderer para la escena](decisiones/render/un-renderer-para-la-escena.md): un canvas, un renderer y un bucle de R3F; solo el pipeline dibuja; regla de los rAF; excepciones: precalentado fuera de pantalla y marca del blog.
+- [Escenas separadas](decisiones/render/escenas-separadas.md): Earth y Murcia con su escena y su cámara; el logo lleva una tercera; la transición cambia qué escena se dibuja.
+- [El pipeline dibuja un contrato](decisiones/render/el-pipeline-dibuja-un-contrato.md): `graphics/` no conoce experiencias; tres rutas elegidas por `SceneCanvas`; Earth se queda en la escena por defecto de R3F.
+- [Configuración del renderer](decisiones/render/configuracion-del-renderer.md): todo en el `<Canvas>`; mismo límite de `dpr` también en móviles; `alpha: false` y su color de limpieza; WebGL 2.
+- [Fallos de WebGL](decisiones/render/fallos-de-webgl.md): sin WebGL 2 no se evalúa la escena; la pérdida de contexto se declara y no se restaura.
+- [Decodificadores compartidos](decisiones/render/decodificadores-compartidos.md): un Draco y un KTX2 con contador, que se sueltan al terminar la carga.
+
 ## Trampas
 
 - [Cámara y navegación de Murcia](trampas/murcia-camara.md)
@@ -116,6 +124,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Contenido y CMS](trampas/contenido.md)
 - [Formularios, consentimiento, analítica y legal](trampas/formularios-y-privacidad.md)
 - [Blog](trampas/blog.md)
+- [Render y gráficos](trampas/render.md)
 
 ## Contratos
 

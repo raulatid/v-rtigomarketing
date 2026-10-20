@@ -1,5 +1,7 @@
 # ADR 001 — Renderer and Scene Ownership
 
+> **Migrada (2026-10-20) →** [`render/un-renderer-para-la-escena.md`](../decisiones/render/un-renderer-para-la-escena.md), [`render/escenas-separadas.md`](../decisiones/render/escenas-separadas.md), [`render/el-pipeline-dibuja-un-contrato.md`](../decisiones/render/el-pipeline-dibuja-un-contrato.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-07
 Supersedes: the Murcia prototype's one-Scene rule (for the Earth↔Murcia boundary only). That
 document has since been folded into `docs/archivo/PROJECT_MEMORY.md`; the clause is quoted below.

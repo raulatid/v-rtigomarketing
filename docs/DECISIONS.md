@@ -73,6 +73,8 @@ pass unmodified.
 
 ## 2. One renderer, one canvas, one frame loop, one render authority
 
+> **Migrada (2026-10-20) →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 → **`adr/001-renderer-and-scene-ownership.md`**, **`adr/002-single-render-pipeline.md`**
 
 **Decided.** R3F owns the single `WebGLRenderer`. `graphics/RenderPipeline.tsx` is the only
@@ -91,6 +93,8 @@ outside `RenderPipeline`.
 ---
 
 ## 3. Two `THREE.Scene`s, not one
+
+> **Migrada (2026-10-20) →** [`decisiones/render/escenas-separadas.md`](decisiones/render/escenas-separadas.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`adr/001-renderer-and-scene-ownership.md`**
 
@@ -1221,6 +1225,8 @@ started all of this: a harness reporting failures while `npm run check` exits 0.
 
 ## 23. A lost graphics context is a stated failure, not a blank screen
 
+> **Migrada (2026-10-20) →** [`decisiones/render/fallos-de-webgl.md`](decisiones/render/fallos-de-webgl.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 → **`audits/ios-safari-2026-08-14.md`** §I1
 
 **Decided 2026-08-14.** `graphics/contextLoss.ts` observes `webglcontextlost`, calls
@@ -1250,6 +1256,8 @@ nothing on it.
 ---
 
 ## 24. The decoders are owned once, and counted
+
+> **Migrada (2026-10-20) →** [`decisiones/render/decodificadores-compartidos.md`](decisiones/render/decodificadores-compartidos.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-08-14.** `graphics/decoders.ts` owns one `DRACOLoader` and one `KTX2Loader` for
 the application, acquired and released in pairs.
@@ -4313,7 +4321,7 @@ above the artwork.
 | The Earth prototype keeps its own decisions file | `earth/DECISIONS.md`, 1862 lines, listed above as still authoritative | Retired 2026-08-17; what still binds is **§26**, and this file is the only one — **§26** |
 | The brand plates are drawn, never loaded | the Earth prototype's "The plates are drawn, not real logos" | Drawn as the floor; real artwork upgrades in — **§18** |
 | The cold blog document is 2D by construction, and pays for no 3D at all | **`adr/013`**, 2026-08-31; the ban asserted in `e2e/blog.spec.ts` | It pays for the BRAND MARK and nothing else: three, the Draco decoder and the mark's GLB (the KTX2 bake and its transcoder went with plan 019 §3, 2026-09-05 — the geometry has no UVs and the mark is unlit brand white) — deferred until after the article paints, with the SVG as the first paint and the permanent fallback. What it still refuses is the 3D APPLICATION, and the e2e states that as an allow-list in both directions rather than a blanket ban — **`adr/013` amendment**, **§26.16** |
-| The application has one WebGL renderer | **`adr/001`**, **`adr/002`**, and `graphics/decoders.ts`'s "which is all there ever is here" | One renderer for the SCENE. A warm document also holds the blog header's 44×44 `low-power` context — **`adr/013` amendment** |
+| The application has one WebGL renderer | **`adr/001`**, **`adr/002`**, and `graphics/decoders.ts`'s "which is all there ever is here" | One renderer for the SCENE. A warm document also holds the blog header's 44×44 `low-power` context — **`adr/013` amendment** · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md) |
 | A logo should be delivered at ~1024×512 | `sanity-media-contract.md` and the Studio's own field description, since 2026-08-23 | 1600×800, minimum 900 wide. 1024×512 is barely above the 896×400 box the artwork is fitted into, and `drawLogoContained` already warns below it — the CMS was advising editors towards artwork the renderer complains about. `docs/earth/logo-spec.md` had said 1600×800 all along and was the copy nobody reconciled — **§26.23** |
 | The format and size rules for a brand mark are guidance for the editor | the two `description` strings on `caseStudy.isotype` / `.logo` | They are validation. Wrong format or geometry disables Publicar and fails the build; only the ideal-versus-acceptable difference is advice — **§26.23** |
 | The backdrop is a field of uniform points on a shell | the Earth prototype's "The space backdrop is a second field, on a shell" | The shell stands; the points are now a clustered, magnitude-varied field over a sky image — **§19** |
@@ -4328,14 +4336,14 @@ above the artwork.
 | The scene has no bloom | `RenderPipeline.tsx`, three passes | Four passes; bloom sits between render and afterimage — **§19** |
 | A click acts on the satellite the pointer is hovering | `createSatelliteFocus.ts` | It acts on what is under the event's coordinates — **§17** (the geo marker had the same rule until its removal, 2026-08-19) |
 | Tap tolerance is per pointer type *on Earth* | **§17**, 2026-08-11 | Everywhere. Murcia had one threshold for both and swallowed district taps — **§25** |
-| A lost WebGL context is unhandled | `production-readiness-vercel-2026-08-07.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** |
-| Each consumer builds its own Draco/KTX2 loader | `createAssetLoader`, `loadLogoAssets`, `createSatellite` | One of each, reference counted, in `graphics/` — **§24** |
+| A lost WebGL context is unhandled | `production-readiness-vercel-2026-08-07.md` `P0-2`, open since 2026-08-07 | Detected, reported, and said out loud in Spanish — **§23** · **Migrada →** [`decisiones/render/fallos-de-webgl.md`](decisiones/render/fallos-de-webgl.md) |
+| Each consumer builds its own Draco/KTX2 loader | `createAssetLoader`, `loadLogoAssets`, `createSatellite` | One of each, reference counted, in `graphics/` — **§24** · **Migrada →** [`decisiones/render/decodificadores-compartidos.md`](decisiones/render/decodificadores-compartidos.md) |
 | The Earth ships one set of 4096 maps to every device | `EarthScene.tsx` | Two sets, media-gated at 767px like the sky — **§25** |
-| The renderer takes R3F's defaults | `SceneCanvas.tsx`, `gl={{ antialias: true }}` | `alpha: false` and an explicit `dpr`, so the cap has an owner again — **§25** |
+| The renderer takes R3F's defaults | `SceneCanvas.tsx`, `gl={{ antialias: true }}` | `alpha: false` and an explicit `dpr`, so the cap has an owner again — **§25** · **Migrada →** [`decisiones/render/configuracion-del-renderer.md`](decisiones/render/configuracion-del-renderer.md) |
 | A loading timeout can never end the wait | plan 007 Phase 4, `boot.ts` | It can, but only as a **failure**, never as ready — **`adr/007`** |
 | `CustomCursor` is Earth-only | `integration/00-migration-log.md`, P4 | Mounted for the whole session — **§14** |
-| The 3D logo gets its own renderer | the Earth prototype's "The 3D logo gets its own renderer" | Overlay pass on the shared renderer — **§2**, `adr/002` |
-| One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` |
+| The 3D logo gets its own renderer | the Earth prototype's "The 3D logo gets its own renderer" | Overlay pass on the shared renderer — **§2**, `adr/002` · **Migrada →** [`decisiones/render/un-renderer-para-la-escena.md`](decisiones/render/un-renderer-para-la-escena.md) |
+| One `THREE.Scene`, two environments | The Murcia prototype's memory, since folded into `PROJECT_MEMORY.md` | Two Scenes — **§3**, `adr/001` · **Migrada →** [`decisiones/render/escenas-separadas.md`](decisiones/render/escenas-separadas.md) |
 | Murcia always bypasses the composer | `adr/001` | Bypasses it *except during a warp* — **§7**, `adr/005` |
 | The city loader needs only Draco | `createAssetLoader.ts` | The shared KTX2 transcoder is attached too, before any texture exists — a GLTFLoader without one *rejects* a Basis image rather than degrading, and the production trim set has to be compressed to fit the iOS budget — **`murcia/blender-export-contract.md` §6.5** |
 | Blender owns every sampling property of a texture | plan 001, *Blender decides WHERE the texture is sampled* | It owns all of them except wrapping. The banded trim atlas needs `wrapS = Repeat` with `wrapT = ClampToEdge`, and Blender's Image Texture *Extension* is one setting for both axes — so `configureTrimTextures` in `loadCity.ts` expresses what the export had no way to say — **`blender-export-contract.md` §6.3** |
