@@ -76,7 +76,7 @@ needs adding (see Verified OK).
 | Node.js | 22.x | `engines` + `.nvmrc` |
 | **System Environment Variables** | **enabled** | `vite.config.ts` reads `VERCEL_ENV` / `VERCEL_PROJECT_PRODUCTION_URL`; `build-content.ts` now also reads `VERCEL_ENV`. Without them: debug console ships, robots says `Disallow: /`, and the new production-source guard cannot fire. |
 | Production branch | `main` | the only branch on the remote |
-| Deploy Hook | create one for `main` | the publish flow; runbook in `docs/content/wordpress-field-contract.md` §"Publish flow" |
+| Deploy Hook | create one for `main` | the publish flow; runbook in `docs/archivo/content/wordpress-field-contract.md` §"Publish flow" |
 
 ---
 
@@ -110,7 +110,7 @@ images; (2) `public/models/city-backdrop.glb` is untracked **and unreferenced** 
 ### CMS-1 · P1 · A WordPress logo would have failed the production build — FIXED
 
 **Affected:** `content/collections/caseStudies.collection.ts`, `content/collections/collections.test.ts`,
-`docs/content/wordpress-field-contract.md`
+`docs/archivo/content/wordpress-field-contract.md`
 
 **Evidence.** The mapper passed `source.logo` through verbatim (`:137-140`), then ran the emitted
 record through `caseStudyProblems` (`:178`), whose logo rule is `LOCAL_MEDIA_PATH = /^\/[\w./-]+$/`
@@ -134,7 +134,7 @@ check the mirror will use.
 
 ### CMS-2 · P1 · Production silently fell back to fixtures — FIXED
 
-**Affected:** `scripts/build-content.ts` (`chooseMode`), `docs/content/wordpress-field-contract.md`,
+**Affected:** `scripts/build-content.ts` (`chooseMode`), `docs/archivo/content/wordpress-field-contract.md`,
 `docs/DECISIONS.md` §27, `.env.example`
 
 **Evidence.** `chooseMode()` returned `'fixture'` whenever `WP_CONTENT_BASE` was unset — in every

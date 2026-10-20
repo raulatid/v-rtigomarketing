@@ -42,7 +42,7 @@ what it rules out, and how you would know it had been broken.
 | `murcia/blender-export-contract.md` | What the runtime reads out of the GLB and what must be true in the `.blend`. Read before any re-export. |
 | `content/sanity-field-contract.md` | What the content build expects from the CMS, field by field, with the rule and what happens when it is broken. Written to be handed to whoever edits the content. |
 | `content/sanity-media-contract.md` | Where uploaded media lives, which formats are accepted, what is mirrored into the deployment and what stays on the CDN. Separate on purpose. |
-| `content/wordpress-field-contract.md` | **Superseded** 2026-08-23 by the two above (`adr/011`). Kept because the WordPress security audit was written against it. History, not policy. |
+| `archivo/content/wordpress-field-contract.md` | **Superseded** 2026-08-23 by the two above (`adr/011`). Kept because the WordPress security audit was written against it. History, not policy. |
 | `audits/reports/security-wordpress-api-2026-08-11.md` | The security surface of the CMS integration **as it was designed against WordPress**. Read its 2026-08-20 addendum, then `adr/011` — the CMS is Sanity now, which removes the install the threat model was mostly about. |
 
 ### How to update it
@@ -1973,6 +1973,8 @@ without a word, which means `parseImageRef` is failing open against a live asset
 
 ## 27. Content is generated at build time, and the browser never calls the CMS
 
+> **Migrada (2026-10-20) →** [`decisiones/contenido/generado-en-build.md`](decisiones/contenido/generado-en-build.md), [`decisiones/contenido/fallo-estricto-y-fuentes.md`](decisiones/contenido/fallo-estricto-y-fuentes.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Decided** 2026-08-20. Full reasoning and the alternatives in **`adr/010`**.
 
 > **Amended 2026-08-23 by §31 (`adr/011`).** Everything below about WHEN content is fetched and
@@ -2030,6 +2032,8 @@ what makes a content diff mean something and keeps Vite's chunk hashes stable.
 ---
 
 ## 28. Scene composition is code-owned; the CMS owns copy and nothing else
+
+> **Migrada (2026-10-20) →** [`decisiones/contenido/que-decide-el-editor.md`](decisiones/contenido/que-decide-el-editor.md), que la reformula: el editor decide todo lo que pasa por Sanity, también lo visual, y nunca código. Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-08-20, with §27.
 
@@ -2253,6 +2257,8 @@ passes the narrowed assertion, or the
 phones and the legal links drift back onto the floor line.
 
 ## 31. The CMS is Sanity, and the client edits more than copy
+
+> **Migrada (2026-10-20) →** [`decisiones/contenido/sanity-y-proyeccion-groq.md`](decisiones/contenido/sanity-y-proyeccion-groq.md), [`decisiones/contenido/texto-estructurado.md`](decisiones/contenido/texto-estructurado.md), [`decisiones/contenido/medios-replicados.md`](decisiones/contenido/medios-replicados.md), [`decisiones/contenido/limites-editoriales.md`](decisiones/contenido/limites-editoriales.md), [`decisiones/contenido/vista-previa-del-studio.md`](decisiones/contenido/vista-previa-del-studio.md) y, para el párrafo del blog, [`decisiones/blog/segundo-documento.md`](decisiones/blog/segundo-documento.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided** 2026-08-23. Full reasoning and the alternatives in **`adr/011`**. Everything §27 says
 about *when* content is fetched still holds; what changed is *from where*, and *how much*.
@@ -2551,6 +2557,8 @@ warp or swallows Escape; it appears before `site`; a copy mounts outside `.app__
 ---
 
 ## 36. The Vertigo building is the client's, and it moves
+
+> **Migrada en parte (2026-10-20):** el banner editorial de la torre se retiró el 2026-09-15 (`1ad78f5`); la pantalla vigente es [`decisiones/contenido/pantalla-de-la-torre.md`](decisiones/contenido/pantalla-de-la-torre.md). **Sin migrar todavía:** el resto de esta entrada.
 
 **Decided** 2026-09-05, plan 019. Four things landed together; each is its own decision.
 
@@ -4351,6 +4359,8 @@ bracket change submits the old wording and gets the field error the service sele
 accepts as the trade.
 
 ## 55. The tower's screen is edited in Sanity through a fixed template
+
+> **Migrada (2026-10-20) →** [`decisiones/contenido/pantalla-de-la-torre.md`](decisiones/contenido/pantalla-de-la-torre.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-22.** The Vértigo tower's LED screen drew a document bundled in TypeScript —
 two slides of blocks positioned in design metres, one of them carrying a watermarked stock

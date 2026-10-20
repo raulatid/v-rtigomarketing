@@ -15,10 +15,10 @@ Separate from `sanity-field-contract.md` on purpose. A field contract answers "w
 | Brand marks (isotype + logo) | CMS | **the deployment** (`/logos/…`) | Drawn into the shared WebGL brand atlas. A cross-origin draw can taint the canvas every case-study panel uses, and the site must not need Sanity's CDN to be up in order to look finished. |
 | Tower screen slide pictures | CMS | **the deployment** (`/media/tower/…`) | Drawn into the LED facade's canvas texture: the same taint and the same CDN-dependence argument as the brand marks, in its own folder so a photograph is never filed among logos. |
 | The favicon («Ajustes del sitio») | CMS | **the deployment** (`/media/site/…`) | Every page links it from the `<head>`. A tab icon must not depend on a third-party CDN being up, and the content-addressed filename means a new upload is a new URL, so no browser keeps showing the old one from its cache. |
-| Blog and editorial imagery | CMS | `cdn.sanity.io` | No renderer exists yet, the library grows without bound, and copying every image into every deployment buys nothing until something displays them. |
+| Blog and editorial imagery | CMS | `cdn.sanity.io` | Rendered by the blog since ADR 013 (`src/blog/BlogFigure.tsx`, `PostBody.tsx`) as DOM images, never drawn into a canvas, so there is no taint to avoid; and the library grows without bound, so copying every image into every deployment would grow every deployment with it. |
 | GLB, KTX2, terrain, sky, shaders, fixed graphics | **the application** | the deployment | Not editorial. These change when the scene is re-exported, not when marketing writes. They are versioned with the code and are explicitly outside CMS scope. |
 
-The consequence worth stating plainly: **the public site never makes a runtime request to Sanity.** `connect-src 'self'` and `img-src 'self' data: blob:` in `vercel.json` are unchanged by this migration, and adding a runtime CMS request would require changing them — which is the signal that something went wrong.
+The consequence worth stating plainly: **the public site never makes a runtime request to the Sanity API**, and the only files it loads from Sanity are the blog's images. The CSP in `vercel.json` says so: `img-src` admits `https://cdn.sanity.io` for those images (alongside the Google Analytics origins), and `connect-src` admits no Sanity origin. A brand mark, a tower picture or the favicon loaded from `cdn.sanity.io` would therefore NOT be blocked by the CSP — it would be a mirrored reference that escaped the mirror, and only a network inspection shows it.
 
 ---
 
@@ -52,7 +52,7 @@ Only the Sanity source is mirrored. Fixtures and the committed seed already carr
 
 `public/logos/` is gitignored (`.gitignore`, with a `.gitkeep`) and already has a cache header in `vercel.json`. Mirrored media is build output, exactly like `src/content/generated/`.
 
-**A collection may name its own folder.** `SanitySourceSpec.mirrorDir` (`media/tower` for the tower screen) puts that collection's files under `public/<mirrorDir>/` and emits `/<mirrorDir>/<file>`; without it the mirror's default, `/logos`, applies, so the logos never moved. The same `.gitignore` and `vercel.json` arrangement applies per folder.
+**A collection may name its own folder.** `SanitySourceSpec.mirrorDir` (`media/tower` for the tower screen, `media/site` for the favicon) puts that collection's files under `public/<mirrorDir>/` and emits `/<mirrorDir>/<file>`; without it the mirror's default, `/logos`, applies, so the logos never moved. The same `.gitignore` and `vercel.json` arrangement applies per folder.
 
 **Paths may fan out over an array.** `slides[].image.src` mirrors every slide's picture; `[]` is the one wildcard, added on 2026-09-22 for the first caller that needed it. The projection still has to hand each slot a url string (`image.asset->url`).
 
@@ -134,10 +134,12 @@ The minimum is `EDITORIAL_BOUNDS.siteSettings.faviconMinSide`, shared by both pa
 
 ## Two tiers, and where each one lives
 
-The numbers appear in two packages, and the duplication is intentional:
-`sanity-studio/schemas/lib/brandMark.ts` and `caseStudies.collection.ts`'s `BRAND_MARK_RULES`. The
-Studio is its own npm package and neither side may import the other — the same arrangement the
-isotype/logo pairing rule has already. `docs/earth/logo-spec.md` is the source both copies follow.
+The rules are applied in two packages: `sanity-studio/schemas/lib/brandMark.ts` and
+`caseStudies.collection.ts`'s `BRAND_MARK_RULES`. The numbers are written once, in
+`EDITORIAL_BOUNDS.caseStudy` (`src/content/editorialBounds.ts`), which the Studio imports from
+outside its package (see `docs/decisiones/contenido/limites-editoriales.md` and
+`docs/decisiones/earth/validacion-de-marcas-subidas.md`). `docs/earth/logo-spec.md` is the source
+both tiers follow.
 
 | | Studio | Content build |
 |---|---|---|
@@ -219,7 +221,7 @@ cover {
 
 **A description without an upload is a failure, not an empty field.** Sanity keeps `{_type: 'imageMedia', alt: '…'}` in the document when an editor writes the description and never picks a file, or removes one later — so the projection above returns an object whose `src`, `width` and `height` are all null, where a field nobody has touched returns `null` outright. The Studio rejects that state while the editor is working and the build rejects it at the deploy, the same two-places arrangement the brand marks use and for the same reason: a dataset import, a restored backup or the HTTP API never passes through the Studio. The build reports it once, at the field, rather than as three problems about `src`, `width` and `height` — those are derived from the upload, and naming them tells whoever edits the CMS nothing.
 
-When a blog renderer eventually exists, `img-src` in `vercel.json` will need `https://cdn.sanity.io` added — and that is the moment to decide whether these should be mirrored too. Not before.
+The blog renderer arrived with ADR 013, `img-src` in `vercel.json` gained `https://cdn.sanity.io` for it, and these images stayed on the CDN rather than being mirrored.
 
 ---
 
@@ -227,7 +229,7 @@ When a blog renderer eventually exists, `img-src` in `vercel.json` will need `ht
 
 - A case study renders another brand's logo — the mirror wrote one asset's bytes under another's name, which the content-addressed filename is supposed to make impossible.
 - `public/logos/` grows on a build where no logo changed — the "already on disk" short-circuit stopped working, and the emitted module may no longer be byte-stable.
-- The browser makes a request to `cdn.sanity.io` — a logo reference escaped the mirror, and `img-src 'self'` should be reporting it.
+- The browser requests a logo, a tower picture or the favicon from `cdn.sanity.io` — the reference escaped the mirror. The CSP does not report it, because `img-src` admits that origin for the blog.
 - A build succeeds while a logo 404s — the failure path degraded to a warning somewhere.
 - An SVG reaches `public/logos/` — the format guard moved or was widened without a sanitizer.
 - A `.jpg` reaches `public/logos/`, or a file whose name says it is smaller than the minimum — the allowlist or `assertGeometry` stopped being reached, most likely because a `mediaRules` key and a `mirror` field name drifted apart.

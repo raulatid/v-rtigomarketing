@@ -11,11 +11,16 @@ Media has its own document, `sanity-media-contract.md`, because "what may this f
 ## How the content reaches the site
 
 ```
-Sanity publish → webhook → Vercel Deploy Hook → Vercel build
-                                                  └─ npm run content:build   (query, validate, emit)
-                                                  └─ npm run check           (the same invariants, again, on what was written)
+Sanity publish → webhook → Vercel Deploy Hook → Vercel build (npm run build)
+                                                  └─ npm run check
+                                                       └─ precheck: npm run content:build   (query, validate, emit; then public/content-version.json)
+                                                       └─ typecheck, tests, harnesses       (the same invariants, again, on what was written)
                                                   └─ vite build
+                                                  └─ npm run blog:preview
+                                                  └─ npm run check:publication
 ```
+
+`public/content-version.json` is written after the content, never before: the newest `_updatedAt` the build read, which «Estado de la web» in the Studio compares against Sanity. See `docs/decisiones/contenido/fallo-estricto-y-fuentes.md`.
 
 The browser never calls Sanity. Content is fetched in Node at build time and emitted as TypeScript modules, so there is no runtime request, no loading state, no CORS and no CSP change — which is the point, on a site whose product is a 3D scene.
 
@@ -46,12 +51,13 @@ Ordering is explicit on every collection, because byte-identical output for unch
 
 ## `caseStudy`
 
-Six of these ride the orbits around the Earth. Ordered by slug.
+These ride the orbits around the Earth. Ordered by slug. The highlighted case rides `HIGHLIGHTED_ORBIT_ID`; the others fill `ORBIT_FILL_ORDER` in slug order (`src/experiences/earth/orbit/orbitAssignments.ts`). A case past the last preset rides nothing, which is why the Studio refuses to publish more cases than there are orbits (`orbitCapacity.ts`).
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
 | `slug.current` | slug | `^[a-z0-9][a-z0-9-]{0,63}$`, unique | fail |
 | `name` | string | non-empty, ≤ 60 | fail |
+| `highlighted` | boolean | absent reads as `false`; **exactly one published case is highlighted** (`highlightedCaseProblems`) | fail |
 | `label` | string | ≤ 60; falls back to `name`. **Not rendered anywhere, and `hidden` in the Studio** (2026-09-11) | fail if over |
 | `isotype` | image | PNG/WebP, ≥ 432×432, aspect 0.75–1.33:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
 | `logo` | image | PNG/WebP, ≥ 900×400, aspect 1.5–5:1; mirrored to `/logos/` at build | fail if declared and unfetchable, or off-spec |
@@ -62,7 +68,7 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 | `year` | string | optional (empty allowed), ≤ 16 | fail |
 | `summary` | text | non-empty, ≤ 400 | fail |
 | `details[]` | string[] | ≤ 4 entries, each non-empty and ≤ 200 | fail |
-| `metrics[]` | object[] | **0–2**, each `{ label ≤ 40, value ≤ 20 }`; the row hides when empty | fail |
+| `metrics[]` | object[] | 0 to `EDITORIAL_BOUNDS.caseStudy.metrics` (the Studio advises past `metricsAdvised`), each `{ label ≤ 40, value ≤ 20 }`; the row hides when empty | fail |
 | `chart` | object \| null | optional: absent, or untouched (no title, no points), emits `null` and the panel leaves the block out | — |
 | `chart.type` | string | `line` \| `bars` \| `area` \| `donut` | fail |
 | `chart.title` | string | non-empty once the chart is started, ≤ 80 | fail |
@@ -71,11 +77,11 @@ Six of these ride the orbits around the Earth. Ordered by slug.
 
 **In the Studio the chart is entered as ONE list of points**, each `{ value, label }`, so an editor never keeps two lists aligned by hand; the projection splits them back into `values` and `labels` (`"labels": select(type in ["bars","donut"] => points[].label)`, which yields `null` for line and area charts — treated as "no labels"). The two rows above describe what the build receives, not what the editor types.
 
-**No orbit field, and there will not be one.** Which case study occupies which orbit is scene composition and lives in `src/experiences/earth/orbit/orbitAssignments.ts`. Publishing a case study does not create an orbit — the Earth has a finite, art-directed set of slots. An assignment naming a case the CMS no longer publishes fails the build.
+**No orbit field, and there will not be one.** The orbit table is derived from the published collection (since 2026-09-18): the editor decides which case is highlighted, and the code decides which orbit the highlighted one rides and the order the rest fill in. Publishing a case study does not create an orbit — the Earth has a finite, art-directed set of slots.
 
-**The slug is a reference, not a label.** `orbitAssignments.ts` names it. Changing a published slug breaks that binding and fails the build; that is the intended behaviour, not a bug to work around.
+**The slug is a reference, not a label.** It decides the fill order, so changing a published slug can move cases to different orbits.
 
-**The lengths are layout facts.** `details` is a four-line bullet list, `metrics` is a row of up to two cards, and chart values are normalised into 340 SVG units. What a case SAYS is editorial (2026-09-19): sector, location and year, the metrics and the chart may each be left out, and the panel adapts — it does not reserve space for what is not there. Over-length is rejected rather than trimmed, because a sentence cut mid-word reads as a rendering bug and the person who can fix it properly is the person who wrote it.
+**The lengths are layout facts.** `details` is a four-line bullet list, `metrics` is a row of cards that wraps, and chart values are normalised into 340 SVG units. What a case SAYS is editorial (2026-09-19): sector, location and year, the metrics and the chart may each be left out, and the panel adapts — it does not reserve space for what is not there. Over-length is rejected rather than trimmed, because a sentence cut mid-word reads as a rendering bug and the person who can fix it properly is the person who wrote it.
 
 **A bars or donut chart with no labels does not fail to draw — it draws wrong**, unlabelled, which is quieter and worse. Hence the rule.
 
@@ -93,12 +99,15 @@ What the agency does. First-class documents, referenced by the district (the sto
 | `body` | text | non-empty, ≤ 900 | fail |
 | `figureCaption` | string | optional, ≤ 110. The legend under the copy on the campus plate, naming what the service's particle figure draws; fades in once the figure has formed. Empty → no legend | fail |
 | `measures[]` | string[] | optional, ≤ 3 entries, each non-empty and ≤ 48. «Qué medimos» on the campus plate: the names of what gets measured, not values. Empty → no block | fail |
+| `symbol` | string | optional; one of `CAMPUS_SYMBOLS` (`src/content/campusShapes.ts`). Blank → `DEFAULT_CAMPUS_SYMBOL` | fail if present and not in the list |
+| `figure` | string | optional; one of `CAMPUS_FIGURES`. Blank → no figure: the symbol stays a symbol | fail if present and not in the list |
+| `particleColor` | string | optional `#rrggbb`; blank takes the district's `particleColor` | fail if present and malformed |
 
-**The figure is code; only its wording is editorial.** Each service's figure (`cityDistrictBindings.ts`, drawn in `campus/particles/figureLayouts.ts`) illustrates the mechanism its own `body` argues, and `figureCaption` names it. Rewriting a body so that it argues something else can leave the figure wrong, and that is a developer's change. Both fields are optional so the documents published before they existed (2026-09-15) keep building; the fixtures carry draft copy, flagged to the client as placeholders.
+**The shapes are the editor's; the list of shapes is code (since 2026-09-21).** Each service's symbol, figure and particle colour are fields on the service document, chosen from closed lists the campus knows how to draw (drawn in `campus/particles/figureLayouts.ts`). The figure should illustrate the mechanism the service's own `body` argues, and `figureCaption` names it; rewriting a body so that it argues something else means choosing the figure again. A new shape is a developer's change. `figureCaption` and `measures` are optional so the documents published before they existed (2026-09-15) keep building; the fixtures carry draft copy, flagged to the client as placeholders.
 
 **`body` is shown in two parts on the campus.** `district/serviceCopy.ts` takes the first paragraph (or, in a one-paragraph body, the opening sentences up to ~150 characters) as the always-visible line under the title; "+" opens the whole text. A one-sentence body makes "+" repeat what is already on screen. The Studio description tells the editor this, without the number.
 
-**The slug is welded to code.** It keys the service to its particle symbol in `cityDistrictBindings.ts` and is the blog's `?tema=` value, so it is locked once set, like the case-study and district slugs.
+**The slug is a public value.** It is the blog's `?tema=` value, so it is locked once set, like the case-study and district slugs.
 
 **`SERVICES` is emitted but nothing imports it yet.** The collection exists so a services page has data the day it is built.
 
@@ -114,11 +123,12 @@ The copy behind the services campus in the city — presented in the Studio as "
 | `label` | string | non-empty, ≤ 40 — the campus intro title and the compass pin | fail |
 | `summary` | text | non-empty, **≤ 140** — the line under that title | fail |
 | `intro` | text | non-empty, ≤ 600. **Read by nothing since the campus (DECISIONS §45); `hidden` in the Studio and not `required()` there** (2026-09-11). The existing document has a value, which is what keeps the build's rule satisfied | fail |
-| `services[]` | reference[] | 1–12 published `service` documents, no duplicates, **exactly the services `cityDistrictBindings.ts` has symbol rows for** | fail |
+| `particleColor` | string | optional `#rrggbb`; blank → `DEFAULT_PARTICLE_COLOR` (`src/content/editorialBounds.ts`). The default for every service that has none of its own | fail if present and malformed |
+| `services[]` | reference[] | 1 to `EDITORIAL_BOUNDS.district.services` published `service` documents, no duplicates | fail |
 
 **`summary` is bounded at 140, but no longer by a mobile peek stop** — there is none since the campus. It is the subtitle under the section title on every device, and 140 is what that line was designed to hold.
 
-**The services list is order-editable, not membership-editable.** Reordering changes the order a visitor walks the stops and needs nothing else. Adding or removing a service fails `cityDistrictBindings.test.ts` (and so the build) until a developer adds or removes the matching symbol row; the Studio description tells the editor to ask first, because nothing in the Studio can see the code.
+**The services list is the editor's (since 2026-09-21).** Which services form the section, and the order a visitor walks the stops, are editorial. The Studio checks only that the district is bound in the scene and that every listed service is published (`sanity-studio/schemas/lib/serviceMembership.ts`).
 
 **A district needs at least one service.** With none, the campus has no stops and reads as broken rather than empty.
 
@@ -150,6 +160,9 @@ One document, at the fixed id `siteSettings`.
 | `bookingUrl` | url | **optional**; `https://` with a page path, no credentials; **any host** | fail only when present and malformed |
 | `bookingLabel` | string | optional, ≤ 24; blank falls back to "Agenda una cita" | fail only when present and over-long |
 | `copyright` | string | non-empty, ≤ 120 | fail |
+| `auditSuccessTitle` / `contactSuccessTitle` | string | optional, ≤ `EDITORIAL_BOUNDS.siteSettings.successTitle`; the confirmation a form shows after sending. Blank falls back to `SUCCESS_FALLBACKS` (`siteSettings.collection.ts`) | fail only when present and wrong |
+| `auditSuccessBody` / `contactSuccessBody` | text | optional, ≤ `EDITORIAL_BOUNDS.siteSettings.successBody`; same fallback | fail only when present and wrong |
+| `cookieCopy` | object | optional; the cookie consent banner's copy. Absent → `DEFAULT_COOKIE_COPY`; present, every field in `COOKIE_COPY_FIELDS` (`src/content/cookieCopy.ts`) is non-empty and within its bound | fail only when present and wrong |
 | `revenueRanges[]` | string[] | 1–8 entries, each non-empty and ≤ 60, no duplicates; absent, null or empty falls back to four placeholder ranges | fail only when present and wrong |
 | `budgetRanges[]` | string[] | same rule as `revenueRanges[]`, with its own four placeholders | fail only when present and wrong |
 
@@ -289,7 +302,7 @@ The block cap is a safety net against a pasted document, not an editorial length
 - **Prefer a public dataset.** Published website content is already public, and a public dataset with no build token removes a secret to rotate, a Vercel variable to misconfigure and a class of build failure. Drafts are excluded by the query, not by permissions, so a public dataset does not expose them.
 - **If the dataset is private,** issue a read-only token with the minimum scope and set it as `SANITY_TOKEN`. Never with a `VITE_` prefix — Vite compiles `VITE_*` into the public bundle.
 - **Do not enable SVG uploads** for logos or editorial images. Both the Studio and the build reject them; see the media contract for why, and for how to change that deliberately.
-- **The brand-mark rules are duplicated on purpose,** in `sanity-studio/schemas/lib/brandMark.ts` and in `caseStudies.collection.ts`. The Studio blocks Publish; the build blocks the deploy, because a dataset import, a restored backup or the HTTP API never passes through the Studio. Change `docs/earth/logo-spec.md` first, then both copies.
+- **The brand-mark rules are applied twice,** in `sanity-studio/schemas/lib/brandMark.ts` and in `caseStudies.collection.ts`, from the numbers both import from `EDITORIAL_BOUNDS.caseStudy`. The Studio blocks Publish; the build blocks the deploy, because a dataset import, a restored backup or the HTTP API never passes through the Studio. Change `docs/earth/logo-spec.md` first, then the shared numbers. See `docs/decisiones/earth/validacion-de-marcas-subidas.md`.
 - **Keep slugs stable once published.** They are the ids the application, the scene bindings and the orbit assignments use.
 - **Treat the Vercel Deploy Hook URL as a secret.** Anyone holding it can trigger builds.
 
@@ -315,9 +328,11 @@ The Sanity **API version is not an environment variable**. It decides response s
 
 ## Publish flow — the Deploy Hook
 
+The existing webhook is managed outside this repo (`sanity-studio/README.md`); nothing here can verify its filter. The steps below are how it is set up.
+
 1. Create a Deploy Hook in Vercel (Settings → Git → Deploy Hooks), pointed at the production branch.
 2. In Sanity: API → Webhooks → Create, with that URL, on create/update/delete.
-3. Filter it to the types that affect the public site: `_type in ["caseStudy","district","service","siteSettings","legalDoc","blogPost"]`. `blogPost` belongs in the list since the blog went live (ADR 013); leaving it out would mean a published post never reaches the site.
+3. Filter it to the types that affect the public site: `_type in ["caseStudy","district","service","siteSettings","legalDoc","blogPost","towerScreen"]`. `blogPost` belongs in the list since the blog went live (ADR 013), and `towerScreen` since the tower screen became editable (2026-09-22); leaving a type out means publishing it deploys nothing and fails nothing. `siteSettings` also carries the SEO head and the favicon.
 4. Publish something and watch a deployment start.
 
 Webhook delivery may be retried, so a publish can trigger more than one build. At roughly two publications a week that is a non-problem, and queues, debouncers and coalescing services are not worth building against it. Revisit if editorial volume makes it one.
@@ -328,7 +343,9 @@ Webhook delivery may be retried, so a publish can trigger more than one build. A
 
 One entry in `content/collections/index.ts`, one interface in `src/content/types.ts`, one predicate set in `src/content/invariants.ts`, one mapper beside the others, one fixture named after the `_type`, one seed copy, and one schema in `sanity-studio/schemas/`. The generator, the emitter, the validator, the source adapters and the transaction do not change.
 
+If the collection mirrors media into its own `mirrorDir`, that folder also needs its line in `.gitignore`, a cache header in `vercel.json` and an entry in the publication allowlist (`scripts/publicationHygiene.ts`).
+
 Two things to check before you do:
 
 - **Something has to render it.** A collection nothing imports is data with no consumer.
-- **The app entry has a hard 320,000 B budget** with roughly 2 KB spare. A new collection reaching the entry chunk needs the number checked, and anything page-sized belongs behind lazy loading.
+- **The JavaScript budgets are hard.** `INITIAL_JS_BUDGET_BYTES` (the initial closure, the real gate) and `ENTRY_BUDGET_BYTES` (a secondary guard on the entry chunk) in `vite.config.ts` fail the build. A new collection reaching the initial chunks needs the numbers checked, and anything page-sized belongs behind lazy loading.

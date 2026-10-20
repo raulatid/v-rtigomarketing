@@ -210,7 +210,7 @@ None.
 
 - *Evidence:* `scripts/build-content.ts:52-53` returns an explicit `wp|fixture|seed` **before** the
   production guard at `:66-72`. `seed` prints a five-line banner (`:93-99`); `fixture` prints only
-  `[content] content source: fixtures (...)`. `docs/content/wordpress-field-contract.md:133` states
+  `[content] content source: fixtures (...)`. `docs/archivo/content/wordpress-field-contract.md:133` states
   "Production: `seed` is the only way to deploy without WordPress" — the code does not enforce that.
 - *Attack surface:* anyone with Vercel env-var access, or an operator following a stale note.
 - *Exploitation path / impact:* a green production deployment serving demo content (real brand names,

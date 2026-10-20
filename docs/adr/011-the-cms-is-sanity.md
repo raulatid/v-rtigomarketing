@@ -1,5 +1,7 @@
 # ADR 011 — The CMS is Sanity, and structure is not HTML
 
+> **Migrada (2026-10-20) →** [`contenido/sanity-y-proyeccion-groq.md`](../decisiones/contenido/sanity-y-proyeccion-groq.md), [`contenido/texto-estructurado.md`](../decisiones/contenido/texto-estructurado.md), [`contenido/medios-replicados.md`](../decisiones/contenido/medios-replicados.md), [`contenido/fallo-estricto-y-fuentes.md`](../decisiones/contenido/fallo-estricto-y-fuentes.md), [`contenido/limites-editoriales.md`](../decisiones/contenido/limites-editoriales.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-23
 Extends: `adr/010` (content is generated at build time — every guarantee it makes still holds)
 Amends: `DECISIONS.md` §27 (WordPress is the editorial source of truth — it is Sanity)
@@ -85,7 +87,7 @@ The consequence for the content model is a rule, not a warning: **a field must n
 
 **Two singleton invariants are enforced twice each,** for the same reason: Studio structure hides the "create another" button, and `audit` fails the build if a second document exists anyway. A restored backup or the HTTP API can produce one the Studio never showed anybody.
 
-**Historical WordPress documentation is superseded, not deleted.** `docs/content/wordpress-field-contract.md` carries a superseded header pointing at its replacements. The audit reports are dated snapshots and are untouched — an audit that is rewritten to match the present is an audit nobody can rely on.
+**Historical WordPress documentation is superseded, not deleted.** `docs/archivo/content/wordpress-field-contract.md` carries a superseded header pointing at its replacements. The audit reports are dated snapshots and are untouched — an audit that is rewritten to match the present is an audit nobody can rely on.
 
 ## How you would know it broke
 

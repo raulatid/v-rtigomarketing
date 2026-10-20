@@ -1,5 +1,7 @@
 # ADR 010 — Content is generated at build time, and scene composition is not content
 
+> **Migrada (2026-10-20) →** [`contenido/generado-en-build.md`](../decisiones/contenido/generado-en-build.md), [`contenido/fallo-estricto-y-fuentes.md`](../decisiones/contenido/fallo-estricto-y-fuentes.md), [`contenido/que-decide-el-editor.md`](../decisiones/contenido/que-decide-el-editor.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-20
 Amends: `DECISIONS.md` §18 (the logo is a CMS media URL — it is now a mirrored local path)
 Amends: `DECISIONS.md` §26.13 (`SATELLITES` named as "the single seam an API would replace")

@@ -22,10 +22,12 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 | Escena de la Tierra | migrada |
 | Interfaz y contenido (cabecera y menú, cursor, picking, vidrio, tipografías, datos de casos) | pendiente |
 | Consentimiento y legal | pendiente |
-| Contenido / CMS | pendiente |
+| Contenido / CMS | migrada |
 | Blog | migrada |
 | Render y gráficos (ADR 001, 002, 008) | pendiente |
 | Build y presupuestos | pendiente |
+
+Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), conservando su ruta relativa (`content/x.md` → `archivo/content/x.md`), y se actualizan los enlaces que apuntan a ellos.
 
 ## Decisiones
 
@@ -72,6 +74,17 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 - [Brújula](decisiones/murcia/brujula.md): rumbos en el suelo, blanca, sobre la cabecera, no es un control.
 - [Edificios interactivos](decisiones/murcia/edificios-interactivos.md): parpadeo y geotags.
 
+### Contenido y CMS
+- [Generado en build](decisiones/contenido/generado-en-build.md): el navegador nunca llama al CMS; emisión determinista y transaccional.
+- [Fallo estricto y fuentes](decisiones/contenido/fallo-estricto-y-fuentes.md): producción nombra su fuente; el seed está en retirada; el sello de versión alimenta «Estado de la web».
+- [Sanity y la proyección GROQ](decisiones/contenido/sanity-y-proyeccion-groq.md): una consulta por colección a la API en vivo; la proyección es el contrato.
+- [Texto estructurado](decisiones/contenido/texto-estructurado.md): Portable Text tipado; lo desconocido falla, salvo el bloque vacío.
+- [Medios replicados](decisiones/contenido/medios-replicados.md): lo que se dibuja se copia al despliegue; el blog se queda en la CDN.
+- [Qué decide el editor](decisiones/contenido/que-decide-el-editor.md): todo lo que pasa por Sanity, también lo visual; nunca código.
+- [Límites editoriales](decisiones/contenido/limites-editoriales.md): cada límite se escribe una vez; el Studio avisa antes y el build garantiza.
+- [Pantalla de la torre](decisiones/contenido/pantalla-de-la-torre.md): singleton con plantilla de huecos y límites medidos.
+- [Vista previa del Studio](decisiones/contenido/vista-previa-del-studio.md): reutiliza los componentes y el CSS del sitio; obliga a redesplegar el Studio; check pendiente.
+
 ### Blog
 - [El blog es un segundo documento](decisiones/blog/segundo-documento.md): `/blog` tiene su propio HTML, en frío no carga el 3D y `/` no precarga su chunk.
 - [Escena congelada](decisiones/blog/escena-congelada.md): con el blog abierto, `frameloop="never"` y `visibility: hidden`, nunca `display: none`.
@@ -87,6 +100,7 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 - [Transición y warp](trampas/transicion.md)
 - [Intro y arranque](trampas/intro.md)
 - [Escena de la Tierra](trampas/earth.md)
+- [Contenido y CMS](trampas/contenido.md)
 - [Blog](trampas/blog.md)
 
 ## Contratos
