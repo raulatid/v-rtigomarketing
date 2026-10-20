@@ -23,6 +23,7 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 | Interfaz y contenido (cabecera y menú, cursor, picking, vidrio, tipografías, datos de casos) | pendiente |
 | Consentimiento y legal | pendiente |
 | Contenido / CMS | pendiente |
+| Blog | migrada |
 | Render y gráficos (ADR 001, 002, 008) | pendiente |
 | Build y presupuestos | pendiente |
 
@@ -71,12 +72,22 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 - [Brújula](decisiones/murcia/brujula.md): rumbos en el suelo, blanca, sobre la cabecera, no es un control.
 - [Edificios interactivos](decisiones/murcia/edificios-interactivos.md): parpadeo y geotags.
 
+### Blog
+- [El blog es un segundo documento](decisiones/blog/segundo-documento.md): `/blog` tiene su propio HTML, en frío no carga el 3D y `/` no precarga su chunk.
+- [Escena congelada](decisiones/blog/escena-congelada.md): con el blog abierto, `frameloop="never"` y `visibility: hidden`, nunca `display: none`.
+- [Historial y salida](decisiones/blog/historial-y-salida.md): el anfitrión decide la salida; volver al índice deshace el historial, no empuja.
+- [Cabeceras prerenderizadas](decisiones/blog/cabeceras-prerenderizadas.md): un documento por entrada con la cabecera SEO, no el cuerpo; la transformación falla cerrada.
+- [Marca 3D en la cabecera](decisiones/blog/marca-3d-en-la-cabecera.md): el SVG primero, el 3D diferido; un segundo renderer fuera de la escena.
+- [Entrada por la pantalla](decisiones/blog/entrada-por-la-pantalla.md): pantalla sobre `edificio-blog`, la aproximación es la transición y la vuelta es el mismo vuelo.
+- [Captura de la página](decisiones/blog/captura-de-la-pagina.md): captura del blog construido o placa neutra; navegador confinado, sin sandbox solo en Vercel.
+
 ## Trampas
 
 - [Cámara y navegación de Murcia](trampas/murcia-camara.md)
 - [Transición y warp](trampas/transicion.md)
 - [Intro y arranque](trampas/intro.md)
 - [Escena de la Tierra](trampas/earth.md)
+- [Blog](trampas/blog.md)
 
 ## Contratos
 

@@ -1,5 +1,7 @@
 # ADR 013 — The blog is a second document, and the scene is frozen rather than left running
 
+> **Migrada (2026-10-20) →** [`blog/segundo-documento.md`](../decisiones/blog/segundo-documento.md), [`blog/escena-congelada.md`](../decisiones/blog/escena-congelada.md), [`blog/historial-y-salida.md`](../decisiones/blog/historial-y-salida.md), [`blog/cabeceras-prerenderizadas.md`](../decisiones/blog/cabeceras-prerenderizadas.md), [`blog/marca-3d-en-la-cabecera.md`](../decisiones/blog/marca-3d-en-la-cabecera.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-31
 Amended: **2026-09-04** — the blog's header draws the real 3D mark (see the amendment below)
 Supersedes: `adr/011` §"The blog is modelled and not rendered" — the schema now has a renderer
