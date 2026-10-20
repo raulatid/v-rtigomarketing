@@ -5,6 +5,7 @@ import type { AuditComposition } from '../interaction/auditComposition'
 import type { NavigationView } from '../interaction/navigationSignals'
 import { RefObject, useCallback, useRef, useState } from 'react'
 import { Canvas, extend, useFrame } from '@react-three/fiber'
+import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import { clampFrameDelta } from '../graphics/frameDelta'
 import { THREE_CATALOGUE } from '../graphics/threeCatalogue'
 import { EarthExperience } from '../experiences/earth/EarthExperience'
@@ -266,6 +267,12 @@ export function SceneCanvas({
         // is decided by the context attribute, and the context attribute is
         // not ours.
         alpha: false,
+        // R3F's own defaults, written out for the same reason as `dpr`: the
+        // blog's header mark (headerLogoRuntime.ts) copies them, and a default
+        // that moved under a dependency bump would part the two marks silently.
+        // R3F applies these props after its defaults, so they win.
+        toneMapping: ACESFilmicToneMapping,
+        outputColorSpace: SRGBColorSpace,
       }}
       onCreated={({ gl }) => {
         // A window probe for the e2e round trip, compiled out of production by the

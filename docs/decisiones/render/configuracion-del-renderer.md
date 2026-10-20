@@ -1,6 +1,6 @@
 # Configuración del renderer de la escena
 
-**Estado:** vigente · **Desde:** 2026-08-14 (`c5c90aa`: `dpr` y `alpha` explícitos); `offsetSize` desde el 2026-09-09 (`e2bef6c`); 1,5× en móviles probado y retirado el 2026-09-25 (`de3ac0e`, `3a758f5`) · **Sustituye a:** la fila «The renderer takes R3F's defaults» de «Superseded»
+**Estado:** vigente · **Desde:** 2026-08-14 (`c5c90aa`: `dpr` y `alpha` explícitos); `offsetSize` desde el 2026-09-09 (`e2bef6c`); 1,5× en móviles probado y retirado el 2026-09-25 (`de3ac0e`, `3a758f5`); tone mapping y espacio de color explícitos desde el 2026-10-20 · **Sustituye a:** la fila «The renderer takes R3F's defaults» de «Superseded»
 
 ## Decisión
 
@@ -8,7 +8,7 @@
 2. **La densidad de píxeles tiene el mismo límite en todos los dispositivos, móviles incluidos:** la prop `dpr` del `<Canvas>`, escrita aunque coincida con el valor por defecto de R3F, para que una actualización de la librería no la mueva sin avisar.
 3. **`antialias: true`.** Es el MSAA que conserva la ruta directa de Murcia (ver [el pipeline dibuja un contrato](el-pipeline-dibuja-un-contrato.md)).
 4. **`alpha: false` y `setClearColor` con el negro de la apertura** (el mismo que pinta `index.html`): nada se ve a través del canvas. three crea el contexto con `alpha: true` de todos modos, así que esto no ahorra composición del navegador; solo hace correcta la limpieza opaca.
-5. **El tone mapping (ACES Filmic) y la salida sRGB son el valor por defecto de R3F:** no se pasa `flat` ni `linear`. No hay exposición propia ni sombras.
+5. **El tone mapping (ACES Filmic) y la salida sRGB se escriben en el `gl` del Canvas,** aunque coinciden con el valor por defecto de R3F, para que una actualización no los mueva. R3F aplica esas props después de sus valores por defecto. No se pasa `flat` ni `linear`. No hay exposición propia ni sombras.
 6. **El canvas se mide con `resize={{ offsetSize: true }}`**, no con el rectángulo transformado, para que el menú del móvil, que inclina la escena, no redimensione el buffer de dibujo.
 7. **Se exige WebGL 2.** Se pregunta una vez antes de montar el Canvas (`isWebGLAvailable`); ver [fallos de WebGL](fallos-de-webgl.md).
 
@@ -21,10 +21,6 @@
 
 - **Limitar a 1,5× en móviles y tabletas** (`de3ac0e`): ahorraba alrededor de un 44 % de píxeles sombreados y de memoria de framebuffer, según su commit, pero el empobrecimiento se notaba. Retirado el mismo día (`3a758f5`).
 - Leer `alpha: false` como ahorro de composición.
-
-## Qué queda abierto
-
-- Escribir el tone mapping y el espacio de color de salida en el Canvas, como se hizo con `dpr`, para que dejen de depender del valor por defecto de R3F (y la marca del blog copie algo explícito). Es un cambio de código sin decidir.
 
 ## Se ha roto si…
 

@@ -34,7 +34,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 14. **El límite de densidad está copiado en cuatro sitios:** `dpr` en `SceneCanvas.tsx`, `setPixelRatio` en `headerLogoRuntime.ts`, `TEXTURE_SCALE` en `pageImage.ts` y `DEVICE_SCALE_FACTOR` en `scripts/blog-preview.mjs`. Si cambias uno, revisa los otros. Sin test.
 15. **`alpha: false` no ahorra composición del navegador:** three crea el contexto con `alpha: true` igualmente. No vuelvas a deducir un ahorro de esa línea.
-16. **El tone mapping y el espacio de color de la escena no están escritos en ningún sitio:** son el valor por defecto de R3F, y `headerLogoRuntime.ts` los copia a mano. Un `flat` o `linear` en el Canvas, o un cambio de R3F, separaría las dos marcas. Fija en parte: `e2e/backdrop.spec.ts`.
+16. **El tone mapping y el espacio de color de la escena están en el `gl` del Canvas, y `headerLogoRuntime.ts` los copia a mano.** Si cambias uno, cambia el otro: un `flat` o `linear` en el Canvas separaría las dos marcas. Fija en parte: `e2e/backdrop.spec.ts`.
 17. **El canvas se mide por `offsetSize`.** Con el valor por defecto de R3F, el rectángulo inclinado del menú del móvil entraría en `gl.setSize` → `composer.setSize` → `setViewport`. Fija: `e2e/mobile.spec.ts` («the burger hinges the scene away…»).
 
 ## Ya migradas en otras áreas
@@ -63,7 +63,3 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 - densidad de píxeles, `antialias` y las cuatro copias del límite;
 - separación de escenas y cámaras;
 - liberación de recursos al desmontar.
-
-## Posibles defectos
-
-- El tone mapping y el espacio de color implícitos (n.º 16) no son un defecto hoy, pero un cambio de valores por defecto de R3F desajustaría en silencio la marca del blog.

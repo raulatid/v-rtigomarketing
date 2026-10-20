@@ -168,8 +168,8 @@ function createInstance(): Instance | null {
     return null
   }
 
-  // R3F's Canvas sets both of these and nothing in `graphics/` overrides them,
-  // so the scene's mark is tone-mapped and this one must be too. three's own
+  // The scene's Canvas writes both of these explicitly (SceneCanvas.tsx, the
+  // `gl` prop), so the scene's mark is tone-mapped and this one must be too. three's own
   // defaults are NoToneMapping and SRGB — matching the second but not the first
   // would give the blog a visibly hotter logo than the site's.
   renderer.outputColorSpace = THREE.SRGBColorSpace
