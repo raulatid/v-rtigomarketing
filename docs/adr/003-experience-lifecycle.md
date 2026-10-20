@@ -1,5 +1,7 @@
 # ADR 003 — Experience Lifecycle
 
+> **Migrada (2026-10-20) →** [`transicion/ciclo-de-vida.md`](../decisiones/transicion/ciclo-de-vida.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-07
 
 ## Context

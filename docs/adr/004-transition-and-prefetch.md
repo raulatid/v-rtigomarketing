@@ -1,5 +1,7 @@
 # ADR 004 — Transition and Prefetch
 
+> **Migrada (2026-10-20) →** [`transicion/precarga-de-murcia.md`](../decisiones/transicion/precarga-de-murcia.md), [`transicion/corte-bajo-destello.md`](../decisiones/transicion/corte-bajo-destello.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-07
 
 ## Context

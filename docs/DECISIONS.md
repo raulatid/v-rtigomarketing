@@ -111,6 +111,8 @@ permanently.
 
 ## 4. Both experiences stay mounted; nothing is destroyed at a transition
 
+> **Migrada (2026-10-20) →** [`transicion/ciclo-de-vida.md`](decisiones/transicion/ciclo-de-vida.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 → **`adr/003-experience-lifecycle.md`**
 
 **Decided.** `activate`/`deactivate` is a boolean, not a lifecycle phase. Deactivated means
@@ -129,6 +131,8 @@ exact moment the viewer is watching.
 
 ## 5. The transition never waits
 
+> **Migrada (2026-10-20) →** [`transicion/precarga-de-murcia.md`](decisiones/transicion/precarga-de-murcia.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 → **`adr/004-transition-and-prefetch.md`**
 
 **Decided.** Murcia is fetched, parsed and GPU-warmed **during the Earth intro**, as a
@@ -146,6 +150,8 @@ transition frame is exactly the hitch this avoids.
 
 ## 6. Nothing ever cross-fades
 
+> **Migrada (2026-10-20) →** [`transicion/corte-bajo-destello.md`](decisiones/transicion/corte-bajo-destello.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 **Inherited and upheld** — from the Earth prototype, which called it "the single most important
 visual principle in the project". The mechanism at the 2D→3D crossover is **§26.8**.
 
@@ -158,6 +164,8 @@ one scene is ever drawn, so there is no frame that renders both worlds.
 ---
 
 ## 7. The Earth ⇄ Murcia transition is the intro's warp, and it knows which way it is going
+
+> **Migrada (2026-10-20) →** [`transicion/warp.md`](decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 → **`adr/005-warp-transition.md`**, amended by **`adr/006-the-return-is-an-ascent.md`**
 
@@ -193,6 +201,8 @@ no distance bound tells them apart.
 ---
 
 ## 8. Each experience moves its own camera
+
+> **Migrada (2026-10-20) →** [`transicion/warp.md`](decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided.** The transition publishes `state.transitionProgress` and fires the swap. It
 drives no camera. Earth and Murcia each read that number and move their own.
@@ -3366,7 +3376,7 @@ clearing `data-visible` when `active` goes false.
 
 ## 44. Murcia is navigated by one pointer carrying both axes, over a spring
 
-> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/sensacion-de-camara.md`](decisiones/murcia/sensacion-de-camara.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md), [`murcia/brujula.md`](decisiones/murcia/brujula.md), [`murcia/edificios-interactivos.md`](decisiones/murcia/edificios-interactivos.md), [`navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** «The vacuum» (bloque transición/warp) y la salida de Earth hacia España con el final de la banda sobre los satélites (bloque Earth).
+> **Migrada (2026-10-20) →** [`murcia/modelo-de-entrada.md`](decisiones/murcia/modelo-de-entrada.md), [`murcia/sensacion-de-camara.md`](decisiones/murcia/sensacion-de-camara.md), [`murcia/limites-de-camara.md`](decisiones/murcia/limites-de-camara.md), [`murcia/pose-de-reposo.md`](decisiones/murcia/pose-de-reposo.md), [`murcia/brujula.md`](decisiones/murcia/brujula.md), [`murcia/edificios-interactivos.md`](decisiones/murcia/edificios-interactivos.md), [`navegacion/banda-de-zoom-y-commit.md`](decisiones/navegacion/banda-de-zoom-y-commit.md), [`transicion/vacio.md`](decisiones/transicion/vacio.md), [`transicion/giro-de-earth-hacia-espana.md`](decisiones/transicion/giro-de-earth-hacia-espana.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo. **Sin migrar todavía:** «And the band ends above the satellites» (bloque Earth).
 
 **2026-09-10.** Ported from `prototypes/vertigo-lab`, experiment
 `camera-navigation`. Replaces **§20** and its amendments **§21** and **§38**,
@@ -3959,6 +3969,8 @@ a preload loses `crossorigin`; or a facade text block type is added without choo
 `facadeRenderer.ts`.
 
 ## 48. The music crossfades; the picture still cuts
+
+> **Migrada (2026-10-20) →** [`transicion/musica.md`](decisiones/transicion/musica.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
 
 **Decided 2026-09-11,** on client direction. There is background music: one loop for Earth and
 one for Murcia. It starts when Earth is whole, and the warp crossfades from one track to the

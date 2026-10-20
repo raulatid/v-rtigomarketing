@@ -1,5 +1,7 @@
 # ADR 005 — The Earth ⇄ Murcia Warp
 
+> **Migrada (2026-10-20) →** [`transicion/warp.md`](../decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-07, **amended 2026-09-04 by `adr/014`**
 Amends: ADR 001 (Murcia's composer bypass), for the duration of a transition only
 

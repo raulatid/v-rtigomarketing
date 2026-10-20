@@ -1,5 +1,7 @@
 # ADR 006 — The return is an ascent
 
+> **Migrada (2026-10-20) →** [`transicion/warp.md`](../decisiones/transicion/warp.md). Este texto es historia y puede contradecir el código; la fuente válida es el archivo nuevo.
+
 Status: **Accepted** — 2026-08-07, **extended 2026-09-04 by `adr/014`**
 Amends: ADR 005 (the symmetric dolly, and "the number that can hurt you" as a *distance*)
 

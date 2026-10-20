@@ -17,7 +17,7 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 | Área | Estado |
 |---|---|
 | Cámara y navegación de Murcia | migrada |
-| Transición / warp | pendiente |
+| Transición / warp | migrada |
 | Earth | pendiente |
 | Contenido / CMS | pendiente |
 | Build y presupuestos | pendiente |
@@ -26,6 +26,15 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 
 ### Navegación entre mundos
 - [Banda de zoom y commit](decisiones/navegacion/banda-de-zoom-y-commit.md): ambos mundos comparten banda; la rueda hace commit al final, el dedo con un pellizco nuevo desde el final; dos dedos solo son pellizco.
+
+### Transición y warp
+- [Ciclo de vida](decisiones/transicion/ciclo-de-vida.md): ambos mundos siempre montados; desactivar es congelar. Earth vuelve a la vista general.
+- [Precarga de Murcia](decisiones/transicion/precarga-de-murcia.md): bytes durante la apertura, construcción y precalentado en `site`.
+- [Corte bajo destello](decisiones/transicion/corte-bajo-destello.md): nada hace fundido cruzado; el corte cae bajo el pico del destello.
+- [Warp](decisiones/transicion/warp.md): un progreso y tres curvas; cada mundo mueve su cámara; salir de Murcia es subir.
+- [Giro de Earth hacia España](decisiones/transicion/giro-de-earth-hacia-espana.md): fase fija después del commit.
+- [Vacío](decisiones/transicion/vacio.md): pase de pantalla al salir de Murcia, nunca un aumento de FOV.
+- [Música](decisiones/transicion/musica.md): la música hace fundido cruzado; la imagen no.
 
 ### Murcia
 - [Pose de reposo](decisiones/murcia/pose-de-reposo.md): todos los hitos en plano al aterrizar.
@@ -38,6 +47,7 @@ La documentación anterior (`DECISIONS.md`, `PROJECT_MEMORY.md`, `ARCHITECTURE.m
 ## Trampas
 
 - [Cámara y navegación de Murcia](trampas/murcia-camara.md)
+- [Transición y warp](trampas/transicion.md)
 
 ## Contratos
 
