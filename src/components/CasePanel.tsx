@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import { CaseChart } from './CaseChart'
 import { countsUp, metricAt } from './metricCount'
-import { prefersReducedMotion } from '../platform/motionPreference'
 import { attachSheetDrag } from '../interaction/sheetDrag'
 import { caseSheetLayout } from '../interaction/caseSheetLayout'
 import { CASE_PANEL_DOCK_MIN_WIDTH, CASE_PANEL_DOCK_MIN_HEIGHT } from '../experiences/earth/camera/closeUpFraming'
@@ -40,7 +39,7 @@ function MetricValue({ value, play }: { value: string; play: boolean }) {
     const count = countRef.current
     if (!count) return
     count.textContent = value
-    if (!play || !countsUp(value) || prefersReducedMotion()) return
+    if (!play || !countsUp(value)) return
     count.textContent = metricAt(value, 0)
     const start = performance.now() + METRIC_COUNT_DELAY_MS
     let frame = 0

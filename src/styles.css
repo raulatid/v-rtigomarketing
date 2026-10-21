@@ -443,12 +443,6 @@ html {
   border-radius: 4px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .case-panel__next-arrow {
-    transition: none;
-  }
-}
-
 /* ---- Case panel charts (see CaseChart.tsx) ---- */
 
 .case-chart {
@@ -654,16 +648,6 @@ html {
 
 .case-panel.is-visible .case-chart__legend li {
   animation: case-chart-slide 420ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--case-chart-start) + var(--i) * 80ms + 120ms) both;
-}
-
-/* Decoration of an arrival, not a state change, so it is removed rather than
-   shortened: the panel's own fade (shortened below) is the state change, and
-   the count-up stands down in JS through `prefersReducedMotion`. */
-@media (prefers-reduced-motion: reduce) {
-  .case-panel.is-visible .case-panel__body > *,
-  .case-panel.is-visible .case-chart * {
-    animation: none;
-  }
 }
 
 /* The sheet's grip. Hidden wherever the panel is a dock — it is a control for
@@ -963,19 +947,6 @@ html {
   .case-panel__description,
   .case-panel__details {
     min-height: 0;
-  }
-}
-
-/* The stop change is a state change, so it is shortened rather than deleted —
-   the same distinction murcia.css draws. Without a transition at all the sheet
-   would jump between stops with nothing connecting the two. */
-@media (prefers-reduced-motion: reduce) {
-  .case-panel {
-    transition-duration: 0.01ms;
-    /* The exit's `visibility 0s linear 340ms` is a DELAY, which a duration
-       override does not touch — left alone it would hold a fully transparent
-       panel in the tree for a third of a second after every close. */
-    transition-delay: 0ms;
   }
 }
 

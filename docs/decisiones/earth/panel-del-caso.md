@@ -10,7 +10,7 @@
 4. **La cámara nunca se reencuadra por la hoja.**
 5. **El contenido llega por bloques al abrir cada caso:** título, meta, métricas, resumen, detalles, gráfica y siguiente paso, con 55 ms entre uno y otro (`case-reveal` en `styles.css`). El cuerpo lleva como `key` el id del caso, así que la entrada se repite al cambiar de satélite con el panel abierto, y no al cerrarlo.
 6. **Cada métrica cuenta hasta su valor** en unos 900 ms con frenada final (`MetricValue` en `CasePanel.tsx`). Solo cuenta el primer número del texto editorial y conserva su notación: signo, unidad, decimales y separadores (`metricCount.ts`). Un valor sin número aparece tal cual. La copia escrita, transparente, fija el tamaño de la tarjeta y es la que oye el lector de pantalla.
-7. **Con movimiento reducido no hay cascada ni conteo:** se ve el resultado y solo queda el fundido del panel, acortado.
+7. **El panel no atiende al movimiento reducido** (desde el 2026-10-21): la cascada, el conteo, las gráficas, el fundido del panel y la flecha del siguiente paso se animan igual para todos. Es texto y datos que llegan una vez, sin bucles ni desplazamientos grandes, y la versión reducida no aportaba nada y dejaba saltos visuales.
 
 ## Por qué
 

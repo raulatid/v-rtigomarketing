@@ -7,9 +7,6 @@ import fixtures from '../../content/fixtures/caseStudy.json'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import type { CaseStudy } from '../content/types'
 
-const motion = vi.hoisted(() => ({ reduced: false }))
-vi.mock('../platform/motionPreference', () => ({ prefersReducedMotion: () => motion.reduced }))
-
 // The case's next step: the panel ends with a doorway into the audit when it
 // is given one, and renders no dead link when it is not.
 
@@ -238,10 +235,6 @@ describe('the metric count-up', () => {
     vi.stubGlobal('cancelAnimationFrame', () => {})
   })
 
-  afterEach(() => {
-    motion.reduced = false
-  })
-
   const written = () => container.querySelector('.case-panel__metric-written')!
   const count = () => container.querySelector('.case-panel__metric-count')!
   // Runs the queued frames at `now`, keeping only the ones they queue next.
@@ -263,12 +256,6 @@ describe('the metric count-up', () => {
   it('shows the result at once when the case closes mid-count', () => {
     act(() => root.render(<CasePanel data={one} onClose={() => {}} />))
     act(() => root.render(<CasePanel data={null} onClose={() => {}} />))
-    expect(count().textContent).toBe('+38%')
-  })
-
-  it('does not count under reduced motion', () => {
-    motion.reduced = true
-    act(() => root.render(<CasePanel data={one} onClose={() => {}} />))
     expect(count().textContent).toBe('+38%')
   })
 })
