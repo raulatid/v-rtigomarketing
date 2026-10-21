@@ -49,7 +49,6 @@ import { createPoiMarkers, type PoiMarkers, type PoiSite } from './pointsOfInter
 import { PoiInteraction } from './pointsOfInterest/poiInteraction';
 import type { PoiId } from './pointsOfInterest/poiConfig';
 import { createTowerTargets, type TowerTargets } from './landmark/towerTargets';
-import { createTowerFocus, type TowerFocus } from './landmark/towerFocus';
 import { CAMPUS_BUILDING_NODE_NAMES } from './campus/campusConfig';
 import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
@@ -189,10 +188,8 @@ export class MurciaExperience {
   /** A dot on every place that answers a click, and its name. See `pointsOfInterest/`. */
   private poiMarkers: PoiMarkers | null = null;
   private poiInteraction: PoiInteraction | null = null;
-  /** The tower's screen and base, as the places Anuncios and Conócenos point at. */
+  /** The tower's base, as the place Conócenos points at. */
   private towerTargets: TowerTargets | null = null;
-  /** Anuncios: the flight to stand in front of the tower's screen. Null without a screen. */
-  private towerFocus: TowerFocus | null = null;
   /**
    * The city was just arrived in — from Earth, or back from the blog — and its
    * places have not been named yet. Consumed by the first frame no cinematic
@@ -493,7 +490,6 @@ export class MurciaExperience {
     const hiddenAtBirth = [
       ...(this.campus?.precompileTargets ?? []),
       ...(this.blogDisplay?.precompileTargets ?? []),
-      ...(this.towerTargets?.precompileTargets ?? []),
     ];
 
     // One zero-length tick first, so the campus's strip paints its canvas and
@@ -687,7 +683,7 @@ export class MurciaExperience {
    * went inert as the pointer crossed a district would flicker.
    */
   get hasFocusedDistrict(): boolean {
-    return (this.campus?.isEngaged ?? false) || (this.towerFocus?.isEngaged ?? false);
+    return this.campus?.isEngaged ?? false;
   }
 
   /**
@@ -1009,10 +1005,9 @@ export class MurciaExperience {
       screenNodeName: VERTIGO_BUILDING.screenNodeName,
       screenUvChannel: VERTIGO_BUILDING.screenUvChannel,
     });
-    // After the screen, which recolours the tower and moves the screen's UVs;
-    // before `warm()`, so the screen's highlight compiles with the city.
+    // After the screen, which recolours the tower's parts; before `warm()`, so
+    // the base's highlight compiles with the city.
     this.towerTargets = createTowerTargets(loaded.root, VERTIGO_BUILDING);
-    this.setupTowerFocus();
     this.setupPointsOfInterest(loaded.root);
     // Every rest is reported alike and nothing is shown: whether a rest means
     // anything is decided by `/api/view`, and the browser never learns it.
@@ -1233,13 +1228,6 @@ export class MurciaExperience {
       sites.push({ id: 'servicios', anchor: (out) => out.copy(campusTop), hovered: () => campus.hovered });
     }
     const tower = this.towerTargets;
-    if (tower?.screen) {
-      sites.push({
-        id: 'anuncios',
-        anchor: (out) => tower.screenAnchor(out),
-        hovered: () => this.poiInteraction?.screenHovered ?? false,
-      });
-    }
     if (tower?.base) {
       sites.push({
         id: 'conocenos',
@@ -1260,10 +1248,9 @@ export class MurciaExperience {
         touch: this.environment.navigation.touchDragThresholdPx,
       },
       markers: this.poiMarkers,
-      tower: tower ?? { screen: null, base: null, setScreenHover() {}, setBaseHover() {} },
+      tower: tower ?? { base: null, setBaseHover() {} },
       available: () => this.isCityOverview,
       activate: (id) => this.activatePointOfInterest(id),
-      focus: this.towerFocus ?? undefined,
     });
     // Seeded for the campus's reason: built during the Earth intro.
     this.poiInteraction.setEnabled(this.active);
@@ -1278,51 +1265,6 @@ export class MurciaExperience {
     if (!this.isCityOverview) return;
     if (id === 'blog') this.flyToBlog();
     else if (id === 'servicios') this.campus?.enter();
-    else if (id === 'anuncios') this.towerFocus?.enter();
-  }
-
-  /**
-   * Anuncios: a flight to stand square in front of the tower's screen, under
-   * the rig's `'tower'` claim, and back.
-   *
-   * Hands the camera back the way the blog's approach does — adopt what the
-   * flight left, then release — and then lands any pose a resize deferred
-   * while it held the camera, as the campus's return does.
-   */
-  private setupTowerFocus(): void {
-    const frame = this.towerTargets?.screenFrame;
-    const rig = this.rig;
-    if (!frame || !rig) return;
-    this.towerFocus = createTowerFocus({
-      camera: this.camera,
-      frame,
-      reducedMotion: this.reducedMotion,
-      host: {
-        claim: () => {
-          if (rig.isOwned) return false;
-          rig.claim('tower');
-          return true;
-        },
-        release: () => {
-          if (!rig.hasClaim('tower')) return;
-          rig.adoptFromCamera();
-          rig.release('tower');
-          this.applyDeferredPose();
-        },
-      },
-      onEngagedChange: () => this.onAttentionChange?.(),
-    });
-    this.towerFocus.setViewport(this.viewport.aspect);
-
-    if (this.debugTools) {
-      const focus = this.towerFocus;
-      (window as unknown as Record<string, unknown>).__vertigoTower = {
-        enter: () => focus.enter(),
-        exit: () => focus.exit(),
-        engaged: () => focus.isEngaged,
-        held: () => focus.isHeld,
-      };
-    }
   }
 
   /**
@@ -1406,7 +1348,6 @@ export class MurciaExperience {
    */
   releaseFocusedDistrict(): void {
     this.campus?.releaseFocus();
-    this.towerFocus?.exit();
   }
 
   /**
@@ -1491,9 +1432,8 @@ export class MurciaExperience {
       // Unless the campus holds the camera: `setPose` places the camera, and
       // the campus is flying it. The pose waits for the hand-back.
       const pose = resolveCameraPose(this.environment, size.aspect);
-      if (this.campus?.holdsCamera || this.towerFocus?.isEngaged) this.deferredPose = pose;
+      if (this.campus?.holdsCamera) this.deferredPose = pose;
       else this.rig.setPose(pose);
-      this.towerFocus?.setViewport(size.aspect);
       this.publishZoomTargets();
       this.cameraInput?.setViewport(size.width, size.height);
       if (this.debug.hasBoundsHelper) {
@@ -1583,10 +1523,6 @@ export class MurciaExperience {
     // own quaternion at a solved distance and the rig fixes elevation.
     this.blogDisplay?.update(delta);
 
-    // Anuncios' flight, for the campus's reason: it writes the camera in its
-    // own update, and the ladder below only has to keep the springs off it.
-    this.towerFocus?.update(delta);
-
     // ONE OWNER PER FRAME (§9), and this switch is the enforcement.
     //
     // Four things can move this camera and exactly one of them writes per frame.
@@ -1600,8 +1536,7 @@ export class MurciaExperience {
     //   1. the blog approach, which flew the camera off the rig entirely
     //   2. the cinematic, which writes the pose directly with springs frozen
     //   3. the campus, which has already written the camera this frame
-    //   4. the tower's screen (Anuncios), which has too
-    //   5. nobody — the springs run and write the pose
+    //   4. nobody — the springs run and write the pose
     //
     // PRECEDENCE LIVES HERE, and membership lives on the rig. The rig holds a
     // set of claims and attaches no order to the names in it; this ladder is
@@ -1622,12 +1557,10 @@ export class MurciaExperience {
     } else if (this.rig?.hasClaim('campus')) {
       // The campus's flight already wrote the camera this frame, in its own
       // update — directly, like the blog's, and `adoptFromCamera` hands it back.
-    } else if (this.rig?.hasClaim('tower')) {
-      // Likewise Anuncios: written above, handed back by `adoptFromCamera`.
     } else if (this.rig?.isOwned) {
-      // Held under a name this ladder does not place. Unreachable while every
-      // claim has its rung, and it is here so that adding another fails by
-      // freezing the camera rather than by silently stepping springs
+      // Held under a name this ladder does not place. Unreachable while the
+      // four claims are the only four, and it is here so that adding a fifth
+      // fails by freezing the camera rather than by silently stepping springs
       // underneath whoever is flying it.
     } else {
       this.rig?.update(delta);
@@ -1768,7 +1701,6 @@ export class MurciaExperience {
     this.poiMarkers = null;
     this.towerTargets?.dispose();
     this.towerTargets = null;
-    this.towerFocus = null;
     this.cameraInput?.dispose();
     this.cameraInput = null;
     this.cameraTuning = null;

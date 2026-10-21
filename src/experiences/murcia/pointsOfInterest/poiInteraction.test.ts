@@ -6,8 +6,8 @@ import type { PoiId } from './poiConfig'
 import type { CursorManager } from '../../../interaction/cursorManager'
 
 // The points of interest's pointer. The dots are a stand-in that answers
-// `dotAt` from a fixed table; the tower's screen and base are real meshes, so a
-// tap on them is a real raycast.
+// `dotAt` from a fixed table; the tower's base is a real mesh, so a mouse over
+// it is a real raycast.
 
 const WIDTH = 1600
 const HEIGHT = 900
@@ -24,12 +24,9 @@ function makeFixture() {
   camera.lookAt(0, 20, 0)
   camera.updateMatrixWorld(true)
 
-  // The screen up the tower, the base at its foot.
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(10, 20), new THREE.MeshBasicMaterial())
-  screen.position.set(0, 30, 0)
+  // The base at the tower's foot.
   const base = new THREE.Mesh(new THREE.PlaneGeometry(10, 6), new THREE.MeshBasicMaterial())
   base.position.set(0, 3, 0)
-  screen.updateMatrixWorld(true)
   base.updateMatrixWorld(true)
   const toClient = (world: THREE.Vector3) => {
     const p = world.clone().project(camera)
@@ -47,11 +44,10 @@ function makeFixture() {
     }),
     setPointed: vi.fn(),
   }
-  const tower = { screen, base, setScreenHover: vi.fn(), setBaseHover: vi.fn() }
+  const tower = { base, setBaseHover: vi.fn() }
   const cursor = { request: vi.fn() }
   const activate = vi.fn()
   const state = { available: true, dragging: false }
-  const focus = { isEngaged: false, exit: vi.fn() }
 
   const interaction = new PoiInteraction({
     canvas,
@@ -63,7 +59,6 @@ function makeFixture() {
     tower,
     available: () => state.available,
     activate,
-    focus,
   })
 
   const event = (type: string, x: number, y: number, pointerType = 'mouse') =>
@@ -78,8 +73,7 @@ function makeFixture() {
   }
 
   return {
-    interaction, canvas, markers, tower, cursor, activate, state, focus, tap, event, hover,
-    screenPoint: toClient(new THREE.Vector3(0, 30, 0)),
+    interaction, canvas, markers, tower, cursor, activate, state, tap, event, hover,
     basePoint: toClient(new THREE.Vector3(0, 3, 0)),
     dots,
   }
@@ -110,21 +104,21 @@ describe('the points of interest pointer', () => {
     expect(fixture.activate).not.toHaveBeenCalled()
   })
 
-  it('tells the tower screen from its base, and lights the one under the mouse', () => {
+  it('lights the tower base under the mouse, and promises it no click', () => {
     fixture = makeFixture()
-    const { screenPoint, basePoint } = fixture
-    expect(fixture.interaction.surfaceAt(screenPoint.x, screenPoint.y)).toBe('anuncios')
-    expect(fixture.interaction.surfaceAt(basePoint.x, basePoint.y)).toBe('conocenos')
+    const { basePoint } = fixture
+    expect(fixture.interaction.baseAt(basePoint.x, basePoint.y)).toBe(true)
 
     fixture.hover(basePoint.x, basePoint.y)
     expect(fixture.interaction.baseHovered).toBe(true)
     expect(fixture.tower.setBaseHover).toHaveBeenLastCalledWith(true)
     // Conócenos has nowhere to go yet, so the cursor does not promise one.
     expect(fixture.cursor.request).not.toHaveBeenCalledWith('marker:poi', 'pointer')
+    fixture.tap(basePoint.x, basePoint.y)
+    expect(fixture.activate).not.toHaveBeenCalled()
 
-    fixture.hover(screenPoint.x, screenPoint.y)
-    expect(fixture.interaction.screenHovered).toBe(true)
-    expect(fixture.tower.setScreenHover).toHaveBeenLastCalledWith(true)
+    fixture.hover(800, 800)
+    expect(fixture.interaction.baseHovered).toBe(false)
     expect(fixture.tower.setBaseHover).toHaveBeenLastCalledWith(false)
   })
 
@@ -145,38 +139,5 @@ describe('the points of interest pointer', () => {
     fixture.interaction.update()
     expect(fixture.markers.setPointed).toHaveBeenLastCalledWith(null)
     expect(fixture.cursor.request).toHaveBeenLastCalledWith('marker:poi', '')
-  })
-})
-
-describe('the way out from in front of the screen', () => {
-  const key = (k: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }))
-
-  it('leaves on Escape, and Escape does nothing otherwise', () => {
-    fixture = makeFixture()
-    key('Escape')
-    expect(fixture.focus.exit).not.toHaveBeenCalled()
-    fixture.focus.isEngaged = true
-    key('Escape')
-    expect(fixture.focus.exit).toHaveBeenCalledTimes(1)
-  })
-
-  it('leaves on a tap anywhere but the screen, and a tap on the screen stays', () => {
-    fixture = makeFixture()
-    fixture.focus.isEngaged = true
-    fixture.state.available = false
-    fixture.tap(fixture.screenPoint.x, fixture.screenPoint.y)
-    expect(fixture.focus.exit).not.toHaveBeenCalled()
-    fixture.tap(1500, 850)
-    expect(fixture.focus.exit).toHaveBeenCalledTimes(1)
-    // Nothing else answers while the screen holds the camera.
-    expect(fixture.activate).not.toHaveBeenCalled()
-  })
-
-  it('does not take a pan for a way out', () => {
-    fixture = makeFixture()
-    fixture.focus.isEngaged = true
-    fixture.event('pointerdown', 1500, 850)
-    fixture.event('pointerup', 1400, 850)
-    expect(fixture.focus.exit).not.toHaveBeenCalled()
   })
 })

@@ -1,5 +1,5 @@
 /**
- * The city's four points of interest: what can be clicked, said from anywhere.
+ * The city's points of interest: what can be clicked, said from anywhere.
  *
  * Viewers kept reporting that they could not tell which buildings answered a
  * click. A hover tint only speaks to a pointer already there, and the idle
@@ -9,7 +9,7 @@
  *
  * Order is the order the labels arrive in.
  */
-export type PoiId = 'blog' | 'servicios' | 'anuncios' | 'conocenos';
+export type PoiId = 'blog' | 'servicios' | 'conocenos';
 
 export interface PoiDefinition {
   readonly id: PoiId;
@@ -21,7 +21,6 @@ export interface PoiDefinition {
 export const POI_DEFINITIONS: readonly PoiDefinition[] = [
   { id: 'blog', label: 'Blog', clickable: true },
   { id: 'servicios', label: 'Servicios', clickable: true },
-  { id: 'anuncios', label: 'Anuncios', clickable: true },
   // About us has no page yet: the base lights and names itself, and a click
   // there is not promised anything.
   { id: 'conocenos', label: 'Conócenos', clickable: false },

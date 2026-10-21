@@ -4,8 +4,8 @@ import { clientToNdc } from '../../../interaction/screenSpace';
 import { POI_DEFINITIONS, type PoiId } from './poiConfig';
 
 /**
- * The canvas's pointer for the points of interest: the four dots, and the
- * tower's two surfaces that have no listener of their own.
+ * The canvas's pointer for the points of interest: the dots, and the tower's
+ * base, which has no listener of its own.
  *
  * Written the way `CampusInteraction` is — one listener set, an `enabled`
  * gate, a press ledger against the pan's own thresholds per pointer type, a
@@ -15,8 +15,8 @@ import { POI_DEFINITIONS, type PoiId } from './poiConfig';
  * ## What it owns, and what it does not
  *
  * The dots are drawn by `poiMarkers.ts` and asked where they are (`dotAt`).
- * The tower's screen and base are raycast here, because nothing else in the
- * city listens for them. The blog's panel and the campus keep their own
+ * The tower's base is raycast here, because nothing else in the city listens
+ * for it, and only for its hover: it has nowhere to go yet. The blog's panel and the campus keep their own
  * listeners (trap: blog #17, never two over one object): a tap on the BLOG or
  * SERVICIOS dot is handed to the host as an intent, and the host routes it
  * into the entry those places already have, which refuses a camera already
@@ -25,18 +25,10 @@ import { POI_DEFINITIONS, type PoiId } from './poiConfig';
  *
  * A dot is nearer the eye than any surface: it is drawn over everything, so a
  * tap that lands on one is the dot's, whatever is behind it.
- *
- * ## In front of the screen
- *
- * While Anuncios holds the camera (`landmark/towerFocus.ts`) the dots are gone
- * and this is the way out: Escape, or a clean tap anywhere but the screen. A
- * tap ON the screen is someone looking closer, not leaving.
  */
 
 export interface PoiTower {
-  readonly screen: THREE.Object3D | null;
   readonly base: THREE.Object3D | null;
-  setScreenHover(on: boolean): void;
   setBaseHover(on: boolean): void;
 }
 
@@ -53,18 +45,10 @@ export interface PoiInteractionDeps {
     setPointed(id: PoiId | null): void;
   };
   tower: PoiTower;
-  /** The city's overview is showing: the only time a dot or the tower answers. */
+  /** The city's overview is showing: the only time a dot or the base answers. */
   available(): boolean;
   /** A clickable point of interest was tapped. */
   activate(id: PoiId): void;
-  /** Anuncios, while it holds the camera. */
-  focus?: { readonly isEngaged: boolean; exit(): void };
-}
-
-/** Keys typed into a field are the field's, whatever the scene is doing. */
-function isEditable(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
 }
 
 const CLICKABLE = new Set(POI_DEFINITIONS.filter((definition) => definition.clickable).map((d) => d.id));
@@ -75,22 +59,20 @@ export class PoiInteraction {
   private readonly hits: THREE.Intersection[] = [];
   private readonly ndc = new THREE.Vector2();
   private readonly hoverSupported: boolean;
-  private readonly surfaces: THREE.Object3D[];
 
   private enabled = true;
   private hoverDirty = false;
   private pointerX = 0;
   private pointerY = 0;
   private pointed: PoiId | null = null;
-  /** Which tower surface the mouse is over, by surface rather than by dot. */
-  private surface: 'anuncios' | 'conocenos' | null = null;
+  /** The mouse is over the tower's base itself, rather than its dot. */
+  private overBase = false;
   private cursorShown = false;
 
   private press: { id: number; x: number; y: number; touch: boolean } | null = null;
 
   constructor(deps: PoiInteractionDeps) {
     this.deps = deps;
-    this.surfaces = [deps.tower.screen, deps.tower.base].filter((object): object is THREE.Object3D => object !== null);
     this.hoverSupported =
       typeof window.matchMedia !== 'function' || !window.matchMedia('(hover: none)').matches;
 
@@ -98,19 +80,13 @@ export class PoiInteraction {
     deps.canvas.addEventListener('pointermove', this.onPointerMove);
     deps.canvas.addEventListener('pointerup', this.onPointerUp);
     deps.canvas.addEventListener('pointercancel', this.onPointerCancel);
-    window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('pointerup', this.onWindowPointerRelease, { capture: true, passive: true });
     window.addEventListener('pointercancel', this.onWindowPointerRelease, { capture: true, passive: true });
   }
 
-  /** A mouse is over the tower's screen itself. */
-  get screenHovered(): boolean {
-    return this.surface === 'anuncios';
-  }
-
   /** A mouse is over the tower's base itself. */
   get baseHovered(): boolean {
-    return this.surface === 'conocenos';
+    return this.overBase;
   }
 
   /** Input gate, for while Earth is showing. */
@@ -119,23 +95,21 @@ export class PoiInteraction {
     if (!next) {
       this.press = null;
       this.hoverDirty = false;
-      this.setHover(null, null);
+      this.setHover(null, false);
     }
   }
 
-  /** The tower surface under a client point, nearest first. */
-  surfaceAt(clientX: number, clientY: number): 'anuncios' | 'conocenos' | null {
-    if (this.surfaces.length === 0) return null;
+  /** Whether a client point lands on the tower's base. */
+  baseAt(clientX: number, clientY: number): boolean {
+    const base = this.deps.tower.base;
+    if (!base) return false;
     const rect = this.deps.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return null;
+    if (rect.width === 0 || rect.height === 0) return false;
     clientToNdc(rect, clientX, clientY, this.ndc);
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
     this.hits.length = 0;
-    // Not recursive: the screen's highlight shell is its child.
-    this.raycaster.intersectObjects(this.surfaces, false, this.hits);
-    const hit = this.hits[0];
-    if (!hit) return null;
-    return hit.object === this.deps.tower.screen ? 'anuncios' : 'conocenos';
+    this.raycaster.intersectObject(base, false, this.hits);
+    return this.hits.length > 0;
   }
 
   /** One hover resolve at most a frame. Also stands the hover down when the overview goes. */
@@ -143,28 +117,26 @@ export class PoiInteraction {
     if (!this.enabled) return;
     if (!this.deps.available() || this.deps.isDragging()) {
       this.hoverDirty = false;
-      this.setHover(null, null);
+      this.setHover(null, false);
       return;
     }
     if (!this.hoverDirty) return;
     this.hoverDirty = false;
     if (!this.hoverSupported) return;
     const dot = this.deps.markers.dotAt(this.pointerX, this.pointerY, false);
-    this.setHover(dot, dot ? null : this.surfaceAt(this.pointerX, this.pointerY));
+    this.setHover(dot, dot === null && this.baseAt(this.pointerX, this.pointerY));
   }
 
-  private setHover(dot: PoiId | null, surface: 'anuncios' | 'conocenos' | null): void {
+  private setHover(dot: PoiId | null, overBase: boolean): void {
     if (dot !== this.pointed) {
       this.pointed = dot;
       this.deps.markers.setPointed(dot);
     }
-    this.surface = surface;
-    // The tower's tints answer the dot and the surface alike: what lights is
-    // the place the dot names.
-    this.deps.tower.setScreenHover(dot === 'anuncios' || surface === 'anuncios');
-    this.deps.tower.setBaseHover(dot === 'conocenos' || surface === 'conocenos');
-    const target = dot ?? surface;
-    const cursor = target !== null && CLICKABLE.has(target);
+    this.overBase = overBase;
+    // The base's tint answers its dot and the glass alike: what lights is the
+    // place the dot names.
+    this.deps.tower.setBaseHover(dot === 'conocenos' || overBase);
+    const cursor = dot !== null && CLICKABLE.has(dot);
     if (cursor !== this.cursorShown) {
       this.cursorShown = cursor;
       this.deps.cursor.request('marker:poi', cursor ? 'pointer' : '');
@@ -198,24 +170,12 @@ export class PoiInteraction {
     if (!press || this.deps.isDragging()) return;
     const threshold = press.touch ? this.deps.tapThresholdPx.touch : this.deps.tapThresholdPx.mouse;
     if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > threshold) return;
+    if (!this.deps.available()) return;
+
     const x = press.touch ? press.x : event.clientX;
     const y = press.touch ? press.y : event.clientY;
-
-    const focus = this.deps.focus;
-    if (focus?.isEngaged) {
-      if (this.surfaceAt(x, y) !== 'anuncios') focus.exit();
-      return;
-    }
-    if (!this.deps.available()) return;
-    const target = this.deps.markers.dotAt(x, y, press.touch) ?? this.surfaceAt(x, y);
+    const target = this.deps.markers.dotAt(x, y, press.touch);
     if (target !== null && CLICKABLE.has(target)) this.deps.activate(target);
-  };
-
-  private readonly onKeyDown = (event: KeyboardEvent): void => {
-    // On `window`, so it would fire while Earth owns the screen.
-    if (!this.enabled || event.defaultPrevented || event.key !== 'Escape') return;
-    if (event.altKey || event.ctrlKey || event.metaKey || isEditable(event.target)) return;
-    if (this.deps.focus?.isEngaged) this.deps.focus.exit();
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
@@ -234,7 +194,6 @@ export class PoiInteraction {
     canvas.removeEventListener('pointermove', this.onPointerMove);
     canvas.removeEventListener('pointerup', this.onPointerUp);
     canvas.removeEventListener('pointercancel', this.onPointerCancel);
-    window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('pointerup', this.onWindowPointerRelease, { capture: true });
     window.removeEventListener('pointercancel', this.onWindowPointerRelease, { capture: true });
     this.deps.cursor.request('marker:poi', '');
