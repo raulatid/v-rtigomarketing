@@ -78,8 +78,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Sensación de cámara](decisiones/murcia/sensacion-de-camara.md): muelles que aterrizan, zoom críticamente amortiguado, inclinación hacia el cursor.
 - [Límites de la cámara](decisiones/murcia/limites-de-camara.md): solo se limita el objetivo, al anillo A2; `check:footprint` es la garantía.
 - [Brújula](decisiones/murcia/brujula.md): rumbos en el suelo, blanca, sobre la cabecera, no es un control.
-- [Edificios interactivos](decisiones/murcia/edificios-interactivos.md): tinte de hover y cuatro puntos de interés siempre visibles, con su nombre al llegar y en hover.
-- [Pantalla de anuncios](decisiones/murcia/pantalla-de-anuncios.md): Anuncios vuela la cámara delante de la pantalla LED con la reclamación `'tower'` y vuelve a la pose exacta.
+- [Edificios interactivos](decisiones/murcia/edificios-interactivos.md): tinte de hover y tres puntos de interés siempre visibles, con su nombre al llegar y en hover.
 
 ### Campus de servicios
 - [Modelo y recorrido](decisiones/campus/modelo-y-recorrido.md): el campus es la sección de servicios; anillo sin fin, se entra por el lago, los edificios, el atajo o el teclado, y se sale desde cualquier parada.

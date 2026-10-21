@@ -9,7 +9,7 @@
    - la línea de un campo con foco y el trazo junto a su etiqueta (`--field-line-active`);
    - el borde de las bandejas de densidad A (`--glass-border-accent`, alias de `--accent-border`, para que sean el mismo azul);
    - el contorno de foco del teclado (`--focus-ring`);
-   - en Murcia, lo que responde a un clic: los [puntos de interés](../murcia/edificios-interactivos.md) (`.murcia-poi__dot` y su anillo, en `murcia.css`) y el tinte de hover de los lugares (`BUILDING_HIGHLIGHT` y la carcasa de la pantalla LED, repetidos a mano en el shader). Ahí el azul significa «aquí se puede ir», lo mismo que en el CTA.
+   - en Murcia, lo que responde a un clic: los [puntos de interés](../murcia/edificios-interactivos.md) (`.murcia-poi__dot` y su anillo, en `murcia.css`) y el tinte de hover de los lugares (`BUILDING_HIGHLIGHT`, repetido a mano en el shader). Ahí el azul significa «aquí se puede ir», lo mismo que en el CTA.
 2. **Todo lo demás es neutro:** separadores, barras de scroll, chevrones, marcas de antetítulo y líneas decorativas.
 3. **Un azul nuevo es una decisión, no un estilo.** Las hojas de panel no escriben literales de color: leen tokens.
 4. **El blog, sobre papel, es la excepción:** sus enlaces, marcas y filete de cita son azules.
