@@ -242,6 +242,29 @@ empty" (fixtures and the seed carry their own). Publish the document, then deplo
 
 ---
 
+## `aboutSection` — optional singleton
+
+One document, at the fixed id `aboutSection`: the Conócenos section, the visit that starts at
+the base of the Vértigo tower. The copy of its three stops, the three buttons of the last one,
+and the slides the tower's screen shows for the length of the visit.
+
+| Field | Type | Rule | On violation |
+|---|---|---|---|
+| `screen`, `rooftop`, `sky` | object | all three required: stop 1 (the screen), 2 (the rooftop logo), 3 (the sky) | fail |
+| `*.title` | string | non-empty, ≤ 60 | fail |
+| `*.paragraphs[]` | string[] | 1–2 entries, each non-empty and ≤ 360, plain text | fail |
+| `sky.contactLabel` / `auditLabel` / `casesLabel` | string | non-empty, ≤ 28 each | fail |
+| `slides[]` | object[] | 1–6, **the `towerScreen` slide, field for field and rule for rule**; ids are `about-<n>` from position | fail |
+
+The slides are mirrored into `/media/tower/…` with the tower screen's own rules. Their rotation
+uses the tower screen's `rotationSeconds`.
+
+**Zero documents builds; two fail.** Unlike `towerScreen`, a dataset that has never had the
+document published builds green: the tower's base names itself and goes nowhere, as it did
+before the section existed. Publish the document to open the section.
+
+---
+
 ## `legalDoc` — three fixed documents
 
 At the fixed ids `legal-terms`, `legal-notice` and `legal-cookies`, with slugs `terminos`, `aviso` and `cookies`.
@@ -331,7 +354,7 @@ The existing webhook is managed outside this repo (`sanity-studio/README.md`); n
 
 1. Create a Deploy Hook in Vercel (Settings → Git → Deploy Hooks), pointed at the production branch.
 2. In Sanity: API → Webhooks → Create, with that URL, on create/update/delete.
-3. Filter it to the types that affect the public site: `_type in ["caseStudy","district","service","siteSettings","legalDoc","blogPost","towerScreen"]`. `blogPost` belongs in the list since the blog went live (ADR 013), and `towerScreen` since the tower screen became editable (2026-09-22); leaving a type out means publishing it deploys nothing and fails nothing. `siteSettings` also carries the SEO head and the favicon.
+3. Filter it to the types that affect the public site: `_type in ["caseStudy","district","service","siteSettings","legalDoc","blogPost","towerScreen","aboutSection"]`. `blogPost` belongs in the list since the blog went live (ADR 013), `towerScreen` since the tower screen became editable (2026-09-22), and `aboutSection` since Conócenos (2026-10-22); leaving a type out means publishing it deploys nothing and fails nothing. `siteSettings` also carries the SEO head and the favicon.
 4. Publish something and watch a deployment start.
 
 Webhook delivery may be retried, so a publish can trigger more than one build. At roughly two publications a week that is a non-problem, and queues, debouncers and coalescing services are not worth building against it. Revisit if editorial volume makes it one.

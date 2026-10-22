@@ -79,13 +79,15 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Límites de la cámara](decisiones/murcia/limites-de-camara.md): solo se limita el objetivo, al anillo A2; `check:footprint` es la garantía.
 - [Brújula](decisiones/murcia/brujula.md): rumbos en el suelo, blanca, sobre la cabecera, no es un control.
 - [Edificios interactivos](decisiones/murcia/edificios-interactivos.md): tinte de hover y tres puntos de interés siempre visibles, con su nombre al llegar y en hover.
+- [Cielo de Murcia](decisiones/murcia/cielo-de-murcia.md): una cúpula siempre puesta, de la neblina a la noche con estrellas; no es CSS ni `scene.background`.
+- [Sección Conócenos](decisiones/murcia/seccion-conocenos.md): tres paradas en la torre con la reclamación `'about'`; LED, barrido del isotipo, satélites con paneles de marca; «Ver sus casos» hace el warp desde el cielo; el cielo no respeta el movimiento reducido, a propósito.
 
 ### Campus de servicios
 - [Modelo y recorrido](decisiones/campus/modelo-y-recorrido.md): el campus es la sección de servicios; anillo sin fin, se entra por el lago, los edificios, el atajo o el teclado, y se sale desde cualquier parada.
 - [Cámara propia](decisiones/campus/camara-propia.md): el campus vuela su cámara con la reclamación `'campus'` y la devuelve con `adoptFromCamera` a la pose de entrada.
 - [Figuras que argumentan](decisiones/campus/figuras-que-argumentan.md): símbolo y figura esquemáticos, elegidos por el editor; sin figura es un hueco; no hay leyenda.
 - [Contenido y composición](decisiones/campus/contenido-y-composicion.md): textos, colores, formas y orden vienen de Sanity; el dibujo, el enlace con el GLB y la interfaz son código; el documento entra entero o no entra.
-- [Placa y hoja](decisiones/campus/placa-y-hoja.md): placa al lado y acotada en escritorio; hoja de dos paradas en el móvil, con una parada compacta que no achica las partículas.
+- [Placa y hoja](decisiones/campus/placa-y-hoja.md): placa al lado y acotada en escritorio; hoja de dos paradas en el móvil, con una parada compacta que no achica las partículas; acciones opcionales para Conócenos.
 - [Tira LED](decisiones/campus/tira-led.md): el motor de la torre, una frase en código repetida `REPEATS` veces y deslizada, nunca con el paso apretado.
 - [Partículas y movimiento reducido](decisiones/campus/particulas-y-movimiento-reducido.md): un campo que sale del lago; con movimiento reducido se queda quieto pero sigue formando cada figura.
 - [Aspecto del campus](decisiones/campus/aspecto-del-campus.md): el agua del río en el lago; luz horneada; la paleta solo para una exportación sin hornear.
@@ -167,7 +169,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Movimiento del documento](decisiones/arquitectura/movimiento-del-documento.md): `prefers-reduced-motion` se lee una vez por documento, en el arranque o en la entrada.
 - [Pestaña oculta](decisiones/arquitectura/pestana-oculta.md): los relojes de la escena solo avanzan con fotogramas; el delta está acotado; lo que mide tiempo de reloj o suena escucha la visibilidad.
 - [Modelo de errores](decisiones/arquitectura/modelo-de-errores.md): fatal del sitio, ciudad que no se ofrece, adorno que se pierde con aviso; los invariantes lanzan.
-- [Pantallas compartidas](decisiones/arquitectura/pantallas-compartidas.md): torre y campus comparten `screenPlayer` y `screenMesh`; cada adaptador pone su política.
+- [Pantallas compartidas](decisiones/arquitectura/pantallas-compartidas.md): torre y campus comparten `screenPlayer` y `screenMesh`; cada adaptador pone su política; se cambia de lista, no de documento.
 
 ## Trampas
 

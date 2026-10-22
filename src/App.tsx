@@ -197,6 +197,9 @@ export default function App() {
   // them owns the key, and the navigation predicate below refuses a warp
   // while something has the viewer's attention.
   const [contactOpen, setContactOpen] = useState(false)
+  // Conócenos' doorway into the contact dialog, on the audit's counter pattern.
+  const [contactRequest, setContactRequest] = useState(0)
+  const handleRequestContact = useCallback(() => setContactRequest((n) => n + 1), [])
   // The phone menu in the header, as the phase the header reports. "Open" to
   // everything below is "not closed": it stays true through the card's way
   // back, so nothing slips in while the scene is still tilted. Escape folds
@@ -310,6 +313,8 @@ export default function App() {
   // city adds its own condition — that the viewer is navigating it — inside.
   murciaAttention.hintAllowed = attentionIsFree && activeExperience === 'murcia'
   const [murciaOverviewBlocked, setMurciaOverviewBlocked] = useState(false)
+  // True only inside `handleRequestEarth`; see there.
+  const sectionDepartureRef = useRef(false)
   const {
     navigateTo,
     settle: settleNavigation,
@@ -330,7 +335,12 @@ export default function App() {
         // A focus flight and a warp must never run at once, and this is what
         // makes that combination unreachable rather than merely guarded. Read
         // from a ref, so it also cannot take part in a render-time value.
-        !murciaRef.current?.hasFocusedDistrict,
+        //
+        // One exception, and only for the one call that asks for it: Conócenos'
+        // «Ver sus casos» leaves for Earth from its sky stop, held, with no
+        // flight under way (`handleRequestEarth` below).
+        (!murciaRef.current?.hasFocusedDistrict ||
+          (sectionDepartureRef.current && (murciaRef.current?.canDepartFromSection ?? false))),
       // The one attention-holder a pinch may release: the district's display is
       // in the world, its close is a small drawn glyph, and on a phone the
       // gesture that means "out" must still mean out. The DOM panels above keep
@@ -353,6 +363,18 @@ export default function App() {
   })
   settleNavigationRef.current = settleNavigation
   resetZoomRef.current = resetNavigationZoom
+
+  // Conócenos' «Ver sus casos»: the warp to Earth, from the section's sky stop.
+  // The ref is up only for the length of this call — `navigateTo` asks
+  // `getContext` synchronously — so no gesture can ride the exception.
+  const handleRequestEarth = useCallback(() => {
+    sectionDepartureRef.current = true
+    try {
+      navigateTo('earth')
+    } finally {
+      sectionDepartureRef.current = false
+    }
+  }, [navigateTo])
 
   // Blog and Servicios in the header, from either world (useSceneShortcuts.ts).
   const shortcuts = useSceneShortcuts({
@@ -751,6 +773,9 @@ export default function App() {
             onOpenBlog={handleOpenBlog}
             onBlogApproachStart={handleBlogApproachStart}
             onViewpointReached={handleViewpointReached}
+            onRequestContact={handleRequestContact}
+            onRequestAudit={handleRequestAudit}
+            onRequestEarth={handleRequestEarth}
             onContextLost={handleContextLost}
           />
       </SiteMenuStage>
@@ -794,6 +819,7 @@ export default function App() {
         suppressed={auditOpen}
         onOpenChange={setContactOpen}
         onOpenLegal={setLegalDoc}
+        openRequest={contactRequest}
       />
 
       <AuditSection

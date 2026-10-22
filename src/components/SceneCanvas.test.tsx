@@ -56,6 +56,7 @@ function setup() {
     stepTransition: noop, stepIntro: noop, onSelectCase: noop, onDeselectCase: noop,
     onLogoLoadFailed: noop, onMurciaReady: noop, onMurciaAttentionChange: noop,
     onOpenBlog: () => false, onBlogApproachStart: noop, onViewpointReached: noop, onContextLost: noop,
+    onRequestContact: noop, onRequestAudit: noop, onRequestEarth: noop,
   }
   const render = () => act(() => root!.render(<SceneCanvas {...props} />))
   render()

@@ -16,7 +16,7 @@ import { POI_DEFINITIONS, type PoiId } from './poiConfig';
  *
  * The dots are drawn by `poiMarkers.ts` and asked where they are (`dotAt`).
  * The tower's base is raycast here, because nothing else in the city listens
- * for it, and only for its hover: it has nowhere to go yet. The blog's panel and the campus keep their own
+ * for it: its hover, and a tap on it, which is a tap on its dot. The blog's panel and the campus keep their own
  * listeners (trap: blog #17, never two over one object): a tap on the BLOG or
  * SERVICIOS dot is handed to the host as an intent, and the host routes it
  * into the entry those places already have, which refuses a camera already
@@ -49,6 +49,12 @@ export interface PoiInteractionDeps {
   available(): boolean;
   /** A clickable point of interest was tapped. */
   activate(id: PoiId): void;
+  /**
+   * Whether a place that is clickable by kind goes anywhere now. Absent means
+   * always. Conócenos needs it: without its CMS document the section is not
+   * built, and the base then names itself and promises no click.
+   */
+  clickable?(id: PoiId): boolean;
 }
 
 const CLICKABLE = new Set(POI_DEFINITIONS.filter((definition) => definition.clickable).map((d) => d.id));
@@ -82,6 +88,10 @@ export class PoiInteraction {
     deps.canvas.addEventListener('pointercancel', this.onPointerCancel);
     window.addEventListener('pointerup', this.onWindowPointerRelease, { capture: true, passive: true });
     window.addEventListener('pointercancel', this.onWindowPointerRelease, { capture: true, passive: true });
+  }
+
+  private isClickable(id: PoiId): boolean {
+    return CLICKABLE.has(id) && (this.deps.clickable?.(id) ?? true);
   }
 
   /** A mouse is over the tower's base itself. */
@@ -136,7 +146,7 @@ export class PoiInteraction {
     // The base's tint answers its dot and the glass alike: what lights is the
     // place the dot names.
     this.deps.tower.setBaseHover(dot === 'conocenos' || overBase);
-    const cursor = dot !== null && CLICKABLE.has(dot);
+    const cursor = dot !== null ? this.isClickable(dot) : overBase && this.isClickable('conocenos');
     if (cursor !== this.cursorShown) {
       this.cursorShown = cursor;
       this.deps.cursor.request('marker:poi', cursor ? 'pointer' : '');
@@ -174,8 +184,9 @@ export class PoiInteraction {
 
     const x = press.touch ? press.x : event.clientX;
     const y = press.touch ? press.y : event.clientY;
-    const target = this.deps.markers.dotAt(x, y, press.touch);
-    if (target !== null && CLICKABLE.has(target)) this.deps.activate(target);
+    // A dot first, for the reason in the header; the base is the dot's place.
+    const target = this.deps.markers.dotAt(x, y, press.touch) ?? (this.baseAt(x, y) ? 'conocenos' : null);
+    if (target !== null && this.isClickable(target)) this.deps.activate(target);
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {

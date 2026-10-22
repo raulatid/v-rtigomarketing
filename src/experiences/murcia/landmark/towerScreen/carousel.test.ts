@@ -54,6 +54,24 @@ describe('the tower carousel', () => {
     expect(carousel.frame.compositionId).toBe('tower')
   })
 
+  it('swaps to a new playlist from its first slide, and ignores the same list again', () => {
+    const carousel = createCarousel(rotation, { entranceSeconds: 2, reducedMotion: true })
+    run(carousel, 5)
+    expect(carousel.frame.compositionId).toBe('tower-brand')
+
+    carousel.setPlaylist(['about-1', 'about-2'])
+    expect(carousel.frame).toEqual({ compositionId: 'about-1', progress: 1 })
+    run(carousel, 2.5)
+    carousel.setPlaylist(['about-1', 'about-2'])
+    run(carousel, 2.5)
+    expect(carousel.frame.compositionId).toBe('about-2')
+
+    carousel.setPlaylist(rotation.compositions)
+    expect(carousel.frame.compositionId).toBe('tower')
+    run(carousel, 5)
+    expect(carousel.frame.compositionId).toBe('tower-brand')
+  })
+
   it('never turns with a single slide', () => {
     const carousel = createCarousel(
       { compositions: ['tower'], seconds: 5 },

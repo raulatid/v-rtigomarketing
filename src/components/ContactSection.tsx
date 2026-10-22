@@ -51,6 +51,14 @@ interface Props {
   onOpenLegal: (doc: LegalDocId) => void
   /** Injectable for tests; defaults to the demo/production split transport. */
   submit?: SubmitContactRequest
+  /**
+   * Opens the dialog from outside the trigger — Conócenos' «Contacto». A
+   * counter, for AuditSection's `openRequest` reasons: every CHANGE is one
+   * request, and the section keeps owning whether it is open. Ignored while
+   * not `ready`, while `suppressed` and while already open, exactly like the
+   * trigger.
+   */
+  openRequest?: number
 }
 
 type Submission = 'idle' | 'submitting' | 'success' | 'error'
@@ -88,6 +96,7 @@ export function ContactSection({
   onOpenChange,
   onOpenLegal,
   submit = submitContactRequest,
+  openRequest,
 }: Props) {
   const [liveOpen, setOpen] = useState(false)
   const [values, setValues] = useState<ContactRequest>(EMPTY)
@@ -148,6 +157,15 @@ export function ContactSection({
   useEffect(() => {
     if (suppressed && open) close()
   }, [suppressed, open, close])
+
+  // An open request from outside the trigger (see `openRequest`), spent
+  // whether or not it could be acted on, as AuditSection spends its own.
+  const handledRequestRef = useRef(openRequest)
+  useEffect(() => {
+    if (openRequest === undefined || openRequest === handledRequestRef.current) return
+    handledRequestRef.current = openRequest
+    if (ready && !suppressed && !open) openDialog()
+  }, [openRequest, ready, suppressed, open, openDialog])
 
   useEffect(() => {
     if (preview || !open) return

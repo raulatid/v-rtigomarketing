@@ -11,6 +11,12 @@ export interface ScreenPlayer {
   readonly facade: MediaFacade | null;
   readonly carousel: Carousel | null;
   readonly compositionIds: readonly string[];
+  /**
+   * Which of the document's compositions take turns from now on, from the
+   * first. Every composition is built up front, so a switch draws at once;
+   * ids the document lacks are dropped, and a list left empty is ignored.
+   */
+  setPlaylist(ids: readonly string[]): void;
   update(dt: number): void;
   dispose(): void;
 }
@@ -20,6 +26,7 @@ export const INERT_SCREEN: ScreenPlayer = {
   facade: null,
   carousel: null,
   compositionIds: [],
+  setPlaylist() {},
   update() {},
   dispose() {},
 };
@@ -71,6 +78,11 @@ export function createScreenPlayer(document: FacadeContentDocument, options: {
     facade,
     carousel,
     compositionIds: compositions.map((entry) => entry.id),
+
+    setPlaylist(ids) {
+      const [head, ...rest] = ids.filter((id) => compositions.some((entry) => entry.id === id));
+      if (head !== undefined) carousel.setPlaylist([head, ...rest]);
+    },
 
     update(dt) {
       if (disposed) return;

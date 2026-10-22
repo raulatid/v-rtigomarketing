@@ -260,6 +260,9 @@ export const murciaConfig: EnvironmentConfig = {
 
   sceneState: {
     backgroundColor: 0x9fb4c7,
+    // Near black with a trace of the blue, so the zenith reads as night sky
+    // rather than as a hole, and the stars over it read as stars.
+    skyNightColor: 0x03060d,
     // The ground, and with it the collar and the skirt cloned from it.
     //
     // It was left at the material default — white, albedo 1.0 — when the

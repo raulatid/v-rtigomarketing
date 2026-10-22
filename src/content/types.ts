@@ -638,3 +638,40 @@ export interface TowerScreenContent {
   /** In rotation order. At least one; a single slide holds without rotating. */
   slides: TowerSlide[]
 }
+
+/**
+ * A text stop of the Conócenos section: the plate beside the camera's view.
+ * One or two short paragraphs, plain text — the plate is read in passing,
+ * between two camera moves, and has no room for structure.
+ */
+export interface AboutStop {
+  title: string
+  /** One or two paragraphs, in order. */
+  paragraphs: string[]
+}
+
+/**
+ * The Conócenos section (the base of the Vértigo tower): what its three stops
+ * say, the buttons of the last one, and the slides the tower's screen shows
+ * while the section is open.
+ *
+ * A singleton that may be ABSENT: until the document is published the base
+ * names itself and goes nowhere, as it did before the section existed — see
+ * `content/collections/aboutSection.collection.ts`.
+ */
+export interface AboutSectionContent {
+  /** Always `about`; the projection writes it. */
+  id: string
+  /** Stop 1, in front of the screen. */
+  screen: AboutStop
+  /** Stop 2, over the rooftop logo. */
+  rooftop: AboutStop
+  /** Stop 3, under the sky: the call to action and its three buttons. */
+  sky: AboutStop & {
+    contactLabel: string
+    auditLabel: string
+    casesLabel: string
+  }
+  /** What the screen shows during the visit. The tower screen's template, unchanged. */
+  slides: TowerSlide[]
+}

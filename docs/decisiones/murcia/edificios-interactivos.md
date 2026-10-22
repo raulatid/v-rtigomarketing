@@ -1,6 +1,6 @@
 # Edificios interactivos: tinte y puntos de interés
 
-**Estado:** vigente · **Desde:** 2026-09-24, por indicación del cliente; parpadeo y geotags sustituidos por los puntos de interés el 2026-10-21 (`5201df9`); Anuncios retirado el mismo día · **Sustituye a:** DECISIONS §44 (enmiendas del 2026-09-22 y 2026-09-24)
+**Estado:** vigente · **Desde:** 2026-09-24, por indicación del cliente; parpadeo y geotags sustituidos por los puntos de interés el 2026-10-21 (`5201df9`); Anuncios retirado el mismo día; Conócenos con destino desde el 2026-10-22 (plan 027) · **Sustituye a:** DECISIONS §44 (enmiendas del 2026-09-22 y 2026-09-24)
 
 ## Decisión
 
@@ -16,8 +16,8 @@
 
    En táctil solo aparece en la llegada.
 4. **Los puntos no reciben eventos** (`pointer-events: none`). El picking es por distancia en pantalla, dentro del listener del canvas `PoiInteraction` (`poiInteraction.ts`), que funciona como `CampusInteraction`: ledger de pulsación por tipo de puntero y hover resuelto una vez por fotograma.
-   - Un tap en Blog o Servicios entra por la vía que ese lugar ya tenía (`flyToBlog`, `campus.enter`). Esa vía rechaza una cámara ocupada, así que el tap arranca un solo vuelo aunque lo oigan dos listeners.
-5. **Conócenos todavía no tiene destino:** con el hover se tiñe la malla inferior de `ARCH_Glass_Lobby` y sale la etiqueta, pero el cursor es el normal y el clic no hace nada.
+   - Un tap en Blog, Servicios o Conócenos entra por la vía de ese lugar (`flyToBlog`, `campus.enter`, `about.enter`). Esa vía rechaza una cámara ocupada, así que el tap arranca un solo vuelo aunque lo oigan dos listeners.
+5. **Conócenos lleva a su sección** ([sección Conócenos](seccion-conocenos.md)): con el hover se tiñe la malla inferior de `ARCH_Glass_Lobby`, sale la etiqueta y el cursor es la mano, sobre el punto y sobre la base. Un tap en cualquiera de los dos entra (`about.enter`). Sin documento de Conócenos en Sanity, el punto no es pulsable (`clickable` en `poiInteraction.ts`) y la base se tiñe pero no lleva a ninguna parte.
 
 Valores: `BUILDING_HIGHLIGHT` en `src/experiences/murcia/interaction/buildingHighlight.ts`; `POI` en `pointsOfInterest/poiConfig.ts`. El color se repite a mano en el shader porque un shader no puede leer una variable CSS: si cambia `--accent`, cambia también aquí.
 
@@ -41,4 +41,4 @@ Valores: `BUILDING_HIGHLIGHT` en `src/experiences/murcia/interaction/buildingHig
 
 ## Afecta a
 
-`src/experiences/murcia/interaction/buildingHighlight.ts`, `src/experiences/murcia/pointsOfInterest/`, `src/experiences/murcia/landmark/towerTargets.ts`, `src/experiences/murcia/landmark/vertigoBuildingConfig.ts` (`baseNodeName`), `src/experiences/murcia/campus/createServicesCampus.ts` y `src/experiences/murcia/blogDisplay/createBlogDisplayEntry.ts` (`hovered`), `src/experiences/murcia/MurciaExperience.ts`, `src/experiences/murcia/styles/murcia.css` (`.murcia-poi`)
+`src/experiences/murcia/interaction/buildingHighlight.ts`, `src/experiences/murcia/pointsOfInterest/`, `src/experiences/murcia/about/createAboutSection.ts` (`enter`), `src/experiences/murcia/landmark/towerTargets.ts`, `src/experiences/murcia/landmark/vertigoBuildingConfig.ts` (`baseNodeName`), `src/experiences/murcia/campus/createServicesCampus.ts` y `src/experiences/murcia/blogDisplay/createBlogDisplayEntry.ts` (`hovered`), `src/experiences/murcia/MurciaExperience.ts`, `src/experiences/murcia/styles/murcia.css` (`.murcia-poi`)

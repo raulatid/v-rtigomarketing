@@ -4,6 +4,7 @@ import { CASE_STUDIES } from './generated/caseStudies'
 import { DISTRICT_CONTENT } from './generated/districts'
 import { SERVICES } from './generated/services'
 import { TOWER_SCREEN } from './generated/towerScreen'
+import { ABOUT_SECTION } from './generated/aboutSection'
 import {
   blogPostProblems,
   caseStudyProblems,
@@ -11,6 +12,7 @@ import {
   collectionProblems,
   districtProblems,
   towerScreenProblems,
+  aboutSectionProblems,
 } from './invariants'
 
 /**
@@ -81,6 +83,13 @@ it('satisfies every blog-post invariant', () => {
 
   it('satisfies every tower-screen invariant', () => {
     const problems = TOWER_SCREEN.flatMap(towerScreenProblems)
+    expect(problems.map((p) => p.path + ': ' + p.message)).toEqual([])
+  })
+
+  it('satisfies every Conócenos invariant, and holds at most one document', () => {
+    // May be empty: the section stays closed until its document is published.
+    expect(ABOUT_SECTION.length).toBeLessThanOrEqual(1)
+    const problems = ABOUT_SECTION.flatMap(aboutSectionProblems)
     expect(problems.map((p) => p.path + ': ' + p.message)).toEqual([])
   })
 

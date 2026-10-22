@@ -47,7 +47,7 @@ function makeFixture() {
   const tower = { base, setBaseHover: vi.fn() }
   const cursor = { request: vi.fn() }
   const activate = vi.fn()
-  const state = { available: true, dragging: false }
+  const state = { available: true, dragging: false, aboutBuilt: true }
 
   const interaction = new PoiInteraction({
     canvas,
@@ -59,6 +59,7 @@ function makeFixture() {
     tower,
     available: () => state.available,
     activate,
+    clickable: (id) => id !== 'conocenos' || state.aboutBuilt,
   })
 
   const event = (type: string, x: number, y: number, pointerType = 'mouse') =>
@@ -92,6 +93,11 @@ describe('the points of interest pointer', () => {
     expect(fixture.activate).toHaveBeenCalledWith('blog')
     fixture.activate.mockClear()
     fixture.tap(300, 100)
+    expect(fixture.activate).toHaveBeenCalledWith('conocenos')
+    fixture.activate.mockClear()
+    // Without its section, Conócenos names itself and goes nowhere.
+    fixture.state.aboutBuilt = false
+    fixture.tap(300, 100)
     expect(fixture.activate).not.toHaveBeenCalled()
   })
 
@@ -104,7 +110,7 @@ describe('the points of interest pointer', () => {
     expect(fixture.activate).not.toHaveBeenCalled()
   })
 
-  it('lights the tower base under the mouse, and promises it no click', () => {
+  it('lights the tower base under the mouse, points at it, and enters Conócenos on a tap', () => {
     fixture = makeFixture()
     const { basePoint } = fixture
     expect(fixture.interaction.baseAt(basePoint.x, basePoint.y)).toBe(true)
@@ -112,14 +118,32 @@ describe('the points of interest pointer', () => {
     fixture.hover(basePoint.x, basePoint.y)
     expect(fixture.interaction.baseHovered).toBe(true)
     expect(fixture.tower.setBaseHover).toHaveBeenLastCalledWith(true)
-    // Conócenos has nowhere to go yet, so the cursor does not promise one.
-    expect(fixture.cursor.request).not.toHaveBeenCalledWith('marker:poi', 'pointer')
+    expect(fixture.cursor.request).toHaveBeenLastCalledWith('marker:poi', 'pointer')
     fixture.tap(basePoint.x, basePoint.y)
-    expect(fixture.activate).not.toHaveBeenCalled()
+    expect(fixture.activate).toHaveBeenCalledWith('conocenos')
 
     fixture.hover(800, 800)
     expect(fixture.interaction.baseHovered).toBe(false)
     expect(fixture.tower.setBaseHover).toHaveBeenLastCalledWith(false)
+    expect(fixture.cursor.request).toHaveBeenLastCalledWith('marker:poi', '')
+  })
+
+  it('lights the base but promises it no click while Conócenos has nowhere to go', () => {
+    fixture = makeFixture()
+    fixture.state.aboutBuilt = false
+    const { basePoint } = fixture
+    fixture.hover(basePoint.x, basePoint.y)
+    expect(fixture.tower.setBaseHover).toHaveBeenLastCalledWith(true)
+    expect(fixture.cursor.request).not.toHaveBeenCalledWith('marker:poi', 'pointer')
+    fixture.tap(basePoint.x, basePoint.y)
+    expect(fixture.activate).not.toHaveBeenCalled()
+  })
+
+  it('takes a finger on the base where it landed', () => {
+    fixture = makeFixture()
+    const { basePoint } = fixture
+    fixture.tap(basePoint.x, basePoint.y, 'touch')
+    expect(fixture.activate).toHaveBeenCalledWith('conocenos')
   })
 
   it('points the cursor at a clickable dot and names it to the markers', () => {

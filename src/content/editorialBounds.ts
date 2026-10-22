@@ -311,4 +311,21 @@ export const EDITORIAL_BOUNDS = {
     /** The mirror's own cap, restated so the Studio can say the number. */
     imageMaxSide: 8192,
   },
+  /**
+   * The Conócenos section: three plates of copy and the screen's own slides.
+   * The slides keep `towerScreen`'s bounds — they are the same template on
+   * the same wall — so only the copy is bounded here.
+   */
+  aboutSection: {
+    /** The plate's title, in the display face: two lines at most in the docked plate. */
+    title: 60,
+    titleAdvised: 44,
+    /** A paragraph the plate shows whole beside the view, and the phone's sheet at its compact stop. */
+    paragraph: 360,
+    paragraphAdvised: 280,
+    /** One or two: the plate is read between two camera moves. */
+    paragraphs: 2,
+    /** A button's label, on one line in the narrowest plate. */
+    label: 28,
+  },
 } as const

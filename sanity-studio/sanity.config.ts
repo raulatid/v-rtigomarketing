@@ -5,6 +5,7 @@ import { DocumentsIcon } from '@sanity/icons/Documents'
 import { EarthGlobeIcon } from '@sanity/icons/EarthGlobe'
 import { PinIcon } from '@sanity/icons/Pin'
 import { PresentationIcon } from '@sanity/icons/Presentation'
+import { UsersIcon } from '@sanity/icons/Users'
 import { WrenchIcon } from '@sanity/icons/Wrench'
 import { esESLocale } from '@sanity/locale-es-es'
 import type { ComponentType } from 'react'
@@ -52,13 +53,21 @@ const TOWER_SCREEN: Singleton = {
   icon: PresentationIcon,
 }
 
+/** The Conócenos section: one document, edited, never created (see aboutSection.ts). */
+const ABOUT: Singleton = {
+  id: 'aboutSection',
+  type: 'aboutSection',
+  title: 'Conócenos',
+  icon: UsersIcon,
+}
+
 const LEGAL: Singleton[] = [
   { id: 'legal-terms', type: 'legalDoc', title: 'Términos y privacidad', icon: DocumentTextIcon },
   { id: 'legal-notice', type: 'legalDoc', title: 'Aviso legal', icon: DocumentsIcon },
   { id: 'legal-cookies', type: 'legalDoc', title: 'Política de cookies', icon: DocumentTextIcon },
 ]
 
-const SINGLETONS = [SETTINGS, TOWER_SCREEN, ...LEGAL]
+const SINGLETONS = [SETTINGS, TOWER_SCREEN, ABOUT, ...LEGAL]
 
 /** One singleton as a menu row that opens its one document directly. */
 function singletonItem(S: StructureBuilder, entry: Singleton) {
@@ -204,6 +213,7 @@ export default defineConfig({
             S.divider(),
             singletonItem(S, SETTINGS),
             singletonItem(S, TOWER_SCREEN),
+            singletonItem(S, ABOUT),
             S.listItem()
               .title('Textos legales')
               .id('legal')

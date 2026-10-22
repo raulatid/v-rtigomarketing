@@ -14,6 +14,7 @@
  */
 import { DEFAULT_PARTICLE_COLOR, EDITORIAL_BOUNDS, ID_PATTERN } from './editorialBounds'
 import type {
+  AboutSectionContent,
   BlogPost,
   CaseChartType,
   CaseStudy,
@@ -24,6 +25,7 @@ import type {
   SiteSettings,
   TextSpan,
   TowerScreenContent,
+  TowerSlide,
 } from './types'
 
 // THE VALUES MOVED, THE NAMES DID NOT. These four are declared by the Sanity
@@ -473,6 +475,15 @@ export function towerScreenProblems(entry: TowerScreenContent): Problem[] {
     at('slides', 'has ' + entry.slides.length + ' entries, over the ' + TOWER.slides + ' limit')
   }
 
+  towerSlidesProblems(entry.slides, at)
+  return problems
+}
+
+/**
+ * The slides' own problems, reported through `at`: the tower screen's and
+ * Conócenos', which share the template and so share every bound.
+ */
+function towerSlidesProblems(slides: readonly TowerSlide[], at: (path: string, message: string) => void): void {
   const line = (path: string, value: unknown, max: number, required: boolean): void => {
     if (value === null && !required) return
     if (!nonEmpty(value)) {
@@ -482,10 +493,10 @@ export function towerScreenProblems(entry: TowerScreenContent): Problem[] {
     }
   }
 
-  entry.slides.forEach((slide, i) => {
+  slides.forEach((slide, i) => {
     const p = 'slides[' + i + ']'
     if (!ID_PATTERN.test(slide.id)) at(p + '.id', 'must match ' + ID_PATTERN)
-    else if (entry.slides.findIndex((other) => other.id === slide.id) !== i) at(p + '.id', 'is listed twice')
+    else if (slides.findIndex((other) => other.id === slide.id) !== i) at(p + '.id', 'is listed twice')
 
     line(p + '.headline', slide.headline, TOWER.headline, true)
 
@@ -533,6 +544,57 @@ export function towerScreenProblems(entry: TowerScreenContent): Problem[] {
       }
     }
   })
+}
+
+/** The Conócenos section's bounds, named where the predicate applies them. */
+const ABOUT = EDITORIAL_BOUNDS.aboutSection
+
+/**
+ * Everything wrong with the Conócenos document, as a list.
+ *
+ * The copy is held to what the plate shows whole; the slides to the tower
+ * screen's own bounds, because they are drawn on the same wall by the same
+ * template (`towerSlidesProblems`).
+ */
+export function aboutSectionProblems(entry: AboutSectionContent): Problem[] {
+  const problems: Problem[] = []
+  const at = (path: string, message: string) =>
+    problems.push({ path: entry.id + '.' + path, message })
+
+  if (!ID_PATTERN.test(entry.id)) {
+    problems.push({ path: String(entry.id), message: 'id must match ' + ID_PATTERN })
+  }
+
+  const line = (path: string, value: unknown, max: number): void => {
+    if (!nonEmpty(value)) at(path, 'must be a non-empty string')
+    else if ((value as string).length > max) at(path, 'is ' + (value as string).length + ' chars, over the ' + max + ' limit')
+  }
+
+  for (const key of ['screen', 'rooftop', 'sky'] as const) {
+    const stop = entry[key]
+    line(key + '.title', stop.title, ABOUT.title)
+    if (!Array.isArray(stop.paragraphs) || stop.paragraphs.length === 0) {
+      at(key + '.paragraphs', 'at least one required')
+    } else {
+      if (stop.paragraphs.length > ABOUT.paragraphs) {
+        at(key + '.paragraphs', 'has ' + stop.paragraphs.length + ' entries, over the ' + ABOUT.paragraphs + ' limit')
+      }
+      stop.paragraphs.forEach((paragraph, i) => line(key + '.paragraphs[' + i + ']', paragraph, ABOUT.paragraph))
+    }
+  }
+  line('sky.contactLabel', entry.sky.contactLabel, ABOUT.label)
+  line('sky.auditLabel', entry.sky.auditLabel, ABOUT.label)
+  line('sky.casesLabel', entry.sky.casesLabel, ABOUT.label)
+
+  // The screen goes dark for the visit without one, which reads as a fault.
+  if (!Array.isArray(entry.slides) || entry.slides.length === 0) {
+    at('slides', 'at least one required')
+    return problems
+  }
+  if (entry.slides.length > TOWER.slides) {
+    at('slides', 'has ' + entry.slides.length + ' entries, over the ' + TOWER.slides + ' limit')
+  }
+  towerSlidesProblems(entry.slides, at)
   return problems
 }
 

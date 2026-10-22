@@ -52,7 +52,8 @@ function isSiteMedia(parts: string[]): boolean {
 
 /**
  * The tower screen's slide pictures, mirrored by the content build
- * (content/collections/towerScreen.collection.ts) in the formats its
+ * (content/collections/towerScreen.collection.ts, and aboutSection.collection.ts
+ * for Conócenos' slides, into the same folder) in the formats its
  * SLIDE_IMAGE_RULE accepts. The facade draws them from this origin, so a file
  * left out here is a 404 the renderer only warns about.
  */

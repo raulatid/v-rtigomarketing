@@ -100,6 +100,19 @@ describe('shared screen lifetime', () => {
     screen.dispose()
   })
 
+  it('switches playlists among the compositions it built, ignoring unknown ids', () => {
+    const screen = player(content, true)
+    const compositions = vi.mocked(createComposition).mock.results.map((r) => r.value)
+    screen.setPlaylist(['missing', 'first'])
+    screen.update(0)
+    expect(screen.facade!.setComposition).toHaveBeenLastCalledWith(compositions[0])
+    screen.setPlaylist(['missing'])
+    screen.update(5)
+    expect(screen.carousel!.frame.compositionId).toBe('first')
+    expect(createComposition).toHaveBeenCalledTimes(2)
+    screen.dispose()
+  })
+
   it('stays inert without compositions and allocates no facade', async () => {
     const screen = player({ compositions: [] })
     await expect(screen.ready).resolves.toBe(false)

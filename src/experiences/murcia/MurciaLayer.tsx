@@ -32,6 +32,10 @@ interface Props {
   onBlogApproachStart?: () => void
   /** Forwarded to MurciaExperience: the final vantage point is held; the claim may be offered. */
   onViewpointReached?: (claim: ViewpointClaim) => void
+  /** Forwarded to MurciaExperience: Conócenos' call to action. */
+  onRequestContact?: () => void
+  onRequestAudit?: () => void
+  onRequestEarth?: () => void
   /**
    * The application's work scheduler (ADR 016): runs `start` once it admits
    * work of `kind`, and returns a cancel. The whole build is queued as one
@@ -63,6 +67,9 @@ export function MurciaLayer({
   onOpenBlog,
   onBlogApproachStart,
   onViewpointReached,
+  onRequestContact,
+  onRequestAudit,
+  onRequestEarth,
   scheduleWork,
 }: Props) {
   const gl = useThree((s) => s.gl)
@@ -83,6 +90,12 @@ export function MurciaLayer({
   onBlogApproachStartRef.current = onBlogApproachStart
   const onViewpointReachedRef = useRef(onViewpointReached)
   onViewpointReachedRef.current = onViewpointReached
+  const onRequestContactRef = useRef(onRequestContact)
+  onRequestContactRef.current = onRequestContact
+  const onRequestAuditRef = useRef(onRequestAudit)
+  onRequestAuditRef.current = onRequestAudit
+  const onRequestEarthRef = useRef(onRequestEarth)
+  onRequestEarthRef.current = onRequestEarth
   // build() is async, so the `active` effect below can run — and finish — long
   // before the experience exists. This is what the build applies on arrival so
   // a transition that happens mid-load is not silently dropped.
@@ -192,6 +205,9 @@ export function MurciaLayer({
         onOpenBlog: () => onOpenBlogRef.current?.() ?? false,
         onBlogApproachStart: () => onBlogApproachStartRef.current?.(),
         onViewpointReached: (claim) => onViewpointReachedRef.current?.(claim),
+        onRequestContact: () => onRequestContactRef.current?.(),
+        onRequestAudit: () => onRequestAuditRef.current?.(),
+        onRequestEarth: () => onRequestEarthRef.current?.(),
         // NOT `DEBUG_TOOLS_ENABLED`, which is true under `vite preview` too —
         // and preview serves a real `dist/` with a real blog capture in it. This
         // asks the narrower question the page image actually needs: does this

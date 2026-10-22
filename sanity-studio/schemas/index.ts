@@ -1,3 +1,4 @@
+import { aboutSection } from './aboutSection'
 import { blogPost } from './blogPost'
 import { caseStudy } from './caseStudy'
 import { district } from './district'
@@ -34,6 +35,7 @@ export const schemaTypes = [
   blogPost,
   siteSettings,
   towerScreen,
+  aboutSection,
   legalDoc,
   imageMedia,
   videoMedia,

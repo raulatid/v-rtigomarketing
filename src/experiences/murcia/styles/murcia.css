@@ -802,6 +802,94 @@
   }
 }
 
+/* Conócenos' plate (`about/createAboutSection.ts`): the campus's, docked on
+   the RIGHT, because its stops frame the tower and the logo left of the middle
+   (`about/aboutPoses.ts`). The same distances from the edge, mirrored. */
+@media (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .campus-overlay--about {
+    left: auto;
+    right: 20vw;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .campus-overlay--about {
+    left: auto;
+    right: 5vw;
+  }
+}
+
+/* The call to action under the copy (Conócenos' last stop). The primary face
+   is the audit trigger's (siteHeader.css): the brand's blue is the CTA's
+   (docs/decisiones/interfaz/uso-del-azul.md). The others are neutral glass. */
+.murcia-ui .campus-overlay__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.murcia-ui .campus-overlay__actions[hidden] {
+  display: none;
+}
+
+.murcia-ui .campus-overlay__action {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    box-shadow 160ms ease,
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+.murcia-ui .campus-overlay__action--secondary {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+}
+
+.murcia-ui .campus-overlay__action--primary {
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid var(--accent-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+@media (hover: hover) {
+  .murcia-ui .campus-overlay__action--secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .murcia-ui .campus-overlay__action--primary:hover {
+    background: var(--accent-hover);
+  }
+}
+
+.murcia-ui .campus-overlay__action--primary:active {
+  background: var(--accent-pressed);
+}
+
+.murcia-ui .campus-overlay__action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Docked, the row starts where the copy does. */
+@media (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .campus-overlay__actions {
+    justify-content: flex-start;
+    margin-top: 34px;
+  }
+}
+
 /* At 88vw the desktop padding would eat a phone's line length. */
 @media (max-width: 480px) {
   .murcia-ui .campus-overlay {
@@ -1142,4 +1230,50 @@
   .murcia-ui .murcia-poi__label {
     transform: translate(-50%, 0);
   }
+}
+
+/* ---- Conócenos' brand panels (`about/brandPanels.ts`) ------------------------
+
+   A client's isotype on a small square of smoked glass, density A — the
+   floating tray (docs/decisiones/interfaz/vidrio-ahumado.md) — beside the
+   satellite that carries it, up and to the right of the point so the light
+   stays visible. Placed and faded from script every frame, so no transition
+   here, and no reduced-motion rule: the sky is the plan 027 exception
+   (`about/aboutSky.ts`). Under the plate (`.overlay`, z-index 10), which a
+   panel passing behind it must never cover. */
+.murcia-ui .about-brands {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.murcia-ui .about-brands__panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  width: 44px;
+  height: 44px;
+  margin: -58px 0 0 14px;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--glass-border-accent);
+  border-radius: 10px;
+  background: var(--glass-film), var(--glass-bg-light);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  opacity: 0;
+}
+
+.murcia-ui .about-brands__panel[data-shown='true'] {
+  display: block;
+}
+
+.murcia-ui .about-brands__isotype {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }

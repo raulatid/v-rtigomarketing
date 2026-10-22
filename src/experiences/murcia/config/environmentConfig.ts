@@ -201,6 +201,12 @@ export interface TerrainTransitionConfig {
 export interface SceneStateConfig {
   backgroundColor: number;
   /**
+   * The top of the sky dome (`environment/createSkyDome.ts`), which runs from
+   * the fog's colour at the horizon through `backgroundColor` to this. Not
+   * applied by `createScene`: the dome is a mesh, not Scene state.
+   */
+  skyNightColor: number;
+  /**
    * The terrain plate's base colour, and so the collar's and the skirt's, which
    * are clones of its material.
    *

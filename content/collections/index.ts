@@ -7,6 +7,7 @@ import { legalDocsCollection } from './legalDocs.collection'
 import { siteSeoCollection } from './siteSeo.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
 import { towerScreenCollection } from './towerScreen.collection'
+import { aboutSectionCollection } from './aboutSection.collection'
 
 /**
  * Every content collection the site publishes.
@@ -27,6 +28,7 @@ export const COLLECTIONS: readonly AnyCollection[] = [
   siteSettingsCollection,
   siteSeoCollection,
   towerScreenCollection,
+  aboutSectionCollection,
   legalDocsCollection,
   blogPostsCollection,
 ]

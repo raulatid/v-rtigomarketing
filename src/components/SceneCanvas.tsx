@@ -98,6 +98,10 @@ interface Props {
   onBlogApproachStart: () => void
   /** The final vantage point is held in the city; the claim may be offered. */
   onViewpointReached: (claim: ViewpointClaim) => void
+  /** Conócenos' call to action: the contact dialog, the audit dialog, the warp to Earth. */
+  onRequestContact: () => void
+  onRequestAudit: () => void
+  onRequestEarth: () => void
   /** The WebGL context was lost. Nothing will draw again without a reload. */
   onContextLost: (reason: string) => void
   /**
@@ -143,6 +147,9 @@ export function SceneCanvas({
   onOpenBlog,
   onBlogApproachStart,
   onViewpointReached,
+  onRequestContact,
+  onRequestAudit,
+  onRequestEarth,
   onContextLost,
   suspended,
 }: Props) {
@@ -345,6 +352,9 @@ export function SceneCanvas({
         onOpenBlog={onOpenBlog}
         onBlogApproachStart={onBlogApproachStart}
         onViewpointReached={onViewpointReached}
+        onRequestContact={onRequestContact}
+        onRequestAudit={onRequestAudit}
+        onRequestEarth={onRequestEarth}
         scheduleWork={workScheduler.schedule}
       />
       {/* Murcia's hint, on Earth's presence rule and Earth's numbers. Renders

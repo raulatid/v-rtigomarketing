@@ -36,10 +36,15 @@ export interface Carousel {
   setSeconds(seconds: number): void;
   /** Runs the entrance again from the start. */
   replay(): void;
+  /**
+   * Rotates these ids instead, from the first. The same list again is a no-op,
+   * so a host may repeat it without restarting the turn.
+   */
+  setPlaylist(ids: readonly [string, ...string[]]): void;
 }
 
 export function createCarousel(rotation: FacadeRotation, options: CarouselOptions): Carousel {
-  const slides = rotation.compositions;
+  let slides: readonly string[] = rotation.compositions;
   const entrance = Math.max(options.entranceSeconds, 1e-3);
   const start = (): number => (options.reducedMotion ? 1 : 0);
 
@@ -89,6 +94,14 @@ export function createCarousel(rotation: FacadeRotation, options: CarouselOption
 
     replay() {
       progress = start();
+      elapsed = 0;
+    },
+
+    setPlaylist(ids) {
+      if (ids.length === slides.length && ids.every((id, i) => id === slides[i])) return;
+      slides = [...ids];
+      index = 0;
+      compositionId = ids[0];
       elapsed = 0;
     },
   };

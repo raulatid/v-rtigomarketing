@@ -31,6 +31,7 @@ import type { CameraTuning } from './camera/cameraTuning';
 import { containsPoint, expandRect } from './navigation/navigationBounds';
 import { createTerrainTransition } from './environment/createTerrainTransition';
 import type { TerrainTransition } from './environment/createTerrainTransition';
+import { createSkyDome, type SkyDome } from './environment/createSkyDome';
 import { DebugOverlay } from './debug/DebugOverlay';
 import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
@@ -49,9 +50,14 @@ import { createPoiMarkers, type PoiMarkers, type PoiSite } from './pointsOfInter
 import { PoiInteraction } from './pointsOfInterest/poiInteraction';
 import type { PoiId } from './pointsOfInterest/poiConfig';
 import { createTowerTargets, type TowerTargets } from './landmark/towerTargets';
+import { createAboutSection, type AboutSection } from './about/createAboutSection';
+import { createAboutSky, type AboutSky } from './about/aboutSky';
+import { CASE_STUDIES } from '../../content/generated/caseStudies';
+import { ABOUT_SECTION_CONTENT } from '../../content/about';
 import { CAMPUS_BUILDING_NODE_NAMES } from './campus/campusConfig';
 import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
+import { createLogoSweep, type LogoSweep } from './landmark/createLogoSweep';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import type { TowerScreen } from './landmark/towerScreen/attachTowerScreen';
@@ -152,6 +158,10 @@ export class MurciaExperience {
    */
   private readonly onOpenBlog?: () => boolean;
   private readonly onBlogApproachStart?: () => void;
+  /** See the constructor options of the same names. */
+  private readonly onRequestContact?: () => void;
+  private readonly onRequestAudit?: () => void;
+  private readonly onRequestEarth?: () => void;
   /** See the constructor option of the same name. */
   private readonly onViewpointReached?: (claim: ViewpointClaim) => void;
   private readonly buildAssetsAvailable: boolean;
@@ -166,6 +176,8 @@ export class MurciaExperience {
   private cameraInput: CameraInput | null = null;
   private cameraTuning: CameraTuning | null = null;
   private transition: TerrainTransition | null = null;
+  /** The sky, always up. See `environment/createSkyDome.ts`. */
+  private skyDome: SkyDome | null = null;
   private debugOverlay: DebugOverlay | null = null;
   private interactionProbe: InteractionProbe | null = null;
   /**
@@ -175,8 +187,16 @@ export class MurciaExperience {
    */
   private campus: ServicesCampusSection | null = null;
   /**
-   * A pose a resize resolved while the campus held the camera. Applied once the
-   * rig has the camera back: writing it earlier would move a camera the campus
+   * Conócenos: the visit from the tower's base. Null until the city loads, and
+   * for good when the tower or the CMS document is missing — the base then
+   * names itself and goes nowhere.
+   */
+  private about: AboutSection | null = null;
+  /** Conócenos' sky stop: the satellites and the brand panels. Built with the section. */
+  private aboutSky: AboutSky | null = null;
+  /**
+   * A pose a resize resolved while a section held the camera. Applied once the
+   * rig has the camera back: writing it earlier would move a camera the section
    * owns, and the next adopt would read a pose nobody chose.
    */
   private deferredPose: CameraPoseConfig | null = null;
@@ -204,6 +224,8 @@ export class MurciaExperience {
   private blogRequested = false;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
+  /** The band of light across the logo during Conócenos. Built after the city loads. */
+  private logoSweep: LogoSweep | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
   private towerScreen: TowerScreen | null = null;
   private observer: Observer | null = null;
@@ -320,6 +342,16 @@ export class MurciaExperience {
        */
       onViewpointReached?: (claim: ViewpointClaim) => void;
       /**
+       * Conócenos' call to action: open the contact dialog, open the audit
+       * dialog, leave for Earth. Bare signals, for `onOpenBlog`'s reason: the
+       * dialogs and the navigation are the application's, and the city must not
+       * learn what they are. «Ver sus casos» leaves from the sky stop itself;
+       * `canDepartFromSection` is what lets the application allow it there.
+       */
+      onRequestContact?: () => void;
+      onRequestAudit?: () => void;
+      onRequestEarth?: () => void;
+      /**
        * Whether this build serves `dist/`, and so whether the blog display can
        * have a screenshot of the built `/blog` rather than its neutral plate.
        *
@@ -337,6 +369,9 @@ export class MurciaExperience {
     this.onOpenBlog = options.onOpenBlog;
     this.onBlogApproachStart = options.onBlogApproachStart;
     this.onViewpointReached = options.onViewpointReached;
+    this.onRequestContact = options.onRequestContact;
+    this.onRequestAudit = options.onRequestAudit;
+    this.onRequestEarth = options.onRequestEarth;
     this.buildAssetsAvailable = options.buildAssetsAvailable ?? false;
     this.reducedMotion = prefersReducedMotion();
     this.appConfig = applyQueryOverrides(
@@ -393,6 +428,20 @@ export class MurciaExperience {
       this.environment.camera.near,
       this.environment.camera.far,
     );
+    // Before the city, so its two materials compile in `warm()` with the rest.
+    // The horizon is the fog's colour, which is what erases the line where the
+    // ground fog used to meet the flat background.
+    const sceneState = this.environment.sceneState;
+    this.skyDome = createSkyDome(
+      {
+        horizon: sceneState.fog?.color ?? sceneState.backgroundColor,
+        day: sceneState.backgroundColor,
+        night: sceneState.skyNightColor,
+      },
+      this.environment.camera.far,
+    );
+    this.skyDome.setPixelRatio(this.renderer.getPixelRatio());
+    this.sceneBundle.scene.add(this.skyDome.object3D);
 
     // Debug instrumentation is opt-in now. Standalone this defaulted on, which
     // is fine for a prototype and not for a marketing site.
@@ -683,7 +732,16 @@ export class MurciaExperience {
    * went inert as the pointer crossed a district would flicker.
    */
   get hasFocusedDistrict(): boolean {
-    return this.campus?.isEngaged ?? false;
+    return (this.campus?.isEngaged ?? false) || (this.about?.isEngaged ?? false);
+  }
+
+  /**
+   * Conócenos is held at its sky stop, the one place inside a section the warp
+   * to Earth may leave from («Ver sus casos»). The application reads it to let
+   * that one warp through while `hasFocusedDistrict` is true.
+   */
+  get canDepartFromSection(): boolean {
+    return this.active && (this.about?.canDepart ?? false);
   }
 
   /**
@@ -750,8 +808,13 @@ export class MurciaExperience {
     // Murcia's camera, so you warped into a city that had moved behind your
     // back. Frozen has to mean deaf as well as still.
     this.campus?.setEnabled(next);
+    this.about?.setEnabled(next);
     this.blogDisplay?.setEnabled(next);
     this.poiInteraction?.setEnabled(next);
+    // The warp's cut, when it left from Conócenos' sky: the camera goes back on
+    // the pose the visit started from and the rig has it again, so the next
+    // arrival starts where the visitor was standing. A no-op otherwise.
+    if (!next) this.about?.abandon();
 
     // The camera input listens on the SHARED canvas, so while Earth is
     // showing, every Earth drag also reaches it — its targets would drift and
@@ -993,11 +1056,18 @@ export class MurciaExperience {
     // exist synchronously, so they compile with the rest of the city instead of
     // on the first frame they are drawn. Not awaited: the slides' pictures are
     // tens of KB, and the screen draws a complete frame without them.
+    const towerDocument = layoutTowerSlides(TOWER_SCREEN_CONTENT);
+    // Conócenos' slides join the same document, out of the rotation, so the
+    // section's playlist (`setupAbout`) switches to compositions that already
+    // exist. Building one costs no fetch: its pictures load when first shown.
+    const aboutSlides = ABOUT_SECTION_CONTENT
+      ? layoutTowerSlides({ ...TOWER_SCREEN_CONTENT, slides: ABOUT_SECTION_CONTENT.slides }).compositions
+      : [];
     this.towerScreen = attachTowerScreen(loaded.root, {
       // The CMS's slides on the template. Generated content is imported at
       // this level, like `DISTRICT_CONTENT`, so `towerScreen/` itself stays
       // feedable by the lab and the tests.
-      document: layoutTowerSlides(TOWER_SCREEN_CONTENT),
+      document: { ...towerDocument, compositions: [...towerDocument.compositions, ...aboutSlides] },
       // The trim sheet's 4 (`loadCity.ts`, `TRIM_ANISOTROPY`): the screen is
       // seen at a grazing angle from the resting pose, like the sign before it.
       anisotropy: 4,
@@ -1008,6 +1078,7 @@ export class MurciaExperience {
     // After the screen, which recolours the tower's parts; before `warm()`, so
     // the base's highlight compiles with the city.
     this.towerTargets = createTowerTargets(loaded.root, VERTIGO_BUILDING);
+    this.setupAbout(loaded.root);
     this.setupPointsOfInterest(loaded.root);
     // Every rest is reported alike and nothing is shown: whether a rest means
     // anything is decided by `/api/view`, and the browser never learns it.
@@ -1104,6 +1175,7 @@ export class MurciaExperience {
         // forbids and which no ordering here could fix. "Frozen has to mean
         // deaf as well as still" is the same rule `setActive` applies for Earth.
         this.campus?.setEnabled(false);
+        this.about?.setEnabled(false);
         this.onAttentionChange?.();
       },
       endExternalControl: () => {
@@ -1116,6 +1188,7 @@ export class MurciaExperience {
         // Back to whatever the scene's own activity says, never a bare `true`:
         // the return can settle while Earth is showing.
         this.campus?.setEnabled(this.active);
+        this.about?.setEnabled(this.active);
         this.onAttentionChange?.();
       },
       openBlog: onOpenBlog,
@@ -1251,6 +1324,7 @@ export class MurciaExperience {
       tower: tower ?? { base: null, setBaseHover() {} },
       available: () => this.isCityOverview,
       activate: (id) => this.activatePointOfInterest(id),
+      clickable: (id) => id !== 'conocenos' || this.about !== null,
     });
     // Seeded for the campus's reason: built during the Earth intro.
     this.poiInteraction.setEnabled(this.active);
@@ -1265,6 +1339,7 @@ export class MurciaExperience {
     if (!this.isCityOverview) return;
     if (id === 'blog') this.flyToBlog();
     else if (id === 'servicios') this.campus?.enter();
+    else if (id === 'conocenos') this.about?.enter();
   }
 
   /**
@@ -1339,6 +1414,81 @@ export class MurciaExperience {
   }
 
   /**
+   * Conócenos, framed on the tower the city carries (plan 027).
+   *
+   * Needs the screen, the logo and the CMS document; without any of them the
+   * section is not built, and the tower's base names itself and goes nowhere,
+   * as it did before the section existed. The document is optional on purpose
+   * (`content/collections/aboutSection.collection.ts`), so its absence is not
+   * reported as a fault.
+   */
+  private setupAbout(root: THREE.Object3D): void {
+    const rig = this.rig;
+    const screen = this.towerTargets?.screenFrame ?? null;
+    const logo = this.towerTargets?.logoCentre ?? null;
+    const content = ABOUT_SECTION_CONTENT;
+    if (!rig || !content) return;
+    if (!screen || !logo) {
+      console.error('[about] the tower has no screen or no logo to frame.');
+      return;
+    }
+
+    this.about = createAboutSection({
+      camera: this.camera,
+      canvas: this.renderer.domElement,
+      container: this.container,
+      content,
+      geometry: { screen, logo },
+      rig,
+      reducedMotion: this.reducedMotion,
+      onCameraReturned: () => {
+        this.applyDeferredPose();
+        this.onAttentionChange?.();
+      },
+      onEngagedChange: () => {
+        // The screen shows the section's slides for the whole visit, and its
+        // own rotation again from the moment the way out starts.
+        const engaged = this.about?.isEngaged ?? false;
+        const slides = engaged ? content.slides : TOWER_SCREEN_CONTENT.slides;
+        this.towerScreen?.setPlaylist(slides.map((slide) => slide.id));
+        this.logoSweep?.setTarget(engaged);
+        this.onAttentionChange?.();
+      },
+      onRequestContact: this.onRequestContact,
+      onRequestAudit: this.onRequestAudit,
+      onRequestEarth: this.onRequestEarth,
+    });
+    // Seeded for the campus's reason: built during the Earth intro.
+    this.about.setEnabled(this.active);
+    const about = this.about;
+    // Only with a section to light it for. Built before `warm()`, so the
+    // logo's cloned material compiles with the city.
+    this.logoSweep = createLogoSweep(root, VERTIGO_BUILDING);
+    // The CMS's cases with an isotype, one satellite each. Imported at this
+    // level, like the screen's slides, so `about/` takes whatever it is handed.
+    this.aboutSky = createAboutSky({
+      container: this.container,
+      lens: this.camera,
+      brands: CASE_STUDIES.flatMap((entry) => (entry.isotype ? [{ src: entry.isotype, name: entry.name }] : [])),
+      skyView: () => about.skyView(),
+      plateRect: () => about.plateRect(),
+    });
+    this.aboutSky.setPixelRatio(this.renderer.getPixelRatio());
+    this.sceneBundle.scene.add(this.aboutSky.object3D);
+
+    if (this.debugTools) {
+      (window as unknown as Record<string, unknown>).__vertigoAbout = {
+        enter: () => about.enter(),
+        next: () => about.next(),
+        previous: () => about.previous(),
+        back: () => about.back(),
+        exit: () => about.releaseFocus(),
+        snapshot: () => about.snapshot,
+      };
+    }
+  }
+
+  /**
    * Releases whichever district is holding the viewer. A no-op when none is.
    *
    * Called by the scene navigation when a pinch toward the way out arrives while
@@ -1348,6 +1498,7 @@ export class MurciaExperience {
    */
   releaseFocusedDistrict(): void {
     this.campus?.releaseFocus();
+    this.about?.releaseFocus();
   }
 
   /**
@@ -1406,6 +1557,10 @@ export class MurciaExperience {
 
     this.camera.aspect = size.aspect;
     this.camera.updateProjectionMatrix();
+    this.skyDome?.setPixelRatio(this.renderer.getPixelRatio());
+    this.aboutSky?.setPixelRatio(this.renderer.getPixelRatio());
+    // The sky stop's frame moves with the aspect and the layout.
+    this.aboutSky?.reframe();
 
     // The panel takes the VIEWPORT's shape, because its readable core has to be
     // able to become the viewport exactly. Handed the CSS size rather than the
@@ -1429,11 +1584,13 @@ export class MurciaExperience {
       // The targets are re-derived because a portrait override moves the REST
       // the band is measured from.
       //
-      // Unless the campus holds the camera: `setPose` places the camera, and
-      // the campus is flying it. The pose waits for the hand-back.
+      // Unless a section holds the camera: `setPose` places the camera, and
+      // the section is flying it. The pose waits for the hand-back.
       const pose = resolveCameraPose(this.environment, size.aspect);
-      if (this.campus?.holdsCamera) this.deferredPose = pose;
+      if (this.campus?.holdsCamera || this.about?.holdsCamera) this.deferredPose = pose;
       else this.rig.setPose(pose);
+      // A held stop is framed for the viewport it is seen in.
+      this.about?.reframe();
       this.publishZoomTargets();
       this.cameraInput?.setViewport(size.width, size.height);
       if (this.debug.hasBoundsHelper) {
@@ -1516,6 +1673,9 @@ export class MurciaExperience {
     // who owns the camera this frame; it also runs its water, strip and
     // particles on the same delta.
     this.campus?.update(delta);
+    // Conócenos' flights, on the campus's terms: a section that holds the
+    // camera has written it before the ladder below asks who owns it.
+    this.about?.update(delta);
 
     // The blog's flight is a camera owner in its own right, so it is asked
     // before the two that would otherwise write: it takes the camera DIRECTLY
@@ -1525,7 +1685,7 @@ export class MurciaExperience {
 
     // ONE OWNER PER FRAME (§9), and this switch is the enforcement.
     //
-    // Four things can move this camera and exactly one of them writes per frame.
+    // Five things can move this camera and exactly one of them writes per frame.
     // Not "write last and win": the springs INTEGRATE state, so letting them run
     // and then overwriting the result would leave them chasing a camera they do
     // not control and hand back a wrong pose the moment the other owner ends.
@@ -1535,8 +1695,15 @@ export class MurciaExperience {
     //
     //   1. the blog approach, which flew the camera off the rig entirely
     //   2. the cinematic, which writes the pose directly with springs frozen
-    //   3. the campus, which has already written the camera this frame
+    //   3. a section — the campus or Conócenos — which has already written the
+    //      camera this frame
     //   4. nobody — the springs run and write the pose
+    //
+    // The warp rung has one exception: «Ver sus casos» leaves for Earth from
+    // Conócenos' sky stop without flying back first, so while that section
+    // still holds the camera the warp's amount moves the section's camera
+    // (rising and tipping up) instead of the rig's pose, which it could not
+    // express from there.
     //
     // PRECEDENCE LIVES HERE, and membership lives on the rig. The rig holds a
     // set of claims and attaches no order to the names in it; this ladder is
@@ -1553,13 +1720,18 @@ export class MurciaExperience {
     if (this.rig?.hasClaim('blog')) {
       // Nothing. It wrote camera.position and camera.quaternion itself.
     } else if (this.rig?.hasClaim('warp')) {
-      this.applyWarpPose();
-    } else if (this.rig?.hasClaim('campus')) {
-      // The campus's flight already wrote the camera this frame, in its own
+      if (this.about?.holdsCamera) {
+        this.about.beginDeparture();
+        this.about.departure(this.warpAmount);
+      } else {
+        this.applyWarpPose();
+      }
+    } else if (this.rig?.hasClaim('campus') || this.rig?.hasClaim('about')) {
+      // The section's flight already wrote the camera this frame, in its own
       // update — directly, like the blog's, and `adoptFromCamera` hands it back.
     } else if (this.rig?.isOwned) {
       // Held under a name this ladder does not place. Unreachable while the
-      // four claims are the only four, and it is here so that adding a fifth
+      // five claims are the only five, and it is here so that adding a sixth
       // fails by freezing the camera rather than by silently stepping springs
       // underneath whoever is flying it.
     } else {
@@ -1609,6 +1781,14 @@ export class MurciaExperience {
     if (this.poiMarkers && this.canvasRect) {
       this.poiMarkers.update(delta, this.camera, this.canvasRect, this.isCityOverview);
     }
+    // After the ladder for the markers' reason: a panel sits on its satellite
+    // as this frame's camera sees it.
+    if (this.aboutSky && this.canvasRect) {
+      this.aboutSky.update(delta, this.camera, this.canvasRect, {
+        lit: this.about?.holdsCamera ?? false,
+        panels: this.about?.canDepart ?? false,
+      });
+    }
     // After the ladder for the compass's reason: it samples this frame's pose.
     // Only the viewer's own camera counts — a flight passing through the vantage
     // point resets the hold rather than advancing it.
@@ -1626,6 +1806,7 @@ export class MurciaExperience {
     // The tower's logo turns on the same delta. A quaternion write per node, no
     // allocation — see createTowerLogo for why there is no loop of its own.
     this.towerLogo?.update(delta);
+    this.logoSweep?.update(delta);
     // And its screen: the carousel's clock and the facade's crossfade, shimmer
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.
@@ -1678,6 +1859,9 @@ export class MurciaExperience {
     // released here. Its palette materials hang on the tower's meshes and go
     // with the city.
     this.towerLogo = null;
+    // Before the city goes: hands the logo its own material back and frees the clones.
+    this.logoSweep?.dispose();
+    this.logoSweep = null;
     this.towerScreen?.dispose();
     this.towerScreen = null;
     this.observerDebug?.dispose();
@@ -1692,6 +1876,10 @@ export class MurciaExperience {
     // particles, shaders, canvases and copy here.
     this.campus?.dispose();
     this.campus = null;
+    this.about?.dispose();
+    this.about = null;
+    this.aboutSky?.dispose();
+    this.aboutSky = null;
 
     this.compass?.dispose();
     this.compass = null;
@@ -1709,6 +1897,9 @@ export class MurciaExperience {
 
     this.debugOverlay?.dispose();
     this.debugOverlay = null;
+
+    this.skyDome?.dispose();
+    this.skyDome = null;
 
     if (this.transition) {
       this.transition.group.removeFromParent();

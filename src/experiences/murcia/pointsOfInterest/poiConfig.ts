@@ -21,9 +21,9 @@ export interface PoiDefinition {
 export const POI_DEFINITIONS: readonly PoiDefinition[] = [
   { id: 'blog', label: 'Blog', clickable: true },
   { id: 'servicios', label: 'Servicios', clickable: true },
-  // About us has no page yet: the base lights and names itself, and a click
-  // there is not promised anything.
-  { id: 'conocenos', label: 'Conócenos', clickable: false },
+  // Clickable by kind; whether it goes anywhere is decided at run time, since
+  // the Conócenos document is optional (`PoiInteractionDeps.clickable`).
+  { id: 'conocenos', label: 'Conócenos', clickable: true },
 ];
 
 export const POI = {

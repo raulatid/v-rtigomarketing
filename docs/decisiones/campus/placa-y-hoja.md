@@ -23,6 +23,11 @@
 
    La hoja equivalente de Earth está en [panel del caso](../earth/panel-del-caso.md).
 6. **Cada cambio de parada devuelve la hoja a la compacta** (`reset()` al ocultar) y vuelve a medir el texto.
+7. **La placa la comparte la [sección Conócenos](../murcia/seccion-conocenos.md)**, con dos añadidos opcionales que el campus no usa:
+   - **acciones** (`actions` en `OverlayCopy`: etiqueta, variante y callback), una fila de botones bajo el texto. La variante `primary` lleva el azul del CTA ([uso del azul](../interfaz/uso-del-azul.md)); `secondary` es vidrio neutro. Estilos: `.campus-overlay__actions` en `murcia.css`;
+   - **una clase modificadora** (`className`), para que la hoja de estilos la coloque de otra manera: Conócenos la acopla a la derecha (`.campus-overlay--about`).
+
+   `hasPrevious` y `hasNext` desactivan la flecha de paso hacia ese lado, en la primera y la última parada de una fila que no da la vuelta.
 
 ## Por qué
 
@@ -54,4 +59,4 @@
 
 ## Afecta a
 
-`src/experiences/murcia/campus/section/campusOverlay.ts`, `src/experiences/murcia/campus/section/campusSheet.ts`, `src/experiences/murcia/campus/campusMobileLayout.ts`, `src/interaction/sheetDrag.ts`, `src/experiences/murcia/styles/murcia.css` (bloque «The services campus copy»), `src/experiences/murcia/campus/createServicesCampus.ts`, `src/experiences/murcia/campus/campusLabels.ts`, `checks/campus-sheet.mjs`
+`src/experiences/murcia/campus/section/campusOverlay.ts`, `src/experiences/murcia/campus/section/campusSheet.ts`, `src/experiences/murcia/about/createAboutSection.ts`, `src/experiences/murcia/campus/campusMobileLayout.ts`, `src/interaction/sheetDrag.ts`, `src/experiences/murcia/styles/murcia.css` (bloque «The services campus copy»), `src/experiences/murcia/campus/createServicesCampus.ts`, `src/experiences/murcia/campus/campusLabels.ts`, `checks/campus-sheet.mjs`

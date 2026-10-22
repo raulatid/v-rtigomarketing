@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import { withMediaMirror } from '../lib/mirror'
-import type { BlogPost, CaseStudy, DistrictContent, SiteSeo, SiteSettings, TowerScreenContent } from '../../src/content/types'
+import type { AboutSectionContent, BlogPost, CaseStudy, DistrictContent, SiteSeo, SiteSettings, TowerScreenContent } from '../../src/content/types'
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
 import { siteSettingsCollection } from './siteSettings.collection'
 import { SITE_SEO_FALLBACKS, siteSeoCollection } from './siteSeo.collection'
 import { towerScreenCollection } from './towerScreen.collection'
+import { aboutSectionCollection } from './aboutSection.collection'
 import { blogPostsCollection } from './blogPosts.collection'
 import { legalDocsCollection } from './legalDocs.collection'
 import { COLLECTIONS } from './index'
@@ -16,6 +17,7 @@ import districtFixtures from '../fixtures/district.json'
 import serviceFixtures from '../fixtures/service.json'
 import settingsFixtures from '../fixtures/siteSettings.json'
 import towerFixtures from '../fixtures/towerScreen.json'
+import aboutFixtures from '../fixtures/aboutSection.json'
 import blogFixtures from '../fixtures/blogPost.json'
 
 /**
@@ -1704,5 +1706,59 @@ describe('the site-wide head is read from «Ajustes del sitio», with the shippe
     // The control: a square PNG is the one that gets as far as the download.
     await expect(mirrored('https://cdn.sanity.io/images/p/production/abc-512x512.png'))
       .rejects.toThrow(/reached the download/)
+  })
+})
+
+describe('the Conócenos section is a singleton that may be absent', () => {
+  const validAbout = () => structuredClone(aboutFixtures[0]) as Record<string, unknown>
+  const about = (mutate: (record: Record<string, unknown>) => void): string[] => {
+    const record = validAbout()
+    mutate(record)
+    return problemsFor(aboutSectionCollection as never, record)
+  }
+  const stop = (record: Record<string, unknown>, key: string) => record[key] as Record<string, unknown>
+
+  it('accepts the committed fixture, with the slides named apart from the tower screen ones', () => {
+    const result = aboutSectionCollection.map(aboutFixtures[0], 0)
+    expect(result.ok ? [] : result.problems).toEqual([])
+    const value = (result as { ok: true; value: AboutSectionContent }).value
+    expect(value.slides.map((slide) => slide.id)).toEqual(['about-1', 'about-2'])
+    expect(value.sky.casesLabel).toBe('Ver sus casos')
+  })
+
+  it('accepts zero documents or one, and fails on two', () => {
+    expect(aboutSectionCollection.audit([])).toEqual([])
+    expect(aboutSectionCollection.audit([{ id: 'about' } as AboutSectionContent])).toEqual([])
+    const two = aboutSectionCollection.audit([{ id: 'about' }, { id: 'about-2' }] as AboutSectionContent[])
+    expect(two.some((p) => /at most one/.test(p.message))).toBe(true)
+  })
+
+  it('mirrors the slide pictures where the tower screen puts its own', () => {
+    expect(aboutSectionCollection.source.mirror).toEqual(towerScreenCollection.source.mirror)
+    expect(aboutSectionCollection.source.mirrorDir).toBe(towerScreenCollection.source.mirrorDir)
+  })
+
+  it('requires a title and one or two paragraphs at every stop', () => {
+    for (const key of ['screen', 'rooftop', 'sky']) {
+      expect(about((r) => { stop(r, key).title = '' }), key).toContain('about.' + key + '.title')
+      expect(about((r) => { stop(r, key).paragraphs = [] }), key).toContain('about.' + key + '.paragraphs')
+      expect(about((r) => { stop(r, key).paragraphs = ['a', 'b', 'c'] }), key).toContain('about.' + key + '.paragraphs')
+      const long = 'x'.repeat(EDITORIAL_BOUNDS.aboutSection.paragraph + 1)
+      expect(about((r) => { stop(r, key).paragraphs = [long] }), key).toContain('about.' + key + '.paragraphs[0]')
+    }
+  })
+
+  it('requires the three button labels, each short enough for one line', () => {
+    for (const label of ['contactLabel', 'auditLabel', 'casesLabel']) {
+      expect(about((r) => { delete stop(r, 'sky')[label] }), label).toContain('about.sky.' + label)
+      const long = 'x'.repeat(EDITORIAL_BOUNDS.aboutSection.label + 1)
+      expect(about((r) => { stop(r, 'sky')[label] = long }), label).toContain('about.sky.' + label)
+    }
+  })
+
+  it('holds the slides to the tower screen bounds', () => {
+    expect(about((r) => { r.slides = [] })).toContain('about.slides')
+    const tooWide = 'M'.repeat(EDITORIAL_BOUNDS.towerScreen.headline + 1)
+    expect(about((r) => { (r.slides as Record<string, unknown>[])[0]!.headline = tooWide })).toContain('about.slides[0].headline')
   })
 })

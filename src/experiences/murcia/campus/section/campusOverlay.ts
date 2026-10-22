@@ -66,6 +66,21 @@ export interface OverlayCopy {
   readonly measures?: readonly string[];
   /** `#rrggbb`, the figure's colour: the legend's key, as `--campus-accent`. */
   readonly accent?: string;
+  /**
+   * Buttons under the copy, in order: a call to action. The campus has none;
+   * Conócenos' last stop has three. Absent or empty draws no row.
+   */
+  readonly actions?: readonly OverlayAction[];
+  /** False greys out the paging arrow that way: the first or last of a row that does not wrap. */
+  readonly hasPrevious?: boolean;
+  readonly hasNext?: boolean;
+}
+
+export interface OverlayAction {
+  readonly label: string;
+  /** `primary` is the brand's blue, for the one action the copy argues for. */
+  readonly variant: 'primary' | 'secondary';
+  readonly onSelect: () => void;
 }
 
 export interface CampusOverlayOptions {
@@ -92,6 +107,11 @@ export interface CampusOverlayOptions {
    * the subject on a wide screen; the lab keeps the centred card.
    */
   hostLayout?: boolean;
+  /**
+   * A modifier class beside `campus-overlay`, for a host stylesheet that
+   * places one section's plate differently — Conócenos docks it on the right.
+   */
+  className?: string;
 }
 
 export interface CampusOverlay {
@@ -112,7 +132,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   const layer = document.createElement('div');
   // A selector for tests and e2e, and the site's hook for its glass plate
   // (murcia.css). The lab styles nothing through it.
-  layer.className = 'campus-overlay';
+  layer.className = options.className ? 'campus-overlay ' + options.className : 'campus-overlay';
   layer.style.cssText =
     (inlineLayout
       ? 'position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);width:min(720px,88vw);text-align:center;'
@@ -206,7 +226,12 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
       navigation.append(button);
     }
   }
-  body.append(subtitle, detail, measures, caption, hint);
+  // The call to action's buttons, when the copy has them. Their look is the
+  // host's; the lab never asks for any.
+  const actions = document.createElement('div');
+  actions.className = 'campus-overlay__actions';
+  actions.hidden = true;
+  body.append(subtitle, detail, measures, caption, actions, hint);
   if (navigation) body.append(navigation);
   layer.append(body);
 
@@ -273,6 +298,18 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     captionText.textContent = copy.caption ?? '';
     caption.hidden = !copy.caption;
     caption.style.opacity = captionWanted ? '1' : '0';
+    actions.replaceChildren(
+      ...(copy.actions ?? []).map((action) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `campus-overlay__action campus-overlay__action--${action.variant}`;
+        button.style.pointerEvents = 'auto';
+        button.textContent = action.label;
+        button.addEventListener('click', () => { if (visible && !disposed) action.onSelect(); });
+        return button;
+      }),
+    );
+    actions.hidden = actions.childElementCount === 0;
     if (copy.accent) layer.style.setProperty('--campus-accent', copy.accent);
     else layer.style.removeProperty('--campus-accent');
     // The sheet decides from this copy whether it has anything to expand.
@@ -287,7 +324,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   return {
     show(copy) {
       if (disposed) return;
-      for (const button of pagingButtons) button.disabled = false;
+      if (pagingButtons[0]) pagingButtons[0].disabled = copy.hasPrevious === false;
+      if (pagingButtons[1]) pagingButtons[1].disabled = copy.hasNext === false;
       cancelPending();
       captionWanted = false;
       if (!visible) {

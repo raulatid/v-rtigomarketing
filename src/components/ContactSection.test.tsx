@@ -122,6 +122,57 @@ describe('the phones at the foot of the contact dialog', () => {
   })
 })
 
+// Conócenos' doorway: `openRequest` opens the dialog without its trigger, on
+// AuditSection's terms — the first value is not a request, and a request the
+// dialog cannot act on is spent rather than held for later.
+describe('an open request from outside the trigger', () => {
+  function render(openRequest: number, onOpenChange: (open: boolean) => void, ready = true, suppressed = false) {
+    act(() => {
+      root.render(
+        <ContactSection
+          ready={ready}
+          triggerHost={null}
+          suppressed={suppressed}
+          onOpenChange={onOpenChange}
+          onOpenLegal={() => {}}
+          openRequest={openRequest}
+        />,
+      )
+    })
+  }
+
+  it('opens on a changed request, and not on the value it mounted with', () => {
+    const onOpenChange = vi.fn()
+    root = createRoot(container)
+    render(0, onOpenChange)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+
+    render(1, onOpenChange)
+    expect(onOpenChange).toHaveBeenCalledWith(true)
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+  })
+
+  it('spends a request made before the section is ready', () => {
+    const onOpenChange = vi.fn()
+    root = createRoot(container)
+    render(0, onOpenChange, false)
+    render(1, onOpenChange, false)
+    // Becoming ready later must not act on the old request.
+    render(1, onOpenChange, true)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('refuses while the audit has the screen, as the trigger does', () => {
+    const onOpenChange = vi.fn()
+    root = createRoot(container)
+    render(0, onOpenChange, true, true)
+    render(1, onOpenChange, true, true)
+    render(1, onOpenChange, true, false)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+})
+
 describe('the booking button above the phones', () => {
   it('renders nothing at all until the CMS has a link', () => {
     // The field arrived after the dataset it lives in, so "empty" is the normal

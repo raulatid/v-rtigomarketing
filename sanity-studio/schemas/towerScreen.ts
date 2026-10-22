@@ -33,7 +33,7 @@ const BOUNDS = EDITORIAL_BOUNDS.towerScreen
  * are the measured width of that wall — a canvas clips overflow in silence,
  * so the Studio refuses it here and the build refuses it again.
  */
-const towerSlide = defineArrayMember({
+export const towerSlide = defineArrayMember({
   name: 'towerSlide',
   title: 'Diapositiva',
   type: 'object',
