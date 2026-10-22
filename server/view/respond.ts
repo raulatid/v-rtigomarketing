@@ -107,8 +107,10 @@ async function admit(
   const minute = Math.floor(nowMs / 60_000)
   const address = await keyedHash(config.secret, ip ?? 'unknown')
   const perIp = await store.incr('v:rl:ip:' + address + ':' + hour, 3_600)
+  // A refused address must not spend the global budget, or one client exhausts it for everyone.
+  if (perIp > config.perIpPerHour) return false
   const global = await store.incr('v:rl:g:' + minute, 60)
-  return perIp <= config.perIpPerHour && global <= config.globalPerMinute
+  return global <= config.globalPerMinute
 }
 
 function preflight(request: Request): Response | null {

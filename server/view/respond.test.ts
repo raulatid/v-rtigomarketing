@@ -110,6 +110,12 @@ describe('respondView', () => {
     expect(await stageOf((await view(AT_1, env, '198.51.100.2')).body.t)).toBe(0)
   })
 
+  it('does not let one address spend the global limit once it is refused', async () => {
+    const env = { ...ENV, VIEW_RATE_PER_HOUR: '1', VIEW_RATE_GLOBAL_PER_MINUTE: '2' }
+    for (let i = 0; i < 5; i++) await view(MISS, env, '198.51.100.1')
+    expect(await stageOf((await view(AT_1, env, '198.51.100.2')).body.t)).toBe(1)
+  })
+
   it('closes once somebody has won', async () => {
     await store.setIfAbsent(WINNER_KEY, '{}')
     expect(await stageOf((await view(AT_1)).body.t)).toBe(0)
