@@ -74,7 +74,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 32. **`vercel.json` no admite comentarios, y un despliegue rechazado no se nota en la URL.** Ver [`formularios-y-privacidad.md`](formularios-y-privacidad.md), n.º 18. Después de desplegar, comprueba en Vercel que el despliegue nuevo está activo antes de buscar otra causa.
 33. **El ajuste de Node del panel de Vercel no se aplica mientras exista `engines.node`.** «Project Settings» marca otra versión: si alguien quita `engines`, el despliegue cambia de Node sin tocar nada más. Sin test.
 34. **`api/`:** imports con `.js`, nada de tests ni utilidades dentro, y las e2e no pasan por los adaptadores (ver [`formularios-y-privacidad.md`](formularios-y-privacidad.md), n.º 1-3). `check:functions` mira solo `api/`, no `middleware.ts`.
-35. **`installCommand` tiene un límite de longitud y su script debe terminar en `exec npm install`.** El código de salida de la instalación es el de npm (ver [captura de la página](../decisiones/blog/captura-de-la-pagina.md)). Sin test.
+35. **`installCommand` tiene un límite de longitud y su script debe terminar en `exec npm ci`.** El código de salida de la instalación es el de npm, y `npm install` podría reescribir el lockfile y recoger versiones nuevas dentro de los rangos `^` (ver [captura de la página](../decisiones/blog/captura-de-la-pagina.md)). Sin test.
 
 ## Pruebas e2e
 

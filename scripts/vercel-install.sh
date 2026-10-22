@@ -10,9 +10,11 @@
 #
 # THE DEPLOY CONTRACT (DECISIONS §42): a screenshot failure must never fail a
 # deploy. So the dnf step is guarded — a failed package install prints one line
-# and the build carries on to the neutral plate — and `npm install`, exactly
-# Vercel's default for a package-lock.json project, is exec'd last so this
-# script's exit status is npm's and nothing else.
+# and the build carries on to the neutral plate — and `npm ci` is exec'd last
+# so this script's exit status is npm's and nothing else. `npm ci`, not
+# Vercel's default `npm install`: it installs exactly what package-lock.json
+# pins and fails when it disagrees with package.json, so a build never picks
+# up a newer in-range version, which is how a compromised release gets in.
 #
 # No `set -e`, on purpose: the guard IS the error handling.
 
@@ -40,4 +42,4 @@ dnf install -y --setopt=install_weak_deps=False \
   pango \
   || echo '[blog-preview] Chromium system libraries could not be installed; the blog display will wear its neutral plate'
 
-exec npm install
+exec npm ci

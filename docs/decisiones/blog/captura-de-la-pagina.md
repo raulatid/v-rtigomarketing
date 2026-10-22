@@ -10,7 +10,7 @@
 
    No hay una tercera vía: `src/experiences/` no puede importar `src/blog/`, y copiar su marcado sería una segunda descripción del blog que caducaría sin aviso.
 2. **Nada rancio sobrevive:** `vite build` vacía `dist/` y el script borra `dist/generated/` antes de empezar. Las capturas se promueven solo si salen todas, y el manifiesto se escribe el último.
-3. **Una captura fallida nunca hace fallar un despliegue.** El script no tiene ningún `process.exit(1)`, y `scripts/vercel-install.sh` protege la instalación de librerías del sistema con `|| echo` y termina en `exec npm install`.
+3. **Una captura fallida nunca hace fallar un despliegue.** El script no tiene ningún `process.exit(1)`, y `scripts/vercel-install.sh` protege la instalación de librerías del sistema con `|| echo` y termina en `exec npm ci`.
 4. **El navegador está confinado, no se confía en él:**
    - un servidor estático propio sirve `dist/`, solo GET y HEAD, nunca `/api` (`startStaticServer`, `isApiPath`);
    - todas las peticiones se interceptan antes de que exista la página (`hardenContext`); las de otros orígenes se cortan, salvo `cdn.sanity.io`, que se responde desde memoria con un GIF transparente (`EXPECTED_EXTERNAL`, `TRANSPARENT_GIF`);
