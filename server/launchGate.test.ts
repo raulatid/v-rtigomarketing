@@ -58,6 +58,10 @@ describe('launchGate', () => {
     expect(launchGate(get('/', KEY_COOKIE + '=nope'), env, BEFORE)?.status).toBe(503)
   })
 
+  it('treats a cookie that does not decode as absent instead of throwing', () => {
+    expect(launchGate(get('/', KEY_COOKIE + '=%zz'), env, BEFORE)?.status).toBe(503)
+  })
+
   it('stays shut for everyone when the key is missing or too short', () => {
     expect(launchGate(get('/?launch-key='), {}, BEFORE)?.status).toBe(503)
     expect(launchGate(get('/', KEY_COOKIE + '='), {}, BEFORE)?.status).toBe(503)

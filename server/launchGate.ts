@@ -84,7 +84,14 @@ function readCookie(request: Request, name: string): string | null {
   if (header === null) return null
   for (const part of header.split(';')) {
     const eq = part.indexOf('=')
-    if (eq !== -1 && part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim())
+    if (eq !== -1 && part.slice(0, eq).trim() === name) {
+      // A malformed escape (`%zz`) is a cookie we did not set: absent, not a 500.
+      try {
+        return decodeURIComponent(part.slice(eq + 1).trim())
+      } catch {
+        return null
+      }
+    }
   }
   return null
 }
