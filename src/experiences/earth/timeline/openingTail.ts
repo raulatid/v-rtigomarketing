@@ -1,9 +1,9 @@
 // P1-P5 on a clock the frame loop steps (ADR 016, migration step 4).
 //
 // The opening machine owns which phase this is: every phase change here is an
-// `elapsed` the machine accepts, and the order of the phases is its sequence for
-// the way in. This file owns only time — how long each phase lasts, and the
-// motion inside it as functions of 0..1.
+// `elapsed` the page's one opening accepts, and the order of the phases is its
+// sequence for the way in. This file owns only time — how long each phase
+// lasts, and the motion inside it as functions of 0..1.
 //
 // It replaced a GSAP timeline, and keeps the one property of it that the debug
 // overlay, the skip and the tests all rely on: setting the time forward fires
@@ -22,7 +22,8 @@ import { cinematicSpeed, easeInOutCubic, narrowPeak } from '../../../utils/easin
 import { orbitRevealDuration } from '../orbit/orbitConfig'
 import type { IntroDrawHandle } from '../../../intro-draw/introDraw'
 import type { CornerLogoHandle } from '../../../corner-logo/cornerLogoConfig'
-import { canSubstitute, createOpening, next, type Opening } from '../../../intro-draw/openingMachine'
+import { canSubstitute, tail } from '../../../intro-draw/openingMachine'
+import type { OpeningStore } from '../../../intro-draw/openingStore'
 
 // GSAP's power2.out, which the reveal was tuned with. The project's own copy
 // (orbit/orbitUtils) shares a module with three, and this one is in the entry chunk.
@@ -34,9 +35,11 @@ export interface OpeningTailOptions {
   draw: IntroDrawHandle
   cornerLogo: { readonly current: CornerLogoHandle | null }
   satelliteCount: number
-  /** Enter at the crossover instead of playing shrink and warp. */
-  returning: boolean
-  reducedMotion: boolean
+  /**
+   * The page's one opening, past `draw`. Its way in decides the tail: a
+   * returning visitor enters at the crossover, reduced motion has no tail.
+   */
+  opening: OpeningStore
   /** Discrete phase changes, which are the only thing allowed to reach React. */
   onPhase: (phase: Phase) => void
 }
@@ -72,7 +75,7 @@ interface Motion {
 type Item = { kind: 'cue'; cue: Cue } | { kind: 'motion'; motion: Motion }
 
 export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
-  const { config, state, draw, cornerLogo, satelliteCount, returning, reducedMotion, onPhase } = options
+  const { config, state, draw, cornerLogo, satelliteCount, opening, onPhase } = options
 
   // P0's own size is 1.0 by definition; every later phase scales relative to
   // it, so the shrink target is a ratio rather than a vmin count.
@@ -82,18 +85,16 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
   // returning visitor whose load outlasted its grace and showed the drawing.
   const markShown = draw.isVisible()
 
-  // The machine as the tail receives it: the required steps are done and the
-  // drawing's fill has completed (§26.5), so it stands at the first phase after `draw`.
-  const begin = (): Opening => {
-    const opening = next(
-      next(createOpening({ returning, reducedMotion }), { type: 'readiness', readiness: 'ready' }),
-      { type: 'fill' },
-    )
-    if (opening.presentation === 'draw') throw new Error('the opening machine refused the fill')
-    return opening
+  // The opening as the tail starts it: the fill has taken it out of `draw`
+  // (§26.5), and a rewind puts it back at the first phase after that, wherever
+  // an earlier tail had left it.
+  const begin = () => {
+    opening.send({ type: 'rewind' })
+    if (opening.current().presentation === 'draw') throw new Error('the tail was built before the fill')
   }
 
-  const { way } = begin()
+  begin()
+  const { way } = opening.current()
   const durations: Partial<Record<Phase, number>> =
     way === 'returning'
       ? {
@@ -118,18 +119,14 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
   // The phases' start times, walked off the machine's own sequence.
   const labels: Partial<Record<Phase, number>> = {}
   {
-    let walk = begin()
     let at = 0
-    while (walk.presentation !== 'site') {
-      labels[walk.presentation] = at
-      at += durations[walk.presentation] ?? 0
-      walk = next(walk, { type: 'elapsed' })
+    for (const phase of tail(opening.current())) {
+      labels[phase] = at
+      at += durations[phase] ?? 0
     }
-    labels.site = at
   }
   const duration = labels.site ?? 0
 
-  let opening = begin()
   let substituted = false
 
   const items: Item[] = []
@@ -141,18 +138,18 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
   // already stands.
   const enter = (phase: Phase, also?: () => void) =>
     cue(labels[phase] ?? 0, () => {
-      if (opening.presentation !== phase) opening = next(opening, { type: 'elapsed' })
+      if (opening.current().presentation !== phase) opening.send({ type: 'elapsed' })
       // Built from the machine's sequence, so this can only fail if the two were
       // changed apart.
-      if (opening.presentation !== phase) {
-        throw new Error(`the tail entered ${phase}, the machine is in ${opening.presentation}`)
+      if (opening.current().presentation !== phase) {
+        throw new Error(`the tail entered ${phase}, the machine is in ${opening.current().presentation}`)
       }
       state.phase = phase
       onPhase(phase)
       also?.()
     })
 
-  if (opening.way === 'reduced') {
+  if (way === 'reduced') {
     // No shrink, no warp, no crossover flight. Hand straight to the end state:
     // Earth at rest, logo already parked in the corner.
     enter('site', () => {
@@ -162,7 +159,7 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       state.orbitsStarted = true
       cornerLogo.current?.startSequence()
     })
-  } else if (opening.way === 'returning') {
+  } else if (way === 'returning') {
     // ── THE RETURNING VISITOR'S WAY IN ──
     //
     // It used to be a seek to `site` on the first tail frame, and that was a
@@ -240,8 +237,8 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       // Without a model there is nothing to substitute INTO, and a
       // zero-crossing conceals nothing — so hold the 2D mark at full size
       // rather than collapsing it into an empty frame (§26.8).
-      if (cornerLogo.current?.isReady()) opening = next(opening, { type: 'logo-ready' })
-      if (!canSubstitute(opening)) {
+      if (cornerLogo.current?.isReady()) opening.send({ type: 'logo-ready' })
+      if (!canSubstitute(opening.current())) {
         draw.setScale(shrinkScale)
         return
       }
@@ -266,7 +263,7 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
     })
   }
 
-  if (opening.way !== 'reduced') {
+  if (way !== 'reduced') {
     // ── P4 CORNER, P5 ORBITS, END STATE ── shared by both ways in.
     //
     // The logo is alone at centre through the pause + spin, and the eye is on it.
@@ -306,11 +303,11 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
     // that is the state their way in starts from — it is not this reset's to undo.
     // Under reduced motion too: that branch hides the mark itself on its first
     // tick, and showing it here first would flash the whole mark for a frame.
-    if (!returning) draw.setVisible(true)
+    if (way === 'first') draw.setVisible(true)
     time = 0
     finished = false
     fired.clear()
-    opening = begin()
+    begin()
     substituted = false
   }
 

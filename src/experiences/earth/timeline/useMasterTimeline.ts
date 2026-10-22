@@ -1,8 +1,8 @@
-import { prefersReducedMotion } from '../../../platform/motionPreference'
 import { RefObject, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { IntroConfig, Phase } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { IntroDrawHandle } from '../../../intro-draw/introDraw'
+import type { OpeningStore } from '../../../intro-draw/openingStore'
 import { createOpeningTail, type OpeningTail } from './openingTail'
 
 import type { CornerLogoHandle } from '../../../corner-logo/cornerLogoConfig'
@@ -23,12 +23,12 @@ interface Params {
    */
   satelliteCount: number
   /**
-   * This browser has landed here before, with consent to remember it
-   * (DECISIONS §51). The first build of the tail then enters at the
-   * crossover instead of playing shrink and warp. A replay builds the whole
-   * tail whatever this says, so `/debug` can still reach every phase.
+   * The page's one opening (`loading/opening`). Its way in says which tail to build: a returning
+   * visitor (DECISIONS §51) enters at the crossover instead of playing shrink
+   * and warp, until a replay, which takes the whole tail so `/debug` can still
+   * reach every phase.
    */
-  returning: boolean
+  opening: OpeningStore | null
 }
 
 // The clock for P1-P5. P0 is NOT on it: the drawing runs on load progress in
@@ -47,14 +47,17 @@ export function useMasterTimeline({
   replayKey,
   drawComplete,
   satelliteCount,
-  returning,
+  opening,
 }: Params) {
   const [phase, setPhase] = useState<Phase>('draw')
   const tailRef = useRef<OpeningTail | null>(null)
 
   useLayoutEffect(() => {
     const draw = intro.current
-    if (!draw || !drawComplete) return
+    if (!draw || !opening || !drawComplete) return
+    // A replay has put the opening back in `draw` while `drawComplete` is still
+    // the last drawing's. The fill moves it on, and this runs again then.
+    if (opening.current().presentation === 'draw') return
 
     // Built playing, and from `shrink` — P0 already played, in intro-draw.
     tailRef.current = createOpeningTail({
@@ -63,15 +66,14 @@ export function useMasterTimeline({
       draw,
       cornerLogo,
       satelliteCount,
-      returning: returning && replayKey === 0,
-      reducedMotion: prefersReducedMotion(),
+      opening,
       onPhase: setPhase,
     })
 
     return () => {
       tailRef.current = null
     }
-  }, [intro, config, state, cornerLogo, replayKey, drawComplete, satelliteCount])
+  }, [intro, config, state, cornerLogo, replayKey, drawComplete, satelliteCount, opening])
 
   /**
    * Advances the tail by one frame. Called from a `useFrame` inside the Canvas,

@@ -48,8 +48,8 @@ import { useSceneShortcuts } from './app/useSceneShortcuts'
 import { atOrAfter } from './experiences/earth/config/sceneVisibility'
 import { DEBUG_TOOLS_ENABLED } from './platform/buildFlags'
 import { canSkipTail } from './app/introSkip'
-import { clearIntroSeen, markIntroSeen, readIntroSeen } from './app/introSeen'
-import { hasConsent, subscribeConsent } from './app/consent'
+import { clearIntroSeen, markIntroSeen } from './app/introSeen'
+import { subscribeConsent } from './app/consent'
 import { loadProgress } from './loading/progress'
 import { useRoute } from './app/useRoute'
 import { LazyBlog, prefetchBlog } from './components/LazyBlog'
@@ -91,7 +91,7 @@ export default function App() {
 
   // P0. Adopts the drawing boot.ts already started, so React mounting does not
   // restart it — see hooks/useIntroDraw.ts.
-  const { intro, complete: drawComplete } = useIntroDraw(config, replayKey)
+  const { intro, opening, complete: drawComplete } = useIntroDraw(config, replayKey)
 
   // The WebGL context went away. Application-level fatal state (ARCHITECTURE
   // §23), which is why it is held here rather than inside the pipeline that
@@ -228,17 +228,6 @@ export default function App() {
     if (!earthActive) setLegalDoc(null)
   }, [earthActive])
 
-  // Whether this browser has landed here before (DECISIONS §51). Read once per
-  // page: the record is what this browser knew when the page opened. It decides
-  // which way IN the intro takes — a returning visitor enters at the crossover,
-  // after the loading draw has played in full.
-  //
-  // The boot entry has usually answered already, because the drawing had to know
-  // before it drew; its answer wins, so the drawing and the timeline agree.
-  const [introSeenAtBoot] = useState(
-    () => window.__vertigoIntro?.returning ?? (hasConsent('preferences') && readIntroSeen()),
-  )
-
   const { phase, timeline, step: stepIntro } = useMasterTimeline({
     intro,
     config,
@@ -254,7 +243,9 @@ export default function App() {
     // introStagger (0.18s) longer per empty orbit, which is the cheaper
     // error — a reveal that outruns its hold would cut to the site mid-stagger.
     satelliteCount: ORBIT_PRESETS.length,
-    returning: introSeenAtBoot,
+    // Which way in — first visit, returning (DECISIONS §51) or reduced motion —
+    // is the opening's, decided by the boot entry before the drawing drew.
+    opening,
   })
 
   // The music waits for Earth to be whole — 'site', where the header's controls
@@ -410,10 +401,13 @@ export default function App() {
     navigationContextChanged,
   ])
 
+  // The opening goes back to `draw` here, before the render that rebuilds
+  // anything: a tail built on the old fill would walk an opening that is drawing.
   const handleReplay = useCallback(() => {
     logoRef.current?.reset()
+    opening?.send({ type: 'replay' })
     setReplayKey((k) => k + 1)
-  }, [logoRef])
+  }, [logoRef, opening])
 
   // The tail's seek() fires every cue on the way, the crossover's substitution
   // included, and a seek back starts the tail again from its beginning. The
@@ -431,6 +425,7 @@ export default function App() {
         logoRef.current?.reset()
         state.swapOverlay = 0
         state.orbitsStarted = false
+        opening?.send({ type: 'replay' })
         setReplayKey((k) => k + 1)
         return
       }
@@ -461,7 +456,7 @@ export default function App() {
       tl.seek(label as Phase)
       tl.play()
     },
-    [timeline, logoRef, intro, state],
+    [timeline, logoRef, intro, state, opening],
   )
 
   const handleSkip = useCallback(() => handleSeek('site'), [handleSeek])

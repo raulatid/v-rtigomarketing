@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IntroConfig } from '../config/introConfig'
 import type { IntroDrawHandle } from '../../../intro-draw/introDraw'
+import { getOpening } from '../../../loading/opening'
 
 // Adopts the drawing that the boot entry started before this app chunk even
 // downloaded. It never constructs one.
@@ -19,6 +20,8 @@ export function useIntroDraw(config: IntroConfig, replayKey: number) {
 
   const intro = window.__vertigoIntro
   handleRef.current = intro?.handle ?? null
+  // Adopted before subscribing below, so the opening hears each fill first.
+  const opening = getOpening()
 
   useEffect(() => {
     if (!intro) {
@@ -66,5 +69,5 @@ export function useIntroDraw(config: IntroConfig, replayKey: number) {
     handleRef.current?.replay()
   }, [replayKey])
 
-  return { intro: handleRef, complete }
+  return { intro: handleRef, opening, complete }
 }
