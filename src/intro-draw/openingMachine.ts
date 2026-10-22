@@ -41,8 +41,6 @@ export interface Opening {
   readonly readiness: Readiness
   /** The 3D mark can be substituted for the 2D one (§26.8). */
   readonly logoReady: boolean
-  /** Recorded, not obeyed: the clocks pause themselves while the tab is hidden. */
-  readonly hidden: boolean
 }
 
 export type OpeningEvent =
@@ -53,8 +51,6 @@ export type OpeningEvent =
   /** The current presentation state's time is up. */
   | { readonly type: 'elapsed' }
   | { readonly type: 'logo-ready' }
-  | { readonly type: 'hidden' }
-  | { readonly type: 'visible' }
   /** Debug replay: the drawing again, then the whole tail whatever `returning` said. */
   | { readonly type: 'replay' }
   /** The tail starts again from its first phase: a seek back, or the tail rebuilt. */
@@ -87,7 +83,6 @@ export function createOpening(options: { returning: boolean; reducedMotion: bool
     way: options.reducedMotion ? 'reduced' : options.returning ? 'returning' : 'first',
     readiness: 'starting',
     logoReady: false,
-    hidden: false,
   }
 }
 
@@ -108,11 +103,6 @@ export function next(state: Opening, event: OpeningEvent): Opening {
       return state.presentation === 'draw' ? state : advance(state)
     case 'logo-ready':
       return state.logoReady ? state : { ...state, logoReady: true }
-    case 'hidden':
-    case 'visible': {
-      const hidden = event.type === 'hidden'
-      return state.hidden === hidden ? state : { ...state, hidden }
-    }
     case 'replay':
       return {
         ...state,

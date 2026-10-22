@@ -133,19 +133,10 @@ describe('rewind', () => {
   })
 })
 
-describe('a hidden tab', () => {
-  it('is recorded, and changes nothing else', () => {
-    const state = run(start('first'), [ready, fill])
-    const hidden = next(state, { type: 'hidden' })
-    expect(hidden).toEqual({ ...state, hidden: true })
-    expect(next(hidden, { type: 'visible' })).toEqual(state)
-  })
-})
-
 describe('events that change nothing return the same state', () => {
   it.each<OpeningEvent>([
     { type: 'readiness', readiness: 'starting' },
-    { type: 'visible' },
+    { type: 'rewind' },
     elapsed,
     fill,
   ])('%o', (event) => {
