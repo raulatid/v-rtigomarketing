@@ -52,6 +52,20 @@ export function useMasterTimeline({
   const [phase, setPhase] = useState<Phase>('draw')
   const tailRef = useRef<OpeningTail | null>(null)
 
+  // The phase has one source, the opening. `state.phase` is its mirror for the
+  // frame loop, written on the same change as React's copy, so a replay that
+  // takes the opening back to `draw` takes both with it.
+  useLayoutEffect(() => {
+    if (!opening) return
+    const follow = () => {
+      const presentation: Phase = opening.current().presentation
+      state.phase = presentation
+      setPhase(presentation)
+    }
+    follow()
+    return opening.subscribe(follow)
+  }, [opening, state])
+
   useLayoutEffect(() => {
     const draw = intro.current
     if (!draw || !opening || !drawComplete) return
@@ -67,7 +81,6 @@ export function useMasterTimeline({
       cornerLogo,
       satelliteCount,
       opening,
-      onPhase: setPhase,
     })
 
     return () => {

@@ -40,8 +40,6 @@ export interface OpeningTailOptions {
    * returning visitor enters at the crossover, reduced motion has no tail.
    */
   opening: OpeningStore
-  /** Discrete phase changes, which are the only thing allowed to reach React. */
-  onPhase: (phase: Phase) => void
 }
 
 export interface OpeningTail {
@@ -75,7 +73,7 @@ interface Motion {
 type Item = { kind: 'cue'; cue: Cue } | { kind: 'motion'; motion: Motion }
 
 export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
-  const { config, state, draw, cornerLogo, satelliteCount, opening, onPhase } = options
+  const { config, state, draw, cornerLogo, satelliteCount, opening } = options
 
   // P0's own size is 1.0 by definition; every later phase scales relative to
   // it, so the shrink target is a ratio rather than a vmin count.
@@ -135,7 +133,8 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
     items.push({ kind: 'motion', motion: { at, duration: length, update } })
 
   // Every phase begins with the machine moving on. The first is where `begin()`
-  // already stands.
+  // already stands. The phase itself is not written here: `state.phase` and
+  // React both follow the opening (useMasterTimeline).
   const enter = (phase: Phase, also?: () => void) =>
     cue(labels[phase] ?? 0, () => {
       if (opening.current().presentation !== phase) opening.send({ type: 'elapsed' })
@@ -144,8 +143,6 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       if (opening.current().presentation !== phase) {
         throw new Error(`the tail entered ${phase}, the machine is in ${opening.current().presentation}`)
       }
-      state.phase = phase
-      onPhase(phase)
       also?.()
     })
 

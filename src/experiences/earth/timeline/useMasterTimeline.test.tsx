@@ -33,6 +33,8 @@ let log: string[]
 let scales: number[]
 let timeline: { current: OpeningTail | null }
 let opening: OpeningStore
+/** The phase React last rendered. */
+let reactPhase: Phase
 /** Whether the 2D mark is on screen when the timeline is built. */
 let markVisible: boolean
 
@@ -68,6 +70,7 @@ function Probe({ opening, replayKey }: { opening: OpeningStore; replayKey: numbe
     opening,
   })
   timeline = result.timeline
+  reactPhase = result.phase
   return null
 }
 
@@ -288,13 +291,13 @@ describe('a returning visitor', () => {
   })
 })
 
-// ADR 016: the tail walks the page's one opening, never a copy of its own. On
-// every way in, each phase the tail enters is the one the opening is in.
-describe('walks the page’s one opening', () => {
+// ADR 016: the phase has one source, the page's opening. The tail walks it,
+// never a copy of its own, and `state.phase` and React's phase only follow it.
+describe('the page’s one opening', () => {
   // Fails to compile if the machine's states and the app's phases ever differ.
   const toPresentation = (phase: Phase): Presentation => phase
 
-  /** Every write the tail makes to `state.phase`, checked against the opening as it happens. */
+  /** Every write to `state.phase`, checked against the opening as it happens. */
   function watch() {
     const disagreements: string[] = []
     const visited: Presentation[] = []
@@ -305,7 +308,7 @@ describe('walks the page’s one opening', () => {
       set: (value: Phase) => {
         if (value !== phase) {
           const presentation = opening.current().presentation
-          if (presentation !== value) disagreements.push(`tail ${value}, opening ${presentation}`)
+          if (presentation !== value) disagreements.push(`state ${value}, opening ${presentation}`)
           visited.push(toPresentation(value))
         }
         phase = value
@@ -319,7 +322,7 @@ describe('walks the page’s one opening', () => {
     ['a returning visitor', true, false, false],
     ['a returning visitor’s replay', true, false, true],
     ['reduced motion', false, true, false],
-  ])('%s', (_, returning, reducedMotion, replay) => {
+  ])('is walked to rest on %s, with both phases following it', (_, returning, reducedMotion, replay) => {
     motion.reduced = reducedMotion
     const watched = watch()
     const tl = mount(returning, replay ? 1 : 0)
@@ -327,6 +330,7 @@ describe('walks the page’s one opening', () => {
     expect(watched.disagreements).toEqual([])
     expect(watched.visited.at(-1)).toBe('site')
     expect(opening.current().presentation).toBe('site')
+    expect(reactPhase).toBe('site')
   })
 
   it('is rewound by a seek back, and walked forward again', () => {
@@ -336,15 +340,23 @@ describe('walks the page’s one opening', () => {
     expect(opening.current().presentation).toBe('orbits')
     act(() => tl.seek('warp'))
     expect(opening.current().presentation).toBe('warp')
+    expect(state.phase).toBe('warp')
+    expect(reactPhase).toBe('warp')
   })
 
-  it('builds no tail while a replay has it drawing', () => {
-    mount(false)
+  it('takes both phases back to draw on a replay, and builds no tail until the fill', () => {
+    const tl = mount(false)
+    walk(tl, tl.duration, [])
     act(() => opening.send({ type: 'replay' }))
     act(() => {
       root.render(<Probe opening={opening} replayKey={1} />)
     })
+    expect(state.phase).toBe('draw')
+    expect(reactPhase).toBe('draw')
     expect(timeline.current).toBeNull()
-    expect(opening.current().presentation).toBe('draw')
+
+    act(() => opening.send({ type: 'fill' }))
+    expect(state.phase).toBe('shrink')
+    expect(reactPhase).toBe('shrink')
   })
 })

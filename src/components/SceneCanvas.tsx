@@ -32,6 +32,7 @@ import type { ExperienceId } from '../app/experience'
 import type { MurciaExperience } from '../experiences/murcia/MurciaExperience'
 import type { ViewpointClaim } from '../experiences/murcia/observer/viewClient'
 import { createWorkScheduler } from '../intro-draw/workScheduler'
+import { getOpening } from '../loading/opening'
 
 // Before any <Canvas> mounts: the build strips R3F's own `extend(THREE)`, so
 // this is the only registration there is (graphics/threeCatalogue.ts).
@@ -208,8 +209,13 @@ export function SceneCanvas({
   // Deferred work starts when the opening admits it (ADR 016). Stepped here
   // because the phase is the intro's: Murcia cannot ask it itself, the two
   // experiences do not import each other.
+  // It asks the opening itself, not a mirror of it; without one the page was
+  // assembled wrong, and nothing deferred starts.
   const [workScheduler] = useState(createWorkScheduler)
-  const stepWork = useCallback(() => workScheduler.step(state.phase), [workScheduler, state])
+  const stepWork = useCallback(
+    () => workScheduler.step(getOpening()?.current().presentation ?? 'draw'),
+    [workScheduler],
+  )
 
   return (
     <Canvas
