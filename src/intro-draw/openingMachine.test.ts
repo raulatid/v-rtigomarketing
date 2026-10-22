@@ -4,6 +4,7 @@ import {
   canSubstitute,
   createOpening,
   next,
+  tail,
   type Opening,
   type OpeningEvent,
   type Presentation,
@@ -11,8 +12,8 @@ import {
   type WorkKind,
 } from './openingMachine'
 
-// ADR 016's tables, as tables. Whether the machine agrees with the timeline it
-// does not yet replace is the timeline's test (`useMasterTimeline.test.tsx`).
+// ADR 016's tables, as tables. Whether the tail walks the page's opening in
+// this order is the timeline's test (`useMasterTimeline.test.tsx`).
 
 const ready: OpeningEvent = { type: 'readiness', readiness: 'ready' }
 const fill: OpeningEvent = { type: 'fill' }
@@ -110,6 +111,25 @@ describe('replay', () => {
     const replayed = run(start('reduced'), [ready, fill, { type: 'replay' }])
     expect(replayed.way).toBe('reduced')
     expect(next(replayed, fill).presentation).toBe('site')
+  })
+})
+
+describe('rewind', () => {
+  it.each<[Way, Presentation]>([
+    ['first', 'shrink'],
+    ['returning', 'shrink'],
+    ['reduced', 'site'],
+  ])('puts %s back at its first phase after draw', (way, first) => {
+    const landed = run(start(way), [ready, fill, ...Array(10).fill(elapsed)])
+    expect(landed.presentation).toBe('site')
+    const rewound = next(landed, { type: 'rewind' })
+    expect(rewound.presentation).toBe(first)
+    expect(tail(rewound)[0]).toBe(first)
+  })
+
+  it('never takes the opening out of draw', () => {
+    const drawing = run(start('first'), [ready])
+    expect(next(drawing, { type: 'rewind' })).toBe(drawing)
   })
 })
 

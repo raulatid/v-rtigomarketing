@@ -9,6 +9,9 @@
 // phases only as `elapsed` events this accepts, in this machine's sequence for
 // the way in; the tail owns only how long each lasts (migration step 4). Events
 // are plain objects on purpose: a worker can sit on the other side of them (step 3).
+//
+// There is one opening per page: `openingStore` holds it, and the app creates it
+// when it adopts the boot (`loading/opening.ts`).
 
 import type { Readiness } from './bootState'
 
@@ -54,6 +57,8 @@ export type OpeningEvent =
   | { readonly type: 'visible' }
   /** Debug replay: the drawing again, then the whole tail whatever `returning` said. */
   | { readonly type: 'replay' }
+  /** The tail starts again from its first phase: a seek back, or the tail rebuilt. */
+  | { readonly type: 'rewind' }
 
 const SEQUENCE: Record<Way, readonly Presentation[]> = {
   first: ['draw', 'shrink', 'warp', 'swap', 'corner', 'orbits', 'site'],
@@ -114,7 +119,18 @@ export function next(state: Opening, event: OpeningEvent): Opening {
         presentation: 'draw',
         way: state.way === 'reduced' ? 'reduced' : 'first',
       }
+    case 'rewind': {
+      // Never out of `draw`: only the fill can do that.
+      if (state.presentation === 'draw') return state
+      const [first] = tail(state)
+      return state.presentation === first ? state : { ...state, presentation: first }
+    }
   }
+}
+
+/** The phases after `draw` on this way in, in order, ending at `site`. */
+export function tail(state: Pick<Opening, 'way'>): readonly Presentation[] {
+  return SEQUENCE[state.way].slice(1)
 }
 
 function advance(state: Opening): Opening {
