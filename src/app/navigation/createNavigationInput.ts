@@ -6,6 +6,7 @@ import { createZoomBand } from './zoomBand'
 import {
   NAVIGATION_COOLDOWN,
   NAVIGATION_PINCH,
+  NAVIGATION_STEP,
   NAVIGATION_ZOOM,
   pinchGain,
   type NavigationCooldownLimits,
@@ -60,6 +61,16 @@ export interface NavigationContext {
    * Read live like `canNavigate`, for the same reason.
    */
   releaseFocus?: (() => void) | null
+  /**
+   * Something is holding the viewer's attention, and a vertical wheel gesture
+   * should step through it rather than be refused: +1 for a forward rotation
+   * (up, on to the next stop, as from Earth to Murcia), -1 for a backward one.
+   *
+   * Set only while `canNavigate` is false BECAUSE of that thing — today
+   * Conócenos, whose stops are walked by scrolling. One gesture is one step,
+   * momentum tail included (`NAVIGATION_STEP`). Read live like `canNavigate`.
+   */
+  step?: ((direction: 1 | -1) => void) | null
 }
 
 export interface NavigationInputDeps {
@@ -327,6 +338,32 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     return false
   }
 
+  // --- Stepping --------------------------------------------------------------
+  //
+  // One gesture, one step. The gesture ends at the silence that releases the
+  // deadline latch: a momentum tail outlasts the flight its first notch started,
+  // and must not take a second step when that flight lands.
+
+  let stepTravelPx = 0
+  let stepTaken = false
+  let lastStepInputMs = Number.NEGATIVE_INFINITY
+
+  function stepBy(travelPx: number, timeStampMs: number, step: (direction: 1 | -1) => void): void {
+    if (!Number.isFinite(travelPx) || !Number.isFinite(timeStampMs)) return
+    if ((timeStampMs - lastStepInputMs) / 1000 >= cooldownLimits.latchGapSeconds) {
+      stepTravelPx = 0
+      stepTaken = false
+    }
+    lastStepInputMs = timeStampMs
+    if (stepTaken) return
+    // A reversal counts again from nothing, in its own direction.
+    if (Math.sign(travelPx) !== Math.sign(stepTravelPx)) stepTravelPx = 0
+    stepTravelPx += travelPx
+    if (Math.abs(stepTravelPx) < NAVIGATION_STEP.travelPx) return
+    stepTaken = true
+    step(stepTravelPx > 0 ? 1 : -1)
+  }
+
   const onWheel = (event: WheelEvent): void => {
     // A trackpad pinch arrives as ctrl+wheel in every browser. It is not a scroll
     // and must not navigate — but it must still be swallowed, or the browser zooms
@@ -362,6 +399,10 @@ export function createNavigationInput(deps: NavigationInputDeps): NavigationInpu
     // Forward wheel rotation approaches; backward rotation pulls away. Invert
     // only vertical wheel input, preserving touch spread and horizontal look.
     const raw = -normalizeWheelDelta(event)
+    // Refused as navigation, but offered as a step: a forward rotation is on,
+    // the way it travels from Earth to Murcia.
+    const step = context.canNavigate ? null : (context.step ?? null)
+    if (step) stepBy(raw, event.timeStamp, step)
     pushTravel(
       towardOther(raw, context.current),
       event.timeStamp,

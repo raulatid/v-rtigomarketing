@@ -10,9 +10,11 @@
 // restoring a dependency. The paths below ARE the output and are the source of
 // truth for the drawn mark.
 
-// Lives inside intro-draw because the mark is drawn in P0 and nowhere else on
-// the site — the corner logo uses the GLB, not these paths. The module that
-// draws it owns it, which is also what keeps the module standalone.
+// Lives inside intro-draw because P0 draws the mark first and has to stay
+// standalone: the module that draws it owns it. The corner logo uses the GLB,
+// not these paths. One reader outside: Conócenos draws the same paths over
+// Murcia (`experiences/murcia/about/createCityMark.ts`), importing these
+// constants — the arrow points into intro-draw, never out of it.
 //
 // Coordinate space the paths were built for — must match the viewBox attribute.
 // This is not the rendered size: the on-screen size is the --intro-base vmin

@@ -31,7 +31,7 @@ import type { CameraTuning } from './camera/cameraTuning';
 import { containsPoint, expandRect } from './navigation/navigationBounds';
 import { createTerrainTransition } from './environment/createTerrainTransition';
 import type { TerrainTransition } from './environment/createTerrainTransition';
-import { createSkyDome, type SkyDome } from './environment/createSkyDome';
+import { createSkyDome, type SkyDome, type SkyDomeColors } from './environment/createSkyDome';
 import { DebugOverlay } from './debug/DebugOverlay';
 import { MurciaDebugTools } from './debug/MurciaDebugTools';
 import { InteractionProbe } from './interaction/InteractionProbe';
@@ -43,6 +43,12 @@ import { cityDistrictBindings } from './scene/cityDistrictBindings';
 import { DISTRICT_CONTENT } from '../../content/generated/districts';
 import { TOWER_SCREEN_CONTENT } from '../../content/tower';
 import { layoutTowerSlides } from './landmark/towerScreen/content/layoutTowerSlides';
+import {
+  ABOUT_SENTENCES_ENTRANCE_SECONDS,
+  ABOUT_SENTENCES_ID,
+  layoutAboutSentences,
+} from './landmark/towerScreen/content/layoutAboutSentences';
+import { applyPoseToCamera } from './camera/applyPoseToCamera';
 import { findDistrictContent } from '../../content/lookup';
 import { StatusOverlay } from './ui/overlays';
 import { CompassBar, type CompassPoi } from './ui/compassBar';
@@ -57,7 +63,7 @@ import { ABOUT_SECTION_CONTENT } from '../../content/about';
 import { CAMPUS_BUILDING_NODE_NAMES } from './campus/campusConfig';
 import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
-import { createLogoSweep, type LogoSweep } from './landmark/createLogoSweep';
+import { createCityMark, type CityMark } from './about/createCityMark';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import type { TowerScreen } from './landmark/towerScreen/attachTowerScreen';
@@ -224,8 +230,8 @@ export class MurciaExperience {
   private blogRequested = false;
   /** The Vertigo tower's turning logo. Built after the city loads. */
   private towerLogo: TowerLogo | null = null;
-  /** The band of light across the logo during Conócenos. Built after the city loads. */
-  private logoSweep: LogoSweep | null = null;
+  /** The isotype drawn over the darkened city at Conócenos' city stop. Built after the city loads. */
+  private cityMark: CityMark | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
   private towerScreen: TowerScreen | null = null;
   private observer: Observer | null = null;
@@ -429,17 +435,7 @@ export class MurciaExperience {
       this.environment.camera.far,
     );
     // Before the city, so its two materials compile in `warm()` with the rest.
-    // The horizon is the fog's colour, which is what erases the line where the
-    // ground fog used to meet the flat background.
-    const sceneState = this.environment.sceneState;
-    this.skyDome = createSkyDome(
-      {
-        horizon: sceneState.fog?.color ?? sceneState.backgroundColor,
-        day: sceneState.backgroundColor,
-        night: sceneState.skyNightColor,
-      },
-      this.environment.camera.far,
-    );
+    this.skyDome = createSkyDome(this.skyColors, this.environment.camera.far);
     this.skyDome.setPixelRatio(this.renderer.getPixelRatio());
     this.sceneBundle.scene.add(this.skyDome.object3D);
 
@@ -745,6 +741,19 @@ export class MurciaExperience {
   }
 
   /**
+   * Conócenos is open, and walks its stops by scrolling. The application reads
+   * it to hand the wheel it refuses to the warp to `stepSection` instead.
+   */
+  get canStepSection(): boolean {
+    return this.active && (this.about?.isEngaged ?? false);
+  }
+
+  /** One wheel gesture inside Conócenos: +1 on to the next stop, -1 back. */
+  stepSection(direction: 1 | -1): void {
+    this.about?.step(direction);
+  }
+
+  /**
    * The viewer is moving about the city on their own: no cinematic or blog
    * approach owns the camera, and no district holds their attention.
    *
@@ -756,6 +765,19 @@ export class MurciaExperience {
     const owned =
       (this.rig?.hasClaim('warp') ?? false) || (this.rig?.hasClaim('blog') ?? false);
     return !owned && !this.hasFocusedDistrict;
+  }
+
+  /**
+   * The sky dome's colours. The horizon is the fog's colour, which is what erases the line where the
+   * ground fog used to meet the flat background.
+   */
+  private get skyColors(): SkyDomeColors {
+    const sceneState = this.environment.sceneState;
+    return {
+      horizon: sceneState.fog?.color ?? sceneState.backgroundColor,
+      day: sceneState.backgroundColor,
+      night: sceneState.skyNightColor,
+    };
   }
 
   /** The logo only returns home from the city, never a building or its flight. */
@@ -1057,12 +1079,10 @@ export class MurciaExperience {
     // on the first frame they are drawn. Not awaited: the slides' pictures are
     // tens of KB, and the screen draws a complete frame without them.
     const towerDocument = layoutTowerSlides(TOWER_SCREEN_CONTENT);
-    // Conócenos' one slide joins the same document, out of the rotation, so
-    // the section's playlist (`setupAbout`) switches to a composition that
-    // already exists. Building it costs no fetch: its picture loads when first shown.
-    const aboutSlides = ABOUT_SECTION_CONTENT
-      ? layoutTowerSlides({ ...TOWER_SCREEN_CONTENT, slides: [ABOUT_SECTION_CONTENT.slide] }).compositions
-      : [];
+    // Conócenos' five sentences join the same document, out of the rotation,
+    // so the section's playlist (`setupAbout`) switches to a composition that
+    // already exists. They have no picture: building them costs nothing.
+    const aboutSlides = ABOUT_SECTION_CONTENT ? [layoutAboutSentences(ABOUT_SECTION_CONTENT.sentences)] : [];
     this.towerScreen = attachTowerScreen(loaded.root, {
       // The CMS's slides on the template. Generated content is imported at
       // this level, like `DISTRICT_CONTENT`, so `towerScreen/` itself stays
@@ -1433,12 +1453,22 @@ export class MurciaExperience {
       return;
     }
 
+    const env = this.environment;
     this.about = createAboutSection({
       camera: this.camera,
       canvas: this.renderer.domElement,
       container: this.container,
       content,
       geometry: { screen, logo },
+      // Where the city rests for this viewport, on the configured focus: the
+      // city stop is solved from it, so it does not depend on where the visitor stood.
+      restPose: (aspect) => {
+        const pose = resolveCameraPose(env, aspect);
+        const target = new THREE.Vector3(env.initialFocus.x, 0, env.initialFocus.z);
+        const eye = new THREE.PerspectiveCamera();
+        applyPoseToCamera(eye, pose, target, 0);
+        return { position: eye.position.clone(), target: target.setY(pose.lookAtHeight) };
+      },
       rig,
       reducedMotion: this.reducedMotion,
       onCameraReturned: () => {
@@ -1446,13 +1476,17 @@ export class MurciaExperience {
         this.onAttentionChange?.();
       },
       onEngagedChange: () => {
-        // The screen holds the section's slide for the whole visit, and its
-        // own rotation again from the moment the way out starts.
+        // The screen holds the section's sentences for the whole visit, written
+        // in afresh on each entry, and its own rotation again from the moment
+        // the way out starts.
         const engaged = this.about?.isEngaged ?? false;
-        const slides = engaged ? [content.slide] : TOWER_SCREEN_CONTENT.slides;
-        this.towerScreen?.setPlaylist(slides.map((slide) => slide.id));
-        this.logoSweep?.setTarget(engaged);
+        if (engaged) this.towerScreen?.setPlaylist([ABOUT_SENTENCES_ID], ABOUT_SENTENCES_ENTRANCE_SECONDS);
+        else this.towerScreen?.setPlaylist(TOWER_SCREEN_CONTENT.slides.map((slide) => slide.id));
         this.onAttentionChange?.();
+      },
+      onStopChange: (stop) => {
+        if (stop === 'city') this.placeCityMark();
+        this.cityMark?.setTarget(stop === 'city', this.about?.flightSeconds ?? 0);
       },
       onRequestContact: this.onRequestContact,
       onRequestAudit: this.onRequestAudit,
@@ -1461,9 +1495,10 @@ export class MurciaExperience {
     // Seeded for the campus's reason: built during the Earth intro.
     this.about.setEnabled(this.active);
     const about = this.about;
-    // Only with a section to light it for. Built before `warm()`, so the
-    // logo's cloned material compiles with the city.
-    this.logoSweep = createLogoSweep(root, VERTIGO_BUILDING);
+    // Only with a section to draw it for. Built before `warm()`, so the city's
+    // patched materials compile once, with the city; after the hover tints,
+    // whose clones are patched with the rest.
+    this.cityMark = createCityMark(root, VERTIGO_BUILDING);
     // The CMS's cases with an isotype, one satellite each. Imported at this
     // level, like the screen's slides, so `about/` takes whatever it is handed.
     this.aboutSky = createAboutSky({
@@ -1486,6 +1521,11 @@ export class MurciaExperience {
         snapshot: () => about.snapshot,
       };
     }
+  }
+
+  /** Centres the city stop's isotype for the viewport in use. */
+  private placeCityMark(): void {
+    if (this.about && this.cityMark) this.cityMark.place(this.camera, this.about.cityView());
   }
 
   /**
@@ -1591,6 +1631,7 @@ export class MurciaExperience {
       else this.rig.setPose(pose);
       // A held stop is framed for the viewport it is seen in.
       this.about?.reframe();
+      if (this.about?.stop === 'city') this.placeCityMark();
       this.publishZoomTargets();
       this.cameraInput?.setViewport(size.width, size.height);
       if (this.debug.hasBoundsHelper) {
@@ -1806,7 +1847,7 @@ export class MurciaExperience {
     // The tower's logo turns on the same delta. A quaternion write per node, no
     // allocation — see createTowerLogo for why there is no loop of its own.
     this.towerLogo?.update(delta);
-    this.logoSweep?.update(delta);
+    this.cityMark?.update(delta);
     // And its screen: the carousel's clock and the facade's crossfade, shimmer
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.
@@ -1859,9 +1900,9 @@ export class MurciaExperience {
     // released here. Its palette materials hang on the tower's meshes and go
     // with the city.
     this.towerLogo = null;
-    // Before the city goes: hands the logo its own material back and frees the clones.
-    this.logoSweep?.dispose();
-    this.logoSweep = null;
+    // Before the city goes: hands the city's materials their own hooks back.
+    this.cityMark?.dispose();
+    this.cityMark = null;
     this.towerScreen?.dispose();
     this.towerScreen = null;
     this.observerDebug?.dispose();

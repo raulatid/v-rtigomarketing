@@ -1,7 +1,14 @@
 [
   {
     "id": "about",
-    "rooftop": {
+    "sentences": [
+      "Somos Vértigo.",
+      "Estrategia, marca y datos.",
+      "Desde Murcia al mundo.",
+      "Más de 12 años creciendo.",
+      "Hacemos crecer marcas."
+    ],
+    "city": {
       "title": "Desde lo alto",
       "paragraphs": [
         "Miramos cada marca entera antes de tocar una sola pieza: qué dice, a quién y con qué resultado."
@@ -15,21 +22,6 @@
       "contactLabel": "Contacto",
       "auditLabel": "Auditoría",
       "casesLabel": "Ver sus casos"
-    },
-    "slide": {
-      "headline": "EQUIPO",
-      "items": ["Estrategia", "Marca", "Datos"],
-      "metricValue": 12,
-      "metricSuffix": "+",
-      "caption1": "AÑOS",
-      "caption2": "HACIENDO CRECER MARCAS",
-      "caption3": "DESDE MURCIA",
-      "image": {
-        "src": "/textures/murcia/tower/global-earth-network-connections-001.webp",
-        "width": 612,
-        "height": 344
-      },
-      "imageFit": "cover"
     }
   }
 ]

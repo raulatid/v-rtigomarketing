@@ -13,6 +13,7 @@
  * tree-shake it away entirely.
  */
 import { DEFAULT_PARTICLE_COLOR, EDITORIAL_BOUNDS, ID_PATTERN } from './editorialBounds'
+import { sentenceFits } from './sentenceLines'
 import type {
   AboutSectionContent,
   BlogPost,
@@ -479,10 +480,7 @@ export function towerScreenProblems(entry: TowerScreenContent): Problem[] {
   return problems
 }
 
-/**
- * The slides' own problems, reported through `at`: the tower screen's and
- * Conócenos', which share the template and so share every bound.
- */
+/** The tower screen's slides' own problems, reported through `at`. */
 function towerSlidesProblems(slides: readonly TowerSlide[], at: (path: string, message: string) => void): void {
   const line = (path: string, value: unknown, max: number, required: boolean): void => {
     if (value === null && !required) return
@@ -552,9 +550,9 @@ const ABOUT = EDITORIAL_BOUNDS.aboutSection
 /**
  * Everything wrong with the Conócenos document, as a list.
  *
- * The copy is held to what the plate shows whole; the slide to the tower
- * screen's own bounds, because it is drawn on the same wall by the same
- * template (`towerSlidesProblems`).
+ * The copy is held to what the plate shows whole; the sentences to what the
+ * screen draws whole, cut into lines the way the screen cuts them
+ * (`wrapSentence`), because a canvas clips what does not fit in silence.
  */
 export function aboutSectionProblems(entry: AboutSectionContent): Problem[] {
   const problems: Problem[] = []
@@ -570,7 +568,18 @@ export function aboutSectionProblems(entry: AboutSectionContent): Problem[] {
     else if ((value as string).length > max) at(path, 'is ' + (value as string).length + ' chars, over the ' + max + ' limit')
   }
 
-  for (const key of ['rooftop', 'sky'] as const) {
+  // Stop 1's only content: the screen would go dark for the visit without it.
+  const sentences: unknown[] = Array.isArray(entry.sentences) ? entry.sentences : []
+  if (sentences.length !== ABOUT.sentences) at('sentences', 'must be exactly ' + ABOUT.sentences + ' sentences')
+  sentences.forEach((sentence, i) => {
+    const path = 'sentences[' + i + ']'
+    if (!nonEmpty(sentence)) at(path, 'must be a non-empty string')
+    else if (!sentenceFits(sentence as string, ABOUT.sentenceLine, ABOUT.sentenceLines)) {
+      at(path, 'does not fit in ' + ABOUT.sentenceLines + ' lines of ' + ABOUT.sentenceLine + ' characters')
+    }
+  })
+
+  for (const key of ['city', 'sky'] as const) {
     const stop = entry[key]
     line(key + '.title', stop.title, ABOUT.title)
     if (!Array.isArray(stop.paragraphs) || stop.paragraphs.length === 0) {
@@ -585,13 +594,6 @@ export function aboutSectionProblems(entry: AboutSectionContent): Problem[] {
   line('sky.contactLabel', entry.sky.contactLabel, ABOUT.label)
   line('sky.auditLabel', entry.sky.auditLabel, ABOUT.label)
   line('sky.casesLabel', entry.sky.casesLabel, ABOUT.label)
-
-  // Stop 1's only content, and the screen would go dark for the visit without it.
-  if (entry.slide === null || typeof entry.slide !== 'object') {
-    at('slide', 'required')
-    return problems
-  }
-  towerSlidesProblems([entry.slide], (path, message) => at(path.replace(/^slides\[0\]/, 'slide'), message))
   return problems
 }
 

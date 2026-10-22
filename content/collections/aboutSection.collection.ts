@@ -1,21 +1,21 @@
 import type { AboutSectionContent, AboutStop } from '../../src/content/types'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { ID_PATTERN, aboutSectionProblems } from '../../src/content/invariants'
+import { sentenceFits } from '../../src/content/sentenceLines'
 import { Report, boundedArray, text } from '../lib/validate'
-import { SLIDE_IMAGE_RULE, slide } from './towerScreen.collection'
 import { collection } from './types'
 
 /**
- * The Conócenos section: the one slide the tower's screen shows while it is
- * open, which is all stop 1 says, the copy of the other two stops, and the
- * buttons of the last one.
+ * The Conócenos section: the five sentences the tower's screen writes in while
+ * it is open, which are all stop 1 says, the copy of the other two stops, and
+ * the buttons of the last one.
  *
- * ── The slide is the tower screen's ──
- * Same template, same wall, same mapper (`slide` in `towerScreen.collection.ts`)
- * and the same mirrored pictures in `media/tower`. Exactly one: the screen is
- * stop 1's content and holds it for the whole visit. Its id is `about-slide`,
- * not one of the tower's `slide-<n>`, because the screen holds both at once
- * and picks what to show (`towerScreen/carousel.ts`, `setPlaylist`).
+ * ── The sentences are the screen's ──
+ * Exactly five, plain text, no picture. Each is cut into lines at its spaces
+ * the way the screen cuts it (`src/content/sentenceLines.ts`) and must fit in
+ * two lines of the tower list's width: the canvas clips what does not fit, in
+ * silence. The last one is drawn in the accent colour; that is the layout's
+ * choice (`layoutAboutSentences.ts`), not a field.
  *
  * ── A singleton that may be absent ──
  * Zero documents is allowed, unlike `towerScreen`. The section is new and its
@@ -26,8 +26,23 @@ import { collection } from './types'
  */
 
 const ABOUT = EDITORIAL_BOUNDS.aboutSection
-/** Apart from the tower's `slide-<n>`: the screen holds both. */
-const ABOUT_SLIDE_ID = 'about-slide'
+
+function sentence(report: Report, path: string, raw: unknown): string | undefined {
+  const value = text(report, path, raw)
+  if (value === undefined) return undefined
+  if (!sentenceFits(value, ABOUT.sentenceLine, ABOUT.sentenceLines)) {
+    return report.fail(path, 'does not fit in ' + ABOUT.sentenceLines + ' lines of ' + ABOUT.sentenceLine + ' characters')
+  }
+  return value
+}
+
+function sentences(report: Report, path: string, raw: unknown): string[] | undefined {
+  const list = boundedArray(report, path, raw, ABOUT.sentences, sentence)
+  if (list !== undefined && list.length !== ABOUT.sentences) {
+    return report.fail(path, 'exactly ' + ABOUT.sentences + ' sentences required, got ' + list.length)
+  }
+  return list
+}
 
 function paragraphs(report: Report, path: string, raw: unknown): string[] | undefined {
   const list = boundedArray(report, path, raw, ABOUT.paragraphs, (r, p, v) =>
@@ -52,30 +67,11 @@ export const aboutSectionCollection = collection<AboutSectionContent>({
     type: 'aboutSection',
     // One document at most, ordered anyway, for `towerScreen`'s reason.
     orderBy: '_id asc',
-    mirror: ['slide.image.src'],
-    mirrorDir: 'media/tower',
-    mediaRules: { 'slide.image.src': SLIDE_IMAGE_RULE },
-    // The slide's projection is `towerScreen`'s, field for field.
     projection: `{
       "id": "about",
-      rooftop{ title, paragraphs },
-      sky{ title, paragraphs, contactLabel, auditLabel, casesLabel },
-      slide{
-        headline,
-        items,
-        metricValue,
-        metricPrefix,
-        metricSuffix,
-        caption1,
-        caption2,
-        caption3,
-        imageFit,
-        "image": select(defined(image.asset) => {
-          "src": image.asset->url,
-          "width": image.asset->metadata.dimensions.width,
-          "height": image.asset->metadata.dimensions.height
-        })
-      }
+      sentences,
+      city{ title, paragraphs },
+      sky{ title, paragraphs, contactLabel, auditLabel, casesLabel }
     }`,
   },
 
@@ -94,38 +90,33 @@ export const aboutSectionCollection = collection<AboutSectionContent>({
       scoped.fail('id', '"' + id + '" does not match ' + ID_PATTERN)
     }
 
-    const rooftop = stop(scoped, 'rooftop', source.rooftop)
+    const screenSentences = sentences(scoped, 'sentences', source.sentences)
+    const city = stop(scoped, 'city', source.city)
     const skyStop = stop(scoped, 'sky', source.sky)
     const skySource = (source.sky ?? {}) as Record<string, unknown>
     const contactLabel = text(scoped, 'sky.contactLabel', skySource.contactLabel, { max: ABOUT.label })
     const auditLabel = text(scoped, 'sky.auditLabel', skySource.auditLabel, { max: ABOUT.label })
     const casesLabel = text(scoped, 'sky.casesLabel', skySource.casesLabel, { max: ABOUT.label })
 
-    const mapped =
-      source.slide === undefined || source.slide === null
-        ? scoped.fail('slide', 'required — it is stop 1, and the screen would go dark for the visit')
-        : slide(scoped, 'slide', source.slide, 0)
-    const screenSlide = mapped ? { ...mapped, id: ABOUT_SLIDE_ID } : undefined
-
     const problems = [...report.problems, ...scoped.problems]
     if (
       problems.length > 0 ||
       id === undefined ||
-      rooftop === undefined ||
+      screenSentences === undefined ||
+      city === undefined ||
       skyStop === undefined ||
       contactLabel === undefined ||
       auditLabel === undefined ||
-      casesLabel === undefined ||
-      screenSlide === undefined
+      casesLabel === undefined
     ) {
       return { ok: false, problems }
     }
 
     const value: AboutSectionContent = {
       id,
-      rooftop,
+      sentences: screenSentences,
+      city,
       sky: { ...skyStop, contactLabel, auditLabel, casesLabel },
-      slide: screenSlide,
     }
     const residual = aboutSectionProblems(value)
     if (residual.length > 0) return { ok: false, problems: residual }
@@ -152,6 +143,6 @@ export const aboutSectionCollection = collection<AboutSectionContent>({
     typeAnnotation: 'AboutSectionContent[]',
     typeImport: { names: ['AboutSectionContent'], from: '../types' },
     description:
-      'The Conócenos section: the screen slide that is its first stop, and the copy of the other two, as published. At most one record — see content/collections/aboutSection.collection.ts.',
+      'The Conócenos section: the five screen sentences that are its first stop, and the copy of the other two, as published. At most one record — see content/collections/aboutSection.collection.ts.',
   },
 })

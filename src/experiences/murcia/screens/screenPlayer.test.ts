@@ -113,6 +113,19 @@ describe('shared screen lifetime', () => {
     screen.dispose()
   })
 
+  it('plays a switched-to composition in over the entrance asked for, and settles one without', () => {
+    const screen = player(content)
+    screen.update(1)
+    screen.setPlaylist(['first'], 2)
+    screen.update(1)
+    expect(screen.carousel!.frame).toEqual({ compositionId: 'first', progress: 0.5 })
+    expect(screen.facade!.setProgress).toHaveBeenLastCalledWith(0.5)
+    screen.setPlaylist(['second', 'first'])
+    screen.update(0)
+    expect(screen.carousel!.frame).toEqual({ compositionId: 'second', progress: 1 })
+    screen.dispose()
+  })
+
   it('stays inert without compositions and allocates no facade', async () => {
     const screen = player({ compositions: [] })
     await expect(screen.ready).resolves.toBe(false)

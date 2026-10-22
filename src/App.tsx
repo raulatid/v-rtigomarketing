@@ -348,6 +348,12 @@ export default function App() {
       releaseFocus: murciaRef.current?.hasFocusedDistrict
         ? () => murciaRef.current?.releaseFocusedDistrict()
         : null,
+      // Conócenos walks its stops by scrolling: the wheel the warp is refused
+      // steps instead. Not under a dialog, which keeps the wheel for itself.
+      step:
+        attentionIsFree && murciaRef.current?.canStepSection
+          ? (direction) => murciaRef.current?.stepSection(direction)
+          : null,
     }),
     onCommit: (intent) => transitionTo(intent === 'enter-murcia' ? 'murcia' : 'earth'),
     // The zoom IS the scene feedback. Written straight onto the mutable sequence

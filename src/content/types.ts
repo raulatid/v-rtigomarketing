@@ -640,7 +640,7 @@ export interface TowerScreenContent {
 }
 
 /**
- * A text stop of the Conócenos section (the rooftop and the sky): the plate
+ * A text stop of the Conócenos section (the city and the sky): the plate
  * beside the camera's view.
  * One or two short paragraphs, plain text — the plate is read in passing,
  * between two camera moves, and has no room for structure.
@@ -652,9 +652,9 @@ export interface AboutStop {
 }
 
 /**
- * The Conócenos section (the base of the Vértigo tower): the one slide the
- * tower's screen shows while the section is open, which is stop 1's content,
- * what the other two stops say, and the buttons of the last one.
+ * The Conócenos section (the base of the Vértigo tower): the five sentences
+ * the tower's screen shows while the section is open, which are stop 1's
+ * content, what the other two stops say, and the buttons of the last one.
  *
  * A singleton that may be ABSENT: until the document is published the base
  * names itself and goes nowhere, as it did before the section existed — see
@@ -663,18 +663,18 @@ export interface AboutStop {
 export interface AboutSectionContent {
   /** Always `about`; the projection writes it. */
   id: string
-  /** Stop 2, over the rooftop logo. */
-  rooftop: AboutStop
+  /**
+   * Stop 1, in front of the screen: what the screen shows for the whole visit,
+   * and the stop's only content — it has no plate. Exactly five plain
+   * sentences, written in one after another; the last in the accent colour.
+   */
+  sentences: string[]
+  /** Stop 2, the whole city with the isotype drawn over it. */
+  city: AboutStop
   /** Stop 3, under the sky: the call to action and its three buttons. */
   sky: AboutStop & {
     contactLabel: string
     auditLabel: string
     casesLabel: string
   }
-  /**
-   * Stop 1, in front of the screen: what the screen shows for the whole visit,
-   * and the stop's only content — it has no plate. Exactly one, the tower
-   * screen's template, unchanged.
-   */
-  slide: TowerSlide
 }

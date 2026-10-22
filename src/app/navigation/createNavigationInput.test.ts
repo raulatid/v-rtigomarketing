@@ -105,6 +105,40 @@ describe('explicit destination navigation', () => {
   })
 })
 
+// Conócenos walks its stops by scrolling. The wheel the warp is refused steps
+// instead, once per gesture: a trackpad's momentum tail outlasts the flight the
+// first step starts, and must not take a second step when it lands.
+describe('a refused wheel steps what holds the attention', () => {
+  it('steps once per gesture, a forward rotation on and a backward one back, and never zooms', async () => {
+    const steps: number[] = []
+    const { input, context, depth } = setup({ current: 'murcia', canNavigate: false })
+    context.step = (direction) => steps.push(direction)
+    wheel(-100)
+    for (let i = 0; i < 20; i += 1) wheel(-30)
+    expect(steps).toEqual([1])
+    await after(NAVIGATION_COOLDOWN.latchGapSeconds * 1000 + 50)
+    wheel(100)
+    expect(steps).toEqual([1, -1])
+    expect(depth()).toBe(0)
+    input.dispose()
+  })
+
+  it('adds a trackpad stroke up to a step, and is not offered while navigation is free', () => {
+    const steps: number[] = []
+    const { input, context } = setup({ current: 'murcia' })
+    context.step = (direction) => steps.push(direction)
+    wheel(30)
+    wheel(30)
+    expect(steps).toEqual([])
+    context.canNavigate = false
+    wheel(-20)
+    expect(steps).toEqual([])
+    wheel(-25)
+    expect(steps).toEqual([1])
+    input.dispose()
+  })
+})
+
 // A trackpad's two-finger sideways swipe arrives as deltaX, which the wheel used
 // to drop — and the stray deltaY of a swipe meant to turn zoomed the city.
 describe('wheel rotation follows camera zoom in both worlds', () => {

@@ -1,17 +1,40 @@
 import { UsersIcon } from '@sanity/icons/Users'
 import { defineArrayMember, defineField, defineType } from 'sanity'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
+import { wrapSentence } from '../../src/content/sentenceLines'
 import { charCount } from '../components/CharCountInput'
 import { markupAdvice, singleParagraphAdvice } from './lib/advice'
 import { plainText } from './lib/plainText'
-import { towerSlide } from './towerScreen'
 
 /**
  * The lengths this schema refuses, shared with the content build. See
- * `src/content/editorialBounds.ts` (`aboutSection`, and `towerScreen` for the
- * slide, which is the screen's own template).
+ * `src/content/editorialBounds.ts` (`aboutSection`).
  */
 const BOUNDS = EDITORIAL_BOUNDS.aboutSection
+
+/**
+ * A sentence the screen cannot draw whole: cut into lines the way the screen
+ * cuts it (`src/content/sentenceLines.ts`), it takes more than two, or a word
+ * is wider than a line. The build refuses it again: the canvas clips in silence.
+ */
+function sentenceFit(value: unknown): true | string {
+  if (typeof value !== 'string' || value.trim().length === 0) return true
+  const lines = wrapSentence(value, BOUNDS.sentenceLine)
+  const wide = lines.find((line) => line.length > BOUNDS.sentenceLine)
+  if (wide) return '«' + wide + '» no cabe en una línea de la pantalla: como máximo ' + BOUNDS.sentenceLine + ' caracteres.'
+  if (lines.length > BOUNDS.sentenceLines) {
+    return 'No cabe en ' + BOUNDS.sentenceLines + ' líneas de ' + BOUNDS.sentenceLine + ' caracteres. La pantalla la cortaría así: «' + lines.join(' / ') + '».'
+  }
+  return true
+}
+
+/** Fits, but a run of wide letters (M, W) may not: the tower list's advice, per line. */
+function sentenceAdvice(value: unknown): true | string {
+  if (typeof value !== 'string') return true
+  const lines = wrapSentence(value, BOUNDS.sentenceLine)
+  if (lines.every((line) => line.length <= BOUNDS.sentenceLineAdvised)) return true
+  return 'Cabe, pero alguna línea pasa de ' + BOUNDS.sentenceLineAdvised + ' caracteres y con letras anchas puede quedar justa. Se corta así: «' + lines.join(' / ') + '».'
+}
 
 /** A stop's title and its one or two paragraphs. */
 function stopFields() {
@@ -85,22 +108,34 @@ export const aboutSection = defineType({
   icon: UsersIcon,
   type: 'document',
   description:
-    'La visita que empieza al pulsar la base de la torre Vértigo: la pantalla, la azotea y el cielo. La primera parada es la diapositiva de la pantalla; las otras dos llevan un texto.',
+    'La visita que empieza al pulsar la base de la torre Vértigo: la pantalla, la ciudad y el cielo. La primera parada son las frases de la pantalla; las otras dos llevan un texto.',
   fields: [
     defineField({
-      name: 'slide',
+      name: 'sentences',
       title: 'Parada 1 · La pantalla',
-      type: 'object',
+      type: 'array',
+      of: [
+        defineArrayMember({
+          type: 'string',
+          validation: (rule) => [
+            rule.required().error('Escribe la frase.'),
+            rule.custom(sentenceFit),
+            rule.custom(plainText),
+            rule.custom(markupAdvice).warning(),
+            rule.custom(sentenceAdvice).warning(),
+          ],
+        }),
+      ],
       description:
-        'La cámara se pone delante de la pantalla de la torre, que muestra esta diapositiva durante toda la visita. Es todo lo que dice la primera parada: no lleva texto al lado. La misma plantilla que la pantalla normal.',
-      fields: towerSlide.fields,
-      validation: (rule) => rule.required().error('Rellena la diapositiva: sin ella la pantalla se apaga durante la visita.'),
+        'Exactamente ' + BOUNDS.sentences + ' frases cortas. La cámara se pone delante de la pantalla de la torre, que las escribe una tras otra y las deja quietas durante toda la visita; es todo lo que dice la primera parada. Cada frase ocupa como máximo ' + BOUNDS.sentenceLines + ' líneas de unos ' + BOUNDS.sentenceLine + ' caracteres. La última sale en otro color.',
+      validation: (rule) =>
+        rule.required().length(BOUNDS.sentences).error('Escribe exactamente ' + BOUNDS.sentences + ' frases.'),
     }),
     defineField({
-      name: 'rooftop',
-      title: 'Parada 2 · La azotea',
+      name: 'city',
+      title: 'Parada 2 · La ciudad',
       type: 'object',
-      description: 'La cámara mira el logo de la torre desde arriba.',
+      description: 'La cámara se aleja hasta ver toda la ciudad y el isotipo de Vértigo se dibuja encima.',
       fields: stopFields(),
       validation: (rule) => rule.required(),
     }),

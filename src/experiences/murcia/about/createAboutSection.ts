@@ -3,11 +3,11 @@ import type { AboutSectionContent, AboutStop } from '../../../content/types';
 import { createCampusOverlay, type OverlayAction, type OverlayCopy } from '../campus/section/campusOverlay';
 import { CAMPUS_DOCK_QUERY } from '../campus/campusMobileLayout';
 import { createAboutCamera } from './aboutCamera';
-import { createAboutControls } from './aboutControls';
+import { createAboutHint } from './aboutHint';
 import { createAboutCameraAdapter, type AboutCameraRig } from './aboutCameraAdapter';
 import { AboutInteraction } from './aboutInteraction';
 import { ABOUT_LABELS } from './aboutLabels';
-import { SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type AboutPose } from './aboutPoses';
+import { CITY_MARK, SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type AboutPose } from './aboutPoses';
 
 /**
  * Conócenos: the visit that starts at the base of the Vértigo tower. The one
@@ -16,17 +16,20 @@ import { SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type AboutPose } fr
  * `hasFocusedDistrict`, the pinch-out exit, the deferred resize — treat both
  * alike.
  *
- * Three stops, in a row that does not wrap: the screen, the rooftop logo, the
- * sky. The arrows (and ←/→, and a swipe) walk them; the back arrow, Escape or
- * a pinch out flies back to where the visitor was standing. The screen stop
- * has no plate: the slide on the tower's screen is all it says, and only the
- * two arrows stay (`aboutControls.ts`). The last stop's plate carries the
+ * Three stops, in a row that does not wrap: the screen, the city with the
+ * isotype drawn over it, the sky. The wheel (`step`, handed over by the
+ * application), a vertical swipe and ←/→ walk them; the plate has no arrows of
+ * its own (user direction, 2026-10-22). The back arrow, Escape or a pinch out
+ * flies back to where the visitor was standing. The screen stop has no plate:
+ * the slide on the tower's screen is all it says, with only a still hint under
+ * it that scrolling moves on (`aboutHint.ts`). The last stop's plate carries the
  * call to action: Contacto and Auditoría open their dialogs,
  * and «Ver sus casos» asks the application for the warp to Earth, which
  * leaves from this stop (`aboutCamera.ts`, `departure`).
  *
- * What the section shows besides its plate — the screen's slide, the logo's
- * sweep, the satellites — answers to `stop` and `isEngaged`, read by the host.
+ * What the section shows besides its plate — the screen's sentences, the
+ * isotype over the city, the satellites — answers to `stop` and `isEngaged`,
+ * read by the host.
  */
 
 /** Seconds: the campus's flight, so every flight in the city keeps one tempo. */
@@ -35,7 +38,7 @@ const FLIGHT_SECONDS = 1.4;
 const REDUCED_FLIGHT_SECONDS = 0.12;
 
 /** The stops, in order. */
-export const ABOUT_STOPS = ['screen', 'rooftop', 'sky'] as const;
+export const ABOUT_STOPS = ['screen', 'city', 'sky'] as const;
 export type AboutStopName = (typeof ABOUT_STOPS)[number];
 const LAST_STOP = ABOUT_STOPS.length - 1;
 /** The plate's modifier class: murcia.css places it, and `plateRect` finds it by it. */
@@ -48,7 +51,9 @@ export interface AboutSectionOptions {
   /** Murcia's UI host, where the plate mounts. */
   container: HTMLElement;
   content: AboutSectionContent;
-  geometry: AboutGeometry;
+  geometry: Omit<AboutGeometry, 'rest'>;
+  /** The city's configured rest pose for this aspect: the city stop is solved from it. */
+  restPose: (aspect: number) => AboutPose;
   rig: AboutCameraRig;
   reducedMotion: boolean;
   /** After the rig has taken the camera back, so a deferred pose can land. */
@@ -77,6 +82,8 @@ export interface AboutSection {
   enter(): boolean;
   next(): void;
   previous(): void;
+  /** One wheel gesture: +1 is `next`, -1 `previous`. Deaf while disabled, as the keys are. */
+  step(direction: 1 | -1): void;
   /** Leaves the section: the back arrow and Escape. */
   back(): void;
   /** Leaves from wherever it is. */
@@ -92,6 +99,10 @@ export interface AboutSection {
   reframe(): void;
   /** The sky stop for the current viewport, held or not, and where in its frame the satellites aim. */
   skyView(): { readonly pose: AboutPose; readonly focus: { readonly x: number; readonly y: number } };
+  /** The city stop for the current viewport, held or not, and where in its frame the isotype is centred, and how large. */
+  cityView(): { readonly pose: AboutPose; readonly mark: { readonly x: number; readonly y: number; readonly size: number } };
+  /** How long a flight between stops takes, in seconds: the cut's under reduced motion. */
+  readonly flightSeconds: number;
   /** Where the plate (or the phone's sheet) is on screen; null when it is not mounted. */
   plateRect(): DOMRect | null;
   update(dt: number): void;
@@ -114,7 +125,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   });
   const solve = (): AboutPose[] =>
     solveAboutStops(
-      options.geometry,
+      { ...options.geometry, rest: options.restPose(options.camera.aspect) },
       { fov: options.camera.fov, aspect: options.camera.aspect },
       dock.matches ? 'docked' : 'sheet',
     );
@@ -127,13 +138,12 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   let enabled = true;
   let engaged = false;
   let departing = false;
-  /** What waits for the flight to land: a stop's copy, or the screen stop's bare controls. */
-  let pendingCopy: OverlayCopy | 'controls' | null = null;
+  /** What waits for the flight to land: a stop's copy, or the screen stop's hint. */
+  let pendingCopy: OverlayCopy | 'hint' | null = null;
 
   const overlay = createCampusOverlay({
     labels: ABOUT_LABELS,
-    onPrevious: () => previous(),
-    onNext: () => next(),
+    // No `onPrevious`/`onNext`: the stops are walked by scrolling, swiping and ←/→.
     onClose: () => back(),
     container: options.container,
     // The site's text face, declared in siteHeader.css, as the campus passes it.
@@ -143,12 +153,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     className: PLATE_CLASS,
   });
 
-  const controls = createAboutControls({
-    container: options.container,
-    labels: ABOUT_LABELS,
-    onBack: () => back(),
-    onNext: () => next(),
-  });
+  const hint = createAboutHint({ container: options.container, sentence: ABOUT_LABELS.hint });
 
   const actions: OverlayAction[] = [
     { label: content.sky.contactLabel, variant: 'secondary', onSelect: () => options.onRequestContact?.() },
@@ -156,13 +161,11 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     { label: content.sky.casesLabel, variant: 'primary', onSelect: () => options.onRequestEarth?.() },
   ];
 
-  const copyFor = (index: number): OverlayCopy | 'controls' => {
+  const copyFor = (index: number): OverlayCopy | 'hint' => {
     const name = ABOUT_STOPS[index]!;
-    if (name === 'screen') return 'controls';
+    if (name === 'screen') return 'hint';
     return {
       ...paragraphsCopy(content[name]),
-      hasPrevious: index > 0,
-      hasNext: index < LAST_STOP,
       ...(name === 'sky' ? { actions } : {}),
     };
   };
@@ -175,7 +178,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
 
   const goTo = (index: number): void => {
     overlay.hide();
-    controls.hide();
+    hint.hide();
     pendingCopy = copyFor(index);
     camera.flyTo(index, seconds);
     options.onStopChange?.(ABOUT_STOPS[index]!);
@@ -194,7 +197,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   const leave = (): void => {
     if (!engaged || departing) return;
     overlay.hide();
-    controls.hide();
+    hint.hide();
     pendingCopy = null;
     camera.exit(seconds);
     setEngaged(false);
@@ -242,6 +245,11 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     },
     next,
     previous,
+    step(direction) {
+      if (!enabled) return;
+      if (direction > 0) next();
+      else previous();
+    },
     back,
     releaseFocus: leave,
 
@@ -249,8 +257,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
       if (!engaged || departing) return;
       departing = true;
       overlay.hide();
-      controls.hide();
-    controls.hide();
+      hint.hide();
       pendingCopy = null;
     },
 
@@ -261,8 +268,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     abandon() {
       if (!adapter.holding) return;
       overlay.hide();
-      controls.hide();
-    controls.hide();
+      hint.hide();
       pendingCopy = null;
       departing = false;
       const wasEngaged = engaged;
@@ -284,6 +290,12 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
       return { pose: solve()[LAST_STOP]!, focus: SKY_FOCUS_NDC[dock.matches ? 'docked' : 'sheet'] };
     },
 
+    cityView() {
+      return { pose: solve()[ABOUT_STOPS.indexOf('city')]!, mark: CITY_MARK[dock.matches ? 'docked' : 'sheet'] };
+    },
+
+    flightSeconds: seconds,
+
     plateRect() {
       return options.container.querySelector('.' + PLATE_CLASS)?.getBoundingClientRect() ?? null;
     },
@@ -291,7 +303,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     update(dt) {
       camera.update(dt);
       if (pendingCopy && engaged && !camera.flying && !departing) {
-        if (pendingCopy === 'controls') controls.show();
+        if (pendingCopy === 'hint') hint.show();
         else overlay.show(pendingCopy);
         pendingCopy = null;
       }
@@ -300,7 +312,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     dispose() {
       interaction.dispose();
       overlay.dispose();
-      controls.dispose();
+      hint.dispose();
       camera.dispose();
     },
   };

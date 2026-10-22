@@ -47,7 +47,7 @@ const TOWER = EDITORIAL_BOUNDS.towerScreen
  * photograph on a dark wall, feathered into it by the renderer, and it has no
  * transparency to lose. Aspect band per the bounds table.
  */
-export const SLIDE_IMAGE_RULE: MediaRule = {
+const SLIDE_IMAGE_RULE: MediaRule = {
   extensions: ['png', 'webp', 'jpg', 'jpeg'],
   minAspect: TOWER.imageMinAspect,
   maxAspect: TOWER.imageMaxAspect,
@@ -103,7 +103,7 @@ function image(
   return { src, width, height, fit }
 }
 
-export function slide(report: Report, path: string, raw: unknown, index: number): TowerSlide | undefined {
+function slide(report: Report, path: string, raw: unknown, index: number): TowerSlide | undefined {
   if (raw === null || typeof raw !== 'object') return report.fail(path, 'expected an object')
   const source = raw as Record<string, unknown>
 

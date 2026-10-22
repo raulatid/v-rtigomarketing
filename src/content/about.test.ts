@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ABOUT_SECTION } from './generated/aboutSection'
+import { EDITORIAL_BOUNDS } from './editorialBounds'
 import { aboutSectionProblems } from './invariants'
 import { ABOUT_SECTION_CONTENT } from './about'
 
@@ -17,7 +18,9 @@ describe('the shipped Conócenos section', () => {
     expect(ABOUT_SECTION.flatMap(aboutSectionProblems)).toEqual([])
   })
 
-  it('names its slide apart from the tower screen\'s, so the screen can hold both', () => {
-    if (ABOUT_SECTION_CONTENT) expect(ABOUT_SECTION_CONTENT.slide.id).toBe('about-slide')
+  it('carries the five sentences the screen writes in, and no slide', () => {
+    if (!ABOUT_SECTION_CONTENT) return
+    expect(ABOUT_SECTION_CONTENT.sentences).toHaveLength(EDITORIAL_BOUNDS.aboutSection.sentences)
+    expect('slide' in ABOUT_SECTION_CONTENT).toBe(false)
   })
 })

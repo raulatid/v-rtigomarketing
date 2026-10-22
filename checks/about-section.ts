@@ -45,6 +45,8 @@ const GEOMETRY: AboutGeometry = {
     width: 30,
   },
   logo: new THREE.Vector3(-291.31, 67.86, 308.13),
+  // The rest pose's shape (`murciaConfig`): 440 away, 42° up, azimuth 275.
+  rest: { position: new THREE.Vector3(-610.7, 294.4, 328.5), target: new THREE.Vector3(-285, 10, 300) },
 };
 
 /** The city, its pan input, and the section's camera wired as `createAboutSection` wires it. */

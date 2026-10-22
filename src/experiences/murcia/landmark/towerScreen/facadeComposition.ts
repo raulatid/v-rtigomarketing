@@ -121,7 +121,11 @@ export interface MetricBlock extends BlockBase, TonedBlock {
   readonly countUp?: boolean;
 }
 
-export interface ListBlock extends BlockBase {
+/**
+ * A tone (or colour) paints every item alike; without one the first item is
+ * ink and the rest muted, the tower's vocabulary under its headline.
+ */
+export interface ListBlock extends BlockBase, TonedBlock {
   readonly type: 'list';
   readonly items: readonly string[];
   readonly size: number;

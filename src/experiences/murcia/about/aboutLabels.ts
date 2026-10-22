@@ -6,8 +6,8 @@
 
 export const ABOUT_LABELS = {
   leave: 'salir de Conócenos',
-  previous: 'Parada anterior',
-  next: 'Parada siguiente',
   expand: 'Leer más',
   collapse: 'Ver la torre',
+  /** Under the screen at the first stop (`aboutHint.ts`). */
+  hint: 'Scrollea o desliza para avanzar',
 } as const;

@@ -15,6 +15,7 @@ const GEOMETRY: AboutGeometry = {
     width: 30,
   },
   logo: new THREE.Vector3(-291.31, 67.86, 308.13),
+  rest: { position: new THREE.Vector3(-610.7, 294.4, 328.5), target: new THREE.Vector3(-285, 10, 300) },
 }
 
 const DESKTOP: AboutLens = { fov: 35, aspect: 1440 / 900 }

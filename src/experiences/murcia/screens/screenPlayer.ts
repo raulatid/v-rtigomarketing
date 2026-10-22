@@ -15,8 +15,10 @@ export interface ScreenPlayer {
    * Which of the document's compositions take turns from now on, from the
    * first. Every composition is built up front, so a switch draws at once;
    * ids the document lacks are dropped, and a list left empty is ignored.
+   * The first one is played in over `entranceSeconds`, from nothing; without
+   * one it arrives settled, by the crossfade. Reduced motion settles it anyway.
    */
-  setPlaylist(ids: readonly string[]): void;
+  setPlaylist(ids: readonly string[], entranceSeconds?: number): void;
   update(dt: number): void;
   dispose(): void;
 }
@@ -79,9 +81,11 @@ export function createScreenPlayer(document: FacadeContentDocument, options: {
     carousel,
     compositionIds: compositions.map((entry) => entry.id),
 
-    setPlaylist(ids) {
+    setPlaylist(ids, entranceSeconds = 0) {
       const [head, ...rest] = ids.filter((id) => compositions.some((entry) => entry.id === id));
-      if (head !== undefined) carousel.setPlaylist([head, ...rest]);
+      if (head === undefined) return;
+      carousel.setPlaylist([head, ...rest]);
+      carousel.replay(entranceSeconds);
     },
 
     update(dt) {

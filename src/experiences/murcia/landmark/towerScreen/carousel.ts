@@ -34,8 +34,11 @@ export interface Carousel {
   show(id: string): void;
   setRotating(on: boolean): void;
   setSeconds(seconds: number): void;
-  /** Runs the entrance again from the start. */
-  replay(): void;
+  /**
+   * Runs the entrance again from the start, over `seconds` — the configured
+   * entrance when absent, and from then on. 0 settles at once.
+   */
+  replay(seconds?: number): void;
   /**
    * Rotates these ids instead, from the first. The same list again is a no-op,
    * so a host may repeat it without restarting the turn.
@@ -45,7 +48,7 @@ export interface Carousel {
 
 export function createCarousel(rotation: FacadeRotation, options: CarouselOptions): Carousel {
   let slides: readonly string[] = rotation.compositions;
-  const entrance = Math.max(options.entranceSeconds, 1e-3);
+  let entrance = Math.max(options.entranceSeconds, 1e-3);
   const start = (): number => (options.reducedMotion ? 1 : 0);
 
   let index = 0;
@@ -92,8 +95,9 @@ export function createCarousel(rotation: FacadeRotation, options: CarouselOption
       seconds = Math.max(0.1, value);
     },
 
-    replay() {
-      progress = start();
+    replay(value = options.entranceSeconds) {
+      entrance = Math.max(value, 1e-3);
+      progress = value > 0 ? start() : 1;
       elapsed = 0;
     },
 

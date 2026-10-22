@@ -6,13 +6,15 @@ import * as THREE from 'three';
  * screen or the logo moves the stops with it.
  *
  *   1. the screen — square in front of `LED_Main`, filling most of the view;
- *   2. the rooftop — over the logo, looking down at it, so no horizon enters;
+ *   2. the city — the whole of it, as on arriving from the warp, with the
+ *      isotype drawn over it (`createCityMark.ts`); solved from the configured
+ *      rest pose, not from wherever the visitor stood;
  *   3. the sky — in front of the tower and under the logo, looking up past it
  *      into the night, where the brands' satellites cross.
  *
  * Every number below came out of the prototypes of 2026-10-22
- * (`docs/plans/027-conocenos`), judged by eye, and is a starting point to tune
- * by eye rather than a measurement.
+ * (`docs/plans/027-conocenos`, `028-conocenos-ciudad`), judged by eye, and is
+ * a starting point to tune by eye rather than a measurement.
  *
  * Desktop and phone differ in where the copy sits — a plate to the right of
  * the subject, or a sheet under it — so the stops with copy are framed for one
@@ -35,6 +37,8 @@ export interface AboutGeometry {
   readonly screen: ScreenFrame;
   /** The middle of the logo's two parts together. */
   readonly logo: THREE.Vector3;
+  /** The city's configured rest pose for this viewport (`resolveCameraPose` on `initialFocus`). */
+  readonly rest: AboutPose;
 }
 
 /** Docked: the plate beside the subject. Sheet: the copy under it, on a phone. */
@@ -59,12 +63,24 @@ export interface AboutPose {
  */
 export const SCREEN_FILL = { docked: 0.75, sheet: 0.9 } as const;
 
-/** Stop 2: the elevation the logo is seen from — high enough that no horizon enters. */
-const ROOFTOP_ELEVATION_DEGREES = 40;
-/** Stop 2: how far back the camera stands from the logo's middle. */
-const ROOFTOP_DISTANCE = { docked: 44, sheet: 70 } as const;
-/** Stop 2: where the logo sits in the frame, in NDC. Left of the plate, or above the sheet. */
-const ROOFTOP_NDC = { docked: { x: -0.42, y: 0 }, sheet: { x: 0, y: 0.45 } } as const;
+/**
+ * Stop 2: how far the rest pose is pulled back along its own ray, eye from
+ * target, for the whole city. The prototype pulled the entry pose 2.6 times
+ * (`markPull`), from a visitor standing closer than rest; from the rest pose
+ * 2.6 put the city under the fog, where its darkening does not read, and 1.3
+ * matches the prototype's frame (looked at on 2026-10-22, 1440×900).
+ */
+export const CITY_PULL = 1.3;
+/**
+ * Stop 2: the isotype over the city — where in the frame it is centred, in
+ * NDC (the point the view's ray meets the ground, `createCityMark.ts`), and
+ * how many world units across. Left of the docked plate; on a phone, smaller,
+ * for the narrow frame, and above the sheet, which covers the lower half.
+ */
+export const CITY_MARK = {
+  docked: { x: -0.42, y: -0.05, size: 240 },
+  sheet: { x: 0, y: 0.3, size: 180 },
+} as const;
 
 /**
  * Stop 3: out along the screen's normal and down from the logo, in world
@@ -109,24 +125,6 @@ export function solveScreenView(
     position: frame.normal.clone().multiplyScalar(distance).add(frame.centre),
     target: frame.centre.clone(),
   };
-}
-
-/**
- * Slides a pose sideways and up, eye and target together, so its subject
- * lands at `ndc` without the view turning — `CampusFraming`'s pan.
- */
-export function panPose(pose: AboutPose, lens: AboutLens, ndc: { x: number; y: number }): AboutPose {
-  if (ndc.x === 0 && ndc.y === 0) return pose;
-  const forward = pose.target.clone().sub(pose.position);
-  const distance = forward.length();
-  forward.divideScalar(distance);
-  const right = forward.clone().cross(THREE.Object3D.DEFAULT_UP).normalize();
-  const up = right.clone().cross(forward).normalize();
-  const halfHeight = Math.tan(THREE.MathUtils.degToRad(lens.fov) / 2) * distance;
-  const offset = right
-    .multiplyScalar(-halfHeight * lens.aspect * ndc.x)
-    .addScaledVector(up, -halfHeight * ndc.y);
-  return { position: pose.position.clone().add(offset), target: pose.target.clone().add(offset) };
 }
 
 /** Where a world point lands in NDC for an eye at `position` turned by `quaternion`. */
@@ -183,25 +181,28 @@ export function aimSoSubjectLandsAt(
   return { position: position.clone(), target: position.clone().add(forward) };
 }
 
+/**
+ * Stop 2: the rest pose, its eye pulled `pull` times as far from its target
+ * along the same ray. The view does not turn, so the city reads as the one the
+ * visitor landed on, only whole.
+ */
+export function solveCityView(rest: AboutPose, pull = CITY_PULL): AboutPose {
+  const position = rest.position.clone().sub(rest.target).multiplyScalar(pull).add(rest.target);
+  return { position, target: rest.target.clone() };
+}
+
 /** The three stops, in order, for this lens and layout. */
 export function solveAboutStops(geometry: AboutGeometry, lens: AboutLens, layout: AboutLayout): AboutPose[] {
   const { screen, logo } = geometry;
 
   const screenView = solveScreenView(screen, lens.fov, lens.aspect, SCREEN_FILL[layout]);
 
-  const elevation = THREE.MathUtils.degToRad(ROOFTOP_ELEVATION_DEGREES);
-  const rooftopEye = screen.normal
-    .clone()
-    .multiplyScalar(Math.cos(elevation))
-    .setY(Math.sin(elevation))
-    .multiplyScalar(ROOFTOP_DISTANCE[layout])
-    .add(logo);
-  const rooftop = panPose({ position: rooftopEye, target: logo.clone() }, lens, ROOFTOP_NDC[layout]);
+  const city = solveCityView(geometry.rest);
 
   const offset = SKY_OFFSET[layout];
   const skyEye = screen.normal.clone().multiplyScalar(offset.back).add(logo);
   skyEye.y -= offset.down;
   const sky = aimSoSubjectLandsAt(skyEye, logo, lens, SKY_NDC[layout]);
 
-  return [screenView, rooftop, sky];
+  return [screenView, city, sky];
 }

@@ -245,20 +245,21 @@ empty" (fixtures and the seed carry their own). Publish the document, then deplo
 ## `aboutSection` — optional singleton
 
 One document, at the fixed id `aboutSection`: the Conócenos section, the visit that starts at
-the base of the Vértigo tower. The one slide the tower's screen shows for the length of the
-visit, which is all its first stop says; the copy of the other two stops; and the three buttons
-of the last one.
+the base of the Vértigo tower. The five sentences the tower's screen writes in for the length
+of the visit, which are all its first stop says; the copy of the other two stops; and the three
+buttons of the last one.
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
-| `slide` | object | required, exactly one: stop 1 (the screen). **The `towerScreen` slide, field for field and rule for rule**; its id is `about-slide` | fail |
-| `rooftop`, `sky` | object | both required: stop 2 (the rooftop logo), 3 (the sky) | fail |
+| `sentences[]` | string[] | exactly 5: stop 1 (the screen). Plain text; each cut at its spaces into lines of ≤ 15 characters (`src/content/sentenceLines.ts`, the cut the screen draws) must fit in 2 | fail |
+| `city`, `sky` | object | both required: stop 2 (the whole city, the isotype drawn over it), 3 (the sky) | fail |
 | `*.title` | string | non-empty, ≤ 60 | fail |
 | `*.paragraphs[]` | string[] | 1–2 entries, each non-empty and ≤ 360, plain text | fail |
 | `sky.contactLabel` / `auditLabel` / `casesLabel` | string | non-empty, ≤ 28 each | fail |
 
-The slide is mirrored into `/media/tower/…` with the tower screen's own rules. It holds for the
-whole visit: one slide does not rotate. Stop 1 has no copy of its own: the slide is its content.
+Nothing is mirrored: the sentences have no picture. They are written in one after another and
+stay still for the whole visit; the last is drawn in the screen's accent colour, which is the
+layout's choice, not a field. Stop 1 has no copy of its own: the sentences are its content.
 
 **Zero documents builds; two fail.** Unlike `towerScreen`, a dataset that has never had the
 document published builds green: the tower's base names itself and goes nowhere, as it did

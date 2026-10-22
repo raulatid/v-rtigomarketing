@@ -72,6 +72,25 @@ describe('the tower carousel', () => {
     expect(carousel.frame.compositionId).toBe('tower-brand')
   })
 
+  it('replays the entrance over the seconds asked, and settles at once for none', () => {
+    const carousel = createCarousel(rotation, { entranceSeconds: 0, reducedMotion: false })
+    run(carousel, 1)
+    carousel.setPlaylist(['about'])
+    carousel.replay(4)
+    expect(carousel.frame).toEqual({ compositionId: 'about', progress: 0 })
+    run(carousel, 2)
+    expect(carousel.frame.progress).toBe(0.5)
+    carousel.setPlaylist(rotation.compositions)
+    carousel.replay(0)
+    expect(carousel.frame).toEqual({ compositionId: 'tower', progress: 1 })
+  })
+
+  it('replays nothing under reduced motion', () => {
+    const carousel = createCarousel(rotation, { entranceSeconds: 0, reducedMotion: true })
+    carousel.replay(4)
+    expect(carousel.frame.progress).toBe(1)
+  })
+
   it('never turns with a single slide', () => {
     const carousel = createCarousel(
       { compositions: ['tower'], seconds: 5 },

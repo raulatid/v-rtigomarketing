@@ -1717,12 +1717,14 @@ describe('the Conócenos section is a singleton that may be absent', () => {
     return problemsFor(aboutSectionCollection as never, record)
   }
   const stop = (record: Record<string, unknown>, key: string) => record[key] as Record<string, unknown>
+  const sentences = (record: Record<string, unknown>) => record.sentences as string[]
 
-  it('accepts the committed fixture, with its one slide named apart from the tower screen ones', () => {
+  it('accepts the committed fixture, five sentences and the two stops with a plate', () => {
     const result = aboutSectionCollection.map(aboutFixtures[0], 0)
     expect(result.ok ? [] : result.problems).toEqual([])
     const value = (result as { ok: true; value: AboutSectionContent }).value
-    expect(value.slide.id).toBe('about-slide')
+    expect(value.sentences).toHaveLength(EDITORIAL_BOUNDS.aboutSection.sentences)
+    expect(value.city.title).toBe('Desde lo alto')
     expect(value.sky.casesLabel).toBe('Ver sus casos')
   })
 
@@ -1733,16 +1735,12 @@ describe('the Conócenos section is a singleton that may be absent', () => {
     expect(two.some((p) => /at most one/.test(p.message))).toBe(true)
   })
 
-  it('mirrors the slide picture where the tower screen puts its own', () => {
-    expect(aboutSectionCollection.source.mirror).toEqual(['slide.image.src'])
-    expect(aboutSectionCollection.source.mediaRules).toEqual({
-      'slide.image.src': towerScreenCollection.source.mediaRules?.['slides[].image.src'],
-    })
-    expect(aboutSectionCollection.source.mirrorDir).toBe(towerScreenCollection.source.mirrorDir)
+  it('mirrors nothing: the sentences have no picture', () => {
+    expect(aboutSectionCollection.source.mirror ?? []).toEqual([])
   })
 
   it('requires a title and one or two paragraphs at the two stops with a plate', () => {
-    for (const key of ['rooftop', 'sky']) {
+    for (const key of ['city', 'sky']) {
       expect(about((r) => { stop(r, key).title = '' }), key).toContain('about.' + key + '.title')
       expect(about((r) => { stop(r, key).paragraphs = [] }), key).toContain('about.' + key + '.paragraphs')
       expect(about((r) => { stop(r, key).paragraphs = ['a', 'b', 'c'] }), key).toContain('about.' + key + '.paragraphs')
@@ -1759,17 +1757,24 @@ describe('the Conócenos section is a singleton that may be absent', () => {
     }
   })
 
-  it('has no copy for the screen stop: its slide is what it says', () => {
+  it('has no copy for the screen stop beyond its sentences, and no slide', () => {
     const result = aboutSectionCollection.map(aboutFixtures[0], 0)
     expect(result.ok && 'screen' in result.value).toBe(false)
+    expect(result.ok && 'slide' in result.value).toBe(false)
   })
 
-  it('requires exactly one slide, held to the tower screen bounds', () => {
-    expect(about((r) => { delete r.slide })).toContain('about.slide')
-    expect(about((r) => { r.slide = null })).toContain('about.slide')
-    // A list is not one slide: the old shape fails rather than passing as an object.
-    expect(about((r) => { r.slide = [r.slide, r.slide] })).not.toEqual([])
-    const tooWide = 'M'.repeat(EDITORIAL_BOUNDS.towerScreen.headline + 1)
-    expect(about((r) => { (r.slide as Record<string, unknown>).headline = tooWide })).toContain('about.slide.headline')
+  it('requires exactly five sentences', () => {
+    expect(about((r) => { delete r.sentences })).toContain('about.sentences')
+    expect(about((r) => { sentences(r).pop() })).toContain('about.sentences')
+    expect(about((r) => { sentences(r).push('Una más.') })).toContain('about.sentences')
+    expect(about((r) => { sentences(r)[2] = '' })).toContain('about.sentences[2]')
+  })
+
+  it('refuses a sentence the screen cannot draw in two lines, cut as the screen cuts it', () => {
+    // 15 characters to the line: two full lines fit, a third word does not.
+    expect(about((r) => { sentences(r)[0] = 'Desde Murcia al mundo.' })).toEqual([])
+    expect(about((r) => { sentences(r)[0] = 'Desde Murcia, para todo el mundo.' })).toContain('about.sentences[0]')
+    // One word wider than a line never fits, however short the sentence.
+    expect(about((r) => { sentences(r)[1] = 'Hiperespecialización' })).toContain('about.sentences[1]')
   })
 })

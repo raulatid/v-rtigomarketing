@@ -55,10 +55,11 @@ export class AboutInteraction {
     if (!this.enabled || !swipe || swipe.id !== event.pointerId || swipe.committed) return;
     const dx = event.clientX - swipe.x;
     const dy = event.clientY - swipe.y;
-    if (Math.abs(dx) < SWIPE_COMMIT_PX || Math.abs(dx) <= Math.abs(dy)) return;
+    if (Math.abs(dy) < SWIPE_COMMIT_PX || Math.abs(dy) <= Math.abs(dx)) return;
     swipe.committed = true;
-    // Pulled left for the next stop, the way a carousel is.
-    if (dx < 0) this.intents.next();
+    // Pushed up for the next stop, as a finger rolls the wheel forward to step
+    // on (`createNavigationInput`) and to travel from Earth to Murcia.
+    if (dy < 0) this.intents.next();
     else this.intents.previous();
   };
 

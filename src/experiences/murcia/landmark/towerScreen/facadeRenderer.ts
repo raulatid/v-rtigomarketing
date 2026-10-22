@@ -167,8 +167,9 @@ function drawList(frame: FacadeFrame, block: ListBlock): void {
       staged(frame.progress, block.stage[0] + i * stagger, block.stage[1] + i * stagger),
     );
     if (t <= 0) return;
-    // The first item carries the emphasis; the rest are the vocabulary around it.
-    ctx.fillStyle = i === 0 ? INK : MUTED;
+    // The first item carries the emphasis; the rest are the vocabulary around
+    // it. A tone named on the block paints them all alike.
+    ctx.fillStyle = block.tone || block.color ? colorOf(block) : i === 0 ? INK : MUTED;
     font(ctx, block.size, 500, m, 'text');
     const x = block.at[0] * m;
     const y = (block.at[1] + i * block.leading) * m;

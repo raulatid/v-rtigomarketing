@@ -312,11 +312,24 @@ export const EDITORIAL_BOUNDS = {
     imageMaxSide: 8192,
   },
   /**
-   * The Conócenos section: two plates of copy and the screen's own slide.
-   * The slide keeps `towerScreen`'s bounds — it is the same template on the
-   * same wall — so only the copy is bounded here.
+   * The Conócenos section: five sentences on the tower's screen, and two
+   * plates of copy.
+   *
+   * The sentences keep the tower list's 15 characters to the line
+   * (`towerScreen.listItem`), drawn smaller, at a 2.7 m cap: at 3.2 a full
+   * line reached the right edge of the strip, which curves away from the eye,
+   * and was cut (looked at on 2026-10-22). A sentence is cut into lines at its
+   * spaces by `wrapSentence` (`sentenceLines.ts`), the same cut the screen
+   * draws, and must fit in two.
    */
   aboutSection: {
+    /** Exactly this many: stop 1 writes them in one after another. */
+    sentences: 5,
+    /** Characters per line, as `towerScreen.listItem`. */
+    sentenceLine: 15,
+    sentenceLineAdvised: 12,
+    /** Lines per sentence: ten lines in all fill the wall without crowding it. */
+    sentenceLines: 2,
     /** The plate's title, in the display face: two lines at most in the docked plate. */
     title: 60,
     titleAdvised: 44,

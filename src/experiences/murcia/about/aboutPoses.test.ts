@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import {
   aimSoSubjectLandsAt,
+  solveCityView,
   solveAboutStops,
   solveScreenView,
   type AboutGeometry,
@@ -21,6 +22,8 @@ const GEOMETRY: AboutGeometry = {
     width: 30,
   },
   logo: new THREE.Vector3(-291.31, 67.86, 308.13),
+  // The rest pose's shape (`murciaConfig`): 440 away, 42° up, azimuth 275.
+  rest: { position: new THREE.Vector3(-610.7, 294.4, 328.5), target: new THREE.Vector3(-285, 10, 300) },
 }
 
 const DESKTOP: AboutLens = { fov: 35, aspect: 1440 / 900 }
@@ -75,44 +78,59 @@ describe('aiming so the subject lands at a point of the picture', () => {
   })
 })
 
+describe('the city stop', () => {
+  it('pulls the rest pose back along its own ray, without turning it', () => {
+    const city = solveCityView(GEOMETRY.rest, 1.3)
+    expect(city.target.equals(GEOMETRY.rest.target)).toBe(true)
+    const rest = GEOMETRY.rest.position.clone().sub(GEOMETRY.rest.target)
+    const pulled = city.position.clone().sub(city.target)
+    expect(pulled.length() / rest.length()).toBeCloseTo(1.3, 9)
+    expect(pulled.angleTo(rest)).toBeCloseTo(0, 6)
+  })
+
+  it('is fixed: the same for every visit, whatever the screen and logo say', () => {
+    const [, city] = solveAboutStops(GEOMETRY, DESKTOP, 'docked')
+    const elsewhere = { ...GEOMETRY, logo: GEOMETRY.logo.clone().addScalar(50) }
+    const [, again] = solveAboutStops(elsewhere, DESKTOP, 'docked')
+    expect(city!.position.equals(solveCityView(GEOMETRY.rest).position)).toBe(true)
+    expect(again!.position.equals(city!.position)).toBe(true)
+  })
+})
+
 describe('the three stops', () => {
   const at = (layout: 'docked' | 'sheet', lens: AboutLens) => {
-    const [screen, rooftop, sky] = solveAboutStops(GEOMETRY, lens, layout).map((pose) => cameraOn(pose, lens))
-    return { screen: screen!, rooftop: rooftop!, sky: sky! }
+    const [screen, city, sky] = solveAboutStops(GEOMETRY, lens, layout).map((pose) => cameraOn(pose, lens))
+    return { screen: screen!, city: city!, sky: sky! }
   }
 
-  it('centre the screen, which has no plate, and frame the rest where the desktop plate leaves room', () => {
-    const { screen, rooftop, sky } = at('docked', DESKTOP)
+  it('centre the screen, which has no plate, and frame the sky where the desktop plate leaves room', () => {
+    const { screen, sky } = at('docked', DESKTOP)
     const centre = onScreen(GEOMETRY.screen.centre, screen)
     expect(centre.x).toBeCloseTo(0, 4)
     expect(centre.y).toBeCloseTo(0, 4)
-    const logo = onScreen(GEOMETRY.logo, rooftop)
-    expect(logo.x).toBeCloseTo(-0.42, 4)
-    expect(logo.y).toBeCloseTo(0, 4)
     const high = onScreen(GEOMETRY.logo, sky)
     expect(high.x).toBeCloseTo(-0.45, 4)
     expect(high.y).toBeCloseTo(-0.55, 4)
   })
 
   it('and above the phone sheet, the screen centred there too', () => {
-    const { screen, rooftop, sky } = at('sheet', PHONE)
+    const { screen, sky } = at('sheet', PHONE)
     const centre = onScreen(GEOMETRY.screen.centre, screen)
     expect(centre.x).toBeCloseTo(0, 4)
     expect(centre.y).toBeCloseTo(0, 4)
-    expect(onScreen(GEOMETRY.logo, rooftop).y).toBeCloseTo(0.45, 4)
     const high = onScreen(GEOMETRY.logo, sky)
     expect(high.x).toBeCloseTo(0, 4)
     expect(high.y).toBeCloseTo(0.3, 4)
   })
 
-  it('look down on the rooftop and up into the sky, never rolling', () => {
-    const { screen, rooftop, sky } = at('docked', DESKTOP)
+  it('look down on the city and up into the sky, never rolling', () => {
+    const { screen, city, sky } = at('docked', DESKTOP)
     const pitch = (camera: THREE.Camera) =>
       THREE.MathUtils.radToDeg(Math.asin(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).y))
-    expect(pitch(rooftop)).toBeCloseTo(-40, 6)
+    expect(pitch(city)).toBeLessThan(-30)
     expect(pitch(sky)).toBeGreaterThan(15)
     // The phone too: its satellites run in the dark above the frame's middle.
     expect(pitch(at('sheet', PHONE).sky)).toBeGreaterThan(15)
-    for (const camera of [screen, rooftop, sky]) expect(rollOf(camera)).toBeCloseTo(0, 9)
+    for (const camera of [screen, city, sky]) expect(rollOf(camera)).toBeCloseTo(0, 9)
   })
 })
