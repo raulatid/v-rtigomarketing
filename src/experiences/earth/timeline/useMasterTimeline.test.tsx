@@ -54,6 +54,7 @@ const drawRef = {
 const logoRef: { current: CornerLogoHandle } = {
   current: {
     startSequence: () => log.push('logo:start'),
+    snapToCorner: () => log.push('logo:corner'),
     isReady: () => true,
   },
 }
@@ -288,6 +289,19 @@ describe('a returning visitor', () => {
     walk(tl, tl.duration, phases)
     expect(phases).toEqual(['site'])
     expect(tl.labels.swap).toBeUndefined()
+  })
+})
+
+describe('reduced motion', () => {
+  it('parks the logo in the corner: no spin, no flight', () => {
+    motion.reduced = true
+    for (const returning of [false, true]) {
+      log.length = 0
+      const tl = mount(returning)
+      walk(tl, tl.duration, [])
+      expect(log).toContain('logo:corner')
+      expect(log).not.toContain('logo:start')
+    }
   })
 })
 

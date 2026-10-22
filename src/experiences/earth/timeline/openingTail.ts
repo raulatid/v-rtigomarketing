@@ -154,7 +154,9 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       // Satellites orbit at a calm ambient speed, so they stay — only the
       // reveal's staggered draw-in is skipped, by starting already-shown.
       state.orbitsStarted = true
-      cornerLogo.current?.startSequence()
+      // Parked, not flown there: the spin and the flight are the motion this
+      // way in exists to leave out. The corner's slow idle stays, like the orbits.
+      cornerLogo.current?.snapToCorner()
     })
   } else if (way === 'returning') {
     // ── THE RETURNING VISITOR'S WAY IN ──

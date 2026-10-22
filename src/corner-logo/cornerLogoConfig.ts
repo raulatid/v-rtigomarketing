@@ -27,5 +27,7 @@ export interface CornerLogoConfig {
 /** Minimal lifecycle exposed to an intro timeline. */
 export interface CornerLogoHandle {
   startSequence: () => void
+  /** Straight to the idle corner pose, with no spin and no flight. */
+  snapToCorner: () => void
   isReady: () => boolean
 }

@@ -128,6 +128,7 @@ export function CornerLogoLayer({ config, onLoadFailed, logoRef, handleRef }: Pr
       logoRef.current = logo
       handleRef.current = {
         startSequence: logo.startSequence,
+        snapToCorner: logo.snapToCorner,
         isReady: logo.isReady,
       }
     }
