@@ -5,6 +5,10 @@ describe('what counts as a credential', () => {
   it('names the credentials this repository actually holds', () => {
     expect(isSecretName('SANITY_TOKEN')).toBe(true)
     expect(isSecretName('RESEND_API_KEY')).toBe(true)
+    // Credentials whose names carry none of the usual words.
+    expect(isSecretName('VIEW_SOLUTION')).toBe(true)
+    expect(isSecretName('LAUNCH_PREVIEW_KEY')).toBe(true)
+    expect(publicPrefixedSecrets({ VITE_VIEW_SOLUTION: 'x' })).toEqual(['VITE_VIEW_SOLUTION'])
   })
 
   it('recognises the shape of one it has not met', () => {

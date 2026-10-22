@@ -35,7 +35,7 @@ const SECRET_NAME_PARTS = ['TOKEN', 'SECRET', 'PASSWORD', 'PASSWD', 'CREDENTIAL'
  * match the pattern above. Kept explicit so this file names the repository's
  * actual credentials rather than only a shape.
  */
-const KNOWN_SECRETS = ['SANITY_TOKEN', 'RESEND_API_KEY']
+const KNOWN_SECRETS = ['SANITY_TOKEN', 'RESEND_API_KEY', 'VIEW_SOLUTION', 'LAUNCH_PREVIEW_KEY']
 
 /**
  * A value short enough to collide with ordinary minified output is not usable
