@@ -11,11 +11,11 @@
 ### Visita que vuelve
 3. **Se decide en el arranque** (`isReturningVisitor`): hace falta un registro de consentimiento válido con `preferences` aceptado y el registro `vertigo:intro`.
 4. **El dibujo espera en silencio** (`quiet`): sin marca y sin duración mínima, hasta `ready`. Solo se muestra si la espera supera `DRAW_TIMING.quietGrace` o si hay un fatal.
-5. **La cola sigue el camino `returning`**, sin warp. El cambio a la Tierra es un único tick bajo una cubierta que se desvanece (`returnRevealDuration`). Un replay reproduce la cola completa.
+5. **La cola sigue el camino `returning`**, sin warp. El cambio a la Tierra es un único tick bajo una cubierta que se desvanece (`returnRevealDuration`). Un replay reproduce la cola completa: el evento `replay` cambia el camino a `first`.
 6. **`vertigo:intro` solo se escribe con `preferences` aceptado**, y se borra si se retira el consentimiento, también entre pestañas.
 
 ### Movimiento reducido
-7. **Se lee una vez por documento.** El dibujo muestra el contorno completo y la disponibilidad trae el relleno, manteniendo la duración mínima. Camino `reduced`: del dibujo directamente a `site`, sin warp ni cruce.
+7. **Se lee una vez por documento.** El dibujo muestra el contorno completo y la disponibilidad trae el relleno, manteniendo la duración mínima. Camino `reduced`: del dibujo directamente a `site`, sin warp ni cruce, y el logo aparece ya aparcado en la esquina (`snapToCorner`), sin giro ni vuelo. Su giro lento en la esquina se mantiene, como las órbitas.
 
 ### Depuración
 8. **`/debug` solo existe fuera de producción**, sin persistencia, con botones de seek, salto y replay (`DebugOverlay.tsx`).

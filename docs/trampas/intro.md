@@ -26,18 +26,21 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 17. **Con pocos fps la cola va a cámara lenta:** cada fotograma avanza como mucho `MAX_FRAME_DELTA`. En headless, juzga los tiempos de la cola por sus escrituras, no por el reloj de pared.
 18. **Saltar hacia delante no escribe lo que la cola no controla** (pose del logo, visibilidad de la marca, escala, warp): eso lo reconcilia `App.handleSeek`. Tras cualquier cambio de secuencia, prueba con un replay.
 19. **El tamaño y el movimiento del dibujo van por las propiedades `--intro-base`, `--intro-scale` y `--intro-warp`.** Nunca por los atributos `width`/`height`, y solo con transforms, nunca con layout.
+20. **La apertura la crea la app, no el arranque.** `boot.ts` no debe importar `openingMachine` ni `openingStore`: costaría ~1,5 KB de un chunk con presupuesto y, con la app importándolos también, Rollup los sacaría a un chunk compartido y el build fallaría. La app la pide con `getOpening()`. Fija: el presupuesto y la comprobación de arranque autónomo de `vite.config.ts`.
+21. **El replay se envía a la apertura antes de cambiar `replayKey`.** Si no, el efecto que construye la cola corre con el `drawComplete` del dibujo anterior y recorre una apertura que vuelve a estar en `draw`. La cola no se construye mientras la apertura esté en `draw`. Fija en parte: `useMasterTimeline.test.tsx` («takes both phases back to draw on a replay…»); el orden en `App` no tiene test.
+22. **Nadie más escribe `state.phase`.** Es el espejo de la apertura para el bucle de fotogramas, escrito en la misma suscripción que la fase de React. Para cambiar de fase hay que enviar un evento a la apertura. Fija: `useMasterTimeline.test.tsx` («the page’s one opening»).
 
 ## Warp de la intro
 
-20. **El cambio de tramo usa el progreso suavizado (`travelT < 0.5`) y el corte usa el progreso crudo (`p >= sceneSwapProgress`).** Coinciden solo mientras `sceneSwapProgress` valga 0,5. Moverlo (es un deslizador de depuración) los desincroniza. Solo está fijado el lado del corte.
-21. **Si el logo nunca está listo, la marca 2D se queda a `shrinkScale` toda la sesión.** Es por diseño.
+23. **El cambio de tramo usa el progreso suavizado (`travelT < 0.5`) y el corte usa el progreso crudo (`p >= sceneSwapProgress`).** Coinciden solo mientras `sceneSwapProgress` valga 0,5. Moverlo (es un deslizador de depuración) los desincroniza. Solo está fijado el lado del corte.
+24. **Si el logo nunca está listo, la marca 2D se queda a `shrinkScale` toda la sesión.** Es por diseño.
 
 ## Cómo verificar esta área
 
 | Cambio | Comprobación |
 |---|---|
 | Cualquier cosa en `src/intro-draw/` | `npx vitest run src/intro-draw` + `npm run check:architecture` |
-| Cola, fases, salto, visita que vuelve | tests de `src/experiences/earth/timeline`, `sceneVisibility.test.ts`, `introSkip.test.ts`, `introSeen.test.ts`, `motionPreference.test.ts` |
+| Cola, fases, salto, visita que vuelve | tests de `src/experiences/earth/timeline`, `src/loading/opening.test.ts`, `sceneVisibility.test.ts`, `introSkip.test.ts`, `introSeen.test.ts`, `motionPreference.test.ts` |
 | Tamaño o imports del arranque | `vite build` (falla por imports o presupuesto); `VERTIGO_SKIP_BUDGETS=1` imprime tamaños |
 | Flujo real | `npm run e2e` (`boot`, `degraded`, `consent`, `motion-preference`), solo si se pide |
 | Warp de la intro, cruce, canvas frente a SVG | inspección visual en un dispositivo real |
@@ -46,6 +49,4 @@ Para probar caminos de fallo, bloquea peticiones con `page.route(...).abort()` y
 
 ## Posibles defectos sin verificar
 
-- **Con movimiento reducido, el logo sigue girando y volando a la esquina.** El camino `reduced` llama a `startSequence()` y `corner-logo/` no comprueba el movimiento reducido. Contradice §26.18 y el propio comentario del código.
 - **La semilla de consentimiento de Playwright tiene una versión antigua** (`v: 3` en `playwright.config.ts`, frente a `CONSENT_VERSION` 4), así que se lee como «no preguntado». El banner aparecería en todos los specs, y «a refused consent stores nothing» podría estar pasando sin que haya ningún rechazo.
-- **Un replay de depuración no devuelve la fase a `draw`:** la interfaz sigue montada y el planificador sigue viendo `site`. Solo afecta a la depuración.

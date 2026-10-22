@@ -42,7 +42,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Carga real y disponibilidad](decisiones/intro/carga-real-y-disponibilidad.md): progreso visual, progreso medido y disponibilidad son tres cosas.
 - [Plazo de carga](decisiones/intro/plazo-de-carga.md): el plazo solo puede fallar; las decoraciones no son fatales.
 - [Ritmo del dibujo](decisiones/intro/ritmo-del-dibujo.md): segundos visibles, ritmo uniforme, dibujo en un worker.
-- [Máquina de apertura](decisiones/intro/maquina-de-apertura.md): fases ordenadas, tres caminos de entrada, reloj propio sin gsap.
+- [Máquina de apertura](decisiones/intro/maquina-de-apertura.md): una sola apertura por página y única fuente de la fase; fases ordenadas, tres caminos de entrada, reloj propio sin gsap.
 - [Trabajo por fase](decisiones/intro/trabajo-por-fase.md): qué trabajo se admite en cada fase.
 - [Warp de la intro](decisiones/intro/warp-de-la-intro.md): dos tramos, corte oculto, cruce por cero del logo.
 - [Nada interactivo hasta `site`](decisiones/intro/nada-interactivo-hasta-site.md): y el consentimiento es el último trazo.

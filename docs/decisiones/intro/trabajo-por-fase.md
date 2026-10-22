@@ -8,7 +8,7 @@
    - red y worker, siempre;
    - hilo principal y GPU, solo en `draw` y `site`. La GPU cuenta como hilo principal porque enlazar un programa bloquea en la consulta de estado.
 2. **El trabajo diferido nunca empieza durante `draw`** (`admitsDeferred` en `workScheduler.ts`).
-3. **El planificador arranca como mucho una unidad de hilo principal por fotograma.** Avanza justo después del reloj de la intro.
+3. **El planificador arranca como mucho una unidad de hilo principal por fotograma.** Avanza justo después del reloj de la intro y pregunta la fase a la apertura (`getOpening()`), no a una copia.
 4. **La ciudad son dos unidades:** los bytes (red, desde `shrink`) y la construcción (hilo principal, en `site`). Navegar exige `murciaReady` y `site`.
 5. Los satélites siguen cargando durante `draw`, fuera del planificador. Las precargas de Earth van con `fetchpriority="low"`.
 
