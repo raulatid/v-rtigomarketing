@@ -86,8 +86,10 @@ export function clientIp(request: Request): string | null {
 export async function readJsonBody(
   request: Request,
 ): Promise<{ ok: true; value: unknown } | { ok: false; response: Response }> {
-  const contentType = request.headers.get('content-type') ?? ''
-  if (!contentType.toLowerCase().includes('application/json')) {
+  // The media type itself, not a substring: `text/plain; x=application/json` is
+  // a type a cross-site form may send without a preflight.
+  const mediaType = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+  if (mediaType !== 'application/json') {
     return { ok: false, response: json(415, { ok: false, code: 'unsupported_media_type' }) }
   }
 

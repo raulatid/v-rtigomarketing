@@ -78,6 +78,23 @@ describe('the shape of the request', () => {
     expect(response.status).toBe(415)
   })
 
+  it('refuses a JSON media type smuggled into a parameter, and accepts a charset', async () => {
+    const smuggled = await respond(
+      'contact',
+      post(body(), { headers: { 'content-type': 'text/plain; x=application/json' } }),
+      dryRun,
+      { now: () => NOW },
+    )
+    expect(smuggled.status).toBe(415)
+    const charset = await respond(
+      'contact',
+      post(body(), { headers: { 'content-type': 'Application/JSON; charset=utf-8' } }),
+      dryRun,
+      { now: () => NOW },
+    )
+    expect(charset.status).not.toBe(415)
+  })
+
   it('refuses a body that is not JSON at all', async () => {
     const response = await respond('contact', post('not json'), dryRun, { now: () => NOW })
     expect(response.status).toBe(400)
