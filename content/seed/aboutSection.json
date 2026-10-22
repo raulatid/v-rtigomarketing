@@ -1,13 +1,6 @@
 [
   {
     "id": "about",
-    "screen": {
-      "title": "Somos Vértigo",
-      "paragraphs": [
-        "Una agencia de marketing de Murcia que mide lo que hace. Estrategia, marca y crecimiento, con números que se pueden comprobar.",
-        "Trabajamos con pocos clientes a la vez para estar de verdad en cada proyecto."
-      ]
-    },
     "rooftop": {
       "title": "Desde lo alto",
       "paragraphs": [
@@ -23,33 +16,20 @@
       "auditLabel": "Auditoría",
       "casesLabel": "Ver sus casos"
     },
-    "slides": [
-      {
-        "headline": "EQUIPO",
-        "items": ["Estrategia", "Marca", "Datos"],
-        "metricValue": 12,
-        "metricSuffix": "+",
-        "caption1": "AÑOS",
-        "caption2": "HACIENDO CRECER MARCAS",
-        "caption3": "DESDE MURCIA",
-        "image": {
-          "src": "/textures/murcia/tower/global-earth-network-connections-001.webp",
-          "width": 612,
-          "height": 344
-        },
-        "imageFit": "cover"
+    "slide": {
+      "headline": "EQUIPO",
+      "items": ["Estrategia", "Marca", "Datos"],
+      "metricValue": 12,
+      "metricSuffix": "+",
+      "caption1": "AÑOS",
+      "caption2": "HACIENDO CRECER MARCAS",
+      "caption3": "DESDE MURCIA",
+      "image": {
+        "src": "/textures/murcia/tower/global-earth-network-connections-001.webp",
+        "width": 612,
+        "height": 344
       },
-      {
-        "headline": "VERTIGO",
-        "items": ["Medimos", "Probamos", "Mejoramos"],
-        "metricValue": null,
-        "metricPrefix": null,
-        "metricSuffix": null,
-        "caption1": "CONÓCENOS",
-        "caption2": null,
-        "caption3": null,
-        "image": null
-      }
-    ]
+      "imageFit": "cover"
+    }
   }
 ]

@@ -80,7 +80,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Brújula](decisiones/murcia/brujula.md): rumbos en el suelo, blanca, sobre la cabecera, no es un control.
 - [Edificios interactivos](decisiones/murcia/edificios-interactivos.md): tinte de hover y tres puntos de interés siempre visibles, con su nombre al llegar y en hover.
 - [Cielo de Murcia](decisiones/murcia/cielo-de-murcia.md): una cúpula siempre puesta, de la neblina a la noche con estrellas; no es CSS ni `scene.background`.
-- [Sección Conócenos](decisiones/murcia/seccion-conocenos.md): tres paradas en la torre con la reclamación `'about'`; LED, barrido del isotipo, satélites con paneles de marca; «Ver sus casos» hace el warp desde el cielo; el cielo no respeta el movimiento reducido, a propósito.
+- [Sección Conócenos](decisiones/murcia/seccion-conocenos.md): tres paradas en la torre con la reclamación `'about'`; la primera es la pantalla, con una sola diapositiva y sin placa; barrido del isotipo, satélites con paneles de marca; «Ver sus casos» hace el warp desde el cielo; el cielo no respeta el movimiento reducido, a propósito.
 
 ### Campus de servicios
 - [Modelo y recorrido](decisiones/campus/modelo-y-recorrido.md): el campus es la sección de servicios; anillo sin fin, se entra por el lago, los edificios, el atajo o el teclado, y se sale desde cualquier parada.

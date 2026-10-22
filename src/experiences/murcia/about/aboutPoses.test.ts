@@ -81,10 +81,10 @@ describe('the three stops', () => {
     return { screen: screen!, rooftop: rooftop!, sky: sky! }
   }
 
-  it('frame their subjects where the desktop plate leaves room', () => {
+  it('centre the screen, which has no plate, and frame the rest where the desktop plate leaves room', () => {
     const { screen, rooftop, sky } = at('docked', DESKTOP)
     const centre = onScreen(GEOMETRY.screen.centre, screen)
-    expect(centre.x).toBeCloseTo(-0.42, 4)
+    expect(centre.x).toBeCloseTo(0, 4)
     expect(centre.y).toBeCloseTo(0, 4)
     const logo = onScreen(GEOMETRY.logo, rooftop)
     expect(logo.x).toBeCloseTo(-0.42, 4)
@@ -94,13 +94,11 @@ describe('the three stops', () => {
     expect(high.y).toBeCloseTo(-0.55, 4)
   })
 
-  it('and above the phone sheet', () => {
+  it('and above the phone sheet, the screen centred there too', () => {
     const { screen, rooftop, sky } = at('sheet', PHONE)
     const centre = onScreen(GEOMETRY.screen.centre, screen)
     expect(centre.x).toBeCloseTo(0, 4)
-    expect(centre.y).toBeCloseTo(0.32, 4)
-    // Seen from above the strip's middle, not panned down to the rooftops.
-    expect(screen.position.y).toBeGreaterThan(GEOMETRY.screen.centre.y)
+    expect(centre.y).toBeCloseTo(0, 4)
     expect(onScreen(GEOMETRY.logo, rooftop).y).toBeCloseTo(0.45, 4)
     const high = onScreen(GEOMETRY.logo, sky)
     expect(high.x).toBeCloseTo(0, 4)

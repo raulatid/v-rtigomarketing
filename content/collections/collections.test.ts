@@ -1718,11 +1718,11 @@ describe('the Conócenos section is a singleton that may be absent', () => {
   }
   const stop = (record: Record<string, unknown>, key: string) => record[key] as Record<string, unknown>
 
-  it('accepts the committed fixture, with the slides named apart from the tower screen ones', () => {
+  it('accepts the committed fixture, with its one slide named apart from the tower screen ones', () => {
     const result = aboutSectionCollection.map(aboutFixtures[0], 0)
     expect(result.ok ? [] : result.problems).toEqual([])
     const value = (result as { ok: true; value: AboutSectionContent }).value
-    expect(value.slides.map((slide) => slide.id)).toEqual(['about-1', 'about-2'])
+    expect(value.slide.id).toBe('about-slide')
     expect(value.sky.casesLabel).toBe('Ver sus casos')
   })
 
@@ -1733,13 +1733,16 @@ describe('the Conócenos section is a singleton that may be absent', () => {
     expect(two.some((p) => /at most one/.test(p.message))).toBe(true)
   })
 
-  it('mirrors the slide pictures where the tower screen puts its own', () => {
-    expect(aboutSectionCollection.source.mirror).toEqual(towerScreenCollection.source.mirror)
+  it('mirrors the slide picture where the tower screen puts its own', () => {
+    expect(aboutSectionCollection.source.mirror).toEqual(['slide.image.src'])
+    expect(aboutSectionCollection.source.mediaRules).toEqual({
+      'slide.image.src': towerScreenCollection.source.mediaRules?.['slides[].image.src'],
+    })
     expect(aboutSectionCollection.source.mirrorDir).toBe(towerScreenCollection.source.mirrorDir)
   })
 
-  it('requires a title and one or two paragraphs at every stop', () => {
-    for (const key of ['screen', 'rooftop', 'sky']) {
+  it('requires a title and one or two paragraphs at the two stops with a plate', () => {
+    for (const key of ['rooftop', 'sky']) {
       expect(about((r) => { stop(r, key).title = '' }), key).toContain('about.' + key + '.title')
       expect(about((r) => { stop(r, key).paragraphs = [] }), key).toContain('about.' + key + '.paragraphs')
       expect(about((r) => { stop(r, key).paragraphs = ['a', 'b', 'c'] }), key).toContain('about.' + key + '.paragraphs')
@@ -1756,9 +1759,17 @@ describe('the Conócenos section is a singleton that may be absent', () => {
     }
   })
 
-  it('holds the slides to the tower screen bounds', () => {
-    expect(about((r) => { r.slides = [] })).toContain('about.slides')
+  it('has no copy for the screen stop: its slide is what it says', () => {
+    const result = aboutSectionCollection.map(aboutFixtures[0], 0)
+    expect(result.ok && 'screen' in result.value).toBe(false)
+  })
+
+  it('requires exactly one slide, held to the tower screen bounds', () => {
+    expect(about((r) => { delete r.slide })).toContain('about.slide')
+    expect(about((r) => { r.slide = null })).toContain('about.slide')
+    // A list is not one slide: the old shape fails rather than passing as an object.
+    expect(about((r) => { r.slide = [r.slide, r.slide] })).not.toEqual([])
     const tooWide = 'M'.repeat(EDITORIAL_BOUNDS.towerScreen.headline + 1)
-    expect(about((r) => { (r.slides as Record<string, unknown>[])[0]!.headline = tooWide })).toContain('about.slides[0].headline')
+    expect(about((r) => { (r.slide as Record<string, unknown>).headline = tooWide })).toContain('about.slide.headline')
   })
 })

@@ -1057,11 +1057,11 @@ export class MurciaExperience {
     // on the first frame they are drawn. Not awaited: the slides' pictures are
     // tens of KB, and the screen draws a complete frame without them.
     const towerDocument = layoutTowerSlides(TOWER_SCREEN_CONTENT);
-    // Conócenos' slides join the same document, out of the rotation, so the
-    // section's playlist (`setupAbout`) switches to compositions that already
-    // exist. Building one costs no fetch: its pictures load when first shown.
+    // Conócenos' one slide joins the same document, out of the rotation, so
+    // the section's playlist (`setupAbout`) switches to a composition that
+    // already exists. Building it costs no fetch: its picture loads when first shown.
     const aboutSlides = ABOUT_SECTION_CONTENT
-      ? layoutTowerSlides({ ...TOWER_SCREEN_CONTENT, slides: ABOUT_SECTION_CONTENT.slides }).compositions
+      ? layoutTowerSlides({ ...TOWER_SCREEN_CONTENT, slides: [ABOUT_SECTION_CONTENT.slide] }).compositions
       : [];
     this.towerScreen = attachTowerScreen(loaded.root, {
       // The CMS's slides on the template. Generated content is imported at
@@ -1446,10 +1446,10 @@ export class MurciaExperience {
         this.onAttentionChange?.();
       },
       onEngagedChange: () => {
-        // The screen shows the section's slides for the whole visit, and its
+        // The screen holds the section's slide for the whole visit, and its
         // own rotation again from the moment the way out starts.
         const engaged = this.about?.isEngaged ?? false;
-        const slides = engaged ? content.slides : TOWER_SCREEN_CONTENT.slides;
+        const slides = engaged ? [content.slide] : TOWER_SCREEN_CONTENT.slides;
         this.towerScreen?.setPlaylist(slides.map((slide) => slide.id));
         this.logoSweep?.setTarget(engaged);
         this.onAttentionChange?.();

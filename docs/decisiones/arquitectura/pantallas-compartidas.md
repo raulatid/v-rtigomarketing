@@ -10,7 +10,7 @@
 4. **Los adaptadores no se importan entre sí;** los dos usan `screens/`. El motor de dibujo (`carousel`, `facadeRenderer`, `mediaFacade`) sigue en `landmark/towerScreen/`.
 5. **Ninguno carga modelos ni tiene bucle propio:** quien lo monta llama a `update(dt)` con su delta y a `dispose()` con el resto de su mundo.
 6. **El motor de la torre no importa contenido generado:** recibe el documento (ver [pantalla de la torre](../contenido/pantalla-de-la-torre.md)).
-7. **Un reproductor cambia de lista, no de documento.** Las composiciones se construyen todas al crear el reproductor; `setPlaylist(ids)` decide cuáles rotan desde ese momento, empezando por la primera (el carrusel ignora la misma lista repetida y el reproductor, los ids que no tiene). La torre lleva así las diapositivas de la [sección Conócenos](../murcia/seccion-conocenos.md): `MurciaExperience` le pasa las suyas y las de Conócenos en un solo documento, rota las suyas y cambia de lista al entrar y salir de la sección. Construir una composición no descarga nada: sus imágenes se piden la primera vez que se muestra.
+7. **Un reproductor cambia de lista, no de documento.** Las composiciones se construyen todas al crear el reproductor; `setPlaylist(ids)` decide cuáles rotan desde ese momento, empezando por la primera (el carrusel ignora la misma lista repetida y el reproductor, los ids que no tiene). La torre lleva así la diapositiva de la [sección Conócenos](../murcia/seccion-conocenos.md): `MurciaExperience` le pasa las suyas y la de Conócenos en un solo documento, rota las suyas y cambia de lista al entrar y salir de la sección (la de Conócenos es de una, y no rota). Construir una composición no descarga nada: sus imágenes se piden la primera vez que se muestra.
 
 ## Por qué
 

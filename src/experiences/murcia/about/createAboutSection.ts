@@ -3,6 +3,7 @@ import type { AboutSectionContent, AboutStop } from '../../../content/types';
 import { createCampusOverlay, type OverlayAction, type OverlayCopy } from '../campus/section/campusOverlay';
 import { CAMPUS_DOCK_QUERY } from '../campus/campusMobileLayout';
 import { createAboutCamera } from './aboutCamera';
+import { createAboutControls } from './aboutControls';
 import { createAboutCameraAdapter, type AboutCameraRig } from './aboutCameraAdapter';
 import { AboutInteraction } from './aboutInteraction';
 import { ABOUT_LABELS } from './aboutLabels';
@@ -17,12 +18,14 @@ import { SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type AboutPose } fr
  *
  * Three stops, in a row that does not wrap: the screen, the rooftop logo, the
  * sky. The arrows (and ←/→, and a swipe) walk them; the back arrow, Escape or
- * a pinch out flies back to where the visitor was standing. The last stop's
- * plate carries the call to action: Contacto and Auditoría open their dialogs,
+ * a pinch out flies back to where the visitor was standing. The screen stop
+ * has no plate: the slide on the tower's screen is all it says, and only the
+ * two arrows stay (`aboutControls.ts`). The last stop's plate carries the
+ * call to action: Contacto and Auditoría open their dialogs,
  * and «Ver sus casos» asks the application for the warp to Earth, which
  * leaves from this stop (`aboutCamera.ts`, `departure`).
  *
- * What the section shows besides its plate — the screen's slides, the logo's
+ * What the section shows besides its plate — the screen's slide, the logo's
  * sweep, the satellites — answers to `stop` and `isEngaged`, read by the host.
  */
 
@@ -124,8 +127,8 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   let enabled = true;
   let engaged = false;
   let departing = false;
-  /** The copy waiting for the flight to land. */
-  let pendingCopy: OverlayCopy | null = null;
+  /** What waits for the flight to land: a stop's copy, or the screen stop's bare controls. */
+  let pendingCopy: OverlayCopy | 'controls' | null = null;
 
   const overlay = createCampusOverlay({
     labels: ABOUT_LABELS,
@@ -140,14 +143,22 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     className: PLATE_CLASS,
   });
 
+  const controls = createAboutControls({
+    container: options.container,
+    labels: ABOUT_LABELS,
+    onBack: () => back(),
+    onNext: () => next(),
+  });
+
   const actions: OverlayAction[] = [
     { label: content.sky.contactLabel, variant: 'secondary', onSelect: () => options.onRequestContact?.() },
     { label: content.sky.auditLabel, variant: 'secondary', onSelect: () => options.onRequestAudit?.() },
     { label: content.sky.casesLabel, variant: 'primary', onSelect: () => options.onRequestEarth?.() },
   ];
 
-  const copyFor = (index: number): OverlayCopy => {
+  const copyFor = (index: number): OverlayCopy | 'controls' => {
     const name = ABOUT_STOPS[index]!;
+    if (name === 'screen') return 'controls';
     return {
       ...paragraphsCopy(content[name]),
       hasPrevious: index > 0,
@@ -164,6 +175,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
 
   const goTo = (index: number): void => {
     overlay.hide();
+    controls.hide();
     pendingCopy = copyFor(index);
     camera.flyTo(index, seconds);
     options.onStopChange?.(ABOUT_STOPS[index]!);
@@ -182,6 +194,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   const leave = (): void => {
     if (!engaged || departing) return;
     overlay.hide();
+    controls.hide();
     pendingCopy = null;
     camera.exit(seconds);
     setEngaged(false);
@@ -236,6 +249,8 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
       if (!engaged || departing) return;
       departing = true;
       overlay.hide();
+      controls.hide();
+    controls.hide();
       pendingCopy = null;
     },
 
@@ -246,6 +261,8 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     abandon() {
       if (!adapter.holding) return;
       overlay.hide();
+      controls.hide();
+    controls.hide();
       pendingCopy = null;
       departing = false;
       const wasEngaged = engaged;
@@ -274,7 +291,8 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     update(dt) {
       camera.update(dt);
       if (pendingCopy && engaged && !camera.flying && !departing) {
-        overlay.show(pendingCopy);
+        if (pendingCopy === 'controls') controls.show();
+        else overlay.show(pendingCopy);
         pendingCopy = null;
       }
     },
@@ -282,6 +300,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     dispose() {
       interaction.dispose();
       overlay.dispose();
+      controls.dispose();
       camera.dispose();
     },
   };

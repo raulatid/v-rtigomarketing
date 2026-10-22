@@ -1,4 +1,4 @@
-import type { AboutSectionContent, AboutStop, TowerSlide } from '../../src/content/types'
+import type { AboutSectionContent, AboutStop } from '../../src/content/types'
 import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { ID_PATTERN, aboutSectionProblems } from '../../src/content/invariants'
 import { Report, boundedArray, text } from '../lib/validate'
@@ -6,14 +6,16 @@ import { SLIDE_IMAGE_RULE, slide } from './towerScreen.collection'
 import { collection } from './types'
 
 /**
- * The Conócenos section: the copy of its three stops, the buttons of the last
- * one, and the slides the tower's screen shows while it is open.
+ * The Conócenos section: the one slide the tower's screen shows while it is
+ * open, which is all stop 1 says, the copy of the other two stops, and the
+ * buttons of the last one.
  *
- * ── The slides are the tower screen's ──
+ * ── The slide is the tower screen's ──
  * Same template, same wall, same mapper (`slide` in `towerScreen.collection.ts`)
- * and the same mirrored pictures in `media/tower`. Their ids are `about-<n>`,
- * not the tower's `slide-<n>`, because the screen holds both sets at once and
- * picks one to rotate (`towerScreen/carousel.ts`, `setPlaylist`).
+ * and the same mirrored pictures in `media/tower`. Exactly one: the screen is
+ * stop 1's content and holds it for the whole visit. Its id is `about-slide`,
+ * not one of the tower's `slide-<n>`, because the screen holds both at once
+ * and picks what to show (`towerScreen/carousel.ts`, `setPlaylist`).
  *
  * ── A singleton that may be absent ──
  * Zero documents is allowed, unlike `towerScreen`. The section is new and its
@@ -24,7 +26,8 @@ import { collection } from './types'
  */
 
 const ABOUT = EDITORIAL_BOUNDS.aboutSection
-const TOWER = EDITORIAL_BOUNDS.towerScreen
+/** Apart from the tower's `slide-<n>`: the screen holds both. */
+const ABOUT_SLIDE_ID = 'about-slide'
 
 function paragraphs(report: Report, path: string, raw: unknown): string[] | undefined {
   const list = boundedArray(report, path, raw, ABOUT.paragraphs, (r, p, v) =>
@@ -49,16 +52,15 @@ export const aboutSectionCollection = collection<AboutSectionContent>({
     type: 'aboutSection',
     // One document at most, ordered anyway, for `towerScreen`'s reason.
     orderBy: '_id asc',
-    mirror: ['slides[].image.src'],
+    mirror: ['slide.image.src'],
     mirrorDir: 'media/tower',
-    mediaRules: { 'slides[].image.src': SLIDE_IMAGE_RULE },
-    // The slides' projection is `towerScreen`'s, field for field.
+    mediaRules: { 'slide.image.src': SLIDE_IMAGE_RULE },
+    // The slide's projection is `towerScreen`'s, field for field.
     projection: `{
       "id": "about",
-      screen{ title, paragraphs },
       rooftop{ title, paragraphs },
       sky{ title, paragraphs, contactLabel, auditLabel, casesLabel },
-      slides[]{
+      slide{
         headline,
         items,
         metricValue,
@@ -92,7 +94,6 @@ export const aboutSectionCollection = collection<AboutSectionContent>({
       scoped.fail('id', '"' + id + '" does not match ' + ID_PATTERN)
     }
 
-    const screen = stop(scoped, 'screen', source.screen)
     const rooftop = stop(scoped, 'rooftop', source.rooftop)
     const skyStop = stop(scoped, 'sky', source.sky)
     const skySource = (source.sky ?? {}) as Record<string, unknown>
@@ -100,41 +101,31 @@ export const aboutSectionCollection = collection<AboutSectionContent>({
     const auditLabel = text(scoped, 'sky.auditLabel', skySource.auditLabel, { max: ABOUT.label })
     const casesLabel = text(scoped, 'sky.casesLabel', skySource.casesLabel, { max: ABOUT.label })
 
-    let slides: TowerSlide[] | undefined
-    if (!Array.isArray(source.slides)) {
-      slides = scoped.fail('slides', 'expected an array')
-    } else if (source.slides.length === 0) {
-      slides = scoped.fail('slides', 'at least one required — the screen would go dark for the visit')
-    } else if (source.slides.length > TOWER.slides) {
-      slides = scoped.fail('slides', 'has ' + source.slides.length + ' entries, over the ' + TOWER.slides + ' limit')
-    } else {
-      const mapped = source.slides.map((entry, i) => slide(scoped, 'slides[' + i + ']', entry, i))
-      slides = mapped.every((one): one is TowerSlide => one !== undefined)
-        ? mapped.map((one, i) => ({ ...one, id: 'about-' + (i + 1) }))
-        : undefined
-    }
+    const mapped =
+      source.slide === undefined || source.slide === null
+        ? scoped.fail('slide', 'required — it is stop 1, and the screen would go dark for the visit')
+        : slide(scoped, 'slide', source.slide, 0)
+    const screenSlide = mapped ? { ...mapped, id: ABOUT_SLIDE_ID } : undefined
 
     const problems = [...report.problems, ...scoped.problems]
     if (
       problems.length > 0 ||
       id === undefined ||
-      screen === undefined ||
       rooftop === undefined ||
       skyStop === undefined ||
       contactLabel === undefined ||
       auditLabel === undefined ||
       casesLabel === undefined ||
-      slides === undefined
+      screenSlide === undefined
     ) {
       return { ok: false, problems }
     }
 
     const value: AboutSectionContent = {
       id,
-      screen,
       rooftop,
       sky: { ...skyStop, contactLabel, auditLabel, casesLabel },
-      slides,
+      slide: screenSlide,
     }
     const residual = aboutSectionProblems(value)
     if (residual.length > 0) return { ok: false, problems: residual }
@@ -161,6 +152,6 @@ export const aboutSectionCollection = collection<AboutSectionContent>({
     typeAnnotation: 'AboutSectionContent[]',
     typeImport: { names: ['AboutSectionContent'], from: '../types' },
     description:
-      'The Conócenos section: its three stops and the screen slides it shows, as published. At most one record — see content/collections/aboutSection.collection.ts.',
+      'The Conócenos section: the screen slide that is its first stop, and the copy of the other two, as published. At most one record — see content/collections/aboutSection.collection.ts.',
   },
 })

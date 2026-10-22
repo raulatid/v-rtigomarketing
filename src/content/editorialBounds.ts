@@ -312,9 +312,9 @@ export const EDITORIAL_BOUNDS = {
     imageMaxSide: 8192,
   },
   /**
-   * The Conócenos section: three plates of copy and the screen's own slides.
-   * The slides keep `towerScreen`'s bounds — they are the same template on
-   * the same wall — so only the copy is bounded here.
+   * The Conócenos section: two plates of copy and the screen's own slide.
+   * The slide keeps `towerScreen`'s bounds — it is the same template on the
+   * same wall — so only the copy is bounded here.
    */
   aboutSection: {
     /** The plate's title, in the display face: two lines at most in the docked plate. */

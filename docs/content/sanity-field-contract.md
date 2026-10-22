@@ -245,19 +245,20 @@ empty" (fixtures and the seed carry their own). Publish the document, then deplo
 ## `aboutSection` — optional singleton
 
 One document, at the fixed id `aboutSection`: the Conócenos section, the visit that starts at
-the base of the Vértigo tower. The copy of its three stops, the three buttons of the last one,
-and the slides the tower's screen shows for the length of the visit.
+the base of the Vértigo tower. The one slide the tower's screen shows for the length of the
+visit, which is all its first stop says; the copy of the other two stops; and the three buttons
+of the last one.
 
 | Field | Type | Rule | On violation |
 |---|---|---|---|
-| `screen`, `rooftop`, `sky` | object | all three required: stop 1 (the screen), 2 (the rooftop logo), 3 (the sky) | fail |
+| `slide` | object | required, exactly one: stop 1 (the screen). **The `towerScreen` slide, field for field and rule for rule**; its id is `about-slide` | fail |
+| `rooftop`, `sky` | object | both required: stop 2 (the rooftop logo), 3 (the sky) | fail |
 | `*.title` | string | non-empty, ≤ 60 | fail |
 | `*.paragraphs[]` | string[] | 1–2 entries, each non-empty and ≤ 360, plain text | fail |
 | `sky.contactLabel` / `auditLabel` / `casesLabel` | string | non-empty, ≤ 28 each | fail |
-| `slides[]` | object[] | 1–6, **the `towerScreen` slide, field for field and rule for rule**; ids are `about-<n>` from position | fail |
 
-The slides are mirrored into `/media/tower/…` with the tower screen's own rules. Their rotation
-uses the tower screen's `rotationSeconds`.
+The slide is mirrored into `/media/tower/…` with the tower screen's own rules. It holds for the
+whole visit: one slide does not rotate. Stop 1 has no copy of its own: the slide is its content.
 
 **Zero documents builds; two fail.** Unlike `towerScreen`, a dataset that has never had the
 document published builds green: the tower's base names itself and goes nowhere, as it did

@@ -552,8 +552,8 @@ const ABOUT = EDITORIAL_BOUNDS.aboutSection
 /**
  * Everything wrong with the Conócenos document, as a list.
  *
- * The copy is held to what the plate shows whole; the slides to the tower
- * screen's own bounds, because they are drawn on the same wall by the same
+ * The copy is held to what the plate shows whole; the slide to the tower
+ * screen's own bounds, because it is drawn on the same wall by the same
  * template (`towerSlidesProblems`).
  */
 export function aboutSectionProblems(entry: AboutSectionContent): Problem[] {
@@ -570,7 +570,7 @@ export function aboutSectionProblems(entry: AboutSectionContent): Problem[] {
     else if ((value as string).length > max) at(path, 'is ' + (value as string).length + ' chars, over the ' + max + ' limit')
   }
 
-  for (const key of ['screen', 'rooftop', 'sky'] as const) {
+  for (const key of ['rooftop', 'sky'] as const) {
     const stop = entry[key]
     line(key + '.title', stop.title, ABOUT.title)
     if (!Array.isArray(stop.paragraphs) || stop.paragraphs.length === 0) {
@@ -586,15 +586,12 @@ export function aboutSectionProblems(entry: AboutSectionContent): Problem[] {
   line('sky.auditLabel', entry.sky.auditLabel, ABOUT.label)
   line('sky.casesLabel', entry.sky.casesLabel, ABOUT.label)
 
-  // The screen goes dark for the visit without one, which reads as a fault.
-  if (!Array.isArray(entry.slides) || entry.slides.length === 0) {
-    at('slides', 'at least one required')
+  // Stop 1's only content, and the screen would go dark for the visit without it.
+  if (entry.slide === null || typeof entry.slide !== 'object') {
+    at('slide', 'required')
     return problems
   }
-  if (entry.slides.length > TOWER.slides) {
-    at('slides', 'has ' + entry.slides.length + ' entries, over the ' + TOWER.slides + ' limit')
-  }
-  towerSlidesProblems(entry.slides, at)
+  towerSlidesProblems([entry.slide], (path, message) => at(path.replace(/^slides\[0\]/, 'slide'), message))
   return problems
 }
 

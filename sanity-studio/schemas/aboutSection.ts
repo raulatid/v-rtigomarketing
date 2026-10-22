@@ -4,16 +4,14 @@ import { EDITORIAL_BOUNDS } from '../../src/content/editorialBounds'
 import { charCount } from '../components/CharCountInput'
 import { markupAdvice, singleParagraphAdvice } from './lib/advice'
 import { plainText } from './lib/plainText'
-import { singleSlideAdvice } from './lib/towerAdvice'
 import { towerSlide } from './towerScreen'
 
 /**
  * The lengths this schema refuses, shared with the content build. See
  * `src/content/editorialBounds.ts` (`aboutSection`, and `towerScreen` for the
- * slides, which are the screen's own template).
+ * slide, which is the screen's own template).
  */
 const BOUNDS = EDITORIAL_BOUNDS.aboutSection
-const TOWER = EDITORIAL_BOUNDS.towerScreen
 
 /** A stop's title and its one or two paragraphs. */
 function stopFields() {
@@ -87,15 +85,16 @@ export const aboutSection = defineType({
   icon: UsersIcon,
   type: 'document',
   description:
-    'La visita que empieza al pulsar la base de la torre Vértigo: la pantalla, la azotea y el cielo, con un texto en cada parada.',
+    'La visita que empieza al pulsar la base de la torre Vértigo: la pantalla, la azotea y el cielo. La primera parada es la diapositiva de la pantalla; las otras dos llevan un texto.',
   fields: [
     defineField({
-      name: 'screen',
+      name: 'slide',
       title: 'Parada 1 · La pantalla',
       type: 'object',
-      description: 'La cámara se pone delante de la pantalla de la torre, que pasa a mostrar las diapositivas de abajo.',
-      fields: stopFields(),
-      validation: (rule) => rule.required(),
+      description:
+        'La cámara se pone delante de la pantalla de la torre, que muestra esta diapositiva durante toda la visita. Es todo lo que dice la primera parada: no lleva texto al lado. La misma plantilla que la pantalla normal.',
+      fields: towerSlide.fields,
+      validation: (rule) => rule.required().error('Rellena la diapositiva: sin ella la pantalla se apaga durante la visita.'),
     }),
     defineField({
       name: 'rooftop',
@@ -117,20 +116,6 @@ export const aboutSection = defineType({
         label('casesLabel', 'Botón de casos', 'Viaja a la Tierra, donde están los casos de los clientes.'),
       ],
       validation: (rule) => rule.required(),
-    }),
-    defineField({
-      name: 'slides',
-      title: 'Diapositivas de la pantalla',
-      type: 'array',
-      of: [towerSlide],
-      description:
-        'Lo que muestra la pantalla de la torre mientras dura la visita, con la misma plantilla que la pantalla normal. Al menos una; como máximo ' +
-        TOWER.slides + '.',
-      validation: (rule) => [
-        rule.min(1).error('Añade al menos una diapositiva: sin ninguna la pantalla se apaga durante la visita.'),
-        rule.max(TOWER.slides).error('Como máximo ' + TOWER.slides + ' diapositivas.'),
-        rule.custom(singleSlideAdvice).warning(),
-      ],
     }),
   ],
   preview: {

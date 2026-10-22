@@ -17,7 +17,7 @@ describe('the shipped Conócenos section', () => {
     expect(ABOUT_SECTION.flatMap(aboutSectionProblems)).toEqual([])
   })
 
-  it('names its slides apart from the tower screen\'s, so the screen can hold both', () => {
-    for (const slide of ABOUT_SECTION_CONTENT?.slides ?? []) expect(slide.id).toMatch(/^about-\d+$/)
+  it('names its slide apart from the tower screen\'s, so the screen can hold both', () => {
+    if (ABOUT_SECTION_CONTENT) expect(ABOUT_SECTION_CONTENT.slide.id).toBe('about-slide')
   })
 })

@@ -15,8 +15,9 @@ import * as THREE from 'three';
  * by eye rather than a measurement.
  *
  * Desktop and phone differ in where the copy sits — a plate to the right of
- * the subject, or a sheet under it — so each stop is framed for one or the
- * other (`AboutLayout`).
+ * the subject, or a sheet under it — so the stops with copy are framed for one
+ * or the other (`AboutLayout`). The screen stop has none: its slide is its
+ * copy, so the screen is centred on both.
  */
 
 /** The screen as a picture to stand in front of, in world space. */
@@ -51,24 +52,12 @@ export interface AboutPose {
   readonly target: THREE.Vector3;
 }
 
-/** How much of the view the screen fills on its tighter axis at stop 1. */
-export const SCREEN_FILL = { docked: 0.7, sheet: 0.5 } as const;
-
 /**
- * Where the screen's centre sits at stop 1, in NDC: left of the plate on a
- * desktop, as the logo is at stop 2 — centred, the docked plate covered half
- * the strip (looked at on 2026-10-22, 1440×900); lifted on a phone, above the
- * sheet.
+ * How much of the view the screen fills on its tighter axis at stop 1, square
+ * on and centred: nothing beside or under it, since the slide is the stop's
+ * copy. A desktop is bound by the screen's height, a portrait phone by its width.
  */
-const SCREEN_NDC = { docked: { x: -0.42, y: 0 }, sheet: { x: 0, y: 0.32 } } as const;
-/**
- * Stop 1 on a phone: world units the eye rises above the screen's middle,
- * looking down at it rather than panned under it. Bound by the strip's width,
- * the phone stands about 200 units back, and the pan that lifts the screen
- * above the sheet took the eye down to the rooftops, where a building in front
- * covered half the strip (looked at on 2026-10-22, 390×844).
- */
-const SCREEN_RISE = { docked: 0, sheet: 20 } as const;
+export const SCREEN_FILL = { docked: 0.75, sheet: 0.9 } as const;
 
 /** Stop 2: the elevation the logo is seen from — high enough that no horizon enters. */
 const ROOFTOP_ELEVATION_DEGREES = 40;
@@ -198,11 +187,7 @@ export function aimSoSubjectLandsAt(
 export function solveAboutStops(geometry: AboutGeometry, lens: AboutLens, layout: AboutLayout): AboutPose[] {
   const { screen, logo } = geometry;
 
-  const square = solveScreenView(screen, lens.fov, lens.aspect, SCREEN_FILL[layout]);
-  const screenView =
-    SCREEN_RISE[layout] > 0
-      ? aimSoSubjectLandsAt(square.position.setY(square.position.y + SCREEN_RISE[layout]), screen.centre, lens, SCREEN_NDC[layout])
-      : panPose(square, lens, SCREEN_NDC[layout]);
+  const screenView = solveScreenView(screen, lens.fov, lens.aspect, SCREEN_FILL[layout]);
 
   const elevation = THREE.MathUtils.degToRad(ROOFTOP_ELEVATION_DEGREES);
   const rooftopEye = screen.normal
