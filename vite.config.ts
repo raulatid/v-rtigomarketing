@@ -65,9 +65,14 @@ const DRAW_WORKER_BUDGET_BYTES = 11_000
 // spend a code budget either: the legal texts live behind the legal panel's
 // chunk (src/content/legal.ts).
 //
+// One exception since, by the user's decision (2026-10-23): Conócenos, the
+// services sheet and the sound effects had grown the closure to 1 478 156B
+// after the debug tools were taken out of production, and the line moved to
+// that measure plus a small margin. The rule above still holds.
+//
 // The build prints the measured total on every run; the history of each raise
 // is in git.
-const INITIAL_JS_BUDGET_BYTES = 1_460_000
+const INITIAL_JS_BUDGET_BYTES = 1_485_000
 // Why the requests are counted, and why this many: the blog's header became a
 // SECOND dynamic consumer of the corner logo, and Rollup re-signatures every
 // module two dynamic entries share — `utils/easing` and `graphics/decoders`
