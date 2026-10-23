@@ -19,7 +19,8 @@ export function svgToMask(svg: string, px = 256): Promise<ImageData> {
       const canvas = document.createElement('canvas');
       canvas.width = px;
       canvas.height = px;
-      const ctx = canvas.getContext('2d');
+      // Drawn once and read back: a CPU-backed canvas spares the GPU readback.
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) {
         reject(new Error('[service-campus] no 2D context for the svg mask'));
         return;
