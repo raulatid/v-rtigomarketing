@@ -40,7 +40,8 @@ export type SoundCue =
   | 'menu-close'
   /** Murcia: the camera flies into a district (the campus or Conócenos). */
   | 'district-enter'
-  /** Murcia: the district hands the camera back to the city. */
+  /** Murcia: the district hands the camera back to the city. Not when the
+   *  warp leaves from it: the warp is what is heard then. */
   | 'district-leave'
   /** Murcia: the approach to the blog display starts. */
   | 'blog-approach'

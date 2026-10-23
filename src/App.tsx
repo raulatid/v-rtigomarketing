@@ -427,11 +427,20 @@ export default function App() {
   // at activation, so a district opening between renders cannot admit a warp.
   // The same callback is where a district's flight in and out is heard: it is
   // the one the city fires when `hasFocusedDistrict` may have flipped.
+  //
+  // Only while Murcia is shown and settled. «Ver sus casos» warps out of
+  // Conócenos with it still open, and the city lets it go at the cut
+  // (`setActive(false)`): the warp is what is heard then, so the tracker just
+  // takes the new value.
   const [districtCue] = useState(() => createCueTracker(false, cueForDistrict, playSound))
+  const murciaSettledRef = useRef(false)
+  murciaSettledRef.current = activeExperience === 'murcia' && !transitioning
   const handleMurciaAttentionChange = useCallback(() => {
     setMurciaOverviewBlocked(!(murciaRef.current?.isCityOverview ?? false))
     navigationContextChanged()
-    districtCue.update(murciaRef.current?.hasFocusedDistrict ?? false)
+    const focused = murciaRef.current?.hasFocusedDistrict ?? false
+    if (murciaSettledRef.current) districtCue.update(focused)
+    else districtCue.reset(focused)
   }, [navigationContextChanged, districtCue])
 
   useEffect(handleMurciaAttentionChange, [handleMurciaAttentionChange, activeExperience, transitioning])
