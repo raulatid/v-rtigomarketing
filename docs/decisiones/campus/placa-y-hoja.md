@@ -24,7 +24,7 @@
    La hoja equivalente de Earth está en [panel del caso](../earth/panel-del-caso.md).
 6. **Cada cambio de parada devuelve la hoja a la compacta** (`reset()` al ocultar) y vuelve a medir el texto.
 7. **La placa la comparte la [sección Conócenos](../murcia/seccion-conocenos.md)**, con dos añadidos opcionales que el campus no usa:
-   - **acciones** (`actions` en `OverlayCopy`: etiqueta, variante y callback), una fila de botones bajo el texto. La variante `primary` lleva el azul del CTA ([uso del azul](../interfaz/uso-del-azul.md)); `secondary` es vidrio neutro. Estilos: `.campus-overlay__actions` en `murcia.css`;
+   - **acciones** (`actions` en `OverlayCopy`: etiqueta, variante y callback), una columna de enlaces de texto con flecha bajo el texto, como `.case-panel__next` ([uso del azul](../interfaz/uso-del-azul.md)). La variante `primary` va en el azul del CTA y en negrita; `secondary`, en la tinta secundaria. Estilos: `.campus-overlay__actions` en `murcia.css`;
    - **una clase modificadora** (`className`), para que la hoja de estilos la coloque de otra manera: Conócenos la acopla a la derecha (`.campus-overlay--about`).
 
    `hasPrevious` y `hasNext` desactivan la flecha de paso hacia ese lado, en la primera y la última parada de una fila que no da la vuelta.

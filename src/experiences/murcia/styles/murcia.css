@@ -819,6 +819,27 @@
   }
 }
 
+/* In the sheet, Conócenos' copy reads from the left, title included: it is
+   prose, not the campus's centred card (user direction, 2026-10-23). The
+   title needs no room for paging arrows, and the back arrow sits above it. */
+@media not all and (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  /* Doubled so it outranks the sheet's centring, which comes later. */
+  .murcia-ui .campus-overlay.campus-overlay--about {
+    text-align: left;
+  }
+
+  .murcia-ui .campus-overlay--about .campus-overlay__title {
+    padding: 0;
+  }
+
+  .murcia-ui .campus-overlay--about .campus-overlay__subtitle,
+  .murcia-ui .campus-overlay--about .campus-overlay__detail {
+    width: auto;
+    margin-inline: 0;
+    text-align: left;
+  }
+}
+
 /* Conócenos' screen stop has no plate: the slide on the tower's screen is its
    content. Under it only the hint that scrolling moves on (`about/aboutHint.ts`):
    the scene hint's glyph over its sentence, in its type, held still, centred
@@ -875,15 +896,15 @@
   }
 }
 
-/* The call to action under the copy (Conócenos' last stop). The primary face
-   is the audit trigger's (siteHeader.css): the brand's blue is the CTA's
-   (docs/decisiones/interfaz/uso-del-azul.md). The others are neutral glass. */
+/* The call to action under the copy (Conócenos' last stop): text, not
+   buttons, as the case panel's doorway to the audit (styles.css,
+   `.case-panel__next`). The primary is the one the copy argues for, in the
+   CTA's blue; the other stays secondary. One per line, from the left. */
 .murcia-ui .campus-overlay__actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 24px;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 18px;
 }
 
 .murcia-ui .campus-overlay__actions[hidden] {
@@ -891,58 +912,58 @@
 }
 
 .murcia-ui .campus-overlay__action {
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 10px;
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: baseline;
+  column-gap: 0.35em;
+  min-height: 44px;
+  padding: 0.75rem 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: left;
   cursor: pointer;
-  transition:
-    box-shadow 160ms ease,
-    background-color 200ms ease,
-    border-color 200ms ease;
+  transition: color 160ms ease;
+}
+
+.murcia-ui .campus-overlay__action::after {
+  content: '→' / '';
+  display: inline-block;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The CTA's blue (docs/decisiones/interfaz/uso-del-azul.md), in its lighter
+   step: `--accent` itself is under 4.5:1 as small text on the dark glass. */
+.murcia-ui .campus-overlay__action--primary {
+  font-weight: 500;
+  color: var(--accent-hover);
 }
 
 .murcia-ui .campus-overlay__action--secondary {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--glass-border);
-}
-
-.murcia-ui .campus-overlay__action--primary {
-  color: #fff;
-  background: var(--accent);
-  border: 1px solid var(--accent-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
+  color: var(--text-secondary);
 }
 
 @media (hover: hover) {
   .murcia-ui .campus-overlay__action--secondary:hover {
-    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
   }
 
-  .murcia-ui .campus-overlay__action--primary:hover {
-    background: var(--accent-hover);
+  .murcia-ui .campus-overlay__action:hover::after {
+    transform: translateX(3px);
   }
-}
-
-.murcia-ui .campus-overlay__action--primary:active {
-  background: var(--accent-pressed);
 }
 
 .murcia-ui .campus-overlay__action:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* Docked, the row starts where the copy does. */
+/* Docked, the row has the plate's air above it. */
 @media (min-width: 1024px) and (min-aspect-ratio: 4/3) {
   .murcia-ui .campus-overlay__actions {
-    justify-content: flex-start;
-    margin-top: 34px;
+    margin-top: 28px;
   }
 }
 

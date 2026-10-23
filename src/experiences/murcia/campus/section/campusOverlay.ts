@@ -68,7 +68,7 @@ export interface OverlayCopy {
   readonly accent?: string;
   /**
    * Buttons under the copy, in order: a call to action. The campus has none;
-   * Conócenos' last stop has three. Absent or empty draws no row.
+   * Conócenos' last stop has two. Absent or empty draws no row.
    */
   readonly actions?: readonly OverlayAction[];
   /** False greys out the paging arrow that way: the first or last of a row that does not wrap. */
@@ -78,7 +78,7 @@ export interface OverlayCopy {
 
 export interface OverlayAction {
   readonly label: string;
-  /** `primary` is the brand's blue, for the one action the copy argues for. */
+  /** `primary` is the one action the copy argues for, drawn brighter. */
   readonly variant: 'primary' | 'secondary';
   readonly onSelect: () => void;
 }

@@ -217,9 +217,6 @@ export default function App() {
   // them owns the key, and the navigation predicate below refuses a warp
   // while something has the viewer's attention.
   const [contactOpen, setContactOpen] = useState(false)
-  // Conócenos' doorway into the contact dialog, on the audit's counter pattern.
-  const [contactRequest, setContactRequest] = useState(0)
-  const handleRequestContact = useCallback(() => setContactRequest((n) => n + 1), [])
   // The phone menu in the header, as the phase the header reports. "Open" to
   // everything below is "not closed": it stays true through the card's way
   // back, so nothing slips in while the scene is still tilted. Escape folds
@@ -824,7 +821,6 @@ export default function App() {
             onOpenBlog={handleOpenBlog}
             onBlogApproachStart={handleBlogApproachStart}
             onViewpointReached={handleViewpointReached}
-            onRequestContact={handleRequestContact}
             onRequestAudit={handleRequestAudit}
             onRequestEarth={handleRequestEarth}
             onContextLost={handleContextLost}
@@ -870,7 +866,6 @@ export default function App() {
         suppressed={auditOpen}
         onOpenChange={setContactOpen}
         onOpenLegal={setLegalDoc}
-        openRequest={contactRequest}
       />
 
       <AuditSection

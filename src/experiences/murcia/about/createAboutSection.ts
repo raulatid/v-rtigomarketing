@@ -23,9 +23,9 @@ import { CITY_MARK, SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type Abo
  * flies back to where the visitor was standing. The screen stop has no plate:
  * the slide on the tower's screen is all it says, with only a still hint under
  * it that scrolling moves on (`aboutHint.ts`). The last stop's plate carries the
- * call to action: Contacto and Auditoría open their dialogs,
- * and «Ver sus casos» asks the application for the warp to Earth, which
- * leaves from this stop (`aboutCamera.ts`, `departure`).
+ * call to action: Auditoría opens its dialog, and «Ver sus casos» asks the
+ * application for the warp to Earth, which leaves from this stop
+ * (`aboutCamera.ts`, `departure`).
  *
  * What the section shows besides its plate — the screen's sentences, the
  * isotype over the city, the satellites — answers to `stop` and `isEngaged`,
@@ -62,7 +62,6 @@ export interface AboutSectionOptions {
   onEngagedChange?: () => void;
   /** When the stop changes, and on leaving (null). */
   onStopChange?: (stop: AboutStopName | null) => void;
-  onRequestContact?: () => void;
   onRequestAudit?: () => void;
   /** «Ver sus casos»: the warp to Earth, from the sky stop. */
   onRequestEarth?: () => void;
@@ -156,9 +155,8 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   const hint = createAboutHint({ container: options.container, sentence: ABOUT_LABELS.hint });
 
   const actions: OverlayAction[] = [
-    { label: content.sky.contactLabel, variant: 'secondary', onSelect: () => options.onRequestContact?.() },
-    { label: content.sky.auditLabel, variant: 'secondary', onSelect: () => options.onRequestAudit?.() },
-    { label: content.sky.casesLabel, variant: 'primary', onSelect: () => options.onRequestEarth?.() },
+    { label: content.sky.auditLabel, variant: 'primary', onSelect: () => options.onRequestAudit?.() },
+    { label: content.sky.casesLabel, variant: 'secondary', onSelect: () => options.onRequestEarth?.() },
   ];
 
   const copyFor = (index: number): OverlayCopy | 'hint' => {

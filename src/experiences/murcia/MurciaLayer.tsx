@@ -33,7 +33,6 @@ interface Props {
   /** Forwarded to MurciaExperience: the final vantage point is held; the claim may be offered. */
   onViewpointReached?: (claim: ViewpointClaim) => void
   /** Forwarded to MurciaExperience: Conócenos' call to action. */
-  onRequestContact?: () => void
   onRequestAudit?: () => void
   onRequestEarth?: () => void
   /**
@@ -67,7 +66,6 @@ export function MurciaLayer({
   onOpenBlog,
   onBlogApproachStart,
   onViewpointReached,
-  onRequestContact,
   onRequestAudit,
   onRequestEarth,
   scheduleWork,
@@ -90,8 +88,6 @@ export function MurciaLayer({
   onBlogApproachStartRef.current = onBlogApproachStart
   const onViewpointReachedRef = useRef(onViewpointReached)
   onViewpointReachedRef.current = onViewpointReached
-  const onRequestContactRef = useRef(onRequestContact)
-  onRequestContactRef.current = onRequestContact
   const onRequestAuditRef = useRef(onRequestAudit)
   onRequestAuditRef.current = onRequestAudit
   const onRequestEarthRef = useRef(onRequestEarth)
@@ -205,7 +201,6 @@ export function MurciaLayer({
         onOpenBlog: () => onOpenBlogRef.current?.() ?? false,
         onBlogApproachStart: () => onBlogApproachStartRef.current?.(),
         onViewpointReached: (claim) => onViewpointReachedRef.current?.(claim),
-        onRequestContact: () => onRequestContactRef.current?.(),
         onRequestAudit: () => onRequestAuditRef.current?.(),
         onRequestEarth: () => onRequestEarthRef.current?.(),
         // NOT `DEBUG_TOOLS_ENABLED`, which is true under `vite preview` too —

@@ -5,7 +5,7 @@
 ## Decisión
 
 1. **Un solo azul** (`--accent`, con `--accent-hover`, `--accent-pressed` y `--accent-border`, en `siteHeader.css`), y sobre la escena solo en estos sitios:
-   - la cara del CTA principal (el disparador Auditoría, los botones de envío y «Ver sus casos» en la placa de [Conócenos](../murcia/seccion-conocenos.md));
+   - la cara del CTA principal (el disparador Auditoría, los botones de envío y el enlace de la auditoría en la placa de [Conócenos](../murcia/seccion-conocenos.md), en `--accent-hover` por contraste);
    - la línea de un campo con foco y el trazo junto a su etiqueta (`--field-line-active`);
    - el borde de las bandejas de densidad A (`--glass-border-accent`, alias de `--accent-border`, para que sean el mismo azul);
    - el contorno de foco del teclado (`--focus-ring`);

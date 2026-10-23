@@ -165,7 +165,6 @@ export class MurciaExperience {
   private readonly onOpenBlog?: () => boolean;
   private readonly onBlogApproachStart?: () => void;
   /** See the constructor options of the same names. */
-  private readonly onRequestContact?: () => void;
   private readonly onRequestAudit?: () => void;
   private readonly onRequestEarth?: () => void;
   /** See the constructor option of the same name. */
@@ -348,13 +347,12 @@ export class MurciaExperience {
        */
       onViewpointReached?: (claim: ViewpointClaim) => void;
       /**
-       * Conócenos' call to action: open the contact dialog, open the audit
-       * dialog, leave for Earth. Bare signals, for `onOpenBlog`'s reason: the
-       * dialogs and the navigation are the application's, and the city must not
+       * Conócenos' call to action: open the audit dialog, leave for Earth.
+       * Bare signals, for `onOpenBlog`'s reason: the dialog and the navigation
+       * are the application's, and the city must not
        * learn what they are. «Ver sus casos» leaves from the sky stop itself;
        * `canDepartFromSection` is what lets the application allow it there.
        */
-      onRequestContact?: () => void;
       onRequestAudit?: () => void;
       onRequestEarth?: () => void;
       /**
@@ -375,7 +373,6 @@ export class MurciaExperience {
     this.onOpenBlog = options.onOpenBlog;
     this.onBlogApproachStart = options.onBlogApproachStart;
     this.onViewpointReached = options.onViewpointReached;
-    this.onRequestContact = options.onRequestContact;
     this.onRequestAudit = options.onRequestAudit;
     this.onRequestEarth = options.onRequestEarth;
     this.buildAssetsAvailable = options.buildAssetsAvailable ?? false;
@@ -1488,7 +1485,6 @@ export class MurciaExperience {
         if (stop === 'city') this.placeCityMark();
         this.cityMark?.setTarget(stop === 'city', this.about?.flightSeconds ?? 0);
       },
-      onRequestContact: this.onRequestContact,
       onRequestAudit: this.onRequestAudit,
       onRequestEarth: this.onRequestEarth,
     });
