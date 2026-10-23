@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { setMusicEnabled, subscribeMusic, type MusicStatus } from '../app/audio/backgroundMusic'
-import { preloadSoundEffects } from '../app/audio/soundEffects'
 
 /**
  * The header's sound control — WCAG 1.4.2's "a way to stop audio that plays by
@@ -8,9 +7,6 @@ import { preloadSoundEffects } from '../app/audio/soundEffects'
  * reads as off, so the first press here is the gesture that starts it
  * (backgroundMusic.ts skips its own unlock for this button, via
  * `data-sound-toggle`, or the press would start the music and then mute it).
- *
- * Turning it on is also the moment the graph first exists for a visitor who
- * arrived with it off, so the effects start decoding from the same press.
  */
 export function SoundToggle() {
   const [status, setStatus] = useState<MusicStatus>('off')
@@ -28,10 +24,7 @@ export function SoundToggle() {
       // would be announced as the opposite of what it says.
       aria-label="Sonido"
       aria-pressed={on}
-      onClick={() => {
-        setMusicEnabled(!on)
-        if (!on) preloadSoundEffects()
-      }}
+      onClick={() => setMusicEnabled(!on)}
     >
       <svg
         viewBox="0 0 24 24"

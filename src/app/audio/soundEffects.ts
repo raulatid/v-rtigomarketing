@@ -17,15 +17,14 @@
  * ── Late is worse than none ──
  *
  * A cue whose clip is not decoded yet is dropped, not queued: a whoosh that
- * lands after its warp is a bug. `preloadSoundEffects` decodes everything as
- * soon as there is a context; a cue asked for before that only starts its own
- * load.
+ * lands after its warp is a bug. Every clip starts decoding the moment the
+ * graph exists, whichever call made it (`onSoundContext`).
  *
  * Imports nothing from `experiences/`: the experiences report their moments to
  * App through callbacks, and App names the cue.
  */
 import type { HeaderMenuState } from '../../corner-logo/headerMenuTiming'
-import { effectsOutput, soundContext } from './backgroundMusic'
+import { effectsOutput, onSoundContext } from './backgroundMusic'
 
 /**
  * Every moment that can carry an effect, named for the moment rather than the
@@ -165,18 +164,13 @@ function load(cue: SoundCue, effect: SoundEffect, ctx: AudioContext): Clip {
 
 // ── the API ──
 
-/**
- * Fetches and decodes every listed clip, once. Called where the graph has just
- * come into being — Earth-ready, and the toggle turned on — and a no-op until
- * it has: with the toggle off, no effect costs a byte.
- */
-export function preloadSoundEffects() {
-  const ctx = soundContext()
-  if (!ctx) return
+// Every listed clip, fetched and decoded once, as soon as the graph exists.
+// With the toggle off there is no graph, so no effect costs a byte.
+onSoundContext((ctx) => {
   for (const [cue, effect] of Object.entries(SOUND_EFFECTS) as [SoundCue, SoundEffect][]) {
     load(cue, effect, ctx)
   }
-}
+})
 
 /** Plays a cue now, or drops it: unlisted, silenced, not decoded yet, too soon
  *  after itself, or too many already sounding. */

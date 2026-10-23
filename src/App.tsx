@@ -49,7 +49,6 @@ import {
   cueForDistrict,
   cueForMenu,
   playSound,
-  preloadSoundEffects,
 } from './app/audio/soundEffects'
 import { useSoundCue } from './app/audio/useSoundCue'
 import { SoundToggle } from './components/SoundToggle'
@@ -273,11 +272,8 @@ export default function App() {
   // The music waits for Earth to be whole — 'site', where the header's controls
   // arrive — and is quiet while the blog is open (DECISIONS §48). `startMusic`
   // is idempotent, so the debug seek replaying the phases is harmless.
-  // The effects decode right after, against the context the music just made.
   useEffect(() => {
-    if (phase !== 'site') return
-    startMusic(activeExperience)
-    preloadSoundEffects()
+    if (phase === 'site') startMusic(activeExperience)
   }, [phase, activeExperience])
   useEffect(() => {
     setMusicSuppressed('blog', blogOpen)

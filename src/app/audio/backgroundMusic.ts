@@ -179,6 +179,8 @@ const state: {
 let graph: Graph | null = null
 let unlockArmed = false
 const listeners = new Set<(status: MusicStatus) => void>()
+/** Waiting for the graph; each is called once, the moment it exists. */
+const contextListeners = new Set<(ctx: AudioContext) => void>()
 
 function supported(): boolean {
   return typeof window !== 'undefined' && typeof window.AudioContext === 'function'
@@ -208,6 +210,8 @@ function ensureGraph(): Graph | null {
   effects.gain.value = EFFECTS_VOLUME
   effects.connect(master)
   graph = { ctx, master, masterTarget: 0, music, effects, tracks: {} }
+  for (const listener of contextListeners) listener(ctx)
+  contextListeners.clear()
   return graph
 }
 
@@ -383,12 +387,21 @@ export function setMusicEnabled(on: boolean) {
 }
 
 /**
- * The context the effects decode against, once the graph exists. It exists
- * from the first moment anything should sound (Earth-ready with the toggle on,
- * or the toggle turned on later), so null means "nothing would play anyway".
+ * Calls back with the context the effects decode against: at once if the graph
+ * exists, otherwise the moment it is made. That is the first moment anything
+ * should sound — Earth-ready, the toggle turned on, a hidden tab shown — so a
+ * listener learns it here rather than guessing which call created it. Never
+ * while the toggle is off, and never on a cold `/blog`.
  */
-export function soundContext(): AudioContext | null {
-  return graph?.ctx ?? null
+export function onSoundContext(listener: (ctx: AudioContext) => void): () => void {
+  if (graph) {
+    listener(graph.ctx)
+    return () => {}
+  }
+  contextListeners.add(listener)
+  return () => {
+    contextListeners.delete(listener)
+  }
 }
 
 /**
