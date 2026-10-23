@@ -59,7 +59,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 30. **La música se solapa con el corte; la imagen nunca.** El listener de desbloqueo debe seguir en `pointerup`, `touchend` o `keydown`. El momento del fundido cruzado no tiene test.
 
-31. **Un efecto que no suena no es un fallo.** Se descarta si su clip no está en `SOUND_EFFECTS`, si aún no se ha decodificado, si el sonido está silenciado o si se repite dentro de su intervalo. Al encender el interruptor tarde, los primeros momentos pueden sonar mudos mientras se decodifican. Fija: `soundEffects.test.ts` (la admisión y los momentos, no el audio).
+31. **Un efecto que no suena no es un fallo.** Se descarta si su clip no está en `SOUND_EFFECTS`, si aún no se ha decodificado, si el sonido está silenciado o si se repite dentro de su intervalo. Al encender el interruptor tarde, los primeros momentos pueden sonar mudos mientras se decodifican. Fija: `soundEffects.test.ts` (la admisión y el motor sobre una salida falsa), `soundCues.test.ts` (los momentos) y `cueTracker.test.ts`; no el audio real.
 
 ## Cómo verificar esta área
 
@@ -70,7 +70,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 | Ciclo de la transición, giro de Earth, bloqueo | `useExperienceTransition.test.tsx`, `departureAim.test.ts`, `departureContinuity.test.ts`, `navigationMachine.test.ts` |
 | Vacío, ruta de render, bloom, afterimage | `SceneCanvas.test.tsx` |
 | Precalentado | `whileRevealed.test.ts`; `e2e/boot.spec.ts` si se pide e2e |
-| Música y efectos | `audioOutput.test.ts`, `backgroundMusic.test.ts`, `soundEffects.test.ts`; `e2e/blog.spec.ts` si se pide e2e; el momento de cada efecto, a oído |
+| Música y efectos | `audioOutput.test.ts`, `backgroundMusic.test.ts`, `soundEffects.test.ts`, `soundCues.test.ts`, `cueTracker.test.ts`; `e2e/blog.spec.ts` si se pide e2e; el momento de cada efecto, a oído |
 | Recorrido completo, móvil, movimiento reducido | `npm run e2e` (`navigation`, `mobile`, `motion-preference`), solo si se pide |
 
 **Sin cobertura:**

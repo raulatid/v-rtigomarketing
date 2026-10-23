@@ -183,7 +183,7 @@ Swapping a track: re-run the recipe, rename by hash, update `MUSIC_TRACKS` in
 
 ## `public/audio/sfx/<cue>-<sha8>.mp3` — the sound effects
 
-None yet. Each file is the clip for one `SoundCue` in `src/app/audio/soundEffects.ts`, whose
+None yet. Each file is the clip for one `SoundCue` in `src/app/audio/soundCues.ts`, whose
 doc comments say when each cue fires.
 
 **Adding a clip:** no fades and no re-encode needed for a short clip already in MP3; strip the

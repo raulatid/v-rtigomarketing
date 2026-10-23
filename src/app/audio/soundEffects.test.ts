@@ -1,13 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import {
-  MAX_VOICES,
-  admitSound,
-  cueForAudit,
-  cueForCase,
-  cueForClaim,
-  cueForDistrict,
-  cueForMenu,
-} from './soundEffects'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MAX_VOICES, admitSound, createSoundEffects, type EffectsOutput } from './soundEffects'
 
 describe('admitSound', () => {
   it('admits a cue that has never played, or played long enough ago', () => {
@@ -25,45 +17,125 @@ describe('admitSound', () => {
   })
 })
 
-describe('cueForCase', () => {
-  const a = { id: 'a' }
-  const b = { id: 'b' }
+/**
+ * A stand-in for audioOutput.ts and Web Audio: each "buffer" is the src it was
+ * fetched from, so `started` reads as the clips that played, in order.
+ */
+function fakeOutput() {
+  const started: string[] = []
+  const sources: { onended: (() => void) | null }[] = []
+  let contextListener: ((ctx: AudioContext) => void) | null = null
+  const fake = {
+    state: 'running',
+    currentTime: 0,
+    decodeAudioData: (bytes: unknown) => Promise.resolve(bytes),
+    createBufferSource() {
+      const source = {
+        buffer: null as unknown,
+        onended: null as (() => void) | null,
+        connect() {},
+        disconnect() {},
+        start() {
+          started.push(source.buffer as string)
+        },
+      }
+      sources.push(source)
+      return source
+    },
+    createGain: () => ({ gain: { value: 1 }, connect() {}, disconnect() {} }),
+  }
+  const ctx = fake as unknown as AudioContext
+  const control = { silenced: false, hasContext: false }
+  const output: EffectsOutput = {
+    effectsOutput: () =>
+      control.hasContext && !control.silenced ? { ctx, bus: {} as GainNode } : null,
+    onSoundContext: (listener) => {
+      contextListener = listener
+      return () => {}
+    },
+  }
+  return {
+    output,
+    started,
+    sources,
+    control,
+    fake,
+    /** The graph comes into being. */
+    open() {
+      control.hasContext = true
+      contextListener?.(ctx)
+    },
+  }
+}
 
-  it('opens on a selection and on a case replacing another', () => {
-    expect(cueForCase(null, a)).toBe('case-open')
-    expect(cueForCase(a, b)).toBe('case-open')
+/** Lets the fetch → decode chain run out. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+describe('createSoundEffects', () => {
+  const effects = { a: { src: 'a.mp3' }, b: { src: 'b.mp3' } }
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((src: string) => Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(src) })),
+    )
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it('closes on a deselection, and is quiet when nothing changed', () => {
-    expect(cueForCase(a, null)).toBe('case-close')
-    expect(cueForCase(a, a)).toBeNull()
-    expect(cueForCase(null, null)).toBeNull()
-  })
-})
-
-describe('the edge cues', () => {
-  it('sound only on a change, never at mount', () => {
-    expect(cueForAudit(false, false)).toBeNull()
-    expect(cueForMenu('closed', 'closed')).toBeNull()
-    expect(cueForClaim(false, false)).toBeNull()
-    expect(cueForDistrict(false, false)).toBeNull()
+  it('fetches nothing until the graph exists, then every listed clip', async () => {
+    const audio = fakeOutput()
+    createSoundEffects({ effects }, audio.output)
+    expect(fetch).not.toHaveBeenCalled()
+    audio.open()
+    await settle()
+    expect(vi.mocked(fetch).mock.calls.map(([src]) => src)).toEqual(['a.mp3', 'b.mp3'])
   })
 
-  it('name each direction', () => {
-    expect(cueForAudit(false, true)).toBe('audit-open')
-    expect(cueForAudit(true, false)).toBe('audit-close')
-    expect(cueForDistrict(false, true)).toBe('district-enter')
-    expect(cueForDistrict(true, false)).toBe('district-leave')
+  it('drops a cue whose clip is not decoded yet, rather than playing it late', async () => {
+    const audio = fakeOutput()
+    const play = createSoundEffects({ effects }, audio.output)
+    audio.open()
+    play('a')
+    await settle()
+    expect(audio.started).toEqual([])
+    play('a')
+    expect(audio.started).toEqual(['a.mp3'])
   })
 
-  it('moves the menu card on open and closing, not on its arrival home', () => {
-    expect(cueForMenu('closed', 'open')).toBe('menu-open')
-    expect(cueForMenu('open', 'closing')).toBe('menu-close')
-    expect(cueForMenu('closing', 'closed')).toBeNull()
+  it('drops a cue while the sound is silenced', async () => {
+    const audio = fakeOutput()
+    const play = createSoundEffects({ effects }, audio.output)
+    audio.open()
+    await settle()
+    audio.control.silenced = true
+    play('a')
+    expect(audio.started).toEqual([])
   })
 
-  it('offers the claim once, not again on its way out', () => {
-    expect(cueForClaim(false, true)).toBe('claim-offer')
-    expect(cueForClaim(true, false)).toBeNull()
+  it('stays silent for a cue with no clip', async () => {
+    const audio = fakeOutput()
+    const play = createSoundEffects<'a' | 'c'>({ effects: { a: { src: 'a.mp3' } } }, audio.output)
+    audio.open()
+    await settle()
+    play('c')
+    expect(audio.started).toEqual([])
+  })
+
+  it('gives a voice back when its clip ends', async () => {
+    const audio = fakeOutput()
+    const play = createSoundEffects({ effects }, audio.output)
+    audio.open()
+    await settle()
+    for (let i = 0; i < MAX_VOICES + 1; i++) {
+      audio.fake.currentTime += 1
+      play('a')
+    }
+    expect(audio.started).toHaveLength(MAX_VOICES)
+    audio.sources[0].onended?.()
+    audio.fake.currentTime += 1
+    play('b')
+    expect(audio.started).toHaveLength(MAX_VOICES + 1)
   })
 })

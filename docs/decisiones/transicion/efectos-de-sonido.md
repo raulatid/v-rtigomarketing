@@ -4,12 +4,13 @@
 
 ## Decisión
 
-1. **Cada momento tiene un nombre** (`SoundCue` en `src/app/audio/soundEffects.ts`), y cada nombre puede tener un clip en `SOUND_EFFECTS`. Un momento sin entrada no suena y no descarga nada. El comentario de cada `SoundCue` dice cuándo se dispara.
+1. **Cada momento tiene un nombre** (`SoundCue` en `src/app/audio/soundCues.ts`, el catálogo del sitio), y cada nombre puede tener un clip en `SOUND_EFFECTS`. Un momento sin entrada no suena y no descarga nada. El comentario de cada `SoundCue` dice cuándo se dispara.
 2. **Un único interruptor.** Los efectos cuelgan del mismo maestro que la música (`audioOutput.ts`), cada uno en su bus. El interruptor de la cabecera (`SoundToggle.tsx`, «Sonido») los apaga a la vez, y heredan el desbloqueo por gesto y el silencio con el blog abierto o la pestaña oculta ([Música](musica.md)).
 3. **Se decodifican, a diferencia de la música.** Un clip de uno o dos segundos ocupa poco en PCM y tiene que empezar en el instante pedido. Se descargan y decodifican en cuanto existe el grafo (`onSoundContext`): en `site`, al encender el interruptor o al mostrarse una pestaña que arrancó oculta, nunca antes. Nadie más llama a la precarga: así no hay que adivinar qué llamada creó el grafo. Con el interruptor apagado no se descarga ningún efecto.
 4. **Llegar tarde es peor que no sonar.** Un momento cuyo clip no está decodificado, o que llega con el sonido silenciado, se descarta; no se pone en cola. También se descartan las repeticiones dentro de `MIN_INTERVAL_SECONDS` y lo que pase de `MAX_VOICES` a la vez.
-5. **Los dispara `App.tsx`.** Las experiencias no pueden importar `src/app/` (`check:architecture`), así que avisan por callback y App elige el momento: el warp desde `onStart` y `onCut`, los paneles desde el cambio de su estado (`useSoundCue`), los distritos de Murcia desde `onMurciaAttentionChange` y el acercamiento al blog desde `onBlogApproachStart`.
+5. **Los dispara `App.tsx`.** Las experiencias no pueden importar `src/app/` (`check:architecture`), así que avisan por callback y App elige el momento: el warp desde `onStart` y `onCut`, los paneles desde el cambio de su estado (`useSoundCue`), los distritos de Murcia desde `onMurciaAttentionChange` (con un `createCueTracker`, porque no es estado de React) y el acercamiento al blog desde `onBlogApproachStart`.
 6. **El golpe del corte sale del propio corte**, no de un desfase desde el inicio. El warp avanza con un reloj por fotogramas que un dispositivo lento estira; el reloj de audio no se estiraría con él.
+7. **El motor no conoce el catálogo.** `soundEffects.ts` reproduce los momentos de cualquier catálogo (`createSoundEffects`). `soundCues.ts` declara los de este sitio y cómo se traduce en ellos el estado de App. `cueTracker.ts` convierte un cambio de estado en un momento, y nunca suena al montar (`edgeCue` para los indicadores que abren y cierran). Añadir sonido a una animación es nombrar el momento, darle un clip y dispararlo desde App.
 
 ## Por qué
 
@@ -26,8 +27,8 @@ El cliente quiere sonido en las transiciones. Un segundo interruptor solo para e
 - Una promesa de `fetch` o `decodeAudioData` queda sin capturar (los recolectores de e2e fallan con rechazos no gestionados).
 - Un clip llega a `public/audio/sfx/` sin el hash en el nombre (`/audio/` es `immutable`).
 - Un `/blog` en frío pide algo de `/audio/` (`e2e/blog.spec.ts`).
-- Falla `soundEffects.test.ts`.
+- Falla `soundEffects.test.ts`, `soundCues.test.ts` o `cueTracker.test.ts`.
 
 ## Afecta a
 
-`src/app/audio/soundEffects.ts`, `src/app/audio/useSoundCue.ts`, `src/app/audio/audioOutput.ts`, `src/App.tsx`, `src/components/SoundToggle.tsx`, `public/audio/sfx/`, `CREDITS.md`
+`src/app/audio/soundEffects.ts`, `src/app/audio/soundCues.ts`, `src/app/audio/cueTracker.ts`, `src/app/audio/useSoundCue.ts`, `src/app/audio/audioOutput.ts`, `src/App.tsx`, `src/components/SoundToggle.tsx`, `public/audio/sfx/`, `CREDITS.md`

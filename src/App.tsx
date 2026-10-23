@@ -50,7 +50,8 @@ import {
   cueForDistrict,
   cueForMenu,
   playSound,
-} from './app/audio/soundEffects'
+} from './app/audio/soundCues'
+import { createCueTracker } from './app/audio/cueTracker'
 import { useSoundCue } from './app/audio/useSoundCue'
 import { SoundToggle } from './components/SoundToggle'
 import { useSceneNavigation } from './app/navigation/useSceneNavigation'
@@ -426,15 +427,12 @@ export default function App() {
   // at activation, so a district opening between renders cannot admit a warp.
   // The same callback is where a district's flight in and out is heard: it is
   // the one the city fires when `hasFocusedDistrict` may have flipped.
-  const districtFocusedRef = useRef(false)
+  const [districtCue] = useState(() => createCueTracker(false, cueForDistrict, playSound))
   const handleMurciaAttentionChange = useCallback(() => {
     setMurciaOverviewBlocked(!(murciaRef.current?.isCityOverview ?? false))
     navigationContextChanged()
-    const focused = murciaRef.current?.hasFocusedDistrict ?? false
-    const cue = cueForDistrict(districtFocusedRef.current, focused)
-    districtFocusedRef.current = focused
-    if (cue) playSound(cue)
-  }, [navigationContextChanged])
+    districtCue.update(murciaRef.current?.hasFocusedDistrict ?? false)
+  }, [navigationContextChanged, districtCue])
 
   useEffect(handleMurciaAttentionChange, [handleMurciaAttentionChange, activeExperience, transitioning])
 
