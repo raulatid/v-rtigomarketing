@@ -821,15 +821,11 @@
 
 /* In the sheet, Conócenos' copy reads from the left, title included: it is
    prose, not the campus's centred card (user direction, 2026-10-23). The
-   title needs no room for paging arrows, and the back arrow sits above it. */
+   title keeps the campus's room for the paging arrows either side of it. */
 @media not all and (min-width: 1024px) and (min-aspect-ratio: 4/3) {
   /* Doubled so it outranks the sheet's centring, which comes later. */
   .murcia-ui .campus-overlay.campus-overlay--about {
     text-align: left;
-  }
-
-  .murcia-ui .campus-overlay--about .campus-overlay__title {
-    padding: 0;
   }
 
   .murcia-ui .campus-overlay--about .campus-overlay__subtitle,
@@ -840,60 +836,26 @@
   }
 }
 
+/* Conócenos walks a row that does not wrap: the first stop has no way back,
+   the last no way on, and the arrow that would lead nowhere is not drawn. */
+.murcia-ui .campus-overlay--about .campus-overlay__page:disabled {
+  visibility: hidden;
+}
+
 /* Conócenos' screen stop has no plate: the slide on the tower's screen is its
-   content. Under it only the hint that scrolling moves on (`about/aboutHint.ts`):
-   the scene hint's glyph over its sentence, in its type, held still, centred
-   under the screen, which that stop centres (`about/aboutPoses.ts`). */
-.murcia-ui .about-hint {
+   content. Under it only the plate's paging arrows (`about/aboutScreenPaging.ts`),
+   centred under the screen, which that stop centres (`about/aboutPoses.ts`). */
+.murcia-ui .about-paging {
   position: fixed;
   left: 0;
   right: 0;
   bottom: calc(5vh + env(safe-area-inset-bottom, 0px));
   z-index: 30;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.615em;
-  padding: 0 24px;
-  font-size: clamp(14px, 3.6vw, 16px);
-  font-weight: 500;
-  letter-spacing: 0.055em;
-  line-height: 1.15;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.85);
+  justify-content: center;
+  gap: 48px;
+  color: #fff;
   pointer-events: none;
-  user-select: none;
-}
-
-/* The scene hint's sizes (styles.css, `.scene-hint__glyph--*`). */
-.murcia-ui .about-hint__glyph {
-  display: block;
-}
-
-.murcia-ui .about-hint__glyph--mouse {
-  width: 1.25em;
-  height: 3.5417em; /* 12:34 */
-}
-
-.murcia-ui .about-hint__glyph--swipe {
-  display: none;
-  width: 2.5em;
-  height: 2.5em;
-}
-
-.murcia-ui .about-hint__sentence {
-  text-wrap: balance;
-}
-
-/* Input picks the glyph, never viewport width, as for the scene hint. */
-@media (pointer: coarse) {
-  .murcia-ui .about-hint__glyph--mouse {
-    display: none;
-  }
-
-  .murcia-ui .about-hint__glyph--swipe {
-    display: block;
-  }
 }
 
 /* The call to action under the copy (Conócenos' last stop): text, not

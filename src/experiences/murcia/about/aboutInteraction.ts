@@ -55,11 +55,11 @@ export class AboutInteraction {
     if (!this.enabled || !swipe || swipe.id !== event.pointerId || swipe.committed) return;
     const dx = event.clientX - swipe.x;
     const dy = event.clientY - swipe.y;
-    if (Math.abs(dy) < SWIPE_COMMIT_PX || Math.abs(dy) <= Math.abs(dx)) return;
+    // More sideways than up or down, and far enough: left for the next stop,
+    // the way the services' carousel is pulled (`campusInteraction.ts`).
+    if (Math.abs(dx) < SWIPE_COMMIT_PX || Math.abs(dx) <= Math.abs(dy)) return;
     swipe.committed = true;
-    // Pushed up for the next stop, as a finger rolls the wheel forward to step
-    // on (`createNavigationInput`) and to travel from Earth to Murcia.
-    if (dy < 0) this.intents.next();
+    if (dx < 0) this.intents.next();
     else this.intents.previous();
   };
 

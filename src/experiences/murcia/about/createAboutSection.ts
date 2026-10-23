@@ -3,9 +3,9 @@ import type { AboutSectionContent, AboutStop } from '../../../content/types';
 import { createCampusOverlay, type OverlayAction, type OverlayCopy } from '../campus/section/campusOverlay';
 import { CAMPUS_DOCK_QUERY } from '../campus/campusMobileLayout';
 import { createAboutCamera } from './aboutCamera';
-import { createAboutHint } from './aboutHint';
 import { createAboutCameraAdapter, type AboutCameraRig } from './aboutCameraAdapter';
 import { AboutInteraction } from './aboutInteraction';
+import { createAboutScreenPaging } from './aboutScreenPaging';
 import { ABOUT_LABELS } from './aboutLabels';
 import { CITY_MARK, SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type AboutPose } from './aboutPoses';
 
@@ -17,12 +17,12 @@ import { CITY_MARK, SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type Abo
  * alike.
  *
  * Three stops, in a row that does not wrap: the screen, the city with the
- * isotype drawn over it, the sky. The wheel (`step`, handed over by the
- * application), a vertical swipe and ←/→ walk them; the plate has no arrows of
- * its own (user direction, 2026-10-22). The back arrow, Escape or a pinch out
- * flies back to where the visitor was standing. The screen stop has no plate:
- * the slide on the tower's screen is all it says, with only a still hint under
- * it that scrolling moves on (`aboutHint.ts`). The last stop's plate carries the
+ * isotype drawn over it, the sky. They are walked as the services are: the
+ * plate's arrows under the copy, a horizontal swipe and ←/→ (user direction,
+ * 2026-10-23: scrolling through them was not understood). The back arrow,
+ * Escape or a pinch out flies back to where the visitor was standing. The
+ * screen stop has no plate: the slide on the tower's screen is all it says,
+ * with only the plate's arrows under it (`aboutScreenPaging.ts`). The last stop's plate carries the
  * call to action: Auditoría opens its dialog, and «Ver sus casos» asks the
  * application for the warp to Earth, which leaves from this stop
  * (`aboutCamera.ts`, `departure`).
@@ -81,8 +81,6 @@ export interface AboutSection {
   enter(): boolean;
   next(): void;
   previous(): void;
-  /** One wheel gesture: +1 is `next`, -1 `previous`. Deaf while disabled, as the keys are. */
-  step(direction: 1 | -1): void;
   /** Leaves the section: the back arrow and Escape. */
   back(): void;
   /** Leaves from wherever it is. */
@@ -137,13 +135,14 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   let enabled = true;
   let engaged = false;
   let departing = false;
-  /** What waits for the flight to land: a stop's copy, or the screen stop's hint. */
-  let pendingCopy: OverlayCopy | 'hint' | null = null;
+  /** What waits for the flight to land: a stop's copy, or the screen stop's arrows. */
+  let pendingCopy: OverlayCopy | 'paging' | null = null;
 
   const overlay = createCampusOverlay({
     labels: ABOUT_LABELS,
-    // No `onPrevious`/`onNext`: the stops are walked by scrolling, swiping and ←/→.
     onClose: () => back(),
+    onPrevious: () => previous(),
+    onNext: () => next(),
     container: options.container,
     // The site's text face, declared in siteHeader.css, as the campus passes it.
     fontFamily: 'Vertigo Text',
@@ -152,19 +151,26 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     className: PLATE_CLASS,
   });
 
-  const hint = createAboutHint({ container: options.container, sentence: ABOUT_LABELS.hint });
+  const paging = createAboutScreenPaging({
+    container: options.container,
+    labels: ABOUT_LABELS,
+    onPrevious: () => previous(),
+    onNext: () => next(),
+  });
 
   const actions: OverlayAction[] = [
     { label: content.sky.auditLabel, variant: 'primary', onSelect: () => options.onRequestAudit?.() },
     { label: content.sky.casesLabel, variant: 'secondary', onSelect: () => options.onRequestEarth?.() },
   ];
 
-  const copyFor = (index: number): OverlayCopy | 'hint' => {
+  const copyFor = (index: number): OverlayCopy | 'paging' => {
     const name = ABOUT_STOPS[index]!;
-    if (name === 'screen') return 'hint';
+    if (name === 'screen') return 'paging';
     return {
       ...paragraphsCopy(content[name]),
       ...(name === 'sky' ? { actions } : {}),
+      hasPrevious: index > 0,
+      hasNext: index < LAST_STOP,
     };
   };
 
@@ -176,7 +182,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
 
   const goTo = (index: number): void => {
     overlay.hide();
-    hint.hide();
+    paging.hide();
     pendingCopy = copyFor(index);
     camera.flyTo(index, seconds);
     options.onStopChange?.(ABOUT_STOPS[index]!);
@@ -195,7 +201,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
   const leave = (): void => {
     if (!engaged || departing) return;
     overlay.hide();
-    hint.hide();
+    paging.hide();
     pendingCopy = null;
     camera.exit(seconds);
     setEngaged(false);
@@ -243,11 +249,6 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     },
     next,
     previous,
-    step(direction) {
-      if (!enabled) return;
-      if (direction > 0) next();
-      else previous();
-    },
     back,
     releaseFocus: leave,
 
@@ -255,7 +256,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
       if (!engaged || departing) return;
       departing = true;
       overlay.hide();
-      hint.hide();
+      paging.hide();
       pendingCopy = null;
     },
 
@@ -266,7 +267,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     abandon() {
       if (!adapter.holding) return;
       overlay.hide();
-      hint.hide();
+      paging.hide();
       pendingCopy = null;
       departing = false;
       const wasEngaged = engaged;
@@ -301,7 +302,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     update(dt) {
       camera.update(dt);
       if (pendingCopy && engaged && !camera.flying && !departing) {
-        if (pendingCopy === 'hint') hint.show();
+        if (pendingCopy === 'paging') paging.show({ hasPrevious: camera.stop > 0, hasNext: camera.stop < LAST_STOP });
         else overlay.show(pendingCopy);
         pendingCopy = null;
       }
@@ -310,7 +311,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     dispose() {
       interaction.dispose();
       overlay.dispose();
-      hint.dispose();
+      paging.dispose();
       camera.dispose();
     },
   };

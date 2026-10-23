@@ -738,19 +738,6 @@ export class MurciaExperience {
   }
 
   /**
-   * Conócenos is open, and walks its stops by scrolling. The application reads
-   * it to hand the wheel it refuses to the warp to `stepSection` instead.
-   */
-  get canStepSection(): boolean {
-    return this.active && (this.about?.isEngaged ?? false);
-  }
-
-  /** One wheel gesture inside Conócenos: +1 on to the next stop, -1 back. */
-  stepSection(direction: 1 | -1): void {
-    this.about?.step(direction);
-  }
-
-  /**
    * The viewer is moving about the city on their own: no cinematic or blog
    * approach owns the camera, and no district holds their attention.
    *
