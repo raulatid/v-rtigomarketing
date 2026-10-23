@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { cueForAudit, cueForCase, cueForClaim, cueForDistrict, cueForMenu } from './soundCues'
+import {
+  CUE_MASKS,
+  cueForAudit,
+  cueForCase,
+  cueForClaim,
+  cueForDistrict,
+  cueForMenu,
+} from './soundCues'
+import { resolveCues } from './soundEffects'
 
 describe('cueForCase', () => {
   const a = { id: 'a' }
@@ -41,5 +49,15 @@ describe('the edge cues', () => {
   it('offers the claim once, not again on its way out', () => {
     expect(cueForClaim(false, true)).toBe('claim-offer')
     expect(cueForClaim(true, false)).toBeNull()
+  })
+})
+
+describe('CUE_MASKS', () => {
+  it('hears the audit opened from a case as the audit opening alone', () => {
+    expect(resolveCues(['case-close', 'audit-open'], CUE_MASKS)).toEqual(['audit-open'])
+  })
+
+  it('still closes a case on its own', () => {
+    expect(resolveCues(['case-close'], CUE_MASKS)).toEqual(['case-close'])
   })
 })

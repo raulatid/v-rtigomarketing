@@ -1,6 +1,6 @@
 /**
  * This site's sound cues: the moments that can carry an effect, their clips,
- * and how App's state maps onto them. The
+ * the moments that cover others, and how App's state maps onto them. The
  * engine (soundEffects.ts) and the trackers (cueTracker.ts) know none of it.
  *
  * Adding a sound to an animation: name the moment in `SoundCue`, give it a
@@ -13,7 +13,7 @@
  */
 import type { HeaderMenuState } from '../../corner-logo/headerMenuTiming'
 import { edgeCue, type CueFor } from './cueTracker'
-import { createSoundEffects, type SoundEffect } from './soundEffects'
+import { createSoundEffects, type CueMasks, type SoundEffect } from './soundEffects'
 
 /**
  * Every moment that can carry an effect, named for the moment rather than the
@@ -56,7 +56,14 @@ export type SoundCue =
  */
 export const SOUND_EFFECTS: Readonly<Partial<Record<SoundCue, SoundEffect>>> = {}
 
-export const playSound = createSoundEffects({ effects: SOUND_EFFECTS })
+/** Moments that land in the same task as one transition, heard as the key. */
+export const CUE_MASKS: CueMasks<SoundCue> = {
+  // The case panel's doorway into the audit deselects the case in the same
+  // render (`handleAuditOpenChange`).
+  'audit-open': ['case-close'],
+}
+
+export const playSound = createSoundEffects({ effects: SOUND_EFFECTS, masks: CUE_MASKS })
 
 // ── the cues App derives from its own state ──
 

@@ -59,7 +59,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 30. **La música se solapa con el corte; la imagen nunca.** El listener de desbloqueo debe seguir en `pointerup`, `touchend` o `keydown`. El momento del fundido cruzado no tiene test.
 
-31. **Un efecto que no suena no es un fallo.** Se descarta si su clip no está en `SOUND_EFFECTS`, si aún no se ha decodificado, si el sonido está silenciado o si se repite dentro de su intervalo. Al encender el interruptor tarde, los primeros momentos pueden sonar mudos mientras se decodifican. Fija: `soundEffects.test.ts` (la admisión y el motor sobre una salida falsa), `soundCues.test.ts` (los momentos) y `cueTracker.test.ts`; no el audio real.
+31. **Un efecto que no suena no es un fallo.** Se descarta si su clip no está en `SOUND_EFFECTS`, si aún no se ha decodificado, si el sonido está silenciado, si se repite dentro de su intervalo o si otro momento de la misma tarea lo enmascara (`CUE_MASKS`). Al encender el interruptor tarde, los primeros momentos pueden sonar mudos mientras se decodifican. Fija: `soundEffects.test.ts` (la admisión y el motor sobre una salida falsa), `soundCues.test.ts` (los momentos) y `cueTracker.test.ts`; no el audio real.
 
 ## Cómo verificar esta área
 

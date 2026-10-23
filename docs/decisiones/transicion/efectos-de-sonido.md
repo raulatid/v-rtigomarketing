@@ -11,6 +11,7 @@
 5. **Los dispara `App.tsx`.** Las experiencias no pueden importar `src/app/` (`check:architecture`), así que avisan por callback y App elige el momento: el warp desde `onStart` y `onCut`, los paneles desde el cambio de su estado (`useSoundCue`), los distritos de Murcia desde `onMurciaAttentionChange` (con un `createCueTracker`, porque no es estado de React) y el acercamiento al blog desde `onBlogApproachStart`.
 6. **El golpe del corte sale del propio corte**, no de un desfase desde el inicio. El warp avanza con un reloj por fotogramas que un dispositivo lento estira; el reloj de audio no se estiraría con él.
 7. **El motor no conoce el catálogo.** `soundEffects.ts` reproduce los momentos de cualquier catálogo (`createSoundEffects`). `soundCues.ts` declara los de este sitio y cómo se traduce en ellos el estado de App. `cueTracker.ts` convierte un cambio de estado en un momento, y nunca suena al montar (`edgeCue` para los indicadores que abren y cierran). Añadir sonido a una animación es nombrar el momento, darle un clip y dispararlo desde App.
+8. **Una transición, un sonido.** Los momentos pedidos en la misma tarea suenan juntos al final de ella (una microtarea), cada uno una vez, menos los que otro de la tarea enmascara (`CUE_MASKS` en `soundCues.ts`). Abrir la auditoría desde un caso también deselecciona el caso en el mismo render, y se oye solo la auditoría abriéndose. La máscara vale aunque el momento que enmascara no tenga clip: habla del momento, no del archivo.
 
 ## Por qué
 

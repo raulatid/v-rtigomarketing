@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MAX_VOICES, admitSound, createSoundEffects, type EffectsOutput } from './soundEffects'
+import {
+  MAX_VOICES,
+  admitSound,
+  createSoundEffects,
+  resolveCues,
+  type EffectsOutput,
+} from './soundEffects'
 
 describe('admitSound', () => {
   it('admits a cue that has never played, or played long enough ago', () => {
@@ -14,6 +20,21 @@ describe('admitSound', () => {
   it('drops anything once every voice is taken', () => {
     expect(admitSound(undefined, 0, 0.08, MAX_VOICES)).toBe(false)
     expect(admitSound(undefined, 0, 0.08, MAX_VOICES - 1)).toBe(true)
+  })
+})
+
+describe('resolveCues', () => {
+  it('hears each cue once, in the order asked', () => {
+    expect(resolveCues(['a', 'b', 'a'], {})).toEqual(['a', 'b'])
+  })
+
+  it('drops a cue another one in the task masks, whichever came first', () => {
+    expect(resolveCues(['a', 'b'], { b: ['a'] })).toEqual(['b'])
+    expect(resolveCues(['b', 'a'], { b: ['a'] })).toEqual(['b'])
+  })
+
+  it('leaves a cue alone when its masker is not in the task', () => {
+    expect(resolveCues<'a' | 'b'>(['a'], { b: ['a'] })).toEqual(['a'])
   })
 })
 
@@ -101,6 +122,7 @@ describe('createSoundEffects', () => {
     await settle()
     expect(audio.started).toEqual([])
     play('a')
+    await settle()
     expect(audio.started).toEqual(['a.mp3'])
   })
 
@@ -111,6 +133,7 @@ describe('createSoundEffects', () => {
     await settle()
     audio.control.silenced = true
     play('a')
+    await settle()
     expect(audio.started).toEqual([])
   })
 
@@ -120,6 +143,7 @@ describe('createSoundEffects', () => {
     audio.open()
     await settle()
     play('c')
+    await settle()
     expect(audio.started).toEqual([])
   })
 
@@ -131,11 +155,39 @@ describe('createSoundEffects', () => {
     for (let i = 0; i < MAX_VOICES + 1; i++) {
       audio.fake.currentTime += 1
       play('a')
+      await settle()
     }
     expect(audio.started).toHaveLength(MAX_VOICES)
     audio.sources[0].onended?.()
     audio.fake.currentTime += 1
     play('b')
+    await settle()
     expect(audio.started).toHaveLength(MAX_VOICES + 1)
+  })
+
+  it('plays a cue asked for twice in one task once', async () => {
+    const audio = fakeOutput()
+    const play = createSoundEffects({ effects }, audio.output)
+    audio.open()
+    await settle()
+    play('a')
+    play('a')
+    await settle()
+    expect(audio.started).toEqual(['a.mp3'])
+  })
+
+  it('lets a cue mask another asked for in the same task, and only then', async () => {
+    const audio = fakeOutput()
+    const play = createSoundEffects({ effects, masks: { b: ['a'] } }, audio.output)
+    audio.open()
+    await settle()
+    play('a')
+    play('b')
+    await settle()
+    expect(audio.started).toEqual(['b.mp3'])
+    audio.fake.currentTime += 1
+    play('a')
+    await settle()
+    expect(audio.started).toEqual(['b.mp3', 'a.mp3'])
   })
 })
