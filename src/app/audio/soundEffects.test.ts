@@ -114,6 +114,19 @@ describe('createSoundEffects', () => {
     expect(vi.mocked(fetch).mock.calls.map(([src]) => src)).toEqual(['a.mp3', 'b.mp3'])
   })
 
+  it('fetches and decodes a clip shared by two cues once, and plays it for both', async () => {
+    const audio = fakeOutput()
+    const shared = { src: 'ab.mp3' }
+    const play = createSoundEffects({ effects: { a: shared, b: shared } }, audio.output)
+    audio.open()
+    await settle()
+    expect(vi.mocked(fetch).mock.calls.map(([src]) => src)).toEqual(['ab.mp3'])
+    play('a')
+    play('b')
+    await settle()
+    expect(audio.started).toEqual(['ab.mp3', 'ab.mp3'])
+  })
+
   it('drops a cue whose clip is not decoded yet, rather than playing it late', async () => {
     const audio = fakeOutput()
     const play = createSoundEffects({ effects }, audio.output)

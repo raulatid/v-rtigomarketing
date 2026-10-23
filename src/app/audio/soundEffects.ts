@@ -33,7 +33,8 @@
 import { effectsOutput, onSoundContext } from './audioOutput'
 
 export interface SoundEffect {
-  /** `/audio/sfx/<cue>-<sha8>.mp3`, hand-hashed like the music (CREDITS.md). */
+  /** `/audio/sfx/<cue>-<sha8>.mp3`, hand-hashed like the music (CREDITS.md).
+   *  Cues that share a src share one fetch and one decoded buffer. */
   src: string
   /** 0..1, on top of `EFFECTS_VOLUME`. Defaults to 1. */
   volume?: number
@@ -98,16 +99,17 @@ export function createSoundEffects<C extends string>(
   { effects, masks = {} as CueMasks<C> }: SoundEffectsConfig<C>,
   output: EffectsOutput = { effectsOutput, onSoundContext },
 ): (cue: C) => void {
-  const clips = new Map<C, Clip>()
+  // By src, not by cue: a clip that serves a pair of cues loads once.
+  const clips = new Map<string, Clip>()
   const lastStartedAt = new Map<C, number>()
   let voices = 0
   let pending: C[] = []
 
-  function load(cue: C, effect: SoundEffect, ctx: AudioContext): Clip {
-    const existing = clips.get(cue)
+  function load(effect: SoundEffect, ctx: AudioContext): Clip {
+    const existing = clips.get(effect.src)
     if (existing) return existing
     const loading: Clip = { status: 'loading' }
-    clips.set(cue, loading)
+    clips.set(effect.src, loading)
     fetch(effect.src)
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
@@ -115,12 +117,12 @@ export function createSoundEffects<C extends string>(
       })
       .then((bytes) => ctx.decodeAudioData(bytes))
       .then((buffer) => {
-        clips.set(cue, { status: 'ready', buffer })
+        clips.set(effect.src, { status: 'ready', buffer })
       })
       .catch((error: unknown) => {
         // Not retried: a clip that 404s or will not decode does so every time,
         // and the cue going silent is the whole of the damage.
-        clips.set(cue, { status: 'failed' })
+        clips.set(effect.src, { status: 'failed' })
         console.warn(`[sound] could not load ${effect.src}`, error)
       })
     return loading
@@ -131,7 +133,7 @@ export function createSoundEffects<C extends string>(
     if (!effect) return
     const out = output.effectsOutput()
     if (!out) return
-    const clip = load(cue, effect, out.ctx)
+    const clip = load(effect, out.ctx)
     if (clip.status !== 'ready') return
 
     const { ctx, bus } = out
@@ -163,9 +165,7 @@ export function createSoundEffects<C extends string>(
 
   // With the toggle off there is no graph, so no effect costs a byte.
   output.onSoundContext((ctx) => {
-    for (const [cue, effect] of Object.entries(effects) as [C, SoundEffect][]) {
-      load(cue, effect, ctx)
-    }
+    for (const effect of Object.values(effects) as SoundEffect[]) load(effect, ctx)
   })
 
   return (cue) => {
