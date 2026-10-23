@@ -966,7 +966,10 @@
     width: 100%;
     height: var(--campus-sheet-compact, 35dvh);
     min-height: var(--campus-sheet-compact, 35dvh);
-    max-height: 85dvh;
+    /* Open, it climbs to just under the header (user direction, 2026-10-23):
+       `campusSheet.ts` reads this as the expanded stop. */
+    --campus-sheet-ceiling: calc(100dvh - var(--header-line-top) - var(--header-control) - 12px);
+    max-height: var(--campus-sheet-ceiling);
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -980,7 +983,7 @@
     touch-action: pan-y;
     overflow: hidden;
   }
-  .murcia-ui .campus-overlay[data-sheet-stop='expanded'] { height: var(--campus-sheet-full, 85dvh); }
+  .murcia-ui .campus-overlay[data-sheet-stop='expanded'] { height: var(--campus-sheet-full, var(--campus-sheet-ceiling)); }
   .murcia-ui .campus-overlay[data-sheet-dragging] { transition: none !important; }
   /* A bare pill, no caption: the grip's name is its aria-label. */
   .murcia-ui .campus-overlay__handle {
@@ -1043,6 +1046,11 @@
     touch-action: pan-y;
     /* The site's one scrollbar (siteHeader.css), a touch brighter here. */
     --scrollbar-thumb: var(--text-muted);
+  }
+  /* Copy that scrolls ends clear of the footer and the corner controls over
+     the sheet. Not while measuring: whether the copy fits is judged without it. */
+  .murcia-ui .campus-overlay[data-sheet-scrolls]:not([data-sheet-measuring]) .campus-overlay__body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
   .murcia-ui .campus-overlay__body > * { grid-column: 1; }
   .murcia-ui .campus-overlay__title {

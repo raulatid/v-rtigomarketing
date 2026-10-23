@@ -90,4 +90,22 @@ describe('campus sheet input ownership', () => {
     expect(tall.layer.dataset.sheetStop).toBe('compact');
     tall.sheet.dispose();
   });
+
+  it('opens copy that needs expanding up to the ceiling, and copy that fits to its own height', () => {
+    // The stylesheet's `max-height` is the ceiling: just under the header.
+    const tall = setup(500);
+    tall.layer.style.maxHeight = '700px';
+    tall.sheet.fit();
+    expect(tall.layer.style.getPropertyValue('--campus-sheet-full')).toBe('700px');
+    expect(tall.layer.hasAttribute('data-sheet-scrolls')).toBe(true);
+    tall.sheet.dispose();
+    document.body.replaceChildren();
+
+    const short = setup(200);
+    short.layer.style.maxHeight = '700px';
+    short.sheet.fit();
+    expect(short.layer.style.getPropertyValue('--campus-sheet-full')).toBe('200px');
+    expect(short.layer.hasAttribute('data-sheet-scrolls')).toBe(false);
+    short.sheet.dispose();
+  });
 });

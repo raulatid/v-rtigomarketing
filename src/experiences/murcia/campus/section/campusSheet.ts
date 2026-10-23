@@ -42,10 +42,14 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
   const compactHeight = () =>
     window.innerHeight * campusCompactFraction(window.innerWidth, window.innerHeight);
   const limit = () => Math.max(0, fullHeight - compactHeight());
+  /** The open stop's ceiling, in px: the stylesheet's `max-height`, just under the header. */
+  const ceiling = () => parseFloat(getComputedStyle(layer).maxHeight);
   const sync = () => {
     const open = expanded || fits;
     layer.dataset.sheetStop = open ? 'expanded' : 'compact';
     grip.hidden = fits;
+    // The stylesheet keeps the end of copy that scrolls clear of the footer.
+    layer.toggleAttribute('data-sheet-scrolls', !fits && !dock.matches);
     grip.setAttribute('aria-expanded', String(open));
     grip.setAttribute('aria-label', open ? labels.collapse : labels.expand);
     body.tabIndex = !dock.matches ? 0 : -1;
@@ -59,10 +63,15 @@ export function attachCampusSheet(layer: HTMLElement, body: HTMLElement, labels:
       // reading position because temporarily growing the body can clamp it.
       const scrollTop = body.scrollTop;
       layer.dataset.sheetMeasuring = 'true';
-      fullHeight = layer.offsetHeight;
-      layer.style.setProperty('--campus-sheet-full', `${fullHeight}px`);
+      const copyHeight = layer.offsetHeight;
       delete layer.dataset.sheetMeasuring;
-      fits = fullHeight <= compactHeight() + 0.5;
+      fits = copyHeight <= compactHeight() + 0.5;
+      // Copy that needs expanding opens all the way up, however little is
+      // left below the compact stop: an open stop sized to the copy ended it
+      // under the footer on a phone (user direction, 2026-10-23).
+      const top = ceiling();
+      fullHeight = fits || !Number.isFinite(top) ? copyHeight : top;
+      layer.style.setProperty('--campus-sheet-full', `${fullHeight}px`);
       body.scrollTop = scrollTop;
     }
     sync();

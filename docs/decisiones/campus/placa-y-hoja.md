@@ -13,7 +13,7 @@
    - la capa deja pasar el puntero a la ciudad, salvo en los botones y en lo que hace scroll.
 5. **En el resto (móvil, tableta vertical), una hoja inferior de dos paradas**, compacta y expandida (`section/campusSheet.ts`, sobre `src/interaction/sheetDrag.ts`):
    - la parada compacta es la mayor que no aleja las partículas (`campusCompactFraction`), entre `CAMPUS_COMPACT_MIN_FRACTION` y `CAMPUS_COMPACT_MAX_FRACTION`. Se publica en `dvh` como `--campus-sheet-compact` y se recalcula al redimensionar;
-   - la expandida mide lo que mide el texto, con el tope de `max-height` en `murcia.css`;
+   - la expandida sube hasta justo debajo de la cabecera (`--campus-sheet-ceiling`, el `max-height` de `murcia.css`, que `campusSheet.ts` lee como la parada), aunque el texto sea corto; antes medía lo que el texto, con tope en el 85 %, y en un móvil el final quedaba bajo el pie (por indicación del usuario, 2026-10-23). Si el texto no cabe en la compacta, la hoja lleva `data-sheet-scrolls` y el final del scroll deja libre el pie y los controles de la esquina; ese hueco no cuenta al decidir si cabe;
    - si todo el texto cabe en la compacta, la hoja se abre entera y el asa desaparece;
    - solo el asa arrastra; el cuerpo hace scroll vertical nativo;
    - el asa es una píldora sin texto, nombrada solo por su `aria-label`;
