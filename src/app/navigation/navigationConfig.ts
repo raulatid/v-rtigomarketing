@@ -191,23 +191,6 @@ export interface NavigationCooldownLimits {
   quietGapSeconds: number
 }
 
-/** A wheel gesture that steps through what holds the attention (`NavigationContext.step`). */
-export interface NavigationStepLimits {
-  /**
-   * Travel in one direction that takes the step, in normalised CSS pixels.
-   *
-   * Below one notch of a mouse wheel in every browser (Chrome reports ~100px,
-   * Firefox three 16px lines), so a notch is a step; a trackpad gets there in a
-   * short stroke. The gesture's end is the latch's silence, `latchGapSeconds`.
-   * A starting point, not yet judged on a device.
-   */
-  travelPx: number
-}
-
-export const NAVIGATION_STEP: NavigationStepLimits = {
-  travelPx: 40,
-}
-
 export const NAVIGATION_COOLDOWN: NavigationCooldownLimits = {
   latchGapSeconds: 0.5,
   // The warp is 1.6s and the lock covers all of it, so this is what follows the
