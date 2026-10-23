@@ -69,6 +69,9 @@ desktop.ini
 /test-results/
 /playwright-report/
 /blob-report/
+# The Playwright MCP's screenshots, snapshots and console logs from driving the
+# site by hand: local inspection, never source.
+/.playwright-mcp/
 
 # Sound effect clips as supplied, before the metadata strip and the hash rename
 # (CREDITS.md). Working files, never source.
