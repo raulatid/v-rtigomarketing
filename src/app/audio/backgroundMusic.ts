@@ -10,11 +10,14 @@
  * `element.volume`, so a fade needs a GainNode.
  *
  *     earth  <audio> → source → gain ┐
- *                                    ├→ master gain → destination
- *     murcia <audio> → source → gain ┘
+ *                                    ├→ music gain ┐
+ *     murcia <audio> → source → gain ┘             ├→ master gain → destination
+ *     sound effects (soundEffects.ts) → effects gain ┘
  *
  * The track gains ARE the crossfade; the master gain is everything that silences
- * both at once (the visitor's toggle, the blog, a hidden tab).
+ * all of it at once (the visitor's toggle, the blog, a hidden tab). The effects
+ * hang off the same master so the one toggle is the one way to stop the sound,
+ * and so they inherit the gesture unlock and every suppression for free.
  *
  * ── Autoplay is a request, not a guarantee ──
  *
@@ -49,8 +52,12 @@ export const MUSIC_TRACKS: Readonly<Partial<Record<ExperienceId, string>>> = {
   murcia: '/audio/murcia-dc24effe.mp3',
 }
 
-/** The master level at full presence. Background, not foreground. */
+/** The music's level at full presence. Background, not foreground. */
 export const MUSIC_VOLUME = 0.1
+/** The effects' level, before each cue's own `volume`. A starting point above
+ *  the music, since a cue is a short accent rather than a bed; tune by ear
+ *  once the files are in. */
+export const EFFECTS_VOLUME = 0.3
 /** A little longer than the 1.6 s warp, so the new world's track settles after
  *  the picture does. */
 export const CROSSFADE_SECONDS = 2.4
@@ -148,6 +155,10 @@ interface Graph {
   ctx: AudioContext
   master: GainNode
   masterTarget: number
+  /** The tracks' bus, fixed at `MUSIC_VOLUME`. */
+  music: GainNode
+  /** The sound effects' bus, fixed at `EFFECTS_VOLUME`. */
+  effects: GainNode
   tracks: Partial<Record<ExperienceId, Track>>
 }
 
@@ -190,7 +201,13 @@ function ensureGraph(): Graph | null {
   const master = ctx.createGain()
   master.gain.value = 0
   master.connect(ctx.destination)
-  graph = { ctx, master, masterTarget: 0, tracks: {} }
+  const music = ctx.createGain()
+  music.gain.value = MUSIC_VOLUME
+  music.connect(master)
+  const effects = ctx.createGain()
+  effects.gain.value = EFFECTS_VOLUME
+  effects.connect(master)
+  graph = { ctx, master, masterTarget: 0, music, effects, tracks: {} }
   return graph
 }
 
@@ -208,7 +225,7 @@ function ensureTrack(g: Graph, id: ExperienceId): Track | null {
   const gain = g.ctx.createGain()
   gain.gain.value = 0
   g.ctx.createMediaElementSource(el).connect(gain)
-  gain.connect(g.master)
+  gain.connect(g.music)
   const track: Track = { el, gain, target: 0, pauseTimer: undefined }
   g.tracks[id] = track
   return track
@@ -276,7 +293,7 @@ function apply(trackFade: number, masterFade: number) {
   }
   if (g.masterTarget !== targets.master) {
     g.masterTarget = targets.master
-    ramp(g.ctx, g.master.gain, targets.master * MUSIC_VOLUME, masterFade)
+    ramp(g.ctx, g.master.gain, targets.master, masterFade)
   }
 
   for (const id of TRACKS) {
@@ -363,6 +380,25 @@ export function setMusicEnabled(on: boolean) {
   else disarmUnlock()
   notify()
   apply(CROSSFADE_SECONDS, SUPPRESS_FADE_SECONDS)
+}
+
+/**
+ * The context the effects decode against, once the graph exists. It exists
+ * from the first moment anything should sound (Earth-ready with the toggle on,
+ * or the toggle turned on later), so null means "nothing would play anyway".
+ */
+export function soundContext(): AudioContext | null {
+  return graph?.ctx ?? null
+}
+
+/**
+ * Where an effect may play right now, or null while the sound is silenced:
+ * toggle off, start blocked, blog open, tab hidden, or a context the browser
+ * has not let run. An effect asked for in silence is dropped, never queued.
+ */
+export function effectsOutput(): { ctx: AudioContext; bus: GainNode } | null {
+  if (!graph || graph.masterTarget === 0 || graph.ctx.state !== 'running') return null
+  return { ctx: graph.ctx, bus: graph.effects }
 }
 
 export function readMusicStatus(): MusicStatus {

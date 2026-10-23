@@ -181,6 +181,19 @@ the loop. The name carries the first 8 hex of the output's SHA-256, because `/au
 Swapping a track: re-run the recipe, rename by hash, update `MUSIC_TRACKS` in
 `src/app/audio/backgroundMusic.ts`, and update this entry.
 
+## `public/audio/sfx/<cue>-<sha8>.mp3` — the sound effects
+
+None yet. Each file is the clip for one `SoundCue` in `src/app/audio/soundEffects.ts`, whose
+doc comments say when each cue fires.
+
+**Adding a clip:** no fades and no re-encode needed for a short clip already in MP3; strip the
+metadata if it carries any. Name it `<cue>-<first 8 hex of its SHA-256>.mp3`, because `/audio/`
+is served `immutable`, put it in `public/audio/sfx/`, add its entry to `SOUND_EFFECTS`, and list
+it here with its source and a licence that covers a commercial website.
+
+    ffmpeg -i in.mp3 -map_metadata -1 -id3v2_version 0 -c:a copy out.mp3
+    sha256sum out.mp3 | cut -c1-8
+
 ## Typefaces
 
 The site self-hosts its families from `public/fonts/` as woff2, and sets type

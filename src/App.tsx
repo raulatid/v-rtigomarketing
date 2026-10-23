@@ -42,6 +42,16 @@ import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 import { useExperienceTransition } from './app/useExperienceTransition'
 import { crossfadeMusic, setMusicSuppressed, startMusic } from './app/audio/backgroundMusic'
+import {
+  cueForAudit,
+  cueForCase,
+  cueForClaim,
+  cueForDistrict,
+  cueForMenu,
+  playSound,
+  preloadSoundEffects,
+} from './app/audio/soundEffects'
+import { useSoundCue } from './app/audio/useSoundCue'
 import { SoundToggle } from './components/SoundToggle'
 import { useSceneNavigation } from './app/navigation/useSceneNavigation'
 import { useSceneShortcuts } from './app/useSceneShortcuts'
@@ -166,9 +176,18 @@ export default function App() {
     },
     // The viewer's zoom belongs to the world they were in. Cleared on the cut's
     // frame, under full cover, alongside every other discontinuity (`adr/014`).
-    onCut: () => resetZoomRef.current(),
+    // The cut's effect fires from the cut itself, not as an offset from the
+    // start: the warp runs on a frame-stepped clock that a slow device
+    // stretches, and the audio clock would not stretch with it.
+    onCut: () => {
+      resetZoomRef.current()
+      playSound('warp-cut')
+    },
     // The music crosses over from the commit, ahead of the picture's cut.
-    onStart: crossfadeMusic,
+    onStart: (to) => {
+      crossfadeMusic(to)
+      playSound(to === 'murcia' ? 'warp-to-murcia' : 'warp-to-earth')
+    },
   })
 
   // Mirrors the audit section's open state so the global Escape handler can
@@ -254,12 +273,23 @@ export default function App() {
   // The music waits for Earth to be whole — 'site', where the header's controls
   // arrive — and is quiet while the blog is open (DECISIONS §48). `startMusic`
   // is idempotent, so the debug seek replaying the phases is harmless.
+  // The effects decode right after, against the context the music just made.
   useEffect(() => {
-    if (phase === 'site') startMusic(activeExperience)
+    if (phase !== 'site') return
+    startMusic(activeExperience)
+    preloadSoundEffects()
   }, [phase, activeExperience])
   useEffect(() => {
     setMusicSuppressed('blog', blogOpen)
   }, [blogOpen])
+
+  // The panels' effects, from the state that opens them rather than from each
+  // path that sets it: a case closes from the ✕, the globe and the audit's own
+  // deselect, and each close should sound once.
+  useSoundCue(selectedCase, cueForCase)
+  useSoundCue(auditOpen, cueForAudit)
+  useSoundCue(headerMenuState, cueForMenu)
+  useSoundCue(claimOpen, cueForClaim)
 
   // Gesture navigation. The gesture is the way in AND the way out now: the Spain
   // marker no longer navigates and the return button is gone (`adr/009`).
@@ -394,9 +424,16 @@ export default function App() {
 
   // Mirror focus for the DOM affordance; navigation still checks the live getter
   // at activation, so a district opening between renders cannot admit a warp.
+  // The same callback is where a district's flight in and out is heard: it is
+  // the one the city fires when `hasFocusedDistrict` may have flipped.
+  const districtFocusedRef = useRef(false)
   const handleMurciaAttentionChange = useCallback(() => {
     setMurciaOverviewBlocked(!(murciaRef.current?.isCityOverview ?? false))
     navigationContextChanged()
+    const focused = murciaRef.current?.hasFocusedDistrict ?? false
+    const cue = cueForDistrict(districtFocusedRef.current, focused)
+    districtFocusedRef.current = focused
+    if (cue) playSound(cue)
   }, [navigationContextChanged])
 
   useEffect(handleMurciaAttentionChange, [handleMurciaAttentionChange, activeExperience, transitioning])
@@ -520,6 +557,7 @@ export default function App() {
    */
   const handleBlogApproachStart = useCallback(() => {
     prefetchBlog()
+    playSound('blog-approach')
   }, [])
 
   /**

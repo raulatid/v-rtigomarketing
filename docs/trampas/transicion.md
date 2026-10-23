@@ -59,6 +59,8 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 30. **La música se solapa con el corte; la imagen nunca.** El listener de desbloqueo debe seguir en `pointerup`, `touchend` o `keydown`. El momento del fundido cruzado no tiene test.
 
+31. **Un efecto que no suena no es un fallo.** Se descarta si su clip no está en `SOUND_EFFECTS`, si aún no se ha decodificado, si el sonido está silenciado o si se repite dentro de su intervalo. Al encender el interruptor tarde, los primeros momentos pueden sonar mudos mientras se decodifican. Fija: `soundEffects.test.ts` (la admisión y los momentos, no el audio).
+
 ## Cómo verificar esta área
 
 | Cambio | Comprobación |
@@ -68,7 +70,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 | Ciclo de la transición, giro de Earth, bloqueo | `useExperienceTransition.test.tsx`, `departureAim.test.ts`, `departureContinuity.test.ts`, `navigationMachine.test.ts` |
 | Vacío, ruta de render, bloom, afterimage | `SceneCanvas.test.tsx` |
 | Precalentado | `whileRevealed.test.ts`; `e2e/boot.spec.ts` si se pide e2e |
-| Música | `backgroundMusic.test.ts`; `e2e/blog.spec.ts` si se pide e2e |
+| Música y efectos | `backgroundMusic.test.ts`, `soundEffects.test.ts`; `e2e/blog.spec.ts` si se pide e2e; el momento de cada efecto, a oído |
 | Recorrido completo, móvil, movimiento reducido | `npm run e2e` (`navigation`, `mobile`, `motion-preference`), solo si se pide |
 
 **Sin cobertura:**
@@ -78,6 +80,6 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 - `earthRestFov == normalFov`;
 - el desenfoque de movimiento con movimiento reducido (hoy no se suprime);
 - la pose de llegada a Earth con movimiento reducido;
-- el momento del fundido de la música.
+- el momento del fundido de la música y de cada efecto de sonido.
 
 **Posible defecto sin verificar en navegador:** con movimiento reducido, al volver a Earth la cámara podría mostrar la pose de salida obsoleta desde el corte y saltar a la vista general cuando termina la cinemática, después de que el destello ya se haya despejado.

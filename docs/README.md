@@ -71,6 +71,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Giro de Earth hacia España](decisiones/transicion/giro-de-earth-hacia-espana.md): fase fija después del commit.
 - [Vacío](decisiones/transicion/vacio.md): pase de pantalla al salir de Murcia, nunca un aumento de FOV.
 - [Música](decisiones/transicion/musica.md): la música hace fundido cruzado; la imagen no.
+- [Efectos de sonido](decisiones/transicion/efectos-de-sonido.md): un clip por momento, en el grafo de la música; un solo interruptor; lo que llega tarde se descarta.
 
 ### Murcia
 - [Pose de reposo](decisiones/murcia/pose-de-reposo.md): todos los hitos en plano al aterrizar.
