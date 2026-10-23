@@ -19,9 +19,10 @@ import type { SceneReport } from '../assets/loadCity';
  * of each of them. It is one guard here: nothing is built when the tools are
  * off, so there is nothing to check later.
  *
- * On a production build `DEBUG_TOOLS_ENABLED` is false, this is constructed
- * with `enabled: false`, and every method below is a no-op returning early
- * before it touches Stats or three.
+ * On a production build `DEBUG_TOOLS_ENABLED` is false and MurciaExperience
+ * does not construct this at all, so the class is not in the bundle. Built with
+ * `enabled: false`, every method below is a no-op returning early before it
+ * touches Stats or three.
  *
  * The three log* methods are DIAGNOSTICS, not error reporting: together they
  * printed a mesh/material table, the model's bounding box and eight lines of

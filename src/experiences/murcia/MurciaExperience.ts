@@ -289,8 +289,8 @@ export class MurciaExperience {
    * section 3 is what now guarantees the world still surrounds the camera.
    */
   private readonly bounds: BoundsRect;
-  /** FPS meter, bounds wireframe and diagnostics. Inert unless debugTools. */
-  private readonly debug: MurciaDebugTools;
+  /** FPS meter, bounds wireframe and diagnostics. Null in a production build. */
+  private readonly debug: MurciaDebugTools | null;
 
   private firstFrameRecorded = false;
 
@@ -403,7 +403,11 @@ export class MurciaExperience {
       this.environment.navigation.bounds,
       -this.environment.navigation.boundsInset,
     );
-    this.debug = new MurciaDebugTools(this.debugTools, this.appConfig, container);
+    // Behind the literal, not only `debugTools`: a constructor argument cannot be
+    // folded, so without it the class and every call below ship to production.
+    this.debug = DEBUG_TOOLS_ENABLED
+      ? new MurciaDebugTools(this.debugTools, this.appConfig, container)
+      : null;
   }
 
   /**
@@ -438,7 +442,7 @@ export class MurciaExperience {
 
     // Debug instrumentation is opt-in now. Standalone this defaulted on, which
     // is fine for a prototype and not for a marketing site.
-    this.debug.mountStats();
+    this.debug?.mountStats();
 
     // The renderer, because the KTX2 transcoder has to ask the GPU which
     // compressed formats it supports before it can transcode anything.
@@ -892,13 +896,13 @@ export class MurciaExperience {
     this.loaded = loaded;
     this.sceneBundle.scene.add(loaded.root);
 
-    if (this.loaded) this.debug.logAssetReport(this.loaded.report);
+    if (this.loaded) this.debug?.logAssetReport(this.loaded.report);
 
     const box = new THREE.Box3().setFromObject(loaded.root);
     if (box.isEmpty()) {
       throw new Error('City model has no renderable geometry (empty bounds).');
     }
-    this.debug.logModelBounds(box);
+    this.debug?.logModelBounds(box);
 
     // The measured plate used to seed the navigable-area pipeline here. The
     // rectangle is authored now — `navigation.bounds`, grown by `boundsInset` —
@@ -1005,7 +1009,7 @@ export class MurciaExperience {
     // still one — so the only way to check the invariant from outside is to ask.
     // `targetYaw` is the number that carried the bug: it must not move by so
     // much as a degree while Earth is showing, however hard the globe is dragged.
-    if (this.debugTools) {
+    if (DEBUG_TOOLS_ENABLED && this.debugTools) {
       const seams = window as unknown as Record<string, unknown>;
       seams.__vertigoCamera = {
         claims: () => rig.claimList(),
@@ -1029,23 +1033,24 @@ export class MurciaExperience {
       },
     });
 
-    this.debug.logNavigation(this.bounds, this.loaded?.terrainSource ?? 'n/a');
+    this.debug?.logNavigation(this.bounds, this.loaded?.terrainSource ?? 'n/a');
 
     if (this.appConfig.navigationDebugEnabled) {
-      this.debug.rebuildBoundsHelper(
+      this.debug?.rebuildBoundsHelper(
         this.sceneBundle.scene,
         this.bounds,
         this.environment.navigation.groundPlaneHeight,
       );
     }
 
-    if (this.appConfig.debugOverlayEnabled) {
+    if (DEBUG_TOOLS_ENABLED && this.appConfig.debugOverlayEnabled) {
       this.debugOverlay = new DebugOverlay(this.container, this.appConfig);
     }
 
-    this.interactionProbe = new InteractionProbe(this.camera, this.debugTools);
-    const interactiveCount = this.interactionProbe.collectFrom(loaded.root);
-    if (this.debugTools) {
+    // A diagnostic only (see InteractionProbe.ts), so not built at all in production.
+    if (DEBUG_TOOLS_ENABLED && this.debugTools) {
+      this.interactionProbe = new InteractionProbe(this.camera, this.debugTools);
+      const interactiveCount = this.interactionProbe.collectFrom(loaded.root);
       console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);
     }
 
@@ -1209,7 +1214,7 @@ export class MurciaExperience {
     // must click this panel, and where it is on screen depends on the camera
     // pose and the GLB — not on anything a spec could hardcode without becoming
     // a test of the city's layout instead of the blog's behaviour.
-    if (this.debugTools && this.blogDisplay) {
+    if (DEBUG_TOOLS_ENABLED && this.debugTools && this.blogDisplay) {
       const entry = this.blogDisplay;
       (window as unknown as Record<string, unknown>).__vertigoBlogDisplayPoint = () =>
         entry.screenPoint();
@@ -1398,7 +1403,7 @@ export class MurciaExperience {
     this.campus?.setEnabled(this.active);
 
     const campus = this.campus;
-    if (this.debugTools && campus) {
+    if (DEBUG_TOOLS_ENABLED && this.debugTools && campus) {
       const seams = window as unknown as Record<string, unknown>;
       // The names the e2e specs already use: the point to tap is the lake now,
       // and "settled" is the campus's own flight being over.
@@ -1494,7 +1499,7 @@ export class MurciaExperience {
     this.aboutSky.setPixelRatio(this.renderer.getPixelRatio());
     this.sceneBundle.scene.add(this.aboutSky.object3D);
 
-    if (this.debugTools) {
+    if (DEBUG_TOOLS_ENABLED && this.debugTools) {
       (window as unknown as Record<string, unknown>).__vertigoAbout = {
         enter: () => about.enter(),
         next: () => about.next(),
@@ -1617,7 +1622,7 @@ export class MurciaExperience {
       if (this.about?.stop === 'city') this.placeCityMark();
       this.publishZoomTargets();
       this.cameraInput?.setViewport(size.width, size.height);
-      if (this.debug.hasBoundsHelper) {
+      if (this.debug?.hasBoundsHelper) {
         this.debug.rebuildBoundsHelper(
           this.sceneBundle.scene,
           this.bounds,
@@ -1690,7 +1695,7 @@ export class MurciaExperience {
     if (!this.active || !this.sceneBundle) return;
 
     const now = performance.now();
-    this.debug.frameBegin();
+    this.debug?.frameBegin();
 
     // Exactly one system writes to the rig per frame — the owner switch below
     // enforces it. The campus ticks first, because its flight is what decides
@@ -1871,7 +1876,7 @@ export class MurciaExperience {
       });
     }
 
-    this.debug.frameEnd();
+    this.debug?.frameEnd();
   }
 
   dispose(): void {
@@ -1942,7 +1947,7 @@ export class MurciaExperience {
     this.releaseDecoders();
 
     this.statusOverlay.dispose();
-    this.debug.dispose(this.sceneBundle?.scene ?? null);
+    this.debug?.dispose(this.sceneBundle?.scene ?? null);
 
     // The renderer and its canvas belong to the application, not to this
     // environment. Disposing them here would take Earth down with it.

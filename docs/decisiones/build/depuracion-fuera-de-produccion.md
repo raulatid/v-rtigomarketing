@@ -1,10 +1,11 @@
 # Las herramientas de depuración no llegan al bundle de producción
 
-**Estado:** vigente · **Desde:** 2026-08-07 (`fc986d9`, literal de compilación); `stats.js` dinámico y comprobado desde el 2026-09-05 (`e2ee116`); overlay de autoría desde el 2026-09-25 (`eb0a6fa`) · **Sustituye a:** DECISIONS §16, párrafo «It is a compile-time literal»
+**Estado:** vigente · **Desde:** 2026-08-07 (`fc986d9`, literal de compilación); `stats.js` dinámico y comprobado desde el 2026-09-05 (`e2ee116`); overlay de autoría desde el 2026-09-25 (`eb0a6fa`); herramientas de Murcia detrás del literal desde el 2026-10-23 · **Sustituye a:** DECISIONS §16, párrafo «It is a compile-time literal»
 
 ## Decisión
 
 1. **`__VERTIGO_ENV__` es un literal que inyecta `define` en `vite.config.ts`.** Así `DEBUG_TOOLS_ENABLED` (`src/platform/buildFlags.ts`) se pliega a una constante y el minificador elimina de producción las ramas de depuración, incluido el panel `/debug`. Qué entorno es producción lo decide [producción y preview](produccion-y-preview.md).
+   - Cada condición tiene que leer `DEBUG_TOOLS_ENABLED`, no solo un booleano guardado en un campo o pasado al constructor: eso no se pliega, y la rama llega a producción aunque nunca se ejecute. Por eso `MurciaExperience` solo construye `MurciaDebugTools`, `DebugOverlay` e `InteractionProbe`, y solo expone sus costuras de test (`__vertigoCamera`, `__vertigoCampus`, `__vertigoAbout`, `__vertigoBlogDisplayPoint`), detrás del literal (2026-10-23).
 2. **`DEBUG_TOOLS_ENABLED` se escribe como una sola expresión en línea**, sin pasar por una función: esbuild no propaga una constante a través de una llamada.
 3. **Lo que el minificador no puede eliminar se carga con import dinámico detrás de `DEBUG_TOOLS_ENABLED`:** el medidor de FPS (`stats.js`, desde `MurciaDebugTools`) y el overlay de autoría del punto de vista (`observer/observerDebug.ts`, desde `MurciaExperience`).
 4. **El build comprueba las dos mitades:** en producción no puede haber chunk de stats ni del overlay; fuera de producción tiene que haber exactamente uno de cada.
@@ -33,4 +34,4 @@
 
 ## Afecta a
 
-`vite.config.ts` (`define`, `STATS_MODULE`, `isStatsChunk`, `OBSERVER_DEBUG_MODULE`, `isObserverDebugChunk`, `assertChunkBudgets`), `src/platform/buildFlags.ts`, `src/App.tsx`, `src/experiences/murcia/debug/MurciaDebugTools.ts`, `src/experiences/murcia/MurciaExperience.ts`, `src/experiences/murcia/observer/observerDebug.ts`, `e2e/production-hygiene.spec.ts`
+`vite.config.ts` (`define`, `STATS_MODULE`, `isStatsChunk`, `OBSERVER_DEBUG_MODULE`, `isObserverDebugChunk`, `assertChunkBudgets`), `src/platform/buildFlags.ts`, `src/App.tsx`, `src/experiences/murcia/debug/MurciaDebugTools.ts`, `src/experiences/murcia/debug/DebugOverlay.ts`, `src/experiences/murcia/interaction/InteractionProbe.ts`, `src/experiences/murcia/MurciaExperience.ts`, `src/experiences/murcia/observer/observerDebug.ts`, `e2e/production-hygiene.spec.ts`
