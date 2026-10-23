@@ -70,7 +70,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 | Ciclo de la transición, giro de Earth, bloqueo | `useExperienceTransition.test.tsx`, `departureAim.test.ts`, `departureContinuity.test.ts`, `navigationMachine.test.ts` |
 | Vacío, ruta de render, bloom, afterimage | `SceneCanvas.test.tsx` |
 | Precalentado | `whileRevealed.test.ts`; `e2e/boot.spec.ts` si se pide e2e |
-| Música y efectos | `backgroundMusic.test.ts`, `soundEffects.test.ts`; `e2e/blog.spec.ts` si se pide e2e; el momento de cada efecto, a oído |
+| Música y efectos | `audioOutput.test.ts`, `backgroundMusic.test.ts`, `soundEffects.test.ts`; `e2e/blog.spec.ts` si se pide e2e; el momento de cada efecto, a oído |
 | Recorrido completo, móvil, movimiento reducido | `npm run e2e` (`navigation`, `mobile`, `motion-preference`), solo si se pide |
 
 **Sin cobertura:**

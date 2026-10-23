@@ -27,7 +27,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 | El propio `checks/architecture.ts` | `npm run check:architecture`, y comprobar que el número de módulos e imports resueltos no cae |
 | Canales por fotograma (`navigationSignals.ts`, `auditView.ts`, `sequenceState.ts`) | `auditView.test.ts`, `sequenceState.test.ts`, `useExperienceTransition.test.tsx` |
 | Movimiento reducido | `npx vitest run src/platform/motionPreference.test.ts`; `e2e/motion-preference.spec.ts`, solo si se pide e2e |
-| Pestaña oculta | `npx vitest run src/intro-draw/playhead.test.ts src/app/audio/backgroundMusic.test.ts`; a mano: ocultar la pestaña a mitad del warp y del dibujo, y volver |
+| Pestaña oculta | `npx vitest run src/intro-draw/playhead.test.ts src/app/audio/audioOutput.test.ts`; a mano: ocultar la pestaña a mitad del warp y del dibujo, y volver |
 | Fallos y degradación | `e2e/degraded.spec.ts`, solo si se pide e2e; a mano: bloquear el GLB y comprobar que no se ofrece Murcia |
 | Pantallas de la torre y del campus | `npx vitest run src/experiences/murcia/screens src/experiences/murcia/landmark/towerScreen src/experiences/murcia/campus/campusScreen`; `npm run check:architecture` |
 

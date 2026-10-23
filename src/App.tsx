@@ -41,7 +41,8 @@ import { PROTO_MENU3D } from './app/protoMenu3d'
 import type { ExperienceId } from './app/experience'
 import type { MurciaExperience } from './experiences/murcia/MurciaExperience'
 import { useExperienceTransition } from './app/useExperienceTransition'
-import { crossfadeMusic, setMusicSuppressed, startMusic } from './app/audio/backgroundMusic'
+import { setSoundSuppressed, startSound } from './app/audio/audioOutput'
+import { crossfadeMusic, startMusic } from './app/audio/backgroundMusic'
 import {
   cueForAudit,
   cueForCase,
@@ -269,14 +270,17 @@ export default function App() {
     opening,
   })
 
-  // The music waits for Earth to be whole — 'site', where the header's controls
-  // arrive — and is quiet while the blog is open (DECISIONS §48). `startMusic`
-  // is idempotent, so the debug seek replaying the phases is harmless.
+  // The sound waits for Earth to be whole — 'site', where the header's controls
+  // arrive — and is quiet while the blog is open (DECISIONS §48). Both starts
+  // are idempotent, so the debug seek replaying the phases is harmless. The
+  // music learns its world first, so the output opening finds it.
   useEffect(() => {
-    if (phase === 'site') startMusic(activeExperience)
+    if (phase !== 'site') return
+    startMusic(activeExperience)
+    startSound()
   }, [phase, activeExperience])
   useEffect(() => {
-    setMusicSuppressed('blog', blogOpen)
+    setSoundSuppressed('blog', blogOpen)
   }, [blogOpen])
 
   // The panels' effects, from the state that opens them rather than from each

@@ -11,7 +11,7 @@
  * restatement of the shape (`intro-draw/returningVisitor.ts`). Change the key or
  * the version here and `returningVisitor.test.ts` fails until that follows.
  *
- * Stored like the sound preference (`app/audio/backgroundMusic.ts`), for the
+ * Stored like the sound preference (`app/audio/audioOutput.ts`), for the
  * same reasons: a versioned record read tolerantly, so anything malformed, from
  * another deployment or written by hand is "not seen" rather than a crash; and
  * every access guarded, because Safari's private mode throws on `setItem` and a

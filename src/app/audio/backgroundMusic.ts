@@ -10,34 +10,27 @@
  * `element.volume`, so a fade needs a GainNode.
  *
  *     earth  <audio> → source → gain ┐
- *                                    ├→ music gain ┐
- *     murcia <audio> → source → gain ┘             ├→ master gain → destination
- *     sound effects (soundEffects.ts) → effects gain ┘
+ *                                    ├→ music bus (audioOutput.ts)
+ *     murcia <audio> → source → gain ┘
  *
- * The track gains ARE the crossfade; the master gain is everything that silences
- * all of it at once (the visitor's toggle, the blog, a hidden tab). The effects
- * hang off the same master so the one toggle is the one way to stop the sound,
- * and so they inherit the gesture unlock and every suppression for free.
+ * The track gains ARE the crossfade. Everything that silences the music —
+ * the visitor's toggle, a blocked start, the blog, a hidden tab — is the
+ * output's master gain, which this module only follows (`onSoundChange`).
+ * The music's one extra duty there is the autoplay probe: its `play()` is
+ * what finds out the browser wants a gesture, and it reports that.
  *
- * ── Autoplay is a request, not a guarantee ──
- *
- * Browsers refuse audible playback until the visitor has done something that
- * counts as a gesture, and the intro has nothing to click. So `start()` tries,
- * and on `NotAllowedError` arms a one-shot listener for the first press, tap or
- * key. Wheel and scroll never count, so a trackpad visitor who only scrolls
- * hears nothing until they click (DECISIONS §48).
- *
- * ── The fades run on the audio clock ──
- *
- * Not on `transitionProgress`. The warp cannot be reversed once committed, so
- * there is nothing to follow per frame, and a wall-clock ramp stays smooth on a
- * device slow enough to stretch the frame-stepped cinematic.
- *
- * Module-level state shared by signal, the consent.ts shape: the header toggle
- * subscribes and is called back at once with what is already known. Imports
- * nothing from `experiences/` or `graphics/` — SiteHeader's rule.
+ * Imports nothing from `experiences/` or `graphics/` — SiteHeader's rule.
  */
 import type { ExperienceId } from '../experience'
+import {
+  SUPPRESS_FADE_SECONDS,
+  isSoundAudible,
+  onSoundChange,
+  ramp,
+  reportSoundBlocked,
+  soundBuses,
+  type SoundBuses,
+} from './audioOutput'
 
 /**
  * Hand-hashed like the fonts (DECISIONS §47): the name carries the first 8 hex
@@ -52,96 +45,27 @@ export const MUSIC_TRACKS: Readonly<Partial<Record<ExperienceId, string>>> = {
   murcia: '/audio/murcia-dc24effe.mp3',
 }
 
-/** The music's level at full presence. Background, not foreground. */
-export const MUSIC_VOLUME = 0.1
-/** The effects' level, before each cue's own `volume`. A starting point above
- *  the music, since a cue is a short accent rather than a bed; tune by ear
- *  once the files are in. */
-export const EFFECTS_VOLUME = 0.3
 /** A little longer than the 1.6 s warp, so the new world's track settles after
  *  the picture does. */
 export const CROSSFADE_SECONDS = 2.4
-/** The toggle, the blog and a hidden tab. */
-export const SUPPRESS_FADE_SECONDS = 0.8
-/** The first entrance of the music at Earth-ready. */
-export const START_FADE_SECONDS = 2
-
-export const SOUND_VERSION = 1
-export const SOUND_STORAGE_KEY = 'vertigo:sound'
-
-export type SuppressReason = 'blog' | 'hidden'
-
-/** What the header toggle shows. `unavailable` means no Web Audio at all. */
-export type MusicStatus = 'on' | 'off' | 'unavailable'
-
-export interface MusicState {
-  /** The visitor's preference. */
-  enabled: boolean
-  /** Earth has reached phase 'site'. */
-  started: boolean
-  /** The browser refused playback; waiting for a gesture. */
-  blocked: boolean
-  active: ExperienceId
-  suppressed: ReadonlySet<SuppressReason>
-}
 
 export interface MusicTargets {
-  /** 0 or 1, before `MUSIC_VOLUME`. */
-  master: number
   earth: number
   murcia: number
 }
 
 const TRACKS: readonly ExperienceId[] = ['earth', 'murcia']
 
-/** The gains the state asks for. Pure, so it is the part under test. */
-export function musicTargets(state: MusicState): MusicTargets {
-  const audible = state.enabled && state.started && !state.blocked && state.suppressed.size === 0
+/** Each track's gain for the world being shown. Pure, so it is the part under
+ *  test. Whether anything is heard at all is the output's master. */
+export function musicTargets(active: ExperienceId): MusicTargets {
   return {
-    master: audible ? 1 : 0,
-    earth: state.active === 'earth' ? 1 : 0,
-    murcia: state.active === 'murcia' ? 1 : 0,
+    earth: active === 'earth' ? 1 : 0,
+    murcia: active === 'murcia' ? 1 : 0,
   }
 }
 
-/** The toggle's reading. A blocked start reads as off: nothing is playing, and a
- *  click on the toggle is exactly the gesture that will start it. */
-export function musicStatus(state: MusicState, supported: boolean): MusicStatus {
-  if (!supported) return 'unavailable'
-  return state.enabled && !state.blocked ? 'on' : 'off'
-}
-
-// ── the preference ──
-
-/** Read tolerantly, the consent.ts argument: anything malformed is "no record". */
-export function parseSoundRecord(raw: unknown): boolean | null {
-  if (raw === null || typeof raw !== 'object') return null
-  const { v, on } = raw as Record<string, unknown>
-  if (v !== SOUND_VERSION || typeof on !== 'boolean') return null
-  return on
-}
-
-function loadEnabled(): boolean {
-  try {
-    const raw = window.localStorage.getItem(SOUND_STORAGE_KEY)
-    // On by default: the product asks for the music to start by itself.
-    if (raw === null) return true
-    return parseSoundRecord(JSON.parse(raw)) ?? true
-  } catch {
-    return true
-  }
-}
-
-function persistEnabled(on: boolean) {
-  try {
-    window.localStorage.setItem(SOUND_STORAGE_KEY, JSON.stringify({ v: SOUND_VERSION, on }))
-  } catch {
-    // Storage unavailable (Safari private mode, blocked site data): the choice
-    // holds for this visit and is forgotten after, which is all that was possible.
-  }
-}
-
-// ── the graph ──
+// ── the tracks ──
 
 interface Track {
   el: HTMLAudioElement
@@ -151,72 +75,11 @@ interface Track {
   pauseTimer: number | undefined
 }
 
-interface Graph {
-  ctx: AudioContext
-  master: GainNode
-  masterTarget: number
-  /** The tracks' bus, fixed at `MUSIC_VOLUME`. */
-  music: GainNode
-  /** The sound effects' bus, fixed at `EFFECTS_VOLUME`. */
-  effects: GainNode
-  tracks: Partial<Record<ExperienceId, Track>>
-}
+const state: { started: boolean; active: ExperienceId } = { started: false, active: 'earth' }
+const tracks: Partial<Record<ExperienceId, Track>> = {}
 
-const state: {
-  enabled: boolean | undefined
-  started: boolean
-  blocked: boolean
-  active: ExperienceId
-  suppressed: Set<SuppressReason>
-} = {
-  enabled: undefined,
-  started: false,
-  blocked: false,
-  active: 'earth',
-  suppressed: new Set(),
-}
-
-let graph: Graph | null = null
-let unlockArmed = false
-const listeners = new Set<(status: MusicStatus) => void>()
-/** Waiting for the graph; each is called once, the moment it exists. */
-const contextListeners = new Set<(ctx: AudioContext) => void>()
-
-function supported(): boolean {
-  return typeof window !== 'undefined' && typeof window.AudioContext === 'function'
-}
-
-function snapshot(): MusicState {
-  if (state.enabled === undefined) state.enabled = loadEnabled()
-  return { ...state, enabled: state.enabled }
-}
-
-function notify() {
-  const status = musicStatus(snapshot(), supported())
-  for (const listener of listeners) listener(status)
-}
-
-function ensureGraph(): Graph | null {
-  if (graph) return graph
-  if (!supported()) return null
-  const ctx = new AudioContext()
-  const master = ctx.createGain()
-  master.gain.value = 0
-  master.connect(ctx.destination)
-  const music = ctx.createGain()
-  music.gain.value = MUSIC_VOLUME
-  music.connect(master)
-  const effects = ctx.createGain()
-  effects.gain.value = EFFECTS_VOLUME
-  effects.connect(master)
-  graph = { ctx, master, masterTarget: 0, music, effects, tracks: {} }
-  for (const listener of contextListeners) listener(ctx)
-  contextListeners.clear()
-  return graph
-}
-
-function ensureTrack(g: Graph, id: ExperienceId): Track | null {
-  const existing = g.tracks[id]
+function ensureTrack(buses: SoundBuses, id: ExperienceId): Track | null {
+  const existing = tracks[id]
   if (existing) return existing
   const src = MUSIC_TRACKS[id]
   if (src === undefined) return null
@@ -226,26 +89,13 @@ function ensureTrack(g: Graph, id: ExperienceId): Track | null {
   // visitor who never leaves Earth.
   el.preload = 'none'
   el.src = src
-  const gain = g.ctx.createGain()
+  const gain = buses.ctx.createGain()
   gain.gain.value = 0
-  g.ctx.createMediaElementSource(el).connect(gain)
-  gain.connect(g.music)
+  buses.ctx.createMediaElementSource(el).connect(gain)
+  gain.connect(buses.music)
   const track: Track = { el, gain, target: 0, pauseTimer: undefined }
-  g.tracks[id] = track
+  tracks[id] = track
   return track
-}
-
-/**
- * From wherever the gain is NOW to `target`. Starting from the current value is
- * what makes an interrupted fade continue instead of jumping.
- * `cancelAndHoldAtTime` would say it better and Firefox does not have it.
- */
-function ramp(ctx: AudioContext, param: AudioParam, target: number, seconds: number) {
-  const now = ctx.currentTime
-  param.cancelScheduledValues(now)
-  param.setValueAtTime(param.value, now)
-  if (seconds <= 0) param.setValueAtTime(target, now)
-  else param.linearRampToValueAtTime(target, now + seconds)
 }
 
 function play(track: Track) {
@@ -255,15 +105,10 @@ function play(track: Track) {
   track.el.play().catch((error: unknown) => {
     const name = error instanceof DOMException ? error.name : ''
     if (name === 'NotAllowedError') {
-      state.blocked = true
-      armUnlock()
-      notify()
-      // Drops the master back to silence, so the gesture that unlocks it fades
-      // the music in rather than starting it at the level the refused ramp reached.
-      apply(0, 0)
+      reportSoundBlocked()
       return
     }
-    // A `pause()` landing while `play()` was pending — the next apply decides.
+    // A `pause()` landing while `play()` was pending — the next reconcile decides.
     if (name === 'AbortError') return
     console.warn('[music] playback failed', error)
   })
@@ -275,154 +120,51 @@ function pauseAfter(track: Track, seconds: number) {
   if (track.el.paused || track.pauseTimer !== undefined) return
   track.pauseTimer = window.setTimeout(() => {
     track.pauseTimer = undefined
-    if (track.target === 0 || graph?.masterTarget === 0) track.el.pause()
+    if (track.target === 0 || !isSoundAudible()) track.el.pause()
   }, seconds * 1000 + 100)
 }
 
-/** Reconciles the graph with the state. The only place that touches audio. */
-function apply(trackFade: number, masterFade: number) {
-  const current = snapshot()
-  const targets = musicTargets(current)
-  // No graph until something should sound: nothing is created before the
-  // visitor could hear it, and nothing at all while the toggle is off.
-  if (!graph && targets.master === 0) return
-  const g = ensureGraph()
-  if (!g) return
-
-  if (targets.master > 0 && g.ctx.state !== 'running') {
-    g.ctx.resume().catch(() => {
-      // Resolves on the next gesture where the policy holds it; `play()`'s own
-      // rejection below is what reports a block.
-    })
-  }
-  if (g.masterTarget !== targets.master) {
-    g.masterTarget = targets.master
-    ramp(g.ctx, g.master.gain, targets.master, masterFade)
-  }
+/**
+ * Reconciles the tracks with the world and the output. The only place that
+ * touches them. A track made here starts at its target at once: the master's
+ * own fade is its entrance.
+ */
+function reconcile(trackFade: number, masterFade: number) {
+  const buses = soundBuses()
+  if (!buses) return
+  const audible = isSoundAudible()
+  const targets = musicTargets(state.active)
 
   for (const id of TRACKS) {
     const target = targets[id]
-    if (target === 0 && !g.tracks[id]) continue
-    const track = ensureTrack(g, id)
+    if (target === 0 && !tracks[id]) continue
+    const track = ensureTrack(buses, id)
     if (!track) continue
     if (track.target !== target) {
       track.target = target
-      ramp(g.ctx, track.gain.gain, target, trackFade)
+      ramp(buses.ctx, track.gain.gain, target, trackFade)
     }
-    if (targets.master > 0 && target > 0) play(track)
+    if (audible && target > 0) play(track)
     else pauseAfter(track, target === 0 ? trackFade : masterFade)
   }
 }
 
-// ── the gesture fallback ──
-
-const UNLOCK_EVENTS = ['pointerup', 'touchend', 'keydown'] as const
-
-function onUnlockGesture(event: Event) {
-  // The toggle's own press is left to the toggle, which reads a blocked start as
-  // "off" and turns it on — handled here too, it would start and then mute.
-  if (event.target instanceof Element && event.target.closest('[data-sound-toggle]')) return
-  disarmUnlock()
-  state.blocked = false
-  notify()
-  // Synchronously inside the handler: that is what makes it a gesture.
-  apply(0, START_FADE_SECONDS)
-}
-
-function armUnlock() {
-  if (unlockArmed) return
-  unlockArmed = true
-  for (const type of UNLOCK_EVENTS) {
-    window.addEventListener(type, onUnlockGesture, { capture: true, passive: true })
-  }
-}
-
-function disarmUnlock() {
-  if (!unlockArmed) return
-  unlockArmed = false
-  for (const type of UNLOCK_EVENTS) {
-    window.removeEventListener(type, onUnlockGesture, { capture: true })
-  }
-}
-
-function onVisibilityChange() {
-  setMusicSuppressed('hidden', document.hidden)
-}
+onSoundChange((masterFade) => reconcile(0, masterFade))
 
 // ── the API ──
 
-/** Earth is ready. Idempotent: the debug seek can replay the intro's phases. */
+/** Earth is ready: the world whose track plays first. Idempotent, like
+ *  `startSound`, which is what opens the output. */
 export function startMusic(experience: ExperienceId) {
   if (state.started) return
   state.started = true
   state.active = experience
-  document.addEventListener('visibilitychange', onVisibilityChange)
-  if (document.hidden) state.suppressed.add('hidden')
-  notify()
-  apply(0, START_FADE_SECONDS)
+  reconcile(0, 0)
 }
 
 /** The warp has committed to `to`. */
 export function crossfadeMusic(to: ExperienceId) {
   if (state.active === to) return
   state.active = to
-  apply(CROSSFADE_SECONDS, SUPPRESS_FADE_SECONDS)
-}
-
-export function setMusicSuppressed(reason: SuppressReason, on: boolean) {
-  if (state.suppressed.has(reason) === on) return
-  if (on) state.suppressed.add(reason)
-  else state.suppressed.delete(reason)
-  apply(CROSSFADE_SECONDS, SUPPRESS_FADE_SECONDS)
-}
-
-/** The visitor's toggle. Called from a click, so turning it on always may play. */
-export function setMusicEnabled(on: boolean) {
-  state.enabled = on
-  persistEnabled(on)
-  if (on) state.blocked = false
-  else disarmUnlock()
-  notify()
-  apply(CROSSFADE_SECONDS, SUPPRESS_FADE_SECONDS)
-}
-
-/**
- * Calls back with the context the effects decode against: at once if the graph
- * exists, otherwise the moment it is made. That is the first moment anything
- * should sound — Earth-ready, the toggle turned on, a hidden tab shown — so a
- * listener learns it here rather than guessing which call created it. Never
- * while the toggle is off, and never on a cold `/blog`.
- */
-export function onSoundContext(listener: (ctx: AudioContext) => void): () => void {
-  if (graph) {
-    listener(graph.ctx)
-    return () => {}
-  }
-  contextListeners.add(listener)
-  return () => {
-    contextListeners.delete(listener)
-  }
-}
-
-/**
- * Where an effect may play right now, or null while the sound is silenced:
- * toggle off, start blocked, blog open, tab hidden, or a context the browser
- * has not let run. An effect asked for in silence is dropped, never queued.
- */
-export function effectsOutput(): { ctx: AudioContext; bus: GainNode } | null {
-  if (!graph || graph.masterTarget === 0 || graph.ctx.state !== 'running') return null
-  return { ctx: graph.ctx, bus: graph.effects }
-}
-
-export function readMusicStatus(): MusicStatus {
-  return musicStatus(snapshot(), supported())
-}
-
-/** Calls back immediately with the current status, then on every change. */
-export function subscribeMusic(listener: (status: MusicStatus) => void): () => void {
-  listeners.add(listener)
-  listener(readMusicStatus())
-  return () => {
-    listeners.delete(listener)
-  }
+  reconcile(CROSSFADE_SECONDS, SUPPRESS_FADE_SECONDS)
 }

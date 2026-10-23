@@ -8,11 +8,12 @@
  * start on the sample it is asked for — so each one is fetched and decoded
  * once into an `AudioBuffer` and played through a fresh `AudioBufferSourceNode`.
  *
- * ── It shares the music's graph ──
+ * ── It shares the music's output ──
  *
- * The effects bus hangs off the music's master gain (backgroundMusic.ts), so
- * the header's one toggle, the gesture unlock, the blog and a hidden tab
- * silence both alike. Nothing here creates an AudioContext of its own.
+ * The effects bus hangs off the same master gain as the music's
+ * (audioOutput.ts), so the header's one toggle, the gesture unlock, the blog
+ * and a hidden tab silence both alike. Nothing here creates an AudioContext of
+ * its own.
  *
  * ── Late is worse than none ──
  *
@@ -24,7 +25,7 @@
  * App through callbacks, and App names the cue.
  */
 import type { HeaderMenuState } from '../../corner-logo/headerMenuTiming'
-import { effectsOutput, onSoundContext } from './backgroundMusic'
+import { effectsOutput, onSoundContext } from './audioOutput'
 
 /**
  * Every moment that can carry an effect, named for the moment rather than the
