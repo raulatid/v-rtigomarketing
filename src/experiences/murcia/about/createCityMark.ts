@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ARC_D, ARC_START, CENTER, FILL_D, FIRST_VERTEX, VIEWBOX, V_D } from '../../../intro-draw/isotype';
+import { ARC_D, ARC_START, CENTER, FILL_D, FIRST_VERTEX, VIEWBOX, V_D } from './cityMarkIsotype';
 import { findByAnyNameSpelling } from '../assets/nodeNames';
 import { BUILDING_HIGHLIGHT, easeHighlight, stepHighlight } from '../interaction/buildingHighlight';
 import type { VertigoBuildingConfig } from '../landmark/vertigoBuildingConfig';
