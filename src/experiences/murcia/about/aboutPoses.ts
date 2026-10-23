@@ -75,11 +75,13 @@ export const CITY_PULL = 1.3;
  * Stop 2: the isotype over the city — where in the frame it is centred, in
  * NDC (the point the view's ray meets the ground, `createCityMark.ts`), and
  * how many world units across. Left of the docked plate; on a phone, smaller,
- * for the narrow frame, and above the sheet, which covers the lower half.
+ * for the narrow frame, and above the sheet, which covers the lower half; left
+ * of the middle, so the V lands on the buildings and not on the river, which
+ * the mark does not paint (looked at on 2026-10-23, 390×844).
  */
 export const CITY_MARK = {
   docked: { x: -0.42, y: -0.05, size: 240 },
-  sheet: { x: 0, y: 0.3, size: 180 },
+  sheet: { x: -0.35, y: 0.3, size: 180 },
 } as const;
 
 /**
