@@ -9,7 +9,13 @@ import type { CampusFraming } from './section/campusCamera';
 import { CampusInteraction } from './campusInteraction';
 import { buildServicesContent } from './campusContent';
 import { campusLabel, DEFAULT_LOCALE } from './campusLabels';
-import { CAMPUS_BUILDING_NODE_NAMES, CAMPUS_WATER_NODE_NAME } from './campusConfig';
+import {
+  CAMPUS_GROUND_NODE_NAMES,
+  CAMPUS_NODE_NAMES,
+  CAMPUS_SCREEN_NODE_NAME,
+  CAMPUS_WATER_NODE_NAME,
+} from './campusConfig';
+import { splitCampusTrees } from './campusTrees';
 import { createBuildingHighlight } from '../interaction/buildingHighlight';
 import { CAMPUS_ICONS } from './content/campusIcons';
 import { rasterizeIcons } from './content/iconLibrary';
@@ -35,7 +41,8 @@ import { CAMPUS_DOCK_QUERY, campusMobileFraming } from './campusMobileLayout';
  *   - the lab's `attachServicesCampus`, which brings the water, the strip, the
  *     particles, the section's camera and its copy;
  *   - the rig hand-over (`campusCameraAdapter.ts`);
- *   - the buildings' hover light (`interaction/buildingHighlight.ts`);
+ *   - the park's trees, split out of the city's instanced ones (`campusTrees.ts`);
+ *   - the campus's hover light (`interaction/buildingHighlight.ts`);
  *   - the city's pointer and keyboard (`campusInteraction.ts`), and the
  *     keyboard and screen-reader surface (`district/ui/districtA11y.ts`),
  *     both driving the same intents.
@@ -79,7 +86,7 @@ export interface ServicesCampusSection {
   readonly isFlying: boolean;
   /** While this must be the camera's only writer — the host defers pose writes. */
   readonly holdsCamera: boolean;
-  /** A mouse is over the lake or a building, from the overview. Its point of interest names itself. */
+  /** A mouse is over the campus, from the overview. Its point of interest names itself. */
   readonly hovered: boolean;
   readonly snapshot: CampusSnapshot;
   /** Parts born hidden, for the host's warm-up. See `ServicesCampus.precompileTargets`. */
@@ -243,11 +250,18 @@ export async function createServicesCampus(
   };
 
   // Sanitized, as every lookup is: `ARCH_Porcelain_White.001` arrives without its dot.
-  const buildingNames = new Set(
-    CAMPUS_BUILDING_NODE_NAMES.map((name) => THREE.PropertyBinding.sanitizeNodeName(name)),
-  );
-  const buildings = group.children.filter((node) => buildingNames.has(node.name));
-  const highlight = createBuildingHighlight(buildings);
+  const named = (names: readonly string[]): THREE.Object3D[] => {
+    const wanted = new Set(names.map((name) => THREE.PropertyBinding.sanitizeNodeName(name)));
+    return group.children.filter((node) => wanted.has(node.name));
+  };
+  // Every campus node and the park's trees take a tap. The water and the strip
+  // wear runtime materials — the river's, shared with the city, and the
+  // screen's — which a highlight clone would freeze, so they answer without
+  // lighting, as the lake always has.
+  const trees = splitCampusTrees(options.root, named(CAMPUS_GROUND_NODE_NAMES));
+  const unlit = new Set(named([CAMPUS_WATER_NODE_NAME, CAMPUS_SCREEN_NODE_NAME]));
+  const buildings = [...named(CAMPUS_NODE_NAMES), ...trees];
+  const highlight = createBuildingHighlight(buildings.filter((node) => !unlit.has(node)));
   let hovered = false;
 
   const interaction = new CampusInteraction({

@@ -64,12 +64,18 @@ export const CAMPUS_PART_NODE_NAMES = [
 export type CampusPartName = (typeof CAMPUS_PART_NODE_NAMES)[number];
 
 /**
- * The architecture among the parts: what lights on hover and takes a tap as
- * the lake does. The site's paving, the park and the water are not buildings.
+ * The architecture among the parts. The site's paving, the park and the water
+ * are not buildings. Every campus node takes a tap, not only these.
  */
 export const CAMPUS_BUILDING_NODE_NAMES: readonly string[] = CAMPUS_PART_NODE_NAMES.filter(
   (name) => name.startsWith('ARCH_'),
 );
+
+/**
+ * The ground the park's trees stand on. A city instance with this straight
+ * below it is the campus's (`campusTrees.ts`).
+ */
+export const CAMPUS_GROUND_NODE_NAMES: readonly string[] = ['SITE_Light_Limestone', 'PARK_Grass'];
 
 /** Every node that is the campus: the parts, the water and the strip. */
 export const CAMPUS_NODE_NAMES: readonly string[] = [
@@ -79,7 +85,8 @@ export const CAMPUS_NODE_NAMES: readonly string[] = [
 ];
 
 /** These legacy tree meshes are now part of the city's GPU-instanced vegetation.
- * They are not interactive campus architecture and must not be duplicated.
+ * They must not be duplicated: the park's trees are split out of that
+ * vegetation instead (`campusTrees.ts`).
  */
 export const CAMPUS_INSTANCED_TREE_NAMES: readonly string[] = [
   'PARK_Trunks', 'PARK_Leaves_Olive', 'PARK_Leaves_Sage',

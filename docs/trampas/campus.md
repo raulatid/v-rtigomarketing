@@ -7,7 +7,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 1. **Los nombres de los nodos son la identidad.** Un renombrado en Blender no falla en ejecución: la pieza se queda con el material de la ciudad o el campus se queda como escenario. Fija: `npm run check:asset:contract` §5 (ver [contrato del GLB](../decisiones/build/contrato-del-glb.md)).
 2. **`ARCH_Porcelain_White.001` llega como `ARCH_Porcelain_White001`:** GLTFLoader quita el punto. Toda búsqueda pasa el nombre por `PropertyBinding.sanitizeNodeName` antes de comparar. Fija: `campusPalette.test.ts` («finds the dotted roof cap under the name the loader gave it»).
 3. **Los nodos del campus son hermanos de toda la ciudad en la raíz,** y el código del laboratorio busca el lago alrededor del centro de la raíz que recibe. Sin `gatherCampus`, ese centro es el de la ciudad y el «lago» puede ser una piscina de la entrada. Fija: `gatherCampus.test.ts`.
-4. **`PARK_Water` es una sola malla con el lago y las dos piscinas.** Un acierto en el agua solo cuenta a `LAKE_REACH` del centro del lago. Fija: `campusInteraction.test.ts` («does not enter from a pool the water node also holds»).
+4. **`PARK_Water` es una sola malla con el lago y las dos piscinas.** Desde el 2026-10-23 las piscinas también entran, como todo el campus; antes solo contaba lo que quedaba cerca del centro del lago (`LAKE_REACH`, retirado). Fija: `campusInteraction.test.ts` («enters from a pool the water node also holds»).
 5. **En el GLB que se publica, `CAMPUS_PALETTE` no hace nada visible:** todas las piezas llevan `lightmap_atlas` y la paleta las salta. Cambiar un color ahí solo afecta a una exportación sin hornear. Sin test del salto.
 
 ## Cámara
@@ -53,7 +53,12 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 30. **`createServicesCampus` conserva la forma exterior del distrito borrado** (`isEngaged`, `isFlying`, `anchor`, `screenPoint`, `releaseFocus`, `setEnabled`), y `MurciaExperience` la lee como `hasFocusedDistrict`. De ese nombre cuelgan la retirada de la navegación, el logo y la salida por pellizco: «distrito» en `App.tsx` y en la navegación significa hoy «campus». Fija: `pinchInput.test.ts`; el resto, solo en e2e.
 31. **Los puntos de depuración siguen llamándose `__vertigoDistrictPoint` y `__vertigoDistrictSettled`** (y `__vertigoCampus`), solo en builds con depuración. `e2e/mobile.spec.ts` los usa: no los renombres sin él.
-32. **Un tap en el punto de Servicios lo oyen dos listeners:** `CampusInteraction`, si cae sobre el lago o un edificio, y `PoiInteraction`. Entra una sola vez porque la segunda llamada encuentra la cámara tomada y se rechaza (`MurciaExperience.activatePointOfInterest` exige la vista general). No le pongas al punto una entrada propia que salte esa comprobación. Fija: `poiInteraction.test.ts`; la entrada única, sin test. (Hasta el 2026-10-21 este número era el parpadeo, retirado.)
+32. **Un tap en el punto de Servicios lo oyen dos listeners:** `CampusInteraction`, si cae sobre el campus, y `PoiInteraction`. Entra una sola vez porque la segunda llamada encuentra la cámara tomada y se rechaza (`MurciaExperience.activatePointOfInterest` exige la vista general). No le pongas al punto una entrada propia que salte esa comprobación. Fija: `poiInteraction.test.ts`; la entrada única, sin test. (Hasta el 2026-10-21 este número era el parpadeo, retirado.)
+
+## Objetivos del tap
+
+33. **Los árboles del parque no son nodos del campus:** son instancias de las mallas de árboles de toda la ciudad. `splitCampusTrees` (en `createServicesCampus`) saca a mallas propias las instancias que tienen debajo `SITE_Light_Limestone` o `PARK_Grass`, con sus matrices y su `_LIGHTMAP_ST`, y compacta la malla de la ciudad bajando su `count`. Si el suelo del campus se renombra, no se separa ningún árbol y no responden; si se separan sin copiar `_LIGHTMAP_ST`, el árbol lee otra parcela del atlas. Fija: `campusTrees.test.ts`.
+34. **El agua y la tira LED responden al tap pero no se iluminan:** el resaltado clona el material, y el agua lleva el del río (compartido con la ciudad) y la tira el de la pantalla, cuyos uniformes de ejecución quedarían congelados en el clon. Sin test.
 
 ## Posibles defectos
 

@@ -10,9 +10,8 @@ import type { CursorManager } from '../../../interaction/cursorManager'
 // records intents, because what the section does with them is the core's and
 // is tested by `campusState.test.ts` and the harness.
 //
-// The water holds the lake AND a pool, the way the campus export does, so the
-// reach rule — a hit counts only near the lake's centre — is exercised rather
-// than assumed.
+// The water holds the lake AND a pool, the way the campus export does: both
+// are the campus, and both enter.
 
 const WIDTH = 1600
 const HEIGHT = 900
@@ -63,8 +62,7 @@ function makeFixture(): Fixture {
   camera.lookAt(20, 0, 0)
   camera.updateMatrixWorld(true)
 
-  // One water node, two bodies: the lake at the origin, a pool well outside
-  // the lake's reach.
+  // One water node, two bodies: the lake at the origin, a pool well apart.
   const water = new THREE.Group()
   const disc = (x: number, radius: number) => {
     const mesh = new THREE.Mesh(new THREE.CircleGeometry(radius, 32), new THREE.MeshBasicMaterial())
@@ -106,7 +104,7 @@ function makeFixture(): Fixture {
     cursor: cursor as unknown as CursorManager,
     isDragging: () => dragging.value,
     tapThresholdPx: THRESHOLD,
-    lake: { mesh: water, center: new THREE.Vector3(0, 0, 0), radius: 10 },
+    lake: { mesh: water },
     buildings: [building],
     onHoverChange,
     section,
@@ -171,8 +169,13 @@ describe('entering from the overview', () => {
     expect(fixture.section.enter).toHaveBeenCalledTimes(1)
   })
 
-  it('does not enter from a pool the water node also holds', () => {
+  it('enters from a pool the water node also holds', () => {
     fixture.tap(fixture.poolPoint.x, fixture.poolPoint.y)
+    expect(fixture.section.enter).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not enter on a tap off the campus', () => {
+    fixture.tap(5, 5)
     expect(fixture.section.enter).not.toHaveBeenCalled()
   })
 

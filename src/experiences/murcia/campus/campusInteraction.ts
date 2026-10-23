@@ -24,11 +24,12 @@ import type { CampusStage } from './section/campusState';
  *
  * ## Two modes, never both
  *
- * In the OVERVIEW the lake and the campus's buildings are the targets: a tap
- * on either enters, and a hover over either lights the buildings
- * (`onHoverChange`) — what lights is what answers a tap. The water node holds
- * the entrance pools too, so a hit on water counts only near the lake's
- * centre — the lab's own rule.
+ * In the OVERVIEW the whole campus is the target: the water, lake and
+ * entrance pools alike, and every other part handed in as `buildings` — the
+ * architecture, the strip, the paving, the grass and the park's trees. A tap
+ * on any of it enters, and a hover over any of it lights the campus
+ * (`onHoverChange`) — what lights is what answers a tap. The lab only took
+ * the lake, near its centre; the site takes all of it (2026-10-23).
  *
  * INSIDE, the rig is externally controlled for the whole visit, so the pan
  * refuses every press (`createCameraInput`) and this is the only listener that
@@ -40,9 +41,6 @@ import type { CampusStage } from './section/campusState';
 
 /** Horizontal travel that commits a swipe, in CSS pixels. The lab's value. */
 export const SWIPE_COMMIT_PX = 60;
-
-/** A hit on the water counts within this multiple of the lake's radius. */
-const LAKE_REACH = 1.1;
 
 export interface CampusSectionIntents {
   readonly stage: CampusStage;
@@ -62,8 +60,8 @@ export interface CampusInteractionDeps {
   isDragging: () => boolean;
   /** Tap tolerance per pointer type, the numbers the pan uses. */
   tapThresholdPx: { mouse: number; touch: number };
-  lake: { readonly mesh: THREE.Object3D; readonly center: THREE.Vector3; readonly radius: number };
-  /** The architecture: a target like the lake, and what the hover lights. */
+  lake: { readonly mesh: THREE.Object3D };
+  /** The rest of the campus: a target like the lake. */
   buildings?: readonly THREE.Object3D[];
   /** When the pointer lands on or leaves a target. Never on touch. */
   onHoverChange?: (hovering: boolean) => void;
@@ -85,9 +83,8 @@ export class CampusInteraction {
   private readonly hits: THREE.Intersection[] = [];
   private readonly ndc = new THREE.Vector2();
   private readonly hoverSupported: boolean;
-  /** The lake and the buildings, raycast together so the nearest decides. */
+  /** The lake and the buildings, raycast together. */
   private readonly targets: THREE.Object3D[];
-  private readonly buildingMeshes = new Set<THREE.Object3D>();
 
   private enabled = true;
   private hovering = false;
@@ -103,9 +100,7 @@ export class CampusInteraction {
   constructor(deps: CampusInteractionDeps) {
     this.deps = deps;
     this.cursorKey = `campus:${deps.id}`;
-    const buildings = deps.buildings ?? [];
-    this.targets = [deps.lake.mesh, ...buildings];
-    for (const building of buildings) building.traverse((object) => this.buildingMeshes.add(object));
+    this.targets = [deps.lake.mesh, ...(deps.buildings ?? [])];
     this.hoverSupported =
       typeof window.matchMedia !== 'function' || !window.matchMedia('(hover: none)').matches;
 
@@ -138,7 +133,7 @@ export class CampusInteraction {
     }
   }
 
-  /** Whether a tap at this client point would land on the lake or a building. */
+  /** Whether a tap at this client point would land on the campus. */
   targetAt(clientX: number, clientY: number): boolean {
     const rect = this.deps.canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return false;
@@ -146,11 +141,7 @@ export class CampusInteraction {
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
     this.hits.length = 0;
     this.raycaster.intersectObjects(this.targets, true, this.hits);
-    const hit = this.hits[0];
-    if (!hit) return false;
-    if (this.buildingMeshes.has(hit.object)) return true;
-    const { center, radius } = this.deps.lake;
-    return Math.hypot(hit.point.x - center.x, hit.point.z - center.z) <= radius * LAKE_REACH;
+    return this.hits.length > 0;
   }
 
   /** One hover raycast at most, and only in the overview. */
