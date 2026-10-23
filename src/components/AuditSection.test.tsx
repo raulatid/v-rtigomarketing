@@ -100,6 +100,69 @@ describe('an open request from outside the trigger', () => {
   })
 })
 
+// App freezes the scene while this reports true, so it must be true only while
+// the curtain stands fully entered on a phone: never while it slides, and
+// never where a strip of scene stays visible beside it.
+describe('covering the scene', () => {
+  function render(onCoverChange: (covers: boolean) => void) {
+    root = createRoot(container)
+    act(() => {
+      root.render(
+        <AuditSection
+          onOpenChange={() => {}}
+          onCoverChange={onCoverChange}
+          onOpenLegal={() => {}}
+          ready
+          submit={() => Promise.resolve()}
+        />,
+      )
+    })
+  }
+
+  function open() {
+    act(() => {
+      document.querySelector<HTMLButtonElement>('.audit-trigger')!.click()
+    })
+  }
+
+  it('covers a phone once the curtain has entered, and uncovers it as it leaves', () => {
+    const onCoverChange = vi.fn()
+    render(onCoverChange)
+    open()
+    expect(onCoverChange).not.toHaveBeenCalledWith(true)
+
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(onCoverChange).toHaveBeenLastCalledWith(true)
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('.audit-close')!.click()
+    })
+    expect(onCoverChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('never covers a viewport wide enough to keep a strip of scene', () => {
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('min-width'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      onchange: null,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia
+    const onCoverChange = vi.fn()
+    render(onCoverChange)
+    open()
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(onCoverChange).not.toHaveBeenCalledWith(true)
+  })
+})
+
 /** Native-setter write + input event, so React's controlled input sees it. */
 function type(el: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!

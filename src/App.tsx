@@ -207,6 +207,9 @@ export default function App() {
       setSelectedCase(null)
     }
   }, [])
+  // A phone's audit curtain hides the whole scene once it has entered; the
+  // scene is frozen behind it exactly as behind the blog.
+  const [auditCovers, setAuditCovers] = useState(false)
   // The case panel's doorway into the audit. A counter the section watches,
   // so it keeps owning its own phase; opening it runs the deselect above.
   const [auditRequest, setAuditRequest] = useState(0)
@@ -797,7 +800,7 @@ export default function App() {
             auditView={auditView}
             stepTransition={stepTransition}
             stepIntro={stepIntro}
-            suspended={blogOpen}
+            suspended={blogOpen || auditCovers}
             config={config}
             state={state}
             overlayEl={overlayRef}
@@ -864,6 +867,7 @@ export default function App() {
 
       <AuditSection
         onOpenChange={handleAuditOpenChange}
+        onCoverChange={setAuditCovers}
         ready={phase === 'site'}
         triggerHost={headerActions}
         onOpenLegal={setLegalDoc}

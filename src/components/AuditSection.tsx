@@ -378,6 +378,12 @@ interface Props {
   }
   // Lets App gate its global Escape handler (which otherwise skips the intro).
   onOpenChange: (open: boolean) => void
+  /**
+   * Whether the curtain, fully entered on a phone, hides the whole scene. App
+   * freezes the canvas while it does: drawing it under a 94% opaque panel costs
+   * the full pipeline and a full-screen backdrop blur every frame.
+   */
+  onCoverChange?: (covers: boolean) => void
   // The trigger stays off-screen until the intro fully lands (satellites
   // revealed, phase 'site') — no interaction is offered over a half-built scene.
   ready: boolean
@@ -422,6 +428,7 @@ type Submission = 'idle' | 'submitting' | 'success' | 'error'
 export function AuditSection({
   preview,
   onOpenChange,
+  onCoverChange,
   ready,
   triggerHost = null,
   recomposesScene = true,
@@ -556,6 +563,21 @@ export function AuditSection({
       auditView.open = false
     }
   }, [phase, recomposesScene, preview])
+
+  // Only 'open': the scene must keep drawing while the curtain slides in and
+  // out over it. Subscribed for the same reason as above — a phone turned to
+  // landscape gets its strip of scene back, and that strip has to move.
+  useEffect(() => {
+    if (preview || !onCoverChange) return
+    const wide = window.matchMedia(`(min-width: ${MOBILE_MAX}px)`)
+    const sync = () => onCoverChange(phase === 'open' && !wide.matches)
+    sync()
+    wide.addEventListener('change', sync)
+    return () => {
+      wide.removeEventListener('change', sync)
+      onCoverChange(false)
+    }
+  }, [phase, onCoverChange, preview])
 
   // No hard-close on an experience swap any more (2026-09-03): the header, and
   // with it this section, lives on Murcia as well as Earth, and a warp cannot

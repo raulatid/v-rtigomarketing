@@ -11,6 +11,7 @@ En una sesión caliente (el blog abierto desde la escena), el Canvas sigue monta
 3. **El blog es hermano de `.app__scene`, no hijo** (`<LazyBlog>` en `App.tsx`), para seguir visible e interactivo mientras todo lo demás está oculto e inerte.
 4. **Con el blog abierto:** `attentionIsFree` es falso (no se acumula ningún gesto de navegación detrás), el cursor propio se apaga (`CustomCursor enabled={!blogOpen}`), la música se silencia (ver [música](../transicion/musica.md)) y el panel de depuración no se monta.
 5. **Murcia sigue siendo la experiencia activa** durante toda la lectura. No hay cambio de mundo: por eso volver no cuesta nada (ver [ciclo de vida](../transicion/ciclo-de-vida.md)).
+6. **La cortina de la auditoría también congela la escena en un móvil** (≤767 px), pero solo cuando ha terminado de entrar (fase `open`). Mientras entra o sale, la escena se sigue dibujando. `AuditSection` lo avisa con `onCoverChange` y `App` pasa `suspended={blogOpen || auditCovers}`. No se oculta nada: la cortina ya tapa el 94 %, y dibujar detrás costaba el pipeline entero más un desenfoque de pantalla completa en cada fotograma. Si se gira el teléfono a apaisado (≥768 px), vuelve a quedar una franja de escena visible y la escena se descongela.
 
 ## Por qué
 
@@ -38,4 +39,4 @@ Pendiente de confirmar con el usuario: si se deja como riesgo aceptado sin medic
 
 ## Afecta a
 
-`src/App.tsx` (`blogOpen`, `.app__scene`, `suspended`, `attentionIsFree`), `src/styles.css` (`.app__scene[data-hidden='true']`), `src/components/LazyScene.tsx`, `src/components/SceneCanvas.tsx` (`frameloop`), `src/components/LazyBlog.tsx`
+`src/App.tsx` (`blogOpen`, `.app__scene`, `suspended`, `attentionIsFree`), `src/styles.css` (`.app__scene[data-hidden='true']`), `src/components/LazyScene.tsx`, `src/components/SceneCanvas.tsx` (`frameloop`), `src/components/LazyBlog.tsx`, `src/components/AuditSection.tsx` (`onCoverChange`)
