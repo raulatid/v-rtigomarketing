@@ -66,8 +66,8 @@ export function createSatelliteFocus({
   const raycaster = new THREE.Raycaster()
   const ndc = new THREE.Vector2()
   // Last pointermove position, in viewport coordinates. Only meaningful once
-  // `pointerActive` is set — hover is a mouse affordance and a touch device
-  // never produces one.
+  // `pointerActive` is set — hover is a mouse affordance, so touch moves are
+  // ignored.
   let lastMoveX = 0
   let lastMoveY = 0
   let pointerActive = false
@@ -282,6 +282,9 @@ export function createSatelliteFocus({
   }
 
   function onPointerMove(e: PointerEvent) {
+    // A finger dragging the globe does produce pointermove. Taking it as hover
+    // would raycast every frame from then on and leave a hover where it lifted.
+    if (e.pointerType === 'touch') return
     lastMoveX = e.clientX
     lastMoveY = e.clientY
     pointerActive = true
