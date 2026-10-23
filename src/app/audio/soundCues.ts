@@ -51,11 +51,25 @@ export type SoundCue =
 /**
  * The clips. A cue without an entry is silent, and nothing is fetched for it —
  * the music's `MUSIC_TRACKS` rule. The name carries the first 8 hex of the
- * file's SHA-256, because `/audio/` is served `immutable`. For example:
- *
- *     'warp-to-murcia': { src: '/audio/sfx/warp-to-murcia-1a2b3c4d.mp3' },
+ * file's SHA-256, because `/audio/` is served `immutable`. A pair of cues may
+ * share one clip, named for the pair.
  */
-export const SOUND_EFFECTS: Readonly<Partial<Record<SoundCue, SoundEffect>>> = {}
+const AUDIT_CLIP: SoundEffect = { src: '/audio/sfx/audit-c44468b3.mp3' }
+// The case panel's too: the same camera journey in and back out.
+const DISTRICT_CLIP: SoundEffect = { src: '/audio/sfx/district-a6724d03.mp3' }
+// From the start, under the music's crossfade down, not from the cut.
+const WARP_CLIP: SoundEffect = { src: '/audio/sfx/warp-9659a8f5.mp3' }
+
+export const SOUND_EFFECTS: Readonly<Partial<Record<SoundCue, SoundEffect>>> = {
+  'warp-to-murcia': WARP_CLIP,
+  'warp-to-earth': WARP_CLIP,
+  'case-open': DISTRICT_CLIP,
+  'case-close': DISTRICT_CLIP,
+  'audit-open': AUDIT_CLIP,
+  'audit-close': AUDIT_CLIP,
+  'district-enter': DISTRICT_CLIP,
+  'district-leave': DISTRICT_CLIP,
+}
 
 /** Moments that land in the same task as one transition, heard as the key. */
 export const CUE_MASKS: CueMasks<SoundCue> = {

@@ -70,6 +70,10 @@ desktop.ini
 /playwright-report/
 /blob-report/
 
+# Sound effect clips as supplied, before the metadata strip and the hash rename
+# (CREDITS.md). Working files, never source.
+/public/audio/sfx/entrada/
+
 # Vitest coverage output.
 /coverage/
 

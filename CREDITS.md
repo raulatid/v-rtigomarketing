@@ -183,8 +183,17 @@ Swapping a track: re-run the recipe, rename by hash, update `MUSIC_TRACKS` in
 
 ## `public/audio/sfx/<cue>-<sha8>.mp3` — the sound effects
 
-None yet. Each file is the clip for one `SoundCue` in `src/app/audio/soundCues.ts`, whose
-doc comments say when each cue fires.
+Each file is the clip for one `SoundCue` in `src/app/audio/soundCues.ts`, whose doc comments
+say when each cue fires, or for a pair of cues that share it, named for the pair (loaded once).
+Supplied in `public/audio/sfx/entrada/` on 2026-10-23; metadata stripped, not re-encoded.
+
+The three clips below are the brand's own intellectual property.
+
+- `audit-c44468b3.mp3` ← `audit-open-2.mp3`: `audit-open` and `audit-close`.
+- `warp-9659a8f5.mp3` ← `warp.mp3`: `warp-to-murcia` and `warp-to-earth`, from the warp's
+  start, under the music's crossfade down.
+- `district-a6724d03.mp3` ← `murcia-distrit-2.mp3`: `district-enter` and `district-leave`, and
+  `case-open` and `case-close`.
 
 **Adding a clip:** no fades and no re-encode needed for a short clip already in MP3; strip the
 metadata if it carries any. Name it `<cue>-<first 8 hex of its SHA-256>.mp3`, because `/audio/`
