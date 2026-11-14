@@ -186,7 +186,15 @@ function markCanvas(): MarkCanvas {
   };
 }
 
-export function createCityMark(root: THREE.Object3D, config: VertigoBuildingConfig): CityMark {
+/**
+ * `alsoDarken`: objects outside the city's root that darken with it, the
+ * traffic. Patched like the city; they take no part in the ground's height.
+ */
+export function createCityMark(
+  root: THREE.Object3D,
+  config: VertigoBuildingConfig,
+  alsoDarken: readonly THREE.Object3D[] = [],
+): CityMark {
   const skip = new Set<THREE.Object3D>();
   for (const name of config.logoNodeNames) {
     findByAnyNameSpelling(root, name)?.object.traverse((object) => skip.add(object));
@@ -266,11 +274,13 @@ ${FRAGMENT_AT}`,
     material.customProgramCacheKey = () => `${innerKey}|citymark`;
     material.needsUpdate = true;
   };
-  root.traverse((object) => {
-    const mesh = object as THREE.Mesh;
-    if (!mesh.isMesh || skip.has(mesh)) return;
-    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) patch(material);
-  });
+  for (const tree of [root, ...alsoDarken]) {
+    tree.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || skip.has(mesh)) return;
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) patch(material);
+    });
+  }
 
   let progress = 0;
   let target = 0;

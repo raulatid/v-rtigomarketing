@@ -350,3 +350,31 @@ carries over between deliveries:
   tools resume by atlas name, not by a fingerprint of their input.
 - **Recompressing an unchanged atlas to fit the budget is not re-baking it**,
   and the delivery record has to say which one happened.
+
+## 8. Rutas de tráfico
+
+Las rutas del tráfico **no** están en el GLB de la ciudad. Viven en la
+colección `rutas-trafico` de la `.blend`, y
+`scripts/blender/export-traffic-routes.py` las escribe en
+`src/experiences/murcia/traffic/trafficRoutes.json`, así que mover una ruta
+nunca obliga a una entrega nueva de la ciudad. El JSON es generado: no se edita
+a mano. El porqué del funcionamiento del tráfico está en
+[`decisiones/murcia/trafico.md`](../decisiones/murcia/trafico.md).
+
+- **Un objeto por ruta, con el prefijo de su tipo**: `ruta-naval-…` para los
+  barcos, `ruta-vial-…` para los coches. Cualquier otro nombre hace fallar
+  `readTrafficRoutes.test.ts`.
+- **Un solo sentido, del primer punto al último.** Una curva es una única
+  *spline* abierta (poly o Bézier) y se recorre en su propio sentido
+  (*Segment > Switch Direction* lo invierte). Una malla es una única cadena
+  abierta de aristas cuyo inicio es el único vértice de un grupo de vértices
+  llamado `inicio`. La exportación falla antes que adivinar el sentido.
+- **Los dos extremos, más allá de la niebla**: ahí los vehículos aparecen y
+  desaparecen sin fundido.
+- **La altura es la de la ruta**: en una cuesta, los vértices siguen la calle.
+  Las rutas de barco van a la cota del agua.
+- **Las rutas no se cruzan**: en tiempo de ejecución nada evita una colisión.
+
+Los modelos de vehículo van en `public/models/vehicles/`: una malla con un
+material, el frente hacia −Z de glTF, el origen en el suelo (o en la línea de
+flotación), y listados en `TRAFFIC_KINDS` (`trafficConfig.ts`).

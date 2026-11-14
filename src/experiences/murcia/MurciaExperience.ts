@@ -65,6 +65,8 @@ import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import { createCityMark, type CityMark } from './about/createCityMark';
 import type { TowerLogo } from './landmark/createTowerLogo';
+import { loadTraffic, type Traffic } from './traffic/createTraffic';
+import { deviceResolution } from './assets/lightmaps/deviceResolution';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import type { TowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import { VERTIGO_BUILDING } from './landmark/vertigoBuildingConfig';
@@ -233,6 +235,8 @@ export class MurciaExperience {
   private cityMark: CityMark | null = null;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
   private towerScreen: TowerScreen | null = null;
+  /** Boats and cars on the routes authored in Blender. Null when the routes file did not read. */
+  private traffic: Traffic | null = null;
   private observer: Observer | null = null;
   /** Authoring overlay for the observer. Only ever built on a debug build with `?align=1`. */
   private observerDebug: ObserverDebug | null = null;
@@ -1054,6 +1058,7 @@ export class MurciaExperience {
       console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);
     }
 
+    await this.setupTraffic(assetLoader);
     await this.setupCampus(loaded.root);
     this.setupBlogDisplay(loaded.root);
     this.setupCompass();
@@ -1352,6 +1357,25 @@ export class MurciaExperience {
   }
 
   /**
+   * The ambient traffic. Through the city's loader, before `releaseDecoders`;
+   * before `warm()` so its materials compile with the city; and before
+   * `setupAbout`, whose city mark darkens them with the city. Scenery: a model
+   * that does not load warns and the city carries on without it. A modest
+   * device is the lightmaps' `mobile` profile.
+   */
+  private async setupTraffic(assetLoader: AssetLoader): Promise<void> {
+    try {
+      this.traffic = await loadTraffic(assetLoader.gltf, {
+        reducedMotion: this.reducedMotion,
+        modestDevice: deviceResolution() === 1024,
+      });
+      this.sceneBundle.scene.add(this.traffic.group);
+    } catch (error) {
+      console.warn('[traffic] no traffic:', error);
+    }
+  }
+
+  /**
    * The services section, assembled on the campus the city carries.
    *
    * Replaces the display district (plan 024). Built during the Earth intro,
@@ -1486,7 +1510,7 @@ export class MurciaExperience {
     // Only with a section to draw it for. Built before `warm()`, so the city's
     // patched materials compile once, with the city; after the hover tints,
     // whose clones are patched with the rest.
-    this.cityMark = createCityMark(root, VERTIGO_BUILDING);
+    this.cityMark = createCityMark(root, VERTIGO_BUILDING, this.traffic ? [this.traffic.group] : []);
     // The CMS's cases with an isotype, one satellite each. Imported at this
     // level, like the screen's slides, so `about/` takes whatever it is handed.
     this.aboutSky = createAboutSky({
@@ -1840,6 +1864,7 @@ export class MurciaExperience {
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.
     this.towerScreen?.update(delta);
+    this.traffic?.update(delta);
 
     if (!this.firstFrameRecorded && this.loaded) {
       this.loaded.timings.firstRenderedFrameTime = performance.now();
@@ -1893,6 +1918,8 @@ export class MurciaExperience {
     this.cityMark = null;
     this.towerScreen?.dispose();
     this.towerScreen = null;
+    this.traffic?.dispose();
+    this.traffic = null;
     this.observerDebug?.dispose();
     this.observerDebug = null;
     this.observer = null;
