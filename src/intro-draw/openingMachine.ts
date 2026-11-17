@@ -8,7 +8,8 @@
 // The intro's tail (experiences/earth/timeline/openingTail) moves through the
 // phases only as `elapsed` events this accepts, in this machine's sequence for
 // the way in; the tail owns only how long each lasts (migration step 4). Events
-// are plain objects on purpose: a worker can sit on the other side of them (step 3).
+// are plain objects, serializable as the ADR asked, but nothing posts them: the
+// worker that draws (step 3) has messages of its own (drawWorker).
 //
 // There is one opening per page: `openingStore` holds it, and the app creates it
 // when it adopts the boot (`loading/opening.ts`).
@@ -63,10 +64,11 @@ const SEQUENCE: Record<Way, readonly Presentation[]> = {
   reduced: ['draw', 'site'],
 }
 
-// ADR 016's table. `draw` admits everything because the drawing is still on the
-// main thread and the required steps have to run somewhere; once it moves to a
-// worker (step 3) the answer stays the same for a different reason. `site`
-// admits main-thread work in slices, whose budget is still an open question.
+// ADR 016's table. `draw` admits everything: the required steps have to run
+// somewhere, and where a worker paints the drawing (introDraw) nothing on the
+// main thread is visible. Where the SVG fallback draws instead, they stall its
+// stroke as they always did. `site` admits main-thread work in slices, whose
+// budget is still an open question.
 const MAIN_THREAD: Record<Presentation, boolean> = {
   draw: true,
   shrink: false,

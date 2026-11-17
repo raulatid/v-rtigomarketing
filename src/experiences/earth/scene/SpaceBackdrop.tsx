@@ -107,7 +107,7 @@ export function SpaceBackdrop({ config, state, active }: Props) {
     if (!active) return
     if (points.current) points.current.visible = backdropVisible(state, config)
 
-    // Ambient motion on its own accumulator, not the GSAP clock — the same
+    // Ambient motion on its own accumulator, not the tail's clock — the same
     // narrow exception the Earth's spin and the satellites' orbits already use.
     // Delta is clamped so a backgrounded tab cannot jump the phase.
     elapsed.current += clampFrameDelta(delta)

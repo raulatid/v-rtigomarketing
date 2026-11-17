@@ -21,7 +21,7 @@ import './auditSection.css'
 // because the cold blog document mounts this too.
 //
 // The four-state machine below is the plan's §14 model verbatim. All motion is
-// CSS transitions keyed off data-state — the timeline/GSAP clock is for the
+// CSS transitions keyed off data-state — the opening tail's clock is for the
 // intro sequence, and this section is orthogonal to it (it can open during any
 // phase). The scene recomposition runs in AuditCameraShift, which only reads
 // the mutable auditView written here.

@@ -126,7 +126,7 @@ export function OrbitSystemLayer({ state, systemRef, active }: Props) {
     const delta = clampFrameDelta(rawDelta)
     elapsed.current += delta
 
-    // Ambient motion runs on its own accumulator rather than the GSAP clock.
+    // Ambient motion runs on its own accumulator rather than the tail's clock.
     // The reveal's START is timeline-owned (the phase gate above), but orbiting
     // continues indefinitely after the timeline ends — the same pattern the
     // Earth's rotation and the corner logo's idle already use.

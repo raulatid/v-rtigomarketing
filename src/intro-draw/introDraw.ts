@@ -437,9 +437,10 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
     // so the whole away-time would arrive as one enormous delta.
     //
     // So the drawing measures VISIBLE time: the frame that resumes contributes
-    // nothing, and the clock picks up where it left off. Same reasoning as the
-    // visibilitychange guards on the master timeline and the warp — this module
-    // simply cannot borrow theirs, since it has no GSAP and no React.
+    // nothing, and the clock picks up where it left off. The scene's clocks need
+    // no such guard: the frame loop steps them and clamps the delta a tab comes
+    // back with. This one spends its seconds unclamped, so it listens for
+    // visibility instead, as the worker does through its `hidden` message.
     let resumed = false
     const onVisibility = () => {
       if (!doc.hidden) resumed = true

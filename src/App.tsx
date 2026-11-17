@@ -510,8 +510,8 @@ export default function App() {
         draw?.setVisible(false)
       } else {
         logoRef.current?.reset()
-        // Tweens rewind but the draw's imperative writes do not, so restore the
-        // finished mark by hand — same reconciliation the old SVG needed.
+        // The tail rewinds what it wrote, not the drawing's own frame, so restore
+        // the finished mark by hand — same reconciliation the old SVG needed.
         draw?.snapToEnd()
         draw?.setVisible(true)
         draw?.setScale(1)
