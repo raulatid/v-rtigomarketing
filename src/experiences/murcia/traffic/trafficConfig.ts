@@ -28,8 +28,10 @@ export const TRAFFIC_KINDS: readonly TrafficKind[] = [
     // A river bend is wide; a boat swings through it slowly.
     turnRadius: 12,
     // 5 m/s reads as a pleasure boat from the camera's height. A boat every
-    // 20 to 40 s per bank keeps the river alive without a procession.
-    schedule: { speed: 5, interval: [20, 40], maxActive: 3 },
+    // 20 to 40 s per bank keeps the river alive without a procession. A route
+    // takes ~3 min, so each route carries about six at once: a cap of 3 for
+    // both routes left the plate's stretch of river mostly empty.
+    schedule: { speed: 5, interval: [20, 40], maxActive: 12 },
   },
   {
     name: 'vial',
