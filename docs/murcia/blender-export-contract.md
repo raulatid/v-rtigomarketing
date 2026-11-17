@@ -378,7 +378,8 @@ a mano. El porqué del funcionamiento del tráfico está en
 Los modelos de vehículo van en `public/models/vehicles/`, **un GLB por forma**
 (`sedan.glb`, `lancha.glb`…), no por tono: una malla con un material, el frente
 hacia −Z de glTF, el origen en el suelo (o en la línea de flotación), y
-listados en `TRAFFIC_KINDS` (`trafficConfig.ts`).
+listados en `TRAFFIC_KINDS` (`trafficConfig.ts`). Las ruedas de un coche van
+unidas a la carrocería en esa misma malla: no giran.
 
 - **El color va en `COLOR_0`**, como en la ciudad.
 - **La parte que cambia de tono se marca con un atributo `_TONE`**: un atributo

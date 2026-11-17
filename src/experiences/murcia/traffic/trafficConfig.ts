@@ -59,9 +59,7 @@ export const TRAFFIC_KINDS: readonly TrafficKind[] = [
   {
     name: 'vial',
     routePrefix: 'ruta-vial-',
-    // Empty until the car GLBs are in `public/models/vehicles/`: a kind with
-    // no models draws nothing.
-    models: [],
+    models: vehicleModels(['compacto', 'sedan', 'furgoneta']),
     tones: CITY_TONES,
     // Street corners are tight: a short window, or cars would cut them.
     turnRadius: 4,
