@@ -375,6 +375,19 @@ a mano. El porqué del funcionamiento del tráfico está en
   Las rutas de barco van a la cota del agua.
 - **Las rutas no se cruzan**: en tiempo de ejecución nada evita una colisión.
 
-Los modelos de vehículo van en `public/models/vehicles/`: una malla con un
-material, el frente hacia −Z de glTF, el origen en el suelo (o en la línea de
-flotación), y listados en `TRAFFIC_KINDS` (`trafficConfig.ts`).
+Los modelos de vehículo van en `public/models/vehicles/`, **un GLB por forma**
+(`sedan.glb`, `lancha.glb`…), no por tono: una malla con un material, el frente
+hacia −Z de glTF, el origen en el suelo (o en la línea de flotación), y
+listados en `TRAFFIC_KINDS` (`trafficConfig.ts`).
+
+- **El color va en `COLOR_0`**, como en la ciudad.
+- **La parte que cambia de tono se marca con un atributo `_TONE`**: un atributo
+  de punto de tipo *Float* que vale 1 en los vértices de la carrocería o el casco
+  y 0 en el resto. Se exporta con *Include › Data › Attributes* activado (el
+  exportador solo incluye los atributos cuyo nombre empieza por `_`). El color
+  que tenga esa parte en `COLOR_0` no se usa: en ejecución lo sustituye el tono
+  de cada vehículo, definido en `TRAFFIC_KINDS`. Ver
+  [`decisiones/murcia/trafico.md`](../decisiones/murcia/trafico.md), punto 10.
+
+`trafficModels.test.ts` lee cada GLB listado y falla si no es una sola malla o
+si le faltan los colores de vértice o la máscara `_TONE`.

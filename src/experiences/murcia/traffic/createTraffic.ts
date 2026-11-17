@@ -14,11 +14,14 @@ import trafficRoutes from './trafficRoutes.json';
  * writes them to `trafficRoutes.json`, in the city's runtime space. What moves
  * where is `trafficSchedule.ts`; this only draws it.
  *
- * One `InstancedMesh` per model, one draw call each. The live vehicles of a
- * model are packed at the front of its instances and `count` is how many are
- * drawn, so a vehicle that leaves costs nothing and no object is created or
- * freed during the session. The material is the GLB's own, lit by the scene's
- * lights: no lightmap, no shadows. Scenery only: no raycast.
+ * One `InstancedMesh` per shape, one draw call each, whatever its tones. The
+ * live vehicles of a shape are packed at the front of its instances and `count`
+ * is how many are drawn, so a vehicle that leaves costs nothing and no object
+ * is created or freed during the session. Each instance carries its tone
+ * (`instanceTone`), which replaces the vertex colour where the GLB's `_TONE`
+ * mask is 1: the body, not the glass or the wheels. The material is the GLB's
+ * own, lit by the scene's lights: no lightmap, no shadows. Scenery only: no
+ * raycast.
  */
 
 export interface Traffic {
@@ -31,7 +34,14 @@ interface KindRuntime {
   schedule: TrafficSchedule;
   paths: RoutePath[];
   meshes: THREE.InstancedMesh[];
+  /** Each mesh's `instanceTone`, written with its matrices. */
+  toneAttributes: THREE.InstancedBufferAttribute[];
+  tones: readonly (readonly [number, number, number])[];
 }
+
+/** `_TONE` in the GLB, lowercased by `GLTFLoader`. */
+const GLTF_TONE_ATTRIBUTE = '_tone';
+const COLOR_VERTEX = '#include <color_vertex>';
 
 /** The template's one mesh, its transform inside the GLB baked into its geometry. */
 function modelGeometry(template: THREE.Object3D, path: string): THREE.Mesh {
@@ -44,8 +54,32 @@ function modelGeometry(template: THREE.Object3D, path: string): THREE.Mesh {
   if (meshes.length !== 1 || !mesh || Array.isArray(mesh.material)) {
     throw new Error(`[traffic] ${path} must hold exactly one mesh with one material`);
   }
+  const mask = mesh.geometry.getAttribute(GLTF_TONE_ATTRIBUTE);
+  if (!mask || !mesh.geometry.getAttribute('color') || !(mesh.material as THREE.MeshStandardMaterial).vertexColors) {
+    throw new Error(`[traffic] ${path} needs vertex colours and a _TONE attribute`);
+  }
+  mesh.geometry.deleteAttribute(GLTF_TONE_ATTRIBUTE);
+  mesh.geometry.setAttribute('toneMask', mask);
   mesh.geometry.applyMatrix4(mesh.matrixWorld);
+  tintByInstance(mesh.material as THREE.Material, path);
   return mesh;
+}
+
+/**
+ * The body takes the instance's tone instead of its vertex colour. Patched at
+ * load, before `createCityMark` wraps the hook and the key for Conócenos.
+ */
+function tintByInstance(material: THREE.Material, path: string): void {
+  material.onBeforeCompile = (shader) => {
+    if (!shader.vertexShader.includes(COLOR_VERTEX)) {
+      console.warn(`[traffic] ${path}: no ${COLOR_VERTEX}, every tone draws as exported`);
+      return;
+    }
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float toneMask;\nattribute vec3 instanceTone;')
+      .replace(COLOR_VERTEX, `${COLOR_VERTEX}\nvColor.xyz = mix(vColor.xyz, instanceTone, toneMask);`);
+  };
+  material.customProgramCacheKey = () => 'traffic-tone';
 }
 
 /**
@@ -85,7 +119,7 @@ export async function loadTraffic(
   TRAFFIC_KINDS.forEach((kind, k) => {
     const models = loaded[k]!;
     const kindRoutes = routes.get(kind.routePrefix)!;
-    if (models.length === 0 || kindRoutes.length === 0) {
+    if (models.length === 0 || kindRoutes.length === 0 || kind.tones.length === 0) {
       for (const model of models) disposeMesh(model);
       return;
     }
@@ -95,13 +129,19 @@ export async function loadTraffic(
     const paths = kindRoutes.map((route) => createRoutePath(route.points, kind.turnRadius));
     const schedule = createTrafficSchedule({
       routeLengths: paths.map((path) => path.length),
-      modelCount: models.length,
+      // A model is a shape and a tone: shape `model / tones`, tone `model % tones`.
+      modelCount: models.length * kind.tones.length,
       config: { ...kind.schedule, maxActive },
       random,
       warmUp: true,
     });
-    // Each model can hold the whole cap, so the cap is the only limit on a spawn.
+    const toneAttributes: THREE.InstancedBufferAttribute[] = [];
+    // Each shape can hold the whole cap, so the cap is the only limit on a spawn.
     const meshes = models.map((model, m) => {
+      const tones = new THREE.InstancedBufferAttribute(new Float32Array(maxActive * 3), 3);
+      tones.setUsage(THREE.DynamicDrawUsage);
+      model.geometry.setAttribute('instanceTone', tones);
+      toneAttributes.push(tones);
       const mesh = new THREE.InstancedMesh(model.geometry, model.material, maxActive);
       mesh.name = `traffic:${kind.name}:${m}`;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -112,7 +152,7 @@ export async function loadTraffic(
       group.add(mesh);
       return mesh;
     });
-    kinds.push({ schedule, paths, meshes });
+    kinds.push({ schedule, paths, meshes, toneAttributes, tones: kind.tones });
   });
 
   const sample = createSample();
@@ -129,10 +169,14 @@ export async function loadTraffic(
       position.set(sample.x, sample.y, sample.z);
       // Front is -Z: a yaw of θ points it at (-sin θ, -cos θ) in XZ.
       rotation.setFromAxisAngle(up, Math.atan2(-sample.dirX, -sample.dirZ));
-      const mesh = kind.meshes[agent.model]!;
+      const shape = Math.floor(agent.model / kind.tones.length);
+      const mesh = kind.meshes[shape]!;
+      const tone = kind.tones[agent.model % kind.tones.length]!;
+      kind.toneAttributes[shape]!.setXYZ(mesh.count, tone[0], tone[1], tone[2]);
       mesh.setMatrixAt(mesh.count++, matrix.compose(position, rotation, scale));
     }
     for (const mesh of kind.meshes) mesh.instanceMatrix.needsUpdate = true;
+    for (const tones of kind.toneAttributes) tones.needsUpdate = true;
   };
 
   for (const kind of kinds) place(kind);
