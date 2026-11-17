@@ -556,6 +556,14 @@ export function isConstantUv(attribute: THREE.BufferAttribute | THREE.Interleave
   return true;
 }
 
+/** The node or a group above it carries the export's `lightmap_atlas` extra. */
+function isBakedReceiver(object: THREE.Object3D): boolean {
+  for (let node: THREE.Object3D | null = object; node; node = node.parent) {
+    if (typeof node.userData.lightmap_atlas === 'string') return true;
+  }
+  return false;
+}
+
 function buildSceneReport(
   gltf: GLTF,
   terrain: TerrainLookup,
@@ -599,7 +607,9 @@ function buildSceneReport(
 
       if (mesh.geometry && !mesh.geometry.attributes.uv) {
         report.meshesMissingUv.push(mesh.name || '(unnamed)');
-      } else if (mesh.geometry && isConstantUv(mesh.geometry.attributes.uv)) {
+      } else if (mesh.geometry && !isBakedReceiver(mesh) && isConstantUv(mesh.geometry.attributes.uv)) {
+        // Baked receivers ship TEXCOORD_0 collapsed on purpose: they read only
+        // uv1 (see docs/decisiones/build/contrato-del-glb.md).
         report.meshesWithConstantUv.push(mesh.name || '(unnamed)');
       }
 

@@ -15,7 +15,7 @@
    - §7b: el anillo construido cubre `CITY_A2` y el rectángulo navegable (ver [límites de la cámara](../murcia/limites-de-camara.md));
    - el techo del estadio y el Teatro Romea donde los dejó el autor, sin clips de animación.
 3. **`npm run check:asset` (completo) añade:**
-   - §1: `TEXCOORD_0` en todas las primitivas y `TEXCOORD_1` en cada receptor horneado;
+   - §1: `TEXCOORD_0` en todas las primitivas y `TEXCOORD_1` en cada receptor horneado. Desde la entrega v5.2-r2 (2026-11-17), en los receptores horneados opacos `TEXCOORD_0` va colapsado a (0,0) y no llevan `NORMAL` ni `TEXCOORD_2`: solo leen `uv1` con un material sin luz. `TEXCOORD_0` se queda porque glTF exige que los índices de `TEXCOORD_n` empiecen en 0, y quitarlo obligaría a mover la UV de lightmap a `TEXCOORD_0` y cambiar `uvChannel`. El vidrio y los nodos sin hornear conservan todos sus atributos (ver [compresión y decodificadores](compresion-y-decodificadores.md));
    - §2: topes de materiales e imágenes (`MATERIAL_CEILING`, `IMAGE_CEILING`) y oclusión en `TEXCOORD_0`;
    - §6: informe de samplers, sin aserción.
 

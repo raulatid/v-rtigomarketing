@@ -247,13 +247,13 @@ export const murciaConfig: EnvironmentConfig = {
   id: 'murcia',
   // Root-absolute: a document-relative path resolves against the current
   // route and 404s anywhere but the root.
-  modelPath: '/models/murcia-v5.2-lightmaps-r1.glb',
+  modelPath: '/models/murcia-v5.2-lightmaps-r2.glb',
 
   // Versioned model and manifest are one delivery. Mixed atlas resolutions
   // prioritize central ground, the cathedral and rooftop parapets; outer
   // context stays smaller. The manifest enforces 4.5 MB mobile / 6.5 MB desktop.
   lightmaps: {
-    baseUrl: '/textures/murcia/lightmaps-v5.2-r1/',
+    baseUrl: '/textures/murcia/lightmaps-v5.2-r2/',
     manifest: 'lightmaps.json',
     desktop1024: [],
   },
