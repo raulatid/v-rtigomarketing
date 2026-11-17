@@ -18,6 +18,7 @@
 12. **Se oscurece con la ciudad en Conócenos.** `createCityMark` modifica también los materiales del tráfico (`alsoDarken`); por eso el tráfico se construye antes que `setupAbout`.
 13. **La altura y el rumbo vienen de la ruta.** El vehículo solo gira en horizontal: en una cuesta, los vértices de la ruta deben seguir la calle.
 14. **La única fuente de las rutas es Blender.** La colección `rutas-trafico` de la `.blend` se exporta con `scripts/blender/export-traffic-routes.py` a `trafficRoutes.json`, aparte del GLB de la ciudad, para que retocar una ruta no obligue a hacer una entrega de la ciudad. El JSON no se edita a mano. El contrato está en [`blender-export-contract.md` §8](../../murcia/blender-export-contract.md#8-rutas-de-tráfico).
+15. **Se carga de forma diferida** (2026-11-17). `setupTraffic` importa `createTraffic.ts` (con las rutas) bajo demanda mientras la ciudad carga, durante la intro de la Tierra, y `isPreloadedOnIndex` en `vite.config.ts` lo excluye de los precargados de `/`. Las rutas de coches llevaron el JS inicial de `/` por encima de su presupuesto, que no se sube; el tráfico no hace falta para el primer dibujo. Un import estático del tráfico desde un chunk inicial vuelve a meterlo en `/`, y la build falla.
 
 Los valores (velocidad, intervalo y máximo por tipo) son una primera aproximación y se ajustan a ojo; viven en `TRAFFIC_KINDS`, en `trafficConfig.ts`.
 
@@ -39,4 +40,4 @@ Los valores (velocidad, intervalo y máximo por tipo) son una primera aproximaci
 
 ## Afecta a
 
-`src/experiences/murcia/traffic/`, `src/experiences/murcia/MurciaExperience.ts` (`setupTraffic`), `src/experiences/murcia/about/createCityMark.ts` (`alsoDarken`), `scripts/blender/export-traffic-routes.py`, `public/models/vehicles/`
+`src/experiences/murcia/traffic/`, `src/experiences/murcia/MurciaExperience.ts` (`setupTraffic`), `vite.config.ts` (`isPreloadedOnIndex`), `src/experiences/murcia/about/createCityMark.ts` (`alsoDarken`), `scripts/blender/export-traffic-routes.py`, `public/models/vehicles/`

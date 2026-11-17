@@ -65,7 +65,7 @@ import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import { createCityMark, type CityMark } from './about/createCityMark';
 import type { TowerLogo } from './landmark/createTowerLogo';
-import { loadTraffic, type Traffic } from './traffic/createTraffic';
+import type { Traffic } from './traffic/createTraffic';
 import { deviceResolution } from './assets/lightmaps/deviceResolution';
 import { attachTowerScreen } from './landmark/towerScreen/attachTowerScreen';
 import type { TowerScreen } from './landmark/towerScreen/attachTowerScreen';
@@ -1365,6 +1365,7 @@ export class MurciaExperience {
    */
   private async setupTraffic(assetLoader: AssetLoader): Promise<void> {
     try {
+      const { loadTraffic } = await import('./traffic/createTraffic');
       this.traffic = await loadTraffic(assetLoader.gltf, {
         reducedMotion: this.reducedMotion,
         modestDevice: deviceResolution() === 1024,

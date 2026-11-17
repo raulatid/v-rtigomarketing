@@ -164,6 +164,17 @@ function isObserverDebugChunk(chunk: OutputChunk): boolean {
 }
 
 /**
+ * Murcia's ambient traffic (routes, schedule, instancing), imported on demand
+ * by MurciaExperience while the city loads during the Earth intro. A cold `/`
+ * draws Earth first and has no use for it.
+ */
+const TRAFFIC_MODULE = 'src/experiences/murcia/traffic/createTraffic.ts'
+
+function isTrafficChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith(TRAFFIC_MODULE) === true
+}
+
+/**
  * Chunks that `index.html` modulepreloads: every non-entry chunk in the bundle,
  * except the lazy seams excluded below.
  *
@@ -184,6 +195,8 @@ function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
   if (isObserverDebugChunk(chunk)) return false
+  // The city imports its traffic while it loads, behind the Earth intro.
+  if (isTrafficChunk(chunk)) return false
   // The city starts prefetchBlog() on approach; cold / does not need the route.
   if (isBlogRouteChunk(chunk)) return false
   if (isBlogSurfaceChunk(chunk)) return false
@@ -547,6 +560,7 @@ function assertChunkBudgets(): Plugin {
         ['src/components/LegalPanel.tsx', isLegalPanelChunk],
         ['src/components/ClaimDialog.tsx', isClaimDialogChunk],
         ['src/blog/BlogSurface.tsx', isBlogSurfaceChunk],
+        [TRAFFIC_MODULE, isTrafficChunk],
       ] as const) {
         const found = chunks.filter(isExcluded).length
         if (found !== 1) {
