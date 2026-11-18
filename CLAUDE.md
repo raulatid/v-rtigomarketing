@@ -6,7 +6,7 @@
 - `npm run check`: `content:build` (via `precheck`), then typecheck + unit tests + every harness. This is the full gate.
 - Harnesses run individually as `npm run check:<name>`: architecture, functions, audit, navigation, footprint, campus, earth, warp, space, asset:contract, studio.
 - Outside the chain: `npm run check:asset` (the full city GLB check; `asset:contract` is its contract-only half) and `npm run test:coverage`.
-- `npm run build`: runs the full `check`, then `vite build`, blog preview and `check:publication`.
+- `npm run build`: runs the full `check`, then `vite build`, blog preview and `check:publication`. Locally, export `VITE_VERCEL_ENV=production` in the shell first (never in `.env`): without it the build is `development`, the debug overlay lands in the entry and the entry budget fails (`docs/trampas/build.md` n.º 2).
 - `npm run e2e` (Playwright, rebuilds first via `pree2e`): never run unless I ask.
 
 ## Which check for which change
