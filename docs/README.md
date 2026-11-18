@@ -198,5 +198,6 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 ## Registros y auditorías
 
 - [Entrega de la ciudad v5.2-r1](murcia/lightmaps-v5.2-r1-integration.md): registro de la entrega vigente, en inglés; sus cifras son las de la entrega, no las del código. Se archiva cuando llegue otra.
+- [Entrega de la ciudad v5.2-r5](murcia/lightmaps-v5.2-r5-integration.md): GLB recuantizado e instancias compactas sobre los lightmaps de r4; en inglés. Los registros de r2 a r4 siguen en la misma carpeta.
 - [Peso de la ciudad y lightmaps de Murcia](audits/reports/murcia-asset-weight-and-lightmaps-2026-11-17.md): análisis del 2026-11-17 sobre la entrega v5.2-r1. Explica el corte del suelo junto al río y dónde se pueden bajar MB del GLB y de los atlas. Nada de lo que propone está aplicado; es un informe y sus cifras son las de ese día.
 - [Auditorías](audits/README.md): guías reutilizables (`audits/*.md`) e informes fechados (`audits/reports/`). Los informes son historia: sus hallazgos no se reescriben y los informes no se borran, y dan como abiertos problemas ya resueltos. `check:audit` vigila solo los informes. La última auditoría de seguridad es del 2026-09-02 y no cubre GA, Speed Insights ni las funciones de los formularios.

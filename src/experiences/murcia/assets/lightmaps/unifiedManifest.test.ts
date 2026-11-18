@@ -10,7 +10,7 @@ const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   } },
 } });
 describe('the selected unified bake contract', () => {
-  it('ships the active v5.2-r4 profile with exact sizes, dimensions and total budgets', () => {
+  it('ships the active v5.2-r5 profile with exact sizes, dimensions and total budgets', () => {
     const config = murciaConfig.lightmaps!;
     if (!('manifest' in config)) throw new Error('Expected the unified manifest');
     const directory = 'public' + config.baseUrl;

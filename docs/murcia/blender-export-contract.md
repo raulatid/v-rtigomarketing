@@ -5,7 +5,7 @@ it to be there. Short on purpose — every item below exists because something
 either broke or could not be built without it.
 
 The active delivery is the one `murciaConfig.modelPath` names; its record is
-[lightmaps-v5.2-r4-integration.md](lightmaps-v5.2-r4-integration.md). It
+[lightmaps-v5.2-r5-integration.md](lightmaps-v5.2-r5-integration.md). It
 includes `estadio-techo` at its authored transform, in the `static-NW` atlas,
 with no exported animation clips. `checks/city-asset.ts` picks the roof rules
 by the GLB's **file name**: a new delivery's file name has to be added to that
@@ -307,7 +307,12 @@ broken; the full `check:asset` asserts rule 2:
    node's `extras.instance_st_accessor` names that accessor (with
    `instance_count` beside it). Its count must equal the instance count. Needed
    because groups instancing the same prototype share one geometry in three,
-   so the attribute cannot live on the prototype.
+   so the attribute cannot live on the prototype. Since v5.2-r5 the delivery
+   stores it as normalized `uint16` (every value is in [0, 1]); `ROTATION` is
+   normalized `int16`, and `SCALE` is omitted on groups whose scales are all 1.
+   three reads the three cases unchanged (`GLTFMeshGpuInstancing` denormalizes,
+   a missing `SCALE` is 1) and `ownGeometryWithSt` keeps the array type and its
+   `normalized` flag. `TRANSLATION` stays float, as the extension requires.
 4. **Nodes the site moves or re-dresses itself are never baked.** They carry
    `runtime_material: true` — the tower's screen and logo, the campus strip and
    water, `rio` — and the logo's two meshes also `dynamic_rotation: true`. A
