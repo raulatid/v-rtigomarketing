@@ -73,8 +73,15 @@ const FAVICON_MIN_SIDE = EDITORIAL_BOUNDS.siteSettings.faviconMinSide
  * because it is a document that can carry script and this one would be served
  * from the site's own origin. Not WebP: Safari's tab strip and the iOS home
  * screen are where a favicon that fails to decode would go unnoticed longest.
+ * Delivered at most 512 px, the upload minimum: the same PNG is the 180 px
+ * touch icon, and a larger upload only adds bytes.
  */
-const FAVICON_RULE: MediaRule = { extensions: ['png'], minAspect: 1, maxAspect: 1 }
+const FAVICON_RULE: MediaRule = {
+  extensions: ['png'],
+  minAspect: 1,
+  maxAspect: 1,
+  maxSize: { width: 512, height: 512 },
+}
 
 const blank = (value: unknown): boolean => value === null || value === undefined || value === ''
 
