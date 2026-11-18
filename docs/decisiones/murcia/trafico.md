@@ -29,7 +29,7 @@ Los valores (velocidad, intervalo y máximo por tipo) son una primera aproximaci
 - **Un grafo de calles con cruces**: a la distancia de la cámara no se nota y cuesta mucho dibujarlo y programarlo.
 - **Una copia independiente por vehículo**: unas 30 llamadas de dibujo frente a una por modelo.
 - **Crear y destruir objetos en cada aparición**: provoca tirones del recolector de memoria.
-- **Un GLB por tono** (2026-11-17): 6 formas × 3 tonos eran 18 archivos, 18 `InstancedMesh` y hasta 18 llamadas de dibujo, con la geometría de cada forma repetida tres veces. Ahora son 6 archivos (~210 KB frente a ~570 KB) y como mucho 6 llamadas. Se descartó también `instanceColor` de three: multiplica todos los vértices y teñiría cristales y ruedas.
+- **Un GLB por tono** (2026-11-17): 6 formas × 3 tonos eran 18 archivos, 18 `InstancedMesh` y hasta 18 llamadas de dibujo, con la geometría de cada forma repetida tres veces. Ahora son 6 archivos (~210 KB frente a ~570 KB; con Draco, desde el 2026-11-18, 20 KB) y como mucho 6 llamadas. Se descartó también `instanceColor` de three: multiplica todos los vértices y teñiría cristales y ruedas.
 - **Ruedas que giran** (2026-11-16): se probaron como mallas aparte que giraban según la distancia recorrida. Desde la cámara una rueda ocupa unos pocos píxeles y el giro no se ve, y cada coche pasaba de una a tres llamadas de dibujo. Las ruedas van unidas a la carrocería en el GLB.
 
 ## Se ha roto si…

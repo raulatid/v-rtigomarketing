@@ -386,6 +386,7 @@ hacia −Z de glTF, el origen en el suelo (o en la línea de flotación), y
 listados en `TRAFFIC_KINDS` (`trafficConfig.ts`). Las ruedas de un coche van
 unidas a la carrocería en esa misma malla: no giran.
 
+- **Se publican con Draco** (desde el 2026-11-18), codificados con el `draco_encoder.js` de three a velocidad 0, posición 14, normal 10, color 16 y `_TONE` 8 bits; cada triángulo se comparó con el original. Seis coches y barcos bajaron de 209.004 a 19.920 bytes. Se cargan con el cargador de la ciudad, que ya lleva Draco. La receta está en `04_Assets/optimizados/recodificacion-2026-11-18/`.
 - **El color va en `COLOR_0`**, como en la ciudad.
 - **La parte que cambia de tono se marca con un atributo `_TONE`**: un atributo
   de punto de tipo *Float* que vale 1 en los vértices de la carrocería o el casco
@@ -395,5 +396,5 @@ unidas a la carrocería en esa misma malla: no giran.
   de cada vehículo, definido en `TRAFFIC_KINDS`. Ver
   [`decisiones/murcia/trafico.md`](../decisiones/murcia/trafico.md), punto 10.
 
-`trafficModels.test.ts` lee cada GLB listado y falla si no es una sola malla o
+`trafficModels.test.ts` lee cada GLB listado (decodifica el Draco en Node con el `draco_decoder.js` de three) y falla si no es una sola malla o
 si le faltan los colores de vértice o la máscara `_TONE`.

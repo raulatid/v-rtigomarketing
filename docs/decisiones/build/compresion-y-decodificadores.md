@@ -4,7 +4,7 @@
 
 ## Decisión
 
-1. **La geometría va en Draco** (`KHR_draco_mesh_compression`). Los tres GLB de `public/models/` la llevan. La ciudad mantiene además `EXT_mesh_gpu_instancing` (ver el [contrato de exportación](../../murcia/blender-export-contract.md), §6.2).
+1. **La geometría va en Draco** (`KHR_draco_mesh_compression`). La llevan todos los GLB de `public/models/`: la ciudad, el satélite, el isotipo y, desde el 2026-11-18, los vehículos. La ciudad mantiene además `EXT_mesh_gpu_instancing` (ver el [contrato de exportación](../../murcia/blender-export-contract.md), §6.2).
    - **El repositorio no procesa GLB:** ni `gltf-transform`, ni `gltfpack`, ni otra herramienta glTF en `package.json` o en el build. Los GLB llegan terminados y `checks/city-asset.ts` solo los lee.
    - **El post-proceso es del pipeline de entrega**, fuera del repositorio. El de la ciudad ya reescribía el GLB (`patch()` de `export.py`: nodos de instancias y `_LIGHTMAP_ST`). Desde la entrega v5.2-r2 (2026-11-17) también recodifica el Draco y quita los atributos que lo horneado no lee (ver [contrato del GLB](contrato-del-glb.md), §1).
    - **La condición es que el Draco lo decodifique el decodificador que servimos.** Por eso la recodificación usa `draco_encoder.js` de la misma versión de three, sin dependencias nuevas. Cada primitiva se vuelve a decodificar y se compara triángulo a triángulo con la original antes de escribir el archivo.
