@@ -10,7 +10,7 @@ const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   } },
 } });
 describe('the selected unified bake contract', () => {
-  it('ships the active v5.2-r2 profile with exact sizes, dimensions and total budgets', () => {
+  it('ships the active v5.2-r3 profile with exact sizes, dimensions and total budgets', () => {
     const config = murciaConfig.lightmaps!;
     if (!('manifest' in config)) throw new Error('Expected the unified manifest');
     const directory = 'public' + config.baseUrl;
@@ -33,7 +33,7 @@ describe('the selected unified bake contract', () => {
       const selected = atlasResolutions(shipped, resolution);
       const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + shipped.atlases[key].variants[size].bytes, 0);
       expect(selected.get('outer-ring-b')).toBe(2048);
-      expect(loadedBytes).toBe(resolution === 1024 ? 4_489_081 : 6_488_961);
+      expect(loadedBytes).toBe(resolution === 1024 ? 4_265_441 : 5_796_208);
       expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_500_000 : 6_500_000);
     }
   });

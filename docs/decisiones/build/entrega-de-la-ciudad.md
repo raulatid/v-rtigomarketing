@@ -55,4 +55,4 @@
 
 ## Afecta a
 
-`src/experiences/murcia/config/murciaConfig.ts` (`modelPath`, `lightmaps`), `src/experiences/murcia/config/environmentConfig.ts` (`LightmapConfig`), `src/experiences/murcia/assets/lightmaps/` (`unifiedManifest.ts`, `loadUnifiedLightmaps.ts`, `loadLightmaps.ts`, `deviceResolution.ts`, `lightmapManifest.ts`), `src/experiences/murcia/assets/cityBytes.ts`, `public/models/`, `public/textures/murcia/lightmaps-*/`, `checks/city-asset.ts`, `docs/murcia/lightmaps-v5.2-r2-integration.md` (registro de la entrega vigente)
+`src/experiences/murcia/config/murciaConfig.ts` (`modelPath`, `lightmaps`), `src/experiences/murcia/config/environmentConfig.ts` (`LightmapConfig`), `src/experiences/murcia/assets/lightmaps/` (`unifiedManifest.ts`, `loadUnifiedLightmaps.ts`, `loadLightmaps.ts`, `deviceResolution.ts`, `lightmapManifest.ts`), `src/experiences/murcia/assets/cityBytes.ts`, `public/models/`, `public/textures/murcia/lightmaps-*/`, `checks/city-asset.ts`, `docs/murcia/lightmaps-v5.2-r3-integration.md` (registro de la entrega vigente)

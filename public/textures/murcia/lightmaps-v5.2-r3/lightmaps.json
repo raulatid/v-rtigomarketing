@@ -571,19 +571,19 @@
       "variants": {
         "1024": {
           "file": "rooftop-parapets-1024.ktx2",
-          "bytes": 313443,
+          "bytes": 89803,
           "mipLevels": 1,
-          "codec": "uastc",
-          "quality": "uastc-rdo1",
-          "psnr": 37.26488483961501
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 31.710536417209635
         },
         "2048": {
           "file": "rooftop-parapets-2048.ktx2",
-          "bytes": 979827,
+          "bytes": 287074,
           "mipLevels": 1,
-          "codec": "uastc",
-          "quality": "uastc-rdo2",
-          "psnr": 39.65538956269786
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 35.67413979400722
         }
       },
       "seconds": 210.51344108581543,
@@ -636,7 +636,7 @@
   "profiles": {
     "desktop": {
       "resolution": 2048,
-      "totalBytes": 6488961,
+      "totalBytes": 5796208,
       "budgetBytes": 6500000,
       "atlasCount": 20,
       "atlasResolutions": {
@@ -664,7 +664,7 @@
     },
     "mobile": {
       "resolution": 1024,
-      "totalBytes": 4489081,
+      "totalBytes": 4265441,
       "budgetBytes": 4500000,
       "atlasCount": 20,
       "atlasResolutions": {
