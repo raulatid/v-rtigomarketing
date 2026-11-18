@@ -97,7 +97,7 @@ export function withMediaMirror(inner: ContentSource, options: MirrorOptions): C
             const url = validateRemote(at, remote, options.allowedOrigin, rule)
             if (rule !== undefined) assertGeometry(at, url, rule)
             const fit = rule?.maxSize === undefined ? undefined : oversizedFor(url, rule.maxSize)
-            slot.holder[slot.key] = await mirrorOne(url, at, target, doFetch, timeoutMs, log, fit)
+            slot.holder[slot.key] = await mirrorOne(url, at, target, doFetch, timeoutMs, log, fit, rule?.deliver)
           }
         }
       }
@@ -220,29 +220,35 @@ async function mirrorOne(
   timeoutMs: number,
   log: (message: string) => void,
   fit?: { width: number; height: number },
+  deliver?: { format: 'webp'; quality: number },
 ): Promise<string> {
   const uploaded = path.posix.basename(new URL(url).pathname)
   if (!SAFE_BASENAME.test(uploaded)) {
     throw new SourceError(at + ': "' + uploaded + '" is not a usable media file name')
   }
 
-  // Resized by Sanity's image API, which keeps the format. The name records
-  // the request rather than the result, so it stays content-addressed, never
-  // collides with the full-size file a previous build mirrored, and claims no
-  // dimensions to `sanityImageDimensions` — `-fit` is not `-<w>x<h>.`.
+  // Resized and, with `deliver`, re-encoded by Sanity's image API; without
+  // `deliver` it keeps the format. The name records the request rather than
+  // the result, so it stays content-addressed, never collides with a file a
+  // previous build mirrored under other parameters, and claims no dimensions
+  // to `sanityImageDimensions` — neither `-fit…` nor `-q…` is `-<w>x<h>.`.
   let name = uploaded
-  let source = url
+  const request = new URL(url)
   if (fit !== undefined) {
-    name = uploaded.replace(/(\.[A-Za-z0-9]+)$/, '-fit' + fit.width + 'x' + fit.height + '$1')
-    if (!SAFE_BASENAME.test(name)) {
-      throw new SourceError(at + ': "' + name + '" is not a usable media file name')
-    }
-    const resized = new URL(url)
-    resized.searchParams.set('w', String(fit.width))
-    resized.searchParams.set('h', String(fit.height))
-    resized.searchParams.set('fit', 'max')
-    source = resized.toString()
+    name = name.replace(/(\.[A-Za-z0-9]+)$/, '-fit' + fit.width + 'x' + fit.height + '$1')
+    request.searchParams.set('w', String(fit.width))
+    request.searchParams.set('h', String(fit.height))
+    request.searchParams.set('fit', 'max')
   }
+  if (deliver !== undefined) {
+    name = name.replace(/\.[A-Za-z0-9]+$/, '-q' + deliver.quality + '.' + deliver.format)
+    request.searchParams.set('fm', deliver.format)
+    request.searchParams.set('q', String(deliver.quality))
+  }
+  if (!SAFE_BASENAME.test(name)) {
+    throw new SourceError(at + ': "' + name + '" is not a usable media file name')
+  }
+  const source = name === uploaded ? url : request.toString()
 
   const file = path.join(options.dir, name)
   const publicRef = options.publicPath.replace(/\/+$/, '') + '/' + name
@@ -270,7 +276,7 @@ async function mirrorOne(
 
   fs.mkdirSync(options.dir, { recursive: true })
   fs.writeFileSync(file, bytes)
-  const resizedFrom = fit === undefined ? '' : ', resized from ' + uploaded
+  const resizedFrom = name === uploaded ? '' : ', delivered from ' + uploaded
   log('mirrored ' + publicRef + ' (' + bytes.byteLength + ' bytes' + resizedFrom + ')')
   return publicRef
 }

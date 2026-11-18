@@ -8,7 +8,7 @@
 2. **Las imágenes editoriales del blog se quedan en `cdn.sanity.io`**, modeladas como `ImageMedia` con `alt` obligatorio. Por ellas `img-src` admite `https://cdn.sanity.io` en la CSP de `vercel.json`; nada más del sitio debería cargarse de ahí.
 3. **Solo se descarga del origen permitido** (`SANITY_CDN_ORIGIN` en `scripts/build-content.ts`, fijo en código), por `https`, con nombre de archivo seguro (`SAFE_BASENAME`) y tamaño máximo (`MAX_BYTES`), ambos en `mirror.ts`.
 4. **SVG prohibido** en todas las subidas, deliberadamente y no para siempre: habilitarlo exige un sanitizador y un cambio revisado de `remoteMediaUrl` (`content/lib/validate.ts`).
-5. **El nombre lo da Sanity**, direccionado por contenido, y un archivo ya presente no se vuelve a descargar. Eso mantiene la emisión determinista. Si una regla declara `maxSize`, el archivo se descarga redimensionado por la API de imágenes de Sanity y el nombre lo dice.
+5. **El nombre lo da Sanity**, direccionado por contenido, y un archivo ya presente no se vuelve a descargar. Eso mantiene la emisión determinista. Si una regla declara `maxSize`, el archivo se descarga redimensionado por la API de imágenes de Sanity y el nombre lo dice. Si declara `deliver`, la misma API lo recodifica (`fm`, `q`) y el nombre lleva `-q<calidad>.<formato>`: las marcas y las imágenes de la torre se publican en WebP q90 desde el 2026-11-18, sea cual sea la subida (cifras en los comentarios de `caseStudies.collection.ts` y `towerScreen.collection.ts`). El favicon sigue en PNG.
 6. **Cada colección declara qué campos se replican** (`mirror`, con `[]` como único comodín para arrays), en qué carpeta (`mirrorDir`; sin ella, `/logos`) y con qué reglas (`mediaRules`). Las reglas concretas de cada medio están en el [contrato de medios](../../content/sanity-media-contract.md); las de las marcas, en [validación de marcas subidas](../earth/validacion-de-marcas-subidas.md).
 7. **Un medio declarado que no se puede descargar hace fallar el build.** Un medio ausente es legal donde el renderizador tiene un estado de diseño para ello.
 8. **Solo se publica lo que la lista de publicación admite** (`isTowerMedia`, `isSiteMedia` en `scripts/publicationHygiene.ts`).
@@ -27,6 +27,7 @@ Un dibujo de origen cruzado puede contaminar el canvas compartido, cada visitant
 
 - El navegador pide a `cdn.sanity.io` una marca, una imagen de la torre o el favicon (inspección de red).
 - Un build termina bien con un medio declarado que da 404. Fija: `content/lib/mirror.test.ts` («fails the build on a missing asset…»).
+- Una marca o una imagen de la torre llega a `public/` en el formato de la subida en vez de en WebP. Fija: `mirror.test.ts` («brand marks delivered in another format») y `collections.test.ts` («ships every brand mark as WebP q90…»).
 - Llega a `public/` un SVG, un archivo de otro origen o uno servido por `http:`. Fija: `mirror.test.ts` («rejects SVG», «rejects an origin that is not the CMS», «rejects plain http»).
 - `public/logos/` crece en un build sin marcas nuevas. Fija: `mirror.test.ts` («does not re-download a file it already has»).
 - Un archivo replicado no llega a `dist/`, o llega algo que no es un medio. Fija: `scripts/publicationHygiene.test.ts`.

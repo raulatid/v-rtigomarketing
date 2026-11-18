@@ -81,6 +81,14 @@ const atMost = (box: { width: number; height: number }) => ({
   height: Math.round(box.height * 1.5),
 })
 
+/**
+ * Every mark ships as WebP q90, re-encoded by Sanity's CDN (`MediaRule.deliver`).
+ * Measured on the ten marks of 2026-11-18: 546 KB of PNG became 205 KB, alpha
+ * kept exactly and no difference at the size the atlas draws them. Only a mark
+ * its author had already palettized grows, by about 2 KB.
+ */
+const DELIVER_MARK = { format: 'webp', quality: 90 } as const
+
 const BRAND_MARK_RULES: Record<string, MediaRule> = {
   isotype: {
     extensions: ['png', 'webp'],
@@ -88,12 +96,14 @@ const BRAND_MARK_RULES: Record<string, MediaRule> = {
     minAspect: MIN_DRAWN / ISOTYPE_BOX.height,
     maxAspect: ISOTYPE_BOX.width / MIN_DRAWN,
     maxSize: atMost(ISOTYPE_BOX),
+    deliver: DELIVER_MARK,
   },
   logo: {
     extensions: ['png', 'webp'],
     minAspect: 1.5,
     maxAspect: 5,
     maxSize: atMost(LOGO_BOX),
+    deliver: DELIVER_MARK,
   },
 }
 

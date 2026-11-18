@@ -357,6 +357,57 @@ describe('brand marks larger than the site needs', () => {
   })
 })
 
+describe('brand marks delivered in another format', () => {
+  const DELIVERED: SanitySourceSpec = {
+    type: 'caseStudy',
+    projection: '{ "id": slug.current, logo }',
+    mirror: ['logo'],
+    mediaRules: {
+      logo: {
+        extensions: ['png', 'webp'],
+        minAspect: 1.5,
+        maxAspect: 5,
+        maxSize: { width: 1344, height: 552 },
+        deliver: { format: 'webp', quality: 90 },
+      },
+    },
+  }
+  const asset = (name: string) => CDN + '/images/p1/production/' + name
+
+  function delivered(logo: string, fetchImpl: typeof fetch) {
+    return withMediaMirror(inner([{ id: 'a', logo }]), {
+      dir,
+      publicPath: '/logos',
+      allowedOrigin: CDN,
+      fetchImpl,
+    }).fetchAll(DELIVERED) as Promise<Array<{ logo: string }>>
+  }
+
+  it('asks the CDN for the delivery format and names the file by that request', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = await delivered(asset('eee-1344x552.png'), cdn.impl)
+    expect(cdn.calls).toEqual([asset('eee-1344x552.png') + '?fm=webp&q=90'])
+    expect(record.logo).toBe('/logos/eee-1344x552-q90.webp')
+    expect(fs.existsSync(path.join(dir, 'eee-1344x552-q90.webp'))).toBe(true)
+  })
+
+  it('resizes and re-encodes in one request', async () => {
+    const cdn = fakeCdn(png())
+    const [record] = await delivered(asset('ccc-2172x724.png'), cdn.impl)
+    expect(cdn.calls).toEqual([asset('ccc-2172x724.png') + '?w=1344&h=552&fit=max&fm=webp&q=90'])
+    expect(record.logo).toBe('/logos/ccc-2172x724-fit1344x552-q90.webp')
+  })
+
+  it('does not take a file an earlier build mirrored in the upload format', async () => {
+    fs.writeFileSync(path.join(dir, 'ccc-2172x724-fit1344x552.png'), png())
+    fs.writeFileSync(path.join(dir, 'eee-1344x552.png'), png())
+    const cdn = fakeCdn(png())
+    await delivered(asset('ccc-2172x724.png'), cdn.impl)
+    await delivered(asset('eee-1344x552.png'), cdn.impl)
+    expect(cdn.calls).toHaveLength(2)
+  })
+})
+
 describe('mirroring into an array, and into a folder of the collection\'s own', () => {
   const PICTURE = CDN + '/images/p1/production/0a1b2c3d4e5f-1600x2400.webp'
   const slides: SanitySourceSpec = {

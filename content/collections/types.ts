@@ -123,6 +123,14 @@ export interface MediaRule {
    * within it, or whose name carries no dimensions, is mirrored as uploaded.
    */
   maxSize?: { width: number; height: number }
+  /**
+   * The format the site ships, when it is not the upload's. Sanity's image API
+   * re-encodes on the way out (`fm`, `q`), together with any `maxSize` fit, so
+   * the mirror downloads the delivery file and never the upload. Absent means
+   * the upload's own format. WebP only: the CDN has no AVIF, and a favicon
+   * must stay PNG.
+   */
+  deliver?: { format: 'webp'; quality: number }
 }
 
 export type MapResult<T> = { ok: true; value: T } | { ok: false; problems: Problem[] }

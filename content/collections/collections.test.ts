@@ -1063,6 +1063,12 @@ describe('the case-study projection hands the mirror what it expects', () => {
     expect(rules.isotype.maxSize!.width).toBeGreaterThan(512)
     expect(rules.isotype.maxSize!.height).toBeGreaterThan(500)
   })
+
+  it('ships every brand mark as WebP q90, whatever was uploaded', () => {
+    const rules = caseStudiesCollection.source.mediaRules!
+    expect(rules.isotype.deliver).toEqual({ format: 'webp', quality: 90 })
+    expect(rules.logo.deliver).toEqual({ format: 'webp', quality: 90 })
+  })
 })
 
 /**
@@ -1516,6 +1522,7 @@ describe('the tower screen is a singleton of slides the build proves', () => {
     expect(towerScreenCollection.source.mirror).toEqual(['slides[].image.src'])
     expect(towerScreenCollection.source.mirrorDir).toBe('media/tower')
     expect(towerScreenCollection.source.mediaRules?.['slides[].image.src']?.extensions).toContain('jpg')
+    expect(towerScreenCollection.source.mediaRules?.['slides[].image.src']?.deliver).toEqual({ format: 'webp', quality: 90 })
     expect(towerScreenCollection.source.projection).toContain('image.asset->url')
   })
 

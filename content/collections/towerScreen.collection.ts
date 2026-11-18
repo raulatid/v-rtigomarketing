@@ -45,12 +45,15 @@ const TOWER = EDITORIAL_BOUNDS.towerScreen
  * What an uploaded slide picture has to be, enforced by `content/lib/mirror.ts`
  * before it is fetched. JPEG is allowed here, unlike a logo: the slot is a
  * photograph on a dark wall, feathered into it by the renderer, and it has no
- * transparency to lose. Aspect band per the bounds table.
+ * transparency to lose. Aspect band per the bounds table. Shipped as WebP q90
+ * whatever the upload (`MediaRule.deliver`): the 1024x1536 PNG slide of
+ * 2026-11-18 went from 428 KB to 29 KB, 51.8 dB PSNR, with no visible change.
  */
 const SLIDE_IMAGE_RULE: MediaRule = {
   extensions: ['png', 'webp', 'jpg', 'jpeg'],
   minAspect: TOWER.imageMinAspect,
   maxAspect: TOWER.imageMaxAspect,
+  deliver: { format: 'webp', quality: 90 },
 }
 
 const IMAGE_FITS = ['cover', 'contain'] as const
