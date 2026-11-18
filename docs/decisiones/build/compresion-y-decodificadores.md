@@ -17,6 +17,7 @@
    Al actualizar three se vuelven a copiar. Las rutas (`DRACO_PATH`, `BASIS_PATH`) y el ciclo de vida de los cargadores son de [decodificadores compartidos](../render/decodificadores-compartidos.md).
 4. **El cargador de la ciudad lleva KTX2 aunque el GLB no traiga imágenes Basis** (`createAssetLoader.ts`): un GLTFLoader sin KTX2Loader rechaza la carga entera en cuanto aparece una.
 5. **El transcodificador obliga a `'unsafe-eval'` en la CSP** (ver [cabeceras y CSP](../privacidad/cabeceras-y-csp.md)).
+6. **Todo KTX2 publicado es Basis (vkFormat 0), y el build no lleva el decodificador Zstd de three** (desde el 2026-11-18). `KTX2Loader` solo lo usa para un formato crudo con Zstd; los Basis, UASTC con Zstd incluido, los descomprime el transcodificador. `threeWithoutZstd` (`vite.config.ts`) lo cambia por un stub que falla con un mensaje claro, y quita unos 40 KB del chunk de three. El build falla si `KTX2Loader` deja de importar ese módulo, y la higiene de publicación rechaza un KTX2 crudo con Zstd (`assetMetadata`).
 
 ## Por qué
 
@@ -37,6 +38,7 @@
 
 ## Se ha roto si…
 
+- Falla el build con `[vertigo-three-without-zstd]` tras actualizar three, o la publicación con `raw vkFormat and Zstd`. Fija: `publicationHygiene.test.ts` («refuses a raw-format Zstd KTX2…»).
 - `public/draco/` o `public/libs/basis/` difieren de los de three tras una actualización. **Ningún test lo vigila:** compáralos con `cmp` contra `node_modules/three/examples/jsm/libs/`.
 - Un GLB con imágenes `KHR_texture_basisu` hace fallar la carga de la ciudad.
 - Con la CSP aplicada, el arranque termina en fatal (el transcodificador no puede compilar).
@@ -44,4 +46,4 @@
 
 ## Afecta a
 
-`public/draco/`, `public/libs/basis/`, `public/models/`, `public/earth/`, `public/textures/`, `src/graphics/decoders.ts`, `src/experiences/murcia/assets/createAssetLoader.ts`, `vercel.json` (CSP, `Content-Type` de `.wasm`)
+`public/draco/`, `public/libs/basis/`, `public/models/`, `public/earth/`, `public/textures/`, `src/graphics/decoders.ts`, `src/experiences/murcia/assets/createAssetLoader.ts`, `vite.config.ts` (`threeWithoutZstd`), `scripts/publicationHygiene.ts`, `vercel.json` (CSP, `Content-Type` de `.wasm`)

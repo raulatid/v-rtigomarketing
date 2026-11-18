@@ -142,4 +142,16 @@ describe('publication hygiene', () => {
     texture.writeUInt32LE(texture.length + 1, 60)
     expect(() => assetMetadata('texture.ktx2', texture)).toThrow('truncated KTX2')
   })
+
+  it('refuses a raw-format Zstd KTX2, which the build ships no decoder for', () => {
+    const texture = Buffer.alloc(80)
+    Buffer.from('ab4b5458203230bb0d0a1a0a', 'hex').copy(texture)
+    texture.writeUInt32LE(80, 56)
+    texture.writeUInt32LE(2, 44) // Zstd
+    expect(assetMetadata('basis.ktx2', texture)).toBe('') // vkFormat 0: Basis, UASTC+Zstd included
+    texture.writeUInt32LE(37, 12) // VK_FORMAT_R8G8B8A8_UNORM
+    expect(() => assetMetadata('raw.ktx2', texture)).toThrow('raw vkFormat and Zstd')
+    texture.writeUInt32LE(0, 44) // the same raw format, uncompressed, is fine
+    expect(assetMetadata('raw.ktx2', texture)).toBe('')
+  })
 })

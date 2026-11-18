@@ -96,6 +96,12 @@ export function assetMetadata(name: string, bytes: Buffer): string {
     if (bytes.length < 80 || !bytes.subarray(0, 12).equals(Buffer.from('ab4b5458203230bb0d0a1a0a', 'hex'))) {
       throw new Error(`[publication] invalid KTX2: ${name}`)
     }
+    // vkFormat 0 is Basis Universal. A raw GPU format with Zstd (scheme 2)
+    // would need three's Zstd decoder, which the build replaces with a stub
+    // (`threeWithoutZstd` in vite.config.ts).
+    if (bytes.readUInt32LE(12) !== 0 && bytes.readUInt32LE(44) === 2) {
+      throw new Error(`[publication] KTX2 with a raw vkFormat and Zstd, which the build cannot decode: ${name}`)
+    }
     const start = bytes.readUInt32LE(56)
     const end = start + bytes.readUInt32LE(60)
     if (end > bytes.length) throw new Error(`[publication] truncated KTX2: ${name}`)

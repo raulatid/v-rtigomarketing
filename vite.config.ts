@@ -1222,6 +1222,53 @@ function threeCatalogue(): Plugin {
   }
 }
 
+// three's `KTX2Loader` imports a Zstandard decoder (`libs/zstddec.module.js`,
+// about 40 KB minified, most of it inlined WASM) for one path only: a KTX2
+// whose vkFormat is a raw GPU format AND whose supercompression is Zstd. Basis
+// files, UASTC with Zstd included, never touch it: the Basis transcoder
+// inflates Zstd itself. Every KTX2 this site ships is Basis, so the build swaps
+// the decoder for a stub that fails loudly if that path is ever reached (2026-11-18).
+// Two guards keep the stub honest: the build fails if `KTX2Loader` stops
+// importing that module (the swap would silently stop applying), and
+// publication hygiene refuses a raw-format Zstd KTX2 (`assetMetadata`).
+// Build only: the dev server keeps three's decoder, which costs nothing there.
+const KTX2_LOADER_MODULE = /[\\/]three[\\/]examples[\\/]jsm[\\/]loaders[\\/]KTX2Loader\.js$/
+const KTX2_ZSTD_IMPORT = "import { ZSTDDecoder } from '../libs/zstddec.module.js';"
+const ZSTD_STUB_ID = '\0vertigo-zstddec-stub'
+
+function threeWithoutZstd(): Plugin {
+  return {
+    name: 'vertigo-three-without-zstd',
+    apply: 'build',
+    enforce: 'pre',
+    resolveId(source, importer) {
+      if (source === '../libs/zstddec.module.js' && importer && KTX2_LOADER_MODULE.test(importer.split('?')[0])) {
+        return ZSTD_STUB_ID
+      }
+    },
+    load(id) {
+      if (id !== ZSTD_STUB_ID) return
+      return [
+        'export class ZSTDDecoder {',
+        '  init() { return Promise.resolve() }',
+        '  decode() {',
+        "    throw new Error('[vertigo] A KTX2 with a raw vkFormat and Zstd supercompression reached KTX2Loader. " +
+          "This build ships no Zstd decoder for it (threeWithoutZstd in vite.config.ts): encode the texture as Basis.')",
+        '  }',
+        '}',
+      ].join('\n')
+    },
+    transform(code, id) {
+      if (KTX2_LOADER_MODULE.test(id.split('?')[0]) && !code.includes(KTX2_ZSTD_IMPORT)) {
+        throw new Error(
+          `[vertigo-three-without-zstd] ${id} no longer contains \`${KTX2_ZSTD_IMPORT}\`. ` +
+            'three changed how KTX2Loader loads Zstd: re-check the stub against the new version.',
+        )
+      }
+    },
+  }
+}
+
 // `command` distinguishes built assets from the dev server independently of
 // the deployment environment (local/preview builds also generate dist/).
 export default defineConfig(({ command }) => ({
@@ -1229,6 +1276,7 @@ export default defineConfig(({ command }) => ({
     react(),
     glsl({ compress: command === 'build' ? stripShaderComments : false }),
     threeCatalogue(),
+    threeWithoutZstd(),
     // Before blogRouting, which rewrites `req.url`: the API paths must be
     // matched against what the client actually asked for.
     apiRouting(),
