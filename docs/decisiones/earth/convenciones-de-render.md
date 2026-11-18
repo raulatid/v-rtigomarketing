@@ -12,6 +12,7 @@
    - KTX2 ETC1S, con orientación abajo-izquierda obligatoria (`flipY` no tiene efecto en KTX2);
    - dimensiones múltiplo de 4 y con mipmaps;
    - nubes lineales; día y noche en sRGB.
+   - Juego ancho: día y noche a 4096×2048; nubes a 2048×1024 desde el 2026-11-18. El shader solo umbraliza `.r`, y en el extremo cercano del zoom el 4096 no aportaba una diferencia apreciable que justificara 0,8 MB.
    - Detalles en el comentario de `earthConfig.ts`. `prepare-earth-textures.mjs` no produce estos archivos.
 
 ## Se ha roto si…

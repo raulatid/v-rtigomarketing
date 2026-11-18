@@ -97,9 +97,9 @@
          warning; the Network panel shows the duplicate. (These were `as="image"`
          while the set was JPEG; the attribute tracks the loader, not the file.) -->
     <!-- `media` splits these the same way it splits the sky below, and for the
-         same reason: exactly ONE set is ever fetched. The 4096x2048 trio is the
-         largest single item in the texture budget on the platform least able to
-         hold it; the 2048x1024 set is still oversampled at phone size.
+         same reason: exactly ONE set is ever fetched. The wide set (day and night
+         4096x2048, clouds 2048x1024) is the largest single item in the texture
+         budget on the platform least able to hold it; the 2048x1024 set is still oversampled at phone size.
 
          The 767px breakpoint MUST match `EARTH_TEXTURES.narrowMaxWidth` in
          earthConfig.ts. If the two disagree the browser preloads one set and

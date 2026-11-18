@@ -66,8 +66,10 @@ export const EARTH_CONFIG = {
  *
  * Sources are the 4k and 2k maps, and they are NOT interchangeable between
  * sizes: day/night narrow come from the 2k files, clouds narrow from the 4k one
- * resized. They live outside the repo — deliberately, they are 16 MB of encoder
- * input nothing serves. `scripts/prepare-earth-textures.mjs` does not yet cover
+ * resized. The wide clouds are 2048x1024 too, also the 4k source resized
+ * (2026-11-18): the shader only thresholds `.r`, and at the zoom's near end the
+ * 4096 map showed no difference worth 0.8 MB. They live outside the repo —
+ * deliberately, they are 16 MB of encoder input nothing serves. `scripts/prepare-earth-textures.mjs` does not yet cover
  * this step; it still only writes the superseded narrow JPEGs.
  */
 export const EARTH_TEXTURES = {

@@ -130,7 +130,7 @@ export function EarthScene({
     cloudsTex.anisotropy = 8
 
     // GPU warm-up (plan 003 §3). Decoded-on-CPU is not uploaded-on-GPU: without
-    // this, the three 4096×2048 uploads (+mipmaps) and both custom shader
+    // this, the three map uploads (+mipmaps) and both custom shader
     // compiles are all paid on the single frame the Earth becomes visible —
     // mid-warp, the fastest moment of the sequence (measured 326ms stall).
     // P0's ~5.5s of full-screen cover is the warm-up window instead.
@@ -148,7 +148,7 @@ export function EarthScene({
       // exists to avoid, not a broken scene. There is nothing here to be fatal
       // about — unlike the textures above, which are the scene.
       try {
-        // One upload per frame: each 4096×2048 map costs tens of ms to upload
+        // One upload per frame: each wide map costs tens of ms to upload
         // and mip, and the draw animation is live behind this — never stack them.
         const maps = [dayTex, nightTex, cloudsTex]
         for (let i = 0; i < maps.length; i++) {
