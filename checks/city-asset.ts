@@ -769,14 +769,14 @@ for (const [i, sampler] of (json.samplers ?? []).entries()) {
 section('Nueva Condomina: roof placement and baked material');
 const roofNodes = nodes.filter(n => n.name === 'estadio-techo');
 const modelFilename = MODEL.replaceAll('\\', '/').split('/').at(-1)!;
-if (['murcia-v5.1-lightmaps-r3.glb', 'murcia-v5.2-lightmaps.glb', 'murcia-v5.2-lightmaps-r1.glb', 'murcia-v5.2-lightmaps-r2.glb', 'murcia-v5.2-lightmaps-r3.glb'].includes(modelFilename)) {
+if (['murcia-v5.1-lightmaps-r3.glb', 'murcia-v5.2-lightmaps.glb', 'murcia-v5.2-lightmaps-r1.glb', 'murcia-v5.2-lightmaps-r2.glb', 'murcia-v5.2-lightmaps-r3.glb', 'murcia-v5.2-lightmaps-r4.glb'].includes(modelFilename)) {
   // The author removed the Blender animation. Preserve that source placement;
   // the historical repair's centering and pillar-height rules no longer apply.
   // Bounds measured from the source bound_box, converted (x, y, z) -> (x, z, -y).
   const roofBounds = worldBounds('estadio-techo');
   check('the export contains exactly one authored stadium roof', roofNodes.length === 1);
   check('the static city contains no animation clips', (json.animations?.length ?? 0) === 0);
-  const relocatedStadium = ['murcia-v5.2-lightmaps-r1.glb', 'murcia-v5.2-lightmaps-r2.glb', 'murcia-v5.2-lightmaps-r3.glb'].includes(modelFilename);
+  const relocatedStadium = ['murcia-v5.2-lightmaps-r1.glb', 'murcia-v5.2-lightmaps-r2.glb', 'murcia-v5.2-lightmaps-r3.glb', 'murcia-v5.2-lightmaps-r4.glb'].includes(modelFilename);
   const expectedRoofMin = relocatedStadium
     ? new Vector3(-174.185485840, 12.186351776, -191.099761963)
     : new Vector3(-450.445190, 9.211193, 81.126266);

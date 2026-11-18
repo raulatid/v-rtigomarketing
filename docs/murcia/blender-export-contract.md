@@ -5,7 +5,7 @@ it to be there. Short on purpose — every item below exists because something
 either broke or could not be built without it.
 
 The active delivery is the one `murciaConfig.modelPath` names; its record is
-[lightmaps-v5.2-r3-integration.md](lightmaps-v5.2-r3-integration.md). It
+[lightmaps-v5.2-r4-integration.md](lightmaps-v5.2-r4-integration.md). It
 includes `estadio-techo` at its authored transform, in the `static-NW` atlas,
 with no exported animation clips. `checks/city-asset.ts` picks the roof rules
 by the GLB's **file name**: a new delivery's file name has to be added to that
