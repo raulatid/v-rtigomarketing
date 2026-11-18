@@ -286,6 +286,7 @@ const MIME = {
   '.bin': 'application/octet-stream',
   '.wasm': 'application/wasm',
   '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
 };
 
 /**
