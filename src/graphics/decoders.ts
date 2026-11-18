@@ -52,6 +52,42 @@ const DRACO_PATH = '/draco/'
 // Copied from three's `examples/jsm/libs/basis`; keep in step when upgrading.
 const BASIS_PATH = '/libs/basis/'
 
+/**
+ * The Draco decoder library, fetched once per document.
+ *
+ * Releasing the pool (above) frees the workers and their WASM instances, but a
+ * new `DRACOLoader` fetches `draco_wasm_wrapper.js` and `draco_decoder.wasm`
+ * again: the logo and the satellites release theirs during the intro, then the
+ * city and later the traffic each build a fresh pool. The second fetch came
+ * from the HTTP cache, but it still parsed and counted 251 KB again in every
+ * visit's resources. Keeping the fetched text and ArrayBuffer here costs those
+ * same 251 KB of main-thread memory and nothing else: `_initDecoder` posts the
+ * buffer to each worker without transferring it, so it is copied, never
+ * detached, and the pool lifetime above is unchanged.
+ *
+ * `_loadLibrary` is private three API (0.174). The guard fails loudly at import
+ * if an upgrade renames it, rather than silently fetching twice again.
+ */
+type LoadLibrary = (this: DRACOLoader, url: string, responseType: string) => Promise<unknown>
+const loadDracoLibrary = (DRACOLoader.prototype as unknown as { _loadLibrary?: LoadLibrary })._loadLibrary
+if (typeof loadDracoLibrary !== 'function') {
+  throw new Error('[decoders] DRACOLoader has no _loadLibrary: re-check the library cache against this three version.')
+}
+const dracoLibraries = new Map<string, Promise<unknown>>()
+
+class SharedDracoLoader extends DRACOLoader {
+  _loadLibrary(url: string, responseType: string): Promise<unknown> {
+    let pending = dracoLibraries.get(url)
+    if (!pending) {
+      pending = loadDracoLibrary!.call(this, url, responseType)
+      // A failed fetch is not remembered: the next pool may try again.
+      pending.catch(() => dracoLibraries.delete(url))
+      dracoLibraries.set(url, pending)
+    }
+    return pending
+  }
+}
+
 let draco: DRACOLoader | null = null
 let dracoRefs = 0
 
@@ -67,7 +103,7 @@ let ktx2Refs = 0
  */
 export function acquireDracoLoader(): DRACOLoader {
   if (!draco) {
-    draco = new DRACOLoader()
+    draco = new SharedDracoLoader()
     draco.setDecoderPath(DRACO_PATH)
   }
   dracoRefs += 1

@@ -8,6 +8,7 @@
 2. **Se suelta cuando termina la carga, también si falla**, no cuando se libera el objeto que cargó. El logo de esquina y Murcia viven toda la sesión: atar la referencia a su vida dejaba los workers residentes para siempre.
 3. **Los límites de workers son los de three.** Bajarlos es una cuestión de perfil de dispositivo que no se ha medido.
 4. **Las rutas de los decodificadores las fija este módulo** (`DRACO_PATH`, `BASIS_PATH`), absolutas desde la raíz para que no fallen fuera de `/`.
+5. **La biblioteca de Draco se descarga una vez por documento** (desde el 2026-11-18). `SharedDracoLoader` guarda en el módulo lo que trae `_loadLibrary` (`draco_wasm_wrapper.js` y `draco_decoder.wasm`), y cada grupo nuevo la reutiliza. Soltar el grupo sigue liberando los workers y sus instancias de WASM.
 
 ## Por qué
 
@@ -15,7 +16,7 @@ Tres consumidores (ciudad, logo, satélites) creaban sus propios cargadores cont
 
 ## Qué cuesta
 
-Murcia vuelve a crear un grupo de Draco después de la apertura; los archivos se sirven de caché (`8e40377`).
+Murcia, y después el tráfico, vuelven a crear un grupo de Draco después de la apertura (`8e40377`). Hasta el 2026-11-18, cada grupo volvía a pedir la biblioteca: venía de la caché HTTP, pero se analizaba otra vez y sumaba 251 KB más a los recursos de cada visita. Ahora esos 251 KB se quedan en la memoria del hilo principal toda la sesión. `_initDecoder` copia el `ArrayBuffer` a cada worker sin transferirlo, así que nunca queda desconectado. `_loadLibrary` es API privada de three 0.174: si una actualización la renombra, el módulo falla al importarse.
 
 ## Qué se descartó
 
@@ -27,6 +28,7 @@ Murcia vuelve a crear un grupo de Draco después de la apertura; los archivos se
 
 - Falla `npm run check:render` (`new DRACOLoader` o `new KTX2Loader` fuera de `graphics/decoders.ts`), o aparece el aviso de three de «multiple instances» en la consola.
 - Siguen vivos workers de Draco o Basis después de que la ciudad esté lista (medición manual de `8e40377`, sin test).
+- Falla `decoders.test.ts` (la biblioteca se pide una vez para dos grupos seguidos, y un fallo de descarga no se recuerda), o `draco_decoder.wasm` aparece más de una vez en los recursos de una visita.
 - Falla `loadUnifiedLightmaps.test.ts` (el transcodificador se suelta una sola vez, también si falla la descarga).
 
 ## Afecta a
