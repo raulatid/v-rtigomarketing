@@ -384,10 +384,20 @@
   }
 }
 
+/* Transparent, not `none`: invisible here, but forced colors paints it in a
+   system colour, and there it is the only focus indicator the field has. */
 .audit-input:focus,
 .audit-input:focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
   background-size: 100% 1.5px, 100% 1px;
+}
+
+/* Forced colors drops gradient backgrounds, and with them both lines: the
+   field would have no boundary at all (WCAG 1.4.11). A real border stands in. */
+@media (forced-colors: active) {
+  .audit-input {
+    border-bottom: 1px solid CanvasText;
+  }
 }
 
 .audit-input:focus::placeholder {

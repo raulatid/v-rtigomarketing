@@ -102,11 +102,21 @@
 /* The drawn line, the label's stroke and its brighter text are the focus
    indicator. The field-qualified selector outranks the blog's blanket
    `.blog-surface :focus-visible` ring, which would draw a box round a field
-   that no longer is one. */
+   that no longer is one. The outline is transparent, not `none`: invisible
+   here, but forced colors paints it in a system colour, and there it is the
+   only focus indicator the field has. */
 .contact-input:focus,
 .contact-field .contact-input:focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
   background-size: 100% 1.5px, 100% 1px;
+}
+
+/* Forced colors drops gradient backgrounds, and with them both lines: the
+   field would have no boundary at all (WCAG 1.4.11). A real border stands in. */
+@media (forced-colors: active) {
+  .contact-input {
+    border-bottom: 1px solid CanvasText;
+  }
 }
 
 .contact-input:focus::placeholder {

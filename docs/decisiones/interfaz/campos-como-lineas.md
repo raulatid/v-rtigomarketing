@@ -11,6 +11,7 @@
 5. **El CTA:** el hover es un barrido del azul claro, solo con `(hover: hover)`. Mientras envía, una línea de progreso recorre su pie.
 6. **El desplegable de vidrio es progresivo:** `appearance: base-select` dentro de `@supports` (`auditSection.css`). Donde Chromium lo permite, la lista es el vidrio del panel, pintada en la capa superior; en el resto, la lista del sistema. Mientras está abierta, el select lleva él mismo el aspecto activo, porque `:focus-within` deja de coincidir.
 7. **El texto de un campo nunca baja de 16 px:** por debajo, iOS Safari amplía la página al enfocar y la escena no se puede volver a pellizcar.
+8. **En colores forzados, el campo pasa a ser un borde** (desde el 2026-11-19, hallazgo V1 de la [auditoría de accesibilidad](../../audits/reports/accessibility-wcag-2026-11-18.md)). Colores forzados quita los degradados de fondo, y con ellos las dos líneas. Por eso, dentro de `@media (forced-colors: active)`, el campo lleva `border-bottom: 1px solid CanvasText`. El foco quita el contorno con `outline: 2px solid transparent`, no con `none`: fuera de colores forzados no se ve, y dentro el sistema lo pinta, porque es el único indicador de foco que queda.
 
 ## Por qué
 
@@ -28,7 +29,8 @@ La maqueta aprobada para la candidatura. El rojo con el campo vacío castigaba a
 - La línea de reposo deja de leerse sobre un fotograma claro de la escena (se sube `--field-line`, no se quita).
 - Una regla de error o de foco pierde frente a un hover o frente al anillo `.blog-surface :focus-visible` del blog.
 - Se escribe `::picker(select)` en una lista de selectores fuera de `@supports`: los navegadores sin soporte descartan la regla entera.
-- El texto de un campo baja de 16 px. Solo lo fija `e2e/mobile.spec.ts` para la búsqueda del blog; en los formularios, sin test.
+- El texto de un campo baja de 16 px.
+- El foco de un campo vuelve a `outline: none`, o desaparece el bloque `forced-colors` de `auditSection.css` o de `contactSection.css`: en el modo de contraste alto de Windows los campos se quedan sin límite y sin foco. Sin test; se comprueba emulando `forced-colors: active` antes de cargar la página (cambiarlo en caliente puede no repintar en Chromium sin interfaz). Solo lo fija `e2e/mobile.spec.ts` para la búsqueda del blog; en los formularios, sin test.
 
 El diálogo de reclamo se va a retirar (ver [trampas de formularios](../../trampas/formularios-y-privacidad.md), n.º 21); el comportamiento de los formularios está en [diálogo de contacto](../formularios/dialogo-de-contacto.md).
 
