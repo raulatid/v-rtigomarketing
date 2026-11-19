@@ -9,6 +9,8 @@ import earthFrag from '../shaders/earth/fragment.glsl'
 import atmosphereVert from '../shaders/atmosphere/vertex.glsl'
 import atmosphereFrag from '../shaders/atmosphere/fragment.glsl'
 import { EARTH_CONFIG, EARTH_TEXTURES, usesNarrowEarthTextures } from '../config/earthConfig'
+import { PROTO_EARTH_TEXTURES, protoEarthTextureUrls } from '../config/protoEarthTextures'
+import { ProtoEarthTextureLoader } from './protoEarthTextureLoader'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { earthVisible } from '../config/sceneVisibility'
@@ -65,7 +67,14 @@ function earthTextureUrls(): string[] {
   // `usesNarrowEarthTextures` rather than the width, because the zoom's near end
   // reads the same answer (`createFocusCameraRig`) and the two must not be able
   // to disagree — a rotated phone passes a width test and still holds these maps.
-  const set = usesNarrowEarthTextures() ? EARTH_TEXTURES.narrow : EARTH_TEXTURES.wide
+  const narrow = usesNarrowEarthTextures()
+  const set = narrow ? EARTH_TEXTURES.narrow : EARTH_TEXTURES.wide
+  // Dev-only AVIF prototype (`protoEarthTextures.ts`); null in production.
+  const variant = PROTO_EARTH_TEXTURES.variant
+  if (variant) {
+    const proto = protoEarthTextureUrls(variant, narrow)
+    return [proto.day, proto.night, set.clouds]
+  }
   return [set.day, set.night, set.clouds]
 }
 
@@ -94,7 +103,20 @@ function acquireEarthKtx2(renderer: THREE.WebGLRenderer): KTX2Loader {
 function releaseEarthKtx2(): void {
   if (!earthKtx2) return
   earthKtx2 = null
+  earthProtoLoader = null
   releaseKtx2Loader()
+}
+
+// The AVIF prototype's loader, guarded the same way and for the same reason:
+// `useLoader` keys its cache on the instance, so it must survive the suspended
+// first render. Wraps the KTX2 loader above, so it is dropped with it.
+let earthProtoLoader: ProtoEarthTextureLoader | null = null
+
+function acquireEarthLoader(renderer: THREE.WebGLRenderer): KTX2Loader | ProtoEarthTextureLoader {
+  const ktx2 = acquireEarthKtx2(renderer)
+  if (!PROTO_EARTH_TEXTURES.variant) return ktx2
+  if (!earthProtoLoader) earthProtoLoader = new ProtoEarthTextureLoader(ktx2)
+  return earthProtoLoader
 }
 
 // Ported from dolly-earth. The tuning-panel plumbing is dropped — these values
@@ -109,7 +131,7 @@ export function EarthScene({
   const { gl, scene, camera } = useThree()
 
   const [dayTex, nightTex, cloudsTex] = useLoader(
-    acquireEarthKtx2(gl),
+    acquireEarthLoader(gl),
     earthTextureUrls(),
     (loader) => {
       loader.manager = earthManager
@@ -153,7 +175,16 @@ export function EarthScene({
         const maps = [dayTex, nightTex, cloudsTex]
         for (let i = 0; i < maps.length; i++) {
           if (cancelled) return
+          const uploadStarted = performance.now()
           gl.initTexture(maps[i])
+          // AVIF prototype only: KTX2 maps are never ImageBitmaps. Logs the
+          // upload, then frees the bitmap's CPU copy as SkyShell does, so the
+          // arm's memory is what a shipped version would hold.
+          const image: unknown = maps[i].image
+          if (PROTO_EARTH_TEXTURES.variant && typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
+            console.info(`[earthTex] map ${i} uploaded in ${Math.round(performance.now() - uploadStarted)} ms`)
+            image.close()
+          }
           // Reported as it goes rather than at the end: these uploads are the
           // longest stalls in P0, and the drawing must be seen to be waiting on
           // them rather than sitting still for no visible reason.

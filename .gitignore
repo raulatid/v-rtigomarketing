@@ -135,6 +135,10 @@ desktop.ini
 # The sky-test- prefix is enforced by protoSky.ts, so this cannot drift from it.
 /public/textures/sky-test-*
 
+# AVIF surface-map variants auditioned through ?earthTex= (protoEarthTextures.ts).
+# Encoded from the masters in 04_Assets/texturas-tierra/, never a deliverable.
+/public/proto-earth/
+
 # And the captures taken through them. 34 PNGs at 1600x900 and 3200x1800 is
 # 25 MB, which is not weight a marketing site's repository should carry for the
 # rest of its life — a clone pays for it forever, and the shots are regenerable
