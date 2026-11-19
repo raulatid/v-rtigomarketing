@@ -237,16 +237,17 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   // ── DOM ──
   const root = doc.createElement('div')
   root.className = 'intro-root'
-  root.setAttribute('aria-hidden', 'true')
 
   // Loading caption. Absolutely positioned rather than added to the flex flow,
   // because the mark has to stay EXACTLY at screen centre — the 3D logo blooms
   // there at the swap crossover, and nudging the 2D mark up would break the
   // substitution that crossover conceals.
   //
-  // Not aria-hidden like the root: this is the only thing on screen that tells
+  // Not aria-hidden like the mark: this is the only thing on screen that tells
   // a screen reader anything is happening. `role=status` announces changes
-  // without stealing focus.
+  // without stealing focus. Which is why the root is not aria-hidden either —
+  // an ancestor's aria-hidden cannot be undone below it, so it silenced this
+  // caption too. Only the mark is hidden (`newMark`).
   const caption = doc.createElement('p')
   caption.className = 'intro-caption'
   caption.setAttribute('role', 'status')
@@ -328,6 +329,8 @@ export function createIntroDraw(options: IntroDrawOptions): IntroDrawHandle {
   function newMark<T extends SVGSVGElement | HTMLCanvasElement>(mark: T): T {
     mark.style.setProperty('--intro-base', String(cfg.introSize))
     if (quiet) mark.style.visibility = 'hidden'
+    // Decorative: the caption is what says something is happening.
+    mark.setAttribute('aria-hidden', 'true')
     // Before the caption, which is where the SVG always sat in the root.
     root.insertBefore(mark, caption)
     return mark
