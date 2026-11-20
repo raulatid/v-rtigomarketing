@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { murciaConfig } from '../../config/murciaConfig';
-import { atlasResolutions, parseUnifiedManifest } from './unifiedManifest';
+import { atlasResolutions, parseUnifiedManifest, selectedVariant } from './unifiedManifest';
 
 const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   ground: { threeLightMapIntensity: Math.PI * 4, variants: {
@@ -10,7 +10,7 @@ const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   } },
 } });
 describe('the selected unified bake contract', () => {
-  it('ships the active v5.2-r5 profile with exact sizes, dimensions and total budgets', () => {
+  it('ships the active murcia-v8 profile with exact sizes, dimensions and total budgets', () => {
     const config = murciaConfig.lightmaps!;
     if (!('manifest' in config)) throw new Error('Expected the unified manifest');
     const directory = 'public' + config.baseUrl;
@@ -22,6 +22,7 @@ describe('the selected unified bake contract', () => {
       let total = 0;
       for (const atlas of Object.values(shipped.atlases)) {
         const variant = atlas.variants[resolution];
+        if (!variant) continue;
         const data = fs.readFileSync(directory + variant.file);
         expect(data.length).toBe(variant.bytes);
         expect(data.subarray(0, 12).toString('hex')).toBe('ab4b5458203230bb0d0a1a0a');
@@ -31,16 +32,16 @@ describe('the selected unified bake contract', () => {
         total += data.length;
       }
       const selected = atlasResolutions(shipped, resolution);
-      const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + shipped.atlases[key].variants[size].bytes, 0);
+      const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + selectedVariant(shipped, key, size).bytes, 0);
       // Both profiles load every atlas at 1024 since r4.
       expect(new Set(selected.values())).toEqual(new Set([1024]));
-      expect(loadedBytes).toBe(1_837_076);
+      expect(loadedBytes).toBe(2_052_451);
       expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_500_000 : 6_500_000);
     }
   });
   it('retains per-atlas safe mip limits and radiance scales', () => {
     const parsed = parseUnifiedManifest(manifest());
-    expect(parsed.atlases.ground.variants[2048].mipLevels).toBe(2);
+    expect(parsed.atlases.ground.variants[2048]?.mipLevels).toBe(2);
     expect(parsed.atlases.ground.threeLightMapIntensity).toBe(Math.PI * 4);
   });
   it('rejects unsafe paths, malformed contracts and mip chains beyond the gutters', () => {
@@ -81,6 +82,31 @@ describe('the size each atlas loads at', () => {
     const directory = 'public' + config.baseUrl;
     const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
     expect(() => atlasResolutions(shipped, 2048, config.desktop1024)).not.toThrow();
+  });
+});
+
+describe('a bake that ships only 1024', () => {
+  const only1024 = () => {
+    const m = manifest();
+    return { ...m, atlases: { ground: { ...m.atlases.ground, variants: { 1024: m.atlases.ground.variants[1024] } } } };
+  };
+
+  it('parses, and loads every atlas at 1024 whatever the device', () => {
+    const m = parseUnifiedManifest(only1024());
+    expect(m.atlases.ground.variants[2048]).toBeUndefined();
+    expect([...atlasResolutions(m, 2048).values()]).toEqual([1024]);
+    expect(selectedVariant(m, 'ground', 1024).file).toBe('ground-1024.ktx2');
+  });
+
+  it('counts the 1024 bytes against the desktop budget', () => {
+    const m = only1024();
+    m.atlases.ground.variants[1024].bytes = 4_500_000;
+    expect(() => parseUnifiedManifest({ ...m, atlases: { a: m.atlases.ground, b: m.atlases.ground } })).toThrow('total download');
+  });
+
+  it('rejects a profile that names the 2048 variant it does not ship', () => {
+    expect(() => parseUnifiedManifest({ ...only1024(), profiles: { desktop: { atlasResolutions: { ground: 2048 } } } }))
+      .toThrow('atlas resolutions');
   });
 });
 

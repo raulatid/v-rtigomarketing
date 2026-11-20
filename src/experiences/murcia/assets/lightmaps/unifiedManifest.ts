@@ -1,8 +1,10 @@
 import type { LightmapResolution } from './lightmapManifest';
 
+export interface UnifiedVariant { file: string; bytes: number; mipLevels: number }
 export interface UnifiedAtlas {
   threeLightMapIntensity: number;
-  variants: Record<LightmapResolution, { file: string; bytes: number; mipLevels: number }>;
+  /** 1024 is required; 2048 is optional, and an atlas without it loads at 1024 everywhere. */
+  variants: { 1024: UnifiedVariant; 2048?: UnifiedVariant };
 }
 export interface UnifiedManifest {
   profiles?: Partial<Record<'mobile' | 'desktop', { atlasResolutions?: Record<string, LightmapResolution> }>>;
@@ -36,6 +38,10 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
     }
     for (const resolution of [1024, 2048] as const) {
       const v = entry.variants?.[resolution];
+      if (resolution === 2048 && v === undefined) {
+        totals[2048] += entry.variants[1024].bytes;
+        continue;
+      }
       if (!v || typeof v.file !== 'string' || !/^[a-zA-Z0-9_-]+\.ktx2$/.test(v.file) ||
           !Number.isInteger(v.bytes) || v.bytes <= 0 ||
           !Number.isInteger(v.mipLevels) || v.mipLevels < 1 || v.mipLevels > (resolution === 1024 ? 1 : 2)) {
@@ -54,10 +60,11 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
     if (sizes === undefined) continue;
     if (!sizes || typeof sizes !== 'object' || Object.keys(sizes).length !== Object.keys(m.atlases).length ||
         Object.keys(sizes).some(key => !(key in m.atlases)) ||
-        Object.keys(m.atlases).some(key => sizes[key] !== 1024 && sizes[key] !== 2048)) {
+        Object.keys(m.atlases).some(key => sizes[key] !== 1024 && sizes[key] !== 2048) ||
+        Object.keys(m.atlases).some(key => !m.atlases[key].variants[sizes[key]])) {
       throw new Error(`[lightmaps] invalid ${profile} atlas resolutions`);
     }
-    const total = Object.entries(sizes).reduce((sum, [key, size]) => sum + m.atlases[key].variants[size].bytes, 0);
+    const total = Object.entries(sizes).reduce((sum, [key, size]) => sum + m.atlases[key].variants[size]!.bytes, 0);
     if (total > limit) throw new Error(`[lightmaps] ${profile} exceeds the total download budget`);
   }
   return m;
@@ -65,6 +72,7 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
 
 /**
  * The manifest may allocate mixed resolutions per profile. Explicit reductions take precedence.
+ * An atlas that ships no 2048 variant loads at 1024 whatever the device.
  *
  * A reduced key the manifest does not have throws rather than being skipped. The
  * list names one bake's atlases, and after a re-bake a stale name would otherwise
@@ -83,5 +91,11 @@ export function atlasResolutions(
   }
   const small = new Set(reduced === 'all' ? keys : reduced);
   const profile = manifest.profiles?.[base === 1024 ? 'mobile' : 'desktop']?.atlasResolutions;
-  return new Map(keys.map((key) => [key, small.has(key) ? 1024 : profile?.[key] ?? base]));
+  const own = (key: string): LightmapResolution => (manifest.atlases[key].variants[base] ? base : 1024);
+  return new Map(keys.map((key) => [key, small.has(key) ? 1024 : profile?.[key] ?? own(key)]));
+}
+
+/** The variant `atlasResolutions` chose; it always exists in a parsed manifest. */
+export function selectedVariant(manifest: UnifiedManifest, key: string, size: LightmapResolution): UnifiedVariant {
+  return manifest.atlases[key].variants[size]!;
 }

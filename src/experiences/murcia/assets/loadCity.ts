@@ -12,6 +12,7 @@ import { DEFAULT_RIO_WATER_CONFIG } from '../water/rioWaterConfig';
 import { computeRiverFrame } from '../water/riverFrame';
 import { applyCampusPalette } from '../campus/campusPalette';
 import { loadLightmaps, type LightmapHandle } from './lightmaps/loadLightmaps';
+import { expandFacadeRecords } from './facadeRecords';
 import type { LightmapConfig } from '../config/environmentConfig';
 import { fetchCityBytes, type CityBytes } from './cityBytes';
 
@@ -207,6 +208,8 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   });
 
   const gltf = await gltfPromise;
+  // Windows stored as facade records become InstancedMeshes before anything looks at the scene.
+  await expandFacadeRecords(gltf);
 
   const root = gltf.scene;
 

@@ -41,12 +41,22 @@ export interface LightmapMaterialOptions {
   programKey: string;
   /** Keep the selected export's authored albedo as well as its vertex colours. */
   preserveAlbedo?: boolean;
+  /**
+   * Set for instanced props: where `toneMask` is 1 the vertex colour is
+   * replaced by the instance's `instanceTone`, as the traffic does.
+   */
+  toned?: boolean;
 }
+
+/** The per-vertex mask (`_TONE` in the GLB) and the per-instance colour of a toned prop. */
+export const TONE_MASK_ATTRIBUTE = 'toneMask';
+export const INSTANCE_TONE_ATTRIBUTE = 'instanceTone';
 
 /** The per-instance rectangle in the atlas: `uv * xy + zw`. */
 export const LIGHTMAP_ST_ATTRIBUTE = '_LIGHTMAP_ST';
 
 const LOOKUP = 'texture2D( lightMap, vLightMapUv )';
+const COLOR_VERTEX = '#include <color_vertex>';
 
 /**
  * Builds the unlit lightmapped material for one receiver, carrying over from
@@ -85,6 +95,15 @@ export function createLightmapMaterial(
             '#endif',
         );
     }
+    if (options.toned) {
+      if (!shader.vertexShader.includes(COLOR_VERTEX)) throw new Error('[lightmaps] three moved <color_vertex>');
+      shader.vertexShader =
+        `attribute float ${TONE_MASK_ATTRIBUTE};\nattribute vec3 ${INSTANCE_TONE_ATTRIBUTE};\n` +
+        shader.vertexShader.replace(
+          COLOR_VERTEX,
+          `${COLOR_VERTEX}\nvColor.xyz = mix( vColor.xyz, ${INSTANCE_TONE_ATTRIBUTE}, ${TONE_MASK_ATTRIBUTE} );`,
+        );
+    }
     if (!shader.fragmentShader.includes(LOOKUP)) {
       throw new Error('[lightmaps] three changed the lightmap lookup');
     }
@@ -107,7 +126,7 @@ vec4 sampleCityLightmap( sampler2D atlas, vec2 uv ) {
       .replace(LOOKUP, 'sampleCityLightmap( lightMap, vLightMapUv )');
   };
   // The uniform VALUES differ per material and live on the material; only the
-  // GLSL is shared, and it differs by whether the ST patch is in.
+  // GLSL is shared, and it differs by whether the ST and tone patches are in.
   material.customProgramCacheKey = () => options.programKey;
   return material;
 }

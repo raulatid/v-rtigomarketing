@@ -1,7 +1,7 @@
 import { murciaConfig } from '../config/murciaConfig';
 import type { EnvironmentConfig } from '../config/environmentConfig';
 import { deviceResolution } from './lightmaps/deviceResolution';
-import { atlasResolutions, parseUnifiedManifest } from './lightmaps/unifiedManifest';
+import { atlasResolutions, parseUnifiedManifest, selectedVariant } from './lightmaps/unifiedManifest';
 
 // The city's files, read ahead of its build (ADR 016, the work rule).
 //
@@ -67,7 +67,7 @@ export function prefetchCityBytes(
         const manifest = parseUnifiedManifest(raw);
         const sizes = atlasResolutions(manifest, deviceResolution(), lightmaps.desktop1024);
         for (const [key, size] of sizes) {
-          read(lightmaps.baseUrl + manifest.atlases[key].variants[size].file, readAhead.buffer);
+          read(lightmaps.baseUrl + selectedVariant(manifest, key, size).file, readAhead.buffer);
         }
       })
       .catch(() => {});

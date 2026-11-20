@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { acquireKtx2Loader, releaseKtx2Loader } from '../../../../graphics/decoders';
 import { findByAnyNameSpelling } from '../nodeNames';
-import { LIGHTMAP_ST_ATTRIBUTE, createLightmapMaterial, prepareLightmapTexture } from './lightmapMaterial';
-import { atlasResolutions, parseUnifiedManifest } from './unifiedManifest';
+import {
+  INSTANCE_TONE_ATTRIBUTE, LIGHTMAP_ST_ATTRIBUTE, TONE_MASK_ATTRIBUTE, createLightmapMaterial, prepareLightmapTexture,
+} from './lightmapMaterial';
+import { atlasResolutions, parseUnifiedManifest, selectedVariant } from './unifiedManifest';
 import type { LightmapResolution } from './lightmapManifest';
 import { fetchCityBytes, type CityBytes } from '../cityBytes';
 
@@ -64,7 +66,7 @@ export async function loadUnifiedLightmaps(
     // Download in parallel: one file after another paid a round trip each,
     // 4.5 s for 20 atlases on the tablet. A failure surfaces at its own await
     // below; the catch only keeps the ones never reached from going unhandled.
-    const downloads = keys.map(key => bytes.buffer(base + manifest.atlases[key].variants[sizes.get(key)!].file));
+    const downloads = keys.map(key => bytes.buffer(base + selectedVariant(manifest, key, sizes.get(key)!).file));
     for (const download of downloads) download.catch(() => {});
     // Decode serially to avoid simultaneous worker/upload peaks on phones.
     for (const [index, key] of keys.entries()) {
@@ -78,20 +80,38 @@ export async function loadUnifiedLightmaps(
       const key = object.userData.lightmap_atlas as string;
       const row = manifest.atlases[key];
       const instanced = (object as THREE.InstancedMesh).isInstancedMesh === true;
-      if (instanced) {
+      let toned = false;
+      if (instanced && object.userData.instance_st_builtin === true) {
+        // Expanded from facade records (`facadeRecords.ts`): its own geometry already carries the ST.
+        const st = geometry.getAttribute(LIGHTMAP_ST_ATTRIBUTE);
+        if (!(st instanceof THREE.InstancedBufferAttribute) || st.count !== (object as THREE.InstancedMesh).count) {
+          throw new Error(`[lightmaps] instance count mismatch: ${object.name}`);
+        }
+      } else if (instanced) {
         const accessor = object.userData.instance_st_accessor;
         if (!Number.isInteger(accessor) || accessor < 0) throw new Error(`[lightmaps] missing ST: ${object.name}`);
         const st = await gltf.parser.getDependency('accessor', accessor) as THREE.BufferAttribute;
         if (st.itemSize !== 4 || st.count !== (object as THREE.InstancedMesh).count) {
           throw new Error(`[lightmaps] instance count mismatch: ${object.name}`);
         }
-        object.geometry = ownGeometryWithSt(geometry, st);
+        // A toned prop: its mask on the prototype, its colour per instance.
+        const toneAccessor = object.userData.instance_tone_accessor;
+        let tone: THREE.BufferAttribute | null = null;
+        if (toneAccessor !== undefined) {
+          if (!Number.isInteger(toneAccessor) || toneAccessor < 0 || !geometry.getAttribute(GLTF_TONE_ATTRIBUTE)) {
+            throw new Error(`[lightmaps] missing tone: ${object.name}`);
+          }
+          tone = await gltf.parser.getDependency('accessor', toneAccessor) as THREE.BufferAttribute;
+          if (tone.itemSize !== 3 || tone.count !== st.count) throw new Error(`[lightmaps] instance count mismatch: ${object.name}`);
+          toned = true;
+        }
+        object.geometry = ownGeometryWithSt(geometry, st, tone);
         geometries.push(object.geometry);
       } else if (object.userData.instance_st_accessor !== undefined) {
         throw new Error(`[lightmaps] instancing unavailable: ${object.name}`);
       }
       const build = (source: THREE.Material) => {
-        const cacheKey = `${key}:${source.uuid}:${instanced}`;
+        const cacheKey = `${key}:${source.uuid}:${instanced}:${toned}`;
         let material = materials.get(cacheKey);
         if (!material && source.transparent && source.opacity < 0.999) {
           // Lobby glass keeps runtime PBR lighting, opacity and roughness.
@@ -102,11 +122,12 @@ export async function loadUnifiedLightmaps(
         }
         if (!material) {
           const size = sizes.get(key)!;
+          const variant = selectedVariant(manifest, key, size);
           material = createLightmapMaterial(source, {
             lightMap: textures.get(key)!, lightMapIntensity: row.threeLightMapIntensity,
-            atlasSize: size, maxMip: row.variants[size].mipLevels - 1,
-            instanced, preserveAlbedo: true,
-            programKey: `murcia-v5.1-${instanced}-${size}-${row.variants[size].mipLevels}`,
+            atlasSize: size, maxMip: variant.mipLevels - 1,
+            instanced, preserveAlbedo: true, toned,
+            programKey: `murcia-v5.1-${instanced}-${toned}-${size}-${variant.mipLevels}`,
           });
           material.name = `${source.name} | ${key}`;
           materials.set(cacheKey, material);
@@ -139,10 +160,14 @@ export async function loadUnifiedLightmaps(
  * Sharing the position/normal/uv buffers keeps the GPU cost of instancing —
  * one prototype upload — while giving each group the one attribute that differs.
  */
-function ownGeometryWithSt(source: THREE.BufferGeometry, st: THREE.BufferAttribute): THREE.BufferGeometry {
+function ownGeometryWithSt(
+  source: THREE.BufferGeometry, st: THREE.BufferAttribute, tone: THREE.BufferAttribute | null = null,
+): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
   for (const [attribute, value] of Object.entries(source.attributes)) {
-    if (attribute !== LIGHTMAP_ST_ATTRIBUTE) geometry.setAttribute(attribute, value);
+    if (attribute === LIGHTMAP_ST_ATTRIBUTE) continue;
+    // A toned prop's mask, renamed for the shader (`lightmapMaterial.ts`).
+    geometry.setAttribute(tone && attribute === GLTF_TONE_ATTRIBUTE ? TONE_MASK_ATTRIBUTE : attribute, value);
   }
   geometry.setIndex(source.index);
   for (const group of source.groups) geometry.addGroup(group.start, group.count, group.materialIndex);
@@ -153,5 +178,14 @@ function ownGeometryWithSt(source: THREE.BufferGeometry, st: THREE.BufferAttribu
     LIGHTMAP_ST_ATTRIBUTE,
     new THREE.InstancedBufferAttribute(st.array as Float32Array, 4, st.normalized),
   );
+  if (tone) {
+    geometry.setAttribute(
+      INSTANCE_TONE_ATTRIBUTE,
+      new THREE.InstancedBufferAttribute(tone.array as Float32Array, 3, tone.normalized),
+    );
+  }
   return geometry;
 }
+
+/** `_TONE` in the GLB, lowercased by `GLTFLoader`, as in the traffic. */
+const GLTF_TONE_ATTRIBUTE = '_tone';

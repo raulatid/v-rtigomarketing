@@ -134,3 +134,63 @@ describe('unified atlas loading order', () => {
     expect(decoder.release).toHaveBeenCalledOnce();
   });
 });
+
+describe('instanced receivers', () => {
+  const only1024 = (name: string) => ({ uvChannel: 1, requiredNames: [], atlases: { [name]: {
+    threeLightMapIntensity: 1, variants: { 1024: { file: `${name}-1024.ktx2`, bytes: 100, mipLevels: 1 } },
+  } } });
+  const stubAtlas = (name: string) => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('.ktx2')
+      ? { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }
+      : { ok: true, json: async () => only1024(name) }));
+    decoder.parse.mockImplementation((_buffer: ArrayBuffer, onLoad: (t: THREE.Texture) => void) => onLoad(new THREE.Texture()));
+  };
+  const prototype = () => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    geometry.setAttribute('uv1', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1], 2));
+    geometry.setAttribute('_tone', new THREE.Float32BufferAttribute([1, 0, 1], 1));
+    return geometry;
+  };
+
+  it('gives a toned prop its mask and its per-instance colour, on a geometry of its own', async () => {
+    const shared = prototype();
+    const bench = new THREE.InstancedMesh(shared, new THREE.MeshStandardMaterial({ vertexColors: true }), 2);
+    bench.userData = { lightmap_atlas: 'props', instance_st_accessor: 7, instance_tone_accessor: 8 };
+    const scene = new THREE.Group(); scene.add(bench);
+    const st = new THREE.BufferAttribute(new Uint16Array(8).fill(32768), 4, true);
+    const tone = new THREE.BufferAttribute(new Uint16Array([65535, 0, 0, 0, 65535, 0]), 3, true);
+    const parser = { getDependency: vi.fn(async (_type: string, index: number) => (index === 7 ? st : tone)) };
+    stubAtlas('props');
+    const handle = await loadUnifiedLightmaps({ scene, parser } as unknown as GLTF, {} as THREE.WebGLRenderer, '/maps/', 'lightmaps.json', 2048);
+    expect(handle).not.toBeNull();
+    expect(bench.geometry).not.toBe(shared);
+    expect(bench.geometry.getAttribute('toneMask')).toBe(shared.getAttribute('_tone'));
+    const instanceTone = bench.geometry.getAttribute('instanceTone') as THREE.InstancedBufferAttribute;
+    expect(instanceTone).toBeInstanceOf(THREE.InstancedBufferAttribute);
+    expect(instanceTone.normalized).toBe(true);
+    expect(instanceTone.getX(0)).toBeCloseTo(1, 5);
+    expect(instanceTone.getY(1)).toBeCloseTo(1, 5);
+    // The shared prototype is left as it was.
+    expect(shared.getAttribute('instanceTone')).toBeUndefined();
+    const material = bench.material as unknown as THREE.MeshBasicMaterial;
+    const shader = { vertexShader: '#include <common>\n#include <uv_vertex>\n#include <color_vertex>\n', fragmentShader: '#include <common>\ntexture2D( lightMap, vLightMapUv )', uniforms: {} };
+    material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+    expect(shader.vertexShader).toContain('vColor.xyz = mix( vColor.xyz, instanceTone, toneMask );');
+    expect(material.customProgramCacheKey()).toContain('true-true');
+  });
+
+  it('takes the ST a facade expansion already put on the geometry', async () => {
+    const geometry = prototype();
+    geometry.deleteAttribute('_tone');
+    geometry.setAttribute('_LIGHTMAP_ST', new THREE.InstancedBufferAttribute(new Float32Array(8), 4));
+    const windows = new THREE.InstancedMesh(geometry, new THREE.MeshStandardMaterial(), 2);
+    windows.userData = { lightmap_atlas: 'windows', instance_st_builtin: true };
+    const scene = new THREE.Group(); scene.add(windows);
+    stubAtlas('windows');
+    const handle = await loadUnifiedLightmaps({ scene, parser: {} } as unknown as GLTF, {} as THREE.WebGLRenderer, '/maps/', 'lightmaps.json', 1024);
+    expect(handle).not.toBeNull();
+    expect(windows.geometry).toBe(geometry);
+    expect(windows.material).toBeInstanceOf(THREE.MeshBasicMaterial);
+  });
+});
