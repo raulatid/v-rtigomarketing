@@ -1,6 +1,6 @@
 # La ciudad es una entrega versionada: un GLB y su carpeta de lightmaps
 
-**Estado:** vigente · **Desde:** 2026-09-15 (`3becc4d`: un solo manifiesto, `unifiedManifest.ts`); perfiles mixtos por atlas desde el 2026-09-25 (`745b08b`); todo a 1024 en los dos perfiles desde el 2026-11-18 (v5.2-r4); GLB recuantizado desde el 2026-11-18 (v5.2-r5); entrega y topes actuales desde el 2026-09-25 (`21fce78`, `03fd9d8`); topes con nombre desde el 2026-10-20 (`b9b2120`) · **Sustituye a:** DECISIONS §49 en lo que toca a archivos, coste y resolución («Resolution follows the sky's split», «Cost»); `docs/murcia/lightmaps-*-integration.md` y `archivo/murcia/stadium-roof-repair.md` como fuente vigente
+**Estado:** vigente · **Desde:** 2026-09-15 (`3becc4d`: un solo manifiesto, `unifiedManifest.ts`); perfiles mixtos por atlas desde el 2026-09-25 (`745b08b`); todo a 1024 en los dos perfiles desde el 2026-11-18 (v5.2-r4); GLB recuantizado desde el 2026-11-18 (v5.2-r5); entrega v8 sin variantes de 2048 desde el 2026-11-20 (`3df184f`); entrega y topes actuales desde el 2026-09-25 (`21fce78`, `03fd9d8`); topes con nombre desde el 2026-10-20 (`b9b2120`) · **Sustituye a:** DECISIONS §49 en lo que toca a archivos, coste y resolución («Resolution follows the sky's split», «Cost»); `docs/murcia/lightmaps-*-integration.md` y `archivo/murcia/stadium-roof-repair.md` como fuente vigente
 
 ## Decisión
 
@@ -8,7 +8,7 @@
 2. **`lightmaps.json` es el contrato entre el horneado y el runtime.** `parseUnifiedManifest` (`unifiedManifest.ts`) lo valida antes de reservar nada en la GPU:
    - `uvChannel` igual a 1;
    - `requiredNames`, los nodos que tienen que existir en el GLB;
-   - por atlas, una intensidad y dos variantes, 1024 y 2048, cada una con un archivo dentro de la carpeta, sus bytes y su número de mips (el máximo por resolución lo fija `parseUnifiedManifest` en `unifiedManifest.ts`);
+   - por atlas, una intensidad y sus variantes: la de 1024 es obligatoria y la de 2048 opcional. Cada una lleva un archivo dentro de la carpeta, sus bytes y su número de mips (el máximo por resolución lo fija `parseUnifiedManifest` en `unifiedManifest.ts`). Un atlas sin 2048 se carga a 1024 en cualquier dispositivo;
    - `profiles`, opcional: la resolución de cada atlas en móvil y en escritorio.
 
    Un rehorneado se instala soltando archivos: el runtime no guarda una segunda lista de atlas.
@@ -26,8 +26,9 @@
 
 - `public/` no lleva hash y se cachea: si una entrega cambia sin cambiar de nombre, el visitante puede mezclar un GLB nuevo con atlas viejos (ver [recursos publicados](recursos-publicados.md)).
 - Un solo manifiesto convierte un rehorneado en soltar archivos, sin tocar código.
-- Desde r4 los dos perfiles cargan todos los atlas a 1024 (1.837.076 bytes). Con el prototipo de 2026-11-18 el usuario no vio diferencia frente a 2048 en la escena, en escritorio ni en móvil emulado, ni en el acercamiento máximo. Antes, los perfiles mixtos daban prioridad al suelo central, la catedral y los pretiles (`745b08b`). Las variantes de 2048 siguen en la entrega porque `parseUnifiedManifest` exige las dos; ningún perfil las descarga.
-- Desde r5 el GLB pesa 2.615.876 bytes (3.673.964 en r4): Draco con los bits justos por primitiva e instancias en enteros normalizados, con los mismos lightmaps. La receta, sus tolerancias y la revisión en escena están en el [registro de r5](../../murcia/lightmaps-v5.2-r5-integration.md).
+- Desde r4 los dos perfiles cargan todos los atlas a 1024 (1.837.076 bytes). Con el prototipo de 2026-11-18 el usuario no vio diferencia frente a 2048 en la escena, en escritorio ni en móvil emulado, ni en el acercamiento máximo. Antes, los perfiles mixtos daban prioridad al suelo central, la catedral y los pretiles (`745b08b`). Hasta r5 las variantes de 2048 seguían en la entrega porque `parseUnifiedManifest` exigía las dos, aunque ningún perfil las descargaba. Desde v8 son opcionales y la entrega ya no las trae.
+- En r5 el GLB pesaba 2.615.876 bytes (3.673.964 en r4): Draco con los bits justos por primitiva e instancias en enteros normalizados, con los mismos lightmaps. La receta, sus tolerancias y la revisión en escena están en el [registro de r5](../../murcia/lightmaps-v5.2-r5-integration.md).
+- En v8 el GLB pesa 1.983.652 bytes y los lightmaps que se cargan, 2.052.451 en los dos perfiles. Las ventanas viajan como registros de fachada que `facadeRecords.ts` expande, y los props instanciados llevan una máscara de tono con un color por instancia. Cómo se exporta y qué falla está en el [análisis de la cadena de v8](../../audits/reports/murcia-v8-export-pipeline-2026-11-20.md), con cifras de la pasada anterior al arreglo de las ventanas.
 - La base en 1024 para pantallas táctiles y con poca memoria existe porque los atlas se quedan en la GPU desde la intro y la memoria de iOS es el límite (comentario de `chooseLightmapResolution`, `bba196a`).
 
 ## Qué se descartó
@@ -56,4 +57,4 @@
 
 ## Afecta a
 
-`src/experiences/murcia/config/murciaConfig.ts` (`modelPath`, `lightmaps`), `src/experiences/murcia/config/environmentConfig.ts` (`LightmapConfig`), `src/experiences/murcia/assets/lightmaps/` (`unifiedManifest.ts`, `loadUnifiedLightmaps.ts`, `loadLightmaps.ts`, `deviceResolution.ts`, `lightmapManifest.ts`), `src/experiences/murcia/assets/cityBytes.ts`, `public/models/`, `public/textures/murcia/lightmaps-*/`, `checks/city-asset.ts`, `docs/murcia/lightmaps-v5.2-r5-integration.md` (registro de la entrega vigente)
+`src/experiences/murcia/config/murciaConfig.ts` (`modelPath`, `lightmaps`), `src/experiences/murcia/config/environmentConfig.ts` (`LightmapConfig`), `src/experiences/murcia/assets/lightmaps/` (`unifiedManifest.ts`, `loadUnifiedLightmaps.ts`, `loadLightmaps.ts`, `deviceResolution.ts`, `lightmapManifest.ts`), `src/experiences/murcia/assets/cityBytes.ts`, `src/experiences/murcia/assets/facadeRecords.ts`, `public/models/`, `public/textures/murcia/lightmaps-*/`, `checks/city-asset.ts`, `docs/murcia/lightmaps-v5.2-r5-integration.md` (registro de r5; v8 aún no tiene registro de integración)
