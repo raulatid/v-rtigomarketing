@@ -21,7 +21,7 @@ import { ClaimDialog } from './components/LazyClaimDialog'
 import type { ViewpointClaim } from './experiences/murcia/observer/viewClient'
 import { ConsentBanner } from './components/ConsentBanner'
 import { CopyrightMark } from './components/CopyrightMark'
-import { HomeHeadline } from './components/HomeHeadline'
+import { HomeHeadline, headlineVariant } from './components/HomeHeadline'
 import { SiteMenuLayer, SiteMenuStage } from './components/SiteMenu'
 import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
@@ -329,6 +329,21 @@ export default function App() {
     // and covers the tail while the card is on its way back.
     !headerMenuOpen &&
     !selectedCase
+  // The home page's h1 shows over the Earth at rest: from `orbits`, as the logo
+  // leaves centre, and only while nothing else has the viewer's attention. It
+  // fades rather than unmounts (HomeHeadline), so the page keeps its heading.
+  const headlineShown =
+    earthActive &&
+    !transitioning &&
+    atOrAfter(phase, 'orbits') &&
+    !auditOpen &&
+    !contactOpen &&
+    !legalDoc &&
+    !claimOpen &&
+    !headerMenuOpen &&
+    !selectedCase
+  const [headlineLook] = useState(headlineVariant)
+
   // For callbacks the scene holds across renders (handleViewpointReached).
   const attentionFreeRef = useRef(attentionIsFree)
   attentionFreeRef.current = attentionIsFree
@@ -768,7 +783,7 @@ export default function App() {
       />
       {/* The page's one h1. Replaces the static copy index.html carries, and
           is mounted from the first commit, not at `site`: see HomeHeadline. */}
-      <HomeHeadline />
+      <HomeHeadline shown={headlineShown} variant={headlineLook} />
       {/* THE PHONE MENU'S LAYER, behind the canvas (z 5 under the stage's 10).
           Empty here: the header portals its menu box into it on a phone, and
           the sections portal their triggers into that. Everything visual about

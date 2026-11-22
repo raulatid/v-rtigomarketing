@@ -1,0 +1,226 @@
+/* ---- z 30 — the home page's h1 (HomeHeadline.tsx) -----------------------------
+
+   Over the canvas and the SVG intro, under the case panel (35) and the warp
+   flash (40): the flash covers it like every other piece of the scene, and a
+   case it would sit beside has already sent it away.
+
+   NOT A PLATE. No glass, no backdrop: it is type set in the scene's own two
+   faces, lit like the stars, so it reads as part of the space the Earth hangs
+   in rather than a web layer over it (R3). It never takes the pointer: a drag
+   that starts on a letter still turns the globe.
+
+   `data-shown` fades it with opacity only. `visibility` would take the page's
+   heading out of the accessibility tree whenever a panel opened. */
+
+.home-headline {
+  position: fixed;
+  z-index: 30;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.home-headline__title,
+.home-headline__line {
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* ── hidden: in the tree, not on screen ─────────────────────────────────────
+   The same clip the static copy in index.html wears. */
+.home-headline[data-variant='hidden'] {
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── The arrival, shared by the visible variants ────────────────────────────
+   It comes in as the logo leaves centre and the orbits start to draw (the
+   caller shows it from `orbits`), slower than the chrome's 480 ms so it lands
+   with the reveal rather than ahead of it, and leaves quickly. */
+.home-headline:not([data-variant='hidden']) {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0);
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease;
+}
+.home-headline:not([data-variant='hidden'])[data-shown='true'] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 350ms,
+    transform 1600ms cubic-bezier(0.22, 1, 0.36, 1) 350ms;
+}
+
+/* ── A · Column ──────────────────────────────────────────────────────────────
+   Editorial. The serif, light and large, in the free left column, aligned to
+   the header's inset so it hangs off the same line as the logo above it. */
+.home-headline[data-variant='a'] {
+  left: var(--header-inset);
+  top: 50%;
+  translate: 0 -50%;
+  max-width: min(28rem, calc(50vw - 20rem));
+}
+.home-headline[data-variant='a'] .home-headline__title {
+  font-family: var(--font-text);
+  font-weight: 300;
+  font-size: clamp(2.25rem, 3.2vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+}
+.home-headline[data-variant='a'] .home-headline__line {
+  margin-top: 1.25rem;
+  max-width: 24rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+/* ── B · Trace ───────────────────────────────────────────────────────────────
+   Instrument. A hairline at the orbits' own faintness runs down the block's
+   left edge and draws itself in, as an orbit does; the title is the display
+   face, thin, and the line under it is the serif. In the left column, centred
+   on the planet: lower, it met the consent plate of a first visit. */
+.home-headline[data-variant='b'] {
+  left: var(--header-inset);
+  top: 50%;
+  translate: 0 -50%;
+  max-width: min(26rem, calc(50vw - 20rem));
+  padding-left: 1.25rem;
+}
+.home-headline[data-variant='b']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.08));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 260ms ease;
+}
+.home-headline[data-variant='b'][data-shown='true']::before {
+  transform: scaleY(1);
+  transition: transform 1200ms cubic-bezier(0.33, 1, 0.68, 1) 350ms;
+}
+.home-headline[data-variant='b'] .home-headline__title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(1.9rem, 2.5vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.005em;
+}
+.home-headline[data-variant='b'] .home-headline__line {
+  margin-top: 0.9rem;
+  font-family: var(--font-text);
+  font-weight: 300;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+/* ── C · Title card ──────────────────────────────────────────────────────────
+   Cinema. Centred over the planet, under the header's line, the display face
+   in tracked capitals that close up as it arrives, like a title coming into
+   focus; the serif line under it. */
+.home-headline[data-variant='c'] {
+  left: 50%;
+  top: calc(var(--header-line-top) + var(--header-control) + 2.25rem);
+  translate: -50% 0;
+  width: min(40rem, calc(100vw - 2 * var(--header-inset)));
+  text-align: center;
+}
+.home-headline[data-variant='c'] .home-headline__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.05rem, 1.35vw, 1.4rem);
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.42em;
+  /* Tracking adds a trailing space after the last letter; this re-centres. */
+  margin-right: -0.42em;
+  transition: letter-spacing 260ms ease;
+}
+.home-headline[data-variant='c'][data-shown='true'] .home-headline__title {
+  letter-spacing: 0.28em;
+  margin-right: -0.28em;
+  transition:
+    letter-spacing 2000ms cubic-bezier(0.22, 1, 0.36, 1) 350ms,
+    margin-right 2000ms cubic-bezier(0.22, 1, 0.36, 1) 350ms;
+}
+.home-headline[data-variant='c'] .home-headline__line {
+  margin: 0.75rem auto 0;
+  max-width: 30rem;
+  font-family: var(--font-text);
+  font-weight: 300;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* ── The phone: the band under the header ───────────────────────────────────
+   The left column does not exist at this width; the planet fills it. All
+   three move to the strip between the header and the orbits and keep their
+   own type at a phone's size. */
+@media (max-width: 767px) {
+  .home-headline[data-variant='a'],
+  .home-headline[data-variant='b'],
+  .home-headline[data-variant='c'] {
+    top: calc(var(--header-line-top) + var(--header-control) + 1rem);
+    bottom: auto;
+    left: 1.25rem;
+    right: 1.25rem;
+    width: auto;
+    max-width: none;
+    translate: none;
+  }
+  .home-headline[data-variant='a'] {
+    text-align: center;
+  }
+  .home-headline[data-variant='a'] .home-headline__title {
+    font-size: 1.9rem;
+  }
+  .home-headline[data-variant='a'] .home-headline__line {
+    margin: 0.6rem auto 0;
+    max-width: 20rem;
+    font-size: 0.82rem;
+  }
+  .home-headline[data-variant='b'] .home-headline__title {
+    font-size: 1.6rem;
+  }
+  .home-headline[data-variant='b'] .home-headline__line {
+    margin-top: 0.5rem;
+    font-size: 0.88rem;
+  }
+  .home-headline[data-variant='c'] .home-headline__title {
+    font-size: 0.95rem;
+  }
+  .home-headline[data-variant='c'] .home-headline__line {
+    font-size: 0.85rem;
+    max-width: 20rem;
+  }
+}
+
+/* Movement is the camera's to give up, and this has a little: no rise and no
+   tracking change, the fade alone. */
+@media (prefers-reduced-motion: reduce) {
+  .home-headline:not([data-variant='hidden']),
+  .home-headline:not([data-variant='hidden'])[data-shown='true'] {
+    transform: none;
+  }
+  .home-headline[data-variant='b']::before {
+    transform: none;
+    transition: none;
+  }
+  .home-headline[data-variant='c'] .home-headline__title,
+  .home-headline[data-variant='c'][data-shown='true'] .home-headline__title {
+    letter-spacing: 0.28em;
+    margin-right: -0.28em;
+    transition: none;
+  }
+}

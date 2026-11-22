@@ -53,7 +53,8 @@ html {
 /* ---- Layer stack (plan 002 §3) ----
    5 phone menu layer (behind the canvas — the card uncovers it) ·
    10 scene stage: the canvas as a card (incl. the corner-logo overlay pass) ·
-   16 murcia UI · 20 SVG intro · 35 case panel · 40 warp overlay ·
+   16 murcia UI · 20 SVG intro · 30 home h1 (homeHeadline.css) ·
+   35 case panel · 40 warp overlay ·
    42 site footer · 45 navigation rail · 48 consent banner (all stand down
    while the phone menu is open — see below) · 60 audit overlay ·
    62 contact/legal modals · 70 site header (both triggers, the burger) ·
@@ -1228,18 +1229,6 @@ html {
   right: 0;
   top: 50%;
   pointer-events: none;
-}
-
-/* The home page's h1 (HomeHeadline.tsx). Clipped to a pixel, like the static
-   copy in index.html it replaces: in the accessibility tree and readable by
-   search engines, not yet on screen. Its visible design is plan 029a §4. */
-.home-headline {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 /* Clipped to a pixel rather than hidden: display:none and visibility:hidden are
