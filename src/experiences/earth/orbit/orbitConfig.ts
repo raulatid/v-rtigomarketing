@@ -59,12 +59,15 @@ export const ORBIT_CONFIG = {
     // 26.10, reconciled at the mount rather than rewritten.
     lineOpacity: 0.02,
     lineColor: 0xffffff,
-    // Seconds each orbit line takes to draw in.
-    introDuration: 1.8,
-    // Seconds between consecutive orbit draw-in starts.
-    introStagger: 0.18,
-    // Seconds before the first orbit starts drawing.
-    introStartDelay: 0.2,
+    // Seconds each orbit line takes to draw in. 1.8 until 2026-11-22, when the
+    // opening was judged too long; the satellite now rides in on the last part
+    // of this (see `satellite.introDuration`).
+    introDuration: 1.2,
+    // Seconds between consecutive orbit draw-in starts. 0.18 until 2026-11-22.
+    introStagger: 0.1,
+    // Seconds before the first orbit starts drawing. 0 since 2026-11-22: the
+    // logo leaving centre is already the cue.
+    introStartDelay: 0,
   },
 
   headGlow: {
@@ -123,6 +126,10 @@ export const ORBIT_CONFIG = {
     // Runs through the case-panel freeze so enter/exit never interrupts it.
     modelSpinSpeed: 0.25,
     introScaleStart: 0.65,
+    // Seconds the satellite takes to fade and scale in. They are the LAST
+    // seconds of its orbit's draw-in, not seconds after it: the satellite rides
+    // the tip of the line in and its entrance ends as the line closes. Must not
+    // exceed `orbit.introDuration` (orbitConfig.test.ts).
     introDuration: 0.55,
     // Hover/selection bump. Applied to an INNER group — the outer group's scale
     // is written every frame by the intro animation and would overwrite it.
@@ -498,5 +505,7 @@ export function orbitRevealDuration(count: number): number {
   // negative stagger would run the timeline backwards.
   const orbits = Math.max(count, 1)
   const lastStart = introStartDelay + (orbits - 1) * introStagger
-  return lastStart + introDuration + ORBIT_CONFIG.satellite.introDuration
+  // No satellite term: each satellite's entrance runs inside its line's draw-in
+  // and ends with it (createOrbitSystem).
+  return lastStart + introDuration
 }

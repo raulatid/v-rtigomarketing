@@ -19,7 +19,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 ## Fases y reloj
 
 12. **Las fases se comparan por orden.** Un conjunto escrito a mano dejó una vez la cámara varada. Las únicas listas deliberadas (`TAIL_PHASES`, `Presentation`) están atadas por tests.
-13. **`bootToReady` no es `site`.** Detrás quedan unos 9 segundos de cola, y una aserción negativa pasa en silencio. En e2e usa los helpers `reachSite`.
+13. **`bootToReady` no es `site`.** Detrás quedan unos 7,6 segundos de cola (3,9 para quien vuelve), y una aserción negativa pasa en silencio. En e2e usa los helpers `reachSite`.
 14. **El driver del reloj de la intro se monta el primero dentro del Canvas, y el del planificador justo después.** Los callbacks de igual prioridad se ejecutan en orden de montaje. Sin test.
 15. **`completed` se resuelve un tick antes de que exista la cola.** Una pulsación o un Escape en ese tick se rechaza. El e2e espera a `--intro-scale`.
 16. **Escape en `site` vuelve a hacer seek y sacude el logo aparcado** (`snapToCorner`). Está protegido para el menú y los paneles; la pulsación está protegida por `canSkipTail`. Fija: `introSkip.test.ts`.

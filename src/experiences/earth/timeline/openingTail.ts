@@ -109,7 +109,14 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
   // The logo's spin and flight are driven by its own loop; the tail only holds
   // each phase open for them. Hold `orbits` for whichever finishes last: the
   // logo's flight or the reveal.
-  durations.corner = config.spinPauseBefore + config.spinDuration
+  //
+  // `corner` starts when the bloom ends, but the logo's clock started at the
+  // substitution, a bloom earlier, on both ways in. So the logo leaves centre
+  // `spinPauseBefore + spinDuration` after the substitution, and `orbits` has
+  // to begin a bloom short of that or it starts late. Until 2026-11-22 it did,
+  // by 0.385 s, where `orbitsStartOffset`'s comment says 0 is the departure.
+  const bloom = config.swapDuration * (1 - config.swapCrossover)
+  durations.corner = Math.max(config.spinPauseBefore + config.spinDuration - bloom, 0)
   durations.orbits =
     Math.max(config.orbitsStartOffset, 0) +
     Math.max(config.toCornerDuration, orbitRevealDuration(satelliteCount))

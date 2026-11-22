@@ -22,7 +22,7 @@
 
 ## Por qué
 
-- La cola, de unos 10 s, se reproduce sobre una escena que ya está completa.
+- La cola, de unos 7,6 s (3,9 s para quien vuelve), se reproduce sobre una escena que ya está completa.
 - A una segunda visita no le sirven ni el dibujo ni el warp, solo la llegada.
 - `vertigo:intro` es almacenamiento en el dispositivo, así que necesita consentimiento.
 - El movimiento reducido es una cuestión de seguridad vestibular.

@@ -66,6 +66,14 @@ describe('orbitRevealDuration', () => {
     expect(orbitRevealDuration(4) - orbitRevealDuration(3)).toBeCloseTo(introStagger, 9)
     expect(orbitRevealDuration(9) - orbitRevealDuration(8)).toBeCloseTo(introStagger, 9)
   })
+
+  it('fits each satellite’s entrance inside its own line’s draw-in', () => {
+    // The satellite rides the tip in over the line's last seconds and lands as
+    // it closes; the hold has no satellite term because of that. An entrance
+    // longer than the line would start before the line does and outlast the hold.
+    expect(ORBIT_CONFIG.satellite.introDuration).toBeGreaterThan(0)
+    expect(ORBIT_CONFIG.satellite.introDuration).toBeLessThanOrEqual(ORBIT_CONFIG.orbit.introDuration)
+  })
 })
 
 describe('the brand panel', () => {

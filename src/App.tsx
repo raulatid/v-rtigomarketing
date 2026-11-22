@@ -263,7 +263,7 @@ export default function App() {
     // in the scene chunk; importing the content here would cost the entry
     // chunk every case study's prose. This is the UPPER bound the presets
     // allow: with fewer published cases than presets the hold runs one
-    // introStagger (0.18s) longer per empty orbit, which is the cheaper
+    // introStagger (0.1s) longer per empty orbit, which is the cheaper
     // error — a reveal that outruns its hold would cut to the site mid-stagger.
     satelliteCount: ORBIT_PRESETS.length,
     // Which way in — first visit, returning (DECISIONS §51) or reduced motion —

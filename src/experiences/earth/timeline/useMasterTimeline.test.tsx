@@ -37,6 +37,8 @@ let opening: OpeningStore
 let reactPhase: Phase
 /** Whether the 2D mark is on screen when the timeline is built. */
 let markVisible: boolean
+/** The tail's time when the logo's own clock started (the substitution). */
+let logoStartedAt: number | undefined
 
 // Stable across renders, as the app's refs are: the hook rebuilds its timeline
 // when one changes identity, and every phase change re-renders.
@@ -53,7 +55,10 @@ const drawRef = {
 }
 const logoRef: { current: CornerLogoHandle } = {
   current: {
-    startSequence: () => log.push('logo:start'),
+    startSequence: () => {
+      log.push('logo:start')
+      logoStartedAt = timeline.current?.time
+    },
     snapToCorner: () => log.push('logo:corner'),
     isReady: () => true,
   },
@@ -126,9 +131,12 @@ afterEach(() => {
   container.remove()
 })
 
+// `corner` starts at the end of the bloom, which the logo's clock is already a
+// bloom into (openingTail, `durations.corner`).
 const landing =
   config.spinPauseBefore +
-  config.spinDuration +
+  config.spinDuration -
+  config.swapDuration * (1 - config.swapCrossover) +
   Math.max(config.toCornerDuration, orbitRevealDuration(SATELLITES))
 
 describe('a first visit', () => {
@@ -218,6 +226,23 @@ describe('a returning visitor', () => {
     expect(tl.labels.corner! - tl.labels.swap!).toBeCloseTo(bloom, 6)
     expect(tl.labels.site! - tl.labels.corner!).toBeCloseTo(landing, 6)
     expect(tl.duration).toBeCloseTo(bloom + landing, 6)
+  })
+
+  it('starts the orbits as the logo leaves centre, on both ways in', () => {
+    // The logo spins and flies on its own clock from the substitution; the
+    // reveal is handed the eye as it departs. A `corner` counted from the end
+    // of the bloom put the orbits a bloom late (plan 029a, finding 3).
+    for (const returning of [false, true]) {
+      markVisible = !returning
+      logoStartedAt = undefined
+      const tl = mount(returning)
+      walk(tl, tl.duration, [])
+      expect(logoStartedAt, `returning: ${returning}`).toBeDefined()
+      expect(tl.labels.orbits! - logoStartedAt!, `returning: ${returning}`).toBeCloseTo(
+        config.spinPauseBefore + config.spinDuration,
+        1,
+      )
+    }
   })
 
   it('collapses the 2D mark through zero first, when a slow load had to show it', () => {

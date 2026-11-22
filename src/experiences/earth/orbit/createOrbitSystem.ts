@@ -160,6 +160,14 @@ export function createOrbitSystem({ renderer }: Options) {
   const cloud = createConnectivityCloud()
   group.add(cloud.points)
 
+  function setSatelliteIntro(orbit: OrbitEntry, intro: number) {
+    const eased = easeOutCubic(intro)
+    orbit.satellite.setOpacity(eased)
+    orbit.satellite.group.scale.setScalar(
+      ORBIT_CONFIG.satellite.introScaleStart + (1 - ORBIT_CONFIG.satellite.introScaleStart) * eased,
+    )
+  }
+
   function update(delta: number, elapsed: number) {
     cloud.update(delta, elapsed)
 
@@ -170,6 +178,19 @@ export function createOrbitSystem({ renderer }: Options) {
       const progress = THREE.MathUtils.clamp(localTime / ORBIT_CONFIG.orbit.introDuration, 0, 1)
       const easedProgress = easeOutCubic(progress)
 
+      // The satellite's entrance is the last `satellite.introDuration` seconds
+      // of its line's draw-in, so it rides the tip in and lands as the line
+      // closes. Until 2026-11-22 it started only once the line had finished,
+      // which kept the whole reveal in series. The line eases out, so by the
+      // time the satellite appears the tip has covered ~90% of the orbit and is
+      // slowing: the satellite arrives with it rather than jumping.
+      const intro = THREE.MathUtils.clamp(
+        (localTime - (ORBIT_CONFIG.orbit.introDuration - ORBIT_CONFIG.satellite.introDuration)) /
+          ORBIT_CONFIG.satellite.introDuration,
+        0,
+        1,
+      )
+
       if (progress < 1) {
         // Drawing phase: the line grows while a glowing head rides the tip.
         // This is the same visual language as the opening SVG draw, where a dot
@@ -179,10 +200,16 @@ export function createOrbitSystem({ renderer }: Options) {
         orbit.head.position.copy(tmpPoint)
         orbit.head.visible = true
         orbit.headMaterial.opacity = ORBIT_CONFIG.headGlow.opacity
+        if (intro > 0) {
+          orbit.satellite.group.position.copy(tmpPoint)
+          orbit.satellite.group.visible = true
+          setSatelliteIntro(orbit, intro)
+          orbit.satellite.update(delta)
+        }
         continue
       }
 
-      // Orbit complete: the head fades while the satellite emerges in its place.
+      // Orbit complete: the head fades over the satellite that rode in with it.
       if (orbit.completeTime === null) {
         orbit.completeTime = elapsed
         orbit.orbitLine.setRevealProgress(1)
@@ -201,20 +228,11 @@ export function createOrbitSystem({ renderer }: Options) {
         if (headFade <= 0) orbit.head.visible = false
       }
 
-      const intro = THREE.MathUtils.clamp(
-        sinceComplete / ORBIT_CONFIG.satellite.introDuration,
-        0,
-        1,
-      )
-      const easedIntro = easeOutCubic(intro)
-      orbit.satellite.setOpacity(easedIntro)
-      orbit.satellite.group.scale.setScalar(
-        ORBIT_CONFIG.satellite.introScaleStart +
-          (1 - ORBIT_CONFIG.satellite.introScaleStart) * easedIntro,
-      )
+      setSatelliteIntro(orbit, intro)
 
-      // Idle orbiting starts only once the entrance completes, from the exact
-      // point where the head finished (progress 1.0) — so there is no jump.
+      // Idle orbiting starts once the entrance completes — with the line, now —
+      // from the exact point where the head finished (progress 1.0), so there
+      // is no jump.
       if (intro >= 1) {
         if (orbit.idleStartTime === null) orbit.idleStartTime = elapsed
         if (!orbit.frozen) {
