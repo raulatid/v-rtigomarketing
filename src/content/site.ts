@@ -85,6 +85,16 @@ export const REVENUE_RANGES: readonly string[] = settings.revenueRanges
  */
 export const BUDGET_RANGES: readonly string[] = settings.budgetRanges
 
+/**
+ * The home page's h1 and the line under it. `index.html` carries the same two
+ * strings, written by the build (`siteHead` in vite.config.ts), and
+ * `HomeHeadline` replaces that copy when React mounts.
+ */
+export const HOME_HEADLINE = {
+  headline: settings.headline,
+  subheadline: settings.subheadline,
+} as const
+
 /** The brand's own mark — NOT a third-party credit (backdrop.spec.ts guards
  *  those separately; the client rule it enforces is about attribution). */
 export const COPYRIGHT = settings.copyright

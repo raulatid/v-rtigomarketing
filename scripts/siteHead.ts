@@ -74,3 +74,45 @@ export function replaceFavicon(html: string, href: string, what: string): string
     () => `<link rel="icon" type="image/png" href="${h}" />\n    <link rel="apple-touch-icon" href="${h}" />`,
   )
 }
+
+/** The region of `index.html` the home page's h1 is written into, inside `#root`. */
+export const HEADLINE_START = '<!--vertigo:headline:start-->'
+export const HEADLINE_END = '<!--vertigo:headline:end-->'
+
+/**
+ * The home page's h1 and its supporting line, as static HTML (plan 029a §4).
+ *
+ * Inside `#root`, so React's first commit clears it and `HomeHeadline` puts the
+ * same two strings back, inside `.app__scene`: there is exactly one h1 at every
+ * moment. Static so it exists for a crawler, without JavaScript and without
+ * WebGL, and costs the app entry nothing. Visually hidden by an inline rule in
+ * `index.html`: the drawing owns the screen until React mounts.
+ */
+export function homeHeadline({ headline, subheadline }: { headline: string; subheadline: string }): string {
+  return [
+    `<div class="home-headline-static">`,
+    `  <h1>${escapeHtmlText(headline)}</h1>`,
+    `  <p>${escapeHtmlText(subheadline)}</p>`,
+    `</div>`,
+  ]
+    .map((line) => '    ' + line)
+    .join('\n')
+}
+
+/**
+ * Replaces the headline region of `index.html`, markers included.
+ *
+ * Throws rather than skip, like `replaceRegion`: a build that silently matched
+ * nothing would ship the fallback h1 under the client's head and look fine.
+ */
+export function replaceHeadline(html: string, region: string, what: string): string {
+  const start = html.indexOf(HEADLINE_START)
+  const end = html.indexOf(HEADLINE_END)
+  if (start < 0 || end < start) {
+    throw new Error(`[site head] ${what}: the headline markers are missing or out of order`)
+  }
+  if (html.indexOf(HEADLINE_START, start + 1) >= 0 || html.indexOf(HEADLINE_END, end + 1) >= 0) {
+    throw new Error(`[site head] ${what}: the headline markers appear more than once`)
+  }
+  return html.slice(0, start) + region.trimStart() + html.slice(end + HEADLINE_END.length)
+}

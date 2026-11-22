@@ -4,7 +4,7 @@ import type { AboutSectionContent, BlogPost, CaseStudy, DistrictContent, SiteSeo
 import { caseStudiesCollection } from './caseStudies.collection'
 import { districtsCollection } from './districts.collection'
 import { servicesCollection } from './services.collection'
-import { siteSettingsCollection } from './siteSettings.collection'
+import { HEADLINE_FALLBACKS, siteSettingsCollection } from './siteSettings.collection'
 import { SITE_SEO_FALLBACKS, siteSeoCollection } from './siteSeo.collection'
 import { towerScreenCollection } from './towerScreen.collection'
 import { aboutSectionCollection } from './aboutSection.collection'
@@ -1163,6 +1163,52 @@ describe('the audit form\'s monthly-budget brackets', () => {
         problemsFor(siteSettingsCollection, { ...validSettings(), budgetRanges }),
         JSON.stringify(budgetRanges),
       ).toContain(path)
+    }
+  })
+})
+
+describe('the home page h1', () => {
+  const validSettings = () => structuredClone(settingsFixtures[0]) as Record<string, unknown>
+  const FIELDS = ['headline', 'subheadline'] as const
+
+  it('carries both strings through from the fixture', () => {
+    const result = siteSettingsCollection.map(validSettings(), 0)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    for (const field of FIELDS) {
+      expect((result.value as SiteSettings)[field], field).toBe(settingsFixtures[0][field])
+    }
+  })
+
+  it('falls back to the shipped wording when the CMS has never been given one', () => {
+    // The dataset predates the fields, and a page may not go without its h1.
+    // index.html carries the same fallback (scripts/siteHead.test.ts).
+    for (const field of FIELDS) {
+      for (const blank of [undefined, null, '']) {
+        const record = validSettings()
+        record[field] = blank
+        const result = siteSettingsCollection.map(record, 0)
+        expect(result.ok, field + '=' + String(blank)).toBe(true)
+        if (result.ok) expect((result.value as SiteSettings)[field]).toBe(HEADLINE_FALLBACKS[field])
+      }
+    }
+  })
+
+  it('accepts each at its bound and refuses one character past it', () => {
+    for (const field of FIELDS) {
+      const max = EDITORIAL_BOUNDS.siteSettings[field]
+      const at = validSettings()
+      at[field] = 'a'.repeat(max)
+      expect(problemsFor(siteSettingsCollection, at), field).toEqual([])
+      const past = validSettings()
+      past[field] = 'a'.repeat(max + 1)
+      expect(problemsFor(siteSettingsCollection, past), field).toContain('site.' + field)
+    }
+  })
+
+  it('keeps its own fallback inside its bounds', () => {
+    for (const field of FIELDS) {
+      expect(HEADLINE_FALLBACKS[field].length, field).toBeLessThanOrEqual(EDITORIAL_BOUNDS.siteSettings[field])
     }
   })
 })

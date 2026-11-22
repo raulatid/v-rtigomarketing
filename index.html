@@ -56,6 +56,18 @@
         height: 100%;
         background: #050507;
       }
+      /* The static h1 below, hidden the way a skip link is rather than with
+         display or visibility, so it stays in the accessibility tree. Inline
+         because the stylesheet arrives with the app, and until then the
+         drawing owns the screen. */
+      .home-headline-static {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
     </style>
 
     <!-- The two faces the scene's text sets in (siteHeader.css, "Type"): Gambetta
@@ -201,7 +213,20 @@
          written here: Vite merges every module script in a document into one
          entry chunk, which would bundle the drawing with the app and defeat
          the point. It is a separate Rollup input. See vite.config.ts. -->
-    <div id="root"></div>
+    <div id="root">
+    <!-- The home page's h1, here so it exists without JavaScript and without
+         WebGL. Between the headline markers: rewritten at build time from
+         «Ajustes del sitio» (siteHead in vite.config.ts); what is written here
+         is the fallback, and scripts/siteHead.test.ts keeps the two identical.
+         React's first commit clears it, and HomeHeadline puts the same text
+         back inside the scene, so there is only ever one h1. -->
+    <!--vertigo:headline:start-->
+    <div class="home-headline-static">
+      <h1>Marketing que se mide</h1>
+      <p>Vértigo Marketing®, agencia especializada en SEO, GEO (AI Search), diseño web premium y software a medida.</p>
+    </div>
+    <!--vertigo:headline:end-->
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

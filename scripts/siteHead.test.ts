@@ -1,9 +1,22 @@
 import fs from 'node:fs'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { PageSeo } from '../src/content/types'
 import { SITE_SEO_FALLBACKS } from '../content/collections/siteSeo.collection'
+import { HEADLINE_FALLBACKS } from '../content/collections/siteSettings.collection'
+import { SITE_SETTINGS } from '../src/content/generated/siteSettings'
+import { HomeHeadline } from '../src/components/HomeHeadline'
 import { SEO_END, SEO_START, replaceRegion } from './blogShell'
-import { blogIndexRegion, pageHead, replaceFavicon } from './siteHead'
+import {
+  HEADLINE_END,
+  HEADLINE_START,
+  blogIndexRegion,
+  homeHeadline,
+  pageHead,
+  replaceFavicon,
+  replaceHeadline,
+} from './siteHead'
 
 const ORIGIN = 'https://vertigo.example'
 const CDN = 'https://cdn.sanity.io/images/p/production/abc-2400x1260.jpg'
@@ -84,6 +97,57 @@ describe('the source documents', () => {
   it('blog.html paints the browser chrome in the header bar black', () => {
     const html = fs.readFileSync('blog.html', 'utf8')
     expect(html).toContain('<meta name="theme-color" content="#0b0b0d" />')
+  })
+})
+
+describe('the home page h1', () => {
+  /** The h1's and the line's text, as a browser would read them. */
+  const texts = (html: string) => {
+    const decode = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&')
+    const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)
+    const p = html.match(/<p[^>]*>([\s\S]*?)<\/p>/)
+    return { headline: decode(h1?.[1] ?? ''), subheadline: decode(p?.[1] ?? '') }
+  }
+  const headlineRegion = (html: string) =>
+    normalize(html.slice(html.indexOf(HEADLINE_START) + HEADLINE_START.length, html.indexOf(HEADLINE_END)))
+
+  // The dev server serves the source as written; the build writes the region
+  // from SITE_SETTINGS. With the CMS fields blank the two must be the same h1.
+  it('index.html carries exactly the fallback h1, inside #root', () => {
+    const html = fs.readFileSync('index.html', 'utf8')
+    expect(headlineRegion(html)).toBe(normalize(homeHeadline(HEADLINE_FALLBACKS)))
+    const root = html.indexOf('<div id="root">')
+    expect(root).toBeGreaterThan(0)
+    expect(html.indexOf(HEADLINE_START)).toBeGreaterThan(root)
+    expect(html.match(/<h1[\s>]/g)).toHaveLength(1)
+  })
+
+  // React replaces the static copy on its first commit. A crawler reads one,
+  // a screen reader the other, and they must say the same thing.
+  it('React renders the same text the build writes into index.html', () => {
+    const settings = SITE_SETTINGS[0]
+    const built = texts(homeHeadline(settings))
+    const rendered = texts(renderToStaticMarkup(createElement(HomeHeadline)))
+    expect(rendered).toEqual(built)
+    expect(rendered).toEqual({ headline: settings.headline, subheadline: settings.subheadline })
+    expect(renderToStaticMarkup(createElement(HomeHeadline)).match(/<h1[\s>]/g)).toHaveLength(1)
+  })
+
+  it('escapes CMS text', () => {
+    const html = homeHeadline({ headline: 'A <b> & c', subheadline: '</p><script>x</script>' })
+    expect(html).toContain('<h1>A &lt;b&gt; &amp; c</h1>')
+    expect(html).not.toContain('<script>')
+  })
+
+  it('fails the build rather than ship the fallback when the markers drift', () => {
+    const region = homeHeadline(HEADLINE_FALLBACKS)
+    expect(() => replaceHeadline('<div id="root"></div>', region, 'x')).toThrow(/missing/)
+    const twice = HEADLINE_START + HEADLINE_END + HEADLINE_START + HEADLINE_END
+    expect(() => replaceHeadline(twice, region, 'x')).toThrow(/more than once/)
+    const built = replaceHeadline(fs.readFileSync('index.html', 'utf8'), homeHeadline({ headline: 'Nuevo', subheadline: 'Línea' }), 'index.html')
+    expect(built).toContain('<h1>Nuevo</h1>')
+    expect(built).not.toContain(HEADLINE_FALLBACKS.headline + '</h1>')
+    expect(built).not.toContain(HEADLINE_START)
   })
 })
 

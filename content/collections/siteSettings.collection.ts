@@ -36,6 +36,9 @@ import { collection } from './types'
 // src/content/editorialBounds.ts — and the Studio reads the same entries.
 const {
   copyright: COPYRIGHT_MAX,
+  /** The home page's h1, and the line under it. */
+  headline: HEADLINE_MAX,
+  subheadline: SUBHEADLINE_MAX,
   /** A phone number as it is shown. */
   display: DISPLAY_MAX,
   /** A city, not a sentence. */
@@ -172,6 +175,37 @@ function bookingCopy(report: Report, path: string, raw: unknown): string | undef
 }
 
 /**
+ * The home page's h1 and its supporting line when the CMS has none (plan 029a
+ * §4, 2026-11-22).
+ *
+ * PROVISIONAL WORDING, taken from copy the site already publishes: the title
+ * the home page's fallback head has always carried, and the published SEO
+ * description. The client writes the real text in the Studio. The fallback is
+ * the SUCCESS_FALLBACKS reasoning — the dataset predates the fields and must
+ * still build — and an h1 is not something a page may go without.
+ *
+ * Exported because `index.html` carries the same two strings between its
+ * headline markers, so the dev server shows them too; `scripts/siteHead.test.ts`
+ * keeps the two identical, as it does for the head.
+ */
+export const HEADLINE_FALLBACKS = {
+  headline: 'Marketing que se mide',
+  subheadline:
+    'Vértigo Marketing®, agencia especializada en SEO, GEO (AI Search), diseño web premium y software a medida.',
+} as const
+
+/** One of the two, the fallback when blank, validated like any text when present. */
+function headlineCopy(
+  report: Report,
+  path: keyof typeof HEADLINE_FALLBACKS,
+  raw: unknown,
+  max: number,
+): string | undefined {
+  if (raw === null || raw === undefined || raw === '') return HEADLINE_FALLBACKS[path]
+  return text(report, path, raw, { max })
+}
+
+/**
  * The audit form's billing ranges before the client has given us any.
  *
  * PLACEHOLDERS. The client did not know their brackets when the dropdown was
@@ -271,6 +305,8 @@ export const siteSettingsCollection = collection<SiteSettings>({
       bookingUrl,
       bookingLabel,
       copyright,
+      headline,
+      subheadline,
       auditSuccessTitle,
       auditSuccessBody,
       contactSuccessTitle,
@@ -314,6 +350,8 @@ export const siteSettingsCollection = collection<SiteSettings>({
     // means undefined can only mean a present value that failed validation.
     const bookingLabel = bookingCopy(scoped, 'bookingLabel', source.bookingLabel)
     const copyright = text(scoped, 'copyright', source.copyright, { max: COPYRIGHT_MAX })
+    const headline = headlineCopy(scoped, 'headline', source.headline, HEADLINE_MAX)
+    const subheadline = headlineCopy(scoped, 'subheadline', source.subheadline, SUBHEADLINE_MAX)
 
     // The confirmation copy. `text()` strips HTML and fails on the residue, so
     // an editor who pastes formatted text out of a document is told rather than
@@ -371,6 +409,8 @@ export const siteSettingsCollection = collection<SiteSettings>({
       phones === undefined ||
       contactEmail === undefined ||
       copyright === undefined ||
+      headline === undefined ||
+      subheadline === undefined ||
       bookingLabel === undefined ||
       auditSuccessTitle === undefined ||
       auditSuccessBody === undefined ||
@@ -394,6 +434,8 @@ export const siteSettingsCollection = collection<SiteSettings>({
       // never absent, so the key is always there and the emitter stays stable.
       bookingLabel,
       copyright,
+      headline,
+      subheadline,
       auditSuccessTitle,
       auditSuccessBody,
       contactSuccessTitle,

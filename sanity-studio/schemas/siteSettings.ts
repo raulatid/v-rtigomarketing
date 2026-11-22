@@ -51,6 +51,8 @@ const META_DESCRIPTION_MAX = 160
  * Phones and the booking button: the Contacto dialog (`ContactSection.tsx`).
  * `contactEmail`: nowhere — it is where both forms' messages are delivered.
  * `copyright`: the Earth scene's footer only; the blog hardcodes its own.
+ * `headline`, `subheadline`: the home page's h1 and the line under it, over
+ * the Earth scene, and in the HTML of `/` for search engines.
  * The four success strings: in place of each form after a real send.
  * `revenueRanges`: the options of the Auditoría panel's billing dropdown.
  * `budgetRanges`: the options of that panel's monthly-budget dropdown.
@@ -65,12 +67,21 @@ export const siteSettings = defineType({
   type: 'document',
   groups: [
     { name: 'contacto', title: 'Contacto', default: true },
+    { name: 'portada', title: 'Portada' },
     { name: 'formularios', title: 'Mensajes de enviado' },
     { name: 'auditoria', title: 'Formulario de auditoría' },
     { name: 'pie', title: 'Pie de página' },
     { name: 'seo', title: 'SEO' },
   ],
   fieldsets: [
+    {
+      name: 'portada',
+      title: 'Titular de la portada',
+      description:
+        'El titular principal de la web y la frase que lo acompaña, sobre la Tierra al terminar ' +
+        'la intro. Es también lo que leen los buscadores y los lectores de pantalla como título ' +
+        'de la página.',
+    },
     {
       name: 'contacto',
       title: 'Contacto',
@@ -290,6 +301,46 @@ export const siteSettings = defineType({
         rule
           .max(BOOKING_LABEL_MAX)
           .error(`Demasiado largo: como máximo ${BOOKING_LABEL_MAX} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
+    }),
+
+    // ── El titular de la portada ──
+    //
+    // El h1 de la web. Lo escribe el build en el HTML de `/` y React lo vuelve a
+    // poner al montar. Vacíos, se usa el texto de reserva de
+    // `siteSettings.collection.ts` (HEADLINE_FALLBACKS).
+    defineField({
+      name: 'headline',
+      title: 'Titular',
+      description:
+        'Qué hace la agencia, en pocas palabras. Vacío, pone «Marketing que se mide». Más ' +
+        'largo del máximo no cabe en el hueco de la portada.',
+      type: 'string',
+      fieldset: 'portada',
+      group: 'portada',
+      placeholder: 'Marketing que se mide',
+      components: { input: charCount(BOUNDS.headline) },
+      validation: (rule) => [
+        rule.max(BOUNDS.headline).error(`Demasiado largo: como máximo ${BOUNDS.headline} caracteres.`),
+        rule.custom(plainText),
+        rule.custom(markupAdvice).warning(),
+      ],
+    }),
+    defineField({
+      name: 'subheadline',
+      title: 'Frase de apoyo',
+      description:
+        'Una frase debajo del titular. Vacía, pone la descripción de la agencia que ya usa la web.',
+      type: 'string',
+      fieldset: 'portada',
+      group: 'portada',
+      components: { input: charCount(BOUNDS.subheadline) },
+      validation: (rule) => [
+        rule
+          .max(BOUNDS.subheadline)
+          .error(`Demasiado largo: como máximo ${BOUNDS.subheadline} caracteres.`),
         rule.custom(plainText),
         rule.custom(markupAdvice).warning(),
       ],

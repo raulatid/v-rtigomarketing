@@ -21,6 +21,7 @@ import { ClaimDialog } from './components/LazyClaimDialog'
 import type { ViewpointClaim } from './experiences/murcia/observer/viewClient'
 import { ConsentBanner } from './components/ConsentBanner'
 import { CopyrightMark } from './components/CopyrightMark'
+import { HomeHeadline } from './components/HomeHeadline'
 import { SiteMenuLayer, SiteMenuStage } from './components/SiteMenu'
 import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
@@ -765,6 +766,9 @@ export default function App() {
         onMenuStateChange={setHeaderMenuState}
         extra={phase === 'site' ? <SoundToggle /> : undefined}
       />
+      {/* The page's one h1. Replaces the static copy index.html carries, and
+          is mounted from the first commit, not at `site`: see HomeHeadline. */}
+      <HomeHeadline />
       {/* THE PHONE MENU'S LAYER, behind the canvas (z 5 under the stage's 10).
           Empty here: the header portals its menu box into it on a phone, and
           the sections portal their triggers into that. Everything visual about

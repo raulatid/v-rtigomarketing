@@ -374,6 +374,12 @@ export function siteSettingsProblems(entry: SiteSettings): Problem[] {
   // label is a link with NO accessible name at all. Worth failing a build over.
   if (!nonEmpty(entry.bookingLabel)) at('bookingLabel', 'must be a non-empty string')
 
+  // The home page's h1. Shipped defaults again, so blank means the fallback was
+  // bypassed — and an empty h1 is a page with no heading for a screen reader or
+  // a search engine to name it by.
+  if (!nonEmpty(entry.headline)) at('headline', 'must be a non-empty string')
+  if (!nonEmpty(entry.subheadline)) at('subheadline', 'must be a non-empty string')
+
   // The confirmation copy (plan 012). Re-checked here, on the emitted module,
   // rather than trusted from the mapper — the same guard-on-the-guard
   // arrangement the rest of this file uses. A blank one is a panel that says

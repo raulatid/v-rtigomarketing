@@ -10,11 +10,12 @@ import path from 'node:path'
 // the blog shells ever come out empty, that ordering is the first thing to check.
 import { BLOG_POSTS } from './src/content/generated/blogPosts'
 import { SITE_SEO } from './src/content/generated/siteSeo'
+import { SITE_SETTINGS } from './src/content/generated/siteSettings'
 import {
   blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, isNotFoundDocument, seoFiles,
 } from './scripts/publicationPolicy'
 import { replaceRegion } from './scripts/blogShell'
-import { blogIndexRegion, pageHead, replaceFavicon } from './scripts/siteHead'
+import { blogIndexRegion, homeHeadline, pageHead, replaceFavicon, replaceHeadline } from './scripts/siteHead'
 import { findSecretLeaks, publicPrefixedSecrets, scannableSecrets } from './scripts/secretScan'
 import { buildEnvironmentProblem, resolveBuildEnvironment } from './scripts/buildEnvironment'
 import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verifyPublication } from './scripts/publicationHygiene'
@@ -1028,7 +1029,8 @@ function seoAssets(): Plugin {
 
 /**
  * The title, description, share image and favicon of `/` and `/blog`, from
- * «Ajustes del sitio» (`content/collections/siteSeo.collection.ts`).
+ * «Ajustes del sitio» (`content/collections/siteSeo.collection.ts`), and the
+ * home page's static h1 (`homeHeadline`, from `SITE_SETTINGS`).
  *
  * Both documents mark the block with the seo markers, and the whole block is
  * replaced rather than tag by tag, so an edit that breaks the anchor fails the
@@ -1055,6 +1057,13 @@ function siteHead(): Plugin {
           : isBlogDocument(ctx.path)
             ? replaceRegion(html, blogIndexRegion(seo.blog, urls), ctx.path)
             : replaceRegion(html, pageHead(seo.home, urls), ctx.path)
+        // The home page's h1, in its body. From SITE_SETTINGS rather than
+        // SITE_SEO because React renders the same two strings at runtime.
+        if (!isNotFoundDocument(ctx.path) && !isBlogDocument(ctx.path)) {
+          const settings = SITE_SETTINGS[0]
+          if (settings === undefined) throw new Error('[site head] SITE_SETTINGS is empty; run npm run content:build')
+          out = replaceHeadline(out, homeHeadline(settings), ctx.path)
+        }
         if (seo.favicon !== undefined) out = replaceFavicon(out, seo.favicon, ctx.path)
         return out
       },

@@ -123,6 +123,17 @@ export interface SiteSettings {
   bookingLabel: string
   copyright: string
   /**
+   * The home page's h1 and the line under it (plan 029a §4).
+   *
+   * Written twice into `/`: statically into `index.html` by the build, so a
+   * crawler and a page without WebGL or JavaScript have it, and by React, which
+   * replaces that copy when it mounts. Required here, optional in the CMS: the
+   * mapper substitutes the shipped wording when a field is blank, as it does
+   * for the confirmation copy below.
+   */
+  headline: string
+  subheadline: string
+  /**
    * What the panel says once a submission has genuinely been delivered.
    *
    * Editorial rather than configuration, by the test this file's header sets:

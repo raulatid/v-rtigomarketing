@@ -1230,6 +1230,18 @@ html {
   pointer-events: none;
 }
 
+/* The home page's h1 (HomeHeadline.tsx). Clipped to a pixel, like the static
+   copy in index.html it replaces: in the accessibility tree and readable by
+   search engines, not yet on screen. Its visible design is plan 029a §4. */
+.home-headline {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Clipped to a pixel rather than hidden: display:none and visibility:hidden are
    both unfocusable, and a control nobody can reach is not an accessible path.
    A transparent 44px box over the canvas was the other option and it would have

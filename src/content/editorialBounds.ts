@@ -227,6 +227,12 @@ export const EDITORIAL_BOUNDS = {
     display: 40,
     phones: 4,
     copyright: 120,
+    /** The home page's h1 («Portada — titular»). One line on a desktop, two
+        at most on a phone. Provisional until the h1's visible design is chosen
+        (plan 029a §4); re-measure against that design before relaxing it. */
+    headline: 60,
+    /** The line under the h1. Two or three lines on a phone, same caveat. */
+    subheadline: 140,
     successTitle: 60,
     successBody: 240,
     /** One option in the audit form's billing dropdown. The same number
