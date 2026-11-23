@@ -219,9 +219,8 @@ as `Vertigo Display` and `Vertigo Text`. Since 2026-09-12, under review, those
 are General Sans for display (headings, titles, the compass, the LED panels,
 the CTAs) and Gambetta for text, the blog's article body included.
 
-The faces they replaced stay declared as fallbacks until the change is
-approved: Switzer as `Vertigo Switzer` and Inter as `Vertigo Inter` in
-siteHeader.css, and Inter and Source Serif 4 as `Vertigo Blog Inter` and
+Inter, one of the faces they replaced, stays declared as a fallback as
+`Vertigo Inter` in siteHeader.css, and Inter and Source Serif 4 as `Vertigo Blog Inter` and
 `Vertigo Blog Serif` in `src/blog/blog.css`. Every family is declared under a
 private name, because `@font-face` is global to a document.
 
@@ -232,11 +231,6 @@ private name, because `@font-face` is global to a document.
 - **Gambetta**, by Paul Troppmair, © Indian Type Foundry, distributed free by
   Fontshare. https://www.fontshare.com/fonts/gambetta — ITF Free Font License
   2.0, as above. The unmodified variable woff2 and its italic from the kit.
-- **Switzer**, by Jérémie Hornus, © Indian Type Foundry, distributed free by
-  Fontshare. https://www.fontshare.com/fonts/switzer — the unmodified variable
-  woff2 from the Fontshare kit, one file for every weight.
-  **Outstanding:** the kit shipped no licence text. Save Fontshare's licence as
-  downloaded and record its name and terms here.
 - **Inter**, by Rasmus Andersson. SIL Open Font License 1.1.
   https://github.com/rsms/inter
 - **Source Serif 4**, by Frank Grießhammer for Adobe. SIL Open Font License 1.1.

@@ -30,19 +30,19 @@ colors:
   figure-grey: "#ececea"
 typography:
   display:
-    fontFamily: "'Vertigo Display', 'Vertigo Switzer', system-ui, sans-serif"
+    fontFamily: "'Vertigo Display', system-ui, sans-serif"
     fontSize: "clamp(1.75rem, 2.4vw, 2.25rem)"
     fontWeight: 600
     lineHeight: 1.15
     letterSpacing: "-0.01em"
   headline:
-    fontFamily: "'Vertigo Display', 'Vertigo Switzer', system-ui, sans-serif"
+    fontFamily: "'Vertigo Display', system-ui, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 600
     lineHeight: 1.2
     letterSpacing: "-0.01em"
   title:
-    fontFamily: "'Vertigo Display', 'Vertigo Switzer', system-ui, sans-serif"
+    fontFamily: "'Vertigo Display', system-ui, sans-serif"
     fontSize: "1.35rem"
     fontWeight: 600
     lineHeight: 1.2
@@ -61,12 +61,12 @@ typography:
     fontSize: "0.68rem"
     letterSpacing: "0.16em"
   nav-label:
-    fontFamily: "'Vertigo Display', 'Vertigo Switzer', system-ui, sans-serif"
+    fontFamily: "'Vertigo Display', system-ui, sans-serif"
     fontSize: "0.78rem"
     fontWeight: 600
     letterSpacing: "0.16em"
   cta:
-    fontFamily: "'Vertigo Display', 'Vertigo Switzer', system-ui, sans-serif"
+    fontFamily: "'Vertigo Display', system-ui, sans-serif"
     fontSize: "0.95rem"
     fontWeight: 600
     letterSpacing: "0.01em"
@@ -232,14 +232,15 @@ sheet every document loads. No colour literal in a panel sheet, and no second `:
 
 ## Typography
 
-**Display Font:** 'Vertigo Display', currently General Sans (falling back to Switzer, then system-ui)
+**Display Font:** 'Vertigo Display', currently General Sans (falling back to system-ui)
 **Text Font:** 'Vertigo Text', currently Gambetta, a serif (falling back to Inter, then Georgia)
 **Blog prose:** 'Vertigo Text' ahead of Source Serif 4 ('Vertigo Blog Serif')
 
 **Character:** A crisp, engineered sans carries every heading, title and call to action. A text
 face carries the reading. The pairing is *under review* as of 2026-09-12: General Sans and
-Gambetta replaced Switzer and Inter, and the old faces stay declared second in each stack, so going
-back is a reorder. Neither new face has arrows (← → ↑ ↓), which come from the fallback.
+Gambetta replaced Switzer and Inter. Inter stays declared second in the text stack; Switzer was
+dropped on 2026-11-23. Neither new face has arrows (← → ↑ ↓): in display text they come from
+system-ui (Switzer had none either), in text Inter carries ↑ and ↓.
 
 ### Hierarchy
 - **Display** (600, clamp(1.75rem, 2.4vw, 2.25rem), 1.15, -0.01em): the audit panel's title, the one headline in the scene's UI.
