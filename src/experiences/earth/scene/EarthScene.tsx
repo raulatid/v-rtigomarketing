@@ -8,9 +8,14 @@ import earthVert from '../shaders/earth/vertex.glsl'
 import earthFrag from '../shaders/earth/fragment.glsl'
 import atmosphereVert from '../shaders/atmosphere/vertex.glsl'
 import atmosphereFrag from '../shaders/atmosphere/fragment.glsl'
-import { EARTH_CONFIG, EARTH_TEXTURES, usesNarrowEarthTextures } from '../config/earthConfig'
+import {
+  EARTH_CONFIG,
+  EARTH_TEXTURE_FALLBACK,
+  earthTextureSet,
+  usesNarrowEarthTextures,
+} from '../config/earthConfig'
 import { PROTO_EARTH_TEXTURES, protoEarthTextureUrls } from '../config/protoEarthTextures'
-import { ProtoEarthTextureLoader } from './protoEarthTextureLoader'
+import { EarthTextureLoader } from './earthTextureLoader'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { earthVisible } from '../config/sceneVisibility'
@@ -64,15 +69,14 @@ earthManager.onError = (url) =>
  * silently downloads both.
  */
 function earthTextureUrls(): string[] {
-  // `usesNarrowEarthTextures` rather than the width, because the zoom's near end
-  // reads the same answer (`createFocusCameraRig`) and the two must not be able
+  // `earthTextureSet` rather than the width, because the zoom's near end reads
+  // the same latched tier (`createFocusCameraRig`) and the two must not be able
   // to disagree — a rotated phone passes a width test and still holds these maps.
-  const narrow = usesNarrowEarthTextures()
-  const set = narrow ? EARTH_TEXTURES.narrow : EARTH_TEXTURES.wide
+  const set = earthTextureSet()
   // Dev-only AVIF prototype (`protoEarthTextures.ts`); null in production.
   const variant = PROTO_EARTH_TEXTURES.variant
   if (variant) {
-    const proto = protoEarthTextureUrls(variant, narrow)
+    const proto = protoEarthTextureUrls(variant, usesNarrowEarthTextures())
     return [proto.day, proto.night, set.clouds]
   }
   return [set.day, set.night, set.clouds]
@@ -103,20 +107,23 @@ function acquireEarthKtx2(renderer: THREE.WebGLRenderer): KTX2Loader {
 function releaseEarthKtx2(): void {
   if (!earthKtx2) return
   earthKtx2 = null
-  earthProtoLoader = null
+  earthAvifLoader = null
   releaseKtx2Loader()
 }
 
-// The AVIF prototype's loader, guarded the same way and for the same reason:
+// The loader for a list with AVIF in it (the desktop set, or a dev-only
+// `?earthTex=` variant), guarded the same way and for the same reason:
 // `useLoader` keys its cache on the instance, so it must survive the suspended
 // first render. Wraps the KTX2 loader above, so it is dropped with it.
-let earthProtoLoader: ProtoEarthTextureLoader | null = null
+let earthAvifLoader: EarthTextureLoader | null = null
 
-function acquireEarthLoader(renderer: THREE.WebGLRenderer): KTX2Loader | ProtoEarthTextureLoader {
+function acquireEarthLoader(renderer: THREE.WebGLRenderer, urls: string[]): KTX2Loader | EarthTextureLoader {
   const ktx2 = acquireEarthKtx2(renderer)
-  if (!PROTO_EARTH_TEXTURES.variant) return ktx2
-  if (!earthProtoLoader) earthProtoLoader = new ProtoEarthTextureLoader(ktx2)
-  return earthProtoLoader
+  if (!urls.some((url) => url.endsWith('.avif'))) return ktx2
+  if (!earthAvifLoader) {
+    earthAvifLoader = new EarthTextureLoader(ktx2, EARTH_TEXTURE_FALLBACK, PROTO_EARTH_TEXTURES.variant !== null)
+  }
+  return earthAvifLoader
 }
 
 // Ported from dolly-earth. The tuning-panel plumbing is dropped — these values
@@ -130,9 +137,10 @@ export function EarthScene({
 }: Props) {
   const { gl, scene, camera } = useThree()
 
+  const urls = earthTextureUrls()
   const [dayTex, nightTex, cloudsTex] = useLoader(
-    acquireEarthLoader(gl),
-    earthTextureUrls(),
+    acquireEarthLoader(gl, urls),
+    urls,
     (loader) => {
       loader.manager = earthManager
     },
@@ -177,12 +185,14 @@ export function EarthScene({
           if (cancelled) return
           const uploadStarted = performance.now()
           gl.initTexture(maps[i])
-          // AVIF prototype only: KTX2 maps are never ImageBitmaps. Logs the
-          // upload, then frees the bitmap's CPU copy as SkyShell does, so the
-          // arm's memory is what a shipped version would hold.
+          // AVIF maps only: KTX2 maps are never ImageBitmaps. Frees the
+          // bitmap's CPU copy once it is on the GPU, as SkyShell does — 32 MB
+          // per 4096 map otherwise held for nothing.
           const image: unknown = maps[i].image
-          if (PROTO_EARTH_TEXTURES.variant && typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
-            console.info(`[earthTex] map ${i} uploaded in ${Math.round(performance.now() - uploadStarted)} ms`)
+          if (typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
+            if (PROTO_EARTH_TEXTURES.variant) {
+              console.info(`[earthTex] map ${i} uploaded in ${Math.round(performance.now() - uploadStarted)} ms`)
+            }
             image.close()
           }
           // Reported as it goes rather than at the end: these uploads are the

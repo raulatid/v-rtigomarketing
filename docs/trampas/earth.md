@@ -47,8 +47,8 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 32. **La exposición del cielo se ajusta a cada imagen.** Reajústala antes de juzgar un cielo nuevo. Los comentarios de exposición y de `capLevel` hablan de imágenes anteriores: no te fíes de ellos.
 33. **Los casquetes polares oscuros no son un defecto:** no los aclares.
 34. **El comienzo del casquete tiene un suelo geométrico** derivado de `skyBandTilt`. Fija: `check:space` §7.
-35. **Las precargas de `index.html` deben usar el mismo `narrowMaxWidth`** que el código (cielo y Tierra), o se descargan los dos juegos.
-36. **Los KTX2 de la Tierra van en orientación abajo-izquierda; `flipY` no hace nada.**
+35. **Las precargas de `index.html` deben usar el mismo `narrowMaxWidth`** que el código (cielo y Tierra), o se descargan los dos juegos. En la Tierra, también la misma consulta de puntero (`finePointerQuery`) que separa el AVIF de escritorio del KTX2 de tableta. Fija: `earthConfig.test.ts` («the preloads in index.html»).
+36. **Los KTX2 de la Tierra van en orientación abajo-izquierda; `flipY` no hace nada.** Los AVIF de escritorio van al revés, de arriba abajo, y los voltea el cargador al decodificar (`imageOrientation: 'flipY'`), como el cielo.
 
 ## Pista de escena
 
@@ -64,6 +64,10 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 ## Panel del caso
 
 45. **`CASE_PANEL_DOCK_*` debe coincidir con la media query de `styles.css`.** Fija: `closeUpFraming.test.ts`, `e2e/mobile.spec.ts`.
+
+## Mapas de superficie
+
+46. **El intento AVIF no puede ir por el `LoadingManager` de la Tierra.** Los cargadores de imagen de three llaman a `itemError` cuando falla la decodificación, y ese manager convierte cualquier error en un arranque fatal antes de que llegue el respaldo KTX2. `earthTextureLoader.ts` decodifica con un manager mudo y cuenta el elemento a mano. Fija: `earthTextureLoader.test.ts`.
 
 ## Cómo verificar esta área
 
