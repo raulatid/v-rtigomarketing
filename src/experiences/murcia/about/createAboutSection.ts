@@ -121,6 +121,8 @@ export interface AboutSection {
   cityView(): { readonly pose: AboutPose; readonly mark: { readonly x: number; readonly y: number; readonly size: number } };
   /** How long a flight between stops takes, in seconds: the cut's under reduced motion. */
   readonly flightSeconds: number;
+  /** How long the city→sky flight takes, in seconds: the cut's under reduced motion. */
+  readonly skyFlightSeconds: number;
   update(dt: number): void;
   readonly snapshot: { readonly stop: AboutStopName | null; readonly flying: boolean; readonly holding: boolean };
   dispose(): void;
@@ -134,6 +136,7 @@ function paragraphsCopy(stop: AboutStop): Pick<OverlayCopy, 'title' | 'subtitle'
 export function createAboutSection(options: AboutSectionOptions): AboutSection {
   const { content } = options;
   const seconds = options.reducedMotion ? REDUCED_FLIGHT_SECONDS : FLIGHT_SECONDS;
+  const skySeconds = options.reducedMotion ? REDUCED_FLIGHT_SECONDS : SKY_ARRIVAL_SECONDS;
   const dock = window.matchMedia(CAMPUS_DOCK_QUERY);
 
   const adapter = createAboutCameraAdapter(options.rig, {
@@ -239,7 +242,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     paging.hide();
     pendingCopy = copyFor(index);
     // Under reduced motion every flight is the same cut.
-    if (index === LAST_STOP && !options.reducedMotion) camera.flyTo(index, SKY_ARRIVAL_SECONDS, easeArrive);
+    if (index === LAST_STOP && !options.reducedMotion) camera.flyTo(index, skySeconds, easeArrive);
     else camera.flyTo(index, seconds);
     stopChanged(ABOUT_STOPS[index]!);
   };
@@ -351,6 +354,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     },
 
     flightSeconds: seconds,
+    skyFlightSeconds: skySeconds,
 
     update(dt) {
       camera.update(dt);

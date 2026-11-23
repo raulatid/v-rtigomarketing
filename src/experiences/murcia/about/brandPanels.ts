@@ -23,6 +23,8 @@ export interface Brand {
 export interface PlacedPanel {
   readonly brand: number;
   readonly opacity: number;
+  /** Its size, about the satellite: below 1 while it grows in with the pulse. */
+  readonly scale: number;
   /** Client px: where the satellite is. */
   readonly x: number;
   readonly y: number;
@@ -84,8 +86,10 @@ export function createBrandPanels(container: HTMLElement, brands: readonly Brand
         if (!panel) return;
         if (!view.image.src) view.image.src = view.brand.src;
         // A tenth of a pixel, as the points of interest round: below what the
-        // eye sees, and a still satellite writes nothing.
-        const transform = `translate3d(${Math.round(panel.x * 10) / 10}px, ${Math.round(panel.y * 10) / 10}px, 0)`;
+        // eye sees, and a still satellite writes nothing. The panel is a point
+        // (murcia.css), so it scales about its satellite.
+        const scale = panel.scale < 1 ? ` scale(${panel.scale.toFixed(3)})` : '';
+        const transform = `translate3d(${Math.round(panel.x * 10) / 10}px, ${Math.round(panel.y * 10) / 10}px, 0)${scale}`;
         if (transform !== view.transform) {
           view.transform = transform;
           view.element.style.transform = transform;

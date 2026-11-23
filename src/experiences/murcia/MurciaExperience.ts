@@ -539,6 +539,7 @@ export class MurciaExperience {
     const hiddenAtBirth = [
       ...(this.campus?.precompileTargets ?? []),
       ...(this.blogDisplay?.precompileTargets ?? []),
+      ...(this.aboutSky?.precompileTargets ?? []),
     ];
 
     // One zero-length tick first, so the campus's strip paints its canvas and
@@ -1501,6 +1502,9 @@ export class MurciaExperience {
       onStopChange: (stop) => {
         if (stop === 'city') this.placeCityMark();
         this.cityMark?.setTarget(stop === 'city', this.about?.flightSeconds ?? 0);
+        // The pulse leaves from the isotype as the flight to the sky lands.
+        if (stop === 'sky') this.aboutSky?.arrive(this.about?.skyFlightSeconds ?? 0);
+        else this.aboutSky?.leave();
       },
       onRequestAudit: this.onRequestAudit,
       onRequestEarth: this.onRequestEarth,
@@ -1517,6 +1521,8 @@ export class MurciaExperience {
     this.aboutSky = createAboutSky({
       container: this.container,
       lens: this.camera,
+      origin: logo,
+      skyColors: this.skyColors,
       brands: CASE_STUDIES.flatMap((entry) => (entry.isotype ? [{ src: entry.isotype, name: entry.name }] : [])),
       skyView: () => about.skyView(),
     });
@@ -1775,6 +1781,8 @@ export class MurciaExperience {
     } else if (this.rig?.hasClaim('warp')) {
       if (this.about?.holdsCamera) {
         this.about.beginDeparture();
+        // The camera rises past where a ring still running has reached.
+        this.aboutSky?.completeReveal();
         this.about.departure(this.warpAmount);
       } else {
         this.applyWarpPose();
@@ -1835,11 +1843,14 @@ export class MurciaExperience {
       this.poiMarkers.update(delta, this.camera, this.canvasRect, this.isCityOverview);
     }
     // After the ladder for the markers' reason: a panel sits on its satellite
-    // as this frame's camera sees it.
+    // as this frame's camera sees it. The brands come in with the pulse, which
+    // leaves before the flight to the sky lands: flown to (the sky is the last
+    // stop, so a flight with it as the stop is the one there) or held.
     if (this.aboutSky && this.canvasRect) {
+      const about = this.about;
       this.aboutSky.update(delta, this.camera, this.canvasRect, {
-        lit: this.about?.holdsCamera ?? false,
-        panels: this.about?.canDepart ?? false,
+        lit: about?.holdsCamera ?? false,
+        panels: !!about && about.stop === 'sky' && (about.isFlying || about.canDepart),
       });
     }
     // After the ladder for the compass's reason: it samples this frame's pose.
@@ -1860,6 +1871,8 @@ export class MurciaExperience {
     // allocation — see createTowerLogo for why there is no loop of its own.
     this.towerLogo?.update(delta);
     this.cityMark?.update(delta);
+    // The isotype is lit by the pulse: its flash, then its ember while the sky stop lasts.
+    this.towerLogo?.setGlow(this.aboutSky?.isotypeGlow ?? 0);
     // And its screen: the carousel's clock and the facade's crossfade, shimmer
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.

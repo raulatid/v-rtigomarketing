@@ -39,7 +39,7 @@ import * as THREE from 'three';
  * - stars fade in between `STARS_FROM` and `STARS_FULL`, where the sky is
  *   already dark enough for them to read as stars rather than specks.
  */
-const HAZE_TOP = 0.06;
+export const HAZE_TOP = 0.06;
 const NIGHT_FULL = 0.42;
 const STARS_FROM = 0.3;
 const STARS_FULL = 0.6;
