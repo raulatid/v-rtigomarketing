@@ -52,11 +52,19 @@ export class DistrictA11y {
   /** Last announcement, so an unchanged snapshot does not re-announce. */
   private announced = '';
 
+  /** Where the section is, so leaving it can hand the focus back (M3). */
+  private active = false;
+
+  /**
+   * `labels` names the paging for a section that is not the services — the
+   * stops of Conócenos. The way in and out keep the campus's words.
+   */
   constructor(
     parent: HTMLElement,
     districtLabel: string,
     locale: string,
     events: DistrictA11yEvents,
+    labels?: { readonly previous: string; readonly next: string },
   ) {
     this.root = document.createElement('div');
     this.root.className = 'district-a11y';
@@ -86,8 +94,8 @@ export class DistrictA11y {
     // Order here IS tab order, and it matches the way the section reads: the
     // way in, then paging, then out.
     this.enterButton = button(`${districtLabel}: ${campusLabel(locale, 'explore')}`, events.onEnter);
-    this.previousButton = button(campusLabel(locale, 'previous'), events.onPrevious);
-    this.nextButton = button(campusLabel(locale, 'next'), events.onNext);
+    this.previousButton = button(labels?.previous ?? campusLabel(locale, 'previous'), events.onPrevious);
+    this.nextButton = button(labels?.next ?? campusLabel(locale, 'next'), events.onNext);
     this.backButton = button(campusLabel(locale, 'back'), events.onBack);
 
     parent.appendChild(this.root);
@@ -95,7 +103,20 @@ export class DistrictA11y {
   }
 
   update(snapshot: DistrictA11ySnapshot, view: DistrictA11yView | null): void {
+    const leaving = this.active && !snapshot.districtActive;
+    this.active = snapshot.districtActive;
     this.applyVisibility(snapshot);
+    // Out of the section, the focus goes back to the way in — when it is still
+    // the section's to give: on <body>, or on a control of Murcia's UI that the
+    // way out hid (the plate's back arrow, a parked arrow). Before this every
+    // exit dropped it to <body> (M3).
+    if (leaving) {
+      const active = document.activeElement;
+      const host = this.root.parentElement;
+      if (!active || active === document.body || (host?.contains(active) ?? false)) {
+        this.enterButton.focus({ preventScroll: true });
+      }
+    }
 
     if (!snapshot.districtActive || !view) {
       this.announced = '';
@@ -113,7 +134,8 @@ export class DistrictA11y {
     const message = [view.eyebrow, view.title, view.summary]
       .map((part) => part.trim().replace(/[.\s]+$/, ''))
       .filter((part) => part !== '')
-      .map((part) => `${part}.`)
+      // A part that already closes on ? or ! («¿Hablamos?») keeps its own mark.
+      .map((part) => (/[?!…]$/.test(part) ? part : `${part}.`))
       .join(' ');
 
     if (message === this.announced) return;

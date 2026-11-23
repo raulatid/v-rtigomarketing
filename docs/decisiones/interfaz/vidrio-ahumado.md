@@ -16,6 +16,7 @@
 7. **Sin línea emisora azul.** Donde la línea decía algo (el estado «enviado»), sigue y es neutra.
 8. **Mayúsculas solo en microetiquetas:** los disparadores de la cabecera, con tracking. Frases y botones de envío, en caja de oración.
 9. **Una barra de scroll para todo el sitio**, declarada una vez en `siteHeader.css`: pulgar fino y redondeado, sin pista ni flechas. Firefox recibe el par estándar y solo Firefox. Una superficie clara reescribe los tokens del pulgar (`.blog-root`).
+10. **El texto sobre el vidrio tiene un suelo de alfa medido contra el peor fondo, blanco detrás del vidrio** (auditoría de accesibilidad del 2026-11-18, V4): `--text-muted` es 0,62 (4,5:1 o más en las densidades B y C; en la A no llega, y no se pone texto atenuado sobre ella); la meta, la lista de detalles, el título y los ejes de las gráficas del panel del caso, 0,62; la letra pequeña de la placa de consentimiento, 0,7. Cada cifra va junto a su valor en la hoja.
 
 ## Por qué
 

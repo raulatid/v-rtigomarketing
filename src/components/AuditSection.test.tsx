@@ -259,7 +259,11 @@ describe('audit form submission states', () => {
     submitForm()
     await act(async () => {})
 
-    expect(document.querySelector<HTMLButtonElement>('.audit-cta')!.disabled).toBe(true)
+    // Marked busy rather than disabled, so the focus stays on it (F5 of the
+    // 2026-11-18 accessibility audit); the second press is still refused.
+    const cta = document.querySelector<HTMLButtonElement>('.audit-cta')!
+    expect(cta.getAttribute('aria-disabled')).toBe('true')
+    expect(cta.disabled).toBe(false)
     submitForm()
     expect(submit).toHaveBeenCalledTimes(1)
 
@@ -348,5 +352,55 @@ describe('when an audit field says it is wrong', () => {
     visit(auditControl('email'))
     expect(auditControl('email').closest('.audit-field')!.hasAttribute('data-valid')).toBe(true)
     expect(auditControl('name').closest('.audit-field')!.hasAttribute('data-valid')).toBe(false)
+  })
+})
+
+// Accessibility audit 2026-11-18, F2: the curtain was a region, and Tab fell
+// to the cookie banner under it.
+describe('the audit curtain as a dialog', () => {
+  it('is a modal dialog while it is up, and only then', () => {
+    mount(() => Promise.resolve())
+    const overlay = document.querySelector<HTMLElement>('.audit-overlay')!
+    expect(overlay.getAttribute('role')).toBe('dialog')
+    expect(overlay.hasAttribute('aria-modal')).toBe(false)
+    openPanel()
+    expect(overlay.getAttribute('aria-modal')).toBe('true')
+    expect(document.getElementById(overlay.getAttribute('aria-labelledby')!)).not.toBeNull()
+  })
+
+  it('keeps Tab inside, from the last control round to the first', () => {
+    const rects = vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
+    mount(() => Promise.resolve())
+    openPanel()
+    const overlay = document.querySelector<HTMLElement>('.audit-overlay')!
+    const outside = document.body.appendChild(document.createElement('button'))
+    act(() => outside.focus())
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true, bubbles: true })
+    act(() => {
+      window.dispatchEvent(tab)
+    })
+    expect(tab.defaultPrevented).toBe(true)
+    expect(overlay.contains(document.activeElement)).toBe(true)
+    outside.remove()
+    rects.mockRestore()
+  })
+})
+
+describe('the audit curtain while it comes in', () => {
+  it('already keeps Tab inside, before the heading takes the focus', () => {
+    const rects = vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
+    mount(() => Promise.resolve())
+    act(() => {
+      document.querySelector<HTMLButtonElement>('.audit-trigger')!.click()
+    })
+    const overlay = document.querySelector<HTMLElement>('.audit-overlay')!
+    expect(overlay.dataset.state).toBe('entering')
+    expect(overlay.getAttribute('aria-modal')).toBe('true')
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true, bubbles: true })
+    act(() => {
+      window.dispatchEvent(tab)
+    })
+    expect(overlay.contains(document.activeElement)).toBe(true)
+    rects.mockRestore()
   })
 })

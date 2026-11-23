@@ -23,6 +23,13 @@ import type { HeaderMenuState } from '../corner-logo/headerMenuTiming'
  * counts `'closing'`), and a flight into a scene that is still tilted away is a
  * flight nobody sees. So the press is remembered and acted on when the menu
  * reports `'closed'` — at once on a desktop, where it always is.
+ *
+ * ## Why it waits for the city
+ *
+ * For the same reason, and on the same `pending`: in the seconds after `site`
+ * the city is still being built and the warp to it is refused, and a press then
+ * did nothing and said nothing (accessibility audit 2026-11-18, D6; plan 029a,
+ * decision 3). It is remembered until `murciaReady`.
  */
 
 export type SceneShortcut = 'blog' | 'services'
@@ -37,6 +44,8 @@ export interface SceneShortcutCity {
 export interface SceneShortcutOptions {
   activeExperience: ExperienceId
   menuState: HeaderMenuState
+  /** The city is built (`murciaReady`): until then a press is held, not refused. */
+  cityReady: boolean
   murciaRef: RefObject<SceneShortcutCity | null>
   /** Returns whether a warp was committed. */
   navigateTo: (destination: ExperienceId) => boolean
@@ -50,14 +59,14 @@ export interface SceneShortcuts {
 }
 
 export function useSceneShortcuts(options: SceneShortcutOptions): SceneShortcuts {
-  const { activeExperience, menuState, murciaRef, navigateTo, openBlogIndex } = options
+  const { activeExperience, menuState, cityReady, murciaRef, navigateTo, openBlogIndex } = options
   const [pending, setPending] = useState<SceneShortcut | null>(null)
   // Set only when a warp toward the city was actually committed, so a refused
   // one cannot leave an arrival waiting for whichever warp happens next.
   const onArrival = useRef<SceneShortcut | null>(null)
 
   useEffect(() => {
-    if (pending === null || menuState !== 'closed') return
+    if (pending === null || menuState !== 'closed' || !cityReady) return
     setPending(null)
     if (activeExperience !== 'murcia') {
       if (navigateTo('murcia')) onArrival.current = pending
@@ -70,7 +79,7 @@ export function useSceneShortcuts(options: SceneShortcutOptions): SceneShortcuts
       return
     }
     murciaRef.current?.requestServices()
-  }, [pending, menuState, activeExperience, murciaRef, navigateTo, openBlogIndex])
+  }, [pending, menuState, cityReady, activeExperience, murciaRef, navigateTo, openBlogIndex])
 
   const request = useCallback((shortcut: SceneShortcut) => setPending(shortcut), [])
 

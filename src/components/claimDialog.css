@@ -26,6 +26,7 @@
 .claim-consent input:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 .claim-consent input[aria-invalid='true'] {

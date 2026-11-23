@@ -65,7 +65,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 47. **El raycaster no mira `visible` y nadie usa `layers`.** Se pica contra listas explícitas: Earth comprueba `visible` a mano y pica solo `hitTarget`; la pantalla del blog descarta invitaciones ocultas por sus padres. Lo que no debe interceptar lleva `raycast = () => {}` (terreno, carcasa de la pantalla, cono, panel y cue de los satélites; los puntos de interés de Murcia son DOM sin eventos y se pican por distancia en pantalla); una sonda de cobertura tiene que restaurarlo. Fija: `panelPointer.test.ts` («ignores an invitation hidden by its parent during the transition»).
 48. **Pasa a NDC con `clientToNdc` y el rectángulo del CANVAS,** no con `innerWidth`: una Y invertida da aciertos equivocados que cerca del centro parecen buenos. `panelPointer.ts` aún hace la cuenta a mano. Fija: `screenSpace.test.ts`.
 49. **Emular táctil exige un perfil de dispositivo:** con `hasTouch: true` solo sigue siendo `hover: hover`. Los proyectos móviles de `playwright.config.ts` son Chromium con perfil; WebKit no se prueba nunca.
-50. **Los satélites no tienen camino de teclado, a propósito** ([picking por coordenadas](../decisiones/interfaz/picking-por-coordenadas.md)). No es deuda.
+50. **El camino de teclado a los satélites es `CaseList.tsx`, no el canvas** ([picking por coordenadas](../decisiones/interfaz/picking-por-coordenadas.md), puntos 6 y 7). Sus botones están recortados a un píxel: no les pongas `display: none` ni `visibility: hidden` mientras se ofrecen, o salen del orden de Tab. Sus entradas llegan por `InteractionHandle.cases` al llegar a `site`; importar `CASE_STUDIES` en `App.tsx` metería el texto de los casos en el chunk de entrada, que tiene presupuesto. Un satélite que la escena rechaza (`select` devuelve `false`) no abre panel ni mueve el foco. Fijan: `CaseList.test.tsx`, `CasePanel.test.tsx` y `satelliteFocusExpansion.test.ts`.
 
 ## Casos
 
@@ -79,6 +79,10 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 ## Datos de marca
 
 57. **Los datos de marca y contacto se leen a través de `src/content/site.ts`,** un adaptador sobre el singleton generado (`SITE_SETTINGS[0]`, leído sin comprobar porque el build garantiza un documento) que conserva los nombres de exportación antiguos. Hoy es el único lector de `generated/siteSettings`, y ningún check lo impone. Los textos legales ya no están ahí (`src/content/legal.ts`). Ver [diálogo de contacto](../decisiones/formularios/dialogo-de-contacto.md) y [Sanity y la proyección GROQ](../decisiones/contenido/sanity-y-proyeccion-groq.md). Fija: `src/content/site.test.ts`.
+
+## Foco
+
+58. **El anillo de foco tiene dos tonos y el oscuro es un `box-shadow`** (`--focus-halo` y `--focus-halo-color` en `siteHeader.css`, auditoría de accesibilidad del 2026-11-18, V2). Una regla `:focus-visible` nueva con un `outline` hacia fuera sobre la escena lleva también `box-shadow: var(--focus-halo)` (o `0 0 0 <offset + 4>px var(--focus-halo-color)` si su offset no es 2px), o el anillo desaparece sobre el cielo de Murcia. Si el control ya tiene sombra, se componen: el halo va primero (los botones azules y `.consent-info` lo hacen), y la regla de foco tiene que ganar a la de `:hover`, o el puntero quieto encima quita el halo (`.audit-cta` y `.contact-cta` repiten `:not(:disabled)` por eso). Los controles de teclado de Servicios y Conócenos (`.district-a11y-control`) llevan su propio azul, `#7fd4ff`, con el mismo halo; el test solo vigila los que usan `--focus-ring`. El anillo es más claro que el de antes (`rgb(150, 190, 255)`) por una razón medida, escrita junto al token: no lo oscurezcas. Un anillo hacia dentro, sobre el vidrio oscuro del propio control, no lleva halo. En colores forzados el halo desaparece y queda el contorno, que el sistema pinta. Fija: `src/components/focusRing.test.ts`.
 
 ## Cómo verificar esta área
 

@@ -31,6 +31,8 @@ vi.mock('../content/site', () => ({
   get BOOKING_LABEL() {
     return content.bookingLabel
   },
+  // The success's copy, for the sending test below.
+  FORM_MESSAGES: { contactTitle: 'Mensaje enviado', contactBody: 'Te respondemos pronto.' },
 }))
 
 import { ContactSection } from './ContactSection'
@@ -303,5 +305,82 @@ describe('when a field says it is wrong', () => {
     visit(control('name'))
     expect(control('name').closest('.contact-field')!.hasAttribute('data-valid')).toBe(true)
     expect(control('email').closest('.contact-field')!.hasAttribute('data-valid')).toBe(false)
+  })
+})
+
+// Accessibility audit 2026-11-18, F1: it says aria-modal, and Tab used to
+// walk out of it to the page behind.
+describe('the contact dialog and Tab', () => {
+  it('keeps Tab inside, from the last control round to the first', () => {
+    // jsdom lays nothing out; the trap counts only what has a box.
+    const rects = vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
+    openDialog()
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not([type="hidden"]), textarea, a[href]'))
+      .filter((el) => el.tabIndex >= 0 && !el.closest('[aria-hidden="true"]'))
+    const last = controls[controls.length - 1]!
+    act(() => last.focus())
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true, bubbles: true })
+    act(() => {
+      window.dispatchEvent(tab)
+    })
+    expect(tab.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(controls[0])
+    rects.mockRestore()
+  })
+})
+
+// Accessibility audit 2026-11-18, M6: an Escape for the dialog is the
+// dialog's; the section under it (listening on window) never hears it.
+describe('the contact dialog and Escape', () => {
+  it('closes and stops the key before the scene behind hears it', () => {
+    const behind = vi.fn()
+    window.addEventListener('keydown', behind)
+    openDialog()
+    const close = document.querySelector<HTMLElement>('.modal-close')!
+    act(() => {
+      close.focus()
+      // From the focused control, as a real key press travels: the capture
+      // listener on window runs first and stops it there.
+      close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(behind).not.toHaveBeenCalled()
+    window.removeEventListener('keydown', behind)
+  })
+})
+
+// Accessibility audit 2026-11-18, F5: sending kept the focus nowhere, and the
+// success that replaces the form never took it.
+describe('the focus while and after sending', () => {
+  it('keeps it on the busy button, then gives it to the success heading', async () => {
+    let finish: () => void = () => {}
+    const submit = vi.fn(() => new Promise<void>((resolve) => { finish = resolve }))
+    root = createRoot(container)
+    act(() => {
+      root.render(
+        <ContactSection ready triggerHost={null} suppressed={false} onOpenChange={() => {}} onOpenLegal={() => {}} submit={submit} />,
+      )
+    })
+    act(() => document.querySelector<HTMLButtonElement>('.contact-trigger')!.click())
+    act(() => {
+      type(control('name'), 'Ana Pérez')
+      type(control('email'), 'ana@example.com')
+      type(control('message'), 'Queremos medir mejor nuestro SEO este año.')
+    })
+    const cta = document.querySelector<HTMLButtonElement>('.contact-cta')!
+    act(() => {
+      cta.focus()
+      document.querySelector<HTMLFormElement>('.contact-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(cta.disabled).toBe(false)
+    expect(cta.getAttribute('aria-disabled')).toBe('true')
+    expect(document.activeElement).toBe(cta)
+    await act(async () => {
+      finish()
+    })
+    expect(document.activeElement?.tagName).toBe('H2')
+    expect(document.activeElement?.closest('.contact-success')).not.toBeNull()
   })
 })

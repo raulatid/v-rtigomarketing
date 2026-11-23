@@ -7,6 +7,8 @@ import { createAboutCameraAdapter, type AboutCameraRig } from './aboutCameraAdap
 import { AboutInteraction } from './aboutInteraction';
 import { createAboutScreenPaging } from './aboutScreenPaging';
 import { ABOUT_LABELS } from './aboutLabels';
+import { DistrictA11y, type DistrictA11yView } from '../district/ui/districtA11y';
+import { DEFAULT_LOCALE } from '../campus/campusLabels';
 import { CITY_MARK, SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type AboutPose } from './aboutPoses';
 
 /**
@@ -180,12 +182,47 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     options.onEngagedChange?.();
   };
 
+  // The keyboard and screen-reader surface (accessibility audit 2026-11-18, M1
+  // and M2): the services' (`districtA11y.ts`) with the stops' names. Its way
+  // in, «Conócenos: explorar», is the only one that is not a tap on the tower;
+  // its live region says each stop, and at the screen it carries the five
+  // sentences, which otherwise exist only as pixels on the LED. Each closes on its own
+  // mark, so two sentences an editor left without one do not run together.
+  const a11y = new DistrictA11y(
+    options.container,
+    ABOUT_LABELS.section,
+    DEFAULT_LOCALE,
+    {
+      onEnter: () => {
+        section.enter();
+      },
+      onPrevious: () => previous(),
+      onNext: () => next(),
+      onBack: () => back(),
+    },
+    ABOUT_LABELS,
+  );
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const viewFor = (index: number): DistrictA11yView => {
+    const name = ABOUT_STOPS[index]!;
+    const eyebrow = `${ABOUT_LABELS.section} · ${pad(index + 1)} / ${pad(ABOUT_STOPS.length)}`;
+    if (name === 'screen') return { eyebrow, title: '', summary: content.sentences.map((line) => line.trim().replace(/([^.?!…])$/, '$1.')).join(' ') };
+    const stop = content[name];
+    return { eyebrow, title: stop.title, summary: stop.paragraphs[0] ?? '' };
+  };
+
+  /** Every stop change, entry and exit pass here: the surface, then the host. */
+  const stopChanged = (stop: AboutStopName | null): void => {
+    a11y.update({ districtActive: stop !== null }, stop === null ? null : viewFor(ABOUT_STOPS.indexOf(stop)));
+    options.onStopChange?.(stop);
+  };
+
   const goTo = (index: number): void => {
     overlay.hide();
     paging.hide();
     pendingCopy = copyFor(index);
     camera.flyTo(index, seconds);
-    options.onStopChange?.(ABOUT_STOPS[index]!);
+    stopChanged(ABOUT_STOPS[index]!);
   };
 
   // A step is refused mid-flight, as the campus's is: its flights cannot be
@@ -205,7 +242,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     pendingCopy = null;
     camera.exit(seconds);
     setEngaged(false);
-    options.onStopChange?.(null);
+    stopChanged(null);
   };
   const back = leave;
 
@@ -218,7 +255,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     back,
   });
 
-  return {
+  const section: AboutSection = {
     get isEngaged() {
       return engaged;
     },
@@ -244,7 +281,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
       pendingCopy = copyFor(0);
       camera.enter(seconds);
       setEngaged(true);
-      options.onStopChange?.(ABOUT_STOPS[0]);
+      stopChanged(ABOUT_STOPS[0]);
       return true;
     },
     next,
@@ -273,7 +310,7 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
       const wasEngaged = engaged;
       camera.abandon();
       setEngaged(false);
-      if (wasEngaged) options.onStopChange?.(null);
+      if (wasEngaged) stopChanged(null);
     },
 
     setEnabled(nextEnabled) {
@@ -312,7 +349,9 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
       interaction.dispose();
       overlay.dispose();
       paging.dispose();
+      a11y.dispose();
       camera.dispose();
     },
   };
+  return section;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BLOG_POSTS } from '../content/generated/blogPosts'
 import type { BlogPost } from '../content/types'
 import type { Route } from '../app/route'
@@ -6,6 +6,9 @@ import { BlogFigure } from './BlogFigure'
 import { PostBody } from './PostBody'
 import { filterPosts, topicsOf } from './blogFilter'
 import { BlogFooter, BlogSurface } from './BlogSurface'
+import { BLOG_NOT_FOUND_TITLE, blogIndexTitle, postDocumentTitle } from './documentTitle'
+import { isPlainClick } from '../app/plainClick'
+import { routeToPath } from '../app/route'
 import './blog.css'
 
 /**
@@ -85,12 +88,47 @@ const Meta = ({ post }: { post: BlogPost }) => (
   </span>
 )
 
+/**
+ * A real link to a blog page whose plain click stays in the page (accessibility
+ * audit 2026-11-18, G1): the cards, Anterior/Siguiente and «Ver todo el blog»
+ * were buttons, so no crawler, list of links or new tab could reach a post. The
+ * host still decides what a plain click does — open in place, or go back in
+ * history to the index (`historial-y-salida.md`).
+ */
+function PageLink({
+  href,
+  onOpen,
+  className,
+  children,
+}: {
+  href: string
+  onOpen: () => void
+  className: string
+  children: ReactNode
+}) {
+  return (
+    <a
+      href={href}
+      className={className}
+      onClick={(event) => {
+        if (!isPlainClick(event)) return
+        event.preventDefault()
+        onOpen()
+      }}
+    >
+      {children}
+    </a>
+  )
+}
+
+const postPath = (slug: string) => routeToPath({ name: 'blog-post', slug })
+
 function Card({ post, onOpen, featured = false }: { post: BlogPost; onOpen: () => void; featured?: boolean }) {
   return (
-    <button
-      type="button"
+    <PageLink
+      href={postPath(post.id)}
       className={featured ? 'blog-card blog-card--featured' : 'blog-card'}
-      onClick={onOpen}
+      onOpen={onOpen}
     >
       {post.cover === null ? (
         // A deliberate empty frame rather than no frame: a grid where some cards
@@ -110,7 +148,7 @@ function Card({ post, onOpen, featured = false }: { post: BlogPost; onOpen: () =
         <span className="blog-card__excerpt">{post.excerpt}</span>
         <Meta post={post} />
       </span>
-    </button>
+    </PageLink>
   )
 }
 
@@ -222,7 +260,10 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
               <h2 className="blog-latest__label">
                 {showFeatured ? 'Últimas entradas' : 'Resultados'}
               </h2>
-              <span className="blog-latest__count">
+              {/* A status, always mounted, so filtering or searching says how
+                  many entries are left, «0 entradas» included (accessibility
+                  audit 2026-11-18, B5): nothing announced it. */}
+              <span className="blog-latest__count" role="status">
                 {posts.length === 1 ? '1 entrada' : `${posts.length} entradas`}
               </span>
             </div>
@@ -274,6 +315,10 @@ function Article({
   return (
     <BlogSurface onBack={host.returnToIndex} onHome={host.returnToIndex} onSearch={onSearch}>
       <div className="blog-root">
+        {/* The page's main content, as the index has (accessibility audit
+            2026-11-18, B8): the article and what follows it, not the footer.
+            No class: nothing in blog.css styles a main here. */}
+        <main>
         <article className="blog-article">
           {post.category !== null && <span className="blog-eyebrow">{post.category.label}</span>}
           <h1 className="blog-article__title" tabIndex={-1}>
@@ -301,22 +346,22 @@ function Article({
           {(previous !== null || next !== null) && (
             <nav className="blog-prevnext" aria-label="Entradas anterior y siguiente">
               {previous !== null ? (
-                <button type="button" className="blog-prevnext__card" onClick={() => host.openPost(previous.id)}>
+                <PageLink href={postPath(previous.id)} className="blog-prevnext__card" onOpen={() => host.openPost(previous.id)}>
                   <span className="blog-prevnext__label">Anterior</span>
                   <span className="blog-prevnext__title">{previous.title}</span>
-                </button>
+                </PageLink>
               ) : (
                 <span />
               )}
               {next !== null && (
-                <button
-                  type="button"
+                <PageLink
+                  href={postPath(next.id)}
                   className="blog-prevnext__card blog-prevnext__card--next"
-                  onClick={() => host.openPost(next.id)}
+                  onOpen={() => host.openPost(next.id)}
                 >
                   <span className="blog-prevnext__label">Siguiente</span>
                   <span className="blog-prevnext__title">{next.title}</span>
-                </button>
+                </PageLink>
               )}
             </nav>
           )}
@@ -326,9 +371,9 @@ function Article({
           <section className="blog-related">
             <div className="blog-latest__head">
               <h2 className="blog-eyebrow">Más de {post.category.shortLabel}</h2>
-              <button type="button" className="blog-related__all" onClick={host.returnToIndex}>
+              <PageLink href="/blog" className="blog-related__all" onOpen={host.returnToIndex}>
                 Ver todo el blog
-              </button>
+              </PageLink>
             </div>
             <ul className="blog-grid">
               {related.map((entry) => (
@@ -339,6 +384,7 @@ function Article({
             </ul>
           </section>
         )}
+        </main>
         <BlogFooter />
       </div>
     </BlogSurface>
@@ -388,6 +434,26 @@ export default function BlogRoute({ route, host }: Props) {
     onMounted?.()
   }, [onMounted])
 
+  // Leaving a WARM blog — the only kind that unmounts — left the focus on
+  // <body>: the scene came back from `inert` with nothing in it focused
+  // (accessibility audit 2026-11-18, D7). It goes to the scene header's Blog
+  // link, the way in from a keyboard, a frame later, once the scene is no
+  // longer inert, and only if nothing took it. Here rather than in App: the
+  // app entry has a byte budget, and this costs it nothing. On a phone the link
+  // is in the closed menu and the focus stays where it was.
+  useEffect(
+    () => () => {
+      requestAnimationFrame(() => {
+        const active = document.activeElement
+        if (active && active !== document.body) return
+        document
+          .querySelector<HTMLElement>('.app__scene .scene-shortcut[data-shortcut="blog"]')
+          ?.focus({ preventScroll: true })
+      })
+    },
+    [],
+  )
+
   const searchIntent = useRef(false)
   const openSearch = () => {
     searchIntent.current = true
@@ -399,19 +465,108 @@ export default function BlogRoute({ route, host }: Props) {
   // reader's place entirely; the heading is the deterministic landing point, and
   // `preventScroll` stops the focus call fighting the scroll restore.
   const target = route.name === 'blog-post' ? route.slug : 'index'
+  // The article the reader last had open, so going back to the index lands on
+  // its card rather than on the h1, off screen above the restored scroll, with
+  // the next Tab jumping to the top (accessibility audit 2026-11-18, B6).
+  const lastArticle = useRef<string | null>(null)
   useEffect(() => {
     const wanted = searchIntent.current
     searchIntent.current = false
     const root = document.querySelector('.blog-root')
     if (root === null) return
     const search = wanted ? root.querySelector<HTMLElement>('.blog-search__input') : null
-    const landing = search ?? root.querySelector<HTMLElement>('[tabindex="-1"]')
+    const origin =
+      !search && target === 'index' && lastArticle.current !== null
+        ? root.querySelector<HTMLElement>(`.blog-card[href="${postPath(lastArticle.current)}"]`)
+        : null
+    const landing = search ?? origin ?? root.querySelector<HTMLElement>('[tabindex="-1"]')
     landing?.focus({ preventScroll: true })
+    lastArticle.current = target === 'index' ? null : target
   }, [target])
+
+  // The page scrolls inside `.blog-root`, not the document, so with the focus
+  // on the header or on <body> the scrolling keys did nothing (B4). Those keys
+  // are passed on to the reading area; Space only from <body>, where it
+  // activates nothing.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return
+      const root = document.querySelector<HTMLElement>('.blog-root')
+      const at = event.target
+      if (root === null || !(at instanceof Element)) return
+      const fromBody = at === document.body || at === document.documentElement
+      const fromHeader = at.closest('.site-header') !== null && !/^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName)
+      if (!fromBody && !fromHeader) return
+      const page = root.clientHeight * 0.9
+      const line = 40
+      const by: Record<string, number | 'top' | 'end'> = {
+        PageDown: page,
+        PageUp: -page,
+        ArrowDown: line,
+        ArrowUp: -line,
+        Home: 'top',
+        End: 'end',
+        ...(fromBody ? { ' ': event.shiftKey ? -page : page } : {}),
+      }
+      const step = by[event.key]
+      if (step === undefined) return
+      event.preventDefault()
+      if (step === 'top') root.scrollTo({ top: 0 })
+      else if (step === 'end') root.scrollTo({ top: root.scrollHeight })
+      else root.scrollBy({ top: step })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // A new article opens at its top (accessibility audit 2026-11-18, B2). The
+  // article view reuses one `.blog-root` from post to post, so Anterior,
+  // Siguiente or «Más de…» used to open the next one at the scroll the last
+  // was left at, with its focused h1 out of sight. Before paint, and before
+  // the focus above, which does not scroll.
+  useLayoutEffect(() => {
+    if (route.name !== 'blog-post') return
+    const root = document.querySelector('.blog-root')
+    if (root !== null) root.scrollTop = 0
+  }, [target, route.name])
+
+  const post = route.name === 'blog-post' ? BLOG_POSTS.find((entry) => entry.id === route.slug) : undefined
+
+  // The tab says which page this is (B1), in the words of the prerendered
+  // documents (`documentTitle.ts`). What the document was titled before the
+  // blog is put back when the blog closes in a warm session.
+  // Decided on every render but answered once per document, on the FIRST
+  // render, before the effect below has written any title: a cold load that
+  // starts on an article (the rewrite serves the index's shell there) must not
+  // take that article's title for the index's.
+  const indexTitle = blogIndexTitle()
+  const title =
+    route.name === 'blog-index'
+      ? indexTitle
+      : route.name === 'blog-post'
+        ? post === undefined
+          ? BLOG_NOT_FOUND_TITLE
+          : postDocumentTitle(post)
+        : null
+  const titleBeforeBlog = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (title === null) {
+      if (titleBeforeBlog.current !== null) document.title = titleBeforeBlog.current
+      titleBeforeBlog.current = null
+      return
+    }
+    titleBeforeBlog.current ??= document.title
+    document.title = title
+  }, [title])
+  useLayoutEffect(
+    () => () => {
+      if (titleBeforeBlog.current !== null) document.title = titleBeforeBlog.current
+    },
+    [],
+  )
 
   if (route.name === 'blog-index') return <Index host={host} topic={route.topic} />
   if (route.name === 'blog-post') {
-    const post = BLOG_POSTS.find((entry) => entry.id === route.slug)
     return post === undefined ? (
       <NotFound host={host} />
     ) : (

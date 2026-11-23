@@ -223,6 +223,88 @@ describe('the case panel ends one step from the audit', () => {
   })
 })
 
+// Accessibility audit 2026-11-18, T2: the landmark is named by its title, the
+// focus goes to the title on open, and back to the case's button on close.
+describe('the case panel and the focus', () => {
+  const [first, second] = fixtures as SatelliteDef[]
+  let trigger: HTMLButtonElement
+
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+    trigger = document.createElement('button')
+    document.body.appendChild(trigger)
+  })
+  afterEach(() => trigger.remove())
+
+  const render = (data: SatelliteDef | null, returnFocusTo?: (id: string) => HTMLElement | null) =>
+    act(() => root.render(<CasePanel data={data} onClose={() => {}} onRequestAudit={() => {}} returnFocusTo={returnFocusTo} />))
+  const title = () => container.querySelector<HTMLElement>('.case-panel__title')!
+
+  it('is a landmark named by the case title', () => {
+    render(first)
+    const panel = container.querySelector('.case-panel')!
+    expect(panel.getAttribute('role')).toBe('complementary')
+    expect(document.getElementById(panel.getAttribute('aria-labelledby')!)?.textContent).toBe(first.name)
+  })
+
+  it('takes the focus to the title on open, and to the new title on a switch', () => {
+    trigger.focus()
+    render(first)
+    expect(document.activeElement).toBe(title())
+    render(second)
+    expect(document.activeElement).toBe(title())
+    expect(title().textContent).toBe(second.name)
+  })
+
+  it('returns the focus to the case it closed', () => {
+    const returnFocusTo = vi.fn(() => trigger)
+    render(first, returnFocusTo)
+    act(() => container.querySelector<HTMLButtonElement>('.case-panel__close')!.focus())
+    render(null, returnFocusTo)
+    expect(returnFocusTo).toHaveBeenCalledWith(first.id)
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('returns it when a click on the globe had dropped it to the body', () => {
+    render(first, () => trigger)
+    act(() => title().blur())
+    expect(document.activeElement).toBe(document.body)
+    render(null, () => trigger)
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('leaves the focus where something else took it on the way out', () => {
+    const audit = document.createElement('button')
+    document.body.appendChild(audit)
+    render(first, () => trigger)
+    audit.focus()
+    render(null, () => trigger)
+    expect(document.activeElement).toBe(audit)
+    audit.remove()
+  })
+
+  it('hands the focus to the audit its own link opens, which takes it later', () => {
+    // The real path: the audit closes the case at once and focuses its title
+    // only when the curtain is in, so the focus is still on the link here.
+    render(first, () => trigger)
+    const link = container.querySelector<HTMLButtonElement>('.case-panel__next')!
+    act(() => link.focus())
+    act(() => link.click())
+    render(null, () => trigger)
+    expect(document.activeElement).not.toBe(trigger)
+    // And the next case closes as usual again.
+    render(second, () => trigger)
+    render(null, () => trigger)
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('never leaves the focus on the hidden panel without a list to return to', () => {
+    render(first)
+    render(null)
+    expect(container.querySelector('.case-panel')!.contains(document.activeElement)).toBe(false)
+  })
+})
+
 describe('the metric count-up', () => {
   const full = fixtures[0] as SatelliteDef
   const one = { ...full, metrics: [{ label: 'Tráfico', value: '+38%' }] }

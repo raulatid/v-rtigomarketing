@@ -262,6 +262,36 @@ describe('selecting a satellite', () => {
   })
 })
 
+// The case list's way in (CaseList.tsx): the same selection a click makes,
+// refused on the same terms.
+describe('selecting a satellite by id', () => {
+  it('unfolds, freezes and flies exactly as a click does', () => {
+    expect(harness.focus.selectById('b')).toBe(true)
+    expect(harness.expansionState()).toEqual({ a: false, b: true })
+    expect(harness.freeze).toHaveBeenCalledTimes(2)
+    expect(harness.cameraRig.focusOn).toHaveBeenCalledTimes(1)
+  })
+
+  it('retires the invitation and the tutorial like a click', () => {
+    harness.focus.selectById('b')
+    expect(harness.invitationState().a).toBe(false)
+    expect(harness.focus.tutorialPhase).toBe('done')
+  })
+
+  it('refuses while the layer is disabled, and says so', () => {
+    harness.focus.setEnabled(false)
+    expect(harness.focus.selectById('a')).toBe(false)
+    expect(harness.expansionState()).toEqual({ a: false, b: false })
+  })
+
+  it('refuses a hidden satellite and an unknown id', () => {
+    harness.meshes.a.visible = false
+    expect(harness.focus.selectById('a')).toBe(false)
+    expect(harness.focus.selectById('nope')).toBe(false)
+    expect(harness.cameraRig.focusOn).not.toHaveBeenCalled()
+  })
+})
+
 describe('orbital motion while a panel is open', () => {
   // Every satellite holds, not only the one being read: the others drifting
   // across the frame distracted anyone reading a panel. The orbit system's

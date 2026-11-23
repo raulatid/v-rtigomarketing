@@ -119,6 +119,10 @@
      above and below one control). Pad by that band so the page starts under
      the bar rather than behind it. */
   padding-top: calc(28px + var(--header-control) + env(safe-area-inset-top));
+  /* The same band for anything scrolled into view by the focus: without it a
+     link reached with Shift+Tab sat whole under the opaque bar (accessibility
+     audit 2026-11-18, B3). A little more than the bar, so the ring shows too. */
+  scroll-padding-top: calc(40px + var(--header-control) + env(safe-area-inset-top));
   /* The scene canvas sets `touch-action: none`; this element is not inside it
      and must keep the browser's own panning and pinch-zoom. */
   touch-action: auto;
@@ -378,7 +382,9 @@
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(11, 11, 13, 0.55);
+  /* 0.6 here and in the blog's other small grey text: 5.14:1 on the paper,
+     where 0.55 gave 4.32 (accessibility audit 2026-11-18, B7). */
+  color: rgba(11, 11, 13, 0.6);
 }
 
 /* -------------------------------------------------------------- controls */
@@ -402,7 +408,7 @@
   border: 1px solid rgba(11, 11, 13, 0.18);
   border-radius: 10px;
   background: #ffffff;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-search:focus-within {
@@ -474,7 +480,7 @@
 .blog-figure__caption {
   font-size: 0.78rem;
   line-height: 1.5;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-figure--card .blog-figure__img {
@@ -503,6 +509,8 @@
 }
 
 .blog-card {
+  /* A link since 2026-11-23 (G1): it reads as the card or label it was. */
+  text-decoration: none;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -534,7 +542,7 @@
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-card__title {
@@ -570,7 +578,7 @@
   align-items: center;
   gap: 12px;
   font-size: 0.78rem;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-meta__dot {
@@ -602,13 +610,13 @@
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-latest__count,
 .blog-empty {
   font-size: 0.78rem;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-empty {
@@ -625,6 +633,8 @@
 }
 
 .blog-related__all {
+  /* A link since 2026-11-23 (G1): it reads as the card or label it was. */
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   padding: 0;
@@ -841,7 +851,7 @@
 
 .blog-media__host {
   font-size: 0.78rem;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 /* ------------------------------------------------------------- prev/next */
@@ -856,6 +866,8 @@
 }
 
 .blog-prevnext__card {
+  /* A link since 2026-11-23 (G1): it reads as the card or label it was. */
+  text-decoration: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -884,7 +896,7 @@
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-prevnext__title {
@@ -901,7 +913,7 @@
   padding-block: 24px calc(40px + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(11, 11, 13, 0.12);
   font-size: 0.75rem;
-  color: rgba(11, 11, 13, 0.55);
+  color: rgba(11, 11, 13, 0.6);
 }
 
 /* ---------------------------------------------------------------- mobile */

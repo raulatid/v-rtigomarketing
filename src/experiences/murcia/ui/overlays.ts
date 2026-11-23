@@ -25,7 +25,13 @@ export class StatusOverlay {
     parent.appendChild(this.el);
   }
 
+  // Accessibility audit 2026-11-18, M8: the overlay was only faded out, and
+  // «Cargando la ciudad… /models/…glb» stayed in the accessibility tree over a
+  // city that had long loaded. A status while loading, an alert when it fails,
+  // and out of the tree once hidden.
   setLoading(message: string, detail = ''): void {
+    this.el.setAttribute('role', 'status');
+    this.el.removeAttribute('aria-hidden');
     this.el.classList.remove('hidden', 'error');
     this.spinner.style.display = 'block';
     this.title.textContent = message;
@@ -33,6 +39,8 @@ export class StatusOverlay {
   }
 
   setError(message: string, detail = ''): void {
+    this.el.setAttribute('role', 'alert');
+    this.el.removeAttribute('aria-hidden');
     this.el.classList.remove('hidden');
     this.el.classList.add('error');
     this.spinner.style.display = 'none';
@@ -42,6 +50,8 @@ export class StatusOverlay {
 
   hide(): void {
     this.el.classList.add('hidden');
+    this.el.removeAttribute('role');
+    this.el.setAttribute('aria-hidden', 'true');
   }
 
   dispose(): void {

@@ -25,8 +25,11 @@
  */
 
 import { attachCampusSheet } from './campusSheet';
+import { createFocusParking, focusIsAdrift, pagingDirectionOf } from '../../ui/focusParking';
 
 const FADE_MS = 450;
+/** For unique title ids: there are two plates, the campus's and Conócenos'. */
+let overlayCount = 0;
 const CAPTION_FADE_MS = 250;
 const Z_INDEX = 30;
 
@@ -148,6 +151,16 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   // A hook for the host's heading face, as the layer's class is for its plate.
   title.className = 'campus-overlay__title';
   title.style.cssText = 'font-size:clamp(28px,4vw,44px);font-weight:600;letter-spacing:-0.01em;line-height:1.1;';
+  // Where the focus lands when the plate arrives with nothing holding it: the
+  // entry, or the last stop where the arrow that was pressed is gone (M3).
+  title.tabIndex = -1;
+  // A heading and the plate's name (accessibility audit 2026-11-18, M4): the
+  // plate read as one block of text with no structure. Roles rather than an
+  // <h2>, which would bring the user agent's margins into a layout the host
+  // measures.
+  title.id = `campus-overlay-title-${++overlayCount}`;
+  title.setAttribute('role', 'heading');
+  title.setAttribute('aria-level', '2');
   const subtitle = document.createElement('div');
   subtitle.className = 'campus-overlay__subtitle';
   subtitle.style.cssText =
@@ -202,6 +215,13 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
 
   const body = document.createElement('div');
   body.className = 'campus-overlay__body';
+  // Focusable on a phone, where it is the sheet's scroller (campusSheet.ts),
+  // so it needs a name: the title's.
+  body.setAttribute('role', 'group');
+  body.setAttribute('aria-labelledby', title.id);
+  // The plate itself is a region named by the same title (M4).
+  layer.setAttribute('role', 'region');
+  layer.setAttribute('aria-labelledby', title.id);
   body.append(title);
   const pagingButtons: HTMLButtonElement[] = [];
   let navigation: HTMLDivElement | null = null;
@@ -258,7 +278,8 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
       ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
       '<path d="M39 9H2M9 2L2 9l7 7"/><path d="M1 25H39" opacity="0.55"/></svg>';
     back.setAttribute('aria-label', labels.leave);
-    back.addEventListener('click', () => onClose());
+    // Not while faded: a parked plate still holds the focus (focusParking.ts).
+    back.addEventListener('click', () => { if (visible && !disposed) onClose(); });
     layer.prepend(back);
   }
 
@@ -321,24 +342,60 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
     pending = null;
   };
 
+  /** The rest of `hide()`, which a parked plate holds back until the focus leaves it. */
+  const completeHide = (): void => {
+    for (const button of pagingButtons) button.disabled = true;
+    layer.style.visibility = 'hidden';
+    layer.style.transitionDelay = `0s, ${FADE_MS}ms`;
+  };
+  const parking = createFocusParking(layer, () => {
+    if (!visible) completeHide();
+  });
+
   return {
     show(copy) {
       if (disposed) return;
+      // Where the focus was, read before anything here moves it: on this plate
+      // (parked through the flight), or adrift — on <body> after an entry, or
+      // parked on the screen stop's arrows.
+      const active = document.activeElement;
+      const own = layer.contains(active);
+      const adrift = !own && focusIsAdrift();
+      const direction = pagingDirectionOf(active);
+      parking.unpark();
       if (pagingButtons[0]) pagingButtons[0].disabled = copy.hasPrevious === false;
       if (pagingButtons[1]) pagingButtons[1].disabled = copy.hasNext === false;
+      // Once the layer can take it: the arrow that was pressed if this stop
+      // has it, the title otherwise. Also when the control that held it is gone
+      // with the old copy (a disabled arrow, a replaced action).
+      const settleFocus = (): void => {
+        const current = document.activeElement;
+        const lost = own && (!layer.contains(current) || (current instanceof HTMLButtonElement && current.disabled));
+        if (!(adrift && focusIsAdrift()) && !lost) return;
+        const same = direction === 'previous' ? pagingButtons[0] : direction === 'next' ? pagingButtons[1] : undefined;
+        (same && !same.disabled ? same : title).focus({ preventScroll: true });
+      };
       cancelPending();
       captionWanted = false;
       if (!visible) {
         write(copy);
         visible = true;
+        const wasParked = layer.style.visibility === 'visible';
         layer.style.visibility = 'visible';
         layer.style.transitionDelay = '0s, 0s';
+        // A parked plate never stopped being focusable. One coming back from
+        // hidden is still hidden in this frame — the visibility transition
+        // starts at its hidden end — so the focus waits for the next one.
+        if (wasParked) settleFocus();
         // Next frame, so the transition sees a change rather than an initial value.
         requestAnimationFrame(() => {
-          if (!disposed && visible) layer.style.opacity = '1';
+          if (disposed || !visible) return;
+          layer.style.opacity = '1';
+          if (!wasParked) settleFocus();
         });
         return;
       }
+      settleFocus();
       layer.style.opacity = '0';
       pending = setTimeout(() => {
         pending = null;
@@ -361,19 +418,20 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
 
     hide() {
       if (disposed) return;
-      for (const button of pagingButtons) button.disabled = true;
       cancelPending();
       visible = false;
       captionWanted = false;
       layer.style.opacity = '0';
-      layer.style.visibility = 'hidden';
-      layer.style.transitionDelay = `0s, ${FADE_MS}ms`;
+      // Holding the focus, the plate fades but stays focusable until the next
+      // copy, or until the focus goes elsewhere (focusParking.ts).
+      if (!parking.park()) completeHide();
       sheet?.reset();
     },
 
     dispose() {
       if (disposed) return;
       disposed = true;
+      parking.dispose();
       cancelPending();
       sheet?.dispose();
       layer.remove();

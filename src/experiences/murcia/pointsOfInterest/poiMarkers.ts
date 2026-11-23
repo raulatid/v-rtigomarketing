@@ -74,7 +74,8 @@ export function createPoiMarkers(container: HTMLElement, sites: readonly PoiSite
   const root = document.createElement('div');
   root.className = 'murcia-poi';
   // The places are reachable by name elsewhere — the header's shortcuts and
-  // the campus's own controls. These dots are the eye's version of that.
+  // the keyboard surfaces of the campus and of Conócenos (districtA11y.ts).
+  // These dots are the eye's version of that.
   root.setAttribute('aria-hidden', 'true');
   root.dataset.visible = 'false';
 

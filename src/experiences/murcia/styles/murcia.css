@@ -140,6 +140,9 @@
   color: #fff;
   outline: 2px solid #7fd4ff;
   outline-offset: 2px;
+  /* The dark half of the site's two-tone ring (--focus-halo, siteHeader.css):
+     this ring sits over the scene as the others do. */
+  box-shadow: var(--focus-halo);
   z-index: 1;
 }
 
@@ -506,6 +509,24 @@
    takes the text face the host passes the overlay (createServicesCampus.ts). */
 .murcia-ui .campus-overlay__title {
   font-family: var(--font-display);
+}
+
+/* Focused when the plate arrives with nothing holding the focus, as a place
+   to start reading rather than a control (campusOverlay.ts, focusParking.ts). */
+.murcia-ui .campus-overlay__title:focus {
+  outline: none;
+}
+
+/* A plate or a row of arrows faded out but still holding the focus
+   (focusParking.ts) takes no pointer, the phone sheet included, whose own
+   rule says auto !important: invisible, it would swallow the swipes and taps
+   meant for the city for the whole flight. */
+/* Named per layer so it outranks the sheet rule, which comes later. */
+.murcia-ui .campus-overlay[data-focus-parked],
+.murcia-ui .campus-overlay[data-focus-parked] *,
+.murcia-ui .about-paging[data-focus-parked],
+.murcia-ui .about-paging[data-focus-parked] * {
+  pointer-events: none !important;
 }
 
 .murcia-ui .campus-overlay__page:hover:not(:disabled) {
@@ -895,11 +916,13 @@
   transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* The CTA's blue (docs/decisiones/interfaz/uso-del-azul.md), in its lighter
-   step: `--accent` itself is under 4.5:1 as small text on the dark glass. */
+/* The CTA's blue (docs/decisiones/interfaz/uso-del-azul.md) as TEXT on the
+   plate's glass, which lets the city through: the pale step of the house blue,
+   the focus ring's. --accent-hover measured 2.69:1 with white behind the glass
+   (accessibility audit 2026-11-18, V7); this, 5.38. */
 .murcia-ui .campus-overlay__action--primary {
   font-weight: 500;
-  color: var(--accent-hover);
+  color: var(--focus-ring);
 }
 
 .murcia-ui .campus-overlay__action--secondary {
@@ -919,6 +942,7 @@
 .murcia-ui .campus-overlay__action:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 4px;
 }
 

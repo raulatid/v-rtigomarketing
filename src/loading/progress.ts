@@ -28,4 +28,6 @@ export const loadProgress = {
   markFatal: (id: StepId, reason: string) => store()?.markFatal(id, reason),
   get: () => store()?.progress() ?? 0,
   readiness: () => store()?.readiness() ?? 'starting',
+  /** Every change of the boot state; a no-op without one. */
+  subscribe: (fn: () => void): (() => void) => store()?.subscribe(fn) ?? (() => {}),
 }

@@ -177,10 +177,13 @@
   --surface-border: rgba(220, 230, 245, 0.14);
 
   /* The form fields are lines, not boxes (plan 026): a hairline at rest, and a
-     brand-blue line that draws over it on focus. The resting line is 0.34 so it
-     still reads over a bright patch of the scene behind the glass. */
-  --field-line: rgba(220, 230, 245, 0.34);
-  --field-line-hover: rgba(220, 230, 245, 0.5);
+     brand-blue line that draws over it on focus. */
+  /* 0.45: 3.5:1 against the heavy glass with white behind it, the 3:1 a
+     field's only boundary needs (accessibility audit 2026-11-18, F9; 0.34
+     gave 2.62). */
+  --field-line: rgba(220, 230, 245, 0.45);
+  /* A step above the resting line that can still be seen. */
+  --field-line-hover: rgba(220, 230, 245, 0.62);
   --field-line-active: var(--accent-hover);
   --field-error: rgba(255, 122, 122, 0.9);
   --field-ok: rgba(150, 220, 180, 0.9);
@@ -188,7 +191,11 @@
 
   --text-primary: rgba(255, 255, 255, 0.94);
   --text-secondary: rgba(255, 255, 255, 0.68);
-  --text-muted: rgba(255, 255, 255, 0.46);
+  /* 0.62, not the 0.46 it was until 2026-11-23 (accessibility audit V4): the
+     least that reaches 4.5:1 on density B at its worst ground, white behind
+     the glass (5.07:1; 0.46 gave 3.55). On density A (0.68) it
+     reaches only 3.74:1: do not put muted text on that glass. */
+  --text-muted: rgba(255, 255, 255, 0.62);
   /* The neutral tick that replaced the blue eyebrow accent. */
   --rule-strong: rgba(255, 255, 255, 0.35);
 
@@ -198,10 +205,36 @@
      phone burger wore it for an hour on 2026-09-09 and went back to white. */
   --accent: #1c67ff;
   --accent-hover: #3a7dff;
+  /* What a blue BUTTON fills with under the pointer: darker than the rest
+     state, not lighter (accessibility audit 2026-11-18, V6). White on
+     --accent-hover is 3.78:1 and on the sweep's pale end 2.43; on this, 5.73,
+     and 4.60 on --accent-fill-hover-end. --accent-hover stays for what is
+     not a fill: the focused field's line, which needs its lightness. */
+  --accent-fill-hover: #185ae8;
+  --accent-fill-hover-end: #2f6df0;
   --accent-pressed: #1656d6;
   --accent-border: rgba(120, 160, 255, 0.35);
-  /* The keyboard focus outline, unchanged from before this redesign. */
-  --focus-ring: rgba(120, 170, 255, 0.9);
+  /* The keyboard focus outline: the house's pale blue, opaque, and paler than
+     the rgba(120, 170, 255, 0.9) it was until 2026-11-23 (see below). */
+  --focus-ring: rgb(150, 190, 255);
+  /* Its dark half (accessibility audit 2026-11-18, V2). The light ring alone
+     measured 1.0-2.8:1 against Murcia's sky and roofs; every ring now also
+     draws this as a box-shadow 4px wider than its offset, so a dark band runs
+     on both sides of the light one. Over a light ground the dark band carries
+     the contrast, over a dark one the light ring does.
+
+     The two cover every ground only if the ring is light enough: a ground
+     reaches 3:1 against this halo from a luminance of about 0.115, and
+     against the ring up to (L_ring + 0.05) / 3 - 0.05. The outer dark band
+     is what touches the ground, so the ring is a margin, not the carrier: the
+     halo lets about 12% of the ground through, and with the old blue (L 0.40)
+     a mid-dark roof was under 3:1 with both (measured 2.6:1 beside the sound
+     toggle); this one (L 0.505, limit about 0.135) covers it.
+
+     `--focus-halo` is the spread for the usual 2px offset; a ring set further
+     out writes its own spread with the colour. */
+  --focus-halo-color: rgba(5, 5, 7, 0.88);
+  --focus-halo: 0 0 0 6px var(--focus-halo-color);
 }
 
 /* Where the backdrop cannot be filtered the material keeps its hierarchy and
@@ -342,6 +375,7 @@
 .scene-home:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 4px;
+  box-shadow: 0 0 0 8px var(--focus-halo-color);
 }
 
 .site-header__start > .scene-home:disabled {
@@ -469,7 +503,7 @@
 
 @media (hover: hover) {
   .audit-trigger:hover {
-    background: var(--accent-hover);
+    background: var(--accent-fill-hover);
     border-color: rgba(150, 185, 255, 0.5);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.3);
   }
@@ -484,6 +518,7 @@
 .audit-trigger:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 /* While the section is open the trigger disappears entirely — closing belongs
@@ -527,6 +562,8 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
   cursor: pointer;
+  /* Blog is a link (SceneShortcuts.tsx): a word on the line like the others. */
+  text-decoration: none;
   transition: color 0.2s ease, opacity 0.3s ease;
   animation: audit-trigger-in 480ms ease 60ms backwards;
 }
@@ -542,7 +579,8 @@
 }
 
 /* During a warp: offered again once it lands. */
-.scene-shortcut:disabled {
+.scene-shortcut:disabled,
+.scene-shortcut[aria-disabled='true'] {
   opacity: 0.4;
   cursor: default;
 }
@@ -551,6 +589,7 @@
 .scene-shortcut:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* Standing down while the audit or its own dialog owns the viewer's
@@ -597,6 +636,7 @@
 .sound-toggle:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 .sound-toggle::before {
@@ -797,6 +837,7 @@
 .site-header__burger:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 8px;
 }
 

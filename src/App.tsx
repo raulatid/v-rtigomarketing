@@ -13,6 +13,8 @@ import { defaultIntroConfig, IntroConfig, Phase, PHASE_ORDER } from './experienc
 import { createSequenceState } from './experiences/earth/config/sequenceState'
 import { LazyScene } from './components/LazyScene'
 import { CasePanel } from './components/CasePanel'
+import { CaseList, caseListButton, type CaseListEntry } from './components/CaseList'
+import { SceneFallback } from './components/SceneFallback'
 import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
 import { SceneShortcuts } from './components/SceneShortcuts'
@@ -100,6 +102,13 @@ export default function App() {
   const orbitSystemRef = useRef<OrbitSystem | null>(null)
   const interactionRef = useRef<InteractionHandle | null>(null)
   const getCaseLogoBottom = useCallback((id: string) => interactionRef.current?.getLogoBottom(id) ?? null, [])
+  // The case list (T1 of the 2026-11-18 accessibility audit). Its entries come
+  // from the scene through the handle, read at `site`: the satellites exist by
+  // then, and the app must not import the case content (InteractionLayer).
+  const caseListRef = useRef<HTMLDivElement>(null)
+  const [caseEntries, setCaseEntries] = useState<readonly CaseListEntry[]>([])
+  const selectCaseById = useCallback((id: string) => interactionRef.current?.select(id) ?? false, [])
+  const caseReturnFocus = useCallback((id: string) => caseListButton(caseListRef.current, id), [])
 
   // P0. Adopts the drawing boot.ts already started, so React mounting does not
   // restart it — see hooks/useIntroDraw.ts.
@@ -123,6 +132,24 @@ export default function App() {
     loadProgress.markFatal('chunk:scene', reason)
     setContextLost(true)
   }, [])
+
+  // The scene can never run: no WebGL 2, or a fatal boot (D1 of the 2026-11-18
+  // accessibility audit). The opening then never reaches `site`, so the header's
+  // doors would never come; the page offers them anyway, with SceneFallback.
+  // A context lost mid-visit is the notice below instead, which says it better.
+  const [sceneFailed, setSceneFailed] = useState(() => loadProgress.readiness() === 'fatal')
+  useEffect(() => {
+    if (sceneFailed) return
+    const check = () => {
+      if (loadProgress.readiness() === 'fatal') setSceneFailed(true)
+    }
+    const unsubscribe = loadProgress.subscribe(check)
+    // Read once more after subscribing: LazyScene's own effect, which runs
+    // before this one, is what marks a missing WebGL 2 as fatal.
+    check()
+    return unsubscribe
+  }, [sceneFailed])
+  const [contactRequest, setContactRequest] = useState(0)
 
   const handleLoadFailed = useCallback(() => {
     // A scale-through-zero crossover hides nothing if the model never arrives.
@@ -271,6 +298,10 @@ export default function App() {
     // is the opening's, decided by the boot entry before the drawing drew.
     opening,
   })
+  // Only before `site`: a scene that breaks mid-visit, on a browser that
+  // was running it, leaves the chrome it already has (and a lost context, its
+  // own notice). Saying "not available here" over a live header would be wrong.
+  const sceneUnavailable = sceneFailed && !contextLost && phase !== 'site'
 
   // The sound waits for Earth to be whole — 'site', where the header's controls
   // arrive — and is quiet while the blog is open (DECISIONS §48). Both starts
@@ -284,6 +315,9 @@ export default function App() {
   useEffect(() => {
     setSoundSuppressed('blog', blogOpen)
   }, [blogOpen])
+  useEffect(() => {
+    if (phase === 'site') setCaseEntries(interactionRef.current?.cases ?? [])
+  }, [phase])
 
   // The panels' effects, from the state that opens them rather than from each
   // path that sets it: a case closes from the ✕, the globe and the audit's own
@@ -427,6 +461,7 @@ export default function App() {
   const shortcuts = useSceneShortcuts({
     activeExperience,
     menuState: headerMenuState,
+    cityReady: murciaReady,
     murciaRef,
     navigateTo,
     openBlogIndex: nav.openBlogIndex,
@@ -762,7 +797,7 @@ export default function App() {
       <SiteHeader
         layout="scene"
         tone={earthActive ? 'dark' : 'light'}
-        hasActions={phase === 'site'}
+        hasActions={phase === 'site' || sceneUnavailable}
         leading={phase === 'site' && !earthActive ? (
           <button
             type="button"
@@ -781,14 +816,20 @@ export default function App() {
         onMenuStateChange={setHeaderMenuState}
         extra={phase === 'site' ? <SoundToggle /> : undefined}
       />
-      {/* The page's one h1. Replaces the static copy index.html carries, and
-          is mounted from the first commit, not at `site`: see HomeHeadline. */}
-      <HomeHeadline shown={headlineShown} variant={headlineLook} />
       {/* THE PHONE MENU'S LAYER, behind the canvas (z 5 under the stage's 10).
           Empty here: the header portals its menu box into it on a phone, and
           the sections portal their triggers into that. Everything visual about
-          it is shared with the blog through siteMenu.css. */}
+          it is shared with the blog through siteMenu.css. Before <main>, not in
+          it: the menu is the site's navigation, not the page's content. */}
       <SiteMenuLayer className="app__menu" hostRef={setMenuHost} />
+      {/* THE PAGE'S CONTENT (D4 of the 2026-11-18 accessibility audit): the h1,
+          the scene and the cases. A plain block with no box of its own — no
+          transform, no z-index — so every fixed child keeps the viewport and
+          the stacking order it had before this element existed. */}
+      <main className="app__main">
+      {/* The page's one h1. Replaces the static copy index.html carries, and
+          is mounted from the first commit, not at `site`: see HomeHeadline. */}
+      <HomeHeadline shown={headlineShown} variant={headlineLook} />
       {/* THE STAGE AND THE CARD. Two wrappers around the canvas and NOTHING
           else, both permanent, both invisible boxes the canvas fills until the
           phone menu opens — then the stage lends its perspective and the card
@@ -849,12 +890,25 @@ export default function App() {
 
       <div className="warp-overlay" ref={overlayRef} />
 
+      {/* Before the panel, so Shift+Tab out of a case reaches the others. */}
+      {phase === 'site' && (
+        <CaseList
+          cases={caseEntries}
+          selectedId={earthActive ? selectedCase?.id ?? null : null}
+          hidden={!earthActive}
+          onSelect={selectCaseById}
+          listRef={caseListRef}
+        />
+      )}
+
       <CasePanel
         data={earthActive ? selectedCase : null}
         getLogoBottom={getCaseLogoBottom}
         onClose={handleClosePanel}
         onRequestAudit={handleRequestAudit}
+        returnFocusTo={caseReturnFocus}
       />
+      </main>
 
       {/* The two doors in the header. Both gate on `phase === 'site'` — chrome
           exists only once the intro has fully landed, satellites revealed
@@ -877,17 +931,18 @@ export default function App() {
       />
 
       <ContactSection
-        ready={phase === 'site'}
+        ready={phase === 'site' || sceneUnavailable}
         triggerHost={headerActions}
         suppressed={auditOpen}
         onOpenChange={setContactOpen}
         onOpenLegal={setLegalDoc}
+        openRequest={contactRequest}
       />
 
       <AuditSection
         onOpenChange={handleAuditOpenChange}
         onCoverChange={setAuditCovers}
-        ready={phase === 'site'}
+        ready={phase === 'site' || sceneUnavailable}
         triggerHost={headerActions}
         onOpenLegal={setLegalDoc}
         openRequest={auditRequest}
@@ -924,7 +979,17 @@ export default function App() {
           handler above, because a scroll or a pinch must still work under it.
           z 48: above the rail and the floor line, under everything that asks
           for attention. */}
-      {phase === 'site' && <ConsentBanner onOpenLegal={setLegalDoc} />}
+      {(phase === 'site' || sceneUnavailable) && <ConsentBanner onOpenLegal={setLegalDoc} />}
+
+      {/* Over the drawing's «No se pudo cargar la experiencia», under every
+          dialog it opens. */}
+      {sceneUnavailable && (
+        <SceneFallback
+          onContact={() => setContactRequest((n) => n + 1)}
+          onAudit={handleRequestAudit}
+          dialogOpen={auditOpen || contactOpen}
+        />
+      )}
 
       {/* Mounted for both experiences, and never gated on one: unmounting it
           strips the `cursor: none` rule it installs, which hands the viewer the
@@ -954,7 +1019,10 @@ export default function App() {
           Mounted for both experiences and never gated on one. Unmounting it would
           tear down the wheel listener with it, and that listener is the only thing
           stopping the page scrolling behind the canvas. */}
-      <NavigationControl ref={navigationRef} />
+      {/* Inert until `site` (accessibility audit 2026-11-18, D3): before it, a
+          press is refused, and nothing may take the focus during the intro
+          (nada-interactivo-hasta-site.md). Without a scene, it stays so. */}
+      <NavigationControl ref={navigationRef} inert={phase !== 'site'} />
 
       {/* Earth's hint, beside the control it teaches. A sibling of `.nav` and
           never a child of it: that box is `position: fixed` and `styles.css`

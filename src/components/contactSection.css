@@ -237,7 +237,8 @@
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* The hover is a sweep, not a flash (plan 026): the lighter blue crosses the
+/* The hover is a sweep, not a flash (plan 026): the hover blue, darker than
+   the rest one (V6, --accent-fill-hover), crosses the
    face from the left and leaves to the right. Gated to real hover since this
    redesign — on touch a sticky hover after the tap was the only thing the old
    ungated rule added. */
@@ -246,19 +247,19 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(90deg, var(--accent-hover) 88%, rgba(120, 165, 255, 1));
+  background: linear-gradient(90deg, var(--accent-fill-hover) 88%, var(--accent-fill-hover-end));
   transform: scaleX(0);
   transform-origin: right center;
   transition: transform 560ms var(--field-ease);
 }
 
 @media (hover: hover) {
-  .contact-cta:not(:disabled):hover {
+  .contact-cta:not(:disabled):not([aria-disabled='true']):hover {
     border-color: rgba(150, 185, 255, 0.5);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.3);
   }
 
-  .contact-cta:not(:disabled):hover::before {
+  .contact-cta:not(:disabled):not([aria-disabled='true']):hover::before {
     transform: scaleX(1);
     transform-origin: left center;
   }
@@ -266,16 +267,17 @@
 
 /* Pressed sits DOWN: darker face, shallower shadow, less inner highlight. A
    scale-down said squashy; an elevation drop says pressed. */
-.contact-cta:active,
-.contact-cta:active::before {
+.contact-cta:not([aria-disabled='true']):active,
+.contact-cta:not([aria-disabled='true']):active::before {
   background: var(--accent-pressed);
 }
 
-.contact-cta:active {
+.contact-cta:not([aria-disabled='true']):active {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
-.contact-cta:disabled {
+.contact-cta:disabled,
+.contact-cta[aria-disabled='true'] {
   opacity: 0.7;
   cursor: default;
 }
@@ -283,7 +285,8 @@
 /* In flight: a progress line runs along the button's foot. The only disabled
    CTA in either dialog is one that is sending. It slows towards the end and
    holds short of full, because it does not know when the server will answer. */
-.contact-cta:disabled::after {
+.contact-cta:disabled::after,
+.contact-cta[aria-disabled='true']::after {
   content: '';
   position: absolute;
   left: 0;
@@ -307,9 +310,12 @@
   }
 }
 
-.contact-cta:focus-visible {
+/* As specific as the hover rule above, and after it: with the pointer resting
+   on the button, the hover shadow would otherwise drop the focus halo. */
+.contact-cta:not(:disabled):focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 /* The booking link (2026-09-04). A GHOST of `.contact-cta` — same height,
@@ -381,6 +387,7 @@
 .contact-booking:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* When the booking link is there it owns the block's opening rule, so the
@@ -425,7 +432,7 @@
 
 .contact-phone-label {
   grid-column: 2;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
@@ -458,13 +465,15 @@
 .contact-phone:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 4px;
 }
 
 .contact-note {
   margin: 0;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.4);
+  /* Small print is still text: the muted floor (F8; 0.4 gave 3.6:1). */
+  color: var(--text-muted);
 }
 
 .contact-note__link {
@@ -484,6 +493,7 @@
 .contact-note__link:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* ---- The delivered state (plan 012) ----------------------------------------
@@ -574,7 +584,8 @@
     animation: none;
   }
 
-  .contact-cta:disabled::after {
+  .contact-cta:disabled::after,
+  .contact-cta[aria-disabled='true']::after {
     content: none;
   }
 }

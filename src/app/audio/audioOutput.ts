@@ -17,7 +17,8 @@
  * Browsers refuse audible playback until the visitor has done something that
  * counts as a gesture, and the intro has nothing to click. So the music tries,
  * and on `NotAllowedError` reports the block here (`reportSoundBlocked`), which
- * arms a one-shot listener for the first press, tap or key. Wheel and scroll
+ * arms a one-shot listener for the first press, tap, or Enter or Space (not Tab
+ * or any other key that only moves around the page: D5). Wheel and scroll
  * never count, so a trackpad visitor who only scrolls hears nothing until they
  * click (DECISIONS §48).
  *
@@ -211,7 +212,18 @@ function apply(masterFade: number) {
 
 const UNLOCK_EVENTS = ['pointerup', 'touchend', 'keydown'] as const
 
+/** Enter or Space, without Alt, Ctrl or Meta: a press, as opposed to moving around the page. */
+export function isActivationKey(event: Pick<KeyboardEvent, 'key' | 'altKey' | 'ctrlKey' | 'metaKey'>): boolean {
+  if (event.altKey || event.ctrlKey || event.metaKey) return false
+  return event.key === 'Enter' || event.key === ' '
+}
+
 function onUnlockGesture(event: Event) {
+  // From the keyboard, only a key that ACTIVATES something. Tab, the arrows,
+  // the modifiers and a screen reader's own keys are someone finding their
+  // way, and the music started on the first of them, over the voice reading
+  // the page (accessibility audit 2026-11-18, D5).
+  if (event instanceof KeyboardEvent && !isActivationKey(event)) return
   // The toggle's own press is left to the toggle, which reads a blocked start as
   // "off" and turns it on — handled here too, it would start and then mute.
   if (event.target instanceof Element && event.target.closest('[data-sound-toggle]')) return

@@ -55,7 +55,8 @@ html {
    10 scene stage: the canvas as a card (incl. the corner-logo overlay pass) ·
    16 murcia UI · 20 SVG intro · 30 home h1 (homeHeadline.css) ·
    35 case panel · 40 warp overlay ·
-   42 site footer · 45 navigation rail · 48 consent banner (all stand down
+   42 site footer · 45 navigation rail, case list · 46 page without its scene ·
+   48 consent banner (all stand down
    while the phone menu is open — see below) · 60 audit overlay ·
    62 contact/legal modals · 70 site header (both triggers, the burger) ·
    80 context-lost notice · 90 blog · 100 debug overlay · 999 cursor           */
@@ -237,6 +238,7 @@ html {
 .case-panel__close:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 .case-panel__title {
@@ -248,12 +250,19 @@ html {
   min-height: 1.4em;
 }
 
+/* Focused by the panel on open, as a place to start reading rather than a
+   control (`.modal-title` does the same). */
+.case-panel__title:focus {
+  outline: none;
+}
+
 /* Sector · location · year. min-height reserves the row so the panel does not
    change height between a selected and a cleared state. */
 .case-panel__meta {
   font-size: 0.72rem;
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.45);
+  /* V4: the floor for small text on the panel's glass, as --text-muted. */
+  color: rgba(255, 255, 255, 0.62);
   margin: 0 0 1.5rem;
   min-height: 1.2em;
 }
@@ -363,7 +372,8 @@ html {
   min-height: 7em;
   font-size: 0.78rem;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.55);
+  /* V4: the floor for small text on the panel's glass, as the meta above. */
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .case-panel__details li {
@@ -441,6 +451,7 @@ html {
 .case-panel__next:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 4px;
 }
 
@@ -455,7 +466,7 @@ html {
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.62);
   margin-bottom: 0.55rem;
 }
 
@@ -499,7 +510,8 @@ html {
 }
 
 .case-chart__tick {
-  fill: rgba(255, 255, 255, 0.4);
+  /* 10px text on the panel's glass: the V4 floor, as the chart title. */
+  fill: rgba(255, 255, 255, 0.62);
   font-size: 10px;
   letter-spacing: 0.05em;
 }
@@ -859,7 +871,7 @@ html {
      sheet's own top edge — the handle spans the full width and is flush with
      it. Same reasoning as the close button above. */
   .case-panel__handle:focus-visible {
-    outline: 2px solid rgba(120, 170, 255, 0.9);
+    outline: 2px solid var(--focus-ring);
     outline-offset: -4px;
     border-radius: 8px;
   }
@@ -930,7 +942,7 @@ html {
   .case-panel__body:focus-visible {
     /* Inset, like `.district-service-header` in murcia.css: an outset ring on a
        sheet flush with the frame edges is clipped by the sheet's own bounds. */
-    outline: 2px solid rgba(120, 170, 255, 0.9);
+    outline: 2px solid var(--focus-ring);
     outline-offset: -2px;
   }
 
@@ -1059,10 +1071,28 @@ html {
 
 /* The custom cursor replaces the native one everywhere while mounted; the
    class is added/removed by CustomCursor so coarse-pointer devices and the
-   unmounted state keep native cursors. */
-.has-custom-cursor,
-.has-custom-cursor * {
-  cursor: none !important;
+   unmounted state keep native cursors.
+
+   EXCEPT with forced colours or more contrast asked for (accessibility audit
+   2026-11-18, V5): then the native cursor is never hidden, so the system's
+   pointer shows at the size and in the colours the visitor set, with every
+   cursor the site asks for (the hand on buttons, the canvas's grab and its
+   hover hints from cursorManager), and the drawn hand stands aside. Gated
+   rather than overridden: an override would also wipe those. CSS only: the
+   app entry has no bytes to spare, and the component keeps running, unseen. */
+@media not (forced-colors: active) {
+  @media not (prefers-contrast: more) {
+    .has-custom-cursor,
+    .has-custom-cursor * {
+      cursor: none !important;
+    }
+  }
+}
+
+@media (forced-colors: active), (prefers-contrast: more) {
+  .cursor-layer {
+    display: none;
+  }
 }
 
 .cursor-layer {
@@ -1272,6 +1302,7 @@ html {
      idea of focus. */
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* The button carries no text node — its name is an aria-label, because nothing
@@ -1279,6 +1310,55 @@ html {
    lands on says where it goes, instead of being an empty rectangle. */
 .nav-control:focus-visible::after {
   content: attr(aria-label);
+}
+
+/* ---- z 45 — the case list (CaseList.tsx) --------------------------------
+
+   The satellites as buttons, for the keyboard and screen readers. The
+   `.nav-control` pattern above for the same reason: clipped to a pixel so the
+   globe is untouched for a pointer, unclipped on `:focus-visible` on the
+   opposite edge from the rail, clear of the case panel's column. */
+.case-list {
+  position: fixed;
+  z-index: 45;
+  left: 0;
+  top: 50%;
+  pointer-events: none;
+}
+
+.case-list__control {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  pointer-events: auto;
+}
+
+.case-list__control:focus-visible {
+  width: auto;
+  height: auto;
+  left: max(16px, env(safe-area-inset-left));
+  top: 50%;
+  transform: translateY(-50%);
+  clip-path: none;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 8px;
+  background: rgba(5, 5, 7, 0.92);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* ---- z 44 — Earth's hint, in text (§43) ---------------------------------
@@ -1443,6 +1523,25 @@ html {
    Judged by eye, not derived — the first numbers a client review may move. */
 .scene-hint__glyph {
   display: block;
+}
+
+/* OVER MURCIA BY DAY, A HALO (accessibility audit 2026-11-18, V3). White at
+   0.85 over the pale sky measured 2.3:1 at its worst glyphs; the client
+   rejected a glass capsule for this hint, not its text (pista-de-escena.md),
+   so the ground the letters need is a dark halo hugging them rather than a
+   plate: dense close to the stroke, where it is what the eye reads the letter
+   against, and soft further out. The glyph gets the same as a drop-shadow.
+   Over the Earth the hint sits on space and keeps its plain white. */
+.murcia-hint {
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow:
+    0 0 1px rgba(5, 8, 12, 0.9),
+    0 0 2px rgba(5, 8, 12, 0.9),
+    0 0 6px rgba(5, 8, 12, 0.7);
+}
+
+.murcia-hint .scene-hint__glyph {
+  filter: drop-shadow(0 0 1px rgba(5, 8, 12, 0.9)) drop-shadow(0 0 4px rgba(5, 8, 12, 0.7));
 }
 
 .scene-hint__glyph--mouse {
@@ -1852,8 +1951,14 @@ html {
    explicitly not. Lifted from 0.55 because the same alpha that is quiet over
    black is illegible over a pale sky. */
 .site-footer[data-tone='light'] {
-  color: rgba(255, 255, 255, 0.8);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  /* The shadow was a hint of depth and measured 2.9:1 at the worst glyphs;
+     since 2026-11-23 it is the Murcia hint's halo, the ground the letters are
+     read against (V3), and the text is near white. */
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow:
+    0 0 1px rgba(5, 8, 12, 0.9),
+    0 0 2px rgba(5, 8, 12, 0.9),
+    0 0 6px rgba(5, 8, 12, 0.7);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1917,6 +2022,105 @@ html {
 @media (hover: hover) {
   .context-lost__action:hover {
     background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* ---- z 46 — the page without its scene (SceneFallback.tsx) -------------
+
+   No WebGL 2 or a fatal boot: the drawing keeps its caption, «No se pudo
+   cargar la experiencia», under this, and this says what is still possible.
+   Above the rail (45), under the consent banner (48) and every dialog it
+   opens. The black of the boot, not glass: there is no scene to blur. Every
+   text is solid white or 0.78 at least, over #050507 (20.4:1 and 12.2:1);
+   white on the blue pill is 4.74:1, on the grey ones 17.6:1. */
+.scene-fallback {
+  position: fixed;
+  z-index: 46;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -62%);
+  width: min(34rem, calc(100vw - 2.5rem));
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  background: #050507;
+  color: #fff;
+  text-align: center;
+}
+
+.scene-fallback__title {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+/* Focused on arrival, as a place to start reading (`.modal-title` too). */
+.scene-fallback__title:focus {
+  outline: none;
+}
+
+.scene-fallback__lead,
+.scene-fallback__body {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.scene-fallback__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The context-lost notice's pill, as a button or as the blog's link. */
+.scene-fallback__action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* The one ask, in the CTA's blue. */
+.scene-fallback__action--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.scene-fallback__action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: var(--focus-halo);
+}
+
+@media (hover: hover) {
+  .scene-fallback__action:not(.scene-fallback__action--primary):hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* On a phone the drawing's caption sits just under the centre: the panel goes
+   up to the header's line so the caption stays readable below it. The phone
+   cut is written in several places (interface traps, n.º 8). */
+@media (max-width: 767px) {
+  .scene-fallback {
+    top: calc(var(--header-line-top) + var(--header-control) + 1rem);
+    transform: translateX(-50%);
+    padding: 1.5rem;
   }
 }
 

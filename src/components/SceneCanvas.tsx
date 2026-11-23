@@ -38,6 +38,10 @@ import { getOpening } from '../loading/opening'
 // this is the only registration there is (graphics/threeCatalogue.ts).
 extend(THREE_CATALOGUE)
 
+/** The canvas's accessible name (D4): what is drawn, in both worlds. */
+export const SCENE_LABEL =
+  'Escena 3D de Vértigo: la Tierra con los casos de éxito en órbita, y la ciudad de Murcia con los servicios, el blog y la torre de Conócenos'
+
 const departureVacuum: Record<ExperienceId, (p: number, limits: WarpLimits) => number> = {
   earth: () => 0, // Earth expresses departure through its aim phase and FOV surge.
   murcia: murciaDepartureVacuum,
@@ -308,6 +312,13 @@ export function SceneCanvas({
         // the seconds before the sky arrives. index.html paints #050507 as the
         // opening black; this keeps the canvas agreeing with it.
         gl.setClearColor(0x050507, 1)
+        // The drawing's text alternative (accessibility audit 2026-11-18, D4).
+        // On the <canvas> itself, never on R3F's wrapper: Murcia mounts its
+        // controls inside that wrapper, and an `img` role there would hide
+        // them from assistive technology. What the scene holds is reachable as
+        // DOM — the case list, the sections' controls — so this only names it.
+        gl.domElement.setAttribute('role', 'img')
+        gl.domElement.setAttribute('aria-label', SCENE_LABEL)
       }}
     >
       {/* Earth, as one thing. This file used to mount all eight of its layers

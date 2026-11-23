@@ -302,6 +302,22 @@ export function createSatelliteFocus({
     if (id) select(id)
   }
 
+  /**
+   * Selects by id, for the case list (`CaseList.tsx`): the keyboard and
+   * screen-reader way to the same `select` a click reaches. It refuses on the
+   * terms a click does — the layer disabled (intro, warp, audit, the departure
+   * swing), the satellite hidden or not yet idling — and says so, so the caller
+   * does not send focus into a panel that never opened. A satellite behind the
+   * planet is fine: the close-up backs off along its own radial.
+   */
+  function selectById(id: string): boolean {
+    if (!enabled) return false
+    const sat = orbitSystem.satellites.find((s) => s.id === id)
+    if (!sat || !sat.object.visible || !orbitSystem.isSatelliteActive(id)) return false
+    select(id)
+    return true
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape' && selectedId) {
       // Swallow it: Escape also skips the intro, and a viewer closing a panel
@@ -358,6 +374,7 @@ export function createSatelliteFocus({
 
   return {
     update,
+    selectById,
     deselect,
     setEnabled,
     // The rig asks this at click time to tell a satellite click from an

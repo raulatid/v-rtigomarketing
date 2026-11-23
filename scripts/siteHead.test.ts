@@ -11,6 +11,10 @@ import { SEO_END, SEO_START, replaceRegion } from './blogShell'
 import {
   HEADLINE_END,
   HEADLINE_START,
+  NOSCRIPT_END,
+  NOSCRIPT_START,
+  noscriptRegion,
+  replaceNoscript,
   blogIndexRegion,
   homeHeadline,
   pageHead,
@@ -179,5 +183,61 @@ describe('replaceFavicon', () => {
     expect(() => replaceFavicon('<head></head>', href, 'x')).toThrow(/found 0/)
     const two = '<link rel="icon" href="a" /><link rel="icon" href="b" />'
     expect(() => replaceFavicon(two, href, 'x')).toThrow(/found 2/)
+  })
+})
+
+// The blog's tab titles at runtime (src/blog/documentTitle.ts, accessibility
+// audit 2026-11-18, B1) are the prerendered documents' own.
+describe('the blog tab titles the runtime writes', () => {
+  it('fall back to the index title the content fallback gives the blog shell', async () => {
+    const { BLOG_INDEX_FALLBACK_TITLE } = await import('../src/blog/documentTitle')
+    expect(BLOG_INDEX_FALLBACK_TITLE).toBe(SITE_SEO_FALLBACKS.blog.title)
+  })
+
+  it('title a post exactly as its prerendered document does', async () => {
+    const { postDocumentTitle } = await import('../src/blog/documentTitle')
+    const { postHead } = await import('./blogShell')
+    const { BLOG_POSTS } = await import('../src/content/generated/blogPosts')
+    for (const post of BLOG_POSTS) {
+      const head = postHead(post, { origin: 'https://example.test' })
+      const written = /<title>([^<]*)<\/title>/.exec(head)![1]!
+      const decoded = written.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+      expect(postDocumentTitle(post)).toBe(decoded)
+    }
+  })
+})
+
+// Accessibility audit 2026-11-18, G2: without JavaScript the body was empty.
+describe('the body without JavaScript', () => {
+  const between = (html: string) => {
+    const start = html.indexOf(NOSCRIPT_START)
+    const end = html.indexOf(NOSCRIPT_END)
+    return html.slice(start + NOSCRIPT_START.length, end).trim()
+  }
+
+  it('is the same fallback block in index.html and blog.html', () => {
+    for (const file of ['index.html', 'blog.html']) {
+      const html = fs.readFileSync(file, 'utf8')
+      expect(between(html), file).toBe(noscriptRegion([]).trim())
+    }
+  })
+
+  it('links the blog and every post by title, escaped', () => {
+    const region = noscriptRegion([
+      { id: 'uno', title: 'Uno' },
+      { id: 'dos', title: 'Medir <el> SEO & más' },
+    ])
+    expect(region).toContain('<noscript>')
+    expect(region).toContain('href="/blog"')
+    expect(region).toContain('href="/blog/uno">Uno</a>')
+    expect(region).toContain('href="/blog/dos">Medir &lt;el&gt; SEO &amp; más</a>')
+  })
+
+  it('replaces the marked block exactly once, markers included', () => {
+    const html = fs.readFileSync('index.html', 'utf8')
+    const out = replaceNoscript(html, noscriptRegion([{ id: 'uno', title: 'Uno' }]), 'index.html')
+    expect(out).not.toContain(NOSCRIPT_START)
+    expect(out).toContain('href="/blog/uno"')
+    expect(() => replaceNoscript(out, 'x', 'twice')).toThrow(/noscript markers/)
   })
 })

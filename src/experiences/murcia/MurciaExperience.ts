@@ -457,12 +457,11 @@ export class MurciaExperience {
       await this.loadAndSetup(assetLoader, options.bytes);
       this.loadFailed = false;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error('[murcia] fatal load error', error);
-      this.statusOverlay.setError(
-        'No se pudo cargar la ciudad',
-        `${message}\nExpected model at: ${this.environment.modelPath}`,
-      );
+      // The technical detail stays in the console; the alert is read aloud, and
+      // a message and a file path are no use to the visitor (accessibility
+      // audit 2026-11-18, M8).
+      console.error('[murcia] fatal load error', error, `expected model at: ${this.environment.modelPath}`);
+      this.statusOverlay.setError('No se pudo cargar la ciudad');
       this.loadFailed = true;
     } finally {
       this.releaseDecoders();
@@ -880,7 +879,8 @@ export class MurciaExperience {
 
   private async loadAndSetup(assetLoader: AssetLoader, bytes: CityBytes | undefined): Promise<void> {
     const env = this.environment;
-    this.statusOverlay.setLoading('Cargando la ciudad…', env.modelPath);
+    // No file path: it is read aloud (M8). The console has it on failure.
+    this.statusOverlay.setLoading('Cargando la ciudad…');
 
     const loaded = await loadCity({
       loader: assetLoader.gltf,

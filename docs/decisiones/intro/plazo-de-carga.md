@@ -7,7 +7,7 @@
 1. **`DRAW_TIMING.timeoutNotice` es solo diagnóstico:** cambia el texto a «lento», escribe un aviso en consola y activa `waitedTooLong()`.
 2. **`DRAW_TIMING.hardDeadline` marca la carga como fatal** y nombra los pasos obligatorios pendientes. Nunca declara el sitio disponible. Se cancela al llegar a `ready`.
 3. **Cada paso obligatorio necesita un camino de éxito y otro de fallo.** Un paso decorativo (logo, precalentado de GPU, panorama del cielo) se marca como hecho aunque falle. Los esenciales (texturas de la Tierra, órbitas, el chunk de la escena, WebGL 2) son fatales.
-4. Un fatal después de que el dibujo haya cedido el paso solo se ve a través del aviso de pérdida de contexto de la app.
+4. Un fatal después de que el dibujo haya cedido el paso solo se ve a través del aviso de pérdida de contexto de la app. Un fatal antes de `site` (el plazo incluido) monta además la página sin escena, con Contacto, Auditoría y el blog ([fallos de WebGL](../render/fallos-de-webgl.md), punto 4).
 
 ## Por qué
 

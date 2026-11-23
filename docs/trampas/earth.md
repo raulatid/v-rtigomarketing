@@ -52,7 +52,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 ## Pista de escena
 
-37. **El 85 % de alfa de la pista va en `color`;** `opacity` es el canal del fundido.
+37. **El alfa de la pista va en `color` (85 % en la Tierra, 94 % con halo en Murcia);** `opacity` es el canal del fundido. El halo de Murcia es un `text-shadow` y un `drop-shadow`: no lo cambies por una placa ([pista de escena](../decisiones/earth/pista-de-escena.md), punto 6).
 38. **La flotación (`--hint-float`) tiene que estar en `bottom`**, o al flotar la pista invade el pie. Fija: `e2e/navigation.spec.ts`.
 39. **La pista no tiene prop `visible` ni estado de React.** Fija: `EarthHint.test.tsx`.
 40. **`pointermove` no puede entrar en la lista de acciones**, ni `satelliteHoverRef` escribirse después de un retorno temprano.

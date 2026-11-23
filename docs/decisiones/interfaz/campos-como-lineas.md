@@ -4,7 +4,7 @@
 
 ## Decisión
 
-1. **Los campos de contacto, auditoría y reclamo son una línea fina en reposo** (`--field-line`, `--field-line-hover`). Con foco, una línea azul se dibuja encima desde la izquierda y aparece un trazo delante de la etiqueta (`--field-line-active`).
+1. **Los campos de contacto, auditoría y reclamo son una línea fina en reposo** (`--field-line`, `--field-line-hover`). La de reposo es la única marca del área del campo, así que llega a 3:1 contra el vidrio pesado con blanco detrás (0,45, 3,5:1; era 0,34, 2,62:1; auditoría de accesibilidad del 2026-11-18, F9). Con foco, una línea azul se dibuja encima desde la izquierda y aparece un trazo delante de la etiqueta (`--field-line-active`).
 2. **Siguen sin ser vidrio:** ningún campo lleva `backdrop-filter`. Las superficies mate (`--surface-matte`) quedan para lo que no es campo: el código del reclamo y las filas y botones de las preferencias de cookies.
 3. **Un campo que se deja con un valor correcto dibuja una marca** (`data-valid`), calculada en React porque los formularios son `noValidate`.
 4. **El rojo exige algo erróneo:** un campo visitado y vacío no es un error hasta pulsar «Enviar»; un valor presente y erróneo muestra su error al salir; los errores del servidor se muestran siempre.

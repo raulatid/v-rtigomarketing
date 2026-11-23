@@ -3,6 +3,7 @@ import { COOKIE_COPY } from '../content/site'
 import type { LegalDocId } from '../content/site'
 import { LEGAL_DOCS } from '../content/legal'
 import { LegalBlock } from './LegalBlock'
+import { ownsEscape, trapTab } from './focusTrap'
 import { CookiePreferences } from './CookiePreferences'
 import './modal.css'
 import './legalPanel.css'
@@ -31,27 +32,27 @@ export function LegalPanel({ doc, onClose, idPrefix = 'legal' }: Props) {
   useEffect(() => {
     if (!doc) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      // In the capture phase and stopped there: opened over Contacto or the
+      // audit, this closes alone and leaves them open (accessibility audit
+      // 2026-11-18, F4).
+      if (!ownsEscape(titleRef.current?.closest('section') ?? null)) return
+      e.stopPropagation()
+      onClose()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [doc, onClose])
 
   useEffect(() => {
     if (!doc) return
     const previous = document.activeElement as HTMLElement | null
     titleRef.current?.focus()
-    const trap = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab') return
-      const panel = titleRef.current?.closest('section')
-      const nodes = Array.from(panel?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), summary, a[href]') ?? []).filter(el => el.getClientRects().length > 0)
-      const first = nodes[0], last = nodes[nodes.length - 1]
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === titleRef.current)) {
-        event.preventDefault(); last?.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault(); first?.focus()
-      }
-    }
+    // The shared trap (focusTrap.ts), which does not count the links inside a
+    // closed <details> as reachable: the copy that stood here did, and Tab
+    // walked out to the banner behind from «Configurar cookies» (accessibility
+    // audit 2026-11-18, F6).
+    const trap = (event: KeyboardEvent) => trapTab(event, titleRef.current?.closest('section') ?? null)
     window.addEventListener('keydown', trap)
     return () => {
       window.removeEventListener('keydown', trap)

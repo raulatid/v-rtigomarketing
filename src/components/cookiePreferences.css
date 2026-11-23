@@ -72,7 +72,7 @@
 }
 .cookie-preferences input:focus-visible,
 .cookie-preferences button:focus-visible,
-.cookie-policy summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.cookie-policy summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; box-shadow: 0 0 0 7px var(--focus-halo-color); }
 .cookie-preferences__status { min-height: 20px; margin-top: 8px; font-size: 0.8rem; color: var(--text-secondary); }
 .cookie-policy { margin-top: 12px; }
 .cookie-policy summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: var(--text-primary); font-size: 0.85rem; }

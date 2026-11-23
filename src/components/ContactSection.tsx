@@ -5,6 +5,7 @@ import type { ContactRequest, SubmitContactRequest } from '../app/contactSubmiss
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
 import { BOOKING_LABEL, BOOKING_URL, FORM_MESSAGES, SITE_PHONES } from '../content/site'
 import type { LegalDocId } from '../content/site'
+import { ownsEscape, trapTab } from './focusTrap'
 import './modal.css'
 import './contactSection.css'
 
@@ -114,6 +115,7 @@ export function ContactSection({
 
   const triggerRef = useRef<HTMLButtonElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
   const submitSeqRef = useRef(0)
   /** See AuditSection: the honeypot value and when this dialog opened. */
   const honeypotRef = useRef('')
@@ -170,15 +172,31 @@ export function ContactSection({
   useEffect(() => {
     if (preview || !open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') {
+        // Only while it is on top, and no further: the legal panel opened over
+        // it closes alone, and the campus under it does not leave too (F4, M6).
+        if (!ownsEscape(panelRef.current)) return
+        e.stopPropagation()
+        close()
+      }
+      // It says `aria-modal`, so Tab stays in it (F1 of the 2026-11-18
+      // accessibility audit): it used to walk out to the page behind.
+      else trapTab(e, panelRef.current)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Capture: ahead of the sections' own listeners on window.
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [open, close, preview])
 
   useEffect(() => {
     if (!preview && open) titleRef.current?.focus()
   }, [open, preview])
+
+  // The success replaces the form, and the focus with it: it goes to the
+  // success heading, as the audit's does (accessibility audit 2026-11-18, F5).
+  useEffect(() => {
+    if (!preview && submission === 'success') titleRef.current?.focus({ preventScroll: true })
+  }, [submission, preview])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -295,6 +313,7 @@ export function ContactSection({
       {open && (
         <div className="modal-scrim" onClick={close}>
           <section
+            ref={panelRef}
             className="modal-panel contact-panel"
             role="dialog"
             aria-modal="true"
@@ -405,7 +424,10 @@ export function ContactSection({
                 <button
                   type="submit"
                   className="contact-cta"
-                  disabled={submission === 'submitting'}
+                  // Not `disabled`: a disabled button drops the focus it holds
+                  // to <body> (accessibility audit 2026-11-18, F5). handleSubmit
+                  // already refuses a second send while one is in flight.
+                  aria-disabled={submission === 'submitting' || undefined}
                 >
                   {submission === 'submitting' ? 'Enviando…' : 'Enviar'}
                   <span className="contact-cta__arrow" aria-hidden="true">

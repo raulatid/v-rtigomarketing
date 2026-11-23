@@ -7,6 +7,7 @@
 1. **Toda la interfaz depende de `phase === 'site'`**, y los controles se desmontan en lugar de ocultarse: acciones de la cabecera, puertas, interruptor de sonido y banner de consentimiento (`src/App.tsx`).
 2. **El banner de consentimiento aparece al llegar a `site`**, como el último trazo de la intro. Es una región no modal: no bloquea la navegación y Escape no lo cierra.
 3. La música también arranca en `site` (ver [música](../transicion/musica.md)).
+4. **El control de navegación (`NavigationControl`, «Ir a Murcia») se monta siempre** (su listener de rueda es lo que impide que la página se desplace) **y por eso va `inert` hasta `site`** (desde el 2026-11-23, auditoría de accesibilidad D3): antes, el primer Tab de la intro caía en él y su pulsación se rechazaba. Sin escena (`site` no llega) sigue inerte. Fija: `src/components/NavigationControl.test.tsx`.
 
 El funcionamiento del registro de consentimiento (categorías, versión, qué carga cada categoría) pertenece al área de consentimiento y legal, que aún no está migrada.
 

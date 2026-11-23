@@ -354,6 +354,19 @@ describe('inside the section', () => {
     expect(fixture.section.back).not.toHaveBeenCalled()
   })
 
+  // Accessibility audit 2026-11-18, M6: a dialog over the campus keeps its keys.
+  it('leaves keys pressed inside a dialog to the dialog', () => {
+    const dialog = document.createElement('section')
+    dialog.setAttribute('role', 'dialog')
+    const button = dialog.appendChild(document.createElement('button'))
+    document.body.appendChild(dialog)
+    fixture.key('ArrowRight', button)
+    fixture.key('Escape', button)
+    expect(fixture.section.next).not.toHaveBeenCalled()
+    expect(fixture.section.back).not.toHaveBeenCalled()
+    dialog.remove()
+  })
+
   it('is deaf to keys and swipes while disabled', () => {
     fixture.interaction.setEnabled(false)
     fixture.key('ArrowRight')

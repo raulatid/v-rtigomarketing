@@ -54,10 +54,10 @@ import { forwardRef } from 'react'
  * Spanish (DECISIONS §11) and strings belong with the markup; which of them is
  * current is a navigation question, so the input layer picks.
  */
-export const NavigationControl = forwardRef<HTMLDivElement>(
-  function NavigationControl(_props, ref) {
+export const NavigationControl = forwardRef<HTMLDivElement, { inert?: boolean }>(
+  function NavigationControl({ inert = false }, ref) {
     return (
-      <div ref={ref} className="nav" data-state="suppressed" data-direction="down">
+      <div ref={ref} className="nav" data-state="suppressed" data-direction="down" inert={inert}>
         {/*
         A button rather than the slider this used to be. The slider role
         described a continuous value the viewer dragged; there is no drag any
