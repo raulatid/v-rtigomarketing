@@ -11,7 +11,9 @@
  *
  * So this is a switch, and everything it switches on is additive. With no
  * `?earthTex=` every value below is the inert default and the scene loads the
- * shipped KTX2 set exactly as before. Gated on `DEBUG_TOOLS_ENABLED`, like
+ * shipped set — since 2026-11-23 that is AVIF day and night on a desktop
+ * (`EARTH_TEXTURES.wideAvif`), so the baseline arm of a desktop comparison is
+ * no longer the KTX2 pair. Gated on `DEBUG_TOOLS_ENABLED`, like
  * `protoSky.ts`: in a production build the variant is unconditionally null.
  *
  * Only day and night are switched. The clouds stay KTX2: the audit's cloud
@@ -25,7 +27,7 @@ import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags'
 export interface ProtoEarthTextureParams {
   /**
    * Which variant to load, from `public/proto-earth/<variant>/`. Null means the
-   * shipped KTX2 maps — the baseline arm, and the default.
+   * shipped maps (`EARTH_TEXTURES`) — the baseline arm, and the default.
    */
   variant: string | null
 }

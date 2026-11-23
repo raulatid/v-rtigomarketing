@@ -1,12 +1,12 @@
 # Las placas de marca: un suelo dibujado que los logos reales mejoran
 
-**Estado:** vigente · **Desde:** 2026-08 · **Sustituye a:** DECISIONS §18 y su enmienda
+**Estado:** vigente · **Desde:** 2026-08; logos bajo demanda desde el 2026-11-23 · **Sustituye a:** DECISIONS §18 y su enmienda
 
 ## Decisión
 
 1. **Dos atlas, uno por tipo de marca** (`AtlasKind`: isotipo y logo), con celdas por tipo y filas derivadas del número de casos.
 2. **El suelo se dibuja de forma síncrona:** un monograma en anillo con el color de la marca (`safeBrandColor` si no lo hay) y un logotipo en texto con un color opaco (`WORDMARK_COLOR`).
-3. **El arte real se carga en segundo plano:**
+3. **El arte real se carga en segundo plano.** Los isotipos, todos al construir el atlas, porque se ven en reposo. **Los logos, bajo demanda** (`onDemand` en `createBrandAtlas`): solo se ven en el satélite seleccionado, así que cada uno se pide con el primer hover real de su satélite o con su selección, nunca con la demostración del tutorial. Al seleccionar, el despliegue espera al logo como mucho `logoHold` (`orbitConfig.ts`), para que en táctil, sin hover, no se vea el cambio de la placa dibujada al logo. En la visita que no selecciona nada ahorra todos los logos: 134.220 B con el contenido del 2026-11-23, que tiene cinco. La espera (`logoHold.ts`) también se aplica con movimiento reducido, donde el panel se abre de golpe: así tampoco se ve el cambio.
    - `crossOrigin` se fija antes que `src`, y una sonda de 1×1 comprueba que el canvas no quede contaminado;
    - la marca se ajusta a su tinta medida, no a su caja;
    - las subidas a GPU se agrupan en una por fotograma;
@@ -23,13 +23,15 @@
 
 ## Qué se descartó
 
-Una construcción asíncrona que espere a la disponibilidad, texturas por logo, fiarse de `crossOrigin` sin la sonda, filas fijas, ajuste *cover* y un logotipo en texto blanco translúcido.
+Cargar los logos al arrancar (hasta el 2026-11-23), adelantarlos con la demostración del tutorial (un logo en cada visita), una construcción asíncrona que espere a la disponibilidad, texturas por logo, fiarse de `crossOrigin` sin la sonda, filas fijas, ajuste *cover* y un logotipo en texto blanco translúcido.
 
 ## Se ha roto si…
 
 - Fallan `createBrandAtlas.test.ts` («draws the mark as a RING…», «clamps an out-of-range index…», «sizes the mark by its ink…», «grows exactly one row every two case studies…») o `content/collections/collections.test.ts` (isotipo sin logo y logo sin isotipo).
-- El camino asíncrono y la sonda no tienen test.
+- Falla `createBrandAtlas.test.ts` («requests nothing on demand until a plate is asked for…», «asks once per plate…»).
+- Falla `logoHold.test.ts` (la espera, y que una selección anterior, un `reset` o un `dispose` no desplieguen a destiempo).
+- El camino asíncrono y la sonda no tienen test. A ojo: al seleccionar en táctil, la placa dibujada con el nombre en texto aparece y cambia al logo.
 
 ## Afecta a
 
-`src/experiences/earth/orbit/createBrandAtlas.ts`, `src/experiences/earth/orbit/OrbitSystemLayer.tsx`, `content/lib/mirror.ts`, `content/collections/caseStudies.collection.ts`
+`src/experiences/earth/orbit/createBrandAtlas.ts`, `src/experiences/earth/orbit/createOrbitSystem.ts`, `src/experiences/earth/orbit/logoHold.ts`, `src/experiences/earth/orbit/orbitConfig.ts`, `src/experiences/earth/orbit/OrbitSystemLayer.tsx`, `content/lib/mirror.ts`, `content/collections/caseStudies.collection.ts`

@@ -107,7 +107,7 @@ function loadFirstAvailable(
  * three's own rule, from `GLTFLoader` (0.174): Safari before 17 and Firefox
  * before 98 ignore or reject them, so they keep the `<img>` path.
  *
- * Exported for the AVIF surface-map prototype (`protoEarthTextureLoader.ts`).
+ * Exported for the Earth surface-map loader (`earthTextureLoader.ts`).
  */
 export function imageBitmapsUsable(): boolean {
   if (typeof createImageBitmap === 'undefined') return false

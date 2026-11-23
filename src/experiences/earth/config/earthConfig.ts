@@ -15,14 +15,36 @@ export const EARTH_CONFIG = {
 }
 
 /**
- * The surface maps, at two resolutions.
+ * The surface maps, at two resolutions, and the wide day and night in two
+ * formats.
  *
- * All three are KTX2/Basis (ETC1S, BasisLZ), transcoded on the GPU's own
- * compressed format. As RGBA8 JPEGs 4096x2048 cost 44.7 MB of GPU memory each
- * with mipmaps — 134 MB for the set, the largest single item in a texture
+ * DESKTOP (`wideAvif`, 2026-11-23): day and night are AVIF, the clouds stay
+ * KTX2. Half the bytes of the ETC1S pair (865,242 -> 341,022) and closer to
+ * the master — day 35.8 dB against 30.7, night 40.7 against 37.3
+ * (`audits/reports/project-resource-budget-earth-2026-11-18.md`, option B;
+ * recipe in `04_Assets/optimizados/recodificacion-2026-11-23/`). The price is
+ * GPU memory: an AVIF uploads as RGBA8, 44.7 MB per 4096 map with mipmaps,
+ * against ~25 MB for the whole KTX2 set transcoded to BC7 on a desktop. A desktop can carry that; an iPad is
+ * the device the paragraph below is about, so it keeps the KTX2 maps until its
+ * memory is measured (the user's call, 2026-11-22, R13).
+ *
+ * "Desktop" is a wide viewport WITH A FINE PRIMARY POINTER, not a width: an
+ * iPad and an Android tablet are as wide as a laptop and report a coarse
+ * pointer. A touch laptop reports its trackpad and takes the AVIF, which is
+ * right — it has a laptop's memory. The same two media queries split the
+ * preloads in index.html, so they cannot disagree with `earthTextureSet`.
+ *
+ * Everything else — the narrow set, the wide set on a coarse pointer, and the
+ * clouds everywhere — is KTX2/Basis (ETC1S, BasisLZ), transcoded on the GPU's
+ * own compressed format. As RGBA8 JPEGs 4096x2048 cost 44.7 MB of GPU memory
+ * each with mipmaps — 134 MB for the set, the largest single item in a texture
  * budget the iOS audit measured at ~226 MB, on a platform that terminates tabs
  * rather than paging (`audits/reports/ios-safari-2026-08-14.md`, I2).
  * Compressed, the same set is roughly a quarter of that.
+ *
+ * A browser that cannot decode the AVIF (Safari before 16, Edge before 121)
+ * falls back to the KTX2 file of the same map (`EARTH_TEXTURE_FALLBACK`), one
+ * map at a time, at the cost of the wasted request.
  *
  * THE NARROW SET IS 1024x512. This paragraph said 2048 and did its arithmetic
  * with 1024 texels across the visible hemisphere — twice what a 1024-wide map
@@ -46,14 +68,14 @@ export const EARTH_CONFIG = {
  * `narrowMaxWidth` is deliberately the same 767 the sky panorama and the CSS
  * breakpoints use. One number for "this is a phone" across the project.
  *
- * The flags are not interchangeable. Every file needs mipmaps (a compressed
+ * The KTX2 flags are not interchangeable. Every file needs mipmaps (a compressed
  * texture cannot be mipped at runtime, and an unmipped globe aliases badly at
  * the resting pose) and dimensions that are multiples of four (Basis rejects
  * the upload otherwise — silently, as a black map). day and night are encoded
  * sRGB; clouds is linear, because it is data the shader thresholds rather than
  * colour.
  *
- * EVERY FILE MUST BE ENCODED BOTTOM-LEFT — `ktx create
+ * EVERY KTX2 FILE MUST BE ENCODED BOTTOM-LEFT — `ktx create
  * --convert-texcoord-origin bottom-left`, or `toktx --lower_left_maps_to_s0t0`
  * — and `ktx info` must report `KTXorientation: ru`. This is the one flag that
  * cannot be fixed afterwards. `TextureLoader` gave the JPEGs `flipY = true` and
@@ -72,12 +94,23 @@ export const EARTH_CONFIG = {
  * level of the wide clouds is clamped to at least 120 before encoding: anything
  * below the shader's threshold draws the same, and ETC1S stops spending bits on
  * it (321,140 -> 113,628 bytes, closer to the master at every level). Recipe in
- * `04_Assets/optimizados/recodificacion-2026-11-18/`. The sources live outside the repo —
+ * `04_Assets/optimizados/recodificacion-2026-11-18/`. The narrow clouds take
+ * the same recipe at 1024x512 since 2026-11-23, under a new name because
+ * `/earth/` is cached without a hash (101,174 -> 43,844 bytes; on the shader's
+ * output, 25.8 -> 30.8 dB at level 0). Recipe in
+ * `04_Assets/optimizados/recodificacion-2026-11-23/`. The sources live outside the repo —
  * deliberately, they are 16 MB of encoder input nothing serves. `scripts/prepare-earth-textures.mjs` does not yet cover
  * this step; it still only writes the superseded narrow JPEGs.
  */
 export const EARTH_TEXTURES = {
   narrowMaxWidth: 767,
+  /** A wide viewport takes the AVIF pair only when this matches. See above. */
+  finePointerQuery: '(pointer: fine)',
+  wideAvif: {
+    day: '/earth/day.avif',
+    night: '/earth/night.avif',
+    clouds: '/earth/clouds.ktx2',
+  },
   wide: {
     day: '/earth/day.ktx2',
     night: '/earth/night.ktx2',
@@ -86,7 +119,7 @@ export const EARTH_TEXTURES = {
   narrow: {
     day: '/earth/day-narrow.ktx2',
     night: '/earth/night-narrow.ktx2',
-    clouds: '/earth/clouds-narrow.ktx2',
+    clouds: '/earth/clouds-narrow-v2.ktx2',
   },
 } as const
 
@@ -118,7 +151,41 @@ export function usesNarrowEarthTextures(): boolean {
   return narrowTier
 }
 
+export type EarthTextureSet = { readonly day: string; readonly night: string; readonly clouds: string }
+
+/**
+ * The KTX2 file to load when an AVIF map does not decode. Same map, same
+ * resolution, so the scene is the one a coarse-pointer visitor sees.
+ */
+export const EARTH_TEXTURE_FALLBACK: Readonly<Record<string, string>> = {
+  [EARTH_TEXTURES.wideAvif.day]: EARTH_TEXTURES.wide.day,
+  [EARTH_TEXTURES.wideAvif.night]: EARTH_TEXTURES.wide.night,
+}
+
+/**
+ * The files this session loads: narrow, or wide in one of two formats.
+ *
+ * Latched like the tier above, and for the same reason: plugging a mouse into
+ * a tablet mid-visit must not re-download the maps. The narrow answer comes
+ * from `usesNarrowEarthTextures` itself, so the zoom's near end and the files
+ * still read one fact.
+ */
+let wideSet: EarthTextureSet | null = null
+
+export function earthTextureSet(): EarthTextureSet {
+  if (usesNarrowEarthTextures()) return EARTH_TEXTURES.narrow
+  if (wideSet === null) {
+    const fine =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(EARTH_TEXTURES.finePointerQuery).matches
+    wideSet = fine ? EARTH_TEXTURES.wideAvif : EARTH_TEXTURES.wide
+  }
+  return wideSet
+}
+
 /** Test seam. Nothing in the application calls this. */
 export function resetEarthTextureTier(): void {
   narrowTier = null
+  wideSet = null
 }

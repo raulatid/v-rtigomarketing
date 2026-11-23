@@ -1,6 +1,6 @@
 # El editor decide todo lo que pasa por Sanity; el código, nunca
 
-**Estado:** vigente · **Desde:** 2026-08-20 (§28); reformulada el 2026-10-20 por indicación del usuario, tras las revisiones de 2026-09-11 (`9e041c5`, color de partículas), 2026-09-18 (`2c096e9`, órbitas derivadas del contenido), 2026-09-21 (`3e20535`, formas de los servicios) y 2026-09-23 (`f600914`, `<head>` y favicon) · **Sustituye a:** DECISIONS §28; ADR 010 («Which case study occupies which orbit…»); ADR 011 («Scene composition stays code-owned»)
+**Estado:** vigente · **Desde:** 2026-08-20 (§28); reformulada el 2026-10-20 por indicación del usuario, tras las revisiones de 2026-09-11 (`9e041c5`, color de partículas), 2026-09-18 (`2c096e9`, órbitas derivadas del contenido), 2026-09-21 (`3e20535`, formas de los servicios) y 2026-09-23 (`f600914`, `<head>` y favicon); ampliada el 2026-11-22 (`ab16a5c`, h1 de la portada) · **Sustituye a:** DECISIONS §28; ADR 010 («Which case study occupies which orbit…»); ADR 011 («Scene composition stays code-owned»)
 
 ## Decisión
 
@@ -10,7 +10,8 @@
    - qué caso de estudio está resaltado (`highlighted`, exactamente uno), y con él qué caso ocupa cada órbita (ver [satélites](../earth/satelites.md));
    - las marcas, el color de marca y las gráficas de cada caso;
    - los textos, las cifras y las imágenes de la [pantalla de la torre](pantalla-de-la-torre.md);
-   - el `<head>` de `/` y `/blog` y el favicon.
+   - el `<head>` de `/` y `/blog` y el favicon;
+   - el h1 de la portada y su frase de apoyo (`headline` y `subheadline` de «Ajustes del sitio», grupo «Portada»). Si están vacíos, el build usa un texto de reserva provisional (`HEADLINE_FALLBACKS` en `content/collections/siteSettings.collection.ts`), porque una página no puede quedarse sin h1. Dónde y cómo se pinta (la capa, la tipografía, cuándo aparece) es del código.
 2. **El editor nunca decide código ni nada de desarrollo.** Son del código, y cambiarlos es un cambio revisado:
    - las listas cerradas entre las que el editor elige (`CAMPUS_SYMBOLS` y `CAMPUS_FIGURES` en `src/content/campusShapes.ts`). Una forma nueva es desarrollo, porque alguien tiene que dibujarla;
    - el conjunto de huecos y su sitio: qué órbitas hay y en qué orden se llenan (`HIGHLIGHTED_ORBIT_ID`, `ORBIT_FILL_ORDER` en `src/experiences/earth/orbit/orbitAssignments.ts`), qué nodos del GLB son un distrito (`contentId` en `src/experiences/murcia/scene/cityDistrictBindings.ts`), qué documentos legales existen (`LegalDocId` en `src/content/site.ts`) y dónde se pinta cada hueco de la torre (`layoutTowerSlides.ts`);
@@ -29,6 +30,7 @@ El cliente necesita cambiar lo que se ve sin pedir un despliegue de código, y l
 - La tabla literal de casos en `orbitAssignments.ts` (hasta `2c096e9`).
 - Las filas de símbolo y figura por servicio en `cityDistrictBindings.ts` (hasta `3e20535`).
 - `<title>`, descripción y OG fijos en `index.html` y `blog.html` (hasta `f600914`).
+- Un h1 fijo en código (decisión del usuario del 2026-11-22, `ab16a5c`).
 
 ## Se ha roto si…
 
@@ -39,4 +41,4 @@ El cliente necesita cambiar lo que se ve sin pedir un despliegue de código, y l
 
 ## Afecta a
 
-`src/content/campusShapes.ts`, `src/content/site.ts`, `src/experiences/earth/orbit/orbitAssignments.ts`, `src/experiences/murcia/scene/cityDistrictBindings.ts`, `content/collections/caseStudies.collection.ts`, `content/collections/districts.collection.ts`, `content/collections/services.collection.ts`, `content/collections/siteSeo.collection.ts`, `sanity-studio/schemas/lib/orbitCapacity.ts`, `sanity-studio/schemas/lib/serviceMembership.ts`, `sanity-studio/schemas/lib/highlightedCase.ts`
+`src/content/campusShapes.ts`, `src/content/site.ts`, `src/experiences/earth/orbit/orbitAssignments.ts`, `src/experiences/murcia/scene/cityDistrictBindings.ts`, `content/collections/caseStudies.collection.ts`, `content/collections/districts.collection.ts`, `content/collections/services.collection.ts`, `content/collections/siteSeo.collection.ts`, `content/collections/siteSettings.collection.ts`, `sanity-studio/schemas/siteSettings.ts`, `src/components/HomeHeadline.tsx`, `scripts/siteHead.ts`, `sanity-studio/schemas/lib/orbitCapacity.ts`, `sanity-studio/schemas/lib/serviceMembership.ts`, `sanity-studio/schemas/lib/highlightedCase.ts`

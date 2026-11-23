@@ -42,7 +42,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 30. **Un canvas no hace que el navegador descargue una cara declarada:** pídela con `document.fonts.load` y repinta cuando llegue (`mediaFacade.ts`, `blogOrbitRing.ts`).
 31. **Mide las alturas de mayúsculas sobre la H, no en la tabla OS/2:** Gambetta trae ahí la altura de x.
 32. **El atlas de marcas de Earth dibuja en `system-ui`:** su cara cambia según la plataforma; mide con `measureText` y no compares capturas de texto entre plataformas.
-33. **Quitar Switzer o Inter del respaldo deja las flechas (← → ↑ ↓) sin cara.** Decide antes de dónde salen.
+33. **Las flechas (← → ↑ ↓) no las tiene ninguna cara de Display:** ni General Sans ni la Switzer que se quitó el 2026-11-23. Salen de `system-ui`. En texto, ↑ y ↓ los declara el subconjunto latino de Inter: quitar Inter del respaldo de texto los pasa también a la fuente del sistema.
 34. **Un archivo nuevo en `public/fonts/` lleva los 8 primeros hexadecimales de su SHA-256 en el nombre** (`immutable`), y su precarga, `crossorigin`. Sin test.
 35. **La pista de escena no lleva `font-family` a propósito:** hereda el rol de texto (hoy Gambetta). Una familia propia la separaría de la página. El reparto de caras es definitivo: ver [tipografías](../decisiones/interfaz/tipografias.md).
 

@@ -8,7 +8,6 @@ import modal from '../../src/components/modal.css?raw'
 import general from '../../public/fonts/general-sans-variable-49d3fbd2.woff2?url'
 import gambetta from '../../public/fonts/gambetta-variable-f705e571.woff2?url'
 import gambettaItalic from '../../public/fonts/gambetta-variable-italic-635900c5.woff2?url'
-import switzer from '../../public/fonts/switzer-variable-d1bf801f.woff2?url'
 import inter from '../../public/fonts/inter-latin-3100e775.woff2?url'
 import interExt from '../../public/fonts/inter-latin-ext-34b9c504.woff2?url'
 import serif from '../../public/fonts/source-serif-4-latin-f2ea9c12.woff2?url'
@@ -18,7 +17,7 @@ import serifExtItalic from '../../public/fonts/source-serif-4-latin-ext-italic-2
 
 const fonts: Record<string, string> = {
   'general-sans-variable-49d3fbd2.woff2': general, 'gambetta-variable-f705e571.woff2': gambetta,
-  'gambetta-variable-italic-635900c5.woff2': gambettaItalic, 'switzer-variable-d1bf801f.woff2': switzer,
+  'gambetta-variable-italic-635900c5.woff2': gambettaItalic,
   'inter-latin-3100e775.woff2': inter, 'inter-latin-ext-34b9c504.woff2': interExt,
   'source-serif-4-latin-f2ea9c12.woff2': serif, 'source-serif-4-latin-ext-155f6e70.woff2': serifExt,
   'source-serif-4-latin-italic-96e63932.woff2': serifItalic, 'source-serif-4-latin-ext-italic-2078240c.woff2': serifExtItalic,

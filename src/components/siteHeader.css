@@ -44,14 +44,16 @@
    the blog's article body included (blog.css). Both ITF, from Fontshare.
 
    Decided 2026-09-11: these replaced Switzer and Inter, and the blog's
-   Source Serif 4. The old faces stay declared under their own names, second
-   in each stack.
+   Source Serif 4. Inter stays declared, second in the text stack; Switzer was
+   dropped on 2026-11-23.
 
    A browser only fetches a face it has to draw a glyph from, and the new
    faces cover all of Spanish — but NEITHER has arrows (← → ↑ ↓), which the
-   copy uses ("→" on the blog's links, the campus hint). Those are drawn from
-   the second face, so Switzer is still fetched on any page with an arrow in
-   display text. Dropping the old faces means deciding where arrows come from. */
+   copy uses ("→" on the blog's links, the campus hint). In display text they
+   come from system-ui. They always did: Switzer, second in this stack until
+   2026-11-23, has no arrows either (measured), so a page with an arrow in
+   display text downloaded 43 KB of Switzer to draw nothing from it. In text,
+   Inter's latin subset carries ↑ and ↓. */
 
 /* ── The new faces ──
 
@@ -90,15 +92,7 @@
   src: url('/fonts/gambetta-variable-italic-635900c5.woff2') format('woff2');
 }
 
-/* The faces under review replaced. Kept declared, second in each stack. */
-@font-face {
-  font-family: 'Vertigo Switzer';
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('/fonts/switzer-variable-d1bf801f.woff2') format('woff2');
-}
-
+/* The text face it replaced. Kept declared, second in the text stack. */
 @font-face {
   font-family: 'Vertigo Inter';
   font-style: normal;
@@ -118,7 +112,7 @@
 }
 
 :root {
-  --font-display: 'Vertigo Display', 'Vertigo Switzer', system-ui, sans-serif;
+  --font-display: 'Vertigo Display', system-ui, sans-serif;
   --font-text: 'Vertigo Text', 'Vertigo Inter', Georgia, serif;
 }
 

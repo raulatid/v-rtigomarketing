@@ -115,11 +115,39 @@
 
          The 767px breakpoint MUST match `EARTH_TEXTURES.narrowMaxWidth` in
          earthConfig.ts. If the two disagree the browser preloads one set and
-         the loader requests the other, and every visitor downloads both. -->
+         the loader requests the other, and every visitor downloads both.
+
+         The wide day and night split once more, by the PRIMARY pointer, exactly
+         as `earthTextureSet` does: AVIF on a fine pointer (a desktop), KTX2 on a
+         coarse one or none (an iPad, an Android tablet), because an AVIF uploads
+         uncompressed and a tablet's GPU memory is the budget the KTX2 set exists
+         for. Same `as="fetch"` and `crossorigin` as the sky's AVIF below, and
+         for the same reason: the loader decodes it from a fetch. As with the sky,
+         Safari before 17 and Firefox before 98 decode through an `<img>`
+         instead, which does not reuse the preload. The clouds are KTX2 on every
+         wide viewport. -->
     <link
       rel="preload"
       as="fetch"
-      media="(min-width: 768px)"
+      type="image/avif"
+      media="(min-width: 768px) and (pointer: fine)"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/day.avif"
+    />
+    <link
+      rel="preload"
+      as="fetch"
+      type="image/avif"
+      media="(min-width: 768px) and (pointer: fine)"
+      crossorigin
+      fetchpriority="low"
+      href="/earth/night.avif"
+    />
+    <link
+      rel="preload"
+      as="fetch"
+      media="(min-width: 768px) and (pointer: coarse), (min-width: 768px) and (pointer: none)"
       crossorigin
       fetchpriority="low"
       href="/earth/day.ktx2"
@@ -127,7 +155,7 @@
     <link
       rel="preload"
       as="fetch"
-      media="(min-width: 768px)"
+      media="(min-width: 768px) and (pointer: coarse), (min-width: 768px) and (pointer: none)"
       crossorigin
       fetchpriority="low"
       href="/earth/night.ktx2"
@@ -162,7 +190,7 @@
       media="(max-width: 767px)"
       crossorigin
       fetchpriority="low"
-      href="/earth/clouds-narrow.ktx2"
+      href="/earth/clouds-narrow-v2.ktx2"
     />
     <!-- The sky. A required boot resource — the shell stays hidden until it is
          ready, so a late arrival delays the cut, not just the scenery.
@@ -206,7 +234,7 @@
          and only 20 KB — this one keeps normal priority. -->
     <link rel="preload" as="fetch" href="/models/vertigo-isotipo-3d.glb" crossorigin />
     <!-- Satellites appear in P5, well after handover. -->
-    <link rel="preload" as="fetch" fetchpriority="low" href="/models/satellite.glb" crossorigin />
+    <link rel="preload" as="fetch" fetchpriority="low" href="/models/satellite-v2.glb" crossorigin />
   </head>
   <body>
     <!-- P0's script is INJECTED into <head> by the introEntry plugin, not

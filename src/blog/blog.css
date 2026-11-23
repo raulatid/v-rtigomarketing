@@ -330,7 +330,7 @@
   gap: 48px;
 }
 
-/* The titles take the site's DISPLAY face (Switzer), the one role the blog
+/* The titles take the site's DISPLAY face (General Sans), the one role the blog
    shares with the scene. It is declared once, in siteHeader.css, which every
    document loads — named here rather than read through `--font-display`,
    because this sheet reads no site token but `--header-control`. The
