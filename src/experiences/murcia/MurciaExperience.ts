@@ -1519,7 +1519,6 @@ export class MurciaExperience {
       lens: this.camera,
       brands: CASE_STUDIES.flatMap((entry) => (entry.isotype ? [{ src: entry.isotype, name: entry.name }] : [])),
       skyView: () => about.skyView(),
-      plateRect: () => about.plateRect(),
     });
     this.aboutSky.setPixelRatio(this.renderer.getPixelRatio());
     this.sceneBundle.scene.add(this.aboutSky.object3D);

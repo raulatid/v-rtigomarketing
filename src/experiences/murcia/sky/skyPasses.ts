@@ -79,16 +79,18 @@ const MIN_ELEVATION_DEGREES = 24;
 const AZIMUTH_SPREAD_DEGREES = 35;
 /**
  * Seconds per lap, the same for every satellite: 3° a second. The phone's sky
- * stop is about 17° wide, so a satellite stays in it long enough to carry a
- * brand panel (`panelSchedule.ts`); at 36 s it crossed in under two, and the
+ * stop is about 17° wide; at 36 s a satellite crossed it in under two, and the
  * desktop's free sky left of the plate in about as little (simulated on
- * 2026-10-22). Slow also reads as far away. Most of a lap is spent below the
+ * 2026-10-22, when these passes still carried the brand panels; since
+ * 2026-11-23 the brands have their own lanes, `brandLanes.ts`). Slow also
+ * reads as far away. Most of a lap is spent below the
  * dark, which is why there are several.
  */
 const LAP_SECONDS = 120;
 /**
- * The satellites travel in twos, spread round the lap pair by pair, so the
- * brand panels can come up two at a time (`panelSchedule.ts`). A pair shares
+ * The satellites travel in twos, spread round the lap pair by pair: they were
+ * paired so the brand panels could come up two at a time, and the pairs
+ * stayed when the brands moved to their own lanes (`brandLanes.ts`). A pair shares
  * its lap and the azimuth of each new line, and crosses it in OPPOSITE senses
  * at two heights `PAIR_SEPARATION_DEGREES` apart: two crossings that meet
  * over the frame, not a formation. Satellites going their own way were almost

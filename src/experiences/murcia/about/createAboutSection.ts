@@ -9,7 +9,15 @@ import { createAboutScreenPaging } from './aboutScreenPaging';
 import { ABOUT_LABELS } from './aboutLabels';
 import { DistrictA11y, type DistrictA11yView } from '../district/ui/districtA11y';
 import { DEFAULT_LOCALE } from '../campus/campusLabels';
-import { CITY_MARK, SKY_FOCUS_NDC, solveAboutStops, type AboutGeometry, type AboutPose } from './aboutPoses';
+import {
+  BRAND_LANES_NDC,
+  CITY_MARK,
+  SKY_FOCUS_NDC,
+  solveAboutStops,
+  type AboutGeometry,
+  type AboutPose,
+  type NdcLane,
+} from './aboutPoses';
 
 /**
  * Conócenos: the visit that starts at the base of the Vértigo tower. The one
@@ -43,7 +51,7 @@ const REDUCED_FLIGHT_SECONDS = 0.12;
 export const ABOUT_STOPS = ['screen', 'city', 'sky'] as const;
 export type AboutStopName = (typeof ABOUT_STOPS)[number];
 const LAST_STOP = ABOUT_STOPS.length - 1;
-/** The plate's modifier class: murcia.css places it, and `plateRect` finds it by it. */
+/** The plate's modifier class: murcia.css places it by it. */
 const PLATE_CLASS = 'campus-overlay--about';
 
 export interface AboutSectionOptions {
@@ -96,14 +104,16 @@ export interface AboutSection {
   setEnabled(next: boolean): void;
   /** The viewport changed: a held stop is re-framed for it. */
   reframe(): void;
-  /** The sky stop for the current viewport, held or not, and where in its frame the satellites aim. */
-  skyView(): { readonly pose: AboutPose; readonly focus: { readonly x: number; readonly y: number } };
+  /** The sky stop for the current viewport, held or not, where in its frame the satellites aim, and the brand satellites' lanes. */
+  skyView(): {
+    readonly pose: AboutPose;
+    readonly focus: { readonly x: number; readonly y: number };
+    readonly lanes: readonly NdcLane[];
+  };
   /** The city stop for the current viewport, held or not, and where in its frame the isotype is centred, and how large. */
   cityView(): { readonly pose: AboutPose; readonly mark: { readonly x: number; readonly y: number; readonly size: number } };
   /** How long a flight between stops takes, in seconds: the cut's under reduced motion. */
   readonly flightSeconds: number;
-  /** Where the plate (or the phone's sheet) is on screen; null when it is not mounted. */
-  plateRect(): DOMRect | null;
   update(dt: number): void;
   readonly snapshot: { readonly stop: AboutStopName | null; readonly flying: boolean; readonly holding: boolean };
   dispose(): void;
@@ -323,7 +333,8 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     },
 
     skyView() {
-      return { pose: solve()[LAST_STOP]!, focus: SKY_FOCUS_NDC[dock.matches ? 'docked' : 'sheet'] };
+      const layout = dock.matches ? 'docked' : 'sheet';
+      return { pose: solve()[LAST_STOP]!, focus: SKY_FOCUS_NDC[layout], lanes: BRAND_LANES_NDC[layout] };
     },
 
     cityView() {
@@ -331,10 +342,6 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     },
 
     flightSeconds: seconds,
-
-    plateRect() {
-      return options.container.querySelector('.' + PLATE_CLASS)?.getBoundingClientRect() ?? null;
-    },
 
     update(dt) {
       camera.update(dt);

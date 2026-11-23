@@ -100,12 +100,42 @@ const SKY_OFFSET = { docked: { back: 34, down: 10 }, sheet: { back: 75, down: 36
  */
 const SKY_NDC = { docked: { x: -0.45, y: -0.55 }, sheet: { x: 0, y: 0.3 } } as const;
 /**
- * Stop 3: the patch of sky the satellites are aimed at, in NDC — up in the
- * dark, and on a desktop left of the docked plate, which covers the frame's
- * centre-right and hides any brand panel that passes behind it
- * (`sky/skyPasses.ts`, `about/aboutSky.ts`).
+ * Stop 3: the patch of sky the ambient satellites are aimed at, in NDC — up in
+ * the dark, and on a desktop left of the docked plate, which covers the
+ * frame's centre-right (`sky/skyPasses.ts`, `about/aboutSky.ts`).
  */
 export const SKY_FOCUS_NDC = { docked: { x: -0.4, y: 0.5 }, sheet: { x: 0, y: 0.5 } } as const;
+
+/** A lane of the sky stop, in NDC of its frame. */
+export interface NdcLane {
+  readonly from: { readonly x: number; readonly y: number };
+  readonly to: { readonly x: number; readonly y: number };
+}
+
+/**
+ * Stop 3: the brand satellites' lanes (`sky/brandLanes.ts`), each from one NDC
+ * point of the stop's frame to another, as the stop's camera sees them.
+ *
+ * Two lanes crossed in opposite senses, one high and one low in the dark sky,
+ * far enough apart that two panels passing each other never touch: 0.5 of the
+ * frame's height on a desktop and 0.4 on a phone, which at the shortest frames
+ * measured (1280×720, 375×667) still leaves more than a panel's height,
+ * name included (`PANEL_REACH` in `aboutSky.ts`). On a desktop they run from
+ * just past the left edge to just short of the docked plate; on a phone, from
+ * edge to edge above the sheet, across the tower. The high lane leaves room
+ * above for the name; the low one stays in the dark. All of it is measured in
+ * `sky/brandLanes.test.ts`, which also holds the panels clear of each other.
+ */
+export const BRAND_LANES_NDC: Readonly<Record<AboutLayout, readonly NdcLane[]>> = {
+  docked: [
+    { from: { x: -1.08, y: 0.64 }, to: { x: -0.06, y: 0.58 } },
+    { from: { x: -0.06, y: 0.08 }, to: { x: -1.08, y: 0.14 } },
+  ],
+  sheet: [
+    { from: { x: -1.1, y: 0.62 }, to: { x: 1.1, y: 0.58 } },
+    { from: { x: 1.1, y: 0.18 }, to: { x: -1.1, y: 0.22 } },
+  ],
+};
 
 /**
  * Where to stand to see the screen square on, filling `fill` of the view on
