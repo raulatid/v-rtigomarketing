@@ -1,14 +1,14 @@
 import type { SupportHit, SupportIndex } from './supportIndex';
 
 /**
- * Light inheritance, the rules (prototype; see `supportIndex.ts`).
+ * Light inheritance, the rules (`inheritLight.ts` applies them; `supportIndex.ts` finds the support).
  *
  * The bake's own light for a detail is replaced by its support's, times a
  * constant per kind of face for what the support's bake cannot know: the
  * inside of a window's reveal or a parapet's inner face sees less sky than
  * the wall or roof it reads from. With the sun fixed and unknown to the
- * runtime, the factors are constants (`InheritanceShade`), tunable from the
- * URL while the prototype is judged.
+ * runtime, the factors are constants (`InheritanceShade`), judged by eye in
+ * the scene (2026-11-20).
  */
 
 export interface InheritanceShade {

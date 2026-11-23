@@ -8,6 +8,8 @@ import {
 import { atlasResolutions, parseUnifiedManifest, selectedVariant } from './unifiedManifest';
 import type { LightmapResolution } from './lightmapManifest';
 import { fetchCityBytes, type CityBytes } from '../cityBytes';
+import { inheritLight, type InheritedLight } from './inheritLight';
+import { DEBUG_TOOLS_ENABLED } from '../../../../platform/buildFlags';
 
 /**
  * The selected city bake: shared atlases without merging interactive building parts.
@@ -23,10 +25,12 @@ export async function loadUnifiedLightmaps(
   const textures = new Map<string, THREE.Texture>();
   const materials = new Map<string, THREE.Material>();
   const geometries: THREE.BufferGeometry[] = [];
+  let inherited: InheritedLight | null = null;
   let disposed = false;
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    inherited?.dispose();
     for (const t of targets) { t.object.material = t.material; t.object.geometry = t.geometry; }
     for (const m of materials.values()) m.dispose();
     for (const g of geometries) g.dispose();
@@ -44,7 +48,7 @@ export async function loadUnifiedLightmaps(
       if (!mesh.isMesh) return;
       // GLTFLoader turns a multi-material mesh into a Group. Its primitive
       // children need the atlas and interaction tags stored on that group.
-      for (const key of ['lightmap_atlas', 'building_id', 'runtime_material', 'dynamic_rotation']) {
+      for (const key of ['lightmap_atlas', 'light_inheritance', 'building_id', 'runtime_material', 'dynamic_rotation']) {
         if (mesh.userData[key] !== undefined) continue;
         for (let parent = mesh.parent; parent; parent = parent.parent) {
           if (parent.userData[key] !== undefined) {
@@ -78,7 +82,6 @@ export async function loadUnifiedLightmaps(
     for (const target of targets) {
       const { object, geometry } = target;
       const key = object.userData.lightmap_atlas as string;
-      const row = manifest.atlases[key];
       const instanced = (object as THREE.InstancedMesh).isInstancedMesh === true;
       let toned = false;
       if (instanced && object.userData.instance_st_builtin === true) {
@@ -110,33 +113,39 @@ export async function loadUnifiedLightmaps(
       } else if (object.userData.instance_st_accessor !== undefined) {
         throw new Error(`[lightmaps] instancing unavailable: ${object.name}`);
       }
-      const build = (source: THREE.Material) => {
-        const cacheKey = `${key}:${source.uuid}:${instanced}:${toned}`;
-        let material = materials.get(cacheKey);
-        if (!material && source.transparent && source.opacity < 0.999) {
-          // Lobby glass keeps runtime PBR lighting, opacity and roughness.
-          material = source.clone();
-          if ('lightMap' in material) material.lightMap = null;
-          material.depthWrite = false;
-          materials.set(cacheKey, material);
-        }
-        if (!material) {
-          const size = sizes.get(key)!;
-          const variant = selectedVariant(manifest, key, size);
-          material = createLightmapMaterial(source, {
-            lightMap: textures.get(key)!, lightMapIntensity: row.threeLightMapIntensity,
-            atlasSize: size, maxMip: variant.mipLevels - 1,
-            instanced, preserveAlbedo: true, toned,
-            programKey: `murcia-v5.1-${instanced}-${toned}-${size}-${variant.mipLevels}`,
-          });
-          material.name = `${source.name} | ${key}`;
-          materials.set(cacheKey, material);
-        }
-        return material;
-      };
+      const build = (source: THREE.Material) => materialFor(source, key, instanced, toned);
       object.material = Array.isArray(target.material) ? target.material.map(build) : build(target.material);
     }
+    // Windows and rooftop parapets marked `light_inheritance` read their support's light.
+    inherited = inheritLight(gltf.scene, (source, key, instanced) => materialFor(source, key, instanced, false));
+    if (inherited && DEBUG_TOOLS_ENABLED) console.info(inherited.report.join('\n'));
     return { resolution, dispose };
+
+    function materialFor(source: THREE.Material, key: string, instanced: boolean, toned: boolean): THREE.Material {
+      const row = manifest.atlases[key];
+      const cacheKey = `${key}:${source.uuid}:${instanced}:${toned}`;
+      let material = materials.get(cacheKey);
+      if (!material && source.transparent && source.opacity < 0.999) {
+        // Lobby glass keeps runtime PBR lighting, opacity and roughness.
+        material = source.clone();
+        if ('lightMap' in material) material.lightMap = null;
+        material.depthWrite = false;
+        materials.set(cacheKey, material);
+      }
+      if (!material) {
+        const size = sizes.get(key)!;
+        const variant = selectedVariant(manifest, key, size);
+        material = createLightmapMaterial(source, {
+          lightMap: textures.get(key)!, lightMapIntensity: row.threeLightMapIntensity,
+          atlasSize: size, maxMip: variant.mipLevels - 1,
+          instanced, preserveAlbedo: true, toned,
+          programKey: `murcia-v5.1-${instanced}-${toned}-${size}-${variant.mipLevels}`,
+        });
+        material.name = `${source.name} | ${key}`;
+        materials.set(cacheKey, material);
+      }
+      return material;
+    }
   } catch (error) {
     dispose();
     console.warn('[lightmaps] not applied', error);

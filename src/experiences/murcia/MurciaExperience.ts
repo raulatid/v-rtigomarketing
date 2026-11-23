@@ -187,8 +187,6 @@ export class MurciaExperience {
   private skyDome: SkyDome | null = null;
   private debugOverlay: DebugOverlay | null = null;
   private interactionProbe: InteractionProbe | null = null;
-  /** PROTOTYPE, `?inherit=1`: see `assets/lightmaps/applyLightInheritance.ts`. */
-  private lightInheritance: { dispose(): void } | null = null;
   /**
    * The services section: the campus, its particles, its camera and its copy.
    * Null until the city loads, and for good when the campus could not be
@@ -901,13 +899,6 @@ export class MurciaExperience {
     });
     this.loaded = loaded;
     this.sceneBundle.scene.add(loaded.root);
-
-    // Before anything else walks the city's materials (the Conócenos city
-    // mark patches them), so the inherited copies darken with the rest.
-    if (DEBUG_TOOLS_ENABLED && this.debugTools && this.appConfig.lightInheritanceEnabled && loaded.lightmaps) {
-      const { attachLightInheritancePrototype } = await import('./assets/lightmaps/lightInheritancePrototype');
-      this.lightInheritance = attachLightInheritancePrototype(loaded.root);
-    }
 
     if (this.loaded) this.debug?.logAssetReport(this.loaded.report);
 
@@ -1972,9 +1963,6 @@ export class MurciaExperience {
       this.transition.dispose();
       this.transition = null;
     }
-
-    this.lightInheritance?.dispose();
-    this.lightInheritance = null;
 
     if (this.loaded) {
       disposeLoadedCity(this.loaded);

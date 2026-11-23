@@ -49,6 +49,27 @@ describe('windows rebuilt from facade records', () => {
     expect(() => buildFacadeInstances(window(), records.slice(0, FACADE_RECORD_STRIDE + 1), 6, [10, 0.01, 0])).toThrow('ragged');
   });
 
+  it('builds an inheriting node without cells: no ST, no builtin flag', async () => {
+    const scene = new THREE.Group(); const mesh = window();
+    mesh.userData = { facade_records_accessor: 3, instance_count: 7, light_inheritance: 'window' };
+    scene.add(mesh);
+    const gltf = { scene, parser: { getDependency: async () => new THREE.BufferAttribute(new Float32Array(records), 1) } } as unknown as GLTF;
+    const [expanded] = await expandFacadeRecords(gltf);
+    expect(expanded.count).toBe(7);
+    expect(expanded.geometry.getAttribute(LIGHTMAP_ST_ATTRIBUTE)).toBeUndefined();
+    expect(expanded.userData.instance_st_builtin).toBeUndefined();
+    expect(expanded.userData.light_inheritance).toBe('window');
+  });
+
+  it('refuses a grid on an inheriting node and a baked node without one', async () => {
+    const expand = (userData: Record<string, unknown>) => {
+      const scene = new THREE.Group(); const mesh = window(); mesh.userData = userData; scene.add(mesh);
+      return expandFacadeRecords({ scene, parser: { getDependency: async () => new THREE.BufferAttribute(new Float32Array(records), 1) } } as unknown as GLTF);
+    };
+    await expect(expand({ facade_records_accessor: 3, instance_count: 7, light_inheritance: 'window', instance_st_grid: [10, 0.01, 0] })).rejects.toThrow('invalid record contract');
+    await expect(expand({ facade_records_accessor: 3, instance_count: 7 })).rejects.toThrow('invalid record contract');
+  });
+
   it('swaps the plain node for the instanced one in place', async () => {
     const scene = new THREE.Group(); const mesh = window();
     mesh.userData = { ...mesh.userData, facade_records_accessor: 3, instance_count: 7, instance_st_grid: [10, 0.01, 0] };

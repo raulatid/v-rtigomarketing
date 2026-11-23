@@ -1,8 +1,8 @@
 /**
  * Where a detail's light comes from when it has no lightmap island of its own.
  *
- * Prototype for the light-inheritance idea of
- * `docs/audits/reports/murcia-light-and-geometry-alternatives-2026-11-20.md` §3:
+ * Light inheritance (`inheritLight.ts`, report
+ * `docs/audits/reports/murcia-light-and-geometry-alternatives-2026-11-20.md` §3):
  * a window, or a face of a parapet, reads the baked light of the surface it is
  * mounted on instead of its own atlas cell. This index answers «which baked
  * triangle is nearest to this point, among those facing this way, and what is

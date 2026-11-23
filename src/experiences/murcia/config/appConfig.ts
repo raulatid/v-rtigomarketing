@@ -36,11 +36,6 @@ export interface AppConfig {
   alignmentDebugEnabled: boolean;
   showGridHelper: boolean;
   overlayUpdatesPerSecond: number;
-  /**
-   * PROTOTYPE, `?inherit=1`: windows and rooftop parapets read the light of
-   * their wall or roof (`assets/lightmaps/applyLightInheritance.ts`).
-   */
-  lightInheritanceEnabled: boolean;
 
   /** Overrides the active environment's model path when set via ?model=. */
   modelPathOverride: string | null;
@@ -56,7 +51,6 @@ export function createAppConfig(): AppConfig {
     alignmentDebugEnabled: false,
     showGridHelper: false,
     overlayUpdatesPerSecond: 4,
-    lightInheritanceEnabled: false,
 
     modelPathOverride: null,
   };
@@ -66,7 +60,7 @@ export function createAppConfig(): AppConfig {
  * Applies query-parameter overrides for quick experimentation without editing
  * code. Returns a new object rather than mutating a shared singleton.
  *
- * Examples: ?debugNavigation=1  ?grid=1  ?stats=1  ?debug=1  ?align=1  ?inherit=1  ?model=/models/x.glb
+ * Examples: ?debugNavigation=1  ?grid=1  ?stats=1  ?debug=1  ?align=1  ?model=/models/x.glb
  *
  * `enabled` is passed in rather than read from `import.meta.env` here, for the
  * reason documented in scene/cityDistrictBindings.ts: the `checks/` harnesses
@@ -113,9 +107,6 @@ export function applyQueryOverrides(
 
   const debugOverlay = params.get('debug');
   if (debugOverlay !== null) next.debugOverlayEnabled = isTruthy(debugOverlay);
-
-  const inherit = params.get('inherit');
-  if (inherit !== null) next.lightInheritanceEnabled = isTruthy(inherit);
 
   // Same-origin paths under /models/ only. This value is handed straight to
   // GLTFLoader, so accepting an arbitrary URL would let any link fetch and
