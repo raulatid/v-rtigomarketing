@@ -64,7 +64,6 @@ import { CAMPUS_BUILDING_NODE_NAMES } from './campus/campusConfig';
 import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import { createCityMark, NIGHT_FOG, NIGHT_LIGHT, type CityMark } from './about/createCityMark';
-import { ISOTYPE_GLOW } from './sky/skyPulse';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import type { Traffic } from './traffic/createTraffic';
 import { deviceResolution } from './assets/lightmaps/deviceResolution';
@@ -1521,7 +1520,8 @@ export class MurciaExperience {
         this.cityMark?.setTarget(stop === 'city', this.about?.flightSeconds ?? 0);
         // The night lasts from the city through the flight to the sky and the
         // sky stop: no return to day between two dark stops (plan 029b §3 B).
-        this.cityMark?.setNight(stop === 'city' || stop === 'sky');
+        // It comes from the day with a ring from the tower (§3 E).
+        this.cityMark?.setNight(stop === 'city' || stop === 'sky', this.about?.flightSeconds ?? 0);
         // The pulse leaves from the isotype as the flight to the sky lands.
         if (stop === 'sky') this.aboutSky?.arrive(this.about?.skyFlightSeconds ?? 0);
         else this.aboutSky?.leave();
@@ -1535,7 +1535,7 @@ export class MurciaExperience {
     // Only with a section to draw it for. Built before `warm()`, so the city's
     // patched materials compile once, with the city; after the hover tints,
     // whose clones are patched with the rest.
-    this.cityMark = createCityMark(root, VERTIGO_BUILDING, this.traffic ? [this.traffic.group] : []);
+    this.cityMark = createCityMark(root, VERTIGO_BUILDING, this.traffic ? [this.traffic.group] : [], logo);
     // The CMS's cases with an isotype, one satellite each. Imported at this
     // level, like the screen's slides, so `about/` takes whatever it is handed.
     this.aboutSky = createAboutSky({
@@ -1913,10 +1913,9 @@ export class MurciaExperience {
     this.cityMark?.update(delta);
     this.applyCityNight();
     // The isotype is lit through the city's night, a lighthouse over the dark
-    // (plan 029b §3 C), at the pulse's ember; the pulse's flash goes over it.
-    this.towerLogo?.setGlow(
-      Math.max(this.aboutSky?.isotypeGlow ?? 0, (this.cityMark?.night ?? 0) * ISOTYPE_GLOW.ember),
-    );
+    // (plan 029b §3 C), at the pulse's ember; each ring's flash, the night's
+    // and the sky's, goes over it.
+    this.towerLogo?.setGlow(Math.max(this.aboutSky?.isotypeGlow ?? 0, this.cityMark?.isotypeGlow ?? 0));
     // And its screen: the carousel's clock and the facade's crossfade, shimmer
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.

@@ -4,6 +4,7 @@ import { findByAnyNameSpelling } from '../assets/nodeNames';
 import { BUILDING_HIGHLIGHT, easeHighlight, stepHighlight } from '../interaction/buildingHighlight';
 import type { VertigoBuildingConfig } from '../landmark/vertigoBuildingConfig';
 import type { AboutLens, AboutPose } from './aboutPoses';
+import { NIGHT_EDGE, NIGHT_PULSE_LEAD, nightPulseAt } from './nightPulse';
 
 /**
  * Conócenos' city stop: the Vértigo isotype, large, projected straight down on
@@ -35,6 +36,14 @@ import type { AboutLens, AboutPose } from './aboutPoses';
  * when the visit flies back to the screen or leaves. It is a cold blue, not a
  * grey (`NIGHT_LIGHT`), and the host carries it into what this patch cannot
  * reach: the fog, the dome's horizon and the river (`night`, `NIGHT_FOG`).
+ *
+ * The night comes with a pulse (plan 029b §3 E, `nightPulse.ts`): the sky
+ * stop's ring, on the ground. It leaves the tower just before the flight to
+ * the city lands and runs out across it, the night inside and the day
+ * outside, a white ring on the roofs and the ground at its front; the V is
+ * drawn into the night behind it. The host's `night` follows the share of the
+ * city it has crossed, so the fog goes dark as the ring reaches it. A night
+ * taken up again while it was still going, and its going, have no ring.
  */
 
 export interface CityMark {
@@ -48,10 +57,15 @@ export interface CityMark {
    * of `flightSeconds` lands; off fades it out where it is.
    */
   setTarget(on: boolean, flightSeconds: number): void;
-  /** The city's night comes on, or goes, over `FADE_SECONDS`. */
-  setNight(on: boolean): void;
-  /** The night, eased, 0..1: what the host lays on the fog, the dome's horizon and the river. */
+  /**
+   * The city's night comes on, with its ring leaving `NIGHT_PULSE_LEAD` before
+   * a flight of `flightSeconds` lands, or goes over `FADE_SECONDS`.
+   */
+  setNight(on: boolean, flightSeconds?: number): void;
+  /** The night, eased, 0..1, as far as the ring has carried it: what the host lays on the fog, the dome's horizon and the river. */
   readonly night: number;
+  /** The rooftop isotype's `emissiveIntensity` through the night: the ring's flash, then the ember. 0 by day. */
+  readonly isotypeGlow: number;
   /** The drawing's strength and the night jump to where they are going: the warp's cut, with nobody watching. */
   settle(): void;
   update(delta: number): void;
@@ -68,6 +82,25 @@ export const NIGHT_LIGHT = new THREE.Color(0.07, 0.1, 0.17);
 export const NIGHT_FOG = 0x0e1828;
 /** The share walls take of the mark; roofs and ground take all of it. */
 const WALLS = 1;
+/** The ground ring's fine edge and its trail, as shares of the reach: the sky ring's, out of its 1.3 rad. */
+const RING_CORE = 0.007;
+const RING_TRAIL = 0.03;
+/**
+ * The reach runs a little past the farthest corner of the city stop's frame
+ * from the tower, on the ground, as the sky's ring runs past its frame: the
+ * ring is seen to cross the whole picture and leaves nothing behind it.
+ */
+const REACH_MARGIN = 1.05;
+/** The ring's light on the roofs and the ground, white, as the sky's. */
+const RING_LIGHT = 1.0;
+/** The front with no ring running: past everything, so the night is wherever it is laid. Finite, for a float uniform. */
+const NO_FRONT = 1e9;
+const FRAME_CORNERS = [
+  [-1, -1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+] as const;
 /** Seconds for the projector to come on, and to go off. */
 const FADE_SECONDS = 1.2;
 /** Canvas side, in pixels: uploaded once per frame while the pen moves, and never again. */
@@ -208,18 +241,29 @@ function markCanvas(): MarkCanvas {
 /**
  * `alsoDarken`: objects outside the city's root that darken with it, the
  * traffic. Patched like the city; they take no part in the ground's height.
+ * `nightOrigin`: where the night's ring leaves from, world space (the rooftop
+ * isotype); the middle of the city without one.
  */
 export function createCityMark(
   root: THREE.Object3D,
   config: VertigoBuildingConfig,
   alsoDarken: readonly THREE.Object3D[] = [],
+  nightOrigin: THREE.Vector3 | null = null,
 ): CityMark {
   const skip = new Set<THREE.Object3D>();
   for (const name of config.logoNodeNames) {
     findByAnyNameSpelling(root, name)?.object.traverse((object) => skip.add(object));
   }
   root.updateMatrixWorld(true);
-  const groundY = new THREE.Box3().setFromObject(root).min.y;
+  const bounds = new THREE.Box3().setFromObject(root);
+  const groundY = bounds.min.y;
+  const centre = nightOrigin ?? bounds.getCenter(new THREE.Vector3());
+  // The city's farthest corner on the ground: the reach when the frame's
+  // corners do not all meet the ground, and never more than it.
+  const cityReach = Math.hypot(
+    Math.max(centre.x - bounds.min.x, bounds.max.x - centre.x),
+    Math.max(centre.z - bounds.min.z, bounds.max.z - centre.z),
+  );
 
   const mark = markCanvas();
   mark.draw(0);
@@ -234,6 +278,10 @@ export function createCityMark(
     uMarkColor: { value: new THREE.Color(BUILDING_HIGHLIGHT.color) },
     uNight: { value: 0 },
     uNightLight: { value: NIGHT_LIGHT.clone() },
+    uNightCentre: { value: new THREE.Vector2(centre.x, centre.z) },
+    uNightReach: { value: cityReach },
+    uNightFront: { value: NO_FRONT },
+    uNightRing: { value: 0 },
   };
 
   const patched = new Map<THREE.Material, { hook: THREE.Material['onBeforeCompile']; key: () => string }>();
@@ -273,6 +321,10 @@ uniform float uMarkWalls;
 uniform vec3 uMarkColor;
 uniform float uNight;
 uniform vec3 uNightLight;
+uniform vec2 uNightCentre;
+uniform float uNightReach;
+uniform float uNightFront;
+uniform float uNightRing;
 varying vec3 vMarkWorld;`,
         )
         .replace(
@@ -282,13 +334,22 @@ varying vec3 vMarkWorld;`,
   vec2 markUv = vec2(dot(markD, uMarkRight), dot(markD, uMarkUp)) / uMarkSize + 0.5;
   vec2 markIn = step(vec2(0.0), markUv) * step(markUv, vec2(1.0));
   float markA = markIn.x * markIn.y * texture2D(uMarkMap, clamp(markUv, 0.0, 1.0)).r;
-  // The night, everywhere but under the drawn mark while it is shown.
-  outgoingLight *= mix(vec3(1.0), uNightLight, uNight * (1.0 - uMarkStrength * markA));
+  // The night, inside the ring's front, everywhere but under the drawn mark while it is shown.
+  // Distances as shares of the reach, as nightPulse.ts measures them.
+  float nightD = distance(vMarkWorld.xz, uNightCentre) / uNightReach;
+  float nightK = uNight * smoothstep(0.0, ${NIGHT_EDGE.toFixed(3)}, uNightFront - nightD);
+  outgoingLight *= mix(vec3(1.0), uNightLight, nightK * (1.0 - uMarkStrength * markA));
   // The face's normal from the screen derivatives: up for roofs and ground.
   vec3 markN = normalize(cross(dFdx(vMarkWorld), dFdy(vMarkWorld)));
-  float markFacing = mix(uMarkWalls, 1.0, smoothstep(0.55, 0.9, abs(markN.y)));
+  float markUp = smoothstep(0.55, 0.9, abs(markN.y));
+  float markFacing = mix(uMarkWalls, 1.0, markUp);
   float markK = uMarkStrength * markA * markFacing;
   outgoingLight = mix(outgoingLight, uMarkColor, markK * 0.85) + uMarkColor * markK * 0.08;
+  // The ring at the front, on the roofs and the ground: a fine edge and a trail inside it.
+  float ringX = nightD - uNightFront;
+  float ring = uNightRing * markUp * (exp(-(ringX * ringX) / ${(2 * RING_CORE * RING_CORE).toExponential(3)}) * 0.9
+    + exp(-(ringX * ringX) / ${(2 * RING_TRAIL * RING_TRAIL).toExponential(3)}) * step(ringX, 0.0) * 0.15);
+  outgoingLight += vec3(${RING_LIGHT.toFixed(2)}) * ring;
 }
 ${FRAGMENT_AT}`,
         );
@@ -309,11 +370,20 @@ ${FRAGMENT_AT}`,
   let nightProgress = 0;
   let nightTarget = 0;
   let night = 0;
+  let isotypeGlow = 0;
+  // Seconds since the night's ring left; negative before it does. Never sent,
+  // it has long run out, and the night is wherever it is laid.
+  let pulseClock = Number.POSITIVE_INFINITY;
   let drawClock: number = MARK_DRAW_SECONDS;
   const strengths = (): void => {
     uniforms.uMarkStrength.value = easeHighlight(progress);
-    night = easeHighlight(nightProgress);
-    uniforms.uNight.value = night;
+    const strength = easeHighlight(nightProgress);
+    const pulse = nightPulseAt(pulseClock);
+    uniforms.uNight.value = strength;
+    uniforms.uNightFront.value = pulse.done ? NO_FRONT : pulse.front;
+    uniforms.uNightRing.value = strength * pulse.glow;
+    night = strength * pulse.coverage;
+    isotypeGlow = strength * pulse.isotypeGlow;
   };
   const camera = new THREE.PerspectiveCamera();
   const raycaster = new THREE.Raycaster();
@@ -330,6 +400,16 @@ ${FRAGMENT_AT}`,
       camera.position.copy(view.pose.position);
       camera.lookAt(view.pose.target);
       camera.updateMatrixWorld();
+      // The night's reach: past the farthest corner of this frame from the
+      // tower, on the ground; the whole city if a corner looks above it.
+      let frameReach = 0;
+      for (const [x, y] of FRAME_CORNERS) {
+        raycaster.setFromCamera(ndc.set(x, y), camera);
+        const at = raycaster.ray.intersectPlane(ground, hit);
+        frameReach = at ? Math.max(frameReach, Math.hypot(at.x - centre.x, at.z - centre.z)) : cityReach;
+        if (!at) break;
+      }
+      uniforms.uNightReach.value = Math.min(cityReach, REACH_MARGIN * frameReach);
       raycaster.setFromCamera(ndc.set(view.mark.x, view.mark.y), camera);
       if (!raycaster.ray.intersectPlane(ground, hit)) return;
       uniforms.uMarkCentre.value.set(hit.x, hit.z);
@@ -349,17 +429,33 @@ ${FRAGMENT_AT}`,
       target = on ? 1 : 0;
     },
 
-    setNight(on) {
+    setNight(on, flightSeconds = 0) {
+      if (on && nightTarget === 0) {
+        if (nightProgress === 0) {
+          // From the day: at full strength at once, laid by the ring as it runs out.
+          pulseClock = -Math.max(0, flightSeconds - NIGHT_PULSE_LEAD);
+          nightProgress = 1;
+        } else {
+          // Taken up again while it was going: it comes back from where it is, with no ring.
+          pulseClock = Number.POSITIVE_INFINITY;
+        }
+      }
       nightTarget = on ? 1 : 0;
+      strengths();
     },
 
     get night() {
       return night;
     },
 
+    get isotypeGlow() {
+      return isotypeGlow;
+    },
+
     settle() {
       progress = target;
       nightProgress = nightTarget;
+      pulseClock = Number.POSITIVE_INFINITY;
       strengths();
     },
 
@@ -367,6 +463,7 @@ ${FRAGMENT_AT}`,
       if (progress === 0 && target === 0 && nightProgress === 0 && nightTarget === 0) return;
       progress = stepHighlight(progress, target, delta, FADE_SECONDS);
       nightProgress = stepHighlight(nightProgress, nightTarget, delta, FADE_SECONDS);
+      pulseClock += Math.max(0, delta);
       strengths();
       // Leaving holds the drawing where it is and lets the strength take it down.
       if (target === 1 && drawClock < MARK_DRAW_SECONDS) {
