@@ -377,6 +377,29 @@ check(
       : `wrong on ${list(badInheriting.map(n => n.name ?? '?'))}`,
 );
 
+// The other direction. The check above passes on a file with no marks at all,
+// and a window or parapet that is neither baked nor marked is not caught by
+// it: an unbaked window node makes `expandFacadeRecords` throw (the city fails
+// to load), an unbaked parapet loads silently without light. Only on a
+// lightmapped city: before the unified bake nothing here carried light.
+if (unifiedBake) {
+  const details = nodes.filter(n => n.extras?.facade_records_accessor !== undefined ||
+    (n.mesh !== undefined && (n.name ?? '').startsWith('Rooftop_Parapets__')));
+  const unlit = details.filter((n) => {
+    const extras = n.extras ?? {};
+    return n.extras?.facade_records_accessor !== undefined
+      ? extras.instance_st_grid === undefined && extras.light_inheritance !== 'window'
+      : extras.lightmap_atlas === undefined && extras.light_inheritance !== 'parapet';
+  });
+  check(
+    'every window and rooftop parapet node is baked or inherits',
+    unlit.length === 0,
+    unlit.length === 0
+      ? `${details.length} node(s) · ${inheriting.length} inherit`
+      : `neither on ${list(unlit.map(n => n.name ?? '?'))}`,
+  );
+}
+
 // --- 5. The services campus ------------------------------------------------
 // RETIRED HERE, in order: the district custom properties (extras.district,
 // 2026-08-27), the per-service buildings (2026-09-06), and the display

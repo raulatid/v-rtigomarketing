@@ -53,12 +53,12 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Banda de zoom de Earth](decisiones/earth/banda-de-zoom-de-earth.md): el extremo cercano por encima de los satélites; texturas fijadas.
 - [Satélites](decisiones/earth/satelites.md): órbitas, modelo, tamaño, orientación, invitación.
 - [Holograma de marca](decisiones/earth/holograma-de-marca.md): isotipo en reposo, logo al seleccionar, una sola luz.
-- [Placas de marca](decisiones/earth/placas-de-marca.md): suelo dibujado que los logos reales mejoran.
+- [Placas de marca](decisiones/earth/placas-de-marca.md): suelo dibujado que los logos reales mejoran; cada logo se pide al pasar por encima o al tocar su satélite.
 - [Validación de marcas subidas](decisiones/earth/validacion-de-marcas-subidas.md): Studio en dos niveles y otra vez en el build.
 - [Panel del caso](decisiones/earth/panel-del-caso.md): hoja inferior en móvil, acotada por el logo.
 - [Cielo](decisiones/earth/cielo.md): fotografía en una malla; las imágenes y la exposición actuales son las buenas.
 - [Pista de escena](decisiones/earth/pista-de-escena.md): la misma pista en los dos mundos.
-- [Convenciones de render](decisiones/earth/convenciones-de-render.md): texturas horneadas, escala en el montaje, `colorspace_fragment`, KTX2.
+- [Convenciones de render](decisiones/earth/convenciones-de-render.md): texturas horneadas, escala en el montaje, `colorspace_fragment`, KTX2; día y noche en AVIF en escritorio.
 
 ### Navegación entre mundos
 - [Banda de zoom y commit](decisiones/navegacion/banda-de-zoom-y-commit.md): ambos mundos comparten banda; la rueda hace commit al final, el dedo con un pellizco nuevo desde el final; dos dedos solo son pellizco.
@@ -70,7 +70,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Warp](decisiones/transicion/warp.md): un progreso y tres curvas; cada mundo mueve su cámara; salir de Murcia es subir.
 - [Giro de Earth hacia España](decisiones/transicion/giro-de-earth-hacia-espana.md): fase fija después del commit.
 - [Vacío](decisiones/transicion/vacio.md): pase de pantalla al salir de Murcia, nunca un aumento de FOV.
-- [Música](decisiones/transicion/musica.md): la música hace fundido cruzado; la imagen no.
+- [Música](decisiones/transicion/musica.md): la música hace fundido cruzado; la imagen no; desde el teclado solo arranca con Enter o Espacio.
 - [Efectos de sonido](decisiones/transicion/efectos-de-sonido.md): un clip por momento, en el grafo de la música; un solo interruptor; lo que llega tarde se descarta.
 
 ### Murcia
@@ -82,7 +82,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Edificios interactivos](decisiones/murcia/edificios-interactivos.md): tinte de hover y tres puntos de interés siempre visibles, con su nombre al llegar y en hover.
 - [Cielo de Murcia](decisiones/murcia/cielo-de-murcia.md): una cúpula siempre puesta, de la neblina a la noche con estrellas; no es CSS ni `scene.background`.
 - [Tráfico](decisiones/murcia/trafico.md): coches y barcos en rutas de un solo sentido dibujadas en Blender, que aparecen y desaparecen más allá de la niebla; velocidad constante por tipo; un `InstancedMesh` por modelo; la mitad en un dispositivo modesto; se oscurece con la ciudad en Conócenos.
-- [Sección Conócenos](decisiones/murcia/seccion-conocenos.md): tres paradas desde la torre con la reclamación `'about'`; la primera es la pantalla, que escribe cinco frases, sin placa; la segunda, la ciudad oscurecida con el isotipo dibujado encima; se avanza como en Servicios, con las flechas de paso bajo el texto, deslizando en horizontal o con ←/→; satélites con paneles de marca; «Ver sus casos» hace el warp desde el cielo; el cielo y el dibujo del isotipo no respetan el movimiento reducido, a propósito.
+- [Sección Conócenos](decisiones/murcia/seccion-conocenos.md): tres paradas desde la torre con la reclamación `'about'`; la primera es la pantalla, que escribe cinco frases, sin placa; la segunda, la ciudad oscurecida con el isotipo dibujado encima; se avanza como en Servicios, con las flechas de paso bajo el texto, deslizando en horizontal o con ←/→; satélites con paneles de marca; «Ver sus casos» hace el warp desde el cielo; se entra y se recorre también con el teclado, y las cinco frases están en el DOM; el cielo y el dibujo del isotipo no respetan el movimiento reducido, a propósito.
 
 ### Campus de servicios
 - [Modelo y recorrido](decisiones/campus/modelo-y-recorrido.md): el campus es la sección de servicios; anillo sin fin, se entra por el lago, los edificios, el atajo o el teclado, y se sale desde cualquier parada.
@@ -120,7 +120,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [El blog es un segundo documento](decisiones/blog/segundo-documento.md): `/blog` tiene su propio HTML, en frío no carga el 3D y `/` no precarga su chunk.
 - [Escena congelada](decisiones/blog/escena-congelada.md): con el blog abierto, `frameloop="never"` y `visibility: hidden`, nunca `display: none`.
 - [Historial y salida](decisiones/blog/historial-y-salida.md): el anfitrión decide la salida; volver al índice deshace el historial, no empuja.
-- [Cabeceras prerenderizadas](decisiones/blog/cabeceras-prerenderizadas.md): un documento por entrada con la cabecera SEO, no el cuerpo; la transformación falla cerrada.
+- [Cabeceras prerenderizadas](decisiones/blog/cabeceras-prerenderizadas.md): un documento por entrada con la cabecera SEO, no el cuerpo; sin JavaScript, un aviso con los enlaces al blog; la transformación falla cerrada.
 - [Marca 3D en la cabecera](decisiones/blog/marca-3d-en-la-cabecera.md): el SVG primero, el 3D diferido; un segundo renderer fuera de la escena.
 - [Entrada por la pantalla](decisiones/blog/entrada-por-la-pantalla.md): pantalla sobre `edificio-blog`, la aproximación es la transición y la vuelta es el mismo vuelo.
 - [Captura de la página](decisiones/blog/captura-de-la-pagina.md): captura del blog construido o placa neutra; navegador confinado, sin sandbox solo en Vercel.
@@ -129,15 +129,15 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [El sitio está en español](decisiones/interfaz/idioma-del-sitio.md): todo texto visible en español, `lang="es"` en los tres documentos; solo el overlay de depuración queda fuera.
 - [Cabecera única](decisiones/interfaz/cabecera-unica.md): una sola cabecera con portales; la línea medida coloca el logo; barra negra en el blog.
 - [Menú del móvil](decisiones/interfaz/menu-movil.md): la vista se pliega como una tarjeta y descubre el menú; el mismo en la escena y en el blog.
-- [Blog y Servicios](decisiones/interfaz/atajos-blog-y-servicios.md): dos atajos junto a las puertas, que son un recorrido y no un enlace; no van en la cabecera del blog.
+- [Blog y Servicios](decisiones/interfaz/atajos-blog-y-servicios.md): dos atajos junto a las puertas, que hacen el recorrido; Blog es además un enlace real que conserva el vuelo; esperan a que la ciudad esté lista; no van en la cabecera del blog.
 - [Vidrio ahumado](decisiones/interfaz/vidrio-ahumado.md): un material en tres densidades, tokens en `siteHeader.css` y una sola barra de scroll.
 - [Uso del azul](decisiones/interfaz/uso-del-azul.md): un solo azul en cuatro sitios; el azul fuera de la lista y los literales quedan pendientes.
 - [Campos como líneas](decisiones/interfaz/campos-como-lineas.md): campos de línea fina; el rojo solo con un valor erróneo; desplegable de vidrio progresivo.
-- [Tipografías](decisiones/interfaz/tipografias.md): General Sans y Gambetta en dos papeles, con nombres privados y declaradas una vez.
-- [Pila de capas](decisiones/interfaz/pila-de-capas.md): la lista está en `styles.css`; reglas de orden que no se invierten.
-- [Cursor propio](decisiones/interfaz/cursor-propio.md): montado una vez; cada fuente pide su estado al árbitro de su experiencia.
+- [Tipografías](decisiones/interfaz/tipografias.md): General Sans y Gambetta en dos papeles, con nombres privados y declaradas una vez; Switzer ya no se declara ni se publica.
+- [Pila de capas](decisiones/interfaz/pila-de-capas.md): la lista está en `styles.css`; reglas de orden que no se invierten; la capa del h1 de la portada.
+- [Cursor propio](decisiones/interfaz/cursor-propio.md): montado una vez; cada fuente pide su estado al árbitro de su experiencia; cede el sitio al puntero del sistema con colores forzados o más contraste.
 - [Glifos del cursor](decisiones/interfaz/glifos-del-cursor.md): path data incrustado, blanco con borde negro, `nonzero`.
-- [Picking por coordenadas](decisiones/interfaz/picking-por-coordenadas.md): coordenadas del propio evento, dos tolerancias por tipo de puntero, detección por capacidad.
+- [Picking por coordenadas](decisiones/interfaz/picking-por-coordenadas.md): coordenadas del propio evento, dos tolerancias por tipo de puntero, detección por capacidad; los casos de la Tierra tienen además una lista en el DOM para el teclado y el lector.
 - [Gráficas del caso](decisiones/interfaz/graficas-del-caso.md): SVG a mano en cuatro tipos; color de marca solo en las marcas; gráfica opcional.
 
 ### Render y gráficos
@@ -145,7 +145,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Escenas separadas](decisiones/render/escenas-separadas.md): Earth y Murcia con su escena y su cámara; el logo lleva una tercera; la transición cambia qué escena se dibuja.
 - [El pipeline dibuja un contrato](decisiones/render/el-pipeline-dibuja-un-contrato.md): `graphics/` no conoce experiencias; tres rutas elegidas por `SceneCanvas`; Earth se queda en la escena por defecto de R3F.
 - [Configuración del renderer](decisiones/render/configuracion-del-renderer.md): todo en el `<Canvas>`; mismo límite de `dpr` también en móviles; `alpha: false` y su color de limpieza; WebGL 2.
-- [Fallos de WebGL](decisiones/render/fallos-de-webgl.md): sin WebGL 2 no se evalúa la escena; la pérdida de contexto se declara y no se restaura.
+- [Fallos de WebGL](decisiones/render/fallos-de-webgl.md): sin WebGL 2 no se evalúa la escena y queda una página con contacto, auditoría y blog; la pérdida de contexto se declara y no se restaura.
 - [Decodificadores compartidos](decisiones/render/decodificadores-compartidos.md): un Draco y un KTX2 con contador, que se sueltan al terminar la carga.
 
 ### Build y presupuestos
@@ -160,7 +160,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Salida verificada](decisiones/build/salida-verificada.md): la salida se revisa antes de publicarse.
 - [Despliegue en Vercel](decisiones/build/despliegue-en-vercel.md): qué ejecuta Vercel, qué necesita del proyecto y cómo se cachea cada ruta.
 - [Recursos publicados](decisiones/build/recursos-publicados.md): en `public/` solo está lo vigente, y lo que cambia cambia de nombre.
-- [Entrega de la ciudad](decisiones/build/entrega-de-la-ciudad.md): un GLB y su carpeta de lightmaps con la misma versión; presupuesto de lightmaps por perfil.
+- [Entrega de la ciudad](decisiones/build/entrega-de-la-ciudad.md): un GLB y su carpeta de lightmaps con la misma versión; desde v9, ventanas y pretiles de tejado heredan la luz de su soporte; presupuesto de lightmaps por perfil.
 - [Contrato del GLB](decisiones/build/contrato-del-glb.md): el GLB se comprueba leyendo su JSON; el build exige la parte de nombres y el check completo aún no va en la cadena.
 - [Compresión y decodificadores](decisiones/build/compresion-y-decodificadores.md): Draco y KTX2, con los decodificadores de three.
 
@@ -200,11 +200,12 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Entrega de la ciudad v5.2-r1](murcia/lightmaps-v5.2-r1-integration.md): registro de la entrega vigente, en inglés; sus cifras son las de la entrega, no las del código. Se archiva cuando llegue otra.
 - [Entrega de la ciudad v5.2-r5](murcia/lightmaps-v5.2-r5-integration.md): GLB recuantizado e instancias compactas sobre los lightmaps de r4; en inglés. Los registros de r2 a r4 siguen en la misma carpeta.
 - [Peso del proyecto, 2026-11-18](audits/reports/project-resource-budget-2026-11-18.md): la visita completa pasa de 12,44 a 9,83 MB. Recoge qué se aplicó, qué se midió y se descartó, y lo que queda abierto (música, lightmaps de fondo, geometría de Blender).
-- [Peso de la Tierra hacia 5 MB, 2026-11-18](audits/reports/project-resource-budget-earth-2026-11-18.md): análisis sin aplicar de la experiencia de la Tierra. La mitad de la visita sin viajar es la precarga de Murcia; el mayor ahorro propio es pasar las texturas a AVIF, a cambio de memoria de GPU. Lista las decisiones pendientes.
+- [Peso en transferencia, 2026-11-23](audits/reports/project-transfer-2026-11-23.md): la visita completa de escritorio pasa de 7,78 a 6,33 MB en transferencia (estimado en Vercel), con v9, el AVIF de la Tierra en escritorio, los logos bajo demanda, el satélite simplificado y sin Switzer. Desde este informe la cifra es la transferencia, no «resources». Queda abierta la música de Murcia.
+- [Peso de la Tierra hacia 5 MB, 2026-11-18](audits/reports/project-resource-budget-earth-2026-11-18.md): análisis sin aplicar de la experiencia de la Tierra. La mitad de la visita sin viajar es la precarga de Murcia; el mayor ahorro propio es pasar las texturas a AVIF, a cambio de memoria de GPU. Lista las decisiones pendientes. El 2026-11-23 se aplicaron el AVIF en escritorio, los logos bajo demanda, el satélite simplificado y las nubes del móvil.
 - [Murcia hacia un proyecto de menos de 5 MB](audits/reports/murcia-weight-toward-5mb-2026-11-18.md): análisis del 2026-11-18 sobre la entrega r5. Mide dónde se van los bytes de Murcia (ventanas, `CITY_*`, UV de lightmap, atlas) y ordena las oportunidades por riesgo: unos −0,84 MB sin cambio visible, y Murcia en 2,0–2,8 MB con cambios de formato y rehorneado. Murcia sola no lleva el proyecto a 5 MB. Nada está aplicado.
 - [Murcia v8: cómo se exportan pretiles, ventanas y props de tejado](audits/reports/murcia-v8-export-pipeline-2026-11-20.md): análisis del 2026-11-20 sobre la entrega v8 sin commit. Los errores vienen de meter en atlas de lightmap piezas más pequeñas que un téxel; `Ventana-003` sigue leyendo negro. Propone luz factorizada por vértice para ventanas y props, luz por vértice para pretiles y separar `CITY_B/C` por tamaño de pieza: unos −0,7 MB estimados. Nada está aplicado.
-- [Murcia: alternativas a cómo se envían la luz y la geometría](audits/reports/murcia-light-and-geometry-alternatives-2026-11-20.md): análisis del 2026-11-20 sobre v8 con el arreglo de ventanas, sin medir nada nuevo. Cuestiona que cada pieza necesite isla propia, que la UV1 haya que enviarla y que la luz haya que enviarla. Propone herencia de luz del soporte, ventanas como shader, UV cenital implícita y luz calculada en el cliente: Murcia en unos 2,5–3 MB estimados. Nada está aplicado.
-- [Tierra: alternativas a cómo se preparan los assets y se dibuja la escena](audits/reports/earth-scene-pipeline-alternatives-2026-11-20.md): análisis del 2026-11-20 sin medir nada nuevo, complementario al de peso del 2026-11-18. Busca memoria de GPU, coste de dibujo y CPU, no bytes. Señala que la Tierra no tiene cadena reproducible, que el satélite no sigue el criterio de Murcia (90 llamadas de dibujo), que en iPad la memoria se va en los targets del postproceso y el cielo y no en los mapas, y que el bloom corre en reposo a resolución completa. Nada está aplicado.
+- [Murcia: alternativas a cómo se envían la luz y la geometría](audits/reports/murcia-light-and-geometry-alternatives-2026-11-20.md): análisis del 2026-11-20 sobre v8 con el arreglo de ventanas, sin medir nada nuevo. Cuestiona que cada pieza necesite isla propia, que la UV1 haya que enviarla y que la luz haya que enviarla. Propone herencia de luz del soporte, ventanas como shader, UV cenital implícita y luz calculada en el cliente: Murcia en unos 2,5–3 MB estimados. La herencia de luz se aplicó en v9 el 2026-11-23, con las ventanas en geometría; lo demás no.
+- [Tierra: alternativas a cómo se preparan los assets y se dibuja la escena](audits/reports/earth-scene-pipeline-alternatives-2026-11-20.md): análisis del 2026-11-20 sin medir nada nuevo, complementario al de peso del 2026-11-18. Busca memoria de GPU, coste de dibujo y CPU, no bytes. Señala que la Tierra no tiene cadena reproducible, que el satélite no sigue el criterio de Murcia (90 llamadas de dibujo), que en iPad la memoria se va en los targets del postproceso y el cielo y no en los mapas, y que el bloom corre en reposo a resolución completa. El 2026-11-23 se aplicó el satélite simplificado; lo demás no.
 - [Peso de la ciudad y lightmaps de Murcia](audits/reports/murcia-asset-weight-and-lightmaps-2026-11-17.md): análisis del 2026-11-17 sobre la entrega v5.2-r1. Explica el corte del suelo junto al río y dónde se pueden bajar MB del GLB y de los atlas. Nada de lo que propone está aplicado; es un informe y sus cifras son las de ese día.
-- [Accesibilidad, 2026-11-18](audits/reports/accessibility-wcag-2026-11-18.md): primera auditoría WCAG 2.2 AA, con teclado, árbol de accesibilidad, axe y Lighthouse sobre la build de producción. No cumple: los casos de la Tierra y Conócenos no tienen camino de teclado ni de lector, sin WebGL no queda nada, los diálogos dejan escapar el foco y en colores forzados los campos pierden el foco. Lighthouse da 100 a `/` igualmente. Lista las decisiones vigentes que chocan con WCAG. Nada está aplicado.
+- [Accesibilidad, 2026-11-18](audits/reports/accessibility-wcag-2026-11-18.md): primera auditoría WCAG 2.2 AA, con teclado, árbol de accesibilidad, axe y Lighthouse sobre la build de producción. No cumple: los casos de la Tierra y Conócenos no tienen camino de teclado ni de lector, sin WebGL no queda nada, los diálogos dejan escapar el foco y en colores forzados los campos pierden el foco. Lighthouse da 100 a `/` igualmente. Lista las decisiones vigentes que chocan con WCAG. El 2026-11-23 se aplicaron los hallazgos críticos y altos y casi todos los medios; quedan la pausa de animaciones (T4, M7, V10), T3, M9, F7, V8, F10 y los bajos.
 - [Auditorías](audits/README.md): guías reutilizables (`audits/*.md`) e informes fechados (`audits/reports/`). Los informes son historia: sus hallazgos no se reescriben y los informes no se borran, y dan como abiertos problemas ya resueltos. `check:audit` vigila solo los informes. La última auditoría de seguridad es del 2026-09-02 y no cubre GA, Speed Insights ni las funciones de los formularios.

@@ -62,6 +62,7 @@ test('production still reports a genuine loading failure', async ({ page }) => {
   })
   await page.route('**/earth/*.ktx2', (route) => route.abort())
   await page.route('**/earth/*.webp', (route) => route.abort())
+  await page.route('**/earth/*.avif', (route) => route.abort())
   await page.goto('/')
   await expect.poll(() => page.evaluate(() => window.__vertigoIntro?.boot.readiness())).toBe('fatal')
   await expect(page.getByText('No se pudo cargar la experiencia')).toBeVisible()

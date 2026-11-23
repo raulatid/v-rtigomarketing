@@ -263,8 +263,9 @@ test('a press during the tail lands on the globe', async ({ page }) => {
 
 test('a press during loading does nothing', async ({ page }) => {
   // Hold a required resource back so the press lands while the draw is still
-  // the loading cover.
-  await page.route('**/earth/day*.ktx2', async (route) => {
+  // the loading cover. Both formats: this desktop project loads the day map as
+  // AVIF (pointer: fine), the KTX2 sets are for tablets and phones.
+  await page.route(/\/earth\/day[^/]*\.(ktx2|avif)$/, async (route) => {
     await new Promise((r) => setTimeout(r, 4_000))
     await route.continue()
   })
