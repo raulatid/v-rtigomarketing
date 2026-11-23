@@ -188,7 +188,11 @@
 
   --text-primary: rgba(255, 255, 255, 0.94);
   --text-secondary: rgba(255, 255, 255, 0.68);
-  --text-muted: rgba(255, 255, 255, 0.46);
+  /* 0.62, not the 0.46 it was until 2026-11-23 (accessibility audit V4): the
+     least that reaches 4.5:1 on density B at its worst ground, white behind
+     the glass (5.07:1; 0.46 gave 3.55). On density A (0.68) it
+     reaches only 3.74:1: do not put muted text on that glass. */
+  --text-muted: rgba(255, 255, 255, 0.62);
   /* The neutral tick that replaced the blue eyebrow accent. */
   --rule-strong: rgba(255, 255, 255, 0.35);
 

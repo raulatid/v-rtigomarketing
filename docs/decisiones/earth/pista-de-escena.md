@@ -17,7 +17,7 @@
 5. **Permiso:** la app la permite cuando la atención está libre y el mundo está activo. Earth exige además `site`, y Murcia estar navegando. Depuración: `?hint=1`.
 6. **Aspecto** (`.scene-hint` en `src/styles.css`):
    - el borde inferior es `--hint-floor` (mayor en móvil) más la flotación más el área segura;
-   - el 85 % de alfa va en `color`, no en `opacity`;
+   - el alfa va en `color`, no en `opacity`: 85 % sobre la Tierra; sobre Murcia, 94 % con un halo oscuro pegado a las letras y al glifo (`.murcia-hint`, desde el 2026-11-23, auditoría de accesibilidad V3), que es el fondo contra el que se leen: el 85 % sin nada bajaba a 2,3:1 sobre el cielo, y así da 6,6:1 (percentil 10 de los píxeles de las letras sobre lo que tienen debajo, medido en escritorio el 2026-11-23; no es una garantía para cada píxel). Halo y no placa, porque la cápsula fue lo que se rechazó. El pie claro (`.site-footer[data-tone='light']`) lleva el mismo halo;
    - fundido de entrada largo y de salida corto, con la flotación siempre activa;
    - con movimiento reducido no hay flotación ni bucles del glifo, pero sí fundidos.
 

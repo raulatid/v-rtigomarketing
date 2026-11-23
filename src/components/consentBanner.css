@@ -119,7 +119,9 @@
 }
 
 .consent-banner__caption {
-  color: rgba(255, 255, 255, 0.62);
+  /* 0.7 reaches 4.83:1 on this plate (0.72) with white behind it; 0.65 would
+     give 4.42 (accessibility audit 2026-11-18, V4; 0.62 gave 4.18). */
+  color: rgba(255, 255, 255, 0.7);
   font-size: 0.72rem;
   letter-spacing: 0.01em;
   line-height: 1.5;
@@ -189,7 +191,8 @@
   border: 0;
   font: inherit;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.55);
+  /* As the caption above: 0.55 gave 3.66:1 with white behind the plate. */
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition: color 0.2s ease;
 }
