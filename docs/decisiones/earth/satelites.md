@@ -1,12 +1,13 @@
 # Satélites: órbitas, modelo, tamaño, orientación e invitación
 
-**Estado:** vigente · **Desde:** 2026-08; invitación y tamaño de escritorio desde 2026-09 · **Sustituye a:** DECISIONS §26.9 (parte del satélite), §26.10, §26.11 y §26.11a
+**Estado:** vigente · **Desde:** 2026-08; invitación y tamaño de escritorio desde 2026-09; modelo simplificado desde el 2026-11-23 · **Sustituye a:** DECISIONS §26.9 (parte del satélite), §26.10, §26.11 y §26.11a
 
 ## Decisión
 
 1. **Seis órbitas fijas (`ORBIT_PRESETS`) en unidades de radio terrestre 1.** El grupo se monta escalado por `EARTH_CONFIG.radius`: la escala se concilia en el montaje, no en los datos.
 2. **Qué caso va en qué órbita se deriva del contenido** (`orbitAssignments.ts`). Una asignación inválida es un fatal de `orbits:build`, a propósito. Studio limita los casos a seis.
 3. **Modelo:**
+   - `public/models/satellite-v2.glb`: **una sola primitiva** (las 15 del export, con sus transformaciones aplicadas) y con las dos antenas (`antena.002`, el plato grande, y `antena.003`) decimadas con un error del 0,2 % de su tamaño y los bordes de UV bloqueados. 172.748 → 62.684 B, 58.602 → 12.630 triángulos y, con seis satélites, de 90 a 6 llamadas de dibujo. La caja envolvente no cambia, así que el encuadre tampoco. Receta: `04_Assets/optimizados/recodificacion-2026-11-23/`. El GLB no lleva materiales: todas las mallas recibían el mismo, así que fusionarlas no pierde nada.
    - La plantilla GLB se carga una vez; si falla, la promesa se limpia.
    - El mapa KTX2 horneado se aplica a la plantilla antes de clonar (ver [convenciones de render](convenciones-de-render.md)).
    - Si falla la textura queda un modelo sin textura.
@@ -32,6 +33,7 @@ Placas con `lookAt(camera)`, raycast sobre el modelo, un segundo juego de consta
 
 ## Se ha roto si…
 
+- Falla `satelliteModel.test.ts` (una primitiva y la misma caja envolvente).
 - Fallan `orbitConfig.test.ts` («keeps the panel clear of the satellite model at BOTH authored sizes», «makes the wide viewport smaller…»), `satelliteScale.test.ts`, `satelliteFocusExpansion.test.ts`, `satelliteVisibility.test.ts`, `resolveOrbitCases.test.ts` o `hoverTutorial.test.ts`.
 - `e2e/degraded.spec.ts` («a blocked OPTIONAL asset still reaches ready») falla.
 

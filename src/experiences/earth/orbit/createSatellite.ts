@@ -82,12 +82,12 @@ function loadTemplate(renderer?: THREE.WebGLRenderer): Promise<THREE.Group> {
     const dracoLoader = acquireDracoLoader()
     const loader = new GLTFLoader()
     loader.setDRACOLoader(dracoLoader)
-    // The GLB is 270KB against the bake's 151KB, so byte progress across the
+    // The GLB is 63 KB against the bake's 127 KB, so byte progress across the
     // pair is worth having here rather than counting two files.
     templatePromise = Promise.all([
       new Promise<GLTF>((resolve, reject) =>
         loader.load(
-          '/models/satellite.glb',
+          '/models/satellite-v2.glb',
           resolve,
           (event) =>
             event.total > 0 &&
@@ -244,7 +244,7 @@ export function createSatellite({ seed = 0, renderer, panel, cue = false }: Opti
     .catch((error) => {
       // The original load failure was silent, which cost a debugging round —
       // a satellite that never appears must say why.
-      console.error('[createSatellite] satellite.glb failed to load:', error)
+      console.error('[createSatellite] satellite-v2.glb failed to load:', error)
       return null
     })
     .then((template) => {
