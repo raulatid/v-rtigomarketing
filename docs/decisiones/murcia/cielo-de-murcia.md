@@ -12,6 +12,8 @@
 4. **Sin tone mapping** en la cúpula ni en las estrellas, como `scene.background` y el color de la niebla: el horizonte tiene que ser exactamente el color de la niebla. Terminan en `colorspace_fragment` ([convenciones de render](../earth/convenciones-de-render.md)).
 5. **`scene.background` se queda como estaba.** La cúpula lo tapa en todas partes, pero el precalentado y lo demás que lo lee siguen funcionando.
 6. **Los satélites de Conócenos se dibujan con las mismas reglas** (colocados alrededor de la cámara, antes de la ciudad, sin profundidad): ver [sección Conócenos](seccion-conocenos.md).
+7. **El pulso de Conócenos no toca la cúpula** (desde el 2026-11-23, plan 029b): lo pinta un velo propio de la sección (`sky/createSkyVeil.ts`), una esfera con las mismas reglas que la cúpula, dibujada entre las estrellas y los satélites y solo mientras corre el anillo. Fuera del frente repite la bruma y el azul de día de la cúpula con sus mismos tramos (importa `HAZE_TOP`), sin la noche encima; dentro, deja ver la cúpula.
+8. **El horizonte sigue a la niebla también cuando la niebla cambia** (desde el 2026-11-23): la noche de la ciudad de Conócenos pasa la niebla a azul noche, y `MurciaExperience.applyCityNight` lleva ese color al horizonte de la cúpula y al del velo (`setHorizon`, una escritura de uniform cuando cambia). El cielo de día y de noche de arriba no cambia.
 
 ## Por qué
 
@@ -28,8 +30,8 @@
 ## Se ha roto si…
 
 - `npm run check:warp` falla: el warp y el pase de vacío dibujan esta escena.
-- El horizonte vuelve a tener un corte recto, o la vista de reposo cambia de color. Solo visual: se mira el reposo, una vista de horizonte y la parada 3 de Conócenos.
+- El horizonte vuelve a tener un corte recto (también en la parada de la ciudad de Conócenos, con la niebla de noche), o la vista de reposo cambia de color. Solo visual: se mira el reposo, una vista de horizonte y la parada 3 de Conócenos.
 
 ## Afecta a
 
-`src/experiences/murcia/environment/createSkyDome.ts`, `src/experiences/murcia/config/murciaConfig.ts` y `src/experiences/murcia/config/environmentConfig.ts` (`skyNightColor`), `src/experiences/murcia/MurciaExperience.ts` (creación, `setViewport`, `dispose`)
+`src/experiences/murcia/environment/createSkyDome.ts`, `src/experiences/murcia/config/murciaConfig.ts` y `src/experiences/murcia/config/environmentConfig.ts` (`skyNightColor`), `src/experiences/murcia/sky/createSkyVeil.ts` (`HAZE_TOP`, `setHorizon`), `src/experiences/murcia/MurciaExperience.ts` (creación, `setViewport`, `applyCityNight`, `dispose`)

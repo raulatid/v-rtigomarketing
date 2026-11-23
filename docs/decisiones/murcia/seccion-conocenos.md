@@ -1,6 +1,6 @@
 # Conócenos: tres paradas desde la torre Vértigo: la pantalla, la ciudad y el cielo
 
-**Estado:** vigente · **Desde:** 2026-10-22 (plan 027; segunda vuelta, plan 028; navegación como en Servicios, 2026-10-23; camino de teclado y de lector, 2026-11-23, auditoría de accesibilidad del 2026-11-18, M1–M3; marcas en carriles propios, 2026-11-23, plan 029b) · **Sustituye a:** el punto 5 de [edificios interactivos](edificios-interactivos.md) («Conócenos todavía no tiene destino»)
+**Estado:** vigente · **Desde:** 2026-10-22 (plan 027; segunda vuelta, plan 028; navegación como en Servicios, 2026-10-23; camino de teclado y de lector, 2026-11-23, auditoría de accesibilidad del 2026-11-18, M1–M3; marcas en carriles propios, pulso del cielo y noche de la ciudad, 2026-11-23, plan 029b) · **Sustituye a:** el punto 5 de [edificios interactivos](edificios-interactivos.md) («Conócenos todavía no tiene destino»)
 
 ## Decisión
 
@@ -57,6 +57,8 @@
 - Satélites en línea recta y paneles DOM: una órbita en anillo tapaba el cielo que la parada enseña.
 - Carriles propios para las marcas (2026-11-23, por indicación del usuario, R5 de la lista de entrega: las marcas casi no se veían, y era una crítica recibida). Mientras las placas esperaban a que una pasada al azar cruzara el cielo libre, había algún logo en pantalla el 35 % del tiempo en escritorio y el 27 % en el móvil, y ningún ajuste del planificador pasaba del 84 % y el 70 % (simulado el 2026-11-17, plan 029b §1.3). Con carriles diseñados en el encuadre se sabe de antemano dónde está cada marca: por eso vuelven «un satélite por marca, con la marca fija» y las placas siempre a la vista, que se habían descartado.
 - Dos carriles en sentidos opuestos, y separados más que el alto de una placa: los carriles están en NDC y las placas en píxeles, así que en las pantallas bajas (1280×720, 375×667) tres carriles, o dos más juntos, hacían que las placas se tocaran al cruzarse (medido el 2026-11-23).
+- El pulso (2026-11-23, plan 029b §1.4 y §2.3): el cielo no tenía momento propio. Aparecía poco a poco al inclinarse la cámara y, cuando el vuelo acababa, ya estaba todo. Con el anillo, la parada se revela de una vez, desde la torre, y las marcas entran con ella en vez de esperar al aterrizaje. Sale de un velo propio y no de la cúpula porque la cúpula y las estrellas las dibujan también el warp y la captura del blog.
+- La noche de la ciudad (2026-11-23, plan 029b §3, A, B y C): con el gris de `DIM` y la niebla crema, la parada de la ciudad parecía una tarde nublada, el río seguía turquesa de día y el vuelo hacia el cielo volvía a enseñar la ciudad iluminada entre dos paradas oscuras. Con la noche en azul frío, la niebla y el río incluidos, y sin fundido en ese vuelo, la V y la torre son la luz del plano.
 
 ## Qué se descartó
 
@@ -74,6 +76,12 @@
 - La diapositiva de la LED con la plantilla de la torre (titular, líneas, cifra, pies e imagen) y la parada de la azotea con su barrido del isotipo: la banda de luz, la ola de cromo líquido, el isotipo cromado entero y una señal en anillo con arcos hacia los tejados (2026-10-22, plan 028, sustituidos por las cinco frases y el isotipo dibujado sobre la ciudad).
 - Las flechas laterales de la placa (plan 028), sustituidas por la rueda; la rueda hacia abajo para avanzar, que era lo contrario que en el resto del sitio.
 - Avanzar con la rueda hacia arriba o deslizando en vertical, con un aviso bajo la pantalla («Scrollea o desliza para avanzar», el dibujo del ratón o del dedo) y sin flechas de paso (2026-10-22 a 2026-10-23, retirado por indicación del usuario: los visitantes no lo entendían; ahora se avanza como en Servicios).
+- El fundido de 0,5 s de los satélites de marca y sus placas al aterrizar (`REVEAL_SECONDS`), sustituido el 2026-11-23 por la entrada con el frente del pulso.
+- Parchear la cúpula y las estrellas para el pulso, como hizo el prototipo del plan 029b: las dibujan también el warp y la captura del blog. Se usa el velo, que no puede dar el destello de cada estrella al cruzarla el frente.
+- El anillo y el isotipo encendido en azul de marca (R6): serían un azul nuevo fuera del [uso del azul](../interfaz/uso-del-azul.md). Van en blanco, con un rescoldo blanco azulado.
+- El cielo que llega negro y vacío y el pulso puebla (R7): se queda el cielo de siempre antes del pulso, y la banda baja de la cúpula sigue azul claro en la parada del cielo.
+- Un pulso distinto, o un fundido, con movimiento reducido (R8): cruza una vez en menos de 5 s, así que sale igual (punto 10).
+- El oscurecido en gris que quitaba `DIM` (0,75) de la luz y se fundía al volar hacia el cielo (2026-10-22 a 2026-11-23), sustituido por la noche de la ciudad (punto 7).
 - La pose de la ciudad alejada 2,6 veces la pose de reposo (la del prototipo, sobre la pose de entrada): la niebla tapaba la ciudad y el oscurecido no se notaba.
 - La barra de vidrio con las flechas de vuelta y de paso bajo la pantalla y la banda de luz blanca sobre el isotipo (2026-10-22, por indicación del usuario: la banda pintaba encima del material sin cambiarlo). El deslizamiento horizontal se quitó ese día y volvió el 2026-10-23.
 
