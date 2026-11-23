@@ -344,7 +344,10 @@ broken; the full `check:asset` asserts rule 2:
    is what a window's sill covers. A window or parapet face with no wall or
    roof within reach reads the nearest support within 5 m, flat. Any other
    value, or a marked node that is also baked, makes the loader refuse the
-   whole bake; `check:asset:contract` §4b asserts it. The supports are the
+   whole bake; `check:asset:contract` §4b asserts it, and also that every
+   window and parapet node of a lightmapped city is either baked or marked
+   (an unbaked, unmarked window node fails the load; a parapet goes unlit
+   without a word). The supports are the
    `Edificios_Procedurales__*` chunks and `CITY_B/C_SIMPLIFIED`.
 
 The atlases are served from a versioned folder,
