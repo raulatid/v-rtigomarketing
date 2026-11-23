@@ -22,7 +22,9 @@ describe('the two-tone focus ring', () => {
     for (const file of cssFiles('src')) {
       const css = fs.readFileSync(file, 'utf8')
       for (const block of css.split('}')) {
-        if (!block.includes('var(--focus-ring)')) continue
+        // A ring is an outline (or a box-shadow) drawn with the token; the token
+        // as a text colour (the Conócenos plate's link) is not one.
+        if (!/(?:outline(?:-color)?|box-shadow):[^;]*var\(--focus-ring\)/.test(block)) continue
         const offset = Number(/outline-offset:\s*(-?\d+)px/.exec(block)?.[1] ?? '0')
         if (offset < 0) continue
         rings += 1

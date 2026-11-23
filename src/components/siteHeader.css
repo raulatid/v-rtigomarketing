@@ -177,10 +177,13 @@
   --surface-border: rgba(220, 230, 245, 0.14);
 
   /* The form fields are lines, not boxes (plan 026): a hairline at rest, and a
-     brand-blue line that draws over it on focus. The resting line is 0.34 so it
-     still reads over a bright patch of the scene behind the glass. */
-  --field-line: rgba(220, 230, 245, 0.34);
-  --field-line-hover: rgba(220, 230, 245, 0.5);
+     brand-blue line that draws over it on focus. */
+  /* 0.45: 3.5:1 against the heavy glass with white behind it, the 3:1 a
+     field's only boundary needs (accessibility audit 2026-11-18, F9; 0.34
+     gave 2.62). */
+  --field-line: rgba(220, 230, 245, 0.45);
+  /* A step above the resting line that can still be seen. */
+  --field-line-hover: rgba(220, 230, 245, 0.62);
   --field-line-active: var(--accent-hover);
   --field-error: rgba(255, 122, 122, 0.9);
   --field-ok: rgba(150, 220, 180, 0.9);
@@ -202,6 +205,13 @@
      phone burger wore it for an hour on 2026-09-09 and went back to white. */
   --accent: #1c67ff;
   --accent-hover: #3a7dff;
+  /* What a blue BUTTON fills with under the pointer: darker than the rest
+     state, not lighter (accessibility audit 2026-11-18, V6). White on
+     --accent-hover is 3.78:1 and on the sweep's pale end 2.43; on this, 5.73,
+     and 4.60 on --accent-fill-hover-end. --accent-hover stays for what is
+     not a fill: the focused field's line, which needs its lightness. */
+  --accent-fill-hover: #185ae8;
+  --accent-fill-hover-end: #2f6df0;
   --accent-pressed: #1656d6;
   --accent-border: rgba(120, 160, 255, 0.35);
   /* The keyboard focus outline: the house's pale blue, opaque, and paler than
@@ -493,7 +503,7 @@
 
 @media (hover: hover) {
   .audit-trigger:hover {
-    background: var(--accent-hover);
+    background: var(--accent-fill-hover);
     border-color: rgba(150, 185, 255, 0.5);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.3);
   }

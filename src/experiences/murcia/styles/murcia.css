@@ -916,11 +916,13 @@
   transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* The CTA's blue (docs/decisiones/interfaz/uso-del-azul.md), in its lighter
-   step: `--accent` itself is under 4.5:1 as small text on the dark glass. */
+/* The CTA's blue (docs/decisiones/interfaz/uso-del-azul.md) as TEXT on the
+   plate's glass, which lets the city through: the pale step of the house blue,
+   the focus ring's. --accent-hover measured 2.69:1 with white behind the glass
+   (accessibility audit 2026-11-18, V7); this, 5.38. */
 .murcia-ui .campus-overlay__action--primary {
   font-weight: 500;
-  color: var(--accent-hover);
+  color: var(--focus-ring);
 }
 
 .murcia-ui .campus-overlay__action--secondary {

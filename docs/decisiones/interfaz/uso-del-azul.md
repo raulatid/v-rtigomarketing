@@ -4,8 +4,9 @@
 
 ## Decisión
 
-1. **Un solo azul** (`--accent`, con `--accent-hover`, `--accent-pressed` y `--accent-border`, en `siteHeader.css`), y sobre la escena solo en estos sitios:
-   - la cara del CTA principal (el disparador Auditoría, los botones de envío y el enlace de la auditoría en la placa de [Conócenos](../murcia/seccion-conocenos.md), en `--accent-hover` por contraste);
+1. **Un solo azul** (`--accent`, con `--accent-hover`, `--accent-pressed`, `--accent-border` y, desde el 2026-11-23, `--accent-fill-hover` y `--accent-fill-hover-end`, en `siteHeader.css`), y sobre la escena solo en estos sitios:
+   - la cara del CTA principal (el disparador Auditoría y los botones de envío). **Bajo el puntero se oscurece**, a `--accent-fill-hover`, y no se aclara: el blanco sobre `--accent-hover` daba 3,78:1 y sobre el extremo pálido del barrido 2,43 (auditoría de accesibilidad del 2026-11-18, V6);
+   - el enlace de la auditoría en la placa de [Conócenos](../murcia/seccion-conocenos.md), como texto, en el paso pálido del azul (`--focus-ring`), porque la placa deja pasar la ciudad: `--accent-hover` daba 2,69:1 con blanco detrás del vidrio y este da 5,38 (V7);
    - la línea de un campo con foco y el trazo junto a su etiqueta (`--field-line-active`);
    - el borde de las bandejas de densidad A (`--glass-border-accent`, alias de `--accent-border`, para que sean el mismo azul);
    - el contorno de foco del teclado (`--focus-ring`);

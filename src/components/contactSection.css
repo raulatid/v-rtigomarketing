@@ -237,7 +237,8 @@
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* The hover is a sweep, not a flash (plan 026): the lighter blue crosses the
+/* The hover is a sweep, not a flash (plan 026): the hover blue, darker than
+   the rest one (V6, --accent-fill-hover), crosses the
    face from the left and leaves to the right. Gated to real hover since this
    redesign — on touch a sticky hover after the tap was the only thing the old
    ungated rule added. */
@@ -246,7 +247,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(90deg, var(--accent-hover) 88%, rgba(120, 165, 255, 1));
+  background: linear-gradient(90deg, var(--accent-fill-hover) 88%, var(--accent-fill-hover-end));
   transform: scaleX(0);
   transform-origin: right center;
   transition: transform 560ms var(--field-ease);
@@ -431,7 +432,7 @@
 
 .contact-phone-label {
   grid-column: 2;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
@@ -471,7 +472,8 @@
 .contact-note {
   margin: 0;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.4);
+  /* Small print is still text: the muted floor (F8; 0.4 gave 3.6:1). */
+  color: var(--text-muted);
 }
 
 .contact-note__link {

@@ -462,17 +462,19 @@
   cursor: pointer;
 }
 
+/* Not as faint as a placeholder: an empty select shows its prompt as its value,
+   and a value is text (accessibility audit 2026-11-18, F8; 0.32 gave 2.8:1). */
 .audit-select:invalid,
 .audit-select option[value=''] {
-  color: rgba(255, 255, 255, 0.32);
+  color: var(--text-muted);
 }
 
-/* The prompt, as faint as the inputs' placeholders. `:invalid` above never
+/* The prompt, at the muted floor of a value (F8 above). `:invalid` above never
    matches — the select is not `required`, the form validates itself — so the
    empty state is read from the placeholder option being the chosen one. On its
    own rule so a browser without `:has` keeps the one above. */
 .audit-select:has(option[value='']:checked) {
-  color: rgba(255, 255, 255, 0.32);
+  color: var(--text-muted);
 }
 
 /* Where the list is painted by the OS (everywhere `base-select` is not
@@ -576,9 +578,16 @@
 
   .audit-select option:hover,
   .audit-select option:focus-visible {
-    outline: none;
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
+  }
+
+  /* The keyboard's option also gets the house ring, inset (accessibility audit
+     2026-11-18, V9): the 6% tint alone was 1.12:1 against the list, and the
+     active option could not be told apart. The pointer's keeps the tint only. */
+  .audit-select option:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
   }
 
   .audit-select option:checked {
@@ -639,14 +648,15 @@
   transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
-/* The hover is a sweep, not a flash (plan 026): the lighter blue crosses the
+/* The hover is a sweep, not a flash (plan 026): the hover blue, darker than
+   the rest one (V6, --accent-fill-hover), crosses the
    face from the left and leaves to the right. Same as the contact dialog's. */
 .audit-cta::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(90deg, var(--accent-hover) 88%, rgba(120, 165, 255, 1));
+  background: linear-gradient(90deg, var(--accent-fill-hover) 88%, var(--accent-fill-hover-end));
   transform: scaleX(0);
   transform-origin: right center;
   transition: transform 560ms var(--field-ease);
@@ -811,7 +821,8 @@
 .audit-note {
   margin-top: 0.8rem;
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  /* Small print is still text: the muted floor (F8; 0.4 gave 3.6:1). */
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -842,7 +853,7 @@
      margin, and only a negative value closes it to match the pairing. */
   margin-top: -0.55rem;
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-align: center;
 }
 
