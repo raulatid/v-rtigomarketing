@@ -6,6 +6,7 @@ import { BlogFigure } from './BlogFigure'
 import { PostBody } from './PostBody'
 import { filterPosts, topicsOf } from './blogFilter'
 import { BlogFooter, BlogSurface } from './BlogSurface'
+import { BLOG_NOT_FOUND_TITLE, blogIndexTitle, postDocumentTitle } from './documentTitle'
 import './blog.css'
 
 /**
@@ -409,9 +410,54 @@ export default function BlogRoute({ route, host }: Props) {
     landing?.focus({ preventScroll: true })
   }, [target])
 
+  // A new article opens at its top (accessibility audit 2026-11-18, B2). The
+  // article view reuses one `.blog-root` from post to post, so Anterior,
+  // Siguiente or «Más de…» used to open the next one at the scroll the last
+  // was left at, with its focused h1 out of sight. Before paint, and before
+  // the focus above, which does not scroll.
+  useLayoutEffect(() => {
+    if (route.name !== 'blog-post') return
+    const root = document.querySelector('.blog-root')
+    if (root !== null) root.scrollTop = 0
+  }, [target, route.name])
+
+  const post = route.name === 'blog-post' ? BLOG_POSTS.find((entry) => entry.id === route.slug) : undefined
+
+  // The tab says which page this is (B1), in the words of the prerendered
+  // documents (`documentTitle.ts`). What the document was titled before the
+  // blog is put back when the blog closes in a warm session.
+  // Decided on every render but answered once per document, on the FIRST
+  // render, before the effect below has written any title: a cold load that
+  // starts on an article (the rewrite serves the index's shell there) must not
+  // take that article's title for the index's.
+  const indexTitle = blogIndexTitle()
+  const title =
+    route.name === 'blog-index'
+      ? indexTitle
+      : route.name === 'blog-post'
+        ? post === undefined
+          ? BLOG_NOT_FOUND_TITLE
+          : postDocumentTitle(post)
+        : null
+  const titleBeforeBlog = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (title === null) {
+      if (titleBeforeBlog.current !== null) document.title = titleBeforeBlog.current
+      titleBeforeBlog.current = null
+      return
+    }
+    titleBeforeBlog.current ??= document.title
+    document.title = title
+  }, [title])
+  useLayoutEffect(
+    () => () => {
+      if (titleBeforeBlog.current !== null) document.title = titleBeforeBlog.current
+    },
+    [],
+  )
+
   if (route.name === 'blog-index') return <Index host={host} topic={route.topic} />
   if (route.name === 'blog-post') {
-    const post = BLOG_POSTS.find((entry) => entry.id === route.slug)
     return post === undefined ? (
       <NotFound host={host} />
     ) : (

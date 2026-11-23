@@ -181,3 +181,24 @@ describe('replaceFavicon', () => {
     expect(() => replaceFavicon(two, href, 'x')).toThrow(/found 2/)
   })
 })
+
+// The blog's tab titles at runtime (src/blog/documentTitle.ts, accessibility
+// audit 2026-11-18, B1) are the prerendered documents' own.
+describe('the blog tab titles the runtime writes', () => {
+  it('fall back to the index title the content fallback gives the blog shell', async () => {
+    const { BLOG_INDEX_FALLBACK_TITLE } = await import('../src/blog/documentTitle')
+    expect(BLOG_INDEX_FALLBACK_TITLE).toBe(SITE_SEO_FALLBACKS.blog.title)
+  })
+
+  it('title a post exactly as its prerendered document does', async () => {
+    const { postDocumentTitle } = await import('../src/blog/documentTitle')
+    const { postHead } = await import('./blogShell')
+    const { BLOG_POSTS } = await import('../src/content/generated/blogPosts')
+    for (const post of BLOG_POSTS) {
+      const head = postHead(post, { origin: 'https://example.test' })
+      const written = /<title>([^<]*)<\/title>/.exec(head)![1]!
+      const decoded = written.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+      expect(postDocumentTitle(post)).toBe(decoded)
+    }
+  })
+})

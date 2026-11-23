@@ -73,6 +73,11 @@ Ya documentado en otras áreas, y no se repite aquí: la reclamación `'blog'` d
 
     **Hipótesis (no verificada ejecutando):** es una carrera entre el test y `murciaReady`, destapada por `368c4b5`. El segundo test fallido podría ser «the browser Back button flies back out…», que usa el mismo patrón, pero no se puede atribuir sin ejecutar. Pendiente de confirmar con el usuario: si el e2e debe esperar una señal de «Murcia lista» antes del tren de ruedas (un cambio de test, fuera de esta documentación), o si el fallo tiene otra causa.
 
+## Título y scroll de la ruta
+
+34. **El título de la pestaña lo escribe `BlogRoute` en cada ruta (`src/blog/documentTitle.ts`, auditoría de accesibilidad del 2026-11-18, B1) y devuelve el de antes al salir del blog en una sesión caliente.** El de una entrada se construye como el de `postHead`; el del índice está en el CMS (`siteSeo.blog.title`), que el runtime no puede importar (`checks/architecture.ts`): sale del `<title>` del propio documento cuando es el `/blog` frío (lo dice su canónico) y, en cualquier otro, de la reserva `BLOG_INDEX_FALLBACK_TITLE`. Si el CMS cambia ese título, el índice en caliente seguirá diciendo el de reserva hasta que se cambie también aquí. La decisión se toma en el primer render, antes de escribir ningún título: un `/blog/<slug>` sin documento propio recibe el `blog.html` del índice, y leerlo después tomaría el título de la entrada por el del índice. Ese documento sigue llevando en su HTML el título del índice (G3, pendiente). Fijan: `scripts/siteHead.test.ts` («the blog tab titles…»), `documentTitle.test.ts` y `BlogRoute.test.tsx`.
+35. **Las entradas comparten un solo `.blog-root`, así que `BlogRoute` lo sube a 0 en cada entrada nueva** (B2) antes de pintar; el foco al `h1` usa `preventScroll` y no lo haría. No le pongas `key` al artículo para conseguirlo: remontaría `BlogSurface` y la marca 3D de su cabecera, que tiene su propio renderer. Fija: `BlogRoute.test.tsx`.
+
 ## Cómo verificar esta área
 
 | Cambio | Comprobación |
