@@ -94,7 +94,11 @@ export const EARTH_CONFIG = {
  * level of the wide clouds is clamped to at least 120 before encoding: anything
  * below the shader's threshold draws the same, and ETC1S stops spending bits on
  * it (321,140 -> 113,628 bytes, closer to the master at every level). Recipe in
- * `04_Assets/optimizados/recodificacion-2026-11-18/`. The sources live outside the repo —
+ * `04_Assets/optimizados/recodificacion-2026-11-18/`. The narrow clouds take
+ * the same recipe at 1024x512 since 2026-11-23, under a new name because
+ * `/earth/` is cached without a hash (101,174 -> 43,844 bytes; on the shader's
+ * output, 25.8 -> 30.8 dB at level 0). Recipe in
+ * `04_Assets/optimizados/recodificacion-2026-11-23/`. The sources live outside the repo —
  * deliberately, they are 16 MB of encoder input nothing serves. `scripts/prepare-earth-textures.mjs` does not yet cover
  * this step; it still only writes the superseded narrow JPEGs.
  */
@@ -115,7 +119,7 @@ export const EARTH_TEXTURES = {
   narrow: {
     day: '/earth/day-narrow.ktx2',
     night: '/earth/night-narrow.ktx2',
-    clouds: '/earth/clouds-narrow.ktx2',
+    clouds: '/earth/clouds-narrow-v2.ktx2',
   },
 } as const
 
