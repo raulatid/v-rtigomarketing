@@ -5,6 +5,8 @@
  */
 
 export const ABOUT_LABELS = {
+  /** The keyboard surface's name: «Conócenos: explorar» (`districtA11y.ts`). */
+  section: 'Conócenos',
   leave: 'salir de Conócenos',
   expand: 'Leer más',
   collapse: 'Ver la torre',

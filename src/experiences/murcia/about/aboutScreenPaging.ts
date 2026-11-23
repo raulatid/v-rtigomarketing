@@ -7,6 +7,8 @@
  * look and answer like the plate's. Placed by murcia.css (`.about-paging`).
  */
 
+import { createFocusParking, focusIsAdrift, pagingDirectionOf } from '../ui/focusParking';
+
 const FADE_MS = 450;
 
 export interface AboutScreenPagingOptions {
@@ -55,36 +57,70 @@ export function createAboutScreenPaging(options: AboutScreenPagingOptions): Abou
   layer.append(...buttons);
   options.container.appendChild(layer);
 
+  /** The rest of `hide()`, held back while the arrows hold the focus (focusParking.ts). */
+  const completeHide = (): void => {
+    for (const button of buttons) button.disabled = true;
+    layer.style.visibility = 'hidden';
+    layer.style.transitionDelay = `0s, ${FADE_MS}ms`;
+  };
+  const parking = createFocusParking(layer, () => {
+    if (!visible) completeHide();
+  });
+
   return {
     show(state) {
       if (disposed) return;
+      // As the plate does (campusOverlay.ts): read where the focus was, then
+      // land it on the arrow that was pressed, or on the one this stop has.
+      const active = document.activeElement;
+      const own = layer.contains(active);
+      const adrift = !own && focusIsAdrift();
+      const direction = pagingDirectionOf(active);
+      parking.unpark();
       for (const [button, has] of [[buttons[0]!, state.hasPrevious], [buttons[1]!, state.hasNext]] as const) {
         button.disabled = !has;
         // Inline, as the button's own `display` is: a lone arrow stays centred.
         button.style.display = has ? 'flex' : 'none';
       }
-      if (visible) return;
+      const settleFocus = (): void => {
+        const current = document.activeElement;
+        const lost = own && (!layer.contains(current) || (current instanceof HTMLButtonElement && current.disabled));
+        if (!(adrift && focusIsAdrift()) && !lost) return;
+        const [previous, next] = buttons as [HTMLButtonElement, HTMLButtonElement];
+        const preferred = direction === 'previous' ? previous : next;
+        const target = !preferred.disabled ? preferred : !next.disabled ? next : !previous.disabled ? previous : null;
+        target?.focus({ preventScroll: true });
+      };
+      if (visible) {
+        settleFocus();
+        return;
+      }
       visible = true;
+      // As the plate: parked, the arrows never stopped being focusable; back
+      // from hidden, they are still hidden this frame.
+      const wasParked = layer.style.visibility === 'visible';
       layer.style.visibility = 'visible';
       layer.style.transitionDelay = '0s, 0s';
+      if (wasParked) settleFocus();
       // Next frame, so the transition sees a change rather than an initial value.
       requestAnimationFrame(() => {
-        if (!disposed && visible) layer.style.opacity = '1';
+        if (disposed || !visible) return;
+        layer.style.opacity = '1';
+        if (!wasParked) settleFocus();
       });
     },
 
     hide() {
       if (disposed) return;
       visible = false;
-      for (const button of buttons) button.disabled = true;
       layer.style.opacity = '0';
-      layer.style.visibility = 'hidden';
-      layer.style.transitionDelay = `0s, ${FADE_MS}ms`;
+      if (!parking.park()) completeHide();
     },
 
     dispose() {
       if (disposed) return;
       disposed = true;
+      parking.dispose();
       layer.remove();
     },
   };

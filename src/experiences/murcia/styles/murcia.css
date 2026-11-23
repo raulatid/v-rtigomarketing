@@ -508,6 +508,24 @@
   font-family: var(--font-display);
 }
 
+/* Focused when the plate arrives with nothing holding the focus, as a place
+   to start reading rather than a control (campusOverlay.ts, focusParking.ts). */
+.murcia-ui .campus-overlay__title:focus {
+  outline: none;
+}
+
+/* A plate or a row of arrows faded out but still holding the focus
+   (focusParking.ts) takes no pointer, the phone sheet included, whose own
+   rule says auto !important: invisible, it would swallow the swipes and taps
+   meant for the city for the whole flight. */
+/* Named per layer so it outranks the sheet rule, which comes later. */
+.murcia-ui .campus-overlay[data-focus-parked],
+.murcia-ui .campus-overlay[data-focus-parked] *,
+.murcia-ui .about-paging[data-focus-parked],
+.murcia-ui .about-paging[data-focus-parked] * {
+  pointer-events: none !important;
+}
+
 .murcia-ui .campus-overlay__page:hover:not(:disabled) {
   opacity: 0.7;
 }
