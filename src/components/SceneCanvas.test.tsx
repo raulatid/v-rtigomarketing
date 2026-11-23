@@ -6,12 +6,19 @@ import type { FrameSettings } from '../graphics/renderableExperience'
 import { createNavigationState } from '../app/navigation/continuousState'
 import { createSequenceState } from '../experiences/earth/config/sequenceState'
 import { defaultIntroConfig } from '../experiences/earth/config/introConfig'
-import { SceneCanvas } from './SceneCanvas'
+import { SCENE_LABEL, SceneCanvas } from './SceneCanvas'
 
-const pipeline = vi.hoisted(() => ({ read: null as (() => FrameSettings) | null, reduced: false }))
+const pipeline = vi.hoisted(() => ({
+  read: null as (() => FrameSettings) | null,
+  reduced: false,
+  onCreated: null as ((state: { gl: unknown }) => void) | null,
+}))
 // Exercise the application's real settings callback without creating a WebGL renderer.
 vi.mock('@react-three/fiber', () => ({
-  Canvas: ({ children }: { children: ReactNode }) => children,
+  Canvas: ({ children, onCreated }: { children: ReactNode; onCreated?: (state: { gl: unknown }) => void }) => {
+    pipeline.onCreated = onCreated ?? null
+    return children
+  },
   extend: () => {},
   useFrame: () => {},
 }))
@@ -112,5 +119,17 @@ describe('departure post-processing wiring', () => {
       t.navigation.transitionProgress = p
       expect(t.read().vacuum).toBe(0)
     }
+  })
+})
+
+// Accessibility audit 2026-11-18, D4: the drawing has a name, on the <canvas>
+// itself and not on R3F's wrapper, which also holds Murcia's controls.
+describe('the canvas as an image', () => {
+  it('names the drawing on the canvas element', () => {
+    setup()
+    const canvas = document.createElement('canvas')
+    pipeline.onCreated!({ gl: { domElement: canvas, setClearColor: () => {}, info: { memory: {}, render: {} } } })
+    expect(canvas.getAttribute('role')).toBe('img')
+    expect(canvas.getAttribute('aria-label')).toBe(SCENE_LABEL)
   })
 })

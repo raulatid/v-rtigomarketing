@@ -815,14 +815,20 @@ export default function App() {
         onMenuStateChange={setHeaderMenuState}
         extra={phase === 'site' ? <SoundToggle /> : undefined}
       />
-      {/* The page's one h1. Replaces the static copy index.html carries, and
-          is mounted from the first commit, not at `site`: see HomeHeadline. */}
-      <HomeHeadline shown={headlineShown} variant={headlineLook} />
       {/* THE PHONE MENU'S LAYER, behind the canvas (z 5 under the stage's 10).
           Empty here: the header portals its menu box into it on a phone, and
           the sections portal their triggers into that. Everything visual about
-          it is shared with the blog through siteMenu.css. */}
+          it is shared with the blog through siteMenu.css. Before <main>, not in
+          it: the menu is the site's navigation, not the page's content. */}
       <SiteMenuLayer className="app__menu" hostRef={setMenuHost} />
+      {/* THE PAGE'S CONTENT (D4 of the 2026-11-18 accessibility audit): the h1,
+          the scene and the cases. A plain block with no box of its own — no
+          transform, no z-index — so every fixed child keeps the viewport and
+          the stacking order it had before this element existed. */}
+      <main className="app__main">
+      {/* The page's one h1. Replaces the static copy index.html carries, and
+          is mounted from the first commit, not at `site`: see HomeHeadline. */}
+      <HomeHeadline shown={headlineShown} variant={headlineLook} />
       {/* THE STAGE AND THE CARD. Two wrappers around the canvas and NOTHING
           else, both permanent, both invisible boxes the canvas fills until the
           phone menu opens — then the stage lends its perspective and the card
@@ -901,6 +907,7 @@ export default function App() {
         onRequestAudit={handleRequestAudit}
         returnFocusTo={caseReturnFocus}
       />
+      </main>
 
       {/* The two doors in the header. Both gate on `phase === 'site'` — chrome
           exists only once the intro has fully landed, satellites revealed

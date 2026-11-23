@@ -14,6 +14,7 @@
    - la cubierta de entrada al blog queda entre la cabecera y el blog, que la tapa cuando pinta;
    - el cursor queda por encima de todo, también de la depuración.
 3. **Las capas a pantalla completa que no son controles no reciben eventos** (`.murcia-ui`, `.site-header` en la escena, `.audit-overlay`, `.site-menu-stage`); sus hijos los recuperan.
+4. **Los envoltorios de landmark no tienen caja propia.** `<main className="app__main">` (`App.tsx`, desde el 2026-11-23, auditoría de accesibilidad D4) envuelve el h1, el escenario del canvas, la lista y el panel de casos sin `transform`, `z-index` ni `position`: así cada hijo fijo conserva el viewport y el orden de apilamiento. El menú del móvil (`SiteMenuLayer`) va antes y fuera de él, porque es la navegación del sitio. El canvas se nombra con `role="img"` y `aria-label` en el propio `<canvas>` (`SCENE_LABEL` en `SceneCanvas.tsx`), nunca en el envoltorio de R3F, que también contiene los controles de Murcia.
 
 ## Por qué
 
