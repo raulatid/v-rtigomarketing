@@ -5,7 +5,7 @@ import type { ContactRequest, SubmitContactRequest } from '../app/contactSubmiss
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
 import { BOOKING_LABEL, BOOKING_URL, FORM_MESSAGES, SITE_PHONES } from '../content/site'
 import type { LegalDocId } from '../content/site'
-import { trapTab } from './focusTrap'
+import { ownsEscape, trapTab } from './focusTrap'
 import './modal.css'
 import './contactSection.css'
 
@@ -172,13 +172,20 @@ export function ContactSection({
   useEffect(() => {
     if (preview || !open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') {
+        // Only while it is on top, and no further: the legal panel opened over
+        // it closes alone, and the campus under it does not leave too (F4, M6).
+        if (!ownsEscape(panelRef.current)) return
+        e.stopPropagation()
+        close()
+      }
       // It says `aria-modal`, so Tab stays in it (F1 of the 2026-11-18
       // accessibility audit): it used to walk out to the page behind.
       else trapTab(e, panelRef.current)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Capture: ahead of the sections' own listeners on window.
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [open, close, preview])
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { COOKIE_COPY } from '../content/site'
 import type { LegalDocId } from '../content/site'
 import { LEGAL_DOCS } from '../content/legal'
 import { LegalBlock } from './LegalBlock'
+import { ownsEscape } from './focusTrap'
 import { CookiePreferences } from './CookiePreferences'
 import './modal.css'
 import './legalPanel.css'
@@ -31,10 +32,16 @@ export function LegalPanel({ doc, onClose, idPrefix = 'legal' }: Props) {
   useEffect(() => {
     if (!doc) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      // In the capture phase and stopped there: opened over Contacto or the
+      // audit, this closes alone and leaves them open (accessibility audit
+      // 2026-11-18, F4).
+      if (!ownsEscape(titleRef.current?.closest('section') ?? null)) return
+      e.stopPropagation()
+      onClose()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [doc, onClose])
 
   useEffect(() => {

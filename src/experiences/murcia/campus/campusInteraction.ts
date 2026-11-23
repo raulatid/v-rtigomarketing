@@ -70,9 +70,14 @@ export interface CampusInteractionDeps {
   id: string;
 }
 
-/** Keys typed into a field are the field's, whatever the scene is doing. */
+/**
+ * Keys typed into a field are the field's, whatever the scene is doing, and so
+ * are keys pressed inside a dialog over it: arrows on Contacto's buttons must
+ * not page the section behind (accessibility audit 2026-11-18, M6).
+ */
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
+  if (target.closest('[role="dialog"], [aria-modal="true"]') !== null) return true;
   return target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
 }
 

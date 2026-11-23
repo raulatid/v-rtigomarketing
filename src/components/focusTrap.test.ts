@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { tabbableIn, trapTab } from './focusTrap'
+import { ownsEscape, tabbableIn, trapTab } from './focusTrap'
 
 // The modals' shared Tab trap (accessibility audit 2026-11-18, F1, F2).
 
@@ -86,5 +86,43 @@ describe('the Tab trap', () => {
   it('ignores other keys', () => {
     const { panel } = surface(html)
     expect(trapTab(new KeyboardEvent('keydown', { key: 'Enter' }), panel)).toBe(false)
+  })
+})
+
+// Accessibility audit 2026-11-18, F4 and M6: Escape is the top modal's alone.
+describe('who answers Escape', () => {
+  const modal = () => {
+    const el = document.body.appendChild(document.createElement('section'))
+    el.setAttribute('aria-modal', 'true')
+    el.appendChild(document.createElement('button'))
+    return el
+  }
+
+  it('is the modal holding the focus, not the one under it', () => {
+    const contact = modal()
+    const legal = modal()
+    legal.querySelector('button')!.focus()
+    expect(ownsEscape(legal)).toBe(true)
+    expect(ownsEscape(contact)).toBe(false)
+  })
+
+  it('is the top modal alone when the focus is nowhere, even with two open', () => {
+    const contact = modal()
+    const legal = modal()
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    expect(ownsEscape(legal)).toBe(true)
+    expect(ownsEscape(contact)).toBe(false)
+    const closed = modal()
+    closed.setAttribute('aria-hidden', 'true')
+    expect(ownsEscape(legal)).toBe(true)
+  })
+
+  it('is the open modal when the focus is nowhere or outside every modal', () => {
+    const contact = modal()
+    expect(ownsEscape(contact)).toBe(true)
+    const outside = document.body.appendChild(document.createElement('button'))
+    outside.focus()
+    expect(ownsEscape(contact)).toBe(true)
+    expect(ownsEscape(null)).toBe(false)
   })
 })

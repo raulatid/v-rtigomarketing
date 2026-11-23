@@ -72,3 +72,26 @@ export function trapTab(event: KeyboardEvent, container: HTMLElement | null): bo
   }
   return false
 }
+
+/**
+ * Whether Escape is this modal's to answer (accessibility audit 2026-11-18,
+ * F4 and M6): the modal holding the focus is the one on top — the trap keeps
+ * it there, and stands aside for one opened over it — so a modal answers while
+ * the focus is in it. With the focus in no modal (on `<body>` after a click on
+ * a panel's text, or while a curtain comes in), the top one answers: the last
+ * open modal in the document, which is the order the app mounts them in (the
+ * legal panel after Contacto and the audit). The caller handles the key in the
+ * capture phase and stops it there, so the section under the modal (the
+ * campus, Conócenos, the intro skip) never hears it.
+ */
+export function ownsEscape(container: HTMLElement | null): boolean {
+  if (!container) return false
+  const active = document.activeElement
+  const modal = active && active !== document.body ? active.closest('[aria-modal="true"]') : null
+  if (modal !== null) return modal === container || container.contains(modal)
+  const open = Array.from(document.querySelectorAll('[aria-modal="true"]')).filter(
+    (candidate) => candidate.closest('[aria-hidden="true"]') === null,
+  )
+  const top = open[open.length - 1]
+  return top === undefined || top === container || container.contains(top)
+}

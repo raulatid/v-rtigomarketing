@@ -327,3 +327,23 @@ describe('the contact dialog and Tab', () => {
     rects.mockRestore()
   })
 })
+
+// Accessibility audit 2026-11-18, M6: an Escape for the dialog is the
+// dialog's; the section under it (listening on window) never hears it.
+describe('the contact dialog and Escape', () => {
+  it('closes and stops the key before the scene behind hears it', () => {
+    const behind = vi.fn()
+    window.addEventListener('keydown', behind)
+    openDialog()
+    const close = document.querySelector<HTMLElement>('.modal-close')!
+    act(() => {
+      close.focus()
+      // From the focused control, as a real key press travels: the capture
+      // listener on window runs first and stops it there.
+      close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(behind).not.toHaveBeenCalled()
+    window.removeEventListener('keydown', behind)
+  })
+})

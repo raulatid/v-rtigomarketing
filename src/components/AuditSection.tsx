@@ -13,7 +13,23 @@ import { auditView, shiftsFor, type AuditPhase } from '../app/auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
 import { BUDGET_RANGES, FORM_MESSAGES, REVENUE_RANGES, type LegalDocId } from '../content/site'
-import { trapTab } from './focusTrap'
+import { ownsEscape, trapTab } from './focusTrap'
+
+/**
+ * A select whose list is showing. `appearance: base-select` puts that list in
+ * the top layer, and the Escape that closes it reaches the window (F3 of the
+ * 2026-11-18 accessibility audit). `:open` says so where it is supported; a
+ * browser without it shows a native list that keeps the key to itself.
+ */
+function isOpenSelect(target: EventTarget | null): boolean {
+  const select = target instanceof Element ? target.closest('select') : null
+  if (!select) return false
+  try {
+    return select.matches(':open')
+  } catch {
+    return false
+  }
+}
 import './auditSection.css'
 
 // Audit section (plan 005): a trigger in the site header and a solid black form
@@ -596,13 +612,23 @@ export function AuditSection({
   // Escape closes the section. Registered only while open, so it cannot race
   // the entry/exit animations, and App's own Escape handler is gated off while
   // this one is live.
+  // From 'entering' too: close() does nothing until the curtain is in, but the
+  // key must not reach the section behind it meanwhile (M6).
   useEffect(() => {
-    if (preview || phase !== 'open') return
+    if (preview || (phase !== 'open' && phase !== 'entering')) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key !== 'Escape') return
+      // The Escape that closes an open select's list is the list's, not a
+      // request to leave the audit with the answers half given (F3).
+      if (isOpenSelect(e.target)) return
+      // Only while the curtain is on top, and no further (F4, M6): see
+      // ContactSection.
+      if (!ownsEscape(overlayRef.current)) return
+      e.stopPropagation()
+      close()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [phase, close, preview])
 
   // A modal curtain (F2 of the 2026-11-18 accessibility audit): Tab stays in
