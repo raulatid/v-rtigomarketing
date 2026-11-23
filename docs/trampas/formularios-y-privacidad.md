@@ -41,6 +41,10 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 21. **El juego del mirador (`api/view.ts`, `api/claim.ts`, `server/view/`, `ClaimDialog.tsx`) y la puerta de lanzamiento (`middleware.ts`, `server/launchGate.ts`) se retiran** (decidido el 2026-10-20, en su propia tarea de código). Siguen desplegados: el mirador está cerrado por `VIEW_OPEN` en `server/view/config.ts`, y la puerta se ejecuta antes de cada petición aunque está inerte desde `LAUNCH_AT`. No construyas nada sobre ellos ni los documentes como decisión.
 
+## Diálogos
+
+22. **Contacto y la cortina de la auditoría atrapan Tab con `trapTab` (`src/components/focusTrap.ts`), dentro de su propio listener de `keydown`, y solo mientras están abiertos** (auditoría de accesibilidad del 2026-11-18, F1 y F2). La cortina es `role="dialog"` y lleva `aria-modal` y la trampa desde que empieza a entrar (`entering`) hasta que empieza a irse; Escape, solo en `open`. También en escritorio, donde la franja de la Tierra y la cabecera siguen a la vista: con el teclado no se llega a la cabecera hasta cerrar la cortina, a propósito (F2 pedía tratarla como diálogo siempre). Cuando el panel legal se abre encima (también es `aria-modal`), la trampa de debajo se aparta: si la quitas, las dos se pelean por el foco. `trapTab` cuenta solo lo que tiene caja: en jsdom todo mide cero, y los tests simulan `getClientRects`. `LegalPanel` y `ClaimDialog` conservan sus copias antiguas de la trampa, más débiles (la de `LegalPanel` se escapa por un `<details>` cerrado, F6, pendiente); pasarlas a `trapTab` está pendiente. Escape no se aparta como Tab: con el panel legal encima, una pulsación cierra las dos capas (F4, pendiente). Fijan: `focusTrap.test.ts`, `ContactSection.test.tsx` y `AuditSection.test.tsx` («…and Tab», «…as a dialog»).
+
 ## Cómo verificar esta área
 
 | Cambio | Comprobación |

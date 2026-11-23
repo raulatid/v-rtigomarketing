@@ -5,6 +5,7 @@ import type { ContactRequest, SubmitContactRequest } from '../app/contactSubmiss
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
 import { BOOKING_LABEL, BOOKING_URL, FORM_MESSAGES, SITE_PHONES } from '../content/site'
 import type { LegalDocId } from '../content/site'
+import { trapTab } from './focusTrap'
 import './modal.css'
 import './contactSection.css'
 
@@ -114,6 +115,7 @@ export function ContactSection({
 
   const triggerRef = useRef<HTMLButtonElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
   const submitSeqRef = useRef(0)
   /** See AuditSection: the honeypot value and when this dialog opened. */
   const honeypotRef = useRef('')
@@ -171,6 +173,9 @@ export function ContactSection({
     if (preview || !open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
+      // It says `aria-modal`, so Tab stays in it (F1 of the 2026-11-18
+      // accessibility audit): it used to walk out to the page behind.
+      else trapTab(e, panelRef.current)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -295,6 +300,7 @@ export function ContactSection({
       {open && (
         <div className="modal-scrim" onClick={close}>
           <section
+            ref={panelRef}
             className="modal-panel contact-panel"
             role="dialog"
             aria-modal="true"

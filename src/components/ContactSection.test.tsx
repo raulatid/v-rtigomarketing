@@ -305,3 +305,25 @@ describe('when a field says it is wrong', () => {
     expect(control('email').closest('.contact-field')!.hasAttribute('data-valid')).toBe(false)
   })
 })
+
+// Accessibility audit 2026-11-18, F1: it says aria-modal, and Tab used to
+// walk out of it to the page behind.
+describe('the contact dialog and Tab', () => {
+  it('keeps Tab inside, from the last control round to the first', () => {
+    // jsdom lays nothing out; the trap counts only what has a box.
+    const rects = vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
+    openDialog()
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not([type="hidden"]), textarea, a[href]'))
+      .filter((el) => el.tabIndex >= 0 && !el.closest('[aria-hidden="true"]'))
+    const last = controls[controls.length - 1]!
+    act(() => last.focus())
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true, bubbles: true })
+    act(() => {
+      window.dispatchEvent(tab)
+    })
+    expect(tab.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(controls[0])
+    rects.mockRestore()
+  })
+})

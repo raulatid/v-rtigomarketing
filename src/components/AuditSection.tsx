@@ -13,6 +13,7 @@ import { auditView, shiftsFor, type AuditPhase } from '../app/auditView'
 import { submitAuditRequest, type SubmitAuditRequest } from '../app/auditSubmission'
 import { codeOf, fieldsOf, type SubmissionErrorCode } from '../app/submissionError'
 import { BUDGET_RANGES, FORM_MESSAGES, REVENUE_RANGES, type LegalDocId } from '../content/site'
+import { trapTab } from './focusTrap'
 import './auditSection.css'
 
 // Audit section (plan 005): a trigger in the site header and a solid black form
@@ -473,6 +474,7 @@ export function AuditSection({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const successHeadingRef = useRef<HTMLHeadingElement>(null)
+  const overlayRef = useRef<HTMLElement>(null)
   /**
    * Which submission attempt is current. A settled promise from an attempt
    * that is no longer the current one (the panel was closed and the form
@@ -602,6 +604,18 @@ export function AuditSection({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [phase, close, preview])
+
+  // A modal curtain (F2 of the 2026-11-18 accessibility audit): Tab stays in
+  // it rather than walking out to the cookie banner it covers. From the moment
+  // it starts to come in, as `aria-modal` says, not only once it is open: the
+  // heading takes the focus at 'open', and a Tab in the 1.1 s before landed
+  // under the curtain.
+  useEffect(() => {
+    if (preview || (phase !== 'entering' && phase !== 'open')) return
+    const onKey = (e: KeyboardEvent) => trapTab(e, overlayRef.current)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [phase, preview])
 
   // Errors are DERIVED, not stored. They are a pure function of `values`, and
   // the previous version kept them in state — which meant every writer had to
@@ -800,9 +814,14 @@ export function AuditSection({
           button either way (SiteHeader.tsx explains the arrangement). */}
       {triggerHost ? createPortal(trigger, triggerHost) : trigger}
 
+      {/* A DIALOG, modal while it is up (accessibility audit 2026-11-18, F2):
+          it was a region, and the focus fell to what it covers. */}
       <section
+        ref={overlayRef}
         className="audit-overlay"
         data-state={phase}
+        role="dialog"
+        aria-modal={phase === 'entering' || phase === 'open' || undefined}
         aria-hidden={phase === 'closed'}
         aria-labelledby={`${idPrefix}-title`}
       >
