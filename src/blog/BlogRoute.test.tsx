@@ -161,3 +161,12 @@ describe('where the focus lands in the blog', () => {
     expect(scrollBy).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('the filter count', () => {
+  it('is a status, so a filter that leaves fewer entries says so (B5)', () => {
+    show({ name: 'blog-index', topic: null })
+    const count = container.querySelector('.blog-latest__count')!
+    expect(count.getAttribute('role')).toBe('status')
+    expect(count.textContent).toMatch(/\d+ entradas?/)
+  })
+})

@@ -461,6 +461,7 @@ export default function App() {
   const shortcuts = useSceneShortcuts({
     activeExperience,
     menuState: headerMenuState,
+    cityReady: murciaReady,
     murciaRef,
     navigateTo,
     openBlogIndex: nav.openBlogIndex,
@@ -1018,7 +1019,10 @@ export default function App() {
           Mounted for both experiences and never gated on one. Unmounting it would
           tear down the wheel listener with it, and that listener is the only thing
           stopping the page scrolling behind the canvas. */}
-      <NavigationControl ref={navigationRef} />
+      {/* Inert until `site` (accessibility audit 2026-11-18, D3): before it, a
+          press is refused, and nothing may take the focus during the intro
+          (nada-interactivo-hasta-site.md). Without a scene, it stays so. */}
+      <NavigationControl ref={navigationRef} inert={phase !== 'site'} />
 
       {/* Earth's hint, beside the control it teaches. A sibling of `.nav` and
           never a child of it: that box is `position: fixed` and `styles.css`

@@ -260,7 +260,10 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
               <h2 className="blog-latest__label">
                 {showFeatured ? 'Últimas entradas' : 'Resultados'}
               </h2>
-              <span className="blog-latest__count">
+              {/* A status, always mounted, so filtering or searching says how
+                  many entries are left, «0 entradas» included (accessibility
+                  audit 2026-11-18, B5): nothing announced it. */}
+              <span className="blog-latest__count" role="status">
                 {posts.length === 1 ? '1 entrada' : `${posts.length} entradas`}
               </span>
             </div>

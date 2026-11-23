@@ -11,6 +11,7 @@ import type { HeaderMenuState } from '../corner-logo/headerMenuTiming'
 interface Props {
   activeExperience: ExperienceId
   menuState: HeaderMenuState
+  cityReady?: boolean
 }
 
 function setup(initial: Props, options: { flies?: boolean; warps?: boolean } = {}) {
@@ -25,7 +26,7 @@ function setup(initial: Props, options: { flies?: boolean; warps?: boolean } = {
   let api!: SceneShortcuts
 
   function Probe(props: Props) {
-    api = useSceneShortcuts({ ...props, murciaRef, navigateTo, openBlogIndex })
+    api = useSceneShortcuts({ cityReady: true, ...props, murciaRef, navigateTo, openBlogIndex })
     return null
   }
 
@@ -50,6 +51,16 @@ afterEach(() => {
 })
 
 describe('a press waits for the menu to close', () => {
+  // Accessibility audit 2026-11-18, D6 (plan 029a, decision 3).
+  it('holds a press made while the city is still building, and acts once it is ready', () => {
+    const t = setup({ activeExperience: 'earth', menuState: 'closed', cityReady: false })
+    t.request('services')
+    expect(t.navigateTo).not.toHaveBeenCalled()
+    t.render({ activeExperience: 'earth', menuState: 'closed', cityReady: true })
+    expect(t.navigateTo).toHaveBeenCalledTimes(1)
+    expect(t.navigateTo).toHaveBeenCalledWith('murcia')
+  })
+
   it('does nothing while the menu is folding, and acts once it is closed', () => {
     const t = setup({ activeExperience: 'earth', menuState: 'closing' })
     t.request('blog')
