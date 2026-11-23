@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { SatelliteDef } from '../experiences/earth/orbit/orbitConfig'
 import { CaseChart } from './CaseChart'
 import { countsUp, metricAt } from './metricCount'
@@ -17,6 +17,12 @@ interface Props {
    * (App's `handleAuditOpenChange`), so this panel closes on its own.
    */
   onRequestAudit?: () => void
+  /**
+   * Where focus goes when the case closes: its button in the case list
+   * (`CaseList.tsx`), the control a keyboard opens it from. Without one, focus
+   * is only taken off the hidden panel.
+   */
+  returnFocusTo?: (id: string) => HTMLElement | null
 }
 
 /** Which of the mobile sheet's two heights is showing. Inert on desktop. */
@@ -84,7 +90,7 @@ function MetricValue({ value, play }: { value: string; play: boolean }) {
 // Kept mounted and toggled by class so it can transition in and out. The source
 // project pops it with display:block and its own notes call a transition "an
 // easy upgrade" — this is that upgrade.
-export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Props) {
+export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom, returnFocusTo }: Props) {
   // `data` goes null the instant a case is deselected, but the panel takes its
   // CSS fade to leave. Rendering from `data` directly emptied every field on
   // the first frame of the exit, so the fade animated a blank shell — which is
@@ -113,6 +119,42 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
   useLayoutEffect(() => {
     if (selectedId) setStop('expanded')
   }, [selectedId])
+
+  // FOCUS (accessibility audit 2026-11-18, T2). Each case that opens takes the
+  // focus to its title, so a keyboard lands in it and a screen reader reads
+  // where it is; a switch from A to B lands on B's. The title is in the body
+  // keyed on the case, so by this effect the ref is already the new heading.
+  //
+  // On close the focus goes back to the case's button in the list — only if it
+  // is still ours to give: in the panel, about to be hidden, or dropped to
+  // <body> by a click on the globe. Something that took it on the way out keeps
+  // it, and so does the audit the panel's own link opens: the audit closes the
+  // case at once but takes the focus only when its curtain is in, so the
+  // handoff is remembered rather than read from where the focus is.
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const openIdRef = useRef<string | null>(null)
+  const handedToAuditRef = useRef(false)
+  useEffect(() => {
+    if (selectedId) {
+      openIdRef.current = selectedId
+      handedToAuditRef.current = false
+      titleRef.current?.focus({ preventScroll: true })
+      return
+    }
+    const closed = openIdRef.current
+    openIdRef.current = null
+    if (!closed) return
+    if (handedToAuditRef.current) {
+      handedToAuditRef.current = false
+      return
+    }
+    const active = document.activeElement
+    const inPanel = active instanceof HTMLElement && panelRef.current?.contains(active)
+    if (!inPanel && active && active !== document.body) return
+    const target = returnFocusTo?.(closed) ?? null
+    if (target) target.focus({ preventScroll: true })
+    else if (inPanel) (active as HTMLElement).blur()
+  }, [selectedId, returnFocusTo])
 
   useLayoutEffect(() => {
     const panel = panelRef.current
@@ -183,8 +225,10 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
       ref={panelRef}
       className={`case-panel${data ? ' is-visible' : ''}`}
       data-stop={stop}
+      id="case-panel"
       aria-hidden={!data}
       role="complementary"
+      aria-labelledby="case-panel-title"
       // The case's own brand colour (Sanity `brandColor`, the same one the
       // holo panel paints with) drives every accent below — metric-card top
       // edge, list bullets, chart marks — through one custom property. Read
@@ -225,7 +269,9 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
           (styles.css, `case-reveal`) plays again while the panel stays open.
           Keyed on `shown`, not `data`, so the exit fade does not remount. */}
       <div className="case-panel__body" key={shown?.id ?? ''}>
-        <h2 className="case-panel__title">{shown?.name ?? ''}</h2>
+        <h2 ref={titleRef} id="case-panel-title" className="case-panel__title" tabIndex={-1}>
+          {shown?.name ?? ''}
+        </h2>
 
         {/* All content renders from `shown` (the last selected case), never from
           `data` — that is what lets the exit fade play over the panel's final
@@ -275,7 +321,10 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom }: Prop
           <button
             className="case-panel__next"
             type="button"
-            onClick={onRequestAudit}
+            onClick={() => {
+              handedToAuditRef.current = true
+              onRequestAudit()
+            }}
             tabIndex={data ? 0 : -1}
           >
             <span className="case-panel__next-lead">¿Un reto parecido?</span>{' '}

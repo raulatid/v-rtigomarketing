@@ -28,6 +28,15 @@ import { EARTH_REST } from '../camera/CameraController'
 import { clampFrameDelta } from '../../../graphics/frameDelta'
 
 export interface InteractionHandle {
+  /**
+   * The cases riding a satellite, in orbit order, for the case list
+   * (`CaseList.tsx`). Handed over through the handle rather than imported by
+   * the app: the case content lives in the scene chunk (`orbitConfig.ts`, «NO
+   * CONTENT RE-EXPORT HERE»), and only names and ids cross.
+   */
+  cases: readonly { id: string; name: string }[]
+  /** The case list's way in; false when the scene refused it. */
+  select: (id: string) => boolean
   deselect: () => void
   /** Bottom of the selected brand plate in client pixels, matching its shader. */
   getLogoBottom: (id: string) => number | null
@@ -152,6 +161,8 @@ export function InteractionLayer({
     rigRef.current = rig
     focusRef.current = focus
     handleRef.current = {
+      cases: orbitSystem.satellites.map((sat) => ({ id: sat.id, name: sat.data.name })),
+      select: (id) => focus.selectById(id),
       deselect: () => focus.deselect(),
       getLogoBottom: (id) => orbitSystem.satellites.find((sat) => sat.id === id)
         ?.getLogoBottom(camera, gl.domElement.getBoundingClientRect()) ?? null,

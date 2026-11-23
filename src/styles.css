@@ -55,7 +55,7 @@ html {
    10 scene stage: the canvas as a card (incl. the corner-logo overlay pass) ·
    16 murcia UI · 20 SVG intro · 30 home h1 (homeHeadline.css) ·
    35 case panel · 40 warp overlay ·
-   42 site footer · 45 navigation rail · 48 consent banner (all stand down
+   42 site footer · 45 navigation rail, case list · 48 consent banner (all stand down
    while the phone menu is open — see below) · 60 audit overlay ·
    62 contact/legal modals · 70 site header (both triggers, the burger) ·
    80 context-lost notice · 90 blog · 100 debug overlay · 999 cursor           */
@@ -246,6 +246,12 @@ html {
   letter-spacing: -0.01em;
   margin: 0 0 0.35rem;
   min-height: 1.4em;
+}
+
+/* Focused by the panel on open, as a place to start reading rather than a
+   control (`.modal-title` does the same). */
+.case-panel__title:focus {
+  outline: none;
 }
 
 /* Sector · location · year. min-height reserves the row so the panel does not
@@ -1279,6 +1285,54 @@ html {
    lands on says where it goes, instead of being an empty rectangle. */
 .nav-control:focus-visible::after {
   content: attr(aria-label);
+}
+
+/* ---- z 45 — the case list (CaseList.tsx) --------------------------------
+
+   The satellites as buttons, for the keyboard and screen readers. The
+   `.nav-control` pattern above for the same reason: clipped to a pixel so the
+   globe is untouched for a pointer, unclipped on `:focus-visible` on the
+   opposite edge from the rail, clear of the case panel's column. */
+.case-list {
+  position: fixed;
+  z-index: 45;
+  left: 0;
+  top: 50%;
+  pointer-events: none;
+}
+
+.case-list__control {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  pointer-events: auto;
+}
+
+.case-list__control:focus-visible {
+  width: auto;
+  height: auto;
+  left: max(16px, env(safe-area-inset-left));
+  top: 50%;
+  transform: translateY(-50%);
+  clip-path: none;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 8px;
+  background: rgba(5, 5, 7, 0.92);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* ---- z 44 — Earth's hint, in text (§43) ---------------------------------

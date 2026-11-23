@@ -13,6 +13,7 @@ import { defaultIntroConfig, IntroConfig, Phase, PHASE_ORDER } from './experienc
 import { createSequenceState } from './experiences/earth/config/sequenceState'
 import { LazyScene } from './components/LazyScene'
 import { CasePanel } from './components/CasePanel'
+import { CaseList, caseListButton, type CaseListEntry } from './components/CaseList'
 import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
 import { SceneShortcuts } from './components/SceneShortcuts'
@@ -100,6 +101,13 @@ export default function App() {
   const orbitSystemRef = useRef<OrbitSystem | null>(null)
   const interactionRef = useRef<InteractionHandle | null>(null)
   const getCaseLogoBottom = useCallback((id: string) => interactionRef.current?.getLogoBottom(id) ?? null, [])
+  // The case list (T1 of the 2026-11-18 accessibility audit). Its entries come
+  // from the scene through the handle, read at `site`: the satellites exist by
+  // then, and the app must not import the case content (InteractionLayer).
+  const caseListRef = useRef<HTMLDivElement>(null)
+  const [caseEntries, setCaseEntries] = useState<readonly CaseListEntry[]>([])
+  const selectCaseById = useCallback((id: string) => interactionRef.current?.select(id) ?? false, [])
+  const caseReturnFocus = useCallback((id: string) => caseListButton(caseListRef.current, id), [])
 
   // P0. Adopts the drawing boot.ts already started, so React mounting does not
   // restart it — see hooks/useIntroDraw.ts.
@@ -284,6 +292,9 @@ export default function App() {
   useEffect(() => {
     setSoundSuppressed('blog', blogOpen)
   }, [blogOpen])
+  useEffect(() => {
+    if (phase === 'site') setCaseEntries(interactionRef.current?.cases ?? [])
+  }, [phase])
 
   // The panels' effects, from the state that opens them rather than from each
   // path that sets it: a case closes from the ✕, the globe and the audit's own
@@ -849,11 +860,23 @@ export default function App() {
 
       <div className="warp-overlay" ref={overlayRef} />
 
+      {/* Before the panel, so Shift+Tab out of a case reaches the others. */}
+      {phase === 'site' && (
+        <CaseList
+          cases={caseEntries}
+          selectedId={earthActive ? selectedCase?.id ?? null : null}
+          hidden={!earthActive}
+          onSelect={selectCaseById}
+          listRef={caseListRef}
+        />
+      )}
+
       <CasePanel
         data={earthActive ? selectedCase : null}
         getLogoBottom={getCaseLogoBottom}
         onClose={handleClosePanel}
         onRequestAudit={handleRequestAudit}
+        returnFocusTo={caseReturnFocus}
       />
 
       {/* The two doors in the header. Both gate on `phase === 'site'` — chrome
