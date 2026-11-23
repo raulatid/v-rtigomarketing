@@ -43,8 +43,8 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Plazo de carga](decisiones/intro/plazo-de-carga.md): el plazo solo puede fallar; las decoraciones no son fatales.
 - [Ritmo del dibujo](decisiones/intro/ritmo-del-dibujo.md): segundos visibles, ritmo uniforme, dibujo en un worker.
 - [Máquina de apertura](decisiones/intro/maquina-de-apertura.md): una sola apertura por página y única fuente de la fase; fases ordenadas, tres caminos de entrada, reloj propio sin gsap.
-- [Trabajo por fase](decisiones/intro/trabajo-por-fase.md): qué trabajo se admite en cada fase.
-- [Warp de la intro](decisiones/intro/warp-de-la-intro.md): dos tramos, corte oculto, cruce por cero del logo.
+- [Trabajo por fase](decisiones/intro/trabajo-por-fase.md): qué trabajo se admite en cada fase, y la retención mientras vuela el h1.
+- [Warp de la intro](decisiones/intro/warp-de-la-intro.md): las curvas del warp entre escenas; la marca 2D pasa a logo 3D en el corte; sin estrellas ni vuelta en el centro.
 - [Nada interactivo hasta `site`](decisiones/intro/nada-interactivo-hasta-site.md): y el consentimiento es el último trazo.
 - [Salto y visita que vuelve](decisiones/intro/salto-y-visita-que-vuelve.md): saltar la cola, espera silenciosa, movimiento reducido, depuración.
 
@@ -67,7 +67,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Ciclo de vida](decisiones/transicion/ciclo-de-vida.md): ambos mundos siempre montados; desactivar es congelar. Earth vuelve a la vista general.
 - [Precarga de Murcia](decisiones/transicion/precarga-de-murcia.md): bytes durante la apertura, construcción y precalentado en `site`.
 - [Corte bajo destello](decisiones/transicion/corte-bajo-destello.md): nada hace fundido cruzado; el corte cae bajo el pico del destello.
-- [Warp](decisiones/transicion/warp.md): un progreso y tres curvas; cada mundo mueve su cámara; salir de Murcia es subir.
+- [Warp](decisiones/transicion/warp.md): un progreso y tres curvas; cada mundo mueve su cámara; salir de Murcia es subir; la intro reproduce sus curvas.
 - [Giro de Earth hacia España](decisiones/transicion/giro-de-earth-hacia-espana.md): fase fija después del commit.
 - [Vacío](decisiones/transicion/vacio.md): pase de pantalla al salir de Murcia, nunca un aumento de FOV.
 - [Música](decisiones/transicion/musica.md): la música hace fundido cruzado; la imagen no; desde el teclado solo arranca con Enter o Espacio.

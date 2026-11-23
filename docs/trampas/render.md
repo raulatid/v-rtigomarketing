@@ -19,7 +19,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 ## Liberación
 
-10. **R3F no libera geometría ni material pasados como props.** Un `useMemo` de geometría pierde memoria al desmontar y en cada reconstrucción del memo; libéralo en la limpieza de un efecto ligado al memo (`SpaceBackdrop.tsx`, `Starfield.tsx`, `SkyShell.tsx`). Sin test.
+10. **R3F no libera geometría ni material pasados como props.** Un `useMemo` de geometría pierde memoria al desmontar y en cada reconstrucción del memo; libéralo en la limpieza de un efecto ligado al memo (`SpaceBackdrop.tsx`, `SkyShell.tsx`). Sin test.
 11. **`disposeObject3D` no sirve para modelos que comparten geometría con una plantilla en caché** (`createSatellite.ts`): liberaría la geometría de todos los clones posteriores.
 
 ## Fallos de WebGL

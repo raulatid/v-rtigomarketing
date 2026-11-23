@@ -11,7 +11,7 @@
 ### Visita que vuelve
 3. **Se decide en el arranque** (`isReturningVisitor`): hace falta un registro de consentimiento válido con `preferences` aceptado y el registro `vertigo:intro`.
 4. **El dibujo espera en silencio** (`quiet`): sin marca y sin duración mínima, hasta `ready`. Solo se muestra si la espera supera `DRAW_TIMING.quietGrace` o si hay un fatal.
-5. **La cola sigue el camino `returning`**, sin warp. El cambio a la Tierra es un único tick bajo una cubierta que se desvanece (`returnRevealDuration`). Un replay reproduce la cola completa: el evento `replay` cambia el camino a `first`.
+5. **La cola sigue el camino `returning`**, sin warp. El cambio a la Tierra es un único tick bajo una cubierta que se desvanece (`returnRevealDuration`). El logo florece en el centro y sale hacia la esquina en cuanto termina, sin pausa ni vuelta (bloque 9, D5). Un replay reproduce la cola completa: el evento `replay` cambia el camino a `first`.
 6. **`vertigo:intro` solo se escribe con `preferences` aceptado**, y se borra si se retira el consentimiento, también entre pestañas.
 
 ### Movimiento reducido
@@ -22,7 +22,7 @@
 
 ## Por qué
 
-- La cola, de unos 7,6 s (3,9 s para quien vuelve), se reproduce sobre una escena que ya está completa.
+- La cola, de unos 3,8 s desde `shrink` (unos 2,1 s para quien vuelve; antes del 2026-11-23, 7,6 y 3,9 s), se reproduce sobre una escena que ya está completa.
 - A una segunda visita no le sirven ni el dibujo ni el warp, solo la llegada.
 - `vertigo:intro` es almacenamiento en el dispositivo, así que necesita consentimiento.
 - El movimiento reducido es una cuestión de seguridad vestibular.

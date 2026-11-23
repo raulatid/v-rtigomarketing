@@ -20,7 +20,7 @@ El cliente quiere sonido en las transiciones. Un segundo interruptor solo para e
 ## Qué se descartó
 
 - **Sintetizar los efectos en el navegador:** el cliente aporta los MP3.
-- **Sonido en la intro:** antes de `site` no ha habido gesto, así que el navegador lo rechazaría en la primera visita.
+- **Sonido en la intro**, también desde que la intro reproduce el warp entre escenas (2026-11-23): sin un gesto del usuario el navegador no deja sonar nada, y antes de `site` no lo ha habido en la primera visita. El código lo respeta: antes de `site` no existe el grafo de audio (`audioOutput.ts`) y un momento tardío se descarta, no se encola (punto 4). Por eso el warp de la intro va sin sonido y el de entre escenas lo conserva.
 - **Bajar la música durante un efecto:** se puede añadir en el bus de música si hace falta al escuchar.
 
 ## Se ha roto si…

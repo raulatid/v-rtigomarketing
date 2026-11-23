@@ -4,7 +4,7 @@
 
 ## Decisión
 
-1. **Es el warp de la intro.** Un único valor de progreso leído por tres curvas con anchos anidados: posición (ancho completo), velocidad (`speedPeakWidth`, mueve el FOV y el desenfoque) y destello (`flashWidth`). No hay un segundo vocabulario de movimiento.
+1. **Un único valor de progreso leído por tres curvas con anchos anidados:** posición (ancho completo), velocidad (`speedPeakWidth`, mueve el FOV y el desenfoque) y destello (`flashWidth`). No hay un segundo vocabulario de movimiento. **Tiene dos usos:** el paso entre la Tierra y Murcia, que reproduce `useExperienceTransition`, y desde el 2026-11-23 el warp de la intro, que lee las mismas curvas (`WARP_LIMITS`) desde su cola con una duración propia y solo usa la pata de llegada a la Tierra (ver [warp de la intro](../intro/warp-de-la-intro.md)). Retocar una curva cambia los dos.
 2. **La transición publica el progreso y dispara el cambio de mundo, pero no mueve ninguna cámara.** Cada experiencia lee el progreso y mueve la suya. Por eso Earth y Murcia no saben nada la una de la otra, y las curvas viven en `src/utils/` para que `graphics/` y ambos mundos puedan leerlas.
 3. **El progreso no indica una dirección.** Sube en el mundo que se deja y baja en el que se entra; cada mundo lo traduce a sus propias poses de salida y llegada.
 4. **Murcia:**
@@ -34,8 +34,8 @@ Valores: `WARP_TRANSITION` en `src/utils/warpTransition.ts`; poses de Murcia `wa
 
 ## Se ha roto si…
 
-`npm run check:warp` falla. Verifica las copias exactas de las poses de Murcia (§1), la vuelta al reposo (§2), el destello (§3), el desenfoque (§4), los tramos (§5), la huella en todas las poses y proporciones (§6) y la continuidad entre zoom y warp (§7).
+`npm run check:warp` falla. Verifica las copias exactas de las poses de Murcia (§1), la vuelta al reposo (§2), el destello (§3), el desenfoque (§4), los tramos (§5), la huella en todas las poses y proporciones (§6), la continuidad entre zoom y warp (§7) y que el warp de la intro sea este warp (§8).
 
 ## Afecta a
 
-`src/utils/warpTransition.ts`, `src/app/useExperienceTransition.ts`, `src/experiences/murcia/camera/warpPose.ts`, `src/experiences/murcia/MurciaExperience.ts` (`setWarpPose`, `applyWarpPose`), `src/experiences/murcia/MurciaLayer.tsx`, `src/experiences/earth/camera/CameraController.tsx`, `src/components/SceneCanvas.tsx`, `src/graphics/renderableExperience.ts`, `src/graphics/RenderPipeline.tsx`, `checks/warp-transition.ts`
+`src/utils/warpTransition.ts`, `src/app/useExperienceTransition.ts`, `src/experiences/murcia/camera/warpPose.ts`, `src/experiences/murcia/MurciaExperience.ts` (`setWarpPose`, `applyWarpPose`), `src/experiences/murcia/MurciaLayer.tsx`, `src/experiences/earth/camera/CameraController.tsx`, `src/components/SceneCanvas.tsx`, `src/graphics/renderableExperience.ts`, `src/graphics/RenderPipeline.tsx`, `src/experiences/earth/timeline/openingTail.ts`, `checks/warp-transition.ts`

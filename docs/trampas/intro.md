@@ -19,11 +19,11 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 ## Fases y reloj
 
 12. **Las fases se comparan por orden.** Un conjunto escrito a mano dejó una vez la cámara varada. Las únicas listas deliberadas (`TAIL_PHASES`, `Presentation`) están atadas por tests.
-13. **`bootToReady` no es `site`.** Detrás quedan unos 7,6 segundos de cola (3,9 para quien vuelve), y una aserción negativa pasa en silencio. En e2e usa los helpers `reachSite`.
+13. **`bootToReady` no es `site`.** Detrás quedan unos 3,8 segundos de cola (unos 2,1 para quien vuelve), y una aserción negativa pasa en silencio. Y `site` no es el final del movimiento: el vuelo del h1 aterriza alrededor de 1 s después. En e2e usa los helpers `reachSite`.
 14. **El driver del reloj de la intro se monta el primero dentro del Canvas, y el del planificador justo después.** Los callbacks de igual prioridad se ejecutan en orden de montaje. Sin test.
 15. **`completed` se resuelve un tick antes de que exista la cola.** Una pulsación o un Escape en ese tick se rechaza. El e2e espera a `--intro-scale`.
 16. **Escape en `site` vuelve a hacer seek y sacude el logo aparcado** (`snapToCorner`). Está protegido para el menú y los paneles; la pulsación está protegida por `canSkipTail`. Fija: `introSkip.test.ts`.
-17. **Con pocos fps la cola va a cámara lenta:** cada fotograma avanza como mucho `MAX_FRAME_DELTA`. En headless, juzga los tiempos de la cola por sus escrituras, no por el reloj de pared.
+17. **Con pocos fps la cola va a cámara lenta:** cada fotograma avanza como mucho `MAX_FRAME_DELTA`. En headless, juzga los tiempos de la cola por sus escrituras, no por el reloj de pared. El vuelo del h1 (`HeadlineFlightLayer`) avanza con el mismo límite y retiene el trabajo de hilo principal mientras vuela, así que con pocos fps la ciudad también empieza a construirse más tarde ([trabajo por fase](../decisiones/intro/trabajo-por-fase.md)).
 18. **Saltar hacia delante no escribe lo que la cola no controla** (pose del logo, visibilidad de la marca, escala, warp): eso lo reconcilia `App.handleSeek`. Tras cualquier cambio de secuencia, prueba con un replay.
 19. **El tamaño y el movimiento del dibujo van por las propiedades `--intro-base`, `--intro-scale` y `--intro-warp`.** Nunca por los atributos `width`/`height`, y solo con transforms, nunca con layout.
 20. **La apertura la crea la app, no el arranque.** `boot.ts` no debe importar `openingMachine` ni `openingStore`: costaría ~1,5 KB de un chunk con presupuesto y, con la app importándolos también, Rollup los sacaría a un chunk compartido y el build fallaría. La app la pide con `getOpening()`. Fija: el presupuesto y la comprobación de arranque autónomo de `vite.config.ts`.
@@ -32,7 +32,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 ## Warp de la intro
 
-23. **El cambio de tramo usa el progreso suavizado (`travelT < 0.5`) y el corte usa el progreso crudo (`p >= sceneSwapProgress`).** Coinciden solo mientras `sceneSwapProgress` valga 0,5. Moverlo (es un deslizador de depuración) los desincroniza. Solo está fijado el lado del corte.
+23. **El cambio de marca ocurre en el primer fotograma tras el corte, y el tamaño del logo se escribe antes de arrancarlo.** El corte es `WARP_LIMITS.cut` sobre el progreso crudo, pero a 30 fps ningún fotograma cae justo en él: la cola cambia de manos en el primero con `departing` falso. `startSequence` lee el tamaño de llegada (`arrival`) en ese mismo tick, así que hay que escribirlo antes de llamarlo; al revés, el logo salía a ×1 en su primer fotograma y daba un salto. Fija: `check:warp` §8 (a 60 y a 30 fps) y `useMasterTimeline.test.tsx` («changes hands at the cut, on one tick, into a logo at the launch size»).
 24. **Si el logo nunca está listo, la marca 2D se queda a `shrinkScale` toda la sesión.** Es por diseño.
 
 ## Cómo verificar esta área
