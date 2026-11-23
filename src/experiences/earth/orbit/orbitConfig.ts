@@ -186,6 +186,13 @@ export const ORBIT_CONFIG = {
     // at any point: selecting another satellite mid-unfold turns this one around
     // from wherever it is.
     expandDuration: 0.35,
+    // How long a selection waits for its LOGO before it unfolds anyway, in
+    // seconds. The logo atlas loads on demand (createOrbitSystem): a hover has
+    // usually fetched it already, but a tap has no hover, and unfolding at once
+    // would show the drawn wordmark and then swap it for the artwork mid-unfold.
+    // A same-origin logo of a few tens of KB lands well inside this; a slow
+    // network gets the drawn plate first, which is the floor it always was.
+    logoHold: 0.3,
     // Height of the CORE'S CENTRE above the satellite's centre. DERIVED FROM
     // `modelSize`, not chosen independently: the core's lower edge is
     // `offsetY - height / 2`, and that edge is what has to stay off the model.

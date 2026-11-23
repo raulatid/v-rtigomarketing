@@ -191,7 +191,28 @@ export interface BrandAtlas {
   aspect: number
   /** UV rect for one plate, in the order the plates were passed. */
   cellUv(index: number): { offset: THREE.Vector2; scale: THREE.Vector2 }
+  /**
+   * Starts loading one plate's artwork, once; later calls return the same
+   * promise. It resolves when the cell is final — upgraded to the artwork, or
+   * kept drawn because there is none or it failed — and never rejects. After
+   * `dispose` a load still in flight never settles: its handlers are dropped.
+   * A failed load is not retried.
+   *
+   * An eager atlas has already called it for every plate. An `onDemand` one
+   * (the logo atlas) waits for its owner to ask: see `createOrbitSystem`.
+   */
+  request(index: number): Promise<void>
   dispose(): void
+}
+
+export interface BrandAtlasOptions {
+  /**
+   * Load no artwork until `request` asks for it. For the LOGO atlas: a logo is
+   * only ever seen on the one satellite that is selected (`holograma-de-marca.md`
+   * §2), so loading every logo at boot paid ~134 KB for art most visits never
+   * show. The drawn plate stays the floor either way.
+   */
+  onDemand?: boolean
 }
 
 /**
@@ -544,7 +565,11 @@ function canvasSafe(img: HTMLImageElement): boolean {
  * the second call (the blocker for fetched content), leak the GPU texture across
  * HMR, and give an in-flight image load no scope to be cancelled against.
  */
-export function createBrandAtlas(plates: BrandPlate[], kind: AtlasKind): BrandAtlas {
+export function createBrandAtlas(
+  plates: BrandPlate[],
+  kind: AtlasKind,
+  { onDemand = false }: BrandAtlasOptions = {},
+): BrandAtlas {
   const cell = CELL[kind]
   const drawPlate = kind === 'isotype' ? drawMarkPlate : drawLockup
   const sourceUrl = (plate: BrandPlate) => (kind === 'isotype' ? plate.isotype : plate.logo)
@@ -606,10 +631,14 @@ export function createBrandAtlas(plates: BrandPlate[], kind: AtlasKind): BrandAt
     })
   }
 
-  visible.forEach((plate, index) => {
-    const url = sourceUrl(plate)
-    if (!url) return
-    void loadLogo(url, inFlight).then((img) => {
+  const requested = new Map<number, Promise<void>>()
+
+  // An arrow, not a declaration: a hoisted function loses the `ctx` narrowing above.
+  const loadCell = (index: number): Promise<void> => {
+    const plate = visible[index]
+    const url = plate ? sourceUrl(plate) : null
+    if (!plate || !url || disposed) return Promise.resolve()
+    return loadLogo(url, inFlight).then((img) => {
       // The load outlived the atlas: the canvas and texture are gone.
       if (disposed) return
       if (!img) {
@@ -647,7 +676,18 @@ export function createBrandAtlas(plates: BrandPlate[], kind: AtlasKind): BrandAt
         scheduleFlush()
       }
     })
-  })
+  }
+
+  function request(index: number): Promise<void> {
+    let pending = requested.get(index)
+    if (!pending) {
+      pending = loadCell(index)
+      requested.set(index, pending)
+    }
+    return pending
+  }
+
+  if (!onDemand) visible.forEach((_plate, index) => void request(index))
 
   return {
     texture,
@@ -667,6 +707,7 @@ export function createBrandAtlas(plates: BrandPlate[], kind: AtlasKind): BrandAt
         scale: new THREE.Vector2(1 / COLUMNS, 1 / rows),
       }
     },
+    request,
     dispose() {
       disposed = true
       if (flushHandle) cancelAnimationFrame(flushHandle)

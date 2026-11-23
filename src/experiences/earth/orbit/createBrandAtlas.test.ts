@@ -339,3 +339,64 @@ describe('what the CMS can grow', () => {
     expect(atlasHeight(7)).toBe(CELL.isotype.height * 4)
   })
 })
+
+describe('loading the artwork', () => {
+  // Records every image the atlas asks for. None ever loads: what is under test
+  // is WHEN a request goes out, not what the upgrade draws.
+  function installImages(): string[] {
+    const requested: string[] = []
+    vi.stubGlobal(
+      'Image',
+      class {
+        crossOrigin = ''
+        decoding = ''
+        onload: (() => void) | null = null
+        onerror: (() => void) | null = null
+        set src(url: string) {
+          if (url) requested.push(url)
+        }
+      },
+    )
+    return requested
+  }
+
+  const withArt: BrandPlate[] = plates.map((plate, i) => ({
+    ...plate,
+    isotype: `/logos/iso-${i}.webp`,
+    logo: `/logos/logo-${i}.webp`,
+  }))
+
+  it('requests every plate at once by default, as the isotype atlas does', () => {
+    installCanvas()
+    const requested = installImages()
+    createBrandAtlas(withArt, 'isotype')
+    expect(requested).toEqual(['/logos/iso-0.webp', '/logos/iso-1.webp', '/logos/iso-2.webp'])
+  })
+
+  it('requests nothing on demand until a plate is asked for, and then only that plate', () => {
+    // The logo atlas: ~134 KB of logos a visit only sees on the one satellite
+    // it selects. Loading them at boot is the regression this guards.
+    installCanvas()
+    const requested = installImages()
+    const atlas = createBrandAtlas(withArt, 'logo', { onDemand: true })
+    expect(requested).toEqual([])
+    void atlas.request(1)
+    expect(requested).toEqual(['/logos/logo-1.webp'])
+  })
+
+  it('asks once per plate, however often a hover and a selection request it', () => {
+    installCanvas()
+    const requested = installImages()
+    const atlas = createBrandAtlas(withArt, 'logo', { onDemand: true })
+    const first = atlas.request(2)
+    expect(atlas.request(2)).toBe(first)
+    expect(requested).toEqual(['/logos/logo-2.webp'])
+  })
+
+  it('settles at once for a plate with no artwork, so a selection never waits on it', async () => {
+    installCanvas()
+    installImages()
+    const atlas = createBrandAtlas(plates, 'logo', { onDemand: true })
+    await expect(atlas.request(0)).resolves.toBeUndefined()
+  })
+})

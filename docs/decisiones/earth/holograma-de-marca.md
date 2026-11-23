@@ -5,7 +5,7 @@
 ## Decisión
 
 1. **Un quad por satélite que mira a cámara**, siempre del tamaño de despliegue completo. El shader solo dibuja lo que el despliegue ha abierto.
-2. **Solo la selección lo despliega, nunca el hover.** En reposo el campo es cuadrado y muestra el isotipo. Seleccionado, se abre a 2:1 y muestra el logo.
+2. **Solo la selección lo despliega, nunca el hover.** En reposo el campo es cuadrado y muestra el isotipo. Seleccionado, se abre a 2:1 y muestra el logo. El logo se descarga bajo demanda; el hover solo lo adelanta (ver [placas de marca](placas-de-marca.md), §3).
 3. **Un único valor suavizado lo mueve todo:**
    - `advanceExpansion` (`panelExpansion.ts`) da el progreso;
    - `deploymentFrom` (`holoDeployment.ts`) deriva las etapas y la proporción del campo;

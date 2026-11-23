@@ -8,6 +8,7 @@ import { createSatellite, Satellite } from './createSatellite'
 import { createConnectivityCloud } from './createConnectivityCloud'
 import { createRadialGlowTexture, easeOutCubic } from './orbitUtils'
 import { createBrandAtlas } from './createBrandAtlas'
+import { createLogoHold } from './logoHold'
 import { disposeSharedGeometry } from './createHoloPanel'
 import { disposeSharedConeGeometry } from './createEmitterCone'
 
@@ -84,7 +85,16 @@ export function createOrbitSystem({ renderer }: Options) {
     isotype: satellite.isotype,
   }))
   const isotypeAtlas = createBrandAtlas(plates, 'isotype')
-  const logoAtlas = createBrandAtlas(plates, 'logo')
+  // The logos on demand: only the selected satellite ever shows one, so each is
+  // fetched on its satellite's first hover or selection. See setSatelliteExpanded.
+  const logoAtlas = createBrandAtlas(plates, 'logo', { onDemand: true })
+  // A selection unfolds once its logo is in the atlas, or after `logoHold`.
+  // See logoHold.ts. `apply` reads `orbits` at call time, after it exists.
+  const logoHold = createLogoHold({
+    request: (index) => logoAtlas.request(index),
+    apply: (id, on) => findOrbit(id)?.satellite.setExpanded(on),
+    holdSeconds: ORBIT_CONFIG.panel.logoHold,
+  })
   if (renderer) {
     renderer.initTexture(isotypeAtlas.texture)
     renderer.initTexture(logoAtlas.texture)
@@ -281,6 +291,8 @@ export function createOrbitSystem({ renderer }: Options) {
       // back in. Same reasoning as the highlight above.
       orbit.satellite.resetExpansion()
     }
+    // A selection still waiting for its logo must not unfold after a reset.
+    logoHold.reset()
     cloud.reset()
   }
 
@@ -320,7 +332,14 @@ export function createOrbitSystem({ renderer }: Options) {
 
   /** `demo` marks the tutorial as the one asking, which bumps further; see createSatellite. */
   function setSatelliteHighlight(id: string, on: boolean, demo = false) {
-    findOrbit(id)?.satellite.setHighlight(on, demo)
+    const orbit = findOrbit(id)
+    if (!orbit) return
+    // A real hover is the warning a selection may follow: fetch the logo now,
+    // so a click finds it in the atlas and unfolds without waiting. NOT the
+    // tutorial's demo, which is a synthetic hover played to an idle visitor:
+    // it would fetch the invited satellite's logo on every visit.
+    if (on && !demo) void logoAtlas.request(orbits.indexOf(orbit))
+    orbit.satellite.setHighlight(on, demo)
   }
 
   /**
@@ -331,7 +350,10 @@ export function createOrbitSystem({ renderer }: Options) {
    * satellites, the unfold only for selection. See createSatellite.setExpanded.
    */
   function setSatelliteExpanded(id: string, on: boolean) {
-    findOrbit(id)?.satellite.setExpanded(on)
+    const orbit = findOrbit(id)
+    // The focus layer re-applies every satellite's state on each hover change;
+    // the hold ignores a repeated answer, so nothing restarts.
+    if (orbit) logoHold.set(id, orbits.indexOf(orbit), on)
   }
 
   /** Lights or clears the invitation on one satellite's panel. See createSatellite. */
@@ -364,6 +386,7 @@ export function createOrbitSystem({ renderer }: Options) {
   }
 
   function dispose() {
+    logoHold.dispose()
     for (const orbit of orbits) {
       orbit.orbitLine.dispose()
       orbit.headMaterial.dispose()
