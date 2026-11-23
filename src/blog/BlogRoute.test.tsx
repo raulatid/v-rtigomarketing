@@ -170,3 +170,12 @@ describe('the filter count', () => {
     expect(count.textContent).toMatch(/\d+ entradas?/)
   })
 })
+
+describe('the article page structure', () => {
+  it('has a main landmark around the article, as the index has (B8)', () => {
+    show({ name: 'blog-post', slug: first!.id })
+    const main = container.querySelectorAll('main')
+    expect(main).toHaveLength(1)
+    expect(main[0]!.querySelector('article.blog-article')).not.toBeNull()
+  })
+})

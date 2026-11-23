@@ -315,6 +315,10 @@ function Article({
   return (
     <BlogSurface onBack={host.returnToIndex} onHome={host.returnToIndex} onSearch={onSearch}>
       <div className="blog-root">
+        {/* The page's main content, as the index has (accessibility audit
+            2026-11-18, B8): the article and what follows it, not the footer.
+            No class: nothing in blog.css styles a main here. */}
+        <main>
         <article className="blog-article">
           {post.category !== null && <span className="blog-eyebrow">{post.category.label}</span>}
           <h1 className="blog-article__title" tabIndex={-1}>
@@ -380,6 +384,7 @@ function Article({
             </ul>
           </section>
         )}
+        </main>
         <BlogFooter />
       </div>
     </BlogSurface>

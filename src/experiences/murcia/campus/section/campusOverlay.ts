@@ -28,6 +28,8 @@ import { attachCampusSheet } from './campusSheet';
 import { createFocusParking, focusIsAdrift, pagingDirectionOf } from '../../ui/focusParking';
 
 const FADE_MS = 450;
+/** For unique title ids: there are two plates, the campus's and Conócenos'. */
+let overlayCount = 0;
 const CAPTION_FADE_MS = 250;
 const Z_INDEX = 30;
 
@@ -152,6 +154,13 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   // Where the focus lands when the plate arrives with nothing holding it: the
   // entry, or the last stop where the arrow that was pressed is gone (M3).
   title.tabIndex = -1;
+  // A heading and the plate's name (accessibility audit 2026-11-18, M4): the
+  // plate read as one block of text with no structure. Roles rather than an
+  // <h2>, which would bring the user agent's margins into a layout the host
+  // measures.
+  title.id = `campus-overlay-title-${++overlayCount}`;
+  title.setAttribute('role', 'heading');
+  title.setAttribute('aria-level', '2');
   const subtitle = document.createElement('div');
   subtitle.className = 'campus-overlay__subtitle';
   subtitle.style.cssText =
@@ -206,6 +215,13 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
 
   const body = document.createElement('div');
   body.className = 'campus-overlay__body';
+  // Focusable on a phone, where it is the sheet's scroller (campusSheet.ts),
+  // so it needs a name: the title's.
+  body.setAttribute('role', 'group');
+  body.setAttribute('aria-labelledby', title.id);
+  // The plate itself is a region named by the same title (M4).
+  layer.setAttribute('role', 'region');
+  layer.setAttribute('aria-labelledby', title.id);
   body.append(title);
   const pagingButtons: HTMLButtonElement[] = [];
   let navigation: HTMLDivElement | null = null;

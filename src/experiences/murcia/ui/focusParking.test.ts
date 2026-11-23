@@ -137,3 +137,22 @@ describe('the screen stop arrows and the focus', () => {
     expect(layer.style.visibility).toBe('hidden');
   });
 });
+
+// Accessibility audit 2026-11-18, M4: the plate had no role, name or heading.
+describe('the plate as structure', () => {
+  it('is a region named by its title, which is a level-2 heading', () => {
+    const { layer, title } = plate();
+    expect(layer.getAttribute('role')).toBe('region');
+    expect(layer.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(title.getAttribute('role')).toBe('heading');
+    expect(title.getAttribute('aria-level')).toBe('2');
+    const body = layer.querySelector('.campus-overlay__body')!;
+    expect(body.getAttribute('aria-labelledby')).toBe(title.id);
+  });
+
+  it('gives each plate its own title id', () => {
+    const a = plate();
+    const b = plate();
+    expect(a.title.id).not.toBe(b.title.id);
+  });
+});
