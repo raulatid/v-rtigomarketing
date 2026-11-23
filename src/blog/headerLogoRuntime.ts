@@ -52,14 +52,12 @@ import { isWebGLAvailable } from '../graphics/webglSupport'
  * `cornerFramePadding` is the only one that matters on this path — it flattens
  * the frustum toward orthographic, which is what makes the pixel→world mapping
  * linear — and it MUST match `introConfig.ts`'s 20, or the mark is projected
- * differently from the site's. The other four belong to the spin-and-fly
+ * differently from the site's. The other three belong to the bloom-and-fly
  * sequence, which this surface never plays; they are here because the type
  * requires them.
  */
 const HEADER_LOGO_CONFIG: CornerLogoConfig = {
   cornerFramePadding: 20,
-  spinDuration: 2.0,
-  spinPauseBefore: 0.15,
   swapCrossover: 0.45,
   swapDuration: 0.7,
   toCornerDuration: 1.2,

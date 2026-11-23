@@ -40,6 +40,8 @@ let reactPhase: Phase
 let markVisible: boolean
 /** The tail's time when the logo's own clock started (the substitution). */
 let logoStartedAt: number | undefined
+/** The tail's time when it sent the logo from centre to the corner. */
+let logoDepartedAt: number | undefined
 /** What the tail handed the logo to scale it by, on the first way in. */
 let logoArrival: (() => number) | undefined
 /** Whether the 3D model has loaded. */
@@ -64,6 +66,10 @@ const logoRef: { current: CornerLogoHandle } = {
       log.push('logo:start')
       logoStartedAt = timeline.current?.time
       logoArrival = arrival
+    },
+    depart: () => {
+      log.push('logo:depart')
+      logoDepartedAt = timeline.current?.time
     },
     snapToCorner: () => log.push('logo:corner'),
     isReady: () => logoReady,
@@ -139,13 +145,9 @@ afterEach(() => {
   container.remove()
 })
 
-// `corner` starts at the end of the bloom, which the logo's clock is already a
-// bloom into (openingTail, `durations.corner`).
-const landing =
-  config.spinPauseBefore +
-  config.spinDuration -
-  config.swapDuration * (1 - config.swapCrossover) +
-  Math.max(config.toCornerDuration, orbitRevealDuration(SATELLITES))
+// From the logo's arrival at centre to `site`. `corner` takes no time: the logo
+// leaves as `orbits` begins (openingTail, `durations.corner`).
+const landing = Math.max(config.toCornerDuration, orbitRevealDuration(SATELLITES))
 
 /** Where the first way in substitutes: the warp's cut, on the tail's clock. */
 const cutAt = config.shrinkDuration + config.warpDuration * WARP_LIMITS.cut
@@ -158,15 +160,11 @@ describe('a first visit', () => {
     expect(log).toContain('draw:shown')
     const phases: Phase[] = []
     walk(tl, tl.duration, phases)
-    expect(phases).toEqual(['shrink', 'warp', 'corner', 'orbits', 'site'])
-    // From the cut, the same landing as the returning visitor's from its swap.
-    expect(tl.duration).toBeCloseTo(
-      cutAt +
-        config.spinPauseBefore +
-        config.spinDuration +
-        Math.max(config.toCornerDuration, orbitRevealDuration(SATELLITES)),
-      6,
-    )
+    // `corner` is passed through on the same tick as `orbits`.
+    expect(phases).toEqual(['shrink', 'warp', 'orbits', 'site'])
+    // From the end of the warp, the same landing as the returning visitor's
+    // from the end of its bloom.
+    expect(tl.duration).toBeCloseTo(config.shrinkDuration + config.warpDuration + landing, 6)
   })
 })
 
@@ -267,7 +265,7 @@ describe('a returning visitor', () => {
     walk(tl, tl.duration, phases)
     // `shrink` is passed through on the same tick as `swap` when there is no 2D
     // mark to collapse, so no frame ever rests in it.
-    expect(phases).toEqual(['swap', 'corner', 'orbits', 'site'])
+    expect(phases).toEqual(['swap', 'orbits', 'site'])
     expect(state.warpProgress).toBe(0)
     expect(state.orbitsStarted).toBe(true)
   })
@@ -283,9 +281,9 @@ describe('a returning visitor', () => {
   })
 
   it('keeps the logo’s time, not the fade’s: the landing starts when the bloom ends', () => {
-    // The logo spins and flies on its own clock from `startSequence()`. A
-    // `corner` that waited for the longer fade would put `orbits` — and the
-    // satellites — late against a logo already leaving centre.
+    // The logo blooms on its own clock from `startSequence()`. A `corner` that
+    // waited for the longer fade would hold a logo that has already arrived,
+    // and the satellites with it.
     const tl = mount(true)
     const bloom = config.swapDuration * (1 - config.swapCrossover)
     expect(tl.labels.corner! - tl.labels.swap!).toBeCloseTo(bloom, 6)
@@ -293,20 +291,27 @@ describe('a returning visitor', () => {
     expect(tl.duration).toBeCloseTo(bloom + landing, 6)
   })
 
-  it('starts the orbits as the logo leaves centre, on both ways in', () => {
-    // The logo spins and flies on its own clock from the substitution; the
-    // reveal is handed the eye as it departs. A `corner` counted from the end
-    // of the bloom put the orbits a bloom late (plan 029a, finding 3).
+  it('sends the logo to the corner as the orbits start, the moment it has arrived, on both ways in', () => {
+    // No pause and no turn at centre (block 9, D2 and D5). The arrival ends
+    // with the warp on the first way in, with the bloom on the other.
     for (const returning of [false, true]) {
       markVisible = !returning
       logoStartedAt = undefined
+      logoDepartedAt = undefined
+      log.length = 0
       const tl = mount(returning)
+      walk(tl, tl.labels.orbits! - 1e-3, [])
+      expect(log, `returning: ${returning}`).not.toContain('logo:depart')
       walk(tl, tl.duration, [])
-      expect(logoStartedAt, `returning: ${returning}`).toBeDefined()
-      expect(tl.labels.orbits! - logoStartedAt!, `returning: ${returning}`).toBeCloseTo(
-        config.spinPauseBefore + config.spinDuration,
-        1,
-      )
+      expect(log.filter((entry) => entry === 'logo:depart'), `returning: ${returning}`).toHaveLength(1)
+      const arrived = returning
+        ? tl.labels.swap! + config.swapDuration * (1 - config.swapCrossover)
+        : config.shrinkDuration + config.warpDuration
+      expect(tl.labels.orbits, `returning: ${returning}`).toBeCloseTo(arrived, 6)
+      // On the walk's first step past the label (120 a second).
+      expect(logoDepartedAt! - tl.labels.orbits!, `returning: ${returning}`).toBeGreaterThanOrEqual(0)
+      expect(logoDepartedAt! - tl.labels.orbits!, `returning: ${returning}`).toBeLessThan(1 / 60)
+      expect(logoDepartedAt! - logoStartedAt!, `returning: ${returning}`).toBeGreaterThan(0)
     }
   })
 
@@ -358,14 +363,18 @@ describe('a returning visitor', () => {
     expect(state.swapOverlay).toBe(0)
   })
 
-  it('is shorter than the tail it replaces by the shrink and the warp up to its cut', () => {
+  it('is shorter than the tail it replaces by the shrink and the warp, less its bloom', () => {
     const returning = mount(true).duration
     act(() => root.unmount())
     root = createRoot(container)
     const first = mount(false).duration
-    // Both land on the logo's own clock from the substitution, so what a
-    // returning visitor is spared is exactly what comes before it.
-    expect(first - returning).toBeCloseTo(config.shrinkDuration + config.warpDuration * WARP_LIMITS.cut, 6)
+    // Both land from the moment the logo has arrived at centre, so what a
+    // returning visitor is spared is the arrival the first way in has, against
+    // its own.
+    expect(first - returning).toBeCloseTo(
+      config.shrinkDuration + config.warpDuration - config.swapDuration * (1 - config.swapCrossover),
+      6,
+    )
   })
 
   it('still gets the whole tail on a replay, so every phase stays reachable from /debug', () => {

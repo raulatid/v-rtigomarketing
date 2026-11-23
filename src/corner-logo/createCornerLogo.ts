@@ -9,8 +9,9 @@ import type { CornerLogoConfig } from './cornerLogoConfig'
 export type { CornerLogoConfig } from './cornerLogoConfig'
 export type { CornerMetrics } from './logoMotion'
 
-// 3D brand logo revealed at screen centre by the P3 crossover, which then spins
-// 360°, flies to the top-left corner and idles there.
+// 3D brand logo revealed at screen centre by the intro (the warp's cut, or the
+// returning visitor's crossover), which then flies to the top-left corner and
+// idles there.
 //
 // Owns its own scene and camera, but NOT a renderer, a canvas or a frame loop:
 // it is drawn as an overlay pass by graphics/RenderPipeline after the main
@@ -61,6 +62,8 @@ export interface CornerLogo {
   isDrawable(): boolean
   /** `arrival`: see `LogoMotion.start`. */
   startSequence(arrival?: () => number): void
+  /** See `LogoMotion.depart`. */
+  depart(): void
   snapToCorner(): void
   reset(): void
   dispose(): void
@@ -207,7 +210,7 @@ export function createCornerLogo({
 
     // Nothing to draw while hidden — the pipeline skips both the update and the
     // pass, which is what the old dedicated rAF's early return did. Advancing
-    // the state clock while hidden would make the reveal start mid-spin.
+    // the state clock while hidden would make the reveal start mid-bloom.
     isDrawable: () => motion.isVisible(),
 
     startSequence(arrival) {
@@ -217,6 +220,10 @@ export function createCornerLogo({
       }
       motion.start(arrival)
     },
+
+    // No readiness guard: without a model nothing was started, so the motion
+    // is hidden and ignores it.
+    depart: () => motion.depart(),
 
     snapToCorner() {
       if (!modelReady) return

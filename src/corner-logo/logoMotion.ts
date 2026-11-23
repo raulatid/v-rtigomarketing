@@ -4,7 +4,7 @@ import type { CornerLogoConfig } from './cornerLogoConfig'
 
 const STATES = {
   HIDDEN: 'hidden',
-  SPINNING: 'spinning',
+  AT_CENTRE: 'atCentre',
   TO_CORNER: 'toCorner',
   IDLE: 'idle',
 } as const
@@ -14,9 +14,6 @@ type State = (typeof STATES)[keyof typeof STATES]
 const IDLE_ROTATION_SPEED = 0.15 // rad/s
 const IDLE_FLOAT_AMPLITUDE = 0.035
 const IDLE_FLOAT_FREQUENCY = 0.8 // Hz
-
-/** One full turn. The spin's total, and the resting rotation it settles at. */
-const SPIN_TOTAL_RAD = Math.PI * 2
 
 /**
  * Where the header's line is, in CSS px, as measured off the DOM.
@@ -46,7 +43,8 @@ export const DEFAULT_CORNER_METRICS: CornerMetrics = {
 
 export interface LogoMotion {
   /**
-   * Begins the reveal: bloom up from zero, spin, fly to the corner, idle.
+   * Begins the reveal: bloom up from zero at centre, and hold there until
+   * `depart()`.
    *
    * With `arrival`, there is no bloom: the mark is there at once, at its full
    * centre size times `arrival()`, read every frame while it is at centre. The
@@ -55,7 +53,16 @@ export interface LogoMotion {
    * curve, and ends it at exactly 1).
    */
   start(arrival?: () => number): void
-  /** Straight to the idle corner pose, skipping the spin and the flight. */
+  /**
+   * Leaves centre for the corner, then idles there. Only from centre: before
+   * `start()`, or once on the way or parked, it does nothing.
+   *
+   * The opening tail calls it as `orbits` begins, so the departure and the
+   * satellites' reveal are one instant on one clock. There is no turn at
+   * centre (block 9, D2): the logo goes up as soon as it has arrived.
+   */
+  depart(): void
+  /** Straight to the idle corner pose, skipping the flight. */
   snapToCorner(): void
   update(delta: number): void
   reset(): void
@@ -111,7 +118,7 @@ export function frustumExtents(
 }
 
 /**
- * The logo's four-state reveal: hidden -> spinning -> flying -> idling.
+ * The logo's four-state reveal: hidden -> at centre -> flying -> idling.
  *
  * Split out of createCornerLogo because it is the half with no I/O in it. It
  * reads a config, a group and a camera, and writes a transform — no loaders, no
@@ -202,15 +209,22 @@ export function createLogoMotion(
       arrival = from
       modelGroup.visible = true
       modelGroup.scale.setScalar(arrival ? arrival() : 0)
-      state = STATES.SPINNING
+      state = STATES.AT_CENTRE
+      stateT = 0
+    },
+
+    depart() {
+      if (state !== STATES.AT_CENTRE) return
+      modelGroup.scale.setScalar(1)
+      state = STATES.TO_CORNER
       stateT = 0
     },
 
     snapToCorner() {
       modelGroup.visible = true
       modelGroup.scale.setScalar(cornerScale())
-      modelGroup.rotation.y = SPIN_TOTAL_RAD
-      idle.rotY = SPIN_TOTAL_RAD
+      modelGroup.rotation.y = 0
+      idle.rotY = 0
       idle.elapsed = 0
       computeCornerTarget(cornerTarget)
       modelGroup.position.copy(cornerTarget)
@@ -220,7 +234,7 @@ export function createLogoMotion(
     update(delta: number) {
       stateT += delta
 
-      if (state === STATES.SPINNING) {
+      if (state === STATES.AT_CENTRE) {
         if (arrival) {
           modelGroup.scale.setScalar(arrival())
         } else {
@@ -228,15 +242,6 @@ export function createLogoMotion(
           // that replaces the particle burst (plan 002 §6.1). power2.out.
           const bloomT = clamp01(stateT / (config.swapDuration * (1 - config.swapCrossover)))
           modelGroup.scale.setScalar(1 - (1 - bloomT) * (1 - bloomT))
-        }
-
-        const t = clamp01(Math.max(stateT - config.spinPauseBefore, 0) / config.spinDuration)
-        modelGroup.rotation.y = easeInOutCubic(t) * SPIN_TOTAL_RAD
-        if (t >= 1) {
-          modelGroup.rotation.y = SPIN_TOTAL_RAD
-          modelGroup.scale.setScalar(1)
-          state = STATES.TO_CORNER
-          stateT = 0
         }
       } else if (state === STATES.TO_CORNER) {
         // Position and size travel together: the centre-stage size was the
@@ -249,7 +254,7 @@ export function createLogoMotion(
         if (stateT >= config.toCornerDuration) {
           modelGroup.position.copy(cornerTarget)
           modelGroup.scale.setScalar(cornerScale())
-          idle.rotY = SPIN_TOTAL_RAD
+          idle.rotY = 0
           idle.elapsed = 0
           state = STATES.IDLE
         }

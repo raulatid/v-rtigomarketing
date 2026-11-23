@@ -813,6 +813,7 @@ for (const fps of [60, 30]) {
     cornerLogo: {
       current: {
         isReady: () => true,
+        depart: () => {},
         snapToCorner: () => {},
         startSequence: (from) => {
           arrival = from;

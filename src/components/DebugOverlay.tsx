@@ -72,8 +72,6 @@ const SECTIONS: Array<{ title: string; controls: Control[] }> = [
   {
     title: 'P4 corner',
     controls: [
-      { key: 'spinPauseBefore', label: 'Spin pause', min: 0, max: 1, step: 0.05 },
-      { key: 'spinDuration', label: 'Spin', min: 0.4, max: 4, step: 0.1 },
       { key: 'toCornerDuration', label: 'Fly to corner', min: 0.3, max: 3, step: 0.05 },
       { key: 'cornerFramePadding', label: 'Logo framing', min: 6, max: 48, step: 0.5, unit: '×' },
     ],

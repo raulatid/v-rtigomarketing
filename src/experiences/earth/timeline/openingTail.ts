@@ -98,28 +98,23 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
     way === 'returning'
       ? {
           shrink: markShown ? config.returnCollapseDuration : 0,
-          // The landing keeps the logo's time, not the fade's: the logo's spin and
-          // flight run on its own clock from startSequence(), at the substitution.
+          // The landing keeps the logo's time, not the fade's: the logo blooms on
+          // its own clock from startSequence(), and leaves when the bloom is done.
           swap: config.swapDuration * (1 - config.swapCrossover),
         }
       : {
           shrink: config.shrinkDuration,
           warp: config.warpDuration,
         }
-  // The logo's spin and flight are driven by its own loop; the tail only holds
-  // each phase open for them. Hold `orbits` for whichever finishes last: the
-  // logo's flight or the reveal.
+  // No pause and no turn at centre (block 9, D2 and D5): the logo leaves for
+  // the corner the moment it has arrived — the end of the warp's pull-out on
+  // the first way in, of the bloom (`swap`) on the other. The tail tells it
+  // to, as `orbits` begins, so `corner` takes no time; it keeps its place in
+  // the machine's sequence, and a seek to it still means "the logo parked".
   //
-  // The logo's clock starts at the substitution, which is not where `corner`
-  // starts: it is the warp's cut on the first way in, the returning landing's
-  // `swap` (its bloom) on the other. So the logo leaves centre
-  // `spinPauseBefore + spinDuration` after the substitution, and `corner` is
-  // that, less what the phase before it still had to run. Until 2026-11-22 it
-  // did not subtract anything, and `orbits` started 0.385 s late, where
-  // `orbitsStartOffset`'s comment says 0 is the departure.
-  const afterSubstitution =
-    way === 'returning' ? (durations.swap ?? 0) : config.warpDuration * (1 - WARP_LIMITS.cut)
-  durations.corner = Math.max(config.spinPauseBefore + config.spinDuration - afterSubstitution, 0)
+  // The flight itself runs on the logo's own loop; the tail only holds `orbits`
+  // open for whichever finishes last, the flight or the reveal.
+  durations.corner = 0
   durations.orbits =
     Math.max(config.orbitsStartOffset, 0) +
     Math.max(config.toCornerDuration, orbitRevealDuration(satelliteCount))
@@ -168,8 +163,8 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       // Satellites orbit at a calm ambient speed, so they stay — only the
       // reveal's staggered draw-in is skipped, by starting already-shown.
       state.orbitsStarted = true
-      // Parked, not flown there: the spin and the flight are the motion this
-      // way in exists to leave out. The corner's slow idle stays, like the orbits.
+      // Parked, not flown there: the flight is the motion this way in exists
+      // to leave out. The corner's slow idle stays, like the orbits.
       cornerLogo.current?.snapToCorner()
     })
   } else if (way === 'returning') {
@@ -206,7 +201,7 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       cornerLogo.current?.startSequence()
     })
     // From the swap rather than to the next phase, so the fade runs over the
-    // bloom and into the spin without holding the sequence open for it.
+    // bloom and into the flight without holding the sequence open for it.
     motion(labels.swap ?? 0, config.returnRevealDuration, (p) => {
       state.swapOverlay = 1 - cubicOut(p)
     })
@@ -271,14 +266,16 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
   if (way !== 'reduced') {
     // ── P4 CORNER, P5 ORBITS, END STATE ── shared by both ways in.
     //
-    // The logo is alone at centre through the pause + spin, and the eye is on it.
+    // `corner` takes no time (see `durations.corner`), so it and `orbits` begin
+    // on the same tick.
     enter('corner')
-    // Deliberately NOT simultaneous with the corner flight. Both are ~3.4s and
-    // both are focal; run together, the eye tracks the large spinning logo and
-    // the staggered orbit draw-in is missed entirely. Starting here — as the
-    // logo departs centre — hands attention off instead of splitting it.
+    // The logo departs centre and the orbit reveal starts on one cue, which
+    // hands attention off from the logo to the satellites rather than splitting
+    // it. A seek past here (a skip) has parked the logo already, and the
+    // departure then does nothing.
     enter('orbits', () => {
       state.orbitsStarted = true
+      cornerLogo.current?.depart()
     })
     // Earth at rest, isotype idling in the corner.
     enter('site')

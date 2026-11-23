@@ -15,15 +15,12 @@ import type { CornerLogoConfig } from './cornerLogoConfig'
 // reason.
 const CONFIG: CornerLogoConfig = {
   cornerFramePadding: 3,
-  spinDuration: 1,
-  spinPauseBefore: 0.25,
   swapCrossover: 0.5,
   swapDuration: 1,
   toCornerDuration: 0.5,
 }
 
 const FRAMED_DISTANCE = 100
-const TWO_PI = Math.PI * 2
 
 // A header line that is not the shipped one, for the same reason as CONFIG.
 const METRICS = { insetLeftPx: 80, centerYPx: 60, heightPx: 30 }
@@ -68,7 +65,7 @@ describe('createLogoMotion', () => {
     it('does not advance while hidden', () => {
       // The pipeline skips update() entirely while !isDrawable, but the machine
       // must not depend on that: advancing the clock while hidden is what would
-      // make the reveal start mid-spin.
+      // make the reveal start mid-bloom.
       run(5)
       expect(motion.isVisible()).toBe(false)
       expect(group.rotation.y).toBe(0)
@@ -86,12 +83,12 @@ describe('createLogoMotion', () => {
 
     it('is a no-op once already running', () => {
       motion.start()
-      run(0.5)
-      const rotation = group.rotation.y
-      expect(rotation).toBeGreaterThan(0)
+      run(0.2)
+      const scale = group.scale.x
+      expect(scale).toBeGreaterThan(0)
       motion.start()
-      // A second call must not restart the spin from zero.
-      expect(group.rotation.y).toBe(rotation)
+      // A second call must not restart the bloom from zero.
+      expect(group.scale.x).toBe(scale)
     })
 
     it('with an arrival, is there at once at its size, and follows it with no bloom', () => {
@@ -106,9 +103,10 @@ describe('createLogoMotion', () => {
       arrival = 1
       run(0.1)
       expect(group.scale.x).toBe(1)
-      // The spin is the same reveal's.
-      run(CONFIG.spinPauseBefore + CONFIG.spinDuration)
-      expect(group.rotation.y).toBe(TWO_PI)
+      // Then the same departure as a bloom's.
+      motion.depart()
+      run(CONFIG.toCornerDuration + 0.1)
+      expect(group.position.x).toBeLessThan(0)
     })
 
     it('forgets the arrival on a reset, so a replay blooms again', () => {
@@ -119,13 +117,33 @@ describe('createLogoMotion', () => {
     })
   })
 
-  describe('the spin', () => {
-    it('holds still for spinPauseBefore, then turns', () => {
+  describe('at centre', () => {
+    it('holds there, facing the camera and without turning, until it departs', () => {
+      // No turn at centre (block 9, D2): the opening tail says when to leave.
       motion.start()
-      run(CONFIG.spinPauseBefore * 0.5)
-      expect(group.rotation.y).toBe(0)
-      run(CONFIG.spinPauseBefore)
-      expect(group.rotation.y).toBeGreaterThan(0)
+      for (let i = 0; i < 300; i++) {
+        motion.update(1 / 60)
+        expect(group.rotation.y).toBe(0)
+      }
+      expect(group.position.x).toBe(0)
+      expect(group.position.y).toBe(0)
+      expect(group.scale.x).toBeCloseTo(1, 6)
+    })
+
+    it('departs only from centre', () => {
+      // Before start(): nothing to fly.
+      motion.depart()
+      run(1)
+      expect(motion.isVisible()).toBe(false)
+      expect(group.position.x).toBe(0)
+
+      // Parked by a skip, then reached by the tail's cue: it stays parked.
+      motion.snapToCorner()
+      const parked = group.position.clone()
+      motion.depart()
+      motion.update(0)
+      expect(group.position.x).toBeCloseTo(parked.x, 9)
+      expect(group.scale.x).toBe(1)
     })
 
     it('blooms the scale up to 1 and does not overshoot', () => {
@@ -138,27 +156,13 @@ describe('createLogoMotion', () => {
       expect(peak).toBeLessThanOrEqual(1 + 1e-9)
       expect(group.scale.x).toBeCloseTo(1, 6)
     })
-
-    it('lands on exactly one full turn', () => {
-      motion.start()
-      run(CONFIG.spinPauseBefore + CONFIG.spinDuration + 0.1)
-      expect(group.rotation.y).toBeCloseTo(TWO_PI, 6)
-    })
-
-    it('turns monotonically', () => {
-      motion.start()
-      let previous = -1
-      for (let i = 0; i < 80; i++) {
-        motion.update(1 / 60)
-        expect(group.rotation.y).toBeGreaterThanOrEqual(previous)
-        previous = group.rotation.y
-      }
-    })
   })
 
   describe('the flight to the corner', () => {
     it('ends up top-left of centre', () => {
       motion.start()
+      run(1)
+      motion.depart()
       run(5)
       // Left is negative x, up is positive y. A sign flip here would put the
       // logo off the opposite corner and still look like "it moved".
@@ -213,9 +217,11 @@ describe('createLogoMotion', () => {
       motion.setModelSize(MODEL)
       motion.setCornerMetrics(METRICS)
       motion.start()
-      run(CONFIG.spinPauseBefore + CONFIG.spinDuration + 0.05)
-      // Leaving the spin at (or a frame or two past) the size the crossover needed …
-      expect(group.scale.x).toBeCloseTo(1, 1)
+      run(1)
+      motion.depart()
+      motion.update(0)
+      // Leaving centre at the size the crossover needed …
+      expect(group.scale.x).toBe(1)
       run(CONFIG.toCornerDuration + 0.1)
       // … and parked at the size the header asked for.
       expect(group.scale.x).toBeCloseTo((METRICS.heightPx * worldPerPx()) / MODEL.y, 9)
@@ -249,6 +255,7 @@ describe('createLogoMotion', () => {
 
       motion.reset()
       motion.start()
+      motion.depart()
       run(6)
 
       expect(group.position.x).toBeCloseTo(snapped.x, 6)
@@ -256,11 +263,11 @@ describe('createLogoMotion', () => {
   })
 
   describe('idling', () => {
-    it('keeps rotating past the full turn', () => {
+    it('turns slowly from the pose it arrived in', () => {
       motion.snapToCorner()
-      expect(group.rotation.y).toBeCloseTo(TWO_PI, 6)
+      expect(group.rotation.y).toBe(0)
       run(1)
-      expect(group.rotation.y).toBeGreaterThan(TWO_PI)
+      expect(group.rotation.y).toBeGreaterThan(0)
     })
 
     it('floats around the corner rather than drifting away from it', () => {
@@ -288,11 +295,11 @@ describe('createLogoMotion', () => {
   })
 
   describe('snapToCorner', () => {
-    it('skips the spin and the flight entirely', () => {
+    it('skips the flight entirely', () => {
       motion.snapToCorner()
       expect(motion.isVisible()).toBe(true)
       expect(group.scale.x).toBe(1)
-      expect(group.rotation.y).toBeCloseTo(TWO_PI, 6)
+      expect(group.rotation.y).toBe(0)
       expect(group.position.x).toBeLessThan(0)
     })
   })
@@ -312,6 +319,7 @@ describe('createLogoMotion', () => {
 
     it('allows the sequence to be replayed from the beginning', () => {
       motion.start()
+      motion.depart()
       run(6)
       motion.reset()
       motion.start()

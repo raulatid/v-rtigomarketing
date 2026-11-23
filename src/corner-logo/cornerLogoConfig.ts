@@ -1,5 +1,5 @@
 /**
- * The six numbers this module needs, declared here rather than imported.
+ * The four numbers this module needs, declared here rather than imported.
  *
  * They are tuned alongside the intro and live in Earth's `introConfig`, which
  * this module used to import wholesale — an experience dependency inside code
@@ -17,8 +17,6 @@
 export interface CornerLogoConfig {
   /** Fit distance multiplier. Large values flatten the frustum toward ortho. */
   cornerFramePadding: number
-  spinDuration: number
-  spinPauseBefore: number
   swapCrossover: number
   swapDuration: number
   toCornerDuration: number
@@ -28,7 +26,9 @@ export interface CornerLogoConfig {
 export interface CornerLogoHandle {
   /** `arrival`: the intro warp's scale for the 3D mark, see `LogoMotion.start`. */
   startSequence: (arrival?: () => number) => void
-  /** Straight to the idle corner pose, with no spin and no flight. */
+  /** From centre to the corner: the tail calls it as `orbits` begins. */
+  depart: () => void
+  /** Straight to the idle corner pose, with no flight. */
   snapToCorner: () => void
   isReady: () => boolean
 }

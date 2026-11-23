@@ -69,8 +69,8 @@ export interface IntroConfig extends DrawConfig {
   returnRevealDuration: number
 
   // ── P4 corner ──
-  spinPauseBefore: number
-  spinDuration: number
+  // The flight from centre to the corner. It starts with `orbits`, with no
+  // pause or turn at centre: `corner` takes no time on either way in.
   toCornerDuration: number
   // Multiplier on the model's fit distance. Higher = smaller on screen AND a
   // flatter frustum, which keeps the pixel→world corner mapping linear. WHERE
@@ -251,8 +251,6 @@ export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
   // legible before the planet behind it is, so the eye lands on it first.
   returnRevealDuration: 0.7,
 
-  spinPauseBefore: 0.15,
-  spinDuration: 2.0,
   toCornerDuration: 1.2,
   cornerFramePadding: 20,
 
