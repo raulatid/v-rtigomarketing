@@ -137,6 +137,7 @@
 .audit-close:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 4px;
+  box-shadow: 0 0 0 8px var(--focus-halo-color);
   border-radius: 4px;
   color: #fff;
 }
@@ -789,9 +790,12 @@
   }
 }
 
-.audit-cta:focus-visible {
+/* As specific as the hover rule above, and after it: with the pointer resting
+   on the button, the hover shadow would otherwise drop the focus halo. */
+.audit-cta:not(:disabled):focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 /* The arrow belongs to the label, so it is the label's colour held back a
@@ -872,6 +876,7 @@
 .audit-legal__link:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 4px;
 }
 

@@ -200,8 +200,27 @@
   --accent-hover: #3a7dff;
   --accent-pressed: #1656d6;
   --accent-border: rgba(120, 160, 255, 0.35);
-  /* The keyboard focus outline, unchanged from before this redesign. */
-  --focus-ring: rgba(120, 170, 255, 0.9);
+  /* The keyboard focus outline: the house's pale blue, opaque, and paler than
+     the rgba(120, 170, 255, 0.9) it was until 2026-11-23 (see below). */
+  --focus-ring: rgb(150, 190, 255);
+  /* Its dark half (accessibility audit 2026-11-18, V2). The light ring alone
+     measured 1.0-2.8:1 against Murcia's sky and roofs; every ring now also
+     draws this as a box-shadow 4px wider than its offset, so a dark band runs
+     on both sides of the light one. Over a light ground the dark band carries
+     the contrast, over a dark one the light ring does.
+
+     The two cover every ground only if the ring is light enough: a ground
+     reaches 3:1 against this halo from a luminance of about 0.115, and
+     against the ring up to (L_ring + 0.05) / 3 - 0.05. The outer dark band
+     is what touches the ground, so the ring is a margin, not the carrier: the
+     halo lets about 12% of the ground through, and with the old blue (L 0.40)
+     a mid-dark roof was under 3:1 with both (measured 2.6:1 beside the sound
+     toggle); this one (L 0.505, limit about 0.135) covers it.
+
+     `--focus-halo` is the spread for the usual 2px offset; a ring set further
+     out writes its own spread with the colour. */
+  --focus-halo-color: rgba(5, 5, 7, 0.88);
+  --focus-halo: 0 0 0 6px var(--focus-halo-color);
 }
 
 /* Where the backdrop cannot be filtered the material keeps its hierarchy and
@@ -342,6 +361,7 @@
 .scene-home:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 4px;
+  box-shadow: 0 0 0 8px var(--focus-halo-color);
 }
 
 .site-header__start > .scene-home:disabled {
@@ -484,6 +504,7 @@
 .audit-trigger:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 /* While the section is open the trigger disappears entirely — closing belongs
@@ -554,6 +575,7 @@
 .scene-shortcut:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* Standing down while the audit or its own dialog owns the viewer's
@@ -600,6 +622,7 @@
 .sound-toggle:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 .sound-toggle::before {
@@ -800,6 +823,7 @@
 .site-header__burger:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 8px;
 }
 

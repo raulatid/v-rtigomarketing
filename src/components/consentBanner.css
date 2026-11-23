@@ -202,6 +202,7 @@
 .consent-banner__link:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 .consent-banner__link:focus-visible {
@@ -385,6 +386,7 @@
 .consent-info:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo), 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 /* ---- Phone: a sheet along the bottom edge. No dot and no leader — there is

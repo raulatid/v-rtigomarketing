@@ -80,6 +80,10 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 57. **Los datos de marca y contacto se leen a través de `src/content/site.ts`,** un adaptador sobre el singleton generado (`SITE_SETTINGS[0]`, leído sin comprobar porque el build garantiza un documento) que conserva los nombres de exportación antiguos. Hoy es el único lector de `generated/siteSettings`, y ningún check lo impone. Los textos legales ya no están ahí (`src/content/legal.ts`). Ver [diálogo de contacto](../decisiones/formularios/dialogo-de-contacto.md) y [Sanity y la proyección GROQ](../decisiones/contenido/sanity-y-proyeccion-groq.md). Fija: `src/content/site.test.ts`.
 
+## Foco
+
+58. **El anillo de foco tiene dos tonos y el oscuro es un `box-shadow`** (`--focus-halo` y `--focus-halo-color` en `siteHeader.css`, auditoría de accesibilidad del 2026-11-18, V2). Una regla `:focus-visible` nueva con un `outline` hacia fuera sobre la escena lleva también `box-shadow: var(--focus-halo)` (o `0 0 0 <offset + 4>px var(--focus-halo-color)` si su offset no es 2px), o el anillo desaparece sobre el cielo de Murcia. Si el control ya tiene sombra, se componen: el halo va primero (los botones azules y `.consent-info` lo hacen), y la regla de foco tiene que ganar a la de `:hover`, o el puntero quieto encima quita el halo (`.audit-cta` y `.contact-cta` repiten `:not(:disabled)` por eso). Los controles de teclado de Servicios y Conócenos (`.district-a11y-control`) llevan su propio azul, `#7fd4ff`, con el mismo halo; el test solo vigila los que usan `--focus-ring`. El anillo es más claro que el de antes (`rgb(150, 190, 255)`) por una razón medida, escrita junto al token: no lo oscurezcas. Un anillo hacia dentro, sobre el vidrio oscuro del propio control, no lleva halo. En colores forzados el halo desaparece y queda el contorno, que el sistema pinta. Fija: `src/components/focusRing.test.ts`.
+
 ## Cómo verificar esta área
 
 | Cambio | Comprobación |

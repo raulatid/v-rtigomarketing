@@ -307,9 +307,12 @@
   }
 }
 
-.contact-cta:focus-visible {
+/* As specific as the hover rule above, and after it: with the pointer resting
+   on the button, the hover shadow would otherwise drop the focus halo. */
+.contact-cta:not(:disabled):focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 /* The booking link (2026-09-04). A GHOST of `.contact-cta` — same height,
@@ -381,6 +384,7 @@
 .contact-booking:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* When the booking link is there it owns the block's opening rule, so the
@@ -458,6 +462,7 @@
 .contact-phone:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 4px;
 }
 
@@ -484,6 +489,7 @@
 .contact-note__link:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* ---- The delivered state (plan 012) ----------------------------------------

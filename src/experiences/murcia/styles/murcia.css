@@ -140,6 +140,9 @@
   color: #fff;
   outline: 2px solid #7fd4ff;
   outline-offset: 2px;
+  /* The dark half of the site's two-tone ring (--focus-halo, siteHeader.css):
+     this ring sits over the scene as the others do. */
+  box-shadow: var(--focus-halo);
   z-index: 1;
 }
 
@@ -937,6 +940,7 @@
 .murcia-ui .campus-overlay__action:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 4px;
 }
 

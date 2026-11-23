@@ -238,6 +238,7 @@ html {
 .case-panel__close:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 .case-panel__title {
@@ -448,6 +449,7 @@ html {
 .case-panel__next:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
   border-radius: 4px;
 }
 
@@ -866,7 +868,7 @@ html {
      sheet's own top edge — the handle spans the full width and is flush with
      it. Same reasoning as the close button above. */
   .case-panel__handle:focus-visible {
-    outline: 2px solid rgba(120, 170, 255, 0.9);
+    outline: 2px solid var(--focus-ring);
     outline-offset: -4px;
     border-radius: 8px;
   }
@@ -937,7 +939,7 @@ html {
   .case-panel__body:focus-visible {
     /* Inset, like `.district-service-header` in murcia.css: an outset ring on a
        sheet flush with the frame edges is clipped by the sheet's own bounds. */
-    outline: 2px solid rgba(120, 170, 255, 0.9);
+    outline: 2px solid var(--focus-ring);
     outline-offset: -2px;
   }
 
@@ -1279,6 +1281,7 @@ html {
      idea of focus. */
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* The button carries no text node — its name is an aria-label, because nothing
@@ -1334,6 +1337,7 @@ html {
   letter-spacing: 0.02em;
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 /* ---- z 44 — Earth's hint, in text (§43) ---------------------------------
@@ -2054,6 +2058,7 @@ html {
 .scene-fallback__action:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  box-shadow: var(--focus-halo);
 }
 
 @media (hover: hover) {
