@@ -71,6 +71,7 @@ test('a blocked required asset is fatal, not a silent wait', async ({ browser })
   const page = await context.newPage()
   await page.route('**/earth/*.ktx2', (route) => route.abort())
   await page.route('**/earth/*.webp', (route) => route.abort())
+  await page.route('**/earth/*.avif', (route) => route.abort())
   await page.goto('/')
 
   await expect.poll(() => bootState(page), { timeout: 60_000 }).toBe('fatal')
