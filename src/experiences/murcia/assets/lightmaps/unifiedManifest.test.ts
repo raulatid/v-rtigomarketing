@@ -10,12 +10,12 @@ const manifest = () => ({ uvChannel: 1, requiredNames: ['logo-V'], atlases: {
   } },
 } });
 describe('the selected unified bake contract', () => {
-  it('ships the active murcia-v8 profile with exact sizes, dimensions and total budgets', () => {
+  it('ships the active murcia-v9 profile with exact sizes, dimensions and total budgets', () => {
     const config = murciaConfig.lightmaps!;
     if (!('manifest' in config)) throw new Error('Expected the unified manifest');
     const directory = 'public' + config.baseUrl;
     const shipped = parseUnifiedManifest(JSON.parse(fs.readFileSync(directory + config.manifest, 'utf8')));
-    expect(Object.keys(shipped.atlases)).toHaveLength(20);
+    expect(Object.keys(shipped.atlases)).toHaveLength(15);
     expect(shipped.requiredNames).toContain('estadio-techo');
     expect(shipped.requiredNames).toContain('Teatro_Romea');
     for (const resolution of [1024, 2048] as const) {
@@ -35,7 +35,7 @@ describe('the selected unified bake contract', () => {
       const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + selectedVariant(shipped, key, size).bytes, 0);
       // Both profiles load every atlas at 1024 since r4.
       expect(new Set(selected.values())).toEqual(new Set([1024]));
-      expect(loadedBytes).toBe(2_052_451);
+      expect(loadedBytes).toBe(1_460_576);
       expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_500_000 : 6_500_000);
     }
   });

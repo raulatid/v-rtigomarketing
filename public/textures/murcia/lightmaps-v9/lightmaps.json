@@ -1,0 +1,426 @@
+{
+  "preparedSHA256": "33391c05909e6083c1eff385b10b63c741a8226fa48c7aca1d4028b70f044fc7",
+  "sourceSHA256": "bdc22adc6f2fd7b77d13533352647cf2a48102337daf56375767d28e4268c0d8",
+  "uvChannel": 1,
+  "samples": 64,
+  "atlases": {
+    "ground-NE": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.82472825050354,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "ground-NE.exr": "6746287365c3957833992853989b3b5ca24b138047fd8133b74ca4b7c3ebd018",
+        "ground-NE-1024.png": "3477eb1a30087db6c94dc2f0afa7474882a02451984b7b556968d2c852051f1e"
+      },
+      "variants": {
+        "1024": {
+          "file": "ground-NE-1024.ktx2",
+          "bytes": 90797,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 35.45410199950857
+        }
+      }
+    },
+    "ground-NW": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.6054182052612305,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "ground-NW.exr": "ecbe2f21d99e99ccff75b8eec784da883c88c95d53dae3468d09bf5c87a5d355",
+        "ground-NW-1024.png": "f128576679d62f680a64af84990faf97e7def9438fa9850ac0e061e3cb018bb4"
+      },
+      "variants": {
+        "1024": {
+          "file": "ground-NW-1024.ktx2",
+          "bytes": 79474,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 34.072302863744575
+        }
+      }
+    },
+    "ground-Outer": {
+      "linearScale": 2.0,
+      "threeLightMapIntensity": 6.283185307179586,
+      "maximum": 1.1975129842758179,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "ground-Outer.exr": "92a6632ecdc8457609a7088db0befbe6faca1ee2bfb568c5d69ecdd887d3f56d",
+        "ground-Outer-1024.png": "7573b4346484c2b11bf4376282541700cab677c538d68871fa841c19cab0f13b"
+      },
+      "variants": {
+        "1024": {
+          "file": "ground-Outer-1024.ktx2",
+          "bytes": 73422,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 35.260173789089734
+        }
+      }
+    },
+    "ground-Ring": {
+      "linearScale": 2.0,
+      "threeLightMapIntensity": 6.283185307179586,
+      "maximum": 1.7891544103622437,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "ground-Ring.exr": "aff04baa4b2919bc9acbb965be2a453040571c97f2fa9dcb55db43497f64dd9e",
+        "ground-Ring-1024.png": "921ae15276aac5b20908e12b734766a6a64780f8549b734130586893b00efef3"
+      },
+      "variants": {
+        "1024": {
+          "file": "ground-Ring-1024.ktx2",
+          "bytes": 63799,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 34.62912558311647
+        }
+      }
+    },
+    "ground-SE": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.984816312789917,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "ground-SE.exr": "831e76aded1c8088e84cfeb5c95648a7e0549b3d663d2c08c9522a09dae29cb2",
+        "ground-SE-1024.png": "3b35045edfd7569d47574781b03a71af6c64bbf1fad1e98f877ce23d1b273d6b"
+      },
+      "variants": {
+        "1024": {
+          "file": "ground-SE-1024.ktx2",
+          "bytes": 67199,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 34.44824548227868
+        }
+      }
+    },
+    "ground-SW": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 3.3456695079803467,
+      "masterResolution": 2048,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "ground-SW.exr": "048e4cc5f146511e921cfbee27cb0e46b48de8822c0aaabe2ffdd9f7c108335f",
+        "ground-SW-1024.png": "555bacfa9ee55b5bc64c537562b0b8b22c81d1c33a57ff6f87f456f1c1d364f9"
+      },
+      "variants": {
+        "1024": {
+          "file": "ground-SW-1024.ktx2",
+          "bytes": 65642,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 33.49264920666136
+        }
+      }
+    },
+    "instances-main-0": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.103446960449219,
+      "masterResolution": 2048,
+      "bakeMargin": 16,
+      "samples": 64,
+      "masters": {
+        "instances-main-0.exr": "f94fdaffe4e8e43a3b286d3a54098b13a635453f1b23999bbe94fb6cb65328a5",
+        "instances-main-0-1024.png": "6d37d04316d6b7486ccab1cb96101e5d3e1b89e3802a23c687a03dcd1db6baec"
+      },
+      "variants": {
+        "1024": {
+          "file": "instances-main-0-1024.ktx2",
+          "bytes": 179659,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 31.95885318644729
+        }
+      }
+    },
+    "landmark-cathedral": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.891792297363281,
+      "masterResolution": 4096,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "landmark-cathedral.exr": "aec7f939cb11b81a00f12c8920a8b65a13582afc19c00b38863e14fdcf39b2be",
+        "landmark-cathedral-1024.png": "86275133315c97f2219e6965440fcaada5a291b9bcfb1dfa4baa34547bc44528"
+      },
+      "variants": {
+        "1024": {
+          "file": "landmark-cathedral-1024.ktx2",
+          "bytes": 98604,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 33.52785386993634
+        }
+      }
+    },
+    "landmark-vertigo-campus": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.837585926055908,
+      "masterResolution": 2048,
+      "bakeMargin": 2,
+      "samples": 64,
+      "masters": {
+        "landmark-vertigo-campus.exr": "b2343c17b6d5154ee3f32a8700f0bd8a74b56f7aaa875ef7ce391708097ed562",
+        "landmark-vertigo-campus-1024.png": "bf507be93be0be906318a5d892c75abb87932a0c06b578436df43d7b4bec1500"
+      },
+      "variants": {
+        "1024": {
+          "file": "landmark-vertigo-campus-1024.ktx2",
+          "bytes": 77084,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 33.722009175697096
+        }
+      }
+    },
+    "outer-buildings": {
+      "linearScale": 2.0,
+      "threeLightMapIntensity": 6.283185307179586,
+      "maximum": 1.4384983777999878,
+      "masterResolution": 2048,
+      "bakeMargin": 2,
+      "samples": 64,
+      "masters": {
+        "outer-buildings.exr": "e95a002f43117401cd45239319ccd05bdbfa6fa93c4fef5199f73e64a8831163",
+        "outer-buildings-1024.png": "730bbcf3ff6f73a839865e161d945e44957ab0eeedea5432c6f0a359049438ac"
+      },
+      "variants": {
+        "1024": {
+          "file": "outer-buildings-1024.ktx2",
+          "bytes": 102986,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 32,
+          "psnr": 25.73092240865215
+        }
+      }
+    },
+    "outer-ring-b": {
+      "linearScale": 4.0,
+      "threeLightMapIntensity": 12.566370614359172,
+      "maximum": 2.7108089923858643,
+      "masterResolution": 2048,
+      "bakeMargin": 2,
+      "samples": 64,
+      "masters": {
+        "outer-ring-b.exr": "73b380b7a5722ade1aab3dc9416d656bbde8da50cde595c255015c3bd0af17cd",
+        "outer-ring-b-1024.png": "a1cd08bd99bd057efe7c72208a0d670240a91f4af7c3dca36d57cce4ef76e02c"
+      },
+      "variants": {
+        "1024": {
+          "file": "outer-ring-b-1024.ktx2",
+          "bytes": 145293,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 30.770182160508547
+        }
+      }
+    },
+    "static-NE": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.360864639282227,
+      "masterResolution": 2048,
+      "bakeMargin": 3,
+      "samples": 64,
+      "masters": {
+        "static-NE.exr": "d2ae5275fe66349d921816d00d42e6f854efdec18a954f05ae6de5e396ba7d76",
+        "static-NE-1024.png": "3cbdc8726ca47e02241fce7473484edb1deffaa561e824e2b5c0edde247de51b"
+      },
+      "variants": {
+        "1024": {
+          "file": "static-NE-1024.ktx2",
+          "bytes": 113071,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 33.44602690460715
+        }
+      }
+    },
+    "static-NW": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.502580165863037,
+      "masterResolution": 4096,
+      "bakeMargin": 6,
+      "samples": 64,
+      "masters": {
+        "static-NW.exr": "c71508f80215240593a1784f49248f71023c2a8f8942dde2c5715a2d861512f2",
+        "static-NW-1024.png": "b0c136cb1f08c70f7e546a930e644c77ce9384e16c6c9d87f8cde82399a9eeaf"
+      },
+      "variants": {
+        "1024": {
+          "file": "static-NW-1024.ktx2",
+          "bytes": 121510,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 33.28304780830541
+        }
+      }
+    },
+    "static-SE": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.1010966300964355,
+      "masterResolution": 2048,
+      "bakeMargin": 3,
+      "samples": 64,
+      "masters": {
+        "static-SE.exr": "0179190d378e24379063e4a820161a8dd45a9409490e890848f6cd2fab03bffb",
+        "static-SE-1024.png": "6fbb6f38fe487b71c0830257fd5a206a74589126fd03a07800846267a6ad34d6"
+      },
+      "variants": {
+        "1024": {
+          "file": "static-SE-1024.ktx2",
+          "bytes": 83796,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 35.103661882321234
+        }
+      }
+    },
+    "static-SW": {
+      "linearScale": 8.0,
+      "threeLightMapIntensity": 25.132741228718345,
+      "maximum": 4.321134567260742,
+      "masterResolution": 2048,
+      "bakeMargin": 3,
+      "samples": 64,
+      "masters": {
+        "static-SW.exr": "02516cea072ab38bdb3395b7465eb52bc7d83810f3517ee23c095af132794e0e",
+        "static-SW-1024.png": "5671a947373cc366edf00f556eb5c4f6504a333e10c3c18f405f8766fc40ef49"
+      },
+      "variants": {
+        "1024": {
+          "file": "static-SW-1024.ktx2",
+          "bytes": 98240,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 34.99601134642355
+        }
+      }
+    }
+  },
+  "profiles": {
+    "desktop": {
+      "resolution": 1024,
+      "totalBytes": 1460576,
+      "budgetBytes": 6500000,
+      "atlasCount": 15,
+      "atlasResolutions": {
+        "ground-NE": 1024,
+        "ground-NW": 1024,
+        "ground-Outer": 1024,
+        "ground-Ring": 1024,
+        "ground-SE": 1024,
+        "ground-SW": 1024,
+        "instances-main-0": 1024,
+        "landmark-cathedral": 1024,
+        "landmark-vertigo-campus": 1024,
+        "outer-buildings": 1024,
+        "outer-ring-b": 1024,
+        "static-NE": 1024,
+        "static-NW": 1024,
+        "static-SE": 1024,
+        "static-SW": 1024
+      }
+    },
+    "mobile": {
+      "resolution": 1024,
+      "totalBytes": 1460576,
+      "budgetBytes": 4500000,
+      "atlasCount": 15,
+      "atlasResolutions": {
+        "ground-NE": 1024,
+        "ground-NW": 1024,
+        "ground-Outer": 1024,
+        "ground-Ring": 1024,
+        "ground-SE": 1024,
+        "ground-SW": 1024,
+        "instances-main-0": 1024,
+        "landmark-cathedral": 1024,
+        "landmark-vertigo-campus": 1024,
+        "outer-buildings": 1024,
+        "outer-ring-b": 1024,
+        "static-NE": 1024,
+        "static-NW": 1024,
+        "static-SE": 1024,
+        "static-SW": 1024
+      }
+    }
+  },
+  "requiredNames": [
+    "Text",
+    "edificio-blog",
+    "LED_Main",
+    "ARCH_Glass_DeepBlue",
+    "ARCH_Glass_SilverBlue",
+    "ARCH_Glass_WarmOffices",
+    "ARCH_Glass_Lobby",
+    "ARCH_Metal_Graphite",
+    "ARCH_Metal_Champagne",
+    "ARCH_Stone_Limestone",
+    "ARCH_Light_Warm",
+    "ARCH_Roof_Zinc",
+    "BRAND_VERTIGO",
+    "logo-V",
+    "logo-curva",
+    "logo-curva.001",
+    "CAMPUS_SCREEN_Continuous",
+    "ARCH_Porcelain_White",
+    "ARCH_Glazing_Opaque_Blue",
+    "ARCH_Blue_Light",
+    "ARCH_Window_Frames",
+    "ARCH_Vertigo_Blue",
+    "ARCH_Roof_Joints",
+    "ARCH_Solar_Blue",
+    "SITE_Light_Limestone",
+    "PARK_Grass",
+    "PARK_Water",
+    "ARCH_Porcelain_White.001",
+    "Blog_Windows_East",
+    "Blog_Windows_North",
+    "Blog_Windows_South",
+    "Blog_Windows_West",
+    "estadio-techo",
+    "suelo-principal",
+    "Fachada_Murcia_15k",
+    "Cathedral_Structure",
+    "Teatro_Romea"
+  ],
+  "encoding": "KTX2 sRGB radiance divided by per-atlas linearScale; diffuse direct + indirect without albedo"
+}
