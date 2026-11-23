@@ -1071,22 +1071,25 @@ html {
 
 /* The custom cursor replaces the native one everywhere while mounted; the
    class is added/removed by CustomCursor so coarse-pointer devices and the
-   unmounted state keep native cursors. */
-.has-custom-cursor,
-.has-custom-cursor * {
-  cursor: none !important;
+   unmounted state keep native cursors.
+
+   EXCEPT with forced colours or more contrast asked for (accessibility audit
+   2026-11-18, V5): then the native cursor is never hidden, so the system's
+   pointer shows at the size and in the colours the visitor set, with every
+   cursor the site asks for (the hand on buttons, the canvas's grab and its
+   hover hints from cursorManager), and the drawn hand stands aside. Gated
+   rather than overridden: an override would also wipe those. CSS only: the
+   app entry has no bytes to spare, and the component keeps running, unseen. */
+@media not (forced-colors: active) {
+  @media not (prefers-contrast: more) {
+    .has-custom-cursor,
+    .has-custom-cursor * {
+      cursor: none !important;
+    }
+  }
 }
 
-/* With forced colours or more contrast asked for, the system's pointer comes
-   back, with whatever size and colours the visitor set, and the drawn hand
-   stands aside (accessibility audit 2026-11-18, V5). CSS only: the app entry
-   has no bytes to spare, and the component keeps running, unseen. */
 @media (forced-colors: active), (prefers-contrast: more) {
-  .has-custom-cursor,
-  .has-custom-cursor * {
-    cursor: revert !important;
-  }
-
   .cursor-layer {
     display: none;
   }
