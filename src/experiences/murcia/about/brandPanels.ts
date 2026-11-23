@@ -1,6 +1,7 @@
 /**
- * The brand panels of the Conócenos sky stop: a small square of smoked glass
- * with a client's isotype, beside the satellite that carries it.
+ * The brand panels of the Conócenos sky stop: a square of smoked glass with a
+ * client's isotype and its name above it, centred over the satellite that
+ * carries it and tied to it by a short tether (plan 029b §2.4).
  *
  * DOM for the points of interest's reasons (`pointsOfInterest/poiMarkers.ts`):
  * a constant size on screen, the site's own glass, and a picture that is a
@@ -51,12 +52,20 @@ export function createBrandPanels(container: HTMLElement, brands: readonly Brand
     const element = document.createElement('div');
     element.className = 'about-brands__panel';
     element.dataset.shown = 'false';
+    const name = document.createElement('span');
+    name.className = 'about-brands__name';
+    name.textContent = brand.name;
+    const plate = document.createElement('span');
+    plate.className = 'about-brands__plate';
     const image = document.createElement('img');
     image.className = 'about-brands__isotype';
     image.alt = '';
     image.decoding = 'async';
     image.draggable = false;
-    element.append(image);
+    plate.append(image);
+    const tether = document.createElement('span');
+    tether.className = 'about-brands__tether';
+    element.append(name, plate, tether);
     root.append(element);
     return { element, image, brand, shown: false, transform: '', opacity: '' };
   });

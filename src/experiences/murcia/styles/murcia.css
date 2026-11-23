@@ -1305,13 +1305,23 @@
 
 /* ---- Conócenos' brand panels (`about/brandPanels.ts`) ------------------------
 
-   A client's isotype on a small square of smoked glass, density A — the
-   floating tray (docs/decisiones/interfaz/vidrio-ahumado.md) — beside the
-   satellite that carries it, up and to the right of the point so the light
-   stays visible. Placed and faded from script every frame, so no transition
-   here, and no reduced-motion rule: the sky is the plan 027 exception
-   (`about/aboutSky.ts`). Under the plate (`.overlay`, z-index 10), which a
-   panel passing behind it must never cover. */
+   A client's isotype on a square of smoked glass, with the brand's name above
+   it in small capitals, centred over the satellite that carries it and tied to
+   the point by a short tether, so the light stays visible (plan 029b §2.4).
+   76px on a desktop, 60 on a phone: at the 44 they were until 2026-11-23 the
+   marks barely read. Density B (docs/decisiones/interfaz/vidrio-ahumado.md),
+   a step denser than the tray they were: over the night sky density A all but
+   vanished, and only the drawing showed. The edge is the trays' blue
+   (`--glass-border-accent`), already on the list in uso-del-azul.md.
+
+   The panel element is a zero-size anchor on the satellite; the name, plate
+   and tether hang from it. `aboutSky.ts` (`PANEL_REACH`) keeps the room they
+   take round the point: change one, change the other.
+
+   Placed and faded from script every frame, so no transition here, and no
+   reduced-motion rule: the sky is the plan 027 exception (`about/aboutSky.ts`).
+   Under the plate (`.overlay`, z-index 10), which a panel passing behind it
+   must never cover. */
 .murcia-ui .about-brands {
   position: absolute;
   inset: 0;
@@ -1320,26 +1330,45 @@
 }
 
 .murcia-ui .about-brands__panel {
+  --brand-plate: 76px;
+  --brand-plate-pad: 13px;
+  --brand-tether: 20px;
   position: absolute;
   top: 0;
   left: 0;
   display: none;
-  width: 44px;
-  height: 44px;
-  margin: -58px 0 0 14px;
-  box-sizing: border-box;
-  padding: 8px;
-  border: 1px solid var(--glass-border-accent);
-  border-radius: 10px;
-  background: var(--glass-film), var(--glass-bg-light);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--glass-shadow);
+  width: 0;
+  height: 0;
   opacity: 0;
+}
+
+@media not all and (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  .murcia-ui .about-brands__panel {
+    --brand-plate: 60px;
+    --brand-plate-pad: 10px;
+    --brand-tether: 16px;
+  }
 }
 
 .murcia-ui .about-brands__panel[data-shown='true'] {
   display: block;
+}
+
+.murcia-ui .about-brands__plate {
+  position: absolute;
+  left: 0;
+  bottom: var(--brand-tether);
+  width: var(--brand-plate);
+  height: var(--brand-plate);
+  box-sizing: border-box;
+  padding: var(--brand-plate-pad);
+  border: 1px solid var(--glass-border-accent);
+  border-radius: 16px;
+  background: var(--glass-film), var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  transform: translateX(-50%);
 }
 
 .murcia-ui .about-brands__isotype {
@@ -1347,4 +1376,29 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* From the plate's foot down to just above the point. */
+.murcia-ui .about-brands__tether {
+  position: absolute;
+  left: 0;
+  bottom: 5px;
+  width: 1px;
+  height: calc(var(--brand-tether) - 5px);
+  background: linear-gradient(var(--rule-strong), transparent);
+}
+
+.murcia-ui .about-brands__name {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--brand-tether) + var(--brand-plate) + 6px);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }

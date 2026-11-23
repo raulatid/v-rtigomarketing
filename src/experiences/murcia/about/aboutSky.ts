@@ -66,10 +66,14 @@ const PANEL_FRAME = 0.8;
 /** Seconds between the samples that check a satellite stays in frame. */
 const LOOKAHEAD_STEP = 0.25;
 /**
- * Client px round a satellite that its panel covers: up and to the right of the
- * point, as murcia.css places it (`.about-brands__panel`), with a little air.
+ * Client px round a satellite that its panel covers, as murcia.css hangs it
+ * from the point (`.about-brands__panel`), with a little air: the desktop's,
+ * the larger. Up: the 20px tether, the 76px plate, 6px and the name's line.
+ * Across: half the widest name in the content (about 110px) rather than half
+ * the plate. The panel must also fit inside the canvas: the frame margin
+ * (`PANEL_FRAME`) alone left the name cut off at the top.
  */
-const PANEL_REACH = { left: 8, right: 64, up: 64, down: 8 } as const;
+const PANEL_REACH = { left: 64, right: 64, up: 120, down: 8 } as const;
 /** World units out along a direction to project it: far, like the points. */
 const PROJECT_DISTANCE = 1000;
 
@@ -130,6 +134,11 @@ export function createAboutSky(options: AboutSkyOptions): AboutSky {
           y + PANEL_REACH.down > plate.top
         );
       };
+      const outsideCanvas = (x: number, y: number): boolean =>
+        x - PANEL_REACH.left < rect.left ||
+        x + PANEL_REACH.right > rect.left + rect.width ||
+        y - PANEL_REACH.up < rect.top ||
+        y + PANEL_REACH.down > rect.top + rect.height;
       const canShow = (satellite: number, from: number, to: number): boolean => {
         const pass = passes[satellite]!;
         for (let t = from; t <= to + 1e-6; t += LOOKAHEAD_STEP) {
@@ -137,7 +146,7 @@ export function createAboutSky(options: AboutSkyOptions): AboutSky {
           toWorld(pass.direction(t), camera, ndc).project(camera);
           if (ndc.z > 1 || Math.abs(ndc.x) > PANEL_FRAME || Math.abs(ndc.y) > PANEL_FRAME) return false;
           const point = worldToClient(rect, camera, toWorld(pass.direction(t), camera, world), client);
-          if (!point || underPlate(point.x, point.y)) return false;
+          if (!point || outsideCanvas(point.x, point.y) || underPlate(point.x, point.y)) return false;
         }
         return true;
       };
