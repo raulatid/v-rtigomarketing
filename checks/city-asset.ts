@@ -350,6 +350,33 @@ check(
   used.includes('KHR_lights_punctual') ? 'KHR_lights_punctual present' : 'none',
 );
 
+// --- 4b. Light inheritance ---------------------------------------------------
+// Since murcia-v9, windows and the procedural rooftop parapets have no atlas
+// cells: `extras.light_inheritance` tells the loader to give them the light of
+// their wall or roof (`assets/lightmaps/inheritLight.ts`). A node marked AND
+// baked, or with a kind the loader does not know, makes the loader throw and
+// the whole city loads unlit.
+
+section('4b. Light inheritance (inheritLight.ts)');
+
+const inheriting = nodes.filter(n => n.extras?.light_inheritance !== undefined);
+const badInheriting = inheriting.filter((n) => {
+  const extras = n.extras as Record<string, unknown>;
+  const kind = extras.light_inheritance;
+  return extras.lightmap_atlas !== undefined || extras.instance_st_grid !== undefined ||
+    !(kind === 'parapet' || (kind === 'window' && extras.facade_records_accessor !== undefined));
+});
+check(
+  'inheriting nodes are unbaked windows (facade records) or parapets',
+  badInheriting.length === 0,
+  inheriting.length === 0
+    ? 'none in this file'
+    : badInheriting.length === 0
+      ? `${inheriting.filter(n => n.extras?.light_inheritance === 'window').length} window node(s) · ` +
+        `${inheriting.filter(n => n.extras?.light_inheritance === 'parapet').length} parapet node(s)`
+      : `wrong on ${list(badInheriting.map(n => n.name ?? '?'))}`,
+);
+
 // --- 5. The services campus ------------------------------------------------
 // RETIRED HERE, in order: the district custom properties (extras.district,
 // 2026-08-27), the per-service buildings (2026-09-06), and the display
