@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   SOUND_VERSION,
+  isActivationKey,
   parseSoundRecord,
   soundAudible,
   soundStatus,
@@ -62,5 +63,29 @@ describe('parseSoundRecord', () => {
     expect(parseSoundRecord('off')).toBeNull()
     expect(parseSoundRecord({ v: SOUND_VERSION + 1, on: false })).toBeNull()
     expect(parseSoundRecord({ v: SOUND_VERSION, on: 'false' })).toBeNull()
+  })
+})
+
+// Accessibility audit 2026-11-18, D5: the first Tab started the music over a
+// screen reader. Only a key that activates something counts as the gesture.
+describe('the keys that may start the sound', () => {
+  const key = (k: string, mods: Partial<Record<'altKey' | 'ctrlKey' | 'metaKey', boolean>> = {}) => ({
+    key: k,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    ...mods,
+  })
+
+  it('are Enter and Space', () => {
+    expect(isActivationKey(key('Enter'))).toBe(true)
+    expect(isActivationKey(key(' '))).toBe(true)
+  })
+
+  it('are not the keys that move around the page or belong to a screen reader', () => {
+    for (const k of ['Tab', 'ArrowDown', 'ArrowRight', 'Escape', 'Shift', 'Control', 'Insert', 'CapsLock', 'PageDown', 'h']) {
+      expect(isActivationKey(key(k)), k).toBe(false)
+    }
+    expect(isActivationKey(key('Enter', { ctrlKey: true }))).toBe(false)
   })
 })
