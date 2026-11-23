@@ -343,6 +343,7 @@ export function SceneCanvas({
         interactionRef={interactionRef}
         onSelectCase={onSelectCase}
         onDeselectCase={onDeselectCase}
+        holdWork={workScheduler.hold}
       />
       {/* The 3D brand logo. Inside the Canvas because it shares this
           renderer — it no longer has one of its own (ADR 002). */}

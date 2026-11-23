@@ -11,6 +11,8 @@ import { protoSkyActive } from './config/protoSky'
 import { OrbitSystemLayer } from './orbit/OrbitSystemLayer'
 import { InteractionLayer, InteractionHandle } from './interaction/InteractionLayer'
 import { HintLayer } from './hint/HintLayer'
+import { HeadlineFlightLayer } from './headline/HeadlineFlightLayer'
+import { DEBUG_TOOLS_ENABLED } from '../../platform/buildFlags'
 import type { IntroConfig } from './config/introConfig'
 import type { SequenceState } from './config/sequenceState'
 import type { OrbitSystem } from './orbit/createOrbitSystem'
@@ -67,6 +69,8 @@ interface Props {
   interactionRef: RefObject<InteractionHandle | null>
   onSelectCase: (data: SatelliteDef) => void
   onDeselectCase: () => void
+  /** Holds the deferred main-thread work (SceneCanvas's scheduler) until the release is called. */
+  holdWork: () => () => void
 }
 
 export function EarthExperience({
@@ -81,6 +85,7 @@ export function EarthExperience({
   interactionRef,
   onSelectCase,
   onDeselectCase,
+  holdWork,
 }: Props) {
   // Published by EarthScene, read by CameraController so the warp can aim at
   // the destination. Both ends are in this file, so it belongs here.
@@ -152,6 +157,9 @@ export function EarthExperience({
           counts is about the viewer, so it must keep counting while nothing is
           on screen. */}
       <HintLayer attention={attention} state={state} active={active} satelliteHoverRef={satelliteHoverRef} />
+      {/* The h1 flown in from an orbit: a prototype (block 9, I3), so never in
+          production. Last, so the camera it projects through is final. */}
+      {DEBUG_TOOLS_ENABLED && <HeadlineFlightLayer state={state} active={active} holdWork={holdWork} />}
     </>
   )
 }

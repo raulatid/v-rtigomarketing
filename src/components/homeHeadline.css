@@ -126,41 +126,89 @@
 
 /* ── C · Title card ──────────────────────────────────────────────────────────
    Cinema. Centred over the planet, under the header's line, the display face
-   in tracked capitals that close up as it arrives, like a title coming into
-   focus; the serif line under it. */
+   in capitals that close up as it arrives, like a title coming into focus; the
+   serif line under it. On a desktop the title is the scene's headline: the
+   serif, bold and large (block 9, I3). The phone keeps the small tracked line
+   in the display face it had.
+   `--c-track` is the tracking it ends at, `--c-track-from` the one it starts
+   from when it fades in rather than flies. */
 .home-headline[data-variant='c'] {
+  --c-track: 0.02em;
+  --c-track-from: 0.14em;
   left: 50%;
-  top: calc(var(--header-line-top) + var(--header-control) + 2.25rem);
+  top: calc(var(--header-line-top) + var(--header-control) + 1.75rem);
   translate: -50% 0;
-  width: min(40rem, calc(100vw - 2 * var(--header-inset)));
+  width: min(72rem, calc(100vw - 2 * var(--header-inset)));
   text-align: center;
 }
 .home-headline[data-variant='c'] .home-headline__title {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: clamp(1.05rem, 1.35vw, 1.4rem);
-  line-height: 1.3;
+  font-family: var(--font-text);
+  font-weight: 700;
+  font-size: clamp(2.4rem, 4.4vw, 4.75rem);
+  line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.42em;
+  letter-spacing: var(--c-track-from);
   /* Tracking adds a trailing space after the last letter; this re-centres. */
-  margin-right: -0.42em;
+  margin-right: calc(-1 * var(--c-track-from));
   transition: letter-spacing 260ms ease;
 }
 .home-headline[data-variant='c'][data-shown='true'] .home-headline__title {
-  letter-spacing: 0.28em;
-  margin-right: -0.28em;
+  letter-spacing: var(--c-track);
+  margin-right: calc(-1 * var(--c-track));
   transition:
     letter-spacing 2000ms cubic-bezier(0.22, 1, 0.36, 1) 350ms,
     margin-right 2000ms cubic-bezier(0.22, 1, 0.36, 1) 350ms;
 }
 .home-headline[data-variant='c'] .home-headline__line {
-  margin: 0.75rem auto 0;
-  max-width: 30rem;
+  margin: 1.1rem auto 0;
+  max-width: 34rem;
   font-family: var(--font-text);
   font-weight: 300;
   font-size: 0.95rem;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.62);
+}
+
+/* ── The flight (block 9, I3: a prototype, B and C outside production) ──────
+   `data-flight` is written by the scene (HeadlineFlightLayer), never by React:
+   while it says `flying` the letters are loose copies riding an orbit, and the
+   real title and line wait unseen, still in the tree. The block itself arrives
+   at once and without the rise, so the letters are its only motion. On
+   `landed` the title is back in the same frame its copies go, and the line,
+   and B's hairline, come in after it. C's tracking sits at its end value
+   throughout, so the letters land on the glyphs it ends with. The loose
+   letters are set larger than the title and scaled down (HeadlineFlightLayer's
+   `fontScale`), so they stay sharp at the front of the wide orbit. */
+.home-headline[data-flight],
+.home-headline[data-flight][data-shown='true'] {
+  transform: none;
+  transition: opacity 260ms ease;
+}
+.home-headline[data-flight='flying'] .home-headline__title,
+.home-headline[data-flight='flying'] .home-headline__line {
+  opacity: 0;
+}
+.home-headline[data-flight='landed'] .home-headline__line {
+  transition: opacity 900ms ease 150ms;
+}
+.home-headline[data-flight='flying'][data-variant='b']::before {
+  transform: scaleY(0);
+  transition: none;
+}
+.home-headline[data-variant='c'][data-flight] .home-headline__title {
+  letter-spacing: var(--c-track);
+  margin-right: calc(-1 * var(--c-track));
+  transition: none;
+}
+.home-headline__flight,
+.home-headline__flight > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.home-headline__flight > span {
+  white-space: pre;
+  will-change: transform, opacity;
 }
 
 /* ── The phone: the band under the header ───────────────────────────────────
@@ -197,10 +245,18 @@
     margin-top: 0.5rem;
     font-size: 0.88rem;
   }
+  .home-headline[data-variant='c'] {
+    --c-track: 0.28em;
+    --c-track-from: 0.42em;
+  }
   .home-headline[data-variant='c'] .home-headline__title {
+    font-family: var(--font-display);
+    font-weight: 400;
     font-size: 0.95rem;
+    line-height: 1.3;
   }
   .home-headline[data-variant='c'] .home-headline__line {
+    margin-top: 0.75rem;
     font-size: 0.85rem;
     max-width: 20rem;
   }
@@ -219,8 +275,8 @@
   }
   .home-headline[data-variant='c'] .home-headline__title,
   .home-headline[data-variant='c'][data-shown='true'] .home-headline__title {
-    letter-spacing: 0.28em;
-    margin-right: -0.28em;
+    letter-spacing: var(--c-track);
+    margin-right: calc(-1 * var(--c-track));
     transition: none;
   }
 }

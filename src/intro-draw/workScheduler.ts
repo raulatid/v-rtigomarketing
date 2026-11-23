@@ -15,6 +15,13 @@ export interface WorkScheduler {
   schedule(kind: WorkKind, start: () => void): () => void
   /** Starts whatever `presentation` admits, in the order it was queued. */
   step(presentation: Presentation): void
+  /**
+   * Holds main-thread and GPU work back, even where the phase admits it, until
+   * the returned release is called: for motion that runs on past the phase it
+   * belongs to (the h1's flight, which lands after `site` has begun). Network
+   * and worker work go on. Holds add up, and a release only counts once.
+   */
+  hold(): () => void
 }
 
 interface Unit {
@@ -39,6 +46,7 @@ const onMainThread = (kind: WorkKind) => kind === 'main' || kind === 'gpu'
 
 export function createWorkScheduler(): WorkScheduler {
   const queue: Unit[] = []
+  let holds = 0
 
   return {
     schedule(kind, start) {
@@ -57,13 +65,22 @@ export function createWorkScheduler(): WorkScheduler {
       // A copy, so a start that schedules or cancels cannot disturb the walk.
       for (const unit of [...queue]) {
         const main = onMainThread(unit.kind)
-        if (!admitsDeferred(presentation, unit.kind) || (main && mainStarted)) continue
+        if (!admitsDeferred(presentation, unit.kind) || (main && (mainStarted || holds > 0))) continue
         const at = queue.indexOf(unit)
         // Cancelled by a start earlier in this walk.
         if (at < 0) continue
         queue.splice(at, 1)
         if (main) mainStarted = true
         unit.start()
+      }
+    },
+    hold() {
+      holds += 1
+      let released = false
+      return () => {
+        if (released) return
+        released = true
+        holds -= 1
       }
     },
   }

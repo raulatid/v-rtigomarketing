@@ -129,4 +129,38 @@ describe('createWorkScheduler', () => {
     scheduler.step('site')
     expect(started).toEqual(['first'])
   })
+  it('holds main-thread and GPU work while held, and lets network work go', () => {
+    const scheduler = createWorkScheduler()
+    const { started, start } = record()
+    scheduler.schedule('main', start('city'))
+    scheduler.schedule('gpu', start('warm'))
+    scheduler.schedule('network', start('bytes'))
+    const release = scheduler.hold()
+
+    scheduler.step('site')
+    scheduler.step('site')
+    expect(started).toEqual(['bytes'])
+
+    release()
+    scheduler.step('site')
+    scheduler.step('site')
+    expect(started).toEqual(['bytes', 'city', 'warm'])
+  })
+
+  it('waits for every hold, and counts a release once', () => {
+    const scheduler = createWorkScheduler()
+    const { started, start } = record()
+    scheduler.schedule('main', start('city'))
+    const first = scheduler.hold()
+    const second = scheduler.hold()
+
+    first()
+    first()
+    scheduler.step('site')
+    expect(started).toEqual([])
+
+    second()
+    scheduler.step('site')
+    expect(started).toEqual(['city'])
+  })
 })
