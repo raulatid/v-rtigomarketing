@@ -55,7 +55,8 @@ html {
    10 scene stage: the canvas as a card (incl. the corner-logo overlay pass) ·
    16 murcia UI · 20 SVG intro · 30 home h1 (homeHeadline.css) ·
    35 case panel · 40 warp overlay ·
-   42 site footer · 45 navigation rail, case list · 48 consent banner (all stand down
+   42 site footer · 45 navigation rail, case list · 46 page without its scene ·
+   48 consent banner (all stand down
    while the phone menu is open — see below) · 60 audit overlay ·
    62 contact/legal modals · 70 site header (both triggers, the burger) ·
    80 context-lost notice · 90 blog · 100 debug overlay · 999 cursor           */
@@ -1971,6 +1972,104 @@ html {
 @media (hover: hover) {
   .context-lost__action:hover {
     background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* ---- z 46 — the page without its scene (SceneFallback.tsx) -------------
+
+   No WebGL 2 or a fatal boot: the drawing keeps its caption, «No se pudo
+   cargar la experiencia», under this, and this says what is still possible.
+   Above the rail (45), under the consent banner (48) and every dialog it
+   opens. The black of the boot, not glass: there is no scene to blur. Every
+   text is solid white or 0.78 at least, over #050507 (20.4:1 and 12.2:1);
+   white on the blue pill is 4.74:1, on the grey ones 17.6:1. */
+.scene-fallback {
+  position: fixed;
+  z-index: 46;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -62%);
+  width: min(34rem, calc(100vw - 2.5rem));
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  background: #050507;
+  color: #fff;
+  text-align: center;
+}
+
+.scene-fallback__title {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+/* Focused on arrival, as a place to start reading (`.modal-title` too). */
+.scene-fallback__title:focus {
+  outline: none;
+}
+
+.scene-fallback__lead,
+.scene-fallback__body {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.scene-fallback__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The context-lost notice's pill, as a button or as the blog's link. */
+.scene-fallback__action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* The one ask, in the CTA's blue. */
+.scene-fallback__action--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.scene-fallback__action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .scene-fallback__action:not(.scene-fallback__action--primary):hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* On a phone the drawing's caption sits just under the centre: the panel goes
+   up to the header's line so the caption stays readable below it. The phone
+   cut is written in several places (interface traps, n.º 8). */
+@media (max-width: 767px) {
+  .scene-fallback {
+    top: calc(var(--header-line-top) + var(--header-control) + 1rem);
+    transform: translateX(-50%);
+    padding: 1.5rem;
   }
 }
 

@@ -279,7 +279,8 @@
   .site-menu-surface[data-menu-open] .case-panel,
   .site-menu-surface[data-menu-open] .site-footer,
   .site-menu-surface[data-menu-open] .consent-banner,
-  .site-menu-surface[data-menu-open] .consent-info {
+  .site-menu-surface[data-menu-open] .consent-info,
+  .site-menu-surface[data-menu-open] .scene-fallback {
     opacity: 0;
     visibility: hidden;
     /* The visibility flip waits out the fade, the way every other delayed
@@ -299,7 +300,8 @@
   .site-menu-surface[data-menu-open] .case-panel,
   .site-menu-surface[data-menu-open] .site-footer,
   .site-menu-surface[data-menu-open] .consent-banner,
-  .site-menu-surface[data-menu-open] .consent-info {
+  .site-menu-surface[data-menu-open] .consent-info,
+  .site-menu-surface[data-menu-open] .scene-fallback {
     transition-duration: 1ms;
     transition-delay: 0ms;
   }

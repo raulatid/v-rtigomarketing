@@ -14,6 +14,7 @@ import { createSequenceState } from './experiences/earth/config/sequenceState'
 import { LazyScene } from './components/LazyScene'
 import { CasePanel } from './components/CasePanel'
 import { CaseList, caseListButton, type CaseListEntry } from './components/CaseList'
+import { SceneFallback } from './components/SceneFallback'
 import { AuditSection } from './components/AuditSection'
 import { ContactSection } from './components/ContactSection'
 import { SceneShortcuts } from './components/SceneShortcuts'
@@ -131,6 +132,24 @@ export default function App() {
     loadProgress.markFatal('chunk:scene', reason)
     setContextLost(true)
   }, [])
+
+  // The scene can never run: no WebGL 2, or a fatal boot (D1 of the 2026-11-18
+  // accessibility audit). The opening then never reaches `site`, so the header's
+  // doors would never come; the page offers them anyway, with SceneFallback.
+  // A context lost mid-visit is the notice below instead, which says it better.
+  const [sceneFailed, setSceneFailed] = useState(() => loadProgress.readiness() === 'fatal')
+  useEffect(() => {
+    if (sceneFailed) return
+    const check = () => {
+      if (loadProgress.readiness() === 'fatal') setSceneFailed(true)
+    }
+    const unsubscribe = loadProgress.subscribe(check)
+    // Read once more after subscribing: LazyScene's own effect, which runs
+    // before this one, is what marks a missing WebGL 2 as fatal.
+    check()
+    return unsubscribe
+  }, [sceneFailed])
+  const [contactRequest, setContactRequest] = useState(0)
 
   const handleLoadFailed = useCallback(() => {
     // A scale-through-zero crossover hides nothing if the model never arrives.
@@ -279,6 +298,10 @@ export default function App() {
     // is the opening's, decided by the boot entry before the drawing drew.
     opening,
   })
+  // Only before `site`: a scene that breaks mid-visit, on a browser that
+  // was running it, leaves the chrome it already has (and a lost context, its
+  // own notice). Saying "not available here" over a live header would be wrong.
+  const sceneUnavailable = sceneFailed && !contextLost && phase !== 'site'
 
   // The sound waits for Earth to be whole — 'site', where the header's controls
   // arrive — and is quiet while the blog is open (DECISIONS §48). Both starts
@@ -773,7 +796,7 @@ export default function App() {
       <SiteHeader
         layout="scene"
         tone={earthActive ? 'dark' : 'light'}
-        hasActions={phase === 'site'}
+        hasActions={phase === 'site' || sceneUnavailable}
         leading={phase === 'site' && !earthActive ? (
           <button
             type="button"
@@ -900,17 +923,18 @@ export default function App() {
       />
 
       <ContactSection
-        ready={phase === 'site'}
+        ready={phase === 'site' || sceneUnavailable}
         triggerHost={headerActions}
         suppressed={auditOpen}
         onOpenChange={setContactOpen}
         onOpenLegal={setLegalDoc}
+        openRequest={contactRequest}
       />
 
       <AuditSection
         onOpenChange={handleAuditOpenChange}
         onCoverChange={setAuditCovers}
-        ready={phase === 'site'}
+        ready={phase === 'site' || sceneUnavailable}
         triggerHost={headerActions}
         onOpenLegal={setLegalDoc}
         openRequest={auditRequest}
@@ -947,7 +971,17 @@ export default function App() {
           handler above, because a scroll or a pinch must still work under it.
           z 48: above the rail and the floor line, under everything that asks
           for attention. */}
-      {phase === 'site' && <ConsentBanner onOpenLegal={setLegalDoc} />}
+      {(phase === 'site' || sceneUnavailable) && <ConsentBanner onOpenLegal={setLegalDoc} />}
+
+      {/* Over the drawing's «No se pudo cargar la experiencia», under every
+          dialog it opens. */}
+      {sceneUnavailable && (
+        <SceneFallback
+          onContact={() => setContactRequest((n) => n + 1)}
+          onAudit={handleRequestAudit}
+          dialogOpen={auditOpen || contactOpen}
+        />
+      )}
 
       {/* Mounted for both experiences, and never gated on one: unmounting it
           strips the `cursor: none` rule it installs, which hands the viewer the
