@@ -533,8 +533,15 @@ export function AuditSection({
       // Focus returns to the trigger (plan 005 §12). Deferred a frame: the
       // trigger is disabled in every non-closed phase, and React has not
       // re-rendered yet inside this callback — focusing the still-disabled
-      // element would silently no-op.
-      requestAnimationFrame(() => triggerRef.current?.focus())
+      // element would silently no-op. Only if the focus is still where the
+      // curtain left it, in it or on <body>: one moved elsewhere in that frame
+      // is the reader's, and taking it back sent their next Enter to the
+      // trigger, reopening the audit (CasePanel's rule).
+      requestAnimationFrame(() => {
+        const active = document.activeElement
+        if (active && active !== document.body && !overlayRef.current?.contains(active)) return
+        triggerRef.current?.focus()
+      })
     }, reducedRef.current ? REDUCED_MS : LEAVE_MS)
   }, [phase, onOpenChange, preview])
 

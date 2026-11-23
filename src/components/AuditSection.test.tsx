@@ -386,6 +386,57 @@ describe('the audit curtain as a dialog', () => {
   })
 })
 
+// The trigger gets the focus back a frame after the curtain reports closed.
+// A focus the reader moved elsewhere by then is theirs: taking it back made an
+// Enter meant for the navigation control reopen the audit.
+describe('the focus when the curtain closes', () => {
+  // jsdom's frames are not on the fake clock: they run when the test says.
+  let frames: FrameRequestCallback[] = []
+  beforeEach(() => {
+    frames = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb))
+  })
+  afterEach(() => {
+    vi.mocked(window.requestAnimationFrame).mockRestore()
+  })
+
+  function closePanel() {
+    act(() => document.querySelector<HTMLButtonElement>('.audit-close')!.focus())
+    act(() => {
+      document.querySelector<HTMLButtonElement>('.audit-close')!.click()
+    })
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(document.querySelector<HTMLElement>('.audit-overlay')!.dataset.state).toBe('closed')
+  }
+
+  function nextFrame() {
+    act(() => {
+      frames.splice(0).forEach((cb) => cb(0))
+    })
+  }
+
+  it('returns to the trigger from inside the curtain', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    closePanel()
+    nextFrame()
+    expect(document.activeElement).toBe(document.querySelector('.audit-trigger'))
+  })
+
+  it('stays where the reader moved it before that frame', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    closePanel()
+    const elsewhere = document.body.appendChild(document.createElement('button'))
+    act(() => elsewhere.focus())
+    nextFrame()
+    expect(document.activeElement).toBe(elsewhere)
+    elsewhere.remove()
+  })
+})
+
 describe('the audit curtain while it comes in', () => {
   it('already keeps Tab inside, before the heading takes the focus', () => {
     const rects = vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
