@@ -15,7 +15,15 @@ import {
   blogDocuments, blogRewrite, blogTreeProblems, documentCanonical, isBlogDocument, isNotFoundDocument, seoFiles,
 } from './scripts/publicationPolicy'
 import { replaceRegion } from './scripts/blogShell'
-import { blogIndexRegion, homeHeadline, pageHead, replaceFavicon, replaceHeadline } from './scripts/siteHead'
+import {
+  blogIndexRegion,
+  homeHeadline,
+  noscriptRegion,
+  pageHead,
+  replaceFavicon,
+  replaceHeadline,
+  replaceNoscript,
+} from './scripts/siteHead'
 import { findSecretLeaks, publicPrefixedSecrets, scannableSecrets } from './scripts/secretScan'
 import { buildEnvironmentProblem, resolveBuildEnvironment } from './scripts/buildEnvironment'
 import { isPublicAsset, listFiles, stripHtmlComments, stripShaderComments, verifyPublication } from './scripts/publicationHygiene'
@@ -1064,6 +1072,9 @@ function siteHead(): Plugin {
           if (settings === undefined) throw new Error('[site head] SITE_SETTINGS is empty; run npm run content:build')
           out = replaceHeadline(out, homeHeadline(settings), ctx.path)
         }
+        // The body a reader or crawler without JavaScript gets (G2): the blog
+        // and every post, by title. blog.html carries it into every post shell.
+        if (!isNotFoundDocument(ctx.path)) out = replaceNoscript(out, noscriptRegion(BLOG_POSTS), ctx.path)
         if (seo.favicon !== undefined) out = replaceFavicon(out, seo.favicon, ctx.path)
         return out
       },

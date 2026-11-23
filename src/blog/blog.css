@@ -503,6 +503,8 @@
 }
 
 .blog-card {
+  /* A link since 2026-11-23 (G1): it reads as the card or label it was. */
+  text-decoration: none;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -625,6 +627,8 @@
 }
 
 .blog-related__all {
+  /* A link since 2026-11-23 (G1): it reads as the card or label it was. */
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   padding: 0;
@@ -856,6 +860,8 @@
 }
 
 .blog-prevnext__card {
+  /* A link since 2026-11-23 (G1): it reads as the card or label it was. */
+  text-decoration: none;
   display: flex;
   flex-direction: column;
   gap: 10px;

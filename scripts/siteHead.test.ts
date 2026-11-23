@@ -11,6 +11,10 @@ import { SEO_END, SEO_START, replaceRegion } from './blogShell'
 import {
   HEADLINE_END,
   HEADLINE_START,
+  NOSCRIPT_END,
+  NOSCRIPT_START,
+  noscriptRegion,
+  replaceNoscript,
   blogIndexRegion,
   homeHeadline,
   pageHead,
@@ -200,5 +204,40 @@ describe('the blog tab titles the runtime writes', () => {
       const decoded = written.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
       expect(postDocumentTitle(post)).toBe(decoded)
     }
+  })
+})
+
+// Accessibility audit 2026-11-18, G2: without JavaScript the body was empty.
+describe('the body without JavaScript', () => {
+  const between = (html: string) => {
+    const start = html.indexOf(NOSCRIPT_START)
+    const end = html.indexOf(NOSCRIPT_END)
+    return html.slice(start + NOSCRIPT_START.length, end).trim()
+  }
+
+  it('is the same fallback block in index.html and blog.html', () => {
+    for (const file of ['index.html', 'blog.html']) {
+      const html = fs.readFileSync(file, 'utf8')
+      expect(between(html), file).toBe(noscriptRegion([]).trim())
+    }
+  })
+
+  it('links the blog and every post by title, escaped', () => {
+    const region = noscriptRegion([
+      { id: 'uno', title: 'Uno' },
+      { id: 'dos', title: 'Medir <el> SEO & más' },
+    ])
+    expect(region).toContain('<noscript>')
+    expect(region).toContain('href="/blog"')
+    expect(region).toContain('href="/blog/uno">Uno</a>')
+    expect(region).toContain('href="/blog/dos">Medir &lt;el&gt; SEO &amp; más</a>')
+  })
+
+  it('replaces the marked block exactly once, markers included', () => {
+    const html = fs.readFileSync('index.html', 'utf8')
+    const out = replaceNoscript(html, noscriptRegion([{ id: 'uno', title: 'Uno' }]), 'index.html')
+    expect(out).not.toContain(NOSCRIPT_START)
+    expect(out).toContain('href="/blog/uno"')
+    expect(() => replaceNoscript(out, 'x', 'twice')).toThrow(/noscript markers/)
   })
 })

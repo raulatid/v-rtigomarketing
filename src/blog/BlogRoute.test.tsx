@@ -85,3 +85,37 @@ describe('moving between articles', () => {
     expect(container.querySelector<HTMLElement>('.blog-root')!.scrollTop).toBe(0)
   })
 })
+
+// Accessibility audit 2026-11-18, G1: internal links are real links, and a
+// plain click still opens the page in place.
+describe('links between blog pages', () => {
+  it('makes every card and Anterior/Siguiente a link to its post', () => {
+    show({ name: 'blog-post', slug: second!.id })
+    const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('.blog-prevnext a, .blog-related a'))
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) expect(link.getAttribute('href')).toMatch(/^\/blog(\/[\w-]+)?$/)
+    show({ name: 'blog-index', topic: null })
+    const cards = Array.from(container.querySelectorAll<HTMLAnchorElement>('.blog-card'))
+    expect(cards.map((card) => card.tagName)).toEqual(cards.map(() => 'A'))
+    expect(cards.map((card) => card.getAttribute('href'))).toEqual(
+      expect.arrayContaining(BLOG_POSTS.map((post) => `/blog/${post.id}`)),
+    )
+  })
+
+  it('opens a post in place on a plain click and leaves a modified one to the browser', () => {
+    show({ name: 'blog-index', topic: null })
+    const card = container.querySelector<HTMLAnchorElement>('.blog-card')!
+    const plain = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })
+    act(() => {
+      card.dispatchEvent(plain)
+    })
+    expect(plain.defaultPrevented).toBe(true)
+    expect(host.openPost).toHaveBeenCalledTimes(1)
+    const withMeta = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, metaKey: true })
+    act(() => {
+      card.dispatchEvent(withMeta)
+    })
+    expect(withMeta.defaultPrevented).toBe(false)
+    expect(host.openPost).toHaveBeenCalledTimes(1)
+  })
+})

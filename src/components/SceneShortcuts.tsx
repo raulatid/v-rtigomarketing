@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { isPlainClick } from '../app/plainClick'
 
 /**
  * Blog and Servicios in the site header: the two places, one press away.
@@ -7,9 +8,13 @@ import { createPortal } from 'react-dom'
  * (`ContactSection.tsx`), so a desktop gets them as words on the line and a
  * phone as one line of places under the doors, and the menu folds on a press
  * without anything here asking it to. Bare words, with no caption or arrow:
- * they are the menu's second tier (siteMenu.css). They are LINKS in intent but
- * buttons in markup, because neither place is a URL the scene can be sent to —
- * the journey is `useSceneShortcuts`.
+ * they are the menu's second tier (siteMenu.css).
+ *
+ * Blog is a real link to `/blog` (accessibility audit 2026-11-18, G1): a
+ * crawler and a screen reader's list of links find it, and it opens in a new
+ * tab with a modifier. A plain click is still the journey (`useSceneShortcuts`),
+ * not a page load. Servicios has no URL the scene can be sent to, so it stays a
+ * button.
  */
 
 export interface SceneShortcutsProps {
@@ -26,9 +31,21 @@ export function SceneShortcuts({ ready, triggerHost, disabled, onBlog, onService
   if (!ready) return null
   const buttons = (
     <>
-      <button type="button" className="scene-shortcut" data-shortcut="blog" disabled={disabled} onClick={onBlog}>
+      {/* A link cannot be `disabled`: during a warp it says so and refuses the
+          plain click, and a modified one still opens the blog elsewhere. */}
+      <a
+        href="/blog"
+        className="scene-shortcut"
+        data-shortcut="blog"
+        aria-disabled={disabled || undefined}
+        onClick={(event) => {
+          if (!isPlainClick(event)) return
+          event.preventDefault()
+          if (!disabled) onBlog()
+        }}
+      >
         Blog
-      </button>
+      </a>
       <button type="button" className="scene-shortcut" data-shortcut="services" disabled={disabled} onClick={onServices}>
         Servicios
       </button>

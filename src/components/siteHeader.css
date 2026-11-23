@@ -527,6 +527,8 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
   cursor: pointer;
+  /* Blog is a link (SceneShortcuts.tsx): a word on the line like the others. */
+  text-decoration: none;
   transition: color 0.2s ease, opacity 0.3s ease;
   animation: audit-trigger-in 480ms ease 60ms backwards;
 }
@@ -542,7 +544,8 @@
 }
 
 /* During a warp: offered again once it lands. */
-.scene-shortcut:disabled {
+.scene-shortcut:disabled,
+.scene-shortcut[aria-disabled='true'] {
   opacity: 0.4;
   cursor: default;
 }

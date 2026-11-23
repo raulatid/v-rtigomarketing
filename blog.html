@@ -85,7 +85,19 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+    <!-- Without JavaScript: the same block as index.html's, with every post. -->
+    <!--vertigo:noscript:start-->
+    <noscript>
+      <div style="max-width:40rem;margin:0 auto;padding:6rem 1.5rem 3rem;background:#050507;color:#fff;font:1rem/1.6 system-ui,sans-serif">
+        <p>La experiencia 3D de esta web necesita JavaScript. Sin él, puedes leer el blog:</p>
+        <ul>
+          <li><a style="color:#fff;text-decoration:underline" href="/blog">Blog</a></li>
+        </ul>
+      </div>
+    </noscript>
+    <!--vertigo:noscript:end-->
+    </div>
     <script type="module" src="/src/entries/blog.tsx"></script>
   </body>
 </html>

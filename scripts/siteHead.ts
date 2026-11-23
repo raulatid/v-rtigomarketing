@@ -116,3 +116,50 @@ export function replaceHeadline(html: string, region: string, what: string): str
   }
   return html.slice(0, start) + region.trimStart() + html.slice(end + HEADLINE_END.length)
 }
+
+export const NOSCRIPT_START = '<!--vertigo:noscript:start-->'
+export const NOSCRIPT_END = '<!--vertigo:noscript:end-->'
+
+/**
+ * What a reader or a crawler without JavaScript gets in the body of `/` and of
+ * every blog document (accessibility audit 2026-11-18, G2: the body was an
+ * empty `#root`, so a crawler that does not run scripts — most AI search bots —
+ * read not one word of a site whose argument is GEO). A line saying what is
+ * missing, and real links to the blog and to every post, by title.
+ *
+ * Inside `#root`, so it is never seen with JavaScript: a `<noscript>` renders
+ * nothing then, and React's first commit clears the element anyway. Inline
+ * styles: no stylesheet is guaranteed to have loaded for this reader, and the
+ * page's black is the inline one in each document.
+ */
+export function noscriptRegion(posts: readonly { id: string; title: string }[]): string {
+  const link = 'color:#fff;text-decoration:underline'
+  return [
+    `<noscript>`,
+    `  <div style="max-width:40rem;margin:0 auto;padding:6rem 1.5rem 3rem;background:#050507;color:#fff;font:1rem/1.6 system-ui,sans-serif">`,
+    `    <p>La experiencia 3D de esta web necesita JavaScript. Sin él, puedes leer el blog:</p>`,
+    `    <ul>`,
+    `      <li><a style="${link}" href="/blog">Blog</a></li>`,
+    ...posts.map(
+      (post) => `      <li><a style="${link}" href="/blog/${encodeURIComponent(post.id)}">${escapeHtmlText(post.title)}</a></li>`,
+    ),
+    `    </ul>`,
+    `  </div>`,
+    `</noscript>`,
+  ]
+    .map((line) => '    ' + line)
+    .join('\n')
+}
+
+/** Replaces the noscript region, markers included; throws as `replaceHeadline` does. */
+export function replaceNoscript(html: string, region: string, what: string): string {
+  const start = html.indexOf(NOSCRIPT_START)
+  const end = html.indexOf(NOSCRIPT_END)
+  if (start < 0 || end < start) {
+    throw new Error(`[site head] ${what}: the noscript markers are missing or out of order`)
+  }
+  if (html.indexOf(NOSCRIPT_START, start + 1) >= 0 || html.indexOf(NOSCRIPT_END, end + 1) >= 0) {
+    throw new Error(`[site head] ${what}: the noscript markers appear more than once`)
+  }
+  return html.slice(0, start) + region.trimStart() + html.slice(end + NOSCRIPT_END.length)
+}

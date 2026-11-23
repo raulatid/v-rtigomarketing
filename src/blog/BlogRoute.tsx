@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BLOG_POSTS } from '../content/generated/blogPosts'
 import type { BlogPost } from '../content/types'
 import type { Route } from '../app/route'
@@ -7,6 +7,8 @@ import { PostBody } from './PostBody'
 import { filterPosts, topicsOf } from './blogFilter'
 import { BlogFooter, BlogSurface } from './BlogSurface'
 import { BLOG_NOT_FOUND_TITLE, blogIndexTitle, postDocumentTitle } from './documentTitle'
+import { isPlainClick } from '../app/plainClick'
+import { routeToPath } from '../app/route'
 import './blog.css'
 
 /**
@@ -86,12 +88,47 @@ const Meta = ({ post }: { post: BlogPost }) => (
   </span>
 )
 
+/**
+ * A real link to a blog page whose plain click stays in the page (accessibility
+ * audit 2026-11-18, G1): the cards, Anterior/Siguiente and «Ver todo el blog»
+ * were buttons, so no crawler, list of links or new tab could reach a post. The
+ * host still decides what a plain click does — open in place, or go back in
+ * history to the index (`historial-y-salida.md`).
+ */
+function PageLink({
+  href,
+  onOpen,
+  className,
+  children,
+}: {
+  href: string
+  onOpen: () => void
+  className: string
+  children: ReactNode
+}) {
+  return (
+    <a
+      href={href}
+      className={className}
+      onClick={(event) => {
+        if (!isPlainClick(event)) return
+        event.preventDefault()
+        onOpen()
+      }}
+    >
+      {children}
+    </a>
+  )
+}
+
+const postPath = (slug: string) => routeToPath({ name: 'blog-post', slug })
+
 function Card({ post, onOpen, featured = false }: { post: BlogPost; onOpen: () => void; featured?: boolean }) {
   return (
-    <button
-      type="button"
+    <PageLink
+      href={postPath(post.id)}
       className={featured ? 'blog-card blog-card--featured' : 'blog-card'}
-      onClick={onOpen}
+      onOpen={onOpen}
     >
       {post.cover === null ? (
         // A deliberate empty frame rather than no frame: a grid where some cards
@@ -111,7 +148,7 @@ function Card({ post, onOpen, featured = false }: { post: BlogPost; onOpen: () =
         <span className="blog-card__excerpt">{post.excerpt}</span>
         <Meta post={post} />
       </span>
-    </button>
+    </PageLink>
   )
 }
 
@@ -302,22 +339,22 @@ function Article({
           {(previous !== null || next !== null) && (
             <nav className="blog-prevnext" aria-label="Entradas anterior y siguiente">
               {previous !== null ? (
-                <button type="button" className="blog-prevnext__card" onClick={() => host.openPost(previous.id)}>
+                <PageLink href={postPath(previous.id)} className="blog-prevnext__card" onOpen={() => host.openPost(previous.id)}>
                   <span className="blog-prevnext__label">Anterior</span>
                   <span className="blog-prevnext__title">{previous.title}</span>
-                </button>
+                </PageLink>
               ) : (
                 <span />
               )}
               {next !== null && (
-                <button
-                  type="button"
+                <PageLink
+                  href={postPath(next.id)}
                   className="blog-prevnext__card blog-prevnext__card--next"
-                  onClick={() => host.openPost(next.id)}
+                  onOpen={() => host.openPost(next.id)}
                 >
                   <span className="blog-prevnext__label">Siguiente</span>
                   <span className="blog-prevnext__title">{next.title}</span>
-                </button>
+                </PageLink>
               )}
             </nav>
           )}
@@ -327,9 +364,9 @@ function Article({
           <section className="blog-related">
             <div className="blog-latest__head">
               <h2 className="blog-eyebrow">Más de {post.category.shortLabel}</h2>
-              <button type="button" className="blog-related__all" onClick={host.returnToIndex}>
+              <PageLink href="/blog" className="blog-related__all" onOpen={host.returnToIndex}>
                 Ver todo el blog
-              </button>
+              </PageLink>
             </div>
             <ul className="blog-grid">
               {related.map((entry) => (

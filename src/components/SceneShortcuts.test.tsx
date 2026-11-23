@@ -26,7 +26,7 @@ function mount(props: Partial<SceneShortcutsProps> = {}) {
     ),
   )
   const button = (which: 'blog' | 'services') =>
-    host.querySelector<HTMLButtonElement>(`.scene-shortcut[data-shortcut='${which}']`)
+    host.querySelector<HTMLElement>(`.scene-shortcut[data-shortcut='${which}']`)
   return { host, container, button, onBlog, onServices }
 }
 
@@ -53,7 +53,33 @@ describe('SceneShortcuts', () => {
 
   it('offers neither while disabled', () => {
     const t = mount({ disabled: true })
-    expect(t.button('blog')!.disabled).toBe(true)
-    expect(t.button('services')!.disabled).toBe(true)
+    expect(t.button('blog')!.getAttribute('aria-disabled')).toBe('true')
+    act(() => t.button('blog')!.click())
+    expect(t.onBlog).not.toHaveBeenCalled()
+    expect((t.button('services') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  // Accessibility audit 2026-11-18, G1: a crawlable link that still flies.
+  it('makes Blog a real link to /blog whose plain click is the journey, not a page load', () => {
+    const t = mount()
+    const blog = t.button('blog')!
+    expect(blog.tagName).toBe('A')
+    expect(blog.getAttribute('href')).toBe('/blog')
+    const plain = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })
+    act(() => {
+      blog.dispatchEvent(plain)
+    })
+    expect(plain.defaultPrevented).toBe(true)
+    expect(t.onBlog).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves a modified click to the browser, which opens the blog elsewhere', () => {
+    const t = mount()
+    const withCtrl = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ctrlKey: true })
+    act(() => {
+      t.button('blog')!.dispatchEvent(withCtrl)
+    })
+    expect(withCtrl.defaultPrevented).toBe(false)
+    expect(t.onBlog).not.toHaveBeenCalled()
   })
 })

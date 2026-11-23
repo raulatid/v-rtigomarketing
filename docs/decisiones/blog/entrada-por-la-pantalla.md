@@ -17,7 +17,7 @@
 5. **La pantalla no es un distrito:** no tiene estado de distrito, ni significado de servicio, ni controles. Mientras la aproximación tiene la cámara, ni el arrastre ni el zoom escriben la cámara y el campus se queda sordo (`campus.setEnabled(false)`). Al soltarla, `adoptFromCamera` y luego `release('blog')`. La reclamación y su precedencia están en las [trampas de la cámara de Murcia](../../trampas/murcia-camara.md), n.º 17.
 6. **Las negativas se ven.** `openBlog` devuelve si la ruta se aceptó. `App.handleOpenBlog` la rechaza durante un warp o si Murcia no está lista (`murciaReady`), y entonces la aproximación deshace el viaje. Con un distrito abierto, el clic no cuenta (`blocked`).
 7. **Movimiento reducido: no hay vuelo, pero sí cubierta y cambio de ruta.** Al volver, se aterriza en la pose de salida sin viajar (`bailOutOfReturn`).
-8. **El botón Blog de la cabecera de la escena:**
+8. **El enlace Blog de la cabecera de la escena** (un `<a href="/blog">` cuyo clic simple hace este recorrido; ver [Blog y Servicios](../interfaz/atajos-blog-y-servicios.md), punto 4):
    - en la ciudad, vuela a la pantalla (`flyToBlog`, solo desde la vista general de la ciudad);
    - en Earth, hace el warp y después el vuelo (`requestBlog`, que se consume cuando el warp suelta el rig); si el warp se rechaza, no hace nada;
    - si el vuelo se rechaza (hay un distrito abierto, no hay pantalla), abre `/blog` sin vuelo;
