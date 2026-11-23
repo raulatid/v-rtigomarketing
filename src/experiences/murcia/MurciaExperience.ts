@@ -63,7 +63,8 @@ import { ABOUT_SECTION_CONTENT } from '../../content/about';
 import { CAMPUS_BUILDING_NODE_NAMES } from './campus/campusConfig';
 import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
-import { createCityMark, type CityMark } from './about/createCityMark';
+import { createCityMark, NIGHT_FOG, NIGHT_LIGHT, type CityMark } from './about/createCityMark';
+import { ISOTYPE_GLOW } from './sky/skyPulse';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import type { Traffic } from './traffic/createTraffic';
 import { deviceResolution } from './assets/lightmaps/deviceResolution';
@@ -104,6 +105,14 @@ const GROUND_REACH_EPSILON = 1;
  * (`PANEL_TILT_DEGREES`). The blog's dot stands on that edge.
  */
 const BLOG_PANEL_HALF_RISE = 12 * Math.sin(Math.PI / 4);
+
+/** `applyCityNight`'s colours, so laying the night allocates nothing. */
+const CITY_NIGHT_SCRATCH = {
+  day: new THREE.Color(),
+  night: new THREE.Color(),
+  white: new THREE.Color(1, 1, 1),
+  light: new THREE.Color(),
+} as const;
 
 /** The roof's centre of the tallest of the named nodes; null when none is in the city. */
 function tallestTop(root: THREE.Object3D, names: readonly string[]): THREE.Vector3 | null {
@@ -233,6 +242,8 @@ export class MurciaExperience {
   private towerLogo: TowerLogo | null = null;
   /** The isotype drawn over the darkened city at Conócenos' city stop. Built after the city loads. */
   private cityMark: CityMark | null = null;
+  /** The city's night last laid on the fog, the dome's horizon and the river. See `applyCityNight`. */
+  private appliedNight = 0;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
   private towerScreen: TowerScreen | null = null;
   /** Boats and cars on the routes authored in Blender. Null when the routes file did not read. */
@@ -829,6 +840,12 @@ export class MurciaExperience {
     // the pose the visit started from and the rig has it again, so the next
     // arrival starts where the visitor was standing. A no-op otherwise.
     if (!next) this.about?.abandon();
+    // And the city's night goes with it, at once: the arrival back must not
+    // find it still fading out.
+    if (!next) {
+      this.cityMark?.settle();
+      this.applyCityNight();
+    }
 
     // The camera input listens on the SHARED canvas, so while Earth is
     // showing, every Earth drag also reaches it — its targets would drift and
@@ -1502,6 +1519,9 @@ export class MurciaExperience {
       onStopChange: (stop) => {
         if (stop === 'city') this.placeCityMark();
         this.cityMark?.setTarget(stop === 'city', this.about?.flightSeconds ?? 0);
+        // The night lasts from the city through the flight to the sky and the
+        // sky stop: no return to day between two dark stops (plan 029b §3 B).
+        this.cityMark?.setNight(stop === 'city' || stop === 'sky');
         // The pulse leaves from the isotype as the flight to the sky lands.
         if (stop === 'sky') this.aboutSky?.arrive(this.about?.skyFlightSeconds ?? 0);
         else this.aboutSky?.leave();
@@ -1539,6 +1559,26 @@ export class MurciaExperience {
         snapshot: () => about.snapshot,
       };
     }
+  }
+
+  /**
+   * Lays the city's night (`CityMark.night`) on what the city's patch cannot
+   * reach: the fog, and with it the dome's and the veil's horizon, which have
+   * to be the fog's colour or the horizon line comes back; and the river, a
+   * `ShaderMaterial` of its own. Uniform writes only when the night moved.
+   */
+  private applyCityNight(): void {
+    const night = this.cityMark?.night ?? 0;
+    if (night === this.appliedNight) return;
+    this.appliedNight = night;
+    const fog = this.sceneBundle.scene.fog;
+    const day = this.environment.sceneState.fog?.color;
+    if (fog && day !== undefined) {
+      fog.color.lerpColors(CITY_NIGHT_SCRATCH.day.set(day), CITY_NIGHT_SCRATCH.night.set(NIGHT_FOG), night);
+      this.skyDome?.setHorizon(fog.color);
+      this.aboutSky?.setHorizon(fog.color);
+    }
+    this.loaded?.water?.setLight(CITY_NIGHT_SCRATCH.light.lerpColors(CITY_NIGHT_SCRATCH.white, NIGHT_LIGHT, night));
   }
 
   /** Centres the city stop's isotype for the viewport in use. */
@@ -1871,8 +1911,12 @@ export class MurciaExperience {
     // allocation — see createTowerLogo for why there is no loop of its own.
     this.towerLogo?.update(delta);
     this.cityMark?.update(delta);
-    // The isotype is lit by the pulse: its flash, then its ember while the sky stop lasts.
-    this.towerLogo?.setGlow(this.aboutSky?.isotypeGlow ?? 0);
+    this.applyCityNight();
+    // The isotype is lit through the city's night, a lighthouse over the dark
+    // (plan 029b §3 C), at the pulse's ember; the pulse's flash goes over it.
+    this.towerLogo?.setGlow(
+      Math.max(this.aboutSky?.isotypeGlow ?? 0, (this.cityMark?.night ?? 0) * ISOTYPE_GLOW.ember),
+    );
     // And its screen: the carousel's clock and the facade's crossfade, shimmer
     // and dust. A repaint happens only when a slide changes or its entrance
     // moves, so a settled slide costs one draw call.

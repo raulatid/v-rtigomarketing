@@ -81,6 +81,17 @@ describe('createRioWater', () => {
     expect(deep.getHex(THREE.SRGBColorSpace)).toBe(DEFAULT_RIO_WATER_CONFIG.deepColor)
   })
 
+  it('is seen in white light until it is given another, and takes it as given', () => {
+    // A copy, not the caller's object: the host reuses its scratch colour.
+    const fresh = createRioWater(DEFAULT_RIO_WATER_CONFIG)
+    const light = fresh.material.uniforms['uLight']!.value as THREE.Color
+    expect(light.toArray()).toEqual([1, 1, 1])
+    const night = new THREE.Color(0.07, 0.1, 0.17)
+    fresh.setLight(night)
+    night.setRGB(1, 0, 0)
+    expect(light.toArray()).toEqual([0.07, 0.1, 0.17])
+  })
+
   it('advances uTime from the elapsed seconds it is given', () => {
     // The trap this module's own doc comment warns about: `MurciaExperience.update`
     // receives a delta, and passing it straight through pins uTime near 1/60 —

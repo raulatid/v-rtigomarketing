@@ -62,6 +62,12 @@ uniform int uBankSegmentCount;
  */
 uniform vec2 uFlowAxis;
 
+/**
+ * The light the water is seen under, a linear multiplier: white by day, the
+ * city's night colour under Conócenos' night (`setLight`).
+ */
+uniform vec3 uLight;
+
 varying vec3 vWorldPosition;
 
 // ---------------------------------------------------------------------------
@@ -252,6 +258,7 @@ void main() {
   shadow *= smoothstep(1.0, 3.0, bandPixels);
 
   color *= mix(vec3(1.0), uWallShadowColor, shadow);
+  color *= uLight;
 
   gl_FragColor = vec4(color, 1.0);
 

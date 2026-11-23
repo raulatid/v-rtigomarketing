@@ -74,6 +74,8 @@ export interface SkyDome {
   readonly object3D: THREE.Object3D;
   /** The drawing buffer's pixels per CSS pixel, for the stars' size. */
   setPixelRatio(ratio: number): void;
+  /** The horizon follows the fog when its colour changes: Conócenos' night. One uniform write. */
+  setHorizon(color: THREE.Color): void;
   dispose(): void;
 }
 
@@ -221,6 +223,9 @@ export function createSkyDome(colors: SkyDomeColors, far: number): SkyDome {
     object3D: group,
     setPixelRatio(ratio) {
       starMaterial.uniforms.uPixelRatio!.value = ratio;
+    },
+    setHorizon(color) {
+      (material.uniforms.uHorizon!.value as THREE.Color).copy(color);
     },
     dispose() {
       group.removeFromParent();

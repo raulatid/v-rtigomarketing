@@ -13,7 +13,7 @@ import type { AboutLens, AboutPose } from './aboutPoses';
  * patched in place, once, before `warm()` — the same `outgoingLight` the hover
  * tint mixes into (`interaction/buildingHighlight.ts`), whose clones exist by
  * then and are patched with the rest. One program variant for the whole city;
- * outside the stop the strength is 0 and the branch is skipped. The logo is
+ * outside the stop and the night both strengths are 0 and the branch is skipped. The logo is
  * left out, and so is every `ShaderMaterial` (the river, the screen): their
  * shaders have none of the chunks this hooks.
  *
@@ -28,6 +28,13 @@ import type { AboutLens, AboutPose } from './aboutPoses';
  * arc, traces it, and the fill arrives as the outlines and the dot go. Under
  * reduced motion too, by the user's direction (2026-10-22): the camera cuts,
  * the drawing does not.
+ *
+ * The darkening is the city's night (plan 029b §3, A and B), and it has a
+ * strength of its own: the drawing is the city stop's, the night lasts from
+ * the city stop through the flight to the sky and the sky stop, and only goes
+ * when the visit flies back to the screen or leaves. It is a cold blue, not a
+ * grey (`NIGHT_LIGHT`), and the host carries it into what this patch cannot
+ * reach: the fog, the dome's horizon and the river (`night`, `NIGHT_FOG`).
  */
 
 export interface CityMark {
@@ -41,12 +48,24 @@ export interface CityMark {
    * of `flightSeconds` lands; off fades it out where it is.
    */
   setTarget(on: boolean, flightSeconds: number): void;
+  /** The city's night comes on, or goes, over `FADE_SECONDS`. */
+  setNight(on: boolean): void;
+  /** The night, eased, 0..1: what the host lays on the fog, the dome's horizon and the river. */
+  readonly night: number;
+  /** The drawing's strength and the night jump to where they are going: the warp's cut, with nobody watching. */
+  settle(): void;
   update(delta: number): void;
   dispose(): void;
 }
 
-/** How much of the light the rest of the city loses at full strength. */
-const DIM = 0.75;
+/**
+ * The light the city keeps at full night, as a linear multiplier: about a
+ * tenth of it (the plan's `DIM` towards 0.9, from 0.75), and a cold blue
+ * rather than a grey, so the drawn isotype is the light of the picture.
+ */
+export const NIGHT_LIGHT = new THREE.Color(0.07, 0.1, 0.17);
+/** The fog's colour at full night, and so the dome's horizon: a night blue, where the day's is the lit ground's cream. */
+export const NIGHT_FOG = 0x0e1828;
 /** The share walls take of the mark; roofs and ground take all of it. */
 const WALLS = 1;
 /** Seconds for the projector to come on, and to go off. */
@@ -213,7 +232,8 @@ export function createCityMark(
     uMarkSize: { value: 1 },
     uMarkWalls: { value: WALLS },
     uMarkColor: { value: new THREE.Color(BUILDING_HIGHLIGHT.color) },
-    uMarkDim: { value: DIM },
+    uNight: { value: 0 },
+    uNightLight: { value: NIGHT_LIGHT.clone() },
   };
 
   const patched = new Map<THREE.Material, { hook: THREE.Material['onBeforeCompile']; key: () => string }>();
@@ -251,17 +271,19 @@ uniform vec2 uMarkUp;
 uniform float uMarkSize;
 uniform float uMarkWalls;
 uniform vec3 uMarkColor;
-uniform float uMarkDim;
+uniform float uNight;
+uniform vec3 uNightLight;
 varying vec3 vMarkWorld;`,
         )
         .replace(
           FRAGMENT_AT,
-          `if (uMarkStrength > 0.0) {
+          `if (uMarkStrength > 0.0 || uNight > 0.0) {
   vec2 markD = vMarkWorld.xz - uMarkCentre;
   vec2 markUv = vec2(dot(markD, uMarkRight), dot(markD, uMarkUp)) / uMarkSize + 0.5;
   vec2 markIn = step(vec2(0.0), markUv) * step(markUv, vec2(1.0));
   float markA = markIn.x * markIn.y * texture2D(uMarkMap, clamp(markUv, 0.0, 1.0)).r;
-  outgoingLight *= 1.0 - uMarkStrength * uMarkDim * (1.0 - markA);
+  // The night, everywhere but under the drawn mark while it is shown.
+  outgoingLight *= mix(vec3(1.0), uNightLight, uNight * (1.0 - uMarkStrength * markA));
   // The face's normal from the screen derivatives: up for roofs and ground.
   vec3 markN = normalize(cross(dFdx(vMarkWorld), dFdy(vMarkWorld)));
   float markFacing = mix(uMarkWalls, 1.0, smoothstep(0.55, 0.9, abs(markN.y)));
@@ -284,7 +306,15 @@ ${FRAGMENT_AT}`,
 
   let progress = 0;
   let target = 0;
+  let nightProgress = 0;
+  let nightTarget = 0;
+  let night = 0;
   let drawClock: number = MARK_DRAW_SECONDS;
+  const strengths = (): void => {
+    uniforms.uMarkStrength.value = easeHighlight(progress);
+    night = easeHighlight(nightProgress);
+    uniforms.uNight.value = night;
+  };
   const camera = new THREE.PerspectiveCamera();
   const raycaster = new THREE.Raycaster();
   const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), -groundY);
@@ -319,10 +349,25 @@ ${FRAGMENT_AT}`,
       target = on ? 1 : 0;
     },
 
+    setNight(on) {
+      nightTarget = on ? 1 : 0;
+    },
+
+    get night() {
+      return night;
+    },
+
+    settle() {
+      progress = target;
+      nightProgress = nightTarget;
+      strengths();
+    },
+
     update(delta) {
-      if (progress === 0 && target === 0) return;
+      if (progress === 0 && target === 0 && nightProgress === 0 && nightTarget === 0) return;
       progress = stepHighlight(progress, target, delta, FADE_SECONDS);
-      uniforms.uMarkStrength.value = easeHighlight(progress);
+      nightProgress = stepHighlight(nightProgress, nightTarget, delta, FADE_SECONDS);
+      strengths();
       // Leaving holds the drawing where it is and lets the strength take it down.
       if (target === 1 && drawClock < MARK_DRAW_SECONDS) {
         drawClock += Math.max(0, delta);

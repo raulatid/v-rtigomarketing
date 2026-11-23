@@ -57,6 +57,11 @@ export interface RioWater {
    * uniform is added, so the compiled program is kept.
    */
   configure: (config: RioWaterConfig) => void;
+  /**
+   * The light the water is seen under, as a linear multiplier: white by day,
+   * the city's night colour under Conócenos' night. One uniform write.
+   */
+  setLight: (light: THREE.Color) => void;
   dispose: () => void;
 }
 
@@ -114,6 +119,7 @@ export function createRioWater(config: RioWaterConfig): RioWater {
       },
       uBankSegmentCount: { value: 0 },
       uFlowAxis: { value: new THREE.Vector2(1, 0) },
+      uLight: { value: new THREE.Color(1, 1, 1) },
     },
   });
 
@@ -195,6 +201,9 @@ export function createRioWater(config: RioWaterConfig): RioWater {
     setBankSegments,
     setFlowAxis,
     configure: applyConfig,
+    setLight: (light: THREE.Color) => {
+      (material.uniforms['uLight']!.value as THREE.Color).copy(light);
+    },
     dispose: () => material.dispose(),
   };
 }
