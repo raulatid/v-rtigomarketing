@@ -1077,6 +1077,21 @@ html {
   cursor: none !important;
 }
 
+/* With forced colours or more contrast asked for, the system's pointer comes
+   back, with whatever size and colours the visitor set, and the drawn hand
+   stands aside (accessibility audit 2026-11-18, V5). CSS only: the app entry
+   has no bytes to spare, and the component keeps running, unseen. */
+@media (forced-colors: active), (prefers-contrast: more) {
+  .has-custom-cursor,
+  .has-custom-cursor * {
+    cursor: revert !important;
+  }
+
+  .cursor-layer {
+    display: none;
+  }
+}
+
 .cursor-layer {
   position: fixed;
   top: 0;
