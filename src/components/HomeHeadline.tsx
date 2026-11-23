@@ -1,27 +1,11 @@
 import { HOME_HEADLINE } from '../content/site'
-import { DEBUG_TOOLS_ENABLED } from '../platform/buildFlags'
 import './homeHeadline.css'
 
 /**
- * How the h1 shows over the Earth. `hidden` is clipped to a pixel: in the
- * accessibility tree and in the HTML, not on screen. The others are the design
- * variants under review (plan 029a §4, block 3 of the delivery list), reachable
- * only outside production with `?h1=a|b|c` until one is chosen.
- */
-export type HeadlineVariant = 'hidden' | 'a' | 'b' | 'c'
-
-const VARIANTS: readonly HeadlineVariant[] = ['hidden', 'a', 'b', 'c']
-
-/** The variant this document shows. Production always gets `hidden` for now. */
-export function headlineVariant(search: string = window.location.search): HeadlineVariant {
-  if (!DEBUG_TOOLS_ENABLED) return 'hidden'
-  const asked = new URLSearchParams(search).get('h1')
-  return VARIANTS.find((v) => v === asked) ?? 'hidden'
-}
-
-/**
  * The home page's h1 and the line under it (plan 029a §4), from «Ajustes del
- * sitio».
+ * sitio»: a title card centred over the planet (block 9, I4). Its letters fly
+ * in on an orbit drawn by the scene (`HeadlineFlightLayer`), which finds this
+ * block by its class; this component knows nothing of that.
  *
  * `index.html` carries the same two strings as static HTML inside `#root`,
  * written by the build, for crawlers and for a page that never runs this.
@@ -35,15 +19,9 @@ export function headlineVariant(search: string = window.location.search): Headli
  * screen reader can still name the page while the intro plays or a panel is
  * open.
  */
-export function HomeHeadline({
-  shown = false,
-  variant = 'hidden',
-}: {
-  shown?: boolean
-  variant?: HeadlineVariant
-}) {
+export function HomeHeadline({ shown = false }: { shown?: boolean }) {
   return (
-    <div className="home-headline" data-variant={variant} data-shown={shown}>
+    <div className="home-headline" data-shown={shown}>
       <h1 className="home-headline__title">{HOME_HEADLINE.headline}</h1>
       <p className="home-headline__line">{HOME_HEADLINE.subheadline}</p>
     </div>

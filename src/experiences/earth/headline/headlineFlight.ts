@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { clamp01, easeInOutCubic } from '../../../utils/easing'
 
 /**
- * The h1's arrival on a wide orbit (block 9, I3: a prototype, `?h1=b|c` only).
+ * The h1's arrival on a wide orbit (block 9, I3; in production since I4).
  *
  * One big orbit round the planet whose near point passes close to the camera.
  * The title's letters ride it as a train, the first letter leading: they come

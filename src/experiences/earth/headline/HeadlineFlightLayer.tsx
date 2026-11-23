@@ -23,10 +23,9 @@ import {
 } from './headlineFlight'
 
 /**
- * The h1's letters, flown in on a wide orbit (block 9, I3: a prototype).
+ * The h1's letters, flown in on a wide orbit (block 9, I3; in production since I4).
  *
- * Mounted only outside production (EarthExperience) and active only for the
- * two finalist variants, `?h1=b` and `?h1=c`. The h1 stays App's: one real
+ * Mounted last in EarthExperience. The h1 stays App's (HomeHeadline): one real
  * heading, untouched, that a reader names from the first commit. This adds a
  * layer of loose letters inside `.home-headline`, `aria-hidden`, and marks the
  * block with `data-flight` so its stylesheet hides the real title and the line
@@ -34,7 +33,7 @@ import {
  * real title is back in the same frame; the line fades in after it.
  *
  * Found by its class, like HintLayer's `.earth-hint`, so the entry chunk pays
- * nothing for it: every byte here is in the scene chunk, and none in production.
+ * nothing for it: every byte here is in the scene chunk.
  *
  * Starts with the satellites (`orbitsVisible`). A skip lands it at once, and
  * so does reaching the orbits already at `site` (a seek, or a skip before
@@ -63,8 +62,7 @@ export function HeadlineFlightLayer({
 
   useEffect(() => {
     const root = document.querySelector<HTMLElement>('.home-headline')
-    const variant = root?.dataset.variant
-    if (!root || (variant !== 'b' && variant !== 'c') || prefersReducedMotion()) return
+    if (!root || prefersReducedMotion()) return
     const title = root.querySelector<HTMLElement>('.home-headline__title')
     const text = title?.firstChild
     if (!title || !(text instanceof Text) || !text.data.trim()) return

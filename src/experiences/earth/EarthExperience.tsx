@@ -12,7 +12,6 @@ import { OrbitSystemLayer } from './orbit/OrbitSystemLayer'
 import { InteractionLayer, InteractionHandle } from './interaction/InteractionLayer'
 import { HintLayer } from './hint/HintLayer'
 import { HeadlineFlightLayer } from './headline/HeadlineFlightLayer'
-import { DEBUG_TOOLS_ENABLED } from '../../platform/buildFlags'
 import type { IntroConfig } from './config/introConfig'
 import type { SequenceState } from './config/sequenceState'
 import type { OrbitSystem } from './orbit/createOrbitSystem'
@@ -157,9 +156,9 @@ export function EarthExperience({
           counts is about the viewer, so it must keep counting while nothing is
           on screen. */}
       <HintLayer attention={attention} state={state} active={active} satelliteHoverRef={satelliteHoverRef} />
-      {/* The h1 flown in from an orbit: a prototype (block 9, I3), so never in
-          production. Last, so the camera it projects through is final. */}
-      {DEBUG_TOOLS_ENABLED && <HeadlineFlightLayer state={state} active={active} holdWork={holdWork} />}
+      {/* The h1 flown in from an orbit, over HomeHeadline's real one. Last, so
+          the camera it projects through is final. */}
+      <HeadlineFlightLayer state={state} active={active} holdWork={holdWork} />
     </>
   )
 }

@@ -23,7 +23,7 @@ import { ClaimDialog } from './components/LazyClaimDialog'
 import type { ViewpointClaim } from './experiences/murcia/observer/viewClient'
 import { ConsentBanner } from './components/ConsentBanner'
 import { CopyrightMark } from './components/CopyrightMark'
-import { HomeHeadline, headlineVariant } from './components/HomeHeadline'
+import { HomeHeadline } from './components/HomeHeadline'
 import { SiteMenuLayer, SiteMenuStage } from './components/SiteMenu'
 import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
@@ -376,7 +376,6 @@ export default function App() {
     !claimOpen &&
     !headerMenuOpen &&
     !selectedCase
-  const [headlineLook] = useState(headlineVariant)
 
   // For callbacks the scene holds across renders (handleViewpointReached).
   const attentionFreeRef = useRef(attentionIsFree)
@@ -829,7 +828,7 @@ export default function App() {
       <main className="app__main">
       {/* The page's one h1. Replaces the static copy index.html carries, and
           is mounted from the first commit, not at `site`: see HomeHeadline. */}
-      <HomeHeadline shown={headlineShown} variant={headlineLook} />
+      <HomeHeadline shown={headlineShown} />
       {/* THE STAGE AND THE CARD. Two wrappers around the canvas and NOTHING
           else, both permanent, both invisible boxes the canvas fills until the
           phone menu opens — then the stage lends its perspective and the card
