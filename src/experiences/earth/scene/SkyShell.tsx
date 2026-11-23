@@ -323,7 +323,7 @@ export function SkyShell({ config, state, active }: Props) {
     )
 
     if (mesh.current) {
-      mesh.current.visible = uploaded.current && backdropVisible(state, config)
+      mesh.current.visible = uploaded.current && backdropVisible(state)
     }
   })
 

@@ -4,14 +4,7 @@ import { RefObject, useMemo, useRef } from 'react'
 import { overviewRestPosition, overviewRadiusForViewport } from './overviewPose'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import {
-  cinematicTravel,
-  cinematicSpeed,
-  narrowPeak,
-  lerp,
-  lerpVec3,
-  smootherstep,
-} from '../../../utils/easing'
+import { lerp, smootherstep } from '../../../utils/easing'
 import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { atOrAfter } from '../config/sceneVisibility'
@@ -22,13 +15,11 @@ import {
   dollyAmount,
   earthFov,
   earthDollyRadius,
+  flash,
+  motionBlur,
   speed,
 } from '../../../utils/warpTransition'
 
-// Leg 1: the camera pushes forward through the star volume.
-// Leg 2: it arrives from far out and settles at the Earth's rest distance.
-// The two legs are unrelated — the camera teleports between them at the cut,
-// which is exactly the trick from extraction 002 §1.
 /**
  * How long the committed warp takes to adopt its own FOV, seconds.
  *
@@ -45,14 +36,9 @@ import {
  */
 const FOV_CATCHUP_SECONDS = 0.2
 
-const STAR_REST: [number, number, number] = [0, 0, 200]
-const STAR_EXIT: [number, number, number] = [0, 0, -200]
-// The far point of the arriving dolly: the rest direction, further out, so the
-// pull-in runs straight along the view ray whatever orientation the rest has.
-const EARTH_FAR: [number, number, number] = overviewRestPosition(80)
 // Exported because the interaction rig adopts this as its overview pose. It
 // must NOT seed from the live camera instead: on a skip, this controller bails
-// before ever moving the camera off STAR_REST, and the rig would inherit z=200.
+// before ever placing the camera, and the rig would inherit whatever it held.
 //
 // Derived from radius, theta AND phi since 2026-09-05 (it was `[0, 0, radius]`,
 // i.e. theta 0 / phi 90): the client chose a framing, and the rig reads its
@@ -60,7 +46,6 @@ const EARTH_FAR: [number, number, number] = overviewRestPosition(80)
 // baked. See `overviewPose.ts`.
 export const EARTH_REST: [number, number, number] = overviewRestPosition()
 
-const STAR_LOOK_AT = new THREE.Vector3(0, 0, -1000)
 const EARTH_LOOK_AT = new THREE.Vector3(0, 0, 0)
 
 interface Props {
@@ -101,6 +86,7 @@ export function CameraController({
   const fovCatchUp = useRef(0)
   const destinationWorld = useRef(new THREE.Vector3())
   const warpLookAt = useRef(new THREE.Vector3())
+  const introPose = useRef(new THREE.Vector3())
   const reducedMotion = useMemo(prefersReducedMotion, [])
 
   useFrame((_, delta) => {
@@ -152,19 +138,12 @@ export function CameraController({
       return
     }
 
-    const inWarp = state.phase === 'warp'
-
-    if (!inWarp) {
-      // Reassert a rest pose every frame so an interrupted or seeked timeline
-      // can never strand the camera mid-flight.
-      //
-      // Ordering comparison, not a phase list: this was a hardcoded set and
-      // inserting 'orbits' between 'corner' and 'site' silently sent the camera
-      // back to the starfield rest position, shrinking the Earth to a dot for
-      // the whole orbit reveal.
-      const atEarth = atOrAfter(state.phase, 'swap')
-      cam.position.set(...(atEarth ? earthRest : STAR_REST))
-      cam.lookAt(atEarth ? EARTH_LOOK_AT : STAR_LOOK_AT)
+    if (state.phase !== 'warp') {
+      // Reassert the rest pose every frame so an interrupted or seeked timeline
+      // can never strand the camera mid-flight. Before the warp there is
+      // nothing on the canvas to frame, so it is the planet's rest throughout.
+      cam.position.set(...earthRest)
+      cam.lookAt(EARTH_LOOK_AT)
       cam.fov = config.normalFov
       cam.updateProjectionMatrix()
       state.warpOverlay = 0
@@ -173,29 +152,24 @@ export function CameraController({
       return
     }
 
+    // ── The intro's warp: the Earth <-> Murcia warp's arriving leg ──
+    //
+    // The same curves on the same progress, read from `WARP_LIMITS`. Until the
+    // cut the canvas is empty (the mark launching at the camera is DOM), so
+    // only the arrival is seen: the camera emerges close to the planet under
+    // the full flash and pulls out to rest as the surge falls, exactly as it
+    // does coming back from Murcia. Unlike that return it aims at the centre
+    // throughout: wherever Murcia happens to be on the globe is not where an
+    // opening should look.
     const p = state.warpProgress
-    const travelT = cinematicTravel(p, config.accelerationPower)
-    const speedFactor = cinematicSpeed(p, config.sceneSwapProgress, config.speedPeakWidth)
-
-    const firstHalf = travelT < 0.5
-    const localT = firstHalf ? travelT * 2 : (travelT - 0.5) * 2
-
-    const position = firstHalf
-      ? lerpVec3(STAR_REST, STAR_EXIT, localT)
-      : lerpVec3(EARTH_FAR, earthRest, localT)
-
-    cam.position.set(...position)
-    cam.lookAt(firstHalf ? STAR_LOOK_AT : EARTH_LOOK_AT)
-
-    // The FOV surge is the primary warp signal — a dolly zoom run in the
-    // direction that amplifies motion rather than cancelling it.
-    cam.fov = lerp(config.normalFov, config.maxTravelFov, speedFactor)
+    const { amount } = dollyAmount(p, WARP_LIMITS)
+    const rest = introPose.current.set(...earthRest)
+    cam.position.copy(rest).setLength(earthDollyRadius(rest.length(), amount, WARP_LIMITS))
+    cam.lookAt(EARTH_LOOK_AT)
+    cam.fov = earthFov(p, WARP_LIMITS)
     cam.updateProjectionMatrix()
-
-    // Broaden the light dip while keeping its peak locked to the scene cut.
-    state.warpOverlay =
-      narrowPeak(p, config.sceneSwapProgress, 0.14) * config.overlayStrength
-    state.motionBlur = speedFactor * config.motionBlurStrength
+    state.warpOverlay = flash(p, WARP_LIMITS)
+    state.motionBlur = motionBlur(p, WARP_LIMITS)
     applyOverlay()
   })
 

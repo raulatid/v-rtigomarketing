@@ -4,7 +4,6 @@ import { RefObject, Suspense, useRef } from 'react'
 import { CameraController } from './camera/CameraController'
 import { AuditCameraShift } from './camera/AuditCameraShift'
 import { EarthScene } from './scene/EarthScene'
-import { Starfield } from './scene/Starfield'
 import { SpaceBackdrop } from './scene/SpaceBackdrop'
 import { SkyShell } from './scene/SkyShell'
 import { SkyShellCube } from './scene/SkyShellCube'
@@ -111,10 +110,6 @@ export function EarthExperience({
       {/* Projection-window shift for the audit panel. It writes camera.view,
           not the pose, so it cannot fight CameraController or the focus rig. */}
       <AuditCameraShift auditView={auditView} active={active} />
-      <Starfield config={config} state={state} active={active} />
-      {/* Two separate fields on purpose: Starfield is the near-field warp tunnel
-          and is gated OFF at the cut; SpaceBackdrop is the far shell that is
-          gated ON there and never leaves. See plan 004 §4. */}
       {/* Drawn first and depth-free, so it sits behind everything including
           the star shell. Baked during P0; gated on with the Earth. */}
       {/* One or the other, never both — two opaque shells at renderOrder -1000
@@ -122,14 +117,13 @@ export function EarthExperience({
           is false unless ?sky=<variant> named one AND this is not a production
           build, so the shipped path here is unchanged. */}
       {protoSkyActive() ? (
-        <SkyShellCube config={config} state={state} active={active} />
+        <SkyShellCube state={state} active={active} />
       ) : (
         <SkyShell config={config} state={state} active={active} />
       )}
       <SpaceBackdrop config={config} state={state} active={active} />
       <Suspense fallback={null}>
         <EarthScene
-          config={config}
           state={state}
           active={active}
           destinationRef={destinationRef}

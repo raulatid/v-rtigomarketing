@@ -41,7 +41,7 @@ function walk(way: Way): Presentation[] {
 
 describe('the ways in', () => {
   it.each<[Way, Presentation[]]>([
-    ['first', ['draw', 'shrink', 'warp', 'swap', 'corner', 'orbits', 'site']],
+    ['first', ['draw', 'shrink', 'warp', 'corner', 'orbits', 'site']],
     ['returning', ['draw', 'shrink', 'swap', 'corner', 'orbits', 'site']],
     ['reduced', ['draw', 'site']],
   ])('%s', (way, expected) => {
@@ -83,15 +83,15 @@ describe('site is the rest state', () => {
 })
 
 describe('the substitution requires the logo (§26.8)', () => {
-  const atSwap = run(start('first'), [ready, fill, elapsed, elapsed])
+  const atWarp = run(start('first'), [ready, fill, elapsed])
 
   it('is refused without a model', () => {
-    expect(atSwap.presentation).toBe('swap')
-    expect(canSubstitute(atSwap)).toBe(false)
+    expect(atWarp.presentation).toBe('warp')
+    expect(canSubstitute(atWarp)).toBe(false)
   })
 
-  it('is allowed with one, and only in swap', () => {
-    expect(canSubstitute(next(atSwap, { type: 'logo-ready' }))).toBe(true)
+  it('is allowed with one, and only in warp', () => {
+    expect(canSubstitute(next(atWarp, { type: 'logo-ready' }))).toBe(true)
     expect(canSubstitute(run(start('first'), [{ type: 'logo-ready' }]))).toBe(false)
   })
 })

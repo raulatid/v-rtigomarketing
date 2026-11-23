@@ -13,12 +13,9 @@ import { PROTO_SKY } from '../config/protoSky'
 
 // The persistent star field the resting scene sits in.
 //
-// This is NOT the warp tunnel. `Starfield` is a dense near-field box that
-// exists to be stretched by the FOV surge and smeared by the afterimage pass;
-// it is gated OFF at the warp's cut. This one is gated ON at the same instant
-// and stays for the rest of the app's life. The two have contradictory
-// requirements (near vs far, additive vs plain, attenuated vs not), which is
-// why they are two systems rather than one.
+// It is gated ON at the warp's cut and stays for the rest of the app's life.
+// The intro's near-field warp tunnel (`Starfield`), which it used to replace
+// there, went with the 2026-11-23 warp: the mark now launches at the camera.
 //
 // ── The shell guarantee ──
 // Every point sits at radius ~backdropRadius from the origin. The camera orbits
@@ -105,7 +102,7 @@ export function SpaceBackdrop({ config, state, active }: Props) {
 
   useFrame((_, delta) => {
     if (!active) return
-    if (points.current) points.current.visible = backdropVisible(state, config)
+    if (points.current) points.current.visible = backdropVisible(state)
 
     // Ambient motion on its own accumulator, not the tail's clock — the same
     // narrow exception the Earth's spin and the satellites' orbits already use.

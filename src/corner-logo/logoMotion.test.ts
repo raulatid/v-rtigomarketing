@@ -93,6 +93,30 @@ describe('createLogoMotion', () => {
       // A second call must not restart the spin from zero.
       expect(group.rotation.y).toBe(rotation)
     })
+
+    it('with an arrival, is there at once at its size, and follows it with no bloom', () => {
+      // The intro warp's change of hands: under the flash the logo takes the
+      // size the 2D mark launched at, and comes back as the caller says.
+      let arrival = 8
+      motion.start(() => arrival)
+      expect(group.scale.x).toBe(8)
+      arrival = 3
+      run(0.1)
+      expect(group.scale.x).toBe(3)
+      arrival = 1
+      run(0.1)
+      expect(group.scale.x).toBe(1)
+      // The spin is the same reveal's.
+      run(CONFIG.spinPauseBefore + CONFIG.spinDuration)
+      expect(group.rotation.y).toBe(TWO_PI)
+    })
+
+    it('forgets the arrival on a reset, so a replay blooms again', () => {
+      motion.start(() => 5)
+      motion.reset()
+      motion.start()
+      expect(group.scale.x).toBe(0)
+    })
   })
 
   describe('the spin', () => {

@@ -58,7 +58,8 @@ export type OpeningEvent =
   | { readonly type: 'rewind' }
 
 const SEQUENCE: Record<Way, readonly Presentation[]> = {
-  first: ['draw', 'shrink', 'warp', 'swap', 'corner', 'orbits', 'site'],
+  // No `swap`: the 2D mark changes hands under the warp's flash, at its cut.
+  first: ['draw', 'shrink', 'warp', 'corner', 'orbits', 'site'],
   // `shrink` stays: it is where a drawing that outlasted its grace collapses.
   returning: ['draw', 'shrink', 'swap', 'corner', 'orbits', 'site'],
   reduced: ['draw', 'site'],
@@ -139,7 +140,11 @@ export function admits(state: Pick<Opening, 'presentation'>, kind: WorkKind): bo
   return kind === 'network' || kind === 'worker' || MAIN_THREAD[state.presentation]
 }
 
-/** The 2D mark may change hands only into a model that exists (§26.8). */
+/**
+ * The 2D mark may change hands only into a model that exists (§26.8), and on
+ * the first way in only under the warp, whose cut is where it happens. The
+ * returning way's landing hands over at its own `swap` and never asks.
+ */
 export function canSubstitute(state: Opening): boolean {
-  return state.presentation === 'swap' && state.logoReady
+  return state.presentation === 'warp' && state.logoReady
 }

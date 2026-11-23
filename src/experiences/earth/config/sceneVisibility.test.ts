@@ -1,17 +1,8 @@
-// @vitest-environment jsdom
-//
-// Not because sceneVisibility touches the DOM — it is pure. `defaultIntroConfig()`
-// reads `window.__vertigoIntro` to pick up the values the boot chunk already
-// resolved, so the config source needs a window even though the predicates do
-// not. Opting in here rather than globally is the point of the per-file switch:
-// it keeps that dependency visible instead of granting every test a window and
-// letting one appear in the boot chunk unnoticed.
 import { describe, it, expect } from 'vitest'
-import { atOrAfter, hintAllowed, backdropVisible, earthVisible, orbitsVisible, starsVisible } from './sceneVisibility'
-import { defaultIntroConfig, PHASE_ORDER, type Phase } from './introConfig'
+import { atOrAfter, hintAllowed, backdropVisible, earthVisible, orbitsVisible } from './sceneVisibility'
+import { WARP_LIMITS, flash } from '../../../utils/warpTransition'
+import { PHASE_ORDER, type Phase } from './introConfig'
 import { createSequenceState, type SequenceState } from './sequenceState'
-
-const config = defaultIntroConfig()
 
 function stateAt(overrides: Partial<SequenceState> = {}): SequenceState {
   return { ...createSequenceState(), ...overrides }
@@ -43,27 +34,26 @@ describe('atOrAfter', () => {
   })
 })
 
-describe('the Earth and the stars swap without a gap', () => {
-  // The invariant worth protecting: across the cut there is never a frame with
-  // both worlds drawn and never a frame with neither. Both would be visible on
-  // screen — one as a double exposure, one as a black flash that is not the
-  // deliberate one.
-  it.each(SAMPLES)('shows exactly one of them at warpProgress %f', (warpProgress) => {
-    const state = stateAt({ phase: 'warp', warpProgress })
-    const earth = earthVisible(state, config)
-    const stars = starsVisible(state, config)
-    expect(earth).not.toBe(stars)
-  })
-
-  it('hands over exactly at sceneSwapProgress', () => {
-    const swap = config.sceneSwapProgress
-    expect(earthVisible(stateAt({ phase: 'warp', warpProgress: swap }), config)).toBe(true)
-    expect(starsVisible(stateAt({ phase: 'warp', warpProgress: swap }), config)).toBe(false)
-  })
-
-  it('keeps the stars up for the whole shrink phase', () => {
+describe('the Earth appears at the warp cut, under its flash', () => {
+  // The intro's warp is the Earth <-> Murcia warp's curves on its own clock,
+  // so the planet arrives where that warp swaps worlds: at the cut, at the peak
+  // of a full flash. Before it the canvas is empty — the mark launching at the
+  // camera is DOM, and the star tunnel that used to fill it is gone.
+  it('is hidden before the cut and shown from it', () => {
     for (const warpProgress of SAMPLES) {
-      expect(starsVisible(stateAt({ phase: 'shrink', warpProgress }), config)).toBe(true)
+      const state = stateAt({ phase: 'warp', warpProgress })
+      expect(earthVisible(state)).toBe(warpProgress >= WARP_LIMITS.cut)
+    }
+  })
+
+  it('hands over exactly at the cut, where the flash covers everything', () => {
+    expect(earthVisible(stateAt({ phase: 'warp', warpProgress: WARP_LIMITS.cut }))).toBe(true)
+    expect(flash(WARP_LIMITS.cut, WARP_LIMITS)).toBe(1)
+  })
+
+  it('is hidden for the whole shrink phase', () => {
+    for (const warpProgress of SAMPLES) {
+      expect(earthVisible(stateAt({ phase: 'shrink', warpProgress }))).toBe(false)
     }
   })
 })
@@ -76,7 +66,7 @@ describe('backdropVisible', () => {
   it.each(PHASE_ORDER)('agrees with earthVisible during %s', (phase: Phase) => {
     for (const warpProgress of SAMPLES) {
       const state = stateAt({ phase, warpProgress })
-      expect(backdropVisible(state, config)).toBe(earthVisible(state, config))
+      expect(backdropVisible(state)).toBe(earthVisible(state))
     }
   })
 })

@@ -32,30 +32,32 @@ import { GALAXY_BAND } from '../scene/space/galaxyBandConfig'
 export interface IntroConfig extends DrawConfig {
   // ── P1 shrink ──
   shrinkDuration: number
-  // Free aesthetic choice, not a calibration constraint: the P3 crossover puts
-  // both marks at zero, so this never has to match the GLB's apparent size.
+  // Free aesthetic choice, not a calibration constraint: the marks change hands
+  // under the warp's full flash, so this never has to match the GLB's apparent size.
   shrinkTargetSize: number
 
   // ── P2 warp ──
+  // The Earth <-> Murcia warp's own curves (`WARP_LIMITS`: cut, speed bell,
+  // flash, FOV surge, blur), so there is one vocabulary of movement. Only the
+  // length is the intro's. The mark launches at the camera on the way out, the
+  // cut hides the change of hands, and the arrival is the one coming back from
+  // Murcia: the camera pulls out from close to the planet to its rest.
   warpDuration: number
+  // The FOV the site rests at. Must equal WARP_TRANSITION.earthRestFov, which
+  // the warp's surge returns to (`check:warp` holds it).
   normalFov: number
-  maxTravelFov: number
-  accelerationPower: number
-  speedPeakWidth: number
-  sceneSwapProgress: number
-  overlayStrength: number
-  motionBlurStrength: number
   afterimageDampMax: number
+  // How much bigger than its shrunk size the mark is at the cut, as it reaches
+  // the camera. The 3D logo comes back from the same multiple on the arrival.
+  launchScale: number
   // The DOM SVG can't be touched by the composer, so it fakes the same motion.
   svgWarpBlur: number
   svgWarpStretch: number
-  starCount: number
 
-  // ── P3 swap (scale-through-zero crossover) ──
+  // ── P3 swap: the returning visitor's landing only ──
+  // The bloom the 3D mark grows with is `swapDuration x (1 - swapCrossover)`.
   swapDuration: number
   swapCrossover: number
-  swapFlashStrength: number
-  swapFlashWidth: number
 
   // ── The returning visitor's way in (DECISIONS §51) ──
   // They enter AT the crossover: no drawing, no shrink, no warp. The planet
@@ -228,27 +230,19 @@ export interface IntroConfig extends DrawConfig {
 /** Everything the master timeline owns — P1 onward. P0's half comes from the
  *  draw module at runtime; see defaultIntroConfig(). */
 export const DEFAULT_APP_CONFIG: Omit<IntroConfig, keyof DrawConfig> = {
-  shrinkDuration: 0.8,
+  shrinkDuration: 0.5,
   shrinkTargetSize: 9,
 
-  warpDuration: 2.6,
+  // WARP_TRANSITION.duration, as a starting point the debug overlay can move.
+  warpDuration: 1.6,
   normalFov: 45,
-  maxTravelFov: 68,
-  accelerationPower: 1.7,
-  speedPeakWidth: 0.34,
-  sceneSwapProgress: 0.5,
-  overlayStrength: 0.12,
-  motionBlurStrength: 0.22,
   afterimageDampMax: 0.82,
+  launchScale: 10,
   svgWarpBlur: 6,
   svgWarpStretch: 0.25,
-  starCount: 2000,
 
   swapDuration: 0.7,
   swapCrossover: 0.45,
-  // A gentle 280ms dip centred on the substitution, rather than a short blink.
-  swapFlashStrength: 0.16,
-  swapFlashWidth: 0.2,
 
   // About the real crossover's own collapse (swapDuration x swapCrossover = 0.32 s),
   // which is the beat this stands in for.

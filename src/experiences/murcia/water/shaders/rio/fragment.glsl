@@ -7,7 +7,7 @@
 // NOT OPTIONAL. three applies tone mapping in-shader only for its own
 // materials; a raw ShaderMaterial that skips the two chunks below renders
 // correctly in isolation and washed-out in the app, with nothing to point at.
-// starShader.ts and warpStarShader.ts carry the same warning.
+// starShader.ts carries the same warning.
 //
 // The two chunks are also correct on BOTH of Murcia's render routes, which is
 // not obvious. Murcia normally renders direct to the canvas, but RenderPipeline

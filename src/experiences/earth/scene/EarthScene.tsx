@@ -16,7 +16,6 @@ import {
 } from '../config/earthConfig'
 import { PROTO_EARTH_TEXTURES, protoEarthTextureUrls } from '../config/protoEarthTextures'
 import { EarthTextureLoader } from './earthTextureLoader'
-import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { earthVisible } from '../config/sceneVisibility'
 import { loadProgress } from '../../../loading/progress'
@@ -31,7 +30,6 @@ import { clampFrameDelta } from '../../../graphics/frameDelta'
 import { isEarthFrozen } from '../camera/debugCameraHook'
 
 interface Props {
-  config: IntroConfig
   state: SequenceState
   active: boolean
   /**
@@ -130,7 +128,6 @@ function acquireEarthLoader(renderer: THREE.WebGLRenderer, urls: string[]): KTX2
 // are fixed for the intro. Radius stays at 2 so a future orbit system can be
 // added as a sibling group with scale={2} (see plan 002 "Scope").
 export function EarthScene({
-  config,
   state,
   active,
   destinationRef,
@@ -315,7 +312,7 @@ export function EarthScene({
     // where the viewer left it is what makes the return seamless.
     if (!active) return
 
-    const visible = earthVisible(state, config)
+    const visible = earthVisible(state)
     if (groupRef.current) groupRef.current.visible = visible
     if (visible && spinRef.current) {
       // Clamped, like every other integrator in the project — this was the one

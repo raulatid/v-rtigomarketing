@@ -59,7 +59,8 @@ export interface CornerLogo {
   /** Where the header's line is, measured off the DOM by CornerLogoLayer. */
   setCornerMetrics(metrics: CornerMetrics): void
   isDrawable(): boolean
-  startSequence(): void
+  /** `arrival`: see `LogoMotion.start`. */
+  startSequence(arrival?: () => number): void
   snapToCorner(): void
   reset(): void
   dispose(): void
@@ -209,12 +210,12 @@ export function createCornerLogo({
     // the state clock while hidden would make the reveal start mid-spin.
     isDrawable: () => motion.isVisible(),
 
-    startSequence() {
+    startSequence(arrival) {
       if (!modelReady) {
         console.warn('[corner-logo] startSequence called before model ready')
         return
       }
-      motion.start()
+      motion.start(arrival)
     },
 
     snapToCorner() {

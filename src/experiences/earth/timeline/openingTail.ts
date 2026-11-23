@@ -18,7 +18,8 @@
 
 import type { IntroConfig, Phase } from '../config/introConfig'
 import type { SequenceState } from '../config/sequenceState'
-import { cinematicSpeed, easeInOutCubic, narrowPeak } from '../../../utils/easing'
+import { easeInOutCubic } from '../../../utils/easing'
+import { WARP_LIMITS, dollyAmount, speed } from '../../../utils/warpTransition'
 import { orbitRevealDuration } from '../orbit/orbitConfig'
 import type { IntroDrawHandle } from '../../../intro-draw/introDraw'
 import type { CornerLogoHandle } from '../../../corner-logo/cornerLogoConfig'
@@ -104,19 +105,21 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       : {
           shrink: config.shrinkDuration,
           warp: config.warpDuration,
-          swap: config.swapDuration,
         }
   // The logo's spin and flight are driven by its own loop; the tail only holds
   // each phase open for them. Hold `orbits` for whichever finishes last: the
   // logo's flight or the reveal.
   //
-  // `corner` starts when the bloom ends, but the logo's clock started at the
-  // substitution, a bloom earlier, on both ways in. So the logo leaves centre
-  // `spinPauseBefore + spinDuration` after the substitution, and `orbits` has
-  // to begin a bloom short of that or it starts late. Until 2026-11-22 it did,
-  // by 0.385 s, where `orbitsStartOffset`'s comment says 0 is the departure.
-  const bloom = config.swapDuration * (1 - config.swapCrossover)
-  durations.corner = Math.max(config.spinPauseBefore + config.spinDuration - bloom, 0)
+  // The logo's clock starts at the substitution, which is not where `corner`
+  // starts: it is the warp's cut on the first way in, the returning landing's
+  // `swap` (its bloom) on the other. So the logo leaves centre
+  // `spinPauseBefore + spinDuration` after the substitution, and `corner` is
+  // that, less what the phase before it still had to run. Until 2026-11-22 it
+  // did not subtract anything, and `orbits` started 0.385 s late, where
+  // `orbitsStartOffset`'s comment says 0 is the departure.
+  const afterSubstitution =
+    way === 'returning' ? (durations.swap ?? 0) : config.warpDuration * (1 - WARP_LIMITS.cut)
+  durations.corner = Math.max(config.spinPauseBefore + config.spinDuration - afterSubstitution, 0)
   durations.orbits =
     Math.max(config.orbitsStartOffset, 0) +
     Math.max(config.toCornerDuration, orbitRevealDuration(satelliteCount))
@@ -133,6 +136,10 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
   const duration = labels.site ?? 0
 
   let substituted = false
+  // Whether the 3D logo took over at the cut, and the size it comes back from,
+  // which the logo reads every frame while it is at centre.
+  let handedOver = false
+  let arrival = 1
 
   const items: Item[] = []
   const cue = (at: number, run: () => void) => items.push({ kind: 'cue', cue: { at, run } })
@@ -210,62 +217,54 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
       draw.setScale(1 + (shrinkScale - 1) * easeInOutCubic(p)),
     )
 
-    // ── P2 WARP ──
-    // Linear on purpose — the shaping lives in cinematicTravel / cinematicSpeed /
-    // narrowPeak. An ease here would compound with them and break the width
-    // relationship between the three curves.
+    // ── P2 WARP: the Earth <-> Murcia warp's curves (`WARP_LIMITS`) ──
+    // Linear on purpose — the shaping lives in the curves. An ease here would
+    // compound with them and break the width relationship between the three.
+    //
+    // The mark launches at the camera on the way out, growing as a thing
+    // approaching does, and blurring with the speed bell. At the cut, under the
+    // full flash, it changes hands with the 3D logo in one tick, never a
+    // cross-fade (extraction 001 §1), and the logo comes back from the same
+    // size on the arrival while CameraController pulls the camera out from the
+    // planet. Without a model there is nothing to substitute INTO, so the 2D
+    // mark comes back itself and stays at `shrinkScale` (§26.8).
     const warpAt = labels.warp ?? 0
-    enter('warp')
-    motion(warpAt, config.warpDuration, (p) => {
-      state.warpProgress = p
-
-      // AfterimagePass only touches the WebGL framebuffer, so the DOM mark
-      // would otherwise sit pin-sharp through the most violent part of the
-      // warp. Fake the same motion with a CSS filter driven by the very same
-      // speed factor (plan 002 §4.2). cinematicSpeed is a bell, so both return
-      // to zero on their own by progress 1.
-      const speed = cinematicSpeed(p, config.sceneSwapProgress, config.speedPeakWidth)
-      draw.setWarp(speed * config.svgWarpBlur, speed * config.svgWarpStretch)
-    })
-    cue(warpAt + config.warpDuration, () => {
-      state.warpProgress = 1
-      draw.setWarp(0, 0)
-    })
-
-    // ── P3 SWAP (scale-through-zero crossover) ──
-    const swapAt = labels.swap ?? 0
-    enter('swap', () => {
+    enter('warp', () => {
       substituted = false
     })
-    motion(swapAt, config.swapDuration, (p) => {
-      const x = config.swapCrossover
+    motion(warpAt, config.warpDuration, (p) => {
+      state.warpProgress = p
+      const { departing, amount } = dollyAmount(p, WARP_LIMITS)
+      const size = launched(amount, config.launchScale)
 
-      // Without a model there is nothing to substitute INTO, and a
-      // zero-crossing conceals nothing — so hold the 2D mark at full size
-      // rather than collapsing it into an empty frame (§26.8).
-      if (cornerLogo.current?.isReady()) opening.send({ type: 'logo-ready' })
-      if (!canSubstitute(opening.current())) {
-        draw.setScale(shrinkScale)
+      if (!departing && !substituted) {
+        substituted = true
+        if (cornerLogo.current?.isReady()) opening.send({ type: 'logo-ready' })
+        if (canSubstitute(opening.current())) {
+          handedOver = true
+          // Before the start, which reads it on this same tick.
+          arrival = size
+          draw.setVisible(false)
+          cornerLogo.current?.startSequence(() => arrival)
+        }
+      }
+      if (handedOver) {
+        arrival = size
         return
       }
 
-      if (p < x) {
-        // Collapse: power2.in so it is near-vertical at the crossing.
-        const t = p / x
-        draw.setScale(shrinkScale * (1 - t * t))
-      } else if (!substituted) {
-        // Same tick, never a cross-fade (extraction 001 §1).
-        substituted = true
-        draw.setVisible(false)
-        cornerLogo.current?.startSequence()
-      }
-
-      // The same smooth envelope as the planet reveal: zero velocity and
-      // acceleration at the edges and peak, with no delay at the crossing.
-      state.swapOverlay = narrowPeak(p, x, config.swapFlashWidth) * config.swapFlashStrength
+      draw.setScale(shrinkScale * size)
+      // AfterimagePass only touches the WebGL framebuffer, so the DOM mark
+      // would otherwise sit pin-sharp through the most violent part of the
+      // warp. Fake the same motion with a CSS filter driven by the very same
+      // speed bell (plan 002 §4.2), which returns to zero on its own by 1.
+      const bell = speed(p, WARP_LIMITS)
+      draw.setWarp(bell * config.svgWarpBlur, bell * config.svgWarpStretch)
     })
-    cue(swapAt + config.swapDuration, () => {
-      state.swapOverlay = 0
+    cue(warpAt + config.warpDuration, () => {
+      state.warpProgress = 1
+      arrival = 1
+      draw.setWarp(0, 0)
     })
   }
 
@@ -315,6 +314,8 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
     fired.clear()
     begin()
     substituted = false
+    handedOver = false
+    arrival = 1
   }
 
   const advance = (to: number) => {
@@ -367,4 +368,14 @@ export function createOpeningTail(options: OpeningTailOptions): OpeningTail {
 
 function start(item: Item) {
   return item.kind === 'cue' ? item.cue.at : item.motion.at
+}
+
+/**
+ * How big something approaching at a steady speed looks, against its size at
+ * the start: 1 at `amount` 0, `scale` at 1, and growing faster the closer it
+ * gets, as `1 / distance` does. The mark's launch and the logo's return read
+ * the same curve, so the one that comes back is the one that left.
+ */
+function launched(amount: number, scale: number): number {
+  return 1 / (1 - amount * (1 - 1 / Math.max(scale, 1)))
 }

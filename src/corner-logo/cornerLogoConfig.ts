@@ -26,7 +26,8 @@ export interface CornerLogoConfig {
 
 /** Minimal lifecycle exposed to an intro timeline. */
 export interface CornerLogoHandle {
-  startSequence: () => void
+  /** `arrival`: the intro warp's scale for the 3D mark, see `LogoMotion.start`. */
+  startSequence: (arrival?: () => number) => void
   /** Straight to the idle corner pose, with no spin and no flight. */
   snapToCorner: () => void
   isReady: () => boolean

@@ -45,8 +45,16 @@ export const DEFAULT_CORNER_METRICS: CornerMetrics = {
 }
 
 export interface LogoMotion {
-  /** Begins the reveal: bloom up from zero, spin, fly to the corner, idle. */
-  start(): void
+  /**
+   * Begins the reveal: bloom up from zero, spin, fly to the corner, idle.
+   *
+   * With `arrival`, there is no bloom: the mark is there at once, at its full
+   * centre size times `arrival()`, read every frame while it is at centre. The
+   * intro's warp passes it so the logo comes back from the size the 2D mark
+   * launched at, in step with the planet's pull-out (the opening tail owns the
+   * curve, and ends it at exactly 1).
+   */
+  start(arrival?: () => number): void
   /** Straight to the idle corner pose, skipping the spin and the flight. */
   snapToCorner(): void
   update(delta: number): void
@@ -126,6 +134,7 @@ export function createLogoMotion(
 ): LogoMotion {
   let state: State = STATES.HIDDEN
   let stateT = 0
+  let arrival: (() => number) | undefined
   const idle = { rotY: 0, elapsed: 0 }
   const cornerTarget = new THREE.Vector3()
   const modelSize = new THREE.Vector3()
@@ -188,10 +197,11 @@ export function createLogoMotion(
   }
 
   return {
-    start() {
+    start(from) {
       if (state !== STATES.HIDDEN) return
+      arrival = from
       modelGroup.visible = true
-      modelGroup.scale.setScalar(0)
+      modelGroup.scale.setScalar(arrival ? arrival() : 0)
       state = STATES.SPINNING
       stateT = 0
     },
@@ -211,10 +221,14 @@ export function createLogoMotion(
       stateT += delta
 
       if (state === STATES.SPINNING) {
-        // Bloom up from zero as the 2D mark collapses to zero — the crossover
-        // that replaces the particle burst (plan 002 §6.1). power2.out.
-        const bloomT = clamp01(stateT / (config.swapDuration * (1 - config.swapCrossover)))
-        modelGroup.scale.setScalar(1 - (1 - bloomT) * (1 - bloomT))
+        if (arrival) {
+          modelGroup.scale.setScalar(arrival())
+        } else {
+          // Bloom up from zero as the 2D mark collapses to zero — the crossover
+          // that replaces the particle burst (plan 002 §6.1). power2.out.
+          const bloomT = clamp01(stateT / (config.swapDuration * (1 - config.swapCrossover)))
+          modelGroup.scale.setScalar(1 - (1 - bloomT) * (1 - bloomT))
+        }
 
         const t = clamp01(Math.max(stateT - config.spinPauseBefore, 0) / config.spinDuration)
         modelGroup.rotation.y = easeInOutCubic(t) * SPIN_TOTAL_RAD
@@ -255,6 +269,7 @@ export function createLogoMotion(
     reset() {
       state = STATES.HIDDEN
       stateT = 0
+      arrival = undefined
       modelGroup.visible = false
       modelGroup.position.set(0, 0, 0)
       modelGroup.rotation.set(0, 0, 0)

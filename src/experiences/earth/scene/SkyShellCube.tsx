@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { IntroConfig } from '../config/introConfig'
 import { SequenceState } from '../config/sequenceState'
 import { backdropVisible } from '../config/sceneVisibility'
 import { loadProgress } from '../../../loading/progress'
@@ -24,7 +23,6 @@ import shellCubeFragmentShader from '../shaders/sky/shellCube.frag.glsl'
 // where DEBUG_TOOLS_ENABLED is true. See config/protoSky.ts.
 
 interface Props {
-  config: IntroConfig
   state: SequenceState
   active: boolean
 }
@@ -49,7 +47,7 @@ function placeholderCube(): THREE.CubeTexture {
   return cube
 }
 
-export function SkyShellCube({ config, state, active }: Props) {
+export function SkyShellCube({ state, active }: Props) {
   const mesh = useRef<THREE.Mesh>(null)
   const { gl } = useThree()
 
@@ -183,7 +181,7 @@ export function SkyShellCube({ config, state, active }: Props) {
     material.uniforms.uSkyOrientation.value = orientation
 
     if (mesh.current) {
-      mesh.current.visible = uploaded.current && backdropVisible(state, config)
+      mesh.current.visible = uploaded.current && backdropVisible(state)
     }
   })
 

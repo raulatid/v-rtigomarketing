@@ -7,10 +7,11 @@
 // `PointsMaterial` with no map, so every star in it was a square, and adding
 // bloom gave each square a halo that made it obvious.
 //
-// Two consumers, deliberately sharing this rather than each rolling their own:
-// `starShader.ts` (the resting backdrop) and `Starfield.tsx` (the warp tunnel).
-// They differ in blending, attenuation and colour, but a star is a star and
-// they must not drift into looking like two different shapes.
+// Every consumer shares this rather than rolling its own: `starShader.ts`
+// (the resting backdrop) and the satellites' hover cue. The warp tunnel that
+// was the second consumer went with the 2026-11-23 warp. They differ in
+// blending, attenuation and colour, but a point is a point and they must not
+// drift into looking like two different shapes.
 //
 // The squaring is not decoration. A linear falloff reads as a soft blob; the
 // square tightens the core so a bright point keeps a definite centre with a

@@ -11,6 +11,7 @@ import type { CornerLogoHandle } from '../../../corner-logo/cornerLogoConfig'
 import { createOpeningStore, type OpeningStore } from '../../../intro-draw/openingStore'
 import type { Presentation } from '../../../intro-draw/openingMachine'
 import type { OpeningTail } from './openingTail'
+import { WARP_LIMITS } from '../../../utils/warpTransition'
 
 // WHICH WAY IN the intro takes, and that the two ways land identically.
 //
@@ -39,6 +40,10 @@ let reactPhase: Phase
 let markVisible: boolean
 /** The tail's time when the logo's own clock started (the substitution). */
 let logoStartedAt: number | undefined
+/** What the tail handed the logo to scale it by, on the first way in. */
+let logoArrival: (() => number) | undefined
+/** Whether the 3D model has loaded. */
+let logoReady = true
 
 // Stable across renders, as the app's refs are: the hook rebuilds its timeline
 // when one changes identity, and every phase change re-renders.
@@ -55,12 +60,13 @@ const drawRef = {
 }
 const logoRef: { current: CornerLogoHandle } = {
   current: {
-    startSequence: () => {
+    startSequence: (arrival) => {
       log.push('logo:start')
       logoStartedAt = timeline.current?.time
+      logoArrival = arrival
     },
     snapToCorner: () => log.push('logo:corner'),
-    isReady: () => true,
+    isReady: () => logoReady,
   },
 }
 
@@ -118,6 +124,8 @@ beforeEach(() => {
   motion.reduced = false
   // A returning visitor's load normally ends with the mark never shown.
   markVisible = false
+  logoReady = true
+  logoArrival = undefined
   state = createSequenceState()
   log = []
   scales = []
@@ -139,18 +147,75 @@ const landing =
   config.swapDuration * (1 - config.swapCrossover) +
   Math.max(config.toCornerDuration, orbitRevealDuration(SATELLITES))
 
+/** Where the first way in substitutes: the warp's cut, on the tail's clock. */
+const cutAt = config.shrinkDuration + config.warpDuration * WARP_LIMITS.cut
+const shrinkScale = config.shrinkTargetSize / config.introSize
+
 describe('a first visit', () => {
-  it('plays the whole tail, warp included', () => {
+  it('plays the whole tail, warp included, with no swap of its own', () => {
     markVisible = true
     const tl = mount(false)
     expect(log).toContain('draw:shown')
     const phases: Phase[] = []
     walk(tl, tl.duration, phases)
-    expect(phases).toEqual(['shrink', 'warp', 'swap', 'corner', 'orbits', 'site'])
+    expect(phases).toEqual(['shrink', 'warp', 'corner', 'orbits', 'site'])
+    // From the cut, the same landing as the returning visitor's from its swap.
     expect(tl.duration).toBeCloseTo(
-      config.shrinkDuration + config.warpDuration + config.swapDuration + landing,
+      cutAt +
+        config.spinPauseBefore +
+        config.spinDuration +
+        Math.max(config.toCornerDuration, orbitRevealDuration(SATELLITES)),
       6,
     )
+  })
+})
+
+describe('the warp', () => {
+  it('launches the mark at the camera, growing all the way to the cut', () => {
+    markVisible = true
+    const tl = mount(false)
+    walk(tl, tl.labels.warp!, [])
+    scales.length = 0
+    walk(tl, cutAt - 1e-3, [])
+    expect(scales[0]).toBeCloseTo(shrinkScale, 2)
+    for (let i = 1; i < scales.length; i++) expect(scales[i]).toBeGreaterThanOrEqual(scales[i - 1])
+    expect(scales.at(-1)!).toBeGreaterThan(shrinkScale * config.launchScale * 0.9)
+    expect(markVisible).toBe(true)
+    expect(log).not.toContain('logo:start')
+  })
+
+  it('changes hands at the cut, on one tick, into a logo at the launch size', () => {
+    markVisible = true
+    const tl = mount(false)
+    walk(tl, cutAt + 1e-3, [])
+    expect(state.phase).toBe('warp')
+    expect(markVisible).toBe(false)
+    expect(log.slice(-2)).toEqual(['draw:hidden', 'logo:start'])
+    expect(logoStartedAt).toBeCloseTo(cutAt, 2)
+    expect(logoArrival!()).toBeGreaterThan(config.launchScale * 0.9)
+  })
+
+  it('brings the logo back to exactly its own size by the end of the warp', () => {
+    markVisible = true
+    const tl = mount(false)
+    walk(tl, cutAt + 1e-3, [])
+    const sizes: number[] = []
+    for (let i = 1; i <= 40; i++) {
+      act(() => tl.seek(cutAt + ((tl.labels.corner! - cutAt) * i) / 40))
+      sizes.push(logoArrival!())
+    }
+    for (let i = 1; i < sizes.length; i++) expect(sizes[i]).toBeLessThanOrEqual(sizes[i - 1])
+    expect(sizes.at(-1)).toBe(1)
+  })
+
+  it('without a model, brings the 2D mark back instead, and leaves it at the shrunk size', () => {
+    markVisible = true
+    logoReady = false
+    const tl = mount(false)
+    walk(tl, tl.labels.corner!, [])
+    expect(log).not.toContain('logo:start')
+    expect(markVisible).toBe(true)
+    expect(scales.at(-1)).toBeCloseTo(shrinkScale, 6)
   })
 })
 
@@ -158,11 +223,11 @@ describe('the clock', () => {
   it('advances only when stepped, and not while paused', () => {
     markVisible = true
     const tl = mount(false)
-    act(() => tl.step(0.5))
+    act(() => tl.step(0.25))
     expect(tl.time).toBe(0)
     tl.play()
-    act(() => tl.step(0.5))
-    expect(tl.time).toBeCloseTo(0.5, 6)
+    act(() => tl.step(0.25))
+    expect(tl.time).toBeCloseTo(0.25, 6)
     expect(state.phase).toBe('shrink')
   })
 
@@ -293,12 +358,14 @@ describe('a returning visitor', () => {
     expect(state.swapOverlay).toBe(0)
   })
 
-  it('is shorter than the tail it replaces by the shrink and the warp', () => {
+  it('is shorter than the tail it replaces by the shrink and the warp up to its cut', () => {
     const returning = mount(true).duration
     act(() => root.unmount())
     root = createRoot(container)
     const first = mount(false).duration
-    expect(first - returning).toBeGreaterThan(config.warpDuration)
+    // Both land on the logo's own clock from the substitution, so what a
+    // returning visitor is spared is exactly what comes before it.
+    expect(first - returning).toBeCloseTo(config.shrinkDuration + config.warpDuration * WARP_LIMITS.cut, 6)
   })
 
   it('still gets the whole tail on a replay, so every phase stays reachable from /debug', () => {

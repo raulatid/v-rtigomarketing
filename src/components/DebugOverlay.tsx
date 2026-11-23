@@ -54,25 +54,19 @@ const SECTIONS: Array<{ title: string; controls: Control[] }> = [
     controls: [
       { key: 'warpDuration', label: 'Warp', min: 0.8, max: 6, step: 0.1 },
       { key: 'normalFov', label: 'Normal FOV', min: 25, max: 70, step: 1, unit: '°' },
-      { key: 'maxTravelFov', label: 'Travel FOV', min: 45, max: 120, step: 1, unit: '°' },
-      { key: 'accelerationPower', label: 'Accel power', min: 1, max: 4, step: 0.1, unit: '' },
-      { key: 'speedPeakWidth', label: 'Speed width', min: 0.1, max: 0.6, step: 0.02, unit: '' },
-      { key: 'sceneSwapProgress', label: 'Cut point', min: 0.2, max: 0.8, step: 0.02, unit: '' },
-      { key: 'overlayStrength', label: 'Overlay', min: 0, max: 1, step: 0.02, unit: '' },
-      { key: 'motionBlurStrength', label: 'Motion blur', min: 0, max: 1, step: 0.02, unit: '' },
       { key: 'afterimageDampMax', label: 'Blur damp max', min: 0, max: 0.98, step: 0.02, unit: '' },
+      // How much bigger than its shrunk size the mark is at the cut. The rest of
+      // the warp is WARP_LIMITS, the Earth <-> Murcia warp's curves.
+      { key: 'launchScale', label: 'Launch size', min: 1, max: 30, step: 0.5, unit: '×' },
       { key: 'svgWarpBlur', label: 'SVG blur', min: 0, max: 20, step: 0.5, unit: 'px' },
       { key: 'svgWarpStretch', label: 'SVG stretch', min: 0, max: 1.5, step: 0.05, unit: '' },
-      { key: 'starCount', label: 'Stars', min: 200, max: 6000, step: 100, unit: '' },
     ],
   },
   {
-    title: 'P3 swap',
+    title: 'P3 swap — returning visitor only',
     controls: [
       { key: 'swapDuration', label: 'Swap', min: 0.2, max: 2, step: 0.05 },
       { key: 'swapCrossover', label: 'Crossover', min: 0.15, max: 0.85, step: 0.05, unit: '' },
-      { key: 'swapFlashStrength', label: 'Flash', min: 0, max: 1, step: 0.05, unit: '' },
-      { key: 'swapFlashWidth', label: 'Flash width', min: 0.02, max: 0.4, step: 0.01, unit: '' },
     ],
   },
   {

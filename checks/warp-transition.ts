@@ -21,6 +21,9 @@
  * authored plate. So the question is no longer how far the camera SEES but where
  * the camera IS, and section 6 sweeps the same 270k poses to answer it.
  *
+ * Section 8 holds the intro's warp to the same curves: since 2026-11-23 it has
+ * none of its own, and it is driven here through the real opening tail.
+ *
  * Sections 1-2 keep the cheap distance bounds as a first line of defence, but
  * they are only a proxy — since ADR 006 the departure trades distance against
  * elevation, and neither number means anything without section 6.
@@ -64,6 +67,12 @@ import { computeGroundFootprint } from '../src/experiences/murcia/navigation/vie
 import type { GroundFootprint } from '../src/experiences/murcia/navigation/viewportFootprint';
 import { murciaConfig } from '../src/experiences/murcia/config/murciaConfig';
 import { terrainVisualBounds } from '../src/experiences/murcia/environment/createTerrainTransition';
+import { DEFAULT_APP_CONFIG, type IntroConfig } from '../src/experiences/earth/config/introConfig';
+import { createSequenceState } from '../src/experiences/earth/config/sequenceState';
+import { earthVisible } from '../src/experiences/earth/config/sceneVisibility';
+import { createOpeningTail } from '../src/experiences/earth/timeline/openingTail';
+import { createOpeningStore } from '../src/intro-draw/openingStore';
+import type { IntroDrawHandle } from '../src/intro-draw/introDraw';
 
 import { banner, check, finish, section } from './lib/assert';
 
@@ -82,7 +91,7 @@ const targets: MurciaWarpTargets = {
   departElevation: murciaConfig.warpDepartElevationDegrees,
 };
 
-banner('Warp transition — Earth <-> Murcia');
+banner('Warp transition — Earth <-> Murcia, and the intro');
 
 // ---------------------------------------------------------------------------
 section('1. Murcia distance stays inside the safe envelope, per leg');
@@ -728,6 +737,125 @@ check(
   `x${zoomScale(1).toFixed(3)} in, x${zoomScale(-1).toFixed(3)} out — below about 1.5 either ` +
     'way the control stops reading as a zoom',
 );
+
+// ---------------------------------------------------------------------------
+section("8. The intro's warp is this warp");
+
+// Since 2026-11-23 the intro has no warp of its own: the opening tail drives
+// these curves on its own clock, CameraController plays their ARRIVING leg as
+// the camera pulls out to the planet, and the 2D mark changes hands with the 3D
+// logo at the cut. Driven through the real tail and the real visibility
+// predicate, not a description of them.
+
+check(
+  "the site's lens is the lens the surge returns to",
+  DEFAULT_APP_CONFIG.normalFov === WARP_TRANSITION.earthRestFov,
+  `introConfig.normalFov ${DEFAULT_APP_CONFIG.normalFov} against earthRestFov ${WARP_TRANSITION.earthRestFov} — ` +
+    'apart, every warp (the intro\'s and each return from Murcia) ends on a lens step',
+);
+
+const cutState = (warpProgress: number) => ({ ...createSequenceState(), phase: 'warp' as const, warpProgress });
+let earthGatedAtCut = true;
+for (const p of samples) {
+  if (earthVisible(cutState(p)) !== p >= WARP_TRANSITION.cut) earthGatedAtCut = false;
+}
+check(
+  'the planet appears exactly at the cut',
+  earthGatedAtCut,
+  `hidden below progress ${WARP_TRANSITION.cut} and shown from it, across ${samples.length} samples — ` +
+    'the instant the flash peaks',
+);
+
+// The arrival, for both resting radii a viewport can have.
+for (const rest of [INTERACTION_CONFIG.camera.overviewRadius, INTERACTION_CONFIG.camera.desktopOverviewRadius]) {
+  let outward = true;
+  let previous = -Infinity;
+  for (const p of samples) {
+    if (p < WARP_TRANSITION.cut) continue;
+    const radius = earthDollyRadius(rest, dollyAmount(p, WARP_LIMITS).amount, WARP_LIMITS);
+    if (radius < previous) outward = false;
+    previous = radius;
+  }
+  const emerges = earthDollyRadius(rest, dollyAmount(WARP_TRANSITION.cut, WARP_LIMITS).amount, WARP_LIMITS);
+  check(
+    `the arrival pulls out to rest ${rest}, never back in, from outside the planet`,
+    outward && previous === rest && emerges > EARTH_CONFIG.radius && earthFov(1, WARP_LIMITS) === WARP_TRANSITION.earthRestFov,
+    `${emerges.toFixed(2)} -> ${previous.toFixed(2)} against a planet of radius ${EARTH_CONFIG.radius}, ` +
+      `lens back at ${earthFov(1, WARP_LIMITS)} deg`,
+  );
+}
+
+// The change of hands, frame by frame through the real tail.
+for (const fps of [60, 30]) {
+  const sequence = createSequenceState();
+  const opening = createOpeningStore({ returning: false, reducedMotion: false });
+  opening.send({ type: 'readiness', readiness: 'ready' });
+  opening.send({ type: 'fill' });
+  let markScale = 1;
+  let markShown = true;
+  let handedAt: { progress: number; mark: number; logo: number } | null = null;
+  let arrival: (() => number) | undefined;
+  const draw = {
+    isVisible: () => markShown,
+    setVisible: (shown: boolean) => {
+      markShown = shown;
+    },
+    setScale: (scale: number) => {
+      markScale = scale;
+    },
+    setWarp: () => {},
+  } as unknown as IntroDrawHandle;
+  const lastMark = { scale: 1 };
+  const tail = createOpeningTail({
+    config: { ...DEFAULT_APP_CONFIG, introSize: 32 } as IntroConfig,
+    state: sequence,
+    draw,
+    cornerLogo: {
+      current: {
+        isReady: () => true,
+        snapToCorner: () => {},
+        startSequence: (from) => {
+          arrival = from;
+          handedAt = { progress: sequence.warpProgress, mark: lastMark.scale, logo: from ? from() : 0 };
+        },
+      },
+    },
+    satelliteCount: 6,
+    opening,
+  });
+  for (let frame = 0; frame < fps * 30 && !handedAt; frame++) {
+    lastMark.scale = markScale;
+    tail.step(1 / fps);
+  }
+  const shrunk = DEFAULT_APP_CONFIG.shrinkTargetSize / 32;
+  const at = handedAt as { progress: number; mark: number; logo: number } | null;
+  check(
+    `at ${fps} fps, the marks change hands on the first frame past the cut, under the flash`,
+    at !== null && at.progress >= WARP_TRANSITION.cut && flash(at.progress, WARP_LIMITS) > 0.95 && !markShown,
+    at
+      ? `at progress ${at.progress.toFixed(4)}, flash ${flash(at.progress, WARP_LIMITS).toFixed(3)}`
+      : 'the logo was never started',
+  );
+  check(
+    `at ${fps} fps, the logo takes over at the size the mark was growing to`,
+    // The same curve on both sides of the cut: never smaller than the mark's
+    // last frame, which would read as a pop back, and never past the launch.
+    at !== null &&
+      at.logo >= at.mark / shrunk &&
+      at.logo <= DEFAULT_APP_CONFIG.launchScale + 1e-9 &&
+      at.logo > 1,
+    at
+      ? `the mark left at x${(at.mark / shrunk).toFixed(2)} its shrunk size; the logo starts at x${at.logo.toFixed(2)} ` +
+        `of a launch of x${DEFAULT_APP_CONFIG.launchScale}`
+      : 'the logo was never started',
+  );
+  for (let frame = 0; frame < fps * 30 && opening.current().presentation === 'warp'; frame++) tail.step(1 / fps);
+  check(
+    `at ${fps} fps, the logo is exactly its own size when the warp ends`,
+    arrival !== undefined && arrival() === 1,
+    `x${arrival ? arrival() : NaN} as \`${opening.current().presentation}\` begins`,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Counted live. The literal that used to sit here said 32 while this file ran
