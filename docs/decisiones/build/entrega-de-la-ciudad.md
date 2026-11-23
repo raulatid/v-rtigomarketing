@@ -1,6 +1,6 @@
 # La ciudad es una entrega versionada: un GLB y su carpeta de lightmaps
 
-**Estado:** vigente · **Desde:** 2026-09-15 (`3becc4d`: un solo manifiesto, `unifiedManifest.ts`); perfiles mixtos por atlas desde el 2026-09-25 (`745b08b`); todo a 1024 en los dos perfiles desde el 2026-11-18 (v5.2-r4); GLB recuantizado desde el 2026-11-18 (v5.2-r5); entrega v8 sin variantes de 2048 desde el 2026-11-20 (`3df184f`); entrega y topes actuales desde el 2026-09-25 (`21fce78`, `03fd9d8`); topes con nombre desde el 2026-10-20 (`b9b2120`) · **Sustituye a:** DECISIONS §49 en lo que toca a archivos, coste y resolución («Resolution follows the sky's split», «Cost»); `docs/murcia/lightmaps-*-integration.md` y `archivo/murcia/stadium-roof-repair.md` como fuente vigente
+**Estado:** vigente · **Desde:** 2026-09-15 (`3becc4d`: un solo manifiesto, `unifiedManifest.ts`); perfiles mixtos por atlas desde el 2026-09-25 (`745b08b`); todo a 1024 en los dos perfiles desde el 2026-11-18 (v5.2-r4); GLB recuantizado desde el 2026-11-18 (v5.2-r5); entrega v8 sin variantes de 2048 desde el 2026-11-20 (`3df184f`); entrega v9, con ventanas y pretiles de tejado que heredan la luz, desde el 2026-11-23 (`9782348`); entrega y topes actuales desde el 2026-09-25 (`21fce78`, `03fd9d8`); topes con nombre desde el 2026-10-20 (`b9b2120`) · **Sustituye a:** DECISIONS §49 en lo que toca a archivos, coste y resolución («Resolution follows the sky's split», «Cost»); `docs/murcia/lightmaps-*-integration.md` y `archivo/murcia/stadium-roof-repair.md` como fuente vigente
 
 ## Decisión
 
@@ -13,6 +13,7 @@
 
    Un rehorneado se instala soltando archivos: el runtime no guarda una segunda lista de atlas.
 3. **Los receptores los marca el GLB, no el código:** cada nodo horneado lleva `extras.lightmap_atlas` con la clave de su atlas (ver el [contrato de exportación](../../murcia/blender-export-contract.md), §7).
+   **Las ventanas y los pretiles de tejado no tienen luz propia (desde v9).** Llevan `extras.light_inheritance` y ninguna celda de atlas. Cuando `loadUnifiedLightmaps` ya ha iluminado las paredes y los tejados, `inheritLight.ts` sustituye cada uno por mallas que leen los téxeles de su soporte, con un factor de sombra por tipo de cara (`lightInheritance.ts`). Siguen en el horneado como bloqueadores: las paredes se hornean con la sombra de la ventana, que tapa el alféizar. Una ventana o cara sin soporte al alcance lee el soporte más cercano en 5 m; en v9 son 1 ventana de 19.129 y 9 caras de pretil de 12.856. Construirlo cuesta unos 0,45 s en el hilo principal al cargar la ciudad (Chromium headless, 2026-11-23).
 4. **Qué baja cada dispositivo.** `deviceResolution` da la base: 1024 con pantalla estrecha, puntero grueso, pantalla táctil o poca memoria; 2048 en lo demás. La base elige el perfil del manifiesto (`profiles.mobile` o `profiles.desktop`), que fija atlas concretos a otra resolución. `murciaConfig.lightmaps.desktop1024` baja atlas por clave, y una clave que el manifiesto no tiene lanza error.
 5. **El tope de descarga es por perfil y sobre el total, no por archivo:** `LIGHTMAP_BUDGET_BYTES` en `unifiedManifest.ts`. Un manifiesto que lo supera no se aplica. Los valores actuales están aprobados (decisión del usuario, 2026-10-20).
 6. **`unifiedManifest.test.ts` lee la entrega publicada** y comprueba cada KTX2 (firma, dimensiones, mips y bytes contra el manifiesto). También fija el total exacto de cada perfil. Una recodificación cambia ese test en el mismo commit.
@@ -28,6 +29,7 @@
 - Un solo manifiesto convierte un rehorneado en soltar archivos, sin tocar código.
 - Desde r4 los dos perfiles cargan todos los atlas a 1024 (1.837.076 bytes). Con el prototipo de 2026-11-18 el usuario no vio diferencia frente a 2048 en la escena, en escritorio ni en móvil emulado, ni en el acercamiento máximo. Antes, los perfiles mixtos daban prioridad al suelo central, la catedral y los pretiles (`745b08b`). Hasta r5 las variantes de 2048 seguían en la entrega porque `parseUnifiedManifest` exigía las dos, aunque ningún perfil las descargaba. Desde v8 son opcionales y la entrega ya no las trae.
 - En r5 el GLB pesaba 2.615.876 bytes (3.673.964 en r4): Draco con los bits justos por primitiva e instancias en enteros normalizados, con los mismos lightmaps. La receta, sus tolerancias y la revisión en escena están en el [registro de r5](../../murcia/lightmaps-v5.2-r5-integration.md).
+- En v9 el GLB pesa 1.938.604 bytes y los lightmaps, 1.460.576 en 15 atlas (v8: 1.983.652 y 2.052.451 en 20). La herencia de luz quita cinco atlas: las instancias que no son ventanas caben en uno solo (`instances-main-0`), y desaparecen `instances-main-1/2`, `instances-outer-0/1` y `rooftop-parapets`. A cambio, el marco blanco de las ventanas sale más apagado que con su propio horneado (plan 031). El usuario lo aceptó por el peso el 2026-11-22. La cadena está en `murcia-v9`, fuera del repositorio, con su `LEEME.md`.
 - En v8 el GLB pesa 1.983.652 bytes y los lightmaps que se cargan, 2.052.451 en los dos perfiles. Las ventanas viajan como registros de fachada que `facadeRecords.ts` expande, y los props instanciados llevan una máscara de tono con un color por instancia. Cómo se exporta y qué falla está en el [análisis de la cadena de v8](../../audits/reports/murcia-v8-export-pipeline-2026-11-20.md), con cifras de la pasada anterior al arreglo de las ventanas.
 - La base en 1024 para pantallas táctiles y con poca memoria existe porque los atlas se quedan en la GPU desde la intro y la memoria de iOS es el límite (comentario de `chooseLightmapResolution`, `bba196a`).
 
@@ -42,7 +44,8 @@
 ## Se ha roto si…
 
 - Falla `src/experiences/murcia/assets/lightmaps/unifiedManifest.test.ts` (bytes, cabeceras, totales exactos o tope por perfil).
-- Falla `loadUnifiedLightmaps.test.ts`.
+- Falla `loadUnifiedLightmaps.test.ts`, `inheritLight.test.ts` o `facadeRecords.test.ts`.
+- Una ventana o un pretil de tejado sale sin luz, con su material sin hornear.
 - Al cargar la ciudad aparece en la consola `[lightmaps] not applied`, con uno de estos motivos:
   - `exceeds the total download budget`;
   - `missing runtime node`;
@@ -57,4 +60,4 @@
 
 ## Afecta a
 
-`src/experiences/murcia/config/murciaConfig.ts` (`modelPath`, `lightmaps`), `src/experiences/murcia/config/environmentConfig.ts` (`LightmapConfig`), `src/experiences/murcia/assets/lightmaps/` (`unifiedManifest.ts`, `loadUnifiedLightmaps.ts`, `loadLightmaps.ts`, `deviceResolution.ts`, `lightmapManifest.ts`), `src/experiences/murcia/assets/cityBytes.ts`, `src/experiences/murcia/assets/facadeRecords.ts`, `public/models/`, `public/textures/murcia/lightmaps-*/`, `checks/city-asset.ts`, `docs/murcia/lightmaps-v5.2-r5-integration.md` (registro de r5; v8 aún no tiene registro de integración)
+`src/experiences/murcia/config/murciaConfig.ts` (`modelPath`, `lightmaps`), `src/experiences/murcia/config/environmentConfig.ts` (`LightmapConfig`), `src/experiences/murcia/assets/lightmaps/` (`unifiedManifest.ts`, `loadUnifiedLightmaps.ts`, `inheritLight.ts`, `lightInheritance.ts`, `supportIndex.ts`, `loadLightmaps.ts`, `deviceResolution.ts`, `lightmapManifest.ts`), `src/experiences/murcia/assets/cityBytes.ts`, `src/experiences/murcia/assets/facadeRecords.ts`, `public/models/`, `public/textures/murcia/lightmaps-*/`, `checks/city-asset.ts`, `docs/murcia/lightmaps-v5.2-r5-integration.md` (registro de r5; v8 aún no tiene registro de integración)

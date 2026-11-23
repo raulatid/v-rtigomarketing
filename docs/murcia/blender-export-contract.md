@@ -329,6 +329,23 @@ broken; the full `check:asset` asserts rule 2:
 7. **Required names.** The manifest's `requiredNames` lists the nodes that must
    exist (`missing runtime node` otherwise). It belongs to the bake, not to
    code: a re-bake that drops a node has to drop it there too.
+8. **Windows and rooftop parapets inherit their light (since murcia-v9).**
+   They have no atlas cells: the runtime gives each one the light of the wall
+   or roof it stands on (`assets/lightmaps/inheritLight.ts`, rules in
+   `lightInheritance.ts`). The export marks them with
+   `extras.light_inheritance` and **no** `lightmap_atlas`:
+   - `"window"` on the facade-record window nodes, which then carry no
+     `instance_st_grid` (`facadeRecords.ts`);
+   - `"parapet"` on `Rooftop_Parapets__{NE,NW,SE,SW}`.
+
+   They keep `POSITION`, the index and `COLOR_0` (the runtime multiplies it by
+   a shade per kind of face) and need no `TEXCOORD_1`. They stay in the bake
+   scene as blockers: the walls and roofs are baked with their shadow, which
+   is what a window's sill covers. A window or parapet face with no wall or
+   roof within reach reads the nearest support within 5 m, flat. Any other
+   value, or a marked node that is also baked, makes the loader refuse the
+   whole bake; `check:asset:contract` §4b asserts it. The supports are the
+   `Edificios_Procedurales__*` chunks and `CITY_B/C_SIMPLIFIED`.
 
 The atlases are served from a versioned folder,
 `public/textures/murcia/lightmaps-<version>/`, beside **one** `lightmaps.json`

@@ -8,6 +8,7 @@
 2. **`npm run check:asset:contract` está en `check:harnesses` y para el build.** Comprueba lo que, roto, da una ciudad que carga pero no funciona:
    - §3: `EXT_mesh_gpu_instancing` sigue aplicado;
    - §4: no hay luces exportadas;
+   - §4b: los nodos con `extras.light_inheritance` son ventanas de registros de fachada (`"window"`) o pretiles de tejado (`"parapet"`), sin `lightmap_atlas` ni `instance_st_grid`. Desde v9 no tienen luz propia y heredan la de su pared o su tejado (ver [entrega de la ciudad](entrega-de-la-ciudad.md));
    - §5: los nodos del campus (`CAMPUS_BAKED_NODE_NAMES` si el GLB trae `lightmap_atlas`, si no `CAMPUS_NODE_NAMES`), el canal UV de su pantalla (`CAMPUS_SCREEN_UV_CHANNEL`) y que el campus está sobre la placa;
    - §5b: los nodos del blog (`BLOG_BUILDING_NODE_NAMES`; ver [entrada por la pantalla](../blog/entrada-por-la-pantalla.md));
    - §5d: la torre (`VERTIGO_BUILDING`): logos sin rotación ni escala, y la pantalla con su `screenUvChannel`;
@@ -37,7 +38,7 @@ Una regresión de exportación no es un fallo, sino una ciudad más callada: un 
 
 ## Se ha roto si…
 
-- Falla `npm run check:asset:contract` en alguna de sus secciones (3, 4, 5, 5b, 5d, 7, 7b, el techo).
+- Falla `npm run check:asset:contract` en alguna de sus secciones (3, 4, 4b, 5, 5b, 5d, 7, 7b, el techo).
 - Falla `npm run check:asset` en §1 o §2 con un GLB nuevo. No para el build.
 - Al cargar, un nodo con nombre falta (la torre, el campus o el blog se quedan quietos u oscuros) o aparece `[lightmaps] missing runtime node`.
 
