@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 import type { AboutSectionContent, AboutStop } from '../../../content/types';
 import { createCampusOverlay, type OverlayAction, type OverlayCopy } from '../campus/section/campusOverlay';
 import { CAMPUS_DOCK_QUERY } from '../campus/campusMobileLayout';
-import { createAboutCamera } from './aboutCamera';
+import { createAboutCamera, easeArrive } from './aboutCamera';
 import { createAboutCameraAdapter, type AboutCameraRig } from './aboutCameraAdapter';
 import { AboutInteraction } from './aboutInteraction';
 import { createAboutScreenPaging } from './aboutScreenPaging';
@@ -42,8 +42,15 @@ import {
  * read by the host.
  */
 
-/** Seconds: the campus's flight, so every flight in the city keeps one tempo. */
+/** Seconds: the campus's flight, so every flight in the city keeps one tempo but one. */
 const FLIGHT_SECONDS = 1.4;
+/**
+ * Seconds: the one exception, the city→sky leg, flown on `easeArrive` so the
+ * camera is all but there in half of it and the sky stop gets its moment
+ * almost at the click (plan 029b §2.2). Only that leg: the way back down, and
+ * every other flight, keep the city's tempo.
+ */
+const SKY_ARRIVAL_SECONDS = 1.0;
 /** The campus's reduced-motion flight: a cut that still reads as a move. */
 const REDUCED_FLIGHT_SECONDS = 0.12;
 
@@ -231,7 +238,9 @@ export function createAboutSection(options: AboutSectionOptions): AboutSection {
     overlay.hide();
     paging.hide();
     pendingCopy = copyFor(index);
-    camera.flyTo(index, seconds);
+    // Under reduced motion every flight is the same cut.
+    if (index === LAST_STOP && !options.reducedMotion) camera.flyTo(index, SKY_ARRIVAL_SECONDS, easeArrive);
+    else camera.flyTo(index, seconds);
     stopChanged(ABOUT_STOPS[index]!);
   };
 

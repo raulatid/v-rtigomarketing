@@ -32,6 +32,19 @@ import type { AboutPose } from './aboutPoses';
  * standing before the visit.
  */
 
+/** How far along its path a flight is at a fraction of its time, both 0 to 1. */
+export type FlightEase = (t: number) => number;
+
+/**
+ * A flight that arrives early: still a soft start and a soft landing, but at
+ * half its time the camera is 94 % of the way there, where `easeInOutCubic`
+ * is at 50 %. The city→sky leg uses it, so the sky's moment comes almost as
+ * soon as the click (plan 029b §2.2).
+ */
+export function easeArrive(t: number): number {
+  return (1 - Math.pow(1 - t, 4)) * THREE.MathUtils.smoothstep(t, 0, 0.18);
+}
+
 /** World units the camera rises by the warp's cut. */
 const DEPARTURE_RISE = 160;
 /** How far up the view tips by the cut, in degrees above the horizon. */
@@ -53,7 +66,8 @@ export interface AboutCamera {
   readonly stop: number;
   /** From wherever the camera is to stop 0, capturing that pose as the way back. */
   enter(seconds: number): void;
-  flyTo(stop: number, seconds: number): void;
+  /** `ease` is the flight's curve; `easeInOutCubic`, every other flight's, if none. */
+  flyTo(stop: number, seconds: number, ease?: FlightEase): void;
   /** Back to the pose captured on entering; control returns when it lands. */
   exit(seconds: number): void;
   /** Back on the entry pose at once, control returned. Nothing outside a visit. */
@@ -100,6 +114,7 @@ export function createAboutCamera(options: AboutCameraOptions): AboutCamera {
 
   let elapsed = 0;
   let duration = 0;
+  let ease: FlightEase = easeInOutCubic;
   let flying = false;
   let inSection = false;
   let landInOrigin = false;
@@ -134,12 +149,13 @@ export function createAboutCamera(options: AboutCameraOptions): AboutCamera {
     return out;
   };
 
-  const beginFlight = (seconds: number): void => {
+  const beginFlight = (seconds: number, curve: FlightEase = easeInOutCubic): void => {
     from.position.copy(camera.position);
     from.quaternion.copy(camera.quaternion);
     from.look.copy(look);
     elapsed = 0;
     duration = Math.max(0.01, seconds);
+    ease = curve;
     flying = true;
     departingFrom = null;
     take();
@@ -173,11 +189,11 @@ export function createAboutCamera(options: AboutCameraOptions): AboutCamera {
       stopPlacement(0, to);
     },
 
-    flyTo(next, seconds) {
+    flyTo(next, seconds, curve) {
       if (!inSection) return;
       stop = next;
       landInOrigin = false;
-      beginFlight(seconds);
+      beginFlight(seconds, curve);
       stopPlacement(next, to);
     },
 
@@ -225,7 +241,7 @@ export function createAboutCamera(options: AboutCameraOptions): AboutCamera {
       if (!flying) return;
       elapsed += dt;
       const t = clamp01(elapsed / duration);
-      const eased = easeInOutCubic(t);
+      const eased = ease(t);
       camera.position.lerpVectors(from.position, to.position, eased);
       look.lerpVectors(from.look, to.look, eased);
       camera.lookAt(look);

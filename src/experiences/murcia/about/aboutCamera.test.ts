@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it, vi } from 'vitest'
-import { createAboutCamera } from './aboutCamera'
+import { createAboutCamera, easeArrive } from './aboutCamera'
 import type { AboutPose } from './aboutPoses'
 
 // The section's camera on its own: the promises the hand-over rests on. The
@@ -113,5 +113,42 @@ describe('the Conócenos camera', () => {
     poses = STOPS.map((pose) => ({ position: pose.position.clone().addScalar(9), target: pose.target }))
     r.about.reframe()
     expect(r.camera.position.distanceTo(poses[0]!.position)).toBeLessThan(1e-9)
+  })
+
+  it('flies a leg on the curve it is given, and lands on the stop all the same', () => {
+    const halfway = (ease?: (t: number) => number) => {
+      const r = make()
+      r.about.enter(1)
+      r.land()
+      r.about.flyTo(2, 1, ease)
+      r.about.update(0.5)
+      const covered = r.camera.position.distanceTo(STOPS[0]!.position) / STOPS[2]!.position.distanceTo(STOPS[0]!.position)
+      r.land()
+      expect(r.camera.position.distanceTo(STOPS[2]!.position)).toBeLessThan(1e-9)
+      return covered
+    }
+    expect(halfway()).toBeCloseTo(0.5, 6)
+    expect(halfway(easeArrive)).toBeCloseTo(0.9375, 6)
+  })
+})
+
+describe('easeArrive', () => {
+  it('runs from 0 to 1 without overshoot, starting and landing softly', () => {
+    expect(easeArrive(0)).toBe(0)
+    expect(easeArrive(1)).toBe(1)
+    let last = 0
+    for (let i = 1; i <= 1000; i += 1) {
+      const value = easeArrive(i / 1000)
+      expect(value).toBeGreaterThanOrEqual(last)
+      expect(value).toBeLessThanOrEqual(1)
+      last = value
+    }
+    const h = 1e-4
+    expect(easeArrive(h) / h).toBeLessThan(0.01)
+    expect((1 - easeArrive(1 - h)) / h).toBeLessThan(0.01)
+  })
+
+  it('is most of the way there at half its time', () => {
+    expect(easeArrive(0.5)).toBeGreaterThan(0.93)
   })
 })
