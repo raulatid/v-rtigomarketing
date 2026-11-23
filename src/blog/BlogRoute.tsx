@@ -426,6 +426,26 @@ export default function BlogRoute({ route, host }: Props) {
     onMounted?.()
   }, [onMounted])
 
+  // Leaving a WARM blog — the only kind that unmounts — left the focus on
+  // <body>: the scene came back from `inert` with nothing in it focused
+  // (accessibility audit 2026-11-18, D7). It goes to the scene header's Blog
+  // link, the way in from a keyboard, a frame later, once the scene is no
+  // longer inert, and only if nothing took it. Here rather than in App: the
+  // app entry has a byte budget, and this costs it nothing. On a phone the link
+  // is in the closed menu and the focus stays where it was.
+  useEffect(
+    () => () => {
+      requestAnimationFrame(() => {
+        const active = document.activeElement
+        if (active && active !== document.body) return
+        document
+          .querySelector<HTMLElement>('.app__scene .scene-shortcut[data-shortcut="blog"]')
+          ?.focus({ preventScroll: true })
+      })
+    },
+    [],
+  )
+
   const searchIntent = useRef(false)
   const openSearch = () => {
     searchIntent.current = true
@@ -437,15 +457,59 @@ export default function BlogRoute({ route, host }: Props) {
   // reader's place entirely; the heading is the deterministic landing point, and
   // `preventScroll` stops the focus call fighting the scroll restore.
   const target = route.name === 'blog-post' ? route.slug : 'index'
+  // The article the reader last had open, so going back to the index lands on
+  // its card rather than on the h1, off screen above the restored scroll, with
+  // the next Tab jumping to the top (accessibility audit 2026-11-18, B6).
+  const lastArticle = useRef<string | null>(null)
   useEffect(() => {
     const wanted = searchIntent.current
     searchIntent.current = false
     const root = document.querySelector('.blog-root')
     if (root === null) return
     const search = wanted ? root.querySelector<HTMLElement>('.blog-search__input') : null
-    const landing = search ?? root.querySelector<HTMLElement>('[tabindex="-1"]')
+    const origin =
+      !search && target === 'index' && lastArticle.current !== null
+        ? root.querySelector<HTMLElement>(`.blog-card[href="${postPath(lastArticle.current)}"]`)
+        : null
+    const landing = search ?? origin ?? root.querySelector<HTMLElement>('[tabindex="-1"]')
     landing?.focus({ preventScroll: true })
+    lastArticle.current = target === 'index' ? null : target
   }, [target])
+
+  // The page scrolls inside `.blog-root`, not the document, so with the focus
+  // on the header or on <body> the scrolling keys did nothing (B4). Those keys
+  // are passed on to the reading area; Space only from <body>, where it
+  // activates nothing.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return
+      const root = document.querySelector<HTMLElement>('.blog-root')
+      const at = event.target
+      if (root === null || !(at instanceof Element)) return
+      const fromBody = at === document.body || at === document.documentElement
+      const fromHeader = at.closest('.site-header') !== null && !/^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName)
+      if (!fromBody && !fromHeader) return
+      const page = root.clientHeight * 0.9
+      const line = 40
+      const by: Record<string, number | 'top' | 'end'> = {
+        PageDown: page,
+        PageUp: -page,
+        ArrowDown: line,
+        ArrowUp: -line,
+        Home: 'top',
+        End: 'end',
+        ...(fromBody ? { ' ': event.shiftKey ? -page : page } : {}),
+      }
+      const step = by[event.key]
+      if (step === undefined) return
+      event.preventDefault()
+      if (step === 'top') root.scrollTo({ top: 0 })
+      else if (step === 'end') root.scrollTo({ top: root.scrollHeight })
+      else root.scrollBy({ top: step })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // A new article opens at its top (accessibility audit 2026-11-18, B2). The
   // article view reuses one `.blog-root` from post to post, so Anterior,

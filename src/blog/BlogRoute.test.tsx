@@ -119,3 +119,45 @@ describe('links between blog pages', () => {
     expect(host.openPost).toHaveBeenCalledTimes(1)
   })
 })
+
+// Accessibility audit 2026-11-18: B6, D7 and B4.
+describe('where the focus lands in the blog', () => {
+  it('lands on the card of the article the reader came back from (B6)', () => {
+    show({ name: 'blog-post', slug: second!.id })
+    show({ name: 'blog-index', topic: null })
+    expect(document.activeElement?.getAttribute('href')).toBe(`/blog/${second!.id}`)
+  })
+
+  it('gives the focus back to the scene’s Blog link when a warm blog closes (D7)', async () => {
+    const scene = document.body.appendChild(document.createElement('div'))
+    scene.className = 'app__scene'
+    scene.innerHTML = '<a class="scene-shortcut" data-shortcut="blog" href="/blog">Blog</a>'
+    try {
+      show({ name: 'blog-index', topic: null })
+      act(() => root.unmount())
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      expect(document.activeElement?.textContent).toBe('Blog')
+    } finally {
+      root = createRoot(container)
+      scene.remove()
+    }
+  })
+
+  it('scrolls the reading area with the page keys while the focus is outside it (B4)', () => {
+    show({ name: 'blog-post', slug: first!.id })
+    const scroller = container.querySelector<HTMLElement>('.blog-root')!
+    const scrollBy = vi.fn()
+    scroller.scrollBy = scrollBy as unknown as typeof scroller.scrollBy
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    act(() => {
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true, cancelable: true }))
+    })
+    expect(scrollBy).toHaveBeenCalledTimes(1)
+    // Inside the reading area the browser scrolls it itself.
+    act(() => {
+      scroller.querySelector('h1')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true, cancelable: true }))
+    })
+    expect(scrollBy).toHaveBeenCalledTimes(1)
+  })
+})

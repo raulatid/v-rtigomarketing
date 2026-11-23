@@ -253,12 +253,12 @@
 }
 
 @media (hover: hover) {
-  .contact-cta:not(:disabled):hover {
+  .contact-cta:not(:disabled):not([aria-disabled='true']):hover {
     border-color: rgba(150, 185, 255, 0.5);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.3);
   }
 
-  .contact-cta:not(:disabled):hover::before {
+  .contact-cta:not(:disabled):not([aria-disabled='true']):hover::before {
     transform: scaleX(1);
     transform-origin: left center;
   }
@@ -266,16 +266,17 @@
 
 /* Pressed sits DOWN: darker face, shallower shadow, less inner highlight. A
    scale-down said squashy; an elevation drop says pressed. */
-.contact-cta:active,
-.contact-cta:active::before {
+.contact-cta:not([aria-disabled='true']):active,
+.contact-cta:not([aria-disabled='true']):active::before {
   background: var(--accent-pressed);
 }
 
-.contact-cta:active {
+.contact-cta:not([aria-disabled='true']):active {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
-.contact-cta:disabled {
+.contact-cta:disabled,
+.contact-cta[aria-disabled='true'] {
   opacity: 0.7;
   cursor: default;
 }
@@ -283,7 +284,8 @@
 /* In flight: a progress line runs along the button's foot. The only disabled
    CTA in either dialog is one that is sending. It slows towards the end and
    holds short of full, because it does not know when the server will answer. */
-.contact-cta:disabled::after {
+.contact-cta:disabled::after,
+.contact-cta[aria-disabled='true']::after {
   content: '';
   position: absolute;
   left: 0;
@@ -580,7 +582,8 @@
     animation: none;
   }
 
-  .contact-cta:disabled::after {
+  .contact-cta:disabled::after,
+  .contact-cta[aria-disabled='true']::after {
     content: none;
   }
 }

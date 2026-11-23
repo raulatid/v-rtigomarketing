@@ -119,6 +119,10 @@
      above and below one control). Pad by that band so the page starts under
      the bar rather than behind it. */
   padding-top: calc(28px + var(--header-control) + env(safe-area-inset-top));
+  /* The same band for anything scrolled into view by the focus: without it a
+     link reached with Shift+Tab sat whole under the opaque bar (accessibility
+     audit 2026-11-18, B3). A little more than the bar, so the ring shows too. */
+  scroll-padding-top: calc(40px + var(--header-control) + env(safe-area-inset-top));
   /* The scene canvas sets `touch-action: none`; this element is not inside it
      and must keep the browser's own panning and pinch-zoom. */
   touch-action: auto;

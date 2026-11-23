@@ -31,6 +31,8 @@ vi.mock('../content/site', () => ({
   get BOOKING_LABEL() {
     return content.bookingLabel
   },
+  // The success's copy, for the sending test below.
+  FORM_MESSAGES: { contactTitle: 'Mensaje enviado', contactBody: 'Te respondemos pronto.' },
 }))
 
 import { ContactSection } from './ContactSection'
@@ -345,5 +347,40 @@ describe('the contact dialog and Escape', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull()
     expect(behind).not.toHaveBeenCalled()
     window.removeEventListener('keydown', behind)
+  })
+})
+
+// Accessibility audit 2026-11-18, F5: sending kept the focus nowhere, and the
+// success that replaces the form never took it.
+describe('the focus while and after sending', () => {
+  it('keeps it on the busy button, then gives it to the success heading', async () => {
+    let finish: () => void = () => {}
+    const submit = vi.fn(() => new Promise<void>((resolve) => { finish = resolve }))
+    root = createRoot(container)
+    act(() => {
+      root.render(
+        <ContactSection ready triggerHost={null} suppressed={false} onOpenChange={() => {}} onOpenLegal={() => {}} submit={submit} />,
+      )
+    })
+    act(() => document.querySelector<HTMLButtonElement>('.contact-trigger')!.click())
+    act(() => {
+      type(control('name'), 'Ana Pérez')
+      type(control('email'), 'ana@example.com')
+      type(control('message'), 'Queremos medir mejor nuestro SEO este año.')
+    })
+    const cta = document.querySelector<HTMLButtonElement>('.contact-cta')!
+    act(() => {
+      cta.focus()
+      document.querySelector<HTMLFormElement>('.contact-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(cta.disabled).toBe(false)
+    expect(cta.getAttribute('aria-disabled')).toBe('true')
+    expect(document.activeElement).toBe(cta)
+    await act(async () => {
+      finish()
+    })
+    expect(document.activeElement?.tagName).toBe('H2')
+    expect(document.activeElement?.closest('.contact-success')).not.toBeNull()
   })
 })

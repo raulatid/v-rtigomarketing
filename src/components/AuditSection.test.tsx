@@ -259,7 +259,11 @@ describe('audit form submission states', () => {
     submitForm()
     await act(async () => {})
 
-    expect(document.querySelector<HTMLButtonElement>('.audit-cta')!.disabled).toBe(true)
+    // Marked busy rather than disabled, so the focus stays on it (F5 of the
+    // 2026-11-18 accessibility audit); the second press is still refused.
+    const cta = document.querySelector<HTMLButtonElement>('.audit-cta')!
+    expect(cta.getAttribute('aria-disabled')).toBe('true')
+    expect(cta.disabled).toBe(false)
     submitForm()
     expect(submit).toHaveBeenCalledTimes(1)
 

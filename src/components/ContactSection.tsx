@@ -192,6 +192,12 @@ export function ContactSection({
     if (!preview && open) titleRef.current?.focus()
   }, [open, preview])
 
+  // The success replaces the form, and the focus with it: it goes to the
+  // success heading, as the audit's does (accessibility audit 2026-11-18, F5).
+  useEffect(() => {
+    if (!preview && submission === 'success') titleRef.current?.focus({ preventScroll: true })
+  }, [submission, preview])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (preview) return
@@ -418,7 +424,10 @@ export function ContactSection({
                 <button
                   type="submit"
                   className="contact-cta"
-                  disabled={submission === 'submitting'}
+                  // Not `disabled`: a disabled button drops the focus it holds
+                  // to <body> (accessibility audit 2026-11-18, F5). handleSubmit
+                  // already refuses a second send while one is in flight.
+                  aria-disabled={submission === 'submitting' || undefined}
                 >
                   {submission === 'submitting' ? 'Enviando…' : 'Enviar'}
                   <span className="contact-cta__arrow" aria-hidden="true">

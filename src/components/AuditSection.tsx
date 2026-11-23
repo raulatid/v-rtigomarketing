@@ -961,7 +961,9 @@ export function AuditSection({
                   <button
                     type="submit"
                     className="audit-cta"
-                    disabled={submission === 'submitting'}
+                    // Not `disabled`, which drops the focus to <body> (F5); the
+                    // submit handler refuses a second send while one is in flight.
+                    aria-disabled={submission === 'submitting' || undefined}
                   >
                     {submission === 'submitting'
                       ? 'Enviando…'
