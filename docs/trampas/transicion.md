@@ -61,6 +61,14 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 31. **Un efecto que no suena no es un fallo.** Se descarta si su clip no está en `SOUND_EFFECTS`, si aún no se ha decodificado, si el sonido está silenciado, si se repite dentro de su intervalo o si otro momento de la misma tarea lo enmascara (`CUE_MASKS`). Al encender el interruptor tarde, los primeros momentos pueden sonar mudos mientras se decodifican. Fija: `soundEffects.test.ts` (la admisión y el motor sobre una salida falsa), `soundCues.test.ts` (los momentos) y `cueTracker.test.ts`; no el audio real.
 
+32. **La música va en AAC (`.m4a`) o MP3, nunca en WebM.** El 2026-11-24 se pasaron los bucles a Opus en WebM (un tercio del tamaño) y en escritorio todo iba bien, pero en iPhone la música dejó de pasar por Web Audio. Safari reproduce WebM por otra vía que MP3 y AAC, y `createMediaElementSource` no recibe su audio (el [bug 266922 de WebKit](https://bugs.webkit.org/show_bug.cgi?id=266922) describe lo mismo con MSE). Sin el GainNode no hay fundidos ni `MUSIC_VOLUME`, y se nota así en el iPhone:
+    - en el warp, la pista que sale suena entera hasta que su temporizador de pausa (`pauseAfter`) la corta en seco;
+    - la que entra arranca de golpe, a volumen completo, en cuanto se descarga;
+    - las dos se solapan un instante, y al volver de Murcia su música sigue sonando un segundo largo en la Tierra;
+    - los efectos (warp, auditoría, satélites) quedan tapados por una música unos 10 dB más alta de lo previsto.
+
+    Ningún test, ni Chromium, ni Safari de escritorio lo detectan. Cualquier cambio de formato o de contenedor de la música se prueba en un iPhone real, escuchando el warp en los dos sentidos y un efecto. Lo mismo vale para Ogg y para cualquier formato que Safari no reproduzca por la vía nativa. La receta vigente está en `CREDITS.md`.
+
 ## Cómo verificar esta área
 
 | Cambio | Comprobación |
@@ -70,7 +78,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 | Ciclo de la transición, giro de Earth, bloqueo | `useExperienceTransition.test.tsx`, `departureAim.test.ts`, `departureContinuity.test.ts`, `navigationMachine.test.ts` |
 | Vacío, ruta de render, bloom, afterimage | `SceneCanvas.test.tsx` |
 | Precalentado | `whileRevealed.test.ts`; `e2e/boot.spec.ts` si se pide e2e |
-| Música y efectos | `audioOutput.test.ts`, `backgroundMusic.test.ts`, `soundEffects.test.ts`, `soundCues.test.ts`, `cueTracker.test.ts`; `e2e/blog.spec.ts` si se pide e2e; el momento de cada efecto, a oído |
+| Música y efectos | `audioOutput.test.ts`, `backgroundMusic.test.ts`, `soundEffects.test.ts`, `soundCues.test.ts`, `cueTracker.test.ts`; `e2e/blog.spec.ts` si se pide e2e; el momento de cada efecto, a oído; un cambio de formato de la música, en un iPhone real (n.º 32) |
 | Recorrido completo, móvil, movimiento reducido | `npm run e2e` (`navigation`, `mobile`, `motion-preference`), solo si se pide |
 
 **Sin cobertura:**
@@ -80,6 +88,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 - `earthRestFov == normalFov`;
 - el desenfoque de movimiento con movimiento reducido (hoy no se suprime);
 - la pose de llegada a Earth con movimiento reducido;
-- el momento del fundido de la música y de cada efecto de sonido.
+- el momento del fundido de la música y de cada efecto de sonido;
+- que el formato de la música pase por Web Audio en iOS (n.º 32): solo se comprueba en un iPhone real.
 
 **Posible defecto sin verificar en navegador:** con movimiento reducido, al volver a Earth la cámara podría mostrar la pose de salida obsoleta desde el corte y saltar a la vista general cuando termina la cinemática, después de que el destello ya se haya despejado.
