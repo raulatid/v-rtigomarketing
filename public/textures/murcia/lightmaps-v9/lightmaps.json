@@ -1,336 +1,336 @@
 {
-  "preparedSHA256": "33391c05909e6083c1eff385b10b63c741a8226fa48c7aca1d4028b70f044fc7",
-  "sourceSHA256": "bdc22adc6f2fd7b77d13533352647cf2a48102337daf56375767d28e4268c0d8",
+  "preparedSHA256": "d71c3bd4a26562864e546270b39fda019019bbe41482904d19846ce278353625",
+  "sourceSHA256": "010c78b8291312fe4a198392cec4582dc3ad47bc723d580fbee00a58a9cc28ef",
   "uvChannel": 1,
   "samples": 64,
   "atlases": {
     "ground-NE": {
       "linearScale": 4.0,
       "threeLightMapIntensity": 12.566370614359172,
-      "maximum": 2.82472825050354,
+      "maximum": 2.8247275352478027,
       "masterResolution": 2048,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "ground-NE.exr": "6746287365c3957833992853989b3b5ca24b138047fd8133b74ca4b7c3ebd018",
-        "ground-NE-1024.png": "3477eb1a30087db6c94dc2f0afa7474882a02451984b7b556968d2c852051f1e"
+        "ground-NE.exr": "c4f14b6fc4d2ecc53194d61c2e5720a37967940783fe4719bee72470acf0dc2b",
+        "ground-NE-1024.png": "1555ad389dbb683bf7091812ab2560ac88cd9bebb8469e47a2497f0eea17fe1d"
       },
       "variants": {
         "1024": {
           "file": "ground-NE-1024.ktx2",
-          "bytes": 90797,
+          "bytes": 90665,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 35.45410199950857
+          "psnr": 35.54598848682927
         }
       }
     },
     "ground-NW": {
       "linearScale": 4.0,
       "threeLightMapIntensity": 12.566370614359172,
-      "maximum": 3.6054182052612305,
+      "maximum": 3.605417013168335,
       "masterResolution": 2048,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "ground-NW.exr": "ecbe2f21d99e99ccff75b8eec784da883c88c95d53dae3468d09bf5c87a5d355",
-        "ground-NW-1024.png": "f128576679d62f680a64af84990faf97e7def9438fa9850ac0e061e3cb018bb4"
+        "ground-NW.exr": "0ddfc09da617c4ab96e00fed0b892a4c9857d58932ab7af7695057a4b0b70d6a",
+        "ground-NW-1024.png": "7ab3273d2c5abd9d52459b3283dfb79a02dd01eff08a0db41f04b644f09cd5fa"
       },
       "variants": {
         "1024": {
           "file": "ground-NW-1024.ktx2",
-          "bytes": 79474,
+          "bytes": 79883,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 34.072302863744575
+          "psnr": 34.093202932848136
         }
       }
     },
     "ground-Outer": {
       "linearScale": 2.0,
       "threeLightMapIntensity": 6.283185307179586,
-      "maximum": 1.1975129842758179,
+      "maximum": 1.1975127458572388,
       "masterResolution": 2048,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "ground-Outer.exr": "92a6632ecdc8457609a7088db0befbe6faca1ee2bfb568c5d69ecdd887d3f56d",
-        "ground-Outer-1024.png": "7573b4346484c2b11bf4376282541700cab677c538d68871fa841c19cab0f13b"
+        "ground-Outer.exr": "3954abc0cb359d532e08235a21f0d1b760dca5a8eba8db64d6a44f592f7bb43c",
+        "ground-Outer-1024.png": "4aaccc9f974b05f0e35deb3083395904ffc6fd7621c8e4f1e4e7abba98619ca2"
       },
       "variants": {
         "1024": {
           "file": "ground-Outer-1024.ktx2",
-          "bytes": 73422,
+          "bytes": 73357,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 35.260173789089734
+          "psnr": 35.26168143786531
         }
       }
     },
     "ground-Ring": {
       "linearScale": 2.0,
       "threeLightMapIntensity": 6.283185307179586,
-      "maximum": 1.7891544103622437,
+      "maximum": 1.7891541719436646,
       "masterResolution": 2048,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "ground-Ring.exr": "aff04baa4b2919bc9acbb965be2a453040571c97f2fa9dcb55db43497f64dd9e",
-        "ground-Ring-1024.png": "921ae15276aac5b20908e12b734766a6a64780f8549b734130586893b00efef3"
+        "ground-Ring.exr": "8c891b8269109381134d02ce48ebbfea27c12df68d92b761e3c794a401194638",
+        "ground-Ring-1024.png": "ba5d7ff60d3dcea540f3b6588a309235da2a186cc284b6e122316434bbf51225"
       },
       "variants": {
         "1024": {
           "file": "ground-Ring-1024.ktx2",
-          "bytes": 63799,
+          "bytes": 63909,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 34.62912558311647
+          "psnr": 34.63886744647643
         }
       }
     },
     "ground-SE": {
       "linearScale": 4.0,
       "threeLightMapIntensity": 12.566370614359172,
-      "maximum": 2.984816312789917,
+      "maximum": 2.984816074371338,
       "masterResolution": 2048,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "ground-SE.exr": "831e76aded1c8088e84cfeb5c95648a7e0549b3d663d2c08c9522a09dae29cb2",
-        "ground-SE-1024.png": "3b35045edfd7569d47574781b03a71af6c64bbf1fad1e98f877ce23d1b273d6b"
+        "ground-SE.exr": "b2db7d41d754a0d6e18e5e498a07cbf212e207b4d98da28fc67b9da38b25a096",
+        "ground-SE-1024.png": "c103850ee967309eb221f4eac66a03b575214fdd4b152197cd0231b3820db15b"
       },
       "variants": {
         "1024": {
           "file": "ground-SE-1024.ktx2",
-          "bytes": 67199,
+          "bytes": 67602,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 34.44824548227868
+          "psnr": 34.48293800497156
         }
       }
     },
     "ground-SW": {
       "linearScale": 4.0,
       "threeLightMapIntensity": 12.566370614359172,
-      "maximum": 3.3456695079803467,
+      "maximum": 3.345669746398926,
       "masterResolution": 2048,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "ground-SW.exr": "048e4cc5f146511e921cfbee27cb0e46b48de8822c0aaabe2ffdd9f7c108335f",
-        "ground-SW-1024.png": "555bacfa9ee55b5bc64c537562b0b8b22c81d1c33a57ff6f87f456f1c1d364f9"
+        "ground-SW.exr": "ea3aa5392fda65bd3f99aca5275bb311efc1bc21bb32a0d0d299de271ad6dec6",
+        "ground-SW-1024.png": "d7dea2e324ede1d823aa576a4e49ac82d7988370b6ecf5e86bd5228c87690b76"
       },
       "variants": {
         "1024": {
           "file": "ground-SW-1024.ktx2",
-          "bytes": 65642,
+          "bytes": 65804,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 33.49264920666136
+          "psnr": 33.51876160821773
         }
       }
     },
     "instances-main-0": {
       "linearScale": 8.0,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.103446960449219,
+      "maximum": 4.402500152587891,
       "masterResolution": 2048,
       "bakeMargin": 16,
       "samples": 64,
       "masters": {
-        "instances-main-0.exr": "f94fdaffe4e8e43a3b286d3a54098b13a635453f1b23999bbe94fb6cb65328a5",
-        "instances-main-0-1024.png": "6d37d04316d6b7486ccab1cb96101e5d3e1b89e3802a23c687a03dcd1db6baec"
+        "instances-main-0.exr": "2f2b58e12d8822b9ecd1844e968fcc2d5505f0b22d0cc337507ec2e0cc71c261",
+        "instances-main-0-1024.png": "9d7ac0a5cb78c4d023745430f900cc5d580f1871a8692fe22b532323ea7b5d95"
       },
       "variants": {
         "1024": {
           "file": "instances-main-0-1024.ktx2",
-          "bytes": 179659,
+          "bytes": 176299,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 192,
-          "psnr": 31.95885318644729
+          "psnr": 32.11533801225495
         }
       }
     },
     "landmark-cathedral": {
       "linearScale": 8.0,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.891792297363281,
+      "maximum": 4.886512279510498,
       "masterResolution": 4096,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "landmark-cathedral.exr": "aec7f939cb11b81a00f12c8920a8b65a13582afc19c00b38863e14fdcf39b2be",
-        "landmark-cathedral-1024.png": "86275133315c97f2219e6965440fcaada5a291b9bcfb1dfa4baa34547bc44528"
+        "landmark-cathedral.exr": "f26cce713327797770c24b68b2630d9036ea4b5167674c2fd10fb7e6fdaee46c",
+        "landmark-cathedral-1024.png": "d4f6769e513e3ab1d3305969c0ed4c2aaca8d645b46e28d0e90a1ce6d09bd8a8"
       },
       "variants": {
         "1024": {
           "file": "landmark-cathedral-1024.ktx2",
-          "bytes": 98604,
+          "bytes": 98470,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 33.52785386993634
+          "psnr": 33.5329690889451
         }
       }
     },
     "landmark-vertigo-campus": {
       "linearScale": 8.0,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.837585926055908,
+      "maximum": 4.837586402893066,
       "masterResolution": 2048,
       "bakeMargin": 2,
       "samples": 64,
       "masters": {
-        "landmark-vertigo-campus.exr": "b2343c17b6d5154ee3f32a8700f0bd8a74b56f7aaa875ef7ce391708097ed562",
-        "landmark-vertigo-campus-1024.png": "bf507be93be0be906318a5d892c75abb87932a0c06b578436df43d7b4bec1500"
+        "landmark-vertigo-campus.exr": "3d3404f9c292f10a3dc08669aaaa19b140b99ef9980d47d61054f4009e90fddc",
+        "landmark-vertigo-campus-1024.png": "d50a89531c5af24346dfc9c111c9a3f29dffc9bf5bc3f19a5ed31e90f283a600"
       },
       "variants": {
         "1024": {
           "file": "landmark-vertigo-campus-1024.ktx2",
-          "bytes": 77084,
+          "bytes": 77101,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 192,
-          "psnr": 33.722009175697096
+          "psnr": 33.70454577083031
         }
       }
     },
     "outer-buildings": {
       "linearScale": 2.0,
       "threeLightMapIntensity": 6.283185307179586,
-      "maximum": 1.4384983777999878,
+      "maximum": 1.4384987354278564,
       "masterResolution": 2048,
       "bakeMargin": 2,
       "samples": 64,
       "masters": {
-        "outer-buildings.exr": "e95a002f43117401cd45239319ccd05bdbfa6fa93c4fef5199f73e64a8831163",
-        "outer-buildings-1024.png": "730bbcf3ff6f73a839865e161d945e44957ab0eeedea5432c6f0a359049438ac"
+        "outer-buildings.exr": "3f673db214c0f518bcdd45d159d6238f0e1937767262da90c18cce3356f0ef90",
+        "outer-buildings-1024.png": "4ff25dba13743afd9d8d07d3b313cece8711372add91f98d4ddf858a5b78cf36"
       },
       "variants": {
         "1024": {
           "file": "outer-buildings-1024.ktx2",
-          "bytes": 102986,
+          "bytes": 103037,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 32,
-          "psnr": 25.73092240865215
+          "psnr": 25.738695404729654
         }
       }
     },
     "outer-ring-b": {
       "linearScale": 4.0,
       "threeLightMapIntensity": 12.566370614359172,
-      "maximum": 2.7108089923858643,
+      "maximum": 2.7108092308044434,
       "masterResolution": 2048,
       "bakeMargin": 2,
       "samples": 64,
       "masters": {
-        "outer-ring-b.exr": "73b380b7a5722ade1aab3dc9416d656bbde8da50cde595c255015c3bd0af17cd",
-        "outer-ring-b-1024.png": "a1cd08bd99bd057efe7c72208a0d670240a91f4af7c3dca36d57cce4ef76e02c"
+        "outer-ring-b.exr": "d6d0e37194474198ee51c5222dbcddf0704bb5e17f38adc5abbc4372d6e20889",
+        "outer-ring-b-1024.png": "673691a927cd678a16231637b70b4c6e8118cb514649701028126ecb5faeb908"
       },
       "variants": {
         "1024": {
           "file": "outer-ring-b-1024.ktx2",
-          "bytes": 145293,
+          "bytes": 145422,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 30.770182160508547
+          "psnr": 30.77140208379095
         }
       }
     },
     "static-NE": {
       "linearScale": 8.0,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.360864639282227,
+      "maximum": 4.360865116119385,
       "masterResolution": 2048,
       "bakeMargin": 3,
       "samples": 64,
       "masters": {
-        "static-NE.exr": "d2ae5275fe66349d921816d00d42e6f854efdec18a954f05ae6de5e396ba7d76",
-        "static-NE-1024.png": "3cbdc8726ca47e02241fce7473484edb1deffaa561e824e2b5c0edde247de51b"
+        "static-NE.exr": "eca33d8221eb6b7f5f8ccbbc00bece82db094cf2b3d7400de8789f4f8bed52bf",
+        "static-NE-1024.png": "9d9865ffc30a27ce83e919b1b48b5b15653e0860cd3a16764f39ff76a9cce0c1"
       },
       "variants": {
         "1024": {
           "file": "static-NE-1024.ktx2",
-          "bytes": 113071,
+          "bytes": 113342,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 33.44602690460715
+          "psnr": 33.41920492380869
         }
       }
     },
     "static-NW": {
       "linearScale": 8.0,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.502580165863037,
+      "maximum": 4.502579689025879,
       "masterResolution": 4096,
       "bakeMargin": 6,
       "samples": 64,
       "masters": {
-        "static-NW.exr": "c71508f80215240593a1784f49248f71023c2a8f8942dde2c5715a2d861512f2",
-        "static-NW-1024.png": "b0c136cb1f08c70f7e546a930e644c77ce9384e16c6c9d87f8cde82399a9eeaf"
+        "static-NW.exr": "83b1ac0e0418797f7a2d6fc179dc3986bb18e5c3946ef3ec83bca84e281d1dad",
+        "static-NW-1024.png": "ae7d6e61775ae355c1979970f6ebd51b49a45470215d5800bbf029a1704da1c2"
       },
       "variants": {
         "1024": {
           "file": "static-NW-1024.ktx2",
-          "bytes": 121510,
+          "bytes": 121061,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 33.28304780830541
+          "psnr": 33.22019076879892
         }
       }
     },
     "static-SE": {
       "linearScale": 8.0,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.1010966300964355,
+      "maximum": 4.10109806060791,
       "masterResolution": 2048,
       "bakeMargin": 3,
       "samples": 64,
       "masters": {
-        "static-SE.exr": "0179190d378e24379063e4a820161a8dd45a9409490e890848f6cd2fab03bffb",
-        "static-SE-1024.png": "6fbb6f38fe487b71c0830257fd5a206a74589126fd03a07800846267a6ad34d6"
+        "static-SE.exr": "faaf1d5270fc9d80ce59efcbb666f82eb75950e7dc1489bf9ee69aa37fbd860f",
+        "static-SE-1024.png": "e44cda081ca63afe6a5bfce3e15bc9fc1bb3254e3af99c8bca298577c87072cb"
       },
       "variants": {
         "1024": {
           "file": "static-SE-1024.ktx2",
-          "bytes": 83796,
+          "bytes": 83913,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 80,
-          "psnr": 35.103661882321234
+          "psnr": 35.01623828838416
         }
       }
     },
     "static-SW": {
       "linearScale": 8.0,
       "threeLightMapIntensity": 25.132741228718345,
-      "maximum": 4.321134567260742,
+      "maximum": 4.3182549476623535,
       "masterResolution": 2048,
       "bakeMargin": 3,
       "samples": 64,
       "masters": {
-        "static-SW.exr": "02516cea072ab38bdb3395b7465eb52bc7d83810f3517ee23c095af132794e0e",
-        "static-SW-1024.png": "5671a947373cc366edf00f556eb5c4f6504a333e10c3c18f405f8766fc40ef49"
+        "static-SW.exr": "3f6b75fb51df8f2857ba4b0e39594e9f606fda2f38fea001ea4573bb280afc56",
+        "static-SW-1024.png": "278f38d789727225d6fd315ca460a20dc5b43ffab97cf8d934f39e7a2f4c2e6f"
       },
       "variants": {
         "1024": {
           "file": "static-SW-1024.ktx2",
-          "bytes": 98240,
+          "bytes": 98263,
           "mipLevels": 1,
           "codec": "etc1s",
           "quality": 128,
-          "psnr": 34.99601134642355
+          "psnr": 34.86711403100112
         }
       }
     }
@@ -338,7 +338,7 @@
   "profiles": {
     "desktop": {
       "resolution": 1024,
-      "totalBytes": 1460576,
+      "totalBytes": 1458128,
       "budgetBytes": 6500000,
       "atlasCount": 15,
       "atlasResolutions": {
@@ -361,7 +361,7 @@
     },
     "mobile": {
       "resolution": 1024,
-      "totalBytes": 1460576,
+      "totalBytes": 1458128,
       "budgetBytes": 4500000,
       "atlasCount": 15,
       "atlasResolutions": {

@@ -35,7 +35,7 @@ describe('the selected unified bake contract', () => {
       const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + selectedVariant(shipped, key, size).bytes, 0);
       // Both profiles load every atlas at 1024 since r4.
       expect(new Set(selected.values())).toEqual(new Set([1024]));
-      expect(loadedBytes).toBe(1_460_576);
+      expect(loadedBytes).toBe(1_458_128);
       expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_500_000 : 6_500_000);
     }
   });
