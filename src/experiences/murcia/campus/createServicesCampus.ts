@@ -288,13 +288,13 @@ export async function createServicesCampus(
     id: options.content.id,
   });
 
+  // The way in only: the plate pages and closes itself with real buttons,
+  // which take the focus on the way in (M3), so these would only repeat them
+  // (M11). Escape still leaves from anywhere.
   const a11y = new DistrictA11y(options.container, options.content.label, locale, {
     onEnter: () => {
       enter();
     },
-    onPrevious: () => campus.previous(),
-    onNext: () => campus.next(),
-    onBack: () => campus.back(),
   });
 
   const total = content.services.length;
