@@ -114,6 +114,14 @@ export function createRioWater(config: RioWaterConfig): RioWater {
       uFresnelPower: { value: config.fresnelPower },
       uFresnelBias: { value: config.fresnelBias },
 
+      uCrestLight: { value: config.crestLight },
+      uZenithReflection: { value: config.zenithReflection },
+      uCloudScale: { value: config.cloudScale },
+      uCloudContrast: { value: config.cloudContrast },
+      uReflectionDistortion: { value: config.reflectionDistortion },
+      uStreakStrength: { value: config.streakStrength },
+      uStreakScale: { value: config.streakScale },
+
       uBankSegments: {
         value: Array.from({ length: MAX_BANK_SEGMENTS }, () => new THREE.Vector4()),
       },
@@ -156,6 +164,14 @@ export function createRioWater(config: RioWaterConfig): RioWater {
 
     u['uFresnelPower']!.value = next.fresnelPower;
     u['uFresnelBias']!.value = next.fresnelBias;
+
+    u['uCrestLight']!.value = next.crestLight;
+    u['uZenithReflection']!.value = next.zenithReflection;
+    u['uCloudScale']!.value = next.cloudScale;
+    u['uCloudContrast']!.value = next.cloudContrast;
+    u['uReflectionDistortion']!.value = next.reflectionDistortion;
+    u['uStreakStrength']!.value = next.streakStrength;
+    u['uStreakScale']!.value = next.streakScale;
   };
 
   applyConfig(config);

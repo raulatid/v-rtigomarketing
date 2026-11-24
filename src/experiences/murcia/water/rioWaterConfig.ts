@@ -68,6 +68,32 @@ export interface RioWaterConfig {
   fresnelPower: number;
   /** Reflectance at normal incidence. 0.02 is water's physical value. */
   fresnelBias: number;
+
+  // ---- Seen from above --------------------------------------------------
+  // With the camera high, fresnel is ~0 everywhere and the surface used to
+  // read as one flat colour. Nothing below depends on the view angle, and
+  // none of it is a sun.
+  /**
+   * How much lighter the ripple crests are than the troughs, as a fraction of
+   * the water colour. 0 turns it off.
+   */
+  crestLight: number;
+  /**
+   * How far the reflected clouds swing the water's brightness either way,
+   * looking straight down, where fresnel carries no sky at all. Centred on
+   * zero, so the average stays the authored colour. 0 turns it off.
+   */
+  zenithReflection: number;
+  /** Size of the reflected cloud patches, in METRES. */
+  cloudScale: number;
+  /** How far the clouds swing the sky colour either way. 0 = one flat sky. */
+  cloudContrast: number;
+  /** How far the ripples bend the reflected clouds, in METRES. */
+  reflectionDistortion: number;
+  /** Opacity of the thin lines the current draws along the flow. 0 = none. */
+  streakStrength: number;
+  /** Spacing of those lines across the flow, in METRES. */
+  streakScale: number;
 }
 
 /**
@@ -100,4 +126,12 @@ export const DEFAULT_RIO_WATER_CONFIG: RioWaterConfig = {
 
   fresnelPower: 4,
   fresnelBias: 0.02,
+
+  crestLight: 0.3,
+  zenithReflection: 0.25,
+  cloudScale: 40,
+  cloudContrast: 0.45,
+  reflectionDistortion: 6,
+  streakStrength: 0.35,
+  streakScale: 3,
 };

@@ -1,7 +1,8 @@
 // Rio water — fragment stage.
 //
 // Layered so each contribution can be read on its own: ripple normals, then the
-// bank ramp, then fresnel-to-sky, then the wall shadow.
+// bank ramp and the crests, then the clouded sky under fresnel, then the current
+// streaks, then the wall shadow.
 //
 // TONE MAPPING AND COLOUR SPACE ARE HANDLED HERE, AT THE BOTTOM, AND THAT IS
 // NOT OPTIONAL. three applies tone mapping in-shader only for its own
@@ -40,6 +41,17 @@ uniform vec3 uWallShadowColor;
 
 uniform float uFresnelPower;
 uniform float uFresnelBias;
+
+// Seen from above, fresnel is ~0 and the hemi term ~1, so the ripples had no
+// way left to show and the water read as flat paint. These three do not depend
+// on the view angle. None of them is a sun: see the `5e9cefb` note.
+uniform float uCrestLight;
+uniform float uZenithReflection;
+uniform float uCloudScale;
+uniform float uCloudContrast;
+uniform float uReflectionDistortion;
+uniform float uStreakStrength;
+uniform float uStreakScale;
 
 /**
  * The bank outline as world-space segments (xz of one end, xz of the other),
@@ -232,10 +244,50 @@ void main() {
   float depth = smoothstep(0.0, max(uShoreWidth, 0.001), bank);
   vec3 waterColor = mix(uShallowColor, uDeepColor, depth);
 
+  // ---- Crests -----------------------------------------------------------
+  // The ripple height itself, lighter on the crests and darker in the troughs.
+  // View-independent, so it is what keeps the ripples legible looking straight
+  // down. field.x sits around -0.35..0.35.
+  waterColor *= 1.0 + uCrestLight * field.x * 2.0;
+
   // ---- Sky / fresnel ----------------------------------------------------
+  // The sky is not one colour: a slow cloud field, sampled where the rippled
+  // normal points, so the reflection wobbles with the water. Fixed in the
+  // world rather than following the camera, because there is no sky to agree
+  // with; it only has to move like a reflection does.
+  float cloudScale = max(uCloudScale, 0.001);
+  vec2 cloudPos = (vWorldPosition.xz + normal.xz * uReflectionDistortion) / cloudScale
+    + uTime * vec2(0.011, 0.004);
+  float cloud = gradientNoiseD(cloudPos).x + 0.5 * gradientNoiseD(cloudPos * 2.03 + 17.1).x;
+  cloud = smoothstep(-0.35, 0.55, cloud);
+  vec3 sky = uSkyColor * mix(1.0 - 0.5 * uCloudContrast, 1.0 + uCloudContrast, cloud);
+
   float fresnel = uFresnelBias
     + (1.0 - uFresnelBias) * pow(1.0 - saturate(dot(viewDir, normal)), uFresnelPower);
-  vec3 color = mix(waterColor, uSkyColor, fresnel);
+  vec3 color = mix(waterColor, sky, fresnel);
+
+  // Straight down the fresnel above is ~0 and carries nothing. The clouds
+  // come through anyway as a brightness swing around the water's own colour,
+  // centred on zero so the colour authored in Blender stays the average.
+  color *= 1.0 + uZenithReflection * (cloud * 2.0 - 1.0);
+
+  // ---- Current streaks --------------------------------------------------
+  // Thin lighter lines drawn out along the flow axis and carried by it, the
+  // way a current marks its surface. Ridged noise: 1 - |n| peaks on the zero
+  // set of the noise, which is a thin wandering line. A second, coarse noise
+  // breaks them into patches so they never read as rails. Faded with distance
+  // like the ripple octaves, before the lines turn into sparkle.
+  vec2 acrossAxis = vec2(-axis.y, axis.x);
+  float streakScale = max(uStreakScale, 0.001);
+  vec2 streakPos = vec2(
+    (dot(vWorldPosition.xz, axis) - uTime * uFlowSpeed * 100.0) * 0.1,
+    dot(vWorldPosition.xz, acrossAxis)
+  ) / streakScale;
+  float ridge = 1.0 - abs(gradientNoiseD(streakPos).x) * 2.4;
+  float streak = pow(saturate(ridge), 6.0);
+  float patches = smoothstep(-0.1, 0.4, gradientNoiseD(streakPos * vec2(0.5, 0.25) + 41.7).x);
+  float streakFade = 1.0 - smoothstep(0.15, 0.45, length(fwidth(streakPos)));
+  color = mix(color, sky * 1.1, streak * patches * streakFade * uStreakStrength);
 
   // ---- Ambient ----------------------------------------------------------
   // A hemispheric term matching the scene rig in spirit: sky from above, the
