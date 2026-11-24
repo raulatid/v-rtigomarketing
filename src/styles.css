@@ -458,6 +458,9 @@ html {
 /* ---- Case panel charts (see CaseChart.tsx) ---- */
 
 .case-chart {
+  /* Anchors the clipped data paragraph (.case-chart__data), so it rides the
+     panel's scroll with its figure. */
+  position: relative;
   margin: 0;
   color: #fff;
 }
@@ -562,6 +565,17 @@ html {
   margin-left: auto;
   color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
+}
+
+/* The series as text, for screen readers only (CaseChart.tsx, T3). */
+.case-chart__data {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Only ever seen while it plays: at rest the result is the dot alone. */

@@ -166,6 +166,16 @@ function DonutChart({ values, labels }: { values: number[]; labels?: string[] })
   )
 }
 
+/**
+ * The series as text, for screen readers (T3 of the 2026-11-18 accessibility
+ * audit): the line, area and bar SVGs are `aria-hidden`, so the figure read
+ * as its title and nothing else. Each value in order, with its label when it
+ * has one, in Spanish number format. The donut's legend already says its data.
+ */
+export function chartData({ values, labels }: CaseChartData): string {
+  return values.map((v, i) => (labels?.[i] ? labels[i] + ': ' : '') + v.toLocaleString('es')).join('; ')
+}
+
 export function CaseChart({ chart }: Props) {
   // Every value must be a finite number, and there must be at least one.
   //
@@ -196,7 +206,11 @@ export function CaseChart({ chart }: Props) {
       {chart.type === 'line' && <LineChart values={chart.values} filled={false} />}
       {chart.type === 'area' && <LineChart values={chart.values} filled />}
       {chart.type === 'bars' && <BarChart values={chart.values} labels={chart.labels} />}
-      {chart.type === 'donut' && <DonutChart values={chart.values} labels={chart.labels} />}
+      {chart.type === 'donut' ? (
+        <DonutChart values={chart.values} labels={chart.labels} />
+      ) : (
+        <p className="case-chart__data">{chartData(chart)}</p>
+      )}
     </figure>
   )
 }
