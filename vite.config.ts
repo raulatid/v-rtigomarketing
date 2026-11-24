@@ -201,6 +201,8 @@ function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   if (isLegalPanelChunk(chunk)) return false
   // The vantage claim loads only for the visitor holding the final vantage point.
   if (isClaimDialogChunk(chunk)) return false
+  // The contact form loads on intent: hover or focus on Contacto, or its click.
+  if (isContactDialogChunk(chunk)) return false
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
   if (isObserverDebugChunk(chunk)) return false
@@ -233,6 +235,10 @@ function isLegalPanelChunk(chunk: OutputChunk): boolean {
 
 function isClaimDialogChunk(chunk: OutputChunk): boolean {
   return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/ClaimDialog.tsx') === true
+}
+
+function isContactDialogChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('src/components/ContactDialog.tsx') === true
 }
 
 function isBlogRouteChunk(chunk: OutputChunk): boolean {
@@ -568,6 +574,7 @@ function assertChunkBudgets(): Plugin {
       for (const [label, isExcluded] of [
         ['src/components/LegalPanel.tsx', isLegalPanelChunk],
         ['src/components/ClaimDialog.tsx', isClaimDialogChunk],
+        ['src/components/ContactDialog.tsx', isContactDialogChunk],
         ['src/blog/BlogSurface.tsx', isBlogSurfaceChunk],
         [TRAFFIC_MODULE, isTrafficChunk],
       ] as const) {

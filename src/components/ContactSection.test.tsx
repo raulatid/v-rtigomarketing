@@ -35,6 +35,16 @@ vi.mock('../content/site', () => ({
   FORM_MESSAGES: { contactTitle: 'Mensaje enviado', contactBody: 'Te respondemos pronto.' },
 }))
 
+const preload = vi.hoisted(() => vi.fn())
+
+// The form is a lazy chunk in the app (LazyContactDialog.tsx); here it is the
+// component itself, so the dialog mounts in the same render as the open, and
+// what is tested is the form rather than React.lazy (LazyContactDialog.test.tsx).
+vi.mock('./LazyContactDialog', async () => ({
+  ContactDialog: (await import('./ContactDialog')).ContactDialog,
+  preloadContactDialog: preload,
+}))
+
 import { ContactSection } from './ContactSection'
 import { SubmissionError } from '../app/submissionError'
 
@@ -519,5 +529,68 @@ describe('what the contact form tells a screen reader', () => {
     content.bookingUrl = 'https://calendly.com/vertigo/30min'
     openDialog()
     expect(document.querySelector('.contact-booking')!.textContent).toContain('(se abre en otra pestaña)')
+  })
+})
+
+// Since 2026-11-24 the form is a lazy chunk (LazyContactDialog.tsx), mounted
+// at the first open and kept after it: the trigger asks for it on intent, and
+// what the visitor wrote outlives a close as it did with the form in here.
+describe('the form loaded on intent', () => {
+  function mount(submit?: () => Promise<void>) {
+    root = createRoot(container)
+    act(() => {
+      root.render(
+        <ContactSection ready triggerHost={null} suppressed={false} onOpenChange={() => {}} onOpenLegal={() => {}} submit={submit} />,
+      )
+    })
+    return document.querySelector<HTMLButtonElement>('.contact-trigger')!
+  }
+
+  function send() {
+    act(() => {
+      type(control('name'), 'Ana Pérez')
+      type(control('email'), 'ana@example.com')
+      type(control('message'), 'Queremos medir mejor nuestro SEO este año.')
+    })
+    act(() => {
+      document.querySelector<HTMLFormElement>('.contact-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+  }
+
+  function closeAndReopen(trigger: HTMLButtonElement) {
+    act(() => document.querySelector<HTMLButtonElement>('.modal-close')!.click())
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    act(() => trigger.click())
+  }
+
+  it('asks for the chunk on hover and on focus, and mounts nothing before the first open', () => {
+    preload.mockClear()
+    const trigger = mount()
+    expect(document.querySelector('.contact-panel')).toBeNull()
+    act(() => trigger.dispatchEvent(new PointerEvent('pointerover', { bubbles: true })))
+    act(() => trigger.focus())
+    expect(preload).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the words after an error, through a close and a reopen', async () => {
+    const trigger = mount(() => Promise.reject(new Error('down')))
+    act(() => trigger.click())
+    send()
+    await act(async () => {})
+    expect(document.querySelector('.contact-form__error')).not.toBeNull()
+    closeAndReopen(trigger)
+    expect(control('name').value).toBe('Ana Pérez')
+    expect(document.querySelector('.contact-form__error')).toBeNull()
+  })
+
+  it('starts empty after a success, through a close and a reopen', async () => {
+    const trigger = mount(() => Promise.resolve())
+    act(() => trigger.click())
+    send()
+    await act(async () => {})
+    expect(document.querySelector('.contact-success')).not.toBeNull()
+    closeAndReopen(trigger)
+    expect(document.querySelector('.contact-success')).toBeNull()
+    expect(control('name').value).toBe('')
   })
 })

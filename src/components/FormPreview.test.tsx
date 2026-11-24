@@ -6,6 +6,16 @@ import { ContactSection } from './ContactSection'
 import { AuditSection } from './AuditSection'
 import { auditView } from '../app/auditView'
 
+const preload = vi.hoisted(() => vi.fn())
+
+// The form is a lazy chunk in the app (LazyContactDialog.tsx); here it is the
+// component itself, so the dialog mounts in the same render as the open, and
+// what is tested is the form rather than React.lazy (LazyContactDialog.test.tsx).
+vi.mock('./LazyContactDialog', async () => ({
+  ContactDialog: (await import('./ContactDialog')).ContactDialog,
+  preloadContactDialog: preload,
+}))
+
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 let root: Root
 let container: HTMLDivElement

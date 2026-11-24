@@ -107,7 +107,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 
 ### Formularios
 - [Backend de los formularios](decisiones/formularios/backend-de-formularios.md): dos funciones del mismo origen; éxito solo si se entrega; sin clave en producción, error.
-- [Diálogo de contacto, teléfonos y ©](decisiones/formularios/dialogo-de-contacto.md): el pie lleva solo el ©; teléfonos y reserva en el diálogo; enlaces legales en la auditoría.
+- [Diálogo de contacto, teléfonos y ©](decisiones/formularios/dialogo-de-contacto.md): el pie lleva solo el ©; teléfonos y reserva en el diálogo; enlaces legales en la auditoría; el formulario se carga por intención, fuera de `/`.
 - [Rangos del formulario de auditoría](decisiones/formularios/rangos-del-formulario-de-auditoria.md): facturación y presupuesto son listas de Sanity; la etiqueta es el valor; el servidor exige el conjunto cerrado.
 
 ### Privacidad
