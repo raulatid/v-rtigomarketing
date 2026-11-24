@@ -173,6 +173,19 @@ function isObserverDebugChunk(chunk: OutputChunk): boolean {
 }
 
 /**
+ * The `/debug` tuning console, loaded on demand by App on that path of a
+ * non-production build and absent from production. It used to be a static
+ * import, which put it in the app entry of every preview and failed
+ * ENTRY_BUDGET_BYTES there. Excluded from the preload loop for the meter's
+ * reason: no visitor of `/` opens it.
+ */
+const DEBUG_PANEL_MODULE = 'src/components/DebugOverlay.tsx'
+
+function isDebugPanelChunk(chunk: OutputChunk): boolean {
+  return chunk.facadeModuleId?.replace(/\\/g, '/').endsWith(DEBUG_PANEL_MODULE) === true
+}
+
+/**
  * Murcia's ambient traffic (routes, schedule, instancing), imported on demand
  * by MurciaExperience while the city loads during the Earth intro. A cold `/`
  * draws Earth first and has no use for it.
@@ -206,6 +219,7 @@ function isPreloadedOnIndex(chunk: OutputChunk): boolean {
   if (isHeaderLogoChunk(chunk)) return false
   if (isStatsChunk(chunk)) return false
   if (isObserverDebugChunk(chunk)) return false
+  if (isDebugPanelChunk(chunk)) return false
   // The city imports its traffic while it loads, behind the Earth intro.
   if (isTrafficChunk(chunk)) return false
   // The city starts prefetchBlog() on approach; cold / does not need the route.
@@ -487,6 +501,24 @@ function assertChunkBudgets(): Plugin {
           `expected exactly one chunk faced by ${OBSERVER_DEBUG_MODULE} outside production, ` +
             `found ${observerDebug.length}. If it was merged into another chunk, the exclusion ` +
             'in isPreloadedOnIndex is excluding nothing and / is preloading authoring tools.',
+        )
+      }
+
+      // The /debug console, on the same two rules: absent from production,
+      // and singular elsewhere so its preload exclusion cannot fail open.
+      const debugPanel = chunks.filter(isDebugPanelChunk)
+      if (IS_PRODUCTION && debugPanel.length > 0) {
+        this.error(
+          `the /debug console is in the production bundle ` +
+            `(${debugPanel.map((c) => c.fileName).join(', ')}). App must keep importing it ` +
+            'dynamically, behind DEBUG_TOOLS_ENABLED.',
+        )
+      }
+      if (!IS_PRODUCTION && debugPanel.length !== 1) {
+        this.error(
+          `expected exactly one chunk faced by ${DEBUG_PANEL_MODULE} outside production, ` +
+            `found ${debugPanel.length}. If it was merged into another chunk, the exclusion ` +
+            'in isPreloadedOnIndex is excluding nothing and / is preloading the debug console.',
         )
       }
 

@@ -9,9 +9,9 @@
    - el panel legal (`src/components/LegalPanel.tsx`), el diálogo de reclamación del punto de vista (`src/components/ClaimDialog.tsx`) y el formulario de Contacto (`src/components/ContactDialog.tsx`, desde el 2026-11-24: se pide al pasar el puntero o el foco por el botón, o al pulsarlo; ver [diálogo de contacto](../formularios/dialogo-de-contacto.md));
    - la ruta del blog (`isBlogRouteChunk`) y su marco (`isBlogSurfaceChunk`), que la ciudad pide al empezar la aproximación;
    - la marca 3D de la cabecera del blog (`isHeaderLogoChunk`);
-   - las herramientas de depuración (`isStatsChunk`, `isObserverDebugChunk`; ver [depuración fuera de producción](depuracion-fuera-de-produccion.md)).
+   - las herramientas de depuración (`isStatsChunk`, `isObserverDebugChunk`, `isDebugPanelChunk` desde el 2026-11-24; ver [depuración fuera de producción](depuracion-fuera-de-produccion.md)).
 3. **Una exclusión tiene que ser una costura perezosa de verdad.** El build falla si un chunk del conjunto inicial importa de forma estática uno excluido.
-4. **Toda exclusión exige que su chunk exista y sea único:** `BlogRoute`, `BlogSurface`, `LegalPanel`, `ClaimDialog`, `ContactDialog` y la marca del blog en todos los sabores; stats y el overlay de autoría fuera de producción (en producción, ninguno).
+4. **Toda exclusión exige que su chunk exista y sea único:** `BlogRoute`, `BlogSurface`, `LegalPanel`, `ClaimDialog`, `ContactDialog` y la marca del blog en todos los sabores; stats, el overlay de autoría y el panel `/debug` fuera de producción (en producción, ninguno).
 5. **Los chunks se identifican por su módulo de origen, no por su nombre:** Vite deriva los nombres y no son estables. Un chunk que Rollup corta para dos consumidores no tiene fachada, así que `BlogSurface` y stats se buscan entre los módulos del chunk.
 6. **Lo que no hace falta para el primer fotograma tras la intro se precarga con `fetchpriority="low"`:** hoy, `MurciaExperience` y `disposal`.
 
@@ -39,4 +39,4 @@
 
 ## Afecta a
 
-`vite.config.ts` (`introEntry`, `isPreloadedOnIndex`, `isLegalPanelChunk`, `isClaimDialogChunk`, `isContactDialogChunk`, `isBlogRouteChunk`, `isBlogSurfaceChunk`, `isHeaderLogoChunk`, `isStatsChunk`, `isObserverDebugChunk`, `assertChunkBudgets`), `scripts/publicationPolicy.ts` (`isBlogDocument`, `isNotFoundDocument`), `src/components/LazyScene.tsx`, `src/components/LazyBlog.tsx`, `src/components/LazyLegalPanel.tsx`, `src/components/LazyClaimDialog.tsx`, `src/blog/BlogHeaderLogo.tsx`, `src/notFound/NotFoundLogo.tsx`, `e2e/blog.spec.ts`, `e2e/degraded.spec.ts`
+`vite.config.ts` (`introEntry`, `isPreloadedOnIndex`, `isLegalPanelChunk`, `isClaimDialogChunk`, `isContactDialogChunk`, `isBlogRouteChunk`, `isBlogSurfaceChunk`, `isHeaderLogoChunk`, `isStatsChunk`, `isObserverDebugChunk`, `isDebugPanelChunk`, `assertChunkBudgets`), `scripts/publicationPolicy.ts` (`isBlogDocument`, `isNotFoundDocument`), `src/components/LazyScene.tsx`, `src/components/LazyBlog.tsx`, `src/components/LazyLegalPanel.tsx`, `src/components/LazyClaimDialog.tsx`, `src/blog/BlogHeaderLogo.tsx`, `src/notFound/NotFoundLogo.tsx`, `e2e/blog.spec.ts`, `e2e/degraded.spec.ts`

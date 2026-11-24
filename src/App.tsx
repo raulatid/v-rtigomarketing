@@ -1,6 +1,8 @@
 import { createNavigationState } from './app/navigation/continuousState'
 import { auditView } from './app/auditView'
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -28,7 +30,6 @@ import { SiteMenuLayer, SiteMenuStage } from './components/SiteMenu'
 import { SiteHeader } from './components/SiteHeader'
 import type { LegalDocId } from './content/site'
 import { InteractionHandle } from './experiences/earth/interaction/InteractionLayer'
-import { DebugOverlay } from './components/DebugOverlay'
 import { CustomCursor } from './components/CustomCursor'
 import { NavigationControl } from './components/NavigationControl'
 import { EarthHint } from './components/EarthHint'
@@ -78,10 +79,17 @@ import { LazyBlog, prefetchBlog } from './components/LazyBlog'
 // actually wanted: real hardware, real network, nobody watching.
 //
 // The flag is a compile-time literal, so in a production build this is `false &&
-// ...` and the whole DebugOverlay import is dropped by the minifier — which the
-// app entry chunk needs, sitting at 94% of its hard budget.
+// ...` and the dynamic import below folds away: production emits no chunk for
+// the panel (asserted in vite.config.ts).
 const DEBUG_MODE =
   DEBUG_TOOLS_ENABLED && window.location.pathname.replace(/\/+$/, '') === '/debug'
+
+// Loaded on demand rather than imported: a static import put the panel in the
+// app entry of every non-production build, past ENTRY_BUDGET_BYTES, so preview
+// deployments failed to build. Its chunk is excluded from `/`'s preload loop.
+const DebugOverlay = DEBUG_MODE
+  ? lazy(() => import('./components/DebugOverlay').then((module) => ({ default: module.DebugOverlay })))
+  : null
 
 export default function App() {
   const [config, setConfig] = useState<IntroConfig>(defaultIntroConfig)
@@ -1081,16 +1089,18 @@ export default function App() {
       {/* Route-gated as well as build-gated: a viewer who opened the blog from
           /debug would otherwise get a 210-line tuning console at z 100 on top of
           an article. */}
-      {DEBUG_MODE && !blogOpen && (
-        <DebugOverlay
-          config={config}
-          phase={phase}
-          onChange={setConfig}
-          onReplay={handleReplay}
-          onSeek={handleSeek}
-          onSkip={handleSkip}
-          timeline={timeline}
-        />
+      {DebugOverlay && !blogOpen && (
+        <Suspense fallback={null}>
+          <DebugOverlay
+            config={config}
+            phase={phase}
+            onChange={setConfig}
+            onReplay={handleReplay}
+            onSeek={handleSeek}
+            onSkip={handleSkip}
+            timeline={timeline}
+          />
+        </Suspense>
       )}
     </div>
   )

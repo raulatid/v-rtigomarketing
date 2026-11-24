@@ -7,8 +7,8 @@
 1. **`__VERTIGO_ENV__` es un literal que inyecta `define` en `vite.config.ts`.** Así `DEBUG_TOOLS_ENABLED` (`src/platform/buildFlags.ts`) se pliega a una constante y el minificador elimina de producción las ramas de depuración, incluido el panel `/debug`. Qué entorno es producción lo decide [producción y preview](produccion-y-preview.md).
    - Cada condición tiene que leer `DEBUG_TOOLS_ENABLED`, no solo un booleano guardado en un campo o pasado al constructor: eso no se pliega, y la rama llega a producción aunque nunca se ejecute. Por eso `MurciaExperience` solo construye `MurciaDebugTools`, `DebugOverlay` e `InteractionProbe`, y solo expone sus costuras de test (`__vertigoCamera`, `__vertigoCampus`, `__vertigoAbout`, `__vertigoBlogDisplayPoint`), detrás del literal (2026-10-23).
 2. **`DEBUG_TOOLS_ENABLED` se escribe como una sola expresión en línea**, sin pasar por una función: esbuild no propaga una constante a través de una llamada.
-3. **Lo que el minificador no puede eliminar se carga con import dinámico detrás de `DEBUG_TOOLS_ENABLED`:** el medidor de FPS (`stats.js`, desde `MurciaDebugTools`) y el overlay de autoría del punto de vista (`observer/observerDebug.ts`, desde `MurciaExperience`).
-4. **El build comprueba las dos mitades:** en producción no puede haber chunk de stats ni del overlay; fuera de producción tiene que haber exactamente uno de cada.
+3. **Lo que el minificador no puede eliminar se carga con import dinámico detrás de `DEBUG_TOOLS_ENABLED`:** el medidor de FPS (`stats.js`, desde `MurciaDebugTools`), el overlay de autoría del punto de vista (`observer/observerDebug.ts`, desde `MurciaExperience`) y, desde el 2026-11-24, el panel `/debug` (`src/components/DebugOverlay.tsx`, desde `App.tsx`, solo en esa ruta). El panel sí se plegaba en producción, pero como import estático entraba en la entrada de todo preview y la pasaba de su techo (ver [JS inicial de la portada](js-inicial-de-la-portada.md), punto 3).
+4. **El build comprueba las dos mitades:** en producción no puede haber chunk de stats, del overlay ni del panel; fuera de producción tiene que haber exactamente uno de cada.
 5. **Fuera de producción esos chunks existen, pero no se precargan en `/`** (ver [precarga de la portada](precarga-de-la-portada.md)).
 
 ## Por qué
@@ -27,11 +27,11 @@
 
 ## Se ha roto si…
 
-- `vite build` de producción falla con «stats.js is in the production bundle» o «the vantage authoring overlay is in the production bundle».
-- `vite build` fuera de producción falla con «expected exactly one stats.js chunk outside production» o «expected exactly one chunk faced by src/experiences/murcia/observer/observerDebug.ts outside production».
+- `vite build` de producción falla con «stats.js is in the production bundle», «the vantage authoring overlay is in the production bundle» o «the /debug console is in the production bundle».
+- `vite build` fuera de producción falla con «expected exactly one stats.js chunk outside production», «expected exactly one chunk faced by src/experiences/murcia/observer/observerDebug.ts outside production» o «expected exactly one chunk faced by src/components/DebugOverlay.tsx outside production».
 - Falla `e2e/production-hygiene.spec.ts` («production has no development output at …», incluida `/debug?stats=1&debugNavigation=1`). Solo corre contra un build con `VERCEL_ENV=production`.
 - Que el minificador elimine una rama concreta: sin test (solo stats y el overlay tienen aserción).
 
 ## Afecta a
 
-`vite.config.ts` (`define`, `STATS_MODULE`, `isStatsChunk`, `OBSERVER_DEBUG_MODULE`, `isObserverDebugChunk`, `assertChunkBudgets`), `src/platform/buildFlags.ts`, `src/App.tsx`, `src/experiences/murcia/debug/MurciaDebugTools.ts`, `src/experiences/murcia/debug/DebugOverlay.ts`, `src/experiences/murcia/interaction/InteractionProbe.ts`, `src/experiences/murcia/MurciaExperience.ts`, `src/experiences/murcia/observer/observerDebug.ts`, `e2e/production-hygiene.spec.ts`
+`vite.config.ts` (`define`, `STATS_MODULE`, `isStatsChunk`, `OBSERVER_DEBUG_MODULE`, `isObserverDebugChunk`, `DEBUG_PANEL_MODULE`, `isDebugPanelChunk`, `assertChunkBudgets`), `src/platform/buildFlags.ts`, `src/App.tsx`, `src/components/DebugOverlay.tsx`, `src/experiences/murcia/debug/MurciaDebugTools.ts`, `src/experiences/murcia/debug/DebugOverlay.ts`, `src/experiences/murcia/interaction/InteractionProbe.ts`, `src/experiences/murcia/MurciaExperience.ts`, `src/experiences/murcia/observer/observerDebug.ts`, `e2e/production-hygiene.spec.ts`
