@@ -131,7 +131,11 @@
   width: auto;
   height: auto;
   left: max(16px, env(safe-area-inset-left));
-  top: max(16px, env(safe-area-inset-top));
+  /* Under the header's line, not on it: at the top corner the logo's target
+     (`.scene-home`, z 70) covered part of the label (M10 of the 2026-11-18
+     accessibility audit). The line's own tokens (siteHeader.css) already
+     carry the notch. */
+  top: calc(var(--header-line-top) + var(--header-control) + 8px);
   clip-path: none;
   padding: 10px 16px;
   min-height: 44px;
