@@ -64,6 +64,8 @@ import { CAMPUS_BUILDING_NODE_NAMES } from './campus/campusConfig';
 import { findByAnyNameSpelling } from './assets/nodeNames';
 import { createTowerLogo } from './landmark/createTowerLogo';
 import { createCityMark, NIGHT_FOG, NIGHT_LIGHT, type CityMark } from './about/createCityMark';
+import { createCityMarkHologram } from './about/cityMarkHologram';
+import { PROTO_CITY_MARK } from './about/protoCityMark';
 import type { TowerLogo } from './landmark/createTowerLogo';
 import type { Traffic } from './traffic/createTraffic';
 import { deviceResolution } from './assets/lightmaps/deviceResolution';
@@ -241,6 +243,8 @@ export class MurciaExperience {
   private towerLogo: TowerLogo | null = null;
   /** The isotype drawn over the darkened city at Conócenos' city stop. Built after the city loads. */
   private cityMark: CityMark | null = null;
+  /** The city mark's hologram, hidden at birth: compiled in `warm()` with the rest. */
+  private cityMarkPrecompile: readonly THREE.Object3D[] = [];
   /** The city's night last laid on the fog, the dome's horizon and the river. See `applyCityNight`. */
   private appliedNight = 0;
   /** The tower's LED screen: its compositions, taking turns on the carousel. */
@@ -550,6 +554,7 @@ export class MurciaExperience {
       ...(this.campus?.precompileTargets ?? []),
       ...(this.blogDisplay?.precompileTargets ?? []),
       ...(this.aboutSky?.precompileTargets ?? []),
+      ...this.cityMarkPrecompile,
     ];
 
     // One zero-length tick first, so the campus's strip paints its canvas and
@@ -1535,7 +1540,17 @@ export class MurciaExperience {
     // Only with a section to draw it for. Built before `warm()`, so the city's
     // patched materials compile once, with the city; after the hover tints,
     // whose clones are patched with the rest.
-    this.cityMark = createCityMark(root, VERTIGO_BUILDING, this.traffic ? [this.traffic.group] : [], logo);
+    // The 3D isotype, in the air over the city; its pose and sizes are
+    // tunable from the URL in a debug build only (`protoCityMark.ts`): the
+    // literal gate first, so a production build drops the parser.
+    const hologram = createCityMarkHologram({
+      ...(DEBUG_TOOLS_ENABLED ? PROTO_CITY_MARK : { pose: 'stand' as const }),
+      origin: logo,
+      reducedMotion: this.reducedMotion,
+    });
+    this.sceneBundle.scene.add(hologram.object3D);
+    this.cityMarkPrecompile = hologram.precompileTargets;
+    this.cityMark = createCityMark(root, VERTIGO_BUILDING, this.traffic ? [this.traffic.group] : [], logo, hologram);
     // The CMS's cases with an isotype, one satellite each. Imported at this
     // level, like the screen's slides, so `about/` takes whatever it is handed.
     this.aboutSky = createAboutSky({

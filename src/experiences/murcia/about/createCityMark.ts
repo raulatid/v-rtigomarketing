@@ -73,6 +73,24 @@ export interface CityMark {
 }
 
 /**
+ * The 3D isotype over the city (`cityMarkHologram.ts`), handed in by the
+ * host: placed and drawn on this mark's clock. Declared here so this module
+ * imports nothing of it.
+ */
+export interface CityMarkHologram {
+  readonly object3D: THREE.Object3D;
+  /** Hidden at birth: compiled in `warm()` with the rest. */
+  readonly precompileTargets: readonly THREE.Object3D[];
+  /** What the ground still draws under it: the fill, or nothing. */
+  readonly ground: 'fill' | 'none';
+  /** The stop's camera, posed; where in its frame the mark goes; the mark's side; the ground's height. */
+  place(camera: THREE.PerspectiveCamera, ndc: THREE.Vector2, size: number, groundY: number): void;
+  /** The drawing at this frame, its clock in seconds (negative before the pen starts), and the stop's strength, 0..1. */
+  update(drawing: MarkDrawing, seconds: number, strength: number, delta: number): void;
+  dispose(): void;
+}
+
+/**
  * The light the city keeps at full night, as a linear multiplier: about a
  * tenth of it (the plan's `DIM` towards 0.9, from 0.75), and a cold blue
  * rather than a grey, so the drawn isotype is the light of the picture.
@@ -105,6 +123,16 @@ const FRAME_CORNERS = [
 const FADE_SECONDS = 1.2;
 /** Canvas side, in pixels: uploaded once per frame while the pen moves, and never again. */
 const CANVAS_SIDE = 1024;
+const CANVAS_PAD = 24;
+const CANVAS_SCALE = (CANVAS_SIDE - CANVAS_PAD * 2) / Math.max(VIEWBOX.width, VIEWBOX.height);
+
+/**
+ * A point of the isotype's viewBox in the mark's plane, as the shader reads the
+ * canvas: u to the view's right and v away from the eye, both -0.5..0.5.
+ */
+export function markPlanePoint(x: number, y: number): [number, number] {
+  return [(CANVAS_PAD + x * CANVAS_SCALE) / CANVAS_SIDE - 0.5, 0.5 - (CANVAS_PAD + y * CANVAS_SCALE) / CANVAS_SIDE];
+}
 const STROKE = 6;
 const DOT_RADIUS = 9;
 /**
@@ -164,13 +192,14 @@ interface MarkCanvas {
   draw(seconds: number): void;
 }
 
-function markCanvas(): MarkCanvas {
+/** `outline`: false leaves the outline to a hologram in the air; `fill`: false leaves the ground blank. */
+function markCanvas(outline = true, fill = true): MarkCanvas {
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_SIDE;
   canvas.height = CANVAS_SIDE;
   const context = canvas.getContext('2d')!;
-  const pad = 24;
-  const scale = (CANVAS_SIDE - pad * 2) / Math.max(VIEWBOX.width, VIEWBOX.height);
+  const pad = CANVAS_PAD;
+  const scale = CANVAS_SCALE;
 
   // Unmounted paths still measure: the dot rides them by length.
   const svgPath = (d: string): SVGPathElement => {
@@ -204,8 +233,8 @@ function markCanvas(): MarkCanvas {
       context.lineJoin = 'round';
       context.lineWidth = STROKE;
 
-      const outline = 1 - t.fill;
-      context.globalAlpha = outline;
+      const lines = outline ? 1 - t.fill : 0;
+      context.globalAlpha = lines;
       if (t.v > 0) {
         context.setLineDash([vLength * t.v, vLength]);
         context.stroke(v2d);
@@ -225,13 +254,13 @@ function markCanvas(): MarkCanvas {
         y = vEnd.y + (ARC_START[1] - vEnd.y) * t.hop;
       }
       if (seconds > MARK_STAGES.arc[0]) ({ x, y } = arcPath.getPointAtLength(arcLength * t.arc));
-      context.globalAlpha = t.dot * outline;
+      context.globalAlpha = t.dot * lines;
       context.beginPath();
       context.arc(x, y, DOT_RADIUS * (0.4 + 0.6 * t.dot), 0, Math.PI * 2);
       context.fill();
 
-      context.globalAlpha = t.fill;
-      if (t.fill > 0) context.fill(fill2d);
+      context.globalAlpha = fill ? t.fill : 0;
+      if (fill && t.fill > 0) context.fill(fill2d);
       context.globalAlpha = 1;
       texture.needsUpdate = true;
     },
@@ -243,12 +272,16 @@ function markCanvas(): MarkCanvas {
  * traffic. Patched like the city; they take no part in the ground's height.
  * `nightOrigin`: where the night's ring leaves from, world space (the rooftop
  * isotype); the middle of the city without one.
+ * `hologram`: the 3D isotype over the city (`cityMarkHologram.ts`): placed
+ * and drawn on this mark's clock; the ground draws no outline, and the fill
+ * only if the hologram asks for it (`ground`).
  */
 export function createCityMark(
   root: THREE.Object3D,
   config: VertigoBuildingConfig,
   alsoDarken: readonly THREE.Object3D[] = [],
   nightOrigin: THREE.Vector3 | null = null,
+  hologram: CityMarkHologram | null = null,
 ): CityMark {
   const skip = new Set<THREE.Object3D>();
   for (const name of config.logoNodeNames) {
@@ -265,7 +298,7 @@ export function createCityMark(
     Math.max(centre.z - bounds.min.z, bounds.max.z - centre.z),
   );
 
-  const mark = markCanvas();
+  const mark = markCanvas(!hologram, hologram?.ground !== 'none');
   mark.draw(0);
   const uniforms = {
     uMarkStrength: { value: 0 },
@@ -418,6 +451,7 @@ ${FRAGMENT_AT}`,
       const up = uniforms.uMarkUp.value.set(forward.x, forward.z).normalize();
       // Right of the eye, on the ground: up turned a quarter clockwise seen from above.
       uniforms.uMarkRight.value.set(-up.y, up.x);
+      hologram?.place(camera, ndc, view.mark.size, groundY);
     },
 
     setTarget(on, flightSeconds) {
@@ -457,6 +491,7 @@ ${FRAGMENT_AT}`,
       nightProgress = nightTarget;
       pulseClock = Number.POSITIVE_INFINITY;
       strengths();
+      hologram?.update(markDrawingAt(drawClock), drawClock, uniforms.uMarkStrength.value, 0);
     },
 
     update(delta) {
@@ -470,6 +505,7 @@ ${FRAGMENT_AT}`,
         drawClock += Math.max(0, delta);
         if (drawClock > 0) mark.draw(Math.min(drawClock, MARK_DRAW_SECONDS));
       }
+      hologram?.update(markDrawingAt(drawClock), drawClock, uniforms.uMarkStrength.value, delta);
     },
 
     dispose() {
@@ -480,6 +516,7 @@ ${FRAGMENT_AT}`,
       }
       patched.clear();
       mark.texture.dispose();
+      hologram?.dispose();
     },
   };
 }
