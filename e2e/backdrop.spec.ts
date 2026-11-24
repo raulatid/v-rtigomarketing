@@ -40,6 +40,13 @@ async function bootAndSettle(page: Page) {
         void window.__vertigoIntro!.completed.then(() => resolve())
       }),
   )
+  // `completed` is the end of the drawing, not of the tail: SETTLE_MS after it
+  // used to land mid-tail (the mark still at centre, the warp's blur on the
+  // globe), and with the ~3.8 s tail it lands near the warp's cut. The resting
+  // backdrop is `site` — the audit trigger mounts there — with the h1's flight
+  // landed (`data-flight`, written by HeadlineFlightLayer; absent if it never flew).
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 30_000 })
+  await expect(page.locator('.home-headline[data-flight="flying"]')).toHaveCount(0, { timeout: 30_000 })
   await page.waitForTimeout(SETTLE_MS)
 }
 
@@ -67,13 +74,14 @@ test.describe('the resting backdrop', () => {
 
     // Masked rather than cropped: the audit panel carries the ESO credit, which
     // is a licence obligation and must not be hidden — but its text is content
-    // that will change, and a copy edit should not fail a sky baseline.
+    // that will change, and a copy edit should not fail a sky baseline. The
+    // h1 is masked for the same reason: its text is the editor's (Sanity).
     await expect(page).toHaveScreenshot('backdrop-wide.png', {
       // The Earth rotates continuously; a small tolerance keeps the diff about
       // the sky rather than about which continent is facing the camera.
       maxDiffPixelRatio: 0.02,
       animations: 'disabled',
-      mask: [page.locator('.audit-section')],
+      mask: [page.locator('.audit-section'), page.locator('.home-headline')],
     })
   })
 
@@ -86,7 +94,7 @@ test.describe('the resting backdrop', () => {
     await expect(page).toHaveScreenshot('backdrop-narrow.png', {
       maxDiffPixelRatio: 0.02,
       animations: 'disabled',
-      mask: [page.locator('.audit-section')],
+      mask: [page.locator('.audit-section'), page.locator('.home-headline')],
     })
   })
 })

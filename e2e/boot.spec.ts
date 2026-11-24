@@ -256,9 +256,10 @@ test('a press during the tail lands on the globe', async ({ page }) => {
   // to React (a layout effect a tick later), so a press in that tick is still
   // `draw` and is refused by design. Wait for that commit itself.
   await tailStarted(page)
-  // The tail is ~9.7 s; landing within 3 s of a press can only be the skip.
+  // The tail is ~3.8 s from `shrink`, and it runs on frames, so never shorter
+  // in wall clock; landing within 2 s of a press can only be the skip.
   await page.mouse.click(800, 450)
-  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 3_000 })
+  await expect(page.locator('.audit-trigger')).toBeAttached({ timeout: 2_000 })
 })
 
 test('a press during loading does nothing', async ({ page }) => {
@@ -355,9 +356,10 @@ test('a returning visitor never sees the loading draw, and enters at the crossov
   // shows the drawing after all (`DRAW_TIMING.quietGrace`).
   // No press. It enters where the mark becomes 3D and the landing plays
   // (DECISIONS §51). So the site is NOT there at once — no control may mount
-  // before `site` (§26.16).
+  // before `site` (§26.16). Their tail is ~2.1 s (the bloom, then the flight to
+  // the corner with the orbits), so 1 s in it is still playing.
   await tailStarted(page)
-  await page.waitForTimeout(1_500)
+  await page.waitForTimeout(1_000)
   await expect(page.locator('.audit-trigger')).not.toBeAttached()
   // The tail runs on frames, not on the wall clock (ADR 016): a headless browser
   // drawing a few frames a second plays it in slow motion. So the proof that the

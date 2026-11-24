@@ -72,7 +72,7 @@ async function asLayoutTest(page: Page): Promise<void> {
  * Waits for the intro to hand over, which is NOT the same as booting.
  *
  * `bootToReady` waits for the loader to finish; the intro then plays for about
- * nine seconds more, and navigation is refused for all of it (the intro owns the
+ * four seconds more, and navigation is refused for all of it (the intro owns the
  * camera until phase 'site'). A navigation test that skipped this would find the
  * gesture inert — and worse, a test asserting a gesture does NOTHING would pass
  * for the wrong reason. The audit trigger only exists at 'site'.
