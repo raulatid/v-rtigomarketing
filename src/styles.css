@@ -645,6 +645,16 @@ html {
   animation: case-chart-ping 900ms ease-out calc(var(--case-chart-start) + 820ms) both;
 }
 
+/* The one exception to the panel's "same for everyone" (panel-del-caso.md):
+   the ping carries no data and grows to four and a half times its size, so
+   under reduced motion it does not play, and at rest it is not drawn (V13 of
+   the 2026-11-18 accessibility audit). */
+@media (prefers-reduced-motion: reduce) {
+  .case-panel.is-visible .case-chart__ping {
+    animation: none;
+  }
+}
+
 .case-panel.is-visible .case-chart__bar {
   transform-box: fill-box;
   transform-origin: 50% 100%;
