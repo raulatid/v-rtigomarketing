@@ -866,6 +866,15 @@
     bottom: calc(8px + env(safe-area-inset-bottom));
   }
 
+  /* Gone with the burger while a panel is open, for the burger's reason: the
+     header (70) is above the audit curtain (60) and the contact and legal
+     modals (62), and the toggle floated over the end of the form, over an
+     error and «Términos y privacidad» (V11 of the 2026-11-18 accessibility
+     audit). It comes back when the panel closes. */
+  .site-header[data-layout='scene'][data-panel-open] .site-header__extra:has(.sound-toggle) {
+    display: none;
+  }
+
   .site-header[data-layout='scene'] .site-header__burger-bar {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
   }
