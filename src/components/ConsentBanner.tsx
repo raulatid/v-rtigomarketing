@@ -64,12 +64,29 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
   const [state, setState] = useState<'open' | 'leaving'>('open')
   const [done, setDone] = useState(false)
   const timerRef = useRef<number | undefined>(undefined)
+  const bannerRef = useRef<HTMLElement>(null)
+  const infoRef = useRef<HTMLButtonElement>(null)
+  /** The choice was made from the keyboard's place in the banner. */
+  const focusInfoRef = useRef(false)
 
   useEffect(() => subscribeConsent(setRecord), [])
   useEffect(() => () => window.clearTimeout(timerRef.current), [])
 
+  // The button that made the choice unmounts with the banner, and the focus
+  // used to drop to <body> (F13 of the 2026-11-18 accessibility audit). It goes
+  // to the ⓘ that takes the banner's place, the way the cookie panel hands it
+  // back on closing (LegalPanel), unless it has gone somewhere else meanwhile.
+  useEffect(() => {
+    if (!done || !focusInfoRef.current) return
+    focusInfoRef.current = false
+    const active = document.activeElement
+    if (active && active !== document.body) return
+    infoRef.current?.focus()
+  }, [done])
+
   const choose = useCallback((analytics: boolean) => {
     const reduced = prefersReducedMotion()
+    focusInfoRef.current = bannerRef.current?.contains(document.activeElement) === true
     writeConsent({ analytics, preferences: analytics })
     setState('leaving')
     window.clearTimeout(timerRef.current)
@@ -82,6 +99,7 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
   if (record !== null && (done || state === 'open')) {
     return (
       <button
+        ref={infoRef}
         type="button"
         className="consent-info"
         aria-label={copy.title}
@@ -99,7 +117,7 @@ export function ConsentBanner({ onOpenLegal, idPrefix = 'consent' }: Props) {
   const titleId = `${idPrefix}-title`
 
   return (
-    <section className="consent-banner" role="region" aria-labelledby={titleId} data-state={state}>
+    <section ref={bannerRef} className="consent-banner" role="region" aria-labelledby={titleId} data-state={state}>
       <span className="consent-banner__dot" aria-hidden="true" />
       <span className="consent-banner__leader" aria-hidden="true" />
       {/* The plate used to carry a stroke-drawn outline here — an SVG rect

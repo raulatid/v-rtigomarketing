@@ -36,6 +36,7 @@ vi.mock('../content/site', () => ({
 }))
 
 import { ContactSection } from './ContactSection'
+import { SubmissionError } from '../app/submissionError'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -423,5 +424,100 @@ describe('the focus while and after sending', () => {
     })
     expect(document.activeElement?.tagName).toBe('H2')
     expect(document.activeElement?.closest('.contact-success')).not.toBeNull()
+  })
+})
+
+// The low ones of the 2026-11-18 accessibility audit, F11, F12, F15 and F16:
+// what a screen reader is told about the fields, and when.
+describe('what the contact form tells a screen reader', () => {
+  function mountWith(submit: () => Promise<void>) {
+    root = createRoot(container)
+    act(() => {
+      root.render(
+        <ContactSection ready triggerHost={null} suppressed={false} onOpenChange={() => {}} onOpenLegal={() => {}} submit={submit} />,
+      )
+    })
+    act(() => document.querySelector<HTMLButtonElement>('.contact-trigger')!.click())
+  }
+
+  const status = () => document.querySelector('.contact-form [role="status"]')!
+
+  it('says every field is required', () => {
+    openDialog()
+    for (const field of ['name', 'email', 'message']) {
+      expect(control(field).getAttribute('aria-required')).toBe('true')
+    }
+  })
+
+  it('says the error a blur reveals, and only a new one', () => {
+    openDialog()
+    act(() => type(control('email'), 'ana@'))
+    visit(control('email'))
+    expect(control('email').getAttribute('aria-invalid')).toBe('true')
+    expect(status().textContent).toBe(document.getElementById('contact-email-error')!.textContent)
+    // Shown already: leaving the field again says nothing new.
+    visit(control('email'))
+    expect(status().textContent).toBe('')
+    // Left empty is a question not answered yet, not an error.
+    visit(control('name'))
+    expect(status().textContent).toBe('')
+  })
+
+  it('hands the focus to the field a 422 refused', async () => {
+    let refuse: (error: unknown) => void = () => {}
+    mountWith(() => new Promise<void>((_, reject) => { refuse = reject }))
+    act(() => {
+      type(control('name'), 'Ana Pérez')
+      type(control('email'), 'ana@example.com')
+      type(control('message'), 'Queremos medir mejor nuestro SEO este año.')
+    })
+    const cta = document.querySelector<HTMLButtonElement>('.contact-cta')!
+    act(() => {
+      cta.focus()
+      document.querySelector<HTMLFormElement>('.contact-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    await act(async () => {
+      refuse(new SubmissionError('invalid', { email: 'Ese dominio no recibe correo.' }))
+    })
+    expect(document.activeElement).toBe(control('email'))
+    expect(control('email').getAttribute('aria-invalid')).toBe('true')
+    expect(document.getElementById('contact-email-error')!.textContent).toBe('Ese dominio no recibe correo.')
+    // Editing clears that error; the focus is not moved again.
+    act(() => type(control('email'), 'ana@example.org'))
+    expect(document.activeElement).toBe(control('email'))
+  })
+
+  it('does not tell someone who sent once that they sent several', async () => {
+    let refuse: (error: unknown) => void = () => {}
+    mountWith(() => new Promise<void>((_, reject) => { refuse = reject }))
+    act(() => {
+      type(control('name'), 'Ana Pérez')
+      type(control('email'), 'ana@example.com')
+      type(control('message'), 'Queremos medir mejor nuestro SEO este año.')
+    })
+    act(() => {
+      document.querySelector<HTMLFormElement>('.contact-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    await act(async () => {
+      refuse(new SubmissionError('rate_limited'))
+    })
+    const alert = document.querySelector('.contact-form__error')!.textContent!
+    expect(alert).toMatch(/espera un minuto/i)
+    expect(alert).not.toMatch(/varios|seguid/i)
+  })
+
+  it('reads the counter with the message field, not on every keystroke', () => {
+    openDialog()
+    const counter = document.getElementById('contact-message-count')!
+    expect(counter.closest('[aria-hidden="true"]')).toBeNull()
+    expect(counter.getAttribute('role')).toBeNull()
+    expect(control('message').getAttribute('aria-describedby')).toBe('contact-message-count')
+    expect(counter.textContent).toContain('caracteres')
+  })
+
+  it('says the booking link opens another tab', () => {
+    content.bookingUrl = 'https://calendly.com/vertigo/30min'
+    openDialog()
+    expect(document.querySelector('.contact-booking')!.textContent).toContain('(se abre en otra pestaña)')
   })
 })

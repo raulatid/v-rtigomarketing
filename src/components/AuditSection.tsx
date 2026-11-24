@@ -184,6 +184,9 @@ const FIELD_DEFS: Record<Field, FieldDef> = {
   },
 }
 
+/** One rule for the «(opcional)» a reader sees and the aria-required one hears. */
+const isOptional = (def: FieldDef) => def.kind === 'input' && def.optional === true
+
 /**
  * The definition a field renders with. The two range selects take their
  * options from `content` rather than from FIELD_DEFS, because the Studio's
@@ -240,7 +243,7 @@ function AuditField({
       <label className="audit-label" htmlFor={`${idPrefix}-${field}`}>
         <span className="audit-label__stroke" aria-hidden="true" />
         {def.label}
-        {def.kind === 'input' && def.optional ? (
+        {isOptional(def) ? (
           <>
             {' '}
             <span className="audit-label__optional">(opcional)</span>
@@ -359,7 +362,10 @@ function validate(values: Values): Errors {
  */
 function failureMessage(code: SubmissionErrorCode): string {
   if (code === 'rate_limited') {
-    return 'Has enviado varias solicitudes seguidas. Espera un minuto y vuelve a intentarlo.'
+    // Not "you sent several": the server answers a single request sent faster
+    // than a person fills the form with the same code (F15 of the 2026-11-18
+    // accessibility audit), and telling the two apart would tell a script.
+    return 'Ahora no podemos aceptar la solicitud. Espera un minuto y vuelve a intentarlo.'
   }
   if (code === 'invalid') return 'Revisa los datos marcados.'
   return 'No se ha podido enviar la solicitud. Inténtalo de nuevo.'
@@ -501,6 +507,12 @@ export function AuditSection({
    */
   const submitSeqRef = useRef(0)
   const fieldRefs = useRef<Partial<Record<Field, HTMLInputElement | HTMLSelectElement | null>>>({})
+  /** A 422 waiting for its render to hand the focus to the refused field. */
+  const focusServerErrorRef = useRef(false)
+  /** What the polite status in the form says: the error a blur revealed. */
+  const [notice, setNotice] = useState('')
+  /** The blur handlers are built once; this is how they read this render. */
+  const announceRef = useRef<(field: Field) => void>(() => {})
 
   useEffect(() => () => window.clearTimeout(timerRef.current), [])
 
@@ -528,6 +540,7 @@ export function AuditSection({
   const close = useCallback(() => {
     if (preview || phase !== 'open') return
     setPhase('leaving')
+    setNotice('')
     window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
       returnFocusRef.current = true
@@ -616,10 +629,13 @@ export function AuditSection({
   // the curtain simply covers the left strip; the camera recomposition is
   // Earth's (AuditCameraShift is a no-op there).
 
-  // Focus moves to the section heading once the entry completes; form controls
-  // are already interactive before that (pointer-events are never blocked).
+  // Focus moves to the section heading as the entry starts, not once it
+  // completes: the trigger that had it is disabled from 'entering' on, and
+  // waiting for 'open' left the focus on <body> for the 1.1 s of the entry (F16
+  // of the 2026-11-18 accessibility audit). The curtain is visible from
+  // 'entering' (only 'closed' hides it), so the heading can take it.
   useEffect(() => {
-    if (!preview && phase === 'open') headingRef.current?.focus({ preventScroll: true })
+    if (!preview && phase === 'entering') headingRef.current?.focus({ preventScroll: true })
   }, [phase, preview])
 
   // Escape closes the section. Registered only while open, so it cannot race
@@ -647,8 +663,7 @@ export function AuditSection({
   // A modal curtain (F2 of the 2026-11-18 accessibility audit): Tab stays in
   // it rather than walking out to the cookie banner it covers. From the moment
   // it starts to come in, as `aria-modal` says, not only once it is open: the
-  // heading takes the focus at 'open', and a Tab in the 1.1 s before landed
-  // under the curtain.
+  // entry lasts 1.1 s, and a Tab in it used to land under the curtain.
   useEffect(() => {
     if (preview || (phase !== 'entering' && phase !== 'open')) return
     const onKey = (e: KeyboardEvent) => trapTab(e, overlayRef.current)
@@ -721,6 +736,7 @@ export function AuditSection({
               const message = fields[field]
               if (typeof message === 'string') mapped[field] = message
             }
+            focusServerErrorRef.current = true
             setServerErrors(mapped)
           }
           setSubmission('error')
@@ -729,6 +745,20 @@ export function AuditSection({
     },
     [submission, errors, values, submit, preview],
   )
+
+  // A 422 names the fields it refused: the focus goes to the first, once its
+  // aria-invalid and its error are rendered, so it is read with them (F12 of
+  // the 2026-11-18 accessibility audit). Once per answer, not on every edit
+  // that clears an error. Only if the focus is still in the curtain or on
+  // <body>: one moved elsewhere while the request flew is the reader's.
+  useEffect(() => {
+    if (!focusServerErrorRef.current) return
+    focusServerErrorRef.current = false
+    const active = document.activeElement
+    if (active && active !== document.body && !overlayRef.current?.contains(active)) return
+    const first = FIELD_ORDER.find((f) => serverErrors[f] !== undefined)
+    if (first) fieldRefs.current[first]?.focus()
+  }, [serverErrors])
 
   // The success state is an announcement, and focus is how it is announced to
   // everyone: the heading is what a screen reader lands on, and what the eye
@@ -792,17 +822,31 @@ export function AuditSection({
         ref: (el) => {
           fieldRefs.current[field] = el
         },
-        onBlur: () => markTouched(field),
+        onBlur: () => {
+          announceRef.current(field)
+          markTouched(field)
+        },
       }
     }
     return handlers
   }, [markTouched])
+
+  // The error a blur reveals is said aloud: it appears under a field the focus
+  // has just left (F12 of the 2026-11-18 accessibility audit). Only a new one;
+  // otherwise the region is emptied, so the same words can be said again.
+  // Refreshed after every render, which is before any blur can read it.
+  useEffect(() => {
+    announceRef.current = (field) =>
+      setNotice(!showError(field) && answered(field) ? errors[field] ?? '' : '')
+  })
 
   const fieldProps = (field: Field) => {
     const error = showError(field)
     return {
       id: `${idPrefix}-${field}`,
       value: values[field],
+      // Every field but the one marked «(opcional)» (F11).
+      'aria-required': isOptional(FIELD_DEFS[field]) ? undefined : true,
       'aria-invalid': error ? true : undefined,
       'aria-describedby': error ? `${idPrefix}-${field}-error` : undefined,
       onBlur: fieldHandlers[field].onBlur,
@@ -966,6 +1010,7 @@ export function AuditSection({
                 <div className="audit-group audit-group--3">
                   {/* Failure is direction, not mood: what happened, what to do.
                       Everything typed is still in the fields above. */}
+                  <p className="form-sr-only" role="status">{notice}</p>
                   {submission === 'error' && (
                     <p className="audit-form__error" role="alert">
                       {failureMessage(failure)}

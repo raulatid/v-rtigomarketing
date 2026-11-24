@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuditSection } from './AuditSection'
 import type { AuditRequest } from '../app/auditSubmission'
+import { SubmissionError } from '../app/submissionError'
 import { BUDGET_RANGES, FORM_MESSAGES, REVENUE_RANGES } from '../content/site'
 
 // The submission flow's state model: idle → submitting → success | error.
@@ -487,5 +488,85 @@ describe('the audit curtain while it comes in', () => {
     })
     expect(overlay.contains(document.activeElement)).toBe(true)
     rects.mockRestore()
+  })
+})
+
+// The low ones of the 2026-11-18 accessibility audit, F11, F12, F15 and F16:
+// what a screen reader is told about the form, and when.
+describe('what the audit form tells a screen reader', () => {
+  const status = () => document.querySelector('.audit-form [role="status"]')!
+
+  it('says which fields are required: all but the one marked optional', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    for (const field of ['plan', 'revenue', 'budget', 'name', 'email', 'website']) {
+      expect(auditControl(field).getAttribute('aria-required')).toBe('true')
+    }
+    expect(auditControl('phone').hasAttribute('aria-required')).toBe(false)
+  })
+
+  it('gives the heading the focus as the curtain starts to come in', () => {
+    mount(() => Promise.resolve())
+    act(() => {
+      document.querySelector<HTMLButtonElement>('.audit-trigger')!.click()
+    })
+    expect(document.querySelector<HTMLElement>('.audit-overlay')!.dataset.state).toBe('entering')
+    expect(document.activeElement).toBe(document.getElementById('audit-title'))
+  })
+
+  it('says the error a blur reveals, and only a new one', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    act(() => type(auditControl('website'), 'no es una web'))
+    visit(auditControl('website'))
+    expect(auditControl('website').getAttribute('aria-invalid')).toBe('true')
+    expect(status().textContent).toBe(document.getElementById('audit-website-error')!.textContent)
+    visit(auditControl('website'))
+    expect(status().textContent).toBe('')
+    visit(auditControl('name'))
+    expect(status().textContent).toBe('')
+  })
+
+  it('hands the focus to the field a 422 refused', async () => {
+    let refuse: (error: unknown) => void = () => {}
+    mount(() => new Promise<void>((_, reject) => { refuse = reject }))
+    openAndFill()
+    submitForm()
+    await act(async () => {
+      refuse(new SubmissionError('invalid', { website: 'Esa web no responde.' }))
+    })
+    expect(document.activeElement).toBe(auditControl('website'))
+    expect(auditControl('website').getAttribute('aria-invalid')).toBe('true')
+    expect(document.getElementById('audit-website-error')!.textContent).toBe('Esa web no responde.')
+    // Editing clears that error; the focus is not moved again.
+    act(() => type(auditControl('website'), 'https://example.org'))
+    expect(document.activeElement).toBe(auditControl('website'))
+  })
+
+  it('leaves a focus moved out of the curtain while the request flew', async () => {
+    let refuse: (error: unknown) => void = () => {}
+    mount(() => new Promise<void>((_, reject) => { refuse = reject }))
+    openAndFill()
+    submitForm()
+    const elsewhere = document.body.appendChild(document.createElement('button'))
+    act(() => elsewhere.focus())
+    await act(async () => {
+      refuse(new SubmissionError('invalid', { website: 'Esa web no responde.' }))
+    })
+    expect(document.activeElement).toBe(elsewhere)
+    elsewhere.remove()
+  })
+
+  it('does not tell someone who sent once that they sent several', async () => {
+    let refuse: (error: unknown) => void = () => {}
+    mount(() => new Promise<void>((_, reject) => { refuse = reject }))
+    openAndFill()
+    submitForm()
+    await act(async () => {
+      refuse(new SubmissionError('rate_limited'))
+    })
+    const alert = document.querySelector('.audit-form__error')!.textContent!
+    expect(alert).toMatch(/espera un minuto/i)
+    expect(alert).not.toMatch(/varias|seguid/i)
   })
 })

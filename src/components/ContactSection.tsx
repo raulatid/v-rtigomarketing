@@ -82,7 +82,9 @@ function validate(values: ContactRequest): Partial<Record<Field, string>> {
  */
 function failureMessage(code: SubmissionErrorCode): string {
   if (code === 'rate_limited') {
-    return 'Has enviado varios mensajes seguidos. Espera un minuto y vuelve a intentarlo.'
+    // Not "you sent several": the server answers a single message sent faster
+    // than a person types with the same code (F15 of the 2026-11-18 audit).
+    return 'Ahora no podemos aceptar el mensaje. Espera un minuto y vuelve a intentarlo.'
   }
   if (code === 'invalid') return 'Revisa los datos marcados.'
   return 'No se ha podido enviar. Inténtalo de nuevo o escríbenos directamente.'
@@ -116,6 +118,10 @@ export function ContactSection({
   const triggerRef = useRef<HTMLButtonElement>(null)
   /** A close waiting for the closed render to hand the focus back. */
   const returnFocusRef = useRef(false)
+  /** A 422 waiting for its render to hand the focus to the refused field. */
+  const focusServerErrorRef = useRef(false)
+  /** What the polite status in the form says: the error a blur revealed. */
+  const [notice, setNotice] = useState('')
   const titleRef = useRef<HTMLHeadingElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const submitSeqRef = useRef(0)
@@ -140,6 +146,7 @@ export function ContactSection({
     // The trigger is what opened this; focus returns there, once the closed
     // render is committed (the effect below).
     returnFocusRef.current = true
+    setNotice('')
     // Settle the afterlife the way the audit does: success clears the form for
     // a fresh message, an error keeps the words the visitor already wrote.
     setSubmission((s) => {
@@ -246,12 +253,27 @@ export function ContactSection({
             const message = fields[field]
             if (typeof message === 'string') mapped[field] = message
           }
+          focusServerErrorRef.current = true
           setServerErrors(mapped)
         }
         setSubmission('error')
       },
     )
   }
+
+  // A 422 names the fields it refused: the focus goes to the first, once its
+  // aria-invalid and its error are rendered, so it is read with them (F12 of
+  // the 2026-11-18 accessibility audit). Once per answer, not on every edit
+  // that clears an error. Only if the focus is still in the dialog or on
+  // <body>: one moved elsewhere while the request flew is the reader's.
+  useEffect(() => {
+    if (!focusServerErrorRef.current) return
+    focusServerErrorRef.current = false
+    const active = document.activeElement
+    if (active && active !== document.body && !panelRef.current?.contains(active)) return
+    const first = FIELD_ORDER.find((f) => serverErrors[f] !== undefined)
+    if (first) document.getElementById(`${idPrefix}-${first}`)?.focus()
+  }, [serverErrors, idPrefix])
 
   const answered = (field: Field) => values[field].trim() !== ''
 
@@ -277,6 +299,8 @@ export function ContactSection({
   const fieldProps = (field: Field) => ({
     id: `${idPrefix}-${field}`,
     value: values[field],
+    // All three are required; nothing else says so to a reader (F11).
+    'aria-required': true,
     'aria-invalid': showError(field) || undefined,
     'aria-describedby': showError(field) ? `${idPrefix}-${field}-error` : undefined,
     onChange: (
@@ -287,7 +311,13 @@ export function ContactSection({
         prev[field] === undefined ? prev : { ...prev, [field]: undefined },
       )
     },
-    onBlur: () => setTouched((t) => ({ ...t, [field]: true })),
+    onBlur: () => {
+      // The error this blur reveals is said aloud: it appears under a field
+      // the focus has just left (F12). Only a new one; otherwise the region is
+      // emptied, so the same words can be said again next time.
+      setNotice(!showError(field) && answered(field) ? errors[field] ?? '' : '')
+      setTouched((t) => ({ ...t, [field]: true }))
+    },
   })
 
   const errorLine = (field: Field) =>
@@ -417,9 +447,12 @@ export function ContactSection({
                     <span className="contact-label__stroke" aria-hidden="true" />
                     Mensaje
                   </label>
-                  {/* Shown only while typing; the maxLength is what enforces it. */}
-                  <span className="contact-counter" aria-hidden="true">
+                  {/* Shown only while typing; the maxLength is what enforces it.
+                      Read with the field, not live: a count spoken on every
+                      keystroke would drown the typing (F16). */}
+                  <span className="contact-counter" id={`${idPrefix}-message-count`}>
                     {values.message.length} / 2000
+                    <span className="form-sr-only"> caracteres</span>
                   </span>
                   <div className="contact-control">
                     <textarea
@@ -427,11 +460,18 @@ export function ContactSection({
                       rows={4}
                       maxLength={2000}
                       {...fieldProps('message')}
+                      aria-describedby={
+                        showError('message')
+                          ? `${idPrefix}-message-error ${idPrefix}-message-count`
+                          : `${idPrefix}-message-count`
+                      }
                     />
                     {fieldCheck}
                   </div>
                   {errorLine('message')}
                 </div>
+
+                <p className="form-sr-only" role="status">{notice}</p>
 
                 {submission === 'error' && (
                   <p className="contact-form__error" role="alert">
@@ -503,6 +543,7 @@ export function ContactSection({
                       <path d="M2 6.5h12M5.5 2v3M10.5 2v3" />
                     </svg>
                     {content.bookingLabel}
+                    <span className="form-sr-only"> (se abre en otra pestaña)</span>
                   </a>
                 )}
 

@@ -42,3 +42,13 @@ it('discards unsaved edits when reopened and follows external changes', () => {
   act(() => writeConsent({ preferences: false, analytics: true }))
   expect(host.querySelectorAll('input')[1].checked).toBe(true)
 })
+// F14 of the 2026-11-18 accessibility audit: an aria-label of the title alone
+// silenced the description a sighted visitor reads beside the switch.
+it('names each switch by its title and describes it by its text', () => {
+  for (const input of Array.from(host.querySelectorAll<HTMLInputElement>('input[role="switch"]'))) {
+    expect(input.hasAttribute('aria-label')).toBe(false)
+    const row = input.closest('.cookie-preferences__row')!
+    expect(document.getElementById(input.getAttribute('aria-labelledby')!)).toBe(row.querySelector('strong'))
+    expect(document.getElementById(input.getAttribute('aria-describedby')!)).toBe(row.querySelector('.cookie-preferences__description'))
+  }
+})

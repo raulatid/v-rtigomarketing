@@ -821,6 +821,19 @@ export default function App() {
           it is shared with the blog through siteMenu.css. Before <main>, not in
           it: the menu is the site's navigation, not the page's content. */}
       <SiteMenuLayer className="app__menu" hostRef={setMenuHost} />
+      {/* The cookie consent banner, the intro's last stroke. Gated on the same
+          phase as the header's doors (DECISIONS §26.16) and on BOTH experiences.
+          INSIDE the scene wrapper, not beside it: the blog mounts its own copy
+          under its own LegalPanel (BlogRoute), and this one hides with the
+          scene. Non-modal — it is in neither `canNavigate` nor the Escape
+          handler above, because a scroll or a pinch must still work under it.
+          z 48: above the rail and the floor line, under everything that asks
+          for attention. Before <main> in the document, right after the header and
+          its menu: it is fixed, so the place changes only the Tab order, and at
+          the end of it a question every visitor is asked came last (F13 of the
+          2026-11-18 accessibility audit). z 48 is its own; nothing ties it. */}
+      {(phase === 'site' || sceneUnavailable) && <ConsentBanner onOpenLegal={setLegalDoc} />}
+
       {/* THE PAGE'S CONTENT (D4 of the 2026-11-18 accessibility audit): the h1,
           the scene and the cases. A plain block with no box of its own — no
           transform, no z-index — so every fixed child keeps the viewport and
@@ -969,16 +982,6 @@ export default function App() {
       )}
 
       <LegalPanel doc={legalDoc} onClose={() => setLegalDoc(null)} />
-
-      {/* The cookie consent banner, the intro's last stroke. Gated on the same
-          phase as the header's doors (DECISIONS §26.16) and on BOTH experiences.
-          INSIDE the scene wrapper, not beside it: the blog mounts its own copy
-          under its own LegalPanel (BlogRoute), and this one hides with the
-          scene. Non-modal — it is in neither `canNavigate` nor the Escape
-          handler above, because a scroll or a pinch must still work under it.
-          z 48: above the rail and the floor line, under everything that asks
-          for attention. */}
-      {(phase === 'site' || sceneUnavailable) && <ConsentBanner onOpenLegal={setLegalDoc} />}
 
       {/* Over the drawing's «No se pudo cargar la experiencia», under every
           dialog it opens. */}
