@@ -486,6 +486,8 @@ export function AuditSection({
   const openedAtRef = useRef(0)
 
   const timerRef = useRef(-1)
+  /** A close waiting for the 'closed' render to hand the focus back. */
+  const returnFocusRef = useRef(false)
   const reducedRef = useRef(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -528,22 +530,26 @@ export function AuditSection({
     setPhase('leaving')
     window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
+      returnFocusRef.current = true
       setPhase('closed')
       onOpenChange(false)
-      // Focus returns to the trigger (plan 005 §12). Deferred a frame: the
-      // trigger is disabled in every non-closed phase, and React has not
-      // re-rendered yet inside this callback — focusing the still-disabled
-      // element would silently no-op. Only if the focus is still where the
-      // curtain left it, in it or on <body>: one moved elsewhere in that frame
-      // is the reader's, and taking it back sent their next Enter to the
-      // trigger, reopening the audit (CasePanel's rule).
-      requestAnimationFrame(() => {
-        const active = document.activeElement
-        if (active && active !== document.body && !overlayRef.current?.contains(active)) return
-        triggerRef.current?.focus()
-      })
     }, reducedRef.current ? REDUCED_MS : LEAVE_MS)
   }, [phase, onOpenChange, preview])
+
+  // Focus returns to the trigger (plan 005 §12) once the 'closed' render is
+  // committed: the trigger is disabled in every other phase, and focusing it
+  // earlier silently no-ops. A frame after the close was no promise of that —
+  // when it landed before React's render, the focus ended on <body>. Only if
+  // the focus is still where the curtain left it, in it or on <body>: one
+  // moved elsewhere meanwhile is the reader's, and taking it back sent their
+  // next Enter to the trigger, reopening the audit (CasePanel's rule).
+  useEffect(() => {
+    if (phase !== 'closed' || !returnFocusRef.current) return
+    returnFocusRef.current = false
+    const active = document.activeElement
+    if (active && active !== document.body && !overlayRef.current?.contains(active)) return
+    triggerRef.current?.focus()
+  }, [phase])
 
   // An open request from outside the trigger (see `openRequest`). Acted on only
   // when the counter CHANGES — the value it mounted with is not a request — and

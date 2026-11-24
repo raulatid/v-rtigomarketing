@@ -114,6 +114,8 @@ export function ContactSection({
   const [serverErrors, setServerErrors] = useState<Partial<Record<Field, string>>>({})
 
   const triggerRef = useRef<HTMLButtonElement>(null)
+  /** A close waiting for the closed render to hand the focus back. */
+  const returnFocusRef = useRef(false)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const submitSeqRef = useRef(0)
@@ -135,10 +137,9 @@ export function ContactSection({
     if (preview) return
     setOpen(false)
     onOpenChange(false)
-    // The trigger is what opened this; focus returns there. In the same rAF
-    // arrangement the audit close uses, because React has not re-enabled
-    // anything yet in this tick.
-    requestAnimationFrame(() => triggerRef.current?.focus())
+    // The trigger is what opened this; focus returns there, once the closed
+    // render is committed (the effect below).
+    returnFocusRef.current = true
     // Settle the afterlife the way the audit does: success clears the form for
     // a fresh message, an error keeps the words the visitor already wrote.
     setSubmission((s) => {
@@ -159,6 +160,23 @@ export function ContactSection({
   useEffect(() => {
     if (suppressed && open) close()
   }, [suppressed, open, close])
+
+  // Focus returns to the trigger once the closed render is committed: the
+  // trigger is disabled while the dialog is open, and focusing it earlier
+  // silently no-ops. A frame after the close was no promise of that — when it
+  // landed before React's render, the focus ended on <body> (the audit's race,
+  // forms trap n.º 24). Not when the audit took the screen: the trigger stays
+  // disabled and the curtain owns the focus. And only if the focus is still
+  // where the dialog left it, on <body>: one moved elsewhere is the reader's
+  // (the audit's and CasePanel's rule).
+  useEffect(() => {
+    if (open || !returnFocusRef.current) return
+    returnFocusRef.current = false
+    if (suppressed) return
+    const active = document.activeElement
+    if (active && active !== document.body) return
+    triggerRef.current?.focus()
+  }, [open, suppressed])
 
   // An open request from outside the trigger (see `openRequest`), spent
   // whether or not it could be acted on, as AuditSection spends its own.

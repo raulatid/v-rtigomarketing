@@ -386,9 +386,11 @@ describe('the audit curtain as a dialog', () => {
   })
 })
 
-// The trigger gets the focus back a frame after the curtain reports closed.
-// A focus the reader moved elsewhere by then is theirs: taking it back made an
-// Enter meant for the navigation control reopen the audit.
+// The trigger gets the focus back once the curtain's 'closed' render is
+// committed, not on a frame that may come before it. A focus the reader moved
+// elsewhere by then is theirs: taking it back made an Enter meant for the
+// navigation control reopen the audit. The frames stay mocked so that no test
+// here depends on when one lands.
 describe('the focus when the curtain closes', () => {
   // jsdom's frames are not on the fake clock: they run when the test says.
   let frames: FrameRequestCallback[] = []
@@ -431,6 +433,38 @@ describe('the focus when the curtain closes', () => {
     closePanel()
     const elsewhere = document.body.appendChild(document.createElement('button'))
     act(() => elsewhere.focus())
+    nextFrame()
+    expect(document.activeElement).toBe(elsewhere)
+    elsewhere.remove()
+  })
+
+  // A frame is no promise that React has re-enabled the trigger: when one came
+  // first, focus() landed on a disabled button and the focus ended on <body>
+  // (e2e/keyboard.spec.ts, «the audit curtain is a dialog…», failed so).
+  it('returns to the trigger even when a frame lands before React re-renders', () => {
+    vi.mocked(window.requestAnimationFrame).mockImplementation((cb) => {
+      cb(0)
+      return 0
+    })
+    mount(() => Promise.resolve())
+    openPanel()
+    closePanel()
+    nextFrame()
+    expect(document.activeElement).toBe(document.querySelector('.audit-trigger'))
+  })
+
+  it('stays where the reader moved it while the curtain was leaving', () => {
+    mount(() => Promise.resolve())
+    openPanel()
+    act(() => {
+      document.querySelector<HTMLButtonElement>('.audit-close')!.click()
+    })
+    expect(document.querySelector<HTMLElement>('.audit-overlay')!.dataset.state).toBe('leaving')
+    const elsewhere = document.body.appendChild(document.createElement('button'))
+    act(() => elsewhere.focus())
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
     nextFrame()
     expect(document.activeElement).toBe(elsewhere)
     elsewhere.remove()

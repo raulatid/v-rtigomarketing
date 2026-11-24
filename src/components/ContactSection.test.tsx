@@ -350,6 +350,47 @@ describe('the contact dialog and Escape', () => {
   })
 })
 
+// The trigger gets the focus back once the closed render is committed. It used
+// to be a frame after the close, which is no promise that React has re-enabled
+// the trigger by then: when the frame came first, focus() landed on a disabled
+// button and the focus ended on <body> (the audit's race, forms trap n.º 24).
+describe('the focus when the dialog closes', () => {
+  beforeEach(() => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0)
+      return 0
+    })
+  })
+  afterEach(() => {
+    vi.mocked(window.requestAnimationFrame).mockRestore()
+  })
+
+  it('returns to the trigger even when a frame lands before React re-renders', () => {
+    openDialog()
+    act(() => {
+      document.querySelector<HTMLButtonElement>('.modal-close')!.click()
+    })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(document.querySelector('.contact-trigger'))
+  })
+
+  // Pins the behaviour, not the race: the disabled trigger refused the focus
+  // under the old frame too.
+  it('leaves it with the audit when the audit takes the screen', () => {
+    openDialog()
+    const curtain = document.body.appendChild(document.createElement('button'))
+    act(() => curtain.focus())
+    act(() => {
+      root.render(
+        <ContactSection ready triggerHost={null} suppressed onOpenChange={() => {}} onOpenLegal={() => {}} />,
+      )
+    })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(curtain)
+    curtain.remove()
+  })
+})
+
 // Accessibility audit 2026-11-18, F5: sending kept the focus nowhere, and the
 // success that replaces the form never took it.
 describe('the focus while and after sending', () => {
