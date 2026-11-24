@@ -3,7 +3,7 @@ import type { WarpLimits } from '../utils/warpTransition'
 import { prefersReducedMotion } from '../platform/motionPreference'
 import type { AuditComposition } from '../interaction/auditComposition'
 import type { NavigationView } from '../interaction/navigationSignals'
-import { RefObject, useCallback, useRef, useState } from 'react'
+import { RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas, extend, useFrame } from '@react-three/fiber'
 import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import { clampFrameDelta } from '../graphics/frameDelta'
@@ -41,6 +41,16 @@ extend(THREE_CATALOGUE)
 /** The canvas's accessible name (D4): what is drawn, in both worlds. */
 export const SCENE_LABEL =
   'Escena 3D de Vértigo: la Tierra con los casos de éxito en órbita, y la ciudad de Murcia con los servicios, el blog y la torre de Conócenos'
+
+/**
+ * What the arrival says (D8 of the 2026-11-18 accessibility audit). Without it
+ * the only trace of a warp in the accessibility tree is the focused button's
+ * name turning from «Ir a Murcia» into «Volver a la Tierra».
+ */
+export const WORLD_ARRIVAL: Record<ExperienceId, string> = {
+  murcia: 'Estás en Murcia',
+  earth: 'De vuelta en la Tierra',
+}
 
 const departureVacuum: Record<ExperienceId, (p: number, limits: WarpLimits) => number> = {
   earth: () => 0, // Earth expresses departure through its aim phase and FOV surge.
@@ -215,6 +225,16 @@ export function SceneCanvas({
     }
   }, [state, navigation, config, earthActive])
 
+  // Written on the swap, under the warp's cover, and never on the first render:
+  // the site always opens on Earth and there is nothing to announce yet.
+  const [arrival, setArrival] = useState('')
+  const worldShown = useRef(activeExperience)
+  useEffect(() => {
+    if (worldShown.current === activeExperience) return
+    worldShown.current = activeExperience
+    setArrival(WORLD_ARRIVAL[activeExperience])
+  }, [activeExperience])
+
   // Deferred work starts when the opening admits it (ADR 016). Stepped here
   // because the phase is the intro's: Murcia cannot ask it itself, the two
   // experiences do not import each other.
@@ -227,6 +247,10 @@ export function SceneCanvas({
   )
 
   return (
+    <>
+    {/* Polite, and mounted empty with the scene, so it is in the tree before
+        its first change — a live region inserted with its text is not read. */}
+    <p className="scene-arrival" aria-live="polite" aria-atomic="true">{arrival}</p>
     <Canvas
       className="scene-canvas"
       // Visible in DevTools rather than only in React state: when someone is
@@ -390,5 +414,6 @@ export function SceneCanvas({
         onContextLost={onContextLost}
       />
     </Canvas>
+    </>
   )
 }

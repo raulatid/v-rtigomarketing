@@ -1261,6 +1261,19 @@ html {
   pointer-events: none;
 }
 
+/* The arrival in the other world, for screen readers only (SceneCanvas.tsx). */
+.scene-arrival {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Clipped to a pixel rather than hidden: display:none and visibility:hidden are
    both unfocusable, and a control nobody can reach is not an accessible path.
    A transparent 44px box over the canvas was the other option and it would have
