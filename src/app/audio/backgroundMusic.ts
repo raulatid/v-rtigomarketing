@@ -41,8 +41,8 @@ import {
  * nothing in.
  */
 export const MUSIC_TRACKS: Readonly<Partial<Record<ExperienceId, string>>> = {
-  earth: '/audio/earth-e9ebe19a.m4a',
-  murcia: '/audio/murcia-96271dd6.m4a',
+  earth: '/audio/earth-d839af5c.webm',
+  murcia: '/audio/murcia-8d02541a.webm',
 }
 
 /** A little longer than the 1.6 s warp, so the new world's track settles after

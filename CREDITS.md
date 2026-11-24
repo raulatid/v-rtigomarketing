@@ -154,37 +154,46 @@ Provenance not recorded when these were added. **Outstanding:** confirm the sour
 of the Earth maps and record them here. They are almost certainly NASA Visible Earth / Blue
 Marble, which is public domain, but "almost certainly" is not a licence record.
 
-## `public/audio/<world>-<sha8>.m4a` — the background music
+## `public/audio/<world>-<sha8>.webm` — the background music
 
-Working files are kept outside the repo in `04_Assets/musica/`. No lossless master of either
-loop is kept: the current files were re-encoded from the previous 128 kbps MP3s.
+Working files are kept outside the repo in `04_Assets/musica/`. The lossless masters are the
+shortened loops exported from DaVinci Resolve on 2026-11-24 as FLAC, 48 kHz, 24-bit stereo:
+`earth-bucle-reducido00086400.flac` (37.1 s) and `murcia-bucle-reducido00086400.flac` (31.6 s).
+The fade-in and fade-out at each loop's ends are authored in the master, on purpose: the
+encode must not add, trim or alter them.
 
-- `earth-e9ebe19a.m4a` ← `earth-461bb41b.mp3`, re-encoded to AAC on 2026-11-18 (resource
-  budget). That MP3 was the replacement supplied as `earth-0cae7852.mp3` in `public/audio/`
-  on 2026-09-15, renamed by SHA-256 without re-encoding; it replaced the previous 3.4 s clip.
-  The replacement's original source filename is not recorded.
+- `earth-d839af5c.webm` ← `earth-bucle-reducido00086400.flac`, Opus at 24 kbps, with +7 dB of
+  gain: the master was exported about 9 dB low by mistake. +7 dB puts it at -14.6 LUFS with a
+  decoded peak of -0.9 dBFS; +8 dB left the decoded peak at -0.1 dBFS. Replaced
+  `earth-e9ebe19a.m4a` (65.5 s, AAC, 656 KB), which came from `earth-461bb41b.mp3`, supplied as
+  `earth-0cae7852.mp3` on 2026-09-15. That source's original filename is not recorded.
 
-- `murcia-96271dd6.m4a` ← `murcia-dc24effe.mp3`, re-encoded to AAC on 2026-11-18. That MP3
-  was `murcia-music-001.mp3`, supplied in `public/audio/` on 2026-09-15 and renamed by SHA-256
-  without re-encoding. Enabled in `MUSIC_TRACKS` with the existing looping playback and
-  crossfade between worlds.
+- `murcia-8d02541a.webm` ← `murcia-bucle-reducido00086400.flac`, Opus at 32 kbps, no gain
+  (-14.7 LUFS, decoded peak -0.5 dBFS). At 24 kbps audible artefacts were heard in this track.
+  Replaced `murcia-96271dd6.m4a` (41.6 s, AAC, 420 KB), which came from `murcia-music-001.mp3`,
+  supplied on 2026-09-15.
 
 **Outstanding:** record the source and licence of `earth-music-001` and `murcia-music-001`.
 The licence must cover streaming on a commercial website.
 
-**Delivery encode** (ffmpeg 9.0.1, native encoder): AAC-LC at 80 kbps, 44.1 kHz stereo, in
-`.m4a`, metadata and encoder tag stripped. Chosen over MP3 at 96 kbps on 2026-11-18 for size;
-no difference was heard against the 128 kbps MP3. HE-AAC needs `libfdk_aac`, which this ffmpeg
-build lacks. The name carries the first 8 hex of the output's SHA-256, because `/audio/` is
-served `immutable`.
+**Delivery encode** (ffmpeg 9.0.1, `libopus`): Opus, VBR, in WebM, 48 kHz stereo, metadata
+stripped and the encode bit-exact, so the same master gives the same bytes. Bitrate chosen by
+ear against the FLAC on 2026-11-24, per track: the lowest with no difference heard. WebM, not
+Ogg, because Safari plays Opus in WebM from 17.4 and not in Ogg; older iOS gets no music, a
+cost accepted on 2026-11-24. The name carries the first 8 hex of the output's SHA-256, because
+`/audio/` is served `immutable`.
 
-    ffmpeg -i in.mp3 -c:a aac -b:a 80k -ar 44100 -ac 2 -map_metadata -1 \
-      -fflags +bitexact -flags:a +bitexact -movflags +faststart out.m4a
-    sha256sum out.m4a | cut -c1-8
+    ffmpeg -i master.flac [-af volume=7dB] -c:a libopus -b:a 24k -vbr on -application audio \
+      -compression_level 10 -map_metadata -1 -fflags +bitexact -flags:a +bitexact -f webm out.webm
+    sha256sum out.webm | cut -c1-8
+
+Check the decoded level afterwards: Opus overshoots the master's peak by up to about 1 dB.
+
+    ffmpeg -i out.webm -af ebur128=peak=true -f null -
 
 **For a full-length stock track**, add `-af "afade=t=in:d=1.5,areverse,afade=t=in:d=3,areverse"`:
 a 1.5 s fade-in and a 3 s fade-out make the `<audio loop>` restart a soft dip rather than a cut.
-Not for a short authored loop like Earth's, where the fades would eat the loop.
+Not for an authored loop like the current two, whose fades are already in the master.
 
 Swapping a track: re-run the recipe, rename by hash, update `MUSIC_TRACKS` in
 `src/app/audio/backgroundMusic.ts`, and update this entry.
