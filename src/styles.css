@@ -510,9 +510,10 @@ html {
 }
 
 .case-chart__tick {
-  /* 10px text on the panel's glass: the V4 floor, as the chart title. */
+  /* 10px text on the panel's glass: the V4 floor, as the chart title. In
+     rem, so it follows the browser's text size (V14). */
   fill: rgba(255, 255, 255, 0.62);
-  font-size: 10px;
+  font-size: 0.625rem;
   letter-spacing: 0.05em;
 }
 
@@ -970,6 +971,25 @@ html {
   .case-panel__description,
   .case-panel__details {
     min-height: 0;
+  }
+}
+
+/* The sheet's literal above does not follow the glass tokens, so it follows
+   their two opaque cases here (siteHeader.css): no backdrop filter, and a
+   visitor who asks for less transparency (V14 of the 2026-11-18 accessibility
+   audit). The heaviest density, as the sheet is the densest glass there. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (max-width: 767px), (max-height: 500px) {
+    .case-panel {
+      background: var(--glass-film), var(--glass-bg-heavy);
+    }
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) and (max-width: 767px),
+  (prefers-reduced-transparency: reduce) and (max-height: 500px) {
+  .case-panel {
+    background: var(--glass-film), var(--glass-bg-heavy);
   }
 }
 

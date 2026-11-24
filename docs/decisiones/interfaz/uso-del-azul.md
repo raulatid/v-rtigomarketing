@@ -36,7 +36,7 @@ Pendiente de decidir; mientras tanto, la lista de arriba no se amplía ni la reg
 - el hover del enlace de la página 404, sobre fondo oscuro y con literal (`.not-found__link:hover` en `src/notFound/notFound.css`);
 - el degradado de la línea de progreso del botón de envío (`auditSection.css`, `contactSection.css`, con literales).
 
-También hay literales de color en hojas de panel (`consentBanner.css`, `auditSection.css`, `styles.css` y el velo de Contacto en `siteHeader.css`), que no reaccionan al bloque `@supports` sin desenfoque.
+También hay literales de color en hojas de panel (`consentBanner.css`, `auditSection.css`, `styles.css` y el velo de Contacto en `siteHeader.css`), que no reaccionan al bloque `@supports` sin desenfoque ni a `prefers-reduced-transparency`; la hoja del caso en el móvil y el velo de Contacto sí, con reglas propias (V14 de la auditoría de accesibilidad del 2026-11-18).
 
 ## Se ha roto si…
 

@@ -327,7 +327,9 @@
    gentler curve with a 9px floor (`--fs`, which the plate's height also reads). */
 .murcia-ui .murcia-compass {
   --u: clamp(0.62px, 100vw / 760, 1px);
-  --fs: clamp(9px, 2.3vw, 12px);
+  /* The ends in rem (9 and 12px at the default size), so the browser's text
+     size moves them (V14 of the 2026-11-18 accessibility audit). */
+  --fs: clamp(0.5625rem, 2.3vw, 0.75rem);
   /* The display face since 2026-09-11, where the lab's instrument was set in
      monospace. The labels' capitals and tracking do the instrument work. */
   font: 500 var(--fs) / 1 var(--font-display);
@@ -1115,7 +1117,7 @@
       padding-bottom: max(8px, env(safe-area-inset-bottom));
     }
     .murcia-ui .campus-overlay__title {
-      font-size: 22px !important;
+      font-size: 1.375rem !important;
       margin-top: 0;
     }
     .murcia-ui .campus-overlay__navigation { margin-top: 0; }
@@ -1269,7 +1271,8 @@
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
   color: var(--text-primary);
-  font-size: 13px;
+  /* In rem, so it follows the browser's text size (V14). */
+  font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.2;
   letter-spacing: 0.01em;

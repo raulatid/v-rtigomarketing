@@ -232,8 +232,20 @@
 }
 
 /* Where the backdrop cannot be filtered the material keeps its hierarchy and
-   loses only the see-through: same three densities, near-opaque. */
+   loses only the see-through: same three densities, near-opaque. The same for
+   a visitor who asks for less transparency (V14 of the 2026-11-18
+   accessibility audit); the values are repeated, since a media query and a
+   feature query cannot share one block. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg-light: rgba(10, 15, 22, 0.92);
+    --glass-bg-light-dense: rgba(10, 15, 22, 0.92);
+    --glass-bg: rgba(8, 12, 18, 0.94);
+    --glass-bg-heavy: rgba(7, 10, 15, 0.96);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
   :root {
     --glass-bg-light: rgba(10, 15, 22, 0.92);
     --glass-bg-light-dense: rgba(10, 15, 22, 0.92);
@@ -734,6 +746,36 @@
   .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut:hover {
     color: #fff;
     background: rgba(8, 12, 18, 0.75);
+  }
+}
+
+/* The scrim's literals above do not follow the tokens, so in the material's
+   two opaque cases it takes them: no backdrop filter, and a visitor who asks
+   for less transparency (V14 of the 2026-11-18 accessibility audit). Density
+   A at rest and C on hover keep the hover darker, as above. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (min-width: 768px) {
+    .site-header[data-layout='scene'][data-tone='light'] .contact-trigger,
+    .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut {
+      background: var(--glass-bg-light);
+    }
+
+    .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover,
+    .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut:hover {
+      background: var(--glass-bg-heavy);
+    }
+  }
+}
+
+@media (min-width: 768px) and (prefers-reduced-transparency: reduce) {
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger,
+  .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut {
+    background: var(--glass-bg-light);
+  }
+
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover,
+  .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut:hover {
+    background: var(--glass-bg-heavy);
   }
 }
 

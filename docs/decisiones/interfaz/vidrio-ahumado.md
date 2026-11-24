@@ -11,7 +11,7 @@
    - **C**, panel pesado (`--glass-bg-heavy`): contacto, textos legales, cortina de auditoría y degradado inferior de la capa del menú.
 3. **Los tokens viven en el `:root` de `src/components/siteHeader.css`,** la única hoja que cargan todos los documentos. Ninguna otra hoja declara `:root`, y las hojas de panel leen el color de los tokens.
 4. **El blog hereda los tokens y no los consume:** su superficie es papel. De los tokens del sitio solo lee `--header-control`.
-5. **Sin `backdrop-filter`, un único bloque `@supports`** vuelve casi opacas las tres densidades sin perder su orden.
+5. **Sin `backdrop-filter`, un único bloque `@supports`** vuelve casi opacas las tres densidades sin perder su orden. Con `prefers-reduced-transparency: reduce` pasa lo mismo, con los mismos valores repetidos en un bloque `@media` al lado (desde el 2026-11-24, V14 de la auditoría de accesibilidad del 2026-11-18). La hoja del caso en el móvil (`styles.css`) y el fondo de Contacto, Blog y Servicios sobre Murcia (`siteHeader.css`) usan literales y siguen los dos casos con reglas propias; la placa del banner de cookies (`consentBanner.css`) todavía no.
 6. **Una sola capa desenfocada por panel:** nada de `backdrop-filter` animado ni apilado. Cada uno va con su `-webkit-backdrop-filter`.
 7. **Sin línea emisora azul.** Donde la línea decía algo (el estado «enviado»), sigue y es neutra.
 8. **Mayúsculas solo en microetiquetas:** los disparadores de la cabecera, con tracking. Frases y botones de envío, en caja de oración.
