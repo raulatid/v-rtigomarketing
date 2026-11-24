@@ -82,6 +82,14 @@ const DRAW_WORKER_BUDGET_BYTES = 11_000
 // The build prints the measured total on every run; the history of each raise
 // is in git.
 const INITIAL_JS_BUDGET_BYTES = 1_485_000
+
+// Outside production (Vercel Preview, local builds) the closure also carries the
+// debug branches the literal cannot fold away, mostly MurciaExperience's debug
+// tools and SceneCanvas's. Measured at 18 008B on 2026-11-24 (preview 1 496 793B,
+// production 1 478 785B), by the user's decision (2026-11-24). It is not a way
+// round the rule above: the production line is the budget, and this allowance
+// is not raised to make room for application growth.
+const INITIAL_JS_DEBUG_ALLOWANCE_BYTES = 20_000
 // Why the requests are counted, and why this many: the blog's header became a
 // SECOND dynamic consumer of the corner logo, and Rollup re-signatures every
 // module two dynamic entries share — `utils/easing` and `graphics/decoders`
@@ -104,6 +112,14 @@ const INITIAL_JS_REQUEST_BUDGET = 12
 // three.js is no longer this budget's job — it has its own structural assertion
 // below, on the emitted chunk graph rather than on a size.
 const ENTRY_BUDGET_BYTES = 60_000
+
+// Outside production (Vercel Preview, local builds) the entry also carries the
+// debug glue the literal cannot fold away: the `/debug` path check and the lazy
+// mount of its console, and the `?menu3d=1` parser in protoMenu3d.ts. Measured
+// at 837B on 2026-11-24 (preview 60353B, production 59516B). This allowance
+// covers that and nothing else: the production figure above stays the rule, and
+// the allowance is not raised to make room for application growth.
+const ENTRY_DEBUG_ALLOWANCE_BYTES = 1_000
 /**
  * The blog chunk carries the UI, the serializer and the WHOLE post dataset, so
  * it grows with the article library rather than with the code. At three posts it
@@ -564,10 +580,16 @@ function assertChunkBudgets(): Plugin {
       }
 
       const entrySize = Buffer.byteLength(entry.code, 'utf8')
-      if (entrySize > ENTRY_BUDGET_BYTES) {
+      const entryBudget = IS_PRODUCTION
+        ? ENTRY_BUDGET_BYTES
+        : ENTRY_BUDGET_BYTES + ENTRY_DEBUG_ALLOWANCE_BYTES
+      if (entrySize > entryBudget) {
         this.error(
-          `app entry is ${entrySize}B, over the ${ENTRY_BUDGET_BYTES}B budget ` +
-            `(over by ${entrySize - ENTRY_BUDGET_BYTES}B). This is a SECONDARY guard: ` +
+          `app entry is ${entrySize}B, over the ${entryBudget}B budget ` +
+            (IS_PRODUCTION
+              ? ''
+              : `(${ENTRY_BUDGET_BYTES}B plus ${ENTRY_DEBUG_ALLOWANCE_BYTES}B of debug glue outside production) `) +
+            `— over by ${entrySize - entryBudget}B. This is a SECONDARY guard: ` +
             'three.js has its own structural assertion above, so what this catches is a ' +
             'large dependency or a generated dataset landing in the entry itself. Read ' +
             'the initial-closure total first — if that is healthy, the bytes only moved ' +
@@ -631,10 +653,17 @@ function assertChunkBudgets(): Plugin {
       // apart at a glance.
       const itemised = counted.map((c) => `    ${String(c.bytes).padStart(9)}  ${c.name}`).join('\n')
 
-      if (initialBytes > INITIAL_JS_BUDGET_BYTES) {
+      const initialBudget = IS_PRODUCTION
+        ? INITIAL_JS_BUDGET_BYTES
+        : INITIAL_JS_BUDGET_BYTES + INITIAL_JS_DEBUG_ALLOWANCE_BYTES
+      if (initialBytes > initialBudget) {
         this.error(
           `initial JS for / is ${initialBytes}B over ${counted.length} requests, past the ` +
-            `${INITIAL_JS_BUDGET_BYTES}B budget by ${initialBytes - INITIAL_JS_BUDGET_BYTES}B.\n` +
+            `${initialBudget}B budget ` +
+            (IS_PRODUCTION
+              ? ''
+              : `(${INITIAL_JS_BUDGET_BYTES}B plus ${INITIAL_JS_DEBUG_ALLOWANCE_BYTES}B of debug code outside production) `) +
+            `by ${initialBytes - initialBudget}B.\n` +
             `  counted (every non-entry chunk, plus the app and intro entries):\n${itemised}\n` +
             '  A new name here is a loading decision; an existing one growing is app growth.\n' +
             '  Since 2026-10-16 this budget is not raised: make room by taking something out.',
@@ -678,10 +707,10 @@ function assertChunkBudgets(): Plugin {
       )
       this.info(
         `chunk budgets ok — initial JS for / ${initialBytes}B (${initialBr}B br) over ` +
-          `${counted.length} requests, budget ${INITIAL_JS_BUDGET_BYTES}B/` +
+          `${counted.length} requests, budget ${initialBudget}B/` +
           `${INITIAL_JS_REQUEST_BUDGET}; intro ${introSize}B (${gz(intro.code)}B gz), ` +
           `draw worker ${workerSize}B, ` +
-          `app entry ${entrySize}B (${gz(entry.code)}B gz)` +
+          `app entry ${entrySize}B/${entryBudget}B (${gz(entry.code)}B gz)` +
           `${blog ? `, blog ${blogSize}B (${gz(blog.code)}B gz)` : ''}`,
       )
     },

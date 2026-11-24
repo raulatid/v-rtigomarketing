@@ -1,6 +1,6 @@
 # La puerta es todo el JS inicial de `/`; los techos por chunk son secundarios
 
-**Estado:** vigente · **Desde:** 2026-08-31 (`ac8c88d`: el presupuesto pasa de la entrada al cierre inicial); límite de peticiones en su valor actual desde el 2026-09-04 (`84e1b28`); `SCENE_BUDGET_BYTES` desde el 2026-09-05 (`8e40377`); regla «no se sube» desde el 2026-10-16 (`aab6a3b`); valor actual de `ENTRY_BUDGET_BYTES` y presupuesto del worker del dibujo desde el 2026-10-20 (`b93ad2a`, `5969dc2`); valor actual de `INITIAL_JS_BUDGET_BYTES` desde el 2026-10-23 (excepción a la regla, decisión del usuario) · **Sustituye a:** el presupuesto único de la entrada (DECISIONS §16 y §26.4, ADR 011 y 013) y el bloque «Build budgets» de PROJECT_MEMORY §9 (archivado)
+**Estado:** vigente · **Desde:** 2026-08-31 (`ac8c88d`: el presupuesto pasa de la entrada al cierre inicial); límite de peticiones en su valor actual desde el 2026-09-04 (`84e1b28`); `SCENE_BUDGET_BYTES` desde el 2026-09-05 (`8e40377`); regla «no se sube» desde el 2026-10-16 (`aab6a3b`); valor actual de `ENTRY_BUDGET_BYTES` y presupuesto del worker del dibujo desde el 2026-10-20 (`b93ad2a`, `5969dc2`); valor actual de `INITIAL_JS_BUDGET_BYTES` desde el 2026-10-23 (excepción a la regla, decisión del usuario); márgenes fuera de producción desde el 2026-11-24 (decisión del usuario) · **Sustituye a:** el presupuesto único de la entrada (DECISIONS §16 y §26.4, ADR 011 y 013) y el bloque «Build budgets» de PROJECT_MEMORY §9 (archivado)
 
 ## Decisión
 
@@ -8,6 +8,7 @@
 2. **El conjunto que se mide y el que se precarga salen del mismo predicado** (`isPreloadedOnIndex`). Lo usan el bucle de precarga de `introEntry` y `assertChunkBudgets` (ver [precarga de la portada](precarga-de-la-portada.md)).
 3. **`INITIAL_JS_BUDGET_BYTES` no se sube.** Si algo nuevo no cabe, se hace sitio quitando algo de este cierre. Lo dice también el mensaje de error. Su valor es la medida de un build más un margen pequeño, a propósito.
    - Excepción del 2026-10-23, por decisión del usuario: Conócenos, la hoja de servicios y los efectos de sonido llevaron el cierre a 1 478 156 B (ya sin las herramientas de depuración de Murcia, que llegaban a producción), y el límite pasó de 1 460 000 B a 1 485 000 B. La regla sigue vigente para lo que venga después.
+   - Los límites son los de producción. Fuera de producción (preview de Vercel y builds locales sin variable) se suma un margen fijo para el código de depuración que el literal no puede plegar: `INITIAL_JS_DEBUG_ALLOWANCE_BYTES` (20 000 B) sobre el cierre y `ENTRY_DEBUG_ALLOWANCE_BYTES` (1 000 B) sobre la entrada. Medido el 2026-11-24: el cierre del preview era 18 008 B mayor que el de producción (sobre todo las herramientas de depuración de `MurciaExperience` y de `SceneCanvas`), y la entrada, 837 B (la comprobación de `/debug`, el montaje diferido de su panel y el parser de `?menu3d=1`). Decisión del usuario. Los márgenes no se suben para hacer sitio a la app: si el preview no cabe y producción sí, lo que ha crecido es el código de depuración.
 4. **`INITIAL_JS_REQUEST_BUDGET` no tiene margen:** `/` hace exactamente ese número de peticiones. Cualquier chunk nuevo en `/` hace fallar el build y obliga a decidir.
 5. **Un fallo trae la lista de chunks contados.** Un nombre nuevo en la lista es una decisión de carga: algo que antes no era alcanzable desde `/` ahora lo es. Un nombre que crece es crecimiento de la app. No tienen el mismo arreglo.
 6. **Los techos por chunk son secundarios.** Si uno salta, se mira primero el total del cierre: si está sano, los bytes solo se han movido.
@@ -20,7 +21,7 @@
 9. **El contenido no gasta presupuesto de código.** Lo que crece con el editor y no con un commit (cuerpos del blog, textos legales) viaja en el chunk perezoso que lo muestra, y `check:architecture` impide que `src/main.tsx` lo alcance de forma estática (ver [segundo documento](../blog/segundo-documento.md) y [textos legales](../privacidad/textos-legales.md)).
 10. **Se comprueban bytes sin comprimir; brotli y gzip solo se imprimen.**
 11. **Si falta algo que se mide, el build falla.** No encontrar la entrada `index`, el arranque, el chunk de `SceneCanvas` o el worker es un error, no un tamaño cero.
-12. Todo se comprueba en `generateBundle`, en todos los sabores del build (producción, preview y local).
+12. Todo se comprueba en `generateBundle`, en todos los sabores del build (producción, preview y local). Fuera de producción, el cierre y la entrada se miden contra el límite de producción más su margen de depuración (punto 3); la línea «chunk budgets ok» imprime el límite aplicado.
 
 ## Por qué
 
@@ -33,6 +34,7 @@
 - El worker se descarga en toda visita en frío a `/`, y el arranque tiene la regla de «sin dependencias y con un tamaño que alguien eligió».
 - Los bytes sin comprimir solo cambian cuando cambia la carga útil. Brotli también cambia cuando cambia cómo el compresor ve el texto: eso es ruido en una puerta.
 - Un presupuesto que desaparece con su sujeto no es un presupuesto (comentarios de `assertChunkBudgets`).
+- Los márgenes fuera de producción existen porque el preview no construía. La entrada se pasaba del techo con el panel `/debug` dentro, y al sacarlo apareció que el cierre también se pasaba. Un margen fijo y medido mantiene la comprobación en los dos sabores sin mover el límite de producción.
 
 ## Qué se descartó
 
@@ -41,6 +43,8 @@
 - Hacer selectivo el bucle de precarga para ahorrar bytes: `MurciaExperience` ya se precarga con prioridad baja y se compila fuera del hilo principal; sacarlo solo retrasaría la ciudad.
 - Convertir una funcionalidad nueva en import dinámico para que «no cuente»: el bucle de precarga la vuelve a meter (ver [precarga de la portada](precarga-de-la-portada.md)).
 - Subir `INITIAL_JS_REQUEST_BUDGET` en uno para tener margen.
+- Subir los límites en todos los sabores para que quepa el preview: relajaría producción.
+- Cargar de forma diferida las herramientas de depuración de Murcia para que el preview quepa sin margen (2026-11-24): es una refactorización mediana de `MurciaExperience`, y `SceneCanvas` seguiría por encima.
 - Contar el worker dentro del JS inicial: tiene su propio techo.
 - Un presupuesto de bytes para three.
 - Comprobar brotli en vez de bytes sin comprimir.
@@ -56,4 +60,4 @@
 
 ## Afecta a
 
-`vite.config.ts` (`INITIAL_JS_BUDGET_BYTES`, `INITIAL_JS_REQUEST_BUDGET`, `ENTRY_BUDGET_BYTES`, `SCENE_BUDGET_BYTES`, `BLOG_BUDGET_BYTES`, `INTRO_BUDGET_BYTES`, `DRAW_WORKER_BUDGET_BYTES`, `isPreloadedOnIndex`, `assertChunkBudgets`), `checks/architecture.ts`, `src/main.tsx`, `src/components/SceneCanvas.tsx`, `src/blog/BlogRoute.tsx`, `src/intro-draw/drawWorker.ts`, `src/intro-draw/introDraw.ts`, `src/content/legal.ts`
+`vite.config.ts` (`INITIAL_JS_BUDGET_BYTES`, `INITIAL_JS_DEBUG_ALLOWANCE_BYTES`, `INITIAL_JS_REQUEST_BUDGET`, `ENTRY_BUDGET_BYTES`, `ENTRY_DEBUG_ALLOWANCE_BYTES`, `SCENE_BUDGET_BYTES`, `BLOG_BUDGET_BYTES`, `INTRO_BUDGET_BYTES`, `DRAW_WORKER_BUDGET_BYTES`, `isPreloadedOnIndex`, `assertChunkBudgets`), `checks/architecture.ts`, `src/main.tsx`, `src/components/SceneCanvas.tsx`, `src/blog/BlogRoute.tsx`, `src/intro-draw/drawWorker.ts`, `src/intro-draw/introDraw.ts`, `src/content/legal.ts`
