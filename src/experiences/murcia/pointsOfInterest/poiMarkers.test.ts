@@ -19,12 +19,19 @@ function site(id: PoiSite['id'], at: THREE.Vector3, hovered = () => false): PoiS
 }
 
 let container: HTMLElement
-afterEach(() => container?.remove())
+let current: ReturnType<typeof createPoiMarkers> | null = null
+afterEach(() => {
+  // Disposed here, so a failed assertion does not leave its Escape listener behind.
+  current?.dispose()
+  current = null
+  container?.remove()
+})
 
 function setup(sites: PoiSite[]) {
   container = document.createElement('div')
   document.body.append(container)
   const markers = createPoiMarkers(container, sites)
+  current = markers
   const element = (id: string) => container.querySelector<HTMLElement>(`.murcia-poi__site[data-poi="${id}"]`)!
   return { markers, element, root: container.querySelector<HTMLElement>('.murcia-poi')! }
 }
@@ -80,6 +87,62 @@ describe('the points of interest', () => {
     expect(element('blog').dataset.labelled).toBe('false')
     hovered = true
     markers.update(0, camera(), RECT, true)
+    expect(element('blog').dataset.labelled).toBe('true')
+  })
+
+  it('keeps a label up while the mouse is on it, and counts it as its dot (M12)', () => {
+    const { markers, element } = setup([site('blog', new THREE.Vector3(0, 0, -10))])
+    const label = element('blog').querySelector<HTMLElement>('.murcia-poi__label')!
+    // jsdom lays nothing out: the label's box is set by hand, above the dot.
+    label.getBoundingClientRect = () => ({ left: 470, right: 530, top: 200, bottom: 225 }) as DOMRect
+    markers.update(0, camera(), RECT, true)
+    // Not shown: the label is nothing to the pointer.
+    expect(markers.dotAt(500, 210, false)).toBeNull()
+    markers.setPointed('blog')
+    markers.update(0, camera(), RECT, true)
+    expect(markers.dotAt(500, 210, false)).toBe('blog')
+    expect(markers.dotAt(560, 210, false)).toBeNull()
+    // Not for a finger: a tap is the dot's alone.
+    expect(markers.dotAt(500, 210, true)).toBeNull()
+    // Put away by Escape: no longer counts either.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    markers.update(0, camera(), RECT, true)
+    expect(markers.dotAt(500, 210, false)).toBeNull()
+  })
+
+  it('puts the labels away on Escape until the pointer has left the place (M12)', () => {
+    const { markers, element } = setup([site('blog', new THREE.Vector3(0, 0, -10))])
+    markers.announce()
+    markers.setPointed('blog')
+    markers.update(0.1, camera(), RECT, true)
+    expect(element('blog').dataset.labelled).toBe('true')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    markers.update(0.1, camera(), RECT, true)
+    expect(element('blog').dataset.labelled).toBe('false')
+    // Still on it: still away. Left, then back: named again.
+    markers.update(0.1, camera(), RECT, true)
+    expect(element('blog').dataset.labelled).toBe('false')
+    markers.setPointed(null)
+    markers.update(0.1, camera(), RECT, true)
+    markers.setPointed('blog')
+    markers.update(0.1, camera(), RECT, true)
+    expect(element('blog').dataset.labelled).toBe('true')
+  })
+
+  it('ends an announcement on Escape, and ignores Escape while hidden (M12)', () => {
+    const { markers, element } = setup([site('blog', new THREE.Vector3(0, 0, -10))])
+    markers.announce()
+    markers.update(0, camera(), RECT, false)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    // Hidden when pressed: the announcement is still there to show.
+    markers.update(0.1, camera(), RECT, true)
+    expect(element('blog').dataset.labelled).toBe('true')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    markers.update(0.1, camera(), RECT, true)
+    expect(element('blog').dataset.labelled).toBe('false')
+    // Nothing under the pointer: a hover names it again at once.
+    markers.setPointed('blog')
+    markers.update(0.1, camera(), RECT, true)
     expect(element('blog').dataset.labelled).toBe('true')
   })
 
