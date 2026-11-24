@@ -197,7 +197,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 
 ## Registros y auditorías
 
-- [Entrega de la ciudad v5.2-r1](murcia/lightmaps-v5.2-r1-integration.md): registro de la entrega vigente, en inglés; sus cifras son las de la entrega, no las del código. Se archiva cuando llegue otra.
+- [Entrega de la ciudad v5.2-r1](murcia/lightmaps-v5.2-r1-integration.md): registro de la entrega r1, en inglés; sus cifras son las de esa entrega, no las del código. Ya no es la vigente: desde el 2026-11-23 es v9, cuyas cifras están en [Entrega de la ciudad](decisiones/build/entrega-de-la-ciudad.md) y cuya cadena está fuera del repositorio, con su `LEEME.md`.
 - [Entrega de la ciudad v5.2-r5](murcia/lightmaps-v5.2-r5-integration.md): GLB recuantizado e instancias compactas sobre los lightmaps de r4; en inglés. Los registros de r2 a r4 siguen en la misma carpeta.
 - [Peso del proyecto, 2026-11-18](audits/reports/project-resource-budget-2026-11-18.md): la visita completa pasa de 12,44 a 9,83 MB. Recoge qué se aplicó, qué se midió y se descartó, y lo que queda abierto (música, lightmaps de fondo, geometría de Blender).
 - [Peso en transferencia, 2026-11-23](audits/reports/project-transfer-2026-11-23.md): la visita completa de escritorio pasa de 7,78 a 6,33 MB en transferencia (estimado en Vercel), con v9, el AVIF de la Tierra en escritorio, los logos bajo demanda, el satélite simplificado y sin Switzer. Desde este informe la cifra es la transferencia, no «resources». Queda abierta la música de Murcia.
