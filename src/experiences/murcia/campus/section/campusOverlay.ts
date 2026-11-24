@@ -150,7 +150,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   const title = document.createElement('div');
   // A hook for the host's heading face, as the layer's class is for its plate.
   title.className = 'campus-overlay__title';
-  title.style.cssText = 'font-size:clamp(28px,4vw,44px);font-weight:600;letter-spacing:-0.01em;line-height:1.1;';
+  title.style.cssText = 'font-size:clamp(1.75rem,4vw,2.75rem);font-weight:600;letter-spacing:-0.01em;line-height:1.1;';
   // Where the focus lands when the plate arrives with nothing holding it: the
   // entry, or the last stop where the arrow that was pressed is gone (M3).
   title.tabIndex = -1;
@@ -165,14 +165,14 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   subtitle.className = 'campus-overlay__subtitle';
   subtitle.style.cssText =
     (inlineLayout ? 'margin-top:12px;' : '') +
-    'font-size:clamp(15px,1.5vw,19px);font-weight:400;line-height:1.45;opacity:0.82;';
+    'font-size:clamp(0.9375rem,1.5vw,1.1875rem);font-weight:400;line-height:1.45;opacity:0.82;';
   // The spacing and line height are the host's too: the site opens them up
   // in the docked plate.
   const detail = document.createElement('div');
   detail.className = 'campus-overlay__detail';
   detail.style.cssText =
     (inlineLayout ? 'margin:18px auto 0;max-width:560px;line-height:1.55;' : '') +
-    'font-size:clamp(14px,1.2vw,16px);font-weight:400;opacity:0.75;';
+    'font-size:clamp(0.875rem,1.2vw,1rem);font-weight:400;opacity:0.75;';
 
   // «Qué medimos». Every visual choice here is the host's when it lays the
   // plate out; the lab gets a plain centred list.
@@ -185,7 +185,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   const measuresList = document.createElement('ul');
   measuresList.className = 'campus-overlay__measures-list';
   if (inlineLayout) {
-    measures.style.cssText = 'margin-top:20px;font-size:13px;';
+    measures.style.cssText = 'margin-top:20px;font-size:0.8125rem;';
     measuresLabel.style.cssText = 'opacity:0.55;';
     measuresList.style.cssText = 'list-style:none;margin:6px 0 0;padding:0;opacity:0.85;';
   }
@@ -197,7 +197,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
   const caption = document.createElement('div');
   caption.className = 'campus-overlay__caption';
   caption.style.cssText =
-    (inlineLayout ? 'margin-top:18px;font-size:13px;' : '') +
+    (inlineLayout ? 'margin-top:18px;font-size:0.8125rem;' : '') +
     `opacity:0;transition:opacity ${CAPTION_FADE_MS}ms ease;`;
   const key = document.createElement('span');
   key.className = 'campus-overlay__key';
@@ -211,7 +211,7 @@ export function createCampusOverlay(options: CampusOverlayOptions): CampusOverla
 
   const hint = document.createElement('div');
   hint.style.cssText =
-    'margin-top:26px;font-size:12px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;opacity:0.55;';
+    'margin-top:26px;font-size:0.75rem;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;opacity:0.55;';
 
   const body = document.createElement('div');
   body.className = 'campus-overlay__body';

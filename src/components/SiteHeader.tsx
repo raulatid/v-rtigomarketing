@@ -296,6 +296,12 @@ export function SiteHeader({
     </div>
   )
   const portalTarget = phone && menuHost ? menuHost : null
+  // On a phone the box leaves the header for the layer after it, so a cell
+  // left after the burger would come between the burger and what it reveals
+  // in Tab order (D9 of the 2026-11-18 accessibility audit). There it goes
+  // before the burger: the burger's own `order` keeps the line as drawn, and
+  // over the scene the cell is fixed out of the row anyway.
+  const extraCell = extra !== undefined && <div className="site-header__extra">{extra}</div>
 
   return (
     <header
@@ -314,15 +320,18 @@ export function SiteHeader({
         <div className="site-header__start">{leading}</div>
         <div className="site-header__brand">{brand}</div>
         <div className="site-header__tail" ref={tailRef}>
+          {portalTarget && extraCell}
           {/* FIRST in the DOM, last on the line (CSS `order`): Tab from the
               burger has to land on the items it just revealed. Three bars that
               fold into a ✕ while the menu is open (siteHeader.css, keyed on
-              `data-menu-state`); the state is announced by `aria-expanded`. */}
+              `data-menu-state`); the state is announced by `aria-expanded`
+              alone. A fixed name, as `SoundToggle` does with `aria-pressed`:
+              one that also flipped would say the state twice (D9). */}
           {hasActions && (
             <button
               type="button"
               className="site-header__burger"
-              aria-label={menuOpen ? 'Cerrar el menú' : 'Menú'}
+              aria-label="Menú"
               aria-expanded={menuOpen}
               aria-controls={actionsId}
               ref={burgerRef}
@@ -334,7 +343,7 @@ export function SiteHeader({
             </button>
           )}
           {portalTarget ? createPortal(menuBox, portalTarget) : menuBox}
-          {extra !== undefined && <div className="site-header__extra">{extra}</div>}
+          {!portalTarget && extraCell}
         </div>
       </div>
     </header>

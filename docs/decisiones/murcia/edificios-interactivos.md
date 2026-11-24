@@ -15,6 +15,8 @@
    - con el ratón sobre el propio lugar.
 
    En táctil solo aparece en la llegada.
+
+   Como contenido que sale con el hover (WCAG 1.4.13, M12 de la auditoría de accesibilidad del 2026-11-18), con el ratón la etiqueta visible cuenta como su punto (`dotAt` en `poiMarkers.ts`): se puede pasar el puntero a ella sin que se vaya, y pulsarla es pulsar el punto. Escape las retira, también las de la llegada, hasta que el puntero sale de todos los lugares; una llegada en ese tramo tampoco las saca.
 4. **Los puntos no reciben eventos** (`pointer-events: none`). El picking es por distancia en pantalla, dentro del listener del canvas `PoiInteraction` (`poiInteraction.ts`), que funciona como `CampusInteraction`: ledger de pulsación por tipo de puntero y hover resuelto una vez por fotograma.
    - Un tap en Blog, Servicios o Conócenos entra por la vía de ese lugar (`flyToBlog`, `campus.enter`, `about.enter`). Esa vía rechaza una cámara ocupada, así que el tap arranca un solo vuelo aunque lo oigan dos listeners.
 5. **Conócenos lleva a su sección** ([sección Conócenos](seccion-conocenos.md)): con el hover se tiñe la malla inferior de `ARCH_Glass_Lobby`, sale la etiqueta y el cursor es la mano, sobre el punto y sobre la base. Un tap en cualquiera de los dos entra (`about.enter`). Sin documento de Conócenos en Sanity, el punto no es pulsable (`clickable` en `poiInteraction.ts`) y la base se tiñe pero no lleva a ninguna parte.

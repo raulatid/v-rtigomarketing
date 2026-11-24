@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { donutOpacity } from './CaseChart'
+import { chartData, donutOpacity } from './CaseChart'
 
 describe('donutOpacity', () => {
   it('keeps the 0.22 steps for up to four segments', () => {
@@ -16,5 +16,17 @@ describe('donutOpacity', () => {
       expect(opacities[count - 1]).toBeCloseTo(0.29, 10)
       for (let i = 1; i < count; i += 1) expect(opacities[i]).toBeLessThan(opacities[i - 1])
     }
+  })
+})
+
+describe('chartData (T3)', () => {
+  it('reads the series in order, in Spanish number format', () => {
+    expect(chartData({ type: 'line', title: 'T', values: [182, 176, 1030.5] })).toBe('182; 176; 1030,5')
+  })
+
+  it('puts each label before its value when there is one', () => {
+    expect(chartData({ type: 'bars', title: 'T', values: [640, 780], labels: ['T1', 'T2'] })).toBe('T1: 640; T2: 780')
+    // A value past the labels is read without one.
+    expect(chartData({ type: 'bars', title: 'T', values: [640, 10300], labels: ['T1'] })).toBe('T1: 640; 10.300')
   })
 })

@@ -29,7 +29,7 @@ Errores reales y comportamientos que parecen bugs pero son intencionados. Las de
 
 21. **`styles.css` no llega al blog.** Un token o regla compartida va en `siteHeader.css`; las hojas de componentes que montan en el blog se importan desde su componente.
 22. **El blog hereda los tokens oscuros y no debe consumirlos.**
-23. **Hay literales de color en hojas de panel** (`consentBanner.css`, `auditSection.css`, `styles.css`, el velo de Contacto) y no reaccionan al bloque `@supports` sin desenfoque. Pendiente de decidir (ver [uso del azul](../decisiones/interfaz/uso-del-azul.md)). Sin test.
+23. **Hay literales de color en hojas de panel** (`consentBanner.css`, `auditSection.css`, `styles.css`, el velo de Contacto) y no reaccionan al bloque `@supports` sin desenfoque ni a `prefers-reduced-transparency`, salvo la hoja del caso en el móvil y el velo de Contacto, que tienen reglas propias para los dos casos (V14). Pendiente de decidir (ver [uso del azul](../decisiones/interfaz/uso-del-azul.md)). Sin test.
 24. **La bandeja del holograma de Earth (`panel.glass*` en `orbitConfig.ts`) repite a mano la densidad A.** Si cambias `--glass-bg-light` o `--glass-border`, cámbiala también ([holograma de marca](../decisiones/earth/holograma-de-marca.md)). Sin test.
 25. **No pongas `scrollbar-width` ni `scrollbar-color` en un componente:** Chromium dejaría de aplicar `::-webkit-scrollbar` y volverían las flechas en Windows. Un panel redondeado con scroll fija `--scrollbar-inset` a su radio.
 26. **`backdrop-filter` sin prefijo no desenfoca en iOS 15–17.** Cada uso lleva `-webkit-backdrop-filter` y una placa con alfa que se lea sin desenfoque.

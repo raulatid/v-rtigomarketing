@@ -6,7 +6,7 @@ import type { FrameSettings } from '../graphics/renderableExperience'
 import { createNavigationState } from '../app/navigation/continuousState'
 import { createSequenceState } from '../experiences/earth/config/sequenceState'
 import { defaultIntroConfig } from '../experiences/earth/config/introConfig'
-import { SCENE_LABEL, SceneCanvas } from './SceneCanvas'
+import { SCENE_LABEL, SceneCanvas, WORLD_ARRIVAL } from './SceneCanvas'
 
 const pipeline = vi.hoisted(() => ({
   read: null as (() => FrameSettings) | null,
@@ -131,5 +131,22 @@ describe('the canvas as an image', () => {
     pipeline.onCreated!({ gl: { domElement: canvas, setClearColor: () => {}, info: { memory: {}, render: {} } } })
     expect(canvas.getAttribute('role')).toBe('img')
     expect(canvas.getAttribute('aria-label')).toBe(SCENE_LABEL)
+  })
+})
+
+describe('the arrival in the other world (D8)', () => {
+  it('says nothing on the first render and names the world after each swap', () => {
+    const { props, render } = setup()
+    const live = () => document.querySelector('.scene-arrival')!
+    expect(live().getAttribute('aria-live')).toBe('polite')
+    expect(live().textContent).toBe('')
+
+    props.activeExperience = 'earth'
+    render()
+    expect(live().textContent).toBe(WORLD_ARRIVAL.earth)
+
+    props.activeExperience = 'murcia'
+    render()
+    expect(live().textContent).toBe(WORLD_ARRIVAL.murcia)
   })
 })

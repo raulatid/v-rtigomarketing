@@ -232,8 +232,20 @@
 }
 
 /* Where the backdrop cannot be filtered the material keeps its hierarchy and
-   loses only the see-through: same three densities, near-opaque. */
+   loses only the see-through: same three densities, near-opaque. The same for
+   a visitor who asks for less transparency (V14 of the 2026-11-18
+   accessibility audit); the values are repeated, since a media query and a
+   feature query cannot share one block. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg-light: rgba(10, 15, 22, 0.92);
+    --glass-bg-light-dense: rgba(10, 15, 22, 0.92);
+    --glass-bg: rgba(8, 12, 18, 0.94);
+    --glass-bg-heavy: rgba(7, 10, 15, 0.96);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
   :root {
     --glass-bg-light: rgba(10, 15, 22, 0.92);
     --glass-bg-light-dense: rgba(10, 15, 22, 0.92);
@@ -737,6 +749,36 @@
   }
 }
 
+/* The scrim's literals above do not follow the tokens, so in the material's
+   two opaque cases it takes them: no backdrop filter, and a visitor who asks
+   for less transparency (V14 of the 2026-11-18 accessibility audit). Density
+   A at rest and C on hover keep the hover darker, as above. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (min-width: 768px) {
+    .site-header[data-layout='scene'][data-tone='light'] .contact-trigger,
+    .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut {
+      background: var(--glass-bg-light);
+    }
+
+    .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover,
+    .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut:hover {
+      background: var(--glass-bg-heavy);
+    }
+  }
+}
+
+@media (min-width: 768px) and (prefers-reduced-transparency: reduce) {
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger,
+  .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut {
+    background: var(--glass-bg-light);
+  }
+
+  .site-header[data-layout='scene'][data-tone='light'] .contact-trigger:hover,
+  .site-header[data-layout='scene'][data-tone='light'] .scene-shortcut:hover {
+    background: var(--glass-bg-heavy);
+  }
+}
+
 /* The header keeps its controls; siteMenu.css owns the shared phone menu. */
 
 .site-header__burger {
@@ -864,6 +906,15 @@
     position: fixed;
     left: calc(max(12px, env(safe-area-inset-left)) + 48px);
     bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  /* Gone with the burger while a panel is open, for the burger's reason: the
+     header (70) is above the audit curtain (60) and the contact and legal
+     modals (62), and the toggle floated over the end of the form, over an
+     error and «Términos y privacidad» (V11 of the 2026-11-18 accessibility
+     audit). It comes back when the panel closes. */
+  .site-header[data-layout='scene'][data-panel-open] .site-header__extra:has(.sound-toggle) {
+    display: none;
   }
 
   .site-header[data-layout='scene'] .site-header__burger-bar {

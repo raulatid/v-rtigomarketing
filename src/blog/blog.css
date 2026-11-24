@@ -405,14 +405,17 @@
   max-width: 520px;
   height: 48px;
   padding: 0 16px;
-  border: 1px solid rgba(11, 11, 13, 0.18);
+  /* 3.4:1 against the page (#fbfbfa): at 0.18 the field's edge was 1.44:1
+     and the white field all but vanished (V14 of the 2026-11-18
+     accessibility audit). The focused edge stays darker than the resting one. */
+  border: 1px solid rgba(11, 11, 13, 0.48);
   border-radius: 10px;
   background: #ffffff;
   color: rgba(11, 11, 13, 0.6);
 }
 
 .blog-search:focus-within {
-  border-color: rgba(11, 11, 13, 0.4);
+  border-color: rgba(11, 11, 13, 0.75);
 }
 
 .blog-search__input {

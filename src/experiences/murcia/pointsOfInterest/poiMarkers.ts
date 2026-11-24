@@ -20,6 +20,11 @@ import { POI, POI_DEFINITIONS, type PoiId } from './poiConfig';
  * A label shows on three reasons, any of them: the first seconds after each
  * arrival in the city (`announce`), a mouse over the dot, or a mouse over the
  * place itself, which each place reports through its own hover.
+ *
+ * Content on hover, so WCAG 1.4.13 (M12 of the 2026-11-18 accessibility
+ * audit): a shown label counts as its dot for `dotAt` with a mouse, so the
+ * pointer can move onto it without losing it; and Escape puts the labels away
+ * until the pointer has left every place, without moving it.
  */
 
 export interface PoiSite {
@@ -68,6 +73,7 @@ interface SiteView {
   transform: string;
   onScreen: boolean;
   labelled: boolean;
+  readonly label: HTMLElement;
 }
 
 export function createPoiMarkers(container: HTMLElement, sites: readonly PoiSite[]): PoiMarkers {
@@ -101,7 +107,7 @@ export function createPoiMarkers(container: HTMLElement, sites: readonly PoiSite
       label.textContent = definition?.label ?? site.id;
       element.append(dot, label);
       root.append(element);
-      return { site, element, transform: '', onScreen: false, labelled: false };
+      return { site, element, transform: '', onScreen: false, labelled: false, label };
     });
   container.append(root);
 
@@ -111,6 +117,14 @@ export function createPoiMarkers(container: HTMLElement, sites: readonly PoiSite
   let visible = false;
   let announceLeft = 0;
   let pointed: PoiId | null = null;
+  /** Escape put the labels away; until no place is under the pointer any more. */
+  let dismissed = false;
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || !visible) return;
+    dismissed = true;
+    announceLeft = 0;
+  };
+  window.addEventListener('keydown', onKeyDown);
 
   return {
     announce(): void {
@@ -123,7 +137,14 @@ export function createPoiMarkers(container: HTMLElement, sites: readonly PoiSite
 
     dotAt(clientX: number, clientY: number, touch: boolean): PoiId | null {
       if (!visible) return null;
-      return nearestDot(drawn, clientX, clientY, touch ? POI.hitRadiusPx.touch : POI.hitRadiusPx.mouse);
+      const dot = nearestDot(drawn, clientX, clientY, touch ? POI.hitRadiusPx.touch : POI.hitRadiusPx.mouse);
+      if (dot !== null || touch) return dot;
+      for (const view of views) {
+        if (!view.labelled) continue;
+        const box = view.label.getBoundingClientRect();
+        if (clientX >= box.left && clientX <= box.right && clientY >= box.top && clientY <= box.bottom) return view.site.id;
+      }
+      return null;
     },
 
     update(delta: number, camera: THREE.Camera, rect: ElementRect, nextVisible: boolean): void {
@@ -139,6 +160,7 @@ export function createPoiMarkers(container: HTMLElement, sites: readonly PoiSite
       if ((root.dataset.announcing === 'true') !== announcing) root.dataset.announcing = String(announcing);
 
       drawn.length = 0;
+      let anyHovered = false;
       for (const view of views) {
         // Projected while hidden too, so the first visible frame is already in place.
         const point = worldToClient(rect, camera, view.site.anchor(world), projected);
@@ -159,15 +181,19 @@ export function createPoiMarkers(container: HTMLElement, sites: readonly PoiSite
           }
           drawn.push({ id: view.site.id, x: point.x, y: point.y });
         }
-        const labelled = visible && onScreen && (announcing || pointed === view.site.id || view.site.hovered());
+        const hovered = pointed === view.site.id || view.site.hovered();
+        anyHovered ||= hovered;
+        const labelled = visible && onScreen && !dismissed && (announcing || hovered);
         if (labelled !== view.labelled) {
           view.labelled = labelled;
           view.element.dataset.labelled = String(labelled);
         }
       }
+      if (!anyHovered) dismissed = false;
     },
 
     dispose(): void {
+      window.removeEventListener('keydown', onKeyDown);
       root.remove();
       drawn.length = 0;
     },

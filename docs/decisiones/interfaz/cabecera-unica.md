@@ -12,7 +12,7 @@
 6. **`tone` dice cómo de claro es el fondo.** Sobre fondo claro, Contacto, Blog y Servicios van en tinta. En la escena de escritorio, sobre Murcia, van en blanco sobre un velo de vidrio, acotado por `data-layout='scene'` y no por `tone`. La caja de Auditoría lleva su propio color en todas partes.
 7. **En Murcia, la celda de inicio es «Volver a la Tierra»** (`.scene-home`: el elemento en `App.tsx`, el estilo en `siteHeader.css`): activa solo en la vista general de la ciudad (`isCityOverview`) y con la atención libre.
 8. **La cabecera de la escena publica el ancho de su cola** en `--site-header-tail`, para que la [brújula](../murcia/brujula.md) se centre.
-9. **El interruptor de sonido** va en la cola en escritorio; en móvil queda fijo abajo a la izquierda, junto al ⓘ de cookies.
+9. **El interruptor de sonido** va en la cola en escritorio; en móvil queda fijo abajo a la izquierda, junto al ⓘ de cookies, y se quita, como el burger, mientras hay un panel abierto: la cabecera va por encima de la cortina de auditoría y de los diálogos, y tapaba el final del formulario (V11 de la auditoría de accesibilidad del 2026-11-18).
 
 ## Por qué
 

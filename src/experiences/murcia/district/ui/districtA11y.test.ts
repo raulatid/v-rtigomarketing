@@ -7,15 +7,13 @@ import { DistrictA11y } from './districtA11y'
 // 024); what is pinned here is what a keyboard user can reach in each state,
 // and what a screen reader is told.
 
-function make() {
+/** `paging: false` is a section whose plate pages and closes itself (M11). */
+function make({ paging = true } = {}) {
   const parent = document.createElement('div')
   document.body.appendChild(parent)
-  const events = {
-    onEnter: vi.fn(),
-    onPrevious: vi.fn(),
-    onNext: vi.fn(),
-    onBack: vi.fn(),
-  }
+  const events = paging
+    ? { onEnter: vi.fn(), onPrevious: vi.fn(), onNext: vi.fn(), onBack: vi.fn() }
+    : { onEnter: vi.fn() }
   const a11y = new DistrictA11y(parent, 'Servicios', 'es', events)
   const buttons = () => [...parent.querySelectorAll<HTMLButtonElement>('button')]
   const visible = () => buttons().filter((b) => !b.hidden).map((b) => b.textContent)
@@ -132,5 +130,27 @@ describe('another section on the same surface', () => {
     expect(names).toEqual(['Conócenos: explorar', 'Parada anterior', 'Parada siguiente', 'volver'])
     expect(parent.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('Conócenos')
     fixture = { parent, a11y, events, buttons: () => [], visible: () => [], live: () => '' }
+  })
+})
+
+describe('a section whose plate pages and closes itself (M11)', () => {
+  it('offers only the way in, and still announces', () => {
+    fixture = make({ paging: false })
+    fixture.a11y.update(overview, null)
+    expect(fixture.visible()).toEqual(['Servicios: explorar'])
+    fixture.a11y.update(service, { eyebrow: 'Servicios · 01 / 05', title: 'SEO', summary: 'Resumen.' })
+    expect(fixture.visible()).toEqual([])
+    expect(fixture.live()).toBe('Servicios · 01 / 05. SEO. Resumen.')
+  })
+
+  it('hands the focus back to the way in from the plate it shares a host with', () => {
+    fixture = make({ paging: false })
+    fixture.a11y.update(service, null)
+    // The plate's back arrow, in the same container as the group.
+    const plateBack = document.createElement('button')
+    fixture.parent.appendChild(plateBack)
+    plateBack.focus()
+    fixture.a11y.update(overview, null)
+    expect(document.activeElement?.textContent).toBe('Servicios: explorar')
   })
 })

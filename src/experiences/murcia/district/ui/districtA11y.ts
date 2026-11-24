@@ -21,11 +21,18 @@ import { campusLabel } from '../../campus/campusLabels';
  * else in the accessibility tree.
  */
 
+/**
+ * The paging and the way out are optional. A section whose plate already
+ * carries them as real buttons — the services, whose plate has both arrows and
+ * the back arrow — leaves them out: with them here too, every arrow came twice
+ * in the Tab order and the one way out had two names, «volver» here and the
+ * plate's «salir de los servicios» (M11 of the 2026-11-18 accessibility audit).
+ */
 export interface DistrictA11yEvents {
   onEnter(): void;
-  onPrevious(): void;
-  onNext(): void;
-  onBack(): void;
+  onPrevious?(): void;
+  onNext?(): void;
+  onBack?(): void;
 }
 
 /** Where the section is, in the terms this surface needs. */
@@ -46,9 +53,9 @@ export class DistrictA11y {
   private readonly root: HTMLElement;
   private readonly live: HTMLElement;
   private readonly enterButton: HTMLButtonElement;
-  private readonly previousButton: HTMLButtonElement;
-  private readonly nextButton: HTMLButtonElement;
-  private readonly backButton: HTMLButtonElement;
+  private readonly previousButton: HTMLButtonElement | null;
+  private readonly nextButton: HTMLButtonElement | null;
+  private readonly backButton: HTMLButtonElement | null;
   /** Last announcement, so an unchanged snapshot does not re-announce. */
   private announced = '';
 
@@ -94,9 +101,10 @@ export class DistrictA11y {
     // Order here IS tab order, and it matches the way the section reads: the
     // way in, then paging, then out.
     this.enterButton = button(`${districtLabel}: ${campusLabel(locale, 'explore')}`, events.onEnter);
-    this.previousButton = button(labels?.previous ?? campusLabel(locale, 'previous'), events.onPrevious);
-    this.nextButton = button(labels?.next ?? campusLabel(locale, 'next'), events.onNext);
-    this.backButton = button(campusLabel(locale, 'back'), events.onBack);
+    const { onPrevious, onNext, onBack } = events;
+    this.previousButton = onPrevious ? button(labels?.previous ?? campusLabel(locale, 'previous'), onPrevious) : null;
+    this.nextButton = onNext ? button(labels?.next ?? campusLabel(locale, 'next'), onNext) : null;
+    this.backButton = onBack ? button(campusLabel(locale, 'back'), onBack) : null;
 
     parent.appendChild(this.root);
     this.applyVisibility({ districtActive: false });
@@ -145,9 +153,9 @@ export class DistrictA11y {
 
   private applyVisibility({ districtActive: active }: DistrictA11ySnapshot): void {
     this.enterButton.hidden = active;
-    this.previousButton.hidden = !active;
-    this.nextButton.hidden = !active;
-    this.backButton.hidden = !active;
+    for (const button of [this.previousButton, this.nextButton, this.backButton]) {
+      if (button) button.hidden = !active;
+    }
   }
 
   dispose(): void {
