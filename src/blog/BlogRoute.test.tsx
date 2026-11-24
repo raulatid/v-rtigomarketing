@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react'
+import { act, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import BlogRoute, { type BlogHost } from './BlogRoute'
@@ -168,6 +168,69 @@ describe('the filter count', () => {
     const count = container.querySelector('.blog-latest__count')!
     expect(count.getAttribute('role')).toBe('status')
     expect(count.textContent).toMatch(/\d+ entradas?/)
+  })
+})
+
+// B12, B14 and G3 of the 2026-11-18 accessibility audit.
+describe('what the blog says to a screen reader and a crawler', () => {
+  it('names a card by its title and describes it by its excerpt and date, its picture hidden', () => {
+    show({ name: 'blog-index', topic: null })
+    const cards = Array.from(container.querySelectorAll<HTMLAnchorElement>('a.blog-card'))
+    expect(cards.length).toBeGreaterThan(0)
+    expect(container.querySelector('a.blog-card--featured')).not.toBeNull()
+    for (const card of cards) {
+      expect(document.getElementById(card.getAttribute('aria-labelledby')!)).toBe(card.querySelector('.blog-card__title'))
+      const [excerpt, meta] = card.getAttribute('aria-describedby')!.split(' ')
+      expect(document.getElementById(excerpt!)).toBe(card.querySelector('.blog-card__excerpt'))
+      expect(document.getElementById(meta!)).toBe(card.querySelector('.blog-meta'))
+    }
+    const figures = Array.from(container.querySelectorAll('a.blog-card figure'))
+    expect(figures.length).toBeGreaterThan(0)
+    for (const figure of figures) {
+      expect(figure.getAttribute('aria-hidden')).toBe('true')
+      expect(figure.querySelector('img')!.getAttribute('alt')).toBe('')
+    }
+  })
+
+  it('groups the topic toggles instead of calling them navigation', () => {
+    show({ name: 'blog-index', topic: null })
+    const pills = container.querySelector('.blog-pills')!
+    expect(pills.tagName).toBe('DIV')
+    expect(pills.getAttribute('role')).toBe('group')
+    expect(pills.getAttribute('aria-label')).toBe('Temas')
+  })
+
+  const robots = () => document.head.querySelector('meta[name="robots"]')
+
+  it('asks not to index an unknown slug, and only while it is shown', () => {
+    show({ name: 'blog-post', slug: 'no-such-post' })
+    expect(robots()?.getAttribute('content')).toBe('noindex')
+    show({ name: 'blog-post', slug: first!.id })
+    expect(robots()).toBeNull()
+  })
+
+  it('gives a document its own robots back, also under StrictMode', () => {
+    const own = document.head.appendChild(document.createElement('meta'))
+    own.name = 'robots'
+    own.content = 'max-image-preview:large'
+    const strict = (route: Route) => act(() => root.render(<StrictMode><BlogRoute route={route} host={host} /></StrictMode>))
+    try {
+      strict({ name: 'blog-post', slug: 'no-such-post' })
+      expect(robots()?.getAttribute('content')).toBe('noindex')
+      expect(document.head.querySelectorAll('meta[name="robots"]')).toHaveLength(1)
+      strict({ name: 'blog-index', topic: null })
+      expect(robots()).toBe(own)
+      expect(own.content).toBe('max-image-preview:large')
+    } finally {
+      own.remove()
+    }
+  })
+
+  it('leaves no robots behind under StrictMode when the document had none', () => {
+    act(() => root.render(<StrictMode><BlogRoute route={{ name: 'blog-post', slug: 'no-such-post' }} host={host} /></StrictMode>))
+    expect(document.head.querySelectorAll('meta[name="robots"]')).toHaveLength(1)
+    act(() => root.render(<StrictMode><BlogRoute route={{ name: 'blog-index', topic: null }} host={host} /></StrictMode>))
+    expect(robots()).toBeNull()
   })
 })
 

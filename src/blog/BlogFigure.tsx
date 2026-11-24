@@ -44,13 +44,26 @@ export function BlogFigure({ image, slot, priority = false, className }: Props) 
   // a grid where only some posts have one.
   const showCaption = (slot === 'cover' || slot === 'body') && image.caption !== undefined
 
+  // On a card the picture decorates a link the title already names: without
+  // this it joined the link's name, and on the featured card, whose cover is
+  // described by its title, the title was heard twice (B12 of the 2026-11-18
+  // accessibility audit). Hidden whole, so no "figure" is announced in a link.
+  const decorative = slot === 'card' || slot === 'featured'
+  // The schema asks for both fields but cannot stop them being the same words,
+  // and two covers say the same thing in both (B10). The caption is what
+  // everyone reads, so the image steps aside rather than repeat it.
+  const alt = decorative || (showCaption && image.caption?.trim() === image.alt.trim()) ? '' : image.alt
+
   return (
-    <figure className={className === undefined ? 'blog-figure' : `blog-figure ${className}`}>
+    <figure
+      className={className === undefined ? 'blog-figure' : `blog-figure ${className}`}
+      aria-hidden={decorative || undefined}
+    >
       <img
         className="blog-figure__img"
         src={sanityImageSrc(image, slot === 'card' ? 400 : 680, slot)}
         {...(srcSet === undefined ? {} : { srcSet, sizes: SIZES[slot] })}
-        alt={image.alt}
+        alt={alt}
         width={image.width}
         height={image.height}
         loading={priority ? 'eager' : 'lazy'}

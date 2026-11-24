@@ -166,3 +166,45 @@ describe('the consent banner', () => {
     expect(banner()).toBeNull()
   })
 })
+
+// F13 of the 2026-11-18 accessibility audit: the button that made the choice
+// unmounts with the banner, and the focus fell to <body>.
+describe('the focus after the choice', () => {
+  it('goes to the icon that takes the banner’s place', async () => {
+    const { act } = await mount()
+    const reject = button('Rechazar todas')!
+    act(() => {
+      reject.focus()
+      reject.click()
+    })
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    expect(banner()).toBeNull()
+    expect(document.activeElement).toBe(info())
+  })
+
+  it('is left alone when the choice did not come from the banner', async () => {
+    const { act, writeConsent } = await mount()
+    act(() => {
+      writeConsent({ analytics: true, preferences: true })
+    })
+    expect(document.activeElement).not.toBe(info())
+  })
+
+  it('stays where the visitor moved it while the banner was leaving', async () => {
+    const { act } = await mount()
+    const accept = button('Aceptar todas')!
+    act(() => {
+      accept.focus()
+      accept.click()
+    })
+    const elsewhere = document.body.appendChild(document.createElement('button'))
+    act(() => elsewhere.focus())
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    expect(document.activeElement).toBe(elsewhere)
+    elsewhere.remove()
+  })
+})

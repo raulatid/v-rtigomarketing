@@ -56,6 +56,22 @@ describe('PostBody renders every block kind', () => {
     expect(html([{ kind: 'image', image: noCaption }])).not.toContain('<figcaption')
   })
 
+  // B10 of the 2026-11-18 accessibility audit: an alt that repeats the
+  // caption was heard twice. The caption stays; the image steps aside.
+  it('image whose alt is its caption, said once', () => {
+    const out = html([{ kind: 'image', image: { ...image, alt: 'Sesiones frente a ingresos. ' } }])
+    expect(out).toContain('alt=""')
+    expect(out).toContain('Sesiones frente a ingresos.</figcaption>')
+    // A different alt is kept.
+    expect(html([{ kind: 'image', image }])).toContain('alt="un gráfico de sesiones"')
+  })
+
+  // B13: a card that leaves in another tab says so.
+  it('video and embed say they open another tab', () => {
+    const out = html([{ kind: 'embed', provider: 'youtube', url: 'https://www.youtube.com/watch?v=abc' }])
+    expect(out).toContain('(se abre en otra pestaña)')
+  })
+
   it('video and embed, as link cards', () => {
     const out = html([
       { kind: 'video', src: 'https://example.com/a.mp4' },

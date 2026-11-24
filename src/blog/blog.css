@@ -854,6 +854,16 @@
   color: rgba(11, 11, 13, 0.6);
 }
 
+/* For a screen reader only: clipped, not hidden, or it is skipped too. */
+.blog-media__new-tab {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ------------------------------------------------------------- prev/next */
 
 .blog-prevnext {

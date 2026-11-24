@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BLOG_POSTS } from '../content/generated/blogPosts'
 import type { BlogPost } from '../content/types'
 import type { Route } from '../app/route'
@@ -80,8 +80,8 @@ const DATE_FORMAT = new Intl.DateTimeFormat('es-ES', {
 
 const formatDate = (iso: string): string => DATE_FORMAT.format(new Date(iso))
 
-const Meta = ({ post }: { post: BlogPost }) => (
-  <span className="blog-meta">
+const Meta = ({ post, id }: { post: BlogPost; id?: string }) => (
+  <span className="blog-meta" id={id}>
     <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
     <span className="blog-meta__dot" aria-hidden="true" />
     {post.readingTime} min de lectura
@@ -99,17 +99,23 @@ function PageLink({
   href,
   onOpen,
   className,
+  labelledBy,
+  describedBy,
   children,
 }: {
   href: string
   onOpen: () => void
   className: string
+  labelledBy?: string
+  describedBy?: string
   children: ReactNode
 }) {
   return (
     <a
       href={href}
       className={className}
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       onClick={(event) => {
         if (!isPlainClick(event)) return
         event.preventDefault()
@@ -124,11 +130,17 @@ function PageLink({
 const postPath = (slug: string) => routeToPath({ name: 'blog-post', slug })
 
 function Card({ post, onOpen, featured = false }: { post: BlogPost; onOpen: () => void; featured?: boolean }) {
+  // Named by its title and described by its excerpt and its date (B12 of the 2026-11-18
+  // accessibility audit): the whole card as one name was a paragraph, read
+  // again on every Tab.
+  const id = useId()
   return (
     <PageLink
       href={postPath(post.id)}
       className={featured ? 'blog-card blog-card--featured' : 'blog-card'}
       onOpen={onOpen}
+      labelledBy={`${id}-title`}
+      describedBy={`${id}-excerpt ${id}-meta`}
     >
       {post.cover === null ? (
         // A deliberate empty frame rather than no frame: a grid where some cards
@@ -144,9 +156,9 @@ function Card({ post, onOpen, featured = false }: { post: BlogPost; onOpen: () =
       )}
       <span className="blog-card__text">
         {post.category !== null && <span className="blog-card__eyebrow">{post.category.shortLabel}</span>}
-        <span className="blog-card__title">{post.title}</span>
-        <span className="blog-card__excerpt">{post.excerpt}</span>
-        <Meta post={post} />
+        <span className="blog-card__title" id={`${id}-title`}>{post.title}</span>
+        <span className="blog-card__excerpt" id={`${id}-excerpt`}>{post.excerpt}</span>
+        <Meta post={post} id={`${id}-meta`} />
       </span>
     </PageLink>
   )
@@ -222,7 +234,10 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
                 />
               </label>
 
-              <nav className="blog-pills" aria-label="Temas">
+              {/* A group of toggles that filter this page, not a way to
+                  another one: a nav landmark promised navigation (B14 of the
+                  2026-11-18 accessibility audit). */}
+              <div className="blog-pills" role="group" aria-label="Temas">
                 <button
                   type="button"
                   className="blog-pill"
@@ -242,7 +257,7 @@ function Index({ host, topic }: { host: BlogHost; topic: string | null }) {
                     {label}
                   </button>
                 ))}
-              </nav>
+              </div>
             </div>
           </section>
 
@@ -392,6 +407,22 @@ function Article({
 }
 
 function NotFound({ host }: { host: BlogHost }) {
+  // A slug with no post is answered with HTTP 200, not a 404 (blog trap n.º 29:
+  // the rewrite falls to blog.html, on purpose), so the page says noindex
+  // itself, and gives the document its robots back on the way out (G3 of the
+  // 2026-11-18 accessibility audit).
+  useEffect(() => {
+    const existing = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]')
+    const meta = existing ?? document.head.appendChild(document.createElement('meta'))
+    const previous = existing?.content
+    meta.name = 'robots'
+    meta.content = 'noindex'
+    return () => {
+      if (previous === undefined) meta.remove()
+      else meta.content = previous
+    }
+  }, [])
+
   return (
     <BlogSurface onBack={host.returnToIndex}>
       <div className="blog-root">

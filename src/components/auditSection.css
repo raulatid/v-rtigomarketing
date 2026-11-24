@@ -880,8 +880,13 @@
   color: rgba(255, 255, 255, 0.85);
 }
 
+/* The dot is drawn, not said: with no alternative text it joined the link's
+   name, «·Aviso legal» (F16 of the 2026-11-18 accessibility audit). The second
+   declaration is the one that applies; a browser without `/ ''` drops it and
+   keeps the first. */
 .audit-legal__link + .audit-legal__link::before {
   content: '·';
+  content: '·' / '';
   margin-right: 0.4rem;
   color: rgba(255, 255, 255, 0.3);
 }
@@ -1025,4 +1030,18 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
+}
+
+/* Words for a screen reader only, in both forms (contactSection.css relies on
+   this file, as it does for the honeypot): the error a blur revealed, what the
+   counter counts, a link that opens another tab. Clipped rather than hidden,
+   or the reader skips them too. */
+.form-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
