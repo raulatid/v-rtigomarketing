@@ -30,7 +30,7 @@ export function stripShaderComments(shader: string): string {
 }
 
 const PUBLIC_ROOTS = new Set(['audio', 'draco', 'earth', 'fonts', 'libs', 'logos', 'models', 'textures'])
-const PUBLIC_EXTENSIONS = new Set(['.mp3', '.m4a', '.webm', '.js', '.wasm', '.ktx2', '.woff2', '.glb', '.png', '.webp', '.avif', '.json', '.svg'])
+const PUBLIC_EXTENSIONS = new Set(['.mp3', '.m4a', '.js', '.wasm', '.ktx2', '.woff2', '.glb', '.png', '.webp', '.avif', '.json', '.svg'])
 
 /**
  * Root-level files that ship. Everything else at the root of public/ is

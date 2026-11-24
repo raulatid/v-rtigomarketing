@@ -154,7 +154,7 @@ Provenance not recorded when these were added. **Outstanding:** confirm the sour
 of the Earth maps and record them here. They are almost certainly NASA Visible Earth / Blue
 Marble, which is public domain, but "almost certainly" is not a licence record.
 
-## `public/audio/<world>-<sha8>.webm` — the background music
+## `public/audio/<world>-<sha8>.m4a` — the background music
 
 Working files are kept outside the repo in `04_Assets/musica/`. The lossless masters are the
 shortened loops exported from DaVinci Resolve on 2026-11-24 as FLAC, 48 kHz, 24-bit stereo:
@@ -162,34 +162,39 @@ shortened loops exported from DaVinci Resolve on 2026-11-24 as FLAC, 48 kHz, 24-
 The fade-in and fade-out at each loop's ends are authored in the master, on purpose: the
 encode must not add, trim or alter them.
 
-- `earth-d839af5c.webm` ← `earth-bucle-reducido00086400.flac`, Opus at 24 kbps, with +7 dB of
-  gain: the master was exported about 9 dB low by mistake. +7 dB puts it at -14.6 LUFS with a
-  decoded peak of -0.9 dBFS; +8 dB left the decoded peak at -0.1 dBFS. Replaced
-  `earth-e9ebe19a.m4a` (65.5 s, AAC, 656 KB), which came from `earth-461bb41b.mp3`, supplied as
-  `earth-0cae7852.mp3` on 2026-09-15. That source's original filename is not recorded.
+- `earth-ce1abe73.m4a` ← `earth-bucle-reducido00086400.flac`, with +7 dB of gain: the master
+  was exported about 9 dB low by mistake. +7 dB puts it at -14.5 LUFS with a decoded peak of
+  -1.6 dBFS. Replaced `earth-e9ebe19a.m4a` (65.5 s, 656 KB), which came from
+  `earth-461bb41b.mp3`, supplied as `earth-0cae7852.mp3` on 2026-09-15. That source's original
+  filename is not recorded.
 
-- `murcia-8d02541a.webm` ← `murcia-bucle-reducido00086400.flac`, Opus at 32 kbps, no gain
-  (-14.7 LUFS, decoded peak -0.5 dBFS). At 24 kbps audible artefacts were heard in this track.
-  Replaced `murcia-96271dd6.m4a` (41.6 s, AAC, 420 KB), which came from `murcia-music-001.mp3`,
-  supplied on 2026-09-15.
+- `murcia-87367b25.m4a` ← `murcia-bucle-reducido00086400.flac`, no gain (-14.8 LUFS, decoded
+  peak -0.5 dBFS). Replaced `murcia-96271dd6.m4a` (41.6 s, 420 KB), which came from
+  `murcia-music-001.mp3`, supplied on 2026-09-15.
 
 **Outstanding:** record the source and licence of `earth-music-001` and `murcia-music-001`.
 The licence must cover streaming on a commercial website.
 
-**Delivery encode** (ffmpeg 9.0.1, `libopus`): Opus, VBR, in WebM, 48 kHz stereo, metadata
-stripped and the encode bit-exact, so the same master gives the same bytes. Bitrate chosen by
-ear against the FLAC on 2026-11-24, per track: the lowest with no difference heard. WebM, not
-Ogg, because Safari plays Opus in WebM from 17.4 and not in Ogg; older iOS gets no music, a
-cost accepted on 2026-11-24. The name carries the first 8 hex of the output's SHA-256, because
-`/audio/` is served `immutable`.
+**Delivery encode** (ffmpeg 9.0.1, native encoder): AAC-LC at 80 kbps, 44.1 kHz stereo, in
+`.m4a`, metadata and encoder tag stripped and the encode bit-exact, so the same master gives
+the same bytes. Chosen over MP3 at 96 kbps on 2026-11-18 for size; no difference was heard
+against the 128 kbps MP3. HE-AAC needs `libfdk_aac`, which this ffmpeg build lacks. The name
+carries the first 8 hex of the output's SHA-256, because `/audio/` is served `immutable`.
 
-    ffmpeg -i master.flac [-af volume=7dB] -c:a libopus -b:a 24k -vbr on -application audio \
-      -compression_level 10 -map_metadata -1 -fflags +bitexact -flags:a +bitexact -f webm out.webm
-    sha256sum out.webm | cut -c1-8
+    ffmpeg -i master.flac [-af volume=7dB] -c:a aac -b:a 80k -ar 44100 -ac 2 -map_metadata -1 \
+      -fflags +bitexact -flags:a +bitexact -movflags +faststart out.m4a
+    sha256sum out.m4a | cut -c1-8
 
-Check the decoded level afterwards: Opus overshoots the master's peak by up to about 1 dB.
+Check the decoded level afterwards: a lossy encode can overshoot the master's peak.
 
-    ffmpeg -i out.webm -af ebur128=peak=true -f null -
+    ffmpeg -i out.m4a -af ebur128=peak=true -f null -
+
+**Not Opus in WebM.** Tried on 2026-11-24 (Earth 24 kbps, Murcia 32 kbps, a third of the
+size). Desktop was fine, but on an iPhone the music no longer went through Web Audio: no
+crossfade at the warp, each track cut by its pause timer, and the effects buried under music at
+full level. Safari plays WebM through a different pipeline from MP3 and AAC, and
+`createMediaElementSource` gets no audio from it (WebKit bug 266922 reports the same for
+MSE). Back to AAC, the format production already played correctly, as the fix.
 
 **For a full-length stock track**, add `-af "afade=t=in:d=1.5,areverse,afade=t=in:d=3,areverse"`:
 a 1.5 s fade-in and a 3 s fade-out make the `<audio loop>` restart a soft dip rather than a cut.

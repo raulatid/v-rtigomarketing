@@ -287,7 +287,6 @@ const MIME = {
   '.wasm': 'application/wasm',
   '.mp3': 'audio/mpeg',
   '.m4a': 'audio/mp4',
-  '.webm': 'audio/webm',
 };
 
 /**
