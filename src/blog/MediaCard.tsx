@@ -66,6 +66,9 @@ export function MediaCard({ kind, href, poster }: Props) {
         <span className="blog-media__text">
           <span className="blog-media__label">{LABEL[kind]}</span>
           {host !== '' && <span className="blog-media__host">{host}</span>}
+          {/* It leaves in another tab, which a reader is told rather than
+              left to find out (B13 of the 2026-11-18 accessibility audit). */}
+          <span className="blog-media__new-tab"> (se abre en otra pestaña)</span>
         </span>
       </a>
       {poster?.caption !== undefined && (
