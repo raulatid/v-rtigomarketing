@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react'
+import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SiteHeader } from './SiteHeader'
@@ -17,7 +17,8 @@ vi.mock('../platform/motionPreference', () => ({ prefersReducedMotion: vi.fn() }
 //
 // What these pin down:
 //  - the burger exists only once there are actions, and describes its state;
-//  - it comes BEFORE the actions in the DOM, so Tab from it reaches the items;
+//  - it comes BEFORE the actions in the DOM, so Tab from it reaches the items,
+//    and on a phone the extra cell comes before it, not between the two;
 //  - the box goes where it is told, and only on a phone over the scene;
 //  - every way of leaving works, and leaving opens nothing by itself;
 //  - a chosen door opens in the tick it was chosen, and the menu folds with it;
@@ -80,6 +81,7 @@ interface MountProps {
   hasActions?: boolean
   panelOpen?: boolean
   menuHost?: HTMLElement | null
+  extra?: ReactNode
   onActionsHost?: (el: HTMLElement | null) => void
   onMenuStateChange?: (state: 'closed' | 'open' | 'closing') => void
 }
@@ -89,6 +91,7 @@ function mount({
   hasActions = true,
   panelOpen,
   menuHost = host,
+  extra,
   onActionsHost = () => {},
   onMenuStateChange,
 }: MountProps = {}) {
@@ -100,6 +103,7 @@ function mount({
         hasActions={hasActions}
         panelOpen={panelOpen}
         menuHost={menuHost}
+        extra={extra}
         onActionsHost={onActionsHost}
         onMenuStateChange={onMenuStateChange}
       />,
@@ -155,7 +159,7 @@ describe('the phone menu', () => {
     expect(isOpen()).toBe(false)
   })
 
-  it('toggles on the burger, which describes what it will do', () => {
+  it('toggles on the burger, whose name stays put while aria-expanded says the state', () => {
     mount()
     const b = burger()!
     const end = document.querySelector<HTMLElement>('.site-header__end')!
@@ -165,7 +169,7 @@ describe('the phone menu', () => {
 
     open()
     expect(b.getAttribute('aria-expanded')).toBe('true')
-    expect(b.getAttribute('aria-label')).toBe('Cerrar el menú')
+    expect(b.getAttribute('aria-label')).toBe('Menú')
 
     act(() => b.click())
     settle()
@@ -182,6 +186,20 @@ describe('the phone menu', () => {
     expect(b.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(b.querySelectorAll('.site-header__burger-bar')).toHaveLength(3)
     expect(b.querySelector('svg')).toBeNull()
+  })
+
+  it('keeps the extra cell out from between the burger and the items it reveals', () => {
+    const following = (a: Node, b: Node) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    // A phone over the scene: the box is in the layer after the header.
+    mount({ extra: <button type="button">Sonido</button> })
+    const cell = container.querySelector('.site-header__extra')!
+    expect(following(cell, burger()!)).toBe(true)
+    expect(following(burger()!, box())).toBe(true)
+    // Re-rendered without a layer, so the box stays in the header: the cell
+    // goes back after the actions, where the line draws it.
+    mount({ menuHost: null, extra: <button type="button">Sonido</button> })
+    expect(following(box(), container.querySelector('.site-header__extra')!)).toBe(true)
   })
 
   describe('where the box lives', () => {
