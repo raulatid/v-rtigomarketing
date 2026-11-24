@@ -18,8 +18,7 @@ describe('the selected unified bake contract', () => {
     expect(Object.keys(shipped.atlases)).toHaveLength(15);
     expect(shipped.requiredNames).toContain('estadio-techo');
     expect(shipped.requiredNames).toContain('Teatro_Romea');
-    for (const resolution of [1024, 2048] as const) {
-      let total = 0;
+    for (const resolution of [512, 1024, 2048] as const) {
       for (const atlas of Object.values(shipped.atlases)) {
         const variant = atlas.variants[resolution];
         if (!variant) continue;
@@ -29,14 +28,15 @@ describe('the selected unified bake contract', () => {
         expect(data.readUInt32LE(20)).toBe(resolution);
         expect(data.readUInt32LE(24)).toBe(resolution);
         expect(data.readUInt32LE(40)).toBe(variant.mipLevels);
-        total += data.length;
       }
-      const selected = atlasResolutions(shipped, resolution);
-      const loadedBytes = [...selected].reduce((sum, [key, size]) => sum + selectedVariant(shipped, key, size).bytes, 0);
-      // Both profiles load every atlas at 1024 since r4.
-      expect(new Set(selected.values())).toEqual(new Set([1024]));
-      expect(loadedBytes).toBe(1_458_128);
-      expect(loadedBytes).toBeLessThanOrEqual(resolution === 1024 ? 4_500_000 : 6_500_000);
+    }
+    // Phones load every atlas at 512 since 2026-11-24; the desktop keeps 1024, as since r4.
+    for (const [base, size, bytes, limit] of [[1024, 512, 526_216, 4_500_000], [2048, 1024, 1_458_128, 6_500_000]] as const) {
+      const selected = atlasResolutions(shipped, base);
+      const loadedBytes = [...selected].reduce((sum, [key, s]) => sum + selectedVariant(shipped, key, s).bytes, 0);
+      expect(new Set(selected.values())).toEqual(new Set([size]));
+      expect(loadedBytes).toBe(bytes);
+      expect(loadedBytes).toBeLessThanOrEqual(limit);
     }
   });
   it('retains per-atlas safe mip limits and radiance scales', () => {
@@ -124,6 +124,47 @@ describe('mixed-resolution profile allocation', () => {
   it('enforces the bytes actually selected by the mobile profile', () => {
     const m = manifest(); m.atlases.ground.variants[2048].bytes = 4_500_001;
     expect(() => parseUnifiedManifest({ ...m, profiles: { mobile: { atlasResolutions: { ground: 2048 } } } })).toThrow('mobile exceeds');
+  });
+});
+
+describe('a 512 variant', () => {
+  const with512 = () => {
+    const m = manifest();
+    return { ...m, atlases: { ground: { ...m.atlases.ground, variants: {
+      ...m.atlases.ground.variants, 512: { file: 'ground-512.ktx2', bytes: 40, mipLevels: 1 },
+    } } } };
+  };
+
+  it('loads only where a profile names it', () => {
+    const m = parseUnifiedManifest({ ...with512(), profiles: { mobile: { atlasResolutions: { ground: 512 } } } });
+    expect(atlasResolutions(m, 1024).get('ground')).toBe(512);
+    expect(atlasResolutions(m, 2048).get('ground')).toBe(2048);
+    expect(atlasResolutions(parseUnifiedManifest(with512()), 1024).get('ground')).toBe(1024);
+    expect(selectedVariant(m, 'ground', 512).file).toBe('ground-512.ktx2');
+  });
+
+  it('is not raised to 1024 by an explicit reduction', () => {
+    const m = parseUnifiedManifest({ ...with512(), profiles: { mobile: { atlasResolutions: { ground: 512 } } } });
+    expect(atlasResolutions(m, 1024, ['ground']).get('ground')).toBe(512);
+    expect(atlasResolutions(m, 1024, 'all').get('ground')).toBe(512);
+  });
+
+  it('is validated like the 1024 one: path, bytes and a single mip', () => {
+    for (const change of [{ file: '../x.ktx2' }, { bytes: 0 }, { mipLevels: 2 }]) {
+      const m = with512();
+      Object.assign(m.atlases.ground.variants[512], change);
+      expect(() => parseUnifiedManifest(m)).toThrow('invalid 512 variant');
+    }
+  });
+
+  it('cannot be named by a profile when the bake does not ship it', () => {
+    expect(() => parseUnifiedManifest({ ...manifest(), profiles: { mobile: { atlasResolutions: { ground: 512 } } } }))
+      .toThrow('atlas resolutions');
+  });
+
+  it('counts its own bytes against the profile that names it', () => {
+    const m = with512(); m.atlases.ground.variants[512].bytes = 4_500_001;
+    expect(() => parseUnifiedManifest({ ...m, profiles: { mobile: { atlasResolutions: { ground: 512 } } } })).toThrow('mobile exceeds');
   });
 });
 

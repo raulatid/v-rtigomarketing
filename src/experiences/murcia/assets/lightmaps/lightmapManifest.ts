@@ -7,6 +7,12 @@
 export type LightmapResolution = 1024 | 2048;
 
 /**
+ * The size one atlas loads at. 512 is never a device's base: only a manifest
+ * profile assigns it, atlas by atlas (`unifiedManifest`).
+ */
+export type AtlasResolution = 512 | LightmapResolution;
+
+/**
  * Which atlas size a device gets.
  *
  * Every atlas the bake names is resident in GPU memory from the intro, whether

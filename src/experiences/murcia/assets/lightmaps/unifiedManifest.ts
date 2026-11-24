@@ -1,13 +1,16 @@
-import type { LightmapResolution } from './lightmapManifest';
+import type { AtlasResolution, LightmapResolution } from './lightmapManifest';
 
 export interface UnifiedVariant { file: string; bytes: number; mipLevels: number }
 export interface UnifiedAtlas {
   threeLightMapIntensity: number;
-  /** 1024 is required; 2048 is optional, and an atlas without it loads at 1024 everywhere. */
-  variants: { 1024: UnifiedVariant; 2048?: UnifiedVariant };
+  /**
+   * 1024 is required; 2048 is optional, and an atlas without it loads at 1024 everywhere.
+   * 512 is optional too, and loads only where a profile names it.
+   */
+  variants: { 512?: UnifiedVariant; 1024: UnifiedVariant; 2048?: UnifiedVariant };
 }
 export interface UnifiedManifest {
-  profiles?: Partial<Record<'mobile' | 'desktop', { atlasResolutions?: Record<string, LightmapResolution> }>>;
+  profiles?: Partial<Record<'mobile' | 'desktop', { atlasResolutions?: Record<string, AtlasResolution> }>>;
   uvChannel: 1;
   requiredNames: string[];
   atlases: Record<string, UnifiedAtlas>;
@@ -36,18 +39,19 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
     if (!entry || !Number.isFinite(entry.threeLightMapIntensity) || entry.threeLightMapIntensity <= 0) {
       throw new Error(`[lightmaps] invalid intensity: ${key}`);
     }
-    for (const resolution of [1024, 2048] as const) {
+    for (const resolution of [512, 1024, 2048] as const) {
       const v = entry.variants?.[resolution];
+      if (resolution === 512 && v === undefined) continue;
       if (resolution === 2048 && v === undefined) {
         totals[2048] += entry.variants[1024].bytes;
         continue;
       }
       if (!v || typeof v.file !== 'string' || !/^[a-zA-Z0-9_-]+\.ktx2$/.test(v.file) ||
           !Number.isInteger(v.bytes) || v.bytes <= 0 ||
-          !Number.isInteger(v.mipLevels) || v.mipLevels < 1 || v.mipLevels > (resolution === 1024 ? 1 : 2)) {
+          !Number.isInteger(v.mipLevels) || v.mipLevels < 1 || v.mipLevels > (resolution === 2048 ? 2 : 1)) {
         throw new Error(`[lightmaps] invalid ${resolution} variant: ${key}`);
       }
-      totals[resolution] += v.bytes;
+      if (resolution !== 512) totals[resolution] += v.bytes;
     }
   }
   if ((!m.profiles?.mobile?.atlasResolutions && totals[1024] > LIGHTMAP_BUDGET_BYTES.mobile) ||
@@ -60,7 +64,7 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
     if (sizes === undefined) continue;
     if (!sizes || typeof sizes !== 'object' || Object.keys(sizes).length !== Object.keys(m.atlases).length ||
         Object.keys(sizes).some(key => !(key in m.atlases)) ||
-        Object.keys(m.atlases).some(key => sizes[key] !== 1024 && sizes[key] !== 2048) ||
+        Object.keys(m.atlases).some(key => sizes[key] !== 512 && sizes[key] !== 1024 && sizes[key] !== 2048) ||
         Object.keys(m.atlases).some(key => !m.atlases[key].variants[sizes[key]])) {
       throw new Error(`[lightmaps] invalid ${profile} atlas resolutions`);
     }
@@ -71,7 +75,8 @@ export function parseUnifiedManifest(value: unknown): UnifiedManifest {
 }
 
 /**
- * The manifest may allocate mixed resolutions per profile. Explicit reductions take precedence.
+ * The manifest may allocate mixed resolutions per profile. Explicit reductions take precedence,
+ * and cap an atlas at 1024 without raising one the profile already put at 512.
  * An atlas that ships no 2048 variant loads at 1024 whatever the device.
  *
  * A reduced key the manifest does not have throws rather than being skipped. The
@@ -82,7 +87,7 @@ export function atlasResolutions(
   manifest: UnifiedManifest,
   base: LightmapResolution,
   reduced: readonly string[] | 'all' = [],
-): Map<string, LightmapResolution> {
+): Map<string, AtlasResolution> {
   const keys = Object.keys(manifest.atlases);
   if (reduced !== 'all') {
     for (const key of reduced) {
@@ -92,10 +97,13 @@ export function atlasResolutions(
   const small = new Set(reduced === 'all' ? keys : reduced);
   const profile = manifest.profiles?.[base === 1024 ? 'mobile' : 'desktop']?.atlasResolutions;
   const own = (key: string): LightmapResolution => (manifest.atlases[key].variants[base] ? base : 1024);
-  return new Map(keys.map((key) => [key, small.has(key) ? 1024 : profile?.[key] ?? own(key)]));
+  return new Map(keys.map((key): [string, AtlasResolution] => {
+    const size = profile?.[key] ?? own(key);
+    return [key, small.has(key) && size > 1024 ? 1024 : size];
+  }));
 }
 
 /** The variant `atlasResolutions` chose; it always exists in a parsed manifest. */
-export function selectedVariant(manifest: UnifiedManifest, key: string, size: LightmapResolution): UnifiedVariant {
+export function selectedVariant(manifest: UnifiedManifest, key: string, size: AtlasResolution): UnifiedVariant {
   return manifest.atlases[key].variants[size]!;
 }

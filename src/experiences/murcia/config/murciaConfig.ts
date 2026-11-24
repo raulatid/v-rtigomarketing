@@ -249,9 +249,10 @@ export const murciaConfig: EnvironmentConfig = {
   // route and 404s anywhere but the root.
   modelPath: '/models/murcia-v9.glb',
 
-  // Versioned model and manifest are one delivery. Since r4 both profiles
-  // select every atlas at 1024: at 2048 no difference could be seen in the
-  // scene, at any approach. The manifest enforces 4.5 MB mobile / 6.5 MB desktop.
+  // Versioned model and manifest are one delivery. The desktop profile selects
+  // every atlas at 1024 (since r4: at 2048 no difference could be seen in the
+  // scene, at any approach); the mobile profile, every atlas at 512 (since
+  // 2026-11-24). The manifest enforces 4.5 MB mobile / 6.5 MB desktop.
   lightmaps: {
     baseUrl: '/textures/murcia/lightmaps-v9/',
     manifest: 'lightmaps.json',

@@ -160,7 +160,7 @@ Los documentos sustituidos por completo se mueven a [`archivo/`](archivo/), cons
 - [Salida verificada](decisiones/build/salida-verificada.md): la salida se revisa antes de publicarse.
 - [Despliegue en Vercel](decisiones/build/despliegue-en-vercel.md): qué ejecuta Vercel, qué necesita del proyecto y cómo se cachea cada ruta.
 - [Recursos publicados](decisiones/build/recursos-publicados.md): en `public/` solo está lo vigente, y lo que cambia cambia de nombre.
-- [Entrega de la ciudad](decisiones/build/entrega-de-la-ciudad.md): un GLB y su carpeta de lightmaps con la misma versión; desde v9, ventanas y pretiles de tejado heredan la luz de su soporte; presupuesto de lightmaps por perfil.
+- [Entrega de la ciudad](decisiones/build/entrega-de-la-ciudad.md): un GLB y su carpeta de lightmaps con la misma versión; desde v9, ventanas y pretiles de tejado heredan la luz de su soporte; el móvil carga los atlas a 512 y el escritorio a 1024; presupuesto de lightmaps por perfil.
 - [Contrato del GLB](decisiones/build/contrato-del-glb.md): el GLB se comprueba leyendo su JSON; el build exige la parte de nombres y el check completo aún no va en la cadena.
 - [Compresión y decodificadores](decisiones/build/compresion-y-decodificadores.md): Draco y KTX2, con los decodificadores de three.
 

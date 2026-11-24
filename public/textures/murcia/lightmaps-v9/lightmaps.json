@@ -23,6 +23,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 35.54598848682927
+        },
+        "512": {
+          "file": "ground-NE-512.ktx2",
+          "bytes": 32021,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 31.823384511326967
         }
       }
     },
@@ -45,6 +53,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 34.093202932848136
+        },
+        "512": {
+          "file": "ground-NW-512.ktx2",
+          "bytes": 28726,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 29.510655471985775
         }
       }
     },
@@ -67,6 +83,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 35.26168143786531
+        },
+        "512": {
+          "file": "ground-Outer-512.ktx2",
+          "bytes": 29491,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 29.93910675600774
         }
       }
     },
@@ -89,6 +113,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 34.63886744647643
+        },
+        "512": {
+          "file": "ground-Ring-512.ktx2",
+          "bytes": 25730,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 29.328524970899174
         }
       }
     },
@@ -111,6 +143,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 34.48293800497156
+        },
+        "512": {
+          "file": "ground-SE-512.ktx2",
+          "bytes": 29269,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 27.55080561285883
         }
       }
     },
@@ -133,6 +173,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 33.51876160821773
+        },
+        "512": {
+          "file": "ground-SW-512.ktx2",
+          "bytes": 28372,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 27.030967007297875
         }
       }
     },
@@ -155,6 +203,14 @@
           "codec": "etc1s",
           "quality": 192,
           "psnr": 32.11533801225495
+        },
+        "512": {
+          "file": "instances-main-0-512.ktx2",
+          "bytes": 59871,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 28.593484853843005
         }
       }
     },
@@ -177,6 +233,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 33.5329690889451
+        },
+        "512": {
+          "file": "landmark-cathedral-512.ktx2",
+          "bytes": 36856,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 28.15858350329121
         }
       }
     },
@@ -199,6 +263,14 @@
           "codec": "etc1s",
           "quality": 192,
           "psnr": 33.70454577083031
+        },
+        "512": {
+          "file": "landmark-vertigo-campus-512.ktx2",
+          "bytes": 37849,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 192,
+          "psnr": 27.172735020452752
         }
       }
     },
@@ -221,6 +293,14 @@
           "codec": "etc1s",
           "quality": 32,
           "psnr": 25.738695404729654
+        },
+        "512": {
+          "file": "outer-buildings-512.ktx2",
+          "bytes": 26314,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 32,
+          "psnr": 23.08234733591469
         }
       }
     },
@@ -243,6 +323,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 30.77140208379095
+        },
+        "512": {
+          "file": "outer-ring-b-512.ktx2",
+          "bytes": 43419,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 25.872551450155882
         }
       }
     },
@@ -265,6 +353,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 33.41920492380869
+        },
+        "512": {
+          "file": "static-NE-512.ktx2",
+          "bytes": 40173,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 28.05673674348605
         }
       }
     },
@@ -287,6 +383,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 33.22019076879892
+        },
+        "512": {
+          "file": "static-NW-512.ktx2",
+          "bytes": 40009,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 28.514862951458156
         }
       }
     },
@@ -309,6 +413,14 @@
           "codec": "etc1s",
           "quality": 80,
           "psnr": 35.01623828838416
+        },
+        "512": {
+          "file": "static-SE-512.ktx2",
+          "bytes": 29725,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 80,
+          "psnr": 30.66089115732366
         }
       }
     },
@@ -331,6 +443,14 @@
           "codec": "etc1s",
           "quality": 128,
           "psnr": 34.86711403100112
+        },
+        "512": {
+          "file": "static-SW-512.ktx2",
+          "bytes": 38391,
+          "mipLevels": 1,
+          "codec": "etc1s",
+          "quality": 128,
+          "psnr": 30.037929639542998
         }
       }
     }
@@ -360,26 +480,26 @@
       }
     },
     "mobile": {
-      "resolution": 1024,
-      "totalBytes": 1458128,
+      "resolution": 512,
+      "totalBytes": 526216,
       "budgetBytes": 4500000,
       "atlasCount": 15,
       "atlasResolutions": {
-        "ground-NE": 1024,
-        "ground-NW": 1024,
-        "ground-Outer": 1024,
-        "ground-Ring": 1024,
-        "ground-SE": 1024,
-        "ground-SW": 1024,
-        "instances-main-0": 1024,
-        "landmark-cathedral": 1024,
-        "landmark-vertigo-campus": 1024,
-        "outer-buildings": 1024,
-        "outer-ring-b": 1024,
-        "static-NE": 1024,
-        "static-NW": 1024,
-        "static-SE": 1024,
-        "static-SW": 1024
+        "ground-NE": 512,
+        "ground-NW": 512,
+        "ground-Outer": 512,
+        "ground-Ring": 512,
+        "ground-SE": 512,
+        "ground-SW": 512,
+        "instances-main-0": 512,
+        "landmark-cathedral": 512,
+        "landmark-vertigo-campus": 512,
+        "outer-buildings": 512,
+        "outer-ring-b": 512,
+        "static-NE": 512,
+        "static-NW": 512,
+        "static-SE": 512,
+        "static-SW": 512
       }
     }
   },
