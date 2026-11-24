@@ -4,6 +4,7 @@ import { findByAnyNameSpelling } from '../assets/nodeNames';
 import { BUILDING_HIGHLIGHT, easeHighlight, stepHighlight } from '../interaction/buildingHighlight';
 import type { VertigoBuildingConfig } from '../landmark/vertigoBuildingConfig';
 import type { AboutLens, AboutPose } from './aboutPoses';
+import { DEBUG_TOOLS_ENABLED } from '../../../platform/buildFlags';
 import { NIGHT_EDGE, NIGHT_PULSE_LEAD, nightPulseAt } from './nightPulse';
 
 /**
@@ -187,9 +188,16 @@ export function markDrawingAt(seconds: number): MarkDrawing {
 }
 
 interface MarkCanvas {
-  readonly texture: THREE.CanvasTexture;
+  readonly texture: THREE.Texture;
   /** Paints the drawing `seconds` in. */
   draw(seconds: number): void;
+}
+
+/** The ground with nothing drawn on it: one transparent texel, and no canvas. */
+function blankMark(): MarkCanvas {
+  const texture = new THREE.DataTexture(new Uint8Array(4), 1, 1);
+  texture.needsUpdate = true;
+  return { texture, draw() {} };
 }
 
 /** `outline`: false leaves the outline to a hologram in the air; `fill`: false leaves the ground blank. */
@@ -298,7 +306,9 @@ export function createCityMark(
     Math.max(centre.z - bounds.min.z, bounds.max.z - centre.z),
   );
 
-  const mark = markCanvas(!hologram, hologram?.ground !== 'none');
+  // Production ships the hologram's `stand`, which leaves the ground blank:
+  // the literal gate drops the canvas, and its upload on every frame of the pen.
+  const mark = DEBUG_TOOLS_ENABLED ? markCanvas(!hologram, hologram?.ground !== 'none') : blankMark();
   mark.draw(0);
   const uniforms = {
     uMarkStrength: { value: 0 },
