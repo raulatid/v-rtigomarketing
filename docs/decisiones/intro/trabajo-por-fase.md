@@ -17,7 +17,7 @@
 
 Tapar la pantalla no oculta el trabajo: una tarea larga durante la cola de la intro la entrecorta igual. Mover la construcción de la ciudad a `shrink` y `warp` sin una regla dejó el peor tramo medido a 39 fps.
 
-La retención existe porque `site` llega a 1,7 s del vuelo del h1, justo cuando las letras empiezan a volver, y la construcción de la ciudad (tareas largas de 77, 429, 91 y 145 ms: `inheritLight`, el río, el campus y la compilación de shaders) las congelaba. Con la retención, el peor fotograma del vuelo bajó de 417 a 17 ms (medido en dev a 1440×900). Las tareas largas siguen ahí, ahora con los satélites en reposo: partirlas es otro trabajo.
+La retención existe porque `site` llega a 1,7 s del vuelo del h1, justo cuando las letras empiezan a volver, y la construcción de la ciudad (tareas largas de 77, 429, 91 y 145 ms: `inheritLight`, el río, el campus y la compilación de shaders) las congelaba. Con la retención, el peor fotograma del vuelo bajó de 417 a 17 ms (medido en dev a 1440×900). Las tareas largas pasaron a caer justo después del aterrizaje; desde el 2026-11-25 la construcción está partida en tareas y la herencia de luz va en un worker ([precarga de Murcia](../transicion/precarga-de-murcia.md), punto 6).
 
 ## Qué se descartó
 

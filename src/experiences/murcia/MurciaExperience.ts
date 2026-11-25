@@ -14,6 +14,7 @@ import { createScene } from './core/createScene';
 import type { SceneBundle } from './core/createScene';
 import type { ViewportSize } from './core/resize';
 import { whileRevealed } from './core/whileRevealed';
+import { afterNextFrame } from './core/afterNextFrame';
 import { compileAsyncForRenderTarget } from '../../graphics/compileForTarget';
 import { createAssetLoader } from './assets/createAssetLoader';
 import type { AssetLoader } from './assets/createAssetLoader';
@@ -99,6 +100,14 @@ import type { ObserverDebug } from './observer/observerDebug';
  * its measured bounds ARE `contentBounds` — that rectangle was measured off it.
  */
 const GROUND_REACH_EPSILON = 1;
+
+/**
+ * The warm-up's 1×1 render in batches (`warm()`): drawables in the first one,
+ * and the render times that double or halve the next. Under a frame's share
+ * on a desktop: ~0.15 s of first draws in one render was the measured hitch
+ * (2026-11-25).
+ */
+const WARM_BATCH = { first: 32, growUnderMs: 4, shrinkOverMs: 12 } as const;
 
 /**
  * How far above the blog panel's CENTRE its top edge sits: half of its 24-unit
@@ -534,8 +543,9 @@ export class MurciaExperience {
    *    scene that is not R3F's default one.
    * 2. Geometry attribute buffers and textures, which three uploads lazily on
    *    first draw and which compileAsync does NOT cover (PROJECT_MEMORY, "Loading").
-   *    Forced here with one render into a 1x1 target — the smallest draw that
-   *    still walks the whole visible graph. 957 GPU-instanced buildings'
+   *    Forced here with renders into a 1x1 target — the smallest draw that
+   *    still walks the visible graph — one batch of it per frame, so the
+   *    first draws do not stall Earth either. 957 GPU-instanced buildings'
    *    buffers landing on the transition frame is exactly the hitch this
    *    avoids.
    *
@@ -569,7 +579,6 @@ export class MurciaExperience {
     );
 
     const target = new THREE.WebGLRenderTarget(1, 1);
-    const previousTarget = this.renderer.getRenderTarget();
     // The render target is not the only thing this render moves.
     //
     // three's WebGLBackground applies `scene.background` by calling
@@ -586,14 +595,50 @@ export class MurciaExperience {
     // Restored in the same `finally` as the target, because it is the same
     // class of borrowed state and the next person to add a line here should
     // find both together.
-    const previousClear = this.renderer.getClearColor(new THREE.Color());
-    const previousClearAlpha = this.renderer.getClearAlpha();
+    //
+    // In batches, one per frame (`afterNextFrame`): in one render the first
+    // draws blocked the main thread ~0.15 s on a desktop (ANGLE/D3D11,
+    // 2026-11-25), as Earth played. Each batch shows only its own share of
+    // what is visible, so each pays for its own uploads and first draws;
+    // the batch grows while a render stays cheap and shrinks when it does not.
+    const renderBatch = (all: readonly THREE.Object3D[], batch: readonly THREE.Object3D[]) => {
+      const previousTarget = this.renderer.getRenderTarget();
+      const previousClear = this.renderer.getClearColor(new THREE.Color());
+      const previousClearAlpha = this.renderer.getClearAlpha();
+      const wasVisible = all.map((object) => object.visible);
+      try {
+        this.renderer.setRenderTarget(target);
+        for (const object of all) object.visible = false;
+        for (const object of batch) object.visible = true;
+        this.renderer.render(scene, camera);
+      } finally {
+        all.forEach((object, i) => { object.visible = wasVisible[i]; });
+        this.renderer.setRenderTarget(previousTarget);
+        this.renderer.setClearColor(previousClear, previousClearAlpha);
+      }
+    };
     try {
-      this.renderer.setRenderTarget(target);
-      whileRevealed(hiddenAtBirth, () => this.renderer.render(scene, camera));
+      await afterNextFrame();
+      const drawables = whileRevealed(hiddenAtBirth, () => {
+        const found: THREE.Object3D[] = [];
+        scene.traverseVisible((object) => {
+          const o = object as THREE.Mesh & THREE.Points & THREE.Line & THREE.Sprite;
+          if (o.isMesh || o.isPoints || o.isLine || o.isSprite) found.push(object);
+        });
+        return found;
+      });
+      let size: number = WARM_BATCH.first;
+      for (let start = 0; start < drawables.length && this.loaded; ) {
+        const batch = drawables.slice(start, start + size);
+        start += batch.length;
+        const began = performance.now();
+        whileRevealed(hiddenAtBirth, () => renderBatch(drawables, batch));
+        const spent = performance.now() - began;
+        if (spent < WARM_BATCH.growUnderMs) size *= 2;
+        else if (spent > WARM_BATCH.shrinkOverMs) size = Math.max(1, Math.floor(size / 2));
+        if (start < drawables.length) await afterNextFrame();
+      }
     } finally {
-      this.renderer.setRenderTarget(previousTarget);
-      this.renderer.setClearColor(previousClear, previousClearAlpha);
       target.dispose();
     }
   }
@@ -924,6 +969,9 @@ export class MurciaExperience {
 
     if (this.loaded) this.debug?.logAssetReport(this.loaded.report);
 
+    // The setup below is split into tasks with `afterNextFrame`, for the reason
+    // `loadCity` is: it runs while Earth is on screen.
+    await afterNextFrame();
     const box = new THREE.Box3().setFromObject(loaded.root);
     if (box.isEmpty()) {
       throw new Error('City model has no renderable geometry (empty bounds).');
@@ -1080,8 +1128,10 @@ export class MurciaExperience {
       console.info(`[murcia] cached ${interactiveCount} interactive object(s).`);
     }
 
+    await afterNextFrame();
     await this.setupTraffic(assetLoader);
     await this.setupCampus(loaded.root);
+    await afterNextFrame();
     this.setupBlogDisplay(loaded.root);
     this.setupCompass();
     this.towerLogo = createTowerLogo(loaded.root, VERTIGO_BUILDING, {
@@ -1114,7 +1164,9 @@ export class MurciaExperience {
     // After the screen, which recolours the tower's parts; before `warm()`, so
     // the base's highlight compiles with the city.
     this.towerTargets = createTowerTargets(loaded.root, VERTIGO_BUILDING);
+    await afterNextFrame();
     this.setupAbout(loaded.root);
+    await afterNextFrame();
     this.setupPointsOfInterest(loaded.root);
     // Every rest is reported alike and nothing is shown: whether a rest means
     // anything is decided by `/api/view`, and the browser never learns it.

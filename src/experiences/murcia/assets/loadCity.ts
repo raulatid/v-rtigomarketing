@@ -15,6 +15,7 @@ import { loadLightmaps, type LightmapHandle } from './lightmaps/loadLightmaps';
 import { expandFacadeRecords } from './facadeRecords';
 import type { LightmapConfig } from '../config/environmentConfig';
 import { fetchCityBytes, type CityBytes } from './cityBytes';
+import { afterNextFrame } from '../core/afterNextFrame';
 
 /**
  * The river mesh in the GLB.
@@ -210,6 +211,9 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   const gltf = await gltfPromise;
   // Windows stored as facade records become InstancedMeshes before anything looks at the scene.
   await expandFacadeRecords(gltf);
+  // Each step below starts a task of its own (`afterNextFrame`): run back to
+  // back with the decoded model they were one long task, while Earth is on screen.
+  await afterNextFrame();
 
   const root = gltf.scene;
 
@@ -252,6 +256,7 @@ export async function loadCity(options: LoadCityOptions): Promise<LoadedCity> {
   }
   configureTrimTextures(root);
   const river = attachRiverWater(root);
+  await afterNextFrame();
   applyCampusPalette(root);
   const lightmaps =
     options.lightmaps && options.renderer
