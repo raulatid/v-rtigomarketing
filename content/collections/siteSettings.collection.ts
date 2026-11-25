@@ -178,9 +178,9 @@ function bookingCopy(report: Report, path: string, raw: unknown): string | undef
  * The home page's h1 and its supporting line when the CMS has none (plan 029a
  * §4, 2026-11-22).
  *
- * PROVISIONAL WORDING, taken from copy the site already publishes: the title
- * the home page's fallback head has always carried, and the published SEO
- * description. The client writes the real text in the Studio. The fallback is
+ * The headline is the title the home page's fallback head has always carried;
+ * the subheadline is the line chosen as final (2026-11-25), kept here so the
+ * fallback matches it. The client writes the real text in the Studio. The fallback is
  * the SUCCESS_FALLBACKS reasoning — the dataset predates the fields and must
  * still build — and an h1 is not something a page may go without.
  *
@@ -191,7 +191,7 @@ function bookingCopy(report: Report, path: string, raw: unknown): string | undef
 export const HEADLINE_FALLBACKS = {
   headline: 'Marketing que se mide',
   subheadline:
-    'Vértigo Marketing®, agencia especializada en SEO, GEO (AI Search), diseño web premium y software a medida.',
+    'SEO, búsqueda con IA y diseño web. Nos encargamos de que te encuentren, y te lo demostramos con métricas.',
 } as const
 
 /** One of the two, the fallback when blank, validated like any text when present. */
