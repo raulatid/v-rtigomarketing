@@ -117,7 +117,7 @@ export async function loadUnifiedLightmaps(
       object.material = Array.isArray(target.material) ? target.material.map(build) : build(target.material);
     }
     // Windows and rooftop parapets marked `light_inheritance` read their support's light.
-    inherited = inheritLight(gltf.scene, (source, key, instanced) => materialFor(source, key, instanced, false));
+    inherited = await inheritLight(gltf.scene, (source, key, instanced) => materialFor(source, key, instanced, false));
     if (inherited && DEBUG_TOOLS_ENABLED) console.info(inherited.report.join('\n'));
     return { resolution, dispose };
 

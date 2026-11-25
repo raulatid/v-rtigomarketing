@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { inheritLight } from './inheritLight';
+import { inheritLight, type InheritedMaterial } from './inheritLight';
+import { solveInheritance, type InheritanceInput } from './inheritanceSolve';
+import { DEFAULT_SHADE } from './lightInheritance';
 import { LIGHTMAP_ST_ATTRIBUTE } from './lightmapMaterial';
 
 /**
@@ -64,17 +66,21 @@ function city(windowsAt: ReadonlyArray<[number, number, number]>) {
   return { root, glazing, rim, lightMaterial, materialFor };
 }
 
+/** The page answers in a worker; there is none here, and the answer is the same. */
+const inherit = (root: THREE.Object3D, materialFor: InheritedMaterial) =>
+  inheritLight(root, materialFor, DEFAULT_SHADE, input => Promise.resolve(solveInheritance(input)));
+
 describe('inheritLight', () => {
-  it('leaves a city without marked nodes as it is', () => {
+  it('leaves a city without marked nodes as it is', async () => {
     const root = new THREE.Group();
     root.add(support());
-    expect(inheritLight(root, () => new THREE.MeshBasicMaterial())).toBeNull();
+    expect(await inherit(root, () => new THREE.MeshBasicMaterial())).toBeNull();
   });
 
-  it('replaces a window node with instances that read the wall beside each window', () => {
+  it('replaces a window node with instances that read the wall beside each window', async () => {
     // On the facade; 3 m off it (only the fallback reaches); 40 m away (nothing does).
     const { root, glazing, materialFor, lightMaterial } = city([[5, 10, 0], [8, 10, 0], [45, 10, 0]]);
-    const inherited = inheritLight(root, materialFor)!;
+    const inherited = (await inherit(root, materialFor))!;
     expect(glazing.parent).toBeNull();
     const copies = root.children.filter(c => c.name === glazing.name) as THREE.InstancedMesh[];
     const lit = copies.find(c => c.material === lightMaterial)!;
@@ -93,9 +99,9 @@ describe('inheritLight', () => {
     expect(inherited.report[0]).toContain('1 by the fallback');
   });
 
-  it('shades the window faces: the front keeps its colour, the reveal darkens', () => {
+  it('shades the window faces: the front keeps its colour, the reveal darkens', async () => {
     const { root, glazing, lightMaterial } = city([[5, 10, 0]]);
-    inheritLight(root, () => lightMaterial);
+    await inherit(root, () => lightMaterial);
     const lit = root.children.find(c => c.name === glazing.name) as THREE.InstancedMesh;
     const colour = lit.geometry.getAttribute('color');
     const values = new Set<number>();
@@ -103,9 +109,9 @@ describe('inheritLight', () => {
     expect([...values].sort()).toEqual([0.5, 0.6, 0.85, 1]);
   });
 
-  it('gives each parapet face its roof or facade light', () => {
+  it('gives each parapet face its roof or facade light', async () => {
     const { root, rim, materialFor, lightMaterial } = city([]);
-    inheritLight(root, materialFor);
+    await inherit(root, materialFor);
     expect(rim.parent).toBeNull();
     const [copy] = root.children.filter(c => c.name === rim.name) as THREE.Mesh[];
     expect(copy.material).toBe(lightMaterial);
@@ -118,18 +124,39 @@ describe('inheritLight', () => {
     for (let i = 0; i < 3; i += 1) expect(uv1.getX(i)).toBeLessThan(0.5);
   });
 
-  it('puts the original nodes back on dispose', () => {
+  it('puts the original nodes back on dispose', async () => {
     const { root, glazing, rim, lightMaterial } = city([[5, 10, 0]]);
-    const inherited = inheritLight(root, () => lightMaterial)!;
+    const inherited = (await inherit(root, () => lightMaterial))!;
     inherited.dispose();
     expect(glazing.parent).toBe(root);
     expect(rim.parent).toBe(root);
     expect(root.children.filter(c => c.name === glazing.name)).toEqual([glazing]);
   });
 
-  it('refuses a marked node it does not know how to light', () => {
+  it('asks its solver once, with every window and parapet face, and builds from the answer', async () => {
+    const { root, glazing, rim, lightMaterial } = city([[5, 10, 0], [45, 10, 0]]);
+    const solve = vi.fn((input: InheritanceInput) => Promise.resolve(solveInheritance(input)));
+    const inherited = (await inheritLight(root, () => lightMaterial, DEFAULT_SHADE, solve))!;
+    expect(solve).toHaveBeenCalledTimes(1);
+    const [input] = solve.mock.calls[0];
+    expect(input.windows.map(w => w.count)).toEqual([2]);
+    expect(input.parapets.map(p => p.triangles.length / 9)).toEqual([2]);
+    expect(inherited.report[0]).toContain('1/2 inherit');
+    expect(glazing.parent).toBeNull();
+    expect(rim.parent).toBeNull();
+  });
+
+  it('leaves the scene as it was when the solver fails', async () => {
+    const { root, glazing, rim, lightMaterial } = city([[5, 10, 0]]);
+    const solve = () => Promise.reject(new Error('worker gone'));
+    await expect(inheritLight(root, () => lightMaterial, DEFAULT_SHADE, solve)).rejects.toThrow('worker gone');
+    expect(glazing.parent).toBe(root);
+    expect(rim.parent).toBe(root);
+  });
+
+  it('refuses a marked node it does not know how to light', async () => {
     const { root, rim } = city([]);
     rim.userData.light_inheritance = 'cornice';
-    expect(() => inheritLight(root, () => new THREE.MeshBasicMaterial())).toThrow('unknown light_inheritance');
+    await expect(inherit(root, () => new THREE.MeshBasicMaterial())).rejects.toThrow('unknown light_inheritance');
   });
 });

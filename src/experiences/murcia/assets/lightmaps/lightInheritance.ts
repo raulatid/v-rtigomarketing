@@ -31,6 +31,8 @@ export const DEFAULT_SHADE: InheritanceShade = {
 
 /** How far behind a window's back plane its wall may be, in metres. */
 export const WINDOW_REACH = 0.6;
+/** Points a window tries its wall from: beside it (right, left, under the sill), then its centre (`inheritLight.ts`). */
+export const WINDOW_PROBES = 4;
 /** How far from a parapet vertex its roof or facade may be, in metres. */
 export const PARAPET_REACH = 2.5;
 /** An outer parapet face and its facade are this parallel (cosine). */
