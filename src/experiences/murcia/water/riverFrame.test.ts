@@ -46,6 +46,43 @@ function ribbon(length: number, width: number, segments: number, angleRadians = 
   return geometry
 }
 
+/**
+ * A ribbon that runs `leg` metres along +X, turns by `turnRadians` and runs
+ * another `leg` metres — the shape of a bend, where one overall axis is wrong.
+ * Mitred at the turn, so both banks stay `width` apart.
+ */
+function bentRibbon(leg: number, width: number, segmentsPerLeg: number, turnRadians: number) {
+  const centre: Array<[number, number]> = []
+  for (let i = 0; i <= segmentsPerLeg; i += 1) centre.push([(leg * i) / segmentsPerLeg, 0])
+  for (let i = 1; i <= segmentsPerLeg; i += 1) {
+    const d = (leg * i) / segmentsPerLeg
+    centre.push([leg + d * Math.cos(turnRadians), d * Math.sin(turnRadians)])
+  }
+
+  const positions: number[] = []
+  const indices: number[] = []
+  centre.forEach(([cx, cz], i) => {
+    // Direction at this vertex: the bisector at the turn, the leg elsewhere.
+    const angle = i < segmentsPerLeg ? 0 : i > segmentsPerLeg ? turnRadians : turnRadians / 2
+    const miter = i === segmentsPerLeg ? 1 / Math.cos(turnRadians / 2) : 1
+    const nx = -Math.sin(angle) * miter
+    const nz = Math.cos(angle) * miter
+    for (const across of [-width / 2, width / 2]) {
+      positions.push(cx + nx * across, 0, cz + nz * across)
+    }
+  })
+  for (let i = 0; i < centre.length - 1; i += 1) {
+    const l = i * 2
+    const r = i * 2 + 1
+    indices.push(l, r, r + 2, l, r + 2, l + 2)
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setIndex(indices)
+  return geometry
+}
+
 /** Unit direction the ribbon above runs in, for the axis assertions. */
 function ribbonDirection(angleRadians: number) {
   return { x: Math.cos(angleRadians), z: Math.sin(angleRadians) }
@@ -146,6 +183,108 @@ describe('computeRiverFrame', () => {
     expect(frame.warnings.length).toBeGreaterThan(0)
     expect(frame.warnings.join(' ')).toContain('no boundary edges')
     expect(frame.bankEdgeCount).toBe(0)
+  })
+
+  describe('channel coordinates', () => {
+    // These are what the ripples are drawn in. Wrong values still render as
+    // water — a pattern running across the bends, or one compressed or flipped
+    // at a seam — so every property the shader relies on is pinned here.
+
+    it('measures along and across in metres on a straight ribbon, along the axis', () => {
+      const angle = 0.61
+      const geometry = ribbon(LENGTH, WIDTH, SEGMENTS, angle)
+      const frame = computeRiverFrame(geometry)
+      const channel = frame.channel!
+      const position = geometry.getAttribute('position')
+
+      expect(channel.coordinates.length).toBe(position.count * 2)
+      expect(channel.tangents.length).toBe(position.count * 2)
+
+      for (let v = 0; v < position.count; v += 1) {
+        const tx = channel.tangents[v * 2]!
+        const tz = channel.tangents[v * 2 + 1]!
+        // The tangent is the axis, in its sign: along increases along `axis`.
+        expect(tx * frame.axis.x + tz * frame.axis.z).toBeCloseTo(1, 4)
+
+        const along = position.getX(v) * frame.axis.x + position.getZ(v) * frame.axis.z
+        expect(channel.coordinates[v * 2]!).toBeCloseTo(along + LENGTH / 2, 2)
+
+        // Across is signed towards (-tangent.z, tangent.x), the shader's acrossAxis.
+        const across = position.getX(v) * -tz + position.getZ(v) * tx
+        expect(channel.coordinates[v * 2 + 1]!).toBeCloseTo(across, 2)
+        expect(Math.abs(across)).toBeCloseTo(WIDTH / 2, 2)
+      }
+    })
+
+    it('turns with a bend instead of keeping the overall axis', () => {
+      const LEG = 500
+      const TURN = 0.8 // ~46 degrees, the size of the sharpest bends in `rio`
+      const geometry = bentRibbon(LEG, WIDTH, 5, TURN)
+      const frame = computeRiverFrame(geometry)
+      const channel = frame.channel!
+      const position = geometry.getAttribute('position')
+      expect(frame.warnings).toEqual([])
+
+      // Whichever way the axis points, the two legs' tangents must match the
+      // legs, not each other.
+      const sign = frame.axis.x >= 0 ? 1 : -1
+      const first = { x: sign, z: 0 }
+      const second = { x: sign * Math.cos(TURN), z: sign * Math.sin(TURN) }
+      const startVertex = 0
+      const endVertex = position.count - 1
+      const dot = (v: number, d: { x: number; z: number }) =>
+        channel.tangents[v * 2]! * d.x + channel.tangents[v * 2 + 1]! * d.z
+      expect(dot(startVertex, first)).toBeCloseTo(1, 3)
+      expect(dot(endVertex, second)).toBeCloseTo(1, 3)
+
+      // Both ends of the cross-section at the turn sit at the same along. Taken
+      // from the nearest centre-line point instead, the inner one slides ~4 m
+      // back down the first leg and the pattern skews across the bend.
+      const corner = 5 * 2
+      expect(channel.coordinates[corner * 2]!).toBeCloseTo(channel.coordinates[(corner + 1) * 2]!, 3)
+
+      // Along runs the full centre line, both legs, from one cap to the other.
+      const along = Array.from({ length: position.count }, (_, v) => channel.coordinates[v * 2]!)
+      expect(Math.max(...along) - Math.min(...along)).toBeCloseTo(2 * LEG, 0)
+      // Both banks sit half a width from the centre line all the way round —
+      // up to the mitre factor at the turn, where the corner vertices are
+      // measured from the corner itself.
+      const mitred = WIDTH / 2 / Math.cos(TURN / 2)
+      for (let v = 0; v < position.count; v += 1) {
+        const across = Math.abs(channel.coordinates[v * 2 + 1]!)
+        expect(across).toBeGreaterThan(WIDTH / 2 - 0.01)
+        expect(across).toBeLessThan(mitred + 0.01)
+      }
+    })
+
+    it('gives seam duplicates the same values as the vertex they split from', () => {
+      const indexed = ribbon(LENGTH, WIDTH, SEGMENTS)
+      const split = indexed.toNonIndexed()
+      const channel = computeRiverFrame(split).channel!
+      const position = split.getAttribute('position')
+
+      // One entry per RENDER vertex, or the attribute is misaligned with them.
+      expect(channel.coordinates.length).toBe(position.count * 2)
+      const seen = new Map<string, [number, number]>()
+      for (let v = 0; v < position.count; v += 1) {
+        const key = `${position.getX(v)},${position.getZ(v)}`
+        const value: [number, number] = [channel.coordinates[v * 2]!, channel.coordinates[v * 2 + 1]!]
+        const previous = seen.get(key)
+        if (previous) expect(value).toEqual(previous)
+        else seen.set(key, value)
+      }
+    })
+
+    it('is null rather than invented when there are no banks', () => {
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0], 3),
+      )
+      geometry.setIndex([0, 1, 2, 0, 1, 3, 0, 2, 3, 1, 2, 3])
+      expect(computeRiverFrame(geometry).channel).toBeNull()
+      expect(computeRiverFrame(new THREE.BufferGeometry()).channel).toBeNull()
+    })
   })
 
   it('warns instead of throwing when there is no position attribute', () => {

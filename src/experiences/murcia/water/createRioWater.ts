@@ -14,7 +14,11 @@ import rioFragmentShader from './shaders/rio/fragment.glsl';
  * Wiring, in order — `loadCity` does this once the trim sheet has been applied:
  *
  *   const frame = computeRiverFrame(rio.geometry);
- *   const water = createRioWater(config);
+ *   if (frame.channel) {
+ *     rio.geometry.setAttribute('riverCoord', new THREE.BufferAttribute(frame.channel.coordinates, 2));
+ *     rio.geometry.setAttribute('riverTangent', new THREE.BufferAttribute(frame.channel.tangents, 2));
+ *   }
+ *   const water = createRioWater(config, { followChannel: frame.channel !== null });
  *   rio.material = water.material;
  *   water.setBankSegments(frame.bankSegments, rio.matrixWorld);
  *   water.setFlowAxis(frame.axis, rio.matrixWorld, config.flowReversed);
@@ -42,9 +46,10 @@ export interface RioWater {
    */
   setBankSegments: (segments: Float32Array, matrixWorld: THREE.Matrix4) => void;
   /**
-   * The overall river axis (`RiverFrame.axis`, local space) the ripples are
-   * stretched and advected along. `reversed` is `config.flowReversed`; call
-   * again whenever it changes.
+   * The overall river axis (`RiverFrame.axis`, local space). Without
+   * `followChannel` the ripples are stretched and advected along it; with it,
+   * only `reversed` is read, and signs the channel coordinates. `reversed` is
+   * `config.flowReversed`; call again whenever it changes.
    */
   setFlowAxis: (
     axis: { x: number; z: number },
@@ -77,10 +82,21 @@ const MAX_BANK_SEGMENTS = 48;
  * calls `renderer.compileAsync`, so a uniform appearing later would move a
  * shader compile onto the warp cut.
  */
-export function createRioWater(config: RioWaterConfig): RioWater {
+export interface RioWaterOptions {
+  /**
+   * Draw the ripples in the channel coordinates (`RiverFrame.channel`), so they
+   * follow the river's bends. The mesh MUST carry them as the `riverCoord` and
+   * `riverTangent` attributes. Fixed at construction — it is a define, so it is
+   * part of the program — and off for surfaces with no channel, the lake.
+   */
+  followChannel?: boolean;
+}
+
+export function createRioWater(config: RioWaterConfig, options: RioWaterOptions = {}): RioWater {
   const material = new THREE.ShaderMaterial({
     vertexShader: rioVertexShader,
     fragmentShader: rioFragmentShader,
+    defines: options.followChannel ? { USE_RIVER_CHANNEL: '' } : {},
     // Fog is Scene-level state and applies to every material at once; opting
     // in stops the river from being the one surface that ignores it. A
     // ShaderMaterial with `fog: true` must carry the fog uniforms itself —
@@ -127,6 +143,7 @@ export function createRioWater(config: RioWaterConfig): RioWater {
       },
       uBankSegmentCount: { value: 0 },
       uFlowAxis: { value: new THREE.Vector2(1, 0) },
+      uFlowSign: { value: 1 },
       uLight: { value: new THREE.Color(1, 1, 1) },
     },
   });
@@ -207,6 +224,7 @@ export function createRioWater(config: RioWaterConfig): RioWater {
     if (flat.lengthSq() < 1e-8) flat.set(1, 0);
     flat.normalize().multiplyScalar(reversed ? -1 : 1);
     (material.uniforms['uFlowAxis']!.value as THREE.Vector2).copy(flat);
+    material.uniforms['uFlowSign']!.value = reversed ? -1 : 1;
   };
 
   return {

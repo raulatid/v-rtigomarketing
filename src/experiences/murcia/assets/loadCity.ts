@@ -305,7 +305,20 @@ function attachRiverWater(root: THREE.Object3D): { water: RioWater; bounds: Boun
   const frame = computeRiverFrame(river.geometry);
   for (const warning of frame.warnings) console.warn('[rio]', warning);
 
-  const water = createRioWater(DEFAULT_RIO_WATER_CONFIG);
+  // The channel coordinates the ripples follow the bends in. Without them the
+  // material falls back to the one overall axis, which is why the define and
+  // the attributes are decided together, here.
+  if (frame.channel) {
+    river.geometry.setAttribute(
+      'riverCoord',
+      new THREE.BufferAttribute(frame.channel.coordinates, 2),
+    );
+    river.geometry.setAttribute(
+      'riverTangent',
+      new THREE.BufferAttribute(frame.channel.tangents, 2),
+    );
+  }
+  const water = createRioWater(DEFAULT_RIO_WATER_CONFIG, { followChannel: frame.channel !== null });
   water.material.name = WATER_MATERIAL_NAME;
 
   // Replace, never mutate: `applyTrimSheet` handed this mesh the one buildings

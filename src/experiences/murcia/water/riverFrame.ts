@@ -16,8 +16,8 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
  * of "shore" with the current running due world-X. That looks like a shader bug
  * and is actually an export bug, and it would have cost a long time to find.
  *
- * So the two outputs are computed here, from the only thing that is trustworthy —
- * the positions and the topology — and handed to the material as uniforms:
+ * So the outputs are computed here, from the only thing that is trustworthy —
+ * the positions and the topology — and handed to the material:
  *
  *   bankSegments  the outline minus the two end caps, as local-space segments.
  *                 The fragment stage measures the exact distance to the nearest
@@ -25,9 +25,15 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
  *                 and stay correct where the channel narrows or bends.
  *   axis          the river's overall direction, unsigned. Which end is upstream
  *                 is a coin toss a person has to call (`config.flowReversed`).
+ *   channel       per-vertex channel coordinates — metres along the centre line
+ *                 and metres across it — plus the local current direction. The
+ *                 ripples are drawn in these so they follow every bend; drawn
+ *                 along `axis` alone they ran straight across the bends, up to
+ *                 ~55 degrees off the current in the west half of `rio`.
  *
- * Nothing is written onto the geometry: the ribbon has no interior vertices, so
- * no per-vertex field could carry a bank distance anyway.
+ * Nothing is written onto the geometry here; `loadCity` sets `channel` as
+ * attributes. The bank distance stays an outline test in the shader: the ribbon
+ * has no interior vertices, so no per-vertex field could carry it.
  *
  * THE RIGHT LONG-TERM FIX IS STILL A PROPER UNWRAP IN BLENDER. Real UVs would
  * also unlock textured riverbed detail, which nothing here can synthesise.
@@ -47,7 +53,48 @@ export interface RiverFrame {
   bankSegments: Float32Array;
   /** The overall river axis in local XZ, unit length. Feed to `setFlowAxis`. */
   axis: { x: number; z: number };
+  /**
+   * Channel coordinates for every vertex of the geometry passed in, or null
+   * when no centre line could be traced. Set as the `riverCoord` and
+   * `riverTangent` attributes and build the material with `followChannel`.
+   */
+  channel: RiverChannel | null;
   warnings: string[];
+}
+
+/**
+ * The river's own coordinate system, sampled per vertex, local space.
+ *
+ * `coordinates` holds (along, across) per vertex: metres along the centre line,
+ * increasing in the direction of `axis`, and signed metres from it, positive
+ * towards (-tangent.z, tangent.x) — the shader's `acrossAxis`. `tangents` holds
+ * the unit XZ direction of the centre line there. Two floats per vertex each,
+ * in vertex order.
+ *
+ * Along is an arc length, not a rotation of the world plane, which is what lets
+ * the pattern turn with the river without the shear a rotating frame produced
+ * (see `uFlowAxis` in the fragment shader).
+ */
+export interface RiverChannel {
+  coordinates: Float32Array;
+  tangents: Float32Array;
+}
+
+/** Centre-line polyline, local XZ, with arc length and smoothed tangents. */
+interface Centerline {
+  x: number[];
+  z: number[];
+  s: number[];
+  tx: number[];
+  tz: number[];
+  /**
+   * Every bank vertex, with the centre-line point of the SHORTEST rung it
+   * belongs to — its cross-section. Sampling a bank vertex there, rather than
+   * at its nearest point on the centre line, keeps both ends of a cross-section
+   * at the same `along`: on the inside of a bend the nearest point slides back
+   * along the previous leg (~4 m at a 46 degree turn across 20 m).
+   */
+  anchors: Array<{ x: number; z: number; k: number }>;
 }
 
 type Triangle = readonly [number, number, number];
@@ -58,28 +105,33 @@ interface Edge {
 }
 
 export function computeRiverFrame(geometry: THREE.BufferGeometry): RiverFrame {
-  if (!geometry.getAttribute('position')) return computeConnectedRiverFrame(geometry);
-  // Colour/UV seams split glTF vertices without splitting the physical river.
-  // Recover positional connectivity for measurement only; leave render data intact.
-  const topology = new THREE.BufferGeometry();
-  topology.setAttribute('position', geometry.getAttribute('position'));
-  topology.setIndex(geometry.index);
-  const connected = mergeVertices(topology, 1e-4);
-  try { return computeConnectedRiverFrame(connected); }
-  finally { connected.dispose(); topology.dispose(); }
-}
-
-function computeConnectedRiverFrame(geometry: THREE.BufferGeometry): RiverFrame {
-  const warnings: string[] = [];
   const position = geometry.getAttribute('position');
-
   if (!position) {
     return {
       width: 0, bankEdgeCount: 0, capEdgeCount: 0,
-      bankSegments: new Float32Array(0), axis: { x: 1, z: 0 },
+      bankSegments: new Float32Array(0), axis: { x: 1, z: 0 }, channel: null,
       warnings: ['No position attribute.'],
     };
   }
+  // Colour/UV seams split glTF vertices without splitting the physical river.
+  // Recover positional connectivity for measurement only; leave render data intact.
+  const topology = new THREE.BufferGeometry();
+  topology.setAttribute('position', position);
+  topology.setIndex(geometry.index);
+  const connected = mergeVertices(topology, 1e-4);
+  try {
+    const { centerline, ...frame } = computeConnectedRiverFrame(connected);
+    // Sampled on the ORIGINAL vertices, by position, so seam duplicates get the
+    // same values and the arrays line up with the render data.
+    return { ...frame, channel: centerline ? sampleChannel(position, centerline) : null };
+  } finally { connected.dispose(); topology.dispose(); }
+}
+
+function computeConnectedRiverFrame(
+  geometry: THREE.BufferGeometry,
+): Omit<RiverFrame, 'channel'> & { centerline: Centerline | null } {
+  const warnings: string[] = [];
+  const position = geometry.getAttribute('position')!;
 
   const count = position.count;
   const x = new Float64Array(count);
@@ -172,6 +224,14 @@ function computeConnectedRiverFrame(geometry: THREE.BufferGeometry): RiverFrame 
     }
   }
 
+  const centerline = chains.length === 2 ? buildCenterline(chains[0]!, chains[1]!, x, z, axis) : null;
+  if (chains.length === 2 && !centerline) {
+    warnings.push(
+      'The banks are not two open chains, so no centre line was traced. The ripples fall ' +
+        'back to the overall axis and run straight across the bends.',
+    );
+  }
+
   const bankSegments = new Float32Array(bankEdges.length * 6);
   bankEdges.forEach((edge, i) => {
     bankSegments[i * 6] = position.getX(edge.a);
@@ -188,8 +248,201 @@ function computeConnectedRiverFrame(geometry: THREE.BufferGeometry): RiverFrame 
     capEdgeCount,
     bankSegments,
     axis,
+    centerline,
     warnings,
   };
+}
+
+/**
+ * Traces the centre line between the two banks.
+ *
+ * Each bank is walked end to end, both in the direction of `axis`, and the two
+ * walks are zipped together — always stepping the bank whose next vertex makes
+ * the shorter rung, the way a strip between two contours is stitched. The rung
+ * midpoints, in order, are the centre line; it starts and ends on the caps.
+ */
+function buildCenterline(
+  bankA: Edge[],
+  bankB: Edge[],
+  x: Float64Array,
+  z: Float64Array,
+  axis: { x: number; z: number },
+): Centerline | null {
+  const a = orderChain(bankA, x, z, axis);
+  const b = orderChain(bankB, x, z, axis);
+  if (!a || !b) return null;
+
+  const rung = (i: number, j: number) => Math.hypot(x[a[i]!]! - x[b[j]!]!, z[a[i]!]! - z[b[j]!]!);
+  const cx: number[] = [];
+  const cz: number[] = [];
+  // Per bank vertex: the shortest rung seen so far, and its centre-line index.
+  const shortest = new Map<number, { length: number; k: number }>();
+  const push = (i: number, j: number) => {
+    const px = (x[a[i]!]! + x[b[j]!]!) * 0.5;
+    const pz = (z[a[i]!]! + z[b[j]!]!) * 0.5;
+    const last = cx.length - 1;
+    if (last < 0 || Math.hypot(px - cx[last]!, pz - cz[last]!) >= 1e-6) {
+      cx.push(px);
+      cz.push(pz);
+    }
+    const length = rung(i, j);
+    for (const v of [a[i]!, b[j]!]) {
+      const seen = shortest.get(v);
+      if (!seen || length < seen.length) shortest.set(v, { length, k: cx.length - 1 });
+    }
+  };
+
+  let i = 0;
+  let j = 0;
+  push(i, j);
+  while (i < a.length - 1 || j < b.length - 1) {
+    if (i === a.length - 1) j += 1;
+    else if (j === b.length - 1) i += 1;
+    else if (rung(i + 1, j) <= rung(i, j + 1)) i += 1;
+    else j += 1;
+    push(i, j);
+  }
+  if (cx.length < 2) return null;
+
+  const count = cx.length;
+  const s = [0];
+  const dx: number[] = [];
+  const dz: number[] = [];
+  for (let k = 0; k < count - 1; k++) {
+    const length = Math.hypot(cx[k + 1]! - cx[k]!, cz[k + 1]! - cz[k]!);
+    s.push(s[k]! + length);
+    dx.push((cx[k + 1]! - cx[k]!) / length);
+    dz.push((cz[k + 1]! - cz[k]!) / length);
+  }
+
+  // At each vertex, the bisector of the two segments meeting there; the ends
+  // take their one segment. Interpolated along each segment when sampled, so
+  // the current direction turns smoothly through a bend instead of stepping.
+  const tx: number[] = [];
+  const tz: number[] = [];
+  for (let k = 0; k < count; k++) {
+    let vx = (dx[k - 1] ?? 0) + (dx[k] ?? 0);
+    let vz = (dz[k - 1] ?? 0) + (dz[k] ?? 0);
+    if (Math.hypot(vx, vz) < 1e-9) {
+      // A full reversal has no bisector: take the incoming segment.
+      vx = dx[k - 1] ?? dx[k]!;
+      vz = dz[k - 1] ?? dz[k]!;
+    }
+    const length = Math.hypot(vx, vz);
+    tx.push(vx / length);
+    tz.push(vz / length);
+  }
+
+  const anchors = [...shortest].map(([v, { k }]) => ({ x: x[v]!, z: z[v]!, k }));
+  return { x: cx, z: cz, s, tx, tz, anchors };
+}
+
+/**
+ * A bank's vertices in order, from the end lying furthest back along `axis`.
+ * Null unless the chain is a single open path: a loop or a fork has no order.
+ */
+function orderChain(
+  chain: Edge[],
+  x: Float64Array,
+  z: Float64Array,
+  axis: { x: number; z: number },
+): number[] | null {
+  const neighbours = new Map<number, number[]>();
+  for (const { a, b } of chain) {
+    for (const [p, q] of [[a, b], [b, a]] as const) {
+      const list = neighbours.get(p);
+      if (list) list.push(q);
+      else neighbours.set(p, [q]);
+    }
+  }
+
+  const lists = [...neighbours.values()];
+  if (lists.some((list) => list.length > 2)) return null;
+  const ends = [...neighbours].filter(([, list]) => list.length === 1).map(([v]) => v);
+  if (ends.length !== 2) return null;
+
+  const order = [ends[0]!];
+  let previous = -1;
+  while (order.length < neighbours.size) {
+    const current = order[order.length - 1]!;
+    const next = neighbours.get(current)!.find((v) => v !== previous);
+    if (next === undefined) break;
+    previous = current;
+    order.push(next);
+  }
+  if (order.length !== neighbours.size) return null;
+
+  const first = order[0]!;
+  const last = order[order.length - 1]!;
+  const run = (x[last]! - x[first]!) * axis.x + (z[last]! - z[first]!) * axis.z;
+  return run < 0 ? order.reverse() : order;
+}
+
+/**
+ * Samples the channel at every vertex: bank vertices at their cross-section
+ * (`Centerline.anchors`), anything else at its nearest point on the centre
+ * line. See `RiverChannel`.
+ */
+function sampleChannel(
+  position: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
+  line: Centerline,
+): RiverChannel {
+  const coordinates = new Float32Array(position.count * 2);
+  const tangents = new Float32Array(position.count * 2);
+  const last = line.x.length - 1;
+  // Centre-line point `k + t` (t in 0..1 towards k + 1), tangent re-normalised.
+  const at = (k: number, t: number) => {
+    const n = Math.min(k + 1, last);
+    const tx = line.tx[k]! + (line.tx[n]! - line.tx[k]!) * t;
+    const tz = line.tz[k]! + (line.tz[n]! - line.tz[k]!) * t;
+    const length = Math.hypot(tx, tz) || 1;
+    return {
+      x: line.x[k]! + (line.x[n]! - line.x[k]!) * t,
+      z: line.z[k]! + (line.z[n]! - line.z[k]!) * t,
+      s: line.s[k]! + (line.s[n]! - line.s[k]!) * t,
+      tx: tx / length,
+      tz: tz / length,
+    };
+  };
+
+  for (let v = 0; v < position.count; v++) {
+    const px = position.getX(v);
+    const pz = position.getZ(v);
+
+    // The merge that found the banks welded within 1e-4; match well inside that.
+    const anchor = line.anchors.find((a) => Math.hypot(a.x - px, a.z - pz) < 1e-3);
+    let point;
+    if (anchor) {
+      point = at(anchor.k, 0);
+    } else {
+      // Nearest point on the polyline: its segment and the parameter along it.
+      let nearest = Infinity;
+      let k = 0;
+      let t = 0;
+      for (let seg = 0; seg < last; seg++) {
+        const abx = line.x[seg + 1]! - line.x[seg]!;
+        const abz = line.z[seg + 1]! - line.z[seg]!;
+        const u = Math.max(
+          0,
+          Math.min(1, ((px - line.x[seg]!) * abx + (pz - line.z[seg]!) * abz) / (abx * abx + abz * abz)),
+        );
+        const d = Math.hypot(px - (line.x[seg]! + abx * u), pz - (line.z[seg]! + abz * u));
+        if (d < nearest) {
+          nearest = d;
+          k = seg;
+          t = u;
+        }
+      }
+      point = at(k, t);
+    }
+
+    coordinates[v * 2] = point.s;
+    coordinates[v * 2 + 1] = (px - point.x) * -point.tz + (pz - point.z) * point.tx;
+    tangents[v * 2] = point.tx;
+    tangents[v * 2 + 1] = point.tz;
+  }
+
+  return { coordinates, tangents };
 }
 
 /** Dominant direction of the vertex cloud in the XZ plane, as a unit vector. */

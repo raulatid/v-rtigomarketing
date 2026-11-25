@@ -92,6 +92,24 @@ describe('createRioWater', () => {
     expect(light.toArray()).toEqual([0.07, 0.1, 0.17])
   })
 
+  it('follows the channel only when asked, and signs it from flowReversed', () => {
+    // The define is part of the program: the river and the lake are two
+    // materials, so each compiles once, at warm, in its own variant.
+    expect(water.material.defines).not.toHaveProperty('USE_RIVER_CHANNEL')
+    const river = createRioWater(DEFAULT_RIO_WATER_CONFIG, { followChannel: true })
+    expect(river.material.defines).toHaveProperty('USE_RIVER_CHANNEL')
+    expect(river.material.vertexShader).toMatch(/attribute vec2 riverCoord;/)
+    expect(river.material.vertexShader).toMatch(/attribute vec2 riverTangent;/)
+
+    // The channel coordinates carry no sign of their own; reversing the flow
+    // has to reach them, not just the fallback axis.
+    river.setFlowAxis({ x: 1, z: 0 }, new THREE.Matrix4(), true)
+    expect(river.material.uniforms['uFlowSign']!.value).toBe(-1)
+    river.setFlowAxis({ x: 1, z: 0 }, new THREE.Matrix4(), false)
+    expect(river.material.uniforms['uFlowSign']!.value).toBe(1)
+    river.dispose()
+  })
+
   it('advances uTime from the elapsed seconds it is given', () => {
     // The trap this module's own doc comment warns about: `MurciaExperience.update`
     // receives a delta, and passing it straight through pins uTime near 1/60 —

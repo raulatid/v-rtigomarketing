@@ -64,15 +64,31 @@ uniform vec4 uBankSegments[MAX_BANK_SEGMENTS];
 uniform int uBankSegmentCount;
 
 /**
- * The overall river axis, world XZ, unit, pointing downstream. The noise is
- * stretched and advected along this ONE fixed axis. A frame that rotates with
- * the local current shears the pattern by (distance from the world origin) x
- * (rotation), and the domain is ~40 cells wide, so a few degrees of turn inside
- * one triangle smeared the ripples into streaks with a hard seam. On the
- * sharpest bends the texture now runs a little off the local current, which at
- * the Murcia camera distance is not visible; the seam was.
+ * The one fixed drift axis, world XZ, unit, pointing downstream — used by
+ * surfaces without channel coordinates (the campus lake and pools). The noise
+ * is stretched and advected along it.
+ *
+ * The river does NOT use it any more: one axis ran straight across its bends,
+ * up to ~55 degrees off the current. Nor does it rotate this axis per pixel to
+ * follow the current: a rotating frame shears the pattern by (distance from the
+ * world origin) x (rotation), and a few degrees of turn inside one triangle
+ * smeared the ripples into streaks with a hard seam. With USE_RIVER_CHANNEL the
+ * pattern is sampled in the channel's own (along, across) metres instead — an
+ * arc length along the centre line, continuous across every triangle — so it
+ * turns with the river and nothing shears.
  */
 uniform vec2 uFlowAxis;
+
+/**
+ * +1, or -1 when `flowReversed`: which way along the channel the current runs.
+ * The channel coordinates increase along the unsigned axis; this signs them.
+ */
+uniform float uFlowSign;
+
+#ifdef USE_RIVER_CHANNEL
+varying vec2 vRiverCoord;
+varying vec2 vRiverTangent;
+#endif
 
 /**
  * The light the water is seen under, a linear multiplier: white by day, the
@@ -140,16 +156,17 @@ const int RIPPLE_OCTAVES = 4;
 /**
  * Ripple height and its XZ gradient in a single pass.
  *
- * Sampled in the (along, across) frame of the river axis, with the along axis
- * stretched 2.5x, so every feature is elongated downstream — that is what makes
- * the field read as a current. Each octave fades out once its cells drop below
- * a couple of pixels; without that the far river shimmers, because sub-pixel
- * normal detail becomes sparkle.
+ * `flow` is the pixel's (along, across) position in ripple cells and `axis` the
+ * world XZ direction along points at here. The along axis is stretched 2.5x, so
+ * every feature is elongated downstream — that is what makes the field read as
+ * a current. Each octave fades out once its cells drop below a couple of
+ * pixels; without that the far river shimmers, because sub-pixel normal detail
+ * becomes sparkle.
  */
-vec3 rippleField(vec2 p, vec2 axis, float time) {
+vec3 rippleField(vec2 flow, vec2 axis, float time) {
   vec2 acrossAxis = vec2(-axis.y, axis.x);
-  float along = dot(p, axis);
-  float across = dot(p, acrossAxis);
+  float along = flow.x;
+  float across = flow.y;
 
   // .x = height, .yz = d(height)/d(p)
   vec3 acc = vec3(0.0);
@@ -215,14 +232,24 @@ float bankDistance(vec2 p) {
 }
 
 void main() {
-  vec2 axis = length(uFlowAxis) > 0.001 ? normalize(uFlowAxis) : vec2(1.0, 0.0);
+  // ---- Flow frame -------------------------------------------------------
+  // `axis` is the downstream direction here, world XZ; `flowPos` the pixel's
+  // (along, across) position in METRES, so ripple size does not depend on the
+  // mesh. On the river both come from the channel, so they bend with it.
+  vec2 axis;
+  vec2 flowPos;
+  #ifdef USE_RIVER_CHANNEL
+  axis = (length(vRiverTangent) > 1e-4 ? normalize(vRiverTangent) : vec2(1.0, 0.0)) * uFlowSign;
+  flowPos = vRiverCoord * uFlowSign;
+  #else
+  axis = length(uFlowAxis) > 0.001 ? normalize(uFlowAxis) : vec2(1.0, 0.0);
+  flowPos = vec2(dot(vWorldPosition.xz, axis), dot(vWorldPosition.xz, vec2(-axis.y, axis.x)));
+  #endif
 
-  // World XZ, so ripple size is in metres and does not depend on the mesh.
-  vec2 ripplePos = vWorldPosition.xz / max(uRippleScale, 0.001);
   // Metres the current has carried the surface so far, in ripple cells.
   float flowTime = uTime * uFlowSpeed * 100.0 / max(uRippleScale, 0.001);
 
-  vec3 field = rippleField(ripplePos, axis, flowTime);
+  vec3 field = rippleField(flowPos / max(uRippleScale, 0.001), axis, flowTime);
 
   // A flat plate, so the base normal is +Y and the gradient becomes the tilt
   // directly. Scaling the gradient rather than the result keeps the vector
@@ -277,11 +304,10 @@ void main() {
   // set of the noise, which is a thin wandering line. A second, coarse noise
   // breaks them into patches so they never read as rails. Faded with distance
   // like the ripple octaves, before the lines turn into sparkle.
-  vec2 acrossAxis = vec2(-axis.y, axis.x);
   float streakScale = max(uStreakScale, 0.001);
   vec2 streakPos = vec2(
-    (dot(vWorldPosition.xz, axis) - uTime * uFlowSpeed * 100.0) * 0.1,
-    dot(vWorldPosition.xz, acrossAxis)
+    (flowPos.x - uTime * uFlowSpeed * 100.0) * 0.1,
+    flowPos.y
   ) / streakScale;
   float ridge = 1.0 - abs(gradientNoiseD(streakPos).x) * 2.4;
   float streak = pow(saturate(ridge), 6.0);
