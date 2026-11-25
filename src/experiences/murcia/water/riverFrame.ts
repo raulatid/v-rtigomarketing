@@ -614,6 +614,10 @@ function distanceToChain(
   return nearest;
 }
 
+// `Math.sqrt` of the sum, not `Math.hypot`: this runs for every vertex against
+// every bank edge, and `Math.hypot` made it ~38 ms of the city's build on a
+// desktop, ~230 ms with the CPU at 4x (2026-11-25). The overflow it guards
+// against needs coordinates past 1e150.
 function pointSegmentDistance(
   px: number, pz: number,
   ax: number, az: number,
@@ -622,13 +626,15 @@ function pointSegmentDistance(
   const abx = bx - ax;
   const abz = bz - az;
   const lengthSq = abx * abx + abz * abz;
-  if (lengthSq < 1e-12) return Math.hypot(px - ax, pz - az);
+  if (lengthSq < 1e-12) return Math.sqrt((px - ax) * (px - ax) + (pz - az) * (pz - az));
 
   // Clamped, so a point past either end measures to the endpoint rather than to
   // the infinite line.
   let t = ((px - ax) * abx + (pz - az) * abz) / lengthSq;
   t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (ax + abx * t), pz - (az + abz * t));
+  const dx = px - (ax + abx * t);
+  const dz = pz - (az + abz * t);
+  return Math.sqrt(dx * dx + dz * dz);
 }
 
 function triangleArea(x: Float64Array, z: Float64Array, a: number, b: number, c: number): number {
