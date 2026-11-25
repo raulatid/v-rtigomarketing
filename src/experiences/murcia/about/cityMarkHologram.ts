@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ARC_D, V_D } from './cityMarkIsotype';
+import { samplePathData } from '../../../intro-draw/pathGeometry';
 import { MARK_DRAW_SECONDS, markPlanePoint, type CityMarkHologram, type MarkDrawing } from './createCityMark';
 import { BUILDING_HIGHLIGHT } from '../interaction/buildingHighlight';
 import type { CityMarkPose } from './protoCityMark';
@@ -187,15 +188,21 @@ export function spinAngle(spinSeconds: number, speed: number): number {
   return after < SPIN_RAMP ? (speed * after * after) / (2 * SPIN_RAMP) : speed * (after - SPIN_RAMP / 2);
 }
 
+/**
+ * From the path data, not a DOM `<path>`: `getPointAtLength` walks the path
+ * from its start on every call, and the ~1,450 calls for the two paths took
+ * ~0.1 s of the city's build on a desktop, 0.56 s with the CPU at 4x
+ * (2026-11-25). The intro's draw worker samples the same paths this way; the
+ * counts come out the same and the points within 0.04 SVG units of the DOM's.
+ */
 function sampleOutline(d: string): Contour {
-  const element = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  element.setAttribute('d', d);
-  const length = element.getTotalLength();
+  const length = samplePathData(d, 1).length;
   const count = Math.max(8, Math.ceil(length / SAMPLE_STEP));
+  const path = samplePathData(d, count);
   const points: [number, number][] = [];
   // The end is the start again (the paths close): left out, the walls close it.
   for (let i = 0; i < count; i++) {
-    const point = element.getPointAtLength((length * i) / count);
+    const point = path.at(i / count);
     points.push(markPlanePoint(point.x, point.y));
   }
   return points;
