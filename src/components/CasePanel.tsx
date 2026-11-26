@@ -125,17 +125,28 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom, return
   // where it is; a switch from A to B lands on B's. The title is in the body
   // keyed on the case, so by this effect the ref is already the new heading.
   //
-  // On close the focus goes back to the case's button in the list — only if it
-  // is still ours to give: in the panel, about to be hidden, or dropped to
-  // <body> by a click on the globe. Something that took it on the way out keeps
-  // it, and so does the audit the panel's own link opens: the audit closes the
-  // case at once but takes the focus only when its curtain is in, so the
-  // handoff is remembered rather than read from where the focus is.
+  // On close the focus goes back to the control the case was opened from: its
+  // button in the list, when that is where the focus was at the opening. A case
+  // opened by a click on its satellite had no control behind it, so the focus
+  // only leaves the panel. Handing it to the list anyway put a focus there that
+  // the viewer never placed, and after an Escape the browser shows it as
+  // `:focus-visible`: a button popped up beside the satellite. A switch is an
+  // opening too: B's origin is how B was opened, whatever opened A.
+  //
+  // And only if the focus is still ours to give: in the panel, about to be
+  // hidden, or dropped to <body> by a click on the globe. Something that took
+  // it on the way out keeps it, and so does the audit the panel's own link
+  // opens: the audit closes the case at once but takes the focus only when its
+  // curtain is in, so the handoff is remembered rather than read from where the
+  // focus is.
   const titleRef = useRef<HTMLHeadingElement>(null)
   const openIdRef = useRef<string | null>(null)
+  const openedFromListRef = useRef(false)
   const handedToAuditRef = useRef(false)
   useEffect(() => {
     if (selectedId) {
+      const origin = document.activeElement
+      openedFromListRef.current = origin !== null && origin === (returnFocusTo?.(selectedId) ?? null)
       openIdRef.current = selectedId
       handedToAuditRef.current = false
       titleRef.current?.focus({ preventScroll: true })
@@ -151,7 +162,7 @@ export function CasePanel({ data, onClose, onRequestAudit, getLogoBottom, return
     const active = document.activeElement
     const inPanel = active instanceof HTMLElement && panelRef.current?.contains(active)
     if (!inPanel && active && active !== document.body) return
-    const target = returnFocusTo?.(closed) ?? null
+    const target = openedFromListRef.current ? returnFocusTo?.(closed) ?? null : null
     if (target) target.focus({ preventScroll: true })
     else if (inPanel) (active as HTMLElement).blur()
   }, [selectedId, returnFocusTo])

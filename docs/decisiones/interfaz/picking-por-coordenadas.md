@@ -20,7 +20,7 @@
    - Murcia: `districtA11y.ts` para el campus.
 
    Los botones siguen el patrón de `.nav-control`: recortados a un píxel y visibles con `:focus-visible`. No hay una segunda interfaz visible.
-7. **El panel del caso es un landmark con nombre y gestiona el foco** (`CasePanel.tsx`): `aria-labelledby` apunta a su título; al abrir (y al cambiar de caso) el foco va al título; al cerrar vuelve al botón del caso en la lista, salvo que otra superficie se lo haya llevado al salir (la auditoría que abre su propio enlace).
+7. **El panel del caso es un landmark con nombre y gestiona el foco** (`CasePanel.tsx`): `aria-labelledby` apunta a su título; al abrir (y al cambiar de caso) el foco va al título; al cerrar vuelve al control de origen: el botón del caso en la lista si el caso se abrió desde él (o se cambió a él desde él). Un caso abierto con un clic en su satélite no tiene control detrás, y el foco solo sale del panel. Desde el 2026-11-26: devolverlo siempre a la lista ponía un foco que el usuario no había puesto, y tras un Escape el navegador lo pintaba como `:focus-visible`, así que aparecía un botón junto al satélite. En ningún caso se toca el foco si otra superficie se lo ha llevado al salir (la auditoría que abre su propio enlace).
 
 ## Por qué
 
@@ -46,7 +46,7 @@
 - Falla `npm run check:earth` §7 (un segundo dedo nunca es un tap) o §8 (el dedo y el lápiz se miden con `touchDragClickThreshold`). **Ningún test comprueba en Earth que un tap táctil seleccione un satélite.**
 - Falla `src/interaction/screenSpace.test.ts`.
 - Tab en la Tierra no llega a ningún caso, o Enter en uno no abre su panel. Fijan: `CaseList.test.tsx` y `satelliteFocusExpansion.test.ts` («selecting a satellite by id»).
-- Al abrir un caso el foco no va a su título, o al cerrarlo cae a `<body>` o se queda en el panel oculto. Fija: `CasePanel.test.tsx` («the case panel and the focus»).
+- Al abrir un caso el foco no va a su título; al cerrar uno abierto desde la lista el foco cae a `<body>`; al cerrar uno abierto con el ratón (también con Escape) aparece un botón de la lista; o el foco se queda en el panel oculto. Fija: `CasePanel.test.tsx` («the case panel and the focus»).
 
 ## Afecta a
 

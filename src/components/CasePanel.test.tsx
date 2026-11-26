@@ -224,7 +224,8 @@ describe('the case panel ends one step from the audit', () => {
 })
 
 // Accessibility audit 2026-11-18, T2: the landmark is named by its title, the
-// focus goes to the title on open, and back to the case's button on close.
+// focus goes to the title on open, and back to the case's button on close when
+// the case was opened from it. `trigger` stands for that button.
 describe('the case panel and the focus', () => {
   const [first, second] = fixtures as SatelliteDef[]
   let trigger: HTMLButtonElement
@@ -258,6 +259,7 @@ describe('the case panel and the focus', () => {
 
   it('returns the focus to the case it closed', () => {
     const returnFocusTo = vi.fn(() => trigger)
+    trigger.focus()
     render(first, returnFocusTo)
     act(() => container.querySelector<HTMLButtonElement>('.case-panel__close')!.focus())
     render(null, returnFocusTo)
@@ -266,6 +268,7 @@ describe('the case panel and the focus', () => {
   })
 
   it('returns it when a click on the globe had dropped it to the body', () => {
+    trigger.focus()
     render(first, () => trigger)
     act(() => title().blur())
     expect(document.activeElement).toBe(document.body)
@@ -286,6 +289,7 @@ describe('the case panel and the focus', () => {
   it('hands the focus to the audit its own link opens, which takes it later', () => {
     // The real path: the audit closes the case at once and focuses its title
     // only when the curtain is in, so the focus is still on the link here.
+    trigger.focus()
     render(first, () => trigger)
     const link = container.querySelector<HTMLButtonElement>('.case-panel__next')!
     act(() => link.focus())
@@ -293,6 +297,33 @@ describe('the case panel and the focus', () => {
     render(null, () => trigger)
     expect(document.activeElement).not.toBe(trigger)
     // And the next case closes as usual again.
+    trigger.focus()
+    render(second, () => trigger)
+    render(null, () => trigger)
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('gives nothing to the list for a case opened by its satellite', () => {
+    // A click on the canvas leaves the focus on the body; the Escape that
+    // closes the case would then show a list button the viewer never used.
+    render(first, () => trigger)
+    render(null, () => trigger)
+    expect(document.activeElement).not.toBe(trigger)
+    expect(container.querySelector('.case-panel')!.contains(document.activeElement)).toBe(false)
+  })
+
+  it('reads the origin again on a switch', () => {
+    // Opened from the list, switched by a click on another satellite.
+    trigger.focus()
+    render(first, () => trigger)
+    act(() => title().blur())
+    render(second, () => trigger)
+    render(null, () => trigger)
+    expect(document.activeElement).not.toBe(trigger)
+
+    // Opened by its satellite, switched from the list.
+    render(first, () => trigger)
+    trigger.focus()
     render(second, () => trigger)
     render(null, () => trigger)
     expect(document.activeElement).toBe(trigger)
